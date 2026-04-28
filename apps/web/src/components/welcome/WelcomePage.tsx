@@ -30,6 +30,7 @@ import {
   TooltipContent,
   TooltipTrigger,
   cn,
+  getFileIconProps,
 } from "@workspace/ui";
 import {
   ArrowBigUp,
@@ -43,6 +44,7 @@ import {
   Ellipsis,
   Eye,
   ExternalLink,
+  Files,
   GitBranch,
   GitCommitHorizontal,
   GitPullRequestArrow,
@@ -55,8 +57,8 @@ import {
 } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import dynamic from "next/dynamic";
+import Fuse from "fuse.js";
 import { AtmosWordmark } from "@/components/ui/AtmosWordmark";
-import { PromptComposer, type ComposerHandle } from "@/components/welcome/PromptComposer";
 import {
   AttachmentBar,
   type ComposerAttachment,
@@ -69,15 +71,22 @@ const PixelBlast = dynamic(
 import {
   codeAgentCustomApi,
   functionSettingsApi,
+  fsApi,
   gitApi,
   llmProvidersApi,
   type CodeAgentCustomEntry,
+  type FileTreeNode,
   type GithubIssuePayload,
   type GithubPrPayload,
   type LlmProvidersFile,
   wsGithubApi,
   wsScriptApi,
 } from "@/api/ws-api";
+import {
+  PromptComposer,
+  type AtTriggerContext,
+  type ComposerHandle,
+} from "@/components/welcome/PromptComposer";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useWorkspaceCreationStore } from "@/hooks/use-workspace-creation-store";
 import { useAppRouter } from "@/hooks/use-app-router";
@@ -116,6 +125,13 @@ interface AgentMenuOption {
   iconType: "built-in" | "custom";
 }
 
+interface MentionFileCandidate {
+  name: string;
+  relativePath: string;
+  isDir: boolean;
+  isHidden: boolean;
+}
+
 type WelcomeHeadline =
   | "come_alive"
   | "spin_up_next"
@@ -128,6 +144,7 @@ const issueListCache = new Map<string, { expiresAt: number; issues: GithubIssueP
 function resolvePromptPlaceholders(text: string, atts: ComposerAttachment[]): string {
   return text
     .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
+    .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => relativePath)
     .replace(/\[#img-(\d+)\]/g, (match, n: string) => {
       const att = atts.find((a) => a.number === Number(n));
       return att ? `.atmos/attachments/${att.filename}` : match;
@@ -145,6 +162,30 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+function isHiddenRelativePath(relativePath: string): boolean {
+  return relativePath.split("/").some((segment) => segment.startsWith("."));
+}
+
+function flattenFileTreeToCandidates(
+  nodes: FileTreeNode[],
+  parent = "",
+): MentionFileCandidate[] {
+  const out: MentionFileCandidate[] = [];
+  for (const node of nodes) {
+    const relativePath = parent ? `${parent}/${node.name}` : node.name;
+    out.push({
+      name: node.name,
+      relativePath,
+      isDir: node.is_dir,
+      isHidden: isHiddenRelativePath(relativePath),
+    });
+    if (node.children?.length) {
+      out.push(...flattenFileTreeToCandidates(node.children, relativePath));
+    }
+  }
+  return out;
 }
 const prListCache = new Map<string, { expiresAt: number; prs: GithubPrPayload[] }>();
 const WELCOME_HEADLINES: WelcomeHeadline[] = [
@@ -425,7 +466,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     top: number;
     left: number;
     atOffset: number;
+    query: string;
   } | null>(null);
+  const [projectTreeEntries, setProjectTreeEntries] = React.useState<MentionFileCandidate[]>([]);
+  const [debouncedMentionQuery, setDebouncedMentionQuery] = React.useState("");
+  const [isMentionFilesLoading, setIsMentionFilesLoading] = React.useState(false);
+  const [activeMentionFileIndex, setActiveMentionFileIndex] = React.useState(0);
+  const mentionPopoverListRef = React.useRef<HTMLDivElement | null>(null);
+  const mentionItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const [previewAttachment, setPreviewAttachment] = React.useState<ComposerAttachment | null>(null);
   const [name, setName] = React.useState("");
   const [branch, setBranch] = React.useState("");
@@ -527,6 +575,168 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   );
   const selectedProjectId = selectedProject?.id ?? null;
   const selectedProjectPath = selectedProject?.mainFilePath ?? null;
+
+  React.useEffect(() => {
+    if (!selectedProjectPath) {
+      setProjectTreeEntries([]);
+      setIsMentionFilesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsMentionFilesLoading(true);
+    fsApi
+      .listProjectFiles(selectedProjectPath, { showHidden: true })
+      .then((res) => {
+        if (cancelled) return;
+        setProjectTreeEntries(flattenFileTreeToCandidates(res.tree));
+      })
+      .catch(() => {
+        if (!cancelled) setProjectTreeEntries([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsMentionFilesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectPath]);
+
+  React.useEffect(() => {
+    if (!mentionPopover) {
+      setDebouncedMentionQuery("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedMentionQuery(mentionPopover.query.trim());
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [mentionPopover]);
+
+  const mentionFileFuse = React.useMemo(
+    () =>
+      new Fuse(projectTreeEntries, {
+        keys: [
+          { name: "name", weight: 0.68 },
+          { name: "relativePath", weight: 0.32 },
+        ],
+        threshold: 0.32,
+        ignoreLocation: true,
+      }),
+    [projectTreeEntries],
+  );
+
+  const mentionFiles = React.useMemo(() => {
+    const query = debouncedMentionQuery;
+    if (!query) return [] as MentionFileCandidate[];
+    const hits = mentionFileFuse.search(query, { limit: 60 }).map((r) => r.item);
+    return hits
+      .sort((a, b) => {
+        const bucket = (item: MentionFileCandidate) =>
+          item.isHidden ? 2 : item.isDir ? 1 : 0;
+        const bucketDiff = bucket(a) - bucket(b);
+        if (bucketDiff !== 0) return bucketDiff;
+        return a.relativePath.localeCompare(b.relativePath);
+      })
+      .slice(0, 12);
+  }, [debouncedMentionQuery, mentionFileFuse]);
+
+  const selectMentionFile = React.useCallback(
+    (item: MentionFileCandidate) => {
+      const popover = mentionPopover;
+      if (!popover) return;
+      composerRef.current?.applyMentionAtRange(
+        popover.atOffset,
+        popover.query.length,
+        { kind: "file", relativePath: item.relativePath },
+      );
+      setMentionPopover(null);
+    },
+    [mentionPopover],
+  );
+
+  type MentionNavItem =
+    | { type: "issue"; issue: GithubIssuePayload }
+    | { type: "pr"; pr: GithubPrPayload }
+    | { type: "file"; file: MentionFileCandidate };
+
+  const mentionNavItems = React.useMemo<MentionNavItem[]>(() => {
+    const items: MentionNavItem[] = [];
+    if (issuePreview) items.push({ type: "issue", issue: issuePreview });
+    if (prPreview) items.push({ type: "pr", pr: prPreview });
+    for (const file of mentionFiles) items.push({ type: "file", file });
+    return items;
+  }, [issuePreview, prPreview, mentionFiles]);
+
+  const selectMentionNavItem = React.useCallback(
+    (item: MentionNavItem) => {
+      const popover = mentionPopover;
+      if (!popover) return;
+      if (item.type === "file") {
+        selectMentionFile(item.file);
+        return;
+      }
+      if (item.type === "issue") {
+        composerRef.current?.applyMentionAtRange(
+          popover.atOffset,
+          popover.query.length,
+          { kind: "issue", number: item.issue.number },
+        );
+        setMentionPopover(null);
+        return;
+      }
+      if (item.type === "pr") {
+        composerRef.current?.applyMentionAtRange(
+          popover.atOffset,
+          popover.query.length,
+          { kind: "pr", number: item.pr.number },
+        );
+        setMentionPopover(null);
+      }
+    },
+    [mentionPopover, selectMentionFile],
+  );
+
+  React.useEffect(() => {
+    setActiveMentionFileIndex(0);
+  }, [mentionPopover?.query, mentionNavItems.length]);
+
+  React.useEffect(() => {
+    if (!mentionPopover) return;
+    const container = mentionPopoverListRef.current;
+    const activeItem = mentionItemRefs.current[activeMentionFileIndex];
+    if (!container || !activeItem) return;
+    activeItem.scrollIntoView({ block: "nearest" });
+  }, [activeMentionFileIndex, mentionPopover]);
+
+  React.useEffect(() => {
+    if (!mentionPopover) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowDown") {
+        if (mentionNavItems.length === 0) return;
+        event.preventDefault();
+        setActiveMentionFileIndex((prev) => (prev + 1) % mentionNavItems.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        if (mentionNavItems.length === 0) return;
+        event.preventDefault();
+        setActiveMentionFileIndex(
+          (prev) => (prev - 1 + mentionNavItems.length) % mentionNavItems.length,
+        );
+        return;
+      }
+      if (event.key === "Enter") {
+        const item = mentionNavItems[activeMentionFileIndex];
+        if (!item) return;
+        event.preventDefault();
+        selectMentionNavItem(item);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [activeMentionFileIndex, mentionNavItems, mentionPopover, selectMentionNavItem]);
 
   React.useEffect(() => {
     Promise.all([functionSettingsApi.get(), codeAgentCustomApi.get()])
@@ -1333,26 +1543,35 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                   <PromptComposer
                     ref={composerRef}
                     placeholder={
-                      exitingPlaceholder ? (
-                        <>
-                          <span className="welcome-placeholder-exit block truncate">
-                            {exitingPlaceholder}
-                          </span>
+                      <span className="flex items-baseline gap-1 overflow-hidden">
+                        <span className="relative shrink-0 whitespace-nowrap">
+                          {/* The entering text always sits in normal flow so the
+                              container width snaps to the new text immediately at
+                              t=0 of the transition — this lets the hint's slide
+                              animation align with the actual layout shift instead
+                              of lagging until exit cleanup. */}
                           <span
                             key={visiblePlaceholder}
-                            className="welcome-placeholder-enter absolute inset-x-0 top-0 block truncate"
+                            className="welcome-placeholder-enter block whitespace-nowrap"
                           >
                             {visiblePlaceholder}
                           </span>
-                        </>
-                      ) : (
-                        <span
-                          key={visiblePlaceholder}
-                          className="welcome-placeholder-enter block truncate"
-                        >
-                          {visiblePlaceholder}
+                          {exitingPlaceholder ? (
+                            <span
+                              key={`exit-${exitingPlaceholder}`}
+                              className="welcome-placeholder-exit pointer-events-none absolute left-0 top-0 block whitespace-nowrap"
+                            >
+                              {exitingPlaceholder}
+                            </span>
+                          ) : null}
                         </span>
-                      )
+                        <span
+                          key={`hint-${visiblePlaceholder}`}
+                          className="welcome-placeholder-hint min-w-0 flex-1 truncate text-muted-foreground/45"
+                        >
+                          (@ mention context, or paste img directly)
+                        </span>
+                      </span>
                     }
                     onTextChange={(text) => {
                       setInitialRequirement(text);
@@ -1394,10 +1613,18 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                       setAttachments((prev) => [...prev, att]);
                       composerRef.current?.insertImagePlaceholder(n);
                     }}
-                    onAtTrigger={(rect) => {
-                      setMentionPopover({ top: rect.bottom + 4, left: rect.left });
+                    onAtTrigger={(ctx: AtTriggerContext) => {
+                      setMentionPopover({
+                        top: ctx.caretRect.bottom + 4,
+                        left: ctx.caretRect.left,
+                        atOffset: ctx.atOffset,
+                        query: ctx.query,
+                      });
                     }}
-                    onAtCancel={() => setMentionPopover(null)}
+                    onAtCancel={() => {
+                      setMentionPopover(null);
+                      setIsMentionFilesLoading(false);
+                    }}
                   />
 
                   <AttachmentBar
@@ -2096,60 +2323,159 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                             onMouseDown={() => setMentionPopover(null)}
                           />
                           <div
-                            className="fixed z-[2147483647] min-w-[200px] overflow-hidden rounded-md border border-border/70 bg-popover text-sm text-popover-foreground shadow-md"
+                            ref={mentionPopoverListRef}
+                            className="fixed z-[2147483647] w-[min(90vw,460px)] max-h-80 overflow-y-auto rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-md"
                             style={{
                               top: mentionPopover.top,
                               left: mentionPopover.left,
                             }}
                           >
-                            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                              Reference
+                            <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
+                              <Github className="size-3" />
+                              <span>GitHub</span>
                             </div>
-                            {issuePreview ? (
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
-                                onMouseDown={(event) => {
-                                  event.preventDefault();
-                                  composerRef.current?.insertMention({
-                                    kind: "issue",
-                                    number: issuePreview.number,
-                                  });
-                                  setMentionPopover(null);
-                                }}
-                              >
-                                <CircleDot className="size-4 text-muted-foreground" />
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  #{issuePreview.number}
-                                </span>
-                                <span className="truncate">{issuePreview.title}</span>
-                              </button>
-                            ) : null}
-                            {prPreview ? (
-                              <button
-                                type="button"
-                                className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
-                                onMouseDown={(event) => {
-                                  event.preventDefault();
-                                  composerRef.current?.insertMention({
-                                    kind: "pr",
-                                    number: prPreview.number,
-                                  });
-                                  setMentionPopover(null);
-                                }}
-                              >
-                                <GitPullRequestArrow className="size-4 text-muted-foreground" />
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  #{prPreview.number}
-                                </span>
-                                <span className="truncate">{prPreview.title}</span>
-                              </button>
-                            ) : null}
-                            {!issuePreview && !prPreview ? (
-                              <div className="px-2.5 py-2 text-xs text-muted-foreground">
-                                Link an Issue or PR first
+                            {(() => {
+                              const issueIdx = issuePreview ? 0 : -1;
+                              const prIdx = prPreview ? (issuePreview ? 1 : 0) : -1;
+                              return (
+                                <>
+                                  {issuePreview ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          ref={(el) => {
+                                            mentionItemRefs.current[issueIdx] = el;
+                                          }}
+                                          className={cn(
+                                            "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                                            issueIdx === activeMentionFileIndex && "bg-muted",
+                                          )}
+                                          onMouseDown={(event) => {
+                                            event.preventDefault();
+                                            selectMentionNavItem({
+                                              type: "issue",
+                                              issue: issuePreview,
+                                            });
+                                          }}
+                                        >
+                                          <CircleDot className="size-4 text-muted-foreground" />
+                                          <span className="font-mono text-xs text-muted-foreground">
+                                            #{issuePreview.number}
+                                          </span>
+                                          <span className="truncate">{issuePreview.title}</span>
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="right"
+                                        align="end"
+                                        className="z-[2147483647] max-w-xs whitespace-normal break-words"
+                                      >
+                                        #{issuePreview.number} {issuePreview.title}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : null}
+                                  {prPreview ? (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          ref={(el) => {
+                                            mentionItemRefs.current[prIdx] = el;
+                                          }}
+                                          className={cn(
+                                            "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                                            prIdx === activeMentionFileIndex && "bg-muted",
+                                          )}
+                                          onMouseDown={(event) => {
+                                            event.preventDefault();
+                                            selectMentionNavItem({
+                                              type: "pr",
+                                              pr: prPreview,
+                                            });
+                                          }}
+                                        >
+                                          <GitPullRequestArrow className="size-4 text-muted-foreground" />
+                                          <span className="font-mono text-xs text-muted-foreground">
+                                            #{prPreview.number}
+                                          </span>
+                                          <span className="truncate">{prPreview.title}</span>
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="right"
+                                        align="end"
+                                        className="z-[2147483647] max-w-xs whitespace-normal break-words"
+                                      >
+                                        #{prPreview.number} {prPreview.title}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  ) : null}
+                                </>
+                              );
+                            })()}
+                            <div className="my-1 h-px bg-border/60" />
+                            <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
+                              <Files className="size-3" />
+                              <span>Files</span>
+                            </div>
+                            {isMentionFilesLoading ? (
+                              <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
+                                <Loader2 className="size-3.5 animate-spin" />
+                                Searching files...
                               </div>
-                            ) : null}
+                            ) : mentionFiles.length > 0 ? (
+                              mentionFiles.map((item, index) => {
+                                const iconProps = getFileIconProps({
+                                  name: item.name,
+                                  isDir: item.isDir,
+                                  className: "size-4",
+                                });
+                                const githubCount =
+                                  (issuePreview ? 1 : 0) + (prPreview ? 1 : 0);
+                                const navIndex = githubCount + index;
+                                return (
+                                  <Tooltip key={item.relativePath}>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        ref={(el) => {
+                                          mentionItemRefs.current[navIndex] = el;
+                                        }}
+                                        className={cn(
+                                          "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                                          item.isHidden && "text-muted-foreground",
+                                          navIndex === activeMentionFileIndex && "bg-muted",
+                                        )}
+                                        onMouseDown={(event) => {
+                                          event.preventDefault();
+                                          selectMentionFile(item);
+                                        }}
+                                      >
+                                        <img {...iconProps} alt="" />
+                                        <span className="min-w-0 flex-1 truncate">
+                                          {item.name}
+                                        </span>
+                                        <span className="ml-2 max-w-[55%] shrink truncate text-[11px] text-muted-foreground text-right">
+                                          {item.relativePath}
+                                        </span>
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent
+                                      side="right"
+                                      align="end"
+                                      className="z-[2147483647] max-w-xs whitespace-normal break-words"
+                                    >
+                                      {item.relativePath}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              })
+                            ) : (
+                              <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                                Continue typing after @ to search files
+                              </div>
+                            )}
                           </div>
                         </>,
                         document.body,
