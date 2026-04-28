@@ -1,87 +1,60 @@
 "use client";
 
-import React, { useImperativeHandle, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Loader2,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
 } from "@workspace/ui";
-import { MoreHorizontal, MessageSquarePlus } from "lucide-react";
-import { useReviewContext } from "@/hooks/use-review-context";
+import { MessageSquarePlus, ChevronRight, FileText, LoaderCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { useReviewSnapshotStore } from "@/hooks/use-review-snapshot-store";
 import { useContextParams } from "@/hooks/use-context-params";
-import { useEditorStore } from "@/hooks/use-editor-store";
+import { useEditorStore, EDITOR_REVIEW_DIFF_PREFIX, getEditorSourcePath } from "@/hooks/use-editor-store";
 import { ThreadCard } from "@/components/diff/review/ThreadCard";
 import { FrozenFileList } from "@/components/diff/review/FrozenFileList";
-import { RevisionPicker } from "@/components/diff/review/RevisionPicker";
-import { FixActionsMenu } from "@/components/diff/review/FixActionsMenu";
-import { sortThreads } from "@/components/diff/review/utils";
+import { sortThreads, formatDate } from "@/components/diff/review/utils";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 
-export interface ReviewViewHandle {
-  refresh: () => Promise<void>;
-}
-
-interface ReviewViewProps {
-  refreshRef?: React.Ref<ReviewViewHandle>;
-  reviewSubTab?: "files" | "threads";
-}
-
-const ReviewView: React.FC<ReviewViewProps> = ({ refreshRef, reviewSubTab = "files" }) => {
+const ReviewView: React.FC = () => {
   const { workspaceId } = useContextParams();
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
-  const filePath = (workspaceId && getActiveFilePath(workspaceId)) || "";
-
-  const ctx = useReviewContext({ workspaceId, filePath });
-  const setSnapshot = useReviewSnapshotStore((s) => s.setSnapshot);
-
-  useImperativeHandle(
-    refreshRef,
-    () => ({
-      refresh: async () => {
-        await ctx.loadSessions();
-        await ctx.loadThreads();
-      },
-    }),
-    [ctx],
-  );
+  const rawFilePath = (workspaceId && getActiveFilePath(workspaceId)) || "";
+  const filePath = rawFilePath.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
+    ? getEditorSourcePath(rawFilePath)
+    : "";
 
   const {
-    sessions,
     currentSession,
     currentRevision,
     canEdit,
-    openRevisionThreads,
     threads,
     isCreating,
-    isCreatingFixRun,
-    terminalAgentId,
-    setTerminalAgentId,
     handleCreateSession,
-    handleCloseSession,
-    handleArchiveSession,
     handleToggleReviewed,
     handleUpdateThreadStatus,
-    handleCopyFixPrompt,
-    handleRunFixInTerminal,
-    setSelectedSessionGuid,
-    setSelectedRevisionGuid,
-    setArtifactPreview,
-  } = ctx;
+    latestSummaryRun,
+    handlePreviewArtifact,
+    artifactPreview,
+    artifactLoading,
+  } = useReviewCtx();
+
+  const setSnapshot = useReviewSnapshotStore((s) => s.setSnapshot);
+  const openFile = useEditorStore((s) => s.openFile);
+  const pinFile = useEditorStore((s) => s.pinFile);
 
   const revisionLabel = useMemo(() => {
-    if (!currentSession || !currentRevision) return "Live";
+    if (!currentSession || !currentRevision) return "";
     const sorted = [...currentSession.revisions].sort((a, b) =>
       a.created_at.localeCompare(b.created_at),
     );
     const idx = sorted.findIndex((r) => r.guid === currentRevision.guid);
-    return idx >= 0 ? `v${idx + 1}` : "Revision";
+    return idx >= 0 ? `v${idx + 1}` : "";
   }, [currentRevision, currentSession]);
 
-  // Group threads by file using sortThreads order
   const threadsByFile = useMemo(() => {
     const ordered = sortThreads(threads, null);
     const groups = new Map<string, typeof ordered>();
@@ -94,6 +67,20 @@ const ReviewView: React.FC<ReviewViewProps> = ({ refreshRef, reviewSubTab = "fil
     return Array.from(groups.entries());
   }, [threads]);
 
+  const [filesOpen, setFilesOpen] = useState(true);
+  const [threadsOpen, setThreadsOpen] = useState(true);
+  const [summaryOpen, setSummaryOpen] = useState(true);
+
+  const summaryRunGuid = latestSummaryRun?.guid ?? null;
+  const hasLoadedSummary = artifactPreview?.kind === "summary" && artifactPreview?.runGuid === summaryRunGuid;
+
+  useEffect(() => {
+    if (summaryRunGuid && !hasLoadedSummary && !artifactLoading) {
+      handlePreviewArtifact(summaryRunGuid, "summary");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only auto-fetch when summary run changes
+  }, [summaryRunGuid]);
+
   if (!workspaceId) {
     return (
       <div className="p-3 text-xs text-muted-foreground">
@@ -102,7 +89,6 @@ const ReviewView: React.FC<ReviewViewProps> = ({ refreshRef, reviewSubTab = "fil
     );
   }
 
-  // Empty state — no session yet
   if (!currentSession) {
     return (
       <div className="p-3">
@@ -129,180 +115,162 @@ const ReviewView: React.FC<ReviewViewProps> = ({ refreshRef, reviewSubTab = "fil
     );
   }
 
-  const showRevisionPicker = currentSession.revisions.length > 1;
-  const fixDisabled = !canEdit || openRevisionThreads.length === 0;
+  const fileCount = currentRevision?.files.length ?? 0;
+  const hasFiles = fileCount > 0;
+  const hasThreads = threadsByFile.length > 0;
+  const openThreadCount = threads.filter((t) => t.status === "open" || t.status === "agent_fixed").length;
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-2 border-b border-sidebar-border px-3 py-2 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          {showRevisionPicker && (
-            <RevisionPicker
-              revisions={currentSession.revisions}
-              selectedGuid={currentRevision?.guid ?? null}
-              onSelect={(guid) => {
-                setSelectedRevisionGuid(guid);
-                setArtifactPreview(null);
-              }}
-            />
-          )}
-          {sessions.length > 1 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="rounded-md border border-sidebar-border px-2 py-1 text-xs text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer truncate max-w-[10rem]"
-                  title={currentSession.title?.trim() || "Review Session"}
-                >
-                  {currentSession.title?.trim() || "Session"}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-[12rem]">
-                {sessions.map((s) => (
-                  <DropdownMenuItem
-                    key={s.guid}
-                    onClick={() => {
-                      setSelectedSessionGuid(s.guid);
-                      setSelectedRevisionGuid(null);
-                      setArtifactPreview(null);
-                    }}
-                    className="text-xs"
-                  >
-                    {(s.title?.trim() || "Review Session") +
-                      ` · ${s.status.replaceAll("_", " ")}`}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <FixActionsMenu
-            disabled={fixDisabled}
-            isLoading={isCreatingFixRun}
-            agentId={terminalAgentId}
-            onAgentChange={setTerminalAgentId}
-            onFix={(agentId) => handleRunFixInTerminal(undefined, agentId)}
-          />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="flex items-center justify-center rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                title="More actions"
-              >
-                <MoreHorizontal className="size-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[12rem]">
-              <DropdownMenuItem
-                onClick={handleCreateSession}
-                className="text-xs"
-                disabled={isCreating}
-              >
-                New Session
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleCloseSession}
-                className="text-xs"
-                disabled={currentSession.status !== "active"}
-              >
-                Close Session
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleArchiveSession}
-                className="text-xs"
-              >
-                Archive Session
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleCopyFixPrompt()}
-                className="text-xs"
-                disabled={fixDisabled}
-              >
-                Copy Revision Prompt
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleRunFixInTerminal()}
-                className="text-xs"
-                disabled={fixDisabled}
-              >
-                Run In Terminal
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
       {/* Inline stats line */}
-      <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
-        <span>{currentSession.open_thread_count} open</span>
+      <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
+        <span>{openThreadCount} open</span>
         <span>·</span>
         <span>
-          {currentSession.reviewed_file_count}/{currentRevision?.files.length ?? 0} reviewed
+          {currentRevision?.files.filter((f) => f.state.reviewed).length ?? 0}/{fileCount} reviewed
         </span>
-        {currentSession.reviewed_then_changed_count > 0 && (
+        {(currentRevision?.files.filter((f) => f.changed_after_review).length ?? 0) > 0 && (
           <>
             <span>·</span>
             <span className="text-amber-600">
-              {currentSession.reviewed_then_changed_count} changed after review
+              {currentRevision?.files.filter((f) => f.changed_after_review).length} changed after review
             </span>
           </>
         )}
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        {reviewSubTab === "files" ? (
-          <div className="px-2 py-2">
-            <FrozenFileList
-              revision={currentRevision}
-              currentFilePath={filePath}
-              canEdit={canEdit}
-              onSelectFile={(snapshotGuid, snapFilePath, label) => {
-                setSnapshot({
-                  snapshotGuid,
-                  label,
-                  filePath: snapFilePath,
-                });
-              }}
-              onToggleReviewed={handleToggleReviewed}
-              revisionLabel={revisionLabel}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-1">
+        {/* Frozen Files */}
+        <Collapsible open={filesOpen} onOpenChange={setFilesOpen} className="w-full">
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+            <ChevronRight
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-200",
+                filesOpen && "rotate-90",
+              )}
             />
-          </div>
-        ) : (
-          <div className="px-2 py-2 space-y-3">
-            {threadsByFile.length === 0 ? (
-              <p className="px-1 text-xs text-muted-foreground">
-                No review threads in this revision yet.
-              </p>
-            ) : (
-              threadsByFile.map(([file, group]) => (
-                <div key={file} className="space-y-2">
-                  <p className="px-1 text-[11px] font-medium text-muted-foreground truncate">
-                    {file}
-                  </p>
-                  {group.map((thread) => (
-                    <ThreadCard
-                      key={thread.guid}
-                      thread={thread}
-                      filePath={filePath}
-                      canEdit={
-                        canEdit &&
-                        thread.revision_guid ===
-                          currentSession.current_revision_guid
-                      }
-                      onUpdateStatus={handleUpdateThreadStatus}
-                    />
-                  ))}
-                </div>
-              ))
-            )}
-          </div>
+            <span>Changed Files</span>
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              {currentSession.reviewed_file_count}/{fileCount}
+            </span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="pb-2">
+              {hasFiles ? (
+                <FrozenFileList
+                  revision={currentRevision}
+                  currentFilePath={filePath}
+                  canEdit={canEdit}
+                  onSelectFile={(snapshotGuid, snapFilePath, label) => {
+                    setSnapshot({
+                      snapshotGuid,
+                      label,
+                      filePath: snapFilePath,
+                    });
+                    void openFile(`${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`, workspaceId, { preview: true });
+                  }}
+                  onDoubleClickFile={(snapshotGuid, snapFilePath) => {
+                    const tabPath = `${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`;
+                    setSnapshot({
+                      snapshotGuid,
+                      label: revisionLabel,
+                      filePath: snapFilePath,
+                    });
+                    void openFile(tabPath, workspaceId, { preview: false });
+                    pinFile(tabPath, workspaceId || undefined);
+                  }}
+                  onToggleReviewed={handleToggleReviewed}
+                  revisionLabel={revisionLabel}
+                />
+              ) : (
+                <p className="px-1 text-xs text-muted-foreground py-2">
+                  No changed files in this revision.
+                </p>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Review Threads */}
+        <Collapsible open={threadsOpen} onOpenChange={setThreadsOpen} className="w-full">
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+            <ChevronRight
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-200",
+                threadsOpen && "rotate-90",
+              )}
+            />
+            <span>Review Threads</span>
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              {threads.length}
+            </span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="pb-2 space-y-3">
+              {!hasThreads ? (
+                <p className="px-1 text-xs text-muted-foreground">
+                  No review threads in this revision yet.
+                </p>
+              ) : (
+                threadsByFile.map(([file, group]) => (
+                  <div key={file} className="space-y-2">
+                    <p className="px-1 text-[11px] font-medium text-muted-foreground truncate">
+                      {file}
+                    </p>
+                    {group.map((thread) => (
+                      <ThreadCard
+                        key={thread.guid}
+                        thread={thread}
+                        filePath={filePath}
+                        canEdit={
+                          canEdit &&
+                          thread.revision_guid ===
+                            currentSession.current_revision_guid
+                        }
+                        onUpdateStatus={handleUpdateThreadStatus}
+                      />
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Fix Run Summary */}
+        {latestSummaryRun && (
+          <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen} className="w-full">
+            <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+              <ChevronRight
+                className={cn(
+                  "size-3.5 shrink-0 transition-transform duration-200",
+                  summaryOpen && "rotate-90",
+                )}
+              />
+              <FileText className="size-3.5 shrink-0" />
+              <span>Summary</span>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                {formatDate(latestSummaryRun.updated_at)}
+              </span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="pb-2 px-1">
+                {artifactPreview?.runGuid === latestSummaryRun.guid && artifactPreview?.kind === "summary" ? (
+                  <div className="rounded-md border border-border bg-background/80 p-3">
+                    <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
+                      {artifactPreview.content}
+                    </MarkdownRenderer>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <LoaderCircle className="size-3 animate-spin" />
+                    <span>Loading summary...</span>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         )}
       </div>
     </div>

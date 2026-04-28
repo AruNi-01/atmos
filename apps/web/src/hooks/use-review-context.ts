@@ -134,16 +134,25 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
     );
   }, [currentSession, selectedRevisionGuid]);
 
+  const prevCurrentRevisionGuidRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!currentSession) {
       setSelectedRevisionGuid(null);
+      return;
+    }
+    const latestGuid = currentSession.current_revision_guid;
+    const prevGuid = prevCurrentRevisionGuidRef.current;
+    prevCurrentRevisionGuidRef.current = latestGuid;
+    if (prevGuid !== null && prevGuid !== latestGuid) {
+      setSelectedRevisionGuid(latestGuid);
       return;
     }
     const nextRevisionGuid =
       selectedRevisionGuid &&
       currentSession.revisions.some((revision) => revision.guid === selectedRevisionGuid)
         ? selectedRevisionGuid
-        : currentSession.current_revision_guid;
+        : latestGuid;
     if (nextRevisionGuid !== selectedRevisionGuid) {
       setSelectedRevisionGuid(nextRevisionGuid);
     }
@@ -201,7 +210,7 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
   const openCurrentFileThreads = useMemo(
     () =>
       currentFileThreads.filter((thread) =>
-        ["open", "in_progress", "needs_user_check"].includes(thread.status),
+        ["open", "agent_fixed"].includes(thread.status),
       ),
     [currentFileThreads],
   );
@@ -209,7 +218,7 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
   const openRevisionThreads = useMemo(
     () =>
       threads.filter((thread) =>
-        ["open", "in_progress", "needs_user_check"].includes(thread.status),
+        ["open", "agent_fixed"].includes(thread.status),
       ),
     [threads],
   );
@@ -237,8 +246,13 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
   }, [currentSession, filePath]);
 
   const latestSummaryRun = useMemo(
-    () => currentSession?.runs.find((run) => !!run.summary_rel_path) ?? null,
-    [currentSession],
+    () => {
+      if (!currentSession || !currentRevision) return null;
+      return currentSession.runs.find((run) =>
+        !!run.summary_rel_path && run.result_revision_guid === currentRevision.guid,
+      ) ?? null;
+    },
+    [currentSession, currentRevision],
   );
 
   const autoLoadedSummaryRunRef = useRef<string | null>(null);
@@ -247,7 +261,16 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
     if (!workspaceId) return;
     setIsCreating(true);
     try {
-      const session = await reviewWsApi.createSession({ workspaceGuid: workspaceId });
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      const min = String(now.getMinutes()).padStart(2, "0");
+      const defaultTitle = `Review_${mm}.${dd}-${hh}:${min}`;
+      const session = await reviewWsApi.createSession({
+        workspaceGuid: workspaceId,
+        title: defaultTitle,
+      });
       setSelectedSessionGuid(session.guid);
       setSelectedRevisionGuid(session.current_revision_guid);
       setSessions((prev) => [session, ...prev]);
@@ -295,6 +318,29 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
       });
     }
   }, [currentSession, loadSessions]);
+
+  const handleRenameSession = useCallback(
+    async (title: string) => {
+      if (!currentSession) return;
+      try {
+        await reviewWsApi.renameSession(currentSession.guid, title);
+        await loadSessions();
+        toastManager.add({
+          title: "Session renamed",
+          description: `Session renamed to "${title}"`,
+          type: "success",
+        });
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to rename session",
+          description:
+            error instanceof Error ? error.message : "Unknown error",
+          type: "error",
+        });
+      }
+    },
+    [currentSession, loadSessions],
+  );
 
   const handleToggleReviewed = useCallback(
     async (file: ReviewFileDto, checked: boolean) => {
@@ -430,7 +476,7 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
         const result = await createFixRun("terminal_cli", selectedThreadGuids);
         if (!result) return;
         const agentId = agentIdOverride ?? terminalAgentId;
-        const command = buildCommand(agentId, result.prompt, true);
+        const command = buildCommand(agentId, result.prompt);
         const label = `Review Fix ${filePath.split("/").pop() || "Run"}`;
         if (terminalRunner) {
           await terminalRunner(command, label);
@@ -552,6 +598,7 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
     handleCreateSession,
     handleCloseSession,
     handleArchiveSession,
+    handleRenameSession,
     handleToggleReviewed,
     handleUpdateThreadStatus,
     createFixRun,

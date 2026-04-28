@@ -13,22 +13,20 @@ import type {
 import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewThreadDto } from '@/api/ws-api';
-import { Button, Loader2, Textarea, toastManager } from '@workspace/ui';
+import { Button, Loader2, Textarea, toastManager, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useReviewContext } from '@/hooks/use-review-context';
-import { useReviewSnapshotStore } from '@/hooks/use-review-snapshot-store';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
-import { useQueryStates } from 'nuqs';
-import { rightSidebarParams } from '@/lib/nuqs/searchParams';
 import { cn } from '@/lib/utils';
-import { X, FileCheck } from 'lucide-react';
+import { X, MoreHorizontal } from 'lucide-react';
 
 interface DiffViewerProps {
   repoPath: string;
   filePath: string;
+  originalPath?: string;
 }
 
 interface InlineCommentDraft {
@@ -64,11 +62,13 @@ const SCROLLBAR_CSS = `
 export const DiffViewer = ({
   repoPath,
   filePath,
+  originalPath,
 }: DiffViewerProps) => {
   const { workspaceId } = useContextParams();
-  const [, setSidebarParams] = useQueryStates(rightSidebarParams);
   const reviewCtx = useReviewContext({ workspaceId, filePath });
-  const reviewSnapshotView = useReviewSnapshotStore((s) => s.current);
+  const snapshotGuidFromPath = originalPath?.startsWith('review-diff://')
+    ? originalPath.slice('review-diff://'.length).split('/')[0] ?? null
+    : null;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
@@ -335,14 +335,25 @@ export const DiffViewer = ({
 
       try {
         const fileName = filePath.split('/').pop() || filePath;
-        if (reviewSnapshotView) {
-          const diff = await reviewWsApi.getFileContent(reviewSnapshotView.snapshotGuid);
-          const nextOldFile = { name: fileName, contents: diff.old_content };
-          const nextNewFile = { name: fileName, contents: diff.new_content };
-          setOldFile(nextOldFile);
-          setNewFile(nextNewFile);
-          setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
-          setDiffCompareRef(reviewSnapshotView.label);
+        if (snapshotGuidFromPath) {
+          try {
+            const diff = await reviewWsApi.getFileContent(snapshotGuidFromPath);
+            const nextOldFile = { name: fileName, contents: diff.old_content };
+            const nextNewFile = { name: fileName, contents: diff.new_content };
+            setOldFile(nextOldFile);
+            setNewFile(nextNewFile);
+            setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
+            setDiffCompareRef(null);
+          } catch {
+            // Fall through to git diff path if review snapshot doesn't exist on disk
+            const diff = await gitApi.getFileDiff(repoPath, filePath);
+            const nextOldFile = { name: fileName, contents: diff.old_content };
+            const nextNewFile = { name: fileName, contents: diff.new_content };
+            setOldFile(nextOldFile);
+            setNewFile(nextNewFile);
+            setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
+            setDiffCompareRef(diff.compare_ref);
+          }
         } else {
           const diff = await gitApi.getFileDiff(repoPath, filePath);
           const nextOldFile = { name: fileName, contents: diff.old_content };
@@ -362,7 +373,7 @@ export const DiffViewer = ({
     };
 
     loadDiff();
-  }, [repoPath, filePath, compareMode, reviewSnapshotView]);
+  }, [repoPath, filePath, compareMode, snapshotGuidFromPath]);
 
   const diffOptions = useMemo(() => ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
@@ -483,7 +494,7 @@ export const DiffViewer = ({
 
 
   const renderGutterUtility = useCallback((getHoveredLine: () => { lineNumber: number; side: 'deletions' | 'additions' } | undefined) => {
-    if (!reviewContext.canEdit || !reviewContext.file) return null;
+    if (!snapshotGuidFromPath || !reviewContext.canEdit || !reviewContext.file) return null;
 
     return (
       <button
@@ -595,9 +606,11 @@ export const DiffViewer = ({
         'mx-3 my-2 rounded-lg border p-3 shadow-sm',
         thread.status === 'fixed'
           ? 'border-emerald-500/25 bg-emerald-500/5'
-          : thread.status === 'needs_user_check'
+          : thread.status === 'agent_fixed'
             ? 'border-amber-500/25 bg-amber-500/5'
-            : 'border-border bg-background/95',
+            : thread.status === 'dismissed'
+              ? 'border-muted-foreground/15 bg-muted/30'
+              : 'border-blue-500/25 bg-blue-500/5',
       )}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -605,7 +618,7 @@ export const DiffViewer = ({
               {thread.title?.trim() || `Comment on L${thread.anchor_start_line}${thread.anchor_start_line === thread.anchor_end_line ? '' : `-${thread.anchor_end_line}`}`}
             </p>
             <p className="text-xs text-muted-foreground">
-              {thread.status.replaceAll('_', ' ')}
+              {thread.status === 'agent_fixed' ? 'Agent Fixed' : thread.status === 'dismissed' ? 'Dismissed' : thread.status.charAt(0).toUpperCase() + thread.status.slice(1)}
             </p>
           </div>
         </div>
@@ -620,8 +633,8 @@ export const DiffViewer = ({
                   : 'border-sky-500/20 bg-sky-500/5',
               )}
             >
-              <div className="mb-1 flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                <span>{message.author_type}</span>
+              <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium tracking-wide text-muted-foreground">
+                <span className="capitalize">{message.author_type === 'user' ? 'you' : message.author_type}</span>
                 <span>{new Intl.DateTimeFormat(undefined, {
                   month: 'short',
                   day: 'numeric',
@@ -694,7 +707,7 @@ export const DiffViewer = ({
           >
             <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
             {diffCompareRef && <span className="text-xs text-muted-foreground shrink-0">vs {diffCompareRef}</span>}
-            {reviewSnapshotView ? (
+            {snapshotGuidFromPath && reviewContext.session && !reviewContext.canEdit ? (
               <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                 Snapshot View
               </span>
@@ -717,40 +730,8 @@ export const DiffViewer = ({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setWordWrap(!wordWrap)}
-            className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
-          >
-            <span className="inline-block transition-all duration-300 ease-out" style={{ transform: wordWrap ? 'translateY(-100%)' : 'translateY(0)', opacity: wordWrap ? 0 : 1 }}>
-              Wrap
-            </span>
-            <span className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out" style={{ transform: wordWrap ? 'translateY(0)' : 'translateY(100%)', opacity: wordWrap ? 1 : 0 }}>
-              Scroll
-            </span>
-          </button>
-          <button
-            onClick={() => setDiffStyle(diffStyle === 'unified' ? 'split' : 'unified')}
-            className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
-          >
-            <span className="inline-block transition-all duration-300 ease-out" style={{ transform: diffStyle === 'unified' ? 'translateY(-100%)' : 'translateY(0)', opacity: diffStyle === 'unified' ? 0 : 1 }}>
-              Unified
-            </span>
-            <span className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out" style={{ transform: diffStyle === 'unified' ? 'translateY(0)' : 'translateY(100%)', opacity: diffStyle === 'unified' ? 1 : 0 }}>
-              Split
-            </span>
-          </button>
-          <button
-            onClick={() => setDisableBackground(!disableBackground)}
-            className="relative px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 overflow-hidden cursor-pointer"
-          >
-            <span className="inline-block transition-all duration-300 ease-out" style={{ transform: disableBackground ? 'translateY(-100%)' : 'translateY(0)', opacity: disableBackground ? 0 : 1 }}>
-              No BG
-            </span>
-            <span className="absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out" style={{ transform: disableBackground ? 'translateY(0)' : 'translateY(100%)', opacity: disableBackground ? 1 : 0 }}>
-              BG
-            </span>
-          </button>
           {(() => {
+            if (!snapshotGuidFromPath) return null;
             const file = reviewContext.file;
             if (!file) return null;
             const reviewed = file.state.reviewed;
@@ -779,14 +760,40 @@ export const DiffViewer = ({
               </button>
             );
           })()}
-          <button
-            onClick={() => setSidebarParams({ rsTab: 'changes', rsView: 'review' })}
-            aria-label="Open review panel"
-            className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium border border-sidebar-border rounded-sm bg-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all ease-out duration-200 cursor-pointer"
-          >
-            <FileCheck className="size-3.5" />
-            <span>Review</span>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                title="More actions"
+              >
+                <MoreHorizontal className="size-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[10rem]">
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                onClick={() => setWordWrap(!wordWrap)}
+                className="text-xs"
+              >
+                {wordWrap ? "Scroll" : "Wrap"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                onClick={() => setDiffStyle(diffStyle === 'unified' ? 'split' : 'unified')}
+                className="text-xs"
+              >
+                {diffStyle === 'unified' ? "Split" : "Unified"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                onClick={() => setDisableBackground(!disableBackground)}
+                className="text-xs"
+              >
+                {disableBackground ? "Show BG" : "No BG"}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

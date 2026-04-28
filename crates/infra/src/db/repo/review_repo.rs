@@ -158,6 +158,21 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
+    pub async fn update_session_title(&self, guid: &str, title: &str) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let result = review_session::Entity::update_many()
+            .col_expr(review_session::Column::Title, Expr::value(title.to_string()))
+            .col_expr(review_session::Column::UpdatedAt, Expr::value(now))
+            .filter(review_session::Column::Guid.eq(guid))
+            .filter(review_session::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review session not found".into()));
+        }
+        Ok(())
+    }
+
     pub async fn create_revision(
         &self,
         guid: Option<String>,
@@ -513,6 +528,31 @@ impl<'a> ReviewRepo<'a> {
             .order_by_asc(review_message::Column::CreatedAt)
             .all(self.db)
             .await?)
+    }
+
+    pub async fn reassign_messages_by_fix_run(
+        &self,
+        fix_run_guid: &str,
+        from_thread_guids: &[String],
+        to_thread_guids: &[String],
+    ) -> Result<()> {
+        if from_thread_guids.len() != to_thread_guids.len() {
+            return Err(InfraError::Custom(
+                "from_thread_guids and to_thread_guids must have the same length".into(),
+            ));
+        }
+        for (from_guid, to_guid) in from_thread_guids.iter().zip(to_thread_guids.iter()) {
+            let now = chrono::Utc::now().naive_utc();
+            review_message::Entity::update_many()
+                .col_expr(review_message::Column::ThreadGuid, Expr::value(to_guid.clone()))
+                .col_expr(review_message::Column::UpdatedAt, Expr::value(now))
+                .filter(review_message::Column::ThreadGuid.eq(from_guid.clone()))
+                .filter(review_message::Column::FixRunGuid.eq(fix_run_guid.to_string()))
+                .filter(review_message::Column::IsDeleted.eq(false))
+                .exec(self.db)
+                .await?;
+        }
+        Ok(())
     }
 
     pub async fn create_fix_run(

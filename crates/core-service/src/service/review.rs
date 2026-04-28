@@ -508,6 +508,13 @@ impl ReviewService {
             .map_err(ServiceError::Infra)
     }
 
+    pub async fn rename_session(&self, session_guid: String, title: String) -> Result<()> {
+        ReviewRepo::new(&self.db)
+            .update_session_title(&session_guid, &title)
+            .await
+            .map_err(ServiceError::Infra)
+    }
+
     pub async fn list_files_by_revision(&self, revision_guid: String) -> Result<Vec<ReviewFileDto>> {
         let review_repo = ReviewRepo::new(&self.db);
         let snapshots = review_repo.list_file_snapshots_by_revision(&revision_guid).await?;
@@ -519,7 +526,7 @@ impl ReviewService {
         let threads = review_repo.list_threads_by_revision(&revision_guid).await?;
         let mut open_thread_count_by_snapshot: HashMap<String, usize> = HashMap::new();
         for thread in threads {
-            if thread.status == "open" || thread.status == "in_progress" || thread.status == "needs_user_check" {
+            if thread.status == "open" || thread.status == "agent_fixed" {
                 *open_thread_count_by_snapshot
                     .entry(thread.file_snapshot_guid.clone())
                     .or_default() += 1;
@@ -583,19 +590,86 @@ impl ReviewService {
                 .push(message);
         }
 
+        let parent_guids: Vec<String> = threads
+            .iter()
+            .filter_map(|t| t.parent_thread_guid.clone())
+            .collect();
+        let mut ancestor_thread_cache: HashMap<String, review_thread::Model> = HashMap::new();
+        for parent_guid in &parent_guids {
+            Self::resolve_ancestor_threads(
+                parent_guid.clone(),
+                &review_repo,
+                &mut ancestor_thread_cache,
+            )
+            .await?;
+        }
+        let all_ancestor_guids: Vec<String> = ancestor_thread_cache.keys().cloned().collect();
+        let mut ancestor_messages: HashMap<String, Vec<review_message::Model>> = HashMap::new();
+        if !all_ancestor_guids.is_empty() {
+            let ancestor_msgs = review_repo
+                .list_messages_by_thread_guids(&all_ancestor_guids)
+                .await?;
+            for msg in ancestor_msgs {
+                ancestor_messages
+                    .entry(msg.thread_guid.clone())
+                    .or_default()
+                    .push(msg);
+            }
+        }
+
         let mut items = Vec::with_capacity(threads.len());
         for thread in threads {
             let thread_guid = thread.guid.clone();
+            let mut thread_messages = messages_by_thread.remove(&thread_guid).unwrap_or_default();
+            if let Some(ref parent_guid) = thread.parent_thread_guid {
+                let mut chain_guids = vec![parent_guid.clone()];
+                let mut cursor = parent_guid.clone();
+                loop {
+                    if let Some(ancestor) = ancestor_thread_cache.get(&cursor) {
+                        if let Some(ref pg) = ancestor.parent_thread_guid {
+                            if !chain_guids.contains(pg) {
+                                chain_guids.push(pg.clone());
+                                cursor = pg.clone();
+                                continue;
+                            }
+                        }
+                    }
+                    break;
+                }
+                for guid in &chain_guids {
+                    if let Some(ancestor_msgs) = ancestor_messages.remove(guid) {
+                        thread_messages.extend(ancestor_msgs);
+                    }
+                }
+            }
+            thread_messages.sort_by_key(|m| m.created_at);
             items.push(
                 self.to_thread_dto(
                     thread,
-                    messages_by_thread.remove(&thread_guid).unwrap_or_default(),
+                    thread_messages,
                     Some(session_guid.clone()),
                 )
                 .await?,
             );
         }
         Ok(items)
+    }
+
+    async fn resolve_ancestor_threads(
+        parent_guid: String,
+        repo: &ReviewRepo<'_>,
+        cache: &mut HashMap<String, review_thread::Model>,
+    ) -> Result<()> {
+        if cache.contains_key(&parent_guid) {
+            return Ok(());
+        }
+        if let Some(thread) = repo.find_thread_by_guid(&parent_guid).await.map_err(ServiceError::Infra)? {
+            if let Some(ref pg) = thread.parent_thread_guid {
+                Box::pin(Self::resolve_ancestor_threads(pg.clone(), repo, cache)).await?;
+            }
+            cache.insert(parent_guid, thread);
+        }
+        Ok(())
     }
 
     pub async fn create_thread(
@@ -743,7 +817,7 @@ impl ReviewService {
                 if !selected_set.is_empty() {
                     selected_set.contains(&thread.model.guid)
                 } else {
-                    thread.model.status == "open" || thread.model.status == "needs_user_check"
+                    thread.model.status == "open" || thread.model.status == "agent_fixed"
                 }
             })
             .collect();
@@ -1051,6 +1125,7 @@ impl ReviewService {
 
         let change_time = chrono::Utc::now().naive_utc();
         let mut patch_chunks = Vec::new();
+        let mut snapshot_guid_map: HashMap<String, String> = HashMap::new();
         for (index, snapshot) in base_snapshots.into_iter().enumerate() {
             let prior_content = std::fs::read_to_string(&snapshot.new_rel_path)
                 .unwrap_or_default();
@@ -1132,6 +1207,8 @@ impl ReviewService {
                 .await
                 .map_err(ServiceError::Infra)?;
 
+            snapshot_guid_map.insert(snapshot.guid.clone(), next_snapshot.guid.clone());
+
             let prior_state = state_by_file_identity
                 .get(&snapshot.file_identity_guid)
                 .ok_or_else(|| {
@@ -1159,6 +1236,43 @@ impl ReviewService {
                 .await
                 .map_err(ServiceError::Infra)?;
         }
+
+        let base_threads = review_repo
+            .list_threads_by_revision(&base_revision.guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+        let mut base_to_inherited: Vec<(String, String)> = Vec::new();
+        for base_thread in &base_threads {
+            let new_snapshot_guid = match snapshot_guid_map.get(&base_thread.file_snapshot_guid) {
+                Some(guid) => guid.clone(),
+                None => continue,
+            };
+            let inherited_thread = review_repo
+                .create_thread(
+                    session.guid.clone(),
+                    revision.guid.clone(),
+                    new_snapshot_guid,
+                    base_thread.anchor_side.clone(),
+                    base_thread.anchor_start_line,
+                    base_thread.anchor_end_line,
+                    base_thread.anchor_line_range_kind.clone(),
+                    base_thread.anchor_json.clone(),
+                    base_thread.status.clone(),
+                    Some(base_thread.guid.clone()),
+                    base_thread.title.clone(),
+                    base_thread.created_by.clone(),
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+            base_to_inherited.push((base_thread.guid.clone(), inherited_thread.guid.clone()));
+        }
+
+        let from_guids: Vec<String> = base_to_inherited.iter().map(|(f, _)| f.clone()).collect();
+        let to_guids: Vec<String> = base_to_inherited.iter().map(|(_, t)| t.clone()).collect();
+        review_repo
+            .reassign_messages_by_fix_run(&run.guid, &from_guids, &to_guids)
+            .await
+            .map_err(ServiceError::Infra)?;
 
         review_repo
             .update_session_current_revision(&session.guid, &revision.guid)
@@ -1272,7 +1386,7 @@ impl ReviewService {
         }
         output.push_str("</review-fix-run>\n\n");
         output.push_str("Before editing code, read and follow `~/.atmos/skills/.system/atmos-review-fix/SKILL.md`.\n");
-        output.push_str("Use `atmos review` commands to reply to each handled thread and write a run summary. Do not mark threads resolved automatically; move them to `needs_user_check` after handling.\n");
+        output.push_str("Use `atmos review` commands to reply to each handled thread and write a run summary. Do not mark threads resolved automatically; move them to `agent_fixed` after handling.\n");
         Ok(output)
     }
 
@@ -1317,8 +1431,7 @@ impl ReviewService {
                 .iter()
                 .filter(|thread| {
                     thread.status == "open"
-                        || thread.status == "in_progress"
-                        || thread.status == "needs_user_check"
+                        || thread.status == "agent_fixed"
                 })
                 .count(),
             reviewed_file_count,
