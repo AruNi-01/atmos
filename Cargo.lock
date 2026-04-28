@@ -1193,6 +1193,7 @@ dependencies = [
  "ai-usage",
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "chrono",
  "core-engine",
  "dirs 5.0.1",

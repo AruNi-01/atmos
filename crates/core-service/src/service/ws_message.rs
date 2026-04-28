@@ -1555,6 +1555,21 @@ impl WsMessageService {
             return Err(error.into());
         }
 
+        // Persist composer-supplied attachments under .atmos/attachments/.
+        if !req.attachments.is_empty() {
+            if let Err(error) = self
+                .workspace_service
+                .write_workspace_attachments(workspace.model.guid.clone(), req.attachments.clone())
+                .await
+            {
+                tracing::warn!(
+                    "[handle_workspace_create] Failed to write attachments for {}: {}",
+                    workspace.model.guid,
+                    error
+                );
+            }
+        }
+
         let next_setup_step = Self::build_workspace_setup_plan(
             &self.project_service,
             &req.project_guid,

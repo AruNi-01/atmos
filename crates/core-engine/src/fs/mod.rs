@@ -283,6 +283,11 @@ impl FsEngine {
 
     /// Write content to file
     pub fn write_file(&self, path: &Path, content: &str) -> Result<()> {
+        self.write_bytes(path, content.as_bytes())
+    }
+
+    /// Write raw bytes to a file (creates parent directories if needed).
+    pub fn write_bytes(&self, path: &Path, bytes: &[u8]) -> Result<()> {
         if let Some(parent) = path.parent() {
             if !parent.exists() {
                 fs::create_dir_all(parent).map_err(|e| {
@@ -291,7 +296,7 @@ impl FsEngine {
             }
         }
 
-        fs::write(path, content).map_err(|e| {
+        fs::write(path, bytes).map_err(|e| {
             EngineError::FileSystem(format!("Failed to write file {}: {}", path.display(), e))
         })?;
 

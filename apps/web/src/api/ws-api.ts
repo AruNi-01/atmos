@@ -206,6 +206,12 @@ export interface WorkspaceModel {
   labels: WorkspaceLabelModel[];
 }
 
+export interface WorkspaceAttachmentPayload {
+  filename: string;
+  mime: string;
+  dataBase64: string;
+}
+
 export interface WorkspaceLabelModel {
   guid: string;
   name: string;
@@ -998,6 +1004,7 @@ export const wsWorkspaceApi = {
     priority?: string | null;
     workflowStatus?: string | null;
     labelGuids?: string[];
+    attachments?: WorkspaceAttachmentPayload[];
   }): Promise<WorkspaceModel> => {
     return wsRequest<WorkspaceModel>("workspace_create", {
       project_guid: data.projectGuid,
@@ -1013,6 +1020,11 @@ export const wsWorkspaceApi = {
       priority: data.priority ?? null,
       workflow_status: data.workflowStatus ?? null,
       label_guids: data.labelGuids ?? null,
+      attachments: (data.attachments ?? []).map((a) => ({
+        filename: a.filename,
+        mime: a.mime,
+        data_base64: a.dataBase64,
+      })),
     });
   },
 

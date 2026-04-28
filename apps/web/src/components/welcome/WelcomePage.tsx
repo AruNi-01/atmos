@@ -55,6 +55,11 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 import dynamic from "next/dynamic";
 import { AtmosWordmark } from "@/components/ui/AtmosWordmark";
+import { PromptComposer, type ComposerHandle } from "@/components/welcome/PromptComposer";
+import {
+  AttachmentBar,
+  type ComposerAttachment,
+} from "@/components/welcome/AttachmentBar";
 
 const PixelBlast = dynamic(
   () => import("@workspace/ui/components/ui/pixel-blast"),
@@ -118,6 +123,28 @@ type WelcomeHeadline =
 
 const ISSUE_CACHE_TTL_MS = 5 * 60 * 1000;
 const issueListCache = new Map<string, { expiresAt: number; issues: GithubIssuePayload[] }>();
+
+function resolvePromptPlaceholders(text: string, atts: ComposerAttachment[]): string {
+  return text
+    .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
+    .replace(/\[#img-(\d+)\]/g, (match, n: string) => {
+      const att = atts.find((a) => a.number === Number(n));
+      return att ? `.atmos/attachments/${att.filename}` : match;
+    });
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const idx = result.indexOf(",");
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 const prListCache = new Map<string, { expiresAt: number; prs: GithubPrPayload[] }>();
 const WELCOME_HEADLINES: WelcomeHeadline[] = [
   "come_alive",
@@ -390,6 +417,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
   const [projectId, setProjectId] = React.useState("");
   const [initialRequirement, setInitialRequirement] = React.useState("");
+  const composerRef = React.useRef<ComposerHandle | null>(null);
+  const [attachments, setAttachments] = React.useState<ComposerAttachment[]>([]);
+  const attachmentCounterRef = React.useRef(0);
+  const [mentionPopover, setMentionPopover] = React.useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const [previewAttachment, setPreviewAttachment] = React.useState<ComposerAttachment | null>(null);
   const [name, setName] = React.useState("");
   const [branch, setBranch] = React.useState("");
   const [baseBranch, setBaseBranch] = React.useState("main");
@@ -617,6 +652,12 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       setLinkType("none");
       setBranchError(null);
       setSubmitError(null);
+      setAttachments((prev) => {
+        prev.forEach((a) => URL.revokeObjectURL(a.objectUrl));
+        return [];
+      });
+      attachmentCounterRef.current = 0;
+      composerRef.current?.clear();
       nameTouchedRef.current = false;
       branchTouchedRef.current = false;
       generatedBranchRef.current = null;
@@ -1061,13 +1102,23 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
           (issuePreview ? issueToBranchName(issuePreview) : "");
       const finalBaseBranch = prPreview ? prPreview.base_ref || baseBranch : baseBranch;
 
+      const rawPrompt = composerRef.current?.getText() ?? initialRequirement;
+      const resolvedPrompt = resolvePromptPlaceholders(rawPrompt, attachments);
+      const attachmentPayload = await Promise.all(
+        attachments.map(async (a) => ({
+          filename: a.filename,
+          mime: a.blob.type || "application/octet-stream",
+          dataBase64: await blobToBase64(a.blob),
+        })),
+      );
+
       const workspaceId = await addWorkspace({
         projectId,
         name: finalBranch,
         displayName: finalDisplayName || null,
         branch: finalBranch,
         baseBranch: finalBaseBranch,
-        initialRequirement: initialRequirement.trim() || null,
+        initialRequirement: resolvedPrompt.trim() || null,
         githubIssue: prPreview ? null : issuePreview,
         githubPr: prPreview,
         autoExtractTodos:
@@ -1077,10 +1128,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         priority,
         workflowStatus,
         labels: selectedLabels,
+        attachments: attachmentPayload,
       });
       queueAgentRun({
         workspaceId,
-        prompt: initialRequirement.trim() || finalDisplayName || finalBranch,
+        prompt: resolvedPrompt.trim() || finalDisplayName || finalBranch,
         agent: selectedAgent
           ? {
               id: selectedAgent.id,
@@ -1093,6 +1145,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
       keepGlobalLoading = true;
       showOpening(workspaceId);
+      // Clean up composer + attachments after successful create.
+      setAttachments((prev) => {
+        prev.forEach((a) => URL.revokeObjectURL(a.objectUrl));
+        return [];
+      });
+      attachmentCounterRef.current = 0;
+      composerRef.current?.clear();
       router.push(`/workspace?id=${workspaceId}`);
     } catch (error) {
       clearWorkspaceCreationOverlay();
@@ -1269,37 +1328,68 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                   className="space-y-4 rounded-[1.55rem] bg-background/90 p-4 sm:p-5"
                   style={promptCardNotchSurfaceStyle}
                 >
-                  <div className="relative">
-                    {!initialRequirement ? (
-                      <div className="pointer-events-none absolute inset-y-auto right-2 top-2 left-0 overflow-hidden text-base leading-6 text-muted-foreground/65">
-                        {exitingPlaceholder ? (
+                  <PromptComposer
+                    ref={composerRef}
+                    placeholder={
+                      exitingPlaceholder ? (
+                        <>
                           <span className="welcome-placeholder-exit block truncate">
                             {exitingPlaceholder}
                           </span>
-                        ) : null}
+                          <span
+                            key={visiblePlaceholder}
+                            className="welcome-placeholder-enter absolute inset-x-0 top-0 block truncate"
+                          >
+                            {visiblePlaceholder}
+                          </span>
+                        </>
+                      ) : (
                         <span
                           key={visiblePlaceholder}
-                          className={cn(
-                            "block truncate",
-                            exitingPlaceholder
-                              ? "welcome-placeholder-enter absolute inset-x-0 top-0"
-                              : "welcome-placeholder-enter",
-                          )}
+                          className="welcome-placeholder-enter block truncate"
                         >
                           {visiblePlaceholder}
                         </span>
-                      </div>
-                    ) : null}
-                    <textarea
-                      value={initialRequirement}
-                      onChange={(event) => {
-                        setInitialRequirement(event.target.value);
-                        setSubmitError(null);
-                      }}
-                      placeholder=""
-                      className="min-h-[88px] w-full resize-none rounded-xl border border-transparent bg-transparent py-2 pl-0 pr-2 text-base leading-6 text-foreground outline-none transition-colors"
-                    />
-                  </div>
+                      )
+                    }
+                    onTextChange={(text) => {
+                      setInitialRequirement(text);
+                      setSubmitError(null);
+                    }}
+                    onImagePaste={(blob, ext) => {
+                      attachmentCounterRef.current += 1;
+                      const n = attachmentCounterRef.current;
+                      const safeExt = ext.replace(/[^a-zA-Z0-9]/g, "") || "png";
+                      const filename = `img-${n}.${safeExt}`;
+                      const att: ComposerAttachment = {
+                        id: `img-${n}`,
+                        number: n,
+                        ext: safeExt,
+                        filename,
+                        blob,
+                        objectUrl: URL.createObjectURL(blob),
+                      };
+                      setAttachments((prev) => [...prev, att]);
+                      composerRef.current?.insertImagePlaceholder(n);
+                    }}
+                    onAtTrigger={(rect) => {
+                      if (!issuePreview && !prPreview) return;
+                      setMentionPopover({ top: rect.bottom + 4, left: rect.left });
+                    }}
+                    onAtCancel={() => setMentionPopover(null)}
+                  />
+
+                  <AttachmentBar
+                    attachments={attachments}
+                    onRemove={(id) => {
+                      setAttachments((prev) => {
+                        const target = prev.find((a) => a.id === id);
+                        if (target) URL.revokeObjectURL(target.objectUrl);
+                        return prev.filter((a) => a.id !== id);
+                      });
+                    }}
+                    onPreview={(att) => setPreviewAttachment(att)}
+                  />
 
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -1977,6 +2067,80 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                     </div>
                     </PopoverContent>
                   </Popover>
+
+                  {mentionPopover ? (
+                    <>
+                      <div
+                        className="fixed inset-0 z-[60]"
+                        onMouseDown={() => setMentionPopover(null)}
+                      />
+                      <div
+                        className="fixed z-[61] min-w-[180px] overflow-hidden rounded-md border border-border/70 bg-popover text-sm text-popover-foreground shadow-md"
+                        style={{
+                          top: mentionPopover.top,
+                          left: mentionPopover.left,
+                        }}
+                      >
+                        <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                          Reference
+                        </div>
+                        {issuePreview ? (
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              composerRef.current?.insertMention({
+                                kind: "issue",
+                                number: issuePreview.number,
+                              });
+                              setMentionPopover(null);
+                            }}
+                          >
+                            <CircleDot className="size-4 text-muted-foreground" />
+                            <span className="font-mono text-xs text-muted-foreground">#{issuePreview.number}</span>
+                            <span className="truncate">{issuePreview.title}</span>
+                          </button>
+                        ) : null}
+                        {prPreview ? (
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              composerRef.current?.insertMention({
+                                kind: "pr",
+                                number: prPreview.number,
+                              });
+                              setMentionPopover(null);
+                            }}
+                          >
+                            <GitPullRequestArrow className="size-4 text-muted-foreground" />
+                            <span className="font-mono text-xs text-muted-foreground">#{prPreview.number}</span>
+                            <span className="truncate">{prPreview.title}</span>
+                          </button>
+                        ) : null}
+                        {!issuePreview && !prPreview ? (
+                          <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                            Link an Issue or PR first
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
+
+                  {previewAttachment ? (
+                    <div
+                      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70"
+                      onClick={() => setPreviewAttachment(null)}
+                    >
+                      <img
+                        src={previewAttachment.objectUrl}
+                        alt={previewAttachment.filename}
+                        className="max-h-[90vh] max-w-[90vw] rounded-md object-contain"
+                      />
+                    </div>
+                  ) : null}
                   {filledSummaryItems.length > 0 ? (
                     <div className="scrollbar-on-hover flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap pr-1">
                       {filledSummaryItems.map((item) => (

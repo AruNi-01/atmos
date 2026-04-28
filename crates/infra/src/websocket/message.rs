@@ -1040,6 +1040,16 @@ pub struct WorkspaceCreateRequest {
     pub workflow_status: Option<String>,
     #[serde(default)]
     pub label_guids: Option<Vec<String>>,
+    #[serde(default)]
+    pub attachments: Vec<WorkspaceAttachmentPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceAttachmentPayload {
+    pub filename: String,
+    #[serde(default)]
+    pub mime: Option<String>,
+    pub data_base64: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

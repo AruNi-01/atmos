@@ -45,6 +45,7 @@ pub use message::{
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
+    WorkspaceAttachmentPayload,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
     WorkspaceDeleteRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
     WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,

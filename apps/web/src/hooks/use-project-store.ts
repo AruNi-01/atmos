@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { Project, Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
-import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
+import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel, type WorkspaceAttachmentPayload } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
 
@@ -242,6 +242,7 @@ interface ProjectStore {
     priority?: WorkspacePriority;
     workflowStatus?: WorkspaceWorkflowStatus;
     labels?: WorkspaceLabel[];
+    attachments?: WorkspaceAttachmentPayload[];
   }) => Promise<string>;
   quickAddWorkspace: (projectId: string) => Promise<string | null>;
   deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
@@ -516,6 +517,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         priority: data.priority,
         workflowStatus: data.workflowStatus,
         labelGuids: data.labels?.map(label => label.id),
+        attachments: data.attachments,
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);

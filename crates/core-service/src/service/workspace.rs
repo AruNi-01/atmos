@@ -628,6 +628,47 @@ impl WorkspaceService {
         }
     }
 
+    pub async fn write_workspace_attachments(
+        &self,
+        guid: String,
+        attachments: Vec<infra::WorkspaceAttachmentPayload>,
+    ) -> Result<()> {
+        if attachments.is_empty() {
+            return Ok(());
+        }
+        let repo = WorkspaceRepo::new(&self.db);
+        let workspace = repo
+            .find_by_guid(&guid)
+            .await?
+            .ok_or_else(|| ServiceError::NotFound(format!("Workspace {} not found", guid)))?;
+        let workspace_path = self.git_engine.get_worktree_path(&workspace.name)?;
+        let attachments_dir = workspace_path.join(".atmos/attachments");
+        for attachment in attachments {
+            // Sanitize the filename — only allow simple names without separators.
+            let safe = attachment
+                .filename
+                .replace(['/', '\\'], "_")
+                .trim()
+                .to_string();
+            if safe.is_empty() {
+                continue;
+            }
+            let bytes = base64::Engine::decode(
+                &base64::engine::general_purpose::STANDARD,
+                attachment.data_base64.as_bytes(),
+            )
+            .map_err(|error| {
+                ServiceError::Validation(format!(
+                    "Failed to decode attachment {}: {}",
+                    safe, error
+                ))
+            })?;
+            let target = attachments_dir.join(&safe);
+            self.fs_engine.write_bytes(&target, &bytes)?;
+        }
+        Ok(())
+    }
+
     pub async fn write_workspace_requirement(
         &self,
         guid: String,
