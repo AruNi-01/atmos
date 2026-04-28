@@ -14,7 +14,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  EmptyInboxZeroBackground,
   Input,
   Label,
   Popover,
@@ -52,7 +51,13 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
+import dynamic from "next/dynamic";
 import { AtmosWordmark } from "@/components/ui/AtmosWordmark";
+
+const PixelBlast = dynamic(
+  () => import("@workspace/ui/components/ui/pixel-blast"),
+  { ssr: false },
+);
 import {
   codeAgentCustomApi,
   functionSettingsApi,
@@ -1131,10 +1136,25 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         className,
       )}
     >
-      <EmptyInboxZeroBackground
-        src="/bg/dusty-field.png"
-        className="absolute inset-0 z-0"
-      />
+      <div className="absolute inset-0 z-0">
+        <PixelBlast
+          variant="circle"
+          pixelSize={6}
+          color="#999999"
+          patternScale={3}
+          patternDensity={1}
+          pixelSizeJitter={0.5}
+          enableRipples
+          rippleSpeed={0.2}
+          rippleThickness={0.12}
+          rippleIntensityScale={1}
+          speed={0.2}
+          edgeFade={0.25}
+          centerFade={0.85}
+          centerRadius={0.45}
+          transparent
+        />
+      </div>
       {onClose && (
         <button
           type="button"
