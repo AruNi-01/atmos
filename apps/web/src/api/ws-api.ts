@@ -202,6 +202,7 @@ export interface WorkspaceModel {
   priority: string;
   local_path: string;
   github_issue: GithubIssuePayload | null;
+  github_pr: GithubPrPayload | null;
   labels: WorkspaceLabelModel[];
 }
 
@@ -225,6 +226,20 @@ export interface GithubIssuePayload {
   body: string | null;
   url: string;
   state: string;
+  labels: GithubIssueLabelPayload[];
+}
+
+export interface GithubPrPayload {
+  owner: string;
+  repo: string;
+  number: number;
+  title: string;
+  body: string | null;
+  url: string;
+  state: string;
+  head_ref: string;
+  base_ref: string;
+  is_draft: boolean;
   labels: GithubIssueLabelPayload[];
 }
 
@@ -978,6 +993,7 @@ export const wsWorkspaceApi = {
     sidebarOrder?: number;
     initialRequirement?: string | null;
     githubIssue?: GithubIssuePayload | null;
+    githubPr?: GithubPrPayload | null;
     autoExtractTodos?: boolean;
     priority?: string | null;
     workflowStatus?: string | null;
@@ -992,6 +1008,7 @@ export const wsWorkspaceApi = {
       sidebar_order: data.sidebarOrder ?? 0,
       initial_requirement: data.initialRequirement ?? null,
       github_issue: data.githubIssue ?? null,
+      github_pr: data.githubPr ?? null,
       auto_extract_todos: data.autoExtractTodos ?? false,
       priority: data.priority ?? null,
       workflow_status: data.workflowStatus ?? null,
@@ -1211,6 +1228,32 @@ export const wsGithubApi = {
       repo: params.repo ?? null,
       issue_number: params.issueNumber ?? null,
       issue_url: params.issueUrl ?? null,
+    });
+  },
+
+  listPrs: async (params: {
+    owner: string;
+    repo: string;
+    state?: string;
+    limit?: number;
+  }): Promise<GithubPrPayload[]> => {
+    return wsRequest<GithubPrPayload[]>("github_pr_list_repo", {
+      owner: params.owner,
+      repo: params.repo,
+      state: params.state ?? "open",
+      limit: params.limit ?? 50,
+    });
+  },
+
+  getPr: async (params:
+    | { owner: string; repo: string; prNumber: number; prUrl?: undefined }
+    | { prUrl: string; owner?: undefined; repo?: undefined; prNumber?: undefined },
+  ): Promise<GithubPrPayload> => {
+    return wsRequest<GithubPrPayload>("github_pr_get", {
+      owner: params.owner ?? null,
+      repo: params.repo ?? null,
+      pr_number: params.prNumber ?? null,
+      pr_url: params.prUrl ?? null,
     });
   },
 };

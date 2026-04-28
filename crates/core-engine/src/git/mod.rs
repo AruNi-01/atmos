@@ -225,6 +225,77 @@ impl GitEngine {
         Ok(worktree_path)
     }
 
+    /// Create a worktree that tracks an existing remote branch (e.g., a PR head branch).
+    ///
+    /// If the local branch already exists, checks it out as-is. Otherwise creates a
+    /// local branch tracking `origin/<remote_branch>`.
+    pub fn create_worktree_from_remote_branch(
+        &self,
+        repo_path: &Path,
+        workspace_name: &str,
+        remote_branch: &str,
+    ) -> Result<PathBuf> {
+        let worktree_path = self.get_worktree_path(workspace_name)?;
+
+        if let Some(parent) = worktree_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                EngineError::Git(format!("Failed to create worktree directory: {}", e))
+            })?;
+        }
+
+        if worktree_path.exists() {
+            return Err(EngineError::Git(format!(
+                "Worktree already exists at: {}",
+                worktree_path.display()
+            )));
+        }
+
+        if let Err(e) = run_git(repo_path, &["fetch", "origin", remote_branch]) {
+            tracing::warn!("Git fetch warning for {}: {}", remote_branch, e);
+        }
+
+        let worktree_str = worktree_path
+            .to_str()
+            .ok_or_else(|| EngineError::Git("Non-UTF-8 worktree path".into()))?;
+
+        let local_branches = self.list_branches(repo_path).unwrap_or_default();
+        let result = if local_branches.iter().any(|b| b == remote_branch) {
+            run_git(
+                repo_path,
+                &["worktree", "add", worktree_str, remote_branch],
+            )
+        } else {
+            let remote_ref = format!("origin/{}", remote_branch);
+            run_git(
+                repo_path,
+                &[
+                    "worktree",
+                    "add",
+                    "--track",
+                    "-b",
+                    remote_branch,
+                    worktree_str,
+                    &remote_ref,
+                ],
+            )
+        };
+
+        result.map_err(|e| {
+            EngineError::Git(format!(
+                "Failed to create worktree from remote branch `{}`: {}",
+                remote_branch, e
+            ))
+        })?;
+
+        tracing::info!(
+            "Created worktree at {} tracking branch {}",
+            worktree_path.display(),
+            remote_branch
+        );
+
+        Ok(worktree_path)
+    }
+
     /// Remove a git worktree
     ///
     /// # Arguments

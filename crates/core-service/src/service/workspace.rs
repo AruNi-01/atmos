@@ -3,7 +3,7 @@ use crate::utils::workspace_name_generator;
 use core_engine::{FsEngine, GitEngine, TmuxEngine};
 use infra::db::entities::{workspace, workspace_label};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
-use infra::GithubIssuePayload;
+use infra::{GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload};
 use llm::{
     generate_text, generate_text_stream, render_prompt_template, FileLlmConfigStore,
     GenerateTextRequest, LlmFeature, ResponseFormat,
@@ -53,6 +53,7 @@ pub struct WorkspaceDto {
     pub model: workspace::Model,
     pub local_path: String,
     pub github_issue: Option<GithubIssuePayload>,
+    pub github_pr: Option<GithubPrPayload>,
     pub labels: Vec<WorkspaceLabelDto>,
 }
 
@@ -82,10 +83,12 @@ impl WorkspaceService {
             .to_string_lossy()
             .to_string();
         let github_issue = self.parse_github_issue(&model.github_issue_data)?;
+        let github_pr = self.parse_github_pr(&model.github_pr_data)?;
         Ok(WorkspaceDto {
             model,
             local_path,
             github_issue,
+            github_pr,
             labels: labels.into_iter().map(Into::into).collect(),
         })
     }
@@ -104,10 +107,15 @@ impl WorkspaceService {
             .github_issue_data
             .as_deref()
             .and_then(|raw| serde_json::from_str::<GithubIssuePayload>(raw).ok());
+        let github_pr = model
+            .github_pr_data
+            .as_deref()
+            .and_then(|raw| serde_json::from_str::<GithubPrPayload>(raw).ok());
         WorkspaceDto {
             model,
             local_path,
             github_issue,
+            github_pr,
             labels: labels.into_iter().map(Into::into).collect(),
         }
     }
@@ -155,6 +163,41 @@ impl WorkspaceService {
             .transpose()
     }
 
+    fn parse_github_pr(&self, raw: &Option<String>) -> Result<Option<GithubPrPayload>> {
+        raw.as_deref()
+            .map(|value| {
+                serde_json::from_str::<GithubPrPayload>(value).map_err(|error| {
+                    ServiceError::Validation(format!(
+                        "Failed to deserialize stored GitHub PR metadata: {error}"
+                    ))
+                })
+            })
+            .transpose()
+    }
+
+    /// Synthesize a GithubIssuePayload from a PR so the existing requirement/TODO
+    /// pipeline (which is keyed on issue title/body/labels) can ingest PR content.
+    fn pr_as_issue_payload(pr: &GithubPrPayload) -> GithubIssuePayload {
+        GithubIssuePayload {
+            owner: pr.owner.clone(),
+            repo: pr.repo.clone(),
+            number: pr.number,
+            title: pr.title.clone(),
+            body: pr.body.clone(),
+            url: pr.url.clone(),
+            state: pr.state.clone(),
+            labels: pr
+                .labels
+                .iter()
+                .map(|label| GithubIssueLabelPayload {
+                    name: label.name.clone(),
+                    color: label.color.clone(),
+                    description: label.description.clone(),
+                })
+                .collect(),
+        }
+    }
+
     /// 创建新工作区
     ///
     /// If `name` is empty, a unique Pokemon-based name will be generated.
@@ -167,11 +210,21 @@ impl WorkspaceService {
         base_branch: Option<String>,
         sidebar_order: i32,
         github_issue: Option<GithubIssuePayload>,
+        github_pr: Option<GithubPrPayload>,
         auto_extract_todos: bool,
         priority: Option<String>,
         workflow_status: Option<String>,
         labels: Option<Vec<String>>,
     ) -> Result<WorkspaceDto> {
+        // PR linking is mutually exclusive with issue linking. PR takes precedence
+        // over an explicit issue payload.
+        let github_pr_payload = github_pr;
+        let effective_github_issue = if github_pr_payload.is_some() {
+            github_pr_payload.as_ref().map(Self::pr_as_issue_payload)
+        } else {
+            github_issue
+        };
+        let github_issue = effective_github_issue;
         // Get project to find the repository path and name
         let project_repo = ProjectRepo::new(&self.db);
         let project = project_repo
@@ -211,6 +264,13 @@ impl WorkspaceService {
             None => None,
         };
 
+        // When linking a PR, prefer the PR's base ref unless the caller explicitly
+        // provides another base branch.
+        let base_branch = match (&github_pr_payload, base_branch.as_deref().map(str::trim)) {
+            (Some(pr), Some(value)) if !value.is_empty() => Some(value.to_string()),
+            (Some(pr), _) => Some(pr.base_ref.clone()),
+            (None, _) => base_branch,
+        };
         let requested_base_branch = base_branch
             .as_deref()
             .map(str::trim)
@@ -261,9 +321,16 @@ impl WorkspaceService {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned);
-        let requested_branch = branch.trim().to_string();
+        // When a PR is linked, the workspace must reuse the PR's head branch as-is.
+        let requested_branch = if let Some(pr) = github_pr_payload.as_ref() {
+            pr.head_ref.clone()
+        } else {
+            branch.trim().to_string()
+        };
 
-        let initial_handle = if !requested_branch.is_empty() {
+        let initial_handle = if let Some(pr) = github_pr_payload.as_ref() {
+            Self::sanitize_workspace_handle(&pr.head_ref)
+        } else if !requested_branch.is_empty() {
             Self::sanitize_workspace_handle(&requested_branch)
         } else if let Some(issue) = github_issue.as_ref() {
             format!("issue-{}", issue.number)
@@ -349,7 +416,8 @@ impl WorkspaceService {
             requested_branch
         };
 
-        if existing_branches.contains(&final_branch) {
+        // For PR-linked workspaces, reusing the existing local branch is expected.
+        if github_pr_payload.is_none() && existing_branches.contains(&final_branch) {
             return Err(ServiceError::Validation(format!(
                 "Branch `{}` already exists. Please enter a different branch name.",
                 final_branch
@@ -368,6 +436,16 @@ impl WorkspaceService {
                     "Failed to serialize GitHub issue metadata: {error}"
                 ))
             })?;
+        let github_pr_url = github_pr_payload.as_ref().map(|pr| pr.url.clone());
+        let github_pr_data = github_pr_payload
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| {
+                ServiceError::Validation(format!(
+                    "Failed to serialize GitHub PR metadata: {error}"
+                ))
+            })?;
         let model = workspace_repo
             .create(
                 project_guid,
@@ -378,6 +456,8 @@ impl WorkspaceService {
                 sidebar_order,
                 github_issue_url,
                 github_issue_data,
+                github_pr_url,
+                github_pr_data,
                 auto_extract_todos,
                 workflow_status,
                 priority,
@@ -463,19 +543,32 @@ impl WorkspaceService {
             existing_branches.len()
         );
 
-        if existing_branches.contains(&workspace.branch) {
+        // PR-linked workspaces reuse the existing PR head branch directly.
+        let is_pr_linked = workspace.github_pr_data.is_some();
+
+        if !is_pr_linked && existing_branches.contains(&workspace.branch) {
             return Err(ServiceError::Validation(format!(
                 "Branch `{}` already exists. Please choose a different branch name.",
                 workspace.branch
             )));
         }
 
-        match self.git_engine.create_worktree(
-            repo_path,
-            &workspace.name,
-            &workspace.branch,
-            &base_branch,
-        ) {
+        let create_result = if is_pr_linked {
+            self.git_engine.create_worktree_from_remote_branch(
+                repo_path,
+                &workspace.name,
+                &workspace.branch,
+            )
+        } else {
+            self.git_engine.create_worktree(
+                repo_path,
+                &workspace.name,
+                &workspace.branch,
+                &base_branch,
+            )
+        };
+
+        match create_result {
             Ok(created_path) => {
                 tracing::info!(
                     "[ensure_worktree_ready] Successfully created worktree at: {}",

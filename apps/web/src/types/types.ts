@@ -1,4 +1,4 @@
-import type { GithubIssuePayload } from '@/api/ws-api';
+import type { GithubIssuePayload, GithubPrPayload } from '@/api/ws-api';
 
 export type WorkspaceWorkflowStatus =
   | 'backlog'
@@ -43,6 +43,7 @@ export interface Workspace {
   labels: WorkspaceLabel[];
   localPath: string;
   githubIssue?: GithubIssuePayload | null;
+  githubPr?: GithubPrPayload | null;
 }
 
 export interface Project {

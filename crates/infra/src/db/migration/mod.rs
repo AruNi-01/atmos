@@ -23,6 +23,7 @@ mod m20260410_000014_add_workspace_visit_and_workflow_status;
 mod m20260411_000015_add_workspace_priority_labels;
 mod m20260411_000016_backfill_workspace_label_guids;
 mod m20260412_000017_add_workspace_pin_order;
+mod m20260427_000018_add_workspace_github_pr;
 
 pub struct Migrator;
 
@@ -48,6 +49,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260411_000015_add_workspace_priority_labels::Migration),
             Box::new(m20260411_000016_backfill_workspace_label_guids::Migration),
             Box::new(m20260412_000017_add_workspace_pin_order::Migration),
+            Box::new(m20260427_000018_add_workspace_github_pr::Migration),
         ]
     }
 }

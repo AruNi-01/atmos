@@ -37,6 +37,10 @@ pub struct Model {
     pub github_issue_data: Option<String>,
     /// Whether the user opted into LLM-based TODO extraction from the linked issue
     pub auto_extract_todos: bool,
+    /// Linked GitHub PR URL
+    pub github_pr_url: Option<String>,
+    /// Serialized GitHub PR metadata for workspace overview/import
+    pub github_pr_data: Option<String>,
 }
 
 impl_base_entity!(Model);

@@ -372,6 +372,10 @@ pub enum WsAction {
     GithubIssueList,
     /// 获取单个 issue 详情或通过 URL 解析 issue
     GithubIssueGet,
+    /// 列出仓库的 PR（不依赖分支过滤）
+    GithubPrListRepo,
+    /// 获取单个 PR 详情或通过 URL 解析 PR
+    GithubPrGet,
     /// 获取最新 CI 运行状态
     GithubCiStatus,
     /// 在浏览器中打开 CI run
@@ -1027,6 +1031,8 @@ pub struct WorkspaceCreateRequest {
     #[serde(default)]
     pub github_issue: Option<GithubIssuePayload>,
     #[serde(default)]
+    pub github_pr: Option<GithubPrPayload>,
+    #[serde(default)]
     pub auto_extract_todos: bool,
     #[serde(default)]
     pub priority: Option<String>,
@@ -1125,6 +1131,8 @@ pub struct WorkspaceRetrySetupRequest {
     #[serde(default)]
     pub github_issue: Option<GithubIssuePayload>,
     #[serde(default)]
+    pub github_pr: Option<GithubPrPayload>,
+    #[serde(default)]
     pub auto_extract_todos: bool,
 }
 
@@ -1141,6 +1149,8 @@ pub struct WorkspaceSkipSetupStepRequest {
     pub initial_requirement: Option<String>,
     #[serde(default)]
     pub github_issue: Option<GithubIssuePayload>,
+    #[serde(default)]
+    pub github_pr: Option<GithubPrPayload>,
     #[serde(default)]
     pub auto_extract_todos: bool,
 }
@@ -1324,6 +1334,46 @@ fn default_github_issue_state() -> String {
 
 fn default_github_issue_limit() -> usize {
     50
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrPayload {
+    pub owner: String,
+    pub repo: String,
+    pub number: u64,
+    pub title: String,
+    #[serde(default)]
+    pub body: Option<String>,
+    pub url: String,
+    pub state: String,
+    pub head_ref: String,
+    pub base_ref: String,
+    #[serde(default)]
+    pub is_draft: bool,
+    #[serde(default)]
+    pub labels: Vec<GithubIssueLabelPayload>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrListRepoRequest {
+    pub owner: String,
+    pub repo: String,
+    #[serde(default = "default_github_issue_state")]
+    pub state: String,
+    #[serde(default = "default_github_issue_limit")]
+    pub limit: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrGetRequest {
+    #[serde(default)]
+    pub owner: Option<String>,
+    #[serde(default)]
+    pub repo: Option<String>,
+    #[serde(default)]
+    pub pr_number: Option<u64>,
+    #[serde(default)]
+    pub pr_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

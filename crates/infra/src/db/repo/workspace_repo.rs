@@ -60,6 +60,8 @@ impl<'a> WorkspaceRepo<'a> {
         sidebar_order: i32,
         github_issue_url: Option<String>,
         github_issue_data: Option<String>,
+        github_pr_url: Option<String>,
+        github_pr_data: Option<String>,
         auto_extract_todos: bool,
         workflow_status: Option<String>,
         priority: Option<String>,
@@ -96,6 +98,8 @@ impl<'a> WorkspaceRepo<'a> {
             maximized_terminal_id: Set(None),
             github_issue_url: Set(github_issue_url),
             github_issue_data: Set(github_issue_data),
+            github_pr_url: Set(github_pr_url),
+            github_pr_data: Set(github_pr_data),
             auto_extract_todos: Set(auto_extract_todos),
         };
 

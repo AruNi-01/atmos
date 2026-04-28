@@ -236,6 +236,7 @@ interface ProjectStore {
     baseBranch?: string | null;
     initialRequirement?: string | null;
     githubIssue?: WorkspaceModel['github_issue'];
+    githubPr?: WorkspaceModel['github_pr'];
     autoExtractTodos?: boolean;
     hasSetupScript?: boolean;
     priority?: WorkspacePriority;
@@ -326,6 +327,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     })),
     localPath: model.local_path,
     githubIssue: model.github_issue,
+    githubPr: model.github_pr,
   };
 }
 
@@ -509,6 +511,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         baseBranch: data.baseBranch,
         initialRequirement: data.initialRequirement,
         githubIssue: data.githubIssue,
+        githubPr: data.githubPr,
         autoExtractTodos: data.autoExtractTodos,
         priority: data.priority,
         workflowStatus: data.workflowStatus,
@@ -517,9 +520,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
       const setupContext = {
-        hasGithubIssue: !!data.githubIssue,
+        hasGithubIssue: !!data.githubIssue || !!data.githubPr,
         hasRequirementStep:
-          !!data.githubIssue || !!data.initialRequirement?.trim(),
+          !!data.githubIssue || !!data.githubPr || !!data.initialRequirement?.trim(),
         autoExtractTodos: !!data.autoExtractTodos,
         hasSetupScript: !!data.hasSetupScript,
       };

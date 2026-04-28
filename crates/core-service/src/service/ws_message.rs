@@ -30,8 +30,9 @@ use infra::{
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubIssueGetRequest,
     GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
-    GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
-    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
+    GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
+    GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
+    GithubPrTimelinePageRequest, LlmProviderTestRequest,
     LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
@@ -641,6 +642,14 @@ impl WsMessageService {
             }
             WsAction::GithubIssueGet => {
                 self.handle_github_issue_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrListRepo => {
+                self.handle_github_pr_list_repo(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrGet => {
+                self.handle_github_pr_get(parse_request(request.data)?)
                     .await
             }
             WsAction::GithubCiStatus => {
@@ -1500,6 +1509,7 @@ impl WsMessageService {
                 req.base_branch.clone(),
                 req.sidebar_order,
                 req.github_issue.clone(),
+                req.github_pr.clone(),
                 req.auto_extract_todos,
                 req.priority,
                 req.workflow_status,
@@ -1549,7 +1559,7 @@ impl WsMessageService {
             &self.project_service,
             &req.project_guid,
             req.initial_requirement.as_deref(),
-            req.github_issue.as_ref(),
+            workspace.github_issue.as_ref(),
             req.auto_extract_todos,
         )
         .await
@@ -1568,7 +1578,7 @@ impl WsMessageService {
             let project_guid = req.project_guid.clone();
             let workspace_name = workspace.model.name.clone();
             let initial_requirement = req.initial_requirement.clone();
-            let github_issue = req.github_issue.clone();
+            let github_issue = workspace.github_issue.clone();
             let auto_extract_todos = req.auto_extract_todos;
 
             let workspace_service = self.workspace_service.clone();
@@ -3217,6 +3227,70 @@ set -x
             })?;
 
         Ok(json!(Self::to_issue_payload(issue)))
+    }
+
+    fn to_pr_payload(pr: core_engine::github::GithubPullRequest) -> GithubPrPayload {
+        GithubPrPayload {
+            owner: pr.owner,
+            repo: pr.repo,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            url: pr.url,
+            state: pr.state,
+            head_ref: pr.head_ref,
+            base_ref: pr.base_ref,
+            is_draft: pr.is_draft,
+            labels: pr
+                .labels
+                .into_iter()
+                .map(|label| GithubIssueLabelPayload {
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                })
+                .collect(),
+        }
+    }
+
+    async fn handle_github_pr_list_repo(&self, req: GithubPrListRepoRequest) -> Result<Value> {
+        let prs = self
+            .github_engine
+            .list_prs(&req.owner, &req.repo, &req.state, req.limit)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to list GitHub PRs: {error}"))
+            })?;
+        let payloads: Vec<GithubPrPayload> = prs.into_iter().map(Self::to_pr_payload).collect();
+        Ok(json!(payloads))
+    }
+
+    async fn handle_github_pr_get(&self, req: GithubPrGetRequest) -> Result<Value> {
+        let (owner, repo, number) = if let Some(pr_url) = req.pr_url {
+            core_engine::GithubEngine::parse_pr_url(&pr_url)
+                .ok_or_else(|| ServiceError::Validation("Invalid GitHub PR URL".to_string()))?
+        } else {
+            let owner = req
+                .owner
+                .ok_or_else(|| ServiceError::Validation("GitHub PR owner is required".to_string()))?;
+            let repo = req
+                .repo
+                .ok_or_else(|| ServiceError::Validation("GitHub PR repo is required".to_string()))?;
+            let number = req.pr_number.ok_or_else(|| {
+                ServiceError::Validation("GitHub PR number is required".to_string())
+            })?;
+            (owner, repo, number)
+        };
+
+        let pr = self
+            .github_engine
+            .get_pr(&owner, &repo, number)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to fetch GitHub PR: {error}"))
+            })?;
+
+        Ok(json!(Self::to_pr_payload(pr)))
     }
 
     async fn handle_github_pr_list(
