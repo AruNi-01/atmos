@@ -1586,7 +1586,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                           }
                                         />
                                       </SelectTrigger>
-                                      <SelectContent className="max-h-80">
+                                      <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
                                         {issues.length === 0 ? (
                                           <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                             No GitHub issues found
@@ -1594,11 +1594,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                         ) : (
                                           issues.map((issue) => (
                                             <SelectItem key={issue.number} value={String(issue.number)}>
-                                              <div className="flex min-w-0 items-center gap-2">
-                                                <span className="font-mono text-xs text-muted-foreground">
+                                              <div className="flex w-full min-w-0 items-center gap-2">
+                                                <span className="font-mono text-xs text-muted-foreground shrink-0">
                                                   #{issue.number}
                                                 </span>
-                                                <span className="truncate">{issue.title}</span>
+                                                <span className="min-w-0 flex-1 truncate">{issue.title}</span>
                                               </div>
                                             </SelectItem>
                                           ))
@@ -1787,7 +1787,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                           }
                                         />
                                       </SelectTrigger>
-                                      <SelectContent className="max-h-80">
+                                      <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
                                         {prs.length === 0 ? (
                                           <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                             No GitHub PRs found
@@ -1795,11 +1795,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                         ) : (
                                           prs.map((pr) => (
                                             <SelectItem key={pr.number} value={String(pr.number)}>
-                                              <div className="flex min-w-0 items-center gap-2">
-                                                <span className="font-mono text-xs text-muted-foreground">
+                                              <div className="flex w-full min-w-0 items-center gap-2">
+                                                <span className="font-mono text-xs text-muted-foreground shrink-0">
                                                   #{pr.number}
                                                 </span>
-                                                <span className="truncate">{pr.title}</span>
+                                                <span className="min-w-0 flex-1 truncate">{pr.title}</span>
                                               </div>
                                             </SelectItem>
                                           ))
