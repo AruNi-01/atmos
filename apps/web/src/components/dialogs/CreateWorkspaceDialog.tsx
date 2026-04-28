@@ -247,6 +247,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const [branchError, setBranchError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [autoExtractTodos, setAutoExtractTodos] = useState(false);
+  const [autoExtractTodosPr, setAutoExtractTodosPr] = useState(false);
+  const [linkType, setLinkType] = useState<'none' | 'issue' | 'pr'>('none');
   const [todoProviderLabel, setTodoProviderLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -317,6 +319,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setBranchError(null);
       setSubmitError(null);
       setAutoExtractTodos(false);
+      setAutoExtractTodosPr(false);
+      setLinkType('none');
       setTodoProviderLabel(null);
       setIsRepoLoading(false);
       setIsBaseBranchesLoading(false);
@@ -388,6 +392,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setSelectedPrNumber('');
       setPrUrl('');
       setPrError(null);
+      setLinkType('none');
+      setAutoExtractTodos(false);
+      setAutoExtractTodosPr(false);
       setHasSetupScript(false);
 
       try {
@@ -507,17 +514,19 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   }, [prPreview]);
 
   useEffect(() => {
-    const hasContext = !!issuePreview || !!prPreview;
-    if (!hasContext || !todoProviderLabel) {
-      setAutoExtractTodos(false);
-    }
-  }, [issuePreview, prPreview, todoProviderLabel]);
+    if (!issuePreview || !todoProviderLabel) setAutoExtractTodos(false);
+  }, [issuePreview, todoProviderLabel]);
+
+  useEffect(() => {
+    if (!prPreview || !todoProviderLabel) setAutoExtractTodosPr(false);
+  }, [prPreview, todoProviderLabel]);
 
   const clearPrSelection = () => {
     setPrPreview(null);
     setSelectedPrNumber('');
     setPrUrl('');
     setPrError(null);
+    setAutoExtractTodosPr(false);
   };
 
   const clearIssueSelection = () => {
@@ -525,6 +534,19 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     setSelectedIssueNumber('');
     setIssueUrl('');
     setIssueError(null);
+    setAutoExtractTodos(false);
+  };
+
+  const handleSelectLinkType = (next: 'issue' | 'pr') => {
+    if (linkType === next) {
+      setLinkType('none');
+      if (next === 'issue') clearIssueSelection();
+      else clearPrSelection();
+      return;
+    }
+    setLinkType(next);
+    if (next === 'issue') clearPrSelection();
+    else clearIssueSelection();
   };
 
   const handleSelectIssue = async (value: string) => {
@@ -695,7 +717,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         githubIssue: prPreview ? null : issuePreview,
         githubPr: prPreview,
         autoExtractTodos:
-          autoExtractTodos && (!!issuePreview || !!prPreview) && !!todoProviderLabel,
+          !!todoProviderLabel &&
+          ((prPreview && autoExtractTodosPr) || (!prPreview && !!issuePreview && autoExtractTodos)),
         hasSetupScript,
         priority,
         workflowStatus,
@@ -744,20 +767,24 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const repoLabel = repoContext ? `${repoContext.owner}/${repoContext.repo}` : 'No GitHub repository';
   const issueBodyPreview = issuePreview?.body?.trim() || 'No issue description provided.';
   const hasGithubContext = !!issuePreview || !!prPreview;
-  const canAutoExtractTodos = hasGithubContext && !!todoProviderLabel && !isLlmRoutingLoading;
+  const canAutoExtractTodosIssue = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
+  const canAutoExtractTodosPr = !!prPreview && !!todoProviderLabel && !isLlmRoutingLoading;
   const filteredRemoteBranches = useMemo(
     () => remoteBranches.filter((remoteBranch) =>
       remoteBranch.toLowerCase().includes(baseBranchFilter.trim().toLowerCase()),
     ),
     [remoteBranches, baseBranchFilter],
   );
-  const autoExtractDescription = !hasGithubContext
-    ? 'Import a GitHub issue or PR first.'
-    : isLlmRoutingLoading
-      ? 'Checking LLM routing...'
-      : todoProviderLabel
-        ? `Uses ${todoProviderLabel} to extract an initial task checklist from the ${prPreview ? 'PR' : 'issue'} description.`
-        : 'Configure LLM Providers > Routing > Workspace issue TODO extraction first.';
+  const buildAutoExtractDescription = (kind: 'issue' | 'pr') => {
+    const hasPreview = kind === 'issue' ? !!issuePreview : !!prPreview;
+    if (!hasPreview) return `Import a GitHub ${kind === 'pr' ? 'PR' : 'issue'} first.`;
+    if (isLlmRoutingLoading) return 'Checking LLM routing...';
+    if (todoProviderLabel)
+      return `Uses ${todoProviderLabel} to extract an initial task checklist from the ${kind === 'pr' ? 'PR' : 'issue'} description.`;
+    return 'Configure LLM Providers > Routing > Workspace issue TODO extraction first.';
+  };
+  const autoExtractDescriptionIssue = buildAutoExtractDescription('issue');
+  const autoExtractDescriptionPr = buildAutoExtractDescription('pr');
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[720px] max-h-[80vh] overflow-y-auto [scrollbar-gutter:stable] gap-4 bg-background p-6 pt-7">
@@ -951,43 +978,63 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               </div>
             </div>
 
-            <Card className="mt-1 border-border bg-background">
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <div
-                    className="group flex w-full cursor-pointer items-center gap-2 px-6 py-4 text-left text-sm font-medium text-foreground"
-                    role="button"
-                    tabIndex={0}
-                  >
-                  <span className="relative size-4 shrink-0">
-                    <Github className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
-                    <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                  </span>
-                  GitHub Issue
-                  <span className="text-xs font-normal text-muted-foreground">
-                    Pull title and branch seed from a repository issue.
-                  </span>
-                  {repoContext && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="ml-auto size-7"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        void handleRefreshIssues();
-                      }}
-                      disabled={isIssuesLoading}
-                      title="Refresh issues"
-                    >
-                      {isIssuesLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
-                    </Button>
-                  )}
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="space-y-4 pt-0 pb-5">
+            <div className="mt-1 flex items-center gap-2 rounded-md border border-border bg-background p-1.5">
+              <button
+                type="button"
+                onClick={() => handleSelectLinkType('issue')}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                  linkType === 'issue'
+                    ? 'bg-muted text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <Github className="size-4" />
+                <span className="font-medium">GitHub Issue</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectLinkType('pr')}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                  linkType === 'pr'
+                    ? 'bg-muted text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <GitPullRequestArrow className="size-4" />
+                <span className="font-medium">GitHub PR</span>
+              </button>
+              {repoContext && linkType === 'issue' ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => void handleRefreshIssues()}
+                  disabled={isIssuesLoading}
+                  title="Refresh issues"
+                >
+                  {isIssuesLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
+                </Button>
+              ) : repoContext && linkType === 'pr' ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => void handleRefreshPrs()}
+                  disabled={isPrsLoading}
+                  title="Refresh PRs"
+                >
+                  {isPrsLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
+                </Button>
+              ) : null}
+            </div>
+
+            {linkType === 'issue' ? (
+              <Card className="mt-1 border-border bg-background">
+                <CardContent className="space-y-4 pt-5 pb-5">
                     {repoContext ? (
                       <>
                         <div className="grid gap-2">
@@ -1126,58 +1173,23 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                       <Checkbox
                         checked={autoExtractTodos}
                         onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
-                        disabled={!canAutoExtractTodos}
+                        disabled={!canAutoExtractTodosIssue}
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 font-medium text-foreground">
                           <Sparkles className="size-4 text-muted-foreground" />
                           Auto-extract TODOs with LLM
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescriptionIssue}</p>
                       </div>
                     </label>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : null}
 
-            <Card className="mt-1 border-border bg-background">
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <div
-                    className="group flex w-full cursor-pointer items-center gap-2 px-6 py-4 text-left text-sm font-medium text-foreground"
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <span className="relative size-4 shrink-0">
-                      <GitPullRequestArrow className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
-                      <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                    </span>
-                    GitHub PR
-                    <span className="text-xs font-normal text-muted-foreground">
-                      Reuse a PR's branch and import its description (mutually exclusive with Issue).
-                    </span>
-                    {repoContext && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="ml-auto size-7"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          void handleRefreshPrs();
-                        }}
-                        disabled={isPrsLoading}
-                        title="Refresh PRs"
-                      >
-                        {isPrsLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
-                      </Button>
-                    )}
-                  </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="space-y-4 pt-0 pb-5">
+            {linkType === 'pr' ? (
+              <Card className="mt-1 border-border bg-background">
+                <CardContent className="space-y-4 pt-5 pb-5">
                     {repoContext ? (
                       <>
                         <div className="grid gap-2">
@@ -1326,22 +1338,21 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
                     <label className="flex items-center gap-3 rounded-md border border-border px-3 py-3 text-sm">
                       <Checkbox
-                        checked={autoExtractTodos}
-                        onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
-                        disabled={!canAutoExtractTodos}
+                        checked={autoExtractTodosPr}
+                        onCheckedChange={(checked) => setAutoExtractTodosPr(Boolean(checked))}
+                        disabled={!canAutoExtractTodosPr}
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 font-medium text-foreground">
                           <Sparkles className="size-4 text-muted-foreground" />
                           Auto-extract TODOs with LLM
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescriptionPr}</p>
                       </div>
                     </label>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : null}
 
             {submitError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">

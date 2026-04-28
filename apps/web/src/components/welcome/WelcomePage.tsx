@@ -417,6 +417,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const [branchError, setBranchError] = React.useState<string | null>(null);
   const [hasSetupScript, setHasSetupScript] = React.useState(false);
   const [autoExtractTodos, setAutoExtractTodos] = React.useState(false);
+  const [autoExtractTodosPr, setAutoExtractTodosPr] = React.useState(false);
+  const [linkType, setLinkType] = React.useState<"none" | "issue" | "pr">("none");
   const [todoProviderLabel, setTodoProviderLabel] = React.useState<string | null>(null);
 
   const [isBaseBranchesLoading, setIsBaseBranchesLoading] = React.useState(false);
@@ -605,6 +607,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       setName("");
       setBranch("");
       setAutoExtractTodos(false);
+      setAutoExtractTodosPr(false);
+      setLinkType("none");
       setBranchError(null);
       setSubmitError(null);
       nameTouchedRef.current = false;
@@ -728,11 +732,16 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   }, [prPreview]);
 
   React.useEffect(() => {
-    const hasContext = !!issuePreview || !!prPreview;
-    if (!hasContext || !todoProviderLabel) {
+    if (!issuePreview || !todoProviderLabel) {
       setAutoExtractTodos(false);
     }
-  }, [issuePreview, prPreview, todoProviderLabel]);
+  }, [issuePreview, todoProviderLabel]);
+
+  React.useEffect(() => {
+    if (!prPreview || !todoProviderLabel) {
+      setAutoExtractTodosPr(false);
+    }
+  }, [prPreview, todoProviderLabel]);
 
   const composerPlaceholder = React.useMemo(() => {
     const projectName = selectedProject?.name?.trim() || "Specified Project";
@@ -764,14 +773,19 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     [baseBranchFilter, remoteBranches],
   );
   const hasGithubContext = !!issuePreview || !!prPreview;
-  const canAutoExtractTodos = hasGithubContext && !!todoProviderLabel && !isLlmRoutingLoading;
-  const autoExtractDescription = !hasGithubContext
-    ? "Import a GitHub issue or PR first."
-    : isLlmRoutingLoading
-      ? "Checking LLM routing..."
-      : todoProviderLabel
-        ? `Uses ${todoProviderLabel} to extract an initial task checklist from the ${prPreview ? "PR" : "issue"} description.`
-        : "Configure LLM Providers > Routing > Workspace issue TODO extraction first.";
+  const canAutoExtractTodosIssue = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
+  const canAutoExtractTodosPr = !!prPreview && !!todoProviderLabel && !isLlmRoutingLoading;
+  const canAutoExtractTodos = canAutoExtractTodosIssue || canAutoExtractTodosPr;
+  const buildAutoExtractDescription = (kind: "issue" | "pr") => {
+    const hasPreview = kind === "issue" ? !!issuePreview : !!prPreview;
+    if (!hasPreview) return `Import a GitHub ${kind === "pr" ? "PR" : "issue"} first.`;
+    if (isLlmRoutingLoading) return "Checking LLM routing...";
+    if (todoProviderLabel)
+      return `Uses ${todoProviderLabel} to extract an initial task checklist from the ${kind === "pr" ? "PR" : "issue"} description.`;
+    return "Configure LLM Providers > Routing > Workspace issue TODO extraction first.";
+  };
+  const autoExtractDescriptionIssue = buildAutoExtractDescription("issue");
+  const autoExtractDescriptionPr = buildAutoExtractDescription("pr");
   const filledSummaryItems = React.useMemo(() => {
     const items: Array<{
       key:
@@ -823,7 +837,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         title: `GitHub PR: #${prPreview.number} (${prPreview.head_ref})`,
       });
     }
-    if (autoExtractTodos && canAutoExtractTodos) {
+    const autoTodosOn =
+      (issuePreview && autoExtractTodos) || (prPreview && autoExtractTodosPr);
+    if (autoTodosOn && canAutoExtractTodos) {
       items.push({
         key: "auto-todos",
         value: "TODOs",
@@ -832,7 +848,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     }
 
     return items;
-  }, [autoExtractTodos, baseBranch, branch, canAutoExtractTodos, issuePreview, prPreview, name]);
+  }, [autoExtractTodos, autoExtractTodosPr, baseBranch, branch, canAutoExtractTodos, issuePreview, prPreview, name]);
 
   const renderSummaryIcon = (key: (typeof filledSummaryItems)[number]["key"]) => {
     switch (key) {
@@ -856,6 +872,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSelectedPrNumber("");
     setPrUrl("");
     setPrError(null);
+    setAutoExtractTodosPr(false);
   };
 
   const clearIssueSelection = () => {
@@ -863,6 +880,19 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     setSelectedIssueNumber("");
     setIssueUrl("");
     setIssueError(null);
+    setAutoExtractTodos(false);
+  };
+
+  const handleSelectLinkType = (next: "issue" | "pr") => {
+    if (linkType === next) {
+      setLinkType("none");
+      if (next === "issue") clearIssueSelection();
+      else clearPrSelection();
+      return;
+    }
+    setLinkType(next);
+    if (next === "issue") clearPrSelection();
+    else clearIssueSelection();
   };
 
   const handleSelectIssue = (value: string) => {
@@ -1035,7 +1065,8 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
         githubIssue: prPreview ? null : issuePreview,
         githubPr: prPreview,
         autoExtractTodos:
-          autoExtractTodos && (!!issuePreview || !!prPreview) && !!todoProviderLabel,
+          !!todoProviderLabel &&
+          ((prPreview && autoExtractTodosPr) || (!prPreview && !!issuePreview && autoExtractTodos)),
         hasSetupScript,
         priority,
         workflowStatus,
@@ -1523,46 +1554,71 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           </DropdownMenu>
                         </div>
 
-                        <Collapsible className="rounded-2xl border border-border/60 bg-background/35 shadow-none">
-                          <CollapsibleTrigger asChild>
-                            <div
-                              className="group flex w-full cursor-pointer items-center gap-2 p-4 text-left text-sm font-medium text-foreground"
-                              role="button"
-                              tabIndex={0}
+                        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background/35 p-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectLinkType("issue")}
+                            className={cn(
+                              "inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
+                              linkType === "issue"
+                                ? "bg-muted text-foreground shadow-sm"
+                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                            )}
+                          >
+                            <Github className="size-4" />
+                            <span className="font-medium">GitHub Issue</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectLinkType("pr")}
+                            className={cn(
+                              "inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors",
+                              linkType === "pr"
+                                ? "bg-muted text-foreground shadow-sm"
+                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                            )}
+                          >
+                            <GitPullRequestArrow className="size-4" />
+                            <span className="font-medium">GitHub PR</span>
+                          </button>
+                          {repoContext && linkType === "issue" ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-8"
+                              onClick={() => void handleRefreshIssues()}
+                              disabled={isIssuesLoading}
+                              title="Refresh issues"
                             >
-                              <span className="relative size-4 shrink-0">
-                                <Github className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
-                                <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                              </span>
-                              GitHub Issue
-                            <span className="text-xs font-normal text-muted-foreground">
-                              Pull title and branch seed from a repository issue.
-                            </span>
-                            {repoContext ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="ml-auto size-8"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  void handleRefreshIssues();
-                                }}
-                                disabled={isIssuesLoading}
-                                title="Refresh issues"
-                              >
-                                {isIssuesLoading ? (
-                                  <LoaderCircle className="size-4 animate-spin" />
-                                ) : (
-                                  <RotateCw className="size-4" />
-                                )}
-                              </Button>
-                            ) : null}
-                            </div>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="space-y-4 px-4 pb-4">
+                              {isIssuesLoading ? (
+                                <LoaderCircle className="size-4 animate-spin" />
+                              ) : (
+                                <RotateCw className="size-4" />
+                              )}
+                            </Button>
+                          ) : repoContext && linkType === "pr" ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-8"
+                              onClick={() => void handleRefreshPrs()}
+                              disabled={isPrsLoading}
+                              title="Refresh PRs"
+                            >
+                              {isPrsLoading ? (
+                                <LoaderCircle className="size-4 animate-spin" />
+                              ) : (
+                                <RotateCw className="size-4" />
+                              )}
+                            </Button>
+                          ) : null}
+                        </div>
+
+                        {linkType === "issue" ? (
+                          <div className="rounded-2xl border border-border/60 bg-background/35 p-4">
+                            <div className="space-y-4">
                               {repoContext ? (
                                 <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
                                   <div className="grid min-w-0 gap-2">
@@ -1708,7 +1764,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                 <Checkbox
                                   checked={autoExtractTodos}
                                   onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
-                                  disabled={!canAutoExtractTodos}
+                                  disabled={!canAutoExtractTodosIssue}
                                 />
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 font-medium text-foreground">
@@ -1716,54 +1772,17 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                     Auto-extract TODOs with LLM
                                   </div>
                                   <p className="mt-1 text-xs text-muted-foreground">
-                                    {autoExtractDescription}
+                                    {autoExtractDescriptionIssue}
                                   </p>
                                 </div>
                               </label>
                             </div>
-                          </CollapsibleContent>
-                        </Collapsible>
+                          </div>
+                        ) : null}
 
-                        <Collapsible className="rounded-2xl border border-border/60 bg-background/35 shadow-none">
-                          <CollapsibleTrigger asChild>
-                            <div
-                              className="group flex w-full cursor-pointer items-center gap-2 p-4 text-left text-sm font-medium text-foreground"
-                              role="button"
-                              tabIndex={0}
-                            >
-                              <span className="relative size-4 shrink-0">
-                                <GitPullRequestArrow className="absolute inset-0 size-4 transition-opacity duration-150 group-hover:opacity-0" />
-                                <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-                              </span>
-                              GitHub PR
-                              <span className="text-xs font-normal text-muted-foreground">
-                                Reuse a PR&apos;s branch and import its description (mutually exclusive with Issue).
-                              </span>
-                              {repoContext ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="ml-auto size-8"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    void handleRefreshPrs();
-                                  }}
-                                  disabled={isPrsLoading}
-                                  title="Refresh PRs"
-                                >
-                                  {isPrsLoading ? (
-                                    <LoaderCircle className="size-4 animate-spin" />
-                                  ) : (
-                                    <RotateCw className="size-4" />
-                                  )}
-                                </Button>
-                              ) : null}
-                            </div>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="space-y-4 px-4 pb-4">
+                        {linkType === "pr" ? (
+                          <div className="rounded-2xl border border-border/60 bg-background/35 p-4">
+                            <div className="space-y-4">
                               {repoContext ? (
                                 <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
                                   <div className="grid min-w-0 gap-2">
@@ -1922,9 +1941,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
                               <label className="flex items-center gap-3 rounded-xl border border-border/70 px-3 py-3 text-sm">
                                 <Checkbox
-                                  checked={autoExtractTodos}
-                                  onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
-                                  disabled={!canAutoExtractTodos}
+                                  checked={autoExtractTodosPr}
+                                  onCheckedChange={(checked) => setAutoExtractTodosPr(Boolean(checked))}
+                                  disabled={!canAutoExtractTodosPr}
                                 />
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 font-medium text-foreground">
@@ -1932,13 +1951,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                     Auto-extract TODOs with LLM
                                   </div>
                                   <p className="mt-1 text-xs text-muted-foreground">
-                                    {autoExtractDescription}
+                                    {autoExtractDescriptionPr}
                                   </p>
                                 </div>
                               </label>
                             </div>
-                          </CollapsibleContent>
-                        </Collapsible>
+                          </div>
+                        ) : null}
 
                         {submitError ? (
                           <div className="rounded-xl border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs text-destructive">
