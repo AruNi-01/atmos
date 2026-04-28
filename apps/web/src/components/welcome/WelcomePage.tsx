@@ -424,6 +424,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const [mentionPopover, setMentionPopover] = React.useState<{
     top: number;
     left: number;
+    atOffset: number;
   } | null>(null);
   const [previewAttachment, setPreviewAttachment] = React.useState<ComposerAttachment | null>(null);
   const [name, setName] = React.useState("");
@@ -1356,6 +1357,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                     onTextChange={(text) => {
                       setInitialRequirement(text);
                       setSubmitError(null);
+                      // Auto-close mention popover when the triggering @ is gone.
+                      setMentionPopover((prev) => {
+                        if (!prev) return prev;
+                        if (text.length < prev.atOffset) return null;
+                        if (text.charAt(prev.atOffset - 1) !== "@") return null;
+                        return prev;
+                      });
                       // Sync: prune attachments whose [#img-N] chip is no longer present.
                       const present = new Set<number>();
                       for (const m of text.matchAll(/\[#img-(\d+)\]/g)) {
