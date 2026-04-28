@@ -420,6 +420,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const [autoExtractTodos, setAutoExtractTodos] = React.useState(false);
   const [autoExtractTodosPr, setAutoExtractTodosPr] = React.useState(false);
   const [linkType, setLinkType] = React.useState<"none" | "issue" | "pr">("none");
+  const [displayedLinkType, setDisplayedLinkType] = React.useState<"issue" | "pr">("issue");
+  React.useEffect(() => {
+    if (linkType !== "none") setDisplayedLinkType(linkType);
+  }, [linkType]);
   const [todoProviderLabel, setTodoProviderLabel] = React.useState<string | null>(null);
 
   const [isBaseBranchesLoading, setIsBaseBranchesLoading] = React.useState(false);
@@ -1593,7 +1597,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                               disabled={isIssuesLoading}
                               title="Refresh issues"
                             >
-                              <RotateCw className={cn("size-4", isIssuesLoading && "animate-spin")} />
+                              <RotateCw className={cn("size-4", isIssuesLoading && "animate-spin [animation-direction:reverse]")} />
                             </Button>
                           ) : repoContext && linkType === "pr" ? (
                             <Button
@@ -1605,14 +1609,14 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                               disabled={isPrsLoading}
                               title="Refresh PRs"
                             >
-                              <RotateCw className={cn("size-4", isPrsLoading && "animate-spin")} />
+                              <RotateCw className={cn("size-4", isPrsLoading && "animate-spin [animation-direction:reverse]")} />
                             </Button>
                           ) : null}
                           </div>
 
                         <Collapsible open={linkType !== "none"}>
                           <CollapsibleContent>
-                        {linkType === "issue" ? (
+                        {displayedLinkType === "issue" ? (
                           <div className="border-t border-border/60 p-4">
                             <div className="space-y-4">
                               {repoContext ? (
@@ -1778,7 +1782,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           </div>
                         ) : null}
 
-                        {linkType === "pr" ? (
+                        {displayedLinkType === "pr" ? (
                           <div className="border-t border-border/60 p-4">
                             <div className="space-y-4">
                               {repoContext ? (

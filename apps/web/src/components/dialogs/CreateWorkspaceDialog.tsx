@@ -249,6 +249,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const [autoExtractTodos, setAutoExtractTodos] = useState(false);
   const [autoExtractTodosPr, setAutoExtractTodosPr] = useState(false);
   const [linkType, setLinkType] = useState<'none' | 'issue' | 'pr'>('none');
+  const [displayedLinkType, setDisplayedLinkType] = useState<'issue' | 'pr'>('issue');
+  useEffect(() => {
+    if (linkType !== 'none') setDisplayedLinkType(linkType);
+  }, [linkType]);
   const [todoProviderLabel, setTodoProviderLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -1016,7 +1020,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   disabled={isIssuesLoading}
                   title="Refresh issues"
                 >
-                  <RotateCw className={cn("size-3.5", isIssuesLoading && "animate-spin")} />
+                  <RotateCw className={cn("size-3.5", isIssuesLoading && "animate-spin [animation-direction:reverse]")} />
                 </Button>
               ) : repoContext && linkType === 'pr' ? (
                 <Button
@@ -1028,14 +1032,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   disabled={isPrsLoading}
                   title="Refresh PRs"
                 >
-                  <RotateCw className={cn("size-3.5", isPrsLoading && "animate-spin")} />
+                  <RotateCw className={cn("size-3.5", isPrsLoading && "animate-spin [animation-direction:reverse]")} />
                 </Button>
               ) : null}
               </div>
 
             <Collapsible open={linkType !== 'none'}>
               <CollapsibleContent>
-            {linkType === 'issue' ? (
+            {displayedLinkType === 'issue' ? (
               <div className="border-t border-border">
                 <div className="space-y-4 px-6 py-5">
                     {repoContext ? (
@@ -1192,7 +1196,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               </div>
             ) : null}
 
-            {linkType === 'pr' ? (
+            {displayedLinkType === 'pr' ? (
               <div className="border-t border-border">
                 <div className="space-y-4 px-6 py-5">
                     {repoContext ? (
