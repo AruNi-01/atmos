@@ -15,6 +15,7 @@ export interface ComposerHandle {
   clear: () => void;
   insertMention: (mention: MentionRef) => void;
   insertImagePlaceholder: (n: number) => void;
+  removeImagePlaceholder: (n: number) => void;
   focus: () => void;
 }
 
@@ -146,6 +147,13 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         const token = `[#img-${n}]`;
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        fireChange();
+      },
+      removeImagePlaceholder: (n) => {
+        if (!editorRef.current) return;
+        const token = `[#img-${n}]`;
+        const nodes = editorRef.current.querySelectorAll(`[data-token="${CSS.escape(token)}"]`);
+        nodes.forEach((node) => node.remove());
         fireChange();
       },
       focus: () => editorRef.current?.focus(),

@@ -1356,6 +1356,19 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                     onTextChange={(text) => {
                       setInitialRequirement(text);
                       setSubmitError(null);
+                      // Sync: prune attachments whose [#img-N] chip is no longer present.
+                      const present = new Set<number>();
+                      for (const m of text.matchAll(/\[#img-(\d+)\]/g)) {
+                        present.add(Number(m[1]));
+                      }
+                      setAttachments((prev) => {
+                        if (prev.every((a) => present.has(a.number))) return prev;
+                        const survivors = prev.filter((a) => present.has(a.number));
+                        prev.forEach((a) => {
+                          if (!survivors.some((s) => s.id === a.id)) URL.revokeObjectURL(a.objectUrl);
+                        });
+                        return survivors;
+                      });
                     }}
                     onImagePaste={(blob, ext) => {
                       attachmentCounterRef.current += 1;
@@ -1382,11 +1395,10 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                   <AttachmentBar
                     attachments={attachments}
                     onRemove={(id) => {
-                      setAttachments((prev) => {
-                        const target = prev.find((a) => a.id === id);
-                        if (target) URL.revokeObjectURL(target.objectUrl);
-                        return prev.filter((a) => a.id !== id);
-                      });
+                      const target = attachments.find((a) => a.id === id);
+                      if (target) {
+                        composerRef.current?.removeImagePlaceholder(target.number);
+                      }
                     }}
                     onPreview={(att) => setPreviewAttachment(att)}
                   />
