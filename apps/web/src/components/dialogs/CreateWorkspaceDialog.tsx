@@ -1005,7 +1005,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                                 placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
                               />
                             </SelectTrigger>
-                            <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+                            <SelectContent className="max-h-80">
                               {issues.length === 0 ? (
                                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                   No GitHub issues found
@@ -1013,11 +1013,11 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                               ) : (
                                 issues.map((issue) => (
                                   <SelectItem key={issue.number} value={String(issue.number)}>
-                                    <div className="flex w-full min-w-0 items-center gap-2">
-                                      <span className="font-mono text-xs text-muted-foreground shrink-0">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <span className="font-mono text-xs text-muted-foreground">
                                         #{issue.number}
                                       </span>
-                                      <span className="min-w-0 flex-1 truncate">{issue.title}</span>
+                                      <span className="truncate">{issue.title}</span>
                                     </div>
                                   </SelectItem>
                                 ))
@@ -1195,7 +1195,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                                 placeholder={isPrsLoading ? 'Loading PRs...' : prs.length === 0 ? 'No PRs available' : 'Select PR'}
                               />
                             </SelectTrigger>
-                            <SelectContent className="max-h-80 w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)]">
+                            <SelectContent className="max-h-80">
                               {prs.length === 0 ? (
                                 <div className="px-2 py-1.5 text-xs text-muted-foreground">
                                   No GitHub PRs found
@@ -1203,11 +1203,11 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                               ) : (
                                 prs.map((pr) => (
                                   <SelectItem key={pr.number} value={String(pr.number)}>
-                                    <div className="flex w-full min-w-0 items-center gap-2">
-                                      <span className="font-mono text-xs text-muted-foreground shrink-0">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <span className="font-mono text-xs text-muted-foreground">
                                         #{pr.number}
                                       </span>
-                                      <span className="min-w-0 flex-1 truncate">{pr.title}</span>
+                                      <span className="truncate">{pr.title}</span>
                                     </div>
                                   </SelectItem>
                                 ))
