@@ -167,27 +167,33 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       }
       if (event.key === "@") {
         // After the browser inserts "@", measure the caret position by inserting
-        // a temporary marker span (collapsed ranges return 0/0 in some browsers).
+        // a temporary inline-block marker so it always has a layout box.
         requestAnimationFrame(() => {
           const sel = window.getSelection();
           if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
           const range = sel.getRangeAt(0);
           if (!editorRef.current.contains(range.startContainer)) return;
           const marker = document.createElement("span");
-          marker.textContent = "\u200B";
+          marker.style.cssText =
+            "display:inline-block;width:0;height:1em;vertical-align:baseline;";
           range.insertNode(marker);
           const rect = marker.getBoundingClientRect();
-          // Restore caret to after the @ (where it was), then remove marker.
           const parent = marker.parentNode;
-          if (parent) {
-            const newRange = document.createRange();
-            newRange.setStartAfter(marker);
-            newRange.collapse(true);
-            parent.removeChild(marker);
-            sel.removeAllRanges();
-            sel.addRange(newRange);
+          const newRange = document.createRange();
+          newRange.setStartAfter(marker);
+          newRange.collapse(true);
+          if (parent) parent.removeChild(marker);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+          if (rect.width === 0 && rect.height === 0) {
+            // Fallback: use editor rect's left + caret approximation
+            const editorRect = editorRef.current.getBoundingClientRect();
+            onAtTrigger?.(
+              new DOMRect(editorRect.left, editorRect.top, 0, 20),
+            );
+          } else {
+            onAtTrigger?.(rect);
           }
-          onAtTrigger?.(rect);
         });
         return;
       }

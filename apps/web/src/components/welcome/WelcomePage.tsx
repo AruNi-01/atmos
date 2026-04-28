@@ -2080,66 +2080,73 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                     </PopoverContent>
                   </Popover>
 
-                  {mentionPopover ? (
-                    <>
-                      <div
-                        className="fixed inset-0 z-[60]"
-                        onMouseDown={() => setMentionPopover(null)}
-                      />
-                      <div
-                        className="fixed z-[61] min-w-[180px] overflow-hidden rounded-md border border-border/70 bg-popover text-sm text-popover-foreground shadow-md"
-                        style={{
-                          top: mentionPopover.top,
-                          left: mentionPopover.left,
-                        }}
-                      >
-                        <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-                          Reference
-                        </div>
-                        {issuePreview ? (
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              composerRef.current?.insertMention({
-                                kind: "issue",
-                                number: issuePreview.number,
-                              });
-                              setMentionPopover(null);
+                  {mentionPopover && typeof document !== "undefined"
+                    ? createPortal(
+                        <>
+                          <div
+                            className="fixed inset-0 z-[2147483646]"
+                            onMouseDown={() => setMentionPopover(null)}
+                          />
+                          <div
+                            className="fixed z-[2147483647] min-w-[200px] overflow-hidden rounded-md border border-border/70 bg-popover text-sm text-popover-foreground shadow-md"
+                            style={{
+                              top: mentionPopover.top,
+                              left: mentionPopover.left,
                             }}
                           >
-                            <CircleDot className="size-4 text-muted-foreground" />
-                            <span className="font-mono text-xs text-muted-foreground">#{issuePreview.number}</span>
-                            <span className="truncate">{issuePreview.title}</span>
-                          </button>
-                        ) : null}
-                        {prPreview ? (
-                          <button
-                            type="button"
-                            className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              composerRef.current?.insertMention({
-                                kind: "pr",
-                                number: prPreview.number,
-                              });
-                              setMentionPopover(null);
-                            }}
-                          >
-                            <GitPullRequestArrow className="size-4 text-muted-foreground" />
-                            <span className="font-mono text-xs text-muted-foreground">#{prPreview.number}</span>
-                            <span className="truncate">{prPreview.title}</span>
-                          </button>
-                        ) : null}
-                        {!issuePreview && !prPreview ? (
-                          <div className="px-2.5 py-2 text-xs text-muted-foreground">
-                            Link an Issue or PR first
+                            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                              Reference
+                            </div>
+                            {issuePreview ? (
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  composerRef.current?.insertMention({
+                                    kind: "issue",
+                                    number: issuePreview.number,
+                                  });
+                                  setMentionPopover(null);
+                                }}
+                              >
+                                <CircleDot className="size-4 text-muted-foreground" />
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  #{issuePreview.number}
+                                </span>
+                                <span className="truncate">{issuePreview.title}</span>
+                              </button>
+                            ) : null}
+                            {prPreview ? (
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-muted"
+                                onMouseDown={(event) => {
+                                  event.preventDefault();
+                                  composerRef.current?.insertMention({
+                                    kind: "pr",
+                                    number: prPreview.number,
+                                  });
+                                  setMentionPopover(null);
+                                }}
+                              >
+                                <GitPullRequestArrow className="size-4 text-muted-foreground" />
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  #{prPreview.number}
+                                </span>
+                                <span className="truncate">{prPreview.title}</span>
+                              </button>
+                            ) : null}
+                            {!issuePreview && !prPreview ? (
+                              <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                                Link an Issue or PR first
+                              </div>
+                            ) : null}
                           </div>
-                        ) : null}
-                      </div>
-                    </>
-                  ) : null}
+                        </>,
+                        document.body,
+                      )
+                    : null}
 
                   {previewAttachment && typeof document !== "undefined"
                     ? createPortal(
