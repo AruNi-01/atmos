@@ -55,6 +55,8 @@ import {
   Trash2,
   UserCog,
   Webhook,
+  GitBranch,
+  Archive,
 } from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
 import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
@@ -400,25 +402,87 @@ function WorkspaceSettingsSection() {
     closeIssueOnDelete,
     deleteRemoteBranch,
     confirmBeforeDelete,
+    branchPrefix,
+    confirmBeforeArchive,
+    killTmuxOnArchive,
+    closeAcpOnArchive,
     setClosePrOnDelete,
     setCloseIssueOnDelete,
     setDeleteRemoteBranch,
     setConfirmBeforeDelete,
+    setBranchPrefix,
+    setConfirmBeforeArchive,
+    setKillTmuxOnArchive,
+    setCloseAcpOnArchive,
     loadSettings,
   } = useWorkspaceSettings();
 
   const [expanded, setExpanded] = React.useState(true);
+  const [branchNamingExpanded, setBranchNamingExpanded] = React.useState(true);
+  const [archiveExpanded, setArchiveExpanded] = React.useState(true);
 
   React.useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
   return (
-    <Collapsible
-      open={expanded}
-      onOpenChange={setExpanded}
-      className="overflow-hidden rounded-2xl border border-border"
-    >
+    <div className="space-y-4">
+      <Collapsible
+        open={branchNamingExpanded}
+        onOpenChange={setBranchNamingExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex items-start gap-3">
+              <span className="relative mt-0.5 size-5 shrink-0">
+                <GitBranch className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium text-foreground">Branch Naming</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Configure the git branch prefix for new workspace branches.
+                </p>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+        </div>
+
+        <CollapsibleContent>
+          <div className="border-t border-border px-4">
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-sm text-foreground">Branch prefix</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    All workspace branches will be prefixed with this value followed by a fixed &lsquo;/&rsquo;.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <div className="flex items-center gap-0">
+                    <Input
+                      value={branchPrefix}
+                      onChange={(e) => setBranchPrefix(e.target.value)}
+                      placeholder="atmos"
+                      className="h-8 w-[200px] rounded-r-none border-r-0 focus-visible:ring-0"
+                    />
+                    <div className="flex h-8 items-center rounded-r-md border border-l-0 bg-muted px-2 text-sm text-muted-foreground">
+                      /
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible
+        open={expanded}
+        onOpenChange={setExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
       <div className="flex items-start justify-between gap-4 px-6 py-5">
         <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
           <div className="flex items-start gap-3">
@@ -493,6 +557,74 @@ function WorkspaceSettingsSection() {
         </div>
       </CollapsibleContent>
     </Collapsible>
+
+      <Collapsible
+        open={archiveExpanded}
+        onOpenChange={setArchiveExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+          <div className="flex items-start gap-3">
+            <span className="relative mt-0.5 size-5 shrink-0">
+              <Archive className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">Archive Behavior</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Configure what happens when a workspace is archived. Archived workspaces can be restored later.
+              </p>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+      </div>
+
+      <CollapsibleContent>
+        <div className="border-t border-border px-4">
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Confirm before archive</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Show a confirmation dialog before archiving a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={confirmBeforeArchive} onCheckedChange={setConfirmBeforeArchive} />
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Kill tmux session</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Terminate the tmux session and PTY processes when archiving. The worktree and branch are preserved.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={killTmuxOnArchive} onCheckedChange={setKillTmuxOnArchive} />
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Close ACP Chat Session</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Close any active agent chat sessions when archiving a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={closeAcpOnArchive} onCheckedChange={setCloseAcpOnArchive} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+    </div>
   );
 }
 

@@ -1534,6 +1534,10 @@ export interface FunctionSettings {
     close_issue_on_delete?: boolean;
     delete_remote_branch?: boolean;
     confirm_before_delete?: boolean;
+    branch_prefix?: string;
+    confirm_before_archive?: boolean;
+    kill_tmux_on_archive?: boolean;
+    close_acp_on_archive?: boolean;
   };
   [key: string]: unknown;
 }

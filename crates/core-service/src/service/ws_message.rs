@@ -4376,6 +4376,44 @@ impl WorkspaceDeleteSettings {
     }
 }
 
+/// Workspace archive settings read from function_settings.json.
+struct WorkspaceArchiveSettings {
+    kill_tmux_on_archive: bool,
+    close_acp_on_archive: bool,
+}
+
+impl Default for WorkspaceArchiveSettings {
+    fn default() -> Self {
+        Self {
+            kill_tmux_on_archive: true,
+            close_acp_on_archive: true,
+        }
+    }
+}
+
+impl WorkspaceArchiveSettings {
+    fn load() -> Self {
+        let path = function_settings_path();
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            return Self::default();
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+            return Self::default();
+        };
+        let ws = value.get("workspace_settings");
+        Self {
+            kill_tmux_on_archive: ws
+                .and_then(|v| v.get("kill_tmux_on_archive"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true),
+            close_acp_on_archive: ws
+                .and_then(|v| v.get("close_acp_on_archive"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true),
+        }
+    }
+}
+
 fn terminal_code_agent_path() -> std::path::PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
