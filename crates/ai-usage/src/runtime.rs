@@ -17,11 +17,12 @@ use crate::models::{
     ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, UsageSummary,
 };
 use crate::providers::{
-    amp, antigravity, claude, codex, cursor, factory, minimax, opencode, zai, zed,
+    amp, antigravity, claude, codex, cursor, factory, minimax, mimo, opencode, zai, zed,
 };
 use crate::support::{
     expand_home, load_amp_browser_cookie_source, load_factory_browser_cookie_source,
-    load_minimax_browser_cookie_source, load_zed_browser_cookie_source, unix_now,
+    load_minimax_browser_cookie_source, load_mimo_browser_cookie_source,
+    load_zed_browser_cookie_source, unix_now,
 };
 
 #[derive(Debug, Clone)]
@@ -53,6 +54,7 @@ pub(crate) enum LiveProviderKind {
     Antigravity,
     Zai,
     MiniMax,
+    Mimo,
     Zed,
 }
 
@@ -315,6 +317,17 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
 
     if spec.id == "minimax" {
         if let Ok(Some(source)) = load_minimax_browser_cookie_source() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source.source_label),
+                detail: Some("Detected browser session cookie".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
+    }
+
+    if spec.id == "mimo" {
+        if let Ok(Some(source)) = load_mimo_browser_cookie_source() {
             return AuthState {
                 status: AuthStateStatus::Detected,
                 source: Some(source.source_label),
@@ -676,6 +689,16 @@ fn provider_specs() -> Vec<ProviderSpec> {
             auth_paths: &[],
         },
         ProviderSpec {
+            id: "mimo",
+            label: "Xiaomi MiMo",
+            kind: ProviderKind::Api,
+            live_kind: Some(LiveProviderKind::Mimo),
+            timeout_millis: PROVIDER_TIMEOUT_MILLIS,
+            setup_hint: "Sign in to platform.xiaomimimo.com in your browser. Atmos auto-detects browser session cookies.",
+            auth_env_keys: &[],
+            auth_paths: &[],
+        },
+        ProviderSpec {
             id: "kimi",
             label: "Kimi",
             kind: ProviderKind::Api,
@@ -727,6 +750,7 @@ async fn collect_live(
         LiveProviderKind::Antigravity => antigravity::fetch_antigravity_live().await,
         LiveProviderKind::Zai => zai::fetch_zai_live(client).await,
         LiveProviderKind::MiniMax => minimax::fetch_minimax_live(client).await,
+        LiveProviderKind::Mimo => mimo::fetch_mimo_live(client).await,
         LiveProviderKind::Zed => zed::fetch_zed_live(client).await,
     }
 }

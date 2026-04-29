@@ -376,6 +376,7 @@ export const PROVIDER_ICON_IDS = new Set([
   "antigravity",
   "zai",
   "minimax",
+  "mimo",
   "kimi",
   "amp",
   "zed",
@@ -563,6 +564,7 @@ function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: number }) {
 }
 
 function regionOptionLabel(region: string | null, options: UsageManualSetupResponse["region_options"]): string {
+  if (options.length === 0) return "";
   if (!region || region === "auto") return "Auto";
   return options.find((o) => o.value === region)?.label ?? region;
 }
@@ -605,7 +607,7 @@ function ProviderApiKeyManager({
               <div className="flex items-center gap-2 min-w-0">
                 <KeyRound className="size-3.5 shrink-0 text-foreground/60" />
                 <span className="text-xs text-foreground truncate">
-                  {regionOptionLabel(key.region, manualSetup.region_options)} Key
+                  {[regionOptionLabel(key.region, manualSetup.region_options), "Key"].filter(Boolean).join(" ")}
                 </span>
                 <span className="text-[10px] text-foreground/50 font-mono truncate">···{key.id.slice(-4)}</span>
               </div>
@@ -639,24 +641,26 @@ function ProviderApiKeyManager({
       {showAddForm && (
         <div className="rounded-[12px] border border-border/60 bg-muted/20 p-3">
           <div className="grid gap-2.5">
-            <div className="grid gap-1">
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
-                Region
+            {manualSetup.region_options.length > 0 && (
+              <div className="grid gap-1">
+                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
+                  Region
+                </div>
+                <Select value={region} onValueChange={setRegion} disabled={isSaving}>
+                  <SelectTrigger className="h-8 w-full rounded-[10px] bg-background/70 text-xs">
+                    <SelectValue placeholder="Select region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualSetup.region_options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <UsagePortalLink providerId={providerId} region={selectedRegion} className="mt-1" />
               </div>
-              <Select value={region} onValueChange={setRegion} disabled={isSaving}>
-                <SelectTrigger className="h-8 w-full rounded-[10px] bg-background/70 text-xs">
-                  <SelectValue placeholder="Select region" />
-                </SelectTrigger>
-                <SelectContent>
-                  {manualSetup.region_options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <UsagePortalLink providerId={providerId} region={selectedRegion} className="mt-1" />
-            </div>
+            )}
 
             <div className="grid gap-1">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">

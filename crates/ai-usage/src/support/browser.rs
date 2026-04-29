@@ -126,6 +126,13 @@ pub(crate) fn load_factory_browser_cookie_source(
     )
 }
 
+pub(crate) fn load_mimo_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError> {
+    load_browser_cookie_source_with_session_detection(
+        &["platform.xiaomimimo.com", "xiaomimimo.com"],
+        &["api-platform_serviceToken"],
+    )
+}
+
 pub(crate) fn load_minimax_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
     load_browser_cookie_source_with_session_detection(

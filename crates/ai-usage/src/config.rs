@@ -124,9 +124,14 @@ fn region_options(provider_id: &str) -> Vec<ProviderManualSetupOption> {
     }
 }
 
+/// Providers that support manual API key input without region selection.
+fn supports_api_key_only(_provider_id: &str) -> bool {
+    false
+}
+
 pub(crate) fn provider_manual_setup(provider_id: &str) -> Option<ProviderManualSetup> {
     let options = region_options(provider_id);
-    if options.is_empty() {
+    if options.is_empty() && !supports_api_key_only(provider_id) {
         return None;
     }
     let keys = provider_config_api_keys(provider_id);
@@ -139,7 +144,11 @@ pub(crate) fn provider_manual_setup(provider_id: &str) -> Option<ProviderManualS
         })
         .collect();
     Some(ProviderManualSetup {
-        selected_region: Some("auto".to_string()),
+        selected_region: if options.is_empty() {
+            None
+        } else {
+            Some("auto".to_string())
+        },
         region_options: options,
         api_key_configured,
         configured_keys,
