@@ -78,8 +78,7 @@ const ReviewView: React.FC = () => {
     if (summaryRunGuid && !hasLoadedSummary && !artifactLoading) {
       handlePreviewArtifact(summaryRunGuid, "summary");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only auto-fetch when summary run changes
-  }, [summaryRunGuid]);
+  }, [summaryRunGuid, hasLoadedSummary, artifactLoading]);
 
   if (!workspaceId) {
     return (

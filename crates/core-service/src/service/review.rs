@@ -637,7 +637,7 @@ impl ReviewService {
                     break;
                 }
                 for guid in &chain_guids {
-                    if let Some(ancestor_msgs) = ancestor_messages.remove(guid) {
+                    if let Some(ancestor_msgs) = ancestor_messages.get(guid).cloned() {
                         thread_messages.extend(ancestor_msgs);
                     }
                 }

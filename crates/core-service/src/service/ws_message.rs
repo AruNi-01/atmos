@@ -4060,8 +4060,17 @@ set -x
         req: ReviewSessionRenameRequest,
     ) -> Result<Value> {
         self.review_service
-            .rename_session(req.session_guid.clone(), req.title)
+            .rename_session(req.session_guid.clone(), req.title.clone())
             .await?;
+        self.send_review_notification(
+            WsEvent::ReviewThreadUpdated,
+            json!({
+                "kind": "session_renamed",
+                "session_guid": req.session_guid,
+                "changed_fields": ["title", "updated_at"],
+            }),
+        )
+        .await;
         Ok(json!({ "ok": true }))
     }
 

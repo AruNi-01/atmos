@@ -539,7 +539,7 @@ export const DiffViewer = ({
         </svg>
       </button>
     );
-  }, [buildSelectionInfo, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file]);
+  }, [buildSelectionInfo, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file, snapshotGuidFromPath]);
 
   const renderAnnotation = useCallback((annotation: DiffLineAnnotation<{
     kind: 'thread';
