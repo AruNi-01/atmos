@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { Skeleton } from "@workspace/ui";
+import { useRouter } from "next/navigation";
+import { Button, Skeleton } from "@workspace/ui";
+import { ArrowUpRight, BookOpen } from "lucide-react";
 import { useWikiContext } from "@/hooks/use-wiki-store";
 import { WikiSetup } from "./WikiSetup";
 import { WikiViewer } from "./WikiViewer";
@@ -11,6 +13,8 @@ interface WikiTabProps {
   contextId: string;
   effectivePath: string;
   projectName?: string;
+  /** Parent project ID (used for "Go to Project" navigation in workspace context) */
+  projectId?: string;
   /** Increment to trigger full reload (check exists + load catalog + reload current page) */
   refreshTrigger?: number;
   terminalGridRef: React.RefObject<TerminalGridHandle | null>;
@@ -25,12 +29,15 @@ interface WikiTabProps {
   onWikiPageChange: (page: string) => void;
   /** Whether the Wiki tab is currently active (avoids switching tab on auto-load first page) */
   isWikiTabActive?: boolean;
+  /** True when viewing from a Workspace context (read-only: no generate/update/specify) */
+  isWorkspaceContext?: boolean;
 }
 
 export const WikiTab: React.FC<WikiTabProps> = ({
   contextId,
   effectivePath,
   projectName,
+  projectId,
   refreshTrigger = 0,
   terminalGridRef,
   onSwitchToTerminal,
@@ -39,7 +46,9 @@ export const WikiTab: React.FC<WikiTabProps> = ({
   wikiPage,
   onWikiPageChange,
   isWikiTabActive = false,
+  isWorkspaceContext = false,
 }) => {
+  const router = useRouter();
   const {
     wikiExists,
     activePage,
@@ -86,6 +95,28 @@ export const WikiTab: React.FC<WikiTabProps> = ({
   }
 
   if (wikiExists === false) {
+    if (isWorkspaceContext) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
+          <BookOpen className="size-8 text-muted-foreground/50" />
+          <p className="text-sm font-medium">No wiki found for this project</p>
+          <p className="text-xs text-muted-foreground/70 max-w-sm text-center">
+            Wiki generation is only available from the Project view. Switch to the parent Project to generate a wiki.
+          </p>
+          {projectId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1"
+              onClick={() => router.push(`/project?id=${projectId}&tab=wiki`)}
+            >
+              Go to Project
+              <ArrowUpRight className="size-3.5 ml-1" />
+            </Button>
+          )}
+        </div>
+      );
+    }
     return (
       <WikiSetup
         effectivePath={effectivePath}
@@ -107,6 +138,7 @@ export const WikiTab: React.FC<WikiTabProps> = ({
       wikiPage={wikiPage}
       onWikiPageChange={onWikiPageChange}
       isWikiTabActive={isWikiTabActive}
+      isWorkspaceContext={isWorkspaceContext}
       terminalGridRef={terminalGridRef}
       onSwitchToTerminal={onSwitchToTerminal}
       onSwitchToProjectWikiAndRun={onSwitchToProjectWikiAndRun}

@@ -3,14 +3,26 @@
     "project-wiki": [
       "skills/project-wiki/README.md",
       "skills/project-wiki/SKILL.md",
-      "skills/project-wiki/examples/catalog.template.json",
-      "skills/project-wiki/examples/sample_briefing.md",
-      "skills/project-wiki/examples/sample_catalog.json",
+      "skills/project-wiki/agents/repo-analyst.md",
+      "skills/project-wiki/agents/evidence-curator.md",
+      "skills/project-wiki/agents/wiki-planner.md",
+      "skills/project-wiki/agents/wiki-writer.md",
+      "skills/project-wiki/agents/wiki-auditor.md",
+      "skills/project-wiki/agents/domain-researcher.md",
+      "skills/project-wiki/agents/workflow-researcher.md",
+      "skills/project-wiki/agents/integration-researcher.md",
+      "skills/project-wiki/agents/boundary-researcher.md",
+      "skills/project-wiki/examples/page_registry.template.json",
+      "skills/project-wiki/examples/sample_evidence_bundle.json",
       "skills/project-wiki/examples/sample_document.md",
-      "skills/project-wiki/references/briefing_template.md",
-      "skills/project-wiki/references/catalog.schema.json",
+      "skills/project-wiki/examples/sample_page_plan.json",
+      "skills/project-wiki/references/evidence-bundle.schema.json",
       "skills/project-wiki/references/frontend-integration.md",
       "skills/project-wiki/references/output_structure.md",
+      "skills/project-wiki/references/page-plan.schema.json",
+      "skills/project-wiki/references/page-quality.md",
+      "skills/project-wiki/references/page-registry.schema.json",
+      "skills/project-wiki/references/workflow.md",
       "skills/project-wiki/scripts/collect_metadata.sh",
       "skills/project-wiki/scripts/init_wiki_todo.sh",
       "skills/project-wiki/scripts/validate_catalog.py",
@@ -18,14 +30,23 @@
       "skills/project-wiki/scripts/validate_content.py",
       "skills/project-wiki/scripts/validate_content.sh",
       "skills/project-wiki/scripts/validate_frontmatter.py",
+      "skills/project-wiki/scripts/validate_page_quality.py",
+      "skills/project-wiki/scripts/validate_page_quality.sh",
+      "skills/project-wiki/scripts/validate_page_registry.py",
+      "skills/project-wiki/scripts/validate_page_registry.sh",
       "skills/project-wiki/scripts/validate_todo.py",
-      "skills/project-wiki/scripts/validate_todo.sh"
+      "skills/project-wiki/scripts/validate_todo.sh",
+      "skills/project-wiki/scripts/validate_evidence.py",
+      "skills/project-wiki/scripts/validate_phase_gate.py"
     ],
     "project-wiki-update": [
       "skills/project-wiki-update/SKILL.md"
     ],
     "project-wiki-specify": [
       "skills/project-wiki-specify/SKILL.md"
+    ],
+    "project-wiki-ask": [
+      "skills/project-wiki-ask/SKILL.md"
     ],
     "fullstack-reviewer": [
       "skills/code_review_skills/fullstack-reviewer/SKILL.md",

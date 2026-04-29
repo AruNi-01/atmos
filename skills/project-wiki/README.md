@@ -1,224 +1,95 @@
 # Project Wiki Skill
 
-A deep, research-grade project documentation generator for ATMOS. Empowers any Code Agent (Claude Code, Codex, Cursor, etc.) to generate structured Project Wikis from **thorough source code analysis**, with all content stored as Markdown files in the project's `.atmos/wiki/` directory.
+An evidence-driven project documentation generator for ATMOS. Instructs any Code Agent to build a structured wiki from AST artifacts, source code, and Git history — not from README skimming.
 
 ## What Makes This Different
 
-Unlike documentation generators that skim README files, this skill instructs agents to **deeply explore all source code** — reading entry points, core types, implementations, tests, and configuration — before writing any documentation. The result is a Wiki that explains not just *what* the code does, but *how* it works and *why* it was designed that way.
-
-## Key Features
-
-- **Deep Research** -- Agents read actual source code, not just README files
-- **Two-Part Structure** -- "Getting Started" for newcomers + "Deep Dive" for contributors
-- **Content Depth Standards** -- Minimum word counts, source references, code snippets, and diagrams per article
-- **Reading Time & Difficulty** -- Each article tagged with estimated reading time and difficulty level
-- **Local First** -- Wiki lives alongside code, no external database or service required
-- **Agent-Driven** -- Any Code Agent can generate high-quality documentation using this skill
-- **Structured Navigation** -- JSON-based catalog with hierarchical navigation
-- **Git-Friendly** -- Entire Wiki can be committed, versioned, and shared
-- **Parallel Generation** -- Supports spawning multiple subagents for efficient generation
-- **Schema Validated** -- JSON Schema ensures catalog correctness
+Content is grounded in evidence bundles assembled from real AST data, not inferred from file names or README files. Page structure follows the topic; there is no fixed section template.
 
 ## Quick Start
 
-### 1. Invoke with Your Code Agent
-
 ```bash
-# Using Claude Code
-claude "Generate project wiki using the project-wiki skill"
-
-# Using Codex
-codex "Create a comprehensive wiki for this project with the project-wiki skill"
-
-# Using Cursor (with skill loaded)
-# Ask: "Generate project wiki for this codebase"
+# Claude Code / Codex / Cursor — invoke the skill
+"Generate project wiki using the project-wiki skill"
 ```
 
-### 2. Output
-
-The skill generates a two-part Wiki:
+The skill produces:
 
 ```
 .atmos/wiki/
-├── _catalog.json                    # Navigation structure (required)
-├── _mindmap.md                      # Project architecture mindmap (optional)
-├── getting-started/                 # Part 1: For newcomers
-│   ├── index.md                     # Welcome & overview
-│   ├── overview.md                  # What the project is & provides
-│   ├── quick-start.md               # Install & run in 5 minutes
-│   ├── installation.md              # Detailed setup guide
-│   ├── architecture.md              # High-level architecture
-│   ├── key-concepts.md              # Core terminology
-│   └── configuration.md             # All config options
-└── deep-dive/                       # Part 2: For contributors
-    ├── index.md                     # Deep dive overview
-    ├── infra/                       # Infrastructure layer
-    │   ├── index.md
-    │   ├── database.md              # ~12 min read, advanced
-    │   └── websocket.md             # ~13 min read, advanced
-    ├── core/                        # Core modules
-    │   ├── index.md
-    │   └── ...
-    ├── api/                         # API layer
-    │   └── ...
-    ├── frontend/                    # Frontend
-    │   └── ...
-    ├── build-system/                # Build & tooling
-    │   └── index.md
-    └── design-decisions/            # Architecture decisions
-        └── index.md
+├── page_registry.json        # navigation + page inventory
+├── _todo.md
+├── _metadata/
+├── _ast/
+├── _index/
+│   ├── repo_index.json
+│   └── concept_graph.json
+├── _plans/
+│   └── <page-id>.json
+├── _evidence/
+│   └── <page-id>.json
+├── _coverage/
+│   ├── coverage_map.json
+│   └── change_set.json
+├── _phase_done/
+│   └── <page-id>.<phase>.json
+└── pages/
+    └── <page>.md
 ```
 
-### 3. Validate the Output
-
-All scripts are zero-dependency -- no `pip install` or `npm install` required.
+## Validate the Output
 
 ```bash
-# Catalog structure
-bash scripts/validate_catalog.sh .atmos/wiki/_catalog.json
-# or: python3 scripts/validate_catalog.py .atmos/wiki/_catalog.json
-
-# Metadata format (YAML frontmatter) — required before considering wiki complete
-python3 scripts/validate_frontmatter.py .atmos/wiki/
+python3 scripts/validate_page_registry.py .atmos/wiki/page_registry.json
+python3 scripts/validate_frontmatter.py .atmos/wiki
+python3 scripts/validate_evidence.py .atmos/wiki
+python3 scripts/validate_page_quality.py .atmos/wiki
+python3 scripts/validate_phase_gate.py .atmos/wiki
+python3 scripts/validate_todo.py .atmos/wiki/_todo.md
 ```
-
-**Important:** Metadata MUST use strict YAML frontmatter. Never use markdown blockquotes (`> **Reading Time:**`) or inline text — the frontend parser requires YAML only.
-
-Example output:
-```
-✅ Catalog is valid!
-   Version: 2.0
-   Project: ATMOS
-   Total items: 24
-   Sections: deep-dive, getting-started
-   Levels: advanced: 8, beginner: 7, intermediate: 9
-   Total reading time: ~185 minutes
-```
-
-## Content Depth Standards
-
-Each article must meet minimum quality thresholds:
-
-| Metric | Getting Started | Deep Dive |
-|--------|----------------|-----------|
-| **Word Count** | 800+ words | 1500+ words |
-| **Source Files** | 3+ referenced | 5+ referenced |
-| **Code Snippets** | 0–1 (only when essential) | 0–2 (only when essential) |
-| **Mermaid Diagrams** | 2+ | 3+ |
-| **Reading Time** | 5-8 minutes | 8-15 minutes |
-| **Cross-references** | 2+ links | 4+ links |
 
 ## Skill Package Contents
 
 ```
 project-wiki/
-├── SKILL.md                          # Core skill instructions (for the Agent)
-├── README.md                         # This file (for humans)
+├── SKILL.md                              # Agent instructions
+├── README.md                             # This file
 ├── references/
-│   ├── output_structure.md           # Output format specification (v2.0)
-│   ├── catalog.schema.json           # JSON Schema with section/level/reading_time
-│   └── frontend-integration.md       # Frontend rendering guide
+│   ├── workflow.md
+│   ├── output_structure.md
+│   ├── page-quality.md
+│   ├── page-registry.schema.json
+│   ├── page-plan.schema.json
+│   ├── evidence-bundle.schema.json
+│   └── frontend-integration.md
+├── agents/
+│   ├── repo-analyst.md
+│   ├── evidence-curator.md
+│   ├── wiki-planner.md
+│   ├── wiki-writer.md
+│   └── wiki-auditor.md
 ├── examples/
-│   ├── sample_catalog.json           # Two-part catalog structure example
-│   └── sample_document.md            # Deep, well-researched wiki article example
+│   ├── sample_evidence_bundle.json
+│   ├── sample_page_plan.json
+│   ├── page_registry.template.json
+│   └── sample_document.md
 └── scripts/
-    ├── validate_catalog.sh           # Bash + jq validation (zero dependencies)
-    └── validate_catalog.py           # Python3 stdlib validation with v2.0 stats
+    ├── validate_page_registry.py
+    ├── validate_frontmatter.py
+    ├── validate_evidence.py
+    ├── validate_page_quality.py
+    ├── validate_phase_gate.py
+    └── validate_todo.py
 ```
 
-## Article Metadata
+## Page Quality
 
-Each article includes frontmatter with:
+A page is good when it answers the questions in its page plan, grounds claims in its evidence bundle, and teaches a reader something non-obvious. See `references/page-quality.md` for the full standard.
 
-```yaml
----
-title: WebSocket Service Architecture
-section: deep-dive          # getting-started or deep-dive
-level: advanced             # beginner, intermediate, or advanced
-reading_time: 13            # estimated minutes
-path: deep-dive/infra/websocket
-sources:                    # actual source files researched
-  - crates/infra/src/websocket/manager.rs
-  - crates/infra/src/websocket/connection.rs
-  - apps/api/src/api/ws/handlers.rs
-updated_at: 2026-02-10T12:00:00Z
----
-```
+## Navigation
 
-## Research Methodology
+Navigation structure is derived from `_index/concept_graph.json` concept boundaries. When a project has 8 or more pages, the planner must organize navigation into at least one level of groups using `navigationItem.children`. Group names are not prescribed — they follow the project's natural subsystem boundaries.
 
-The skill instructs agents to follow a three-phase research process:
+## Compatibility
 
-1. **Broad Scan** -- Read top-level files, map directory structure, identify tech stack
-2. **Deep Exploration** -- For each module: read entry points, core types, implementations, tests, error types, and configuration
-3. **Flow Tracing** -- Follow data flow from API entry points through business logic to storage
-
-This produces documentation that reflects actual code behavior, not just surface-level descriptions.
-
-## Design Advantages
-
-| Feature | Description |
-|---------|-------------|
-| **Research-Grade** | Agents read source code, not just README files |
-| **Two-Part Structure** | Progressive disclosure from beginner to advanced |
-| **Depth Enforced** | Minimum quality standards per article type |
-| **Traceable** | Key Source Files table; any code snippet must link to its source |
-| **Connected** | Cross-references and "Next Steps" link articles together |
-| **Git-Friendly** | Full version control support |
-| **Frontend-Friendly** | JSON + Markdown with rich metadata |
-| **Validated** | JSON Schema with v2.0 field support |
-
-## Comparison with Alternatives
-
-| Dimension | Zread/OpenDeepWiki | ATMOS Project Wiki |
-|-----------|-------------------|-------------------|
-| **Storage** | Database / Cloud | Local File System |
-| **Generation** | Built-in AI | User's Code Agent + Skill |
-| **Research Depth** | README-focused | Full source code exploration |
-| **Structure** | Auto-generated chapters | Two-part: Getting Started + Deep Dive |
-| **Metadata** | Basic | Section, level, reading_time, sources |
-| **Version Control** | Cloud versioning | Git |
-| **Flexibility** | Fixed process | Agent freedom with quality guardrails |
-
-## Troubleshooting
-
-### Articles are too shallow
-
-The skill enforces minimum depth standards. If articles don't meet them, re-run with emphasis on the "Deep Codebase Research" step in SKILL.md. Ensure the agent reads actual source files (`.rs`, `.ts`, `.tsx`) not just documentation files.
-
-### Agent generates invalid `_catalog.json`
-
-Run the validation script to see detailed errors:
-```bash
-python3 scripts/validate_catalog.py .atmos/wiki/_catalog.json
-```
-
-### Missing section/level/reading_time fields
-
-These are new in v2.0. The validation script will show warnings for missing optional fields. Re-run generation with the updated SKILL.md to include all metadata.
-
-### Code examples lack source links
-
-Every code block must have a `> **Source**: [path](relative-link)` line. Re-run with emphasis on the source file link rule.
-
-## Best Practices
-
-1. **Research before writing** -- Ensure the agent completes Step 1 (Deep Codebase Research) thoroughly before any writing
-2. **Organize by concern** -- Structure by what readers need to understand, not by file layout
-3. **Progressive disclosure** -- Getting Started gives mental models, Deep Dive fills in details
-4. **Source traceability** -- Key Source Files table; any code snippet must link to its source file
-5. **Connect the dots** -- Every article must link to related articles via "Next Steps"
-6. **Validate before committing** -- Always run the validation scripts
-
-## Future Enhancements
-
-- **Incremental Updates** -- Monitor Git changes and regenerate only affected documents
-- **Multi-language Support** -- Generate multiple language versions of the Wiki
-- **Search Index** -- Build full-text search based on Markdown content
-- **AI Q&A** -- Combine with RAG technology for intelligent Q&A on top of the Wiki
-- **Quality Scoring** -- Automated quality assessment of generated articles
-
----
-
-**Version**: 2.0
-**Last Updated**: 2026-02-11
+If a legacy consumer requires `_catalog.json`, generate it as a derived artifact from `page_registry.json` after all primary outputs are valid. Do not design the workflow around `_catalog.json`.

@@ -1,0 +1,20 @@
+{
+  "page_id": "runtime-flow",
+  "title": "Runtime Flow",
+  "kind": "workflow",
+  "audience": "contributor",
+  "questions": [
+    "What is the runtime entrypoint?",
+    "How does control move across the main subsystems?",
+    "Which failures are important to understand?"
+  ],
+  "required_evidence": [
+    "entrypoint source files",
+    "AST relations for the flow",
+    "git commits that changed the runtime path"
+  ],
+  "scope": {
+    "in": ["runtime bootstrap", "cross-subsystem flow"],
+    "out": ["frontend pixel-level details"]
+  }
+}

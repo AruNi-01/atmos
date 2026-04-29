@@ -425,6 +425,19 @@ export const systemApi = {
   },
 
   /**
+   * Build backend AST artifacts for Project Wiki generation.
+   */
+  buildProjectWikiAst: async (
+    workspaceId: string,
+    projectPath: string
+  ): Promise<{ success: boolean; discovered_files: number; indexed_files: number; skipped_files: number; symbol_count: number; relation_count: number; ast_dir: string; commit_hash?: string }> => {
+    return fetchApi(`/api/system/project-wiki-ast/${workspaceId}`, {
+      method: 'POST',
+      body: JSON.stringify({ project_path: projectPath }),
+    });
+  },
+
+  /**
    * Check if Code Review tmux window exists for a workspace
    */
   checkCodeReviewWindow: async (workspaceId: string): Promise<{ exists: boolean }> => {

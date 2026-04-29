@@ -1,146 +1,73 @@
 #!/usr/bin/env python3
 """
-Validate YAML frontmatter format of Project Wiki Markdown files.
+Validate wiki Markdown frontmatter.
 
-Every .md file MUST:
-1. Start with --- on the first line
-2. Have a complete YAML block between first --- and second ---
-3. Include required keys: title, section, level, reading_time, path, sources, updated_at
-4. Have sources as a YAML array (list), not a string
-5. NOT contain blockquote-style metadata (> **Reading Time:** etc.) in the body
-
-Usage:
-    python3 validate_frontmatter.py <wiki-directory>
-
-Example:
-    python3 validate_frontmatter.py .atmos/wiki/
-
-Exit: 0 if all valid, 1 if any file fails.
+Accept modern evidence-driven pages and legacy pages for compatibility, but prefer modern fields.
 """
 
 import re
 import sys
 from pathlib import Path
 
-REQUIRED_KEYS = ("title", "section", "level", "reading_time", "path", "sources", "updated_at")
-VALID_SECTIONS = {"getting-started", "deep-dive", "specify-wiki"}
-VALID_LEVELS = {"beginner", "intermediate", "advanced"}
-
-# Patterns that indicate incorrect metadata in body (forbidden)
+MODERN_REQUIRED = ("page_id", "title", "kind", "audience", "sources", "evidence_refs", "updated_at")
+LEGACY_REQUIRED = ("title", "section", "level", "path", "sources", "updated_at")
 BODY_METADATA_PATTERNS = [
-    (r">\s*\*\*Reading\s+Time", "Blockquote-style Reading Time (use YAML frontmatter)"),
-    (r">\s*\*\*Source\s+Files", "Blockquote-style Source Files (use YAML frontmatter)"),
-    (r">\s*\*\*Level", "Blockquote-style Level (use YAML frontmatter)"),
-    (r"^\s*Reading\s+Time:\s*\d+", "Inline Reading Time (use YAML frontmatter)"),
-    (r"^\s*Level\s*:\s*\w+", "Inline Level (use YAML frontmatter)"),
+    (r">\s*\*\*Reading\s+Time", "Blockquote-style Reading Time"),
+    (r">\s*\*\*Source\s+Files", "Blockquote-style Source Files"),
 ]
 
 
 def parse_frontmatter(content: str) -> tuple[dict | None, str | None, str]:
-    """
-    Extract YAML frontmatter and body. Returns (frontmatter_dict, error_msg, body).
-    If error_msg is not None, frontmatter_dict may be partial.
-    """
     if not content.startswith("---"):
         return None, "File does not start with '---' (YAML frontmatter required)", content
 
-    parts = content.split("\n", 1)
-    if len(parts) < 2:
-        return None, "Incomplete frontmatter (no content after first ---)", content
-
-    rest = parts[1]
-    match = re.match(r"^(.*?)^---\s*$", rest, re.MULTILINE | re.DOTALL)
+    match = re.match(r"^---\s*\n(.*?)\n---\s*\n([\s\S]*)$", content, re.DOTALL)
     if not match:
-        return None, "No closing '---' for YAML frontmatter block", rest
+        return None, "No complete YAML frontmatter block found", content
 
-    yaml_block = match.group(1).strip()
-    body = rest[match.end() :].lstrip("\n")
-
-    # Simple YAML parsing (no PyYAML dependency)
+    raw = match.group(1)
+    body = match.group(2)
     frontmatter: dict = {}
-    in_sources = False
-    sources: list[str] = []
+    current_array_key: str | None = None
 
-    for line in yaml_block.split("\n"):
-        if in_sources:
-            if line.strip().startswith("-"):
-                item = line.strip()[1:].strip().strip("'\"")
-                sources.append(item)
-            else:
-                frontmatter["sources"] = sources
-                in_sources = False
-                # Parse current line as key: value (e.g. updated_at: ...)
-                colon_idx = line.find(":")
-                if colon_idx > 0 and not line[:colon_idx].strip().startswith("-"):
-                    key = line[:colon_idx].strip()
-                    val = line[colon_idx + 1 :].strip()
-                    if key and key != "sources":
-                        if val.startswith("'") and val.endswith("'"):
-                            val = val[1:-1]
-                        elif val.startswith('"') and val.endswith('"'):
-                            val = val[1:-1]
-                        frontmatter[key] = val
+    for line in raw.splitlines():
+        if current_array_key and line.strip().startswith("-"):
+            frontmatter.setdefault(current_array_key, []).append(line.strip()[1:].strip().strip("'\""))
             continue
-
-        colon_idx = line.find(":")
-        if colon_idx > 0 and not line[:colon_idx].strip().startswith("-"):
-            key = line[:colon_idx].strip()
-            val = line[colon_idx + 1 :].strip()
-            if key == "sources":
-                in_sources = True
-                sources = []
-                if val and val != "[]":
-                    for m in re.finditer(r"['\"]?([^,\]\s]+)['\"]?", val):
-                        s = m.group(1).strip("'\"")
-                        if s and s not in ("[", "]"):
-                            sources.append(s)
-            else:
-                if val.startswith("'") and val.endswith("'"):
-                    val = val[1:-1]
-                elif val.startswith('"') and val.endswith('"'):
-                    val = val[1:-1]
-                frontmatter[key] = val
-
-    if in_sources:
-        frontmatter["sources"] = sources
+        current_array_key = None
+        key_match = re.match(r"^([a-z_]+):\s*(.*)$", line)
+        if not key_match:
+            continue
+        key, value = key_match.group(1), key_match.group(2).strip()
+        if key in {"sources", "evidence_refs"} and value == "":
+            frontmatter[key] = []
+            current_array_key = key
+            continue
+        if value.startswith("[") and value.endswith("]"):
+            items = [part.strip().strip("'\"") for part in value[1:-1].split(",") if part.strip()]
+            frontmatter[key] = items
+        else:
+            frontmatter[key] = value.strip("'\"")
 
     return frontmatter, None, body
 
 
-def validate_frontmatter(fm: dict, body: str, path: str) -> list[str]:
-    """Validate frontmatter and body. Returns list of error messages."""
+def validate_frontmatter(frontmatter: dict, body: str) -> list[str]:
     errors: list[str] = []
+    is_modern = "page_id" in frontmatter or "evidence_refs" in frontmatter
+    required = MODERN_REQUIRED if is_modern else LEGACY_REQUIRED
 
-    for key in REQUIRED_KEYS:
-        if key not in fm:
+    for key in required:
+        if key not in frontmatter or frontmatter[key] in ("", None):
             errors.append(f"Missing required key: '{key}'")
-        elif fm[key] is None or fm[key] == "":
-            errors.append(f"Empty value for required key: '{key}'")
 
-    if "section" in fm and fm["section"] not in VALID_SECTIONS:
-        errors.append(f"Invalid section: '{fm['section']}' (expected: getting-started, deep-dive, specify-wiki)")
+    for array_key in ("sources", "evidence_refs"):
+        if array_key in frontmatter and not isinstance(frontmatter[array_key], list):
+            errors.append(f"'{array_key}' must be a YAML array")
 
-    if "level" in fm and fm["level"] not in VALID_LEVELS:
-        errors.append(
-            f"Invalid level: '{fm['level']}' (expected: beginner, intermediate, advanced)"
-        )
-
-    if "sources" in fm:
-        if not isinstance(fm["sources"], list):
-            errors.append(f"'sources' must be a YAML array (hyphen-prefixed list), got: {type(fm['sources'])}")
-
-    if "reading_time" in fm:
-        try:
-            n = int(fm["reading_time"])
-            if n < 1 or n > 60:
-                errors.append(f"'reading_time' must be 1-60, got: {n}")
-        except (TypeError, ValueError):
-            errors.append(f"'reading_time' must be an integer, got: {fm['reading_time']!r}")
-
-    # Check body for forbidden metadata patterns
-    for pattern, desc in BODY_METADATA_PATTERNS:
+    for pattern, description in BODY_METADATA_PATTERNS:
         if re.search(pattern, body, re.IGNORECASE):
-            errors.append(f"Forbidden in body: {desc}")
+            errors.append(f"Forbidden in body: {description}")
 
     return errors
 
@@ -159,47 +86,29 @@ def main():
     checked = 0
 
     for md_file in sorted(wiki_dir.rglob("*.md")):
-        # Skip _mindmap.md — it has no frontmatter requirement (plain Mermaid content)
-        if md_file.name == "_mindmap.md":
+        if md_file.name.startswith("_"):
             continue
-
-        rel_path = md_file.relative_to(wiki_dir)
         checked += 1
-
-        try:
-            content = md_file.read_text(encoding="utf-8")
-        except Exception as e:
-            failed.append((str(rel_path), [f"Failed to read file: {e}"]))
+        content = md_file.read_text(encoding="utf-8")
+        frontmatter, parse_error, body = parse_frontmatter(content)
+        if parse_error:
+            failed.append((str(md_file.relative_to(wiki_dir)), [parse_error]))
             continue
-
-        frontmatter, parse_err, body = parse_frontmatter(content)
-
-        if parse_err:
-            failed.append((str(rel_path), [parse_err]))
-            continue
-
         assert frontmatter is not None
-        errs = validate_frontmatter(frontmatter, body, str(rel_path))
-        if errs:
-            failed.append((str(rel_path), errs))
+        errors = validate_frontmatter(frontmatter, body)
+        if errors:
+            failed.append((str(md_file.relative_to(wiki_dir)), errors))
 
     if not failed:
-        print("✅ All wiki Markdown files have valid YAML frontmatter!")
+        print("✅ All wiki Markdown files have valid frontmatter.")
         print(f"   Checked {checked} file(s)")
         sys.exit(0)
 
     print(f"❌ Frontmatter validation failed ({len(failed)} file(s)):", file=sys.stderr)
-    print("", file=sys.stderr)
-    for path, errs in failed:
+    for path, errors in failed:
         print(f"  {path}:", file=sys.stderr)
-        for e in errs:
-            print(f"    - {e}", file=sys.stderr)
-        print("", file=sys.stderr)
-    print(
-        "Fix by using strict YAML frontmatter. File must start with ---, valid YAML block, then ---.",
-        file=sys.stderr,
-    )
-    print("See examples/sample_document.md for correct format.", file=sys.stderr)
+        for error in errors:
+            print(f"    - {error}", file=sys.stderr)
     sys.exit(1)
 
 

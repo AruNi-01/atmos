@@ -125,3 +125,7 @@ scripts/open-source/
 .codex/settings.local.json
 
 skills-lock.json
+
+# Python cache
+__pycache__/
+*.pyc

@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 #
-# Pre-create _todo.md for Project Wiki generation.
-# Run from project root. Creates .atmos/wiki/_todo.md.
-#
-# Usage (run from project root; script lives in the skill dir):
-#   bash ~/.atmos/skills/.system/project-wiki/scripts/init_wiki_todo.sh
-#
-# Creates ./.atmos/wiki/_todo.md relative to current directory.
+# Pre-create _todo.md for evidence-driven Project Wiki generation.
 
 set -euo pipefail
 
@@ -17,15 +11,17 @@ cat > "$WIKI_DIR/_todo.md" << 'TODOMD'
 # Project Wiki Generation Checklist
 
 - [ ] Git metadata collected (_metadata/)
-- [ ] Deep codebase research done
-- [ ] Core concepts extracted (_concepts.json)
-- [ ] _catalog.json created (schema-compliant)
-- [ ] validate_catalog passes
-- [ ] _mindmap.md created
-- [ ] Research briefings generated (_briefings/)
-- [ ] All Markdown articles generated
+- [ ] AST artifacts loaded/verified (_ast/)
+- [ ] Repository index created (_index/repo_index.json)
+- [ ] Concept graph created (_index/concept_graph.json)
+- [ ] Page registry created (page_registry.json)
+- [ ] Page plans created (_plans/)
+- [ ] Evidence bundles created (_evidence/)
+- [ ] Coverage map created (_coverage/coverage_map.json)
+- [ ] Final Markdown pages generated (pages/)
+- [ ] validate_page_registry passes
 - [ ] validate_frontmatter passes
-- [ ] validate_content passes
+- [ ] validate_page_quality passes
 - [ ] validate_todo passes
 - [ ] Final verification complete
 TODOMD

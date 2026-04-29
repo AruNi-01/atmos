@@ -2763,7 +2763,7 @@ set -x
         Ok(json!({ "success": true }))
     }
 
-    /// Install project-wiki and project-wiki-update skills to ~/.atmos/skills/.system/.
+    /// Install project-wiki family skills to ~/.atmos/skills/.system/.
     /// Tries to copy from project root first; falls back to git clone from GitHub for project-wiki.
     async fn handle_wiki_skill_install(&self) -> Result<Value> {
         let home = dirs::home_dir().ok_or_else(|| {
@@ -2773,7 +2773,7 @@ set -x
         let target_dir = system_dir.join("project-wiki");
 
         if target_dir.exists() {
-            // Still try to install project-wiki-update and project-wiki-specify if missing
+            // Still try to install project-wiki family side skills if missing
             let temp_to_clean =
                 Self::install_missing_wiki_skills_from_project_then_github(&system_dir).await?;
             if let Some(temp) = temp_to_clean {
@@ -2801,6 +2801,7 @@ set -x
                 .map_err(|e| ServiceError::Validation(format!("Failed to copy skill: {}", e)))?;
             Self::install_project_wiki_update_if_needed(&system_dir)?;
             Self::install_project_wiki_specify_if_needed(&system_dir)?;
+            Self::install_project_wiki_ask_if_needed(&system_dir)?;
             return Ok(json!({
                 "success": true,
                 "path": target_dir.to_string_lossy(),
@@ -2853,9 +2854,16 @@ set -x
             let _ = std::fs::create_dir_all(system_dir.as_path());
             let _ = Self::copy_dir_all(&specify_src, &specify_dst);
         }
+        let ask_src = clone_path.join("skills").join("project-wiki-ask");
+        if ask_src.exists() && ask_src.is_dir() {
+            let ask_dst = system_dir.join("project-wiki-ask");
+            let _ = std::fs::create_dir_all(system_dir.as_path());
+            let _ = Self::copy_dir_all(&ask_src, &ask_dst);
+        }
         // Also try project root in case we're in development with uncommitted skills
         Self::install_project_wiki_update_if_needed(&system_dir)?;
         Self::install_project_wiki_specify_if_needed(&system_dir)?;
+        Self::install_project_wiki_ask_if_needed(&system_dir)?;
         let _ = std::fs::remove_dir_all(&temp_dir);
 
         Ok(json!({
@@ -2865,7 +2873,7 @@ set -x
         }))
     }
 
-    /// When project-wiki exists but project-wiki-update or project-wiki-specify are missing:
+    /// When project-wiki exists but project-wiki family side skills are missing:
     /// 1) Try copy from project root; 2) If still missing, clone from GitHub and copy.
     ///
     /// Returns Some(temp_dir) if clone was performed (caller should clean up), None otherwise.
@@ -2874,6 +2882,7 @@ set -x
     ) -> Result<Option<std::path::PathBuf>> {
         Self::install_project_wiki_update_if_needed(system_dir)?;
         Self::install_project_wiki_specify_if_needed(system_dir)?;
+        Self::install_project_wiki_ask_if_needed(system_dir)?;
 
         let update_ok = system_dir
             .join("project-wiki-update")
@@ -2883,7 +2892,11 @@ set -x
             .join("project-wiki-specify")
             .join("SKILL.md")
             .exists();
-        if update_ok && specify_ok {
+        let ask_ok = system_dir
+            .join("project-wiki-ask")
+            .join("SKILL.md")
+            .exists();
+        if update_ok && specify_ok && ask_ok {
             return Ok(None);
         }
 
@@ -2933,6 +2946,16 @@ set -x
                 })?;
             }
         }
+        if !ask_ok {
+            let ask_src = clone_path.join("skills").join("project-wiki-ask");
+            if ask_src.exists() && ask_src.is_dir() {
+                let ask_dst = system_dir.join("project-wiki-ask");
+                let _ = std::fs::create_dir_all(system_dir);
+                Self::copy_dir_all(&ask_src, &ask_dst).map_err(|e| {
+                    ServiceError::Validation(format!("Failed to copy project-wiki-ask: {}", e))
+                })?;
+            }
+        }
 
         Ok(Some(temp_dir))
     }
@@ -2969,6 +2992,22 @@ set -x
         Ok(())
     }
 
+    /// Install project-wiki-ask skill from project root if it exists and target does not.
+    fn install_project_wiki_ask_if_needed(system_dir: &std::path::Path) -> Result<()> {
+        let target = system_dir.join("project-wiki-ask");
+        if target.exists() {
+            return Ok(());
+        }
+        let project_root = std::env::current_dir().unwrap_or_default();
+        let source = project_root.join("skills").join("project-wiki-ask");
+        if source.exists() && source.is_dir() {
+            Self::copy_dir_all(&source, &target).map_err(|e| {
+                ServiceError::Validation(format!("Failed to copy project-wiki-ask: {}", e))
+            })?;
+        }
+        Ok(())
+    }
+
     /// Check if project-wiki, project-wiki-update, and project-wiki-specify all exist with SKILL.md in ~/.atmos/skills/.system/
     async fn handle_wiki_skill_system_status(&self) -> Result<Value> {
         let system_dir = dirs::home_dir().map(|h| h.join(".atmos").join("skills").join(".system"));
@@ -2985,6 +3024,7 @@ set -x
                 skill_ok("project-wiki")
                     && skill_ok("project-wiki-update")
                     && skill_ok("project-wiki-specify")
+                    && skill_ok("project-wiki-ask")
             })
             .unwrap_or(false);
         Ok(json!({ "installed": installed }))

@@ -14,8 +14,8 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentHooksService, AgentService, MessagePushService, NotificationService, ProjectService,
-    TerminalService, TestService, WorkspaceService, WsMessageService,
+    AgentHooksService, AgentService, MessagePushService, NotificationService, ProjectAstService,
+    ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService,
 };
 use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
@@ -192,6 +192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create services
     let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), (*db).clone()));
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
+    let project_ast_service = Arc::new(ProjectAstService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
     let agent_service_for_startup = Arc::clone(&agent_service);
@@ -242,6 +243,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         AppServices {
             test_service,
             project_service,
+            project_ast_service,
             workspace_service,
             agent_service,
             ws_message_service: ws_message_service.clone(),

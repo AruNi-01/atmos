@@ -40,7 +40,7 @@ function buildSpecifyPrompt(topic: string, language: string, customLanguage: str
   const lang = language === "other" ? customLanguage : language;
   const langInstruction = lang ? ` Generate the article in ${lang}.` : "";
   const skillRef = `${PROJECT_WIKI_SPECIFY_SKILL_PATH}/SKILL.md`;
-  return `Read the skill instructions at ${skillRef} and follow them to add a specified wiki article. You are in the project root. The user wants to generate a wiki article on this topic: "${topic}". The wiki is at ./.atmos/wiki/. Place the new article in the Specify Wiki section.${langInstruction}`;
+  return `Read the skill instructions at ${skillRef} and follow them to add a focused topic page to the evidence-driven wiki. You are in the project root. The user wants a wiki page on this topic: "${topic}". The wiki is at ./.atmos/wiki/. Update page_registry.json, the relevant page plan, evidence bundle, and coverage map as part of the work.${langInstruction}`;
 }
 
 interface WikiSpecifyDialogProps {
@@ -227,11 +227,11 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FilePlus className="size-5 text-muted-foreground" />
-              Specify Wiki
+              Add Topic Page
             </DialogTitle>
             <DialogDescription>
-              Generate a focused wiki article on a specific topic. The article will be added to the
-              Specify Wiki section, separate from Getting Started and Deep Dive.
+              Generate a focused wiki page on a specific topic. The page will be planned,
+              evidenced, and inserted into the current wiki navigation.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">

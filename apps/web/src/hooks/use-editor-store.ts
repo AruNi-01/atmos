@@ -33,6 +33,11 @@ export interface FileTreeRevealTarget {
   requestId: number;
 }
 
+export interface FileTreeRefreshRequest {
+  workspaceId?: string;
+  requestId: number;
+}
+
 interface WorkspaceState {
   openFiles: OpenFile[];
   activeFilePath: string | null;
@@ -43,6 +48,7 @@ interface EditorStore {
   workspaceStates: Record<string, WorkspaceState>;
   navigationTargets: Record<string, Record<string, FileNavigationTarget>>;
   fileTreeRevealTarget: FileTreeRevealTarget | null;
+  fileTreeRefreshRequest: FileTreeRefreshRequest | null;
   currentWorkspaceId: string | null;
   
   // 当前项目路径 (这个可能是全局的或者也是按 workspace 的，根据之前代码暂定全局，但改为按 workspace 更合理)
@@ -70,6 +76,8 @@ interface EditorStore {
   clearNavigationTarget: (path: string, workspaceId?: string) => void;
   requestFileTreeReveal: (path: string, workspaceId?: string) => void;
   clearFileTreeRevealTarget: (requestId?: number) => void;
+  requestFileTreeRefresh: (workspaceId?: string) => void;
+  clearFileTreeRefreshRequest: (requestId?: number) => void;
   replaceOpenFilePath: (from: string, to: string, workspaceId?: string) => void;
   closeFilesByPrefix: (prefix: string, workspaceId?: string) => void;
   
@@ -197,6 +205,7 @@ export const useEditorStore = create<EditorStore>()(
       workspaceStates: {},
       navigationTargets: {},
       fileTreeRevealTarget: null,
+      fileTreeRefreshRequest: null,
       currentWorkspaceId: null,
       currentProjectPath: null,
       _hasHydrated: false,
@@ -226,6 +235,26 @@ export const useEditorStore = create<EditorStore>()(
             return state;
           }
           return { fileTreeRevealTarget: null };
+        }),
+
+      requestFileTreeRefresh: (workspaceId) =>
+        set((state) => ({
+          fileTreeRefreshRequest: {
+            workspaceId: workspaceId || state.currentWorkspaceId || undefined,
+            requestId: Date.now(),
+          },
+        })),
+
+      clearFileTreeRefreshRequest: (requestId) =>
+        set((state) => {
+          if (!state.fileTreeRefreshRequest) return state;
+          if (
+            typeof requestId === 'number' &&
+            state.fileTreeRefreshRequest.requestId !== requestId
+          ) {
+            return state;
+          }
+          return { fileTreeRefreshRequest: null };
         }),
 
       replaceOpenFilePath: (from, to, workspaceId) => {

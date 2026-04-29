@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Project Wiki Page Registry",
+  "type": "object",
+  "required": [
+    "version",
+    "generated_at",
+    "commit_hash",
+    "project",
+    "navigation",
+    "pages"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "commit_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "project": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "repository": { "type": "string" }
+      }
+    },
+    "navigation": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/navigationItem" }
+    },
+    "pages": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/page" }
+    }
+  },
+  "definitions": {
+    "navigationItem": {
+      "type": "object",
+      "required": ["id", "title", "order", "children"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "order": { "type": "integer", "minimum": 0 },
+        "page_id": { "type": "string" },
+        "kind": { "type": "string" },
+        "audience": { "type": "string" },
+        "file": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/navigationItem" }
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "file",
+        "kind",
+        "audience",
+        "sources",
+        "evidence_refs",
+        "updated_at"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "file": { "type": "string" },
+        "kind": { "type": "string" },
+        "audience": { "type": "string" },
+        "summary": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "updated_at": { "type": "string" }
+      }
+    }
+  }
+}

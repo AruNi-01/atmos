@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use core_service::project_wiki_ast_dir;
 use infra::utils::debug_logging::DebugLogger;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -27,6 +28,11 @@ pub struct KillTmuxSessionPayload {
 #[derive(Deserialize)]
 pub struct KillOrphanedProcessesPayload {
     pub pids: Vec<u32>,
+}
+
+#[derive(Deserialize)]
+pub struct BuildProjectWikiAstPayload {
+    pub project_path: String,
 }
 
 /// GET /api/system/tmux-status
@@ -169,6 +175,44 @@ pub async fn kill_project_wiki_window(
             "message": format!("{}", e)
         })))),
     }
+}
+
+/// POST /api/system/project-wiki-ast/:workspace_id
+pub async fn build_project_wiki_ast(
+    State(state): State<AppState>,
+    axum::extract::Path(workspace_id): axum::extract::Path<String>,
+    Json(payload): Json<BuildProjectWikiAstPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let result = state
+        .project_ast_service
+        .build_project_wiki_ast(workspace_id, payload.project_path)
+        .await?;
+
+    let logger = DebugLogger::new("project_wiki");
+    logger.log(
+        "project_wiki",
+        "ast_index_built",
+        Some(json!({
+            "artifactDir": &result.artifact_dir,
+            "discoveredFiles": result.discovered_files,
+            "indexedFiles": result.indexed_files,
+            "skippedFiles": result.skipped_files,
+            "symbolCount": result.symbol_count,
+            "relationCount": result.relation_count,
+            "commitHash": result.commit_hash,
+        })),
+    );
+
+    Ok(Json(ApiResponse::success(json!({
+        "success": true,
+        "discovered_files": result.discovered_files,
+        "indexed_files": result.indexed_files,
+        "skipped_files": result.skipped_files,
+        "symbol_count": result.symbol_count,
+        "relation_count": result.relation_count,
+        "ast_dir": project_wiki_ast_dir().to_string_lossy().to_string(),
+        "commit_hash": result.commit_hash,
+    }))))
 }
 
 /// GET /api/system/code-review-window/:workspace_id

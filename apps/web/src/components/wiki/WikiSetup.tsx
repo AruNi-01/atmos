@@ -24,6 +24,7 @@ import { WIKI_LANGUAGE_OPTIONS } from "./wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import { skillsApi } from "@/api/ws-api";
+import { useEditorStore } from "@/hooks/use-editor-store";
 
 const PROJECT_WIKI_SKILL_PATH = "~/.atmos/skills/.system/project-wiki";
 
@@ -34,13 +35,15 @@ function buildPrompt(language: string, customLanguage: string): string {
   const skillRef = `${PROJECT_WIKI_SKILL_PATH}/SKILL.md`;
   const initScript = `${PROJECT_WIKI_SKILL_PATH}/scripts/init_wiki_todo.sh`;
 
-  return `Read the skill instructions at ${skillRef} and follow them to generate a complete project wiki. You are in the project root. Create the wiki in ./.atmos/wiki/.${langInstruction}
+  return `Read the skill instructions at ${skillRef} and follow them to generate a complete evidence-driven project wiki. You are in the project root. Create the wiki in ./.atmos/wiki/.${langInstruction}
 
 MANDATORY (do not skip):
 1. First run: bash ${initScript} — this pre-creates .atmos/wiki/_todo.md
-2. Maintain _todo.md throughout: update checkboxes as you complete each step
-3. Before considering complete: validate_catalog, validate_frontmatter, and validate_todo must ALL pass
-4. If Python unavailable: use bash ${PROJECT_WIKI_SKILL_PATH}/scripts/validate_catalog.sh and bash ${PROJECT_WIKI_SKILL_PATH}/scripts/validate_todo.sh`;
+2. Build page_registry.json as the primary wiki contract; do not make _catalog.json the primary output
+3. Create _index/, _plans/, _evidence/, _coverage/, and pages/ as first-class outputs
+4. Maintain _todo.md throughout: update checkboxes as you complete each step
+5. Before considering complete: validate_page_registry, validate_frontmatter, validate_page_quality, and validate_todo must ALL pass
+6. If Python unavailable: use bash ${PROJECT_WIKI_SKILL_PATH}/scripts/validate_page_registry.sh and bash ${PROJECT_WIKI_SKILL_PATH}/scripts/validate_page_quality.sh`;
 }
 
 interface WikiSetupProps {
@@ -64,8 +67,10 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   onProjectWikiReplaceAndRun,
   onRetryCheck,
 }) => {
+  const requestFileTreeRefresh = useEditorStore((s) => s.requestFileTreeRefresh);
   const [agentId, setAgentId] = useState<AgentId>("claude");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isBuildingAst, setIsBuildingAst] = useState(false);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
   const [language, setLanguage] = useState("en");
@@ -159,6 +164,40 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     [terminalGridRef, onSwitchToTerminal, onSwitchToProjectWikiAndRun]
   );
 
+  const buildAstArtifacts = useCallback(async () => {
+    if (!workspaceId || !effectivePath) return;
+
+    setIsBuildingAst(true);
+    try {
+      const astResult = await systemApi.buildProjectWikiAst(workspaceId, effectivePath);
+      requestFileTreeRefresh(workspaceId);
+      if (astResult.skipped_files > 0) {
+        toastManager.add({
+          title: "AST indexing completed with warnings",
+          description: `Indexed ${astResult.indexed_files} files, skipped ${astResult.skipped_files}. ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
+          type: "warning",
+        });
+      } else {
+        toastManager.add({
+          title: "AST indexing completed",
+          description: `Indexed ${astResult.indexed_files} files, ${astResult.symbol_count} symbols, ${astResult.relation_count} relations.`,
+          type: "success",
+        });
+      }
+    } catch (err) {
+      toastManager.add({
+        title: "AST indexing skipped",
+        description:
+          err instanceof Error
+            ? `${err.message}. Wiki generation will continue in degraded mode.`
+            : "Wiki generation will continue in degraded mode.",
+        type: "warning",
+      });
+    } finally {
+      setIsBuildingAst(false);
+    }
+  }, [effectivePath, requestFileTreeRefresh, workspaceId]);
+
   const handleGenerate = useCallback(async () => {
     if (!effectivePath) {
       toastManager.add({
@@ -183,14 +222,16 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           return;
         }
       }
+
+      await buildAstArtifacts();
       doRunGenerate(command);
-    } catch (_err) {
+    } catch {
       setPendingCommand(command);
       setConflictDialogOpen(true);
     } finally {
       setIsGenerating(false);
     }
-  }, [effectivePath, workspaceId, agentId, language, customLanguage, doRunGenerate]);
+  }, [effectivePath, workspaceId, agentId, language, customLanguage, buildAstArtifacts, doRunGenerate]);
 
   const handleConfirmReplaceAndGenerate = useCallback(async () => {
     const cmd = pendingCommand;
@@ -200,6 +241,8 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
     setIsGenerating(true);
     try {
+      await buildAstArtifacts();
+
       if (onProjectWikiReplaceAndRun) {
         await onProjectWikiReplaceAndRun(cmd);
       } else {
@@ -217,7 +260,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [workspaceId, pendingCommand, doRunGenerate, onProjectWikiReplaceAndRun]);
+  }, [workspaceId, pendingCommand, buildAstArtifacts, doRunGenerate, onProjectWikiReplaceAndRun]);
 
   // 仅当明确检测到已安装时才隐藏；加载中或检测失败时都显示安装入口
   const skillMissing = systemHasSkill !== true;
@@ -319,9 +362,14 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
           <Button
             className="flex-1"
             onClick={handleGenerate}
-            disabled={isGenerating || skillMissing}
+            disabled={isGenerating || isBuildingAst || skillMissing}
           >
-            {isGenerating ? (
+            {isBuildingAst ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-2" />
+                Building AST...
+              </>
+            ) : isGenerating ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-2" />
                 Starting...

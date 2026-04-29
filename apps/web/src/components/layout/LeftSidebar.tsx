@@ -161,6 +161,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
     const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
+    const fileTreeRefreshRequest = useEditorStore(s => s.fileTreeRefreshRequest);
+    const clearFileTreeRefreshRequest = useEditorStore(s => s.clearFileTreeRefreshRequest);
     const { setCurrentContext } = useGitInfoStore();
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
@@ -262,7 +264,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         if (projects.length > 0 && expandedProjects.length === 0) {
             setExpandedProjects(projects.map(p => p.id));
         }
-    }, [projects]);
+    }, [expandedProjects.length, projects]);
 
     const [scriptDialogProjectId, setScriptDialogProjectId] = useState<string | null>(null);
     const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
@@ -419,6 +421,33 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             void setActiveTab('files');
         }
     }, [activeTab, currentEffectivePath, currentWorkspaceId, effectiveContextId, fileTreeRevealTarget, setActiveTab]);
+
+    useEffect(() => {
+        if (!fileTreeRefreshRequest || !currentProjectId || !currentEffectivePath) return;
+        if (
+            fileTreeRefreshRequest.workspaceId &&
+            fileTreeRefreshRequest.workspaceId !== effectiveContextId
+        ) {
+            return;
+        }
+
+        doFetchFileTree(
+            currentProjectId,
+            currentWorkspaceId,
+            currentEffectivePath,
+            showHiddenFiles
+        );
+        clearFileTreeRefreshRequest(fileTreeRefreshRequest.requestId);
+    }, [
+        clearFileTreeRefreshRequest,
+        currentEffectivePath,
+        currentProjectId,
+        currentWorkspaceId,
+        doFetchFileTree,
+        effectiveContextId,
+        fileTreeRefreshRequest,
+        showHiddenFiles,
+    ]);
 
     const handleTabChange = (value: string) => {
         setActiveTab(value as LeftSidebarTab);

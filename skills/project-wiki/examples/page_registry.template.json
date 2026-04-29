@@ -1,0 +1,62 @@
+{
+  "version": "3.0",
+  "generated_at": "2026-04-22T12:00:00Z",
+  "commit_hash": "abc1234",
+  "project": {
+    "name": "Example Project",
+    "description": "Evidence-driven project wiki",
+    "repository": "https://github.com/example/project"
+  },
+  "navigation": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "order": 0,
+      "page_id": "overview",
+      "children": []
+    },
+    {
+      "id": "architecture",
+      "title": "Architecture",
+      "order": 1,
+      "children": [
+        {
+          "id": "runtime-flow",
+          "title": "Runtime Flow",
+          "order": 0,
+          "page_id": "runtime-flow",
+          "children": []
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "id": "overview",
+      "title": "Project Overview",
+      "slug": "overview",
+      "file": "pages/overview.md",
+      "kind": "overview",
+      "audience": "mixed",
+      "summary": "High-level explanation of the project.",
+      "sources": ["README.md"],
+      "evidence_refs": ["_evidence/overview.json"],
+      "updated_at": "2026-04-22T12:00:00Z"
+    },
+    {
+      "id": "runtime-flow",
+      "title": "Runtime Flow",
+      "slug": "runtime-flow",
+      "file": "pages/runtime-flow.md",
+      "kind": "workflow",
+      "audience": "contributor",
+      "summary": "How control moves through the runtime path.",
+      "sources": [
+        "apps/api/src/main.rs",
+        "crates/core-service/src/service/ws_message.rs"
+      ],
+      "evidence_refs": ["_evidence/runtime-flow.json"],
+      "updated_at": "2026-04-22T12:00:00Z"
+    }
+  ]
+}

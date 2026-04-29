@@ -1,0 +1,22 @@
+{
+  "page_id": "runtime-flow",
+  "files": [
+    "apps/api/src/main.rs",
+    "crates/core-service/src/service/ws_message.rs"
+  ],
+  "symbols": [
+    "main",
+    "WsMessageService"
+  ],
+  "relations": [
+    "apps/api/src/main.rs -> crates/core-service/src/service/ws_message.rs"
+  ],
+  "commits": [
+    "abc1234 introduce runtime bootstrap split"
+  ],
+  "issues": [],
+  "prs": [],
+  "inferences": [
+    "The runtime flow boundary between API bootstrap and service dispatch is inferred from module structure and call sites."
+  ]
+}
