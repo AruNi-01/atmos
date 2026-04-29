@@ -1398,6 +1398,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     }
   }, {
     enableOnFormTags: true,
+    enableOnContentEditable: true,
     preventDefault: true,
     description: 'Create workspace',
   });
