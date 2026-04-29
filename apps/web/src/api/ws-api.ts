@@ -1529,6 +1529,12 @@ export interface FunctionSettings {
   git_commit?: {
     acp_new_session_switch?: boolean;
   };
+  workspace_settings?: {
+    close_pr_on_delete?: boolean;
+    close_issue_on_delete?: boolean;
+    delete_remote_branch?: boolean;
+    confirm_before_delete?: boolean;
+  };
   [key: string]: unknown;
 }
 

@@ -306,6 +306,7 @@ impl GitEngine {
         repo_path: &Path,
         workspace_name: &str,
         branch_name: &str,
+        delete_remote_branch: bool,
     ) -> Result<()> {
         let worktree_path = self.get_worktree_path(workspace_name)?;
 
@@ -325,9 +326,11 @@ impl GitEngine {
             tracing::info!("Deleted local branch: {}", branch_name);
         }
 
-        // Delete remote branch if exists (non-fatal)
-        if let Some(_) = try_run_git(repo_path, &["push", "origin", "--delete", branch_name])? {
-            tracing::info!("Deleted remote branch: origin/{}", branch_name);
+        // Delete remote branch if configured (non-fatal)
+        if delete_remote_branch {
+            if let Some(_) = try_run_git(repo_path, &["push", "origin", "--delete", branch_name])? {
+                tracing::info!("Deleted remote branch: origin/{}", branch_name);
+            }
         }
 
         tracing::info!("Removed worktree for workspace {}", workspace_name);

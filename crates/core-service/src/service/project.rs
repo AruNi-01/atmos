@@ -16,6 +16,22 @@ pub struct ProjectCanDeleteResponse {
     pub active_workspace_count: u64,
 }
 
+/// Cleanup info for a single workspace within a project.
+pub struct WorkspaceCleanupInfo {
+    pub guid: String,
+    pub name: String,
+    pub branch: String,
+    pub github_pr_data: Option<String>,
+    pub github_issue_data: Option<String>,
+}
+
+/// All data needed to clean up a project's worktrees in the background.
+pub struct ProjectCleanupInfo {
+    pub project_id: String,
+    pub repo_path: String,
+    pub workspaces: Vec<WorkspaceCleanupInfo>,
+}
+
 impl ProjectService {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
         Self {
@@ -52,32 +68,25 @@ impl ProjectService {
             .await?)
     }
 
+    /// Soft-delete project and all its workspaces (DB only, no git cleanup).
+    /// Returns an error if the project has active workspaces.
     pub async fn delete_project(&self, guid: String) -> Result<()> {
         let project_repo = ProjectRepo::new(&self.db);
         let workspace_repo = WorkspaceRepo::new(&self.db);
 
-        let project = project_repo
+        // Validate: no active workspaces
+        let active_count = workspace_repo.count_active_by_project(&guid).await?;
+        if active_count > 0 {
+            return Err(ServiceError::Processing(format!(
+                "Cannot delete project with {} active workspace(s)",
+                active_count
+            )));
+        }
+
+        let _project = project_repo
             .find_by_guid(&guid)
             .await?
             .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", guid)))?;
-
-        // Get all workspaces to clean up their worktrees
-        let workspaces = workspace_repo.list_all_by_project(&guid).await?;
-
-        // Clean up git worktrees for all workspaces
-        let repo_path = std::path::Path::new(&project.main_file_path);
-        for workspace in workspaces {
-            if let Err(e) =
-                self.git_engine
-                    .remove_worktree(repo_path, &workspace.name, &workspace.branch)
-            {
-                tracing::warn!(
-                    "Failed to remove worktree for workspace {}: {}",
-                    workspace.name,
-                    e
-                );
-            }
-        }
 
         // Batch soft delete all workspaces for this project
         workspace_repo.soft_delete_by_project(&guid).await?;
@@ -85,6 +94,41 @@ impl ProjectService {
         // Soft delete the project
         project_repo.soft_delete(&guid).await?;
         Ok(())
+    }
+
+    /// Gather cleanup info for all workspaces in a project (for background cleanup).
+    /// Must be called BEFORE `delete_project` since it reads workspace data.
+    pub async fn get_project_cleanup_info(
+        &self,
+        guid: &str,
+    ) -> Result<ProjectCleanupInfo> {
+        let project_repo = ProjectRepo::new(&self.db);
+        let workspace_repo = WorkspaceRepo::new(&self.db);
+
+        let project = project_repo
+            .find_by_guid(guid)
+            .await?
+            .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", guid)))?;
+
+        let workspaces = workspace_repo.list_all_by_project(guid).await?;
+        let repo_path = project.main_file_path.clone();
+
+        let workspace_cleanups: Vec<WorkspaceCleanupInfo> = workspaces
+            .into_iter()
+            .map(|w| WorkspaceCleanupInfo {
+                guid: w.guid,
+                name: w.name,
+                branch: w.branch,
+                github_pr_data: w.github_pr_data,
+                github_issue_data: w.github_issue_data,
+            })
+            .collect();
+
+        Ok(ProjectCleanupInfo {
+            project_id: guid.to_string(),
+            repo_path,
+            workspaces: workspace_cleanups,
+        })
     }
 
     pub async fn check_can_delete_from_archive_modal(

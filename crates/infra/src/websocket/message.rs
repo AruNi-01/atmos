@@ -434,6 +434,8 @@ pub enum WsEvent {
     LlmProviderTestChunk,
     /// 工作区删除进度
     WorkspaceDeleteProgress,
+    /// 项目删除进度
+    ProjectDeleteProgress,
     /// Agent hook 状态变更
     AgentHookStateChanged,
     /// Idle agent hook sessions were cleared; payload contains removed session IDs
@@ -485,6 +487,16 @@ pub struct WorkspaceSetupProgressNotification {
 pub struct WorkspaceDeleteProgressNotification {
     pub workspace_id: String,
     /// 当前步骤: "removing_worktree", "removing_branch", "removing_remote_branch", "completed", "error"
+    pub step: String,
+    pub message: String,
+    pub success: bool,
+}
+
+/// 项目删除进度通知数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectDeleteProgressNotification {
+    pub project_id: String,
+    /// 当前步骤: "cleaning_workspaces", "removing_worktree", "completed", "error"
     pub step: String,
     pub message: String,
     pub success: bool,

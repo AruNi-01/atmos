@@ -1095,6 +1095,21 @@ impl WorkspaceService {
         Ok(workspace_repo.soft_delete(guid).await?)
     }
 
+    /// 获取工作区的 GitHub PR/Issue 数据用于删除时清理
+    pub async fn get_workspace_for_github_cleanup(
+        &self,
+        guid: &str,
+    ) -> Result<Option<(Option<String>, Option<String>)>> {
+        let workspace_repo = WorkspaceRepo::new(&self.db);
+        if let Some(workspace) = workspace_repo.find_by_guid(guid).await? {
+            return Ok(Some((
+                workspace.github_pr_data,
+                workspace.github_issue_data,
+            )));
+        }
+        Ok(None)
+    }
+
     /// 获取工作区的 worktree 清理所需信息
     pub async fn get_workspace_cleanup_info(
         &self,
@@ -1147,7 +1162,7 @@ impl WorkspaceService {
             tokio::task::spawn_blocking(move || {
                 let repo_path = Path::new(&repo_path_str);
                 if let Err(e) =
-                    GitEngine::new().remove_worktree(repo_path, &workspace_name, &branch)
+                    GitEngine::new().remove_worktree(repo_path, &workspace_name, &branch, false)
                 {
                     tracing::warn!(
                         "Failed to remove worktree for workspace {}: {}",
@@ -1234,7 +1249,7 @@ impl WorkspaceService {
         let repo_path = Path::new(project_main_path);
         if let Err(e) = self
             .git_engine
-            .remove_worktree(repo_path, workspace_name, branch_name)
+            .remove_worktree(repo_path, workspace_name, branch_name, false)
         {
             tracing::warn!(
                 "Failed to remove worktree for workspace {}: {}",

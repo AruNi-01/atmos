@@ -46,12 +46,14 @@ import {
   ExternalLink,
   Languages,
   LoaderCircle,
+  Package,
   RotateCw,
   Plus,
   Route,
   Save,
   SlidersHorizontal,
   Trash2,
+  UserCog,
   Webhook,
 } from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
@@ -60,6 +62,7 @@ import { BotIcon } from '@workspace/ui/components/icons/bot-icon';
 import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon';
 import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
 import WorldIcon from '@workspace/ui/components/icons/world-icon';
+import { FolderKanbanIcon } from '@workspace/ui/components/icons/folder-kanban-icon';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
@@ -71,6 +74,7 @@ import {
   type UpdateStatus,
 } from '@/hooks/use-updater';
 import { useTerminalLinkSettings, type TerminalFileLinkOpenMode } from '@/hooks/use-terminal-link-settings';
+import { useWorkspaceSettings } from '@/hooks/use-workspace-settings';
 import { QUICK_OPEN_APP_MAP, QUICK_OPEN_APP_OPTIONS, QuickOpenAppIcon } from '@/components/layout/quick-open-apps';
 import {
   agentBehaviourSettingsApi,
@@ -100,9 +104,9 @@ interface SettingsModalProps {
 
 const SETTINGS_SECTIONS = [
   {
-    id: 'about',
-    label: 'About',
-    description: 'Product overview and desktop updates',
+    id: 'code-agent',
+    label: 'Code Agent',
+    description: 'Agent startup commands and custom parameters',
   },
   {
     id: 'terminal',
@@ -110,9 +114,9 @@ const SETTINGS_SECTIONS = [
     description: 'Terminal preferences and link behavior',
   },
   {
-    id: 'code-agent',
-    label: 'Code Agent',
-    description: 'Agent startup commands and custom parameters',
+    id: 'workspace',
+    label: 'Workspace',
+    description: 'Deletion behavior and cleanup options',
   },
   {
     id: 'ai',
@@ -128,6 +132,11 @@ const SETTINGS_SECTIONS = [
     id: 'remote-access',
     label: 'Remote Access',
     description: 'Tunnel gateway and remote browser access',
+  },
+  {
+    id: 'about',
+    label: 'About',
+    description: 'Product overview and desktop updates',
   },
 ] as const;
 
@@ -384,6 +393,108 @@ const TEST_NOTIFICATION_PAYLOAD = {
   title: 'Atmos Test Notification',
   body: 'This is a test notification from Atmos.',
 };
+
+function WorkspaceSettingsSection() {
+  const {
+    closePrOnDelete,
+    closeIssueOnDelete,
+    deleteRemoteBranch,
+    confirmBeforeDelete,
+    setClosePrOnDelete,
+    setCloseIssueOnDelete,
+    setDeleteRemoteBranch,
+    setConfirmBeforeDelete,
+    loadSettings,
+  } = useWorkspaceSettings();
+
+  const [expanded, setExpanded] = React.useState(true);
+
+  React.useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  return (
+    <Collapsible
+      open={expanded}
+      onOpenChange={setExpanded}
+      className="overflow-hidden rounded-2xl border border-border"
+    >
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+          <div className="flex items-start gap-3">
+            <span className="relative mt-0.5 size-5 shrink-0">
+              <Trash2 className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">Deletion Behavior</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Configure what happens when a workspace is deleted. Project deletion follows the same settings.
+              </p>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+      </div>
+
+      <CollapsibleContent>
+        <div className="border-t border-border px-4">
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Close associated PR</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Automatically close the linked GitHub pull request when deleting a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={closePrOnDelete} onCheckedChange={setClosePrOnDelete} />
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Close associated Issue</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Automatically close the linked GitHub issue when deleting a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={closeIssueOnDelete} onCheckedChange={setCloseIssueOnDelete} />
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Delete remote branch</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Also delete the remote branch on GitHub when deleting a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={deleteRemoteBranch} onCheckedChange={setDeleteRemoteBranch} />
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Confirm before delete</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Show a confirmation dialog before deleting a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={confirmBeforeDelete} onCheckedChange={setConfirmBeforeDelete} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 function NotifySettingsSection({
   settings,
@@ -671,7 +782,7 @@ function NotifySettingsSection({
           <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
             <div className="flex items-start gap-3">
               <span className="relative mt-0.5 size-5 shrink-0">
-                <Webhook className="absolute inset-0 size-5 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                <Webhook className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
                 <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
               </span>
               <div className="min-w-0">
@@ -1575,7 +1686,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
+      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()} className="h-[min(90vh,820px)] w-[min(96vw,1360px)] max-w-[min(96vw,1360px)] overflow-hidden border-border bg-background p-0 sm:!max-w-[min(96vw,1360px)]">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage ATMOS settings, product information, and desktop updates.
@@ -1615,11 +1726,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onMouseLeave={() => iconRef.current?.stopAnimation?.()}
                           >
                             {section.id === 'code-agent' && <BotIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'workspace' && <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'notify' && <BellIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'about' && <InfoCircleIcon ref={iconRef} className="size-4 shrink-0" />}
-                            {section.id === 'terminal' && <TerminalIcon ref={iconRef} className="size-4 shrink-0" />}
-                            {section.id === 'ai' && <BrainCircuitIcon ref={iconRef} className="size-4 shrink-0" />}
-                            {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="size-4 shrink-0" />}
+                            {section.id === 'about' && <InfoCircleIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'terminal' && <TerminalIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'ai' && <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="shrink-0" size={16} />}
                             <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
                           </MotionSidebarMenuButton>
                         </MotionSidebarMenuItem>
@@ -1783,7 +1895,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
                           <div className="flex items-start gap-3">
                             <span className="relative mt-0.5 size-5 shrink-0">
-                              <Bot className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                              <Package className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
                               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
                             </span>
                             <div className="min-w-0">
@@ -1902,7 +2014,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
                           <div className="flex items-start gap-3">
                             <span className="relative mt-0.5 size-5 shrink-0">
-                              <Bot className="absolute inset-0 size-5 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                              <UserCog className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
                               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
                             </span>
                             <div className="min-w-0">
@@ -1950,7 +2062,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   <div className="flex items-center gap-3">
                                     <CollapsibleTrigger className="group flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left">
                                       <span className="relative size-5 shrink-0">
-                                        <Bot className="absolute inset-0 size-5 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
+                                        <Bot className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
                                         <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
                                       </span>
                                       <div className="min-w-0 flex-1">
@@ -2085,6 +2197,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                   </div>
+                ) : resolvedActiveSection === 'workspace' ? (
+                  <WorkspaceSettingsSection />
                 ) : resolvedActiveSection === 'ai' ? (
                   <div className="space-y-4">
                     <Collapsible
@@ -2093,10 +2207,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="overflow-hidden rounded-2xl border border-border"
                     >
                       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-                        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-2 pt-0.5 text-left">
-                          <span className="relative mt-1 size-4 shrink-0">
-                            <Building2 className="absolute inset-0 size-4 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
-                            <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-3 pt-0.5 text-left">
+                          <span className="relative mt-0.5 size-5 shrink-0">
+                            <Building2 className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                            <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
                           </span>
                           <div className="min-w-0">
                             <p className="text-base font-medium text-foreground">Providers</p>
@@ -2246,10 +2360,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className="overflow-hidden rounded-2xl border border-border"
                     >
                       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
-                        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-2 pt-0.5 text-left">
-                          <span className="relative mt-1 size-4 shrink-0">
-                            <Route className="absolute inset-0 size-4 text-muted-foreground transition-opacity duration-150 group-hover:opacity-0" />
-                            <ChevronDown className="absolute inset-0 size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-3 pt-0.5 text-left">
+                          <span className="relative mt-0.5 size-5 shrink-0">
+                            <Route className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                            <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
                           </span>
                           <div className="min-w-0">
                             <p className="text-base font-medium text-foreground">Routing</p>

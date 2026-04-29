@@ -47,6 +47,7 @@ pub use message::{
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceAttachmentPayload,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
+    ProjectDeleteProgressNotification,
     WorkspaceDeleteRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
     WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
     WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,

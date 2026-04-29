@@ -41,6 +41,7 @@ import {
   WorkspaceStatusSelect,
 } from "./workspace-metadata-controls";
 import type { WorkspaceWorkflowStatus } from "@/types/types";
+import { useWorkspaceSettings } from "@/hooks/use-workspace-settings";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -130,6 +131,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const router = useAppRouter();
   const { workspaceId } = useContextParams();
   const isActive = workspaceId === workspace.id;
+  const { confirmBeforeDelete } = useWorkspaceSettings();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showGitWarningDialog, setShowGitWarningDialog] = useState(false);
   const [gitWarningMessage, setGitWarningMessage] = useState('');
@@ -275,7 +277,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       if (operation === 'archive') {
         performArchive();
       } else {
-        setShowDeleteDialog(true);
+        requestDelete();
       }
       return;
     }
@@ -299,7 +301,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
         if (operation === 'archive') {
           performArchive();
         } else {
-          setShowDeleteDialog(true);
+          requestDelete();
         }
       }
     } catch (error) {
@@ -307,7 +309,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
       if (operation === 'archive') {
         performArchive();
       } else {
-        setShowDeleteDialog(true);
+        requestDelete();
       }
     } finally {
       setIsCheckingGit(false);
@@ -329,7 +331,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     if (pendingOperation === 'archive') {
       performArchive();
     } else if (pendingOperation === 'delete') {
-      setShowDeleteDialog(true);
+      requestDelete();
     }
     setPendingOperation(null);
   };
@@ -340,6 +342,14 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     }
     onDelete?.(workspace.id);
     setShowDeleteDialog(false);
+  };
+
+  const requestDelete = () => {
+    if (confirmBeforeDelete) {
+      setShowDeleteDialog(true);
+    } else {
+      confirmDelete();
+    }
   };
 
   const shortName = getWorkspaceShortName(workspace.name);

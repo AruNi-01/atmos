@@ -87,11 +87,11 @@ export const tokenUsageParams = {
   tokenUsage: parseAsBoolean.withDefault(false),
 };
 
-export type SettingsModalTab = "about" | "terminal" | "code-agent" | "ai" | "notify" | "remote-access";
+export type SettingsModalTab = "about" | "terminal" | "code-agent" | "workspace" | "ai" | "notify" | "remote-access";
 
 export const settingsModalParams = {
   settingsModal: parseAsBoolean.withDefault(false),
-  activeSettingTab: parseAsStringEnum<SettingsModalTab>(["about", "terminal", "code-agent", "ai", "notify", "remote-access"]).withDefault("about"),
+  activeSettingTab: parseAsStringEnum<SettingsModalTab>(["about", "terminal", "code-agent", "workspace", "ai", "notify", "remote-access"]).withDefault("about"),
 };
 
 // ---------------------------------------------------------------------------
