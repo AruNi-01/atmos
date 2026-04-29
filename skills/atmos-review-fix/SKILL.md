@@ -16,7 +16,7 @@ Given a review run:
 1. inspect the selected review threads and their snapshot context
 2. modify the working tree to address the comments
 3. reply to each handled thread
-4. move handled threads to `needs_user_check`
+4. move handled threads to `agent_fixed`
 5. write one run summary
 6. finalize the run so Atmos creates the next review revision and `fix.patch`
 
@@ -28,7 +28,7 @@ Do not mark threads `resolved` automatically.
 - `atmos review thread-list --session <session_guid>`
 - `atmos review thread-context --thread <thread_guid>`
 - `atmos review reply-thread --thread <thread_guid> --body-file <path>`
-- `atmos review update-thread-status --thread <thread_guid> --status needs_user_check`
+- `atmos review update-thread-status --thread <thread_guid> --status agent_fixed`
 - `atmos review summarize-run --run <run_guid> --body-file <path>`
 - `atmos review finalize-run --run <run_guid>`
 
@@ -92,7 +92,7 @@ The reply should state one of:
 Then move the thread to:
 
 ```bash
-atmos review update-thread-status --thread <thread_guid> --status needs_user_check
+atmos review update-thread-status --thread <thread_guid> --status agent_fixed
 ```
 
 If the thread was not addressed at all, leave status unchanged.

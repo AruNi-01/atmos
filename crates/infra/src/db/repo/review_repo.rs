@@ -14,12 +14,8 @@ pub struct ReviewRepo<'a> {
     db: &'a DatabaseConnection,
 }
 
-impl<'a>
-    BaseRepo<
-        review_session::Entity,
-        review_session::Model,
-        review_session::ActiveModel,
-    > for ReviewRepo<'a>
+impl<'a> BaseRepo<review_session::Entity, review_session::Model, review_session::ActiveModel>
+    for ReviewRepo<'a>
 {
     fn db(&self) -> &DatabaseConnection {
         self.db
@@ -72,10 +68,7 @@ impl<'a> ReviewRepo<'a> {
         Ok(model.insert(self.db).await?)
     }
 
-    pub async fn find_session_by_guid(
-        &self,
-        guid: &str,
-    ) -> Result<Option<review_session::Model>> {
+    pub async fn find_session_by_guid(&self, guid: &str) -> Result<Option<review_session::Model>> {
         Ok(review_session::Entity::find_by_id(guid.to_string())
             .filter(review_session::Column::IsDeleted.eq(false))
             .one(self.db)
@@ -132,14 +125,13 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
-    pub async fn update_session_status(
-        &self,
-        guid: &str,
-        status: &str,
-    ) -> Result<()> {
+    pub async fn update_session_status(&self, guid: &str, status: &str) -> Result<()> {
         let now = Utc::now().naive_utc();
         let mut update = review_session::Entity::update_many()
-            .col_expr(review_session::Column::Status, Expr::value(status.to_string()))
+            .col_expr(
+                review_session::Column::Status,
+                Expr::value(status.to_string()),
+            )
             .col_expr(review_session::Column::UpdatedAt, Expr::value(now));
         if status == "closed" {
             update = update.col_expr(review_session::Column::ClosedAt, Expr::value(Some(now)));
@@ -161,7 +153,10 @@ impl<'a> ReviewRepo<'a> {
     pub async fn update_session_title(&self, guid: &str, title: &str) -> Result<()> {
         let now = Utc::now().naive_utc();
         let result = review_session::Entity::update_many()
-            .col_expr(review_session::Column::Title, Expr::value(title.to_string()))
+            .col_expr(
+                review_session::Column::Title,
+                Expr::value(title.to_string()),
+            )
             .col_expr(review_session::Column::UpdatedAt, Expr::value(now))
             .filter(review_session::Column::Guid.eq(guid))
             .filter(review_session::Column::IsDeleted.eq(false))
@@ -235,9 +230,7 @@ impl<'a> ReviewRepo<'a> {
     ) -> Result<review_file_identity::Model> {
         if let Some(model) = review_file_identity::Entity::find()
             .filter(review_file_identity::Column::SessionGuid.eq(session_guid.clone()))
-            .filter(
-                review_file_identity::Column::CanonicalFilePath.eq(canonical_file_path.clone()),
-            )
+            .filter(review_file_identity::Column::CanonicalFilePath.eq(canonical_file_path.clone()))
             .filter(review_file_identity::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?
@@ -369,7 +362,10 @@ impl<'a> ReviewRepo<'a> {
         let reviewed_by_value = if reviewed { reviewed_by } else { None };
         let result = review_file_state::Entity::update_many()
             .col_expr(review_file_state::Column::Reviewed, Expr::value(reviewed))
-            .col_expr(review_file_state::Column::ReviewedAt, Expr::value(reviewed_at))
+            .col_expr(
+                review_file_state::Column::ReviewedAt,
+                Expr::value(reviewed_at),
+            )
             .col_expr(
                 review_file_state::Column::ReviewedBy,
                 Expr::value(reviewed_by_value),
@@ -457,15 +453,18 @@ impl<'a> ReviewRepo<'a> {
             .await?)
     }
 
-    pub async fn update_thread_status(
-        &self,
-        guid: &str,
-        status: &str,
-    ) -> Result<()> {
+    pub async fn update_thread_status(&self, guid: &str, status: &str) -> Result<()> {
         let now = Utc::now().naive_utc();
-        let resolved_at = if status == "resolved" { Some(now) } else { None };
+        let resolved_at = if status == "resolved" {
+            Some(now)
+        } else {
+            None
+        };
         let result = review_thread::Entity::update_many()
-            .col_expr(review_thread::Column::Status, Expr::value(status.to_string()))
+            .col_expr(
+                review_thread::Column::Status,
+                Expr::value(status.to_string()),
+            )
             .col_expr(review_thread::Column::UpdatedAt, Expr::value(now))
             .col_expr(review_thread::Column::ResolvedAt, Expr::value(resolved_at))
             .filter(review_thread::Column::Guid.eq(guid))
@@ -478,10 +477,7 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
-    pub async fn find_thread_by_guid(
-        &self,
-        guid: &str,
-    ) -> Result<Option<review_thread::Model>> {
+    pub async fn find_thread_by_guid(&self, guid: &str) -> Result<Option<review_thread::Model>> {
         Ok(review_thread::Entity::find_by_id(guid.to_string())
             .filter(review_thread::Column::IsDeleted.eq(false))
             .one(self.db)
@@ -544,7 +540,10 @@ impl<'a> ReviewRepo<'a> {
         for (from_guid, to_guid) in from_thread_guids.iter().zip(to_thread_guids.iter()) {
             let now = chrono::Utc::now().naive_utc();
             review_message::Entity::update_many()
-                .col_expr(review_message::Column::ThreadGuid, Expr::value(to_guid.clone()))
+                .col_expr(
+                    review_message::Column::ThreadGuid,
+                    Expr::value(to_guid.clone()),
+                )
                 .col_expr(review_message::Column::UpdatedAt, Expr::value(now))
                 .filter(review_message::Column::ThreadGuid.eq(from_guid.clone()))
                 .filter(review_message::Column::FixRunGuid.eq(fix_run_guid.to_string()))
@@ -610,10 +609,7 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
-    pub async fn find_fix_run_by_guid(
-        &self,
-        guid: &str,
-    ) -> Result<Option<review_fix_run::Model>> {
+    pub async fn find_fix_run_by_guid(&self, guid: &str) -> Result<Option<review_fix_run::Model>> {
         Ok(review_fix_run::Entity::find_by_id(guid.to_string())
             .filter(review_fix_run::Column::IsDeleted.eq(false))
             .one(self.db)
@@ -648,7 +644,10 @@ impl<'a> ReviewRepo<'a> {
     ) -> Result<()> {
         let now = Utc::now().naive_utc();
         let mut update = review_fix_run::Entity::update_many()
-            .col_expr(review_fix_run::Column::Status, Expr::value(status.to_string()))
+            .col_expr(
+                review_fix_run::Column::Status,
+                Expr::value(status.to_string()),
+            )
             .col_expr(review_fix_run::Column::UpdatedAt, Expr::value(now));
 
         if let Some(value) = result_revision_guid {
@@ -676,16 +675,10 @@ impl<'a> ReviewRepo<'a> {
             );
         }
         if let Some(value) = started_at {
-            update = update.col_expr(
-                review_fix_run::Column::StartedAt,
-                Expr::value(Some(value)),
-            );
+            update = update.col_expr(review_fix_run::Column::StartedAt, Expr::value(Some(value)));
         }
         if let Some(value) = finished_at {
-            update = update.col_expr(
-                review_fix_run::Column::FinishedAt,
-                Expr::value(Some(value)),
-            );
+            update = update.col_expr(review_fix_run::Column::FinishedAt, Expr::value(Some(value)));
         }
         if let Some(value) = failure_reason {
             update = update.col_expr(
@@ -711,6 +704,20 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
+    pub async fn claim_fix_run_finalizing(&self, guid: &str) -> Result<bool> {
+        let now = Utc::now().naive_utc();
+        let result = review_fix_run::Entity::update_many()
+            .col_expr(review_fix_run::Column::Status, Expr::value("finalizing"))
+            .col_expr(review_fix_run::Column::UpdatedAt, Expr::value(now))
+            .filter(review_fix_run::Column::Guid.eq(guid))
+            .filter(review_fix_run::Column::ResultRevisionGuid.is_null())
+            .filter(review_fix_run::Column::Status.ne("finalizing"))
+            .filter(review_fix_run::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
     /// Persist the summary artifact path (and optionally the run's finish
     /// timestamp / start timestamp) without touching the lifecycle status.
     /// Intended for "summary written, not yet finalized" transitions — the
@@ -731,16 +738,10 @@ impl<'a> ReviewRepo<'a> {
                 Expr::value(Some(summary_rel_path)),
             );
         if let Some(value) = started_at {
-            update = update.col_expr(
-                review_fix_run::Column::StartedAt,
-                Expr::value(Some(value)),
-            );
+            update = update.col_expr(review_fix_run::Column::StartedAt, Expr::value(Some(value)));
         }
         if let Some(value) = finished_at {
-            update = update.col_expr(
-                review_fix_run::Column::FinishedAt,
-                Expr::value(Some(value)),
-            );
+            update = update.col_expr(review_fix_run::Column::FinishedAt, Expr::value(Some(value)));
         }
 
         let result = update

@@ -85,7 +85,10 @@ detect_target() {
     Darwin:arm64|Darwin:aarch64) echo "aarch64-apple-darwin" ;;
     Darwin:x86_64) echo "x86_64-apple-darwin" ;;
     Linux:x86_64) echo "x86_64-unknown-linux-gnu" ;;
-    Linux:arm64|Linux:aarch64) echo "aarch64-unknown-linux-gnu" ;;
+    Linux:arm64|Linux:aarch64)
+      echo "Unsupported platform: Linux ${arch} (no local runtime release asset is published yet)" >&2
+      exit 1
+      ;;
     *)
       echo "Unsupported platform: ${os} ${arch}" >&2
       exit 1

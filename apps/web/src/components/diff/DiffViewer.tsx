@@ -65,10 +65,14 @@ export const DiffViewer = ({
   originalPath,
 }: DiffViewerProps) => {
   const { workspaceId } = useContextParams();
-  const reviewCtx = useReviewContext({ workspaceId, filePath });
   const snapshotGuidFromPath = originalPath?.startsWith('review-diff://')
-    ? originalPath.slice('review-diff://'.length).split('/')[0] ?? null
+    ? originalPath.slice('review-diff://'.length).split('/')[0] || null
     : null;
+  const reviewCtx = useReviewContext({
+    workspaceId,
+    filePath,
+    fileSnapshotGuid: snapshotGuidFromPath,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
@@ -396,15 +400,19 @@ export const DiffViewer = ({
     kind: 'thread';
     thread: ReviewThreadDto;
   }>[]>(() => {
-    return reviewContext.threads.map((thread) => ({
-      side: thread.anchor_side === 'old' ? 'deletions' : 'additions',
-      lineNumber: thread.anchor_start_line,
-      metadata: {
-        kind: 'thread',
-        thread,
-      },
-    }));
-  }, [reviewContext.threads]);
+    if (!snapshotGuidFromPath || !reviewContext.file) return [];
+    const fileSnapshotGuid = reviewContext.file.snapshot.guid;
+    return reviewContext.threads
+      .filter((thread) => thread.file_snapshot_guid === fileSnapshotGuid)
+      .map((thread) => ({
+        side: thread.anchor_side === 'old' ? 'deletions' : 'additions',
+        lineNumber: thread.anchor_start_line,
+        metadata: {
+          kind: 'thread',
+          thread,
+        },
+      }));
+  }, [reviewContext.file, reviewContext.threads, snapshotGuidFromPath]);
 
   const inlineComposerAnnotation = useMemo<DiffLineAnnotation<{
     kind: 'composer';

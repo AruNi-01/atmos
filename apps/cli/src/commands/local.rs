@@ -7,7 +7,7 @@ use chrono::Utc;
 use clap::{Args, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sysinfo::{Pid, Signal, System};
+use sysinfo::{Pid, Process, Signal, System};
 
 const DEFAULT_LOCAL_HOST: &str = "127.0.0.1";
 const DEFAULT_LOCAL_PORT: u16 = 30303;
@@ -89,11 +89,28 @@ struct LocalRuntimeStatus {
     started_at: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct RuntimeProcessStatus {
+    pid: u32,
+    healthy: bool,
+}
+
 async fn start_local_runtime(args: StartArgs) -> Result<Value, String> {
     let layout = resolve_runtime_layout()?;
     ensure_runtime_installed(&layout)?;
 
     let existing_status = collect_status(Some(&layout)).await?;
+    if existing_status.running && !existing_status.healthy && !args.force_restart {
+        return Err(format!(
+            "Local runtime process {} is running but failed health checks at {}. Use --force-restart to replace it.",
+            existing_status
+                .pid
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "unknown".to_string()),
+            existing_status.url
+        ));
+    }
+
     if existing_status.running && !args.force_restart {
         return Ok(json!({
             "ok": true,
@@ -193,7 +210,7 @@ fn spawn_detached_api(
 
     #[cfg(not(unix))]
     {
-        let stdout_log = OpenOptions::new()
+        let stdout_log = fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(log_path)
@@ -251,18 +268,12 @@ async fn stop_runtime_process(force: bool) -> Result<bool, String> {
         return Ok(false);
     };
 
-    let pid = if is_pid_running(state.pid) {
-        state.pid
-    } else if let Some(resolved) =
-        resolve_api_process_id(Path::new(&state.api_bin_path), state.port)
-    {
-        resolved
-    } else {
+    let Some(runtime_process) = resolve_runtime_process(&state).await else {
         remove_state_file()?;
         return Ok(false);
     };
 
-    let pid = Pid::from_u32(pid);
+    let pid = Pid::from_u32(runtime_process.pid);
     let mut system = System::new_all();
     system.refresh_processes();
 
@@ -280,7 +291,7 @@ async fn stop_runtime_process(force: bool) -> Result<bool, String> {
     };
 
     if !terminated {
-        return Err(format!("Failed to stop process {}", state.pid));
+        return Err(format!("Failed to stop process {}", runtime_process.pid));
     }
 
     for _ in 0..50 {
@@ -293,10 +304,15 @@ async fn stop_runtime_process(force: bool) -> Result<bool, String> {
         }
     }
 
-    Err(format!("Process {} did not exit in time", state.pid))
+    Err(format!(
+        "Process {} did not exit in time",
+        runtime_process.pid
+    ))
 }
 
-async fn collect_status(layout_override: Option<&RuntimeLayout>) -> Result<LocalRuntimeStatus, String> {
+async fn collect_status(
+    layout_override: Option<&RuntimeLayout>,
+) -> Result<LocalRuntimeStatus, String> {
     let layout = match layout_override {
         Some(layout) => Some(layout.clone()),
         None => resolve_runtime_layout().ok(),
@@ -310,7 +326,7 @@ async fn collect_status(layout_override: Option<&RuntimeLayout>) -> Result<Local
         })
         .unwrap_or(false);
 
-    let state = read_state_file()?;
+    let mut state = read_state_file()?;
     let default_host = state
         .as_ref()
         .map(|value| value.host.clone())
@@ -325,16 +341,19 @@ async fn collect_status(layout_override: Option<&RuntimeLayout>) -> Result<Local
     let mut pid = state.as_ref().map(|value| value.pid);
 
     if let Some(saved) = state.as_ref() {
-        if let Some(actual_pid) = if is_pid_running(saved.pid) {
-            Some(saved.pid)
-        } else {
-            resolve_api_process_id(Path::new(&saved.api_bin_path), saved.port)
-        } {
+        if let Some(runtime_process) = resolve_runtime_process(saved).await {
             running = true;
-            pid = Some(actual_pid);
-            healthy = is_runtime_healthy(&saved.host, saved.port).await;
+            pid = Some(runtime_process.pid);
+            healthy = runtime_process.healthy;
+            if runtime_process.pid != saved.pid {
+                let mut updated = saved.clone();
+                updated.pid = runtime_process.pid;
+                write_state_file(&updated)?;
+                state = Some(updated);
+            }
         } else {
             remove_state_file()?;
+            state = None;
             pid = None;
         }
     }
@@ -342,19 +361,35 @@ async fn collect_status(layout_override: Option<&RuntimeLayout>) -> Result<Local
     let runtime_dir = state
         .as_ref()
         .map(|value| value.runtime_dir.clone())
-        .or_else(|| layout.as_ref().map(|resolved| resolved.runtime_dir.display().to_string()));
+        .or_else(|| {
+            layout
+                .as_ref()
+                .map(|resolved| resolved.runtime_dir.display().to_string())
+        });
     let api_bin_path = state
         .as_ref()
         .map(|value| value.api_bin_path.clone())
-        .or_else(|| layout.as_ref().map(|resolved| resolved.api_bin_path.display().to_string()));
+        .or_else(|| {
+            layout
+                .as_ref()
+                .map(|resolved| resolved.api_bin_path.display().to_string())
+        });
     let cli_bin_path = state
         .as_ref()
         .map(|value| value.cli_bin_path.clone())
-        .or_else(|| layout.as_ref().map(|resolved| resolved.cli_bin_path.display().to_string()));
+        .or_else(|| {
+            layout
+                .as_ref()
+                .map(|resolved| resolved.cli_bin_path.display().to_string())
+        });
     let web_dir = state
         .as_ref()
         .map(|value| value.web_dir.clone())
-        .or_else(|| layout.as_ref().map(|resolved| resolved.web_dir.display().to_string()));
+        .or_else(|| {
+            layout
+                .as_ref()
+                .map(|resolved| resolved.web_dir.display().to_string())
+        });
     let log_path = state
         .as_ref()
         .map(|value| value.log_path.clone())
@@ -382,7 +417,11 @@ async fn collect_status(layout_override: Option<&RuntimeLayout>) -> Result<Local
     })
 }
 
-fn state_to_status(state: &LocalRuntimeState, installed: bool, healthy: bool) -> LocalRuntimeStatus {
+fn state_to_status(
+    state: &LocalRuntimeState,
+    installed: bool,
+    healthy: bool,
+) -> LocalRuntimeStatus {
     LocalRuntimeStatus {
         installed,
         running: true,
@@ -441,6 +480,18 @@ async fn is_runtime_healthy(host: &str, port: u16) -> bool {
         .unwrap_or(false)
 }
 
+async fn resolve_runtime_process(state: &LocalRuntimeState) -> Option<RuntimeProcessStatus> {
+    let pid = resolve_api_process_id_with_hint(
+        Path::new(&state.api_bin_path),
+        state.port,
+        Some(state.pid),
+    )?;
+    Some(RuntimeProcessStatus {
+        pid,
+        healthy: is_runtime_healthy(&state.host, state.port).await,
+    })
+}
+
 fn is_pid_running(pid: u32) -> bool {
     let mut system = System::new_all();
     system.refresh_process(Pid::from_u32(pid));
@@ -448,34 +499,82 @@ fn is_pid_running(pid: u32) -> bool {
 }
 
 fn resolve_api_process_id(api_bin_path: &Path, port: u16) -> Option<u32> {
-    let target_path = std::fs::canonicalize(api_bin_path)
-        .ok()
-        .unwrap_or_else(|| api_bin_path.to_path_buf())
-        .display()
-        .to_string();
-    let target_fallback = api_bin_path.display().to_string();
-    let port_text = port.to_string();
+    resolve_api_process_id_with_hint(api_bin_path, port, None)
+}
+
+fn resolve_api_process_id_with_hint(
+    api_bin_path: &Path,
+    port: u16,
+    pid_hint: Option<u32>,
+) -> Option<u32> {
     let mut system = System::new_all();
     system.refresh_processes();
 
-    system.processes().iter().find_map(|(pid, process)| {
-        let cmd = process.cmd().join(" ");
-        let path_matches = cmd.contains(&target_path) || cmd.contains(&target_fallback);
-        if !path_matches {
-            return None;
+    if let Some(pid_hint) = pid_hint {
+        let hinted_pid = Pid::from_u32(pid_hint);
+        if let Some(process) = system.process(hinted_pid) {
+            if process_matches_runtime(process, api_bin_path, port) {
+                return Some(hinted_pid.as_u32());
+            }
         }
+    }
 
-        let argv = process
+    system.processes().iter().find_map(|(pid, process)| {
+        process_matches_runtime(process, api_bin_path, port).then_some(pid.as_u32())
+    })
+}
+
+fn process_matches_runtime(process: &Process, api_bin_path: &Path, port: u16) -> bool {
+    process_command_matches(process, api_bin_path) && process_port_matches(process, port)
+}
+
+fn process_command_matches(process: &Process, api_bin_path: &Path) -> bool {
+    let expected_name = api_bin_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("api");
+    if process.name() != expected_name {
+        return false;
+    }
+
+    let expected_path = canonical_or_original(api_bin_path);
+    if process
+        .exe()
+        .map(|path| paths_match(path, &expected_path))
+        .unwrap_or(false)
+    {
+        return true;
+    }
+
+    process
+        .cmd()
+        .first()
+        .map(|value| paths_match(Path::new(value), &expected_path))
+        .unwrap_or(false)
+}
+
+fn process_port_matches(process: &Process, port: u16) -> bool {
+    let port_text = port.to_string();
+    process
+        .cmd()
+        .windows(2)
+        .any(|window| window[0] == "--port" && window[1] == port_text)
+        || process
             .cmd()
             .iter()
-            .map(|value| value.to_string())
-            .collect::<Vec<_>>();
-        let port_matches = argv
-            .windows(2)
-            .any(|window| window[0] == "--port" && window[1] == port_text)
-            || argv.iter().any(|value| value == &port_text);
-        port_matches.then_some(pid.as_u32())
-    })
+            .any(|value| value == &format!("--port={port_text}"))
+}
+
+fn paths_match(candidate: &Path, expected: &Path) -> bool {
+    if candidate.as_os_str().is_empty() {
+        return false;
+    }
+
+    canonical_or_original(candidate) == expected
+}
+
+fn canonical_or_original(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn ensure_runtime_installed(layout: &RuntimeLayout) -> Result<(), String> {
@@ -501,8 +600,7 @@ fn ensure_runtime_installed(layout: &RuntimeLayout) -> Result<(), String> {
 }
 
 fn resolve_runtime_layout() -> Result<RuntimeLayout, String> {
-    let runtime_dir = if let Some(path) = std::env::var_os("ATMOS_RUNTIME_DIR").map(PathBuf::from)
-    {
+    let runtime_dir = if let Some(path) = std::env::var_os("ATMOS_RUNTIME_DIR").map(PathBuf::from) {
         path
     } else if let Ok(current_exe) = std::env::current_exe() {
         if let Some(bin_dir) = current_exe.parent() {
@@ -577,7 +675,8 @@ fn write_state_file(state: &LocalRuntimeState) -> Result<(), String> {
     }
     let content = serde_json::to_string_pretty(state)
         .map_err(|error| format!("Failed to serialize state: {}", error))?;
-    fs::write(&path, content).map_err(|error| format!("Failed to write {}: {}", path.display(), error))
+    fs::write(&path, content)
+        .map_err(|error| format!("Failed to write {}: {}", path.display(), error))
 }
 
 fn remove_state_file() -> Result<(), String> {
@@ -595,7 +694,9 @@ fn local_process_path(layout: &RuntimeLayout) -> Result<String, String> {
         .map(|home| home.join(".atmos").join("bin"))
         .ok_or_else(|| "Cannot determine home directory".to_string())?;
     paths.push(installed_bin);
-    paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()));
+    paths.extend(std::env::split_paths(
+        &std::env::var_os("PATH").unwrap_or_default(),
+    ));
     std::env::join_paths(paths)
         .map_err(|error| format!("Failed to construct PATH: {}", error))
         .map(|value| value.to_string_lossy().to_string())

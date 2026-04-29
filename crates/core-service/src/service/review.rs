@@ -262,12 +262,16 @@ impl ReviewService {
         let workspace = workspace_repo
             .find_by_guid(&input.workspace_guid)
             .await?
-            .ok_or_else(|| ServiceError::NotFound(format!("Workspace {} not found", input.workspace_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Workspace {} not found", input.workspace_guid))
+            })?;
 
         let project = project_repo
             .find_by_guid(&workspace.project_guid)
             .await?
-            .ok_or_else(|| ServiceError::NotFound(format!("Project {} not found", workspace.project_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Project {} not found", workspace.project_guid))
+            })?;
 
         let workspace_root = self
             .git_engine
@@ -515,10 +519,17 @@ impl ReviewService {
             .map_err(ServiceError::Infra)
     }
 
-    pub async fn list_files_by_revision(&self, revision_guid: String) -> Result<Vec<ReviewFileDto>> {
+    pub async fn list_files_by_revision(
+        &self,
+        revision_guid: String,
+    ) -> Result<Vec<ReviewFileDto>> {
         let review_repo = ReviewRepo::new(&self.db);
-        let snapshots = review_repo.list_file_snapshots_by_revision(&revision_guid).await?;
-        let states = review_repo.list_file_states_by_revision(&revision_guid).await?;
+        let snapshots = review_repo
+            .list_file_snapshots_by_revision(&revision_guid)
+            .await?;
+        let states = review_repo
+            .list_file_states_by_revision(&revision_guid)
+            .await?;
         let state_by_snapshot: HashMap<String, review_file_state::Model> = states
             .into_iter()
             .map(|item| (item.file_snapshot_guid.clone(), item))
@@ -581,7 +592,9 @@ impl ReviewService {
             review_repo.list_threads_by_session(&session_guid).await?
         };
         let thread_guids: Vec<String> = threads.iter().map(|item| item.guid.clone()).collect();
-        let messages = review_repo.list_messages_by_thread_guids(&thread_guids).await?;
+        let messages = review_repo
+            .list_messages_by_thread_guids(&thread_guids)
+            .await?;
         let mut messages_by_thread: HashMap<String, Vec<review_message::Model>> = HashMap::new();
         for message in messages {
             messages_by_thread
@@ -644,12 +657,8 @@ impl ReviewService {
             }
             thread_messages.sort_by_key(|m| m.created_at);
             items.push(
-                self.to_thread_dto(
-                    thread,
-                    thread_messages,
-                    Some(session_guid.clone()),
-                )
-                .await?,
+                self.to_thread_dto(thread, thread_messages, Some(session_guid.clone()))
+                    .await?,
             );
         }
         Ok(items)
@@ -663,7 +672,11 @@ impl ReviewService {
         if cache.contains_key(&parent_guid) {
             return Ok(());
         }
-        if let Some(thread) = repo.find_thread_by_guid(&parent_guid).await.map_err(ServiceError::Infra)? {
+        if let Some(thread) = repo
+            .find_thread_by_guid(&parent_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+        {
             if let Some(ref pg) = thread.parent_thread_guid {
                 Box::pin(Self::resolve_ancestor_threads(pg.clone(), repo, cache)).await?;
             }
@@ -672,10 +685,7 @@ impl ReviewService {
         Ok(())
     }
 
-    pub async fn create_thread(
-        &self,
-        input: CreateReviewThreadInput,
-    ) -> Result<ReviewThreadDto> {
+    pub async fn create_thread(&self, input: CreateReviewThreadInput) -> Result<ReviewThreadDto> {
         let review_repo = ReviewRepo::new(&self.db);
         let thread = review_repo
             .create_thread(
@@ -712,16 +722,15 @@ impl ReviewService {
         })
     }
 
-    pub async fn create_message(
-        &self,
-        input: AddReviewMessageInput,
-    ) -> Result<ReviewMessageDto> {
+    pub async fn create_message(&self, input: AddReviewMessageInput) -> Result<ReviewMessageDto> {
         let review_repo = ReviewRepo::new(&self.db);
         let thread = review_repo
             .find_thread_by_guid(&input.thread_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review thread {} not found", input.thread_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review thread {} not found", input.thread_guid))
+            })?;
         if let Some(run_guid) = input.fix_run_guid.as_deref() {
             if let Some(run) = review_repo
                 .find_fix_run_by_guid(run_guid)
@@ -747,23 +756,27 @@ impl ReviewService {
                 }
             }
         }
-        let (body_storage_kind, body, body_rel_path, body_full) = if input.body.len() > MESSAGE_INLINE_LIMIT {
-            let abs_path = run_root_abs_path(&thread.session_guid, input.fix_run_guid.as_deref().unwrap_or("message"))
+        let (body_storage_kind, body, body_rel_path, body_full) =
+            if input.body.len() > MESSAGE_INLINE_LIMIT {
+                let abs_path = run_root_abs_path(
+                    &thread.session_guid,
+                    input.fix_run_guid.as_deref().unwrap_or("message"),
+                )
                 .map_err(ServiceError::Infra)?
                 .join("messages")
                 .join(format!("{}.md", Uuid::new_v4()));
-            write_text_atomic(&abs_path, &input.body)
-                .await
-                .map_err(ServiceError::Infra)?;
-            (
-                "file".to_string(),
-                input.body.chars().take(500).collect(),
-                Some(abs_path.to_string_lossy().to_string()),
-                input.body,
-            )
-        } else {
-            ("inline".to_string(), input.body.clone(), None, input.body)
-        };
+                write_text_atomic(&abs_path, &input.body)
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                (
+                    "file".to_string(),
+                    input.body.chars().take(500).collect(),
+                    Some(abs_path.to_string_lossy().to_string()),
+                    input.body,
+                )
+            } else {
+                ("inline".to_string(), input.body.clone(), None, input.body)
+            };
 
         let message = review_repo
             .create_message(
@@ -784,10 +797,7 @@ impl ReviewService {
         })
     }
 
-    pub async fn update_thread_status(
-        &self,
-        input: UpdateReviewThreadStatusInput,
-    ) -> Result<()> {
+    pub async fn update_thread_status(&self, input: UpdateReviewThreadStatusInput) -> Result<()> {
         ReviewRepo::new(&self.db)
             .update_thread_status(&input.thread_guid, &input.status)
             .await
@@ -803,12 +813,11 @@ impl ReviewService {
             .find_session_by_guid(&input.session_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review session {} not found", input.session_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review session {} not found", input.session_guid))
+            })?;
         let threads = self
-            .list_threads(
-                session.guid.clone(),
-                Some(input.base_revision_guid.clone()),
-            )
+            .list_threads(session.guid.clone(), Some(input.base_revision_guid.clone()))
             .await?;
         let selected_set: HashSet<String> = input.selected_thread_guids.into_iter().collect();
         let selected_threads: Vec<ReviewThreadDto> = threads
@@ -853,16 +862,7 @@ impl ReviewService {
             .map_err(ServiceError::Infra)?;
         review_repo
             .update_fix_run_status(
-                &run.guid,
-                "queued",
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                false,
+                &run.guid, "queued", None, None, None, None, None, None, None, false,
             )
             .await
             .map_err(ServiceError::Infra)?;
@@ -871,7 +871,9 @@ impl ReviewService {
             .find_fix_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run.guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review fix run {} not found", run.guid))
+            })?;
 
         Ok(ReviewFixRunCreatedDto {
             run: updated_run,
@@ -879,41 +881,49 @@ impl ReviewService {
         })
     }
 
-    pub async fn list_fix_runs(
-        &self,
-        session_guid: String,
-    ) -> Result<Vec<review_fix_run::Model>> {
+    pub async fn list_fix_runs(&self, session_guid: String) -> Result<Vec<review_fix_run::Model>> {
         ReviewRepo::new(&self.db)
             .list_fix_runs_by_session(&session_guid)
             .await
             .map_err(ServiceError::Infra)
     }
 
-    pub async fn get_thread_context(
-        &self,
-        thread_guid: String,
-    ) -> Result<ReviewThreadContextDto> {
+    pub async fn get_thread_context(&self, thread_guid: String) -> Result<ReviewThreadContextDto> {
         let review_repo = ReviewRepo::new(&self.db);
         let thread = review_repo
             .find_thread_by_guid(&thread_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review thread {} not found", thread_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review thread {} not found", thread_guid))
+            })?;
         let session = review_repo
             .find_session_by_guid(&thread.session_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review session {} not found", thread.session_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review session {} not found", thread.session_guid))
+            })?;
         let revision = review_repo
             .find_revision_by_guid(&thread.revision_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review revision {} not found", thread.revision_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!(
+                    "Review revision {} not found",
+                    thread.revision_guid
+                ))
+            })?;
         let file_snapshot = review_repo
             .find_file_snapshot_by_guid(&thread.file_snapshot_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review file snapshot {} not found", thread.file_snapshot_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!(
+                    "Review file snapshot {} not found",
+                    thread.file_snapshot_guid
+                ))
+            })?;
         let messages = review_repo
             .list_messages_by_thread_guids(std::slice::from_ref(&thread.guid))
             .await
@@ -947,12 +957,10 @@ impl ReviewService {
                     file_snapshot_guid
                 ))
             })?;
-        let old_content =
-            std::fs::read_to_string(&file_snapshot.old_rel_path)
-                .map_err(|error| ServiceError::Infra(infra::InfraError::Io(error)))?;
-        let new_content =
-            std::fs::read_to_string(&file_snapshot.new_rel_path)
-                .map_err(|error| ServiceError::Infra(infra::InfraError::Io(error)))?;
+        let old_content = std::fs::read_to_string(&file_snapshot.old_rel_path)
+            .map_err(|error| ServiceError::Infra(infra::InfraError::Io(error)))?;
+        let new_content = std::fs::read_to_string(&file_snapshot.new_rel_path)
+            .map_err(|error| ServiceError::Infra(infra::InfraError::Io(error)))?;
 
         Ok(ReviewFileContentDto {
             file_snapshot,
@@ -971,7 +979,9 @@ impl ReviewService {
             .find_fix_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+            })?;
         let abs_path = match kind.as_str() {
             "prompt" => run.prompt_rel_path.clone(),
             "patch" => run.patch_rel_path.clone(),
@@ -1005,7 +1015,9 @@ impl ReviewService {
             .find_fix_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+            })?;
         let summary_abs_path = run_root_abs_path(&run.session_guid, &run.guid)
             .map_err(ServiceError::Infra)?
             .join("summary.md");
@@ -1047,7 +1059,9 @@ impl ReviewService {
             .find_fix_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run_guid)))?;
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+            })?;
         if run.result_revision_guid.is_some() {
             return Err(ServiceError::Validation(format!(
                 "Review fix run {} has already been finalized",
@@ -1055,294 +1069,472 @@ impl ReviewService {
             )));
         }
 
-        let session = review_repo
-            .find_session_by_guid(&run.session_guid)
+        let claimed = review_repo
+            .claim_fix_run_finalizing(&run.guid)
             .await
-            .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review session {} not found", run.session_guid)))?;
-        let base_revision = review_repo
-            .find_revision_by_guid(&run.base_revision_guid)
-            .await
-            .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review revision {} not found", run.base_revision_guid)))?;
+            .map_err(ServiceError::Infra)?;
+        if !claimed {
+            let current = review_repo
+                .find_fix_run_by_guid(&run.guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+            if current
+                .as_ref()
+                .and_then(|item| item.result_revision_guid.as_ref())
+                .is_some()
+            {
+                return Err(ServiceError::Validation(format!(
+                    "Review fix run {} has already been finalized",
+                    run.guid
+                )));
+            }
+            return Err(ServiceError::Validation(format!(
+                "Review fix run {} is already finalizing",
+                run.guid
+            )));
+        }
 
-        review_repo
-            .update_fix_run_status(
-                &run.guid,
-                "finalizing",
-                None,
-                None,
-                None,
-                None,
-                if run.started_at.is_none() {
-                    Some(chrono::Utc::now().naive_utc())
+        let finalize_result: Result<ReviewFixRunFinalizedDto> = async {
+            let session = review_repo
+                .find_session_by_guid(&run.session_guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!("Review session {} not found", run.session_guid))
+                })?;
+            let workspace = WorkspaceRepo::new(&self.db)
+                .find_by_guid(&session.workspace_guid)
+                .await?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!(
+                        "Workspace {} not found",
+                        session.workspace_guid
+                    ))
+                })?;
+            let workspace_root = self
+                .git_engine
+                .get_worktree_path(&workspace.name)
+                .map_err(ServiceError::Engine)?;
+            let base_revision = review_repo
+                .find_revision_by_guid(&run.base_revision_guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!(
+                        "Review revision {} not found",
+                        run.base_revision_guid
+                    ))
+                })?;
+
+            let base_snapshots = review_repo
+                .list_file_snapshots_by_revision(&base_revision.guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+            let base_states = review_repo
+                .list_file_states_by_revision(&base_revision.guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+            let state_by_file_identity: HashMap<String, review_file_state::Model> = base_states
+                .into_iter()
+                .map(|state| (state.file_identity_guid.clone(), state))
+                .collect();
+
+            let revision_guid = Uuid::new_v4().to_string();
+            let revision_storage_root = revision_root_abs_path(&session.guid, &revision_guid)
+                .map_err(ServiceError::Infra)?
+                .to_string_lossy()
+                .to_string();
+            let revisions_before = review_repo
+                .list_revisions_by_session(&session.guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+            let revision = review_repo
+                .create_revision(
+                    Some(revision_guid.clone()),
+                    session.guid.clone(),
+                    Some(base_revision.guid.clone()),
+                    "ai_run".to_string(),
+                    Some(run.guid.clone()),
+                    title.or_else(|| Some(format!("Fix Run {}", revisions_before.len()))),
+                    revision_storage_root.clone(),
+                    Some(base_revision.guid.clone()),
+                    run.created_by.clone(),
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            let change_time = chrono::Utc::now().naive_utc();
+            let mut patch_chunks = Vec::new();
+            let mut snapshot_guid_map: HashMap<String, String> = HashMap::new();
+            let mut seen_file_paths: HashSet<String> = base_snapshots
+                .iter()
+                .map(|snapshot| snapshot.file_path.clone())
+                .collect();
+            let mut next_display_order = base_snapshots.len();
+            for (index, snapshot) in base_snapshots.into_iter().enumerate() {
+                let prior_content =
+                    std::fs::read_to_string(&snapshot.new_rel_path).unwrap_or_default();
+                let current_file_path = workspace_root.join(&snapshot.file_path);
+                let current_content = if current_file_path.exists() {
+                    std::fs::read_to_string(&current_file_path).unwrap_or_default()
                 } else {
-                    None
-                },
-                None,
-                None,
-                false,
-            )
-            .await
-            .map_err(ServiceError::Infra)?;
-
-        let base_snapshots = review_repo
-            .list_file_snapshots_by_revision(&base_revision.guid)
-            .await
-            .map_err(ServiceError::Infra)?;
-        let base_states = review_repo
-            .list_file_states_by_revision(&base_revision.guid)
-            .await
-            .map_err(ServiceError::Infra)?;
-        let state_by_file_identity: HashMap<String, review_file_state::Model> = base_states
-            .into_iter()
-            .map(|state| (state.file_identity_guid.clone(), state))
-            .collect();
-
-        let revision_guid = Uuid::new_v4().to_string();
-        let revision_storage_root = revision_root_abs_path(&session.guid, &revision_guid)
-            .map_err(ServiceError::Infra)?
-            .to_string_lossy()
-            .to_string();
-        let revisions_before = review_repo
-            .list_revisions_by_session(&session.guid)
-            .await
-            .map_err(ServiceError::Infra)?;
-        let revision = review_repo
-            .create_revision(
-                Some(revision_guid.clone()),
-                session.guid.clone(),
-                Some(base_revision.guid.clone()),
-                "ai_run".to_string(),
-                Some(run.guid.clone()),
-                title.or_else(|| Some(format!("Fix Run {}", revisions_before.len()))),
-                revision_storage_root.clone(),
-                Some(base_revision.guid.clone()),
-                run.created_by.clone(),
-            )
-            .await
-            .map_err(ServiceError::Infra)?;
-
-        let change_time = chrono::Utc::now().naive_utc();
-        let mut patch_chunks = Vec::new();
-        let mut snapshot_guid_map: HashMap<String, String> = HashMap::new();
-        for (index, snapshot) in base_snapshots.into_iter().enumerate() {
-            let prior_content = std::fs::read_to_string(&snapshot.new_rel_path)
-                .unwrap_or_default();
-            let current_file_path = Path::new(&snapshot.file_path);
-            let current_content = if current_file_path.exists() {
-                std::fs::read_to_string(&current_file_path).unwrap_or_default()
-            } else {
-                String::new()
-            };
-            let file_snapshot_guid = Uuid::new_v4().to_string();
-            let (old_abs_path, new_abs_path, meta_abs_path) =
-                anchor_file_snapshot_abs_paths(&session.guid, &revision.guid, &file_snapshot_guid)
+                    String::new()
+                };
+                let file_snapshot_guid = Uuid::new_v4().to_string();
+                let (old_abs_path, new_abs_path, meta_abs_path) = anchor_file_snapshot_abs_paths(
+                    &session.guid,
+                    &revision.guid,
+                    &file_snapshot_guid,
+                )
+                .map_err(ServiceError::Infra)?;
+                write_text_atomic(&old_abs_path, &prior_content)
+                    .await
                     .map_err(ServiceError::Infra)?;
-            write_text_atomic(&old_abs_path, &prior_content)
-                .await
-                .map_err(ServiceError::Infra)?;
-            write_text_atomic(&new_abs_path, &current_content)
-                .await
-                .map_err(ServiceError::Infra)?;
+                write_text_atomic(&new_abs_path, &current_content)
+                    .await
+                    .map_err(ServiceError::Infra)?;
 
-            let git_status = if current_file_path.exists() {
-                if prior_content.is_empty() && !current_content.is_empty() {
-                    "A".to_string()
-                } else if prior_content == current_content {
-                    snapshot.git_status.clone()
+                let git_status = if current_file_path.exists() {
+                    if prior_content.is_empty() && !current_content.is_empty() {
+                        "A".to_string()
+                    } else if prior_content == current_content {
+                        snapshot.git_status.clone()
+                    } else {
+                        "M".to_string()
+                    }
                 } else {
-                    "M".to_string()
-                }
-            } else {
-                "D".to_string()
-            };
+                    "D".to_string()
+                };
 
-            if prior_content != current_content {
-                let old_label = format!("a/{}", snapshot.file_path);
-                let new_label = format!("b/{}", snapshot.file_path);
-                let diff = TextDiff::from_lines(&prior_content, &current_content);
-                let unified = diff
-                    .unified_diff()
-                    .context_radius(3)
-                    .header(&old_label, &new_label)
-                    .to_string();
-                if !unified.trim().is_empty() {
-                    patch_chunks.push(unified);
+                if prior_content != current_content {
+                    let old_label = format!("a/{}", snapshot.file_path);
+                    let new_label = format!("b/{}", snapshot.file_path);
+                    let diff = TextDiff::from_lines(&prior_content, &current_content);
+                    let unified = diff
+                        .unified_diff()
+                        .context_radius(3)
+                        .header(&old_label, &new_label)
+                        .to_string();
+                    if !unified.trim().is_empty() {
+                        patch_chunks.push(unified);
+                    }
+                }
+
+                let meta = FileSnapshotMeta {
+                    schema_version: 1,
+                    file_path: snapshot.file_path.clone(),
+                    git_status: git_status.clone(),
+                    is_binary: false,
+                    old_rel_path: old_abs_path.to_string_lossy().to_string(),
+                    new_rel_path: new_abs_path.to_string_lossy().to_string(),
+                    old_sha256: sha256_hex(&prior_content),
+                    new_sha256: sha256_hex(&current_content),
+                    old_size: prior_content.len(),
+                    new_size: current_content.len(),
+                };
+                write_json_atomic(&meta_abs_path, &meta)
+                    .await
+                    .map_err(ServiceError::Infra)?;
+
+                let next_snapshot = review_repo
+                    .create_file_snapshot(
+                        revision.guid.clone(),
+                        snapshot.file_identity_guid.clone(),
+                        snapshot.file_path.clone(),
+                        git_status,
+                        old_abs_path.to_string_lossy().to_string(),
+                        new_abs_path.to_string_lossy().to_string(),
+                        meta_abs_path.to_string_lossy().to_string(),
+                        Some(meta.old_sha256.clone()),
+                        Some(meta.new_sha256.clone()),
+                        meta.old_size as i64,
+                        meta.new_size as i64,
+                        false,
+                        index as i32,
+                    )
+                    .await
+                    .map_err(ServiceError::Infra)?;
+
+                snapshot_guid_map.insert(snapshot.guid.clone(), next_snapshot.guid.clone());
+
+                let prior_state = state_by_file_identity
+                    .get(&snapshot.file_identity_guid)
+                    .ok_or_else(|| {
+                        ServiceError::Processing(format!(
+                            "Missing base file state for identity {}",
+                            snapshot.file_identity_guid
+                        ))
+                    })?;
+                let last_code_change_at = if prior_content != current_content {
+                    Some(change_time)
+                } else {
+                    prior_state.last_code_change_at
+                };
+                review_repo
+                    .create_file_state(
+                        revision.guid.clone(),
+                        snapshot.file_identity_guid.clone(),
+                        next_snapshot.guid.clone(),
+                        prior_state.reviewed,
+                        prior_state.reviewed_at,
+                        prior_state.reviewed_by.clone(),
+                        Some(prior_state.guid.clone()),
+                        last_code_change_at,
+                    )
+                    .await
+                    .map_err(ServiceError::Infra)?;
+            }
+
+            let changed = self
+                .git_engine
+                .get_changed_files(&workspace_root, Some(&workspace.base_branch), false)
+                .map_err(ServiceError::Engine)?;
+            let mut ordered_new_paths = Vec::new();
+            for file in changed
+                .staged_files
+                .iter()
+                .chain(changed.unstaged_files.iter())
+                .chain(changed.untracked_files.iter())
+            {
+                if seen_file_paths.insert(file.path.clone()) {
+                    ordered_new_paths.push((file.path.clone(), file.status.clone()));
                 }
             }
 
-            let meta = FileSnapshotMeta {
-                schema_version: 1,
-                file_path: snapshot.file_path.clone(),
-                git_status: git_status.clone(),
-                is_binary: false,
-                old_rel_path: old_abs_path.to_string_lossy().to_string(),
-                new_rel_path: new_abs_path.to_string_lossy().to_string(),
-                old_sha256: sha256_hex(&prior_content),
-                new_sha256: sha256_hex(&current_content),
-                old_size: prior_content.len(),
-                new_size: current_content.len(),
-            };
-            write_json_atomic(&meta_abs_path, &meta)
-                .await
-                .map_err(ServiceError::Infra)?;
-
-            let next_snapshot = review_repo
-                .create_file_snapshot(
-                    revision.guid.clone(),
-                    snapshot.file_identity_guid.clone(),
-                    snapshot.file_path.clone(),
-                    git_status,
-                    old_abs_path.to_string_lossy().to_string(),
-                    new_abs_path.to_string_lossy().to_string(),
-                    meta_abs_path.to_string_lossy().to_string(),
-                    Some(meta.old_sha256.clone()),
-                    Some(meta.new_sha256.clone()),
-                    meta.old_size as i64,
-                    meta.new_size as i64,
-                    false,
-                    index as i32,
+            for (file_path, status) in ordered_new_paths {
+                let current_file_path = workspace_root.join(&file_path);
+                if !current_file_path.exists() {
+                    continue;
+                }
+                let current_content =
+                    std::fs::read_to_string(&current_file_path).unwrap_or_default();
+                let file_identity = review_repo
+                    .find_or_create_file_identity(session.guid.clone(), file_path.clone())
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                let file_snapshot_guid = Uuid::new_v4().to_string();
+                let (old_abs_path, new_abs_path, meta_abs_path) = anchor_file_snapshot_abs_paths(
+                    &session.guid,
+                    &revision.guid,
+                    &file_snapshot_guid,
                 )
-                .await
                 .map_err(ServiceError::Infra)?;
+                write_text_atomic(&old_abs_path, "")
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                write_text_atomic(&new_abs_path, &current_content)
+                    .await
+                    .map_err(ServiceError::Infra)?;
 
-            snapshot_guid_map.insert(snapshot.guid.clone(), next_snapshot.guid.clone());
+                if !current_content.is_empty() {
+                    let old_label = format!("a/{}", file_path);
+                    let new_label = format!("b/{}", file_path);
+                    let diff = TextDiff::from_lines("", &current_content);
+                    let unified = diff
+                        .unified_diff()
+                        .context_radius(3)
+                        .header(&old_label, &new_label)
+                        .to_string();
+                    if !unified.trim().is_empty() {
+                        patch_chunks.push(unified);
+                    }
+                }
 
-            let prior_state = state_by_file_identity
-                .get(&snapshot.file_identity_guid)
-                .ok_or_else(|| {
-                    ServiceError::Processing(format!(
-                        "Missing base file state for identity {}",
-                        snapshot.file_identity_guid
-                    ))
-                })?;
-            let last_code_change_at = if prior_content != current_content {
-                Some(change_time)
-            } else {
-                prior_state.last_code_change_at
-            };
-            review_repo
-                .create_file_state(
-                    revision.guid.clone(),
-                    snapshot.file_identity_guid.clone(),
-                    next_snapshot.guid.clone(),
-                    prior_state.reviewed,
-                    prior_state.reviewed_at,
-                    prior_state.reviewed_by.clone(),
-                    Some(prior_state.guid.clone()),
-                    last_code_change_at,
-                )
-                .await
-                .map_err(ServiceError::Infra)?;
-        }
-
-        let base_threads = review_repo
-            .list_threads_by_revision(&base_revision.guid)
-            .await
-            .map_err(ServiceError::Infra)?;
-        let mut base_to_inherited: Vec<(String, String)> = Vec::new();
-        for base_thread in &base_threads {
-            let new_snapshot_guid = match snapshot_guid_map.get(&base_thread.file_snapshot_guid) {
-                Some(guid) => guid.clone(),
-                None => continue,
-            };
-            let inherited_thread = review_repo
-                .create_thread(
-                    session.guid.clone(),
-                    revision.guid.clone(),
-                    new_snapshot_guid,
-                    base_thread.anchor_side.clone(),
-                    base_thread.anchor_start_line,
-                    base_thread.anchor_end_line,
-                    base_thread.anchor_line_range_kind.clone(),
-                    base_thread.anchor_json.clone(),
-                    base_thread.status.clone(),
-                    Some(base_thread.guid.clone()),
-                    base_thread.title.clone(),
-                    base_thread.created_by.clone(),
-                )
-                .await
-                .map_err(ServiceError::Infra)?;
-            base_to_inherited.push((base_thread.guid.clone(), inherited_thread.guid.clone()));
-        }
-
-        let from_guids: Vec<String> = base_to_inherited.iter().map(|(f, _)| f.clone()).collect();
-        let to_guids: Vec<String> = base_to_inherited.iter().map(|(_, t)| t.clone()).collect();
-        review_repo
-            .reassign_messages_by_fix_run(&run.guid, &from_guids, &to_guids)
-            .await
-            .map_err(ServiceError::Infra)?;
-
-        review_repo
-            .update_session_current_revision(&session.guid, &revision.guid)
-            .await
-            .map_err(ServiceError::Infra)?;
-
-        let revisions_manifest = review_repo
-            .list_revisions_by_session(&session.guid)
-            .await
-            .map_err(ServiceError::Infra)?
-            .into_iter()
-            .map(|item| RevisionManifestItem {
-                revision_guid: item.guid,
-                parent_revision_guid: item.parent_revision_guid,
-                source_kind: item.source_kind,
-                fix_run_guid: item.fix_run_guid,
-                storage_root_rel_path: item.storage_root_rel_path,
-                created_at: item.created_at.to_string(),
-            })
-            .collect::<Vec<_>>();
-        let revisions_manifest_path =
-            revisions_manifest_abs_path(&session.guid).map_err(ServiceError::Infra)?;
-        write_json_atomic(
-            &revisions_manifest_path,
-            &revisions_manifest,
-        )
-        .await
-        .map_err(ServiceError::Infra)?;
-
-        let patch_abs_path = run_root_abs_path(&session.guid, &run.guid)
-            .map_err(ServiceError::Infra)?
-            .join("fix.patch");
-        let patch_text = if patch_chunks.is_empty() {
-            String::new()
-        } else {
-            patch_chunks.join("\n")
-        };
-        write_text_atomic(&patch_abs_path, &patch_text)
-            .await
-            .map_err(ServiceError::Infra)?;
-
-        review_repo
-            .update_fix_run_status(
-                &run.guid,
-                "succeeded",
-                Some(revision.guid.clone()),
-                Some(revision_storage_root),
-                Some(patch_abs_path.to_string_lossy().to_string()),
-                None,
-                if run.started_at.is_none() {
-                    Some(change_time)
+                let git_status = if status == "?" {
+                    "A".to_string()
                 } else {
-                    None
-                },
-                Some(change_time),
-                None,
-                true,
-            )
-            .await
-            .map_err(ServiceError::Infra)?;
-        let updated_run = review_repo
-            .find_fix_run_by_guid(&run.guid)
-            .await
-            .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run.guid)))?;
+                    status
+                };
+                let meta = FileSnapshotMeta {
+                    schema_version: 1,
+                    file_path: file_path.clone(),
+                    git_status: git_status.clone(),
+                    is_binary: false,
+                    old_rel_path: old_abs_path.to_string_lossy().to_string(),
+                    new_rel_path: new_abs_path.to_string_lossy().to_string(),
+                    old_sha256: sha256_hex(""),
+                    new_sha256: sha256_hex(&current_content),
+                    old_size: 0,
+                    new_size: current_content.len(),
+                };
+                write_json_atomic(&meta_abs_path, &meta)
+                    .await
+                    .map_err(ServiceError::Infra)?;
 
-        Ok(ReviewFixRunFinalizedDto {
-            run: updated_run,
-            revision,
-        })
+                let next_snapshot = review_repo
+                    .create_file_snapshot(
+                        revision.guid.clone(),
+                        file_identity.guid.clone(),
+                        file_path,
+                        git_status,
+                        old_abs_path.to_string_lossy().to_string(),
+                        new_abs_path.to_string_lossy().to_string(),
+                        meta_abs_path.to_string_lossy().to_string(),
+                        Some(meta.old_sha256.clone()),
+                        Some(meta.new_sha256.clone()),
+                        0,
+                        meta.new_size as i64,
+                        false,
+                        next_display_order as i32,
+                    )
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                next_display_order += 1;
+
+                review_repo
+                    .create_file_state(
+                        revision.guid.clone(),
+                        file_identity.guid,
+                        next_snapshot.guid,
+                        false,
+                        None,
+                        None,
+                        None,
+                        Some(change_time),
+                    )
+                    .await
+                    .map_err(ServiceError::Infra)?;
+            }
+
+            let base_threads = review_repo
+                .list_threads_by_revision(&base_revision.guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+            let mut base_to_inherited: Vec<(String, String)> = Vec::new();
+            for base_thread in &base_threads {
+                let new_snapshot_guid = match snapshot_guid_map.get(&base_thread.file_snapshot_guid)
+                {
+                    Some(guid) => guid.clone(),
+                    None => continue,
+                };
+                let inherited_thread = review_repo
+                    .create_thread(
+                        session.guid.clone(),
+                        revision.guid.clone(),
+                        new_snapshot_guid,
+                        base_thread.anchor_side.clone(),
+                        base_thread.anchor_start_line,
+                        base_thread.anchor_end_line,
+                        base_thread.anchor_line_range_kind.clone(),
+                        base_thread.anchor_json.clone(),
+                        base_thread.status.clone(),
+                        Some(base_thread.guid.clone()),
+                        base_thread.title.clone(),
+                        base_thread.created_by.clone(),
+                    )
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                base_to_inherited.push((base_thread.guid.clone(), inherited_thread.guid.clone()));
+            }
+
+            let from_guids: Vec<String> =
+                base_to_inherited.iter().map(|(f, _)| f.clone()).collect();
+            let to_guids: Vec<String> = base_to_inherited.iter().map(|(_, t)| t.clone()).collect();
+            review_repo
+                .reassign_messages_by_fix_run(&run.guid, &from_guids, &to_guids)
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            let revisions_manifest = review_repo
+                .list_revisions_by_session(&session.guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .into_iter()
+                .map(|item| RevisionManifestItem {
+                    revision_guid: item.guid,
+                    parent_revision_guid: item.parent_revision_guid,
+                    source_kind: item.source_kind,
+                    fix_run_guid: item.fix_run_guid,
+                    storage_root_rel_path: item.storage_root_rel_path,
+                    created_at: item.created_at.to_string(),
+                })
+                .collect::<Vec<_>>();
+            let revisions_manifest_path =
+                revisions_manifest_abs_path(&session.guid).map_err(ServiceError::Infra)?;
+            write_json_atomic(&revisions_manifest_path, &revisions_manifest)
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            let patch_abs_path = run_root_abs_path(&session.guid, &run.guid)
+                .map_err(ServiceError::Infra)?
+                .join("fix.patch");
+            let patch_text = if patch_chunks.is_empty() {
+                String::new()
+            } else {
+                patch_chunks.join("\n")
+            };
+            write_text_atomic(&patch_abs_path, &patch_text)
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            review_repo
+                .update_session_current_revision(&session.guid, &revision.guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            review_repo
+                .update_fix_run_status(
+                    &run.guid,
+                    "succeeded",
+                    Some(revision.guid.clone()),
+                    Some(revision_storage_root),
+                    Some(patch_abs_path.to_string_lossy().to_string()),
+                    None,
+                    if run.started_at.is_none() {
+                        Some(change_time)
+                    } else {
+                        None
+                    },
+                    Some(change_time),
+                    None,
+                    true,
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+            let updated_run = review_repo
+                .find_fix_run_by_guid(&run.guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!("Review fix run {} not found", run.guid))
+                })?;
+
+            Ok(ReviewFixRunFinalizedDto {
+                run: updated_run,
+                revision,
+            })
+        }
+        .await;
+
+        if let Err(error) = &finalize_result {
+            if let Err(update_error) = review_repo
+                .update_fix_run_status(
+                    &run.guid,
+                    "failed",
+                    None,
+                    None,
+                    None,
+                    None,
+                    if run.started_at.is_none() {
+                        Some(chrono::Utc::now().naive_utc())
+                    } else {
+                        None
+                    },
+                    Some(chrono::Utc::now().naive_utc()),
+                    Some(error.to_string()),
+                    true,
+                )
+                .await
+            {
+                tracing::warn!(
+                    run_guid = %run.guid,
+                    error = %update_error,
+                    "Failed to mark review fix run failed after finalize error",
+                );
+            }
+        }
+
+        finalize_result
     }
 
     fn render_fix_prompt(
@@ -1408,13 +1600,22 @@ impl ReviewService {
 
         for revision in revisions {
             let files = self.list_files_by_revision(revision.guid.clone()).await?;
-            revision_dtos.push(ReviewRevisionDto { model: revision, files });
+            revision_dtos.push(ReviewRevisionDto {
+                model: revision,
+                files,
+            });
         }
         let current_revision = revision_dtos
             .iter()
             .find(|revision| revision.model.guid == session.current_revision_guid);
         let reviewed_file_count = current_revision
-            .map(|revision| revision.files.iter().filter(|item| item.state.reviewed).count())
+            .map(|revision| {
+                revision
+                    .files
+                    .iter()
+                    .filter(|item| item.state.reviewed)
+                    .count()
+            })
             .unwrap_or(0);
         let reviewed_then_changed_count = current_revision
             .map(|revision| {
@@ -1429,10 +1630,7 @@ impl ReviewService {
         Ok(ReviewSessionDto {
             open_thread_count: threads
                 .iter()
-                .filter(|thread| {
-                    thread.status == "open"
-                        || thread.status == "agent_fixed"
-                })
+                .filter(|thread| thread.status == "open" || thread.status == "agent_fixed")
                 .count(),
             reviewed_file_count,
             reviewed_then_changed_count,
@@ -1448,16 +1646,15 @@ impl ReviewService {
         messages: Vec<review_message::Model>,
         _session_guid: Option<String>,
     ) -> Result<ReviewThreadDto> {
-        let anchor = serde_json::from_str::<Value>(&thread.anchor_json)
-            .unwrap_or_else(|_| json!({}));
+        let anchor =
+            serde_json::from_str::<Value>(&thread.anchor_json).unwrap_or_else(|_| json!({}));
         let messages = messages
             .into_iter()
             .map(|message| {
                 let body_full = if message.body_storage_kind == "inline" {
                     message.body.clone()
                 } else if let Some(abs_path) = message.body_rel_path.as_ref() {
-                    std::fs::read_to_string(abs_path)
-                        .unwrap_or_else(|_| message.body.clone())
+                    std::fs::read_to_string(abs_path).unwrap_or_else(|_| message.body.clone())
                 } else {
                     message.body.clone()
                 };

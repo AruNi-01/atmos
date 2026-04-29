@@ -27,6 +27,7 @@ export interface ArtifactPreview {
 interface UseReviewContextArgs {
   workspaceId: string | null;
   filePath: string;
+  fileSnapshotGuid?: string | null;
 }
 
 function readStoredAgentId(): AgentId {
@@ -35,7 +36,7 @@ function readStoredAgentId(): AgentId {
   return stored ? (stored as AgentId) : "codex";
 }
 
-export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs) {
+export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: UseReviewContextArgs) {
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
   const setPendingAgentChatMode = useDialogStore(
@@ -103,6 +104,14 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
 
   const currentSession = useMemo(() => {
     if (sessions.length === 0) return null;
+    if (fileSnapshotGuid) {
+      const snapshotSession = sessions.find((session) =>
+        session.revisions.some((revision) =>
+          revision.files.some((file) => file.snapshot.guid === fileSnapshotGuid),
+        ),
+      );
+      if (snapshotSession) return snapshotSession;
+    }
     if (selectedSessionGuid) {
       return sessions.find((session) => session.guid === selectedSessionGuid) ?? null;
     }
@@ -112,7 +121,7 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
         right.created_at.localeCompare(left.created_at),
       )[0]
     );
-  }, [selectedSessionGuid, sessions]);
+  }, [fileSnapshotGuid, selectedSessionGuid, sessions]);
 
   useEffect(() => {
     if (!currentSession) {
@@ -126,13 +135,19 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
 
   const currentRevision = useMemo(() => {
     if (!currentSession) return null;
+    if (fileSnapshotGuid) {
+      const snapshotRevision = currentSession.revisions.find((revision) =>
+        revision.files.some((file) => file.snapshot.guid === fileSnapshotGuid),
+      );
+      if (snapshotRevision) return snapshotRevision;
+    }
     return (
       currentSession.revisions.find(
         (revision) =>
           revision.guid === (selectedRevisionGuid ?? currentSession.current_revision_guid),
       ) ?? currentSession.revisions[0] ?? null
     );
-  }, [currentSession, selectedRevisionGuid]);
+  }, [currentSession, fileSnapshotGuid, selectedRevisionGuid]);
 
   const prevCurrentRevisionGuidRef = useRef<string | null>(null);
 
@@ -160,10 +175,15 @@ export function useReviewContext({ workspaceId, filePath }: UseReviewContextArgs
 
   const currentFile = useMemo<ReviewFileDto | null>(() => {
     if (!currentRevision) return null;
+    if (fileSnapshotGuid) {
+      return (
+        currentRevision.files.find((file) => file.snapshot.guid === fileSnapshotGuid) ?? null
+      );
+    }
     return (
       currentRevision.files.find((file) => file.snapshot.file_path === filePath) ?? null
     );
-  }, [currentRevision, filePath]);
+  }, [currentRevision, filePath, fileSnapshotGuid]);
 
   const loadThreads = useCallback(async () => {
     if (!currentSession) {
