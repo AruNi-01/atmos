@@ -674,6 +674,7 @@ impl WorkspaceService {
         guid: String,
         initial_requirement: Option<String>,
         github_issue: Option<GithubIssuePayload>,
+        github_pr: Option<GithubPrPayload>,
     ) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
         let workspace = repo
@@ -682,9 +683,11 @@ impl WorkspaceService {
             .ok_or_else(|| ServiceError::NotFound(format!("Workspace {} not found", guid)))?;
         let workspace_path = self.git_engine.get_worktree_path(&workspace.name)?;
 
-        if let Some(requirement) =
-            self.render_requirement_markdown(initial_requirement.as_deref(), github_issue.as_ref())
-        {
+        if let Some(requirement) = self.render_requirement_markdown(
+            initial_requirement.as_deref(),
+            github_issue.as_ref(),
+            github_pr.as_ref(),
+        ) {
             let requirement_path = workspace_path.join(".atmos/context/requirement.md");
             self.fs_engine.write_file(&requirement_path, &requirement)?;
         }
@@ -888,10 +891,31 @@ impl WorkspaceService {
         &self,
         _initial_requirement: Option<&str>,
         github_issue: Option<&GithubIssuePayload>,
+        github_pr: Option<&GithubPrPayload>,
     ) -> Option<String> {
-        let Some(issue) = github_issue else {
-            return None;
-        };
+        // Prefer PR linkage when both are present — the welcome composer keeps
+        // them mutually exclusive but the data layer may still hold a synthesized
+        // issue alongside a real PR.
+        if let Some(pr) = github_pr {
+            let mut sections = vec!["# Requirement Specification".to_string()];
+
+            sections.push(format!(
+                "## GitHub Pull Request\n\n- Source: {}\n- Title: {}\n- Branch: {} → {}\n",
+                pr.url, pr.title, pr.head_ref, pr.base_ref
+            ));
+
+            let body = pr
+                .body
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("No PR description provided.");
+            sections.push(format!("## PR Description\n\n{}\n", body));
+
+            return Some(sections.join("\n"));
+        }
+
+        let issue = github_issue?;
 
         let mut sections = vec!["# Requirement Specification".to_string()];
 

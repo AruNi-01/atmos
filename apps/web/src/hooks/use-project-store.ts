@@ -80,6 +80,7 @@ export interface WorkspaceSetupProgress {
 
 interface WorkspaceSetupContextPayload {
   has_github_issue: boolean;
+  has_github_pr: boolean;
   has_requirement_step: boolean;
   auto_extract_todos: boolean;
   has_setup_script: boolean;
@@ -123,17 +124,8 @@ function getInitialAsyncSetupState(input: {
   autoExtractTodos: boolean;
   hasSetupScript: boolean;
 }): Pick<WorkspaceSetupProgress, 'status' | 'stepKey' | 'stepTitle' | 'success'> {
-  if (input.hasGithubIssue || input.hasRequirementStep) {
-    return {
-      status: 'creating',
-      stepKey: 'write_requirement',
-      stepTitle: input.hasGithubIssue
-        ? 'Filling Requirement Specification'
-        : 'Writing Requirement Specification',
-      success: true,
-    };
-  }
-
+  // requirement.md is now pre-filled synchronously during workspace creation,
+  // so the post-create flow no longer surfaces a "write_requirement" step.
   if (input.autoExtractTodos) {
     return {
       status: 'creating',
@@ -206,6 +198,10 @@ function isWorkspaceSetupProgressEventPayload(
     (payload.setup_context == null ||
       (typeof payload.setup_context === 'object' &&
         typeof (payload.setup_context as Record<string, unknown>).has_github_issue === 'boolean' &&
+        // has_github_pr was added later — accept payloads from older backends
+        // by treating a missing field as false rather than rejecting the event.
+        (typeof (payload.setup_context as Record<string, unknown>).has_github_pr === 'boolean' ||
+          (payload.setup_context as Record<string, unknown>).has_github_pr === undefined) &&
         typeof (payload.setup_context as Record<string, unknown>).has_requirement_step === 'boolean' &&
         typeof (payload.setup_context as Record<string, unknown>).auto_extract_todos === 'boolean' &&
         typeof (payload.setup_context as Record<string, unknown>).has_setup_script === 'boolean')) &&
@@ -523,7 +519,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
       const setupContext = {
-        hasGithubIssue: !!data.githubIssue || !!data.githubPr,
+        hasGithubIssue: !!data.githubIssue && !data.githubPr,
+        hasGithubPr: !!data.githubPr,
         hasRequirementStep:
           !!data.githubIssue || !!data.githubPr || !!data.initialRequirement?.trim(),
         autoExtractTodos: !!data.autoExtractTodos,
@@ -604,6 +601,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
       const setupContext = {
         hasGithubIssue: false,
+        hasGithubPr: false,
         hasRequirementStep: false,
         autoExtractTodos: false,
         hasSetupScript,
@@ -1252,6 +1250,7 @@ export function subscribeToWorkspaceSetupProgress(): () => void {
       setupContext: data.setup_context
         ? {
             hasGithubIssue: data.setup_context.has_github_issue,
+            hasGithubPr: !!data.setup_context.has_github_pr,
             hasRequirementStep: data.setup_context.has_requirement_step,
             autoExtractTodos: data.setup_context.auto_extract_todos,
             hasSetupScript: data.setup_context.has_setup_script,

@@ -1570,6 +1570,37 @@ impl WsMessageService {
             }
         }
 
+        // The composer already supplied the GitHub issue/PR (or initial
+        // requirement) at create time, so pre-fill .atmos/context/requirement.md
+        // synchronously here. The setup state machine no longer surfaces a
+        // separate "Fill Requirement Spec" step.
+        if req.github_issue.is_some()
+            || req.github_pr.is_some()
+            || req
+                .initial_requirement
+                .as_deref()
+                .map(str::trim)
+                .map(|value| !value.is_empty())
+                .unwrap_or(false)
+        {
+            if let Err(error) = self
+                .workspace_service
+                .write_workspace_requirement(
+                    workspace.model.guid.clone(),
+                    req.initial_requirement.clone(),
+                    req.github_issue.clone(),
+                    req.github_pr.clone(),
+                )
+                .await
+            {
+                tracing::warn!(
+                    "[handle_workspace_create] Failed to pre-fill requirement.md for {}: {}",
+                    workspace.model.guid,
+                    error
+                );
+            }
+        }
+
         let next_setup_step = Self::build_workspace_setup_plan(
             &self.project_service,
             &req.project_guid,
@@ -2095,10 +2126,11 @@ impl WsMessageService {
             None
         };
 
+        // NOTE: WriteRequirement is intentionally NOT pushed into the plan.
+        // The composer pre-fills .atmos/context/requirement.md synchronously
+        // during workspace creation (see handle_workspace_create), so the
+        // setup flow surfaces no separate "Fill Requirement Spec" step.
         let mut steps = vec![WorkspaceSetupStep::CreateWorktree];
-        if has_requirement_step {
-            steps.push(WorkspaceSetupStep::WriteRequirement);
-        }
         if auto_extract_todos {
             steps.push(WorkspaceSetupStep::ExtractTodos);
         }
@@ -2119,7 +2151,7 @@ impl WsMessageService {
             requirement_step_title: if has_github_pr {
                 "Filling PR Specification".to_string()
             } else if github_issue.is_some() {
-                "Filling Requirement Specification".to_string()
+                "Filling Issue Specification".to_string()
             } else {
                 "Writing Requirement Specification".to_string()
             },
@@ -2283,6 +2315,7 @@ impl WsMessageService {
                             workspace_id.clone(),
                             initial_requirement.clone(),
                             github_issue.clone(),
+                            None,
                         )
                         .await
                     {
