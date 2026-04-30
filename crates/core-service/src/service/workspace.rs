@@ -416,6 +416,41 @@ impl WorkspaceService {
             requested_branch
         };
 
+        // Apply configurable branch prefix (e.g. "atmos/") from function settings
+        let final_branch = {
+            let branch_prefix = {
+                let path = dirs::home_dir()
+                    .unwrap_or_else(|| std::path::PathBuf::from("."))
+                    .join(".atmos")
+                    .join("function_settings.json");
+                if path.exists() {
+                    std::fs::read_to_string(&path)
+                        .ok()
+                        .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+                        .and_then(|v| {
+                            v.get("workspace_settings")?
+                                .get("branch_prefix")?
+                                .as_str()
+                                .map(String::from)
+                        })
+                        .unwrap_or_else(|| "atmos".to_string())
+                } else {
+                    "atmos".to_string()
+                }
+            };
+
+            if !branch_prefix.is_empty() {
+                let prefix_with_slash = format!("{}/", branch_prefix);
+                if !final_branch.starts_with(&prefix_with_slash) {
+                    format!("{}{}", prefix_with_slash, final_branch)
+                } else {
+                    final_branch
+                }
+            } else {
+                final_branch
+            }
+        };
+
         // For PR-linked workspaces, reusing the existing local branch is expected.
         if github_pr_payload.is_none() && existing_branches.contains(&final_branch) {
             return Err(ServiceError::Validation(format!(
