@@ -6,11 +6,11 @@ use super::{home_dir, AgentHookToolStatus};
 fn settings_path() -> Option<std::path::PathBuf> {
     home_dir()
         .ok()
-        .map(|h| h.join(".claude").join("settings.json"))
+        .map(|h| h.join(".factory").join("settings.json"))
 }
 
 fn hook_url(port: u16) -> String {
-    format!("http://localhost:{}/hooks/claude-code", port)
+    format!("http://localhost:{}/hooks/factory-droid", port)
 }
 
 fn hook_path_marker() -> &'static str {
@@ -36,53 +36,77 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
         .unwrap_or(false)
 }
 
-fn build_cmd(port: u16, json_body: &str) -> String {
+fn build_fixed_cmd(port: u16, event_name: &str, r#async: bool) -> Value {
     let url = hook_url(port);
-    format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{json_body}' '{url}' >/dev/null 2>&1 || true"#,
-        json_body = json_body,
+    let command = format!(
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        event_name = event_name,
         url = url,
-    )
+    );
+    let mut entry = json!({
+        "matcher": "*",
+        "hooks": [{
+            "type": "command",
+            "command": command,
+            "timeout": 5,
+        }]
+    });
+    if r#async {
+        if let Some(hooks) = entry
+            .get_mut("hooks")
+            .and_then(|h| h.as_array_mut())
+            .and_then(|a| a.first_mut())
+        {
+            hooks
+                .as_object_mut()
+                .unwrap()
+                .insert("async".to_string(), json!(true));
+        }
+    }
+    entry
+}
+
+fn build_stdin_cmd(port: u16, r#async: bool) -> Value {
+    let url = hook_url(port);
+    let command = format!(
+        r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        url = url,
+    );
+    let mut entry = json!({
+        "matcher": "*",
+        "hooks": [{
+            "type": "command",
+            "command": command,
+            "timeout": 5,
+        }]
+    });
+    if r#async {
+        if let Some(hooks) = entry
+            .get_mut("hooks")
+            .and_then(|h| h.as_array_mut())
+            .and_then(|a| a.first_mut())
+        {
+            hooks
+                .as_object_mut()
+                .unwrap()
+                .insert("async".to_string(), json!(true));
+        }
+    }
+    entry
 }
 
 fn build_hook_entries(port: u16) -> Value {
-    let session_start = build_cmd(port, r#"{"hook_event_name":"SessionStart"}"#);
-    let user_prompt = build_cmd(port, r#"{"hook_event_name":"UserPromptSubmit"}"#);
-    let pre_tool = build_cmd(port, r#"{"hook_event_name":"PreToolUse"}"#);
-    let post_tool = build_cmd(port, r#"{"hook_event_name":"PostToolUse"}"#);
-    let post_tool_fail = build_cmd(port, r#"{"hook_event_name":"PostToolUseFailure"}"#);
-    let perm_request = build_cmd(port, r#"{"hook_event_name":"PermissionRequest"}"#);
-    let notification = build_cmd(
-        port,
-        r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#,
-    );
-    let stop = build_cmd(port, r#"{"hook_event_name":"Stop"}"#);
     json!({
-        "SessionStart": [{
-            "hooks": [{ "type": "command", "command": session_start, "timeout": 5 }]
-        }],
-        "UserPromptSubmit": [{
-            "hooks": [{ "type": "command", "command": user_prompt, "timeout": 5 }]
-        }],
-        "PreToolUse": [{
-            "hooks": [{ "type": "command", "command": pre_tool, "async": true }]
-        }],
-        "PostToolUse": [{
-            "hooks": [{ "type": "command", "command": post_tool, "async": true }]
-        }],
-        "PostToolUseFailure": [{
-            "hooks": [{ "type": "command", "command": post_tool_fail, "async": true }]
-        }],
-        "PermissionRequest": [{
-            "hooks": [{ "type": "command", "command": perm_request, "async": true }]
-        }],
-        "Notification": [{
-            "matcher": "permission_prompt",
-            "hooks": [{ "type": "command", "command": notification, "async": true }]
-        }],
-        "Stop": [{
-            "hooks": [{ "type": "command", "command": stop, "async": true }]
-        }]
+        "SessionStart": [build_fixed_cmd(port, "SessionStart", false)],
+        "SessionEnd": [build_fixed_cmd(port, "SessionEnd", true)],
+        "UserPromptSubmit": [build_fixed_cmd(port, "UserPromptSubmit", false)],
+        "PreToolUse": [build_stdin_cmd(port, true)],
+        "PostToolUse": [build_stdin_cmd(port, true)],
+        "Notification": [build_stdin_cmd(port, true)],
+        "Stop": [build_fixed_cmd(port, "Stop", true)],
+        "SubagentStart": [build_stdin_cmd(port, true)],
+        "SubagentStop": [build_stdin_cmd(port, true)],
+        "PreCompact": [build_fixed_cmd(port, "PreCompact", true)]
     })
 }
 
@@ -92,10 +116,18 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
         None => return AgentHookToolStatus::not_detected(),
     };
 
-    let parent = path.parent().unwrap();
-    if !parent.exists() {
-        debug!("Claude Code config dir not found at {:?}, skipping", parent);
+    let factory_dir = path.parent().unwrap();
+
+    let detected = factory_dir.exists() || which_exists("droid");
+    if !detected {
+        debug!("Factory Droid not detected (no config dir, not in PATH), skipping");
         return AgentHookToolStatus::not_detected();
+    }
+
+    if !factory_dir.exists() {
+        if let Err(e) = std::fs::create_dir_all(factory_dir) {
+            return AgentHookToolStatus::failed(path.display().to_string(), e.to_string());
+        }
     }
 
     let path_str = path.display().to_string();
@@ -122,9 +154,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
                 let event_arr = hooks_map.entry(event_name).or_insert_with(|| json!([]));
 
                 if let Some(arr) = event_arr.as_array_mut() {
-                    // Remove any existing atmos hooks (old format or current)
                     arr.retain(|entry| !is_atmos_hook(entry));
-                    // Add new format hooks
                     if let Some(new_arr) = new_entries.as_array() {
                         arr.extend(new_arr.iter().cloned());
                     }
@@ -186,8 +216,9 @@ pub(super) fn check() -> AgentHookToolStatus {
         None => return AgentHookToolStatus::not_detected(),
     };
 
-    let parent = path.parent().unwrap();
-    if !parent.exists() {
+    let factory_dir = path.parent().unwrap();
+    let detected = factory_dir.exists() || which_exists("droid");
+    if !detected {
         return AgentHookToolStatus::not_detected();
     }
 
@@ -225,4 +256,14 @@ pub(super) fn check() -> AgentHookToolStatus {
 fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), String> {
     let content = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
+fn which_exists(cmd: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(cmd)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }

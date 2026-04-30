@@ -1,5 +1,9 @@
 mod claude_code;
 mod codex;
+mod cursor;
+mod factory_droid;
+mod gemini;
+mod kiro;
 mod opencode;
 
 use std::collections::{HashMap, HashSet};
@@ -38,6 +42,10 @@ impl std::fmt::Display for AgentHookState {
 pub enum AgentToolType {
     ClaudeCode,
     Codex,
+    Cursor,
+    Gemini,
+    FactoryDroid,
+    Kiro,
     Opencode,
 }
 
@@ -46,6 +54,10 @@ impl std::fmt::Display for AgentToolType {
         match self {
             Self::ClaudeCode => write!(f, "claude-code"),
             Self::Codex => write!(f, "codex"),
+            Self::Cursor => write!(f, "cursor"),
+            Self::Gemini => write!(f, "gemini"),
+            Self::FactoryDroid => write!(f, "factory-droid"),
+            Self::Kiro => write!(f, "kiro"),
             Self::Opencode => write!(f, "opencode"),
         }
     }
@@ -309,6 +321,22 @@ impl AgentHooksService {
         codex::handle_event(self, payload, ctx);
     }
 
+    pub fn handle_cursor_event(&self, payload: &Value, ctx: &AtmosContext) {
+        cursor::handle_event(self, payload, ctx);
+    }
+
+    pub fn handle_gemini_event(&self, payload: &Value, ctx: &AtmosContext) {
+        gemini::handle_event(self, payload, ctx);
+    }
+
+    pub fn handle_factory_droid_event(&self, payload: &Value, ctx: &AtmosContext) {
+        factory_droid::handle_event(self, payload, ctx);
+    }
+
+    pub fn handle_kiro_event(&self, payload: &Value, ctx: &AtmosContext) {
+        kiro::handle_event(self, payload, ctx);
+    }
+
     pub fn handle_opencode_event(&self, payload: &Value, ctx: &AtmosContext) {
         opencode::handle_event(self, payload, ctx);
     }
@@ -323,9 +351,7 @@ impl AgentHooksService {
         if let Some(ref pane_id) = ctx.pane_id {
             return pane_id.clone();
         }
-        payload
-            .get("session_id")
-            .and_then(|v| v.as_str())
+        Self::extract_session_id(payload)
             .map(String::from)
             .unwrap_or_else(|| {
                 let cwd = Self::extract_cwd(payload).unwrap_or("unknown");
@@ -336,7 +362,25 @@ impl AgentHooksService {
     fn extract_cwd(payload: &Value) -> Option<&str> {
         payload
             .get("cwd")
-            .or_else(|| payload.get("project_path"))
             .and_then(|v| v.as_str())
+            .or_else(|| payload.get("project_path").and_then(|v| v.as_str()))
+            .or_else(|| {
+                payload
+                    .get("workspace_roots")
+                    .and_then(|v| v.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|v| v.as_str())
+            })
+    }
+
+    fn extract_session_id(payload: &Value) -> Option<&str> {
+        payload
+            .get("session_id")
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                payload
+                    .get("conversation_id")
+                    .and_then(|v| v.as_str())
+            })
     }
 }

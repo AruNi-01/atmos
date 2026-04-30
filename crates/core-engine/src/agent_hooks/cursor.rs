@@ -3,14 +3,14 @@ use tracing::debug;
 
 use super::{home_dir, AgentHookToolStatus};
 
-fn settings_path() -> Option<std::path::PathBuf> {
+fn hooks_json_path() -> Option<std::path::PathBuf> {
     home_dir()
         .ok()
-        .map(|h| h.join(".claude").join("settings.json"))
+        .map(|h| h.join(".cursor").join("hooks.json"))
 }
 
 fn hook_url(port: u16) -> String {
-    format!("http://localhost:{}/hooks/claude-code", port)
+    format!("http://localhost:{}/hooks/cursor", port)
 }
 
 fn hook_path_marker() -> &'static str {
@@ -19,83 +19,69 @@ fn hook_path_marker() -> &'static str {
 
 fn is_atmos_hook(hook_entry: &Value) -> bool {
     let marker = hook_path_marker();
-    hook_entry
-        .get("hooks")
-        .and_then(|h| h.as_array())
-        .map(|arr| {
-            arr.iter().any(|h| {
-                if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
-                    return cmd.contains(marker);
-                }
-                if let Some(url) = h.get("url").and_then(|u| u.as_str()) {
-                    return url.contains(marker);
-                }
-                false
-            })
-        })
-        .unwrap_or(false)
+    if let Some(cmd) = hook_entry.get("command").and_then(|c| c.as_str()) {
+        return cmd.contains(marker);
+    }
+    false
 }
 
-fn build_cmd(port: u16, json_body: &str) -> String {
+fn hook_path_pattern() -> &'static str {
+    "localhost:/hooks/cursor"
+}
+
+fn build_cmd(port: u16, event_name: &str) -> String {
     let url = hook_url(port);
     format!(
-        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{json_body}' '{url}' >/dev/null 2>&1 || true"#,
-        json_body = json_body,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"{event_name}"}}' '{url}' >/dev/null 2>&1 || true"#,
+        event_name = event_name,
         url = url,
     )
 }
 
 fn build_hook_entries(port: u16) -> Value {
-    let session_start = build_cmd(port, r#"{"hook_event_name":"SessionStart"}"#);
-    let user_prompt = build_cmd(port, r#"{"hook_event_name":"UserPromptSubmit"}"#);
-    let pre_tool = build_cmd(port, r#"{"hook_event_name":"PreToolUse"}"#);
-    let post_tool = build_cmd(port, r#"{"hook_event_name":"PostToolUse"}"#);
-    let post_tool_fail = build_cmd(port, r#"{"hook_event_name":"PostToolUseFailure"}"#);
-    let perm_request = build_cmd(port, r#"{"hook_event_name":"PermissionRequest"}"#);
-    let notification = build_cmd(
-        port,
-        r#"{"hook_event_name":"Notification","notification_type":"permission_prompt"}"#,
-    );
-    let stop = build_cmd(port, r#"{"hook_event_name":"Stop"}"#);
     json!({
-        "SessionStart": [{
-            "hooks": [{ "type": "command", "command": session_start, "timeout": 5 }]
+        "sessionStart": [{
+            "command": build_cmd(port, "sessionStart")
         }],
-        "UserPromptSubmit": [{
-            "hooks": [{ "type": "command", "command": user_prompt, "timeout": 5 }]
+        "beforeSubmitPrompt": [{
+            "command": build_cmd(port, "beforeSubmitPrompt")
         }],
-        "PreToolUse": [{
-            "hooks": [{ "type": "command", "command": pre_tool, "async": true }]
+        "preToolUse": [{
+            "command": build_cmd(port, "preToolUse")
         }],
-        "PostToolUse": [{
-            "hooks": [{ "type": "command", "command": post_tool, "async": true }]
+        "postToolUse": [{
+            "command": build_cmd(port, "postToolUse")
         }],
-        "PostToolUseFailure": [{
-            "hooks": [{ "type": "command", "command": post_tool_fail, "async": true }]
+        "postToolUseFailure": [{
+            "command": build_cmd(port, "postToolUseFailure")
         }],
-        "PermissionRequest": [{
-            "hooks": [{ "type": "command", "command": perm_request, "async": true }]
+        "stop": [{
+            "command": build_cmd(port, "stop")
         }],
-        "Notification": [{
-            "matcher": "permission_prompt",
-            "hooks": [{ "type": "command", "command": notification, "async": true }]
-        }],
-        "Stop": [{
-            "hooks": [{ "type": "command", "command": stop, "async": true }]
+        "sessionEnd": [{
+            "command": build_cmd(port, "sessionEnd")
         }]
     })
 }
 
 pub(super) fn install(port: u16) -> AgentHookToolStatus {
-    let path = match settings_path() {
+    let path = match hooks_json_path() {
         Some(p) => p,
         None => return AgentHookToolStatus::not_detected(),
     };
 
-    let parent = path.parent().unwrap();
-    if !parent.exists() {
-        debug!("Claude Code config dir not found at {:?}, skipping", parent);
+    let cursor_dir = path.parent().unwrap();
+
+    let detected = cursor_dir.exists() || which_exists("cursor");
+    if !detected {
+        debug!("Cursor not detected (no config dir, not in PATH), skipping");
         return AgentHookToolStatus::not_detected();
+    }
+
+    if !cursor_dir.exists() {
+        if let Err(e) = std::fs::create_dir_all(cursor_dir) {
+            return AgentHookToolStatus::failed(path.display().to_string(), e.to_string());
+        }
     }
 
     let path_str = path.display().to_string();
@@ -106,7 +92,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
             Err(e) => return AgentHookToolStatus::failed(&path_str, e.to_string()),
         }
     } else {
-        json!({})
+        json!({"version": 1})
     };
 
     let new_hooks = build_hook_entries(port);
@@ -122,9 +108,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
                 let event_arr = hooks_map.entry(event_name).or_insert_with(|| json!([]));
 
                 if let Some(arr) = event_arr.as_array_mut() {
-                    // Remove any existing atmos hooks (old format or current)
                     arr.retain(|entry| !is_atmos_hook(entry));
-                    // Add new format hooks
                     if let Some(new_arr) = new_entries.as_array() {
                         arr.extend(new_arr.iter().cloned());
                     }
@@ -140,7 +124,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
 }
 
 pub(super) fn uninstall() -> AgentHookToolStatus {
-    let path = match settings_path() {
+    let path = match hooks_json_path() {
         Some(p) if p.exists() => p,
         _ => return AgentHookToolStatus::not_detected(),
     };
@@ -181,13 +165,14 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
 }
 
 pub(super) fn check() -> AgentHookToolStatus {
-    let path = match settings_path() {
+    let path = match hooks_json_path() {
         Some(p) => p,
         None => return AgentHookToolStatus::not_detected(),
     };
 
-    let parent = path.parent().unwrap();
-    if !parent.exists() {
+    let cursor_dir = path.parent().unwrap();
+    let detected = cursor_dir.exists() || which_exists("cursor");
+    if !detected {
         return AgentHookToolStatus::not_detected();
     }
 
@@ -209,7 +194,7 @@ pub(super) fn check() -> AgentHookToolStatus {
 
     let installed = settings
         .get("hooks")
-        .and_then(|h| h.get("Stop"))
+        .and_then(|h| h.get("stop"))
         .and_then(|arr| arr.as_array())
         .map(|arr| arr.iter().any(|entry| is_atmos_hook(entry)))
         .unwrap_or(false);
@@ -225,4 +210,14 @@ pub(super) fn check() -> AgentHookToolStatus {
 fn write_json(path: &std::path::Path, value: &Value) -> std::result::Result<(), String> {
     let content = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     std::fs::write(path, content).map_err(|e| e.to_string())
+}
+
+fn which_exists(cmd: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(cmd)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }

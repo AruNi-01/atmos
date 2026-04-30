@@ -30,6 +30,10 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/claude-code", post(handle_claude_code_hook))
         .route("/codex", post(handle_codex_hook))
+        .route("/cursor", post(handle_cursor_hook))
+        .route("/gemini", post(handle_gemini_hook))
+        .route("/factory-droid", post(handle_factory_droid_hook))
+        .route("/kiro", post(handle_kiro_hook))
         .route("/opencode", post(handle_opencode_hook))
         .route("/sessions", get(list_hook_sessions))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
@@ -78,6 +82,54 @@ async fn handle_opencode_hook(
     state
         .agent_hooks_service
         .handle_opencode_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_cursor_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_cursor_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_gemini_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_gemini_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_factory_droid_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_factory_droid_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_kiro_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_kiro_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
@@ -193,8 +245,9 @@ async fn test_push_notification(
     }
 }
 
-async fn install_hooks() -> Json<Value> {
-    let report = core_engine::agent_hooks::install_all_hooks();
+async fn install_hooks(State(state): State<AppState>) -> Json<Value> {
+    let port = state.api_port.load(std::sync::atomic::Ordering::SeqCst);
+    let report = core_engine::agent_hooks::install_all_hooks(port);
     Json(serde_json::to_value(report).unwrap_or_default())
 }
 

@@ -1,5 +1,9 @@
 mod claude_code;
 mod codex;
+mod cursor;
+mod factory_droid;
+mod gemini;
+mod kiro;
 mod opencode;
 
 use std::path::PathBuf;
@@ -9,18 +13,14 @@ use tracing::info;
 
 use crate::error::{EngineError, Result};
 
-fn atmos_port() -> u16 {
-    std::env::var("ATMOS_PORT")
-        .ok()
-        .or_else(|| std::env::var("SERVER_PORT").ok())
-        .and_then(|p| p.parse().ok())
-        .unwrap_or(30303)
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentHookInstallReport {
     pub claude_code: AgentHookToolStatus,
     pub codex: AgentHookToolStatus,
+    pub cursor: AgentHookToolStatus,
+    pub gemini: AgentHookToolStatus,
+    pub factory_droid: AgentHookToolStatus,
+    pub kiro: AgentHookToolStatus,
     pub opencode: AgentHookToolStatus,
 }
 
@@ -63,53 +63,77 @@ impl AgentHookToolStatus {
     }
 }
 
-pub fn install_all_hooks() -> AgentHookInstallReport {
-    let port = atmos_port();
+pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
     info!("Installing agent hooks for Atmos port {}", port);
 
     let claude = claude_code::install(port);
     let codex = codex::install(port);
+    let cursor = cursor::install(port);
+    let gemini_status = gemini::install(port);
+    let factory = factory_droid::install(port);
+    let kiro_status = kiro::install(port);
     let opencode = opencode::install(port);
 
     info!(
-        "Agent hook install complete: claude_code={}, codex={}, opencode={}",
+        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, factory_droid={}, kiro={}, opencode={}",
         if claude.installed { "ok" } else { "skip" },
         if codex.installed { "ok" } else { "skip" },
+        if cursor.installed { "ok" } else { "skip" },
+        if gemini_status.installed { "ok" } else { "skip" },
+        if factory.installed { "ok" } else { "skip" },
+        if kiro_status.installed { "ok" } else { "skip" },
         if opencode.installed { "ok" } else { "skip" },
     );
 
     AgentHookInstallReport {
         claude_code: claude,
         codex,
+        cursor,
+        gemini: gemini_status,
+        factory_droid: factory,
+        kiro: kiro_status,
         opencode,
     }
 }
 
 pub fn uninstall_all_hooks() -> AgentHookInstallReport {
-    let port = atmos_port();
-    info!("Uninstalling agent hooks for Atmos port {}", port);
+    info!("Uninstalling agent hooks");
 
-    let claude = claude_code::uninstall(port);
-    let codex = codex::uninstall(port);
+    let claude = claude_code::uninstall();
+    let codex = codex::uninstall();
+    let cursor = cursor::uninstall();
+    let gemini_status = gemini::uninstall();
+    let factory = factory_droid::uninstall();
+    let kiro_status = kiro::uninstall();
     let opencode = opencode::uninstall();
 
     AgentHookInstallReport {
         claude_code: claude,
         codex,
+        cursor,
+        gemini: gemini_status,
+        factory_droid: factory,
+        kiro: kiro_status,
         opencode,
     }
 }
 
 pub fn check_all_hooks() -> AgentHookInstallReport {
-    let port = atmos_port();
-
-    let claude = claude_code::check(port);
-    let codex = codex::check(port);
+    let claude = claude_code::check();
+    let codex = codex::check();
+    let cursor = cursor::check();
+    let gemini_status = gemini::check();
+    let factory = factory_droid::check();
+    let kiro_status = kiro::check();
     let opencode = opencode::check();
 
     AgentHookInstallReport {
         claude_code: claude,
         codex,
+        cursor,
+        gemini: gemini_status,
+        factory_droid: factory,
+        kiro: kiro_status,
         opencode,
     }
 }
