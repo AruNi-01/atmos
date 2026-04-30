@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { DragStartEvent } from '@workspace/ui';
+import { useHotkeys } from "react-hotkeys-hook";
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
@@ -44,6 +45,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@workspace/ui";
 import type { Project,
   WorkspacePriority,
@@ -59,10 +63,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import {
+  ArrowBigUp,
   Bot,
   ChevronDown,
   ChevronUp,
   ChevronRight,
+  Command,
   Group,
   SquareKanban,
 } from "lucide-react";
@@ -165,6 +171,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
+    const [, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
@@ -508,6 +515,35 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         void setNewWorkspace(true);
     };
 
+    /**
+     * Open the New Workspace dialog scoped to the currently active project (or
+     * empty selection when there is no active project). Shared between the
+     * sidebar card click and the global ⌘N hotkey.
+     */
+    const handleOpenNewWorkspace = useCallback(() => {
+        setSelectedProjectId(currentProjectId ?? "");
+        void setNewWorkspace(true);
+    }, [currentProjectId, setNewWorkspace, setSelectedProjectId]);
+
+    // ⌘N → open the New Workspace overlay from anywhere in the app.
+    useHotkeys(
+        "mod+n",
+        handleOpenNewWorkspace,
+        { enableOnFormTags: false, preventDefault: true },
+        [handleOpenNewWorkspace],
+    );
+
+    // ⌘⇧K → expand the Kanban board overlay. The kanban dialog is bound to the
+    // `lsKanban` URL state, so flipping it to true opens the board from anywhere.
+    useHotkeys(
+        "mod+shift+k",
+        () => {
+            void setIsKanbanExpanded(true);
+        },
+        { enableOnFormTags: false, preventDefault: true },
+        [setIsKanbanExpanded],
+    );
+
     const handleQuickAddWorkspace = async (projectId: string) => {
         showCreating();
         const workspaceId = await quickAddWorkspace(projectId);
@@ -823,16 +859,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
                                             if (item.kind === 'new-workspace') {
                                                 return (
-                                                    <div
-                                                        key={item.id}
-                                                        onClick={() => {
-                                                            setSelectedProjectId(currentProjectId ?? "");
-                                                            void setNewWorkspace(true);
-                                                        }}
-                                                        className={cardClassName}
-                                                    >
-                                                        {cardInner}
-                                                    </div>
+                                                    <Tooltip key={item.id}>
+                                                        <TooltipTrigger asChild>
+                                                            <div
+                                                                onClick={handleOpenNewWorkspace}
+                                                                className={cardClassName}
+                                                            >
+                                                                {cardInner}
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <div className="flex items-center gap-2">
+                                                                <span>New Workspace</span>
+                                                                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                                                                    <Command className="size-3" />
+                                                                    <span className="text-xs">N</span>
+                                                                </kbd>
+                                                            </div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 );
                                             }
 
