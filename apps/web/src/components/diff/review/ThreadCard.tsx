@@ -1,24 +1,24 @@
 "use client";
 
-import React from "react";
-import { Button } from "@workspace/ui";
+import React, { useState } from "react";
+import { Button, Textarea } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { MessageBubble } from "./MessageBubble";
-import { formatDate, statusTone, threadTitle } from "./utils";
+import {
+  formatReviewDateTime,
+  reviewThreadStatusLabel,
+  statusTone,
+  threadTitle,
+} from "./utils";
+import { MessageSquareReply, SendHorizontal, X } from "lucide-react";
 import type { ReviewThreadDto } from "@/api/ws-api";
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "Open",
-  agent_fixed: "Agent Fixed",
-  fixed: "Fixed",
-  dismissed: "Dismissed",
-};
 
 interface ThreadCardProps {
   thread: ReviewThreadDto;
   filePath: string;
   canEdit: boolean;
   onUpdateStatus: (threadGuid: string, status: string) => void | Promise<void>;
+  onReply: (thread: ReviewThreadDto, body: string) => void | Promise<void>;
 }
 
 export const ThreadCard: React.FC<ThreadCardProps> = ({
@@ -26,7 +26,27 @@ export const ThreadCard: React.FC<ThreadCardProps> = ({
   filePath,
   canEdit,
   onUpdateStatus,
+  onReply,
 }) => {
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyBody, setReplyBody] = useState("");
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+
+  const handleSubmitReply = async () => {
+    const body = replyBody.trim();
+    if (!body) return;
+    setIsSubmittingReply(true);
+    try {
+      await onReply(thread, body);
+      setReplyBody("");
+      setReplyOpen(false);
+    } catch {
+      // The shared review hook already shows the failure toast.
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-border bg-background/80 p-3">
       <div className="flex items-start justify-between gap-3">
@@ -35,7 +55,7 @@ export const ThreadCard: React.FC<ThreadCardProps> = ({
             {threadTitle(thread)}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {thread.anchor.file_path || filePath} · {formatDate(thread.created_at)}
+            {thread.anchor.file_path || filePath} · {formatReviewDateTime(thread.created_at)}
           </p>
         </div>
         <span
@@ -44,7 +64,7 @@ export const ThreadCard: React.FC<ThreadCardProps> = ({
             statusTone(thread.status),
           )}
         >
-          {STATUS_LABELS[thread.status] ?? thread.status.replaceAll("_", " ")}
+          {reviewThreadStatusLabel(thread.status)}
         </span>
       </div>
 
@@ -54,7 +74,50 @@ export const ThreadCard: React.FC<ThreadCardProps> = ({
         ))}
       </div>
 
+      {canEdit && replyOpen && (
+        <div className="mt-3 rounded-md border border-border bg-background p-2">
+          <Textarea
+            value={replyBody}
+            onChange={(event) => setReplyBody(event.target.value)}
+            placeholder="Reply to this thread..."
+            className="min-h-20 bg-background text-sm"
+            autoFocus
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isSubmittingReply}
+              onClick={() => {
+                setReplyOpen(false);
+                setReplyBody("");
+              }}
+            >
+              <X className="mr-1.5 size-3.5" />
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!replyBody.trim() || isSubmittingReply}
+              onClick={() => void handleSubmitReply()}
+            >
+              <SendHorizontal className="mr-1.5 size-3.5" />
+              Reply
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!canEdit}
+          onClick={() => setReplyOpen((value) => !value)}
+        >
+          <MessageSquareReply className="mr-1.5 size-3.5" />
+          Reply
+        </Button>
         {thread.status === "open" && (
           <>
             <Button

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import { formatDate } from "./utils";
+import { formatReviewDateTime } from "./utils";
 import type { ReviewMessageDto } from "@/api/ws-api";
 
 interface MessageBubbleProps {
@@ -22,7 +22,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     >
       <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium tracking-wide text-muted-foreground">
         <span className="capitalize">{isUser ? "you" : message.author_type}</span>
-        <span>{formatDate(message.created_at)}</span>
+        <span>{formatReviewDateTime(message.created_at)}</span>
       </div>
       <p className="whitespace-pre-wrap break-words text-foreground">
         {message.body_full}

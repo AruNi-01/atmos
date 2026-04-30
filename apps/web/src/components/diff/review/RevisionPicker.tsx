@@ -9,6 +9,7 @@ import {
 } from "@workspace/ui";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { compareReviewTimestamps } from "@/components/diff/review/utils";
 import type { ReviewSessionDto } from "@/api/ws-api";
 
 interface RevisionPickerProps {
@@ -23,7 +24,7 @@ export const RevisionPicker: React.FC<RevisionPickerProps> = ({
   onSelect,
 }) => {
   const sorted = [...revisions].sort((a, b) =>
-    a.created_at.localeCompare(b.created_at),
+    compareReviewTimestamps(a.created_at, b.created_at),
   );
   const selectedIndex = sorted.findIndex((rev) => rev.guid === selectedGuid);
   const label = selectedIndex >= 0 ? `v${selectedIndex + 1}` : "v1";

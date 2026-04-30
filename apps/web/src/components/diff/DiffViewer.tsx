@@ -21,7 +21,11 @@ import { useReviewContext } from '@/hooks/use-review-context';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
 import { cn } from '@/lib/utils';
-import { X, MoreHorizontal } from 'lucide-react';
+import { MessageSquareReply, SendHorizontal, X, MoreHorizontal } from 'lucide-react';
+import {
+  formatReviewDateTime,
+  reviewThreadStatusLabel,
+} from '@/components/diff/review/utils';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -82,13 +86,24 @@ export const DiffViewer = ({
   const [inlineCommentDraft, setInlineCommentDraft] = useState<InlineCommentDraft | null>(null);
   const [inlineCommentBody, setInlineCommentBody] = useState('');
   const [isSubmittingInlineComment, setIsSubmittingInlineComment] = useState(false);
+  const [replyDraftThreadGuid, setReplyDraftThreadGuid] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const reviewContext = useMemo(() => ({
     session: reviewCtx.currentSession,
     revision: reviewCtx.currentRevision,
     file: reviewCtx.currentFile,
     threads: reviewCtx.threads,
     canEdit: reviewCtx.canEdit,
-  }), [reviewCtx.currentSession, reviewCtx.currentRevision, reviewCtx.currentFile, reviewCtx.threads, reviewCtx.canEdit]);
+    replyToThread: reviewCtx.handleReplyToThread,
+  }), [
+    reviewCtx.currentSession,
+    reviewCtx.currentRevision,
+    reviewCtx.currentFile,
+    reviewCtx.threads,
+    reviewCtx.canEdit,
+    reviewCtx.handleReplyToThread,
+  ]);
 
   const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
   const [wordWrap, setWordWrap] = useState(false);
@@ -499,6 +514,29 @@ export const DiffViewer = ({
     }
   }, [reviewContext.file]);
 
+  const handleThreadReplySubmit = useCallback(async (thread: ReviewThreadDto) => {
+    const body = replyBody.trim();
+    if (!body) {
+      toastManager.add({
+        title: 'Reply is empty',
+        description: 'Write a short reply before sending.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setIsSubmittingReply(true);
+    try {
+      await reviewContext.replyToThread(thread, body);
+      setReplyBody('');
+      setReplyDraftThreadGuid(null);
+    } catch {
+      // The shared review hook already shows the failure toast.
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  }, [replyBody, reviewContext]);
+
 
 
   const renderGutterUtility = useCallback((getHoveredLine: () => { lineNumber: number; side: 'deletions' | 'additions' } | undefined) => {
@@ -626,7 +664,7 @@ export const DiffViewer = ({
               {thread.title?.trim() || `Comment on L${thread.anchor_start_line}${thread.anchor_start_line === thread.anchor_end_line ? '' : `-${thread.anchor_end_line}`}`}
             </p>
             <p className="text-xs text-muted-foreground">
-              {thread.status === 'agent_fixed' ? 'Agent Fixed' : thread.status === 'dismissed' ? 'Dismissed' : thread.status.charAt(0).toUpperCase() + thread.status.slice(1)}
+              {reviewThreadStatusLabel(thread.status)}
             </p>
           </div>
         </div>
@@ -643,20 +681,75 @@ export const DiffViewer = ({
             >
               <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium tracking-wide text-muted-foreground">
                 <span className="capitalize">{message.author_type === 'user' ? 'you' : message.author_type}</span>
-                <span>{new Intl.DateTimeFormat(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }).format(new Date(message.created_at))}</span>
+                <span>{formatReviewDateTime(message.created_at)}</span>
               </div>
               <p className="whitespace-pre-wrap break-words text-foreground">{message.body_full}</p>
             </div>
           ))}
         </div>
+        {reviewContext.canEdit && replyDraftThreadGuid === thread.guid && (
+          <div className="mt-3 rounded-md border border-border bg-background p-2">
+            <Textarea
+              value={replyBody}
+              onChange={(event) => setReplyBody(event.target.value)}
+              placeholder="Reply to this thread..."
+              className="min-h-20 bg-background text-sm"
+              autoFocus
+            />
+            <div className="mt-2 flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isSubmittingReply}
+                onClick={() => {
+                  setReplyDraftThreadGuid(null);
+                  setReplyBody('');
+                }}
+              >
+                <X className="mr-1.5 size-3.5" />
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={!replyBody.trim() || isSubmittingReply}
+                onClick={() => void handleThreadReplySubmit(thread)}
+              >
+                <SendHorizontal className="mr-1.5 size-3.5" />
+                Reply
+              </Button>
+            </div>
+          </div>
+        )}
+        {reviewContext.canEdit && (
+          <div className="mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setReplyBody('');
+                setReplyDraftThreadGuid((value) =>
+                  value === thread.guid ? null : thread.guid,
+                );
+              }}
+            >
+              <MessageSquareReply className="mr-1.5 size-3.5" />
+              Reply
+            </Button>
+          </div>
+        )}
       </div>
     );
-  }, [handleInlineCommentSubmit, inlineCommentBody, inlineCommentDraft, isSubmittingInlineComment]);
+  }, [
+    handleInlineCommentSubmit,
+    handleThreadReplySubmit,
+    inlineCommentBody,
+    inlineCommentDraft,
+    isSubmittingInlineComment,
+    isSubmittingReply,
+    replyBody,
+    replyDraftThreadGuid,
+    reviewContext.canEdit,
+  ]);
 
   if (isLoading) {
     return (

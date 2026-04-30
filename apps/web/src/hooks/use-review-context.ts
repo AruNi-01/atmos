@@ -14,7 +14,12 @@ import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useWebSocketStore } from "@/hooks/use-websocket";
 import { useReviewTerminalRunnerStore } from "@/hooks/use-review-terminal-runner";
-import { sortThreads, REVIEW_AGENT_STORAGE_KEY } from "@/components/diff/review/utils";
+import {
+  compareReviewTimestamps,
+  isOpenReviewThreadStatus,
+  sortThreads,
+  REVIEW_AGENT_STORAGE_KEY,
+} from "@/components/diff/review/utils";
 
 export type RunArtifactKind = "prompt" | "patch" | "summary";
 
@@ -118,7 +123,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     return (
       sessions.find((session) => session.status === "active") ??
       [...sessions].sort((left, right) =>
-        right.created_at.localeCompare(left.created_at),
+        compareReviewTimestamps(right.created_at, left.created_at),
       )[0]
     );
   }, [fileSnapshotGuid, selectedSessionGuid, sessions]);
@@ -230,7 +235,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   const openCurrentFileThreads = useMemo(
     () =>
       currentFileThreads.filter((thread) =>
-        ["open", "agent_fixed"].includes(thread.status),
+        isOpenReviewThreadStatus(thread.status),
       ),
     [currentFileThreads],
   );
@@ -238,7 +243,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   const openRevisionThreads = useMemo(
     () =>
       threads.filter((thread) =>
-        ["open", "agent_fixed"].includes(thread.status),
+        isOpenReviewThreadStatus(thread.status),
       ),
     [threads],
   );
@@ -395,6 +400,43 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
             error instanceof Error ? error.message : "Unknown review thread error",
           type: "error",
         });
+      }
+    },
+    [loadSessions, loadThreads],
+  );
+
+  const handleReplyToThread = useCallback(
+    async (thread: ReviewThreadDto, body: string) => {
+      const trimmedBody = body.trim();
+      if (!trimmedBody) {
+        toastManager.add({
+          title: "Reply is empty",
+          description: "Write a short reply before sending.",
+          type: "error",
+        });
+        return;
+      }
+
+      try {
+        await reviewWsApi.addMessage({
+          threadGuid: thread.guid,
+          authorType: "user",
+          kind: "reply",
+          body: trimmedBody,
+        });
+        if (thread.status !== "open") {
+          await reviewWsApi.updateThreadStatus(thread.guid, "open");
+        }
+        await loadThreads();
+        await loadSessions();
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to reply to thread",
+          description:
+            error instanceof Error ? error.message : "Unknown review thread error",
+          type: "error",
+        });
+        throw error;
       }
     },
     [loadSessions, loadThreads],
@@ -621,6 +663,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     handleRenameSession,
     handleToggleReviewed,
     handleUpdateThreadStatus,
+    handleReplyToThread,
     createFixRun,
     handleCopyFixPrompt,
     handleSendFixRunToAgentChat,

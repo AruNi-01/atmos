@@ -17,7 +17,10 @@ import { cn } from "@/lib/utils";
 import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { FixActionsMenu } from "@/components/diff/review/FixActionsMenu";
 import { RevisionPicker } from "@/components/diff/review/RevisionPicker";
-import { sessionStatusTone } from "@/components/diff/review/utils";
+import {
+  compareReviewTimestamps,
+  sessionStatusTone,
+} from "@/components/diff/review/utils";
 
 export const ReviewActions: React.FC = () => {
   const {
@@ -46,7 +49,7 @@ export const ReviewActions: React.FC = () => {
   const revisionLabel = useMemo(() => {
     if (!currentSession || !currentRevision) return "Live";
     const sorted = [...currentSession.revisions].sort((a, b) =>
-      a.created_at.localeCompare(b.created_at),
+      compareReviewTimestamps(a.created_at, b.created_at),
     );
     const idx = sorted.findIndex((r) => r.guid === currentRevision.guid);
     return idx >= 0 ? `v${idx + 1}` : "Revision";

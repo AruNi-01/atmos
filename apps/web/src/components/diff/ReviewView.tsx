@@ -16,7 +16,12 @@ import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorStore, EDITOR_REVIEW_DIFF_PREFIX, getEditorSourcePath } from "@/hooks/use-editor-store";
 import { ThreadCard } from "@/components/diff/review/ThreadCard";
 import { FrozenFileList } from "@/components/diff/review/FrozenFileList";
-import { sortThreads, formatDate } from "@/components/diff/review/utils";
+import {
+  compareReviewTimestamps,
+  formatReviewDateTime,
+  isOpenReviewThreadStatus,
+  sortThreads,
+} from "@/components/diff/review/utils";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 
 const ReviewView: React.FC = () => {
@@ -36,6 +41,7 @@ const ReviewView: React.FC = () => {
     handleCreateSession,
     handleToggleReviewed,
     handleUpdateThreadStatus,
+    handleReplyToThread,
     latestSummaryRun,
     handlePreviewArtifact,
     artifactPreview,
@@ -49,7 +55,7 @@ const ReviewView: React.FC = () => {
   const revisionLabel = useMemo(() => {
     if (!currentSession || !currentRevision) return "";
     const sorted = [...currentSession.revisions].sort((a, b) =>
-      a.created_at.localeCompare(b.created_at),
+      compareReviewTimestamps(a.created_at, b.created_at),
     );
     const idx = sorted.findIndex((r) => r.guid === currentRevision.guid);
     return idx >= 0 ? `v${idx + 1}` : "";
@@ -78,7 +84,7 @@ const ReviewView: React.FC = () => {
     if (summaryRunGuid && !hasLoadedSummary && !artifactLoading) {
       handlePreviewArtifact(summaryRunGuid, "summary");
     }
-  }, [summaryRunGuid, hasLoadedSummary, artifactLoading]);
+  }, [summaryRunGuid, hasLoadedSummary, artifactLoading, handlePreviewArtifact]);
 
   if (!workspaceId) {
     return (
@@ -117,7 +123,7 @@ const ReviewView: React.FC = () => {
   const fileCount = currentRevision?.files.length ?? 0;
   const hasFiles = fileCount > 0;
   const hasThreads = threadsByFile.length > 0;
-  const openThreadCount = threads.filter((t) => t.status === "open" || t.status === "agent_fixed").length;
+  const openThreadCount = threads.filter((t) => isOpenReviewThreadStatus(t.status)).length;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -228,6 +234,7 @@ const ReviewView: React.FC = () => {
                             currentSession.current_revision_guid
                         }
                         onUpdateStatus={handleUpdateThreadStatus}
+                        onReply={handleReplyToThread}
                       />
                     ))}
                   </div>
@@ -250,7 +257,7 @@ const ReviewView: React.FC = () => {
               <FileText className="size-3.5 shrink-0" />
               <span>Summary</span>
               <span className="text-[11px] text-muted-foreground ml-auto">
-                {formatDate(latestSummaryRun.updated_at)}
+                {formatReviewDateTime(latestSummaryRun.updated_at)}
               </span>
             </CollapsibleTrigger>
             <CollapsibleContent>

@@ -23,6 +23,14 @@ use crate::error::{Result, ServiceError};
 
 const MESSAGE_INLINE_LIMIT: usize = 16 * 1024;
 
+fn is_open_review_thread_status(status: &str) -> bool {
+    matches!(status, "open" | "agent_fixed")
+}
+
+fn is_valid_review_thread_status(status: &str) -> bool {
+    matches!(status, "open" | "agent_fixed" | "fixed" | "dismissed")
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewAnchor {
     pub file_path: String,
@@ -537,7 +545,7 @@ impl ReviewService {
         let threads = review_repo.list_threads_by_revision(&revision_guid).await?;
         let mut open_thread_count_by_snapshot: HashMap<String, usize> = HashMap::new();
         for thread in threads {
-            if thread.status == "open" || thread.status == "agent_fixed" {
+            if is_open_review_thread_status(&thread.status) {
                 *open_thread_count_by_snapshot
                     .entry(thread.file_snapshot_guid.clone())
                     .or_default() += 1;
@@ -586,8 +594,8 @@ impl ReviewService {
         revision_guid: Option<String>,
     ) -> Result<Vec<ReviewThreadDto>> {
         let review_repo = ReviewRepo::new(&self.db);
-        let threads = if let Some(revision_guid) = revision_guid {
-            review_repo.list_threads_by_revision(&revision_guid).await?
+        let threads = if let Some(revision_guid) = revision_guid.as_deref() {
+            review_repo.list_threads_by_revision(revision_guid).await?
         } else {
             review_repo.list_threads_by_session(&session_guid).await?
         };
@@ -798,6 +806,12 @@ impl ReviewService {
     }
 
     pub async fn update_thread_status(&self, input: UpdateReviewThreadStatusInput) -> Result<()> {
+        if !is_valid_review_thread_status(&input.status) {
+            return Err(ServiceError::Validation(format!(
+                "Invalid review thread status: {}",
+                input.status
+            )));
+        }
         ReviewRepo::new(&self.db)
             .update_thread_status(&input.thread_guid, &input.status)
             .await
@@ -826,7 +840,7 @@ impl ReviewService {
                 if !selected_set.is_empty() {
                     selected_set.contains(&thread.model.guid)
                 } else {
-                    thread.model.status == "open" || thread.model.status == "agent_fixed"
+                    is_open_review_thread_status(&thread.model.status)
                 }
             })
             .collect();
@@ -1630,7 +1644,7 @@ impl ReviewService {
         Ok(ReviewSessionDto {
             open_thread_count: threads
                 .iter()
-                .filter(|thread| thread.status == "open" || thread.status == "agent_fixed")
+                .filter(|thread| is_open_review_thread_status(&thread.status))
                 .count(),
             reviewed_file_count,
             reviewed_then_changed_count,

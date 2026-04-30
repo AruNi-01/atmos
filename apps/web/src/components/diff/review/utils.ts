@@ -1,15 +1,34 @@
 import { parsePatchFiles } from "@pierre/diffs";
+import { formatLocalDateTime, parseUTCDate } from "@atmos/shared";
 import type { ReviewThreadDto } from "@/api/ws-api";
 
-export function formatDate(value: string | null | undefined) {
+export function isOpenReviewThreadStatus(status: string) {
+  return status === "open" || status === "agent_fixed";
+}
+
+export function reviewThreadStatusLabel(status: string) {
+  switch (status) {
+    case "open":
+      return "Open";
+    case "agent_fixed":
+      return "Agent Fixed";
+    case "fixed":
+      return "Fixed";
+    case "dismissed":
+      return "Dismissed";
+    default:
+      return status.replaceAll("_", " ");
+  }
+}
+
+export function compareReviewTimestamps(left: string, right: string) {
+  return parseUTCDate(left).getTime() - parseUTCDate(right).getTime();
+}
+
+export function formatReviewDateTime(value: string | null | undefined) {
   if (!value) return "Unknown";
   try {
-    return new Intl.DateTimeFormat(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(value));
+    return formatLocalDateTime(value, "MMM d, HH:mm");
   } catch {
     return value;
   }
@@ -87,7 +106,7 @@ export function sortThreads(
     const leftStatus = statusRank(left.status);
     const rightStatus = statusRank(right.status);
     if (leftStatus !== rightStatus) return leftStatus - rightStatus;
-    return right.created_at.localeCompare(left.created_at);
+    return compareReviewTimestamps(right.created_at, left.created_at);
   });
 }
 
