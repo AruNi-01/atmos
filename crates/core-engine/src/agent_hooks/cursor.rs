@@ -38,25 +38,37 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     )
 }
 
+fn build_stdin_cmd(port: u16, event_name: &str) -> String {
+    let url = hook_url(port);
+    format!(
+        r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        url = url,
+    )
+}
+
 fn build_hook_entries(port: u16) -> Value {
     json!({
         "sessionStart": [{
             "command": build_cmd(port, "sessionStart")
         }],
         "beforeSubmitPrompt": [{
-            "command": build_cmd(port, "beforeSubmitPrompt")
+            "command": build_stdin_cmd(port, "beforeSubmitPrompt")
         }],
         "preToolUse": [{
-            "command": build_cmd(port, "preToolUse")
+            "command": build_stdin_cmd(port, "preToolUse"),
+            "matcher": "*"
         }],
         "postToolUse": [{
-            "command": build_cmd(port, "postToolUse")
+            "command": build_stdin_cmd(port, "postToolUse"),
+            "matcher": "*"
         }],
         "postToolUseFailure": [{
-            "command": build_cmd(port, "postToolUseFailure")
+            "command": build_stdin_cmd(port, "postToolUseFailure"),
+            "matcher": "*"
         }],
         "stop": [{
-            "command": build_cmd(port, "stop")
+            "command": build_stdin_cmd(port, "stop"),
+            "loop_limit": 5
         }],
         "sessionEnd": [{
             "command": build_cmd(port, "sessionEnd")

@@ -71,7 +71,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn cursor_running_events_update_state() {
+    fn cursor_session_start_sets_idle() {
+        let service = AgentHooksService::new();
+        let payload = serde_json::json!({
+            "hook_event_name": "sessionStart",
+            "conversation_id": "cursor-conv-1",
+            "cwd": "/tmp/project",
+        });
+
+        handle_event(&service, &payload, &AtmosContext::default());
+
+        let sessions = service.get_all_sessions();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].tool, AgentToolType::Cursor);
+        assert_eq!(sessions[0].state, AgentHookState::Idle);
+    }
+
+    #[test]
+    fn cursor_pre_tool_use_sets_running() {
         let service = AgentHooksService::new();
         let payload = serde_json::json!({
             "hook_event_name": "preToolUse",

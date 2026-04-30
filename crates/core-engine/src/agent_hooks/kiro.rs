@@ -4,7 +4,7 @@ use tracing::debug;
 use super::{home_dir, AgentHookToolStatus};
 
 const ATMOS_AGENT_NAME: &str = "atmos";
-const ATMOS_MARKER: &str = "// Atmos agent hook plugin";
+const ATMOS_MARKER: &str = "ATMOS_MANAGED";
 
 fn agent_path() -> Option<std::path::PathBuf> {
     home_dir()
@@ -17,30 +17,47 @@ fn hook_url(port: u16) -> String {
 }
 
 fn is_atmos_agent(content: &str) -> bool {
-    content.contains(ATMOS_MARKER)
+    if let Ok(val) = serde_json::from_str::<Value>(content) {
+        if let Some(hooks) = val.get("hooks").and_then(|h| h.as_object()) {
+            for (_event, entries) in hooks {
+                if let Some(arr) = entries.as_array() {
+                    for entry in arr {
+                        let cmd = entry.get("command").and_then(|c| c.as_str()).unwrap_or("");
+                        if cmd.contains(ATMOS_MARKER) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 fn build_agent_config(port: u16) -> Value {
     let url = hook_url(port);
     let agent_spawn_cmd = format!(
-        r#"{ATMOS_MARKER} && [ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"agentSpawn"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"agentSpawn"}}' '{url}' >/dev/null 2>&1 || true"#,
     );
     let prompt_submit_cmd = format!(
-        r#"{ATMOS_MARKER} && [ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"userPromptSubmit"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"userPromptSubmit"}}' '{url}' >/dev/null 2>&1 || true"#,
     );
     let pre_tool_cmd = format!(
-        r#"{ATMOS_MARKER} && [ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
     );
     let post_tool_cmd = format!(
-        r#"{ATMOS_MARKER} && [ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,
     );
     let stop_cmd = format!(
-        r#"{ATMOS_MARKER} && [ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"stop"}}' '{url}' >/dev/null 2>&1 || true"#,
+        r#"[ "$ATMOS_MANAGED" = "1" ] && curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d '{{"hook_event_name":"stop"}}' '{url}' >/dev/null 2>&1 || true"#,
     );
 
     json!({
         "name": ATMOS_AGENT_NAME,
         "description": "Atmos integration — relays agent lifecycle events to Atmos for status tracking. Launch with `kiro --agent atmos`.",
+        "welcomeMessage": "Kiro agent in Atmos — lifecycle events are relayed to Atmos.",
+        "tools": ["*"],
+        "allowedTools": ["*"],
         "hooks": {
             "agentSpawn": [
                 {
