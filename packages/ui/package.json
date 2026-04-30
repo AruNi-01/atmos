@@ -50,6 +50,8 @@
     "motion": "^12.38.0",
     "nanoid": "^5.1.6",
     "next-themes": "^0.4.6",
+    "overlayscrollbars": "^2.15.1",
+    "overlayscrollbars-react": "^0.5.6",
     "postprocessing": "^6.39.1",
     "radix-ui": "^1.4.3",
     "react-day-picker": "^9.14.0",

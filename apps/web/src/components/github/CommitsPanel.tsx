@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { GitCommit as GitCommitIcon, ChevronLeft, ChevronRight, Copy, Check, Loader2, Github } from 'lucide-react';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
+import { OverlayScroll, Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@workspace/ui';
 import { cn } from '@/lib/utils';
 import { useGitLog, type GitCommit } from '@/hooks/use-github';
 import { formatDistanceToNow, format, fromUnixTime } from 'date-fns';
@@ -237,7 +237,8 @@ export function CommitsPanel({
     <TooltipProvider delayDuration={300}>
       <div className="flex flex-col h-full w-full">
         {/* Commit list — scrollable */}
-        <div className="flex-1 overflow-y-auto no-scrollbar">
+        <OverlayScroll className="flex-1 min-h-0">
+          <div>
           {grouped.map((group) => (
             <div key={group.dateLabel}>
               {/* Day header — sticky */}
@@ -308,7 +309,8 @@ export function CommitsPanel({
               <div className="flex-1" />
             </div>
           )}
-        </div>
+          </div>
+        </OverlayScroll>
       </div>
     </TooltipProvider>
   );

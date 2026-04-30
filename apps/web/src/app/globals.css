@@ -5,6 +5,9 @@
 /* Import UI package global styles */
 @import "@workspace/ui/globals.css";
 
+/* OverlayScrollbars base styles (used by ScrollArea / OverlayScroll / root body) */
+@import "overlayscrollbars/overlayscrollbars.css";
+
 /* Tell Tailwind to scan our UI package components */
 @source "../../../../packages/ui/src";
 
@@ -108,9 +111,16 @@ html:not([data-theme-ready="true"]) body {
     width: 100%;
   }
 
+  /*
+   * Native scrollbar fallback. OverlayScrollbars (via ScrollArea /
+   * OverlayScroll) is the primary scrollbar mechanism, but we still ship
+   * this so any scrollable element that isn't wrapped by OverlayScrollbars
+   * (3rd-party widgets, code blocks, xterm, CodeMirror, etc.) renders with
+   * a thumb that visually matches the `os-theme-atmos` look.
+   */
   *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   *::-webkit-scrollbar-track {
@@ -118,16 +128,85 @@ html:not([data-theme-ready="true"]) body {
   }
 
   *::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full;
+    @apply bg-foreground/20 rounded-full;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/40;
+    @apply bg-foreground/35;
   }
 
   *::-webkit-scrollbar-corner {
     background: transparent;
   }
+}
+
+/*
+ * OverlayScrollbars custom theme.
+ *
+ * The `.os-theme-atmos` class is used by ScrollArea / OverlayScroll so the
+ * entire web app shares one scrollbar look across pages, modals, popovers
+ * and dialogs.
+ */
+.os-theme-atmos {
+  --os-size: 10px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 9999px;
+  --os-track-bg: transparent;
+  --os-track-bg-hover: transparent;
+  --os-track-bg-active: transparent;
+  --os-handle-border-radius: 9999px;
+  --os-handle-bg: color-mix(in srgb, var(--foreground) 22%, transparent);
+  --os-handle-bg-hover: color-mix(in srgb, var(--foreground) 38%, transparent);
+  --os-handle-bg-active: color-mix(in srgb, var(--foreground) 50%, transparent);
+  --os-handle-min-size: 24px;
+  --os-handle-perpendicular-size: 6px;
+  --os-handle-perpendicular-size-hover: 8px;
+  --os-handle-perpendicular-size-active: 8px;
+}
+
+.dark .os-theme-atmos {
+  --os-handle-bg: color-mix(in srgb, var(--foreground) 28%, transparent);
+  --os-handle-bg-hover: color-mix(in srgb, var(--foreground) 50%, transparent);
+  --os-handle-bg-active: color-mix(in srgb, var(--foreground) 65%, transparent);
+}
+
+/*
+ * scrollFade: soft mask on edges that have overflowing content. Mirrors the
+ * old base-ui ScrollArea API. We use a reasonable static fade size; callers
+ * that want tighter control can opt out and apply their own mask classes.
+ */
+.atmos-scroll-area--fade [data-overlayscrollbars-viewport] {
+  --fade-size: 1.5rem;
+  mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black var(--fade-size),
+      black calc(100% - var(--fade-size)),
+      transparent 100%
+    ),
+    linear-gradient(
+      to right,
+      transparent 0,
+      black var(--fade-size),
+      black calc(100% - var(--fade-size)),
+      transparent 100%
+    );
+  mask-composite: intersect;
+}
+
+/*
+ * scrollbarGutter: reserve space so content doesn't shift when the scrollbar
+ * appears. With OverlayScrollbars, the scrollbar is overlaid by default; this
+ * variant simply pads the viewport so the thumb never overlaps content.
+ */
+.atmos-scroll-area--gutter [data-overlayscrollbars-viewport] {
+  scroll-padding-right: 0.625rem;
+  scroll-padding-bottom: 0.625rem;
+  padding-right: 0.625rem;
+  padding-bottom: 0.625rem;
 }
 
 @layer utilities {

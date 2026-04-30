@@ -3,7 +3,7 @@ import { useGithubActionsList } from '@/hooks/use-github';
 import { ExternalLink, Search, Loader2, Workflow, CheckCircle2, XCircle, FileText, Rocket, Github, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
+import { OverlayScroll, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
 
 export interface ActionRun {
   databaseId: number;
@@ -134,7 +134,8 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey }: Ac
             <ActionsSummaryHeader stats={stats} />
           </div>
 
-          <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2">
+          <OverlayScroll className="flex-1 min-h-0">
+            <div className="p-2 space-y-2">
             {latestRuns.map((run) => {
               const isSuccess = run.conclusion === 'success';
               const isFailure = run.conclusion === 'failure';
@@ -198,7 +199,8 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey }: Ac
                 </div>
               );
             })}
-          </div>
+            </div>
+          </OverlayScroll>
 
           <div className="p-3 border-t border-sidebar-border/50 bg-sidebar-accent/5 flex flex-col gap-2">
             <p className="text-[11px] text-muted-foreground leading-normal">
