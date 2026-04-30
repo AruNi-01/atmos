@@ -14,6 +14,7 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
+  OverlayScroll,
   Skeleton,
 } from '@workspace/ui';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -149,7 +150,8 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
           isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none" : "max-w-2xl sm:max-w-2xl w-full h-[80vh] px-6 pb-6 pt-0"
         )}
       >
-        <div className="flex-1 overflow-y-auto min-h-[400px] pr-4 -mr-4 pb-16 relative no-scrollbar">
+        <OverlayScroll className="flex-1 min-h-[400px] pr-4 -mr-4">
+          <div className="pb-16 relative">
           <DialogHeader className="pr-24 flex flex-row items-center gap-3 space-y-0 pt-6 pb-4 shrink-0 relative">
             <WorkflowIcon className="size-4.5 text-muted-foreground/60" />
             <div className="flex items-center gap-2.5 min-w-0">
@@ -376,7 +378,8 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
 
             </div>
           </div>
-        </div>
+          </div>
+        </OverlayScroll>
 
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex sm:justify-between items-center bg-background/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-dashed border-border/80 shadow-xl gap-6">
           <div className="flex gap-2.5">
