@@ -537,6 +537,15 @@ impl TmuxEngine {
         self.run_tmux(&args_refs)?;
         self.ensure_standard_config();
 
+        // Mark session as atmos-managed via tmux user option
+        let _ = self.run_tmux(&[
+            "set-option",
+            "-t",
+            session_name,
+            "@atmos_managed",
+            "true",
+        ]);
+
         info!("Created tmux session: {} (with window '1')", session_name);
         Ok(session_name.to_string())
     }
@@ -1060,16 +1069,11 @@ impl TmuxEngine {
 
     /// Generate session name from workspace ID
     fn session_name(&self, workspace_id: &str) -> String {
-        let sanitized_id = workspace_id.replace('-', "_");
-        if sanitized_id.starts_with("atmos_") {
-            sanitized_id
-        } else {
-            format!("atmos_{}", sanitized_id)
-        }
+        workspace_id.replace('-', "_")
     }
 
     /// Generate session name from project and workspace names
-    /// Format: atmos_{project_name}_{workspace_name} (sanitized for tmux)
+    /// Format: {project_name}_{workspace_name} (sanitized for tmux)
     pub fn session_name_from_names(&self, project_name: &str, workspace_name: &str) -> String {
         let sanitize = |s: &str| -> String {
             s.chars()
@@ -1088,21 +1092,18 @@ impl TmuxEngine {
         let project = sanitize(project_name);
         let workspace = sanitize(workspace_name);
 
-        let body = if workspace.starts_with(&project)
+        if workspace.starts_with(&project)
             && (workspace.len() == project.len() || workspace.as_bytes()[project.len()] == b'_')
         {
             workspace
         } else {
             format!("{}_{}", project, workspace)
-        };
-
-        format!("atmos_{}", body)
+        }
     }
 
-    /// Parse workspace ID from session name
+    /// Parse workspace ID from session name (reverses `session_name` only)
     pub fn parse_workspace_id(&self, session_name: &str) -> Option<String> {
-        let body = session_name.strip_prefix("atmos_")?;
-        Some(body.replace('_', "-"))
+        Some(session_name.replace('_', "-"))
     }
 
     /// Find a window index by its name in a session
@@ -1118,13 +1119,34 @@ impl TmuxEngine {
             .map(|w| w.index))
     }
 
-    /// List all Atmos-managed sessions (those starting with "atmos_")
+    /// List all Atmos-managed sessions (marked with @atmos_managed user option)
     pub fn list_atmos_sessions(&self) -> Result<Vec<TmuxSessionInfo>> {
         let all_sessions = self.list_sessions()?;
-        Ok(all_sessions
-            .into_iter()
-            .filter(|s| s.name.starts_with("atmos_"))
-            .collect())
+        let mut result = vec![];
+
+        for session in all_sessions {
+            // Check tmux user option @atmos_managed
+            match self.run_tmux(&[
+                "show-option",
+                "-t",
+                &session.name,
+                "-qv",
+                "@atmos_managed",
+            ]) {
+                Ok(output) if output.trim() == "true" => {
+                    result.push(session);
+                }
+                _ => {
+                    // Fallback: also match sessions with known atmos prefixes
+                    // (for backward compatibility with existing sessions)
+                    if session.name.starts_with("atmos_client_") {
+                        result.push(session);
+                    }
+                }
+            }
+        }
+
+        Ok(result)
     }
 
     /// Clean up orphaned sessions (sessions for workspaces that no longer exist)
@@ -1180,31 +1202,31 @@ mod tests {
     #[test]
     fn test_session_name_generation() {
         let engine = TmuxEngine::new();
-        assert_eq!(engine.session_name("abc-def-123"), "atmos_abc_def_123");
+        assert_eq!(engine.session_name("abc-def-123"), "abc_def_123");
 
         assert_eq!(
             engine.session_name_from_names("myproj", "myws"),
-            "atmos_myproj_myws"
+            "myproj_myws"
         );
 
         assert_eq!(
             engine.session_name_from_names("kepano-obsidian", "kepano-obsidian/exeggutor"),
-            "atmos_kepano-obsidian_exeggutor"
+            "kepano-obsidian_exeggutor"
         );
 
         assert_eq!(
             engine.session_name_from_names("atmos", "atmos/logysk"),
-            "atmos_atmos_logysk"
+            "atmos_logysk"
         );
 
         assert_eq!(
             engine.session_name_from_names("atmos", "other"),
-            "atmos_atmos_other"
+            "atmos_other"
         );
 
         assert_eq!(
             engine.session_name_from_names("atmos", "mankey"),
-            "atmos_atmos_mankey"
+            "atmos_mankey"
         );
     }
 
@@ -1212,10 +1234,9 @@ mod tests {
     fn test_parse_workspace_id() {
         let engine = TmuxEngine::new();
         assert_eq!(
-            engine.parse_workspace_id("atmos_abc_def_123"),
+            engine.parse_workspace_id("abc_def_123"),
             Some("abc-def-123".to_string())
         );
-        assert_eq!(engine.parse_workspace_id("other_session"), None);
     }
 
     #[test]
