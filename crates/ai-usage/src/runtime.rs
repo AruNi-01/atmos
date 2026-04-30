@@ -17,12 +17,12 @@ use crate::models::{
     ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, UsageSummary,
 };
 use crate::providers::{
-    amp, antigravity, claude, codex, cursor, factory, minimax, mimo, opencode, zai, zed,
+    amp, antigravity, claude, codex, cursor, factory, mimo, minimax, opencode, zai, zed,
 };
 use crate::support::{
     expand_home, load_amp_browser_cookie_source, load_factory_browser_cookie_source,
-    load_minimax_browser_cookie_source, load_mimo_browser_cookie_source,
-    load_zed_browser_cookie_source, unix_now,
+    load_mimo_browser_cookie_source, load_minimax_browser_cookie_source,
+    load_opencode_browser_cookie_source, load_zed_browser_cookie_source, unix_now,
 };
 
 #[derive(Debug, Clone)]
@@ -255,6 +255,14 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
     }
 
     if spec.id == "opencode" {
+        if let Ok(Some(source)) = load_opencode_browser_cookie_source() {
+            return AuthState {
+                status: AuthStateStatus::Detected,
+                source: Some(source.source_label),
+                detail: Some("Detected opencode.ai browser session cookie".to_string()),
+                setup_hint: Some(spec.setup_hint.to_string()),
+            };
+        }
         if opencode::opencode_go_auth_available() {
             return AuthState {
                 status: AuthStateStatus::Detected,
