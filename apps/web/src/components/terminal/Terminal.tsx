@@ -26,16 +26,45 @@ import { Button, cn, toastManager } from "@workspace/ui";
 class SafeClipboardProvider implements IClipboardProvider {
   async readText(selection: ClipboardSelectionType): Promise<string> {
     if (selection !== "c") return "";
-    if (!navigator.userActivation?.isActive) return "";
+    // In WKWebView (Tauri desktop), navigator.userActivation.isActive is
+    // always false due to WebKit bug #245993.  Skip the check on desktop so
+    // that OSC 52 clipboard reads still work.
+    if (!isTauriRuntime() && !navigator.userActivation?.isActive) return "";
     try {
       return await navigator.clipboard.readText();
     } catch {
+      // readText() fails when the clipboard contains only non-text data
+      // (e.g. an image).  Fall back to read() and return base64-encoded
+      // image data so TUI apps that request clipboard images via OSC 52
+      // receive the actual content instead of an empty response.
+      try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          for (const type of item.types) {
+            if (type.startsWith("image/")) {
+              const blob = await item.getType(type);
+              return await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const dataUrl = reader.result as string;
+                  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+                  resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+              });
+            }
+          }
+        }
+      } catch {
+        // read() not supported or permission denied
+      }
       return "";
     }
   }
   async writeText(selection: ClipboardSelectionType, text: string): Promise<void> {
     if (selection !== "c" || !text?.trim()) return;
-    if (!navigator.userActivation?.isActive) return;
+    if (!isTauriRuntime() && !navigator.userActivation?.isActive) return;
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -310,6 +339,7 @@ const Terminal = ({
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modifierKeyPressedRef = useRef(false);
   const pointerModifierPressedRef = useRef(false);
+  const tauriPasteCleanupRef = useRef<(() => void) | null>(null);
   const handleTerminalLinkRef = useRef<(event: MouseEvent, resolved: ResolvedTerminalLink) => Promise<void>>(async () => {});
   const handleResolvedLinkRef = useRef<(event: MouseEvent, rawText: string) => Promise<void>>(async () => {});
   const [showScrollDown, setShowScrollDown] = useState(false);
@@ -1010,6 +1040,72 @@ const Terminal = ({
     // Open terminal in container
     terminal.open(containerRef.current);
 
+    // ── Tauri WKWebView workarounds ──────────────────────────────────
+    // In Tauri's WKWebView, the native macOS Edit menu processes paste via
+    // the AppKit responder chain, firing the DOM paste event before xterm.js
+    // has bracketed paste mode enabled.  tmux control mode does not forward
+    // the TUI app's `\x1b[?2004h` to xterm.js, so xterm.js never wraps
+    // pasted text in bracketed paste markers — newlines are sent as raw \r,
+    // which the TUI interprets as Enter.
+    //
+    // Fix: intercept paste and keydown at the *document capture phase*
+    // (before xterm.js sees them), handle bracketed paste wrapping and
+    // Shift+Enter CSI u encoding ourselves.
+    if (isTauriRuntime()) {
+      const doc = containerRef.current?.ownerDocument ?? document;
+
+      const handleTauriPaste = (e: ClipboardEvent) => {
+        // Only intercept pastes targeting elements inside this terminal
+        const target = e.target as Node;
+        if (!containerRef.current?.contains(target)) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        navigator.clipboard.readText().then((text) => {
+          if (!text) return;
+          // Convert newlines to \r (same as xterm.js prepareTextForTerminal)
+          const normalised = text.replace(/\r?\n/g, "\r");
+          // Always wrap in bracketed paste markers so the TUI app treats
+          // the content as a literal paste, not typed keystrokes.
+          const wrapped = `\x1b[200~${normalised}\x1b[201~`;
+          terminal.input(wrapped, false);
+        }).catch(() => {
+          // Clipboard read failed — fall back to letting xterm.js handle it.
+          // Re-dispatch a synthetic paste event so xterm.js picks it up.
+          const dt = new DataTransfer();
+          const synthetic = new ClipboardEvent("paste", {
+            bubbles: true,
+            clipboardData: dt,
+          });
+          // Use the element-level target so xterm.js's listener catches it
+          (e.target as HTMLElement)?.dispatchEvent(synthetic);
+        });
+      };
+
+      const handleTauriKeyDown = (e: KeyboardEvent) => {
+        if (e.shiftKey && e.key === "Enter") {
+          const target = e.target as Node;
+          if (!containerRef.current?.contains(target)) return;
+          // Send CSI u Shift+Enter sequence directly — xterm.js always
+          // sends \r for Enter regardless of Shift, so we must intercept
+          // before xterm.js's _keyDown handler runs.
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          terminal.input("\x1b[13;2u", false);
+        }
+      };
+
+      doc.addEventListener("paste", handleTauriPaste, true);
+      doc.addEventListener("keydown", handleTauriKeyDown, true);
+
+      // Store cleanup refs so the useEffect cleanup can remove them
+      tauriPasteCleanupRef.current = () => {
+        doc.removeEventListener("paste", handleTauriPaste, true);
+        doc.removeEventListener("keydown", handleTauriKeyDown, true);
+      };
+    }
+
     // Register OSC 9999 handler for dynamic tab title updates.
     // The shell shim emits: \033]9999;CMD_START:<command>\007
     //                    or: \033]9999;CMD_END:<cwd>\007
@@ -1219,6 +1315,8 @@ const Terminal = ({
 
     return () => {
       cancelled = true;
+      tauriPasteCleanupRef.current?.();
+      tauriPasteCleanupRef.current = null;
       if (visibilityPollTimer) clearTimeout(visibilityPollTimer);
       disconnect();
       resizeObserverRef.current?.disconnect();
