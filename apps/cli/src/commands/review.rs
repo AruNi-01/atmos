@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use clap::{Args, Subcommand};
 use core_service::service::review::{
-    AddReviewMessageInput, CreateReviewFixRunInput, UpdateReviewThreadStatusInput,
+    AddReviewMessageInput, CreateReviewFixRunInput, UpdateReviewCommentStatusInput,
 };
 use core_service::ReviewService;
 use serde_json::Value;
@@ -22,24 +22,24 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
             .map(serde_json::to_value)
             .map_err(|error| error.to_string())?
             .map_err(|error| error.to_string()),
-        ReviewCommand::ThreadList(args) => service
-            .list_threads(args.session, args.revision)
+        ReviewCommand::CommentList(args) => service
+            .list_comments(args.session, args.revision)
             .await
             .map(serde_json::to_value)
             .map_err(|error| error.to_string())?
             .map_err(|error| error.to_string()),
-        ReviewCommand::ThreadContext(args) => service
-            .get_thread_context(args.thread)
+        ReviewCommand::CommentContext(args) => service
+            .get_comment_context(args.comment)
             .await
             .map(serde_json::to_value)
             .map_err(|error| error.to_string())?
             .map_err(|error| error.to_string()),
-        ReviewCommand::ReplyThread(args) => {
+        ReviewCommand::ReplyComment(args) => {
             let body = fs::read_to_string(&args.body_file)
                 .map_err(|error| format!("Failed to read {}: {}", args.body_file, error))?;
             service
                 .create_message(AddReviewMessageInput {
-                    thread_guid: args.thread,
+                    comment_guid: args.comment,
                     author_type: args.author,
                     kind: args.kind,
                     body,
@@ -50,19 +50,19 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 .map_err(|error| error.to_string())?
                 .map_err(|error| error.to_string())
         }
-        ReviewCommand::UpdateThreadStatus(args) => {
-            let thread_guid = args.thread.clone();
+        ReviewCommand::UpdateCommentStatus(args) => {
+            let comment_guid = args.comment.clone();
             let status = args.status.clone();
             service
-                .update_thread_status(UpdateReviewThreadStatusInput {
-                    thread_guid,
+                .update_comment_status(UpdateReviewCommentStatusInput {
+                    comment_guid,
                     status: status.clone(),
                 })
                 .await
                 .map_err(|error| error.to_string())?;
             Ok(serde_json::json!({
                 "ok": true,
-                "thread_guid": args.thread,
+                "comment_guid": args.comment,
                 "status": status,
             }))
         }
@@ -71,7 +71,7 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 session_guid: args.session,
                 base_revision_guid: args.base_revision,
                 execution_mode: args.execution_mode,
-                selected_thread_guids: args.thread,
+                selected_comment_guids: args.comment,
                 created_by: args.created_by,
             })
             .await
@@ -101,10 +101,10 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
 pub enum ReviewCommand {
     SessionList(SessionListArgs),
     SessionShow(SessionShowArgs),
-    ThreadList(ThreadListArgs),
-    ThreadContext(ThreadContextArgs),
-    ReplyThread(ReplyThreadArgs),
-    UpdateThreadStatus(UpdateThreadStatusArgs),
+    CommentList(CommentListArgs),
+    CommentContext(CommentContextArgs),
+    ReplyComment(ReplyCommentArgs),
+    UpdateCommentStatus(UpdateCommentStatusArgs),
     CreateFixRun(CreateFixRunArgs),
     SummarizeRun(SummarizeRunArgs),
     FinalizeRun(FinalizeRunArgs),
@@ -125,7 +125,7 @@ pub struct SessionShowArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ThreadListArgs {
+pub struct CommentListArgs {
     #[arg(long)]
     pub session: String,
     #[arg(long)]
@@ -133,15 +133,15 @@ pub struct ThreadListArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ThreadContextArgs {
+pub struct CommentContextArgs {
     #[arg(long)]
-    pub thread: String,
+    pub comment: String,
 }
 
 #[derive(Debug, Args)]
-pub struct ReplyThreadArgs {
+pub struct ReplyCommentArgs {
     #[arg(long)]
-    pub thread: String,
+    pub comment: String,
     #[arg(long)]
     pub body_file: String,
     #[arg(long)]
@@ -153,9 +153,9 @@ pub struct ReplyThreadArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct UpdateThreadStatusArgs {
+pub struct UpdateCommentStatusArgs {
     #[arg(long)]
-    pub thread: String,
+    pub comment: String,
     #[arg(long)]
     pub status: String,
 }
@@ -168,8 +168,8 @@ pub struct CreateFixRunArgs {
     pub base_revision: String,
     #[arg(long, default_value = "copy_prompt")]
     pub execution_mode: String,
-    #[arg(long = "thread")]
-    pub thread: Vec<String>,
+    #[arg(long = "comment")]
+    pub comment: Vec<String>,
     #[arg(long)]
     pub created_by: Option<String>,
 }

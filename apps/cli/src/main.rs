@@ -6,8 +6,8 @@ use clap::{Parser, Subcommand};
 use commands::local::{execute as execute_local, LocalCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use core_service::ReviewService;
-use infra::{DbConnection, Migrator};
 use infra::db::migration::MigratorTrait;
+use infra::{DbConnection, Migrator};
 
 #[derive(Debug, Parser)]
 #[command(name = "atmos", about = "ATMOS command-line interface")]
