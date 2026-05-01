@@ -6,21 +6,22 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Input,
+  toastManager,
 } from "@workspace/ui";
-import { ChevronDown, Check, LoaderCircle, Pencil } from "lucide-react";
+import { Check, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { FixActionsMenu } from "@/components/diff/review/FixActionsMenu";
-import { RevisionPicker } from "@/components/diff/review/RevisionPicker";
 import {
   compareReviewTimestamps,
   sessionStatusTone,
 } from "@/components/diff/review/utils";
+import { reviewWsApi, type ReviewSessionDto } from "@/api/ws-api";
 
 export const ReviewActions: React.FC = () => {
   const {
@@ -28,19 +29,16 @@ export const ReviewActions: React.FC = () => {
     currentSession,
     currentRevision,
     canEdit,
-    openRevisionThreads,
+    openRevisionComments,
     isCreating,
     isCreatingFixRun,
     terminalAgentId,
     setTerminalAgentId,
     handleCreateSession,
-    handleCloseSession,
-    handleArchiveSession,
-    handleRenameSession,
     handleCopyFixPrompt,
     handleRunFixInTerminal,
     loadSessions,
-    loadThreads,
+    loadComments,
     setSelectedSessionGuid,
     setSelectedRevisionGuid,
     setArtifactPreview,
@@ -55,7 +53,24 @@ export const ReviewActions: React.FC = () => {
     return idx >= 0 ? `v${idx + 1}` : "Revision";
   }, [currentRevision, currentSession]);
 
-  const fixDisabled = !canEdit || openRevisionThreads.length === 0;
+  const getSortedRevisions = useCallback(
+    (session: ReviewSessionDto) =>
+      [...session.revisions].sort((a, b) =>
+        compareReviewTimestamps(a.created_at, b.created_at),
+      ),
+    [],
+  );
+
+  const selectRevision = useCallback(
+    (sessionGuid: string, revisionGuid: string | null) => {
+      setSelectedSessionGuid(sessionGuid);
+      setSelectedRevisionGuid(revisionGuid);
+      setArtifactPreview(null);
+    },
+    [setArtifactPreview, setSelectedRevisionGuid, setSelectedSessionGuid],
+  );
+
+  const fixDisabled = !canEdit || openRevisionComments.length === 0;
 
   const isRefreshingRef = useRef(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -64,195 +79,255 @@ export const ReviewActions: React.FC = () => {
     isRefreshingRef.current = true;
     setIsRefreshing(true);
     try {
-      await Promise.all([loadSessions(), loadThreads()]);
+      await Promise.all([loadSessions(), loadComments()]);
     } finally {
       setTimeout(() => {
         setIsRefreshing(false);
         isRefreshingRef.current = false;
       }, 300);
     }
-  }, [loadSessions, loadThreads]);
+  }, [loadSessions, loadComments]);
 
-  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameSessionGuid, setRenameSessionGuid] = useState<string | null>(
+    null,
+  );
   const [renameValue, setRenameValue] = useState("");
-  const handleOpenRename = useCallback(() => {
-    setRenameValue(currentSession?.title ?? "");
-    setRenameOpen(true);
-  }, [currentSession?.title]);
+  const handleOpenRename = useCallback((session: ReviewSessionDto) => {
+    setRenameValue(session.title ?? "");
+    setRenameSessionGuid(session.guid);
+  }, []);
   const handleSubmitRename = useCallback(async () => {
-    if (!renameValue.trim()) return;
-    await handleRenameSession(renameValue.trim());
-    setRenameOpen(false);
-  }, [handleRenameSession, renameValue]);
+    const title = renameValue.trim();
+    if (!renameSessionGuid || !title) return;
+    try {
+      await reviewWsApi.renameSession(renameSessionGuid, title);
+      await loadSessions();
+      toastManager.add({
+        title: "Session renamed",
+        description: `Session renamed to "${title}"`,
+        type: "success",
+      });
+      setRenameSessionGuid(null);
+    } catch (error) {
+      toastManager.add({
+        title: "Failed to rename session",
+        description: error instanceof Error ? error.message : "Unknown error",
+        type: "error",
+      });
+    }
+  }, [loadSessions, renameSessionGuid, renameValue]);
+
+  const handleCloseSessionByGuid = useCallback(
+    async (sessionGuid: string) => {
+      try {
+        await reviewWsApi.closeSession(sessionGuid);
+        await loadSessions();
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to close session",
+          description: error instanceof Error ? error.message : "Unknown error",
+          type: "error",
+        });
+      }
+    },
+    [loadSessions],
+  );
+
+  const handleArchiveSessionByGuid = useCallback(
+    async (sessionGuid: string) => {
+      try {
+        await reviewWsApi.archiveSession(sessionGuid);
+        await loadSessions();
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to archive session",
+          description: error instanceof Error ? error.message : "Unknown error",
+          type: "error",
+        });
+      }
+    },
+    [loadSessions],
+  );
 
   return (
-    <div className="flex-1 flex items-center justify-between gap-1.5">
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-      <div className="flex-1 flex items-stretch rounded-md">
-        {sessions.length > 1 ? (
-          <DropdownMenu>
+    <div className="flex-1 flex items-stretch min-w-0">
+      <div className="flex items-stretch flex-1 min-w-0">
+        <div className="flex items-stretch shrink min-w-0 max-w-[60%]">
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (!open) setRenameSessionGuid(null);
+            }}
+          >
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-l-md border border-r-0 border-sidebar-border px-2.5 py-1 text-[13px] text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer truncate flex-1 min-w-0"
+                className="inline-flex items-center gap-1.5 px-2.5 h-full text-[13px] text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer min-w-0 max-w-full"
                 title={currentSession?.title?.trim() || "Session"}
               >
                 <span className="font-medium shrink-0">{revisionLabel}</span>
-                <span className="text-muted-foreground truncate">{currentSession?.title?.trim() || "Session"}</span>
+                <span className="text-muted-foreground truncate min-w-0">
+                  {currentSession?.title?.trim() || "Session"}
+                </span>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[12rem]">
-              {sessions.map((s) => (
-                <DropdownMenuItem
-                  key={s.guid}
-                  onClick={() => {
-                    setSelectedSessionGuid(s.guid);
-                    setSelectedRevisionGuid(null);
-                    setArtifactPreview(null);
-                  }}
-                  className="flex items-center gap-2 text-xs"
-                >
-                  <span className="flex-1 truncate">{s.title?.trim() || "Review Session"}</span>
-                  <span
-                    className={cn(
-                      "rounded-full border px-1.5 py-px text-[10px] font-medium capitalize shrink-0",
-                      sessionStatusTone(s.status),
-                    )}
-                  >
-                    {s.status.replaceAll("_", " ")}
-                  </span>
-                  <Check
-                    className={cn(
-                      "size-3.5 shrink-0",
-                      s.guid === currentSession?.guid
-                        ? "text-foreground"
-                        : "invisible",
-                    )}
-                  />
-                </DropdownMenuItem>
-              ))}
+            <DropdownMenuContent align="start" className="min-w-[15rem]">
+              <DropdownMenuItem
+                onClick={handleCreateSession}
+                className="text-xs"
+                disabled={isCreating}
+              >
+                New Session
+              </DropdownMenuItem>
+              {sessions.length > 0 && <DropdownMenuSeparator className="mx-2" />}
+              {sessions.map((s) => {
+                const sortedRevisions = getSortedRevisions(s);
+                const activeSession = s.guid === currentSession?.guid;
+
+                return (
+                  <DropdownMenuSub key={s.guid}>
+                    <DropdownMenuSubTrigger
+                      onClick={() =>
+                        selectRevision(s.guid, s.current_revision_guid)
+                      }
+                      className={cn(
+                        "flex items-center gap-2 text-xs cursor-pointer",
+                        activeSession && "[&>svg:last-child]:hidden",
+                      )}
+                    >
+                      <span className="flex-1 truncate">
+                        {s.title?.trim() || "Review Session"}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full border px-1.5 py-px text-[10px] font-medium capitalize shrink-0",
+                          sessionStatusTone(s.status),
+                        )}
+                      >
+                        {s.status.replaceAll("_", " ")}
+                      </span>
+                      {activeSession && (
+                        <Check className="size-3.5 shrink-0 text-foreground" />
+                      )}
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="min-w-[10rem]">
+                      {sortedRevisions.map((rev, idx) => {
+                        const activeRevision =
+                          activeSession && rev.guid === currentRevision?.guid;
+                        const label = `v${idx + 1}`;
+
+                        return (
+                          <DropdownMenuItem
+                            key={rev.guid}
+                            onClick={() => selectRevision(s.guid, rev.guid)}
+                            className="flex items-center gap-2 text-xs cursor-pointer"
+                          >
+                            <span className="font-medium shrink-0">
+                              {label}
+                            </span>
+                            <span className="flex-1 truncate text-muted-foreground">
+                              {rev.title?.trim() || "Revision"}
+                            </span>
+                            <Check
+                              className={cn(
+                                "size-3.5 shrink-0",
+                                activeRevision
+                                  ? "text-foreground"
+                                  : "invisible",
+                              )}
+                            />
+                          </DropdownMenuItem>
+                        );
+                      })}
+                      <DropdownMenuSeparator className="mx-2" />
+                      <DropdownMenuItem
+                        onClick={() => void handleCloseSessionByGuid(s.guid)}
+                        className="text-xs"
+                        disabled={s.status !== "active"}
+                      >
+                        Close Session
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => void handleArchiveSessionByGuid(s.guid)}
+                        className="text-xs"
+                      >
+                        Archive Session
+                      </DropdownMenuItem>
+                      <DropdownMenuSub
+                        open={renameSessionGuid === s.guid}
+                        onOpenChange={(open) => {
+                          if (open) {
+                            handleOpenRename(s);
+                          } else if (renameSessionGuid === s.guid) {
+                            setRenameSessionGuid(null);
+                          }
+                        }}
+                      >
+                        <DropdownMenuSubTrigger
+                          className="text-xs cursor-pointer"
+                          disabled={s.status !== "active"}
+                        >
+                          <span className="flex-1">Rename</span>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent
+                          className="w-56 p-3"
+                          onKeyDown={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <Input
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                void handleSubmitRename();
+                              }
+                            }}
+                            className="text-xs"
+                          />
+                          <div className="flex justify-end gap-1.5 mt-2">
+                            <button
+                              type="button"
+                              onClick={() => setRenameSessionGuid(null)}
+                              className="px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleSubmitRename()}
+                              className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                );
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-l-md border border-r-0 border-sidebar-border px-2.5 py-1 text-[13px] truncate flex-1 min-w-0">
-            <span className="font-medium shrink-0 text-foreground">{revisionLabel}</span>
-            <span className="text-muted-foreground truncate">{currentSession?.title?.trim() || "Session"}</span>
-          </span>
-        )}
+        </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-r-md border border-sidebar-border px-2 py-1 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-              title="Session actions"
-            >
-              <ChevronDown className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-[12rem]">
-            <DropdownMenuItem
-              onClick={handleCreateSession}
-              className="text-xs"
-              disabled={isCreating}
-            >
-              New Session
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleCloseSession}
-              className="text-xs"
-              disabled={currentSession?.status !== "active"}
-            >
-              Close Session
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleArchiveSession}
-              className="text-xs"
-            >
-              Archive Session
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <Popover open={renameOpen} onOpenChange={setRenameOpen}>
-              <PopoverTrigger asChild>
-                <DropdownMenuItem
-                  onSelect={(e) => { e.preventDefault(); handleOpenRename(); }}
-                  className="text-xs"
-                  disabled={currentSession?.status !== "active"}
-                >
-                  <span className="flex-1">Rename</span>
-                  <Pencil className="size-3 text-muted-foreground shrink-0" />
-                </DropdownMenuItem>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                className="w-56 p-3"
-                onOpenAutoFocus={(e) => e.preventDefault()}
-              >
-                <Input
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSubmitRename(); }}
-                  className="text-xs"
-                />
-                <div className="flex justify-end gap-1.5 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setRenameOpen(false)}
-                    className="px-2.5 py-1 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmitRename}
-                    className="px-2.5 py-1 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
-                  >
-                    Save
-                  </button>
-                </div>
-              </PopoverContent>
-            </Popover>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => handleCopyFixPrompt()}
-              className="text-xs"
-              disabled={fixDisabled}
-            >
-              Copy Revision Prompt
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleRunFixInTerminal()}
-              className="text-xs"
-              disabled={fixDisabled}
-            >
-              Run In Terminal
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+        <div className="w-px self-stretch bg-sidebar-border shrink-0" />
 
-      <FixActionsMenu
-        disabled={fixDisabled}
-        isLoading={isCreatingFixRun}
-        agentId={terminalAgentId}
-        onAgentChange={setTerminalAgentId}
-        onFix={(agentId) => handleRunFixInTerminal(undefined, agentId)}
-      />
-      </div>
-
-      {(currentSession?.revisions.length ?? 0) > 1 && (
-        <RevisionPicker
-          revisions={currentSession?.revisions ?? []}
-          selectedGuid={currentRevision?.guid ?? null}
-          onSelect={setSelectedRevisionGuid}
+        <FixActionsMenu
+          disabled={fixDisabled}
+          isLoading={isCreatingFixRun}
+          agentId={terminalAgentId}
+          onAgentChange={setTerminalAgentId}
+          onFix={(agentId) => handleRunFixInTerminal(undefined, agentId)}
+          onCopyPrompt={() => handleCopyFixPrompt()}
         />
-      )}
+      </div>
+
+      <div className="w-px self-stretch bg-sidebar-border shrink-0" />
 
       <button
         type="button"
         onClick={handleRefresh}
         disabled={isRefreshing}
-        className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+        className="flex items-center justify-center px-2 h-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
         title="Refresh review data"
       >
         <LoaderCircle className={cn("size-3.5", isRefreshing && "animate-spin")} />

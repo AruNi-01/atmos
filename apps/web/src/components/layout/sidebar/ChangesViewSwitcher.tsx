@@ -164,7 +164,7 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
 
     if (changesView === "review") {
       return reviewActions ? (
-        <div className="flex-1 flex items-center min-w-0 pl-2">
+        <div className="flex-1 flex items-stretch min-w-0">
           {reviewActions}
         </div>
       ) : null;

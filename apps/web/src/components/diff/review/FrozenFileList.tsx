@@ -74,10 +74,10 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
             >
               <FileIcon name={fileName} className="size-4 shrink-0" />
               <span className="truncate text-foreground">{path}</span>
-              {file.open_thread_count > 0 && (
+              {file.open_comment_count > 0 && (
                 <span className="flex items-center gap-0.5 text-muted-foreground shrink-0">
                   <MessageSquare className="size-3" />
-                  {file.open_thread_count}
+                  {file.open_comment_count}
                 </span>
               )}
               {file.changed_after_review && (

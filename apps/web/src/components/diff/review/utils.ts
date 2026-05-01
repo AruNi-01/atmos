@@ -1,12 +1,12 @@
 import { parsePatchFiles } from "@pierre/diffs";
 import { formatLocalDateTime, parseUTCDate } from "@atmos/shared";
-import type { ReviewThreadDto } from "@/api/ws-api";
+import type { ReviewMessageDto, ReviewCommentDto } from "@/api/ws-api";
 
-export function isOpenReviewThreadStatus(status: string) {
+export function isOpenReviewCommentStatus(status: string) {
   return status === "open" || status === "agent_fixed";
 }
 
-export function reviewThreadStatusLabel(status: string) {
+export function reviewCommentStatusLabel(status: string) {
   switch (status) {
     case "open":
       return "Open";
@@ -70,16 +70,24 @@ export function isPatchRenderable(patch: string) {
   }
 }
 
-export function threadTitle(thread: ReviewThreadDto) {
-  if (thread.title?.trim()) return thread.title.trim();
-  if (thread.anchor_start_line === thread.anchor_end_line) {
-    return `Comment on L${thread.anchor_start_line}`;
+export function commentTitle(comment: ReviewCommentDto) {
+  if (comment.title?.trim()) return comment.title.trim();
+  if (comment.anchor_start_line === comment.anchor_end_line) {
+    return `Comment on L${comment.anchor_start_line}`;
   }
-  return `Comment on L${thread.anchor_start_line}-${thread.anchor_end_line}`;
+  return `Comment on L${comment.anchor_start_line}-${comment.anchor_end_line}`;
 }
 
-export function sortThreads(
-  threads: ReviewThreadDto[],
+export function canDeleteReviewMessage(
+  comment: ReviewCommentDto,
+  message: ReviewMessageDto,
+) {
+  const latestMessage = comment.messages.at(-1);
+  return latestMessage?.guid === message.guid && message.author_type === "user";
+}
+
+export function sortComments(
+  comments: ReviewCommentDto[],
   currentFileSnapshotGuid: string | null,
 ) {
   const statusRank = (status: string) => {
@@ -97,7 +105,7 @@ export function sortThreads(
     }
   };
 
-  return [...threads].sort((left, right) => {
+  return [...comments].sort((left, right) => {
     const leftCurrent =
       left.file_snapshot_guid === currentFileSnapshotGuid ? 0 : 1;
     const rightCurrent =

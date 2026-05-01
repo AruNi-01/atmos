@@ -5,10 +5,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Loader2,
 } from "@workspace/ui";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
@@ -19,6 +20,7 @@ interface FixActionsMenuProps {
   agentId: AgentId;
   onAgentChange: (agentId: AgentId) => void;
   onFix: (agentId: AgentId) => void | Promise<void>;
+  onCopyPrompt: () => void | Promise<void>;
 }
 
 function getAgentLabel(id: AgentId) {
@@ -31,20 +33,21 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
   agentId,
   onAgentChange,
   onFix,
+  onCopyPrompt,
 }) => {
   return (
-    <div className="flex-1 flex items-stretch rounded-md">
+    <div className="flex-1 flex items-stretch min-w-0">
       <button
         type="button"
         disabled={disabled || isLoading}
         onClick={() => void onFix(agentId)}
         className={cn(
-          "inline-flex items-center justify-center gap-1.5 rounded-l-md border border-r-0 border-sidebar-border px-2.5 py-1 text-[13px] font-medium flex-1 min-w-0",
-          "bg-background text-foreground hover:bg-sidebar-accent",
+          "inline-flex items-center justify-center gap-1.5 px-2.5 text-[13px] font-medium flex-1 min-w-0 h-full",
+          "text-foreground hover:bg-sidebar-accent/30",
           "transition-colors cursor-pointer",
           "disabled:cursor-not-allowed disabled:opacity-50",
         )}
-        title="Run fix on open threads"
+        title="Run fix on open comments"
       >
         {isLoading ? (
           <Loader2 className="size-3.5 animate-spin shrink-0" />
@@ -53,14 +56,15 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
         )}
         <span>Fix</span>
       </button>
+      <div className="w-px self-stretch bg-sidebar-border/40 shrink-0" />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
             disabled={disabled || isLoading}
             className={cn(
-              "inline-flex items-center justify-center rounded-r-md border border-sidebar-border px-2 py-1 text-[13px] shrink-0",
-              "bg-background text-foreground hover:bg-sidebar-accent",
+              "inline-flex items-center justify-center px-1.5 text-[13px] shrink-0 h-full",
+              "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30",
               "transition-colors cursor-pointer",
               "disabled:cursor-not-allowed disabled:opacity-50",
             )}
@@ -84,6 +88,15 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
               </DropdownMenuItem>
             );
           })}
+          <DropdownMenuSeparator className="mx-2" />
+          <DropdownMenuItem
+            onClick={() => void onCopyPrompt()}
+            className="flex items-center gap-2 text-xs"
+            disabled={disabled || isLoading}
+          >
+            <Copy className="size-4" />
+            <span>Copy Prompt</span>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

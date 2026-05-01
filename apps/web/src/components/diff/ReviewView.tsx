@@ -3,24 +3,25 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
+  getFileIconProps,
   Loader2,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { MessageSquarePlus, ChevronRight, FileText, LoaderCircle } from "lucide-react";
+import { MessageSquarePlus, ChevronRight, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { useReviewSnapshotStore } from "@/hooks/use-review-snapshot-store";
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorStore, EDITOR_REVIEW_DIFF_PREFIX, getEditorSourcePath } from "@/hooks/use-editor-store";
-import { ThreadCard } from "@/components/diff/review/ThreadCard";
+import { CommentCard } from "@/components/diff/review/CommentCard";
 import { FrozenFileList } from "@/components/diff/review/FrozenFileList";
 import {
   compareReviewTimestamps,
   formatReviewDateTime,
-  isOpenReviewThreadStatus,
-  sortThreads,
+  isOpenReviewCommentStatus,
+  sortComments,
 } from "@/components/diff/review/utils";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 
@@ -36,12 +37,13 @@ const ReviewView: React.FC = () => {
     currentSession,
     currentRevision,
     canEdit,
-    threads,
+    comments,
     isCreating,
     handleCreateSession,
     handleToggleReviewed,
-    handleUpdateThreadStatus,
-    handleReplyToThread,
+    handleUpdateCommentStatus,
+    handleReplyToComment,
+    handleDeleteMessage,
     latestSummaryRun,
     handlePreviewArtifact,
     artifactPreview,
@@ -61,20 +63,21 @@ const ReviewView: React.FC = () => {
     return idx >= 0 ? `v${idx + 1}` : "";
   }, [currentRevision, currentSession]);
 
-  const threadsByFile = useMemo(() => {
-    const ordered = sortThreads(threads, null);
+  const commentsByFile = useMemo(() => {
+    const ordered = sortComments(comments, null);
     const groups = new Map<string, typeof ordered>();
-    for (const thread of ordered) {
-      const key = thread.anchor.file_path || "(unknown)";
+    for (const comment of ordered) {
+      const key = comment.anchor.file_path || "(unknown)";
       const list = groups.get(key) ?? [];
-      list.push(thread);
+      list.push(comment);
       groups.set(key, list);
     }
     return Array.from(groups.entries());
-  }, [threads]);
+  }, [comments]);
 
   const [filesOpen, setFilesOpen] = useState(true);
-  const [threadsOpen, setThreadsOpen] = useState(true);
+  const [commentsOpen, setCommentsOpen] = useState(true);
+  const [commentGroupsOpen, setCommentGroupsOpen] = useState<Record<string, boolean>>({});
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const summaryRunGuid = latestSummaryRun?.guid ?? null;
@@ -122,14 +125,14 @@ const ReviewView: React.FC = () => {
 
   const fileCount = currentRevision?.files.length ?? 0;
   const hasFiles = fileCount > 0;
-  const hasThreads = threadsByFile.length > 0;
-  const openThreadCount = threads.filter((t) => isOpenReviewThreadStatus(t.status)).length;
+  const hasComments = commentsByFile.length > 0;
+  const openCommentCount = comments.filter((t) => isOpenReviewCommentStatus(t.status)).length;
 
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Inline stats line */}
       <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
-        <span>{openThreadCount} open</span>
+        <span>{openCommentCount} open</span>
         <span>·</span>
         <span>
           {currentRevision?.files.filter((f) => f.state.reviewed).length ?? 0}/{fileCount} reviewed
@@ -197,47 +200,102 @@ const ReviewView: React.FC = () => {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Review Threads */}
-        <Collapsible open={threadsOpen} onOpenChange={setThreadsOpen} className="w-full">
+        {/* Comments */}
+        <Collapsible open={commentsOpen} onOpenChange={setCommentsOpen} className="w-full">
           <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
             <ChevronRight
               className={cn(
                 "size-3.5 shrink-0 transition-transform duration-200",
-                threadsOpen && "rotate-90",
+                commentsOpen && "rotate-90",
               )}
             />
-            <span>Review Threads</span>
+            <span>Comments</span>
             <span className="text-[11px] text-muted-foreground ml-auto">
-              {threads.length}
+              {comments.length}
             </span>
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="pb-2 space-y-3">
-              {!hasThreads ? (
+              {!hasComments ? (
                 <p className="px-1 text-xs text-muted-foreground">
-                  No review threads in this revision yet.
+                  No review comments in this revision yet.
                 </p>
               ) : (
-                threadsByFile.map(([file, group]) => (
-                  <div key={file} className="space-y-2">
-                    <p className="px-1 text-[11px] font-medium text-muted-foreground truncate">
-                      {file}
-                    </p>
-                    {group.map((thread) => (
-                      <ThreadCard
-                        key={thread.guid}
-                        thread={thread}
-                        filePath={filePath}
-                        canEdit={
-                          canEdit &&
-                          thread.revision_guid ===
-                            currentSession.current_revision_guid
-                        }
-                        onUpdateStatus={handleUpdateThreadStatus}
-                        onReply={handleReplyToThread}
-                      />
-                    ))}
-                  </div>
+                commentsByFile.map(([file, group]) => (
+                  <Collapsible
+                    key={file}
+                    open={commentGroupsOpen[file] ?? true}
+                    onOpenChange={(open) =>
+                      setCommentGroupsOpen((prev) => ({ ...prev, [file]: open }))
+                    }
+                    className="space-y-2"
+                  >
+                    <CollapsibleTrigger className="group/comment-file flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-sidebar-accent/40 cursor-pointer">
+                      {(() => {
+                        const fileName = file.split("/").pop() || file;
+                        const iconProps = getFileIconProps({
+                          name: fileName,
+                          isDir: false,
+                          className:
+                            "absolute inset-0 size-4 shrink-0 transition-all duration-200 group-hover/comment-file:scale-50 group-hover/comment-file:rotate-[-20deg] group-hover/comment-file:opacity-0",
+                        });
+                        return (
+                          <>
+                            <span className="relative size-4 shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img {...iconProps} alt={`File: ${fileName}`} />
+                              <ChevronRight
+                                className={cn(
+                                  "absolute inset-0 size-4 scale-50 rotate-60 text-muted-foreground opacity-0 transition-all duration-200 group-hover/comment-file:scale-100 group-hover/comment-file:opacity-100",
+                                  (commentGroupsOpen[file] ?? true)
+                                    ? "group-hover/comment-file:rotate-90"
+                                    : "group-hover/comment-file:rotate-0",
+                                )}
+                              />
+                            </span>
+                            <span className="truncate text-[13px] font-semibold text-foreground">
+                              {file}
+                            </span>
+                          </>
+                        );
+                      })()}
+                      <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                        {group.length}
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2">
+                      {group.map((comment) => (
+                        <CommentCard
+                          key={comment.guid}
+                          comment={comment}
+                          canEdit={
+                            canEdit &&
+                            comment.revision_guid ===
+                              currentSession.current_revision_guid
+                          }
+                          onUpdateStatus={handleUpdateCommentStatus}
+                          onReply={handleReplyToComment}
+                          onDeleteMessage={handleDeleteMessage}
+                          onNavigate={(targetComment, targetMessage) => {
+                            const snapFilePath =
+                              targetComment.anchor.file_path || file;
+                            const tabPath = `${EDITOR_REVIEW_DIFF_PREFIX}${targetComment.file_snapshot_guid}/${snapFilePath}`;
+                            setSnapshot({
+                              snapshotGuid: targetComment.file_snapshot_guid,
+                              label: revisionLabel,
+                              filePath: snapFilePath,
+                            });
+                            void openFile(tabPath, workspaceId, {
+                              preview: true,
+                              line: targetComment.anchor_start_line,
+                              reviewCommentGuid: targetComment.guid,
+                              reviewMessageGuid: targetMessage?.guid,
+                            });
+                          }}
+                        />
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
                 ))
               )}
             </div>
@@ -254,7 +312,6 @@ const ReviewView: React.FC = () => {
                   summaryOpen && "rotate-90",
                 )}
               />
-              <FileText className="size-3.5 shrink-0" />
               <span>Summary</span>
               <span className="text-[11px] text-muted-foreground ml-auto">
                 {formatReviewDateTime(latestSummaryRun.updated_at)}
