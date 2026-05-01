@@ -311,14 +311,16 @@ pub enum WsAction {
     ReviewFileContentGet,
     /// 更新文件 reviewed 状态
     ReviewFileSetReviewed,
-    /// 列出 review threads
-    ReviewThreadList,
-    /// 创建 review thread
-    ReviewThreadCreate,
-    /// 更新 review thread 状态
-    ReviewThreadUpdateStatus,
+    /// 列出 review comments
+    ReviewCommentList,
+    /// 创建 review comment
+    ReviewCommentCreate,
+    /// 更新 review comment 状态
+    ReviewCommentUpdateStatus,
     /// 添加 review message
     ReviewMessageAdd,
+    /// 删除 review message
+    ReviewMessageDelete,
     /// 列出 review fix runs
     ReviewFixRunList,
     /// 创建 review fix run
@@ -474,8 +476,8 @@ pub enum WsEvent {
     AgentNotification,
     /// Current branch PR status should be refreshed
     GithubBranchPrStatusRefreshed,
-    /// Review thread changed
-    ReviewThreadUpdated,
+    /// Review comment changed
+    ReviewCommentUpdated,
     /// Review message created
     ReviewMessageCreated,
     /// Review file state updated
@@ -587,14 +589,14 @@ pub struct ReviewFileSetReviewedRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewThreadListRequest {
+pub struct ReviewCommentListRequest {
     pub session_guid: String,
     #[serde(default)]
     pub revision_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewThreadCreateRequest {
+pub struct ReviewCommentCreateRequest {
     pub session_guid: String,
     pub revision_guid: String,
     pub file_snapshot_guid: String,
@@ -605,23 +607,28 @@ pub struct ReviewThreadCreateRequest {
     #[serde(default)]
     pub created_by: Option<String>,
     #[serde(default)]
-    pub parent_thread_guid: Option<String>,
+    pub parent_comment_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewThreadUpdateStatusRequest {
-    pub thread_guid: String,
+pub struct ReviewCommentUpdateStatusRequest {
+    pub comment_guid: String,
     pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewMessageAddRequest {
-    pub thread_guid: String,
+    pub comment_guid: String,
     pub author_type: String,
     pub kind: String,
     pub body: String,
     #[serde(default)]
     pub fix_run_guid: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewMessageDeleteRequest {
+    pub message_guid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -635,7 +642,7 @@ pub struct ReviewFixRunCreateRequest {
     pub base_revision_guid: String,
     pub execution_mode: String,
     #[serde(default)]
-    pub selected_thread_guids: Vec<String>,
+    pub selected_comment_guids: Vec<String>,
     #[serde(default)]
     pub created_by: Option<String>,
 }
