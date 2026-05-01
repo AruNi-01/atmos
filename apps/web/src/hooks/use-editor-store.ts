@@ -25,6 +25,8 @@ export interface OpenFile {
 export interface FileNavigationTarget {
   line: number;
   column?: number;
+  reviewCommentGuid?: string;
+  reviewMessageGuid?: string;
 }
 
 export interface FileTreeRevealTarget {
@@ -57,7 +59,7 @@ interface EditorStore {
   openFile: (
     path: string,
     workspaceId?: string,
-    options?: { preview?: boolean; line?: number; column?: number }
+    options?: { preview?: boolean; line?: number; column?: number; reviewCommentGuid?: string; reviewMessageGuid?: string }
   ) => Promise<void>;
   reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
@@ -383,6 +385,8 @@ export const useEditorStore = create<EditorStore>()(
                   typeof options.column === 'number' && Number.isFinite(options.column)
                     ? Math.max(1, Math.floor(options.column))
                     : undefined,
+                reviewCommentGuid: options.reviewCommentGuid,
+                reviewMessageGuid: options.reviewMessageGuid,
               }
             : null;
 

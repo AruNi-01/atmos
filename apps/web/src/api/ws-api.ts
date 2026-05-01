@@ -228,7 +228,7 @@ export interface ReviewMessageModel {
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
-  thread_guid: string;
+  comment_guid: string;
   author_type: string;
   kind: string;
   body_storage_kind: string;
@@ -243,7 +243,7 @@ export interface ReviewMessageDto {
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
-  thread_guid: string;
+  comment_guid: string;
   author_type: string;
   kind: string;
   body_storage_kind: string;
@@ -252,7 +252,7 @@ export interface ReviewMessageDto {
   fix_run_guid: string | null;
 }
 
-export interface ReviewThreadDto {
+export interface ReviewCommentDto {
   guid: string;
   created_at: string;
   updated_at: string;
@@ -266,10 +266,10 @@ export interface ReviewThreadDto {
   anchor_line_range_kind: string;
   anchor_json: string;
   status: string;
-  parent_thread_guid: string | null;
+  parent_comment_guid: string | null;
   title: string | null;
   created_by: string | null;
-  resolved_at: string | null;
+  fixed_at: string | null;
   anchor: ReviewAnchor;
   messages: ReviewMessageDto[];
 }
@@ -313,7 +313,7 @@ export interface ReviewFileDto {
   snapshot: ReviewFileSnapshotModel;
   state: ReviewFileStateModel;
   changed_after_review: boolean;
-  open_thread_count: number;
+  open_comment_count: number;
 }
 
 export interface ReviewRevisionDto {
@@ -389,7 +389,7 @@ export interface ReviewSessionDto {
   archived_at: string | null;
   revisions: ReviewRevisionDto[];
   runs: ReviewFixRunModel[];
-  open_thread_count: number;
+  open_comment_count: number;
   reviewed_file_count: number;
   reviewed_then_changed_count: number;
 }
@@ -1444,17 +1444,17 @@ export const reviewWsApi = {
     });
   },
 
-  listThreads: async (data: {
+  listComments: async (data: {
     sessionGuid: string;
     revisionGuid?: string | null;
-  }): Promise<ReviewThreadDto[]> => {
-    return wsRequest<ReviewThreadDto[]>("review_thread_list", {
+  }): Promise<ReviewCommentDto[]> => {
+    return wsRequest<ReviewCommentDto[]>("review_comment_list", {
       session_guid: data.sessionGuid,
       revision_guid: data.revisionGuid ?? null,
     });
   },
 
-  createThread: async (data: {
+  createComment: async (data: {
     sessionGuid: string;
     revisionGuid: string;
     fileSnapshotGuid: string;
@@ -1462,9 +1462,9 @@ export const reviewWsApi = {
     body: string;
     title?: string | null;
     createdBy?: string | null;
-    parentThreadGuid?: string | null;
-  }): Promise<ReviewThreadDto> => {
-    return wsRequest<ReviewThreadDto>("review_thread_create", {
+    parentCommentGuid?: string | null;
+  }): Promise<ReviewCommentDto> => {
+    return wsRequest<ReviewCommentDto>("review_comment_create", {
       session_guid: data.sessionGuid,
       revision_guid: data.revisionGuid,
       file_snapshot_guid: data.fileSnapshotGuid,
@@ -1472,33 +1472,39 @@ export const reviewWsApi = {
       body: data.body,
       title: data.title ?? null,
       created_by: data.createdBy ?? null,
-      parent_thread_guid: data.parentThreadGuid ?? null,
+      parent_comment_guid: data.parentCommentGuid ?? null,
     });
   },
 
-  updateThreadStatus: async (
-    threadGuid: string,
+  updateCommentStatus: async (
+    commentGuid: string,
     status: string,
   ): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("review_thread_update_status", {
-      thread_guid: threadGuid,
+    return wsRequest<{ ok: boolean }>("review_comment_update_status", {
+      comment_guid: commentGuid,
       status,
     });
   },
 
   addMessage: async (data: {
-    threadGuid: string;
+    commentGuid: string;
     authorType: string;
     kind: string;
     body: string;
     fixRunGuid?: string | null;
   }): Promise<ReviewMessageDto> => {
     return wsRequest<ReviewMessageDto>("review_message_add", {
-      thread_guid: data.threadGuid,
+      comment_guid: data.commentGuid,
       author_type: data.authorType,
       kind: data.kind,
       body: data.body,
       fix_run_guid: data.fixRunGuid ?? null,
+    });
+  },
+
+  deleteMessage: async (messageGuid: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("review_message_delete", {
+      message_guid: messageGuid,
     });
   },
 
@@ -1512,14 +1518,14 @@ export const reviewWsApi = {
     sessionGuid: string;
     baseRevisionGuid: string;
     executionMode: string;
-    selectedThreadGuids?: string[];
+    selectedCommentGuids?: string[];
     createdBy?: string | null;
   }): Promise<ReviewFixRunCreatedDto> => {
     return wsRequest<ReviewFixRunCreatedDto>("review_fix_run_create", {
       session_guid: data.sessionGuid,
       base_revision_guid: data.baseRevisionGuid,
       execution_mode: data.executionMode,
-      selected_thread_guids: data.selectedThreadGuids ?? [],
+      selected_comment_guids: data.selectedCommentGuids ?? [],
       created_by: data.createdBy ?? null,
     }, 60_000);
   },

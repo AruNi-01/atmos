@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryState, parseAsString } from "nuqs";
 import { toastManager } from "@workspace/ui";
 import {
   reviewWsApi,
   type ReviewFileDto,
   type ReviewFixRunModel,
+  type ReviewMessageDto,
   type ReviewSessionDto,
-  type ReviewThreadDto,
+  type ReviewCommentDto,
 } from "@/api/ws-api";
 import { buildCommand, type AgentId } from "@/components/wiki/AgentSelect";
 import { useDialogStore } from "@/hooks/use-dialog-store";
@@ -16,8 +18,8 @@ import { useWebSocketStore } from "@/hooks/use-websocket";
 import { useReviewTerminalRunnerStore } from "@/hooks/use-review-terminal-runner";
 import {
   compareReviewTimestamps,
-  isOpenReviewThreadStatus,
-  sortThreads,
+  isOpenReviewCommentStatus,
+  sortComments,
   REVIEW_AGENT_STORAGE_KEY,
 } from "@/components/diff/review/utils";
 
@@ -55,9 +57,15 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   const [isCreatingFixRun, setIsCreatingFixRun] = useState(false);
   const [isFinalizingRun, setIsFinalizingRun] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ReviewSessionDto[]>([]);
-  const [selectedSessionGuid, setSelectedSessionGuid] = useState<string | null>(null);
-  const [selectedRevisionGuid, setSelectedRevisionGuid] = useState<string | null>(null);
-  const [threads, setThreads] = useState<ReviewThreadDto[]>([]);
+  const [selectedSessionGuid, setSelectedSessionGuid] = useQueryState(
+    "reviewSession",
+    parseAsString.withOptions({ history: "replace" }),
+  );
+  const [selectedRevisionGuid, setSelectedRevisionGuid] = useQueryState(
+    "reviewRevision",
+    parseAsString.withOptions({ history: "replace" }),
+  );
+  const [comments, setComments] = useState<ReviewCommentDto[]>([]);
   const [terminalAgentId, setTerminalAgentIdState] = useState<AgentId>(readStoredAgentId);
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactPreview, setArtifactPreview] = useState<ArtifactPreview | null>(null);
@@ -97,7 +105,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
 
   useEffect(() => {
     const unsubscribers = [
-      onWsEvent("review_thread_updated", () => void loadSessions()),
+      onWsEvent("review_comment_updated", () => void loadSessions()),
       onWsEvent("review_message_created", () => void loadSessions()),
       onWsEvent("review_file_updated", () => void loadSessions()),
       onWsEvent("review_fix_run_updated", () => void loadSessions()),
@@ -190,67 +198,67 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     );
   }, [currentRevision, filePath, fileSnapshotGuid]);
 
-  const loadThreads = useCallback(async () => {
+  const loadComments = useCallback(async () => {
     if (!currentSession) {
-      setThreads([]);
+      setComments([]);
       return;
     }
     try {
-      const nextThreads = await reviewWsApi.listThreads({
+      const nextComments = await reviewWsApi.listComments({
         sessionGuid: currentSession.guid,
         revisionGuid: currentRevision?.guid ?? null,
       });
-      setThreads(nextThreads);
+      setComments(nextComments);
     } catch (error) {
-      console.error("Failed to load review threads", error);
+      console.error("Failed to load review comments", error);
     }
   }, [currentRevision?.guid, currentSession]);
 
   useEffect(() => {
-    void loadThreads();
-  }, [loadThreads]);
+    void loadComments();
+  }, [loadComments]);
 
   useEffect(() => {
     const unsubscribers = [
-      onWsEvent("review_thread_updated", () => void loadThreads()),
-      onWsEvent("review_message_created", () => void loadThreads()),
+      onWsEvent("review_comment_updated", () => void loadComments()),
+      onWsEvent("review_message_created", () => void loadComments()),
     ];
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [loadThreads, onWsEvent]);
+  }, [loadComments, onWsEvent]);
 
   const canEdit =
     currentSession?.status === "active" &&
     !!currentRevision &&
     currentRevision.guid === currentSession.current_revision_guid;
 
-  const currentFileThreads = useMemo(() => {
+  const currentFileComments = useMemo(() => {
     if (!currentFile) return [];
-    return threads.filter(
-      (thread) => thread.file_snapshot_guid === currentFile.snapshot.guid,
+    return comments.filter(
+      (comment) => comment.file_snapshot_guid === currentFile.snapshot.guid,
     );
-  }, [currentFile, threads]);
+  }, [currentFile, comments]);
 
-  const openCurrentFileThreads = useMemo(
+  const openCurrentFileComments = useMemo(
     () =>
-      currentFileThreads.filter((thread) =>
-        isOpenReviewThreadStatus(thread.status),
+      currentFileComments.filter((comment) =>
+        isOpenReviewCommentStatus(comment.status),
       ),
-    [currentFileThreads],
+    [currentFileComments],
   );
 
-  const openRevisionThreads = useMemo(
+  const openRevisionComments = useMemo(
     () =>
-      threads.filter((thread) =>
-        isOpenReviewThreadStatus(thread.status),
+      comments.filter((comment) =>
+        isOpenReviewCommentStatus(comment.status),
       ),
-    [threads],
+    [comments],
   );
 
-  const sortedThreads = useMemo(
-    () => sortThreads(threads, currentFile?.snapshot.guid ?? null),
-    [currentFile?.snapshot.guid, threads],
+  const sortedComments = useMemo(
+    () => sortComments(comments, currentFile?.snapshot.guid ?? null),
+    [currentFile?.snapshot.guid, comments],
   );
 
   const fileRevisionEntries = useMemo(() => {
@@ -387,26 +395,26 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     [loadSessions],
   );
 
-  const handleUpdateThreadStatus = useCallback(
-    async (threadGuid: string, status: string) => {
+  const handleUpdateCommentStatus = useCallback(
+    async (commentGuid: string, status: string) => {
       try {
-        await reviewWsApi.updateThreadStatus(threadGuid, status);
-        await loadThreads();
+        await reviewWsApi.updateCommentStatus(commentGuid, status);
+        await loadComments();
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to update thread status",
+          title: "Failed to update comment status",
           description:
-            error instanceof Error ? error.message : "Unknown review thread error",
+            error instanceof Error ? error.message : "Unknown review comment error",
           type: "error",
         });
       }
     },
-    [loadSessions, loadThreads],
+    [loadSessions, loadComments],
   );
 
-  const handleReplyToThread = useCallback(
-    async (thread: ReviewThreadDto, body: string) => {
+  const handleReplyToComment = useCallback(
+    async (comment: ReviewCommentDto, body: string) => {
       const trimmedBody = body.trim();
       if (!trimmedBody) {
         toastManager.add({
@@ -419,55 +427,89 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
 
       try {
         await reviewWsApi.addMessage({
-          threadGuid: thread.guid,
+          commentGuid: comment.guid,
           authorType: "user",
           kind: "reply",
           body: trimmedBody,
         });
-        if (thread.status !== "open") {
-          await reviewWsApi.updateThreadStatus(thread.guid, "open");
+        if (comment.status !== "open") {
+          await reviewWsApi.updateCommentStatus(comment.guid, "open");
         }
-        await loadThreads();
+        await loadComments();
         await loadSessions();
       } catch (error) {
         toastManager.add({
-          title: "Failed to reply to thread",
+          title: "Failed to reply to comment",
           description:
-            error instanceof Error ? error.message : "Unknown review thread error",
+            error instanceof Error ? error.message : "Unknown review comment error",
           type: "error",
         });
         throw error;
       }
     },
-    [loadSessions, loadThreads],
+    [loadSessions, loadComments],
+  );
+
+  const handleDeleteMessage = useCallback(
+    async (comment: ReviewCommentDto, message: ReviewMessageDto) => {
+      const latestMessage = comment.messages.at(-1);
+      if (latestMessage?.guid !== message.guid || message.author_type !== "user") {
+        toastManager.add({
+          title: "Can't delete this comment",
+          description: "Only the latest user comment can be deleted.",
+          type: "error",
+        });
+        return;
+      }
+
+      try {
+        await reviewWsApi.deleteMessage(message.guid);
+        await loadComments();
+        await loadSessions();
+        toastManager.add({
+          title: "Comment deleted",
+          description: "The latest user comment was removed.",
+          type: "success",
+        });
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to delete comment",
+          description:
+            error instanceof Error ? error.message : "Unknown review comment error",
+          type: "error",
+        });
+        throw error;
+      }
+    },
+    [loadSessions, loadComments],
   );
 
   const createFixRun = useCallback(
     async (
       executionMode: "copy_prompt" | "agent_chat" | "terminal_cli",
-      selectedThreadGuids?: string[],
+      selectedCommentGuids?: string[],
     ) => {
       if (!currentSession || !currentRevision) return null;
       return reviewWsApi.createFixRun({
         sessionGuid: currentSession.guid,
         baseRevisionGuid: currentRevision.guid,
         executionMode,
-        selectedThreadGuids,
+        selectedCommentGuids,
       });
     },
     [currentRevision, currentSession],
   );
 
   const handleCopyFixPrompt = useCallback(
-    async (selectedThreadGuids?: string[]) => {
+    async (selectedCommentGuids?: string[]) => {
       setIsCreatingFixRun(true);
       try {
-        const result = await createFixRun("copy_prompt", selectedThreadGuids);
+        const result = await createFixRun("copy_prompt", selectedCommentGuids);
         if (!result) return;
         await navigator.clipboard.writeText(result.prompt);
         toastManager.add({
           title: "Fix prompt copied",
-          description: "Paste it into your agent CLI or chat to process the review threads.",
+          description: "Paste it into your agent CLI or chat to process the review comments.",
           type: "success",
         });
         await loadSessions();
@@ -486,11 +528,11 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   );
 
   const handleSendFixRunToAgentChat = useCallback(
-    async (selectedThreadGuids?: string[]) => {
+    async (selectedCommentGuids?: string[]) => {
       if (!workspaceId) return;
       setIsCreatingFixRun(true);
       try {
-        const result = await createFixRun("agent_chat", selectedThreadGuids);
+        const result = await createFixRun("agent_chat", selectedCommentGuids);
         if (!result) return;
         enqueueAgentChatPrompt({
           prompt: result.prompt,
@@ -532,10 +574,10 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   );
 
   const handleRunFixInTerminal = useCallback(
-    async (selectedThreadGuids?: string[], agentIdOverride?: AgentId) => {
+    async (selectedCommentGuids?: string[], agentIdOverride?: AgentId) => {
       setIsCreatingFixRun(true);
       try {
-        const result = await createFixRun("terminal_cli", selectedThreadGuids);
+        const result = await createFixRun("terminal_cli", selectedCommentGuids);
         if (!result) return;
         const agentId = agentIdOverride ?? terminalAgentId;
         const command = buildCommand(agentId, result.prompt);
@@ -632,10 +674,10 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     currentSession,
     currentRevision,
     currentFile,
-    threads,
-    sortedThreads,
-    openCurrentFileThreads,
-    openRevisionThreads,
+    comments,
+    sortedComments,
+    openCurrentFileComments,
+    openRevisionComments,
     fileRevisionEntries,
     canEdit,
     isLoading,
@@ -656,14 +698,15 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     setTerminalAgentId,
     // Handlers
     loadSessions,
-    loadThreads,
+    loadComments,
     handleCreateSession,
     handleCloseSession,
     handleArchiveSession,
     handleRenameSession,
     handleToggleReviewed,
-    handleUpdateThreadStatus,
-    handleReplyToThread,
+    handleUpdateCommentStatus,
+    handleReplyToComment,
+    handleDeleteMessage,
     createFixRun,
     handleCopyFixPrompt,
     handleSendFixRunToAgentChat,
