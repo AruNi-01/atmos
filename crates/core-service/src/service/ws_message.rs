@@ -34,15 +34,14 @@ use infra::{
     GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
     LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
+    ProjectUpdateTargetBranchRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
+    ReviewCommentUpdateStatusRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
     ReviewFileSetReviewedRequest, ReviewFixRunArtifactGetRequest, ReviewFixRunCreateRequest,
     ReviewFixRunFinalizeRequest, ReviewFixRunListRequest, ReviewMessageAddRequest,
-    ReviewSessionArchiveRequest,
-    ReviewSessionCloseRequest, ReviewSessionCreateRequest, ReviewSessionGetRequest,
-    ReviewSessionListRequest, ReviewSessionRenameRequest,
-    ReviewThreadCreateRequest, ReviewThreadListRequest,
-    ReviewThreadUpdateStatusRequest, ScriptGetRequest, ScriptSaveRequest,
-    SkillsDeleteRequest, SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
+    ReviewMessageDeleteRequest, ReviewSessionArchiveRequest, ReviewSessionCloseRequest,
+    ReviewSessionCreateRequest, ReviewSessionGetRequest, ReviewSessionListRequest,
+    ReviewSessionRenameRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
+    SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
@@ -68,9 +67,9 @@ use tokio::sync::OnceCell;
 use crate::error::{Result, ServiceError};
 use crate::service::git_commit_message::GitCommitMessageGenerator;
 use crate::service::review::{
-    AddReviewMessageInput, CreateReviewFixRunInput, CreateReviewSessionInput,
-    CreateReviewThreadInput, ReviewAnchor, SetReviewFileReviewedInput,
-    UpdateReviewThreadStatusInput,
+    AddReviewMessageInput, CreateReviewCommentInput, CreateReviewFixRunInput,
+    CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, SetReviewFileReviewedInput,
+    UpdateReviewCommentStatusInput,
 };
 use crate::{AgentService, ProjectService, ReviewService, TerminalService, WorkspaceService};
 
@@ -578,20 +577,24 @@ impl WsMessageService {
                 self.handle_review_file_set_reviewed(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewThreadList => {
-                self.handle_review_thread_list(parse_request(request.data)?)
+            WsAction::ReviewCommentList => {
+                self.handle_review_comment_list(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewThreadCreate => {
-                self.handle_review_thread_create(parse_request(request.data)?)
+            WsAction::ReviewCommentCreate => {
+                self.handle_review_comment_create(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewThreadUpdateStatus => {
-                self.handle_review_thread_update_status(parse_request(request.data)?)
+            WsAction::ReviewCommentUpdateStatus => {
+                self.handle_review_comment_update_status(parse_request(request.data)?)
                     .await
             }
             WsAction::ReviewMessageAdd => {
                 self.handle_review_message_add(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewMessageDelete => {
+                self.handle_review_message_delete(parse_request(request.data)?)
                     .await
             }
             WsAction::ReviewFixRunList => {
@@ -3994,10 +3997,7 @@ set -x
         Ok(json!(session))
     }
 
-    async fn handle_review_session_create(
-        &self,
-        req: ReviewSessionCreateRequest,
-    ) -> Result<Value> {
+    async fn handle_review_session_create(&self, req: ReviewSessionCreateRequest) -> Result<Value> {
         let session = self
             .review_service
             .create_session(CreateReviewSessionInput {
@@ -4007,7 +4007,7 @@ set -x
             })
             .await?;
         self.send_review_notification(
-            WsEvent::ReviewThreadUpdated,
+            WsEvent::ReviewCommentUpdated,
             json!({
                 "kind": "session_created",
                 "session_guid": session.model.guid,
@@ -4019,13 +4019,12 @@ set -x
         Ok(json!(session))
     }
 
-    async fn handle_review_session_close(
-        &self,
-        req: ReviewSessionCloseRequest,
-    ) -> Result<Value> {
-        self.review_service.close_session(req.session_guid.clone()).await?;
+    async fn handle_review_session_close(&self, req: ReviewSessionCloseRequest) -> Result<Value> {
+        self.review_service
+            .close_session(req.session_guid.clone())
+            .await?;
         self.send_review_notification(
-            WsEvent::ReviewThreadUpdated,
+            WsEvent::ReviewCommentUpdated,
             json!({
                 "kind": "session_closed",
                 "session_guid": req.session_guid,
@@ -4044,7 +4043,7 @@ set -x
             .archive_session(req.session_guid.clone())
             .await?;
         self.send_review_notification(
-            WsEvent::ReviewThreadUpdated,
+            WsEvent::ReviewCommentUpdated,
             json!({
                 "kind": "session_archived",
                 "session_guid": req.session_guid,
@@ -4055,15 +4054,12 @@ set -x
         Ok(json!({ "ok": true }))
     }
 
-    async fn handle_review_session_rename(
-        &self,
-        req: ReviewSessionRenameRequest,
-    ) -> Result<Value> {
+    async fn handle_review_session_rename(&self, req: ReviewSessionRenameRequest) -> Result<Value> {
         self.review_service
             .rename_session(req.session_guid.clone(), req.title.clone())
             .await?;
         self.send_review_notification(
-            WsEvent::ReviewThreadUpdated,
+            WsEvent::ReviewCommentUpdated,
             json!({
                 "kind": "session_renamed",
                 "session_guid": req.session_guid,
@@ -4115,24 +4111,21 @@ set -x
         Ok(json!({ "ok": true }))
     }
 
-    async fn handle_review_thread_list(&self, req: ReviewThreadListRequest) -> Result<Value> {
-        let threads = self
+    async fn handle_review_comment_list(&self, req: ReviewCommentListRequest) -> Result<Value> {
+        let comments = self
             .review_service
-            .list_threads(req.session_guid, req.revision_guid)
+            .list_comments(req.session_guid, req.revision_guid)
             .await?;
-        Ok(json!(threads))
+        Ok(json!(comments))
     }
 
-    async fn handle_review_thread_create(
-        &self,
-        req: ReviewThreadCreateRequest,
-    ) -> Result<Value> {
+    async fn handle_review_comment_create(&self, req: ReviewCommentCreateRequest) -> Result<Value> {
         let anchor: ReviewAnchor = serde_json::from_value(req.anchor).map_err(|error| {
-            ServiceError::Validation(format!("Invalid review thread anchor: {}", error))
+            ServiceError::Validation(format!("Invalid review comment anchor: {}", error))
         })?;
-        let thread = self
+        let comment = self
             .review_service
-            .create_thread(CreateReviewThreadInput {
+            .create_comment(CreateReviewCommentInput {
                 session_guid: req.session_guid,
                 revision_guid: req.revision_guid,
                 file_snapshot_guid: req.file_snapshot_guid,
@@ -4140,37 +4133,37 @@ set -x
                 body: req.body,
                 title: req.title,
                 created_by: req.created_by,
-                parent_thread_guid: req.parent_thread_guid,
+                parent_comment_guid: req.parent_comment_guid,
             })
             .await?;
         self.send_review_notification(
-            WsEvent::ReviewThreadUpdated,
+            WsEvent::ReviewCommentUpdated,
             json!({
-                "thread_guid": thread.model.guid,
-                "session_guid": thread.model.session_guid,
-                "revision_guid": thread.model.revision_guid,
+                "comment_guid": comment.model.guid,
+                "session_guid": comment.model.session_guid,
+                "revision_guid": comment.model.revision_guid,
                 "changed_fields": ["status", "updated_at", "created_at"],
-                "thread": thread,
+                "comment": comment,
             }),
         )
         .await;
-        Ok(json!(thread))
+        Ok(json!(comment))
     }
 
-    async fn handle_review_thread_update_status(
+    async fn handle_review_comment_update_status(
         &self,
-        req: ReviewThreadUpdateStatusRequest,
+        req: ReviewCommentUpdateStatusRequest,
     ) -> Result<Value> {
         self.review_service
-            .update_thread_status(UpdateReviewThreadStatusInput {
-                thread_guid: req.thread_guid.clone(),
+            .update_comment_status(UpdateReviewCommentStatusInput {
+                comment_guid: req.comment_guid.clone(),
                 status: req.status.clone(),
             })
             .await?;
         self.send_review_notification(
-            WsEvent::ReviewThreadUpdated,
+            WsEvent::ReviewCommentUpdated,
             json!({
-                "thread_guid": req.thread_guid,
+                "comment_guid": req.comment_guid,
                 "changed_fields": ["status", "updated_at"],
                 "status": req.status,
             }),
@@ -4183,7 +4176,7 @@ set -x
         let message = self
             .review_service
             .create_message(AddReviewMessageInput {
-                thread_guid: req.thread_guid,
+                comment_guid: req.comment_guid,
                 author_type: req.author_type,
                 kind: req.kind,
                 body: req.body,
@@ -4193,7 +4186,7 @@ set -x
         self.send_review_notification(
             WsEvent::ReviewMessageCreated,
             json!({
-                "thread_guid": message.model.thread_guid,
+                "comment_guid": message.model.comment_guid,
                 "message_guid": message.model.guid,
                 "changed_fields": ["created_at"],
                 "message": message,
@@ -4203,22 +4196,38 @@ set -x
         Ok(json!(message))
     }
 
+    async fn handle_review_message_delete(&self, req: ReviewMessageDeleteRequest) -> Result<Value> {
+        let comment_guid = self
+            .review_service
+            .delete_message(DeleteReviewMessageInput {
+                message_guid: req.message_guid.clone(),
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "comment_guid": comment_guid,
+                "message_guid": req.message_guid,
+                "changed_fields": ["messages", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
     async fn handle_review_fix_run_list(&self, req: ReviewFixRunListRequest) -> Result<Value> {
         let runs = self.review_service.list_fix_runs(req.session_guid).await?;
         Ok(json!(runs))
     }
 
-    async fn handle_review_fix_run_create(
-        &self,
-        req: ReviewFixRunCreateRequest,
-    ) -> Result<Value> {
+    async fn handle_review_fix_run_create(&self, req: ReviewFixRunCreateRequest) -> Result<Value> {
         let run = self
             .review_service
             .create_fix_run(CreateReviewFixRunInput {
                 session_guid: req.session_guid,
                 base_revision_guid: req.base_revision_guid,
                 execution_mode: req.execution_mode,
-                selected_thread_guids: req.selected_thread_guids,
+                selected_comment_guids: req.selected_comment_guids,
                 created_by: req.created_by,
             })
             .await?;

@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use core_engine::GitEngine;
 use infra::db::entities::{
-    review_file_snapshot, review_file_state, review_fix_run, review_message, review_revision,
-    review_session, review_thread,
+    review_comment, review_file_snapshot, review_file_state, review_fix_run, review_message,
+    review_revision, review_session,
 };
 use infra::db::repo::{ProjectRepo, ReviewRepo, WorkspaceRepo};
 use infra::utils::review_artifacts::{
@@ -23,11 +23,11 @@ use crate::error::{Result, ServiceError};
 
 const MESSAGE_INLINE_LIMIT: usize = 16 * 1024;
 
-fn is_open_review_thread_status(status: &str) -> bool {
+fn is_open_review_comment_status(status: &str) -> bool {
     matches!(status, "open" | "agent_fixed")
 }
 
-fn is_valid_review_thread_status(status: &str) -> bool {
+fn is_valid_review_comment_status(status: &str) -> bool {
     matches!(status, "open" | "agent_fixed" | "fixed" | "dismissed")
 }
 
@@ -56,9 +56,9 @@ pub struct ReviewMessageDto {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ReviewThreadDto {
+pub struct ReviewCommentDto {
     #[serde(flatten)]
-    pub model: review_thread::Model,
+    pub model: review_comment::Model,
     pub anchor: Value,
     pub messages: Vec<ReviewMessageDto>,
 }
@@ -68,7 +68,7 @@ pub struct ReviewFileDto {
     pub snapshot: review_file_snapshot::Model,
     pub state: review_file_state::Model,
     pub changed_after_review: bool,
-    pub open_thread_count: usize,
+    pub open_comment_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -84,7 +84,7 @@ pub struct ReviewSessionDto {
     pub model: review_session::Model,
     pub revisions: Vec<ReviewRevisionDto>,
     pub runs: Vec<review_fix_run::Model>,
-    pub open_thread_count: usize,
+    pub open_comment_count: usize,
     pub reviewed_file_count: usize,
     pub reviewed_then_changed_count: usize,
 }
@@ -107,7 +107,7 @@ pub struct SetReviewFileReviewedInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CreateReviewThreadInput {
+pub struct CreateReviewCommentInput {
     pub session_guid: String,
     pub revision_guid: String,
     pub file_snapshot_guid: String,
@@ -118,12 +118,12 @@ pub struct CreateReviewThreadInput {
     #[serde(default)]
     pub created_by: Option<String>,
     #[serde(default)]
-    pub parent_thread_guid: Option<String>,
+    pub parent_comment_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AddReviewMessageInput {
-    pub thread_guid: String,
+    pub comment_guid: String,
     pub author_type: String,
     pub kind: String,
     pub body: String,
@@ -132,8 +132,13 @@ pub struct AddReviewMessageInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct UpdateReviewThreadStatusInput {
-    pub thread_guid: String,
+pub struct DeleteReviewMessageInput {
+    pub message_guid: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateReviewCommentStatusInput {
+    pub comment_guid: String,
     pub status: String,
 }
 
@@ -143,7 +148,7 @@ pub struct CreateReviewFixRunInput {
     pub base_revision_guid: String,
     pub execution_mode: String,
     #[serde(default)]
-    pub selected_thread_guids: Vec<String>,
+    pub selected_comment_guids: Vec<String>,
     #[serde(default)]
     pub created_by: Option<String>,
 }
@@ -192,11 +197,11 @@ pub struct ReviewFixRunCreatedDto {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ReviewThreadContextDto {
+pub struct ReviewCommentContextDto {
     pub session: review_session::Model,
     pub revision: review_revision::Model,
     pub file_snapshot: review_file_snapshot::Model,
-    pub thread: ReviewThreadDto,
+    pub comment: ReviewCommentDto,
     pub workspace_root: String,
     pub old_file_abs_path: String,
     pub new_file_abs_path: String,
@@ -542,12 +547,14 @@ impl ReviewService {
             .into_iter()
             .map(|item| (item.file_snapshot_guid.clone(), item))
             .collect();
-        let threads = review_repo.list_threads_by_revision(&revision_guid).await?;
-        let mut open_thread_count_by_snapshot: HashMap<String, usize> = HashMap::new();
-        for thread in threads {
-            if is_open_review_thread_status(&thread.status) {
-                *open_thread_count_by_snapshot
-                    .entry(thread.file_snapshot_guid.clone())
+        let comments = review_repo
+            .list_comments_by_revision(&revision_guid)
+            .await?;
+        let mut open_comment_count_by_snapshot: HashMap<String, usize> = HashMap::new();
+        for comment in comments {
+            if is_open_review_comment_status(&comment.status) {
+                *open_comment_count_by_snapshot
+                    .entry(comment.file_snapshot_guid.clone())
                     .or_default() += 1;
             }
         }
@@ -570,7 +577,7 @@ impl ReviewService {
                     .map(|(reviewed_at, changed_at)| changed_at > reviewed_at)
                     .unwrap_or(false);
                 Ok(ReviewFileDto {
-                    open_thread_count: *open_thread_count_by_snapshot
+                    open_comment_count: *open_comment_count_by_snapshot
                         .get(&snapshot.guid)
                         .unwrap_or(&0),
                     snapshot,
@@ -588,66 +595,68 @@ impl ReviewService {
             .map_err(ServiceError::Infra)
     }
 
-    pub async fn list_threads(
+    pub async fn list_comments(
         &self,
         session_guid: String,
         revision_guid: Option<String>,
-    ) -> Result<Vec<ReviewThreadDto>> {
+    ) -> Result<Vec<ReviewCommentDto>> {
         let review_repo = ReviewRepo::new(&self.db);
-        let threads = if let Some(revision_guid) = revision_guid.as_deref() {
-            review_repo.list_threads_by_revision(revision_guid).await?
+        let comments = if let Some(revision_guid) = revision_guid.as_deref() {
+            review_repo.list_comments_by_revision(revision_guid).await?
         } else {
-            review_repo.list_threads_by_session(&session_guid).await?
+            review_repo.list_comments_by_session(&session_guid).await?
         };
-        let thread_guids: Vec<String> = threads.iter().map(|item| item.guid.clone()).collect();
+        let comment_guids: Vec<String> = comments.iter().map(|item| item.guid.clone()).collect();
         let messages = review_repo
-            .list_messages_by_thread_guids(&thread_guids)
+            .list_messages_by_comment_guids(&comment_guids)
             .await?;
-        let mut messages_by_thread: HashMap<String, Vec<review_message::Model>> = HashMap::new();
+        let mut messages_by_comment: HashMap<String, Vec<review_message::Model>> = HashMap::new();
         for message in messages {
-            messages_by_thread
-                .entry(message.thread_guid.clone())
+            messages_by_comment
+                .entry(message.comment_guid.clone())
                 .or_default()
                 .push(message);
         }
 
-        let parent_guids: Vec<String> = threads
+        let parent_guids: Vec<String> = comments
             .iter()
-            .filter_map(|t| t.parent_thread_guid.clone())
+            .filter_map(|t| t.parent_comment_guid.clone())
             .collect();
-        let mut ancestor_thread_cache: HashMap<String, review_thread::Model> = HashMap::new();
+        let mut ancestor_comment_cache: HashMap<String, review_comment::Model> = HashMap::new();
         for parent_guid in &parent_guids {
-            Self::resolve_ancestor_threads(
+            Self::resolve_ancestor_comments(
                 parent_guid.clone(),
                 &review_repo,
-                &mut ancestor_thread_cache,
+                &mut ancestor_comment_cache,
             )
             .await?;
         }
-        let all_ancestor_guids: Vec<String> = ancestor_thread_cache.keys().cloned().collect();
+        let all_ancestor_guids: Vec<String> = ancestor_comment_cache.keys().cloned().collect();
         let mut ancestor_messages: HashMap<String, Vec<review_message::Model>> = HashMap::new();
         if !all_ancestor_guids.is_empty() {
             let ancestor_msgs = review_repo
-                .list_messages_by_thread_guids(&all_ancestor_guids)
+                .list_messages_by_comment_guids(&all_ancestor_guids)
                 .await?;
             for msg in ancestor_msgs {
                 ancestor_messages
-                    .entry(msg.thread_guid.clone())
+                    .entry(msg.comment_guid.clone())
                     .or_default()
                     .push(msg);
             }
         }
 
-        let mut items = Vec::with_capacity(threads.len());
-        for thread in threads {
-            let thread_guid = thread.guid.clone();
-            let mut thread_messages = messages_by_thread.remove(&thread_guid).unwrap_or_default();
-            if let Some(ref parent_guid) = thread.parent_thread_guid {
+        let mut items = Vec::with_capacity(comments.len());
+        for comment in comments {
+            let comment_guid = comment.guid.clone();
+            let mut comment_messages = messages_by_comment
+                .remove(&comment_guid)
+                .unwrap_or_default();
+            if let Some(ref parent_guid) = comment.parent_comment_guid {
                 let mut chain_guids = vec![parent_guid.clone()];
                 let mut cursor = parent_guid.clone();
                 loop {
-                    if let Some(ancestor) = ancestor_thread_cache.get(&cursor) {
-                        if let Some(ref pg) = ancestor.parent_thread_guid {
+                    if let Some(ancestor) = ancestor_comment_cache.get(&cursor) {
+                        if let Some(ref pg) = ancestor.parent_comment_guid {
                             if !chain_guids.contains(pg) {
                                 chain_guids.push(pg.clone());
                                 cursor = pg.clone();
@@ -659,44 +668,47 @@ impl ReviewService {
                 }
                 for guid in &chain_guids {
                     if let Some(ancestor_msgs) = ancestor_messages.get(guid).cloned() {
-                        thread_messages.extend(ancestor_msgs);
+                        comment_messages.extend(ancestor_msgs);
                     }
                 }
             }
-            thread_messages.sort_by_key(|m| m.created_at);
+            comment_messages.sort_by_key(|m| m.created_at);
             items.push(
-                self.to_thread_dto(thread, thread_messages, Some(session_guid.clone()))
+                self.to_comment_dto(comment, comment_messages, Some(session_guid.clone()))
                     .await?,
             );
         }
         Ok(items)
     }
 
-    async fn resolve_ancestor_threads(
+    async fn resolve_ancestor_comments(
         parent_guid: String,
         repo: &ReviewRepo<'_>,
-        cache: &mut HashMap<String, review_thread::Model>,
+        cache: &mut HashMap<String, review_comment::Model>,
     ) -> Result<()> {
         if cache.contains_key(&parent_guid) {
             return Ok(());
         }
-        if let Some(thread) = repo
-            .find_thread_by_guid(&parent_guid)
+        if let Some(comment) = repo
+            .find_comment_by_guid(&parent_guid)
             .await
             .map_err(ServiceError::Infra)?
         {
-            if let Some(ref pg) = thread.parent_thread_guid {
-                Box::pin(Self::resolve_ancestor_threads(pg.clone(), repo, cache)).await?;
+            if let Some(ref pg) = comment.parent_comment_guid {
+                Box::pin(Self::resolve_ancestor_comments(pg.clone(), repo, cache)).await?;
             }
-            cache.insert(parent_guid, thread);
+            cache.insert(parent_guid, comment);
         }
         Ok(())
     }
 
-    pub async fn create_thread(&self, input: CreateReviewThreadInput) -> Result<ReviewThreadDto> {
+    pub async fn create_comment(
+        &self,
+        input: CreateReviewCommentInput,
+    ) -> Result<ReviewCommentDto> {
         let review_repo = ReviewRepo::new(&self.db);
-        let thread = review_repo
-            .create_thread(
+        let comment = review_repo
+            .create_comment(
                 input.session_guid,
                 input.revision_guid,
                 input.file_snapshot_guid,
@@ -707,7 +719,7 @@ impl ReviewService {
                 serde_json::to_string(&input.anchor)
                     .map_err(|error| ServiceError::Processing(error.to_string()))?,
                 "open".to_string(),
-                input.parent_thread_guid,
+                input.parent_comment_guid,
                 input.title,
                 input.created_by,
             )
@@ -715,29 +727,29 @@ impl ReviewService {
             .map_err(ServiceError::Infra)?;
         let message = self
             .create_message(AddReviewMessageInput {
-                thread_guid: thread.guid.clone(),
+                comment_guid: comment.guid.clone(),
                 author_type: "user".to_string(),
                 kind: "comment".to_string(),
                 body: input.body,
                 fix_run_guid: None,
             })
             .await?;
-        Ok(ReviewThreadDto {
+        Ok(ReviewCommentDto {
             anchor: serde_json::to_value(&input.anchor)
                 .map_err(|error| ServiceError::Processing(error.to_string()))?,
             messages: vec![message],
-            model: thread,
+            model: comment,
         })
     }
 
     pub async fn create_message(&self, input: AddReviewMessageInput) -> Result<ReviewMessageDto> {
         let review_repo = ReviewRepo::new(&self.db);
-        let thread = review_repo
-            .find_thread_by_guid(&input.thread_guid)
+        let comment = review_repo
+            .find_comment_by_guid(&input.comment_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review thread {} not found", input.thread_guid))
+                ServiceError::NotFound(format!("Review comment {} not found", input.comment_guid))
             })?;
         if let Some(run_guid) = input.fix_run_guid.as_deref() {
             if let Some(run) = review_repo
@@ -767,7 +779,7 @@ impl ReviewService {
         let (body_storage_kind, body, body_rel_path, body_full) =
             if input.body.len() > MESSAGE_INLINE_LIMIT {
                 let abs_path = run_root_abs_path(
-                    &thread.session_guid,
+                    &comment.session_guid,
                     input.fix_run_guid.as_deref().unwrap_or("message"),
                 )
                 .map_err(ServiceError::Infra)?
@@ -788,7 +800,7 @@ impl ReviewService {
 
         let message = review_repo
             .create_message(
-                input.thread_guid,
+                input.comment_guid,
                 input.author_type,
                 input.kind,
                 body_storage_kind,
@@ -805,15 +817,65 @@ impl ReviewService {
         })
     }
 
-    pub async fn update_thread_status(&self, input: UpdateReviewThreadStatusInput) -> Result<()> {
-        if !is_valid_review_thread_status(&input.status) {
+    pub async fn delete_message(&self, input: DeleteReviewMessageInput) -> Result<String> {
+        let review_repo = ReviewRepo::new(&self.db);
+        let message = review_repo
+            .find_message_by_guid(&input.message_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review message {} not found", input.message_guid,))
+            })?;
+
+        if message.author_type != "user" {
+            return Err(ServiceError::Validation(
+                "Only user review messages can be deleted".to_string(),
+            ));
+        }
+
+        let mut messages = review_repo
+            .list_messages_by_comment_guids(&[message.comment_guid.clone()])
+            .await
+            .map_err(ServiceError::Infra)?;
+        messages.sort_by_key(|item| item.created_at);
+        let is_last_message = messages
+            .last()
+            .map(|item| item.guid == message.guid)
+            .unwrap_or(false);
+        if !is_last_message {
+            return Err(ServiceError::Validation(
+                "Only the latest review message can be deleted".to_string(),
+            ));
+        }
+
+        review_repo
+            .soft_delete_message(&message.guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+        if messages.len() == 1 {
+            review_repo
+                .soft_delete_comment(&message.comment_guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+        } else {
+            review_repo
+                .touch_comment(&message.comment_guid)
+                .await
+                .map_err(ServiceError::Infra)?;
+        }
+
+        Ok(message.comment_guid)
+    }
+
+    pub async fn update_comment_status(&self, input: UpdateReviewCommentStatusInput) -> Result<()> {
+        if !is_valid_review_comment_status(&input.status) {
             return Err(ServiceError::Validation(format!(
-                "Invalid review thread status: {}",
+                "Invalid review comment status: {}",
                 input.status
             )));
         }
         ReviewRepo::new(&self.db)
-            .update_thread_status(&input.thread_guid, &input.status)
+            .update_comment_status(&input.comment_guid, &input.status)
             .await
             .map_err(ServiceError::Infra)
     }
@@ -830,23 +892,23 @@ impl ReviewService {
             .ok_or_else(|| {
                 ServiceError::NotFound(format!("Review session {} not found", input.session_guid))
             })?;
-        let threads = self
-            .list_threads(session.guid.clone(), Some(input.base_revision_guid.clone()))
+        let comments = self
+            .list_comments(session.guid.clone(), Some(input.base_revision_guid.clone()))
             .await?;
-        let selected_set: HashSet<String> = input.selected_thread_guids.into_iter().collect();
-        let selected_threads: Vec<ReviewThreadDto> = threads
+        let selected_set: HashSet<String> = input.selected_comment_guids.into_iter().collect();
+        let selected_comments: Vec<ReviewCommentDto> = comments
             .into_iter()
-            .filter(|thread| {
+            .filter(|comment| {
                 if !selected_set.is_empty() {
-                    selected_set.contains(&thread.model.guid)
+                    selected_set.contains(&comment.model.guid)
                 } else {
-                    is_open_review_thread_status(&thread.model.status)
+                    is_open_review_comment_status(&comment.model.status)
                 }
             })
             .collect();
-        if selected_threads.is_empty() {
+        if selected_comments.is_empty() {
             return Err(ServiceError::Validation(
-                "No review threads selected for fix run".to_string(),
+                "No review comments selected for fix run".to_string(),
             ));
         }
 
@@ -860,7 +922,7 @@ impl ReviewService {
             )
             .await
             .map_err(ServiceError::Infra)?;
-        let prompt = self.render_fix_prompt(&session, &run, &selected_threads)?;
+        let prompt = self.render_fix_prompt(&session, &run, &selected_comments)?;
         let prompt_abs_path = run_root_abs_path(&session.guid, &run.guid)
             .map_err(ServiceError::Infra)?
             .join("prompt.md");
@@ -902,57 +964,60 @@ impl ReviewService {
             .map_err(ServiceError::Infra)
     }
 
-    pub async fn get_thread_context(&self, thread_guid: String) -> Result<ReviewThreadContextDto> {
+    pub async fn get_comment_context(
+        &self,
+        comment_guid: String,
+    ) -> Result<ReviewCommentContextDto> {
         let review_repo = ReviewRepo::new(&self.db);
-        let thread = review_repo
-            .find_thread_by_guid(&thread_guid)
+        let comment = review_repo
+            .find_comment_by_guid(&comment_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review thread {} not found", thread_guid))
+                ServiceError::NotFound(format!("Review comment {} not found", comment_guid))
             })?;
         let session = review_repo
-            .find_session_by_guid(&thread.session_guid)
+            .find_session_by_guid(&comment.session_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review session {} not found", thread.session_guid))
+                ServiceError::NotFound(format!("Review session {} not found", comment.session_guid))
             })?;
         let revision = review_repo
-            .find_revision_by_guid(&thread.revision_guid)
+            .find_revision_by_guid(&comment.revision_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
                 ServiceError::NotFound(format!(
                     "Review revision {} not found",
-                    thread.revision_guid
+                    comment.revision_guid
                 ))
             })?;
         let file_snapshot = review_repo
-            .find_file_snapshot_by_guid(&thread.file_snapshot_guid)
+            .find_file_snapshot_by_guid(&comment.file_snapshot_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
                 ServiceError::NotFound(format!(
                     "Review file snapshot {} not found",
-                    thread.file_snapshot_guid
+                    comment.file_snapshot_guid
                 ))
             })?;
         let messages = review_repo
-            .list_messages_by_thread_guids(std::slice::from_ref(&thread.guid))
+            .list_messages_by_comment_guids(std::slice::from_ref(&comment.guid))
             .await
             .map_err(ServiceError::Infra)?;
-        let thread = self
-            .to_thread_dto(thread, messages, Some(session.guid.clone()))
+        let comment = self
+            .to_comment_dto(comment, messages, Some(session.guid.clone()))
             .await?;
-        Ok(ReviewThreadContextDto {
+        Ok(ReviewCommentContextDto {
             old_file_abs_path: file_snapshot.old_rel_path.clone(),
             new_file_abs_path: file_snapshot.new_rel_path.clone(),
             workspace_root: "".to_string(), // No longer needed as paths are absolute
             session,
             revision,
             file_snapshot,
-            thread,
+            comment,
         })
     }
 
@@ -1186,6 +1251,17 @@ impl ReviewService {
                 .collect();
             let mut next_display_order = base_snapshots.len();
             for (index, snapshot) in base_snapshots.into_iter().enumerate() {
+                // Baseline content is preserved across all revisions so that every
+                // revision's review diff shows the cumulative `baseline -> current`
+                // change set rather than the per-revision delta. Since V1's `old`
+                // is the git baseline and every subsequent revision copies the
+                // previous `old` into its own `old`, reading `snapshot.old_rel_path`
+                // transitively gives us the baseline.
+                let baseline_content =
+                    std::fs::read_to_string(&snapshot.old_rel_path).unwrap_or_default();
+                // Prior content (the previous revision's `new`) is still needed to
+                // compute the per-fix-run patch artifact and to detect whether the
+                // fix run actually touched this file.
                 let prior_content =
                     std::fs::read_to_string(&snapshot.new_rel_path).unwrap_or_default();
                 let current_file_path = workspace_root.join(&snapshot.file_path);
@@ -1201,17 +1277,18 @@ impl ReviewService {
                     &file_snapshot_guid,
                 )
                 .map_err(ServiceError::Infra)?;
-                write_text_atomic(&old_abs_path, &prior_content)
+                write_text_atomic(&old_abs_path, &baseline_content)
                     .await
                     .map_err(ServiceError::Infra)?;
                 write_text_atomic(&new_abs_path, &current_content)
                     .await
                     .map_err(ServiceError::Infra)?;
 
+                // Cumulative file status: baseline -> current.
                 let git_status = if current_file_path.exists() {
-                    if prior_content.is_empty() && !current_content.is_empty() {
+                    if baseline_content.is_empty() && !current_content.is_empty() {
                         "A".to_string()
-                    } else if prior_content == current_content {
+                    } else if baseline_content == current_content {
                         snapshot.git_status.clone()
                     } else {
                         "M".to_string()
@@ -1220,6 +1297,8 @@ impl ReviewService {
                     "D".to_string()
                 };
 
+                // The fix.patch artifact represents what THIS run changed
+                // (prior -> current), independent of the cumulative review diff.
                 if prior_content != current_content {
                     let old_label = format!("a/{}", snapshot.file_path);
                     let new_label = format!("b/{}", snapshot.file_path);
@@ -1241,9 +1320,9 @@ impl ReviewService {
                     is_binary: false,
                     old_rel_path: old_abs_path.to_string_lossy().to_string(),
                     new_rel_path: new_abs_path.to_string_lossy().to_string(),
-                    old_sha256: sha256_hex(&prior_content),
+                    old_sha256: sha256_hex(&baseline_content),
                     new_sha256: sha256_hex(&current_content),
-                    old_size: prior_content.len(),
+                    old_size: baseline_content.len(),
                     new_size: current_content.len(),
                 };
                 write_json_atomic(&meta_abs_path, &meta)
@@ -1410,35 +1489,35 @@ impl ReviewService {
                     .map_err(ServiceError::Infra)?;
             }
 
-            let base_threads = review_repo
-                .list_threads_by_revision(&base_revision.guid)
+            let base_comments = review_repo
+                .list_comments_by_revision(&base_revision.guid)
                 .await
                 .map_err(ServiceError::Infra)?;
             let mut base_to_inherited: Vec<(String, String)> = Vec::new();
-            for base_thread in &base_threads {
-                let new_snapshot_guid = match snapshot_guid_map.get(&base_thread.file_snapshot_guid)
-                {
-                    Some(guid) => guid.clone(),
-                    None => continue,
-                };
-                let inherited_thread = review_repo
-                    .create_thread(
+            for base_comment in &base_comments {
+                let new_snapshot_guid =
+                    match snapshot_guid_map.get(&base_comment.file_snapshot_guid) {
+                        Some(guid) => guid.clone(),
+                        None => continue,
+                    };
+                let inherited_comment = review_repo
+                    .create_comment(
                         session.guid.clone(),
                         revision.guid.clone(),
                         new_snapshot_guid,
-                        base_thread.anchor_side.clone(),
-                        base_thread.anchor_start_line,
-                        base_thread.anchor_end_line,
-                        base_thread.anchor_line_range_kind.clone(),
-                        base_thread.anchor_json.clone(),
-                        base_thread.status.clone(),
-                        Some(base_thread.guid.clone()),
-                        base_thread.title.clone(),
-                        base_thread.created_by.clone(),
+                        base_comment.anchor_side.clone(),
+                        base_comment.anchor_start_line,
+                        base_comment.anchor_end_line,
+                        base_comment.anchor_line_range_kind.clone(),
+                        base_comment.anchor_json.clone(),
+                        base_comment.status.clone(),
+                        Some(base_comment.guid.clone()),
+                        base_comment.title.clone(),
+                        base_comment.created_by.clone(),
                     )
                     .await
                     .map_err(ServiceError::Infra)?;
-                base_to_inherited.push((base_thread.guid.clone(), inherited_thread.guid.clone()));
+                base_to_inherited.push((base_comment.guid.clone(), inherited_comment.guid.clone()));
             }
 
             let from_guids: Vec<String> =
@@ -1555,7 +1634,7 @@ impl ReviewService {
         &self,
         session: &review_session::Model,
         run: &review_fix_run::Model,
-        threads: &[ReviewThreadDto],
+        comments: &[ReviewCommentDto],
     ) -> Result<String> {
         let mut output = String::new();
         output.push_str("<review-fix-run>\n");
@@ -1569,30 +1648,30 @@ impl ReviewService {
             xml_escape(&run.guid),
             xml_escape(&run.execution_mode)
         ));
-        for thread in threads {
+        for comment in comments {
             output.push_str(&format!(
-                "  <thread guid=\"{}\" revision_guid=\"{}\" file_snapshot_guid=\"{}\">\n",
-                xml_escape(&thread.model.guid),
-                xml_escape(&thread.model.revision_guid),
-                xml_escape(&thread.model.file_snapshot_guid)
+                "  <comment guid=\"{}\" revision_guid=\"{}\" file_snapshot_guid=\"{}\">\n",
+                xml_escape(&comment.model.guid),
+                xml_escape(&comment.model.revision_guid),
+                xml_escape(&comment.model.file_snapshot_guid)
             ));
             output.push_str(&format!(
                 "    <anchor side=\"{}\" start_line=\"{}\" end_line=\"{}\" line_range_kind=\"{}\" />\n",
-                xml_escape(&thread.model.anchor_side),
-                thread.model.anchor_start_line,
-                thread.model.anchor_end_line,
-                xml_escape(&thread.model.anchor_line_range_kind)
+                xml_escape(&comment.model.anchor_side),
+                comment.model.anchor_start_line,
+                comment.model.anchor_end_line,
+                xml_escape(&comment.model.anchor_line_range_kind)
             ));
-            if let Some(message) = thread.messages.first() {
+            if let Some(message) = comment.messages.first() {
                 output.push_str("    <comment>\n");
                 output.push_str(&xml_escape(&message.body_full));
                 output.push_str("\n    </comment>\n");
             }
-            output.push_str("  </thread>\n");
+            output.push_str("  </comment>\n");
         }
         output.push_str("</review-fix-run>\n\n");
         output.push_str("Before editing code, read and follow `~/.atmos/skills/.system/atmos-review-fix/SKILL.md`.\n");
-        output.push_str("Use `atmos review` commands to reply to each handled thread and write a run summary. Do not mark threads resolved automatically; move them to `agent_fixed` after handling.\n");
+        output.push_str("Use `atmos review` commands to reply to each handled comment and write a run summary. Do not mark comments fixed automatically; move them to `agent_fixed` after handling.\n");
         Ok(output)
     }
 
@@ -1602,8 +1681,8 @@ impl ReviewService {
             .list_revisions_by_session(&session.guid)
             .await
             .map_err(ServiceError::Infra)?;
-        let threads = review_repo
-            .list_threads_by_session(&session.guid)
+        let comments = review_repo
+            .list_comments_by_session(&session.guid)
             .await
             .map_err(ServiceError::Infra)?;
         let runs = review_repo
@@ -1642,9 +1721,9 @@ impl ReviewService {
             .unwrap_or(0);
 
         Ok(ReviewSessionDto {
-            open_thread_count: threads
+            open_comment_count: comments
                 .iter()
-                .filter(|thread| is_open_review_thread_status(&thread.status))
+                .filter(|comment| is_open_review_comment_status(&comment.status))
                 .count(),
             reviewed_file_count,
             reviewed_then_changed_count,
@@ -1654,14 +1733,14 @@ impl ReviewService {
         })
     }
 
-    async fn to_thread_dto(
+    async fn to_comment_dto(
         &self,
-        thread: review_thread::Model,
+        comment: review_comment::Model,
         messages: Vec<review_message::Model>,
         _session_guid: Option<String>,
-    ) -> Result<ReviewThreadDto> {
+    ) -> Result<ReviewCommentDto> {
         let anchor =
-            serde_json::from_str::<Value>(&thread.anchor_json).unwrap_or_else(|_| json!({}));
+            serde_json::from_str::<Value>(&comment.anchor_json).unwrap_or_else(|_| json!({}));
         let messages = messages
             .into_iter()
             .map(|message| {
@@ -1678,10 +1757,10 @@ impl ReviewService {
                 }
             })
             .collect();
-        Ok(ReviewThreadDto {
+        Ok(ReviewCommentDto {
             anchor,
             messages,
-            model: thread,
+            model: comment,
         })
     }
 }
