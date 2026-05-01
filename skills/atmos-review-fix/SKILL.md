@@ -1,7 +1,7 @@
 ---
 name: atmos-review-fix
-version: "1.0.0"
-description: Handle an Atmos review fix run by reading review threads, editing code, replying to each thread with the installed `atmos review` CLI, writing a run summary, and finalizing the run into a new review revision.
+version: "2.0.0"
+description: Handle an Atmos review fix run by reading review comments, editing code, replying to each comment with the installed `atmos review` CLI, writing a run summary, and finalizing the run into a new review revision.
 user-invokable: true
 ---
 
@@ -13,22 +13,22 @@ Use this skill whenever the prompt includes a review fix run payload or asks you
 
 Given a review run:
 
-1. inspect the selected review threads and their snapshot context
+1. inspect the selected review comments and their snapshot context
 2. modify the working tree to address the comments
-3. reply to each handled thread
-4. move handled threads to `agent_fixed`
+3. reply to each handled comment
+4. move handled comments to `agent_fixed`
 5. write one run summary
 6. finalize the run so Atmos creates the next review revision and `fix.patch`
 
-Do not mark threads `resolved` automatically.
+Do not mark comments `fixed` automatically.
 
 ## Required CLI commands
 
 - `atmos review session-show --session <session_guid>`
-- `atmos review thread-list --session <session_guid>`
-- `atmos review thread-context --thread <thread_guid>`
-- `atmos review reply-thread --thread <thread_guid> --body-file <path>`
-- `atmos review update-thread-status --thread <thread_guid> --status agent_fixed`
+- `atmos review comment-list --session <session_guid>`
+- `atmos review comment-context --comment <comment_guid>`
+- `atmos review reply-comment --comment <comment_guid> --body-file <path>`
+- `atmos review update-comment-status --comment <comment_guid> --status agent_fixed`
 - `atmos review summarize-run --run <run_guid> --body-file <path>`
 - `atmos review finalize-run --run <run_guid>`
 
@@ -52,17 +52,17 @@ Extract:
 
 - `session guid`
 - `run guid`
-- selected `thread guid` values
+- selected `comment guid` values
 
-### 2. Inspect every thread before editing
+### 2. Inspect every comment before editing
 
-For each selected thread:
+For each selected comment:
 
-1. run `thread-context`
+1. run `comment-context`
 2. read the stored snapshot paths it returns
 3. understand the user comment and the target code region
 
-Do not skip thread-context lookup. The review snapshot is the source of truth, not the current diff UI.
+Do not skip comment-context lookup. The review snapshot is the source of truth, not the current diff UI.
 
 ### 3. Edit the workspace
 
@@ -75,12 +75,12 @@ Rules:
 - do not revert user work
 - if a comment cannot be fully addressed, still reply with the blocker clearly
 
-### 4. Reply to each thread
+### 4. Reply to each comment
 
-After handling a thread, write a short markdown reply to a temp file and post it with:
+After handling a comment, write a short markdown reply to a temp file and post it with:
 
 ```bash
-atmos review reply-thread --thread <thread_guid> --body-file <path>
+atmos review reply-comment --comment <comment_guid> --body-file <path>
 ```
 
 The reply should state one of:
@@ -89,19 +89,19 @@ The reply should state one of:
 - partially fixed and what remains
 - not fixed and why
 
-Then move the thread to:
+Then move the comment to:
 
 ```bash
-atmos review update-thread-status --thread <thread_guid> --status agent_fixed
+atmos review update-comment-status --comment <comment_guid> --status agent_fixed
 ```
 
-If the thread was not addressed at all, leave status unchanged.
+If the comment was not addressed at all, leave status unchanged.
 
 ### 5. Write a run summary
 
 Create one short markdown summary covering:
 
-- threads handled
+- comments handled
 - key files changed
 - any remaining risks or follow-ups
 
@@ -123,7 +123,7 @@ This creates the next review revision and persists `fix.patch`.
 
 ## Expected behavior
 
-- Be explicit in thread replies.
+- Be explicit in comment replies.
 - Keep summaries concise and factual.
 - Do not invent success if the code change was not made.
 - Do not leave the run un-finalized after successful edits and replies.

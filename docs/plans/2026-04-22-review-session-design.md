@@ -8,10 +8,10 @@
 This design adds a first-class review workflow to Atmos for workspace diffs:
 
 - Users create an explicit `Review Session` for the current diff state
-- Users leave line/range-based diff comments as review threads
+- Users leave line/range-based diff comments as review comments
 - Each file in the session can be marked `Reviewed`, similar to GitHub's reviewed checkbox
 - Atmos persists full review snapshots for historical replay
-- AI can read open review threads, fix code, reply to each thread, and write a batch summary
+- AI can read open review comments, fix code, reply to each comment, and write a batch summary
 - The same review capability is shared by Agent Chat and terminal-based agent CLI flows
 
 The design intentionally separates:
@@ -32,13 +32,13 @@ This avoids storing large diff blobs directly in DB rows while still supporting 
 - Support diff comments with stable anchors within a session
 - Support full historical replay even if the live Git state later changes
 - Support file-level `Reviewed` state in the session UI
-- Support AI-assisted fix flow with per-thread replies and batch summaries
+- Support AI-assisted fix flow with per-comment replies and batch summaries
 - Support both Agent Chat and terminal agent CLI using one shared review capability
 
 ## Non-Goals
 
 - GitHub PR sync in v1
-- Cross-session thread continuity
+- Cross-session comment continuity
 - Automatic cross-commit re-anchoring of old comments onto new diffs
 - Realtime collaborative editing between multiple human reviewers
 - Generic “all large data everywhere go to file storage” refactor across the whole app
@@ -61,16 +61,16 @@ Core behavior:
 
 The session is a durable artifact, not an implicit transient UI state.
 
-### Review Thread
+### Review Comment
 
-A review thread is a comment thread anchored to one file snapshot and one location in that file diff.
+A review comment is a comment comment anchored to one file snapshot and one location in that file diff.
 
-Each thread contains:
+Each comment contains:
 
 - one initial user comment
 - zero or more follow-up messages
 - zero or more AI replies
-- status transitions such as `open`, `in_progress`, `needs_user_check`, `resolved`, `dismissed`
+- status transitions such as `open`, `agent_fixed`, `fixed`, `dismissed`
 
 ### File Review State
 
@@ -79,7 +79,7 @@ Each file in a session has an independent file review state:
 - `unreviewed`
 - `reviewed`
 
-This state is intentionally separate from thread status:
+This state is intentionally separate from comment status:
 
 - A file can be `reviewed` while still having open comments
 - A file can have no comments but remain `unreviewed`
@@ -102,8 +102,8 @@ Recommended v1 flow:
    - `Start Review Session`
    - or current active session information
 3. Once a session is active, the diff UI adds:
-   - review thread annotations in the diff
-   - a review sidebar with threads, files, run history, and summary
+   - review comment annotations in the diff
+   - a review sidebar with comments, files, run history, and summary
    - file-level `Reviewed` checkbox in each file header
 
 This should be implemented as an enhancement to the existing diff page, not as a brand-new dedicated page in v1.
@@ -119,7 +119,7 @@ The review session header should show:
 - counts:
   - files
   - reviewed files
-  - open threads
+  - open comments
   - AI runs
 
 Primary actions:
@@ -127,7 +127,7 @@ Primary actions:
 - `Close Session`
 - `Archive Session`
 - `Replay Session`
-- `Fix Open Threads`
+- `Fix Open Comments`
 
 ### File Reviewed Checkbox
 
@@ -151,14 +151,14 @@ Behavior:
 
 The session sidebar should include 4 tabs:
 
-- `Threads`
+- `Comments`
 - `Files`
 - `Runs`
 - `Summary`
 
-`Threads`
-- all review threads grouped by status
-- jump to thread in diff
+`Comments`
+- all review comments grouped by status
+- jump to comment in diff
 
 `Files`
 - files in session with:
@@ -301,9 +301,9 @@ Use file artifacts for:
 
 Do not use file artifacts for:
 
-- thread status
+- comment status
 - per-file reviewed state
-- searchable thread body text
+- searchable comment body text
 - run status or timestamps
 
 Those remain in DB.
@@ -398,7 +398,7 @@ Fields:
 Purpose:
 
 - binds a logical source file to a replayable stored snapshot
-- gives threads a stable replay target
+- gives comments a stable replay target
 - stores the concrete file content for one specific revision
 
 ### `review_file_state`
@@ -419,10 +419,10 @@ Fields:
 Purpose:
 
 - drives the GitHub-style `Reviewed` checkbox per file
-- independent of thread state
+- independent of comment state
 - models per-revision file review state while preserving inheritance across revisions
 
-### `review_thread`
+### `review_comment`
 
 Fields:
 
@@ -435,20 +435,20 @@ Fields:
 - `anchor_end_line`
 - `anchor_line_range_kind`
 - `anchor_json`
-- `status` = `open | in_progress | needs_user_check | resolved | dismissed`
-- `parent_thread_guid` nullable
+- `status` = `open | agent_fixed | fixed | dismissed`
+- `parent_comment_guid` nullable
 - `title` nullable
 - `created_by`
 - `created_at`
 - `updated_at`
-- `resolved_at` nullable
+- `fixed_at` nullable
 
 ### `review_message`
 
 Fields:
 
 - `guid`
-- `thread_guid`
+- `comment_guid`
 - `author_type` = `user | agent | system`
 - `kind` = `comment | reply | summary | status_change`
 - `body_storage_kind` = `inline | file`
@@ -483,7 +483,7 @@ Fields:
 
 ## Anchoring Model
 
-Threads should anchor to a snapshot, not to the live repo.
+Comments should anchor to a snapshot, not to the live repo.
 
 Recommended anchor payload:
 
@@ -505,7 +505,7 @@ Recommended anchor payload:
 }
 ```
 
-High-frequency anchor fields must also be stored as first-class columns on `review_thread`:
+High-frequency anchor fields must also be stored as first-class columns on `review_comment`:
 
 - `anchor_side`
 - `anchor_start_line`
@@ -522,11 +522,11 @@ High-frequency anchor fields must also be stored as first-class columns on `revi
 Rules:
 
 - anchor always belongs to a `review_file_snapshot`
-- each thread is created against one explicit `review_revision`
+- each comment is created against one explicit `review_revision`
 - replay uses stored `old/new` file contents
-- live diff rendering during active review may compare against current working tree, but thread navigation always has a replay fallback
+- live diff rendering during active review may compare against current working tree, but comment navigation always has a replay fallback
 - v1 does not attempt full automatic re-anchoring across later Git states
-- if current working diff no longer matches snapshot, UI marks the thread or file as `outdated`
+- if current working diff no longer matches snapshot, UI marks the comment or file as `outdated`
 
 ### Revision-Aware Commenting
 
@@ -546,7 +546,7 @@ Recommended UI labels:
 - `Commenting on: Fix Result R1`
 - `Commenting on: Fix Result R2`
 
-This avoids ambiguity about which code version a new thread targets.
+This avoids ambiguity about which code version a new comment targets.
 
 ---
 
@@ -576,9 +576,9 @@ When starting a review session:
 
 Allowed actions:
 
-- add thread
+- add comment
 - reply
-- update thread status
+- update comment status
 - mark file reviewed/unreviewed
 - trigger AI fix run
 - move the session's current review focus to a later revision
@@ -587,7 +587,7 @@ Allowed actions:
 
 Closed means:
 
-- no new threads by default
+- no new comments by default
 - no new file review state edits by default unless explicitly allowed
 - replay remains available
 - AI run creation disabled by default
@@ -649,8 +649,8 @@ When users review `Fix Diff` and leave more feedback, that feedback should not b
 
 Instead:
 
-- the new thread binds to the current revision being viewed
-- the new thread may optionally reference `parent_thread_guid` if it is a follow-up to an earlier concern
+- the new comment binds to the current revision being viewed
+- the new comment may optionally reference `parent_comment_guid` if it is a follow-up to an earlier concern
 - the next fix run operates on the current revision, not on the original session revision
 
 This allows iterative review without anchor drift.
@@ -666,7 +666,7 @@ Replay should read:
 - session manifest
 - revisions manifest
 - stored old/new file content
-- thread anchors
+- comment anchors
 - file reviewed state
 - run summaries
 
@@ -675,7 +675,7 @@ Replay view should support:
 - open session from history
 - browse file list
 - see reviewed/unreviewed markers
-- reopen threads in correct position
+- reopen comments in correct position
 - inspect AI batch runs and replies
 
 If source files no longer exist in the live repo, replay still works because it uses stored artifacts.
@@ -697,7 +697,7 @@ Use it for:
 - rendering original review comments
 - historical replay
 - understanding what the user originally reviewed
-- jumping from thread list to the commented location
+- jumping from comment list to the commented location
 
 Properties:
 
@@ -718,7 +718,7 @@ Recommended artifact:
 Use it for:
 
 - “what did AI change for this run?”
-- per-thread fix inspection
+- per-comment fix inspection
 - batch summary inspection
 - as the basis for creating the next review revision
 
@@ -753,7 +753,7 @@ Recommended labels:
 - `Fix Diff`
 - `Current Changes`
 
-Thread navigation should default to `Review Snapshot`, because that is the only stable view where original comment anchors are guaranteed to remain valid.
+Comment navigation should default to `Review Snapshot`, because that is the only stable view where original comment anchors are guaranteed to remain valid.
 
 When the user is looking at a fix result and adding new comments, the UI should treat that view as a commentable revision surface, not as a transient patch preview only.
 
@@ -768,8 +768,8 @@ The session UI should expose a small revision timeline, for example:
 Selecting a revision should show:
 
 - that revision's snapshot
-- threads created on that revision
-- unresolved inherited context from earlier revisions where relevant
+- comments created on that revision
+- open inherited context from earlier revisions where relevant
 
 The main workflow should still default to the current revision to avoid overwhelming the user.
 
@@ -796,7 +796,7 @@ The system should never rely on reattaching old comments directly onto the lates
 
 It does not mean:
 
-- all threads are resolved
+- all comments are fixed or dismissed
 - the file has no problems
 - AI has already fixed the file
 
@@ -807,7 +807,7 @@ Use the diff file header metadata region for the checkbox.
 Desired file header content:
 
 ```text
-<file path>   [Reviewed ✓]   [3 open threads]
+<file path>   [Reviewed ✓]   [3 open comments]
 ```
 
 For file list/sidebar:
@@ -817,12 +817,12 @@ For file list/sidebar:
   - all
   - reviewed
   - unreviewed
-  - with open threads
+  - with open comments
 
 ### Behavioral Rules
 
 - marking reviewed persists immediately
-- if a new thread is added later, file remains reviewed unless the user manually unchecks it
+- if a new comment is added later, file remains reviewed unless the user manually unchecks it
 - v1 should not auto-clear reviewed when AI edits the file
 - if the session diff is materially refreshed in a future v2 flow, that should create a new session instead of mutating the old reviewed state
 
@@ -884,8 +884,8 @@ Three execution modes share the same underlying review capability:
 - run starts in `queued`
 - Atmos does not assume the user has executed anything yet
 - the first write operation referencing the run, such as:
-  - thread reply
-  - thread status update
+  - comment reply
+  - comment status update
   - run summary write
   - finalize call
   implicitly transitions the run to `running`
@@ -894,13 +894,13 @@ This keeps `copy_prompt` transparent to skills and avoids introducing a separate
 
 ### Batch Fix Flow
 
-1. user selects `Fix Open Threads` or `Fix Selected Threads`
+1. user selects `Fix Open Comments` or `Fix Selected Comments`
 2. system creates `review_fix_run`
 3. system generates prompt artifact under `runs/<run_guid>/prompt.md`
 4. execution mode launches
 5. AI reads structured review context
 6. AI edits code
-7. AI posts per-thread replies
+7. AI posts per-comment replies
 8. system finalizes the run by generating and persisting `fix.patch` from:
    - the run's `base_revision_guid` snapshot
    - the current workspace state after AI edits
@@ -930,7 +930,7 @@ The run may only leave `finalizing` after all of the following succeed:
 - `review_revision` row committed
 - `review_file_snapshot` rows committed
 - inherited/new `review_file_state` rows committed
-- thread replies committed
+- comment replies committed
 - batch summary committed
 - session `current_revision_guid` updated
 
@@ -967,7 +967,7 @@ This is why the session must support multiple revisions instead of a single immu
 
 ### Reply Rules
 
-For each thread, AI should post:
+For each comment, AI should post:
 
 - what it changed, or
 - why it did not change anything, or
@@ -975,35 +975,35 @@ For each thread, AI should post:
 
 Batch summary should include:
 
-- total threads attempted
-- fixed threads
-- skipped threads
-- failed threads
+- total comments attempted
+- fixed comments
+- skipped comments
+- failed comments
 - files touched
 
 ### Status Rules
 
 Recommended default:
 
-- user thread starts as `open`
-- when included in a running batch, thread becomes `in_progress`
-- if AI handled it, thread becomes `needs_user_check`
-- only user action moves thread to `resolved`
+- user comment starts as `open`
+- when included in a running batch, comment stays `open` while a fix run is in progress
+- if AI handled it, comment becomes `agent_fixed`
+- only user action moves comment to `fixed`
 
 This avoids AI self-resolving review feedback without user confirmation.
 
-### Thread-Level Fix Inspection
+### Comment-Level Fix Inspection
 
-Each AI reply should link the original thread to the corresponding fix run.
+Each AI reply should link the original comment to the corresponding fix run.
 
-Recommended per-thread metadata:
+Recommended per-comment metadata:
 
 - `fix_run_guid`
 - `touched_files`
 - `handled` boolean
 - `result_kind` = `fixed | skipped | failed | needs_clarification`
 
-Thread UI should offer:
+Comment UI should offer:
 
 - original commented location in `Review Snapshot`
 - AI reply text
@@ -1021,39 +1021,37 @@ This makes it clear:
 
 When a user comments on a fix result, there are two valid models:
 
-- continue in the existing logical thread
-- create a follow-up thread linked to the earlier one
+- continue in the existing logical comment
+- create a follow-up comment linked to the earlier one
 
 Recommended v1 choice:
 
-- create a new thread on the current revision
-- optionally set `parent_thread_guid` to the earlier thread it follows up on
+- create a new comment on the current revision
+- optionally set `parent_comment_guid` to the earlier comment it follows up on
 
-This is simpler than letting one thread carry multiple anchors across multiple revisions while still preserving lineage.
+This is simpler than letting one comment carry multiple anchors across multiple revisions while still preserving lineage.
 
 ---
 
 ## Status Derivation After AI Changes
 
-### Thread Status
+### Comment Status
 
-Recommended thread statuses remain:
+Recommended comment statuses remain:
 
 - `open`
-- `in_progress`
-- `needs_user_check`
-- `resolved`
+- `agent_fixed`
+- `fixed`
 - `dismissed`
 
 Meaning after AI runs:
 
 - `open`: user raised concern, not yet processed
-- `in_progress`: currently included in an active fix run
-- `needs_user_check`: AI replied and likely changed code; user still needs to inspect the fix
-- `resolved`: user explicitly confirmed the thread is done
+- `agent_fixed`: AI replied and likely changed code; user still needs to inspect the fix
+- `fixed`: user explicitly confirmed the comment is done
 - `dismissed`: user decided no fix is needed
 
-AI should never automatically move a thread to `resolved`.
+AI should never automatically move a comment to `fixed`.
 
 ### File Review State
 
@@ -1074,8 +1072,8 @@ At the session level, expose:
 
 - reviewed files count
 - reviewed-then-changed files count
-- open threads count
-- needs-user-check threads count
+- open comments count
+- needs-user-check comments count
 
 This gives users an immediate answer to:
 
@@ -1096,11 +1094,11 @@ Recommended capability surface:
 ```bash
 atmos review session show --session <id>
 atmos review session files --session <id>
-atmos review thread list --session <id> --status open
-atmos review thread get --thread <id>
-atmos review thread context --thread <id>
-atmos review thread reply --thread <id> --body-file <path>
-atmos review thread update-status --thread <id> --status needs_user_check
+atmos review comment list --session <id> --status open
+atmos review comment get --comment <id>
+atmos review comment context --comment <id>
+atmos review comment reply --comment <id> --body-file <path>
+atmos review comment update-status --comment <id> --status agent_fixed
 atmos review run summarize --run <id> --body-file <path>
 ```
 
@@ -1127,14 +1125,14 @@ This keeps DB rows queryable while preventing oversized agent replies from becom
 
 The review-fix skill should define this workflow:
 
-1. list open threads for the session or selected run scope
-2. for each thread:
+1. list open comments for the session or selected run scope
+2. for each comment:
    - read context
    - inspect code
    - decide whether a fix is appropriate
 3. apply code changes
-4. post one reply per thread
-5. update each handled thread to `needs_user_check`
+4. post one reply per comment
+5. update each handled comment to `agent_fixed`
 6. write run summary
 
 Skill responsibilities:
@@ -1167,10 +1165,10 @@ Recommended actions:
 - `review_session_replay`
 - `review_file_list`
 - `review_file_set_reviewed`
-- `review_thread_create`
-- `review_thread_list`
-- `review_thread_get`
-- `review_thread_update_status`
+- `review_comment_create`
+- `review_comment_list`
+- `review_comment_get`
+- `review_comment_update_status`
 - `review_message_add`
 - `review_fix_run_create`
 - `review_fix_run_get`
@@ -1180,8 +1178,8 @@ Recommended notifications:
 
 - `review.session.updated`
 - `review.file.updated`
-- `review.thread.created`
-- `review.thread.updated`
+- `review.comment.created`
+- `review.comment.updated`
 - `review.message.created`
 - `review.run.updated`
 
@@ -1195,9 +1193,9 @@ Example:
 
 ```json
 {
-  "event": "review.thread.updated",
+  "event": "review.comment.updated",
   "data": {
-    "entity_guid": "thread_xxx",
+    "entity_guid": "comment_xxx",
     "updated_at": "2026-04-22T12:34:56Z",
     "changed_fields": ["status", "updated_at"]
   }
@@ -1221,7 +1219,7 @@ This lets the frontend perform targeted cache updates instead of reloading entir
 
 - create session snapshot
 - enforce lifecycle rules
-- orchestrate thread creation and file review state
+- orchestrate comment creation and file review state
 - orchestrate fix run creation
 - translate agent outputs into review replies and summaries
 - expose DTO-friendly service methods
@@ -1234,7 +1232,7 @@ This lets the frontend perform targeted cache updates instead of reloading entir
 ### `apps/web`
 
 - review session UI
-- diff thread annotations
+- diff comment annotations
 - file reviewed checkbox
 - replay browsing
 - run status display
@@ -1333,7 +1331,7 @@ Rejected because:
 
 Rejected because:
 
-- agent cannot reliably read or reply to review threads
+- agent cannot reliably read or reply to review comments
 - prompt-only coupling is fragile
 - terminal and chat flows would diverge
 
@@ -1346,13 +1344,13 @@ Include in v1:
 - explicit review session create / close / archive
 - snapshot persistence under `.atmos/review/`
 - DB metadata + file artifacts
-- diff comments as review threads
+- diff comments as review comments
 - per-file `Reviewed` checkbox
 - historical replay
 - AI fix runs with:
   - Agent Chat
   - terminal CLI
-  - per-thread replies
+  - per-comment replies
   - batch summary
 - `atmos review` capability surface
 
@@ -1373,7 +1371,7 @@ Exclude from v1:
 - create session with N changed files
 - verify manifest and diff artifacts written
 - verify DB rows point to valid relative paths
-- verify thread anchors resolve against stored snapshot
+- verify comment anchors resolve against stored snapshot
 - verify reviewed state persists and reloads correctly
 - verify run artifacts and status transitions
 
@@ -1381,18 +1379,18 @@ Exclude from v1:
 
 - start session from diff view
 - mark file reviewed/unreviewed
-- add thread on single line and range
-- jump from thread list to diff position
+- add comment on single line and range
+- jump from comment list to diff position
 - replay archived session
 - display reviewed counts and file filters
 
 ### Agent Workflow
 
-- CLI reads open threads
-- CLI writes per-thread reply
+- CLI reads open comments
+- CLI writes per-comment reply
 - CLI writes batch summary
-- failed run leaves threads non-resolved
-- handled run sets threads to `needs_user_check`
+- failed run leaves comments non-fixed
+- handled run sets comments to `agent_fixed`
 
 ### Edge Cases
 
