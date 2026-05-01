@@ -62,6 +62,8 @@ const ReviewView = dynamic(() => import("@/components/diff/ReviewView"), {
   ssr: false,
 });
 
+const CHANGES_FILE_VIEW_MODE_STORAGE_KEY = "atmos:right-sidebar:changes-file-view-mode";
+
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
   changes?: unknown[];
@@ -146,6 +148,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
   );
+  const [changesFileViewMode, setChangesFileViewMode] = useState<
+    "list" | "tree"
+  >(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = window.localStorage.getItem(CHANGES_FILE_VIEW_MODE_STORAGE_KEY);
+    return stored === "tree" ? "tree" : "list";
+  });
   const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
   const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
   const [refreshCommitsPanel, setRefreshCommitsPanel] = useState<
@@ -157,6 +166,13 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const prPanelRef = useRef<PRPanelHandle>(null);
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      CHANGES_FILE_VIEW_MODE_STORAGE_KEY,
+      changesFileViewMode,
+    );
+  }, [changesFileViewMode]);
 
   useEffect(() => {
     if (isSettingUp) {
@@ -338,6 +354,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 onRefreshClosedPRs={() => prPanelRef.current?.refreshClosed()}
                 isOpenPRsLoading={prPanelRef.current?.isOpenLoading ?? false}
                 isClosedPRsLoading={prPanelRef.current?.isClosedLoading ?? false}
+                changesFileViewMode={changesFileViewMode}
+                onToggleChangesFileViewMode={() =>
+                  setChangesFileViewMode((mode) =>
+                    mode === "tree" ? "list" : "tree",
+                  )
+                }
               />
 
               {/* Content Area */}
@@ -442,6 +464,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                               title="Staged Changes"
                               files={displayedStagedFiles}
                               workspaceId={workspaceId}
+                              viewMode={changesFileViewMode}
                               onUnstage={unstageFiles}
                               onUnstageAll={unstageAll}
                             />
@@ -450,6 +473,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                               title="Unstaged Changes"
                               files={displayedUnstagedFiles}
                               workspaceId={workspaceId}
+                              viewMode={changesFileViewMode}
                               onStage={stageFiles}
                               onDiscard={discardUnstagedChanges}
                               onStageAll={stageAllUnstaged}
@@ -460,6 +484,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                               title="Untracked Changes"
                               files={displayedUntrackedFiles}
                               workspaceId={workspaceId}
+                              viewMode={changesFileViewMode}
                               onStage={stageFiles}
                               onDiscard={discardUntrackedFiles}
                               onStageAll={stageAllUntracked}

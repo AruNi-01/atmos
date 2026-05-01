@@ -5,6 +5,7 @@ import { Checkbox, getFileIconProps } from "@workspace/ui";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReviewFileDto, ReviewSessionDto } from "@/api/ws-api";
+import { DiffFileTree } from "@/components/diff/DiffFileTree";
 
 interface FrozenFileListProps {
   revision: ReviewSessionDto["revisions"][number] | null;
@@ -14,6 +15,7 @@ interface FrozenFileListProps {
   onDoubleClickFile?: (snapshotGuid: string, filePath: string) => void;
   onToggleReviewed: (file: ReviewFileDto, checked: boolean) => void | Promise<void>;
   revisionLabel: string;
+  viewMode?: "list" | "tree";
 }
 
 function FileIcon({ name, className }: { name: string; className?: string }) {
@@ -29,6 +31,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
   onDoubleClickFile,
   onToggleReviewed,
   revisionLabel,
+  viewMode = "list",
 }) => {
   const clickTimers = useRef<Record<string, number>>({});
 
@@ -37,6 +40,43 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
       <p className="text-xs text-muted-foreground px-1">
         No files in this revision.
       </p>
+    );
+  }
+
+  if (viewMode === "tree") {
+    const fileByPath = new Map(
+      revision.files.map((file) => [file.snapshot.file_path, file]),
+    );
+
+    return (
+      <DiffFileTree
+        items={revision.files.map((file) => {
+          const annotations = [
+            file.state.reviewed ? "reviewed" : null,
+            file.open_comment_count > 0 ? `${file.open_comment_count}` : null,
+            file.changed_after_review ? "changed" : null,
+          ].filter(Boolean);
+
+          return {
+            path: file.snapshot.file_path,
+            gitStatus: file.snapshot.git_status,
+            annotation: annotations.join(" · "),
+          };
+        })}
+        selectedPath={currentFilePath}
+        ariaLabel="Review changed files tree"
+        className="h-[320px]"
+        onSelectFile={(path) => {
+          const file = fileByPath.get(path);
+          if (!file) return;
+          onSelectFile(file.snapshot.guid, path, revisionLabel);
+        }}
+        onDoubleClickFile={(path) => {
+          const file = fileByPath.get(path);
+          if (!file) return;
+          onDoubleClickFile?.(file.snapshot.guid, path);
+        }}
+      />
     );
   }
 

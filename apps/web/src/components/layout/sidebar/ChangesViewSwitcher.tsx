@@ -12,6 +12,8 @@ import {
   FileCheckCorner,
   Check,
   ChevronDown,
+  List,
+  ListTree,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -19,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui";
-import { Tabs, TabsList, TabsTab } from "@workspace/ui";
+import { Tabs, TabsList } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import type { ChangesView } from "@/lib/nuqs/searchParams";
 import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
@@ -45,6 +47,8 @@ export interface ChangesViewSwitcherProps {
   isOpenPRsLoading: boolean;
   isClosedPRsLoading: boolean;
   reviewActions?: React.ReactNode;
+  changesFileViewMode?: "list" | "tree";
+  onToggleChangesFileViewMode?: () => void;
 }
 
 const VIEW_OPTIONS: Array<{
@@ -76,6 +80,8 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
   isOpenPRsLoading,
   isClosedPRsLoading,
   reviewActions,
+  changesFileViewMode = "list",
+  onToggleChangesFileViewMode,
 }) => {
   if (!hasWorkingContext) {
     return (
@@ -106,6 +112,39 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
               refreshTitle="Refresh changes"
               onRefresh={onRefreshChanges}
               isRefreshing={isChangesRefreshing}
+              trailingAction={
+                onToggleChangesFileViewMode ? (
+                  <button
+                    type="button"
+                    title={changesFileViewMode === "tree" ? "Show as list" : "Show as tree"}
+                    aria-label={
+                      changesFileViewMode === "tree"
+                        ? "Show changed files as list"
+                        : "Show changed files as tree"
+                    }
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onToggleChangesFileViewMode();
+                    }}
+                    className="flex h-full w-8 cursor-pointer items-center justify-center border-l border-sidebar-border/60 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                  >
+                    {changesFileViewMode === "tree" ? (
+                      <List className="size-3.5" />
+                    ) : (
+                      <ListTree className="size-3.5" />
+                    )}
+                  </button>
+                ) : null
+              }
               className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
             >
               <File className="size-3.5" />

@@ -9,7 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui";
-import { MessageSquarePlus, ChevronRight, LoaderCircle } from "lucide-react";
+import { MessageSquarePlus, ChevronRight, LoaderCircle, List, ListTree } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { useReviewSnapshotStore } from "@/hooks/use-review-snapshot-store";
@@ -24,6 +24,8 @@ import {
   sortComments,
 } from "@/components/diff/review/utils";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+
+const REVIEW_FILE_VIEW_MODE_STORAGE_KEY = "atmos:right-sidebar:review-file-view-mode";
 
 const ReviewView: React.FC = () => {
   const { workspaceId } = useContextParams();
@@ -76,12 +78,21 @@ const ReviewView: React.FC = () => {
   }, [comments]);
 
   const [filesOpen, setFilesOpen] = useState(true);
+  const [fileViewMode, setFileViewMode] = useState<"list" | "tree">(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = window.localStorage.getItem(REVIEW_FILE_VIEW_MODE_STORAGE_KEY);
+    return stored === "tree" ? "tree" : "list";
+  });
   const [commentsOpen, setCommentsOpen] = useState(true);
   const [commentGroupsOpen, setCommentGroupsOpen] = useState<Record<string, boolean>>({});
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const summaryRunGuid = latestSummaryRun?.guid ?? null;
   const hasLoadedSummary = artifactPreview?.kind === "summary" && artifactPreview?.runGuid === summaryRunGuid;
+
+  useEffect(() => {
+    window.localStorage.setItem(REVIEW_FILE_VIEW_MODE_STORAGE_KEY, fileViewMode);
+  }, [fileViewMode]);
 
   useEffect(() => {
     if (summaryRunGuid && !hasLoadedSummary && !artifactLoading) {
@@ -132,19 +143,36 @@ const ReviewView: React.FC = () => {
     <div className="flex flex-col h-full min-h-0">
       {/* Inline stats line */}
       <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
-        <span>{openCommentCount} open</span>
-        <span>·</span>
-        <span>
-          {currentRevision?.files.filter((f) => f.state.reviewed).length ?? 0}/{fileCount} reviewed
-        </span>
-        {(currentRevision?.files.filter((f) => f.changed_after_review).length ?? 0) > 0 && (
-          <>
-            <span>·</span>
-            <span className="text-amber-600">
-              {currentRevision?.files.filter((f) => f.changed_after_review).length} changed after review
-            </span>
-          </>
-        )}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span>{openCommentCount} open</span>
+          <span>·</span>
+          <span>
+            {currentRevision?.files.filter((f) => f.state.reviewed).length ?? 0}/{fileCount} reviewed
+          </span>
+          {(currentRevision?.files.filter((f) => f.changed_after_review).length ?? 0) > 0 && (
+            <>
+              <span>·</span>
+              <span className="truncate text-amber-600">
+                {currentRevision?.files.filter((f) => f.changed_after_review).length} changed after review
+              </span>
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          title={fileViewMode === "tree" ? "Show as list" : "Show as tree"}
+          aria-label={fileViewMode === "tree" ? "Show review files as list" : "Show review files as tree"}
+          onClick={() =>
+            setFileViewMode((mode) => (mode === "tree" ? "list" : "tree"))
+          }
+          className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        >
+          {fileViewMode === "tree" ? (
+            <List className="size-3.5" />
+          ) : (
+            <ListTree className="size-3.5" />
+          )}
+        </button>
       </div>
 
       {/* Scrollable body */}
@@ -190,6 +218,7 @@ const ReviewView: React.FC = () => {
                   }}
                   onToggleReviewed={handleToggleReviewed}
                   revisionLabel={revisionLabel}
+                  viewMode={fileViewMode}
                 />
               ) : (
                 <p className="px-1 text-xs text-muted-foreground py-2">

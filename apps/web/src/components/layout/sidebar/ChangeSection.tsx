@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import type { GitChangedFile } from "@/api/ws-api";
+import { DiffFileTree } from "@/components/diff/DiffFileTree";
 
 function FileIcon({ name, className }: { name: string; className?: string }) {
   const iconProps = getFileIconProps({ name, isDir: false, className });
@@ -45,6 +46,7 @@ export interface ChangeSectionProps {
   onUnstageAll?: () => void;
   onDiscardAll?: () => void;
   workspaceId: string | null;
+  viewMode?: "list" | "tree";
 }
 
 export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSection({
@@ -59,6 +61,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   onUnstageAll,
   onDiscardAll,
   workspaceId,
+  viewMode = "list",
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
@@ -89,6 +92,13 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     } finally {
       setRunningActionKey((current) => (current === actionKey ? null : current));
       setConfirmingActionKey((current) => (current === actionKey ? null : current));
+    }
+  };
+
+  const openDiffFile = (path: string, preview: boolean) => {
+    void openFile(`diff://${path}`, workspaceId || undefined, { preview });
+    if (!preview) {
+      pinFile(`diff://${path}`, workspaceId || undefined);
     }
   };
 
@@ -250,8 +260,38 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
       </div>
 
       <CollapsibleContent>
-        <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
-          {files.map((file) => {
+        {viewMode === "tree" ? (
+          <div className="mt-0.5 overflow-hidden pb-2">
+            <DiffFileTree
+              items={files.map((file) => {
+                const additions =
+                  file.status !== "?" && file.additions > 0
+                    ? `+${file.additions}`
+                    : "";
+                const deletions =
+                  file.status !== "?" && file.deletions > 0
+                    ? `-${file.deletions}`
+                    : "";
+                return {
+                  path: file.path,
+                  gitStatus: file.status,
+                  annotation: [additions, deletions].filter(Boolean).join(" "),
+                };
+              })}
+              selectedPath={
+                activeFilePath?.startsWith("diff://")
+                  ? activeFilePath.slice("diff://".length)
+                  : undefined
+              }
+              ariaLabel={`${title} tree`}
+              className="h-[min(360px,var(--radix-collapsible-content-height,360px))]"
+              onSelectFile={(path) => openDiffFile(path, true)}
+              onDoubleClickFile={(path) => openDiffFile(path, false)}
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
+            {files.map((file) => {
             const fileName = file.path.split("/").pop() || file.path;
             const parts = file.path.split("/");
             parts.pop();
@@ -263,14 +303,8 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
             return (
               <div
                 key={file.path}
-                onClick={() =>
-                  openFile(`diff://${file.path}`, workspaceId || undefined, {
-                    preview: true,
-                  })
-                }
-                onDoubleClick={() =>
-                  pinFile(`diff://${file.path}`, workspaceId || undefined)
-                }
+                onClick={() => openDiffFile(file.path, true)}
+                onDoubleClick={() => openDiffFile(file.path, false)}
                 className={cn(
                   "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
                   activeFilePath === `diff://${file.path}`
@@ -390,8 +424,9 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 </div>
               </div>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );
