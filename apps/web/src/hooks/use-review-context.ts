@@ -136,15 +136,9 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     );
   }, [fileSnapshotGuid, selectedSessionGuid, sessions]);
 
-  useEffect(() => {
-    if (!currentSession) {
-      setSelectedSessionGuid(null);
-      return;
-    }
-    if (selectedSessionGuid !== currentSession.guid) {
-      setSelectedSessionGuid(currentSession.guid);
-    }
-  }, [currentSession, selectedSessionGuid]);
+  // Note: We intentionally do NOT sync currentSession back to URL here.
+  // The URL is the source of truth for user selection; currentSession
+  // is computed from URL + available sessions.
 
   const currentRevision = useMemo(() => {
     if (!currentSession) return null;
@@ -162,29 +156,18 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     );
   }, [currentSession, fileSnapshotGuid, selectedRevisionGuid]);
 
-  const prevCurrentRevisionGuidRef = useRef<string | null>(null);
-
+  // Auto-switch to latest revision when session creates a new one (e.g., after finalize)
+  const prevLatestRevisionGuidRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!currentSession) {
-      setSelectedRevisionGuid(null);
-      return;
-    }
+    if (!currentSession) return;
     const latestGuid = currentSession.current_revision_guid;
-    const prevGuid = prevCurrentRevisionGuidRef.current;
-    prevCurrentRevisionGuidRef.current = latestGuid;
-    if (prevGuid !== null && prevGuid !== latestGuid) {
-      setSelectedRevisionGuid(latestGuid);
-      return;
+    const prevLatest = prevLatestRevisionGuidRef.current;
+    prevLatestRevisionGuidRef.current = latestGuid;
+    // Only update URL when a new revision is created (not on initial load)
+    if (prevLatest !== null && prevLatest !== latestGuid) {
+      void setSelectedRevisionGuid(latestGuid);
     }
-    const nextRevisionGuid =
-      selectedRevisionGuid &&
-      currentSession.revisions.some((revision) => revision.guid === selectedRevisionGuid)
-        ? selectedRevisionGuid
-        : latestGuid;
-    if (nextRevisionGuid !== selectedRevisionGuid) {
-      setSelectedRevisionGuid(nextRevisionGuid);
-    }
-  }, [currentSession, selectedRevisionGuid]);
+  }, [currentSession, setSelectedRevisionGuid]);
 
   const currentFile = useMemo<ReviewFileDto | null>(() => {
     if (!currentRevision) return null;
