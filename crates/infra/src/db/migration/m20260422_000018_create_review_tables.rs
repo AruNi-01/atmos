@@ -11,17 +11,38 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(ReviewSession::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(ReviewSession::Guid).string().not_null().primary_key())
-                    .col(ColumnDef::new(ReviewSession::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewSession::UpdatedAt).date_time().not_null())
+                    .col(
+                        ColumnDef::new(ReviewSession::Guid)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewSession::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewSession::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewSession::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewSession::WorkspaceGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewSession::ProjectGuid).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewSession::WorkspaceGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewSession::ProjectGuid)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(ReviewSession::RepoPath).string().not_null())
                     .col(
                         ColumnDef::new(ReviewSession::StorageRootRelPath)
@@ -30,7 +51,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(ReviewSession::BaseRef).string().null())
                     .col(ColumnDef::new(ReviewSession::BaseCommit).string().null())
-                    .col(ColumnDef::new(ReviewSession::HeadCommit).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewSession::HeadCommit)
+                            .string()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewSession::CurrentRevisionGuid)
                             .string()
@@ -62,18 +87,43 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(ReviewRevision::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(ReviewRevision::Guid).string().not_null().primary_key())
-                    .col(ColumnDef::new(ReviewRevision::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewRevision::UpdatedAt).date_time().not_null())
+                    .col(
+                        ColumnDef::new(ReviewRevision::Guid)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewRevision::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewRevision::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewRevision::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewRevision::SessionGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewRevision::ParentRevisionGuid).string().null())
-                    .col(ColumnDef::new(ReviewRevision::SourceKind).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewRevision::SessionGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewRevision::ParentRevisionGuid)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewRevision::SourceKind)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(ReviewRevision::FixRunGuid).string().null())
                     .col(ColumnDef::new(ReviewRevision::Title).string().null())
                     .col(
@@ -81,7 +131,11 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(ReviewRevision::BaseRevisionGuid).string().null())
+                    .col(
+                        ColumnDef::new(ReviewRevision::BaseRevisionGuid)
+                            .string()
+                            .null(),
+                    )
                     .col(ColumnDef::new(ReviewRevision::CreatedBy).string().null())
                     .foreign_key(
                         ForeignKey::create()
@@ -117,15 +171,27 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ReviewFileIdentity::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewFileIdentity::UpdatedAt).date_time().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileIdentity::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileIdentity::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFileIdentity::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewFileIdentity::SessionGuid).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileIdentity::SessionGuid)
+                            .string()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFileIdentity::CanonicalFilePath)
                             .string()
@@ -166,36 +232,88 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ReviewFileSnapshot::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::UpdatedAt).date_time().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFileSnapshot::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewFileSnapshot::RevisionGuid).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::RevisionGuid)
+                            .string()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFileSnapshot::FileIdentityGuid)
                             .string()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(ReviewFileSnapshot::FilePath).string().not_null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::GitStatus).string().not_null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::OldRelPath).string().not_null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::NewRelPath).string().not_null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::MetaRelPath).string().not_null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::OldSha256).string().null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::NewSha256).string().null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::OldSize).big_integer().not_null())
-                    .col(ColumnDef::new(ReviewFileSnapshot::NewSize).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::FilePath)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::GitStatus)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::OldRelPath)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::NewRelPath)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::MetaRelPath)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::OldSha256)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::NewSha256)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::OldSize)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::NewSize)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFileSnapshot::IsBinary)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewFileSnapshot::DisplayOrder).integer().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileSnapshot::DisplayOrder)
+                            .integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-review_file_snapshot-revision")
@@ -240,24 +358,48 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ReviewFileState::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewFileState::UpdatedAt).date_time().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileState::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileState::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFileState::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewFileState::RevisionGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewFileState::FileIdentityGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewFileState::FileSnapshotGuid).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFileState::RevisionGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileState::FileIdentityGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFileState::FileSnapshotGuid)
+                            .string()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFileState::Reviewed)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewFileState::ReviewedAt).date_time().null())
+                    .col(
+                        ColumnDef::new(ReviewFileState::ReviewedAt)
+                            .date_time()
+                            .null(),
+                    )
                     .col(ColumnDef::new(ReviewFileState::ReviewedBy).string().null())
                     .col(
                         ColumnDef::new(ReviewFileState::InheritedFromFileStateGuid)
@@ -310,52 +452,93 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(ReviewThread::Table)
+                    .table(ReviewComment::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(ReviewThread::Guid).string().not_null().primary_key())
-                    .col(ColumnDef::new(ReviewThread::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewThread::UpdatedAt).date_time().not_null())
                     .col(
-                        ColumnDef::new(ReviewThread::IsDeleted)
+                        ColumnDef::new(ReviewComment::Guid)
+                            .string()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewThread::SessionGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewThread::RevisionGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewThread::FileSnapshotGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewThread::AnchorSide).string().not_null())
-                    .col(ColumnDef::new(ReviewThread::AnchorStartLine).integer().not_null())
-                    .col(ColumnDef::new(ReviewThread::AnchorEndLine).integer().not_null())
                     .col(
-                        ColumnDef::new(ReviewThread::AnchorLineRangeKind)
+                        ColumnDef::new(ReviewComment::SessionGuid)
                             .string()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(ReviewThread::AnchorJson).text().not_null())
-                    .col(ColumnDef::new(ReviewThread::Status).string().not_null())
-                    .col(ColumnDef::new(ReviewThread::ParentThreadGuid).string().null())
-                    .col(ColumnDef::new(ReviewThread::Title).string().null())
-                    .col(ColumnDef::new(ReviewThread::CreatedBy).string().null())
-                    .col(ColumnDef::new(ReviewThread::ResolvedAt).date_time().null())
+                    .col(
+                        ColumnDef::new(ReviewComment::RevisionGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::FileSnapshotGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::AnchorSide)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::AnchorStartLine)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::AnchorEndLine)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewComment::AnchorLineRangeKind)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ReviewComment::AnchorJson).text().not_null())
+                    .col(ColumnDef::new(ReviewComment::Status).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewComment::ParentCommentGuid)
+                            .string()
+                            .null(),
+                    )
+                    .col(ColumnDef::new(ReviewComment::Title).string().null())
+                    .col(ColumnDef::new(ReviewComment::CreatedBy).string().null())
+                    .col(ColumnDef::new(ReviewComment::FixedAt).date_time().null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-review_thread-session")
-                            .from(ReviewThread::Table, ReviewThread::SessionGuid)
+                            .name("fk-review_comment-session")
+                            .from(ReviewComment::Table, ReviewComment::SessionGuid)
                             .to(ReviewSession::Table, ReviewSession::Guid)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-review_thread-revision")
-                            .from(ReviewThread::Table, ReviewThread::RevisionGuid)
+                            .name("fk-review_comment-revision")
+                            .from(ReviewComment::Table, ReviewComment::RevisionGuid)
                             .to(ReviewRevision::Table, ReviewRevision::Guid)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-review_thread-file_snapshot")
-                            .from(ReviewThread::Table, ReviewThread::FileSnapshotGuid)
+                            .name("fk-review_comment-file_snapshot")
+                            .from(ReviewComment::Table, ReviewComment::FileSnapshotGuid)
                             .to(ReviewFileSnapshot::Table, ReviewFileSnapshot::Guid)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
@@ -366,10 +549,10 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx-review_thread-session-created")
-                    .table(ReviewThread::Table)
-                    .col(ReviewThread::SessionGuid)
-                    .col(ReviewThread::CreatedAt)
+                    .name("idx-review_comment-session-created")
+                    .table(ReviewComment::Table)
+                    .col(ReviewComment::SessionGuid)
+                    .col(ReviewComment::CreatedAt)
                     .if_not_exists()
                     .to_owned(),
             )
@@ -378,12 +561,12 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx-review_thread-file-anchor")
-                    .table(ReviewThread::Table)
-                    .col(ReviewThread::FileSnapshotGuid)
-                    .col(ReviewThread::AnchorSide)
-                    .col(ReviewThread::AnchorStartLine)
-                    .col(ReviewThread::AnchorEndLine)
+                    .name("idx-review_comment-file-anchor")
+                    .table(ReviewComment::Table)
+                    .col(ReviewComment::FileSnapshotGuid)
+                    .col(ReviewComment::AnchorSide)
+                    .col(ReviewComment::AnchorStartLine)
+                    .col(ReviewComment::AnchorEndLine)
                     .if_not_exists()
                     .to_owned(),
             )
@@ -400,16 +583,32 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ReviewMessage::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewMessage::UpdatedAt).date_time().not_null())
+                    .col(
+                        ColumnDef::new(ReviewMessage::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewMessage::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewMessage::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewMessage::ThreadGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewMessage::AuthorType).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewMessage::CommentGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewMessage::AuthorType)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(ReviewMessage::Kind).string().not_null())
                     .col(
                         ColumnDef::new(ReviewMessage::BodyStorageKind)
@@ -421,9 +620,9 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ReviewMessage::FixRunGuid).string().null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-review_message-thread")
-                            .from(ReviewMessage::Table, ReviewMessage::ThreadGuid)
-                            .to(ReviewThread::Table, ReviewThread::Guid)
+                            .name("fk-review_message-comment")
+                            .from(ReviewMessage::Table, ReviewMessage::CommentGuid)
+                            .to(ReviewComment::Table, ReviewComment::Guid)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
@@ -433,9 +632,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx-review_message-thread-created")
+                    .name("idx-review_message-comment-created")
                     .table(ReviewMessage::Table)
-                    .col(ReviewMessage::ThreadGuid)
+                    .col(ReviewMessage::CommentGuid)
                     .col(ReviewMessage::CreatedAt)
                     .if_not_exists()
                     .to_owned(),
@@ -453,24 +652,52 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ReviewFixRun::CreatedAt).date_time().not_null())
-                    .col(ColumnDef::new(ReviewFixRun::UpdatedAt).date_time().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFixRun::CreatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFixRun::UpdatedAt)
+                            .date_time()
+                            .not_null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFixRun::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
-                    .col(ColumnDef::new(ReviewFixRun::SessionGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewFixRun::BaseRevisionGuid).string().not_null())
-                    .col(ColumnDef::new(ReviewFixRun::ResultRevisionGuid).string().null())
-                    .col(ColumnDef::new(ReviewFixRun::ExecutionMode).string().not_null())
+                    .col(
+                        ColumnDef::new(ReviewFixRun::SessionGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFixRun::BaseRevisionGuid)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFixRun::ResultRevisionGuid)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewFixRun::ExecutionMode)
+                            .string()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(ReviewFixRun::Status).string().not_null())
                     .col(ColumnDef::new(ReviewFixRun::PromptRelPath).string().null())
                     .col(ColumnDef::new(ReviewFixRun::ResultRelPath).string().null())
                     .col(ColumnDef::new(ReviewFixRun::PatchRelPath).string().null())
                     .col(ColumnDef::new(ReviewFixRun::SummaryRelPath).string().null())
-                    .col(ColumnDef::new(ReviewFixRun::AgentSessionRef).string().null())
+                    .col(
+                        ColumnDef::new(ReviewFixRun::AgentSessionRef)
+                            .string()
+                            .null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewFixRun::FinalizeAttempts)
                             .integer()
@@ -522,7 +749,7 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(ReviewMessage::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(ReviewThread::Table).to_owned())
+            .drop_table(Table::drop().table(ReviewComment::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(ReviewFileState::Table).to_owned())
@@ -633,7 +860,7 @@ enum ReviewFileState {
 }
 
 #[derive(DeriveIden)]
-enum ReviewThread {
+enum ReviewComment {
     Table,
     Guid,
     CreatedAt,
@@ -648,10 +875,10 @@ enum ReviewThread {
     AnchorLineRangeKind,
     AnchorJson,
     Status,
-    ParentThreadGuid,
+    ParentCommentGuid,
     Title,
     CreatedBy,
-    ResolvedAt,
+    FixedAt,
 }
 
 #[derive(DeriveIden)]
@@ -661,7 +888,7 @@ enum ReviewMessage {
     CreatedAt,
     UpdatedAt,
     IsDeleted,
-    ThreadGuid,
+    CommentGuid,
     AuthorType,
     Kind,
     BodyStorageKind,

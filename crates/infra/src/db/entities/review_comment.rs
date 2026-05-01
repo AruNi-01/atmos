@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::impl_base_entity;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "review_thread")]
+#[sea_orm(table_name = "review_comment")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub guid: String,
@@ -20,10 +20,10 @@ pub struct Model {
     pub anchor_line_range_kind: String,
     pub anchor_json: String,
     pub status: String,
-    pub parent_thread_guid: Option<String>,
+    pub parent_comment_guid: Option<String>,
     pub title: Option<String>,
     pub created_by: Option<String>,
-    pub resolved_at: Option<DateTime>,
+    pub fixed_at: Option<DateTime>,
 }
 
 impl_base_entity!(Model);

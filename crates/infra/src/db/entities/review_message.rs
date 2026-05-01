@@ -11,7 +11,7 @@ pub struct Model {
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub is_deleted: bool,
-    pub thread_guid: String,
+    pub comment_guid: String,
     pub author_type: String,
     pub kind: String,
     pub body_storage_kind: String,

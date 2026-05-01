@@ -4,8 +4,8 @@ use sea_orm::*;
 
 use crate::db::entities::base::BaseFields;
 use crate::db::entities::{
-    review_file_identity, review_file_snapshot, review_file_state, review_fix_run, review_message,
-    review_revision, review_session, review_thread,
+    review_comment, review_file_identity, review_file_snapshot, review_file_state, review_fix_run,
+    review_message, review_revision, review_session,
 };
 use crate::db::repo::base::BaseRepo;
 use crate::error::{InfraError, Result};
@@ -391,7 +391,7 @@ impl<'a> ReviewRepo<'a> {
             .await?)
     }
 
-    pub async fn create_thread(
+    pub async fn create_comment(
         &self,
         session_guid: String,
         revision_guid: String,
@@ -402,12 +402,12 @@ impl<'a> ReviewRepo<'a> {
         anchor_line_range_kind: String,
         anchor_json: String,
         status: String,
-        parent_thread_guid: Option<String>,
+        parent_comment_guid: Option<String>,
         title: Option<String>,
         created_by: Option<String>,
-    ) -> Result<review_thread::Model> {
+    ) -> Result<review_comment::Model> {
         let base = BaseFields::new();
-        let model = review_thread::ActiveModel {
+        let model = review_comment::ActiveModel {
             guid: Set(base.guid),
             created_at: Set(base.created_at),
             updated_at: Set(base.updated_at),
@@ -421,72 +421,97 @@ impl<'a> ReviewRepo<'a> {
             anchor_line_range_kind: Set(anchor_line_range_kind),
             anchor_json: Set(anchor_json),
             status: Set(status),
-            parent_thread_guid: Set(parent_thread_guid),
+            parent_comment_guid: Set(parent_comment_guid),
             title: Set(title),
             created_by: Set(created_by),
-            resolved_at: Set(None),
+            fixed_at: Set(None),
         };
         Ok(model.insert(self.db).await?)
     }
 
-    pub async fn list_threads_by_session(
+    pub async fn list_comments_by_session(
         &self,
         session_guid: &str,
-    ) -> Result<Vec<review_thread::Model>> {
-        Ok(review_thread::Entity::find()
-            .filter(review_thread::Column::SessionGuid.eq(session_guid))
-            .filter(review_thread::Column::IsDeleted.eq(false))
-            .order_by_asc(review_thread::Column::CreatedAt)
+    ) -> Result<Vec<review_comment::Model>> {
+        Ok(review_comment::Entity::find()
+            .filter(review_comment::Column::SessionGuid.eq(session_guid))
+            .filter(review_comment::Column::IsDeleted.eq(false))
+            .order_by_asc(review_comment::Column::CreatedAt)
             .all(self.db)
             .await?)
     }
 
-    pub async fn list_threads_by_revision(
+    pub async fn list_comments_by_revision(
         &self,
         revision_guid: &str,
-    ) -> Result<Vec<review_thread::Model>> {
-        Ok(review_thread::Entity::find()
-            .filter(review_thread::Column::RevisionGuid.eq(revision_guid))
-            .filter(review_thread::Column::IsDeleted.eq(false))
-            .order_by_asc(review_thread::Column::CreatedAt)
+    ) -> Result<Vec<review_comment::Model>> {
+        Ok(review_comment::Entity::find()
+            .filter(review_comment::Column::RevisionGuid.eq(revision_guid))
+            .filter(review_comment::Column::IsDeleted.eq(false))
+            .order_by_asc(review_comment::Column::CreatedAt)
             .all(self.db)
             .await?)
     }
 
-    pub async fn update_thread_status(&self, guid: &str, status: &str) -> Result<()> {
+    pub async fn update_comment_status(&self, guid: &str, status: &str) -> Result<()> {
         let now = Utc::now().naive_utc();
-        let resolved_at = if status == "resolved" {
-            Some(now)
-        } else {
-            None
-        };
-        let result = review_thread::Entity::update_many()
+        let fixed_at = if status == "fixed" { Some(now) } else { None };
+        let result = review_comment::Entity::update_many()
             .col_expr(
-                review_thread::Column::Status,
+                review_comment::Column::Status,
                 Expr::value(status.to_string()),
             )
-            .col_expr(review_thread::Column::UpdatedAt, Expr::value(now))
-            .col_expr(review_thread::Column::ResolvedAt, Expr::value(resolved_at))
-            .filter(review_thread::Column::Guid.eq(guid))
-            .filter(review_thread::Column::IsDeleted.eq(false))
+            .col_expr(review_comment::Column::UpdatedAt, Expr::value(now))
+            .col_expr(review_comment::Column::FixedAt, Expr::value(fixed_at))
+            .filter(review_comment::Column::Guid.eq(guid))
+            .filter(review_comment::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(InfraError::Custom("Review thread not found".into()));
+            return Err(InfraError::Custom("Review comment not found".into()));
         }
         Ok(())
     }
 
-    pub async fn find_thread_by_guid(&self, guid: &str) -> Result<Option<review_thread::Model>> {
-        Ok(review_thread::Entity::find_by_id(guid.to_string())
-            .filter(review_thread::Column::IsDeleted.eq(false))
+    pub async fn find_comment_by_guid(&self, guid: &str) -> Result<Option<review_comment::Model>> {
+        Ok(review_comment::Entity::find_by_id(guid.to_string())
+            .filter(review_comment::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?)
     }
 
+    pub async fn soft_delete_comment(&self, guid: &str) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let result = review_comment::Entity::update_many()
+            .col_expr(review_comment::Column::IsDeleted, Expr::value(true))
+            .col_expr(review_comment::Column::UpdatedAt, Expr::value(now))
+            .filter(review_comment::Column::Guid.eq(guid))
+            .filter(review_comment::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review comment not found".into()));
+        }
+        Ok(())
+    }
+
+    pub async fn touch_comment(&self, guid: &str) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let result = review_comment::Entity::update_many()
+            .col_expr(review_comment::Column::UpdatedAt, Expr::value(now))
+            .filter(review_comment::Column::Guid.eq(guid))
+            .filter(review_comment::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review comment not found".into()));
+        }
+        Ok(())
+    }
+
     pub async fn create_message(
         &self,
-        thread_guid: String,
+        comment_guid: String,
         author_type: String,
         kind: String,
         body_storage_kind: String,
@@ -500,7 +525,7 @@ impl<'a> ReviewRepo<'a> {
             created_at: Set(base.created_at),
             updated_at: Set(base.updated_at),
             is_deleted: Set(false),
-            thread_guid: Set(thread_guid),
+            comment_guid: Set(comment_guid),
             author_type: Set(author_type),
             kind: Set(kind),
             body_storage_kind: Set(body_storage_kind),
@@ -511,15 +536,37 @@ impl<'a> ReviewRepo<'a> {
         Ok(model.insert(self.db).await?)
     }
 
-    pub async fn list_messages_by_thread_guids(
+    pub async fn find_message_by_guid(&self, guid: &str) -> Result<Option<review_message::Model>> {
+        Ok(review_message::Entity::find_by_id(guid.to_string())
+            .filter(review_message::Column::IsDeleted.eq(false))
+            .one(self.db)
+            .await?)
+    }
+
+    pub async fn soft_delete_message(&self, guid: &str) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let result = review_message::Entity::update_many()
+            .col_expr(review_message::Column::IsDeleted, Expr::value(true))
+            .col_expr(review_message::Column::UpdatedAt, Expr::value(now))
+            .filter(review_message::Column::Guid.eq(guid))
+            .filter(review_message::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review message not found".into()));
+        }
+        Ok(())
+    }
+
+    pub async fn list_messages_by_comment_guids(
         &self,
-        thread_guids: &[String],
+        comment_guids: &[String],
     ) -> Result<Vec<review_message::Model>> {
-        if thread_guids.is_empty() {
+        if comment_guids.is_empty() {
             return Ok(Vec::new());
         }
         Ok(review_message::Entity::find()
-            .filter(review_message::Column::ThreadGuid.is_in(thread_guids.iter().cloned()))
+            .filter(review_message::Column::CommentGuid.is_in(comment_guids.iter().cloned()))
             .filter(review_message::Column::IsDeleted.eq(false))
             .order_by_asc(review_message::Column::CreatedAt)
             .all(self.db)
@@ -529,23 +576,23 @@ impl<'a> ReviewRepo<'a> {
     pub async fn reassign_messages_by_fix_run(
         &self,
         fix_run_guid: &str,
-        from_thread_guids: &[String],
-        to_thread_guids: &[String],
+        from_comment_guids: &[String],
+        to_comment_guids: &[String],
     ) -> Result<()> {
-        if from_thread_guids.len() != to_thread_guids.len() {
+        if from_comment_guids.len() != to_comment_guids.len() {
             return Err(InfraError::Custom(
-                "from_thread_guids and to_thread_guids must have the same length".into(),
+                "from_comment_guids and to_comment_guids must have the same length".into(),
             ));
         }
-        for (from_guid, to_guid) in from_thread_guids.iter().zip(to_thread_guids.iter()) {
+        for (from_guid, to_guid) in from_comment_guids.iter().zip(to_comment_guids.iter()) {
             let now = chrono::Utc::now().naive_utc();
             review_message::Entity::update_many()
                 .col_expr(
-                    review_message::Column::ThreadGuid,
+                    review_message::Column::CommentGuid,
                     Expr::value(to_guid.clone()),
                 )
                 .col_expr(review_message::Column::UpdatedAt, Expr::value(now))
-                .filter(review_message::Column::ThreadGuid.eq(from_guid.clone()))
+                .filter(review_message::Column::CommentGuid.eq(from_guid.clone()))
                 .filter(review_message::Column::FixRunGuid.eq(fix_run_guid.to_string()))
                 .filter(review_message::Column::IsDeleted.eq(false))
                 .exec(self.db)
