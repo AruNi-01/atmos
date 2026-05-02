@@ -1,6 +1,6 @@
 import { parsePatchFiles } from "@pierre/diffs";
 import { formatLocalDateTime, parseUTCDate } from "@atmos/shared";
-import type { ReviewMessageDto, ReviewCommentDto } from "@/api/ws-api";
+import type { ReviewCommentDto, ReviewSessionDto } from "@/api/ws-api";
 
 export function isOpenReviewCommentStatus(status: string) {
   return status === "open" || status === "agent_fixed";
@@ -62,6 +62,28 @@ export function sessionStatusTone(status: string) {
   }
 }
 
+export function reviewSessionStatusRank(status: string) {
+  switch (status) {
+    case "active":
+      return 0;
+    case "closed":
+      return 1;
+    case "archived":
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+export function sortReviewSessions(sessions: ReviewSessionDto[]) {
+  return [...sessions].sort((left, right) => {
+    const statusRank =
+      reviewSessionStatusRank(left.status) - reviewSessionStatusRank(right.status);
+    if (statusRank !== 0) return statusRank;
+    return compareReviewTimestamps(right.updated_at, left.updated_at);
+  });
+}
+
 export function isPatchRenderable(patch: string) {
   try {
     return parsePatchFiles(patch).length > 0;
@@ -76,14 +98,6 @@ export function commentTitle(comment: ReviewCommentDto) {
     return `Comment on L${comment.anchor_start_line}`;
   }
   return `Comment on L${comment.anchor_start_line}-${comment.anchor_end_line}`;
-}
-
-export function canDeleteReviewMessage(
-  comment: ReviewCommentDto,
-  message: ReviewMessageDto,
-) {
-  const latestMessage = comment.messages.at(-1);
-  return latestMessage?.guid === message.guid && message.author_type === "user";
 }
 
 export function sortComments(

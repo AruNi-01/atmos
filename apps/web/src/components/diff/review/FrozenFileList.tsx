@@ -23,6 +23,42 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
   return <img {...iconProps} />;
 }
 
+function gitStatusClassName(status: string | null | undefined) {
+  switch (status) {
+    case "A":
+    case "?":
+      return "text-emerald-500";
+    case "D":
+      return "text-red-500";
+    case "R":
+      return "text-sky-400";
+    case "M":
+    default:
+      return "text-yellow-500";
+  }
+}
+
+function ChangeCountDecoration({
+  additions,
+  deletions,
+}: {
+  additions: number;
+  deletions: number;
+}) {
+  if (additions <= 0 && deletions <= 0) return null;
+
+  return (
+    <span className="flex items-center gap-1 font-mono font-medium tabular-nums">
+      {additions > 0 ? (
+        <span className="text-emerald-500">+{additions}</span>
+      ) : null}
+      {deletions > 0 ? (
+        <span className="text-red-500">-{deletions}</span>
+      ) : null}
+    </span>
+  );
+}
+
 export const FrozenFileList: React.FC<FrozenFileListProps> = ({
   revision,
   currentFilePath,
@@ -60,12 +96,118 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
           return {
             path: file.snapshot.file_path,
             gitStatus: file.snapshot.git_status,
+            additions: file.additions,
+            deletions: file.deletions,
             annotation: annotations.join(" · "),
           };
         })}
         selectedPath={currentFilePath}
         ariaLabel="Review changed files tree"
-        className="h-[320px]"
+        className="max-h-[320px]"
+        renderFileInlineDecoration={(item) => {
+          const file = fileByPath.get(item.path);
+          if (!file || file.open_comment_count <= 0) return null;
+
+          return (
+            <span className="ml-2 flex items-center gap-0.5 text-[11px] text-muted-foreground">
+              <MessageSquare className="size-3" />
+              {file.open_comment_count}
+            </span>
+          );
+        }}
+        renderFileDecoration={(item) => {
+          const file = fileByPath.get(item.path);
+          if (!file) return null;
+          const status = item.gitStatus === "?" ? "U" : item.gitStatus;
+          const annotations = [
+            file.changed_after_review ? (
+              <span key="changed" className="text-amber-600">
+                ●
+              </span>
+            ) : null,
+            item.gitStatus !== "?" ? (
+              <ChangeCountDecoration
+                key="changes"
+                additions={file.additions}
+                deletions={file.deletions}
+              />
+            ) : null,
+            status ? (
+              <span
+                key="status"
+                className={cn(
+                  "w-3 text-center font-mono text-[11px] font-bold",
+                  gitStatusClassName(item.gitStatus),
+                )}
+              >
+                {status}
+              </span>
+            ) : null,
+          ].filter(Boolean);
+
+          if (annotations.length === 0) return null;
+
+          return (
+            <div className="flex items-center gap-2 text-[11px]">
+              {annotations}
+            </div>
+          );
+        }}
+        renderFileActions={(item) => {
+          const file = fileByPath.get(item.path);
+          if (!file) return null;
+
+          return (
+            <Checkbox
+              checked={file.state.reviewed}
+              disabled={!canEdit}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              onCheckedChange={(value: boolean) =>
+                onToggleReviewed(file, Boolean(value))
+              }
+              className="m-1"
+            />
+          );
+        }}
+        renderDirectoryActions={(items) => {
+          const files = items
+            .map((item) => fileByPath.get(item.path))
+            .filter((file): file is ReviewFileDto => Boolean(file));
+          if (files.length === 0) return null;
+
+          const reviewedCount = files.filter((file) => file.state.reviewed).length;
+          const checked =
+            reviewedCount === files.length
+              ? true
+              : reviewedCount === 0
+                ? false
+                : "indeterminate";
+
+          return (
+            <Checkbox
+              checked={checked}
+              disabled={!canEdit}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              onCheckedChange={(value: boolean) => {
+                const nextChecked = Boolean(value);
+                void Promise.all(
+                  files.map((file) => onToggleReviewed(file, nextChecked)),
+                );
+              }}
+              className="m-1"
+            />
+          );
+        }}
         onSelectFile={(path) => {
           const file = fileByPath.get(path);
           if (!file) return;
@@ -86,6 +228,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
         const path = file.snapshot.file_path;
         const fileName = path.split("/").pop() || path;
         const isCurrent = path === currentFilePath;
+        const status = file.snapshot.git_status;
         return (
           <div
             key={file.snapshot.guid}
@@ -123,6 +266,12 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
               {file.changed_after_review && (
                 <span className="text-amber-600 shrink-0">●</span>
               )}
+              {status !== "?" ? (
+                <ChangeCountDecoration
+                  additions={file.additions}
+                  deletions={file.deletions}
+                />
+              ) : null}
             </button>
             <Checkbox
               checked={file.state.reviewed}

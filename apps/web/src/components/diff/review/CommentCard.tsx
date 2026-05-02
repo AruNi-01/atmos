@@ -10,9 +10,9 @@ import {
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { MessageBubble } from "./MessageBubble";
+import { ReviewMessageActionsMenu } from "./ReviewMessageActionsMenu";
 import {
   reviewCommentStatusLabel,
-  canDeleteReviewMessage,
   statusTone,
   commentTitle,
 } from "./utils";
@@ -24,7 +24,6 @@ import {
   MessageSquareReply,
   RotateCcw,
   SendHorizontal,
-  Trash2,
   X,
   XCircle,
 } from "lucide-react";
@@ -35,6 +34,7 @@ interface CommentCardProps {
   canEdit: boolean;
   onUpdateStatus: (commentGuid: string, status: string) => void | Promise<void>;
   onReply: (comment: ReviewCommentDto, body: string) => void | Promise<void>;
+  onUpdateMessage?: (message: ReviewMessageDto, body: string) => void | Promise<void>;
   onDeleteMessage?: (comment: ReviewCommentDto, message: ReviewMessageDto) => void | Promise<void>;
   onNavigate?: (comment: ReviewCommentDto, message?: ReviewMessageDto) => void;
 }
@@ -44,6 +44,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
   canEdit,
   onUpdateStatus,
   onReply,
+  onUpdateMessage,
   onDeleteMessage,
   onNavigate,
 }) => {
@@ -136,23 +137,19 @@ export const CommentCard: React.FC<CommentCardProps> = ({
               >
                 <MessageBubble
                   message={message}
+                  onEdit={onUpdateMessage}
                   action={
                     canEdit &&
                     onDeleteMessage &&
-                    canDeleteReviewMessage(comment, message) ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void handleDeleteMessage(message);
-                        }}
-                        disabled={deletingMessageGuid === message.guid}
-                        className="flex size-6 items-center justify-center rounded text-muted-foreground opacity-0 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover/message:opacity-100 disabled:opacity-50"
-                        title="Delete comment"
-                        aria-label="Delete comment"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                    onUpdateMessage ? (
+                      ({ startEdit }) => (
+                        <ReviewMessageActionsMenu
+                          message={message}
+                          disabled={deletingMessageGuid === message.guid}
+                          onEdit={startEdit}
+                          onDelete={() => handleDeleteMessage(message)}
+                        />
+                      )
                     ) : null
                   }
                 />
