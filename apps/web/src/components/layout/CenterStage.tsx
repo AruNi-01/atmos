@@ -101,6 +101,7 @@ import {
   useTerminalStore,
 } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
+import { ReviewContextProvider } from "@/components/diff/review/ReviewContextProvider";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/hooks/use-app-router";
 
@@ -2038,12 +2039,22 @@ const CenterStage: React.FC = () => {
             className="flex-1 min-h-0 min-w-0"
           >
             {isDiffEditorPath(file.path) && currentRepoPath ? (
-              <DiffViewer
-                repoPath={currentRepoPath}
-                filePath={getEditorSourcePath(file.path)}
-                originalPath={file.path}
-              />
-            ) : isConflictResolveEditorPath(file.path) ? (
+                <ReviewContextProvider
+                  workspaceId={workspaceId}
+                  filePath={getEditorSourcePath(file.path)}
+                  fileSnapshotGuid={
+                    file.path.startsWith('review-diff://')
+                      ? file.path.slice('review-diff://'.length).split('/')[0] || null
+                      : null
+                  }
+                >
+                  <DiffViewer
+                    repoPath={currentRepoPath}
+                    filePath={getEditorSourcePath(file.path)}
+                    originalPath={file.path}
+                  />
+                </ReviewContextProvider>
+              ) : isConflictResolveEditorPath(file.path) ? (
               <GitConflictResolver />
             ) : (
               <FileViewer file={file} className="flex-1" />

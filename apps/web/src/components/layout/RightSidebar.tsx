@@ -433,7 +433,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       <div
                         className={cn(
                           changesSubTab === "commits" && "hidden",
-                          "h-full",
                         )}
                       >
                         {!hasDisplayedChanges && !isLoading ? (

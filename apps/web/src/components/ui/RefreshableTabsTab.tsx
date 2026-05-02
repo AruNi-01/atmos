@@ -12,7 +12,7 @@ interface RefreshableTabsTabProps {
   onRefresh: () => Promise<unknown> | void;
   isRefreshing?: boolean;
   className?: string;
-  trailingAction?: React.ReactNode;
+  trailingAction?: (options: { isVisible: boolean }) => React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -103,7 +103,7 @@ export function RefreshableTabsTab({
           <LoaderCircle className={cn("size-3.5", isSpinning && "animate-spin")} />
           <span className="text-xs font-medium">Refresh</span>
         </span>
-        {trailingAction}
+        {trailingAction?.({ isVisible: showRefreshButton })}
       </div>
     </TabsTab>
   );

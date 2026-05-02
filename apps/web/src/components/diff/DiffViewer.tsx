@@ -18,14 +18,14 @@ import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
-import { useReviewContext } from '@/hooks/use-review-context';
+import { useReviewCtx } from '@/components/diff/review/ReviewContextProvider';
 import { MessageBubble } from '@/components/diff/review/MessageBubble';
+import { ReviewMessageActionsMenu } from '@/components/diff/review/ReviewMessageActionsMenu';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
 import { cn } from '@/lib/utils';
-import { ChevronRight, Command, CornerDownLeft, MessageSquareReply, SendHorizontal, X, MoreHorizontal, Trash2 } from 'lucide-react';
+import { ChevronRight, Command, CornerDownLeft, MessageSquareReply, SendHorizontal, X, MoreHorizontal } from 'lucide-react';
 import {
-  canDeleteReviewMessage,
   reviewCommentStatusLabel,
   statusTone,
 } from '@/components/diff/review/utils';
@@ -75,11 +75,8 @@ export const DiffViewer = ({
   const snapshotGuidFromPath = originalPath?.startsWith('review-diff://')
     ? originalPath.slice('review-diff://'.length).split('/')[0] || null
     : null;
-  const reviewCtx = useReviewContext({
-    workspaceId,
-    filePath,
-    fileSnapshotGuid: snapshotGuidFromPath,
-  });
+  const isReviewDiff = Boolean(snapshotGuidFromPath);
+  const reviewCtx = useReviewCtx();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [oldFile, setOldFile] = useState<FileContents | null>(null);
@@ -104,6 +101,7 @@ export const DiffViewer = ({
     comments: reviewCtx.comments,
     canEdit: reviewCtx.canEdit,
     replyToComment: reviewCtx.handleReplyToComment,
+    updateMessage: reviewCtx.handleUpdateMessage,
     deleteMessage: reviewCtx.handleDeleteMessage,
   }), [
     reviewCtx.currentSession,
@@ -112,6 +110,7 @@ export const DiffViewer = ({
     reviewCtx.comments,
     reviewCtx.canEdit,
     reviewCtx.handleReplyToComment,
+    reviewCtx.handleUpdateMessage,
     reviewCtx.handleDeleteMessage,
   ]);
 
@@ -444,7 +443,6 @@ export const DiffViewer = ({
     loadDiff();
   }, [repoPath, filePath, compareMode, snapshotGuidFromPath]);
 
-  const isReviewDiff = Boolean(snapshotGuidFromPath);
   const diffOptions = useMemo(() => ({
     theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
     diffStyle: diffStyle,
@@ -462,11 +460,8 @@ export const DiffViewer = ({
     kind: 'composer';
   }>, [resolvedTheme, diffStyle, disableBackground, wordWrap, handleLineSelectionEnd, isReviewDiff]);
 
-  const commentAnnotations = useMemo<DiffLineAnnotation<{
-    kind: 'comment';
-    comment: ReviewCommentDto;
-  }>[]>(() => {
-    if (!snapshotGuidFromPath || !reviewContext.file) return [];
+  const commentAnnotations = useMemo(() => {
+    if (!isReviewDiff || !reviewContext.file) return [];
     const fileSnapshotGuid = reviewContext.file.snapshot.guid;
     return reviewContext.comments
       .filter((comment) => comment.file_snapshot_guid === fileSnapshotGuid)
@@ -474,11 +469,11 @@ export const DiffViewer = ({
         side: comment.anchor_side === 'old' ? 'deletions' : 'additions',
         lineNumber: comment.anchor_start_line,
         metadata: {
-          kind: 'comment',
+          kind: 'comment' as const,
           comment,
         },
       }));
-  }, [reviewContext.file, reviewContext.comments, snapshotGuidFromPath]);
+  }, [reviewContext.file, reviewContext.comments, isReviewDiff]);
 
   const inlineComposerAnnotation = useMemo<DiffLineAnnotation<{
     kind: 'composer';
@@ -495,7 +490,7 @@ export const DiffViewer = ({
   );
 
   const lineAnnotations = useMemo(
-    () => [...commentAnnotations, ...inlineComposerAnnotation],
+    () => [...commentAnnotations, ...inlineComposerAnnotation] as unknown as DiffLineAnnotation<{kind: "comment"; comment: ReviewCommentDto;} | {kind: "composer";}>[],
     [inlineComposerAnnotation, commentAnnotations],
   );
 
@@ -897,19 +892,17 @@ export const DiffViewer = ({
                 >
                   <MessageBubble
                     message={message}
+                    onEdit={reviewContext.updateMessage}
                     action={
-                      reviewContext.canEdit &&
-                      canDeleteReviewMessage(comment, message) ? (
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteMessage(comment, message)}
-                          disabled={deletingMessageGuid === message.guid}
-                          className="flex size-6 items-center justify-center rounded text-muted-foreground opacity-0 transition-colors hover:bg-destructive/10 hover:text-destructive group-hover/message:opacity-100 disabled:opacity-50"
-                          title="Delete comment"
-                          aria-label="Delete comment"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                      reviewContext.canEdit ? (
+                        ({ startEdit }) => (
+                          <ReviewMessageActionsMenu
+                            message={message}
+                            disabled={deletingMessageGuid === message.guid}
+                            onEdit={startEdit}
+                            onDelete={() => handleDeleteMessage(comment, message)}
+                          />
+                        )
                       ) : null
                     }
                   />
@@ -1015,6 +1008,7 @@ export const DiffViewer = ({
     highlightedInlineCommentGuid,
     deletingMessageGuid,
     reviewContext.canEdit,
+    reviewContext.updateMessage,
     toggleInlineCommentExpanded,
   ]);
 
@@ -1086,9 +1080,16 @@ export const DiffViewer = ({
               </span>
             )}
             {snapshotGuidFromPath && reviewContext.session && !reviewContext.canEdit ? (
-              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 shrink-0">
-                Snapshot View
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 shrink-0">
+                    Snapshot View
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[260px] text-xs">
+                  The snapshot view only displays the file content in the current review version and can only be read.
+                </TooltipContent>
+              </Tooltip>
             ) : null}
           </div>
           {!isReviewDiff && (

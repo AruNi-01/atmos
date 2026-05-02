@@ -45,6 +45,7 @@ const ReviewView: React.FC = () => {
     handleToggleReviewed,
     handleUpdateCommentStatus,
     handleReplyToComment,
+    handleUpdateMessage,
     handleDeleteMessage,
     latestSummaryRun,
     handlePreviewArtifact,
@@ -304,6 +305,7 @@ const ReviewView: React.FC = () => {
                           }
                           onUpdateStatus={handleUpdateCommentStatus}
                           onReply={handleReplyToComment}
+                          onUpdateMessage={handleUpdateMessage}
                           onDeleteMessage={handleDeleteMessage}
                           onNavigate={(targetComment, targetMessage) => {
                             const snapFilePath =

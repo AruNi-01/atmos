@@ -112,16 +112,17 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
               refreshTitle="Refresh changes"
               onRefresh={onRefreshChanges}
               isRefreshing={isChangesRefreshing}
-              trailingAction={
+              trailingAction={({ isVisible }) =>
                 onToggleChangesFileViewMode ? (
-                  <button
-                    type="button"
+                  <span
+                    role="button"
                     title={changesFileViewMode === "tree" ? "Show as list" : "Show as tree"}
                     aria-label={
                       changesFileViewMode === "tree"
                         ? "Show changed files as list"
                         : "Show changed files as tree"
                     }
+                    tabIndex={isVisible ? 0 : -1}
                     onPointerDown={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
@@ -135,6 +136,12 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
                       event.stopPropagation();
                       onToggleChangesFileViewMode();
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onToggleChangesFileViewMode();
+                    }}
                     className="flex h-full w-8 cursor-pointer items-center justify-center border-l border-sidebar-border/60 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                   >
                     {changesFileViewMode === "tree" ? (
@@ -142,7 +149,7 @@ export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
                     ) : (
                       <ListTree className="size-3.5" />
                     )}
-                  </button>
+                  </span>
                 ) : null
               }
               className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"

@@ -263,28 +263,149 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
         {viewMode === "tree" ? (
           <div className="mt-0.5 overflow-hidden pb-2">
             <DiffFileTree
-              items={files.map((file) => {
-                const additions =
-                  file.status !== "?" && file.additions > 0
-                    ? `+${file.additions}`
-                    : "";
-                const deletions =
-                  file.status !== "?" && file.deletions > 0
-                    ? `-${file.deletions}`
-                    : "";
-                return {
-                  path: file.path,
-                  gitStatus: file.status,
-                  annotation: [additions, deletions].filter(Boolean).join(" "),
-                };
-              })}
+              items={files.map((file) => ({
+                path: file.path,
+                gitStatus: file.status,
+                additions: file.additions,
+                deletions: file.deletions,
+              }))}
               selectedPath={
                 activeFilePath?.startsWith("diff://")
                   ? activeFilePath.slice("diff://".length)
                   : undefined
               }
               ariaLabel={`${title} tree`}
-              className="h-[min(360px,var(--radix-collapsible-content-height,360px))]"
+              className="max-h-[360px]"
+              indentOffset={28}
+              isFileActionActive={(path) =>
+                confirmingActionKey?.includes(`:${path}:`) ||
+                runningActionKey?.includes(`:${path}:`) ||
+                false
+              }
+              isDirectoryActionActive={(items) =>
+                items.some(
+                  (item) =>
+                    confirmingActionKey?.includes(item.path) ||
+                    runningActionKey?.includes(item.path),
+                )
+              }
+              renderFileActions={(file) => {
+                const fileName = file.path.split("/").pop() || file.path;
+
+                return (
+                  <>
+                    {onStage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${file.path}:stage`, () =>
+                            onStage([file.path]),
+                          );
+                        }}
+                        title={stageLabel}
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    )}
+                    {kind === "staged" && onUnstage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${file.path}:unstage`, () =>
+                            onUnstage([file.path]),
+                          );
+                        }}
+                        title="Unstage Changes"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Minus className="size-3.5" />
+                      </button>
+                    )}
+                    {isDestructiveSection
+                      ? renderConfirmableMinusAction({
+                          actionKey: `${kind}:${file.path}:discard`,
+                          onConfirm: () => onDiscard?.([file.path]),
+                          title:
+                            kind === "untracked"
+                              ? `Delete "${fileName}"?`
+                              : `Discard changes in "${fileName}"?`,
+                          description:
+                            kind === "untracked"
+                              ? "This removes the untracked file from disk."
+                              : "This restores the file to its last committed state.",
+                        })
+                      : null}
+                  </>
+                );
+              }}
+              renderDirectoryActions={(items) => {
+                const paths = items.map((item) => item.path);
+                const label = `${paths.length} files`;
+
+                return (
+                  <>
+                    {onStage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${paths.join("|")}:stage`, () =>
+                            onStage(paths),
+                          );
+                        }}
+                        title={`${stageLabel} in folder (${label})`}
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    )}
+                    {kind === "staged" && onUnstage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${paths.join("|")}:unstage`, () =>
+                            onUnstage(paths),
+                          );
+                        }}
+                        title={`Unstage changes in folder (${label})`}
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Minus className="size-3.5" />
+                      </button>
+                    )}
+                    {isDestructiveSection
+                      ? renderConfirmableMinusAction({
+                          actionKey: `${kind}:${paths.join("|")}:discard`,
+                          onConfirm: () => onDiscard?.(paths),
+                          title:
+                            kind === "untracked"
+                              ? `Delete ${label}?`
+                              : `Discard changes in ${label}?`,
+                          description:
+                            kind === "untracked"
+                              ? "This removes every untracked file in this folder from disk."
+                              : "This restores every changed file in this folder to its last committed state.",
+                        })
+                      : null}
+                  </>
+                );
+              }}
               onSelectFile={(path) => openDiffFile(path, true)}
               onDoubleClickFile={(path) => openDiffFile(path, false)}
             />

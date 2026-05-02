@@ -1,26 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  FileTree as PierreFileTree,
-  useFileTree,
-} from "@pierre/trees/react";
-import type {
-  FileTreeIconConfig,
-  GitStatusEntry,
-} from "@pierre/trees";
-import {
-  getFileIconName,
-  getIconPath,
-} from "@workspace/ui";
+import React, { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
+import { getFileIconProps } from "@workspace/ui";
 import { cn } from "@/lib/utils";
-
-type GitStatus = GitStatusEntry["status"];
 
 export interface DiffFileTreeItem {
   path: string;
   gitStatus?: string | null;
-  annotation?: string | null;
+  annotation?: React.ReactNode;
+  additions?: number;
+  deletions?: number;
 }
 
 interface DiffFileTreeProps {
@@ -28,95 +18,243 @@ interface DiffFileTreeProps {
   selectedPath?: string;
   ariaLabel: string;
   className?: string;
+  indentOffset?: number;
+  style?: React.CSSProperties;
+  isFileActionActive?: (path: string) => boolean;
+  isDirectoryActionActive?: (items: DiffFileTreeItem[]) => boolean;
+  renderFileActions?: (item: DiffFileTreeItem) => React.ReactNode;
+  renderDirectoryActions?: (items: DiffFileTreeItem[]) => React.ReactNode;
+  renderDirectoryDecoration?: (items: DiffFileTreeItem[]) => React.ReactNode;
+  renderFileInlineDecoration?: (item: DiffFileTreeItem) => React.ReactNode;
+  renderFileDecoration?: (item: DiffFileTreeItem) => React.ReactNode;
   onSelectFile: (path: string) => void;
   onDoubleClickFile?: (path: string) => void;
 }
 
-const statusMap: Record<string, GitStatus> = {
-  A: "added",
-  C: "added",
-  D: "deleted",
-  M: "modified",
-  R: "renamed",
-  U: "modified",
-  "?": "untracked",
-};
+interface TreeNode {
+  name: string;
+  path: string;
+  children: Map<string, TreeNode>;
+  file?: DiffFileTreeItem;
+}
+
+interface TreeRow {
+  id: string;
+  name: string;
+  path: string;
+  depth: number;
+  type: "directory" | "file";
+  file?: DiffFileTreeItem;
+  files: DiffFileTreeItem[];
+  hasChangedDescendant?: boolean;
+}
+
+function createNode(name: string, path: string): TreeNode {
+  return {
+    name,
+    path,
+    children: new Map(),
+  };
+}
 
 function basename(path: string) {
   return path.split("/").pop() || path;
 }
 
-function normalizeStatus(status: string | null | undefined): GitStatus | null {
-  if (!status) return null;
-  return statusMap[status] ?? null;
-}
+function buildTree(items: DiffFileTreeItem[]) {
+  const root = createNode("", "");
 
-function symbolIdForIconPath(iconPath: string) {
-  return `atmos-file-icon-${iconPath.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-}
+  for (const item of items) {
+    const parts = item.path.split("/").filter(Boolean);
+    const fileName = parts.pop();
+    if (!fileName) continue;
 
-function buildIconConfig(paths: string[]): FileTreeIconConfig {
-  const iconsByPath = new Map<string, string>();
-  const byFileName: Record<string, string> = {};
-  const byFileExtension: Record<string, string> = {};
-
-  for (const path of paths) {
-    const name = basename(path);
-    const iconPath = getIconPath(getFileIconName(name));
-    const symbolId = symbolIdForIconPath(iconPath);
-    iconsByPath.set(iconPath, symbolId);
-    byFileName[name.toLowerCase()] = symbolId;
-
-    const parts = name.toLowerCase().split(".");
-    for (let index = 1; index < parts.length; index += 1) {
-      byFileExtension[parts.slice(index).join(".")] = symbolId;
+    let current = root;
+    let currentPath = "";
+    for (const part of parts) {
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      let child = current.children.get(part);
+      if (!child) {
+        child = createNode(part, currentPath);
+        current.children.set(part, child);
+      }
+      current = child;
     }
+
+    current.children.set(fileName, {
+      name: fileName,
+      path: item.path,
+      children: new Map(),
+      file: item,
+    });
   }
 
-  const symbols = Array.from(iconsByPath.entries())
-    .map(
-      ([iconPath, symbolId]) =>
-        `<symbol id="${symbolId}" viewBox="0 0 16 16"><image href="${iconPath}" width="16" height="16" preserveAspectRatio="xMidYMid meet" /></symbol>`,
-    )
-    .join("");
+  return root;
+}
+
+function flattenDirectory(node: TreeNode) {
+  let current = node;
+  const names = [current.name];
+
+  while (!current.file && current.children.size === 1) {
+    const next = Array.from(current.children.values())[0];
+    if (!next || next.file) break;
+    names.push(next.name);
+    current = next;
+  }
 
   return {
-    set: "none",
-    colored: false,
-    spriteSheet: symbols
-      ? `<svg data-atmos-file-icon-sprite aria-hidden="true" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden">${symbols}</svg>`
-      : "",
-    byFileName,
-    byFileExtension,
+    node: current,
+    name: names.join(" / "),
   };
 }
 
-function getPathFromTreeEvent(event: React.SyntheticEvent<HTMLElement>) {
-  const nativeEvent = event.nativeEvent;
-  const path =
-    typeof nativeEvent.composedPath === "function"
-      ? nativeEvent.composedPath()
-      : [nativeEvent.target as EventTarget | null];
-
-  for (const entry of path) {
-    if (!(entry instanceof HTMLElement)) continue;
-    const itemPath = entry.dataset.itemPath;
-    if (itemPath) return itemPath;
+function hasChangedDescendant(node: TreeNode): boolean {
+  if (node.file?.gitStatus) return true;
+  for (const child of node.children.values()) {
+    if (hasChangedDescendant(child)) return true;
   }
-
-  return null;
+  return false;
 }
 
-function scrollTreeToTop(model: ReturnType<typeof useFileTree>["model"]) {
-  requestAnimationFrame(() => {
-    const container = model.getFileTreeContainer();
-    const scrollElement = container?.shadowRoot?.querySelector<HTMLElement>(
-      "[data-file-tree-virtualized-scroll='true']",
-    );
-    if (scrollElement) {
-      scrollElement.scrollTop = 0;
-    }
+function collectFiles(node: TreeNode): DiffFileTreeItem[] {
+  if (node.file) return [node.file];
+  return Array.from(node.children.values()).flatMap(collectFiles);
+}
+
+function buildRows(
+  node: TreeNode,
+  openDirectories: ReadonlySet<string>,
+  depth = 0,
+): TreeRow[] {
+  const rows: TreeRow[] = [];
+  const children = Array.from(node.children.values()).sort((a, b) => {
+    if (!!a.file !== !!b.file) return a.file ? 1 : -1;
+    return a.name.localeCompare(b.name);
   });
+
+  for (const child of children) {
+    if (child.file) {
+      rows.push({
+        id: child.path,
+        name: child.name,
+        path: child.path,
+        depth,
+        type: "file",
+        file: child.file,
+        files: [child.file],
+      });
+      continue;
+    }
+
+    const flattened = flattenDirectory(child);
+    rows.push({
+      id: flattened.node.path,
+      name: flattened.name,
+      path: flattened.node.path,
+      depth,
+      type: "directory",
+      files: collectFiles(flattened.node),
+      hasChangedDescendant: hasChangedDescendant(flattened.node),
+    });
+
+    if (openDirectories.has(flattened.node.path)) {
+      rows.push(...buildRows(flattened.node, openDirectories, depth + 1));
+    }
+  }
+
+  return rows;
+}
+
+function getInitialOpenDirectories(node: TreeNode) {
+  const open = new Set<string>();
+
+  function visit(current: TreeNode) {
+    for (const child of current.children.values()) {
+      if (child.file) continue;
+      const flattened = flattenDirectory(child);
+      open.add(flattened.node.path);
+      visit(flattened.node);
+    }
+  }
+
+  visit(node);
+  return open;
+}
+
+function statusClassName(status: string | null | undefined) {
+  switch (status) {
+    case "A":
+    case "?":
+      return "text-emerald-500";
+    case "D":
+      return "text-red-500";
+    case "R":
+      return "text-sky-400";
+    case "M":
+    default:
+      return "text-yellow-500";
+  }
+}
+
+function changeCountDecoration(additions = 0, deletions = 0) {
+  if (additions <= 0 && deletions <= 0) return null;
+
+  return (
+    <div className="flex items-center gap-1 font-medium">
+      {additions > 0 ? (
+        <span className="text-emerald-500">+{additions}</span>
+      ) : null}
+      {deletions > 0 ? (
+        <span className="text-red-500">-{deletions}</span>
+      ) : null}
+    </div>
+  );
+}
+
+function defaultDecoration(item: DiffFileTreeItem) {
+  const status = item.gitStatus === "?" ? "U" : item.gitStatus;
+  const changeCounts =
+    item.gitStatus !== "?"
+      ? changeCountDecoration(item.additions, item.deletions)
+      : null;
+  if (!item.annotation && !changeCounts && !status) return null;
+
+  return (
+    <div className="flex items-center gap-2 text-[11px] font-mono tabular-nums">
+      {item.annotation ? (
+        <span className="text-muted-foreground">{item.annotation}</span>
+      ) : null}
+      {changeCounts}
+      {status ? (
+        <span className={cn("w-3 text-center font-bold", statusClassName(item.gitStatus))}>
+          {status}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function defaultDirectoryDecoration(items: DiffFileTreeItem[]) {
+  const additions = items.reduce((sum, item) => sum + (item.additions ?? 0), 0);
+  const deletions = items.reduce((sum, item) => sum + (item.deletions ?? 0), 0);
+  const changeCounts = changeCountDecoration(additions, deletions);
+
+  if (!changeCounts) {
+    return <span className="size-2 rounded-full bg-yellow-500/70" />;
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-[11px] font-mono tabular-nums">
+      {changeCounts}
+      <span className="size-2 rounded-full bg-yellow-500/70" />
+    </div>
+  );
+}
+
+function FileIcon({ name }: { name: string }) {
+  const iconProps = getFileIconProps({ name, isDir: false, className: "size-4 shrink-0" });
+  return <img {...iconProps} alt="" />;
 }
 
 export function DiffFileTree({
@@ -124,166 +262,178 @@ export function DiffFileTree({
   selectedPath,
   ariaLabel,
   className,
+  indentOffset = 0,
+  style,
+  isFileActionActive,
+  isDirectoryActionActive,
+  renderFileActions,
+  renderDirectoryActions,
+  renderDirectoryDecoration,
+  renderFileInlineDecoration,
+  renderFileDecoration,
   onSelectFile,
   onDoubleClickFile,
 }: DiffFileTreeProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const itemByPath = useMemo(
-    () => new Map(items.map((item) => [item.path, item])),
-    [items],
+  const root = useMemo(() => buildTree(items), [items]);
+  const [openDirectories, setOpenDirectories] = useState(() =>
+    getInitialOpenDirectories(root),
   );
-  const itemByPathRef = useRef(itemByPath);
-  const paths = useMemo(() => items.map((item) => item.path), [items]);
-  const gitStatus = useMemo<GitStatusEntry[]>(
-    () =>
-      items.flatMap((item) => {
-        const status = normalizeStatus(item.gitStatus);
-        return status ? [{ path: item.path, status }] : [];
-      }),
-    [items],
+  const rows = useMemo(
+    () => buildRows(root, openDirectories),
+    [openDirectories, root],
   );
-  const icons = useMemo(() => buildIconConfig(paths), [paths]);
-  const selectedPathRef = useRef(selectedPath);
-  const onSelectFileRef = useRef(onSelectFile);
 
-  useEffect(() => {
-    itemByPathRef.current = itemByPath;
-    selectedPathRef.current = selectedPath;
-    onSelectFileRef.current = onSelectFile;
-  }, [itemByPath, onSelectFile, selectedPath]);
-
-  const { model } = useFileTree({
-    paths,
-    flattenEmptyDirectories: true,
-    initialExpansion: "open",
-    initialSelectedPaths: selectedPath ? [selectedPath] : [],
-    fileTreeSearchMode: "hide-non-matches",
-    search: false,
-    density: "compact",
-    gitStatus,
-    icons,
-    renderRowDecoration: ({ item }) => {
-      const annotation = itemByPathRef.current.get(item.path)?.annotation;
-      return annotation ? { text: annotation, title: annotation } : null;
-    },
-    onSelectionChange: (selectedPaths) => {
-      const nextPath = selectedPaths[0];
-      if (!nextPath || !itemByPathRef.current.has(nextPath)) return;
-      if (selectedPathRef.current === nextPath) return;
-      onSelectFileRef.current(nextPath);
-    },
-    unsafeCSS: `
-      :host {
-        --trees-bg-override: transparent;
-        --trees-fg-override: var(--sidebar-foreground);
-        --trees-fg-muted-override: var(--muted-foreground);
-        --trees-bg-muted-override: color-mix(in srgb, var(--sidebar-accent) 55%, transparent);
-        --trees-selected-bg-override: var(--sidebar-accent);
-        --trees-selected-fg-override: var(--sidebar-foreground);
-        --trees-focus-ring-color-override: color-mix(in srgb, var(--primary) 62%, var(--border));
-        --trees-selected-focused-border-color-override: color-mix(in srgb, var(--primary) 62%, var(--border));
-        --trees-focus-ring-width-override: 1px;
-        --trees-focus-ring-offset-override: -1px;
-        --trees-border-color-override: color-mix(in srgb, var(--sidebar-border) 70%, transparent);
-        --trees-font-family-override: inherit;
-        --trees-font-size-override: 13px;
-        --trees-border-radius-override: var(--radius-md);
-        --trees-item-padding-x-override: 8px;
-        --trees-item-margin-x-override: 0px;
-        --trees-level-gap-override: 10px;
-        --trees-search-bg-override: hsl(var(--background));
-        --trees-search-fg-override: hsl(var(--foreground));
-        --trees-status-added-override: #10b981;
-        --trees-status-untracked-override: #10b981;
-        --trees-status-modified-override: #eab308;
-        --trees-status-renamed-override: #38bdf8;
-        --trees-status-deleted-override: #ef4444;
+  const toggleDirectory = (path: string) => {
+    setOpenDirectories((current) => {
+      const next = new Set(current);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
       }
-      [data-type='item'] {
-        cursor: pointer;
-      }
-      [data-type='item']:focus-visible::before,
-      [data-type='item'][data-item-focused='true']::before,
-      [data-type='item'][data-item-selected='true']::before {
-        outline: none;
-      }
-      [data-item-section='decoration'] {
-        color: var(--muted-foreground);
-        font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 11px;
-      }
-    `,
-  });
-
-  useEffect(() => {
-    model.resetPaths(paths);
-    model.setGitStatus(gitStatus);
-    model.setIcons(icons);
-    scrollTreeToTop(model);
-  }, [gitStatus, icons, model, paths]);
-
-  useEffect(() => {
-    model.setSearch(isSearchOpen ? searchValue.trim() || null : null);
-    scrollTreeToTop(model);
-  }, [isSearchOpen, model, searchValue]);
-
-  useEffect(() => {
-    if (!isSearchOpen) return;
-    requestAnimationFrame(() => {
-      searchInputRef.current?.focus({ preventScroll: true });
-      searchInputRef.current?.select();
+      return next;
     });
-  }, [isSearchOpen]);
-
-  useEffect(() => {
-    if (!selectedPath || !itemByPath.has(selectedPath)) return;
-    const item = model.getItem(selectedPath);
-    item?.select();
-  }, [itemByPath, model, selectedPath]);
+  };
 
   return (
     <div
-      className={cn("flex h-full min-h-[180px] w-full flex-col", className)}
-      onKeyDown={(event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
-          event.preventDefault();
-          event.stopPropagation();
-          setIsSearchOpen(true);
-        }
-      }}
+      role="tree"
+      aria-label={ariaLabel}
+      className={cn("w-full overflow-y-auto pr-1", className)}
+      style={style}
     >
-      {isSearchOpen ? (
-        <input
-          ref={searchInputRef}
-          type="search"
-          value={searchValue}
-          onChange={(event) => setSearchValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              event.stopPropagation();
-              setSearchValue("");
-              setIsSearchOpen(false);
+      {rows.map((row) => {
+        const file = row.type === "file" ? row.file : undefined;
+        const isSelected = !!file && selectedPath === row.path;
+        const isActionActive =
+          file && isFileActionActive ? isFileActionActive(row.path) : false;
+        const directoryActions =
+          !file && renderDirectoryActions ? renderDirectoryActions(row.files) : null;
+        const isDirectoryActionsVisible =
+          !file && isDirectoryActionActive
+            ? isDirectoryActionActive(row.files)
+            : false;
+        const actions = file && renderFileActions ? renderFileActions(file) : null;
+        const decoration =
+          file
+            ? (renderFileDecoration?.(file) ?? defaultDecoration(file))
+            : null;
+        const inlineDecoration =
+          file && renderFileInlineDecoration ? renderFileInlineDecoration(file) : null;
+        const directoryDecoration =
+          !file && renderDirectoryDecoration
+            ? renderDirectoryDecoration(row.files)
+            : row.hasChangedDescendant
+              ? defaultDirectoryDecoration(row.files)
+              : null;
+
+        return (
+          <div
+            key={`${row.type}:${row.id}`}
+            role="treeitem"
+            aria-selected={isSelected || undefined}
+            aria-expanded={
+              row.type === "directory" ? openDirectories.has(row.path) : undefined
             }
-          }}
-          placeholder="Search..."
-          aria-label={`${ariaLabel} search`}
-          className="mx-2 mb-2 mt-1 h-7 shrink-0 rounded-md border border-sidebar-border/50 bg-background px-2 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-        />
-      ) : null}
-      <PierreFileTree
-        model={model}
-        aria-label={ariaLabel}
-        className="block min-h-0 w-full flex-1"
-        onDoubleClick={(event) => {
-          const path = getPathFromTreeEvent(event);
-          if (path && itemByPath.has(path)) {
-            onDoubleClickFile?.(path);
-          }
-        }}
-      />
+            className={cn(
+              "group/file relative flex h-7 min-w-0 items-center gap-1 rounded-md px-2 pr-24 text-[13px] outline-none transition-colors",
+              file ? "cursor-pointer" : "cursor-default",
+              isSelected
+                ? "bg-sidebar-accent text-sidebar-foreground"
+                : "hover:bg-sidebar-accent/50",
+            )}
+            style={{ paddingLeft: indentOffset + 8 + row.depth * 14 }}
+            onClick={() => {
+              if (file) {
+                onSelectFile(row.path);
+              } else {
+                toggleDirectory(row.path);
+              }
+            }}
+            onDoubleClick={() => {
+              if (file) {
+                onDoubleClickFile?.(row.path);
+              }
+            }}
+          >
+            {row.type === "directory" ? (
+              <>
+                <ChevronRight
+                  className={cn(
+                    "size-4 shrink-0 text-muted-foreground transition-transform",
+                    openDirectories.has(row.path) && "rotate-90",
+                  )}
+                />
+                <span className="min-w-0 flex-1 truncate text-foreground">
+                  {row.name}
+                </span>
+                {directoryDecoration ? (
+                  <div
+                    className={cn(
+                      "absolute right-4 flex min-w-8 items-center justify-end transition-opacity",
+                      directoryActions &&
+                        (isDirectoryActionsVisible
+                          ? "invisible"
+                          : "group-hover/file:invisible"),
+                    )}
+                  >
+                    {directoryDecoration}
+                  </div>
+                ) : null}
+                {directoryActions ? (
+                  <div
+                    className={cn(
+                      "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
+                      isDirectoryActionsVisible
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
+                    )}
+                  >
+                    {directoryActions}
+                  </div>
+                ) : null}
+              </>
+            ) : row.file ? (
+              <>
+                <span className="w-4 shrink-0" />
+                <FileIcon name={basename(row.path)} />
+                <span className="min-w-0 truncate text-foreground">
+                  {row.name}
+                </span>
+                {inlineDecoration ? (
+                  <span className="shrink-0">{inlineDecoration}</span>
+                ) : null}
+                <span className="min-w-0 flex-1" />
+                {decoration ? (
+                  <div
+                    className={cn(
+                      "absolute right-4 flex min-w-8 items-center justify-end transition-opacity",
+                      actions &&
+                        (isActionActive
+                          ? "invisible"
+                          : "group-hover/file:invisible"),
+                    )}
+                  >
+                    {decoration}
+                  </div>
+                ) : null}
+                {actions ? (
+                  <div
+                    className={cn(
+                      "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
+                      isActionActive
+                        ? "opacity-100 pointer-events-auto"
+                        : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
+                    )}
+                  >
+                    {actions}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
