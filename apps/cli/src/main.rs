@@ -5,12 +5,17 @@ use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use commands::local::{execute as execute_local, LocalCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
+use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
 use core_service::ReviewService;
 use infra::db::migration::MigratorTrait;
 use infra::{DbConnection, Migrator};
 
 #[derive(Debug, Parser)]
-#[command(name = "atmos", about = "ATMOS command-line interface")]
+#[command(
+    name = "atmos",
+    about = "ATMOS command-line interface",
+    version = env!("CARGO_PKG_VERSION")
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -26,11 +31,13 @@ enum Commands {
         #[command(subcommand)]
         command: LocalCommand,
     },
+    Update(UpdateArgs),
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+    let should_check_for_updates = !matches!(cli.command, Commands::Update(_));
 
     let output = match cli.command {
         Commands::Review { command } => {
@@ -42,9 +49,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             execute_review(review_service, command).await
         }
         Commands::Local { command } => execute_local(command).await,
+        Commands::Update(args) => execute_update(args).await,
     }
     .map_err(std::io::Error::other)?;
 
     println!("{}", serde_json::to_string_pretty(&output)?);
+    if should_check_for_updates {
+        if let Some(hint) = update_hint_if_needed().await {
+            eprintln!("{}", hint);
+        }
+    }
     Ok(())
 }

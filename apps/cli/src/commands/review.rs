@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use clap::{Args, Subcommand};
 use core_service::service::review::{
-    AddReviewMessageInput, CreateReviewFixRunInput, UpdateReviewCommentStatusInput,
+    AddReviewMessageInput, CreateReviewFixRunInput, SetReviewFixRunStatusInput,
+    UpdateReviewCommentStatusInput,
 };
 use core_service::ReviewService;
 use serde_json::Value;
@@ -88,13 +89,44 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 .map_err(|error| error.to_string())?
                 .map_err(|error| error.to_string())
         }
-        ReviewCommand::FinalizeRun(args) => service
-            .finalize_fix_run(args.run, args.title)
-            .await
-            .map(serde_json::to_value)
-            .map_err(|error| error.to_string())?
-            .map_err(|error| error.to_string()),
+        ReviewCommand::FinalizeRun(args) => {
+            if let Some(summary) = read_optional_body_file(args.summary_file.as_deref())? {
+                service
+                    .write_run_summary(args.run.clone(), summary)
+                    .await
+                    .map_err(|error| error.to_string())?;
+            }
+            service
+                .finalize_fix_run(args.run, args.title)
+                .await
+                .map(serde_json::to_value)
+                .map_err(|error| error.to_string())?
+                .map_err(|error| error.to_string())
+        }
+        ReviewCommand::SetStatus(args) => {
+            let summary = read_optional_body_file(args.summary_file.as_deref())?;
+            service
+                .set_fix_run_status(SetReviewFixRunStatusInput {
+                    run_guid: args.run,
+                    status: args.status,
+                    message: args.message,
+                    title: args.title,
+                    summary,
+                })
+                .await
+                .map(serde_json::to_value)
+                .map_err(|error| error.to_string())?
+                .map_err(|error| error.to_string())
+        }
     }
+}
+
+fn read_body_file(path: &str) -> Result<String, String> {
+    fs::read_to_string(path).map_err(|error| format!("Failed to read {}: {}", path, error))
+}
+
+fn read_optional_body_file(path: Option<&str>) -> Result<Option<String>, String> {
+    path.map(read_body_file).transpose()
 }
 
 #[derive(Debug, Subcommand)]
@@ -108,6 +140,7 @@ pub enum ReviewCommand {
     CreateFixRun(CreateFixRunArgs),
     SummarizeRun(SummarizeRunArgs),
     FinalizeRun(FinalizeRunArgs),
+    SetStatus(SetStatusArgs),
 }
 
 #[derive(Debug, Args)]
@@ -183,9 +216,30 @@ pub struct SummarizeRunArgs {
 }
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Tip: pass --summary-file <path> to write the run summary before finalizing. --summary is accepted as an alias."
+)]
 pub struct FinalizeRunArgs {
     #[arg(long)]
     pub run: String,
     #[arg(long)]
     pub title: Option<String>,
+    #[arg(long = "summary-file", alias = "summary")]
+    pub summary_file: Option<String>,
+}
+
+#[derive(Debug, Args)]
+#[command(
+    after_help = "Statuses: running, succeeded, failed. For succeeded, pass --summary-file <path> to write the summary and finalize in one command. --summary is accepted as an alias."
+)]
+pub struct SetStatusArgs {
+    #[arg(long)]
+    pub run: String,
+    pub status: String,
+    #[arg(long)]
+    pub message: Option<String>,
+    #[arg(long)]
+    pub title: Option<String>,
+    #[arg(long = "summary-file", alias = "summary")]
+    pub summary_file: Option<String>,
 }
