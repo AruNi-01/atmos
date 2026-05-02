@@ -31,6 +31,52 @@ fn is_valid_review_comment_status(status: &str) -> bool {
     matches!(status, "open" | "agent_fixed" | "fixed" | "dismissed")
 }
 
+fn count_review_snapshot_changes(snapshot: &review_file_snapshot::Model) -> (usize, usize) {
+    if snapshot.is_binary {
+        return (0, 0);
+    }
+
+    let old_content = match std::fs::read_to_string(&snapshot.old_rel_path) {
+        Ok(content) => content,
+        Err(_) => return (0, 0),
+    };
+    let new_content = match std::fs::read_to_string(&snapshot.new_rel_path) {
+        Ok(content) => content,
+        Err(_) => return (0, 0),
+    };
+
+    let mut additions = 0usize;
+    let mut deletions = 0usize;
+    for change in TextDiff::from_lines(&old_content, &new_content).iter_all_changes() {
+        match change.tag() {
+            similar::ChangeTag::Insert => additions += 1,
+            similar::ChangeTag::Delete => deletions += 1,
+            similar::ChangeTag::Equal => {}
+        }
+    }
+    (additions, deletions)
+}
+
+fn installed_review_fix_skill_path() -> String {
+    std::env::var("HOME")
+        .map(|home| {
+            Path::new(&home)
+                .join(".atmos/skills/.system/atmos-review-fix/SKILL.md")
+                .to_string_lossy()
+                .to_string()
+        })
+        .or_else(|_| {
+            std::env::var("USER").map(|user| {
+                Path::new("/Users")
+                    .join(user)
+                    .join(".atmos/skills/.system/atmos-review-fix/SKILL.md")
+                    .to_string_lossy()
+                    .to_string()
+            })
+        })
+        .unwrap_or_else(|_| "~/.atmos/skills/.system/atmos-review-fix/SKILL.md".to_string())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewAnchor {
     pub file_path: String,
@@ -69,6 +115,8 @@ pub struct ReviewFileDto {
     pub state: review_file_state::Model,
     pub changed_after_review: bool,
     pub open_comment_count: usize,
+    pub additions: usize,
+    pub deletions: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -132,6 +180,12 @@ pub struct AddReviewMessageInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct UpdateReviewMessageInput {
+    pub message_guid: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct DeleteReviewMessageInput {
     pub message_guid: String,
 }
@@ -151,6 +205,18 @@ pub struct CreateReviewFixRunInput {
     pub selected_comment_guids: Vec<String>,
     #[serde(default)]
     pub created_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SetReviewFixRunStatusInput {
+    pub run_guid: String,
+    pub status: String,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -211,6 +277,13 @@ pub struct ReviewCommentContextDto {
 pub struct ReviewFixRunFinalizedDto {
     pub run: review_fix_run::Model,
     pub revision: review_revision::Model,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ReviewFixRunStatusDto {
+    Run { run: review_fix_run::Model },
+    Finalized(ReviewFixRunFinalizedDto),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -525,6 +598,13 @@ impl ReviewService {
             .map_err(ServiceError::Infra)
     }
 
+    pub async fn activate_session(&self, session_guid: String) -> Result<()> {
+        ReviewRepo::new(&self.db)
+            .update_session_status(&session_guid, "active")
+            .await
+            .map_err(ServiceError::Infra)
+    }
+
     pub async fn rename_session(&self, session_guid: String, title: String) -> Result<()> {
         ReviewRepo::new(&self.db)
             .update_session_title(&session_guid, &title)
@@ -576,6 +656,7 @@ impl ReviewService {
                     .zip(state.last_code_change_at)
                     .map(|(reviewed_at, changed_at)| changed_at > reviewed_at)
                     .unwrap_or(false);
+                let (additions, deletions) = count_review_snapshot_changes(&snapshot);
                 Ok(ReviewFileDto {
                     open_comment_count: *open_comment_count_by_snapshot
                         .get(&snapshot.guid)
@@ -583,6 +664,8 @@ impl ReviewService {
                     snapshot,
                     state,
                     changed_after_review,
+                    additions,
+                    deletions,
                 })
             })
             .collect()
@@ -757,22 +840,8 @@ impl ReviewService {
                 .await
                 .map_err(ServiceError::Infra)?
             {
-                if run.status == "queued" {
-                    review_repo
-                        .update_fix_run_status(
-                            &run.guid,
-                            "running",
-                            None,
-                            None,
-                            None,
-                            None,
-                            Some(chrono::Utc::now().naive_utc()),
-                            None,
-                            None,
-                            false,
-                        )
-                        .await
-                        .map_err(ServiceError::Infra)?;
+                if run.status == "pending" {
+                    self.mark_fix_run_running(run.guid.clone()).await?;
                 }
             }
         }
@@ -817,6 +886,63 @@ impl ReviewService {
         })
     }
 
+    pub async fn update_message(
+        &self,
+        input: UpdateReviewMessageInput,
+    ) -> Result<ReviewMessageDto> {
+        let review_repo = ReviewRepo::new(&self.db);
+        let message = review_repo
+            .find_message_by_guid(&input.message_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review message {} not found", input.message_guid,))
+            })?;
+        let comment = review_repo
+            .find_comment_by_guid(&message.comment_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review comment {} not found", message.comment_guid))
+            })?;
+
+        let (body_storage_kind, body, body_rel_path, body_full) =
+            if input.body.len() > MESSAGE_INLINE_LIMIT {
+                let abs_path = run_root_abs_path(
+                    &comment.session_guid,
+                    message.fix_run_guid.as_deref().unwrap_or("message"),
+                )
+                .map_err(ServiceError::Infra)?
+                .join("messages")
+                .join(format!("{}.md", Uuid::new_v4()));
+                write_text_atomic(&abs_path, &input.body)
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                (
+                    "file".to_string(),
+                    input.body.chars().take(500).collect(),
+                    Some(abs_path.to_string_lossy().to_string()),
+                    input.body,
+                )
+            } else {
+                ("inline".to_string(), input.body.clone(), None, input.body)
+            };
+
+        let message = review_repo
+            .update_message_body(&message.guid, body_storage_kind, body, body_rel_path)
+            .await
+            .map_err(ServiceError::Infra)?;
+        review_repo
+            .touch_comment(&message.comment_guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+
+        Ok(ReviewMessageDto {
+            body_full,
+            model: message,
+        })
+    }
+
     pub async fn delete_message(&self, input: DeleteReviewMessageInput) -> Result<String> {
         let review_repo = ReviewRepo::new(&self.db);
         let message = review_repo
@@ -827,26 +953,11 @@ impl ReviewService {
                 ServiceError::NotFound(format!("Review message {} not found", input.message_guid,))
             })?;
 
-        if message.author_type != "user" {
-            return Err(ServiceError::Validation(
-                "Only user review messages can be deleted".to_string(),
-            ));
-        }
-
         let mut messages = review_repo
             .list_messages_by_comment_guids(&[message.comment_guid.clone()])
             .await
             .map_err(ServiceError::Infra)?;
         messages.sort_by_key(|item| item.created_at);
-        let is_last_message = messages
-            .last()
-            .map(|item| item.guid == message.guid)
-            .unwrap_or(false);
-        if !is_last_message {
-            return Err(ServiceError::Validation(
-                "Only the latest review message can be deleted".to_string(),
-            ));
-        }
 
         review_repo
             .soft_delete_message(&message.guid)
@@ -880,6 +991,132 @@ impl ReviewService {
             .map_err(ServiceError::Infra)
     }
 
+    pub async fn set_fix_run_status(
+        &self,
+        input: SetReviewFixRunStatusInput,
+    ) -> Result<ReviewFixRunStatusDto> {
+        match input.status.as_str() {
+            "running" => self
+                .mark_fix_run_running(input.run_guid)
+                .await
+                .map(|run| ReviewFixRunStatusDto::Run { run }),
+            "succeeded" => {
+                self.mark_fix_run_running(input.run_guid.clone()).await?;
+                if let Some(summary) = input.summary.filter(|value| !value.trim().is_empty()) {
+                    self.write_run_summary(input.run_guid.clone(), summary)
+                        .await?;
+                }
+                self.finalize_fix_run(input.run_guid, input.title)
+                    .await
+                    .map(ReviewFixRunStatusDto::Finalized)
+            }
+            "failed" => self
+                .mark_fix_run_failed(input.run_guid, input.message)
+                .await
+                .map(|run| ReviewFixRunStatusDto::Run { run }),
+            status => Err(ServiceError::Validation(format!(
+                "Invalid review fix run status: {}",
+                status
+            ))),
+        }
+    }
+
+    pub async fn mark_fix_run_running(&self, run_guid: String) -> Result<review_fix_run::Model> {
+        let review_repo = ReviewRepo::new(&self.db);
+        let run = review_repo
+            .find_fix_run_by_guid(&run_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+            })?;
+        if run.status == "succeeded" || run.status == "failed" {
+            return Ok(run);
+        }
+        let has_other_running_run = review_repo
+            .list_fix_runs_by_session(&run.session_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .into_iter()
+            .any(|item| item.guid != run.guid && item.status == "running");
+        if has_other_running_run {
+            return Err(ServiceError::Validation(
+                "A review fix run is already running for this session".to_string(),
+            ));
+        }
+        review_repo
+            .update_fix_run_status(
+                &run.guid,
+                "running",
+                None,
+                None,
+                None,
+                None,
+                if run.started_at.is_none() {
+                    Some(chrono::Utc::now().naive_utc())
+                } else {
+                    None
+                },
+                None,
+                None,
+                false,
+            )
+            .await
+            .map_err(ServiceError::Infra)?;
+        review_repo
+            .find_fix_run_by_guid(&run.guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run.guid)))
+    }
+
+    pub async fn mark_fix_run_failed(
+        &self,
+        run_guid: String,
+        message: Option<String>,
+    ) -> Result<review_fix_run::Model> {
+        let review_repo = ReviewRepo::new(&self.db);
+        let run = review_repo
+            .find_fix_run_by_guid(&run_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+            })?;
+        if run.status == "succeeded" || run.status == "failed" {
+            return Ok(run);
+        }
+        let now = chrono::Utc::now().naive_utc();
+        review_repo
+            .update_fix_run_status(
+                &run.guid,
+                "failed",
+                None,
+                None,
+                None,
+                None,
+                if run.started_at.is_none() {
+                    Some(now)
+                } else {
+                    None
+                },
+                Some(now),
+                Some(
+                    message
+                        .filter(|value| !value.trim().is_empty())
+                        .unwrap_or_else(|| "Review fix run failed".to_string()),
+                ),
+                false,
+            )
+            .await
+            .map_err(ServiceError::Infra)?;
+        review_repo
+            .find_fix_run_by_guid(&run.guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run.guid)))
+    }
+
     pub async fn create_fix_run(
         &self,
         input: CreateReviewFixRunInput,
@@ -892,6 +1129,19 @@ impl ReviewService {
             .ok_or_else(|| {
                 ServiceError::NotFound(format!("Review session {} not found", input.session_guid))
             })?;
+        if input.execution_mode != "copy_prompt" {
+            let has_running_run = review_repo
+                .list_fix_runs_by_session(&session.guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .into_iter()
+                .any(|run| run.status == "running");
+            if has_running_run {
+                return Err(ServiceError::Validation(
+                    "A review fix run is already running for this session".to_string(),
+                ));
+            }
+        }
         let comments = self
             .list_comments(session.guid.clone(), Some(input.base_revision_guid.clone()))
             .await?;
@@ -936,12 +1186,23 @@ impl ReviewService {
             )
             .await
             .map_err(ServiceError::Infra)?;
-        review_repo
-            .update_fix_run_status(
-                &run.guid, "queued", None, None, None, None, None, None, None, false,
-            )
-            .await
-            .map_err(ServiceError::Infra)?;
+        if input.execution_mode != "copy_prompt" {
+            review_repo
+                .update_fix_run_status(
+                    &run.guid,
+                    "running",
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(chrono::Utc::now().naive_utc()),
+                    None,
+                    None,
+                    false,
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+        }
 
         let updated_run = review_repo
             .find_fix_run_by_guid(&run.guid)
@@ -1103,6 +1364,9 @@ impl ReviewService {
         write_text_atomic(&summary_abs_path, &body)
             .await
             .map_err(ServiceError::Infra)?;
+        if run.status == "pending" {
+            self.mark_fix_run_running(run.guid.clone()).await?;
+        }
         // Persist only the summary artifact path. The run's lifecycle status
         // must remain the caller's current status (typically "running") — only
         // `finalize_fix_run` is allowed to transition the run to a terminal
@@ -1117,7 +1381,7 @@ impl ReviewService {
                 } else {
                     None
                 },
-                Some(chrono::Utc::now().naive_utc()),
+                None,
             )
             .await
             .map_err(ServiceError::Infra)?;
@@ -1147,30 +1411,14 @@ impl ReviewService {
                 run.guid
             )));
         }
-
-        let claimed = review_repo
-            .claim_fix_run_finalizing(&run.guid)
-            .await
-            .map_err(ServiceError::Infra)?;
-        if !claimed {
-            let current = review_repo
-                .find_fix_run_by_guid(&run.guid)
-                .await
-                .map_err(ServiceError::Infra)?;
-            if current
-                .as_ref()
-                .and_then(|item| item.result_revision_guid.as_ref())
-                .is_some()
-            {
-                return Err(ServiceError::Validation(format!(
-                    "Review fix run {} has already been finalized",
-                    run.guid
-                )));
-            }
+        if run.status == "failed" {
             return Err(ServiceError::Validation(format!(
-                "Review fix run {} is already finalizing",
+                "Review fix run {} has already failed",
                 run.guid
             )));
+        }
+        if run.status == "pending" {
+            self.mark_fix_run_running(run.guid.clone()).await?;
         }
 
         let finalize_result: Result<ReviewFixRunFinalizedDto> = async {
@@ -1670,8 +1918,11 @@ impl ReviewService {
             output.push_str("  </comment>\n");
         }
         output.push_str("</review-fix-run>\n\n");
-        output.push_str("Before editing code, read and follow `~/.atmos/skills/.system/atmos-review-fix/SKILL.md`.\n");
-        output.push_str("Use `atmos review` commands to reply to each handled comment and write a run summary. Do not mark comments fixed automatically; move them to `agent_fixed` after handling.\n");
+        output.push_str("This is an Atmos Agent Review Fix run. Fix the code according to the user review comments above, but first verify that each reported issue exists and is reasonable; do not edit blindly.\n");
+        output.push_str(&format!(
+            "Before editing code, read and follow `{}`.\n",
+            installed_review_fix_skill_path()
+        ));
         Ok(output)
     }
 
