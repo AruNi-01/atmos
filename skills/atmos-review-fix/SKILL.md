@@ -1,7 +1,7 @@
 ---
 name: atmos-review-fix
-version: "2.0.0"
-description: Handle an Atmos review fix run by reading review comments, editing code, replying to each comment with the installed `atmos review` CLI, writing a run summary, and finalizing the run into a new review revision.
+version: "2.1.0"
+description: Handle an Atmos review fix run by reading review comments, marking run status with the installed `atmos review` CLI, editing code, replying to each comment, writing a run summary, and finalizing the run into a new review revision.
 user-invokable: true
 ---
 
@@ -13,12 +13,13 @@ Use this skill whenever the prompt includes a review fix run payload or asks you
 
 Given a review run:
 
-1. inspect the selected review comments and their snapshot context
-2. modify the working tree to address the comments
-3. reply to each handled comment
-4. move handled comments to `agent_fixed`
-5. write one run summary
-6. finalize the run so Atmos creates the next review revision and `fix.patch`
+1. mark the run `running`
+2. inspect the selected review comments and their snapshot context
+3. verify each issue exists and the requested fix is reasonable
+4. modify the working tree to address the comments
+5. reply to each handled comment
+6. move handled comments to `agent_fixed`
+7. write one run summary and mark the run `succeeded` so Atmos creates the next review revision and `fix.patch`
 
 Do not mark comments `fixed` automatically.
 
@@ -27,10 +28,12 @@ Do not mark comments `fixed` automatically.
 - `atmos review session-show --session <session_guid>`
 - `atmos review comment-list --session <session_guid>`
 - `atmos review comment-context --comment <comment_guid>`
+- `atmos review set-status --run <run_guid> running`
 - `atmos review reply-comment --comment <comment_guid> --body-file <path>`
 - `atmos review update-comment-status --comment <comment_guid> --status agent_fixed`
 - `atmos review summarize-run --run <run_guid> --body-file <path>`
-- `atmos review finalize-run --run <run_guid>`
+- `atmos review set-status --run <run_guid> succeeded --summary-file <path>`
+- `atmos review set-status --run <run_guid> failed --message "<reason>"`
 
 The Atmos API installs this CLI on startup and Atmos-managed terminal sessions expose it on `PATH`.
 
@@ -54,15 +57,22 @@ Extract:
 - `run guid`
 - selected `comment guid` values
 
-### 2. Inspect every comment before editing
+### 2. Inspect and validate every comment before editing
+
+Before inspecting or editing, mark the run as started:
+
+```bash
+atmos review set-status --run <run_guid> running
+```
 
 For each selected comment:
 
 1. run `comment-context`
 2. read the stored snapshot paths it returns
 3. understand the user comment and the target code region
+4. verify that the issue exists and that the requested change is reasonable
 
-Do not skip comment-context lookup. The review snapshot is the source of truth, not the current diff UI.
+Do not skip comment-context lookup. The review snapshot is the source of truth, not the current diff UI. Do not blindly edit just because a comment exists; if the comment is incorrect or unclear, reply with that finding instead of forcing a code change.
 
 ### 3. Edit the workspace
 
@@ -105,25 +115,33 @@ Create one short markdown summary covering:
 - key files changed
 - any remaining risks or follow-ups
 
-Then run:
+Then either run:
 
 ```bash
 atmos review summarize-run --run <run_guid> --body-file <path>
 ```
 
-### 6. Finalize the run
+or pass the same file to the final status command in the next step.
+
+### 6. Complete or fail the run
 
 Only after replies and summary are written:
 
 ```bash
-atmos review finalize-run --run <run_guid>
+atmos review set-status --run <run_guid> succeeded --summary-file <path>
 ```
 
 This creates the next review revision and persists `fix.patch`.
+
+If you cannot continue the run, report the failure instead:
+
+```bash
+atmos review set-status --run <run_guid> failed --message "<short reason>"
+```
 
 ## Expected behavior
 
 - Be explicit in comment replies.
 - Keep summaries concise and factual.
 - Do not invent success if the code change was not made.
-- Do not leave the run un-finalized after successful edits and replies.
+- Do not leave the run running after successful edits and replies.

@@ -178,7 +178,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting ATMOS API Server...");
 
     if let Err(error) = infra::utils::atmos_cli::ensure_atmos_cli_on_startup() {
-        warn!("Non-critical startup task failed: Atmos CLI install: {}", error);
+        warn!(
+            "Non-critical startup task failed: Atmos CLI install: {}",
+            error
+        );
     }
 
     let db_connection = DbConnection::new().await?;
