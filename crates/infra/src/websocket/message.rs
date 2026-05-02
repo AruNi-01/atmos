@@ -303,6 +303,8 @@ pub enum WsAction {
     ReviewSessionClose,
     /// 归档 review session
     ReviewSessionArchive,
+    /// 恢复 review session 为 active
+    ReviewSessionActivate,
     /// 重命名 review session
     ReviewSessionRename,
     /// 列出 revision 下的 review files
@@ -319,6 +321,8 @@ pub enum WsAction {
     ReviewCommentUpdateStatus,
     /// 添加 review message
     ReviewMessageAdd,
+    /// 更新 review message
+    ReviewMessageUpdate,
     /// 删除 review message
     ReviewMessageDelete,
     /// 列出 review fix runs
@@ -329,6 +333,8 @@ pub enum WsAction {
     ReviewFixRunArtifactGet,
     /// finalize review fix run into a new revision
     ReviewFixRunFinalize,
+    /// Set review fix run status
+    ReviewFixRunSetStatus,
 
     // ===== Skills 操作 =====
     /// 获取已安装的 Skills 列表
@@ -565,6 +571,11 @@ pub struct ReviewSessionArchiveRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewSessionActivateRequest {
+    pub session_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewSessionRenameRequest {
     pub session_guid: String,
     pub title: String,
@@ -627,6 +638,12 @@ pub struct ReviewMessageAddRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewMessageUpdateRequest {
+    pub message_guid: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewMessageDeleteRequest {
     pub message_guid: String,
 }
@@ -658,6 +675,18 @@ pub struct ReviewFixRunFinalizeRequest {
     pub run_guid: String,
     #[serde(default)]
     pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewFixRunSetStatusRequest {
+    pub run_guid: String,
+    pub status: String,
+    #[serde(default)]
+    pub message: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub summary: Option<String>,
 }
 
 // ===== 文件系统操作数据结构 =====

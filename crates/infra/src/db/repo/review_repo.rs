@@ -139,6 +139,17 @@ impl<'a> ReviewRepo<'a> {
         if status == "archived" {
             update = update.col_expr(review_session::Column::ArchivedAt, Expr::value(Some(now)));
         }
+        if status == "active" {
+            update = update
+                .col_expr(
+                    review_session::Column::ClosedAt,
+                    Expr::value(None::<chrono::NaiveDateTime>),
+                )
+                .col_expr(
+                    review_session::Column::ArchivedAt,
+                    Expr::value(None::<chrono::NaiveDateTime>),
+                );
+        }
         let result = update
             .filter(review_session::Column::Guid.eq(guid))
             .filter(review_session::Column::IsDeleted.eq(false))
@@ -543,6 +554,37 @@ impl<'a> ReviewRepo<'a> {
             .await?)
     }
 
+    pub async fn update_message_body(
+        &self,
+        guid: &str,
+        body_storage_kind: String,
+        body: String,
+        body_rel_path: Option<String>,
+    ) -> Result<review_message::Model> {
+        let now = Utc::now().naive_utc();
+        let result = review_message::Entity::update_many()
+            .col_expr(
+                review_message::Column::BodyStorageKind,
+                Expr::value(body_storage_kind),
+            )
+            .col_expr(review_message::Column::Body, Expr::value(body))
+            .col_expr(
+                review_message::Column::BodyRelPath,
+                Expr::value(body_rel_path),
+            )
+            .col_expr(review_message::Column::UpdatedAt, Expr::value(now))
+            .filter(review_message::Column::Guid.eq(guid))
+            .filter(review_message::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review message not found".into()));
+        }
+        self.find_message_by_guid(guid)
+            .await?
+            .ok_or_else(|| InfraError::Custom("Review message not found".into()))
+    }
+
     pub async fn soft_delete_message(&self, guid: &str) -> Result<()> {
         let now = Utc::now().naive_utc();
         let result = review_message::Entity::update_many()
@@ -619,7 +661,7 @@ impl<'a> ReviewRepo<'a> {
             base_revision_guid: Set(base_revision_guid),
             result_revision_guid: Set(None),
             execution_mode: Set(execution_mode),
-            status: Set("queued".to_string()),
+            status: Set("pending".to_string()),
             prompt_rel_path: Set(prompt_rel_path),
             result_rel_path: Set(None),
             patch_rel_path: Set(None),
@@ -749,20 +791,6 @@ impl<'a> ReviewRepo<'a> {
             return Err(InfraError::Custom("Review fix run not found".into()));
         }
         Ok(())
-    }
-
-    pub async fn claim_fix_run_finalizing(&self, guid: &str) -> Result<bool> {
-        let now = Utc::now().naive_utc();
-        let result = review_fix_run::Entity::update_many()
-            .col_expr(review_fix_run::Column::Status, Expr::value("finalizing"))
-            .col_expr(review_fix_run::Column::UpdatedAt, Expr::value(now))
-            .filter(review_fix_run::Column::Guid.eq(guid))
-            .filter(review_fix_run::Column::ResultRevisionGuid.is_null())
-            .filter(review_fix_run::Column::Status.ne("finalizing"))
-            .filter(review_fix_run::Column::IsDeleted.eq(false))
-            .exec(self.db)
-            .await?;
-        Ok(result.rows_affected == 1)
     }
 
     /// Persist the summary artifact path (and optionally the run's finish
