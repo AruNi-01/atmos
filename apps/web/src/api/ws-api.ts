@@ -314,6 +314,8 @@ export interface ReviewFileDto {
   state: ReviewFileStateModel;
   changed_after_review: boolean;
   open_comment_count: number;
+  additions: number;
+  deletions: number;
 }
 
 export interface ReviewRevisionDto {
@@ -403,6 +405,10 @@ export interface ReviewFixRunFinalizedDto {
   run: ReviewFixRunModel;
   revision: ReviewRevisionModel;
 }
+
+export type ReviewFixRunStatusDto =
+  | { kind: "run"; run: ReviewFixRunModel }
+  | { kind: "finalized"; run: ReviewFixRunModel; revision: ReviewRevisionModel };
 
 export interface ReviewFileContentDto {
   file_snapshot: ReviewFileSnapshotModel;
@@ -1411,6 +1417,12 @@ export const reviewWsApi = {
     });
   },
 
+  activateSession: async (sessionGuid: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("review_session_activate", {
+      session_guid: sessionGuid,
+    });
+  },
+
   renameSession: async (sessionGuid: string, title: string): Promise<{ ok: boolean }> => {
     return wsRequest<{ ok: boolean }>("review_session_rename", {
       session_guid: sessionGuid,
@@ -1502,6 +1514,13 @@ export const reviewWsApi = {
     });
   },
 
+  updateMessage: async (messageGuid: string, body: string): Promise<ReviewMessageDto> => {
+    return wsRequest<ReviewMessageDto>("review_message_update", {
+      message_guid: messageGuid,
+      body,
+    });
+  },
+
   deleteMessage: async (messageGuid: string): Promise<{ ok: boolean }> => {
     return wsRequest<{ ok: boolean }>("review_message_delete", {
       message_guid: messageGuid,
@@ -1547,6 +1566,22 @@ export const reviewWsApi = {
     return wsRequest<ReviewFixRunFinalizedDto>("review_fix_run_finalize", {
       run_guid: data.runGuid,
       title: data.title ?? null,
+    }, 60_000);
+  },
+
+  setFixRunStatus: async (data: {
+    runGuid: string;
+    status: "running" | "succeeded" | "failed";
+    message?: string | null;
+    title?: string | null;
+    summary?: string | null;
+  }): Promise<ReviewFixRunStatusDto> => {
+    return wsRequest<ReviewFixRunStatusDto>("review_fix_run_set_status", {
+      run_guid: data.runGuid,
+      status: data.status,
+      message: data.message ?? null,
+      title: data.title ?? null,
+      summary: data.summary ?? null,
     }, 60_000);
   },
 };

@@ -17,8 +17,8 @@ import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useWebSocketStore } from "@/hooks/use-websocket";
 import { useReviewTerminalRunnerStore } from "@/hooks/use-review-terminal-runner";
 import {
-  compareReviewTimestamps,
   isOpenReviewCommentStatus,
+  sortReviewSessions,
   sortComments,
   REVIEW_AGENT_STORAGE_KEY,
 } from "@/components/diff/review/utils";
@@ -130,9 +130,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     }
     return (
       sessions.find((session) => session.status === "active") ??
-      [...sessions].sort((left, right) =>
-        compareReviewTimestamps(right.created_at, left.created_at),
-      )[0]
+      sortReviewSessions(sessions)[0]
     );
   }, [fileSnapshotGuid, selectedSessionGuid, sessions]);
 
@@ -270,6 +268,22 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     },
     [currentSession, currentRevision],
   );
+
+  const activeFixRun = useMemo(
+    () => currentSession?.runs.find((run) => run.status === "running") ?? null,
+    [currentSession],
+  );
+
+  useEffect(() => {
+    const hasUnfinishedRun = currentSession?.runs.some((run) =>
+      run.status === "pending" || run.status === "running",
+    );
+    if (!hasUnfinishedRun) return;
+    const interval = window.setInterval(() => {
+      void loadSessions();
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [currentSession, loadSessions]);
 
   const autoLoadedSummaryRunRef = useRef<string | null>(null);
 
@@ -434,29 +448,40 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   );
 
   const handleDeleteMessage = useCallback(
-    async (comment: ReviewCommentDto, message: ReviewMessageDto) => {
-      const latestMessage = comment.messages.at(-1);
-      if (latestMessage?.guid !== message.guid || message.author_type !== "user") {
-        toastManager.add({
-          title: "Can't delete this comment",
-          description: "Only the latest user comment can be deleted.",
-          type: "error",
-        });
-        return;
-      }
-
+    async (_comment: ReviewCommentDto, message: ReviewMessageDto) => {
       try {
         await reviewWsApi.deleteMessage(message.guid);
         await loadComments();
         await loadSessions();
         toastManager.add({
           title: "Comment deleted",
-          description: "The latest user comment was removed.",
+          description: "The comment message was removed.",
           type: "success",
         });
       } catch (error) {
         toastManager.add({
           title: "Failed to delete comment",
+          description:
+            error instanceof Error ? error.message : "Unknown review comment error",
+          type: "error",
+        });
+        throw error;
+      }
+    },
+    [loadSessions, loadComments],
+  );
+
+  const handleUpdateMessage = useCallback(
+    async (message: ReviewMessageDto, body: string) => {
+      const trimmedBody = body.trim();
+      if (!trimmedBody) return;
+      try {
+        await reviewWsApi.updateMessage(message.guid, trimmedBody);
+        await loadComments();
+        await loadSessions();
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to update comment",
           description:
             error instanceof Error ? error.message : "Unknown review comment error",
           type: "error",
@@ -481,6 +506,38 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       });
     },
     [currentRevision, currentSession],
+  );
+
+  const handleMarkFixRunFailed = useCallback(
+    async (run: ReviewFixRunModel, message = "Marked failed by user") => {
+      if (
+        typeof window !== "undefined" &&
+        !window.confirm("Mark this review fix run as failed?")
+      ) {
+        return;
+      }
+      try {
+        await reviewWsApi.setFixRunStatus({
+          runGuid: run.guid,
+          status: "failed",
+          message,
+        });
+        await loadSessions();
+        toastManager.add({
+          title: "Fix run marked failed",
+          description: "You can start another review fix run now.",
+          type: "success",
+        });
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to update fix run",
+          description:
+            error instanceof Error ? error.message : "Unknown review fix error",
+          type: "error",
+        });
+      }
+    },
+    [loadSessions],
   );
 
   const handleCopyFixPrompt = useCallback(
@@ -662,6 +719,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     openCurrentFileComments,
     openRevisionComments,
     fileRevisionEntries,
+    activeFixRun,
     canEdit,
     isLoading,
     isCreating,
@@ -689,11 +747,13 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     handleToggleReviewed,
     handleUpdateCommentStatus,
     handleReplyToComment,
+    handleUpdateMessage,
     handleDeleteMessage,
     createFixRun,
     handleCopyFixPrompt,
     handleSendFixRunToAgentChat,
     handleRunFixInTerminal,
+    handleMarkFixRunFailed,
     handleFinalizeRun,
     handlePreviewArtifact,
   };
