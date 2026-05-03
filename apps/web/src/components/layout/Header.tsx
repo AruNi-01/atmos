@@ -574,6 +574,35 @@ const Header: React.FC = () => {
     }
   }, [isDesktopFullscreen]);
 
+  const isTerminalHotkeyTarget = (target: EventTarget | null) => {
+    return target instanceof HTMLElement && Boolean(target.closest('.terminal-mosaic-container'));
+  };
+
+  React.useEffect(() => {
+    if (isTauriRuntime()) return;
+
+    const handleNavigationHotkey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (isTerminalHotkeyTarget(event.target)) return;
+
+      if (event.key === '[' || event.code === 'BracketLeft') {
+        event.preventDefault();
+        window.history.back();
+        return;
+      }
+
+      if (event.key === ']' || event.code === 'BracketRight') {
+        event.preventDefault();
+        window.history.forward();
+      }
+    };
+
+    window.addEventListener('keydown', handleNavigationHotkey, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleNavigationHotkey, { capture: true });
+    };
+  }, []);
+
   // Keyboard shortcuts using react-hotkeys-hook
   useHotkeys('mod+b', toggleLeftSidebar, {
     enableOnFormTags: false,
@@ -583,9 +612,8 @@ const Header: React.FC = () => {
 
   // In Tauri (desktop), navigation shortcuts are handled by native menu
   useHotkeys(['mod+[', 'mod+leftbracket'], (e) => {
-    if (isTauriRuntime()) return;
+    if (isTauriRuntime() || isTerminalHotkeyTarget(e.target)) return;
     e.preventDefault();
-    window.history.back();
   }, {
     enabled: !isTauriRuntime(),
     enableOnFormTags: false,
@@ -594,9 +622,8 @@ const Header: React.FC = () => {
   });
 
   useHotkeys(['mod+]', 'mod+rightbracket'], (e) => {
-    if (isTauriRuntime()) return;
+    if (isTauriRuntime() || isTerminalHotkeyTarget(e.target)) return;
     e.preventDefault();
-    window.history.forward();
   }, {
     enabled: !isTauriRuntime(),
     enableOnFormTags: false,
