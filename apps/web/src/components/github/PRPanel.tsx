@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useGithubPRList } from '@/hooks/use-github';
 import {
   GitPullRequest,
@@ -30,6 +30,7 @@ interface PRPanelProps {
   onPrClick?: (prNumber: number) => void;
   prSubTab?: 'open' | 'closed';
   refreshRef?: React.Ref<PRPanelHandle>;
+  onLoadingChange?: (loading: { open: boolean; closed: boolean }) => void;
 }
 
 export interface PRPanelHandle {
@@ -41,20 +42,8 @@ export interface PRPanelHandle {
 
 type PRState = 'OPEN' | 'CLOSED';
 
-export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PRPanel({ owner, repo, branch, onPrClick, prSubTab }, ref) {
-  const [loadedStates, setLoadedStates] = useState<Record<PRState, boolean>>({
-    OPEN: true,
-    CLOSED: false,
-  });
-
+export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PRPanel({ owner, repo, branch, onPrClick, prSubTab, onLoadingChange }, ref) {
   const stateFilter: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
-
-  useEffect(() => {
-    const target: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
-    if (!loadedStates[target]) {
-      setLoadedStates((prev) => ({ ...prev, [target]: true }));
-    }
-  }, [prSubTab, loadedStates]);
 
   const openPrList = useGithubPRList({
     owner,
@@ -62,7 +51,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
     branch,
     state: 'open',
     emitBranchStatusRefresh: true,
-    enabled: loadedStates.OPEN,
+    enabled: true,
   });
   const closedPrList = useGithubPRList({
     owner,
@@ -70,8 +59,12 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
     branch,
     state: 'closed',
     emitBranchStatusRefresh: true,
-    enabled: loadedStates.CLOSED,
+    enabled: prSubTab === 'closed',
   });
+
+  useEffect(() => {
+    onLoadingChange?.({ open: openPrList.loading, closed: closedPrList.loading });
+  }, [closedPrList.loading, onLoadingChange, openPrList.loading]);
 
   React.useImperativeHandle(ref, () => ({
     refreshOpen: () => void openPrList.refresh(),

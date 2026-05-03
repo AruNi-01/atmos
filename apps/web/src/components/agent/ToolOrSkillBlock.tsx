@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useSyncExternalStore } from "react";
 import { PatchDiff, MultiFileDiff } from "@pierre/diffs/react";
 import type { FileContents } from "@pierre/diffs";
 import { useTheme } from "next-themes";
@@ -37,7 +37,11 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
   } = props;
 
   const { resolvedTheme } = useTheme();
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
   const diffOptions = useMemo(() => ({
     theme: diffTheme,
@@ -46,10 +50,6 @@ export function ToolOrSkillBlock(props: ToolCallBlock) {
     disableLineNumbers: false,
     disableFileHeader: false,
   }), [diffTheme]);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   if (isTerminalCommand(tool)) {
     return <TerminalBlock {...props} />;
