@@ -398,6 +398,7 @@ export interface ReviewSessionDto {
 
 export interface ReviewFixRunCreatedDto {
   run: ReviewFixRunModel;
+  revision: ReviewRevisionDto;
   prompt: string;
 }
 

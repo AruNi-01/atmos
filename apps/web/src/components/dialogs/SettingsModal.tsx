@@ -79,6 +79,7 @@ import {
   type LlmProvidersFile,
   type SessionTitleFormatConfig,
 } from '@/api/ws-api';
+import { systemApi, type CliVersionCheckResponse } from '@/api/rest-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -878,6 +879,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
+  const [cliVersionStatus, setCliVersionStatus] = useState<CliVersionCheckResponse | null>(null);
+  const [isCheckingCliVersion, setIsCheckingCliVersion] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [activeSection, setActiveSection] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [llmConfig, setLlmConfig] = useState<LlmProvidersFile | null>(null);
@@ -1409,6 +1412,77 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     });
   };
 
+  const handleCheckCliVersion = async () => {
+    setIsCheckingCliVersion(true);
+    const toastId = toastManager.add({
+      title: 'Checking Atmos CLI…',
+      description: 'Querying the installed CLI and latest GitHub release.',
+      type: 'loading',
+      timeout: 0,
+    });
+
+    try {
+      const result = await systemApi.checkCliVersion();
+      setCliVersionStatus(result);
+
+      if (!result.installed) {
+        toastManager.update(toastId, {
+          title: 'Atmos CLI not installed',
+          description: 'The local Atmos CLI was not found in ~/.atmos/bin.',
+          type: 'error',
+          timeout: 6000,
+        });
+        return;
+      }
+
+      if (result.update_available) {
+        toastManager.update(toastId, {
+          title: `Atmos CLI ${result.latest_version} is available`,
+          description: (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Installed version: {result.current_version ?? 'unknown'}.
+              </p>
+              {result.release_url ? (
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={result.release_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="mr-1.5 size-3.5" />
+                    View Release
+                  </a>
+                </Button>
+              ) : null}
+            </div>
+          ),
+          type: 'info',
+          timeout: 0,
+        });
+        return;
+      }
+
+      toastManager.update(toastId, {
+        title: 'Atmos CLI is up to date',
+        description: result.current_version
+          ? `Installed version: ${result.current_version}.`
+          : 'No newer CLI release was found.',
+        type: 'success',
+        timeout: 4000,
+      });
+    } catch (error) {
+      toastManager.update(toastId, {
+        title: 'CLI version check failed',
+        description: error instanceof Error ? error.message : 'Unable to check Atmos CLI version.',
+        type: 'error',
+        timeout: 6000,
+      });
+    } finally {
+      setIsCheckingCliVersion(false);
+    }
+  };
+
   const isChecking = status.stage === 'checking';
   const isDownloading = status.stage === 'downloading';
   const isInstalling = status.stage === 'installing';
@@ -1673,6 +1747,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="flex items-center text-sm font-medium text-foreground">
                           {appVersion || 'Unavailable'}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
+                        <div>
+                          <p className="text-base font-medium text-foreground">Atmos CLI</p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            Check the locally installed CLI against the latest GitHub CLI release.
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-start justify-center gap-3">
+                          <Button
+                            variant="outline"
+                            onClick={handleCheckCliVersion}
+                            disabled={isCheckingCliVersion}
+                            className="cursor-pointer"
+                          >
+                            <LoaderCircle className={cn('mr-2 size-4', isCheckingCliVersion && 'animate-spin')} />
+                            Check CLI Version
+                          </Button>
+                          {cliVersionStatus ? (
+                            <div className="text-xs leading-5 text-muted-foreground">
+                              <div>
+                                Installed: <span className="font-medium text-foreground">{cliVersionStatus.current_version ?? 'Unavailable'}</span>
+                              </div>
+                              <div>
+                                Latest: <span className="font-medium text-foreground">{cliVersionStatus.latest_version ?? 'Unavailable'}</span>
+                              </div>
+                              {cliVersionStatus.update_available ? (
+                                <div className="text-emerald-600 dark:text-emerald-400">Update available</div>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
 
