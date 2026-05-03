@@ -423,9 +423,48 @@ function WorkspaceSettingsSection() {
   const [branchNamingExpanded, setBranchNamingExpanded] = React.useState(true);
   const [archiveExpanded, setArchiveExpanded] = React.useState(true);
 
+  // Local state for branch prefix input with debounced save
+  const [localPrefix, setLocalPrefix] = React.useState(branchPrefix);
+  const pendingSaveRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   React.useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // Sync local state when external branchPrefix changes
+  React.useEffect(() => {
+    setLocalPrefix(branchPrefix);
+  }, [branchPrefix]);
+
+  // Debounced save for branch prefix
+  const handlePrefixChange = React.useCallback((value: string) => {
+    // Sanitize: remove leading/trailing whitespace and slashes, prevent consecutive slashes
+    const sanitized = value
+      .trim()
+      .replace(/\/+/g, '/')
+      .replace(/^\/+/, '')
+      .replace(/\/$/, '');
+
+    setLocalPrefix(sanitized);
+
+    if (pendingSaveRef.current) {
+      clearTimeout(pendingSaveRef.current);
+    }
+    pendingSaveRef.current = setTimeout(() => {
+      setBranchPrefix(sanitized);
+    }, 500);
+  }, [setBranchPrefix]);
+
+  // Flush pending save on unmount
+  React.useEffect(() => {
+    return () => {
+      if (pendingSaveRef.current) {
+        clearTimeout(pendingSaveRef.current);
+        // Note: We don't fire the save here to avoid race conditions;
+        // the user sees the final value and can re-open settings if needed.
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -464,8 +503,8 @@ function WorkspaceSettingsSection() {
                 <div className="flex items-center justify-end">
                   <div className="flex items-center gap-0">
                     <Input
-                      value={branchPrefix}
-                      onChange={(e) => setBranchPrefix(e.target.value)}
+                      value={localPrefix}
+                      onChange={(e) => handlePrefixChange(e.target.value)}
                       placeholder="atmos"
                       className="h-8 w-[200px] rounded-r-none border-r-0 focus-visible:ring-0"
                     />

@@ -58,13 +58,13 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
 
 
-  const getWorktreePath = () => {
+  const getWorktreePath = React.useCallback(() => {
     if (path) return path;
     if (workspace) return workspace.localPath;
     return '';
-  };
+  }, [path, workspace]);
 
-  const handleOpenApp = async (appName: QuickOpenAppName) => {
+  const handleOpenApp = React.useCallback(async (appName: QuickOpenAppName) => {
     // Save to local storage
     localStorage.setItem(STORAGE_KEY, appName);
     setLastUsedApp(appName);
@@ -81,11 +81,11 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
         type: 'error'
       });
     }
-  };
+  }, [getWorktreePath]);
 
-  const handleMainClick = () => {
+  const handleMainClick = React.useCallback(() => {
     handleOpenApp(lastUsedApp);
-  };
+  }, [handleOpenApp, lastUsedApp]);
 
   const handleCopyPath = () => {
     const path = getWorktreePath();
@@ -94,7 +94,23 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
     }
   };
 
-  // Keyboard shortcut to open with last used app
+  // Keyboard shortcut to open with last used app. Use capture phase so the
+  // browser's Open File shortcut does not win before react-hotkeys-hook runs.
+  useEffect(() => {
+    const handleQuickOpenHotkey = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      if (event.key.toLowerCase() !== 'o' && event.code !== 'KeyO') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      handleMainClick();
+    };
+
+    window.addEventListener('keydown', handleQuickOpenHotkey, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleQuickOpenHotkey, { capture: true });
+    };
+  }, [handleMainClick]);
+
   useHotkeys('mod+o', handleMainClick, {
     enableOnFormTags: false,
     preventDefault: true,

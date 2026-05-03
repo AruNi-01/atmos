@@ -211,6 +211,23 @@ impl<'a> AgentChatSessionRepo<'a> {
             .unwrap_or(false))
     }
 
+    /// List active (non-closed, non-deleted) sessions for a given context.
+    /// Used to bulk-close ACP sessions when a workspace is archived/deleted.
+    pub async fn list_active_by_context(
+        &self,
+        context_type: &str,
+        context_guid: &str,
+    ) -> Result<Vec<agent_chat_session::Model>> {
+        let rows = agent_chat_session::Entity::find()
+            .filter(agent_chat_session::Column::IsDeleted.eq(false))
+            .filter(agent_chat_session::Column::ContextType.eq(context_type))
+            .filter(agent_chat_session::Column::ContextGuid.eq(context_guid))
+            .filter(agent_chat_session::Column::Status.eq("active"))
+            .all(self.db)
+            .await?;
+        Ok(rows)
+    }
+
     /// Soft delete a session by guid
     pub async fn soft_delete(&self, guid: &str) -> Result<()> {
         let now = chrono::Utc::now().naive_utc();

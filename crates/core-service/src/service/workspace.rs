@@ -439,8 +439,12 @@ impl WorkspaceService {
                 }
             };
 
-            if !branch_prefix.is_empty() {
-                let prefix_with_slash = format!("{}/", branch_prefix);
+            // Skip prefixing for PR-linked workspaces — use PR branch as-is
+            if github_pr_payload.is_some() {
+                final_branch
+            } else if !branch_prefix.is_empty() {
+                let prefix_normalized = branch_prefix.trim_end_matches('/');
+                let prefix_with_slash = format!("{}/", prefix_normalized);
                 if !final_branch.starts_with(&prefix_with_slash) {
                     format!("{}{}", prefix_with_slash, final_branch)
                 } else {

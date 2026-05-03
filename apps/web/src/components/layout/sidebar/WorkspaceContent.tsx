@@ -343,7 +343,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const handleForceOperation = () => {
     setShowGitWarningDialog(false);
     if (pendingOperation === 'archive') {
-      performArchive();
+      requestArchive();
     } else if (pendingOperation === 'delete') {
       requestDelete();
     }

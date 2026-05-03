@@ -259,7 +259,7 @@ V2 Comment A' (parent_comment_guid = A.guid)
   └─ 父链追溯:
      V1 Comment A (parent_comment_guid = NULL)
        └─ 自身消息: [用户原始评论]
-  
+
   最终 messages = V2自身 + V1父链, 按 created_at 排序
   = [用户评论, agent回复, 用户新评论]
 ```

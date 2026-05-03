@@ -73,7 +73,10 @@ use crate::service::review::{
     CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, SetReviewFileReviewedInput,
     SetReviewFixRunStatusInput, UpdateReviewCommentStatusInput, UpdateReviewMessageInput,
 };
-use crate::{AgentService, ProjectService, ReviewService, TerminalService, WorkspaceService};
+use crate::{
+    AgentService, AgentSessionService, ProjectService, ReviewService, TerminalService,
+    WorkspaceService,
+};
 
 /// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
@@ -85,6 +88,7 @@ pub struct WsMessageService {
     workspace_service: Arc<WorkspaceService>,
     terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
+    agent_session_service: Arc<AgentSessionService>,
     review_service: Arc<ReviewService>,
     usage_service: Arc<UsageService>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
@@ -424,6 +428,7 @@ impl WsMessageService {
         workspace_service: Arc<WorkspaceService>,
         terminal_service: Arc<TerminalService>,
         agent_service: Arc<AgentService>,
+        agent_session_service: Arc<AgentSessionService>,
         review_service: Arc<ReviewService>,
         usage_service: Arc<UsageService>,
     ) -> Self {
@@ -436,6 +441,7 @@ impl WsMessageService {
             workspace_service,
             terminal_service,
             agent_service,
+            agent_session_service,
             review_service,
             usage_service,
             ws_manager: OnceCell::new(),
@@ -2139,7 +2145,38 @@ impl WsMessageService {
     }
 
     async fn handle_workspace_archive(&self, req: WorkspaceArchiveRequest) -> Result<Value> {
-        self.workspace_service.archive_workspace(req.guid).await?;
+        let guid = req.guid;
+        let settings = WorkspaceArchiveSettings::load();
+
+        // Resolve tmux session up-front (workspace still exists in DB at this point).
+        let tmux_session = if settings.kill_tmux_on_archive {
+            self.workspace_service
+                .resolve_tmux_session_name(&guid, &self.terminal_service.tmux_engine())
+                .await
+                .ok()
+        } else {
+            None
+        };
+
+        // Archive in DB.
+        self.workspace_service
+            .archive_workspace(guid.clone())
+            .await?;
+
+        // Tear down the tmux session and any tracked terminal state.
+        if let Some(session_name) = tmux_session {
+            self.terminal_service
+                .cleanup_workspace_terminal_state(&guid, &session_name)
+                .await;
+        }
+
+        // Close active ACP sessions for this workspace.
+        if settings.close_acp_on_archive {
+            self.agent_session_service
+                .close_workspace_sessions(&guid)
+                .await;
+        }
+
         Ok(json!({ "success": true }))
     }
 

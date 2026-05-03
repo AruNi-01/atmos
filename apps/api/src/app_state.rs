@@ -12,6 +12,7 @@ pub struct AppServices {
     pub project_service: Arc<ProjectService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub agent_service: Arc<AgentService>,
+    pub agent_session_service: Arc<AgentSessionService>,
     pub ws_message_service: Arc<WsMessageService>,
     pub message_push_service: Arc<MessagePushService>,
     pub terminal_service: Arc<TerminalService>,
@@ -58,14 +59,8 @@ impl AppState {
     pub fn new(
         services: AppServices,
         ws_service_config: WsServiceConfig,
-        db: Arc<infra::DatabaseConnection>,
         default_port: u16,
     ) -> Self {
-        let agent_session_service = Arc::new(AgentSessionService::new(
-            Arc::clone(&services.agent_service),
-            db,
-        ));
-
         let ws_service = WsService::with_config(ws_service_config)
             .with_message_handler(services.ws_message_service);
 
@@ -74,7 +69,7 @@ impl AppState {
             project_service: services.project_service,
             workspace_service: services.workspace_service,
             agent_service: services.agent_service,
-            agent_session_service,
+            agent_session_service: services.agent_session_service,
             message_push_service: services.message_push_service,
             terminal_service: services.terminal_service,
             token_usage_service: services.token_usage_service,

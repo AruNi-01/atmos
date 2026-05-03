@@ -680,6 +680,63 @@ impl AgentSessionService {
         }
     }
 
+    /// Close all active ACP sessions belonging to a workspace.
+    ///
+    /// For every active session in DB with `context_type = "workspace"` and the
+    /// given `context_guid`, this:
+    ///   * removes any in-memory `AcpSessionHandle` (dropping it triggers
+    ///     `kill_on_drop` on the agent child process),
+    ///   * drops any pending lazy-session spec,
+    ///   * marks the session as closed in DB.
+    ///
+    /// Sessions whose handle is currently held by an attached WebSocket bridge
+    /// cannot be force-killed from here; they will be marked closed in DB and
+    /// the running process will be cleaned up when the WS disconnects.
+    pub async fn close_workspace_sessions(&self, workspace_guid: &str) -> usize {
+        let repo = AgentChatSessionRepo::new(&self.db);
+        let active = match repo
+            .list_active_by_context("workspace", workspace_guid)
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                warn!(
+                    "Failed to list active agent sessions for workspace {}: {}",
+                    workspace_guid, e
+                );
+                return 0;
+            }
+        };
+
+        if active.is_empty() {
+            return 0;
+        }
+
+        let mut sessions = self.sessions.write().await;
+        let mut pending = self.pending_sessions.write().await;
+        for m in &active {
+            sessions.remove(&m.guid);
+            pending.remove(&m.guid);
+        }
+        drop(sessions);
+        drop(pending);
+
+        let mut closed = 0usize;
+        for m in &active {
+            if let Err(e) = repo.mark_closed(&m.guid).await {
+                warn!("Failed to mark agent session {} closed: {}", m.guid, e);
+            } else {
+                closed += 1;
+            }
+        }
+
+        info!(
+            "Closed {} ACP session(s) for archived workspace {}",
+            closed, workspace_guid
+        );
+        closed
+    }
+
     /// Respond to a permission request
     pub async fn respond_permission(
         &self,

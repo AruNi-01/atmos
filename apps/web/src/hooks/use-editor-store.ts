@@ -46,14 +46,14 @@ interface EditorStore {
   navigationTargets: Record<string, Record<string, FileNavigationTarget>>;
   fileTreeRevealTarget: FileTreeRevealTarget | null;
   currentWorkspaceId: string | null;
-  
+
   // 当前项目路径 (这个可能是全局的或者也是按 workspace 的，根据之前代码暂定全局，但改为按 workspace 更合理)
   currentProjectPath: string | null;
-  
+
   // Hydration tracking
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
-  
+
   // 动作
   setWorkspaceId: (workspaceId: string | null) => void;
   openFile: (
@@ -74,7 +74,7 @@ interface EditorStore {
   clearFileTreeRevealTarget: (requestId?: number) => void;
   replaceOpenFilePath: (from: string, to: string, workspaceId?: string) => void;
   closeFilesByPrefix: (prefix: string, workspaceId?: string) => void;
-  
+
   // 辅助方法
   getOpenFiles: (workspaceId?: string) => OpenFile[];
   getActiveFilePath: (workspaceId?: string) => string | null;
@@ -127,9 +127,9 @@ function getLanguageFromPath(path: string): string {
 function isBinaryFile(path: string): boolean {
     const ext = getEditorSourcePath(path).split('.').pop()?.toLowerCase();
     const binaryExts = [
-        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff', 
-        'pdf', 
-        'mp4', 'webm', 'ogg', 'mp3', 'wav', 
+        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff',
+        'pdf',
+        'mp4', 'webm', 'ogg', 'mp3', 'wav',
         'zip', 'tar', 'gz', '7z', 'rar',
         // Office docs often need special handling, treat as binary for now
         'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
@@ -228,7 +228,7 @@ export const useEditorStore = create<EditorStore>()(
       currentWorkspaceId: null,
       currentProjectPath: null,
       _hasHydrated: false,
-      
+
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setWorkspaceId: (id) => set({ currentWorkspaceId: id }),
@@ -498,11 +498,11 @@ export const useEditorStore = create<EditorStore>()(
                      [id]: {
                        ...ws,
                        // Use special protocol to indicate streaming/external load
-                       openFiles: ws.openFiles.map(f => f.path === path ? { 
-                           ...f, 
-                           content: `stream://${getEditorSourcePath(path)}`, 
-                           originalContent: `stream://${getEditorSourcePath(path)}`, 
-                           isLoading: false 
+                       openFiles: ws.openFiles.map(f => f.path === path ? {
+                           ...f,
+                           content: `stream://${getEditorSourcePath(path)}`,
+                           originalContent: `stream://${getEditorSourcePath(path)}`,
+                           isLoading: false
                        } : f)
                      }
                    }
@@ -631,7 +631,7 @@ export const useEditorStore = create<EditorStore>()(
               ...state.workspaceStates,
               [id]: {
                 ...ws,
-                openFiles: ws.openFiles.map(f => 
+                openFiles: ws.openFiles.map(f =>
                   f.path === path
                     ? touchOpenFile(f, timestamp, {
                         isPreview: false,

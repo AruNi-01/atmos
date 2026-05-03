@@ -1095,7 +1095,13 @@ impl TmuxEngine {
         }
     }
 
-    /// Parse workspace ID from session name (reverses `session_name` only)
+    /// Parse a workspace ID out of a session name.
+    ///
+    /// This is the inverse of [`Self::session_name`] (which replaces `-` with
+    /// `_`). It is **not** the inverse of [`Self::session_name_from_names`] —
+    /// that function is lossy because workspace/project names may contain
+    /// underscores. Callers that need the canonical workspace lookup should go
+    /// through `WorkspaceService::resolve_tmux_session_name`.
     pub fn parse_workspace_id(&self, session_name: &str) -> Option<String> {
         Some(session_name.replace('_', "-"))
     }
@@ -1113,7 +1119,8 @@ impl TmuxEngine {
             .map(|w| w.index))
     }
 
-    /// List all Atmos-managed sessions (marked with @atmos_managed user option)
+    /// List all Atmos-managed sessions
+    /// Note: All sessions on the isolated tmux socket are Atmos-managed
     pub fn list_atmos_sessions(&self) -> Result<Vec<TmuxSessionInfo>> {
         let all_sessions = self.list_sessions()?;
         let mut result = vec![];
@@ -1189,6 +1196,11 @@ mod tests {
 
     #[test]
     fn test_session_name_generation() {
+        // Sessions live on the isolated `~/.atmos/tmux.sock` socket, so the
+        // session name itself no longer carries an `atmos_` prefix. When a
+        // project happens to be literally named "atmos" the resulting session
+        // name still starts with "atmos_" — that's the project name, not a
+        // legacy prefix.
         let engine = TmuxEngine::new();
         assert_eq!(engine.session_name("abc-def-123"), "abc_def_123");
 
@@ -1202,6 +1214,9 @@ mod tests {
             "kepano-obsidian_exeggutor"
         );
 
+        // Project name `atmos` + workspace `atmos/logysk` collapses to a
+        // single `atmos_logysk` (the workspace already starts with the
+        // project), not an `atmos_` prefix on top of `atmos_logysk`.
         assert_eq!(
             engine.session_name_from_names("atmos", "atmos/logysk"),
             "atmos_logysk"

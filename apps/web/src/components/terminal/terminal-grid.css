@@ -23,6 +23,24 @@
   isolation: isolate;
 }
 
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane .terminal-mosaic-content {
+  filter: saturate(0.6) brightness(0.55);
+  transition: filter 0.18s ease;
+}
+
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover .terminal-mosaic-content {
+  filter: saturate(0.75) brightness(0.7);
+}
+
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane .terminal-mosaic-toolbar-left {
+  opacity: 0.5;
+  transition: opacity 0.18s ease;
+}
+
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover .terminal-mosaic-toolbar-left {
+  opacity: 0.7;
+}
+
 .atmos-mosaic-theme .mosaic-preview {
   isolation: isolate;
 }

@@ -351,11 +351,13 @@ function usageMetrics(provider: UsageProviderResponse): UsageMetricRow[] {
 function providerIdentity(provider: UsageProviderResponse) {
   const rawAccount =
     firstRowValue(provider, "Account", "Account") ?? provider.auth_state.source ?? "Not detected";
-  const rawPlan =
+  const rawPlanValue =
     firstRowValue(provider, "Account", "Plan") ??
     provider.subscription_summary?.plan_label ??
-    provider.fetch_state.message ??
-    "No plan data";
+    provider.fetch_state.message;
+  // Filter out placeholder values that shouldn't be displayed
+  const isPlaceholder = (s: string) => s === "No plan data" || s === "Not detected";
+  const rawPlan = rawPlanValue && !isPlaceholder(rawPlanValue) ? rawPlanValue : null;
   const genericAccount = rawAccount.trim().toLowerCase() === provider.label.trim().toLowerCase();
   const accountLabel = genericAccount && rawPlan ? rawPlan : rawAccount;
   const periodLabel =
