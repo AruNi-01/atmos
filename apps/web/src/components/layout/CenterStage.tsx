@@ -102,6 +102,7 @@ import {
 } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
 import { ReviewContextProvider } from "@/components/diff/review/ReviewContextProvider";
+import { useReviewSnapshotStore } from "@/hooks/use-review-snapshot-store";
 import { usePrewarmCodeLanguages } from "@/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/hooks/use-app-router";
 
@@ -1120,6 +1121,7 @@ const CenterStage: React.FC = () => {
   }, [effectiveContextId, groupedTabItems, tabGroupOrderByContext]);
 
   const { currentRepoPath } = useGitStore();
+  const sessionDisplay = useReviewSnapshotStore((s) => s.sessionDisplay);
 
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
     const textClassName = cn(
@@ -1789,6 +1791,9 @@ const CenterStage: React.FC = () => {
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-md break-all">
                   {displayPath}
+                  {isReviewDiff && sessionDisplay && (sessionDisplay.sessionTitle || sessionDisplay.revisionLabel) && (
+                    <span className="text-background/70"> / {[sessionDisplay.sessionTitle, sessionDisplay.revisionLabel].filter(Boolean).join(" - ")}</span>
+                  )}
                 </TooltipContent>
               </Tooltip>
             );

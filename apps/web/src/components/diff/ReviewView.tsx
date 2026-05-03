@@ -54,6 +54,7 @@ const ReviewView: React.FC = () => {
   } = useReviewCtx();
 
   const setSnapshot = useReviewSnapshotStore((s) => s.setSnapshot);
+  const setSessionDisplay = useReviewSnapshotStore((s) => s.setSessionDisplay);
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
 
@@ -65,6 +66,13 @@ const ReviewView: React.FC = () => {
     const idx = sorted.findIndex((r) => r.guid === currentRevision.guid);
     return idx >= 0 ? `v${idx + 1}` : "";
   }, [currentRevision, currentSession]);
+
+  useEffect(() => {
+    setSessionDisplay({
+      sessionTitle: currentSession?.title?.trim() || null,
+      revisionLabel: revisionLabel || null,
+    });
+  }, [currentSession, revisionLabel, setSessionDisplay]);
 
   const commentsByFile = useMemo(() => {
     const ordered = sortComments(comments, null);
