@@ -546,6 +546,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       try {
         const result = await createFixRun("copy_prompt", selectedCommentGuids);
         if (!result) return;
+        setSelectedRevisionGuid(result.revision.guid);
         await navigator.clipboard.writeText(result.prompt);
         toastManager.add({
           title: "Fix prompt copied",
@@ -564,7 +565,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
         setIsCreatingFixRun(false);
       }
     },
-    [createFixRun, loadSessions],
+    [createFixRun, loadSessions, setSelectedRevisionGuid],
   );
 
   const handleSendFixRunToAgentChat = useCallback(
@@ -574,6 +575,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       try {
         const result = await createFixRun("agent_chat", selectedCommentGuids);
         if (!result) return;
+        setSelectedRevisionGuid(result.revision.guid);
         enqueueAgentChatPrompt({
           prompt: result.prompt,
           workspaceId,
@@ -607,6 +609,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       enqueueAgentChatPrompt,
       filePath,
       loadSessions,
+      setSelectedRevisionGuid,
       setAgentChatOpen,
       setPendingAgentChatMode,
       workspaceId,
@@ -619,6 +622,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       try {
         const result = await createFixRun("terminal_cli", selectedCommentGuids);
         if (!result) return;
+        setSelectedRevisionGuid(result.revision.guid);
         const agentId = agentIdOverride ?? terminalAgentId;
         const command = buildCommand(agentId, result.prompt);
         const label = `Review Fix ${filePath.split("/").pop() || "Run"}`;
@@ -649,7 +653,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
         setIsCreatingFixRun(false);
       }
     },
-    [createFixRun, filePath, loadSessions, terminalAgentId, terminalRunner],
+    [createFixRun, filePath, loadSessions, setSelectedRevisionGuid, terminalAgentId, terminalRunner],
   );
 
   const handleFinalizeRun = useCallback(
@@ -667,7 +671,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
         setSelectedRevisionGuid(result.revision.guid);
         toastManager.add({
           title: "Fix run finalized",
-          description: "A new review revision snapshot was created from the current workspace.",
+          description: "The review revision snapshot has been updated with the current workspace.",
           type: "success",
         });
       } catch (error) {
