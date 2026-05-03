@@ -95,6 +95,13 @@ pub struct LlmProviderEntry {
     /// entry (e.g. "qwen2.5-0.5b-instruct").
     #[serde(default)]
     pub local_model_id: Option<String>,
+    /// Maximum context window in tokens for this provider.  Used to cap the
+    /// size of the diff/files summary sent in the prompt so the request never
+    /// exceeds the model's limit.  When absent the service falls back to a
+    /// conservative default (16 384 tokens for cloud providers, 4 096 for
+    /// LocalManaged).
+    #[serde(default)]
+    pub context_window: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +135,8 @@ pub struct ResolvedLlmProvider {
     pub model: String,
     pub timeout: Duration,
     pub max_output_tokens: Option<u32>,
+    /// Effective context window in tokens (always populated after resolution).
+    pub context_window: u32,
 }
 
 #[derive(Debug, Clone)]

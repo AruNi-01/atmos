@@ -9,8 +9,11 @@ use crate::types::{LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvid
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
     include_str!("../../../prompt/git-commit/git-commit-generator.md");
-const SMALL_MODEL_GIT_COMMIT_PROMPT: &str =
-    include_str!("../../../prompt/git-commit/git-commit-generator-small-model.md");
+
+/// Conservative context-window default for LocalManaged (small) models.
+const LOCAL_MANAGED_DEFAULT_CONTEXT_WINDOW: u32 = 4_096;
+/// Conservative default for cloud / OpenAI-compatible providers.
+const CLOUD_DEFAULT_CONTEXT_WINDOW: u32 = 16_384;
 
 #[derive(Debug, Clone)]
 pub struct FileLlmConfigStore {
@@ -86,11 +89,6 @@ pub fn default_git_commit_prompt() -> &'static str {
     DEFAULT_GIT_COMMIT_PROMPT
 }
 
-/// System prompt variant optimised for small local models (≤ 3B parameters).
-pub fn small_model_git_commit_prompt() -> &'static str {
-    SMALL_MODEL_GIT_COMMIT_PROMPT
-}
-
 pub fn resolve_feature_config(
     config: &LlmProvidersFile,
     feature: LlmFeature,
@@ -145,6 +143,9 @@ pub fn resolve_provider_by_id(
                 .unwrap_or_else(|| entry.model.clone()),
             timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
             max_output_tokens: entry.max_output_tokens,
+            context_window: entry
+                .context_window
+                .unwrap_or(LOCAL_MANAGED_DEFAULT_CONTEXT_WINDOW),
         }));
     }
 
@@ -174,6 +175,9 @@ pub fn resolve_provider_by_id(
         model: model.to_string(),
         timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
         max_output_tokens: entry.max_output_tokens,
+        context_window: entry
+            .context_window
+            .unwrap_or(CLOUD_DEFAULT_CONTEXT_WINDOW),
     }))
 }
 
