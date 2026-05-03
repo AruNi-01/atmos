@@ -19,6 +19,7 @@ import {
   Loader2,
   Plus,
   Maximize2,
+  Terminal as TerminalIcon,
 } from "lucide-react";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, cn } from "@workspace/ui";
@@ -484,10 +485,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                 ) : toolbarAgent?.iconType === "custom" ? (
                   <Bot className="size-3.5 text-muted-foreground" />
                 ) : (
-                  <div className="size-2 rounded-full bg-emerald-500" />
+                  <TerminalIcon className="size-3.5 text-muted-foreground" />
                 )}
 
-                <span className="terminal-mosaic-title flex items-center gap-1.5 ml-1">
+                <span className="terminal-mosaic-title flex items-center gap-1.5 ml-0.5">
                   {displayTitle}
                 </span>
                 <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
