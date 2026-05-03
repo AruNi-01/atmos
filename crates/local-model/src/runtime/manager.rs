@@ -47,7 +47,7 @@ impl LocalRuntimeManager {
             })),
             state_tx,
             http: Client::builder()
-                .timeout(Duration::from_secs(30))
+                .connect_timeout(Duration::from_secs(30))
                 .build()
                 .expect("reqwest client"),
         }
@@ -234,7 +234,7 @@ impl LocalRuntimeManager {
 
         let log_path = logs_dir()?.join(format!("{model_id}.log"));
 
-        let child =
+        let mut child =
             match spawn_llama_server(&bin_path, &model_path, port, context_size, &log_path).await {
                 Ok(c) => c,
                 Err(e) => {
@@ -248,6 +248,8 @@ impl LocalRuntimeManager {
         if let Err(e) = wait_for_ready(port).await {
             let msg = e.to_string();
             self.set_state(LocalModelState::Failed { error: msg.clone() });
+            let _ = child.kill().await;
+            let _ = child.wait().await;
             return Err(e);
         }
 

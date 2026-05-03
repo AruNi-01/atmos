@@ -158,12 +158,14 @@ function ModelCard({
   const isRunning =
     state.status === "running" && state.model_id === model.id;
   const isDownloading =
-    state.status === "downloading_binary" ||
-    state.status === "downloading_model";
+    (state.status === "downloading_binary" ||
+      state.status === "downloading_model") &&
+    (!state.model_id || state.model_id === model.id);
   const isInstalled =
-    state.status === "installed_not_running" ||
-    state.status === "starting" ||
-    state.status === "running";
+    (state.status === "installed_not_running" ||
+      state.status === "starting" ||
+      state.status === "running") &&
+    (!state.model_id || state.model_id === model.id);
 
   const downloadProgress =
     state.status === "downloading_binary" ||
@@ -200,16 +202,25 @@ function ModelCard({
                 <HardDrive className="size-3" />
                 {formatBytes(model.size_bytes)}
               </span>
-              <a
-                href={model.license_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 hover:text-foreground hover:underline"
-              >
-                <Tag className="size-3" />
-                {model.license}
-                <ExternalLink className="size-2.5" />
-              </a>
+              {model.license_url &&
+              (model.license_url.startsWith('http://') ||
+                model.license_url.startsWith('https://')) ? (
+                <a
+                  href={model.license_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 hover:text-foreground hover:underline"
+                >
+                  <Tag className="size-3" />
+                  {model.license}
+                  <ExternalLink className="size-2.5" />
+                </a>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Tag className="size-3" />
+                  {model.license}
+                </span>
+              )}
               {model.tags.map((tag) => (
                 <span key={tag} className="rounded bg-muted px-1.5 py-0.5">
                   {tag}

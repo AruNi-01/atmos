@@ -141,10 +141,19 @@ pub fn resolve_provider_by_id(
             kind: entry.kind,
             base_url: "http://127.0.0.1:18080".to_string(),
             api_key: String::new(),
-            model: entry
-                .local_model_id
-                .clone()
-                .unwrap_or_else(|| entry.model.clone()),
+            model: {
+                let m = entry
+                    .local_model_id
+                    .clone()
+                    .unwrap_or_else(|| entry.model.clone());
+                if m.is_empty() {
+                    return Err(LlmError::InvalidConfig(format!(
+                        "LocalManaged provider {} has empty model ID",
+                        provider_id
+                    )));
+                }
+                m
+            },
             timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
             max_output_tokens: entry.max_output_tokens,
             context_window: entry

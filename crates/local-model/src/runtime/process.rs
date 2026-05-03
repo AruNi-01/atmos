@@ -48,17 +48,17 @@ pub async fn spawn_llama_server(
         .try_clone()
         .map_err(|e| LocalModelError::SpawnFailed(format!("cannot clone log file handle: {e}")))?;
 
-    let child = Command::new(bin_path)
-        .args([
-            "--model",
-            &model_path.to_string_lossy(),
-            "--port",
-            &port.to_string(),
-            "--ctx-size",
-            &context_size.to_string(),
-            "--host",
-            "127.0.0.1",
-        ])
+    let mut cmd = Command::new(bin_path);
+    cmd.arg("--model")
+        .arg(model_path.as_os_str())
+        .arg("--port")
+        .arg(port.to_string())
+        .arg("--ctx-size")
+        .arg(context_size.to_string())
+        .arg("--host")
+        .arg("127.0.0.1");
+
+    let child = cmd
         .stdout(Stdio::from(log_file))
         .stderr(Stdio::from(log_file_stderr))
         .kill_on_drop(true)

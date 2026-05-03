@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::path::Path;
 
 use crate::error::{LocalModelError, Result};
 
@@ -25,6 +26,14 @@ pub fn logs_dir() -> Result<PathBuf> {
 
 /// Full path for a model's GGUF file.
 pub fn model_path(model_id: &str) -> Result<PathBuf> {
+    // Validate model_id to prevent path traversal
+    let path = Path::new(model_id);
+    if path.file_name() != Some(std::ffi::OsStr::new(model_id)) {
+        return Err(LocalModelError::Runtime(format!(
+            "Invalid model_id '{}': potential path traversal",
+            model_id
+        )));
+    }
     Ok(models_dir()?.join(format!("{model_id}.gguf")))
 }
 

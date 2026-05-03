@@ -4909,7 +4909,7 @@ set -x
                             WsEvent::LocalModelStateChanged,
                             json!({ "state": state_json }),
                         );
-                        let _ = mgr.send_to(&conn_id_notify, &notification).await;
+                        let _ = mgr.broadcast(&notification).await;
                     }
                     if matches!(
                         state,
