@@ -1964,7 +1964,7 @@ export interface FunctionSettings {
   [key: string]: unknown;
 }
 
-export type LlmProviderKind = "openai-compatible" | "anthropic-compatible";
+export type LlmProviderKind = "openai-compatible" | "anthropic-compatible" | "local-managed";
 
 export interface LlmProviderEntry {
   enabled: boolean;
@@ -1975,6 +1975,8 @@ export interface LlmProviderEntry {
   model: string;
   timeout_ms?: number | null;
   max_output_tokens?: number | null;
+  /** Only set for kind === "local-managed" */
+  local_model_id?: string | null;
 }
 
 export interface SessionTitleFormatConfig {
@@ -2156,5 +2158,54 @@ export const agentApi = {
 
   getManifestPath: async (): Promise<{ path: string }> => {
     return wsRequest<{ path: string }>("custom_agent_get_manifest_path");
+  },
+};
+
+// ===== Local Model Types =====
+// Matches the backend `LocalModelState` serde shape:
+// #[serde(tag = "status", rename_all = "snake_case")]
+export type LocalModelStatus =
+  | { status: "not_installed" }
+  | { status: "downloading_binary"; progress: number; eta_seconds?: number | null }
+  | { status: "downloading_model"; progress: number; eta_seconds?: number | null }
+  | { status: "installed_not_running" }
+  | { status: "starting" }
+  | { status: "running"; endpoint: string; model_id: string }
+  | { status: "failed"; error: string };
+
+export interface LocalModelEntry {
+  id: string;
+  display_name: string;
+  description: string;
+  size_bytes: number;
+  license: string;
+  license_url: string;
+  tags: string[];
+  recommended: boolean;
+}
+
+export interface LocalModelListResponse {
+  models: LocalModelEntry[];
+  state: LocalModelStatus;
+}
+
+export const localModelApi = {
+  list: async (): Promise<LocalModelListResponse> => {
+    return wsRequest<LocalModelListResponse>("local_model_list");
+  },
+  download: async (modelId: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("local_model_download", { model_id: modelId }, 0);
+  },
+  start: async (modelId: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("local_model_start", { model_id: modelId }, 60_000);
+  },
+  stop: async (): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("local_model_stop");
+  },
+  delete: async (modelId: string): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("local_model_delete", { model_id: modelId });
+  },
+  status: async (): Promise<LocalModelStatus> => {
+    return wsRequest<LocalModelStatus>("local_model_status");
   },
 };

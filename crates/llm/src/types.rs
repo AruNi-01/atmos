@@ -9,6 +9,12 @@ pub enum ProviderKind {
     #[serde(rename = "openai-compatible", alias = "open-ai-compatible")]
     OpenAiCompatible,
     AnthropicCompatible,
+    /// A locally managed llama-server sidecar.  The `base_url` and `api_key`
+    /// fields in `LlmProviderEntry` are ignored; the runtime fills them in at
+    /// call time once the server is running.  `local_model_id` identifies which
+    /// model manifest entry to load.
+    #[serde(rename = "local-managed")]
+    LocalManaged,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +91,10 @@ pub struct LlmProviderEntry {
     pub timeout_ms: Option<u64>,
     #[serde(default)]
     pub max_output_tokens: Option<u32>,
+    /// Only used when `kind == LocalManaged`.  Identifies the model manifest
+    /// entry (e.g. "qwen2.5-0.5b-instruct").
+    #[serde(default)]
+    pub local_model_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

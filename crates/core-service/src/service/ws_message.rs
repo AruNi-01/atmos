@@ -62,6 +62,7 @@ use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
     LlmProviderEntry, LlmProvidersFile, ResponseFormat,
 };
+use local_model::{fetch_manifest, LocalRuntimeManager};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
@@ -92,6 +93,7 @@ pub struct WsMessageService {
     review_service: Arc<ReviewService>,
     usage_service: Arc<UsageService>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
+    local_model_manager: Arc<LocalRuntimeManager>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -445,6 +447,7 @@ impl WsMessageService {
             review_service,
             usage_service,
             ws_manager: OnceCell::new(),
+            local_model_manager: Arc::new(LocalRuntimeManager::new()),
         }
     }
 
@@ -965,6 +968,23 @@ impl WsMessageService {
             | WsAction::NotificationTestPush => Err(ServiceError::Processing(
                 "Notification settings are managed via REST API at /hooks/notification/*".into(),
             )),
+
+            // ===== Local Model =====
+            WsAction::LocalModelList => self.handle_local_model_list().await,
+            WsAction::LocalModelDownload => {
+                self.handle_local_model_download(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LocalModelStart => {
+                self.handle_local_model_start(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LocalModelStop => self.handle_local_model_stop(conn_id).await,
+            WsAction::LocalModelDelete => {
+                self.handle_local_model_delete(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LocalModelStatus => self.handle_local_model_status().await,
         }
     }
 
@@ -4833,6 +4853,183 @@ set -x
         }
 
         Ok(json!({ "text": text }))
+    }
+
+    // ===== Local Model Handlers =====
+
+    /// Return the manifest (list of available models) plus the current runtime state.
+    async fn handle_local_model_list(&self) -> Result<Value> {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let manifest = fetch_manifest(&http).await.map_err(|e| {
+            ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
+        })?;
+        let state = self.local_model_manager.state();
+        let state_json = serde_json::to_value(&state)
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let models_json = serde_json::to_value(&manifest.models)
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        Ok(json!({
+            "models": models_json,
+            "state": state_json,
+        }))
+    }
+
+    /// Trigger download of the binary + model GGUF.  State updates are pushed
+    /// as `LocalModelStateChanged` notifications.
+    async fn handle_local_model_download(
+        &self,
+        conn_id: &str,
+        req: infra::LocalModelDownloadRequest,
+    ) -> Result<Value> {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let manifest = fetch_manifest(&http).await.map_err(|e| {
+            ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
+        })?;
+
+        let manager = Arc::clone(&self.local_model_manager);
+        let ws_manager = self.ws_manager.get().cloned();
+        let conn_id = conn_id.to_string();
+        let model_id = req.model_id.clone();
+
+        // Subscribe to state changes and forward them as WS notifications.
+        let mut state_rx = manager.subscribe();
+        let ws_mgr_notify = ws_manager.clone();
+        let conn_id_notify = conn_id.clone();
+        tokio::spawn(async move {
+            while let Ok(state) = state_rx.recv().await {
+                if let Some(ref mgr) = ws_mgr_notify {
+                    if let Ok(state_json) = serde_json::to_value(&state) {
+                        let notification = infra::WsMessage::notification(
+                            WsEvent::LocalModelStateChanged,
+                            json!({ "state": state_json }),
+                        );
+                        let _ = mgr.send_to(&conn_id_notify, &notification).await;
+                    }
+                    if matches!(state,
+                        local_model::LocalModelState::InstalledNotRunning
+                        | local_model::LocalModelState::Failed { .. }
+                    ) {
+                        break;
+                    }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            if let Err(e) = manager.ensure_binary(&manifest).await {
+                tracing::error!("[LocalModel] binary download failed: {e}");
+                return;
+            }
+            if let Err(e) = manager.ensure_model(&manifest, &model_id).await {
+                tracing::error!("[LocalModel] model download failed: {e}");
+            }
+        });
+
+        Ok(json!({ "ok": true }))
+    }
+
+    /// Start the llama-server for a given model.
+    async fn handle_local_model_start(
+        &self,
+        conn_id: &str,
+        req: infra::LocalModelStartRequest,
+    ) -> Result<Value> {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let manifest = fetch_manifest(&http).await.map_err(|e| {
+            ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
+        })?;
+
+        let manager = Arc::clone(&self.local_model_manager);
+        let ws_manager = self.ws_manager.get().cloned();
+        let conn_id = conn_id.to_string();
+        let model_id = req.model_id.clone();
+
+        let mut state_rx = manager.subscribe();
+        let ws_mgr_notify = ws_manager.clone();
+        let conn_id_notify = conn_id.clone();
+        tokio::spawn(async move {
+            while let Ok(state) = state_rx.recv().await {
+                if let Some(ref mgr) = ws_mgr_notify {
+                    if let Ok(state_json) = serde_json::to_value(&state) {
+                        let notification = infra::WsMessage::notification(
+                            WsEvent::LocalModelStateChanged,
+                            json!({ "state": state_json }),
+                        );
+                        let _ = mgr.send_to(&conn_id_notify, &notification).await;
+                    }
+                    if matches!(state,
+                        local_model::LocalModelState::Running { .. }
+                        | local_model::LocalModelState::Failed { .. }
+                    ) {
+                        break;
+                    }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            if let Err(e) = manager.start(&manifest, &model_id).await {
+                tracing::error!("[LocalModel] start failed: {e}");
+            }
+        });
+
+        Ok(json!({ "ok": true }))
+    }
+
+    /// Stop the running llama-server.
+    async fn handle_local_model_stop(&self, conn_id: &str) -> Result<Value> {
+        let manager = Arc::clone(&self.local_model_manager);
+        let ws_manager = self.ws_manager.get().cloned();
+        let conn_id = conn_id.to_string();
+        manager.stop().await.map_err(|e| ServiceError::Processing(e.to_string()))?;
+        if let Some(ref mgr) = ws_manager {
+            let state_json = serde_json::to_value(&manager.state())
+                .unwrap_or(json!(null));
+            let notification = infra::WsMessage::notification(
+                WsEvent::LocalModelStateChanged,
+                json!({ "state": state_json }),
+            );
+            let _ = mgr.send_to(&conn_id, &notification).await;
+        }
+        Ok(json!({ "ok": true }))
+    }
+
+    /// Delete a downloaded model file.
+    async fn handle_local_model_delete(
+        &self,
+        conn_id: &str,
+        req: infra::LocalModelDeleteRequest,
+    ) -> Result<Value> {
+        let manager = Arc::clone(&self.local_model_manager);
+        manager
+            .delete_model(&req.model_id)
+            .await
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        if let Some(ref mgr) = self.ws_manager.get() {
+            let state_json = serde_json::to_value(&manager.state())
+                .unwrap_or(json!(null));
+            let notification = infra::WsMessage::notification(
+                WsEvent::LocalModelStateChanged,
+                json!({ "state": state_json }),
+            );
+            let _ = mgr.send_to(conn_id, &notification).await;
+        }
+        Ok(json!({ "ok": true }))
+    }
+
+    /// Return the current runtime state.
+    async fn handle_local_model_status(&self) -> Result<Value> {
+        let state = self.local_model_manager.state();
+        serde_json::to_value(&state).map_err(|e| ServiceError::Processing(e.to_string()))
     }
 }
 

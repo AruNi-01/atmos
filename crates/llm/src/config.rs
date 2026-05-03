@@ -4,11 +4,13 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
-use crate::types::{LlmFeature, LlmProvidersFile, ResolvedLlmProvider, SessionTitleFormatConfig};
+use crate::types::{LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvider, SessionTitleFormatConfig};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
     include_str!("../../../prompt/git-commit/git-commit-generator.md");
+const SMALL_MODEL_GIT_COMMIT_PROMPT: &str =
+    include_str!("../../../prompt/git-commit/git-commit-generator-small-model.md");
 
 #[derive(Debug, Clone)]
 pub struct FileLlmConfigStore {
@@ -84,6 +86,11 @@ pub fn default_git_commit_prompt() -> &'static str {
     DEFAULT_GIT_COMMIT_PROMPT
 }
 
+/// System prompt variant optimised for small local models (≤ 3B parameters).
+pub fn small_model_git_commit_prompt() -> &'static str {
+    SMALL_MODEL_GIT_COMMIT_PROMPT
+}
+
 pub fn resolve_feature_config(
     config: &LlmProvidersFile,
     feature: LlmFeature,
@@ -120,6 +127,25 @@ pub fn resolve_provider_by_id(
 
     if !entry.enabled {
         return Ok(None);
+    }
+
+    // For LocalManaged providers the base_url and api_key are filled in at
+    // runtime by the LocalRuntimeManager; we skip the usual validation and
+    // return a placeholder that callers must resolve before use.
+    if entry.kind == ProviderKind::LocalManaged {
+        return Ok(Some(ResolvedLlmProvider {
+            id: provider_id.to_string(),
+            kind: entry.kind,
+            // Placeholder — the actual endpoint is injected by the runtime.
+            base_url: "http://127.0.0.1:18080".to_string(),
+            api_key: String::new(),
+            model: entry
+                .local_model_id
+                .clone()
+                .unwrap_or_else(|| entry.model.clone()),
+            timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
+            max_output_tokens: entry.max_output_tokens,
+        }));
     }
 
     let base_url = entry.base_url.trim();

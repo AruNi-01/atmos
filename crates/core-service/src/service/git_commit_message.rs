@@ -1,7 +1,8 @@
 use core_engine::{ChangedFileInfo, ChangedFilesInfo};
 use llm::{
-    default_git_commit_prompt, generate_text, generate_text_stream, render_prompt_template,
-    FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
+    default_git_commit_prompt, small_model_git_commit_prompt, generate_text, generate_text_stream,
+    render_prompt_template, FileLlmConfigStore, GenerateTextRequest, LlmFeature, ProviderKind,
+    ResponseFormat,
 };
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -16,6 +17,11 @@ const MAX_FILES_SUMMARY_CHARS: usize = 4_000;
 const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4096;
 const GIT_COMMIT_USER_PROMPT_TEMPLATE: &str =
     include_str!("../../../../prompt/git-commit/git-commit-user.md");
+const GIT_COMMIT_USER_PROMPT_SMALL_MODEL_TEMPLATE: &str =
+    include_str!("../../../../prompt/git-commit/git-commit-user-small-model.md");
+/// Max chars of the files-summary sent to a small model to stay within its context window.
+const SMALL_MODEL_MAX_FILES_SUMMARY_CHARS: usize = 1_200;
+const SMALL_MODEL_MAX_FILES_IN_PROMPT: usize = 16;
 
 pub struct GitCommitMessageGenerator {
     store: FileLlmConfigStore,
@@ -55,9 +61,10 @@ impl GitCommitMessageGenerator {
                     "Failed to load git commit output language: {error}"
                 ))
             })?;
-        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref());
+        let is_small_model = matches!(provider.kind, ProviderKind::LocalManaged);
+        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref(), is_small_model);
         let prompt_chars = prompt.chars().count();
-        let system_prompt = build_system_prompt(output_language.as_deref());
+        let system_prompt = build_system_prompt(output_language.as_deref(), is_small_model);
         let request = GenerateTextRequest {
             system: Some(system_prompt),
             prompt,
@@ -73,7 +80,7 @@ impl GitCommitMessageGenerator {
                 repo_name = %sanitize_prompt_text(repo_name.unwrap_or("unknown")),
                 prompt_chars,
                 changed_files = changes.staged_files.len() + changes.unstaged_files.len() + changes.untracked_files.len(),
-                prompt_preview = %prompt_preview(&build_generation_prompt(repo_name, changes, output_language.as_deref())),
+                prompt_preview = %prompt_preview(&build_generation_prompt(repo_name, changes, output_language.as_deref(), is_small_model)),
                 "git commit message generation failed"
             );
             ServiceError::Validation(format!("Failed to generate git commit message: {error}"))
@@ -119,8 +126,9 @@ impl GitCommitMessageGenerator {
                     "Failed to load git commit output language: {error}"
                 ))
             })?;
-        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref());
-        let system_prompt = build_system_prompt(output_language.as_deref());
+        let is_small_model = matches!(provider.kind, ProviderKind::LocalManaged);
+        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref(), is_small_model);
+        let system_prompt = build_system_prompt(output_language.as_deref(), is_small_model);
         let request = GenerateTextRequest {
             system: Some(system_prompt),
             prompt,
@@ -141,9 +149,14 @@ impl GitCommitMessageGenerator {
     }
 }
 
-fn build_system_prompt(output_language: Option<&str>) -> String {
+fn build_system_prompt(output_language: Option<&str>, is_small_model: bool) -> String {
+    let template = if is_small_model {
+        small_model_git_commit_prompt()
+    } else {
+        default_git_commit_prompt()
+    };
     render_prompt_template(
-        default_git_commit_prompt(),
+        template,
         &[(
             "outputLanguageInstruction",
             &build_git_commit_language_instruction(output_language),
@@ -183,15 +196,25 @@ fn build_generation_prompt(
     repo_name: Option<&str>,
     changes: &ChangedFilesInfo,
     output_language: Option<&str>,
+    is_small_model: bool,
 ) -> String {
     let repo_name = sanitize_prompt_text(repo_name.unwrap_or("unknown"));
-    let (scope_label, files_summary) = generation_scope_and_summary(changes);
+    let (scope_label, files_summary) = if is_small_model {
+        generation_scope_and_summary_small_model(changes)
+    } else {
+        generation_scope_and_summary(changes)
+    };
     let total_additions = changes.total_additions.to_string();
     let total_deletions = changes.total_deletions.to_string();
     let output_language_directive = build_git_commit_user_language_directive(output_language);
+    let template = if is_small_model {
+        GIT_COMMIT_USER_PROMPT_SMALL_MODEL_TEMPLATE
+    } else {
+        GIT_COMMIT_USER_PROMPT_TEMPLATE
+    };
 
     render_prompt_template(
-        GIT_COMMIT_USER_PROMPT_TEMPLATE,
+        template,
         &[
             ("outputLanguageDirective", &output_language_directive),
             ("repoName", &repo_name),
@@ -201,6 +224,27 @@ fn build_generation_prompt(
             ("filesSummary", &files_summary),
         ],
     )
+}
+
+fn generation_scope_and_summary_small_model(changes: &ChangedFilesInfo) -> (&'static str, String) {
+    if !changes.staged_files.is_empty() {
+        (
+            "staged changes",
+            summarize_files_limited(
+                changes.staged_files.iter(),
+                SMALL_MODEL_MAX_FILES_IN_PROMPT,
+                SMALL_MODEL_MAX_FILES_SUMMARY_CHARS,
+            ),
+        )
+    } else {
+        let mut files = Vec::new();
+        files.extend(changes.unstaged_files.iter());
+        files.extend(changes.untracked_files.iter());
+        (
+            "working tree changes",
+            summarize_files_limited(files, SMALL_MODEL_MAX_FILES_IN_PROMPT, SMALL_MODEL_MAX_FILES_SUMMARY_CHARS),
+        )
+    }
 }
 
 fn generation_scope_and_summary(changes: &ChangedFilesInfo) -> (&'static str, String) {
@@ -246,6 +290,40 @@ fn summarize_files<'a>(files: impl IntoIterator<Item = &'a ChangedFileInfo>) -> 
     }
 
     truncate_text(&lines.join("\n"), MAX_FILES_SUMMARY_CHARS)
+}
+
+fn summarize_files_limited<'a>(
+    files: impl IntoIterator<Item = &'a ChangedFileInfo>,
+    max_files: usize,
+    max_chars: usize,
+) -> String {
+    let collected = files.into_iter().collect::<Vec<_>>();
+    let total_files = collected.len();
+    let omitted_files = total_files.saturating_sub(max_files);
+
+    let mut lines = collected
+        .into_iter()
+        .take(max_files)
+        .map(|file| {
+            format!(
+                "- [{}] {} (+{} -{})",
+                file.status,
+                truncate_text(&sanitize_prompt_text(&file.path), MAX_FILE_PATH_CHARS),
+                file.additions,
+                file.deletions
+            )
+        })
+        .collect::<Vec<_>>();
+
+    if lines.is_empty() {
+        return "- No changed files detected".to_string();
+    }
+
+    if omitted_files > 0 {
+        lines.push(format!("- ... and {omitted_files} more files"));
+    }
+
+    truncate_text(&lines.join("\n"), max_chars)
 }
 
 fn truncate_text(value: &str, max_chars: usize) -> String {

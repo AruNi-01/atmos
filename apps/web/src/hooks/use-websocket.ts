@@ -176,7 +176,14 @@ export type WsAction =
   | "github_ci_open_browser"
   | "github_actions_list"
   | "github_actions_rerun"
-  | "github_actions_detail";
+  | "github_actions_detail"
+  // Local Model 操作
+  | "local_model_list"
+  | "local_model_download"
+  | "local_model_start"
+  | "local_model_stop"
+  | "local_model_delete"
+  | "local_model_status";
 
 export interface WsRequest {
   type: "request";

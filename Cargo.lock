@@ -1217,6 +1217,7 @@ dependencies = [
  "infra",
  "libc",
  "llm",
+ "local-model",
  "parking_lot",
  "portable-pty",
  "rand 0.8.5",
@@ -3259,6 +3260,25 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.17",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "local-model"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "dirs 5.0.1",
+ "futures-util",
+ "hex",
+ "parking_lot",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-util",
  "tracing",
 ]
 

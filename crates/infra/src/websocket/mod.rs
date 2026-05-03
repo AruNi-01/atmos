@@ -61,6 +61,7 @@ pub use message::{
     WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
     WorkspaceUpdateOrderRequest, WorkspaceUpdatePinOrderRequest, WorkspaceUpdatePriorityRequest,
     WorkspaceUpdateWorkflowStatusRequest, WsAction, WsErrorPayload, WsEvent, WsMessage, WsRequest,
-    WsResponse,
+    WsResponse, LocalModelDownloadRequest, LocalModelStartRequest, LocalModelDeleteRequest,
+    LocalModelStateNotification,
 };
 pub use service::{WsService, WsServiceConfig};
