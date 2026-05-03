@@ -694,7 +694,10 @@ impl AgentSessionService {
     /// the running process will be cleaned up when the WS disconnects.
     pub async fn close_workspace_sessions(&self, workspace_guid: &str) -> usize {
         let repo = AgentChatSessionRepo::new(&self.db);
-        let active = match repo.list_active_by_context("workspace", workspace_guid).await {
+        let active = match repo
+            .list_active_by_context("workspace", workspace_guid)
+            .await
+        {
             Ok(rows) => rows,
             Err(e) => {
                 warn!(
