@@ -1077,9 +1077,11 @@ const CenterStage: React.FC = () => {
   const handleCreateTerminalCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return;
     const nextTab = createTerminalTab(effectiveContextId);
+    setActiveTerminalTab(effectiveContextId, nextTab.id);
     setUrlParams({ tab: nextTab.id, wikiPage: null });
+    setActiveFile(null, effectiveContextId);
     setAgentDropdownTabId(null);
-  }, [effectiveContextId, createTerminalTab, setUrlParams]);
+  }, [effectiveContextId, createTerminalTab, setActiveFile, setActiveTerminalTab, setUrlParams]);
 
   const handleCloseTerminalCenterTab = React.useCallback((tabId: string) => {
     if (!effectiveContextId || tabId === FIXED_TERMINAL_TAB_VALUE) return;
@@ -1585,14 +1587,15 @@ const CenterStage: React.FC = () => {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="start"
-                    className="w-56"
+                    className="w-64"
                     onMouseEnter={handleAgentDropdownEnter}
                     onMouseLeave={handleAgentDropdownLeave}
                     onCloseAutoFocus={(e) => e.preventDefault()}
                   >
-                    <DropdownMenuItem onClick={handleCreateTerminalCenterTab}>
+                    <DropdownMenuItem onClick={handleCreateTerminalCenterTab} className="flex items-center">
                       <TerminalIcon className="size-4" />
-                      <span>Terminal Tab</span>
+                      <span className="flex-1">New Terminal Tab</span>
+                      <ShortcutHint digit="T" />
                     </DropdownMenuItem>
                     {(visibleBuiltInAgents.length > 0 || visibleCustomAgents.length > 0) && (
                       <DropdownMenuSeparator />
@@ -1713,14 +1716,15 @@ const CenterStage: React.FC = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="start"
-                          className="w-56"
+                          className="w-64"
                           onMouseEnter={() => handleAgentDropdownOpen(tab.id)}
                           onMouseLeave={handleAgentDropdownLeave}
                           onCloseAutoFocus={(e) => e.preventDefault()}
                         >
-                          <DropdownMenuItem onClick={handleCreateTerminalCenterTab}>
+                          <DropdownMenuItem onClick={handleCreateTerminalCenterTab} className="flex items-center">
                             <TerminalIcon className="size-4" />
-                            <span>Terminal Tab</span>
+                            <span className="flex-1">New Terminal Tab</span>
+                            <ShortcutHint digit="T" />
                           </DropdownMenuItem>
                           {(visibleBuiltInAgents.length > 0 || visibleCustomAgents.length > 0) && (
                             <DropdownMenuSeparator />
@@ -2035,6 +2039,7 @@ const CenterStage: React.FC = () => {
                 quickOpenAgents={terminalQuickOpenAgents}
                 className="h-full"
                 isProjectContext={currentView === "project"}
+                onNewTerminalTab={handleCreateTerminalCenterTab}
               />
             </div>
           </div>
@@ -2060,6 +2065,7 @@ const CenterStage: React.FC = () => {
                   quickOpenAgents={terminalQuickOpenAgents}
                   className="h-full"
                   isProjectContext={currentView === "project"}
+                  onNewTerminalTab={handleCreateTerminalCenterTab}
                 />
               </div>
             </div>
@@ -2079,6 +2085,7 @@ const CenterStage: React.FC = () => {
               scope="project-wiki"
               toolbarActions={{ split: false, maximize: false, close: false }}
               className="h-full"
+              onNewTerminalTab={handleCreateTerminalCenterTab}
             />
           </div>
         )}
@@ -2097,6 +2104,7 @@ const CenterStage: React.FC = () => {
               scope="code-review"
               toolbarActions={{ split: false, maximize: false, close: false }}
               className="h-full"
+              onNewTerminalTab={handleCreateTerminalCenterTab}
             />
           </div>
         )}

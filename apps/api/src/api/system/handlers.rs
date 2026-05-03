@@ -233,9 +233,15 @@ pub async fn list_tmux_windows(
                     windows
                         .into_iter()
                         .map(|w| {
+                            let current_command = state
+                                .terminal_service
+                                .tmux_engine()
+                                .get_pane_current_command(session_name, w.index)
+                                .ok();
                             json!({
                                 "index": w.index,
                                 "name": w.name,
+                                "current_command": current_command,
                             })
                         })
                         .collect::<Vec<_>>()

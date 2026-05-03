@@ -45,6 +45,7 @@ export interface TmuxSession {
 export interface TmuxWindow {
   index: number;
   name: string;
+  current_command?: string | null;
 }
 
 export interface TerminalLayoutResponse {
@@ -89,11 +90,11 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   const result: ApiResponse<T> = await response.json();
-  
+
   if (!result.success) {
     throw new Error(result.message || 'API request failed');
   }
-  
+
   return result.data;
 }
 

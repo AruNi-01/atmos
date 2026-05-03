@@ -5,6 +5,7 @@
 import "@/lib/suppress-react19-ref-warning";
 
 import React, { useCallback, useEffect } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   Mosaic,
   MosaicWindow,
@@ -19,12 +20,27 @@ import {
   Loader2,
   Plus,
   Maximize2,
+  AlertTriangle,
   Terminal as TerminalIcon,
 } from "lucide-react";
 
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, cn } from "@workspace/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  cn,
+} from "@workspace/ui";
 import { Terminal, TerminalRef } from "./Terminal";
-import type { TerminalPaneAgent } from "./types";
+import type { MosaicBranch, TerminalPaneAgent } from "./types";
+import { systemApi } from "@/api/rest-api";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
@@ -60,6 +76,8 @@ interface TerminalGridProps {
   toolbarActions?: TerminalToolbarActions;
   /** When true, workspaceId refers to a project ID (use project layout API). When false, it's a workspace ID. */
   isProjectContext?: boolean;
+  /** Create a new center-stage terminal tab. Triggered by scoped Cmd+T in terminal grids. */
+  onNewTerminalTab?: () => void;
 }
 
 export interface TerminalGridHandle {
@@ -85,6 +103,32 @@ function normalizeAgentCommand(value: string): string {
   const firstToken = value.trim().split(/\s+/)[0] ?? "";
   const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
   return withoutPath.toLowerCase();
+}
+
+const IDLE_SHELL_COMMANDS = new Set([
+  "bash",
+  "zsh",
+  "fish",
+  "sh",
+  "dash",
+  "ksh",
+  "mksh",
+  "tcsh",
+  "csh",
+  "nu",
+  "xonsh",
+]);
+
+function isIdleShellCommand(command: string | null | undefined): boolean {
+  const normalized = command?.trim().split("/").filter(Boolean).pop()?.toLowerCase();
+  return Boolean(normalized && IDLE_SHELL_COMMANDS.has(normalized));
+}
+
+function flattenMosaicLayout(layout: MosaicNode<string> | null): string[] {
+  if (!layout) return [];
+  if (typeof layout === "string") return [layout];
+  const branch = layout as MosaicBranch<string>;
+  return [...flattenMosaicLayout(branch.first), ...flattenMosaicLayout(branch.second)];
 }
 
 function isPathLikeTitle(value: string | undefined): boolean {
@@ -148,7 +192,7 @@ function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId: string
   );
 }
 
-export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false }, ref) => {
+export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridProps>(({ workspaceId, className, terminalTabId, quickOpenAgents = [], scope = "default", toolbarActions, isProjectContext = false, onNewTerminalTab }, ref) => {
   // Track terminal refs for each pane to call destroy on close
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
@@ -158,6 +202,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const readyPanesRef = React.useRef<Set<string>>(new Set());
   const [splitMenuKey, setSplitMenuKey] = React.useState<string | null>(null);
   const [isPaneDragging, setIsPaneDragging] = React.useState(false);
+  const [activePaneId, setActivePaneId] = React.useState<string | null>(null);
+  const [closeConfirmPaneId, setCloseConfirmPaneId] = React.useState<string | null>(null);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isProjectWiki = scope === "project-wiki";
@@ -274,6 +320,32 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }, [workspaceId, workspaceExists, initWorkspace, initProjectWikiWorkspace, initCodeReviewWorkspace, isProjectWiki, isCodeReview, isProjectContext, terminalTabId]);
 
   const hasPanes = Object.keys(panes).length > 0;
+  const paneOrder = React.useMemo(
+    () => flattenMosaicLayout(layout).filter((paneId) => Boolean(panes[paneId])),
+    [layout, panes],
+  );
+  const hasMultiplePanes = paneOrder.length > 1;
+  const effectiveActivePaneId = activePaneId && paneOrder.includes(activePaneId)
+    ? activePaneId
+    : paneOrder[0] ?? null;
+
+  const focusPane = useCallback((paneId: string | undefined | null) => {
+    if (!paneId || !panes[paneId]) return;
+    setActivePaneId(paneId);
+    window.setTimeout(() => {
+      terminalRefsMap.current.get(paneId)?.focus();
+    }, 0);
+  }, [panes]);
+
+  const getFocusedPaneId = useCallback(() => effectiveActivePaneId, [effectiveActivePaneId]);
+
+  const focusPaneByOffset = useCallback((offset: 1 | -1) => {
+    if (paneOrder.length === 0) return;
+    const currentId = getFocusedPaneId();
+    const currentIndex = Math.max(0, currentId ? paneOrder.indexOf(currentId) : 0);
+    const nextIndex = (currentIndex + offset + paneOrder.length) % paneOrder.length;
+    focusPane(paneOrder[nextIndex]);
+  }, [focusPane, getFocusedPaneId, paneOrder]);
 
   const getPaneId = useCallback((ctxWorkspaceId: string, tmuxWindowName: string) => {
     if (isCodeReview) {
@@ -414,15 +486,137 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     removeTerminalFromScope(id);
   }, [removeTerminalFromScope]);
 
+  const requestCloseTerminal = useCallback(async (id?: string | null) => {
+    if (!id) return;
+    const pane = panes[id];
+    if (!pane) return;
+
+    // If the tmux window is currently sitting at a shell prompt, close directly.
+    // If we cannot determine this confidently, fall back to confirmation.
+    if (pane.tmuxWindowName) {
+      try {
+        const response = await systemApi.listTmuxWindows(workspaceId);
+        const tmuxWindow = response.windows.find((window) =>
+          window.name === pane.tmuxWindowName ||
+          window.name === pane.label ||
+          String(window.index) === pane.tmuxWindowName
+        );
+        if (tmuxWindow && isIdleShellCommand(tmuxWindow.current_command)) {
+          removeTerminal(id);
+          return;
+        }
+      } catch (error) {
+        console.warn("Failed to inspect terminal foreground command before close", error);
+      }
+    }
+
+    if (!pane.tmuxWindowName) {
+      removeTerminal(id);
+      return;
+    }
+
+    setCloseConfirmPaneId(id);
+  }, [panes, removeTerminal, workspaceId]);
+
+  const confirmCloseTerminal = useCallback(() => {
+    if (!closeConfirmPaneId) return;
+    removeTerminal(closeConfirmPaneId);
+    setCloseConfirmPaneId(null);
+  }, [closeConfirmPaneId, removeTerminal]);
+
+  const cancelCloseTerminal = useCallback(() => {
+    setCloseConfirmPaneId(null);
+  }, []);
+
   const splitTerminal = useCallback((id: string, direction: "row" | "column", agent?: TerminalPaneAgent) => {
-    if (isCodeReview) {
-      return splitCodeReviewTerminal(workspaceId, id, direction, agent);
+    const newPaneId = isCodeReview
+      ? splitCodeReviewTerminal(workspaceId, id, direction, agent)
+      : isProjectWiki
+      ? splitProjectWikiTerminal(workspaceId, id, direction, agent)
+      : splitTerminalInStore(workspaceId, id, direction, terminalTabId, agent);
+    if (newPaneId) {
+      setActivePaneId(newPaneId);
+      window.setTimeout(() => {
+        terminalRefsMap.current.get(newPaneId)?.focus();
+      }, 0);
     }
-    if (isProjectWiki) {
-      return splitProjectWikiTerminal(workspaceId, id, direction, agent);
-    }
-    return splitTerminalInStore(workspaceId, id, direction, terminalTabId, agent);
+    return newPaneId;
   }, [workspaceId, isCodeReview, isProjectWiki, splitCodeReviewTerminal, splitProjectWikiTerminal, splitTerminalInStore, terminalTabId]);
+
+  const splitFocusedTerminal = useCallback((direction: "row" | "column") => {
+    const paneId = getFocusedPaneId();
+    if (!paneId) return;
+    splitTerminal(paneId, direction);
+  }, [getFocusedPaneId, splitTerminal]);
+
+  const terminalHotkeyScopeRef = useHotkeys<HTMLDivElement>(
+    ["mod+d", "mod+shift+d", "mod+w", "mod+t"],
+    (event, handler) => {
+      event.preventDefault();
+      switch (handler.hotkey) {
+        case "mod+d":
+          splitFocusedTerminal("row");
+          break;
+        case "mod+shift+d":
+          splitFocusedTerminal("column");
+          break;
+        case "mod+w":
+          requestCloseTerminal(getFocusedPaneId());
+          break;
+        case "mod+t":
+          onNewTerminalTab?.();
+          break;
+      }
+    },
+    {
+      enableOnFormTags: true,
+      preventDefault: true,
+      description: "Terminal pane shortcuts",
+    },
+    [getFocusedPaneId, onNewTerminalTab, requestCloseTerminal, splitFocusedTerminal],
+  );
+
+  useEffect(() => {
+    const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
+      const container = terminalHotkeyScopeRef.current;
+      if (!container || container.getClientRects().length === 0) return;
+      const target = event.target;
+      const isTerminalEventTarget = target instanceof Node && container.contains(target);
+      if (!isTerminalEventTarget || !(event.metaKey || event.ctrlKey) || event.altKey) return;
+
+      if (!event.shiftKey && (event.key.toLowerCase() === "t" || event.code === "KeyT")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        onNewTerminalTab?.();
+        return;
+      }
+
+      if (!event.shiftKey && (event.key.toLowerCase() === "w" || event.code === "KeyW")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        requestCloseTerminal(getFocusedPaneId());
+        return;
+      }
+
+      if (event.key === "[" || event.code === "BracketLeft") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        focusPaneByOffset(-1);
+        return;
+      }
+
+      if (event.key === "]" || event.code === "BracketRight") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        focusPaneByOffset(1);
+      }
+    };
+
+    window.addEventListener("keydown", handleTerminalNavigationHotkey, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleTerminalNavigationHotkey, { capture: true });
+    };
+  }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, requestCloseTerminal, terminalHotkeyScopeRef]);
 
   const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
     const newPaneId = splitTerminal(id, direction, agent);
@@ -473,7 +667,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       <MosaicWindow<string>
         path={path}
         title={displayTitle}
-        className={maximizedId === id ? "is-maximized" : ""}
+        className={cn(
+          maximizedId === id && "is-maximized",
+          hasMultiplePanes && (effectiveActivePaneId === id ? "is-active-pane" : "is-inactive-pane"),
+        )}
         onDragStart={() => setIsPaneDragging(true)}
         onDragEnd={() => setIsPaneDragging(false)}
         renderToolbar={() => {
@@ -510,7 +707,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onClick={() => splitTerminal(id, "row")}
                               onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
                               onMouseLeave={handleSplitMenuLeave}
-                              title="Split Horizontal"
+                              title="Split Horizontal (⌘D)"
                             >
                               <Columns size={12} />
                             </button>
@@ -546,7 +743,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onClick={() => splitTerminal(id, "column")}
                               onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
                               onMouseLeave={handleSplitMenuLeave}
-                              title="Split Vertical"
+                              title="Split Vertical (⌘⇧D)"
                             >
                               <Rows size={12} />
                             </button>
@@ -597,8 +794,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                     {actions.close && (
                       <button
                         className="terminal-mosaic-btn terminal-mosaic-btn-close ml-1"
-                        onClick={() => removeTerminal(id)}
-                        title="Close"
+                        onClick={() => requestCloseTerminal(id)}
+                        title="Close (⌘W)"
                       >
                         <X size={12} />
                       </button>
@@ -612,7 +809,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           );
         }}
       >
-        <div className="terminal-mosaic-content" data-pane-id={id}>
+        <div
+          className="terminal-mosaic-content"
+          data-pane-id={id}
+          onMouseDownCapture={() => setActivePaneId(id)}
+          onFocusCapture={() => setActivePaneId(id)}
+        >
           <Terminal
             ref={(termRef) => {
               if (termRef) {
@@ -661,7 +863,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     panes,
     splitTerminal,
     splitAndRunAgent,
-    removeTerminal,
+    requestCloseTerminal,
     workspaceInfo,
     maximizedId,
     workspaceId,
@@ -678,6 +880,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     quickOpenAgents,
     handleSplitMenuEnter,
     handleSplitMenuLeave,
+    hasMultiplePanes,
+    effectiveActivePaneId,
   ]);
 
   // Wait for workspace to be ready before rendering any Terminal components
@@ -722,8 +926,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     );
   }
 
+  const closeConfirmPane = closeConfirmPaneId ? panes[closeConfirmPaneId] : null;
+  const closeConfirmTitle = closeConfirmPane?.dynamicTitle ?? closeConfirmPane?.label ?? "Terminal";
+
   return (
     <div
+      ref={terminalHotkeyScopeRef}
+      tabIndex={-1}
       className={cn("terminal-mosaic-container", className)}
       data-maximized-id={maximizedId || undefined}
       data-pane-dragging={isPaneDragging ? "true" : undefined}
@@ -734,6 +943,46 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         onChange={onChange}
         className="atmos-mosaic-theme"
       />
+
+      <Dialog
+        open={!!closeConfirmPaneId}
+        onOpenChange={(open) => {
+          if (!open) cancelCloseTerminal();
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              confirmCloseTerminal();
+              return;
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              cancelCloseTerminal();
+            }
+          }}
+        >
+          <DialogHeader>
+            <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <AlertTriangle className="size-5" />
+            </div>
+            <DialogTitle>Close terminal?</DialogTitle>
+            <DialogDescription className="max-w-none text-left leading-relaxed">
+              Close <span className="font-medium text-foreground">{closeConfirmTitle}</span>? This will terminate the current terminal session.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelCloseTerminal} className="cursor-pointer">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmCloseTerminal} className="cursor-pointer" autoFocus>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });
