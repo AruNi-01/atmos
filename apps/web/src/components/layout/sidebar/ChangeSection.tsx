@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import type { GitChangedFile } from "@/api/ws-api";
+import { DiffFileTree } from "@/components/diff/DiffFileTree";
 
 function FileIcon({ name, className }: { name: string; className?: string }) {
   const iconProps = getFileIconProps({ name, isDir: false, className });
@@ -45,6 +46,7 @@ export interface ChangeSectionProps {
   onUnstageAll?: () => void;
   onDiscardAll?: () => void;
   workspaceId: string | null;
+  viewMode?: "list" | "tree";
 }
 
 export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSection({
@@ -59,6 +61,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   onUnstageAll,
   onDiscardAll,
   workspaceId,
+  viewMode = "list",
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
@@ -89,6 +92,13 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     } finally {
       setRunningActionKey((current) => (current === actionKey ? null : current));
       setConfirmingActionKey((current) => (current === actionKey ? null : current));
+    }
+  };
+
+  const openDiffFile = (path: string, preview: boolean) => {
+    void openFile(`diff://${path}`, workspaceId || undefined, { preview });
+    if (!preview) {
+      pinFile(`diff://${path}`, workspaceId || undefined);
     }
   };
 
@@ -250,8 +260,159 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
       </div>
 
       <CollapsibleContent>
-        <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
-          {files.map((file) => {
+        {viewMode === "tree" ? (
+          <div className="mt-0.5 overflow-hidden pb-2">
+            <DiffFileTree
+              items={files.map((file) => ({
+                path: file.path,
+                gitStatus: file.status,
+                additions: file.additions,
+                deletions: file.deletions,
+              }))}
+              selectedPath={
+                activeFilePath?.startsWith("diff://")
+                  ? activeFilePath.slice("diff://".length)
+                  : undefined
+              }
+              ariaLabel={`${title} tree`}
+              className="max-h-[360px]"
+              indentOffset={28}
+              isFileActionActive={(path) =>
+                confirmingActionKey?.includes(`:${path}:`) ||
+                runningActionKey?.includes(`:${path}:`) ||
+                false
+              }
+              isDirectoryActionActive={(items) =>
+                items.some(
+                  (item) =>
+                    confirmingActionKey?.includes(item.path) ||
+                    runningActionKey?.includes(item.path),
+                )
+              }
+              renderFileActions={(file) => {
+                const fileName = file.path.split("/").pop() || file.path;
+
+                return (
+                  <>
+                    {onStage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${file.path}:stage`, () =>
+                            onStage([file.path]),
+                          );
+                        }}
+                        title={stageLabel}
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    )}
+                    {kind === "staged" && onUnstage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${file.path}:unstage`, () =>
+                            onUnstage([file.path]),
+                          );
+                        }}
+                        title="Unstage Changes"
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Minus className="size-3.5" />
+                      </button>
+                    )}
+                    {isDestructiveSection
+                      ? renderConfirmableMinusAction({
+                          actionKey: `${kind}:${file.path}:discard`,
+                          onConfirm: () => onDiscard?.([file.path]),
+                          title:
+                            kind === "untracked"
+                              ? `Delete "${fileName}"?`
+                              : `Discard changes in "${fileName}"?`,
+                          description:
+                            kind === "untracked"
+                              ? "This removes the untracked file from disk."
+                              : "This restores the file to its last committed state.",
+                        })
+                      : null}
+                  </>
+                );
+              }}
+              renderDirectoryActions={(items) => {
+                const paths = items.map((item) => item.path);
+                const label = `${paths.length} files`;
+
+                return (
+                  <>
+                    {onStage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${paths.join("|")}:stage`, () =>
+                            onStage(paths),
+                          );
+                        }}
+                        title={`${stageLabel} in folder (${label})`}
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    )}
+                    {kind === "staged" && onUnstage && (
+                      <button
+                        type="button"
+                        onPointerDown={stopActionEvent}
+                        onMouseDown={stopActionEvent}
+                        onDoubleClick={stopActionEvent}
+                        onClick={(e) => {
+                          stopActionEvent(e);
+                          void runAction(`${kind}:${paths.join("|")}:unstage`, () =>
+                            onUnstage(paths),
+                          );
+                        }}
+                        title={`Unstage changes in folder (${label})`}
+                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Minus className="size-3.5" />
+                      </button>
+                    )}
+                    {isDestructiveSection
+                      ? renderConfirmableMinusAction({
+                          actionKey: `${kind}:${paths.join("|")}:discard`,
+                          onConfirm: () => onDiscard?.(paths),
+                          title:
+                            kind === "untracked"
+                              ? `Delete ${label}?`
+                              : `Discard changes in ${label}?`,
+                          description:
+                            kind === "untracked"
+                              ? "This removes every untracked file in this folder from disk."
+                              : "This restores every changed file in this folder to its last committed state.",
+                        })
+                      : null}
+                  </>
+                );
+              }}
+              onSelectFile={(path) => openDiffFile(path, true)}
+              onDoubleClickFile={(path) => openDiffFile(path, false)}
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
+            {files.map((file) => {
             const fileName = file.path.split("/").pop() || file.path;
             const parts = file.path.split("/");
             parts.pop();
@@ -263,14 +424,8 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
             return (
               <div
                 key={file.path}
-                onClick={() =>
-                  openFile(`diff://${file.path}`, workspaceId || undefined, {
-                    preview: true,
-                  })
-                }
-                onDoubleClick={() =>
-                  pinFile(`diff://${file.path}`, workspaceId || undefined)
-                }
+                onClick={() => openDiffFile(file.path, true)}
+                onDoubleClick={() => openDiffFile(file.path, false)}
                 className={cn(
                   "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
                   activeFilePath === `diff://${file.path}`
@@ -390,8 +545,9 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 </div>
               </div>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );

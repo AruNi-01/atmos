@@ -139,7 +139,12 @@ pub(crate) async fn fetch_mimo_live(client: &Client) -> Result<LiveFetchResult, 
             .unwrap_or(0.0);
         vec![DetailRow {
             label: "Token Usage".to_string(),
-            value: format!("{}% used · {} / {} tokens", pct, format_tokens(used), format_tokens(limit)),
+            value: format!(
+                "{}% used · {} / {} tokens",
+                pct,
+                format_tokens(used),
+                format_tokens(limit)
+            ),
             tone: RowTone::Default,
         }]
     } else if let Some(pct) = percent {
@@ -346,7 +351,11 @@ fn parse_period_end(raw: &str) -> Option<u64> {
     let dt = PrimitiveDateTime::parse(raw.trim(), &format).ok()?;
     let utc = dt.assume_utc();
     let ts = utc.unix_timestamp();
-    if ts > 0 { Some(ts as u64) } else { None }
+    if ts > 0 {
+        Some(ts as u64)
+    } else {
+        None
+    }
 }
 
 fn format_tokens(value: u64) -> String {

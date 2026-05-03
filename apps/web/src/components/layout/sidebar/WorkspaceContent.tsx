@@ -131,8 +131,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const router = useAppRouter();
   const { workspaceId } = useContextParams();
   const isActive = workspaceId === workspace.id;
-  const { confirmBeforeDelete } = useWorkspaceSettings();
+  const { confirmBeforeDelete, confirmBeforeArchive } = useWorkspaceSettings();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showGitWarningDialog, setShowGitWarningDialog] = useState(false);
   const [gitWarningMessage, setGitWarningMessage] = useState('');
   const [pendingOperation, setPendingOperation] = useState<'archive' | 'delete' | null>(null);
@@ -271,11 +272,24 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     }
   };
 
+  const confirmArchive = () => {
+    setShowArchiveDialog(false);
+    performArchive();
+  };
+
+  const requestArchive = () => {
+    if (confirmBeforeArchive) {
+      setShowArchiveDialog(true);
+    } else {
+      performArchive();
+    }
+  };
+
   const checkGitStatusAndProceed = async (operation: 'archive' | 'delete') => {
     const workspacePath = workspace.localPath;
     if (!workspacePath) {
       if (operation === 'archive') {
-        performArchive();
+        requestArchive();
       } else {
         requestDelete();
       }
@@ -299,7 +313,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
         setShowGitWarningDialog(true);
       } else {
         if (operation === 'archive') {
-          performArchive();
+          requestArchive();
         } else {
           requestDelete();
         }
@@ -307,7 +321,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     } catch (error) {
       console.error('Failed to check git status:', error);
       if (operation === 'archive') {
-        performArchive();
+        requestArchive();
       } else {
         requestDelete();
       }
@@ -686,6 +700,25 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Archive Workspace</DialogTitle>
+            <DialogDescription>
+              Archive workspace `{workspace.displayName || workspace.name}`? The terminal session will be terminated but the worktree and branch are preserved. You can restore it later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={confirmArchive}>
+              Archive
             </Button>
           </DialogFooter>
         </DialogContent>

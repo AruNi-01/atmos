@@ -131,6 +131,20 @@ html:not([data-theme-ready="true"]) body {
 }
 
 @layer utilities {
+  /* Spin animation that matches RotateCw icon direction (counter-clockwise visually aligns with clockwise arrow) */
+  .animate-spin-reverse {
+    animation: spin-reverse 1s linear infinite;
+  }
+
+  @keyframes spin-reverse {
+    from {
+      transform: rotate(360deg);
+    }
+    to {
+      transform: rotate(0deg);
+    }
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

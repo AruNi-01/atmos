@@ -11,6 +11,7 @@ docs/
 ├── architecture.md         # System architecture overview
 ├── development.md          # Development guide
 ├── deployment.md           # Deployment guide
+├── release.md              # Release guide
 ├── api-design.md          # API design principles
 ├── justfile               # Task runner documentation
 ├── README.md              # Overview of documentation
@@ -61,6 +62,17 @@ Deployment processes and infrastructure:
 **Audience**: DevOps, Senior Developers
 
 See also: [`desktop-release.md`](./desktop-release.md) for the desktop release runbook and recovery procedures.
+
+---
+
+### `release.md`
+Atmos release model and operations:
+- CLI, Local Runtime, and Desktop release lines
+- Stable vs prerelease/test release rules
+- Release helper skills and workflows
+- Version detection and post-release verification
+
+**Audience**: Maintainers, Release Engineers
 
 ---
 
@@ -133,6 +145,7 @@ Level 4: Component README.md
 | Understand architecture | `architecture.md` |
 | Set up development | `development.md` |
 | Deploy the system | `deployment.md` |
+| Release Atmos | [`release.md`](./release.md) |
 | Run a desktop release | [`desktop-release.md`](./desktop-release.md) |
 | Design APIs | `api-design.md` |
 | Understand a decision | `adr/*.md` |
@@ -174,6 +187,7 @@ When making significant architectural changes:
 - **For Quick Start**: [Root README.md](../README.md)
 - **For AI Navigation**: [Root AGENTS.md](../AGENTS.md)
 - **For Desktop Release Operations**: [`desktop-release.md`](./desktop-release.md)
+- **For Complete Release Operations**: [`release.md`](./release.md)
 - **For Specs**: [specs/](../specs/)
 - **For Component Work**: [apps/AGENTS.md](../apps/AGENTS.md), [packages/AGENTS.md](../packages/AGENTS.md)
 

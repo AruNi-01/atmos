@@ -123,6 +123,14 @@ pub(crate) fn normalize_fraction_percent(value: f64) -> f64 {
     }
 }
 
+/// Convert a fractional ratio (e.g. 0.5 or 1.0042) into a percent value
+/// (e.g. 50.0 or 100.42). Use this when the source API is documented to
+/// always return a 0..=1+ fraction (where >1 indicates an overage), so we
+/// never confuse a small overage like 1.0042 with an already-percent value.
+pub(crate) fn fraction_to_percent(value: f64) -> f64 {
+    round_metric(value * 100.0)
+}
+
 pub(crate) fn build_percent_usage_summary(percent: Option<f64>) -> UsageSummary {
     let percent = percent.map(round_metric);
     UsageSummary {

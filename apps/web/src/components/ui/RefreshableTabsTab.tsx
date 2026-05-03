@@ -12,6 +12,7 @@ interface RefreshableTabsTabProps {
   onRefresh: () => Promise<unknown> | void;
   isRefreshing?: boolean;
   className?: string;
+  trailingAction?: (options: { isVisible: boolean }) => React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -22,6 +23,7 @@ export function RefreshableTabsTab({
   onRefresh,
   isRefreshing = false,
   className,
+  trailingAction,
   children,
 }: RefreshableTabsTabProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -33,7 +35,7 @@ export function RefreshableTabsTab({
   const isSpinning = isRefreshPending || isRefreshing;
 
   const handleRefresh = useCallback(
-    (event: React.MouseEvent<HTMLElement>) => {
+    (event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
       if (!showRefreshButton || isRefreshPending) {
         return;
       }
@@ -61,13 +63,6 @@ export function RefreshableTabsTab({
       title={showRefreshButton ? refreshLabel : undefined}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={(event) => {
-        if (!showRefreshButton) {
-          return;
-        }
-
-        handleRefresh(event);
-      }}
     >
       <div
         className={cn(
@@ -80,14 +75,39 @@ export function RefreshableTabsTab({
 
       <div
         className={cn(
-          "absolute inset-0 flex items-center justify-center gap-1.5 transition-all duration-200 ease-out",
+          "absolute inset-0 flex items-center justify-center gap-0 overflow-hidden transition-all duration-200 ease-out",
           showRefreshButton
             ? "translate-y-0 opacity-100"
             : "translate-y-7 opacity-0 pointer-events-none",
         )}
       >
-        {isSpinning ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
-        <span className="text-xs font-medium">Refresh</span>
+        <span
+          role="button"
+          aria-label={refreshLabel}
+          tabIndex={showRefreshButton ? 0 : -1}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={handleRefresh}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            handleRefresh(event);
+          }}
+          className="flex h-full flex-1 items-center justify-center gap-1.5 cursor-pointer hover:bg-sidebar-accent"
+        >
+          {isSpinning ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCw className="size-3.5" />
+          )}
+          <span className="text-xs font-medium">Refresh</span>
+        </span>
+        {trailingAction?.({ isVisible: showRefreshButton })}
       </div>
     </TabsTab>
   );

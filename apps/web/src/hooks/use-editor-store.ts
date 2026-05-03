@@ -25,6 +25,8 @@ export interface OpenFile {
 export interface FileNavigationTarget {
   line: number;
   column?: number;
+  reviewCommentGuid?: string;
+  reviewMessageGuid?: string;
 }
 
 export interface FileTreeRevealTarget {
@@ -57,7 +59,7 @@ interface EditorStore {
   openFile: (
     path: string,
     workspaceId?: string,
-    options?: { preview?: boolean; line?: number; column?: number }
+    options?: { preview?: boolean; line?: number; column?: number; reviewCommentGuid?: string; reviewMessageGuid?: string }
   ) => Promise<void>;
   reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
@@ -81,11 +83,12 @@ interface EditorStore {
 }
 
 export const EDITOR_DIFF_PREFIX = 'diff://';
+export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
 export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
 export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
 
 export function isDiffEditorPath(path: string): boolean {
-  return path.startsWith(EDITOR_DIFF_PREFIX);
+  return path.startsWith(EDITOR_DIFF_PREFIX) || path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
 }
 
 export function isConflictResolveEditorPath(path: string): boolean {
@@ -93,7 +96,13 @@ export function isConflictResolveEditorPath(path: string): boolean {
 }
 
 export function getEditorSourcePath(path: string): string {
-  if (isDiffEditorPath(path)) {
+  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
+    const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
+    const slashIdx = rest.indexOf('/');
+    return slashIdx >= 0 ? rest.slice(slashIdx + 1) : rest;
+  }
+
+  if (path.startsWith(EDITOR_DIFF_PREFIX)) {
     return path.slice(EDITOR_DIFF_PREFIX.length);
   }
 
@@ -102,6 +111,13 @@ export function getEditorSourcePath(path: string): string {
   }
 
   return path;
+}
+
+export function getReviewDiffSnapshotGuid(path: string): string | null {
+  if (!path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) return null;
+  const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
+  const slashIdx = rest.indexOf('/');
+  return slashIdx >= 0 ? rest.slice(0, slashIdx) : null;
 }
 
 function getLanguageFromPath(path: string): string {
@@ -125,6 +141,10 @@ function getFileNameFromPath(path: string): string {
   const sourcePath = getEditorSourcePath(path);
   const baseName = sourcePath.split('/').pop() || sourcePath;
 
+  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
+    return `${baseName} (Review)`;
+  }
+
   if (isConflictResolveEditorPath(path)) {
     if (sourcePath === 'merge-conflicts') {
       return 'Merge Conflicts';
@@ -139,7 +159,15 @@ function getDiffTabName(name: string): string {
   return name.endsWith(' (Diff)') ? name : `${name} (Diff)`;
 }
 
+function getReviewDiffTabName(name: string): string {
+  return name.endsWith(' (Review)') ? name : `${name} (Review)`;
+}
+
 function getSpecialTabName(path: string, name: string): string {
+  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
+    return getReviewDiffTabName(name);
+  }
+
   if (isDiffEditorPath(path)) {
     return getDiffTabName(name);
   }
@@ -357,6 +385,8 @@ export const useEditorStore = create<EditorStore>()(
                   typeof options.column === 'number' && Number.isFinite(options.column)
                     ? Math.max(1, Math.floor(options.column))
                     : undefined,
+                reviewCommentGuid: options.reviewCommentGuid,
+                reviewMessageGuid: options.reviewMessageGuid,
               }
             : null;
 
@@ -591,26 +621,28 @@ export const useEditorStore = create<EditorStore>()(
       pinFile: (path, workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
-        const ws = get().workspaceStates[id];
-        if (!ws) return;
         const timestamp = nowTimestamp();
 
-        set((state) => ({
-          workspaceStates: {
-            ...state.workspaceStates,
-            [id]: {
-              ...ws,
-              openFiles: ws.openFiles.map(f => 
-                f.path === path
-                  ? touchOpenFile(f, timestamp, {
-                      isPreview: false,
-                      lastFocusedAt: timestamp,
-                    })
-                  : f
-              )
+        set((state) => {
+          const ws = state.workspaceStates[id];
+          if (!ws) return {};
+          return {
+            workspaceStates: {
+              ...state.workspaceStates,
+              [id]: {
+                ...ws,
+                openFiles: ws.openFiles.map(f => 
+                  f.path === path
+                    ? touchOpenFile(f, timestamp, {
+                        isPreview: false,
+                        lastFocusedAt: timestamp,
+                      })
+                    : f
+                )
+              }
             }
-          }
-        }));
+          };
+        });
       },
 
       closeFile: (path, workspaceId) => {

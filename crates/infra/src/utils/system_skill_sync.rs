@@ -35,6 +35,8 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "typescript-react-reviewer",
     // Git skills
     "git-commit",
+    // Review workflow skills
+    "atmos-review-fix",
 ];
 
 #[derive(Clone, Debug, Deserialize)]
@@ -160,6 +162,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "code-review-expert" => Some("skills/code_review_skills/code-review-expert"),
         "typescript-react-reviewer" => Some("skills/code_review_skills/typescript-react-reviewer"),
         "git-commit" => Some("skills/git-commit"),
+        "atmos-review-fix" => Some("skills/atmos-review-fix"),
         _ => None,
     }
 }

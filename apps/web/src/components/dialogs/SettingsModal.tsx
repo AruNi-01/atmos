@@ -55,6 +55,8 @@ import {
   Trash2,
   UserCog,
   Webhook,
+  GitBranch,
+  Archive,
 } from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
 import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
@@ -84,6 +86,7 @@ import {
   type LlmProvidersFile,
   type SessionTitleFormatConfig,
 } from '@/api/ws-api';
+import { systemApi } from '@/api/rest-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -214,7 +217,7 @@ function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
     if (!entry) continue;
 
     const cmd = entry.cmd !== agent.cmd ? entry.cmd : undefined;
-    const flags = entry.flags !== (agent.yoloFlag || '') ? entry.flags : undefined;
+    const flags = entry.flags !== (agent.params || '') ? entry.flags : undefined;
     const enabled = entry.enabled === false ? false : undefined;
     if (!cmd && !flags && enabled === undefined) continue;
 
@@ -233,9 +236,9 @@ function buildBuiltInEntries(
   return AGENT_OPTIONS.flatMap((agent) => {
     const draft = overrides[agent.id];
     const cmd = draft?.cmd ?? agent.cmd;
-    const flags = draft?.flags ?? (agent.yoloFlag || '');
+    const flags = draft?.flags ?? (agent.params || '');
     const enabled = draft?.enabled ?? true;
-    const changed = cmd !== agent.cmd || flags !== (agent.yoloFlag || '') || enabled !== true;
+    const changed = cmd !== agent.cmd || flags !== (agent.params || '') || enabled !== true;
 
     if (!changed) return [];
 
@@ -400,25 +403,87 @@ function WorkspaceSettingsSection() {
     closeIssueOnDelete,
     deleteRemoteBranch,
     confirmBeforeDelete,
+    branchPrefix,
+    confirmBeforeArchive,
+    killTmuxOnArchive,
+    closeAcpOnArchive,
     setClosePrOnDelete,
     setCloseIssueOnDelete,
     setDeleteRemoteBranch,
     setConfirmBeforeDelete,
+    setBranchPrefix,
+    setConfirmBeforeArchive,
+    setKillTmuxOnArchive,
+    setCloseAcpOnArchive,
     loadSettings,
   } = useWorkspaceSettings();
 
   const [expanded, setExpanded] = React.useState(true);
+  const [branchNamingExpanded, setBranchNamingExpanded] = React.useState(true);
+  const [archiveExpanded, setArchiveExpanded] = React.useState(true);
 
   React.useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
   return (
-    <Collapsible
-      open={expanded}
-      onOpenChange={setExpanded}
-      className="overflow-hidden rounded-2xl border border-border"
-    >
+    <div className="space-y-4">
+      <Collapsible
+        open={branchNamingExpanded}
+        onOpenChange={setBranchNamingExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex items-start gap-3">
+              <span className="relative mt-0.5 size-5 shrink-0">
+                <GitBranch className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium text-foreground">Branch Naming</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Configure the git branch prefix for new workspace branches.
+                </p>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+        </div>
+
+        <CollapsibleContent>
+          <div className="border-t border-border px-4">
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-sm text-foreground">Branch prefix</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    All workspace branches will be prefixed with this value followed by a fixed &lsquo;/&rsquo;.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <div className="flex items-center gap-0">
+                    <Input
+                      value={branchPrefix}
+                      onChange={(e) => setBranchPrefix(e.target.value)}
+                      placeholder="atmos"
+                      className="h-8 w-[200px] rounded-r-none border-r-0 focus-visible:ring-0"
+                    />
+                    <div className="flex h-8 items-center rounded-r-md border border-l-0 bg-muted px-2 text-sm text-muted-foreground">
+                      /
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible
+        open={expanded}
+        onOpenChange={setExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
       <div className="flex items-start justify-between gap-4 px-6 py-5">
         <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
           <div className="flex items-start gap-3">
@@ -493,6 +558,74 @@ function WorkspaceSettingsSection() {
         </div>
       </CollapsibleContent>
     </Collapsible>
+
+      <Collapsible
+        open={archiveExpanded}
+        onOpenChange={setArchiveExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+          <div className="flex items-start gap-3">
+            <span className="relative mt-0.5 size-5 shrink-0">
+              <Archive className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">Archive Behavior</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Configure what happens when a workspace is archived. Archived workspaces can be restored later.
+              </p>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+      </div>
+
+      <CollapsibleContent>
+        <div className="border-t border-border px-4">
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Confirm before archive</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Show a confirmation dialog before archiving a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={confirmBeforeArchive} onCheckedChange={setConfirmBeforeArchive} />
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Kill tmux session</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Terminate the tmux session and PTY processes when archiving. The worktree and branch are preserved.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={killTmuxOnArchive} onCheckedChange={setKillTmuxOnArchive} />
+              </div>
+            </div>
+          </div>
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm text-foreground">Close ACP Chat Session</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Close any active agent chat sessions when archiving a workspace.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch checked={closeAcpOnArchive} onCheckedChange={setCloseAcpOnArchive} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+    </div>
   );
 }
 
@@ -990,6 +1123,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
+  const [isCheckingCliVersion, setIsCheckingCliVersion] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [activeSection, setActiveSection] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [llmConfig, setLlmConfig] = useState<LlmProvidersFile | null>(null);
@@ -1127,8 +1261,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (
       (nextBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
-      (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
-        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')
+      (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')
     ) {
       delete nextBuiltInSettings[agentId];
     }
@@ -1172,8 +1306,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (
       (nextSavedBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
-      (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
-        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '') &&
+      (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '') &&
       (nextSavedBuiltInSettings[agentId]?.enabled ?? true) === true
     ) {
       delete nextSavedBuiltInSettings[agentId];
@@ -1521,6 +1655,76 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     });
   };
 
+  const handleCheckCliVersion = async () => {
+    setIsCheckingCliVersion(true);
+    const toastId = toastManager.add({
+      title: 'Checking Atmos CLI…',
+      description: 'Querying the installed CLI and latest GitHub release.',
+      type: 'loading',
+      timeout: 0,
+    });
+
+    try {
+      const result = await systemApi.checkCliVersion();
+
+      if (!result.installed) {
+        toastManager.update(toastId, {
+          title: 'Atmos CLI not installed',
+          description: 'The local Atmos CLI was not found in ~/.atmos/bin.',
+          type: 'error',
+          timeout: 6000,
+        });
+        return;
+      }
+
+      if (result.update_available) {
+        toastManager.update(toastId, {
+          title: `Atmos CLI ${result.latest_version} is available`,
+          description: (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Installed version: {result.current_version ?? 'unknown'}.
+              </p>
+              {result.release_url ? (
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={result.release_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="mr-1.5 size-3.5" />
+                    View Release
+                  </a>
+                </Button>
+              ) : null}
+            </div>
+          ),
+          type: 'info',
+          timeout: 0,
+        });
+        return;
+      }
+
+      toastManager.update(toastId, {
+        title: 'Atmos CLI is up to date',
+        description: result.current_version
+          ? `Installed version: ${result.current_version}.`
+          : 'No newer CLI release was found.',
+        type: 'success',
+        timeout: 4000,
+      });
+    } catch (error) {
+      toastManager.update(toastId, {
+        title: 'CLI version check failed',
+        description: error instanceof Error ? error.message : 'Unable to check Atmos CLI version.',
+        type: 'error',
+        timeout: 6000,
+      });
+    } finally {
+      setIsCheckingCliVersion(false);
+    }
+  };
+
   const isChecking = status.stage === 'checking';
   const isDownloading = status.stage === 'downloading';
   const isInstalling = status.stage === 'installing';
@@ -1789,6 +1993,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
+                        <div>
+                          <p className="text-base font-medium text-foreground">Atmos CLI</p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            Check for the latest CLI updates.
+                          </p>
+                        </div>
+                        <div className="flex items-center">
+                          <Button
+                            variant="outline"
+                            onClick={handleCheckCliVersion}
+                            disabled={isCheckingCliVersion}
+                            className="cursor-pointer"
+                          >
+                            {isCheckingCliVersion ? (
+                              <LoaderCircle className="mr-2 size-4 animate-spin" />
+                            ) : (
+                              <RotateCw className="mr-2 size-4" />
+                            )}
+                            Check for Updates
+                          </Button>
+                        </div>
+                      </div>
+
                       {isTauriRuntime() && (
                         <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
                           <div>
@@ -1923,11 +2151,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               const savedAgent = savedAgentCustomSettings[agent.id];
                               const isDirty =
                                 (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
-                                (savedAgent?.flags ?? (agent.yoloFlag || '')) !== (custom?.flags ?? (agent.yoloFlag || ''));
+                                (savedAgent?.flags ?? (agent.params || '')) !== (custom?.flags ?? (agent.params || ''));
                               const isSaving = !!savingBuiltInAgentIds[agent.id];
                               const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
                               const enabled = custom?.enabled ?? true;
-                              const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.yoloFlag || '')]
+                              const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.params || '')]
                                 .filter(Boolean)
                                 .join(' ');
 
@@ -1989,8 +2217,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       <div>
                                         <label className="mb-1 block text-xs text-muted-foreground">Parameters</label>
                                         <Input
-                                          value={custom?.flags ?? (agent.yoloFlag || '')}
-                                          placeholder={agent.yoloFlag || 'No default parameters'}
+                                          value={custom?.flags ?? (agent.params || '')}
+                                          placeholder={agent.params || 'No default parameters'}
                                           onChange={(e) => handleAgentSettingChange(agent.id, 'flags', e.target.value)}
                                           className="h-9 text-sm font-mono"
                                         />

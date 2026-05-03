@@ -31,6 +31,7 @@ export interface SelectionInfo {
   pageTitle?: string;
   // DiffViewer specific
   changeType?: 'addition' | 'deletion' | 'context' | 'mixed';
+  diffSide?: 'old' | 'new';
   beforeText?: string; // Old file content for the selected lines
   afterText?: string;  // New file content for the selected lines
 }

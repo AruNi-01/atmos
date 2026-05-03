@@ -111,6 +111,10 @@ jobs:
       checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
       build_matrix: ${{ steps.resolve.outputs.build_matrix }}
     steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: Resolve values
         id: resolve
         shell: bash
@@ -165,7 +169,17 @@ jobs:
             fi
           }
 
+          require_tag_commit_on_main() {
+            git fetch --no-tags origin main
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "❌ Refusing to publish ${GITHUB_REF_NAME}: tag commit ${GITHUB_SHA} is not on origin/main."
+              echo "   Use workflow_dispatch with create_release=false for branch validation builds."
+              exit 1
+            fi
+          }
+
           if [ "$EVENT" = "push" ]; then
+            require_tag_commit_on_main
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"

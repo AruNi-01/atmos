@@ -812,6 +812,13 @@ function AggregateProviderRow({
   const creditsBalance = firstRowValue(provider, "Credits", "Balance");
   const creditsState = firstRowValue(provider, "Credits", "State");
   const { accountLabel, planLabel, periodLabel } = providerIdentity(provider);
+  // Collapsed-row subtitle: prefer the explicit plan label, but fall back to
+  // accountLabel when the dedup logic in providerIdentity collapsed the plan
+  // into accountLabel (e.g. providers whose Account row is just the brand
+  // name, like Xiaomi MiMo / Zhipu AI / MiniMax).
+  const collapsedSubtitle =
+    planLabel ??
+    (accountLabel && accountLabel !== provider.label ? accountLabel : null);
   const detectHint =
     provider.auth_state.detail ??
     provider.warnings[0] ??
@@ -859,8 +866,8 @@ function AggregateProviderRow({
                 />
               </div>
             </div>
-            {planLabel ? (
-              <div className="truncate text-[11px] text-foreground/90">{planLabel}</div>
+            {collapsedSubtitle ? (
+              <div className="truncate text-[11px] text-foreground/90">{collapsedSubtitle}</div>
             ) : null}
           </div>
         </div>

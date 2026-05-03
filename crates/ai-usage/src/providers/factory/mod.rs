@@ -14,8 +14,8 @@ use crate::constants::{
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
 use crate::support::{
-    build_percent_usage_summary, format_tokens, load_factory_session_cookie_source,
-    normalize_fraction_percent, parse_i64_string, round_metric, unix_now,
+    build_percent_usage_summary, format_tokens, fraction_to_percent,
+    load_factory_session_cookie_source, parse_i64_string, round_metric, unix_now,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -348,7 +348,7 @@ fn build_factory_live_result(
 
     let allocation_percent = allocation
         .and_then(|bucket| bucket.used_ratio)
-        .map(normalize_fraction_percent)
+        .map(fraction_to_percent)
         .or_else(|| usage_percent_from_bucket(allocation));
     let allocation_used = allocation.and_then(primary_used_tokens);
     let allocation_limit = allocation.and_then(primary_allowance_tokens);
@@ -357,7 +357,7 @@ fn build_factory_live_result(
     let overage_limit = overage.and_then(overage_allowance_tokens);
     let overage_percent = overage
         .and_then(|bucket| bucket.used_ratio)
-        .map(normalize_fraction_percent)
+        .map(fraction_to_percent)
         .or_else(|| usage_percent_from_values(overage_used, overage_limit));
 
     let mut usage_rows = Vec::new();

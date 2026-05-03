@@ -111,7 +111,7 @@ export function buildCodeReviewCommand(
   reportPath: string
 ): string {
   const prompt = buildCodeReviewPrompt(skillId, reportPath);
-  return buildCommand(agentId, prompt, true);
+  return buildCommand(agentId, prompt);
 }
 
 // ===== Props =====
