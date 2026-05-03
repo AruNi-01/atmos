@@ -780,7 +780,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       ...AGENT_OPTIONS.filter((agent) => agentCustomSettings[agent.id]?.enabled ?? true).map(
         (agent) => {
           const command = agentCustomSettings[agent.id]?.cmd?.trim() || agent.cmd;
-          const flags = agentCustomSettings[agent.id]?.flags?.trim() || agent.yoloFlag || "";
+          const flags = agentCustomSettings[agent.id]?.flags?.trim() || agent.params || "";
           return {
             id: agent.id,
             label: agent.label,

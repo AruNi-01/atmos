@@ -10,6 +10,9 @@ const adaptersByVendor: Record<AgentVendor, typeof claudeCodeSubAgentAdapter[]> 
   claude: [claudeCodeSubAgentAdapter, fallbackSubAgentAdapter],
   opencode: [opencodeSubAgentAdapter, fallbackSubAgentAdapter],
   cursor: [cursorSubAgentAdapter],
+  gemini: [fallbackSubAgentAdapter],
+  "factory-droid": [fallbackSubAgentAdapter],
+  kiro: [fallbackSubAgentAdapter],
   unknown: [cursorSubAgentAdapter, fallbackSubAgentAdapter],
 };
 

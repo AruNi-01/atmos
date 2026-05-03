@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useQueryState } from "nuqs";
 import { Preview } from './Preview';
 import { RunScript } from './RunScript';
@@ -26,26 +26,33 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({ workspaceId, p
   const [isDragging, setIsDragging] = useState(false);
 
   const [committedPreviewUrl, setCommittedPreviewUrl] = useQueryState("pvUrl", previewUrlParams.pvUrl);
-  const [previewUrl, setPreviewUrlDraft] = useState(committedPreviewUrl);
-  const [localActiveUrl, setLocalActiveUrl] = useState(committedPreviewUrl);
-
-  useEffect(() => {
-    setPreviewUrlDraft((previous) => (previous === committedPreviewUrl ? previous : committedPreviewUrl));
-    setLocalActiveUrl((previous) => (previous === committedPreviewUrl ? previous : committedPreviewUrl));
-  }, [committedPreviewUrl]);
+  const [previewUrlDraft, setPreviewUrlDraft] = useState({
+    committedUrl: committedPreviewUrl,
+    value: committedPreviewUrl,
+  });
+  const [localActiveUrlState, setLocalActiveUrl] = useState({
+    committedUrl: committedPreviewUrl,
+    value: committedPreviewUrl,
+  });
+  const previewUrl = previewUrlDraft.committedUrl === committedPreviewUrl
+    ? previewUrlDraft.value
+    : committedPreviewUrl;
+  const localActiveUrl = localActiveUrlState.committedUrl === committedPreviewUrl
+    ? localActiveUrlState.value
+    : committedPreviewUrl;
 
   const setPreviewUrl = useCallback((nextUrl: string) => {
-    setPreviewUrlDraft(nextUrl);
-  }, []);
+    setPreviewUrlDraft({ committedUrl: committedPreviewUrl, value: nextUrl });
+  }, [committedPreviewUrl]);
 
   const setActivePreviewUrl = useCallback((nextUrl: string) => {
-    setLocalActiveUrl(nextUrl);
+    setLocalActiveUrl({ committedUrl: nextUrl, value: nextUrl });
     void setCommittedPreviewUrl(nextUrl);
   }, [setCommittedPreviewUrl]);
 
   const handleDetectedUrl = useCallback((url: string) => {
-    setPreviewUrlDraft(url);
-    setLocalActiveUrl(url);
+    setPreviewUrlDraft({ committedUrl: url, value: url });
+    setLocalActiveUrl({ committedUrl: url, value: url });
     void setCommittedPreviewUrl(url);
   }, [setCommittedPreviewUrl]);
 

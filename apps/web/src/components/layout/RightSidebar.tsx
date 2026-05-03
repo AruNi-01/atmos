@@ -164,6 +164,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [prRefreshKey] = useState(0);
   const [actionsRefreshKey] = useState(0);
   const prPanelRef = useRef<PRPanelHandle>(null);
+  const [prPanelLoading, setPRPanelLoading] = useState({ open: false, closed: false });
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
 
@@ -308,8 +309,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 onPRSubTabChange={setPRSubTab}
                 onRefreshOpenPRs={() => prPanelRef.current?.refreshOpen()}
                 onRefreshClosedPRs={() => prPanelRef.current?.refreshClosed()}
-                isOpenPRsLoading={prPanelRef.current?.isOpenLoading ?? false}
-                isClosedPRsLoading={prPanelRef.current?.isClosedLoading ?? false}
+                isOpenPRsLoading={prPanelLoading.open}
+                isClosedPRsLoading={prPanelLoading.closed}
                 reviewActions={<ReviewActions />}
               />
 
@@ -352,8 +353,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                 onPRSubTabChange={setPRSubTab}
                 onRefreshOpenPRs={() => prPanelRef.current?.refreshOpen()}
                 onRefreshClosedPRs={() => prPanelRef.current?.refreshClosed()}
-                isOpenPRsLoading={prPanelRef.current?.isOpenLoading ?? false}
-                isClosedPRsLoading={prPanelRef.current?.isClosedLoading ?? false}
+                isOpenPRsLoading={prPanelLoading.open}
+                isClosedPRsLoading={prPanelLoading.closed}
                 changesFileViewMode={changesFileViewMode}
                 onToggleChangesFileViewMode={() =>
                   setChangesFileViewMode((mode) =>
@@ -398,6 +399,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       branch={currentBranch}
                       onPrClick={(num) => setModalParams({ rsPr: num })}
                       prSubTab={prSubTab}
+                      onLoadingChange={setPRPanelLoading}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">

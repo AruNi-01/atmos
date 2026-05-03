@@ -98,10 +98,7 @@ impl ProjectService {
 
     /// Gather cleanup info for all workspaces in a project (for background cleanup).
     /// Must be called BEFORE `delete_project` since it reads workspace data.
-    pub async fn get_project_cleanup_info(
-        &self,
-        guid: &str,
-    ) -> Result<ProjectCleanupInfo> {
+    pub async fn get_project_cleanup_info(&self, guid: &str) -> Result<ProjectCleanupInfo> {
         let project_repo = ProjectRepo::new(&self.db);
         let workspace_repo = WorkspaceRepo::new(&self.db);
 

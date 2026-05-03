@@ -65,6 +65,7 @@ import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon'
 import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
 import WorldIcon from '@workspace/ui/components/icons/world-icon';
 import { FolderKanbanIcon } from '@workspace/ui/components/icons/folder-kanban-icon';
+import type { AnimatedIconHandle } from '@workspace/ui/components/icons/types';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
@@ -1881,7 +1882,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, []);
 
-  const sectionIconRefs = React.useRef<Record<string, React.RefObject<any>>>({});
+  const sectionIconRefs = React.useRef<Record<string, React.RefObject<AnimatedIconHandle | null>>>({});
   for (const section of SETTINGS_SECTIONS) {
     if (!sectionIconRefs.current[section.id]) {
       sectionIconRefs.current[section.id] = React.createRef();

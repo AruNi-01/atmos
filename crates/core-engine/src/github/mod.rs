@@ -518,7 +518,9 @@ fn parse_pr_value_gh(
     let head_ref = value
         .get("headRefName")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| EngineError::Processing("GitHub PR response missing headRefName".to_string()))?
+        .ok_or_else(|| {
+            EngineError::Processing("GitHub PR response missing headRefName".to_string())
+        })?
         .to_string();
     let base_ref = value
         .get("baseRefName")

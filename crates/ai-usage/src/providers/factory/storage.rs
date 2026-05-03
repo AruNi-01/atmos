@@ -483,13 +483,14 @@ fn extract_workos_token_from_strings(
 }
 
 fn find_neighbor_token(lines: &[&str], markers: &[&str]) -> Option<String> {
+    let token_regex = regex::Regex::new(r"([A-Za-z0-9_.-]{20,})").ok()?;
+
     for (index, line) in lines.iter().enumerate() {
         if !markers.iter().any(|marker| line.contains(marker)) {
             continue;
         }
 
-        let current_line_match = regex::Regex::new(r"([A-Za-z0-9_.-]{20,})")
-            .ok()?
+        let current_line_match = token_regex
             .captures_iter(line)
             .filter_map(|captures| captures.get(1))
             .map(|value| value.as_str().to_string())
@@ -499,8 +500,7 @@ fn find_neighbor_token(lines: &[&str], markers: &[&str]) -> Option<String> {
         }
 
         for candidate in lines.iter().skip(index + 1).take(3) {
-            let token = regex::Regex::new(r"([A-Za-z0-9_.-]{20,})")
-                .ok()?
+            let token = token_regex
                 .captures_iter(candidate)
                 .filter_map(|captures| captures.get(1))
                 .map(|value| value.as_str().to_string())

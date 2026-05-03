@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { MultiFileDiff } from "@pierre/diffs/react";
 import {
@@ -37,7 +37,11 @@ function SubAgentLabelRow({
 
 export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }) {
   const { resolvedTheme } = useTheme();
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const diffTheme = resolvedTheme === "dark" ? "pierre-dark" : "pierre-light";
   const [isOpen, setIsOpen] = useState(true);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
@@ -51,10 +55,6 @@ export function SubAgentBlockView({ message }: { message: AtmosSubAgentMessage }
     message.labels.length > 0
   );
   const statusLabel = message.status === "running" ? "Running" : message.status === "failed" ? "Failed" : "Completed";
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   if (!hasDetails) {
     return (

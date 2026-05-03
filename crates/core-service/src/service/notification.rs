@@ -343,6 +343,10 @@ fn tool_display_name(tool: &AgentToolType) -> &'static str {
     match tool {
         AgentToolType::ClaudeCode => "Claude Code",
         AgentToolType::Codex => "Codex",
+        AgentToolType::Cursor => "Cursor",
+        AgentToolType::Gemini => "Gemini CLI",
+        AgentToolType::FactoryDroid => "Factory Droid",
+        AgentToolType::Kiro => "Kiro",
         AgentToolType::Opencode => "OpenCode",
     }
 }

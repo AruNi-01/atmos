@@ -50,6 +50,7 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 创建新工作区
+    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
         project_guid: String,
@@ -338,7 +339,7 @@ impl<'a> WorkspaceRepo<'a> {
             guids_by_workspace.insert(workspace.guid, label_guids);
         }
 
-        let label_guids: Vec<String> = all_label_guids.iter().cloned().into_iter().collect();
+        let label_guids: Vec<String> = all_label_guids.iter().cloned().collect();
 
         if label_guids.is_empty() {
             return Ok(HashMap::new());

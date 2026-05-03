@@ -64,7 +64,7 @@ export const AtmosPlugin = async (_ctx: any) => {{
         return
       }}
 
-      if (t === "permission.asked" || t === "permission.updated") {{
+      if (t === "permission.asked" || t === "permission.updated" || t === "question.asked") {{
         phase = "idle"
         lastStateTs = now
         await post(event)

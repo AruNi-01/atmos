@@ -69,13 +69,14 @@ fn spawn_non_critical_startup_tasks(
     agent_service: Arc<AgentService>,
     project_service: Arc<ProjectService>,
     agent_hooks_service: Arc<core_service::AgentHooksService>,
+    api_port: u16,
 ) {
     tokio::task::spawn_blocking(|| {
         infra::utils::system_skill_sync::sync_system_skills_on_startup();
     });
 
-    tokio::task::spawn_blocking(|| {
-        let report = core_engine::agent_hooks::install_all_hooks();
+    tokio::task::spawn_blocking(move || {
+        let report = core_engine::agent_hooks::install_all_hooks(api_port);
         tracing::info!(
             "Agent hooks auto-install: claude_code={}, codex={}, opencode={}",
             if report.claude_code.installed {
@@ -262,6 +263,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         ws_config,
         db,
+        server_config.port,
     );
 
     // Inject WsManager into WsMessageService for server-to-client notifications
@@ -363,6 +365,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         agent_service_for_startup,
         project_service_for_startup,
         Arc::clone(&agent_hooks_for_startup),
+        actual_addr.port(),
     );
     spawn_idle_session_cleanup(agent_hooks_for_startup);
 

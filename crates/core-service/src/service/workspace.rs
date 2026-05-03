@@ -477,9 +477,7 @@ impl WorkspaceService {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|error| {
-                ServiceError::Validation(format!(
-                    "Failed to serialize GitHub PR metadata: {error}"
-                ))
+                ServiceError::Validation(format!("Failed to serialize GitHub PR metadata: {error}"))
             })?;
         let model = workspace_repo
             .create(
@@ -693,10 +691,7 @@ impl WorkspaceService {
                 attachment.data_base64.as_bytes(),
             )
             .map_err(|error| {
-                ServiceError::Validation(format!(
-                    "Failed to decode attachment {}: {}",
-                    safe, error
-                ))
+                ServiceError::Validation(format!("Failed to decode attachment {}: {}", safe, error))
             })?;
             let target = attachments_dir.join(&safe);
             self.fs_engine.write_bytes(&target, &bytes)?;
@@ -1282,9 +1277,9 @@ impl WorkspaceService {
         project_main_path: &str,
     ) -> Result<()> {
         let repo_path = Path::new(project_main_path);
-        if let Err(e) = self
-            .git_engine
-            .remove_worktree(repo_path, workspace_name, branch_name, false)
+        if let Err(e) =
+            self.git_engine
+                .remove_worktree(repo_path, workspace_name, branch_name, false)
         {
             tracing::warn!(
                 "Failed to remove worktree for workspace {}: {}",

@@ -27,6 +27,7 @@ impl<'a> ReviewRepo<'a> {
         Self { db }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_session(
         &self,
         guid: Option<String>,
@@ -179,6 +180,7 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_revision(
         &self,
         guid: Option<String>,
@@ -261,6 +263,7 @@ impl<'a> ReviewRepo<'a> {
         Ok(model.insert(self.db).await?)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_file_snapshot(
         &self,
         revision_guid: String,
@@ -364,6 +367,7 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_file_state(
         &self,
         revision_guid: String,
@@ -466,6 +470,7 @@ impl<'a> ReviewRepo<'a> {
             .await?)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_comment(
         &self,
         session_guid: String,
@@ -584,6 +589,7 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_message(
         &self,
         comment_guid: String,

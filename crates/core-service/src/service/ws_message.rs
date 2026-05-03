@@ -32,8 +32,8 @@ use infra::{
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
     GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
-    GithubPrTimelinePageRequest, LlmProviderTestRequest,
-    LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
+    GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
+    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteProgressNotification,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
     ReviewCommentUpdateStatusRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
@@ -48,7 +48,6 @@ use infra::{
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
-    ProjectDeleteProgressNotification,
     WorkspaceDeleteRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
     WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
     WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
@@ -192,7 +191,14 @@ impl WsMessageService {
             let repo_path = std::path::PathBuf::from(&repo_path_str);
             let workspace_name = workspace_name.clone();
             let branch = branch.clone();
-            move || GitEngine::new().remove_worktree(&repo_path, &workspace_name, &branch, delete_remote_branch)
+            move || {
+                GitEngine::new().remove_worktree(
+                    &repo_path,
+                    &workspace_name,
+                    &branch,
+                    delete_remote_branch,
+                )
+            }
         })
         .await
         .unwrap_or_else(|e| Err(core_engine::EngineError::Git(e.to_string())));
@@ -354,7 +360,9 @@ impl WsMessageService {
                     let args = vec!["issue", "close", &issue_num, "--repo", &repo];
                     match self.github_engine.run_gh(&args).await {
                         Ok(_) => tracing::info!("Closed GitHub Issue #{} on delete", issue.number),
-                        Err(e) => tracing::warn!("Failed to close GitHub Issue #{}: {}", issue.number, e),
+                        Err(e) => {
+                            tracing::warn!("Failed to close GitHub Issue #{}: {}", issue.number, e)
+                        }
                     }
                 }
             }
@@ -1666,10 +1674,7 @@ impl WsMessageService {
         let guid = req.guid;
 
         // Gather cleanup info BEFORE soft-deleting
-        let cleanup_info = self
-            .project_service
-            .get_project_cleanup_info(&guid)
-            .await?;
+        let cleanup_info = self.project_service.get_project_cleanup_info(&guid).await?;
 
         // Validate + soft-delete DB records
         self.project_service.delete_project(guid.clone()).await?;
@@ -1705,12 +1710,7 @@ impl WsMessageService {
                 .await;
             } else {
                 tokio::spawn(async move {
-                    Self::execute_project_cleanup(
-                        manager,
-                        cleanup_info,
-                        settings,
-                    )
-                    .await;
+                    Self::execute_project_cleanup(manager, cleanup_info, settings).await;
                 });
             }
         }
@@ -3640,12 +3640,12 @@ set -x
             core_engine::GithubEngine::parse_pr_url(&pr_url)
                 .ok_or_else(|| ServiceError::Validation("Invalid GitHub PR URL".to_string()))?
         } else {
-            let owner = req
-                .owner
-                .ok_or_else(|| ServiceError::Validation("GitHub PR owner is required".to_string()))?;
-            let repo = req
-                .repo
-                .ok_or_else(|| ServiceError::Validation("GitHub PR repo is required".to_string()))?;
+            let owner = req.owner.ok_or_else(|| {
+                ServiceError::Validation("GitHub PR owner is required".to_string())
+            })?;
+            let repo = req.repo.ok_or_else(|| {
+                ServiceError::Validation("GitHub PR repo is required".to_string())
+            })?;
             let number = req.pr_number.ok_or_else(|| {
                 ServiceError::Validation("GitHub PR number is required".to_string())
             })?;
