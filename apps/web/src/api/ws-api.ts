@@ -2194,7 +2194,7 @@ export const localModelApi = {
     return wsRequest<LocalModelListResponse>("local_model_list");
   },
   download: async (modelId: string): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("local_model_download", { model_id: modelId }, 0);
+    return wsRequest<{ ok: boolean }>("local_model_download", { model_id: modelId });
   },
   start: async (modelId: string): Promise<{ ok: boolean }> => {
     return wsRequest<{ ok: boolean }>("local_model_start", { model_id: modelId }, 60_000);

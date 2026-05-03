@@ -4924,11 +4924,15 @@ set -x
         tokio::spawn(async move {
             if let Err(e) = manager.ensure_binary(&manifest).await {
                 tracing::error!("[LocalModel] binary download failed: {e}");
+                manager.mark_failed(format!("Binary download failed: {e}"));
                 return;
             }
             if let Err(e) = manager.ensure_model(&manifest, &model_id).await {
                 tracing::error!("[LocalModel] model download failed: {e}");
+                manager.mark_failed(format!("Model download failed: {e}"));
+                return;
             }
+            manager.mark_installed_not_running();
         });
 
         Ok(json!({ "ok": true }))

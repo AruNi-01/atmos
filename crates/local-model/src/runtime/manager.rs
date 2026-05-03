@@ -11,7 +11,7 @@ use crate::config::{ensure_dirs, llama_server_bin, logs_dir, model_path};
 use crate::download::{download_with_fallback, verify_file, DownloadProgress};
 use crate::error::{LocalModelError, Result};
 use crate::manifest::{find_binary_for_platform, find_model, ModelManifest};
-use crate::runtime::port::find_free_port;
+use crate::runtime::port::reserve_runtime_port;
 use crate::runtime::process::{spawn_llama_server, wait_for_ready};
 use crate::runtime::state::LocalModelState;
 
@@ -66,6 +66,21 @@ impl LocalRuntimeManager {
     fn set_state(&self, state: LocalModelState) {
         self.inner.lock().state = state.clone();
         let _ = self.state_tx.send(state);
+    }
+
+    /// Mark the runtime as fully installed and idle (binary + model present,
+    /// no llama-server running). Public so the download flow in the
+    /// websocket layer can drive lifecycle transitions without exposing the
+    /// generic state setter.
+    pub fn mark_installed_not_running(&self) {
+        self.set_state(LocalModelState::InstalledNotRunning);
+    }
+
+    /// Mark the runtime as failed with the given error message. Public so
+    /// callers driving lifecycle transitions (e.g. the download flow) can
+    /// surface terminal failures to subscribers.
+    pub fn mark_failed(&self, error: impl Into<String>) {
+        self.set_state(LocalModelState::Failed { error: error.into() });
     }
 
     // ─── Download ────────────────────────────────────────────────────────────
@@ -202,7 +217,7 @@ impl LocalRuntimeManager {
 
         let bin_path = llama_server_bin()?;
         let model_path = model_path(model_id)?;
-        let port = find_free_port()?;
+        let port = reserve_runtime_port()?;
 
         let context_size = find_model(manifest, model_id)
             .map(|m| m.recommended_context_size)

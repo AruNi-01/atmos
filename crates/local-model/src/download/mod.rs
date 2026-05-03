@@ -84,14 +84,30 @@ where
     Ok(())
 }
 
-/// Verify the SHA-256 of an existing file on disk.
+/// Verify the SHA-256 of an existing file on disk by streaming it through
+/// the hasher in fixed-size chunks. Avoids loading the entire file into
+/// memory at once — model GGUF assets are typically multi-gigabyte, so a
+/// single `tokio::fs::read` would OOM constrained machines.
 pub async fn verify_file(path: &Path, expected_sha256: &str) -> Result<bool> {
-    let bytes = match tokio::fs::read(path).await {
-        Ok(b) => b,
+    use tokio::io::AsyncReadExt;
+
+    let mut file = match tokio::fs::File::open(path).await {
+        Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(e) => return Err(e.into()),
     };
-    let actual_hex = hex::encode(Sha256::digest(&bytes));
+
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        let n = file.read(&mut buf).await?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+
+    let actual_hex = hex::encode(hasher.finalize());
     Ok(actual_hex.eq_ignore_ascii_case(expected_sha256))
 }
 

@@ -345,6 +345,24 @@ function modalStateToFile(
       ),
     );
 
+  // Resolve a feature binding from the draft. When the draft has no value
+  // and the original config bound this feature to a still-present
+  // local-managed provider, preserve that binding so the editor (which
+  // intentionally hides local-managed providers from its dropdowns) does
+  // not silently clear local routing on save.
+  const resolveFeatureBinding = (
+    draftKey: string | null | undefined,
+    originalProviderId: string | null | undefined,
+  ): string | null => {
+    if (draftKey) {
+      return providerIdMap.get(draftKey) ?? null;
+    }
+    if (originalProviderId && localManagedProviders[originalProviderId]) {
+      return originalProviderId;
+    }
+    return null;
+  };
+
   const providers = state.providers.reduce<Record<string, LlmProviderEntry>>(
     (acc, provider) => {
       const providerId = providerIdMap.get(provider.clientKey);
@@ -376,19 +394,21 @@ function modalStateToFile(
     version: state.version || 1,
     default_provider: null,
     features: {
-      session_title: state.routing.features.session_title
-        ? (providerIdMap.get(state.routing.features.session_title) ?? null)
-        : null,
-      git_commit: state.routing.features.git_commit
-        ? (providerIdMap.get(state.routing.features.git_commit) ?? null)
-        : null,
+      session_title: resolveFeatureBinding(
+        state.routing.features.session_title,
+        originalConfig?.features?.session_title,
+      ),
+      git_commit: resolveFeatureBinding(
+        state.routing.features.git_commit,
+        originalConfig?.features?.git_commit,
+      ),
       git_commit_language: normalizeFeatureLanguage(
         state.routing.features.git_commit_language,
       ),
-      workspace_issue_todo: state.routing.features.workspace_issue_todo
-        ? (providerIdMap.get(state.routing.features.workspace_issue_todo) ??
-          null)
-        : null,
+      workspace_issue_todo: resolveFeatureBinding(
+        state.routing.features.workspace_issue_todo,
+        originalConfig?.features?.workspace_issue_todo,
+      ),
       workspace_issue_todo_language: normalizeFeatureLanguage(
         state.routing.features.workspace_issue_todo_language,
       ),
