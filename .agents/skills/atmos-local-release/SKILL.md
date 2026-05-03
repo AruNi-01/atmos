@@ -1,6 +1,6 @@
 ---
 name: atmos-local-release
-description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local runtime release, verify the shared local runtime version, create the required `local-v<version>` tag, publish the runtime archives, and publish the `@atmos/local` installer package. Prefer this over a generic GitHub release process for Atmos local runtime releases.
+description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local runtime release, verify the local runtime installer version, create the required `local-v<version>` tag, publish the runtime archives, and publish the `@atmos/local` installer package. Prefer this over a generic GitHub release process for Atmos local runtime releases.
 user-invokable: true
 args:
   - name: version
@@ -23,7 +23,7 @@ This skill is intentionally tied to this repository's local runtime release mode
 This skill handles the Atmos local runtime release sequence:
 
 1. validate repository state
-2. validate the shared local runtime version across CLI and installer
+2. validate the local runtime installer version and tag alignment
 3. optionally build the local runtime archive locally for a spot check
 4. create and push the `local-v<version>` tag
 5. rely on GitHub Actions to build and upload runtime archives
@@ -37,16 +37,17 @@ The repository-specific execution wrapper lives in the bundled script:
 
 Use that script for the operational steps. Keep this file focused on orchestration and decision-making.
 
-This skill does not own the desktop release flow, Tauri artifacts, DMG packaging, or Homebrew tap updates. Keep those in the separate `atmos-release` skill.
+This skill does not own the standalone CLI release flow, desktop release flow, Tauri artifacts, DMG packaging, or Homebrew tap updates. Keep those in the separate `atmos-cli-release` and `atmos-release` skills.
 
 ## Repository release model
 
 Atmos local runtime releases follow these rules:
 
 - local runtime tag format is `local-v<version>`
-- shared local runtime versions must stay aligned across:
-  - `apps/cli/Cargo.toml`
+- local runtime release version is sourced from:
   - `packages/local-installer/package.json`
+- local runtime archives include a bundled CLI binary, but the bundled CLI version is tracked independently from the local runtime version
+- standalone CLI releases use `cli-v<version>` and are handled by the `atmos-cli-release` skill, not this skill
 - local runtime release workflow:
   - `.github/workflows/release-local-runtime.yml`
 - installer entrypoints:
@@ -68,8 +69,8 @@ Use the repository version-check script before any release action:
 
 This script is the source of truth for confirming:
 
-- the CLI version
-- the npm installer version
+- the local runtime npm installer version
+- optional bundled CLI version reporting
 - optional tag-to-version alignment
 
 ### Execution script
@@ -100,7 +101,7 @@ The archive is expected to contain:
 - `bin/atmos`
 - `web/`
 - `system-skills/`
-- runtime manifest metadata
+- runtime manifest metadata, including `runtime_version` and `bundled_cli_version`
 
 ### Publication workflow
 Use the GitHub Actions workflow for actual publication:
@@ -261,7 +262,7 @@ If validation or publication fails:
 
 - dirty working tree
 - invalid version format
-- version mismatch between CLI and npm installer
+- version mismatch between local runtime tag and npm installer
 - existing tag conflict
 - push failure
 - GitHub Actions workflow failure
@@ -303,7 +304,7 @@ npx @atmos/local --version <version> --no-start
 
 - never use a plain `v<version>` tag for Atmos local runtime
 - never skip the local runtime version consistency check
-- never create the local runtime tag before versions are aligned
+- never create the local runtime tag before the installer version matches the tag
 - never publish `@atmos/local` from a version that does not match the release tag
 - never manually upload ad-hoc runtime archives to work around a broken workflow
 - never declare the release complete before both GitHub Release assets and npm publish are verified
@@ -350,8 +351,9 @@ Use the bundled execution script for release-prep work.
 Use the GitHub Actions workflow for publication.
 Keep the release source of truth aligned across:
 
-- CLI version
 - npm installer version
 - local runtime tag
 - GitHub Release assets
 - installer entrypoints
+
+The bundled CLI version is recorded in the runtime manifest for traceability, but it is released and updated through the standalone CLI release flow.

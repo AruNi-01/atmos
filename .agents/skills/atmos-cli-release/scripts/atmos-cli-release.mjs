@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 const repoRoot = resolve(import.meta.dirname, "../../../..");
+const cliCargoToml = resolve(repoRoot, "apps/cli/Cargo.toml");
 
 const DEFAULTS = {
   prerelease: false,
@@ -13,36 +15,35 @@ const DEFAULTS = {
   createTag: true,
   pushTag: true,
   monitor: false,
+  ref: "",
 };
 
 function printUsage() {
-  console.log(`Atmos local runtime release helper
+  console.log(`Atmos CLI release helper
 
 Usage:
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> [options]
+  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs <version> [options]
 
 Examples:
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.1.0
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.2.0-rc.1 --prerelease
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.1.0 --dry-run
+  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.1.0
+  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.2.0-rc.1 --prerelease
+  node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs 0.1.0 --dry-run
 
 Options:
-  --prerelease           Mark release intent as prerelease
+  --prerelease           Dispatch a prerelease test release workflow
   --dry-run              Preview actions without mutating git state
   --allow-dirty          Allow release from a dirty working tree
-  --no-build             Skip local runtime build preflight
-  --no-tag               Do not create the local runtime tag
-  --no-push-tag          Do not push the local runtime tag
-  --monitor              Show GitHub CLI commands to inspect release state after push
+  --no-build             Skip local CLI build preflight
+  --no-tag               Do not create the stable CLI tag
+  --no-push-tag          Do not push the stable CLI tag
+  --ref <ref>            Ref for prerelease workflow dispatch (default: current HEAD)
+  --monitor              Show GitHub CLI commands to inspect release state after push/dispatch
   --help, -h             Show this help
 
 This script is Atmos-specific and assumes:
-- local runtime tag format: local-v<version>
-- version files:
-  - packages/local-installer/package.json
-- release workflow: .github/workflows/release-local-runtime.yml
-- runtime build script: scripts/local-runtime/build-runtime.mjs
-- version check script: scripts/release/check-local-runtime-version.mjs
+- CLI tag format: cli-v<version>
+- version file: apps/cli/Cargo.toml
+- release workflow: .github/workflows/release-cli.yml
 `);
 }
 
@@ -100,7 +101,15 @@ function parseArgs(argv) {
       case "--monitor":
         args.monitor = true;
         break;
+      case "--ref":
+        if (!argv[i + 1]) fail("Missing value for --ref");
+        args.ref = argv[++i];
+        break;
       default:
+        if (arg.startsWith("--ref=")) {
+          args.ref = arg.slice("--ref=".length);
+          break;
+        }
         fail(`Unknown argument: ${arg}`);
     }
   }
@@ -132,8 +141,17 @@ function ensureValidVersion(version) {
   return normalized;
 }
 
-function buildLocalTag(version) {
-  return `local-v${version}`;
+function buildCliTag(version) {
+  return `cli-v${version}`;
+}
+
+function readCliVersion() {
+  const content = readFileSync(cliCargoToml, "utf8");
+  const match = content.match(/^version\s*=\s*"([^"]+)"/m);
+  if (!match) {
+    fail(`Unable to resolve CLI version from ${cliCargoToml}`);
+  }
+  return match[1];
 }
 
 function sh(command, args = [], options = {}) {
@@ -168,7 +186,7 @@ function sh(command, args = [], options = {}) {
 
 function shellEscape(value) {
   if (value === "") return "''";
-  if (/^[A-Za-z0-9_./:-]+$/.test(value)) return value;
+  if (/^[A-Za-z0-9_./:=,-]+$/.test(value)) return value;
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
@@ -225,10 +243,32 @@ function ensureTagDoesNotExist(tag) {
   }
 }
 
+function ensureHeadOnMain() {
+  sh("git", ["fetch", "--no-tags", "origin", "main"], { capture: false });
+  const result = sh("git", ["merge-base", "--is-ancestor", "HEAD", "origin/main"], {
+    allowFailure: true,
+  });
+  if (result.status !== 0) {
+    fail("Stable CLI releases must be created from a commit already contained in origin/main.");
+  }
+}
+
+function currentHead() {
+  return sh("git", ["rev-parse", "HEAD"]).stdout;
+}
+
+function validateCliVersion(version) {
+  const cliVersion = readCliVersion();
+  info(`apps/cli/Cargo.toml: ${cliVersion}`);
+  if (cliVersion !== version) {
+    fail(`CLI version mismatch: requested ${version}, apps/cli/Cargo.toml has ${cliVersion}.`);
+  }
+}
+
 function printMonitorGuidance(tag) {
   console.log("");
   info("Monitor the publish workflow with:");
-  console.log(`  gh run list --workflow release-local-runtime.yml --limit 5`);
+  console.log("  gh run list --workflow release-cli.yml --limit 5");
   console.log(`  gh release view ${tag}`);
   console.log("");
 }
@@ -236,60 +276,79 @@ function printMonitorGuidance(tag) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const version = ensureValidVersion(args.version);
-  const tag = buildLocalTag(version);
+  const tag = buildCliTag(version);
 
   ensureGitRepo();
   ensureWorkingTreeClean(args.allowDirty);
   ensureGhAuth();
 
-  info(`Preparing Atmos local runtime release ${version}`);
+  info(`Preparing Atmos CLI release ${version}`);
   info(`Target tag: ${tag}`);
-  if (args.prerelease) {
-    info("Release intent is prerelease.");
-  }
-
-  runOrPrint(
-    "node",
-    ["./scripts/release/check-local-runtime-version.mjs", "--release-tag", tag],
-    {
-      dryRun: false,
-      description: "Validating local runtime version alignment",
-    },
-  );
+  validateCliVersion(version);
 
   if (args.build) {
-    runOrPrint("node", ["./scripts/local-runtime/build-runtime.mjs"], {
+    runOrPrint("cargo", ["build", "--release", "--bin", "atmos"], {
       dryRun: args.dryRun,
-      description: "Building local runtime archive as preflight",
+      description: "Building local CLI as preflight",
     });
   } else {
-    info("Skipping local runtime build preflight.");
+    info("Skipping local CLI build preflight.");
   }
 
-  if (args.createTag) {
-    ensureTagDoesNotExist(tag);
-    runOrPrint("git", ["tag", tag], {
-      dryRun: args.dryRun,
-      description: `Creating tag ${tag}`,
-    });
+  if (args.prerelease) {
+    const ref = args.ref || currentHead();
+    info(`Dispatching prerelease workflow against ref ${ref}.`);
+    runOrPrint(
+      "gh",
+      [
+        "workflow",
+        "run",
+        "release-cli.yml",
+        "--ref",
+        ref,
+        "-f",
+        `ref=${ref}`,
+        "-f",
+        "platform=all",
+        "-f",
+        "create_release=true",
+        "-f",
+        `release_tag=${tag}`,
+        "-f",
+        "prerelease=true",
+      ],
+      {
+        dryRun: args.dryRun,
+        description: `Dispatching prerelease ${tag}`,
+      },
+    );
   } else {
-    info("Skipping tag creation.");
-  }
+    ensureHeadOnMain();
+    if (args.createTag) {
+      ensureTagDoesNotExist(tag);
+      runOrPrint("git", ["tag", tag], {
+        dryRun: args.dryRun,
+        description: `Creating tag ${tag}`,
+      });
+    } else {
+      info("Skipping tag creation.");
+    }
 
-  if (args.pushTag) {
-    runOrPrint("git", ["push", "origin", tag], {
-      dryRun: args.dryRun,
-      description: `Pushing tag ${tag}`,
-    });
-  } else {
-    info("Skipping tag push.");
+    if (args.pushTag) {
+      runOrPrint("git", ["push", "origin", tag], {
+        dryRun: args.dryRun,
+        description: `Pushing tag ${tag}`,
+      });
+    } else {
+      info("Skipping tag push.");
+    }
   }
 
   if (args.monitor || args.dryRun) {
     printMonitorGuidance(tag);
   }
 
-  success(`Local runtime release preflight complete for ${tag}`);
+  success(`CLI release preflight complete for ${tag}`);
 }
 
 main();

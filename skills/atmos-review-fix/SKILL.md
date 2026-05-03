@@ -19,7 +19,7 @@ Given a review run:
 4. modify the working tree to address the comments
 5. reply to each handled comment
 6. move handled comments to `agent_fixed`
-7. write one run summary and mark the run `succeeded` so Atmos creates the next review revision and `fix.patch`
+7. write one run summary and mark the run `succeeded` so Atmos updates the review revision snapshots and generates `fix.patch`
 
 Do not mark comments `fixed` automatically.
 
@@ -29,10 +29,10 @@ Do not mark comments `fixed` automatically.
 - `atmos review comment-list --session <session_guid>`
 - `atmos review comment-context --comment <comment_guid>`
 - `atmos review set-status --run <run_guid> running`
-- `atmos review reply-comment --comment <comment_guid> --body-file <path>`
+- `atmos review reply-comment --comment <comment_guid> --run <run_guid> --body-stdin`
 - `atmos review update-comment-status --comment <comment_guid> --status agent_fixed`
-- `atmos review summarize-run --run <run_guid> --body-file <path>`
-- `atmos review set-status --run <run_guid> succeeded --summary-file <path>`
+- `atmos review summarize-run --run <run_guid> --body-stdin`
+- `atmos review set-status --run <run_guid> succeeded --summary-stdin`
 - `atmos review set-status --run <run_guid> failed --message "<reason>"`
 
 The Atmos API installs this CLI on startup and Atmos-managed terminal sessions expose it on `PATH`.
@@ -87,10 +87,12 @@ Rules:
 
 ### 4. Reply to each comment
 
-After handling a comment, write a short markdown reply to a temp file and post it with:
+After handling a comment, post a short markdown reply via stdin. Do not create reply files in the workspace.
 
 ```bash
-atmos review reply-comment --comment <comment_guid> --body-file <path>
+atmos review reply-comment --comment <comment_guid> --run <run_guid> --body-stdin <<'EOF'
+Fixed by ...
+EOF
 ```
 
 The reply should state one of:
@@ -118,20 +120,26 @@ Create one short markdown summary covering:
 Then either run:
 
 ```bash
-atmos review summarize-run --run <run_guid> --body-file <path>
+atmos review summarize-run --run <run_guid> --body-stdin <<'EOF'
+- Handled ...
+- Updated ...
+EOF
 ```
 
-or pass the same file to the final status command in the next step.
+or pass the summary via stdin to the final status command in the next step.
 
 ### 6. Complete or fail the run
 
 Only after replies and summary are written:
 
 ```bash
-atmos review set-status --run <run_guid> succeeded --summary-file <path>
+atmos review set-status --run <run_guid> succeeded --summary-stdin <<'EOF'
+- Handled ...
+- Updated ...
+EOF
 ```
 
-This creates the next review revision and persists `fix.patch`.
+This updates the review revision snapshots and persists `fix.patch`.
 
 If you cannot continue the run, report the failure instead:
 
