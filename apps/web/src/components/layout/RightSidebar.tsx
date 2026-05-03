@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useGitStore } from "@/hooks/use-git-store";
@@ -17,11 +18,9 @@ import {
   TabsTab,
 } from "@workspace/ui";
 import {
-  GitBranch,
   Play,
   GitPullRequest,
   FolderOpen,
-  GitCommit as GitCommitIcon,
 } from "lucide-react";
 import { Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,18 +36,19 @@ import type { ActionRun } from "@/components/github/ActionsPanel";
 import dynamic from "next/dynamic";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
-import { PRPanel } from "@/components/github/PRPanel";
+import { PRPanel, type PRPanelHandle } from "@/components/github/PRPanel";
 import { CommitsPanel } from "@/components/github/CommitsPanel";
 import { ActionsPanel } from "@/components/github/ActionsPanel";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
 import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
-import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
 import { isWorkspaceSetupBlocking } from "@/utils/workspace-setup";
 
 import { ChangeSection } from '@/components/layout/sidebar/ChangeSection';
 import { ChangesViewSwitcher } from '@/components/layout/sidebar/ChangesViewSwitcher';
 import { CommitActions } from '@/components/layout/sidebar/CommitActions';
 import { RightSidebarDialogs } from '@/components/layout/sidebar/RightSidebarDialogs';
+import { ReviewContextProvider } from '@/components/diff/review/ReviewContextProvider';
+import { ReviewActions } from '@/components/diff/review/ReviewActions';
 
 const AgentChatPanel = dynamic(
   () => import("@/components/agent/AgentChatPanel").then((m) => m.AgentChatPanel),
@@ -58,6 +58,11 @@ const RunPreviewPanel = dynamic(
   () => import("@/components/run-preview/RunPreviewPanel").then((m) => m.RunPreviewPanel),
   { ssr: false },
 );
+const ReviewView = dynamic(() => import("@/components/diff/ReviewView"), {
+  ssr: false,
+});
+
+const CHANGES_FILE_VIEW_MODE_STORAGE_KEY = "atmos:right-sidebar:changes-file-view-mode";
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -67,9 +72,10 @@ interface RightSidebarProps {
 const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const currentProjectPath = useEditorStore(s => s.currentProjectPath);
+  const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
+  const filePath = (workspaceId && getActiveFilePath(workspaceId)) || "";
   const projects = useProjectStore(s => s.projects);
   const {
-    setCodeReviewDialogOpen,
     enqueueAgentChatPrompt,
     setPendingAgentChatMode,
   } = useDialogStore();
@@ -142,15 +148,31 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
   );
+  const [changesFileViewMode, setChangesFileViewMode] = useState<
+    "list" | "tree"
+  >(() => {
+    if (typeof window === "undefined") return "list";
+    const stored = window.localStorage.getItem(CHANGES_FILE_VIEW_MODE_STORAGE_KEY);
+    return stored === "tree" ? "tree" : "list";
+  });
+  const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
   const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
   const [refreshCommitsPanel, setRefreshCommitsPanel] = useState<
     (() => Promise<unknown> | void) | null
   >(null);
   const [isCommitsLoading, setIsCommitsLoading] = useState(false);
-  const [prRefreshKey, setPrRefreshKey] = useState(0);
-  const [actionsRefreshKey, setActionsRefreshKey] = useState(0);
+  const [prRefreshKey] = useState(0);
+  const [actionsRefreshKey] = useState(0);
+  const prPanelRef = useRef<PRPanelHandle>(null);
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      CHANGES_FILE_VIEW_MODE_STORAGE_KEY,
+      changesFileViewMode,
+    );
+  }, [changesFileViewMode]);
 
   useEffect(() => {
     if (isSettingUp) {
@@ -264,254 +286,277 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             activeTab !== "changes" && "hidden",
           )}
         >
-          {/* Changes / PR / Actions Header */}
-          <ChangesViewSwitcher
-            changesView={changesView}
-            onViewChange={(view) => setSidebarParams({ rsView: view })}
-            hasWorkingContext={hasWorkingContext}
-            onCodeReview={() => setCodeReviewDialogOpen(true)}
-            onCreatePr={() => setModalParams({ rsCreatePr: true })}
-            onRefreshActions={() => setActionsRefreshKey(Date.now())}
-          />
-
-          {/* Changes / Commits sub-tab bar - sticky, only shown in 'changes' view */}
-          {changesView === "changes" && hasWorkingContext && (
-            <div className="px-3 h-9 flex items-center justify-between shrink-0 border-b border-sidebar-border/50 bg-background/50 backdrop-blur-sm relative z-[1]">
-              <span className="text-xs font-bold text-muted-foreground tracking-wider leading-none">
-                Changes
-              </span>
-              <Tabs
-                value={changesSubTab}
-                onValueChange={(v) => {
-                  const nextTab = v as "changes" | "commits";
-                  setChangesSubTab(nextTab);
-                  if (nextTab === "commits") {
+          {/* Changes / PR / Actions / Review Header */}
+          {changesView === "review" ? (
+            <ReviewContextProvider workspaceId={workspaceId} filePath={filePath}>
+              <ChangesViewSwitcher
+                changesView={changesView}
+                onViewChange={(view) => setSidebarParams({ rsView: view })}
+                hasWorkingContext={hasWorkingContext}
+                changesSubTab={changesSubTab}
+                onChangesSubTabChange={(tab) => {
+                  setChangesSubTab(tab);
+                  if (tab === "commits") {
                     setHasVisitedCommits(true);
                   }
                 }}
-                className="h-full"
-              >
-                <TabsList variant="underline" className="h-full !py-0">
-                  <RefreshableTabsTab
-                    value="changes"
-                    activeValue={changesSubTab}
-                    refreshTitle="Refresh changes"
-                    onRefresh={handleChangesRefresh}
-                    isRefreshing={
-                      changesSubTab === "changes" && isLoading
-                    }
-                  >
-                    <GitBranch className="size-3" />
-                    <span className="text-xs">Changes</span>
-                  </RefreshableTabsTab>
-                  <RefreshableTabsTab
-                    value="commits"
-                    activeValue={changesSubTab}
-                    refreshTitle="Refresh commits"
-                    onRefresh={() => refreshCommitsPanel?.()}
-                    isRefreshing={
-                      changesSubTab === "commits" && isCommitsLoading
-                    }
-                  >
-                    <GitCommitIcon className="size-3" />
-                    <span className="text-xs">Commits</span>
-                  </RefreshableTabsTab>
-                </TabsList>
-              </Tabs>
-            </div>
-          )}
-
-          {/* Content Area */}
-          <div
-            className={cn(
-              "flex-1 overflow-y-auto no-scrollbar",
-              changesView === "changes" && changesSubTab !== "commits"
-                ? "p-2"
-                : "pt-0 px-2 pb-2",
-              changesView === "changes" &&
-                changesSubTab !== "commits" &&
-                hasWorkingContext &&
-                !hasDisplayedChanges &&
-                !isLoading &&
-                "flex items-center justify-center",
-              changesView === "changes" &&
-                !hasWorkingContext &&
-                "flex items-center justify-center",
-              changesView !== "changes" &&
-                !hasWorkingContext &&
-                "flex items-center justify-center",
-            )}
-          >
-            {!hasWorkingContext ? (
-              <div className="flex flex-col items-center text-muted-foreground/50">
-                <FolderOpen className="size-8 opacity-20 mb-2" />
-                <span className="text-xs text-center">
-                  Select a project or workspace to view changes
-                </span>
-              </div>
-            ) : changesView === "pr" ? (
-              githubOwner && githubRepo && currentBranch ? (
-                <PRPanel
-                  key={prRefreshKey}
-                  owner={githubOwner}
-                  repo={githubRepo}
-                  branch={currentBranch}
-                  onPrClick={(num) => setModalParams({ rsPr: num })}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
-                  <GitPullRequest className="size-8 opacity-20 mb-2" />
-                  <span className="text-xs text-center">
-                    Not a GitHub repository
-                  </span>
-                </div>
-              )
-            ) : changesView === "actions" ? (
-              githubOwner && githubRepo && currentBranch ? (
-                <ActionsPanel
-                  key={actionsRefreshKey}
-                  owner={githubOwner}
-                  repo={githubRepo}
-                  branch={currentBranch}
-                  onRunClick={(run: ActionRun) => {
-                    setActiveActionRun(run);
-                    setModalParams({ rsRunId: run.databaseId });
-                  }}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
-                  <Workflow className="size-8 opacity-20 mb-2" />
-                  <span className="text-xs text-center">
-                    Not a GitHub repository
-                  </span>
-                </div>
-              )
-            ) : changesView === "changes" ? (
-              hasWorkingContext ? (
-                <>
-                  <div
-                    className={cn(
-                      changesSubTab === "commits" && "hidden",
-                      "h-full",
-                    )}
-                  >
-                    {!hasDisplayedChanges && !isLoading ? (
-                      <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50 gap-3">
-                        <Check className="size-8 opacity-20 mb-2" />
-                        <span className="text-xs">
-                          {compareRef
-                            ? `No changes against ${compareRef}`
-                            : "No changes detected"}
-                        </span>
-                        {!compareRef && gitStatus?.default_branch ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-[11px]"
-                            onClick={() => {
-                              void compareAgainstDefaultBranch();
-                            }}
-                          >
-                            Compare with origin/{gitStatus.default_branch}
-                          </Button>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <>
-                        <ChangeSection
-                          kind="staged"
-                          title="Staged Changes"
-                          files={displayedStagedFiles}
-                          workspaceId={workspaceId}
-                          onUnstage={unstageFiles}
-                          onUnstageAll={unstageAll}
-                        />
-                        <ChangeSection
-                          kind="unstaged"
-                          title="Unstaged Changes"
-                          files={displayedUnstagedFiles}
-                          workspaceId={workspaceId}
-                          onStage={stageFiles}
-                          onDiscard={discardUnstagedChanges}
-                          onStageAll={stageAllUnstaged}
-                          onDiscardAll={discardAllUnstaged}
-                        />
-                        <ChangeSection
-                          kind="untracked"
-                          title="Untracked Changes"
-                          files={displayedUntrackedFiles}
-                          workspaceId={workspaceId}
-                          onStage={stageFiles}
-                          onDiscard={discardUntrackedFiles}
-                          onStageAll={stageAllUntracked}
-                          onDiscardAll={discardAllUntracked}
-                        />
-                      </>
-                    )}
-                  </div>
-
-                  <div
-                    className={cn(
-                      changesSubTab !== "commits" && "hidden",
-                      "-mx-2 -mb-2 flex-1 h-full",
-                    )}
-                  >
-                    {hasVisitedCommits && currentProjectPath && currentBranch ? (
-                      <CommitsPanel
-                        repoPath={currentProjectPath}
-                        branch={currentBranch}
-                        owner={githubOwner ?? undefined}
-                        repo={githubRepo ?? undefined}
-                        onRefreshReady={handleCommitsRefreshReady}
-                        onLoadingChange={handleCommitsLoadingChange}
-                      />
-                    ) : currentProjectPath && currentBranch ? null : (
-                      <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
-                        <span className="text-xs">No repository context</span>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center text-muted-foreground/50">
-                  <FolderOpen className="size-8 opacity-20 mb-2" />
-                  <span className="text-xs text-center">
-                    Select a project or workspace to view changes
-                  </span>
-                </div>
-              )
-            ) : null}
-          </div>
-
-          {/* Commit Actions (Sticky Bottom) */}
-          {hasWorkingContext &&
-            changesView === "changes" &&
-            changesSubTab !== "commits" && (
-              <CommitActions
-                currentProjectPath={currentProjectPath}
-                currentProject={currentProject}
-                currentWorkspace={currentWorkspace}
-                workspaceId={workspaceId}
-                projectId={projectIdFromUrl}
-                stagedFiles={stagedFiles}
-                unstagedFiles={unstagedFiles}
-                isBranchPublished={isBranchPublished}
-                gitStatus={gitStatus}
-                hasChanges={hasChanges}
-                commitChanges={commitChanges}
-                pushChanges={pushChanges}
-                stageAllUnstaged={stageAllUnstaged}
-                pullChanges={pullChanges}
-                fetchChanges={fetchChanges}
-                syncChanges={syncChanges}
-                agentHasAgents={agentHasAgents}
-                agentIsConnected={agentIsConnected}
-                agentIsBusy={agentIsBusy}
-                enqueueAgentChatPrompt={enqueueAgentChatPrompt}
-                setPendingAgentChatMode={setPendingAgentChatMode}
-                setAgentChatOpen={setAgentChatOpen}
+                onRefreshChanges={handleChangesRefresh}
+                onRefreshCommits={async () => { await refreshCommitsPanel?.(); }}
+                isChangesRefreshing={changesSubTab === "changes" && isLoading}
+                isCommitsRefreshing={changesSubTab === "commits" && isCommitsLoading}
+                prSubTab={prSubTab}
+                onPRSubTabChange={setPRSubTab}
+                onRefreshOpenPRs={() => prPanelRef.current?.refreshOpen()}
+                onRefreshClosedPRs={() => prPanelRef.current?.refreshClosed()}
+                isOpenPRsLoading={prPanelRef.current?.isOpenLoading ?? false}
+                isClosedPRsLoading={prPanelRef.current?.isClosedLoading ?? false}
+                reviewActions={<ReviewActions />}
               />
-            )}
+
+              {/* Content Area */}
+              <div
+                className={cn(
+                  "flex-1 min-h-0",
+                )}
+              >
+                {!hasWorkingContext ? (
+                  <div className="flex flex-col items-center text-muted-foreground/50">
+                    <FolderOpen className="size-8 opacity-20 mb-2" />
+                    <span className="text-xs text-center">
+                      Select a project or workspace to view changes
+                    </span>
+                  </div>
+                ) : (
+                  <ReviewView />
+                )}
+              </div>
+            </ReviewContextProvider>
+          ) : (
+            <>
+              <ChangesViewSwitcher
+                changesView={changesView}
+                onViewChange={(view) => setSidebarParams({ rsView: view })}
+                hasWorkingContext={hasWorkingContext}
+                changesSubTab={changesSubTab}
+                onChangesSubTabChange={(tab) => {
+                  setChangesSubTab(tab);
+                  if (tab === "commits") {
+                    setHasVisitedCommits(true);
+                  }
+                }}
+                onRefreshChanges={handleChangesRefresh}
+                onRefreshCommits={async () => { await refreshCommitsPanel?.(); }}
+                isChangesRefreshing={changesSubTab === "changes" && isLoading}
+                isCommitsRefreshing={changesSubTab === "commits" && isCommitsLoading}
+                prSubTab={prSubTab}
+                onPRSubTabChange={setPRSubTab}
+                onRefreshOpenPRs={() => prPanelRef.current?.refreshOpen()}
+                onRefreshClosedPRs={() => prPanelRef.current?.refreshClosed()}
+                isOpenPRsLoading={prPanelRef.current?.isOpenLoading ?? false}
+                isClosedPRsLoading={prPanelRef.current?.isClosedLoading ?? false}
+                changesFileViewMode={changesFileViewMode}
+                onToggleChangesFileViewMode={() =>
+                  setChangesFileViewMode((mode) =>
+                    mode === "tree" ? "list" : "tree",
+                  )
+                }
+              />
+
+              {/* Content Area */}
+              <div
+                className={cn(
+                  "flex-1 min-h-0 no-scrollbar overflow-y-auto",
+                  changesView === "changes" && changesSubTab !== "commits" && "p-2",
+                  changesView !== "changes" && "pt-0 px-2 pb-2",
+                  changesView === "changes" &&
+                    changesSubTab !== "commits" &&
+                    hasWorkingContext &&
+                    !hasDisplayedChanges &&
+                    !isLoading &&
+                    "flex items-center justify-center",
+                  changesView === "changes" &&
+                    !hasWorkingContext &&
+                    "flex items-center justify-center",
+                  changesView !== "changes" &&
+                    !hasWorkingContext &&
+                    "flex items-center justify-center",
+                )}
+              >
+                {!hasWorkingContext ? (
+                  <div className="flex flex-col items-center text-muted-foreground/50">
+                    <FolderOpen className="size-8 opacity-20 mb-2" />
+                    <span className="text-xs text-center">
+                      Select a project or workspace to view changes
+                    </span>
+                  </div>
+                ) : changesView === "pr" ? (
+                  githubOwner && githubRepo && currentBranch ? (
+                    <PRPanel
+                      ref={prPanelRef}
+                      owner={githubOwner}
+                      repo={githubRepo}
+                      branch={currentBranch}
+                      onPrClick={(num) => setModalParams({ rsPr: num })}
+                      prSubTab={prSubTab}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
+                      <GitPullRequest className="size-8 opacity-20 mb-2" />
+                      <span className="text-xs text-center">
+                        Not a GitHub repository
+                      </span>
+                    </div>
+                  )
+                ) : changesView === "actions" ? (
+                  githubOwner && githubRepo && currentBranch ? (
+                    <ActionsPanel
+                      key={actionsRefreshKey}
+                      owner={githubOwner}
+                      repo={githubRepo}
+                      branch={currentBranch}
+                      onRunClick={(run: ActionRun) => {
+                        setActiveActionRun(run);
+                        setModalParams({ rsRunId: run.databaseId });
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 py-10">
+                      <Workflow className="size-8 opacity-20 mb-2" />
+                      <span className="text-xs text-center">
+                        Not a GitHub repository
+                      </span>
+                    </div>
+                  )
+                ) : changesView === "changes" ? (
+                  hasWorkingContext ? (
+                    <>
+                      <div
+                        className={cn(
+                          changesSubTab === "commits" && "hidden",
+                        )}
+                      >
+                        {!hasDisplayedChanges && !isLoading ? (
+                          <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/50 gap-3">
+                            <Check className="size-8 opacity-20 mb-2" />
+                            <span className="text-xs">
+                              {compareRef
+                                ? `No changes against ${compareRef}`
+                                : "No changes detected"}
+                            </span>
+                            {!compareRef && gitStatus?.default_branch ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[11px]"
+                                onClick={() => {
+                                  void compareAgainstDefaultBranch();
+                                }}
+                              >
+                                Compare with origin/{gitStatus.default_branch}
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <>
+                            <ChangeSection
+                              kind="staged"
+                              title="Staged Changes"
+                              files={displayedStagedFiles}
+                              workspaceId={workspaceId}
+                              viewMode={changesFileViewMode}
+                              onUnstage={unstageFiles}
+                              onUnstageAll={unstageAll}
+                            />
+                            <ChangeSection
+                              kind="unstaged"
+                              title="Unstaged Changes"
+                              files={displayedUnstagedFiles}
+                              workspaceId={workspaceId}
+                              viewMode={changesFileViewMode}
+                              onStage={stageFiles}
+                              onDiscard={discardUnstagedChanges}
+                              onStageAll={stageAllUnstaged}
+                              onDiscardAll={discardAllUnstaged}
+                            />
+                            <ChangeSection
+                              kind="untracked"
+                              title="Untracked Changes"
+                              files={displayedUntrackedFiles}
+                              workspaceId={workspaceId}
+                              viewMode={changesFileViewMode}
+                              onStage={stageFiles}
+                              onDiscard={discardUntrackedFiles}
+                              onStageAll={stageAllUntracked}
+                              onDiscardAll={discardAllUntracked}
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      <div
+                        className={cn(
+                          changesSubTab !== "commits" && "hidden",
+                          "-mx-2 -mb-2 flex-1 h-full",
+                        )}
+                      >
+                        {hasVisitedCommits && currentProjectPath && currentBranch ? (
+                          <CommitsPanel
+                            repoPath={currentProjectPath}
+                            branch={currentBranch}
+                            owner={githubOwner ?? undefined}
+                            repo={githubRepo ?? undefined}
+                            onRefreshReady={handleCommitsRefreshReady}
+                            onLoadingChange={handleCommitsLoadingChange}
+                          />
+                        ) : currentProjectPath && currentBranch ? null : (
+                          <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground/50">
+                            <span className="text-xs">No repository context</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center text-muted-foreground/50">
+                      <FolderOpen className="size-8 opacity-20 mb-2" />
+                      <span className="text-xs text-center">
+                        Select a project or workspace to view changes
+                      </span>
+                    </div>
+                  )
+                ) : null}
+              </div>
+
+              {/* Commit Actions (Sticky Bottom) */}
+              {hasWorkingContext &&
+                changesView === "changes" &&
+                changesSubTab !== "commits" && (
+                  <CommitActions
+                    currentProjectPath={currentProjectPath}
+                    currentProject={currentProject}
+                    currentWorkspace={currentWorkspace}
+                    workspaceId={workspaceId}
+                    projectId={projectIdFromUrl}
+                    stagedFiles={stagedFiles}
+                    unstagedFiles={unstagedFiles}
+                    isBranchPublished={isBranchPublished}
+                    gitStatus={gitStatus}
+                    hasChanges={hasChanges}
+                    commitChanges={commitChanges}
+                    pushChanges={pushChanges}
+                    stageAllUnstaged={stageAllUnstaged}
+                    pullChanges={pullChanges}
+                    fetchChanges={fetchChanges}
+                    syncChanges={syncChanges}
+                    agentHasAgents={agentHasAgents}
+                    agentIsConnected={agentIsConnected}
+                    agentIsBusy={agentIsBusy}
+                    enqueueAgentChatPrompt={enqueueAgentChatPrompt}
+                    setPendingAgentChatMode={setPendingAgentChatMode}
+                    setAgentChatOpen={setAgentChatOpen}
+                  />
+                )}
+            </>
+          )}
         </div>
 
         <div
@@ -547,7 +592,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
         }}
         rsCreatePr={!!rsCreatePr}
         onCloseCreatePr={() => setModalParams({ rsCreatePr: false })}
-        onPrCreated={() => setPrRefreshKey(Date.now())}
+        onPrCreated={() => prPanelRef.current?.refreshOpen()}
       />
       </div>
     </aside>

@@ -67,7 +67,8 @@
     ],
     "resources": {
       "binaries/web-out": "web-out",
-      "binaries/system-skills": "system-skills"
+      "binaries/system-skills": "system-skills",
+      "binaries/atmos-cli": "atmos-cli"
     }
   },
   "plugins": {

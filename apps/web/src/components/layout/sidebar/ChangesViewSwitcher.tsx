@@ -1,232 +1,279 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   GitBranch,
-  Plus,
+  GitCommit as GitCommitIcon,
   GitPullRequest,
-  FileCheck,
-  RotateCw,
+  GitPullRequestCreate,
+  GitPullRequestClosed,
+  Workflow,
+  File,
+  FileCheckCorner,
+  Check,
+  ChevronDown,
+  List,
+  ListTree,
 } from "lucide-react";
-import { Workflow } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui";
+import { Tabs, TabsList } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import type { ChangesView } from "@/lib/nuqs/searchParams";
+import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
+
+type ChangesSubTab = "changes" | "commits";
+type PRSubTab = "open" | "closed";
 
 export interface ChangesViewSwitcherProps {
   changesView: ChangesView;
   onViewChange: (view: ChangesView) => void;
   hasWorkingContext: boolean;
-  onCodeReview: () => void;
-  onCreatePr: () => void;
-  onRefreshActions: () => void;
+  hasUnreadReviewReplies?: boolean;
+  changesSubTab: ChangesSubTab;
+  onChangesSubTabChange: (tab: ChangesSubTab) => void;
+  onRefreshChanges: () => void | Promise<void>;
+  onRefreshCommits: () => void | Promise<void>;
+  isChangesRefreshing: boolean;
+  isCommitsRefreshing: boolean;
+  prSubTab: PRSubTab;
+  onPRSubTabChange: (tab: PRSubTab) => void;
+  onRefreshOpenPRs: () => void | Promise<void>;
+  onRefreshClosedPRs: () => void | Promise<void>;
+  isOpenPRsLoading: boolean;
+  isClosedPRsLoading: boolean;
+  reviewActions?: React.ReactNode;
+  changesFileViewMode?: "list" | "tree";
+  onToggleChangesFileViewMode?: () => void;
 }
+
+const VIEW_OPTIONS: Array<{
+  value: ChangesView;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { value: "changes", label: "Changes", Icon: GitBranch },
+  { value: "pr", label: "PR", Icon: GitPullRequest },
+  { value: "actions", label: "Actions", Icon: Workflow },
+  { value: "review", label: "Review", Icon: FileCheckCorner },
+];
 
 export const ChangesViewSwitcher: React.FC<ChangesViewSwitcherProps> = ({
   changesView,
   onViewChange,
   hasWorkingContext,
-  onCodeReview,
-  onCreatePr,
-  onRefreshActions,
+  hasUnreadReviewReplies = false,
+  changesSubTab,
+  onChangesSubTabChange,
+  onRefreshChanges,
+  onRefreshCommits,
+  isChangesRefreshing,
+  isCommitsRefreshing,
+  prSubTab,
+  onPRSubTabChange,
+  onRefreshOpenPRs,
+  onRefreshClosedPRs,
+  isOpenPRsLoading,
+  isClosedPRsLoading,
+  reviewActions,
+  changesFileViewMode = "list",
+  onToggleChangesFileViewMode,
 }) => {
-  const [isChangesActionReady, setIsChangesActionReady] = useState(false);
-  const [isChangesHovered, setIsChangesHovered] = useState(false);
+  if (!hasWorkingContext) {
+    return (
+      <div className="flex border-b border-sidebar-border shrink-0 bg-sidebar-accent/5 h-10 overflow-hidden" />
+    );
+  }
 
-  const [isPrActionReady, setIsPrActionReady] = useState(false);
-  const [isPrHovered, setIsPrHovered] = useState(false);
+  const current =
+    VIEW_OPTIONS.find((opt) => opt.value === changesView) ?? VIEW_OPTIONS[0];
+  const CurrentIcon = current.Icon;
+  const showUnreadDot =
+    hasUnreadReviewReplies && changesView !== "review";
 
-  const [isActionsActionReady, setIsActionsActionReady] = useState(false);
-  const [isActionsHovered, setIsActionsHovered] = useState(false);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
+  const renderSubTabs = () => {
     if (changesView === "changes") {
-      timer = setTimeout(() => {
-        setIsChangesActionReady(true);
-      }, 1000);
-      setIsPrActionReady(false);
-      setIsActionsActionReady(false);
-    } else if (changesView === "pr") {
-      timer = setTimeout(() => {
-        setIsPrActionReady(true);
-      }, 1000);
-      setIsChangesActionReady(false);
-      setIsActionsActionReady(false);
-    } else if (changesView === "actions") {
-      timer = setTimeout(() => {
-        setIsActionsActionReady(true);
-      }, 1000);
-      setIsChangesActionReady(false);
-      setIsPrActionReady(false);
-    } else {
-      setIsChangesActionReady(false);
-      setIsPrActionReady(false);
-      setIsActionsActionReady(false);
+      return (
+        <Tabs
+          value={changesSubTab}
+          onValueChange={(v) => {
+            onChangesSubTabChange(v as ChangesSubTab);
+          }}
+          className="flex-1 h-full min-w-0"
+        >
+          <TabsList variant="underline" className="h-full w-full gap-0 py-0!">
+            <RefreshableTabsTab
+              value="changes"
+              activeValue={changesSubTab}
+              refreshTitle="Refresh changes"
+              onRefresh={onRefreshChanges}
+              isRefreshing={isChangesRefreshing}
+              trailingAction={({ isVisible }) =>
+                onToggleChangesFileViewMode ? (
+                  <span
+                    role="button"
+                    title={changesFileViewMode === "tree" ? "Show as list" : "Show as tree"}
+                    aria-label={
+                      changesFileViewMode === "tree"
+                        ? "Show changed files as list"
+                        : "Show changed files as tree"
+                    }
+                    tabIndex={isVisible ? 0 : -1}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onToggleChangesFileViewMode();
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onToggleChangesFileViewMode();
+                    }}
+                    className="flex h-full w-8 cursor-pointer items-center justify-center border-l border-sidebar-border/60 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                  >
+                    {changesFileViewMode === "tree" ? (
+                      <List className="size-3.5" />
+                    ) : (
+                      <ListTree className="size-3.5" />
+                    )}
+                  </span>
+                ) : null
+              }
+              className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
+            >
+              <File className="size-3.5" />
+              <span>Files</span>
+            </RefreshableTabsTab>
+            <RefreshableTabsTab
+              value="commits"
+              activeValue={changesSubTab}
+              refreshTitle="Refresh commits"
+              onRefresh={onRefreshCommits}
+              isRefreshing={isCommitsRefreshing}
+              className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
+            >
+              <GitCommitIcon className="size-3.5" />
+              <span>Commits</span>
+            </RefreshableTabsTab>
+          </TabsList>
+        </Tabs>
+      );
     }
-    return () => clearTimeout(timer);
-  }, [changesView]);
 
-  const showChangesActions =
-    changesView === "changes" && isChangesActionReady && isChangesHovered;
-  const showPrActions = changesView === "pr" && isPrActionReady && isPrHovered;
-  const showActionsActions =
-    changesView === "actions" && isActionsActionReady && isActionsHovered;
+    if (changesView === "pr") {
+      return (
+        <Tabs
+          value={prSubTab}
+          onValueChange={(v) => onPRSubTabChange(v as PRSubTab)}
+          className="flex-1 h-full min-w-0"
+        >
+          <TabsList variant="underline" className="h-full w-full gap-0 py-0!">
+            <RefreshableTabsTab
+              value="open"
+              activeValue={prSubTab}
+              refreshTitle="Refresh open pull requests"
+              onRefresh={onRefreshOpenPRs}
+              isRefreshing={prSubTab === "open" && isOpenPRsLoading}
+              className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
+            >
+              <GitPullRequestCreate className="size-3.5" />
+              <span>Open</span>
+            </RefreshableTabsTab>
+            <RefreshableTabsTab
+              value="closed"
+              activeValue={prSubTab}
+              refreshTitle="Refresh closed pull requests"
+              onRefresh={onRefreshClosedPRs}
+              isRefreshing={prSubTab === "closed" && isClosedPRsLoading}
+              className="flex-1 h-full! text-sm gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-none border-0!"
+            >
+              <GitPullRequestClosed className="size-3.5" />
+              <span>Closed</span>
+            </RefreshableTabsTab>
+          </TabsList>
+        </Tabs>
+      );
+    }
+
+    if (changesView === "review") {
+      return reviewActions ? (
+        <div className="flex-1 flex items-stretch min-w-0">
+          {reviewActions}
+        </div>
+      ) : null;
+    }
+
+    return null;
+  };
 
   return (
-    <div className="flex border-b border-sidebar-border shrink-0 bg-sidebar-accent/5 h-10 overflow-hidden">
-      {hasWorkingContext && (
-        <>
-          {/* Changes Toggle */}
-          <div
+    <div className="flex border-b border-sidebar-border shrink-0 bg-background/50 backdrop-blur-sm h-10">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
             className={cn(
-              "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-sidebar-border/50 overflow-hidden",
-              changesView === "changes"
-                ? showChangesActions
-                  ? "text-foreground"
-                  : "bg-sidebar-accent text-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+              "relative flex items-center justify-center gap-1.5 h-full px-3",
+              "text-sm font-medium whitespace-nowrap transition-colors cursor-pointer",
+              "data-[state=open]:bg-sidebar-accent/50 data-[state=open]:text-foreground",
+              "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30",
+              changesView !== "changes" &&
+                changesView !== "pr" &&
+                changesView !== "review" &&
+                "flex-1 justify-center",
             )}
-            onMouseEnter={() => setIsChangesHovered(true)}
-            onMouseLeave={() => setIsChangesHovered(false)}
-            onClick={() => {
-              if (changesView !== "changes") {
-                onViewChange("changes");
-              }
-            }}
           >
-            {/* Default State (Changes Icon/Text) */}
-            <div
-              className={cn(
-                "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
-                showChangesActions ? "-translate-y-10 opacity-0" : "",
-              )}
-            >
-              <GitBranch className="size-3.5" />
-              <span className="text-[11px] font-medium">Changes</span>
-            </div>
-
-            {/* Hover State (Review) */}
-            <div
-              className={cn(
-                "absolute inset-0 flex transition-all duration-300 ease-out",
-                showChangesActions
-                  ? "translate-y-0 opacity-100"
-                  : "translate-y-10 opacity-0 pointer-events-none",
-              )}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCodeReview();
-                }}
-                className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
-                title="Agent Review"
-              >
-                <FileCheck className="size-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Pull Requests Toggle */}
-          <div
-            className={cn(
-              "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-sidebar-border/50 overflow-hidden group",
-              changesView === "pr"
-                ? showPrActions
-                  ? "text-foreground"
-                  : "bg-sidebar-accent text-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            <CurrentIcon className="size-3.5 shrink-0" />
+            <span>{current.label}</span>
+            <ChevronDown className="size-3 shrink-0 opacity-60" />
+            {showUnreadDot && (
+              <span className="absolute -top-0.5 right-0.5 bg-red-500 size-1.5 rounded-full" />
             )}
-            onMouseEnter={() => setIsPrHovered(true)}
-            onMouseLeave={() => setIsPrHovered(false)}
-            onClick={() => {
-              if (changesView !== "pr") {
-                onViewChange("pr");
-              }
-            }}
-            title="Pull Requests"
-          >
-            <div
-              className={cn(
-                "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
-                showPrActions ? "-translate-y-10 opacity-0" : "",
-              )}
-            >
-              <GitPullRequest className="size-3.5" />
-              <span className="text-[11px] font-medium">PR</span>
-            </div>
-
-            <div
-              className={cn(
-                "absolute inset-0 flex transition-all duration-300 ease-out",
-                showPrActions
-                  ? "translate-y-0 opacity-100"
-                  : "translate-y-10 opacity-0 pointer-events-none",
-              )}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCreatePr();
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-[10rem]">
+          {VIEW_OPTIONS.map((opt) => {
+            const Icon = opt.Icon;
+            const isActive = opt.value === changesView;
+            return (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => {
+                  if (!isActive) onViewChange(opt.value);
                 }}
-                className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
-                title="Create PR"
+                className="flex items-center gap-2 text-xs"
               >
-                <Plus className="size-3.5" />
-              </button>
-            </div>
-          </div>
+                <Icon className="size-3.5" />
+                <span className="flex-1">{opt.label}</span>
+                {isActive && <Check className="size-3.5 text-foreground" />}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-          {/* Actions Toggle */}
-          <div
-            className={cn(
-              "flex-1 flex items-center justify-center transition-colors relative cursor-pointer border-r border-transparent overflow-hidden h-full",
-              changesView === "actions"
-                ? showActionsActions
-                  ? "text-foreground"
-                  : "bg-sidebar-accent text-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-            )}
-            onClick={() => {
-              if (changesView !== "actions")
-                onViewChange("actions");
-            }}
-            onMouseEnter={() => setIsActionsHovered(true)}
-            onMouseLeave={() => setIsActionsHovered(false)}
-            title="Actions"
-          >
-            <div
-              className={cn(
-                "flex items-center gap-1.5 justify-center transition-all duration-300 ease-out",
-                showActionsActions ? "-translate-y-10 opacity-0" : "",
-              )}
-            >
-              <Workflow className="size-3.5" />
-              <span className="text-[11px] font-medium">Actions</span>
-            </div>
-
-            <div
-              className={cn(
-                "absolute inset-0 flex transition-all duration-300 ease-out",
-                showActionsActions
-                  ? "translate-y-0 opacity-100"
-                  : "translate-y-10 opacity-0 pointer-events-none",
-              )}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRefreshActions();
-                }}
-                className="flex-1 flex items-center justify-center hover:bg-sidebar-accent cursor-pointer transition-colors"
-                title="Refresh"
-              >
-                <RotateCw className="size-3.5" />
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      {(() => {
+        const subTabs = renderSubTabs();
+        return subTabs ? (
+          <>
+            <div className="w-px self-stretch bg-sidebar-border shrink-0" />
+            {subTabs}
+          </>
+        ) : null;
+      })()}
     </div>
   );
 };

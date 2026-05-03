@@ -12,24 +12,23 @@ import { shellQuote } from "@/lib/shell-quote";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 
 export const AGENT_OPTIONS = [
-  { id: "claude", label: "Claude Code", cmd: "claude", yoloFlag: "--dangerously-skip-permissions" },
-  { id: "codex", label: "Codex", cmd: "codex", yoloFlag: "--dangerously-bypass-approvals-and-sandbox" },
-  { id: "gemini", label: "Gemini", cmd: "gemini", yoloFlag: "--yolo" },
-  { id: "amp", label: "Amp", cmd: "amp", yoloFlag: "" },
-  { id: "droid", label: "Droid", cmd: "droid", yoloFlag: "" },
-  { id: "opencode", label: "OpenCode", cmd: "opencode", yoloFlag: "--yolo" },
-  { id: "kimi", label: "Kimi", cmd: "kimi", yoloFlag: "" },
-  { id: "cursor", label: "Cursor Agent", cmd: "agent", yoloFlag: "--force" },
-  { id: "kilocode", label: "Kilo Code", cmd: "kilocode", yoloFlag: "" },
-  { id: "kiro", label: "Kiro", cmd: "kiro-cli", yoloFlag: "" },
+  { id: "claude", label: "Claude Code", cmd: "claude", params: "--dangerously-skip-permissions" },
+  { id: "codex", label: "Codex", cmd: "codex", params: "--dangerously-bypass-approvals-and-sandbox" },
+  { id: "gemini", label: "Gemini", cmd: "gemini", params: "--yolo" },
+  { id: "amp", label: "Amp", cmd: "amp", params: "" },
+  { id: "droid", label: "Droid", cmd: "droid", params: "" },
+  { id: "opencode", label: "OpenCode", cmd: "opencode", params: "--prompt" },
+  { id: "kimi", label: "Kimi", cmd: "kimi", params: "" },
+  { id: "cursor", label: "Cursor Agent", cmd: "agent", params: "--force" },
+  { id: "kilocode", label: "Kilo Code", cmd: "kilocode", params: "" },
+  { id: "kiro", label: "Kiro", cmd: "kiro-cli", params: "" },
 ] as const;
 
 export type AgentId = (typeof AGENT_OPTIONS)[number]["id"];
 
 export function buildCommand(
   agentId: AgentId,
-  prompt: string,
-  useYolo: boolean
+  prompt: string
 ): string {
   const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
   if (!agent) return "";
@@ -37,11 +36,11 @@ export function buildCommand(
   const quoted = shellQuote(prompt);
   const parts: string[] = [agent.cmd];
 
-  if (useYolo && agent.yoloFlag) {
-    parts.push(agent.yoloFlag);
+  if (agent.params) {
+    parts.push(agent.params, quoted);
+  } else {
+    parts.push(quoted);
   }
-
-  parts.push(quoted);
 
   return parts.join(" ");
 }

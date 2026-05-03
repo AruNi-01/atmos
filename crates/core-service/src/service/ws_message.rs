@@ -35,7 +35,14 @@ use infra::{
     GithubPrTimelinePageRequest, LlmProviderTestRequest,
     LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
+    ProjectUpdateTargetBranchRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
+    ReviewCommentUpdateStatusRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
+    ReviewFileSetReviewedRequest, ReviewFixRunArtifactGetRequest, ReviewFixRunCreateRequest,
+    ReviewFixRunFinalizeRequest, ReviewFixRunListRequest, ReviewFixRunSetStatusRequest,
+    ReviewMessageAddRequest, ReviewMessageDeleteRequest, ReviewMessageUpdateRequest,
+    ReviewSessionActivateRequest, ReviewSessionArchiveRequest, ReviewSessionCloseRequest,
+    ReviewSessionCreateRequest, ReviewSessionGetRequest, ReviewSessionListRequest,
+    ReviewSessionRenameRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
     SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
@@ -62,7 +69,12 @@ use tokio::sync::OnceCell;
 
 use crate::error::{Result, ServiceError};
 use crate::service::git_commit_message::GitCommitMessageGenerator;
-use crate::{AgentService, ProjectService, TerminalService, WorkspaceService};
+use crate::service::review::{
+    AddReviewMessageInput, CreateReviewCommentInput, CreateReviewFixRunInput,
+    CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, SetReviewFileReviewedInput,
+    SetReviewFixRunStatusInput, UpdateReviewCommentStatusInput, UpdateReviewMessageInput,
+};
+use crate::{AgentService, ProjectService, ReviewService, TerminalService, WorkspaceService};
 
 /// WebSocket message service for handling all business logic via WebSocket.
 pub struct WsMessageService {
@@ -74,6 +86,7 @@ pub struct WsMessageService {
     workspace_service: Arc<WorkspaceService>,
     terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
+    review_service: Arc<ReviewService>,
     usage_service: Arc<UsageService>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
 }
@@ -120,6 +133,13 @@ struct WorkspaceSetupPlan {
 }
 
 impl WsMessageService {
+    async fn send_review_notification(&self, event: WsEvent, data: Value) {
+        if let Some(manager) = self.ws_manager.get() {
+            let message = WsMessage::notification(event, data);
+            let _ = manager.broadcast(&message).await;
+        }
+    }
+
     async fn send_workspace_setup_progress(
         manager: &Arc<infra::WsManager>,
         _conn_id: &str,
@@ -396,6 +416,7 @@ impl WsMessageService {
         workspace_service: Arc<WorkspaceService>,
         terminal_service: Arc<TerminalService>,
         agent_service: Arc<AgentService>,
+        review_service: Arc<ReviewService>,
         usage_service: Arc<UsageService>,
     ) -> Self {
         Self {
@@ -407,6 +428,7 @@ impl WsMessageService {
             workspace_service,
             terminal_service,
             agent_service,
+            review_service,
             usage_service,
             ws_manager: OnceCell::new(),
         }
@@ -653,6 +675,92 @@ impl WsMessageService {
             }
             WsAction::ProjectCheckCanDelete => {
                 self.handle_project_check_can_delete(parse_request(request.data)?)
+                    .await
+            }
+
+            // Review
+            WsAction::ReviewSessionList => {
+                self.handle_review_session_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewSessionGet => {
+                self.handle_review_session_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewSessionCreate => {
+                self.handle_review_session_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewSessionClose => {
+                self.handle_review_session_close(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewSessionArchive => {
+                self.handle_review_session_archive(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewSessionActivate => {
+                self.handle_review_session_activate(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewSessionRename => {
+                self.handle_review_session_rename(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFileList => {
+                self.handle_review_file_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFileContentGet => {
+                self.handle_review_file_content_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFileSetReviewed => {
+                self.handle_review_file_set_reviewed(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewCommentList => {
+                self.handle_review_comment_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewCommentCreate => {
+                self.handle_review_comment_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewCommentUpdateStatus => {
+                self.handle_review_comment_update_status(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewMessageAdd => {
+                self.handle_review_message_add(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewMessageUpdate => {
+                self.handle_review_message_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewMessageDelete => {
+                self.handle_review_message_delete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFixRunList => {
+                self.handle_review_fix_run_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFixRunCreate => {
+                self.handle_review_fix_run_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFixRunArtifactGet => {
+                self.handle_review_fix_run_artifact_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFixRunFinalize => {
+                self.handle_review_fix_run_finalize(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::ReviewFixRunSetStatus => {
+                self.handle_review_fix_run_set_status(parse_request(request.data)?)
                     .await
             }
 
@@ -4223,6 +4331,372 @@ set -x
             ServiceError::Validation(format!("Failed to write terminal_code_agent.json: {}", e))
         })?;
         Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_session_list(&self, req: ReviewSessionListRequest) -> Result<Value> {
+        let sessions = self
+            .review_service
+            .list_sessions_by_workspace(req.workspace_guid, req.include_archived)
+            .await?;
+        Ok(json!(sessions))
+    }
+
+    async fn handle_review_session_get(&self, req: ReviewSessionGetRequest) -> Result<Value> {
+        let session = self.review_service.get_session(req.session_guid).await?;
+        Ok(json!(session))
+    }
+
+    async fn handle_review_session_create(&self, req: ReviewSessionCreateRequest) -> Result<Value> {
+        let session = self
+            .review_service
+            .create_session(CreateReviewSessionInput {
+                workspace_guid: req.workspace_guid,
+                title: req.title,
+                created_by: req.created_by,
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "kind": "session_created",
+                "session_guid": session.model.guid,
+                "workspace_guid": session.model.workspace_guid,
+                "changed_fields": ["status", "current_revision_guid", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!(session))
+    }
+
+    async fn handle_review_session_close(&self, req: ReviewSessionCloseRequest) -> Result<Value> {
+        self.review_service
+            .close_session(req.session_guid.clone())
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "kind": "session_closed",
+                "session_guid": req.session_guid,
+                "changed_fields": ["status", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_session_archive(
+        &self,
+        req: ReviewSessionArchiveRequest,
+    ) -> Result<Value> {
+        self.review_service
+            .archive_session(req.session_guid.clone())
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "kind": "session_archived",
+                "session_guid": req.session_guid,
+                "changed_fields": ["status", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_session_activate(
+        &self,
+        req: ReviewSessionActivateRequest,
+    ) -> Result<Value> {
+        self.review_service
+            .activate_session(req.session_guid.clone())
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "kind": "session_activated",
+                "session_guid": req.session_guid,
+                "changed_fields": ["status", "closed_at", "archived_at", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_session_rename(&self, req: ReviewSessionRenameRequest) -> Result<Value> {
+        self.review_service
+            .rename_session(req.session_guid.clone(), req.title.clone())
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "kind": "session_renamed",
+                "session_guid": req.session_guid,
+                "changed_fields": ["title", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_file_list(&self, req: ReviewFileListRequest) -> Result<Value> {
+        let files = self
+            .review_service
+            .list_files_by_revision(req.revision_guid)
+            .await?;
+        Ok(json!(files))
+    }
+
+    async fn handle_review_file_content_get(
+        &self,
+        req: ReviewFileContentGetRequest,
+    ) -> Result<Value> {
+        let content = self
+            .review_service
+            .get_file_content(req.file_snapshot_guid)
+            .await?;
+        Ok(json!(content))
+    }
+
+    async fn handle_review_file_set_reviewed(
+        &self,
+        req: ReviewFileSetReviewedRequest,
+    ) -> Result<Value> {
+        self.review_service
+            .set_file_reviewed(SetReviewFileReviewedInput {
+                file_state_guid: req.file_state_guid.clone(),
+                reviewed: req.reviewed,
+                reviewed_by: req.reviewed_by,
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewFileUpdated,
+            json!({
+                "file_state_guid": req.file_state_guid,
+                "changed_fields": ["reviewed", "reviewed_at", "reviewed_by", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_comment_list(&self, req: ReviewCommentListRequest) -> Result<Value> {
+        let comments = self
+            .review_service
+            .list_comments(req.session_guid, req.revision_guid)
+            .await?;
+        Ok(json!(comments))
+    }
+
+    async fn handle_review_comment_create(&self, req: ReviewCommentCreateRequest) -> Result<Value> {
+        let anchor: ReviewAnchor = serde_json::from_value(req.anchor).map_err(|error| {
+            ServiceError::Validation(format!("Invalid review comment anchor: {}", error))
+        })?;
+        let comment = self
+            .review_service
+            .create_comment(CreateReviewCommentInput {
+                session_guid: req.session_guid,
+                revision_guid: req.revision_guid,
+                file_snapshot_guid: req.file_snapshot_guid,
+                anchor,
+                body: req.body,
+                title: req.title,
+                created_by: req.created_by,
+                parent_comment_guid: req.parent_comment_guid,
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "comment_guid": comment.model.guid,
+                "session_guid": comment.model.session_guid,
+                "revision_guid": comment.model.revision_guid,
+                "changed_fields": ["status", "updated_at", "created_at"],
+                "comment": comment,
+            }),
+        )
+        .await;
+        Ok(json!(comment))
+    }
+
+    async fn handle_review_comment_update_status(
+        &self,
+        req: ReviewCommentUpdateStatusRequest,
+    ) -> Result<Value> {
+        self.review_service
+            .update_comment_status(UpdateReviewCommentStatusInput {
+                comment_guid: req.comment_guid.clone(),
+                status: req.status.clone(),
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "comment_guid": req.comment_guid,
+                "changed_fields": ["status", "updated_at"],
+                "status": req.status,
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_message_add(&self, req: ReviewMessageAddRequest) -> Result<Value> {
+        let message = self
+            .review_service
+            .create_message(AddReviewMessageInput {
+                comment_guid: req.comment_guid,
+                author_type: req.author_type,
+                kind: req.kind,
+                body: req.body,
+                fix_run_guid: req.fix_run_guid,
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewMessageCreated,
+            json!({
+                "comment_guid": message.model.comment_guid,
+                "message_guid": message.model.guid,
+                "changed_fields": ["created_at"],
+                "message": message,
+            }),
+        )
+        .await;
+        Ok(json!(message))
+    }
+
+    async fn handle_review_message_delete(&self, req: ReviewMessageDeleteRequest) -> Result<Value> {
+        let comment_guid = self
+            .review_service
+            .delete_message(DeleteReviewMessageInput {
+                message_guid: req.message_guid.clone(),
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "comment_guid": comment_guid,
+                "message_guid": req.message_guid,
+                "changed_fields": ["messages", "updated_at"],
+            }),
+        )
+        .await;
+        Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_review_message_update(&self, req: ReviewMessageUpdateRequest) -> Result<Value> {
+        let message = self
+            .review_service
+            .update_message(UpdateReviewMessageInput {
+                message_guid: req.message_guid,
+                body: req.body,
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewCommentUpdated,
+            json!({
+                "comment_guid": message.model.comment_guid,
+                "message_guid": message.model.guid,
+                "changed_fields": ["messages", "updated_at"],
+                "message": message,
+            }),
+        )
+        .await;
+        Ok(json!(message))
+    }
+
+    async fn handle_review_fix_run_list(&self, req: ReviewFixRunListRequest) -> Result<Value> {
+        let runs = self.review_service.list_fix_runs(req.session_guid).await?;
+        Ok(json!(runs))
+    }
+
+    async fn handle_review_fix_run_create(&self, req: ReviewFixRunCreateRequest) -> Result<Value> {
+        let run = self
+            .review_service
+            .create_fix_run(CreateReviewFixRunInput {
+                session_guid: req.session_guid,
+                base_revision_guid: req.base_revision_guid,
+                execution_mode: req.execution_mode,
+                selected_comment_guids: req.selected_comment_guids,
+                created_by: req.created_by,
+            })
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewFixRunUpdated,
+            json!({
+                "run_guid": run.run.guid,
+                "session_guid": run.run.session_guid,
+                "changed_fields": ["status", "updated_at", "prompt_rel_path"],
+                "run": run.run,
+            }),
+        )
+        .await;
+        Ok(json!(run))
+    }
+
+    async fn handle_review_fix_run_artifact_get(
+        &self,
+        req: ReviewFixRunArtifactGetRequest,
+    ) -> Result<Value> {
+        let artifact = self
+            .review_service
+            .get_run_artifact(req.run_guid, req.kind)
+            .await?;
+        Ok(json!(artifact))
+    }
+
+    async fn handle_review_fix_run_finalize(
+        &self,
+        req: ReviewFixRunFinalizeRequest,
+    ) -> Result<Value> {
+        let finalized = self
+            .review_service
+            .finalize_fix_run(req.run_guid.clone(), req.title)
+            .await?;
+        self.send_review_notification(
+            WsEvent::ReviewFixRunUpdated,
+            json!({
+                "run_guid": finalized.run.guid,
+                "session_guid": finalized.run.session_guid,
+                "changed_fields": ["status", "result_revision_guid", "patch_rel_path", "result_rel_path", "finished_at", "updated_at"],
+                "run": finalized.run,
+                "revision_guid": finalized.revision.guid,
+            }),
+        )
+        .await;
+        Ok(json!(finalized))
+    }
+
+    async fn handle_review_fix_run_set_status(
+        &self,
+        req: ReviewFixRunSetStatusRequest,
+    ) -> Result<Value> {
+        let status_result = self
+            .review_service
+            .set_fix_run_status(SetReviewFixRunStatusInput {
+                run_guid: req.run_guid,
+                status: req.status,
+                message: req.message,
+                title: req.title,
+                summary: req.summary,
+            })
+            .await?;
+        let payload = serde_json::to_value(&status_result)
+            .map_err(|error| ServiceError::Processing(error.to_string()))?;
+        let run = match &status_result {
+            crate::service::review::ReviewFixRunStatusDto::Run { run } => run,
+            crate::service::review::ReviewFixRunStatusDto::Finalized(finalized) => &finalized.run,
+        };
+        self.send_review_notification(
+            WsEvent::ReviewFixRunUpdated,
+            json!({
+                "run_guid": run.guid,
+                "session_guid": run.session_guid,
+                "changed_fields": ["status", "started_at", "finished_at", "failure_reason", "result_revision_guid", "patch_rel_path", "result_rel_path", "updated_at"],
+                "run": run,
+            }),
+        )
+        .await;
+        Ok(payload)
     }
 
     async fn handle_llm_providers_get(&self) -> Result<Value> {

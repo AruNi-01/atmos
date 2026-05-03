@@ -703,6 +703,14 @@ async fn spawn_and_wait_sidecar(
                 sidecar_cmd = sidecar_cmd.env("ATMOS_SYSTEM_SKILLS_DIR", dir_str);
             }
         }
+
+        let cli_bin_name = if cfg!(windows) { "atmos.exe" } else { "atmos" };
+        let bundled_cli_bin = resource_dir.join("atmos-cli").join(cli_bin_name);
+        if bundled_cli_bin.is_file() {
+            if let Some(path_str) = bundled_cli_bin.to_str() {
+                sidecar_cmd = sidecar_cmd.env("ATMOS_CLI_BIN", path_str);
+            }
+        }
     }
 
     let (mut rx, child) = sidecar_cmd.spawn().map_err(|e| StartupFailure {

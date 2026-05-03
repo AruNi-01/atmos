@@ -1,8 +1,19 @@
-import { cpSync, existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const rootDir = resolve(import.meta.dirname, "../..");
+const cliCargoToml = join(rootDir, "apps/cli/Cargo.toml");
+
+function readCliVersion() {
+  const cargoToml = readFileSync(cliCargoToml, "utf8");
+  const match = cargoToml.match(/^version\s*=\s*"([^"]+)"/m);
+  if (!match) {
+    console.error(`Unable to resolve CLI version from ${cliCargoToml}`);
+    process.exit(1);
+  }
+  return match[1];
+}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -74,7 +85,15 @@ run("cargo", ["build", "--release", "--bin", "api", "--target", targetTriple], {
   },
 });
 
+run("cargo", ["build", "--release", "--bin", "atmos", "--target", targetTriple], {
+  env: {
+    ...process.env,
+    ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
+  },
+});
+
 const binExt = targetTriple.includes("windows") ? ".exe" : "";
+const cliVersion = readCliVersion();
 const binariesDir = join(rootDir, "apps/desktop/src-tauri/binaries");
 mkdirSync(binariesDir, { recursive: true });
 
@@ -82,6 +101,32 @@ const fromSidecar = join(rootDir, `target/${targetTriple}/release/api${binExt}`)
 const toSidecar = join(binariesDir, `api-${targetTriple}${binExt}`);
 cpSync(fromSidecar, toSidecar);
 console.log(`Prepared sidecar: ${toSidecar}`);
+
+const cliResourceDir = join(binariesDir, "atmos-cli");
+const fromCli = join(rootDir, `target/${targetTriple}/release/atmos${binExt}`);
+const toCli = join(cliResourceDir, `atmos${binExt}`);
+rmSync(cliResourceDir, { recursive: true, force: true });
+mkdirSync(cliResourceDir, { recursive: true });
+cpSync(fromCli, toCli);
+writeFileSync(
+  join(cliResourceDir, "manifest.json"),
+  JSON.stringify(
+    {
+      schema_version: 1,
+      product: "atmos-cli",
+      cli_version: cliVersion,
+      target_triple: targetTriple,
+      built_at: new Date().toISOString(),
+      layout: {
+        cli: `atmos${binExt}`,
+      },
+    },
+    null,
+    2,
+  ),
+  "utf8",
+);
+console.log(`Prepared Atmos CLI resource: ${toCli}`);
 
 const webOut = join(rootDir, "apps/web/out");
 const sidecarWebOut = join(binariesDir, "web-out");
@@ -96,7 +141,7 @@ if (existsSync(webOut)) {
     // without a visible redirect flash (meta-refresh → /en/).
     cpSync(enIndexPath, indexHtmlPath);
   }
-  
+
   rmSync(sidecarWebOut, { recursive: true, force: true });
   cpSync(webOut, sidecarWebOut, { recursive: true });
   console.log(`Copied web static export to: ${sidecarWebOut}`);

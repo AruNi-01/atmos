@@ -1,0 +1,328 @@
+name: CLI Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "cli-v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (branch, tag or SHA)"
+        required: false
+        default: "main"
+      platform:
+        description: "Target platform"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "macos-14"
+          - "macos-15-intel"
+          - "ubuntu-22.04"
+          - "windows-latest"
+      create_release:
+        description: "Create GitHub Release"
+        required: true
+        default: true
+        type: boolean
+      release_tag:
+        description: "Release tag when create_release=true (example: cli-v0.2.0)"
+        required: false
+      prerelease:
+        description: "Mark release as prerelease"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: cli-${{ github.workflow }}-${{ github.ref_name || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  resolve-release-config:
+    name: Resolve release config
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      create_release: ${{ steps.resolve.outputs.create_release }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      release_version: ${{ steps.resolve.outputs.release_version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
+      build_matrix: ${{ steps.resolve.outputs.build_matrix }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve values
+        id: resolve
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          matrix_for_platform() {
+            case "$1" in
+              "all" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin"},{"platform":"macos-15-intel","target":"x86_64-apple-darwin"},{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"},{"platform":"windows-latest","target":"x86_64-pc-windows-msvc"}]}'
+                ;;
+              "macos-14" )
+                printf '%s\n' '{"include":[{"platform":"macos-14","target":"aarch64-apple-darwin"}]}'
+                ;;
+              "macos-15-intel" )
+                printf '%s\n' '{"include":[{"platform":"macos-15-intel","target":"x86_64-apple-darwin"}]}'
+                ;;
+              "ubuntu-22.04" )
+                printf '%s\n' '{"include":[{"platform":"ubuntu-22.04","target":"x86_64-unknown-linux-gnu"}]}'
+                ;;
+              "windows-latest" )
+                printf '%s\n' '{"include":[{"platform":"windows-latest","target":"x86_64-pc-windows-msvc"}]}'
+                ;;
+              * )
+                echo "Unsupported platform: $1" >&2
+                exit 1
+                ;;
+            esac
+          }
+
+          validate_checkout_ref() {
+            local ref="$1"
+            local encoded_ref
+            encoded_ref="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$ref")"
+
+            local status
+            status="$(
+              curl -sS -o /dev/null -w "%{http_code}" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${encoded_ref}"
+            )"
+
+            if [ "$status" != "200" ]; then
+              echo "Invalid Git ref to build: $ref" >&2
+              exit 1
+            fi
+          }
+
+          require_tag_commit_on_main() {
+            git fetch --no-tags origin main
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "Refusing to publish ${GITHUB_REF_NAME}: tag commit ${GITHUB_SHA} is not on origin/main." >&2
+              echo "Use workflow_dispatch with create_release=false for branch validation builds." >&2
+              exit 1
+            fi
+          }
+
+          EVENT="${{ github.event_name }}"
+          if [ "$EVENT" = "push" ]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            if [[ ! "$RELEASE_TAG" =~ ^cli-v.+$ ]]; then
+              echo "Unexpected release tag: $RELEASE_TAG" >&2
+              exit 1
+            fi
+            require_tag_commit_on_main
+            echo "create_release=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            echo "release_version=${RELEASE_TAG#cli-v}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+            echo "build_matrix=$(matrix_for_platform all)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CREATE_RELEASE="${{ github.event.inputs.create_release }}"
+          RELEASE_TAG="${{ github.event.inputs.release_tag }}"
+          PRERELEASE="${{ github.event.inputs.prerelease }}"
+          CHECKOUT_REF="${{ github.event.inputs.ref }}"
+          PLATFORM="${{ github.event.inputs.platform }}"
+
+          if [ -z "$CHECKOUT_REF" ]; then
+            CHECKOUT_REF="main"
+          fi
+          validate_checkout_ref "$CHECKOUT_REF"
+
+          if [ "$CREATE_RELEASE" = "true" ] && [ -z "$RELEASE_TAG" ]; then
+            echo "release_tag is required when create_release=true" >&2
+            exit 1
+          fi
+
+          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^cli-v.+$ ]]; then
+            echo "release_tag must match cli-v<version>" >&2
+            exit 1
+          fi
+
+          if [ -n "$RELEASE_TAG" ]; then
+            RELEASE_VERSION="${RELEASE_TAG#cli-v}"
+          else
+            RELEASE_VERSION=""
+          fi
+
+          echo "create_release=${CREATE_RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
+          echo "checkout_ref=${CHECKOUT_REF}" >> "$GITHUB_OUTPUT"
+          echo "build_matrix=$(matrix_for_platform "$PLATFORM")" >> "$GITHUB_OUTPUT"
+
+  verify-version:
+    name: Verify CLI version
+    runs-on: ubuntu-latest
+    needs: resolve-release-config
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - name: Verify apps/cli package version
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.resolve-release-config.outputs.release_version }}
+          CREATE_RELEASE: ${{ needs.resolve-release-config.outputs.create_release }}
+        run: |
+          set -euo pipefail
+
+          PACKAGE_VERSION="$(
+            python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+          with Path("apps/cli/Cargo.toml").open("rb") as f:
+              print(tomllib.load(f)["package"]["version"])
+          PY
+          )"
+
+          if [ "$CREATE_RELEASE" = "true" ]; then
+            if [ -z "$RELEASE_TAG" ] || [ -z "$RELEASE_VERSION" ]; then
+              echo "release_tag is required when create_release=true" >&2
+              exit 1
+            fi
+            if [ "$PACKAGE_VERSION" != "$RELEASE_VERSION" ]; then
+              echo "CLI version mismatch: apps/cli/Cargo.toml has ${PACKAGE_VERSION}, release tag is ${RELEASE_TAG}" >&2
+              exit 1
+            fi
+          fi
+
+  create-release:
+    name: Create draft release
+    if: needs.resolve-release-config.outputs.create_release == 'true'
+    runs-on: ubuntu-latest
+    needs: [resolve-release-config, verify-version]
+    steps:
+      - name: Create draft GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.resolve-release-config.outputs.release_version }}
+          PRERELEASE: ${{ needs.resolve-release-config.outputs.prerelease }}
+          CHECKOUT_REF: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists"
+            exit 0
+          fi
+
+          NOTES_FILE="$(mktemp)"
+          cat > "$NOTES_FILE" <<EOF
+          Atmos CLI ${RELEASE_VERSION}
+
+          Assets:
+          - prebuilt Atmos CLI archives for each supported platform
+          EOF
+
+          EXTRA_ARGS=()
+          if [ "$PRERELEASE" = "true" ]; then
+            EXTRA_ARGS+=(--prerelease)
+          fi
+
+          gh release create "$RELEASE_TAG" \
+            --title "Atmos CLI ${RELEASE_VERSION}" \
+            --draft \
+            --target "$CHECKOUT_REF" \
+            "${EXTRA_ARGS[@]}" \
+            --notes-file "$NOTES_FILE"
+
+  build-cli:
+    name: Build CLI (${{ matrix.target }})
+    runs-on: ${{ matrix.platform }}
+    needs: [resolve-release-config, verify-version, create-release]
+    if: always() && needs.verify-version.result == 'success' && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-release-config.outputs.build_matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          key: cli-${{ matrix.target }}
+
+      - name: Build CLI
+        run: cargo build --release --bin atmos --target ${{ matrix.target }}
+
+      - name: Package CLI
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+
+          EXT=""
+          if [ "$TARGET" = "x86_64-pc-windows-msvc" ]; then
+            EXT=".exe"
+          fi
+
+          OUT_DIR="${RUNNER_TEMP}/atmos-cli-${TARGET}"
+          mkdir -p "${OUT_DIR}/bin"
+          cp "target/${TARGET}/release/atmos${EXT}" "${OUT_DIR}/bin/atmos${EXT}"
+
+          ARCHIVE="${RUNNER_TEMP}/atmos-cli-${TARGET}.tar.gz"
+          tar -C "${RUNNER_TEMP}" -czf "$ARCHIVE" "atmos-cli-${TARGET}"
+          echo "archive=${ARCHIVE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload CI artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: atmos-cli-${{ matrix.target }}
+          path: ${{ runner.temp }}/atmos-cli-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+
+      - name: Upload release asset
+        if: needs.resolve-release-config.outputs.create_release == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" \
+            "${RUNNER_TEMP}/atmos-cli-${{ matrix.target }}.tar.gz" \
+            --clobber
+
+  publish-release:
+    name: Publish GitHub release
+    if: always() && needs.resolve-release-config.outputs.create_release == 'true' && needs.build-cli.result == 'success'
+    runs-on: ubuntu-latest
+    needs: [resolve-release-config, build-cli]
+    steps:
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --draft=false
