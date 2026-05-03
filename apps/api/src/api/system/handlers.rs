@@ -6,9 +6,11 @@ use axum::{
     Json,
 };
 use infra::utils::debug_logging::DebugLogger;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
+use std::process::Command;
+use std::time::Duration;
 use tokio_util::io::ReaderStream;
 use tracing::{info, warn};
 
@@ -18,6 +20,12 @@ use crate::{app_state::AppState, error::ApiResult};
 
 use super::diagnostics;
 use super::skills;
+
+const CLI_RELEASES_API_URL: &str = "https://api.github.com/repos/AruNi-01/atmos/releases";
+const CLI_TAGS_ATOM_URL: &str = "https://github.com/AruNi-01/atmos/tags.atom";
+const CLI_RELEASE_TAG_PREFIX: &str = "cli-v";
+const ALT_CLI_RELEASE_TAG_PREFIX: &str = "atmos-cli-v";
+const GITHUB_RELEASES_BASE_URL: &str = "https://github.com/AruNi-01/atmos/releases";
 
 #[derive(Deserialize)]
 pub struct KillTmuxSessionPayload {
@@ -47,6 +55,48 @@ pub async fn get_tmux_status(State(state): State<AppState>) -> ApiResult<Json<Ap
         "installed": installed,
         "version": version,
     }))))
+}
+
+#[derive(Debug, Serialize)]
+pub struct CliVersionCheckResponse {
+    installed: bool,
+    current_version: Option<String>,
+    latest_version: Option<String>,
+    latest_tag: Option<String>,
+    release_url: Option<String>,
+    update_available: bool,
+    install_path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GithubRelease {
+    tag_name: String,
+    html_url: String,
+    draft: bool,
+    prerelease: bool,
+}
+
+/// GET /api/system/cli-version-check
+pub async fn check_cli_version() -> ApiResult<Json<ApiResponse<CliVersionCheckResponse>>> {
+    let cli_path = infra::utils::atmos_cli::installed_cli_path();
+    let current_version = cli_path.as_deref().and_then(read_cli_version);
+    let latest = fetch_latest_cli_release().await.ok();
+    let latest_version = latest.as_ref().map(|release| release.version.clone());
+    let update_available = current_version
+        .as_deref()
+        .zip(latest_version.as_deref())
+        .map(|(current, latest)| version_gt(latest, current))
+        .unwrap_or(false);
+
+    Ok(Json(ApiResponse::success(CliVersionCheckResponse {
+        installed: current_version.is_some(),
+        current_version,
+        latest_version,
+        latest_tag: latest.as_ref().map(|release| release.tag.clone()),
+        release_url: latest.as_ref().map(|release| release.url.clone()),
+        update_available,
+        install_path: cli_path.map(|path| path.to_string_lossy().to_string()),
+    })))
 }
 
 /// GET /api/system/tmux-install-plan
@@ -707,4 +757,152 @@ pub async fn ingest_frontend_debug_log(
         logger.log(&entry.cat, &msg, extra);
     }
     StatusCode::NO_CONTENT
+}
+
+#[derive(Debug)]
+struct LatestCliRelease {
+    version: String,
+    tag: String,
+    url: String,
+}
+
+fn read_cli_version(path: &std::path::Path) -> Option<String> {
+    if !path.is_file() {
+        return None;
+    }
+    let output = Command::new(path).arg("--version").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout
+        .split_whitespace()
+        .last()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+async fn fetch_latest_cli_release() -> Result<LatestCliRelease, String> {
+    match fetch_latest_cli_release_from_api().await {
+        Ok(release) => Ok(release),
+        Err(_) => fetch_latest_cli_release_from_tags_feed().await,
+    }
+}
+
+async fn fetch_latest_cli_release_from_api() -> Result<LatestCliRelease, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .user_agent("atmos-api")
+        .build()
+        .map_err(|error| error.to_string())?;
+    let releases = client
+        .get(format!("{}?per_page=100", CLI_RELEASES_API_URL))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .json::<Vec<GithubRelease>>()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    releases
+        .into_iter()
+        .find(|release| {
+            !release.draft && !release.prerelease && is_cli_release_tag(&release.tag_name)
+        })
+        .map(|release| LatestCliRelease {
+            version: release_version(&release.tag_name),
+            tag: release.tag_name,
+            url: release.html_url,
+        })
+        .ok_or_else(|| "No published Atmos CLI release was found".to_string())
+}
+
+async fn fetch_latest_cli_release_from_tags_feed() -> Result<LatestCliRelease, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .user_agent("atmos-api")
+        .build()
+        .map_err(|error| error.to_string())?;
+    let feed = client
+        .get(CLI_TAGS_ATOM_URL)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .text()
+        .await
+        .map_err(|error| error.to_string())?;
+    let tag = find_latest_cli_tag_in_atom(&feed)
+        .ok_or_else(|| "No cli-v tag was found in Atmos tags feed".to_string())?;
+    Ok(LatestCliRelease {
+        version: release_version(&tag),
+        url: format!("{}/tag/{}", GITHUB_RELEASES_BASE_URL, tag),
+        tag,
+    })
+}
+
+fn find_latest_cli_tag_in_atom(feed: &str) -> Option<String> {
+    for entry in feed.split("<entry").skip(1) {
+        let tag = extract_between(entry, "/releases/tag/", "\"")
+            .or_else(|| extract_between(entry, "/releases/tag/", "<"))
+            .or_else(|| extract_between(entry, "<title>", "</title>"))?;
+        let tag = tag.trim().to_string();
+        if is_stable_cli_release_tag(&tag) {
+            return Some(tag);
+        }
+    }
+    None
+}
+
+fn extract_between(value: &str, start: &str, end: &str) -> Option<String> {
+    let start_index = value.find(start)? + start.len();
+    let rest = &value[start_index..];
+    let end_index = rest.find(end)?;
+    Some(rest[..end_index].to_string())
+}
+
+fn release_version(tag: &str) -> String {
+    tag.strip_prefix(CLI_RELEASE_TAG_PREFIX)
+        .or_else(|| tag.strip_prefix(ALT_CLI_RELEASE_TAG_PREFIX))
+        .or_else(|| tag.strip_prefix('v'))
+        .unwrap_or(tag)
+        .to_string()
+}
+
+fn is_cli_release_tag(tag: &str) -> bool {
+    tag.starts_with(CLI_RELEASE_TAG_PREFIX) || tag.starts_with(ALT_CLI_RELEASE_TAG_PREFIX)
+}
+
+fn is_stable_cli_release_tag(tag: &str) -> bool {
+    if !is_cli_release_tag(tag) {
+        return false;
+    }
+    let version = release_version(tag);
+    !version.contains('-')
+}
+
+fn version_gt(candidate: &str, current: &str) -> bool {
+    let candidate_parts = version_parts(candidate);
+    let current_parts = version_parts(current);
+    for index in 0..candidate_parts.len().max(current_parts.len()) {
+        let candidate_part = *candidate_parts.get(index).unwrap_or(&0);
+        let current_part = *current_parts.get(index).unwrap_or(&0);
+        if candidate_part != current_part {
+            return candidate_part > current_part;
+        }
+    }
+    false
+}
+
+fn version_parts(version: &str) -> Vec<u64> {
+    version
+        .split(['+', '-'])
+        .next()
+        .unwrap_or(version)
+        .split('.')
+        .map(|part| part.parse::<u64>().unwrap_or(0))
+        .collect()
 }

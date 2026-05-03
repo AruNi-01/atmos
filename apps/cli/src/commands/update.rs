@@ -11,10 +11,8 @@ use serde_json::{json, Value};
 const GITHUB_RELEASES_URL: &str = "https://api.github.com/repos/AruNi-01/atmos/releases";
 const GITHUB_RELEASES_ATOM_URL: &str = "https://github.com/AruNi-01/atmos/releases.atom";
 const GITHUB_TAGS_ATOM_URL: &str = "https://github.com/AruNi-01/atmos/tags.atom";
-const GITHUB_RELEASE_DOWNLOAD_BASE: &str = "https://github.com/AruNi-01/atmos/releases/download";
-const CLI_CARGO_TOML_URL: &str =
-    "https://raw.githubusercontent.com/AruNi-01/atmos/main/apps/cli/Cargo.toml";
-const GITHUB_REPO_URL: &str = "https://github.com/AruNi-01/atmos";
+const CLI_RELEASE_TAG_PREFIX: &str = "cli-v";
+const ALT_CLI_RELEASE_TAG_PREFIX: &str = "atmos-cli-v";
 const CHECK_INTERVAL_HOURS: i64 = 24;
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -30,6 +28,14 @@ struct GithubRelease {
     html_url: String,
     draft: bool,
     prerelease: bool,
+    #[serde(default)]
+    assets: Vec<GithubAsset>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct GithubAsset {
+    name: String,
+    browser_download_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +55,7 @@ struct LatestRelease {
 }
 
 pub async fn execute(args: UpdateArgs) -> Result<Value, String> {
-    let latest = fetch_latest_local_release().await?;
+    let latest = fetch_latest_cli_release().await?;
     write_update_cache(&latest);
     let update_available = version_gt(&latest.version, CURRENT_VERSION);
 
@@ -109,7 +115,7 @@ pub async fn update_hint_if_needed() -> Option<String> {
             asset_url: None,
         },
         None => {
-            let latest = tokio::time::timeout(Duration::from_secs(2), fetch_latest_local_release())
+            let latest = tokio::time::timeout(Duration::from_secs(2), fetch_latest_cli_release())
                 .await
                 .ok()?
                 .ok()?;
@@ -128,40 +134,35 @@ pub async fn update_hint_if_needed() -> Option<String> {
     ))
 }
 
-async fn fetch_latest_local_release() -> Result<LatestRelease, String> {
-    match fetch_latest_local_release_from_api().await {
+async fn fetch_latest_cli_release() -> Result<LatestRelease, String> {
+    match fetch_latest_cli_release_from_api().await {
         Ok(release) => Ok(release),
         Err(api_error) => {
-            match fetch_latest_local_release_from_atom(GITHUB_RELEASES_ATOM_URL).await {
+            match fetch_latest_cli_release_from_atom(GITHUB_RELEASES_ATOM_URL).await {
                 Ok(release) => Ok(release),
-                Err(releases_atom_error) => match fetch_latest_local_release_from_atom(
-                    GITHUB_TAGS_ATOM_URL,
-                )
-                .await
-                {
-                    Ok(release) => Ok(release),
-                    Err(tags_atom_error) => fetch_latest_cli_version_from_main()
+                Err(releases_atom_error) => {
+                    fetch_latest_cli_release_from_atom(GITHUB_TAGS_ATOM_URL)
                         .await
-                        .map_err(|main_error| {
+                        .map_err(|tags_atom_error| {
                             format!(
-                                "{}; releases feed fallback failed: {}; tags feed fallback failed: {}; main fallback failed: {}",
-                                api_error, releases_atom_error, tags_atom_error, main_error
-                            )
-                        }),
-                },
+                        "{}; releases feed fallback failed: {}; tags feed fallback failed: {}",
+                        api_error, releases_atom_error, tags_atom_error
+                    )
+                        })
+                }
             }
         }
     }
 }
 
-async fn fetch_latest_local_release_from_api() -> Result<LatestRelease, String> {
+async fn fetch_latest_cli_release_from_api() -> Result<LatestRelease, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .user_agent("atmos-cli")
         .build()
         .map_err(|error| format!("Failed to create HTTP client: {}", error))?;
     let releases = client
-        .get(format!("{}?per_page=20", GITHUB_RELEASES_URL))
+        .get(format!("{}?per_page=100", GITHUB_RELEASES_URL))
         .send()
         .await
         .map_err(|error| format!("Failed to check Atmos releases: {}", error))?
@@ -175,12 +176,16 @@ async fn fetch_latest_local_release_from_api() -> Result<LatestRelease, String> 
     releases
         .into_iter()
         .find(|release| {
-            !release.draft && !release.prerelease && release.tag_name.starts_with("local-v")
+            !release.draft && !release.prerelease && is_cli_release_tag(&release.tag_name)
         })
         .map(|release| {
-            let asset_url = target
-                .as_ref()
-                .map(|target| local_runtime_asset_url(&release.tag_name, target));
+            let asset_url = target.as_ref().and_then(|target| {
+                release
+                    .assets
+                    .iter()
+                    .find(|asset| is_cli_asset_for_target(&asset.name, target))
+                    .map(|asset| asset.browser_download_url.clone())
+            });
             LatestRelease {
                 version: release_version(&release.tag_name),
                 tag: release.tag_name,
@@ -188,10 +193,10 @@ async fn fetch_latest_local_release_from_api() -> Result<LatestRelease, String> 
                 asset_url,
             }
         })
-        .ok_or_else(|| "No published Atmos local runtime release was found".to_string())
+        .ok_or_else(|| "No published Atmos CLI release was found".to_string())
 }
 
-async fn fetch_latest_local_release_from_atom(feed_url: &str) -> Result<LatestRelease, String> {
+async fn fetch_latest_cli_release_from_atom(feed_url: &str) -> Result<LatestRelease, String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .user_agent("atmos-cli")
@@ -207,42 +212,12 @@ async fn fetch_latest_local_release_from_atom(feed_url: &str) -> Result<LatestRe
         .text()
         .await
         .map_err(|error| format!("Failed to read Atmos releases feed: {}", error))?;
-    let tag = find_latest_local_tag_in_atom(&feed)
-        .ok_or_else(|| "No local-v release was found in Atmos releases feed".to_string())?;
-    let target = current_target_triple().ok();
-    let asset_url = target
-        .as_ref()
-        .map(|target| local_runtime_asset_url(&tag, target));
+    let tag = find_latest_cli_tag_in_atom(&feed)
+        .ok_or_else(|| "No cli-v release was found in Atmos releases feed".to_string())?;
     Ok(LatestRelease {
         version: release_version(&tag),
         url: format!("https://github.com/AruNi-01/atmos/releases/tag/{}", tag),
         tag,
-        asset_url,
-    })
-}
-
-async fn fetch_latest_cli_version_from_main() -> Result<LatestRelease, String> {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .user_agent("atmos-cli")
-        .build()
-        .map_err(|error| format!("Failed to create HTTP client: {}", error))?;
-    let cargo_toml = client
-        .get(CLI_CARGO_TOML_URL)
-        .send()
-        .await
-        .map_err(|error| format!("Failed to check Atmos CLI version: {}", error))?
-        .error_for_status()
-        .map_err(|error| format!("Failed to check Atmos CLI version: {}", error))?
-        .text()
-        .await
-        .map_err(|error| format!("Failed to read Atmos CLI version: {}", error))?;
-    let version = parse_cargo_package_version(&cargo_toml)
-        .ok_or_else(|| "Could not find package version in apps/cli/Cargo.toml".to_string())?;
-    Ok(LatestRelease {
-        version,
-        tag: "main".to_string(),
-        url: GITHUB_REPO_URL.to_string(),
         asset_url: None,
     })
 }
@@ -290,11 +265,8 @@ async fn download_and_install_cli(
         return Err("Failed to extract Atmos update archive".to_string());
     }
 
-    let source = temp_root
-        .join(format!("atmos-local-runtime-{}", target))
-        .join("atmos-runtime")
-        .join("bin")
-        .join(binary_name());
+    let source = find_extracted_cli_binary(&temp_root, target)
+        .ok_or_else(|| format!("Update archive did not contain {}", binary_name()))?;
     if !source.is_file() {
         return Err(format!(
             "Update archive did not contain {}",
@@ -333,23 +305,10 @@ async fn download_and_install_cli(
 }
 
 async fn install_from_git() -> Result<(), String> {
-    let status = Command::new("cargo")
-        .args([
-            "install",
-            "--git",
-            GITHUB_REPO_URL,
-            "--package",
-            "atmos",
-            "--bin",
-            "atmos",
-            "--locked",
-        ])
-        .status()
-        .map_err(|error| format!("Failed to run cargo install: {}", error))?;
-    if !status.success() {
-        return Err("cargo install failed while updating Atmos CLI".to_string());
-    }
-    Ok(())
+    Err(
+        "The latest CLI release does not include a compatible binary asset for this platform."
+            .to_string(),
+    )
 }
 
 fn current_target_triple() -> Result<String, String> {
@@ -397,6 +356,51 @@ fn set_executable_if_needed(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn is_cli_asset_for_target(name: &str, target: &str) -> bool {
+    let normalized = name.to_ascii_lowercase();
+    normalized.contains("atmos")
+        && normalized.contains("cli")
+        && normalized.contains(&target.to_ascii_lowercase())
+        && (normalized.ends_with(".tar.gz") || normalized.ends_with(".tgz"))
+}
+
+fn find_extracted_cli_binary(root: &Path, target: &str) -> Option<PathBuf> {
+    let direct_candidates = [
+        root.join(binary_name()),
+        root.join("bin").join(binary_name()),
+        root.join(format!("atmos-cli-{}", target))
+            .join(binary_name()),
+        root.join(format!("atmos-cli-{}", target))
+            .join("bin")
+            .join(binary_name()),
+    ];
+    for candidate in direct_candidates {
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    find_file_named(root, binary_name(), 4)
+}
+
+fn find_file_named(dir: &Path, file_name: &str, depth: usize) -> Option<PathBuf> {
+    if depth == 0 {
+        return None;
+    }
+    let entries = fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.file_name().and_then(|name| name.to_str()) == Some(file_name) {
+            return Some(path);
+        }
+        if path.is_dir() {
+            if let Some(found) = find_file_named(&path, file_name, depth - 1) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}
+
 fn cache_path() -> Option<PathBuf> {
     dirs::home_dir().map(|home| home.join(".atmos").join("cli").join("update-check.json"))
 }
@@ -437,27 +441,32 @@ fn write_update_cache(latest: &LatestRelease) {
 }
 
 fn release_version(tag: &str) -> String {
-    tag.strip_prefix("local-v")
-        .or_else(|| tag.strip_prefix("desktop-v"))
+    tag.strip_prefix(CLI_RELEASE_TAG_PREFIX)
+        .or_else(|| tag.strip_prefix(ALT_CLI_RELEASE_TAG_PREFIX))
         .or_else(|| tag.strip_prefix('v'))
         .unwrap_or(tag)
         .to_string()
 }
 
-fn local_runtime_asset_url(tag: &str, target: &str) -> String {
-    format!(
-        "{}/{}/atmos-local-runtime-{}.tar.gz",
-        GITHUB_RELEASE_DOWNLOAD_BASE, tag, target
-    )
+fn is_cli_release_tag(tag: &str) -> bool {
+    tag.starts_with(CLI_RELEASE_TAG_PREFIX) || tag.starts_with(ALT_CLI_RELEASE_TAG_PREFIX)
 }
 
-fn find_latest_local_tag_in_atom(feed: &str) -> Option<String> {
+fn is_stable_cli_release_tag(tag: &str) -> bool {
+    if !is_cli_release_tag(tag) {
+        return false;
+    }
+    let version = release_version(tag);
+    !version.contains('-')
+}
+
+fn find_latest_cli_tag_in_atom(feed: &str) -> Option<String> {
     for entry in feed.split("<entry").skip(1) {
         if let Some(tag) = extract_between(entry, "/releases/tag/", "\"")
             .or_else(|| extract_between(entry, "<title>", "</title>"))
         {
             let tag = tag.trim().to_string();
-            if tag.starts_with("local-v") {
+            if is_stable_cli_release_tag(&tag) {
                 return Some(tag);
             }
         }
@@ -470,33 +479,6 @@ fn extract_between(value: &str, start: &str, end: &str) -> Option<String> {
     let rest = &value[start_index..];
     let end_index = rest.find(end)?;
     Some(rest[..end_index].to_string())
-}
-
-fn parse_cargo_package_version(cargo_toml: &str) -> Option<String> {
-    let mut in_package = false;
-    for line in cargo_toml.lines() {
-        let trimmed = line.trim();
-        if trimmed == "[package]" {
-            in_package = true;
-            continue;
-        }
-        if in_package && trimmed.starts_with('[') {
-            return None;
-        }
-        if in_package {
-            let Some(value) = trimmed.strip_prefix("version") else {
-                continue;
-            };
-            let Some(value) = value.trim_start().strip_prefix('=') else {
-                continue;
-            };
-            let version = value.trim().trim_matches('"').trim_matches('\'');
-            if !version.is_empty() {
-                return Some(version.to_string());
-            }
-        }
-    }
-    None
 }
 
 fn version_gt(candidate: &str, current: &str) -> bool {

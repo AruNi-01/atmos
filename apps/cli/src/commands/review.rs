@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::{self, Read};
 use std::sync::Arc;
 
 use clap::{Args, Subcommand};
@@ -36,8 +37,12 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
             .map_err(|error| error.to_string())?
             .map_err(|error| error.to_string()),
         ReviewCommand::ReplyComment(args) => {
-            let body = fs::read_to_string(&args.body_file)
-                .map_err(|error| format!("Failed to read {}: {}", args.body_file, error))?;
+            let body = read_required_body_input(
+                "reply body",
+                args.body.as_deref(),
+                args.body_file.as_deref(),
+                args.body_stdin,
+            )?;
             service
                 .create_message(AddReviewMessageInput {
                     comment_guid: args.comment,
@@ -80,8 +85,12 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
             .map_err(|error| error.to_string())?
             .map_err(|error| error.to_string()),
         ReviewCommand::SummarizeRun(args) => {
-            let body = fs::read_to_string(&args.body_file)
-                .map_err(|error| format!("Failed to read {}: {}", args.body_file, error))?;
+            let body = read_required_body_input(
+                "run summary",
+                args.body.as_deref(),
+                args.body_file.as_deref(),
+                args.body_stdin,
+            )?;
             service
                 .write_run_summary(args.run, body)
                 .await
@@ -90,7 +99,12 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 .map_err(|error| error.to_string())
         }
         ReviewCommand::FinalizeRun(args) => {
-            if let Some(summary) = read_optional_body_file(args.summary_file.as_deref())? {
+            if let Some(summary) = read_optional_body_input(
+                "run summary",
+                args.summary.as_deref(),
+                args.summary_file.as_deref(),
+                args.summary_stdin,
+            )? {
                 service
                     .write_run_summary(args.run.clone(), summary)
                     .await
@@ -104,7 +118,12 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 .map_err(|error| error.to_string())
         }
         ReviewCommand::SetStatus(args) => {
-            let summary = read_optional_body_file(args.summary_file.as_deref())?;
+            let summary = read_optional_body_input(
+                "run summary",
+                args.summary.as_deref(),
+                args.summary_file.as_deref(),
+                args.summary_stdin,
+            )?;
             service
                 .set_fix_run_status(SetReviewFixRunStatusInput {
                     run_guid: args.run,
@@ -122,11 +141,52 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
 }
 
 fn read_body_file(path: &str) -> Result<String, String> {
+    if path == "-" {
+        return read_stdin();
+    }
     fs::read_to_string(path).map_err(|error| format!("Failed to read {}: {}", path, error))
 }
 
-fn read_optional_body_file(path: Option<&str>) -> Result<Option<String>, String> {
-    path.map(read_body_file).transpose()
+fn read_stdin() -> Result<String, String> {
+    let mut body = String::new();
+    io::stdin()
+        .read_to_string(&mut body)
+        .map_err(|error| format!("Failed to read stdin: {}", error))?;
+    Ok(body)
+}
+
+fn read_required_body_input(
+    label: &str,
+    inline: Option<&str>,
+    file: Option<&str>,
+    stdin: bool,
+) -> Result<String, String> {
+    read_optional_body_input(label, inline, file, stdin)?
+        .ok_or_else(|| format!("Missing {label}: pass inline text, a file, or stdin"))
+}
+
+fn read_optional_body_input(
+    label: &str,
+    inline: Option<&str>,
+    file: Option<&str>,
+    stdin: bool,
+) -> Result<Option<String>, String> {
+    let provided = usize::from(inline.is_some()) + usize::from(file.is_some()) + usize::from(stdin);
+    if provided > 1 {
+        return Err(format!(
+            "Multiple {label} inputs provided; use only one of inline text, file, or stdin"
+        ));
+    }
+    if let Some(value) = inline {
+        return Ok(Some(value.to_string()));
+    }
+    if let Some(path) = file {
+        return read_body_file(path).map(Some);
+    }
+    if stdin {
+        return read_stdin().map(Some);
+    }
+    Ok(None)
 }
 
 #[derive(Debug, Subcommand)]
@@ -176,7 +236,11 @@ pub struct ReplyCommentArgs {
     #[arg(long)]
     pub comment: String,
     #[arg(long)]
-    pub body_file: String,
+    pub body: Option<String>,
+    #[arg(long)]
+    pub body_file: Option<String>,
+    #[arg(long)]
+    pub body_stdin: bool,
     #[arg(long)]
     pub run: Option<String>,
     #[arg(long, default_value = "agent")]
@@ -212,25 +276,33 @@ pub struct SummarizeRunArgs {
     #[arg(long)]
     pub run: String,
     #[arg(long)]
-    pub body_file: String,
+    pub body: Option<String>,
+    #[arg(long)]
+    pub body_file: Option<String>,
+    #[arg(long)]
+    pub body_stdin: bool,
 }
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Tip: pass --summary-file <path> to write the run summary before finalizing. --summary is accepted as an alias."
+    after_help = "Tip: pass --summary, --summary-file <path>, or --summary-stdin to write the run summary before finalizing."
 )]
 pub struct FinalizeRunArgs {
     #[arg(long)]
     pub run: String,
     #[arg(long)]
     pub title: Option<String>,
-    #[arg(long = "summary-file", alias = "summary")]
+    #[arg(long)]
+    pub summary: Option<String>,
+    #[arg(long = "summary-file")]
     pub summary_file: Option<String>,
+    #[arg(long)]
+    pub summary_stdin: bool,
 }
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Statuses: running, succeeded, failed. For succeeded, pass --summary-file <path> to write the summary and finalize in one command. --summary is accepted as an alias."
+    after_help = "Statuses: running, succeeded, failed. For succeeded, pass --summary, --summary-file <path>, or --summary-stdin to write the summary and finalize in one command."
 )]
 pub struct SetStatusArgs {
     #[arg(long)]
@@ -240,6 +312,10 @@ pub struct SetStatusArgs {
     pub message: Option<String>,
     #[arg(long)]
     pub title: Option<String>,
-    #[arg(long = "summary-file", alias = "summary")]
+    #[arg(long)]
+    pub summary: Option<String>,
+    #[arg(long = "summary-file")]
     pub summary_file: Option<String>,
+    #[arg(long)]
+    pub summary_stdin: bool,
 }
