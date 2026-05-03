@@ -5,6 +5,7 @@ import {
   ScrollArea,
   Loader2,
   LoaderCircle,
+  RotateCw,
   Button,
   cn,
   SquareTerminal,
@@ -175,7 +176,7 @@ export const TerminalManagerView: React.FC = () => {
               className="h-10 w-10 shrink-0 rounded-xl bg-muted/20 border-border/50 hover:bg-background transition-all shadow-sm cursor-pointer"
               title="Refresh Stats"
             >
-              <LoaderCircle className={cn("size-4", isLoading && "animate-spin")} />
+              {isLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
             </Button>
           </div>
         </div>

@@ -16,6 +16,7 @@ import {
   Gauge,
   Plus,
   LoaderCircle,
+  RotateCw,
   Trash2,
 } from "lucide-react";
 import {
@@ -365,37 +366,38 @@ function providerIdentity(provider: UsageProviderResponse) {
   return { accountLabel, planLabel, periodLabel };
 }
 
-function ProviderGlyph({ providerId }: { providerId: string }) {
-  const iconClass = "size-[26px] stroke-[1.8]";
+export const PROVIDER_ICON_IDS = new Set([
+  "claude",
+  "codex",
+  "cursor",
+  "opencode",
+  "factory",
+  "gemini",
+  "antigravity",
+  "zai",
+  "minimax",
+  "mimo",
+  "kimi",
+  "amp",
+  "zed",
+]);
 
+export function ProviderGlyph({ providerId, size = 26, className }: { providerId: string; size?: number; className?: string }) {
   if (providerId === ALL_PROVIDER_ID) {
-    return <Blocks className={iconClass} />;
+    return <Blocks className={cn(`size-[${size}px] stroke-[1.8]`, className)} />;
   }
 
-  const iconIds = new Set([
-    "claude",
-    "codex",
-    "cursor",
-    "opencode",
-    "factory",
-    "gemini",
-    "antigravity",
-    "zai",
-    "minimax",
-    "kimi",
-    "amp",
-    "zed",
-  ]);
-
-  if (!iconIds.has(providerId)) {
-    return <Coins className={iconClass} />;
+  if (!PROVIDER_ICON_IDS.has(providerId)) {
+    return <Coins className={cn(`size-[${size}px] stroke-[1.8]`, className)} />;
   }
 
   return (
     <span
       aria-hidden="true"
-      className="size-6.5 shrink-0 select-none bg-current"
+      className={cn("shrink-0 select-none bg-current", className)}
       style={{
+        width: size,
+        height: size,
         WebkitMaskImage: `url(/ai-provider/${providerId}.svg)`,
         maskImage: `url(/ai-provider/${providerId}.svg)`,
         WebkitMaskRepeat: "no-repeat",
@@ -562,6 +564,7 @@ function AutoRefreshCountdownBadge({ targetTimeMs }: { targetTimeMs: number }) {
 }
 
 function regionOptionLabel(region: string | null, options: UsageManualSetupResponse["region_options"]): string {
+  if (options.length === 0) return "";
   if (!region || region === "auto") return "Auto";
   return options.find((o) => o.value === region)?.label ?? region;
 }
@@ -604,7 +607,7 @@ function ProviderApiKeyManager({
               <div className="flex items-center gap-2 min-w-0">
                 <KeyRound className="size-3.5 shrink-0 text-foreground/60" />
                 <span className="text-xs text-foreground truncate">
-                  {regionOptionLabel(key.region, manualSetup.region_options)} Key
+                  {[regionOptionLabel(key.region, manualSetup.region_options), "Key"].filter(Boolean).join(" ")}
                 </span>
                 <span className="text-[10px] text-foreground/50 font-mono truncate">···{key.id.slice(-4)}</span>
               </div>
@@ -638,24 +641,26 @@ function ProviderApiKeyManager({
       {showAddForm && (
         <div className="rounded-[12px] border border-border/60 bg-muted/20 p-3">
           <div className="grid gap-2.5">
-            <div className="grid gap-1">
-              <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
-                Region
+            {manualSetup.region_options.length > 0 && (
+              <div className="grid gap-1">
+                <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
+                  Region
+                </div>
+                <Select value={region} onValueChange={setRegion} disabled={isSaving}>
+                  <SelectTrigger className="h-8 w-full rounded-[10px] bg-background/70 text-xs">
+                    <SelectValue placeholder="Select region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {manualSetup.region_options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <UsagePortalLink providerId={providerId} region={selectedRegion} className="mt-1" />
               </div>
-              <Select value={region} onValueChange={setRegion} disabled={isSaving}>
-                <SelectTrigger className="h-8 w-full rounded-[10px] bg-background/70 text-xs">
-                  <SelectValue placeholder="Select region" />
-                </SelectTrigger>
-                <SelectContent>
-                  {manualSetup.region_options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <UsagePortalLink providerId={providerId} region={selectedRegion} className="mt-1" />
-            </div>
+            )}
 
             <div className="grid gap-1">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-foreground/90">
@@ -807,6 +812,13 @@ function AggregateProviderRow({
   const creditsBalance = firstRowValue(provider, "Credits", "Balance");
   const creditsState = firstRowValue(provider, "Credits", "State");
   const { accountLabel, planLabel, periodLabel } = providerIdentity(provider);
+  // Collapsed-row subtitle: prefer the explicit plan label, but fall back to
+  // accountLabel when the dedup logic in providerIdentity collapsed the plan
+  // into accountLabel (e.g. providers whose Account row is just the brand
+  // name, like Xiaomi MiMo / Zhipu AI / MiniMax).
+  const collapsedSubtitle =
+    planLabel ??
+    (accountLabel && accountLabel !== provider.label ? accountLabel : null);
   const detectHint =
     provider.auth_state.detail ??
     provider.warnings[0] ??
@@ -854,8 +866,8 @@ function AggregateProviderRow({
                 />
               </div>
             </div>
-            {planLabel ? (
-              <div className="truncate text-[11px] text-foreground/90">{planLabel}</div>
+            {collapsedSubtitle ? (
+              <div className="truncate text-[11px] text-foreground/90">{collapsedSubtitle}</div>
             ) : null}
           </div>
         </div>
@@ -1854,10 +1866,9 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                           disabled={isRefreshing}
                           aria-label="Refresh usage"
                         >
-                          <LoaderCircle
-                            className={cn("block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]",
-                              isRefreshing && "animate-spin")}
-                          />
+                          {isRefreshing
+                            ? <LoaderCircle className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center] animate-spin" />
+                            : <RotateCw className="block size-3 shrink-0 [transform-box:fill-box] [transform-origin:center]" />}
                           <span className="text-[10px] font-medium">Refresh</span>
                         </button>
                       </motion.div>
@@ -1955,7 +1966,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                               >
                                 <span className="flex min-w-0 items-center gap-2">
                                   <span className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border/60 bg-background/75 text-foreground/85 [&_svg]:size-3.5 [&_span]:size-3.5">
-                                    <ProviderGlyph providerId={provider.id} />
+                                    <ProviderGlyph providerId={provider.id} size={14} />
                                   </span>
                                   <span className="min-w-0 truncate">{provider.label}</span>
                                 </span>

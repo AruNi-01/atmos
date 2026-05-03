@@ -27,6 +27,7 @@ import {
   ExternalLink,
   KeyRound,
   LoaderCircle,
+  RotateCw,
   Play,
   ShieldCheck,
   ShieldOff,
@@ -689,8 +690,8 @@ export function RenewSessionPopover({
     <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setError(null); }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className={cn('cursor-pointer', triggerCls)}>
-          <LoaderCircle className="mr-1.5 size-3.5" />
-          {urgency === 'expired' ? 'Expired — Renew' : 'Renew'}
+          <RotateCw className="mr-1.5 size-3.5" />
+                     {urgency === 'expired' ? 'Expired — Renew' : 'Renew'}
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="end" className="w-72 p-4">
@@ -735,7 +736,7 @@ export function RenewSessionPopover({
             <p className="text-xs text-destructive">{error}</p>
           )}
           <Button className="w-full cursor-pointer" size="sm" onClick={() => void handleRenew()} disabled={isRenewing}>
-            {isRenewing ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <LoaderCircle className="mr-1.5 size-3.5" />}
+            {isRenewing ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
             Renew Session
           </Button>
         </div>
@@ -987,7 +988,7 @@ function RemoteAccessContent() {
           {isLoading ? (
             <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
           ) : (
-            <LoaderCircle className="mr-1.5 size-3.5" />
+            <RotateCw className="mr-1.5 size-3.5" />
           )}
           Refresh
         </Button>

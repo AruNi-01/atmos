@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 aes = "0.8"
+aes-gcm = "0.10"
 async-trait = "0.1"
 base64 = "0.22"
 cbc = "0.1"

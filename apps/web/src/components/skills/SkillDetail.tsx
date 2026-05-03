@@ -319,7 +319,17 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
   const isMarkdown = selectedFile?.name.endsWith('.md') || selectedFile?.name.endsWith('.mdx');
   const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : 'plaintext';
-  
+
+  // Convert YAML frontmatter into a fenced yaml code block for markdown preview
+  const previewContent = useMemo(() => {
+    if (!isMarkdown) return fileContent;
+    const m = fileContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+    if (!m) return fileContent;
+    const yaml = m[1];
+    const body = fileContent.slice(m[0].length);
+    return '```yaml\n' + yaml + '\n```\n\n' + body;
+  }, [fileContent, isMarkdown]);
+
   // Dirty check: compare current content with the content in the selectedFile object
   // Note: We need to make sure selectedFile.content is up to date when we save.
   const hasUnsavedChanges = selectedFile ? fileContent !== (selectedFile.content || '') : false;
@@ -383,6 +393,43 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
     setFileContent(file.content || '');
     setIsPreview(file.name.endsWith('.md') || file.name.endsWith('.mdx'));
   }, []);
+
+  // Handle relative link clicks in markdown preview — navigate to the target file within the skill
+  const handleRelativeLinkClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    if (!anchor) return;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
+
+    e.preventDefault();
+
+    // Resolve relative path against current file's directory
+    const currentDir = selectedFile?.relative_path
+      ? selectedFile.relative_path.split('/').slice(0, -1).join('/')
+      : '';
+    const segments = (currentDir ? currentDir + '/' + href : href).split('/');
+    const resolved: string[] = [];
+    for (const seg of segments) {
+      if (seg === '.' || seg === '') continue;
+      if (seg === '..') { resolved.pop(); continue; }
+      resolved.push(seg);
+    }
+    const targetPath = resolved.join('/');
+
+    const targetFile = skill.files?.find(f => f.relative_path === targetPath);
+    if (targetFile) {
+      handleSelectFile(targetFile);
+      // Expand parent dirs so the file is visible in the tree
+      const parts = targetPath.split('/');
+      setExpandedDirs(prev => {
+        const next = new Set(prev);
+        for (let i = 1; i < parts.length; i++) {
+          next.add(parts.slice(0, i).join('/'));
+        }
+        return next;
+      });
+    }
+  }, [selectedFile, skill.files, handleSelectFile]);
 
   return (
     <div className="flex flex-col h-full">
@@ -596,14 +643,14 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
                 {selectedFile.content !== null ? (
                   isMarkdown && isPreview ? (
                     <>
-                      <ScrollArea className="h-full">
-                        <div id="skill-content-root" className="px-8 py-6">
+                      <ScrollArea key={selectedFile.relative_path} className="h-full">
+                        <div id="skill-content-root" className="px-8 py-6" onClick={handleRelativeLinkClick}>
                           <MarkdownRenderer>
-                            {fileContent}
+                            {previewContent}
                           </MarkdownRenderer>
                         </div>
                       </ScrollArea>
-                      <MarkdownToc markdown={fileContent} scrollContainerId="skill-content-root" />
+                      <MarkdownToc markdown={previewContent} scrollContainerId="skill-content-root" />
                     </>
                   ) : (
                     <CodeMirrorEditor

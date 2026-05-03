@@ -170,6 +170,8 @@ export type WsAction =
   | "github_pr_open_browser"
   | "github_issue_list"
   | "github_issue_get"
+  | "github_pr_list_repo"
+  | "github_pr_get"
   | "github_ci_status"
   | "github_ci_open_browser"
   | "github_actions_list"

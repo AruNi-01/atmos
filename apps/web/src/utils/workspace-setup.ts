@@ -58,10 +58,21 @@ export function getWorkspaceSetupSteps(
     },
   ];
 
-  if (progress.setupContext?.hasGithubIssue || progress.setupContext?.hasRequirementStep) {
+  // requirement.md is pre-filled synchronously during workspace creation, so
+  // this step is shown only as a record (already-completed) when the user
+  // linked a PR/Issue or supplied an initial requirement via the composer.
+  if (
+    progress.setupContext?.hasGithubPr ||
+    progress.setupContext?.hasGithubIssue ||
+    progress.setupContext?.hasRequirementStep
+  ) {
     steps.push({
       id: "write_requirement",
-      title: progress.setupContext?.hasGithubIssue ? "Fill Requirement Spec" : "Write Requirement Spec",
+      title: progress.setupContext?.hasGithubPr
+        ? "Fill PR Spec"
+        : progress.setupContext?.hasGithubIssue
+          ? "Fill Issue Spec"
+          : "Write Requirement Spec",
     });
   }
 

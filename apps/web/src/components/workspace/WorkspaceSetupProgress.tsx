@@ -55,26 +55,39 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     [progress],
   );
 
+  // requirement.md is pre-filled synchronously during workspace creation
+  // (see backend `handle_workspace_create`). The step is still surfaced in
+  // the setup checklist so users can see what was prepared, but it will be
+  // rendered as already-completed because `currentStepKey` advances past it.
   const contextStep = useMemo(() => {
     const hasGithubIssue = !!setupContext?.hasGithubIssue;
+    const hasGithubPr = !!setupContext?.hasGithubPr;
     const hasRequirementStep = !!setupContext?.hasRequirementStep;
 
-    if (!hasGithubIssue && !hasRequirementStep) {
+    if (!hasGithubIssue && !hasGithubPr && !hasRequirementStep) {
       return null;
+    }
+
+    if (hasGithubPr) {
+      return {
+        id: "write_requirement" as const,
+        title: "Fill PR Spec",
+        description: "Linked GitHub PR was written into requirement.md.",
+      };
     }
 
     if (hasGithubIssue) {
       return {
         id: "write_requirement" as const,
-        title: "Fill Requirement Spec",
-        description: "Write the linked GitHub issue into requirement.md.",
+        title: "Fill Issue Spec",
+        description: "Linked GitHub issue was written into requirement.md.",
       };
     }
 
     return {
       id: "write_requirement" as const,
       title: "Write Requirement Spec",
-      description: "Save the initial requirement specification for this workspace.",
+      description: "Initial requirement specification saved for this workspace.",
     };
   }, [setupContext]);
 
@@ -413,22 +426,6 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       );
     }
 
-    if (currentStepKey === "write_requirement") {
-      return (
-        <div className={cn(
-          "flex w-full flex-1 items-center justify-center border border-border bg-background text-center text-sm text-muted-foreground",
-          compact ? "min-h-[140px] rounded-lg px-4" : "min-h-[200px] rounded-xl px-6",
-        )}>
-          <div className="max-w-md space-y-2">
-            <p className="text-sm font-medium text-foreground">
-              {contextStep?.title ?? "Preparing workspace context"}
-            </p>
-            <p>{contextStep?.description ?? "Writing the initial context into the workspace."}</p>
-          </div>
-        </div>
-      );
-    }
-
     if (currentStepKey === "extract_todos") {
       const todoContent = editedTodoOutput ?? output;
       return (
@@ -444,11 +441,11 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
               <p className="text-sm font-medium text-foreground">
                 {progress.requiresConfirmation ? "Review initial TODOs" : "Generating initial TODOs"}
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {progress.requiresConfirmation
-                  ? "Confirm this markdown to write it into .atmos/context/task.md and continue setup."
-                  : "Streaming markdown tasks from the linked issue."}
-              </p>
+              {progress.requiresConfirmation && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Confirm this markdown to write it into .atmos/context/task.md and continue setup.
+                </p>
+              )}
             </div>
             {progress.requiresConfirmation && todoContent.trim().length > 0 && (
               <button

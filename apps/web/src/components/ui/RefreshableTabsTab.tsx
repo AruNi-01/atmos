@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, RotateCw } from "lucide-react";
 import { TabsTab } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 

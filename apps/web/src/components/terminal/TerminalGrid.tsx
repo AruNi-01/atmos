@@ -152,6 +152,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const terminalRefsMap = React.useRef<Map<string, TerminalRef>>(new Map());
   // Pending commands to send when terminal session becomes ready (createAndRunTerminal flow)
   const pendingCommandsRef = React.useRef<Map<string, string>>(new Map());
+  // Track panes whose session has already become ready, so we know whether
+  // to call sendText directly or queue a pending command for onSessionReady.
+  const readyPanesRef = React.useRef<Set<string>>(new Set());
   const [splitMenuKey, setSplitMenuKey] = React.useState<string | null>(null);
   const [isPaneDragging, setIsPaneDragging] = React.useState(false);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -310,6 +313,27 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   React.useImperativeHandle(ref, () => ({
     addTerminal: (label?: string, agent?: TerminalPaneAgent) => addTerminal(label, agent),
     createAndRunTerminal: async ({ label, command, agent }) => {
+      // If there's exactly one fresh default pane (no agent, no pending command),
+      // reuse it directly instead of creating a second terminal window.
+      const currentPanes = Object.entries(panes);
+      if (currentPanes.length === 1) {
+        const [existingId, existingPane] = currentPanes[0];
+        if (!existingPane.agent && !pendingCommandsRef.current.has(existingId)) {
+          if (agent) {
+            setPaneAgent(workspaceId, existingId, agent);
+          }
+          const termRef = terminalRefsMap.current.get(existingId);
+          // Only send immediately when the underlying tmux session has reported
+          // input-ready. Otherwise the websocket is still attaching and the
+          // input would be silently dropped — queue it for onSessionReady.
+          if (termRef && readyPanesRef.current.has(existingId)) {
+            termRef.sendText(command + "\r");
+          } else {
+            pendingCommandsRef.current.set(existingId, command + "\r");
+          }
+          return;
+        }
+      }
       const paneId = addTerminal(label, agent);
       pendingCommandsRef.current.set(paneId, command + "\r");
     },
@@ -349,7 +373,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       }
       terminalRefsMap.current.clear();
     },
-  }), [workspaceId, addTerminal, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope]);
+  }), [workspaceId, addTerminal, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope, panes, setPaneAgent]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout
@@ -621,6 +645,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
               }
             }}
             onSessionReady={() => {
+              readyPanesRef.current.add(id);
               const cmd = pendingCommandsRef.current.get(id);
               if (cmd) {
                 pendingCommandsRef.current.delete(id);

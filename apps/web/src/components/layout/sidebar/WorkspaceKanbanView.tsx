@@ -62,6 +62,7 @@ import {
   Eye,
   EyeOff,
   LogIn,
+  Pin,
   Plus,
   Search,
   Settings2,
@@ -170,6 +171,8 @@ interface WorkspaceKanbanViewProps {
     workspaceId: string,
     labels: WorkspaceLabel[],
   ) => Promise<void>;
+  onPinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  onUnpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   filters: WorkspaceKanbanFilters;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
   trigger: React.ReactNode;
@@ -187,6 +190,8 @@ function KanbanWorkspaceCard({
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
+  onPinWorkspace,
+  onUnpinWorkspace,
 }: {
   workspace: Workspace;
   projectId: string;
@@ -211,9 +216,23 @@ function KanbanWorkspaceCard({
     workspaceId: string,
     labels: WorkspaceLabel[],
   ) => Promise<void>;
+  onPinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  onUnpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
 }) {
+  const handlePinClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (workspace.isPinned) {
+      void onUnpinWorkspace(projectId, workspace.id);
+    } else {
+      void onPinWorkspace(projectId, workspace.id);
+    }
+  };
+
   return (
-    <div className="w-full rounded-md border border-border bg-background p-3 text-left shadow-xs">
+    <div className={cn(
+      "w-full rounded-md border bg-background p-3 text-left shadow-xs",
+      workspace.isPinned ? "border-border/80 ring-1 ring-border/40" : "border-border",
+    )}>
       {cardProperties.project || cardProperties.priority || cardProperties.status ? (
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -228,15 +247,30 @@ function KanbanWorkspaceCard({
             ) : null}
             {cardProperties.project ? <span className="text-sm font-medium text-foreground">{projectName}</span> : null}
           </div>
-          {cardProperties.status ? (
-            <WorkspaceStatusSelect
-              value={workspace.workflowStatus}
-              onChange={(value) => void onUpdateWorkflowStatus(projectId, workspace.id, value)}
-              triggerVariant="icon"
-              contentSide="right"
-              triggerClassName="size-6 bg-muted/35"
-            />
-          ) : null}
+          <div className="flex items-center gap-1">
+            {cardProperties.status ? (
+              <WorkspaceStatusSelect
+                value={workspace.workflowStatus}
+                onChange={(value) => void onUpdateWorkflowStatus(projectId, workspace.id, value)}
+                triggerVariant="icon"
+                contentSide="right"
+                triggerClassName="size-6 bg-muted/35"
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={handlePinClick}
+              className={cn(
+                "inline-flex size-6 items-center justify-center rounded-md transition-colors hover:bg-accent",
+                workspace.isPinned
+                  ? "text-foreground"
+                  : "text-muted-foreground/50 hover:text-foreground",
+              )}
+              title={workspace.isPinned ? "Unpin" : "Pin"}
+            >
+              <Pin className={cn("size-3.5", workspace.isPinned ? "" : "rotate-45")} />
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -432,6 +466,8 @@ export function WorkspaceKanbanView({
   onCreateLabel,
   onUpdateLabel,
   onUpdateLabels,
+  onPinWorkspace,
+  onUnpinWorkspace,
   filters,
   onFiltersChange,
   trigger,
@@ -624,6 +660,21 @@ export function WorkspaceKanbanView({
 
     buckets.forEach((list) => {
       list.sort((a, b) => {
+        // Pinned items always come first, preserving project tab order (pinOrder / pinnedAt)
+        if (a.workspace.isPinned && !b.workspace.isPinned) return -1;
+        if (!a.workspace.isPinned && b.workspace.isPinned) return 1;
+        if (a.workspace.isPinned && b.workspace.isPinned) {
+          const aOrder = a.workspace.pinOrder;
+          const bOrder = b.workspace.pinOrder;
+          if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) return aOrder - bOrder;
+          if (aOrder !== undefined && bOrder === undefined) return -1;
+          if (aOrder === undefined && bOrder !== undefined) return 1;
+          const aTime = a.workspace.pinnedAt ? new Date(a.workspace.pinnedAt).getTime() : 0;
+          const bTime = b.workspace.pinnedAt ? new Date(b.workspace.pinnedAt).getTime() : 0;
+          if (aTime !== bTime) return bTime - aTime;
+          return a.workspace.id.localeCompare(b.workspace.id);
+        }
+
         let base = 0;
         if (sortBy === "priority") {
           base = WORKSPACE_PRIORITY_SORT_WEIGHT[a.workspace.priority] - WORKSPACE_PRIORITY_SORT_WEIGHT[b.workspace.priority];
@@ -843,7 +894,7 @@ export function WorkspaceKanbanView({
                     placeholder="Search project/workspace..."
                     className={cn(
                       "h-7 border-0 bg-transparent pr-8 text-xs shadow-none focus-visible:ring-0",
-                      isSearchOpen ? "opacity-100" : "pointer-events-none opacity-0",
+                      isSearchOpen ? "opacity-100" : "pointer-events-none opacity-0 absolute",
                     )}
                     autoFocus={isSearchOpen}
                   />
@@ -989,6 +1040,8 @@ export function WorkspaceKanbanView({
                               onCreateLabel={onCreateLabel}
                               onUpdateLabel={onUpdateLabel}
                               onUpdateLabels={onUpdateLabels}
+                              onPinWorkspace={onPinWorkspace}
+                              onUnpinWorkspace={onUnpinWorkspace}
                             />
                           ))}
                         </DroppableColumn>

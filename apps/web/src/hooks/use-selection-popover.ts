@@ -45,6 +45,7 @@ export function useSelectionPopover({
     if (!(target instanceof Element)) return false;
     return (
       !!target.closest('[data-selection-popover]') ||
+      !!target.closest('[data-selection-popover-ignore]') ||
       !!target.closest('[data-radix-popper-content-wrapper]') ||
       !!target.closest('[data-slot="popover-content"]')
     );

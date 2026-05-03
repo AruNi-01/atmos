@@ -9,7 +9,7 @@ import {
   Download,
   ZoomIn,
   ZoomOut,
-  LoaderCircle,
+  RotateCw,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn, Button } from '@workspace/ui';
@@ -136,7 +136,7 @@ const ImageViewer: React.FC<{ uri: string; fileName: string; onError: () => void
               </Button>
               <div className="w-px h-4 bg-border mx-1" />
               <Button variant="ghost" size="icon" className="size-8 cursor-pointer" onClick={handleReset} title="Reset">
-                <LoaderCircle className="size-4" />
+                <RotateCw className="size-4" />
               </Button>
             </>
           ) : (

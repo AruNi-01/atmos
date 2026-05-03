@@ -30,8 +30,9 @@ use infra::{
     GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubIssueGetRequest,
     GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
-    GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrReadyRequest,
-    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
+    GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
+    GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
+    GithubPrTimelinePageRequest, LlmProviderTestRequest,
     LlmProvidersUpdateRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
@@ -47,6 +48,7 @@ use infra::{
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
+    ProjectDeleteProgressNotification,
     WorkspaceDeleteRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
     WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
     WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
@@ -158,12 +160,21 @@ impl WsMessageService {
         let _ = manager.broadcast(&message).await;
     }
 
+    async fn send_project_delete_progress(
+        manager: &Arc<infra::WsManager>,
+        payload: ProjectDeleteProgressNotification,
+    ) {
+        let message = WsMessage::notification(WsEvent::ProjectDeleteProgress, json!(payload));
+        let _ = manager.broadcast(&message).await;
+    }
+
     async fn execute_workspace_cleanup(
         manager: Arc<infra::WsManager>,
         workspace_id: String,
         repo_path_str: String,
         workspace_name: String,
         branch: String,
+        delete_remote_branch: bool,
     ) {
         // Step 1: Remove worktree (this is the slow part)
         Self::send_workspace_delete_progress(
@@ -181,7 +192,7 @@ impl WsMessageService {
             let repo_path = std::path::PathBuf::from(&repo_path_str);
             let workspace_name = workspace_name.clone();
             let branch = branch.clone();
-            move || GitEngine::new().remove_worktree(&repo_path, &workspace_name, &branch)
+            move || GitEngine::new().remove_worktree(&repo_path, &workspace_name, &branch, delete_remote_branch)
         })
         .await
         .unwrap_or_else(|e| Err(core_engine::EngineError::Git(e.to_string())));
@@ -222,6 +233,132 @@ impl WsMessageService {
             "Background workspace cleanup completed for {}",
             workspace_name
         );
+    }
+
+    async fn execute_project_cleanup(
+        manager: Arc<infra::WsManager>,
+        cleanup_info: crate::service::project::ProjectCleanupInfo,
+        settings: WorkspaceDeleteSettings,
+    ) {
+        let project_id = cleanup_info.project_id.clone();
+        let total = cleanup_info.workspaces.len();
+
+        Self::send_project_delete_progress(
+            &manager,
+            ProjectDeleteProgressNotification {
+                project_id: project_id.clone(),
+                step: "cleaning_workspaces".into(),
+                message: format!("Cleaning up {} workspace(s)...", total),
+                success: false,
+            },
+        )
+        .await;
+
+        // Close GitHub PRs/Issues for each workspace
+        for ws in &cleanup_info.workspaces {
+            if settings.close_pr_on_delete {
+                if let Some(ref raw) = ws.github_pr_data {
+                    if let Ok(pr) = serde_json::from_str::<infra::GithubPrPayload>(raw) {
+                        let pr_num = pr.number.to_string();
+                        let repo = format!("{}/{}", pr.owner, pr.repo);
+                        let args = vec!["pr", "close", &pr_num, "--repo", &repo];
+                        if let Err(e) = core_engine::GithubEngine::new().run_gh(&args).await {
+                            tracing::warn!("Failed to close PR #{}: {}", pr.number, e);
+                        }
+                    }
+                }
+            }
+            if settings.close_issue_on_delete {
+                if let Some(ref raw) = ws.github_issue_data {
+                    if let Ok(issue) = serde_json::from_str::<infra::GithubIssuePayload>(raw) {
+                        let issue_num = issue.number.to_string();
+                        let repo = format!("{}/{}", issue.owner, issue.repo);
+                        let args = vec!["issue", "close", &issue_num, "--repo", &repo];
+                        if let Err(e) = core_engine::GithubEngine::new().run_gh(&args).await {
+                            tracing::warn!("Failed to close Issue #{}: {}", issue.number, e);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Remove worktrees in background blocking tasks
+        let repo_path = std::path::PathBuf::from(&cleanup_info.repo_path);
+        for (i, ws) in cleanup_info.workspaces.into_iter().enumerate() {
+            Self::send_project_delete_progress(
+                &manager,
+                ProjectDeleteProgressNotification {
+                    project_id: project_id.clone(),
+                    step: "removing_worktree".into(),
+                    message: format!("Removing worktree {}/{}: {}", i + 1, total, ws.name),
+                    success: false,
+                },
+            )
+            .await;
+
+            let rp = repo_path.clone();
+            let name = ws.name.clone();
+            let branch = ws.branch.clone();
+            let del_remote = settings.delete_remote_branch;
+            let result = tokio::task::spawn_blocking(move || {
+                GitEngine::new().remove_worktree(&rp, &name, &branch, del_remote)
+            })
+            .await
+            .unwrap_or_else(|e| Err(core_engine::EngineError::Git(e.to_string())));
+
+            if let Err(e) = result {
+                tracing::warn!("Failed to remove worktree for {}: {}", ws.name, e);
+            }
+        }
+
+        Self::send_project_delete_progress(
+            &manager,
+            ProjectDeleteProgressNotification {
+                project_id,
+                step: "completed".into(),
+                message: "Project cleanup completed".into(),
+                success: true,
+            },
+        )
+        .await;
+    }
+
+    /// Close linked GitHub PR and/or Issue based on workspace delete settings.
+    async fn cleanup_github_on_delete(
+        &self,
+        settings: &WorkspaceDeleteSettings,
+        pr_data: Option<&str>,
+        issue_data: Option<&str>,
+    ) {
+        // Close PR if configured
+        if settings.close_pr_on_delete {
+            if let Some(raw) = pr_data {
+                if let Ok(pr) = serde_json::from_str::<infra::GithubPrPayload>(raw) {
+                    let pr_num = pr.number.to_string();
+                    let repo = format!("{}/{}", pr.owner, pr.repo);
+                    let args = vec!["pr", "close", &pr_num, "--repo", &repo];
+                    match self.github_engine.run_gh(&args).await {
+                        Ok(_) => tracing::info!("Closed GitHub PR #{} on delete", pr.number),
+                        Err(e) => tracing::warn!("Failed to close GitHub PR #{}: {}", pr.number, e),
+                    }
+                }
+            }
+        }
+
+        // Close Issue if configured
+        if settings.close_issue_on_delete {
+            if let Some(raw) = issue_data {
+                if let Ok(issue) = serde_json::from_str::<infra::GithubIssuePayload>(raw) {
+                    let issue_num = issue.number.to_string();
+                    let repo = format!("{}/{}", issue.owner, issue.repo);
+                    let args = vec!["issue", "close", &issue_num, "--repo", &repo];
+                    match self.github_engine.run_gh(&args).await {
+                        Ok(_) => tracing::info!("Closed GitHub Issue #{} on delete", issue.number),
+                        Err(e) => tracing::warn!("Failed to close GitHub Issue #{}: {}", issue.number, e),
+                    }
+                }
+            }
+        }
     }
 
     #[cfg(unix)]
@@ -749,6 +886,14 @@ impl WsMessageService {
             }
             WsAction::GithubIssueGet => {
                 self.handle_github_issue_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrListRepo => {
+                self.handle_github_pr_list_repo(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrGet => {
+                self.handle_github_pr_get(parse_request(request.data)?)
                     .await
             }
             WsAction::GithubCiStatus => {
@@ -1518,7 +1663,58 @@ impl WsMessageService {
     }
 
     async fn handle_project_delete(&self, req: ProjectDeleteRequest) -> Result<Value> {
-        self.project_service.delete_project(req.guid).await?;
+        let guid = req.guid;
+
+        // Gather cleanup info BEFORE soft-deleting
+        let cleanup_info = self
+            .project_service
+            .get_project_cleanup_info(&guid)
+            .await?;
+
+        // Validate + soft-delete DB records
+        self.project_service.delete_project(guid.clone()).await?;
+
+        // Clean up terminals for all workspaces
+        for ws in &cleanup_info.workspaces {
+            if let Ok(session_name) = self
+                .workspace_service
+                .resolve_tmux_session_name(&ws.guid, &self.terminal_service.tmux_engine())
+                .await
+            {
+                self.terminal_service
+                    .cleanup_workspace_terminal_state(&ws.guid, &session_name)
+                    .await;
+            }
+        }
+
+        // Spawn background task for git worktree cleanup
+        if let Some(manager) = self.ws_manager.get().cloned() {
+            let settings = WorkspaceDeleteSettings::load();
+            let project_id = cleanup_info.project_id.clone();
+
+            if cleanup_info.workspaces.is_empty() {
+                Self::send_project_delete_progress(
+                    &manager,
+                    ProjectDeleteProgressNotification {
+                        project_id,
+                        step: "completed".into(),
+                        message: "Project deleted (no workspaces to clean up)".into(),
+                        success: true,
+                    },
+                )
+                .await;
+            } else {
+                tokio::spawn(async move {
+                    Self::execute_project_cleanup(
+                        manager,
+                        cleanup_info,
+                        settings,
+                    )
+                    .await;
+                });
+            }
+        }
+
         Ok(json!({ "success": true }))
     }
 
@@ -1608,6 +1804,7 @@ impl WsMessageService {
                 req.base_branch.clone(),
                 req.sidebar_order,
                 req.github_issue.clone(),
+                req.github_pr.clone(),
                 req.auto_extract_todos,
                 req.priority,
                 req.workflow_status,
@@ -1653,11 +1850,58 @@ impl WsMessageService {
             return Err(error.into());
         }
 
+        // Persist composer-supplied attachments under .atmos/attachments/.
+        if !req.attachments.is_empty() {
+            if let Err(error) = self
+                .workspace_service
+                .write_workspace_attachments(workspace.model.guid.clone(), req.attachments.clone())
+                .await
+            {
+                tracing::warn!(
+                    "[handle_workspace_create] Failed to write attachments for {}: {}",
+                    workspace.model.guid,
+                    error
+                );
+            }
+        }
+
+        // The composer already supplied the GitHub issue/PR (or initial
+        // requirement) at create time, so pre-fill .atmos/context/requirement.md
+        // synchronously here. The setup state machine no longer surfaces a
+        // separate "Fill Requirement Spec" step.
+        if req.github_issue.is_some()
+            || req.github_pr.is_some()
+            || req
+                .initial_requirement
+                .as_deref()
+                .map(str::trim)
+                .map(|value| !value.is_empty())
+                .unwrap_or(false)
+        {
+            if let Err(error) = self
+                .workspace_service
+                .write_workspace_requirement(
+                    workspace.model.guid.clone(),
+                    req.initial_requirement.clone(),
+                    req.github_issue.clone(),
+                    req.github_pr.clone(),
+                )
+                .await
+            {
+                tracing::warn!(
+                    "[handle_workspace_create] Failed to pre-fill requirement.md for {}: {}",
+                    workspace.model.guid,
+                    error
+                );
+            }
+        }
+
         let next_setup_step = Self::build_workspace_setup_plan(
             &self.project_service,
             &req.project_guid,
             req.initial_requirement.as_deref(),
-            req.github_issue.as_ref(),
+            workspace.github_issue.as_ref(),
+            workspace.github_pr.is_some(),
             req.auto_extract_todos,
         )
         .await
@@ -1676,7 +1920,8 @@ impl WsMessageService {
             let project_guid = req.project_guid.clone();
             let workspace_name = workspace.model.name.clone();
             let initial_requirement = req.initial_requirement.clone();
-            let github_issue = req.github_issue.clone();
+            let github_issue = workspace.github_issue.clone();
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = req.auto_extract_todos;
 
             let workspace_service = self.workspace_service.clone();
@@ -1691,6 +1936,7 @@ impl WsMessageService {
                     workspace_name,
                     initial_requirement,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     next_setup_step,
                 )
@@ -1800,6 +2046,8 @@ impl WsMessageService {
 
     async fn handle_workspace_delete(&self, req: WorkspaceDeleteRequest) -> Result<Value> {
         let guid = req.guid;
+        let settings = WorkspaceDeleteSettings::load();
+
         let tmux_session = self
             .workspace_service
             .resolve_tmux_session_name(&guid, &self.terminal_service.tmux_engine())
@@ -1812,6 +2060,14 @@ impl WsMessageService {
             .get_workspace_cleanup_info(&guid)
             .await?;
 
+        // Get workspace data for GitHub PR/Issue close before soft-deleting
+        let workspace_data = self
+            .workspace_service
+            .get_workspace_for_github_cleanup(&guid)
+            .await
+            .ok()
+            .flatten();
+
         // Soft delete from database first (instant)
         self.workspace_service.soft_delete_workspace(&guid).await?;
 
@@ -1821,11 +2077,18 @@ impl WsMessageService {
                 .await;
         }
 
+        // Close GitHub PR/Issue if configured
+        if let Some((pr_data, issue_data)) = workspace_data {
+            self.cleanup_github_on_delete(&settings, pr_data.as_deref(), issue_data.as_deref())
+                .await;
+        }
+
         // Spawn background task for worktree cleanup with progress notifications
         if let Some(manager) = self.ws_manager.get().cloned() {
             let workspace_id = guid.clone();
 
             if let Some((repo_path_str, workspace_name, branch)) = cleanup_info {
+                let delete_remote_branch = settings.delete_remote_branch;
                 tokio::spawn(async move {
                     Self::execute_workspace_cleanup(
                         manager,
@@ -1833,6 +2096,7 @@ impl WsMessageService {
                         repo_path_str,
                         workspace_name,
                         branch,
+                        delete_remote_branch,
                     )
                     .await;
                 });
@@ -1961,6 +2225,7 @@ impl WsMessageService {
                     workspace_name,
                     req.initial_requirement,
                     req.github_issue,
+                    false,
                     req.auto_extract_todos,
                     Some(failed_step),
                 )
@@ -1990,6 +2255,7 @@ impl WsMessageService {
             let project_guid = workspace.model.project_guid.clone();
             let workspace_name = workspace.model.name.clone();
             let github_issue = workspace.github_issue.clone();
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = workspace.model.auto_extract_todos;
 
             tokio::spawn(async move {
@@ -2003,6 +2269,7 @@ impl WsMessageService {
                     workspace_name,
                     None,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::Ready),
                 )
@@ -2047,6 +2314,7 @@ impl WsMessageService {
             let workspace_name = workspace.model.name.clone();
             let initial_requirement = req.initial_requirement.clone();
             let github_issue = req.github_issue.or(workspace.github_issue.clone());
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = req.auto_extract_todos || workspace.model.auto_extract_todos;
 
             tokio::spawn(async move {
@@ -2055,6 +2323,7 @@ impl WsMessageService {
                     &project_guid,
                     initial_requirement.as_deref(),
                     github_issue.as_ref(),
+                    has_github_pr,
                     auto_extract_todos,
                 )
                 .await
@@ -2076,6 +2345,7 @@ impl WsMessageService {
                     workspace_name,
                     initial_requirement,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     Some(start_step),
                 )
@@ -2109,6 +2379,7 @@ impl WsMessageService {
             let workspace_id = workspace.model.guid.clone();
             let workspace_name = workspace.model.name.clone();
             let github_issue = workspace.github_issue.clone();
+            let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = workspace.model.auto_extract_todos;
 
             tokio::spawn(async move {
@@ -2122,6 +2393,7 @@ impl WsMessageService {
                     workspace_name,
                     None,
                     github_issue,
+                    has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::RunSetupScript),
                 )
@@ -2137,8 +2409,9 @@ impl WsMessageService {
     async fn build_workspace_setup_plan(
         project_service: &Arc<ProjectService>,
         project_guid: &str,
-        initial_requirement: Option<&str>,
+        _initial_requirement: Option<&str>,
         github_issue: Option<&GithubIssuePayload>,
+        has_github_pr: bool,
         auto_extract_todos: bool,
     ) -> Option<WorkspaceSetupPlan> {
         let project = project_service
@@ -2147,11 +2420,7 @@ impl WsMessageService {
             .ok()
             .flatten()?;
 
-        let has_requirement_step = initial_requirement
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .is_some()
-            || github_issue.is_some();
+        let has_requirement_step = github_issue.is_some();
 
         let project_root = std::path::Path::new(&project.main_file_path);
         let scripts_path = project_root.join(".atmos/scripts/atmos.json");
@@ -2170,10 +2439,11 @@ impl WsMessageService {
             None
         };
 
+        // NOTE: WriteRequirement is intentionally NOT pushed into the plan.
+        // The composer pre-fills .atmos/context/requirement.md synchronously
+        // during workspace creation (see handle_workspace_create), so the
+        // setup flow surfaces no separate "Fill Requirement Spec" step.
         let mut steps = vec![WorkspaceSetupStep::CreateWorktree];
-        if has_requirement_step {
-            steps.push(WorkspaceSetupStep::WriteRequirement);
-        }
         if auto_extract_todos {
             steps.push(WorkspaceSetupStep::ExtractTodos);
         }
@@ -2185,13 +2455,16 @@ impl WsMessageService {
         Some(WorkspaceSetupPlan {
             steps,
             context: WorkspaceSetupContextNotification {
-                has_github_issue: github_issue.is_some(),
+                has_github_issue: github_issue.is_some() && !has_github_pr,
+                has_github_pr,
                 has_requirement_step,
                 auto_extract_todos,
                 has_setup_script: setup_script.is_some(),
             },
-            requirement_step_title: if github_issue.is_some() {
-                "Filling Requirement Specification".to_string()
+            requirement_step_title: if has_github_pr {
+                "Filling PR Specification".to_string()
+            } else if github_issue.is_some() {
+                "Filling Issue Specification".to_string()
             } else {
                 "Writing Requirement Specification".to_string()
             },
@@ -2241,6 +2514,7 @@ impl WsMessageService {
         workspace_name: String,
         initial_requirement: Option<String>,
         github_issue: Option<GithubIssuePayload>,
+        has_github_pr: bool,
         auto_extract_todos: bool,
         start_step: Option<WorkspaceSetupStep>,
     ) {
@@ -2249,6 +2523,7 @@ impl WsMessageService {
             &project_guid,
             initial_requirement.as_deref(),
             github_issue.as_ref(),
+            has_github_pr,
             auto_extract_todos,
         )
         .await
@@ -2348,15 +2623,12 @@ impl WsMessageService {
                     )
                     .await;
 
-                    if github_issue.is_some() {
-                        tokio::time::sleep(Duration::from_secs(3)).await;
-                    }
-
                     if let Err(error) = workspace_service
                         .write_workspace_requirement(
                             workspace_id.clone(),
                             initial_requirement.clone(),
                             github_issue.clone(),
+                            None,
                         )
                         .await
                     {
@@ -3325,6 +3597,70 @@ set -x
             })?;
 
         Ok(json!(Self::to_issue_payload(issue)))
+    }
+
+    fn to_pr_payload(pr: core_engine::github::GithubPullRequest) -> GithubPrPayload {
+        GithubPrPayload {
+            owner: pr.owner,
+            repo: pr.repo,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            url: pr.url,
+            state: pr.state,
+            head_ref: pr.head_ref,
+            base_ref: pr.base_ref,
+            is_draft: pr.is_draft,
+            labels: pr
+                .labels
+                .into_iter()
+                .map(|label| GithubIssueLabelPayload {
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                })
+                .collect(),
+        }
+    }
+
+    async fn handle_github_pr_list_repo(&self, req: GithubPrListRepoRequest) -> Result<Value> {
+        let prs = self
+            .github_engine
+            .list_prs(&req.owner, &req.repo, &req.state, req.limit)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to list GitHub PRs: {error}"))
+            })?;
+        let payloads: Vec<GithubPrPayload> = prs.into_iter().map(Self::to_pr_payload).collect();
+        Ok(json!(payloads))
+    }
+
+    async fn handle_github_pr_get(&self, req: GithubPrGetRequest) -> Result<Value> {
+        let (owner, repo, number) = if let Some(pr_url) = req.pr_url {
+            core_engine::GithubEngine::parse_pr_url(&pr_url)
+                .ok_or_else(|| ServiceError::Validation("Invalid GitHub PR URL".to_string()))?
+        } else {
+            let owner = req
+                .owner
+                .ok_or_else(|| ServiceError::Validation("GitHub PR owner is required".to_string()))?;
+            let repo = req
+                .repo
+                .ok_or_else(|| ServiceError::Validation("GitHub PR repo is required".to_string()))?;
+            let number = req.pr_number.ok_or_else(|| {
+                ServiceError::Validation("GitHub PR number is required".to_string())
+            })?;
+            (owner, repo, number)
+        };
+
+        let pr = self
+            .github_engine
+            .get_pr(&owner, &repo, number)
+            .await
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to fetch GitHub PR: {error}"))
+            })?;
+
+        Ok(json!(Self::to_pr_payload(pr)))
     }
 
     async fn handle_github_pr_list(
@@ -4468,6 +4804,88 @@ fn function_settings_path() -> std::path::PathBuf {
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".atmos")
         .join("function_settings.json")
+}
+
+/// Workspace deletion settings read from function_settings.json.
+struct WorkspaceDeleteSettings {
+    close_pr_on_delete: bool,
+    close_issue_on_delete: bool,
+    delete_remote_branch: bool,
+}
+
+impl Default for WorkspaceDeleteSettings {
+    fn default() -> Self {
+        Self {
+            close_pr_on_delete: false,
+            close_issue_on_delete: false,
+            delete_remote_branch: false,
+        }
+    }
+}
+
+impl WorkspaceDeleteSettings {
+    fn load() -> Self {
+        let path = function_settings_path();
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            return Self::default();
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+            return Self::default();
+        };
+        let ws = value.get("workspace_settings");
+        Self {
+            close_pr_on_delete: ws
+                .and_then(|v| v.get("close_pr_on_delete"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            close_issue_on_delete: ws
+                .and_then(|v| v.get("close_issue_on_delete"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            delete_remote_branch: ws
+                .and_then(|v| v.get("delete_remote_branch"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+        }
+    }
+}
+
+/// Workspace archive settings read from function_settings.json.
+struct WorkspaceArchiveSettings {
+    kill_tmux_on_archive: bool,
+    close_acp_on_archive: bool,
+}
+
+impl Default for WorkspaceArchiveSettings {
+    fn default() -> Self {
+        Self {
+            kill_tmux_on_archive: true,
+            close_acp_on_archive: true,
+        }
+    }
+}
+
+impl WorkspaceArchiveSettings {
+    fn load() -> Self {
+        let path = function_settings_path();
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            return Self::default();
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) else {
+            return Self::default();
+        };
+        let ws = value.get("workspace_settings");
+        Self {
+            kill_tmux_on_archive: ws
+                .and_then(|v| v.get("kill_tmux_on_archive"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true),
+            close_acp_on_archive: ws
+                .and_then(|v| v.get("close_acp_on_archive"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true),
+        }
+    }
 }
 
 fn terminal_code_agent_path() -> std::path::PathBuf {

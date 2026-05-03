@@ -41,6 +41,7 @@ import {
   WorkspaceStatusSelect,
 } from "./workspace-metadata-controls";
 import type { WorkspaceWorkflowStatus } from "@/types/types";
+import { useWorkspaceSettings } from "@/hooks/use-workspace-settings";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -130,7 +131,9 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const router = useAppRouter();
   const { workspaceId } = useContextParams();
   const isActive = workspaceId === workspace.id;
+  const { confirmBeforeDelete, confirmBeforeArchive } = useWorkspaceSettings();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showGitWarningDialog, setShowGitWarningDialog] = useState(false);
   const [gitWarningMessage, setGitWarningMessage] = useState('');
   const [pendingOperation, setPendingOperation] = useState<'archive' | 'delete' | null>(null);
@@ -269,13 +272,26 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     }
   };
 
+  const confirmArchive = () => {
+    setShowArchiveDialog(false);
+    performArchive();
+  };
+
+  const requestArchive = () => {
+    if (confirmBeforeArchive) {
+      setShowArchiveDialog(true);
+    } else {
+      performArchive();
+    }
+  };
+
   const checkGitStatusAndProceed = async (operation: 'archive' | 'delete') => {
     const workspacePath = workspace.localPath;
     if (!workspacePath) {
       if (operation === 'archive') {
-        performArchive();
+        requestArchive();
       } else {
-        setShowDeleteDialog(true);
+        requestDelete();
       }
       return;
     }
@@ -297,17 +313,17 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
         setShowGitWarningDialog(true);
       } else {
         if (operation === 'archive') {
-          performArchive();
+          requestArchive();
         } else {
-          setShowDeleteDialog(true);
+          requestDelete();
         }
       }
     } catch (error) {
       console.error('Failed to check git status:', error);
       if (operation === 'archive') {
-        performArchive();
+        requestArchive();
       } else {
-        setShowDeleteDialog(true);
+        requestDelete();
       }
     } finally {
       setIsCheckingGit(false);
@@ -329,7 +345,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     if (pendingOperation === 'archive') {
       performArchive();
     } else if (pendingOperation === 'delete') {
-      setShowDeleteDialog(true);
+      requestDelete();
     }
     setPendingOperation(null);
   };
@@ -340,6 +356,14 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
     }
     onDelete?.(workspace.id);
     setShowDeleteDialog(false);
+  };
+
+  const requestDelete = () => {
+    if (confirmBeforeDelete) {
+      setShowDeleteDialog(true);
+    } else {
+      confirmDelete();
+    }
   };
 
   const shortName = getWorkspaceShortName(workspace.name);
@@ -676,6 +700,25 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
             </Button>
             <Button variant="destructive" onClick={confirmDelete}>
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Archive Workspace</DialogTitle>
+            <DialogDescription>
+              Archive workspace `{workspace.displayName || workspace.name}`? The terminal session will be terminated but the worktree and branch are preserved. You can restore it later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowArchiveDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={confirmArchive}>
+              Archive
             </Button>
           </DialogFooter>
         </DialogContent>

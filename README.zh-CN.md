@@ -31,21 +31,14 @@
 - **全局搜索/操作控制面板** — 键盘驱动的工作流，快速搜索与执行 Atmos 功能。
 - **用量分析看板** — AI 编码订阅额度跟踪、各 Agent Token 消耗与费用预估。
 - **Agent 状态通知** — 基于钩子的状态监控，支持原生通知与自托管推送服务。
-- **跨平台与远程访问** — Web 与桌面应用，移动端（规划中），集成内网穿透（ngrok/Tailscale/Cloudflare Tunnel）。
+- **跨平台与远程访问** — Web 与桌面应用，移动端（规划中），集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel）。
+- **Kanban 视图** - 在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。
 
 ## 开始使用
 
-当前最新桌面版： [查看最新 Release](https://github.com/AruNi-01/atmos/releases/latest)。
-
 ### 下载
 
-| 平台 | 包格式 | 下载链接 |
-| --- | --- | --- |
-| macOS（Apple Silicon） | `.dmg` | [最新 Release](https://github.com/AruNi-01/atmos/releases/latest) |
-| macOS（Intel） | `.dmg` | [最新 Release](https://github.com/AruNi-01/atmos/releases/latest) |
-| Windows（x64） | `.exe` / `.msi` | [最新 Release](https://github.com/AruNi-01/atmos/releases/latest) |
-| Linux | `.AppImage` / `.deb` / `.rpm` | [最新 Release](https://github.com/AruNi-01/atmos/releases/latest) |
-| 全部版本 | GitHub Releases | [查看 Releases](https://github.com/AruNi-01/atmos/releases) |
+当前最新桌面版： [查看最新 Release](https://github.com/AruNi-01/atmos/releases/latest)。
 
 ### Homebrew 安装
 
@@ -62,12 +55,17 @@ brew install --cask AruNi-01/tap/atmos
 ### 从源码运行
 
 ```bash
+## 下载依赖
 bun install
 cargo fetch
+
+## Web 运行
 just dev-api
 just dev-web
-# 可选
-just dev-desktop
+
+# Desktop 运行
+just dev-web
+just dev-desktop-tauri
 ```
 
 ## 许可证

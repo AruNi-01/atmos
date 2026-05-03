@@ -25,6 +25,7 @@ import {
   Gitlab,
   Info,
   LoaderCircle,
+  RotateCw,
 } from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
 import type { CatalogData, CatalogItem } from "./wiki-utils";
@@ -303,7 +304,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                       className="relative size-10 flex items-center justify-center text-muted-foreground hover:bg-accent/30 cursor-pointer"
                       aria-label="Wiki is outdated. Click to update."
                     >
-                      <LoaderCircle className="size-4" />
+                      <RotateCw className="size-4" />
                       <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-foreground" aria-hidden />
                     </button>
                   </TooltipTrigger>
@@ -317,7 +318,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center justify-center text-muted-foreground cursor-help size-10">
-                      <LoaderCircle className="size-4" />
+                      <RotateCw className="size-4" />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px]">
@@ -330,7 +331,7 @@ export const WikiSidebar: React.FC<WikiSidebarProps> = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="flex items-center justify-center text-muted-foreground cursor-default size-10">
-                      <LoaderCircle className="size-4" />
+                      <RotateCw className="size-4" />
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-[220px]">

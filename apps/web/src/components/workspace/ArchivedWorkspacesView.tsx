@@ -9,7 +9,7 @@ import {
   Archive,
   cn,
   Trash2,
-  LoaderCircle,
+  RotateCw,
   Button,
   Loader2,
   toastManager,
@@ -26,6 +26,7 @@ import { formatRelativeTime } from '@atmos/shared';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { motion, AnimatePresence } from "motion/react";
+import { useWorkspaceSettings } from "@/hooks/use-workspace-settings";
 
 interface OverflowTooltipProps {
   text: string;
@@ -62,6 +63,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
   const fetchProjects = useProjectStore(s => s.fetchProjects);
   const projects = useProjectStore(s => s.projects);
   const deleteProject = useProjectStore(s => s.deleteProject);
+  const { confirmBeforeDelete } = useWorkspaceSettings();
   const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
     isOpen: boolean;
     projectId: string;
@@ -120,14 +122,31 @@ export const ArchivedWorkspacesView: React.FC = () => {
     }
   };
 
-  const handleDelete = (workspace: ArchivedWorkspace) => {
+  const handleDelete = async (workspace: ArchivedWorkspace) => {
+    const onDeleted = () => {
+      setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
+    };
+
+    if (!confirmBeforeDelete) {
+      try {
+        await wsWorkspaceApi.delete(workspace.guid);
+        onDeleted();
+      } catch (error) {
+        console.error("Failed to delete workspace", error);
+        toastManager.add({
+          title: "Delete Failed",
+          description: "Could not delete workspace",
+          type: "error"
+        });
+      }
+      return;
+    }
+
     setDeleteWorkspaceDialog({
       isOpen: true,
       workspaceId: workspace.guid,
       workspaceName: workspace.display_name || workspace.name,
-      onDeleted: () => {
-        setArchivedWorkspaces(prev => prev.filter(w => w.guid !== workspace.guid));
-      }
+      onDeleted,
     });
   };
 
@@ -344,7 +363,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
                                       <Loader2 className="size-3.5 animate-spin" />
                                     ) : (
                                       <div className="flex items-center gap-1.5">
-                                        <LoaderCircle className="size-3.5" />
+                                        <RotateCw className="size-3.5" />
                                         Restore
                                       </div>
                                     )}

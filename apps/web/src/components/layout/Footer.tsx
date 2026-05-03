@@ -25,9 +25,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/hooks/use-project-store';
-import { Gauge, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { ProviderGlyph } from '@/components/layout/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
+import { NappingBotIcon } from '@/components/layout/NappingBotIcon';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -469,13 +471,13 @@ const Footer: React.FC = () => {
                 statusColors[connectionState],
                 connectionState !== 'connected' && "animate-pulse"
               )}></div>
-              <span className="font-medium text-muted-foreground">WebSocket: {statusText[connectionState]}</span>
+              <span className="font-medium text-muted-foreground">{statusText[connectionState]}</span>
             </div>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-xs p-0">
             <div className="px-3 py-2 text-[11px] font-mono">
               <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
-                <span>Active Connections</span>
+                <span>Active WebSocket</span>
                 {connections.length > 0 && (
                   <span className="font-normal text-background/90">{connections.length}</span>
                 )}
@@ -523,7 +525,18 @@ const Footer: React.FC = () => {
               onMouseEnter={() => setIsUsageCarouselHovered(true)}
               onMouseLeave={() => setIsUsageCarouselHovered(false)}
             >
-              <Gauge className="size-3 shrink-0" />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={usageCarouselItem.providerId}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="flex shrink-0 items-center justify-center text-foreground/85"
+                >
+                  <ProviderGlyph providerId={usageCarouselItem.providerId} size={12} />
+                </motion.span>
+              </AnimatePresence>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={usageCarouselItem.providerId}
@@ -593,9 +606,14 @@ const Footer: React.FC = () => {
                   {hasPermission && <PermissionBellFooter />}
                 </>
               ) : (
-                <span className="text-muted-foreground whitespace-nowrap">
-                  {activeSessions.length === 0 ? "No active agents" : "Agent: Idle"}
-                </span>
+                activeSessions.length === 0 ? (
+                  <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
+                    <NappingBotIcon />
+                    <span>Napping ~</span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground whitespace-nowrap">Agent: Idle</span>
+                )
               )}
             </button>
           </PopoverTrigger>

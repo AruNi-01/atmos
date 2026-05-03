@@ -5,7 +5,7 @@ import type { DragStartEvent } from '@workspace/ui';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
-import { leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
+import { centerStageParams, leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
 import {
   Plus,
   Folder,
@@ -33,6 +33,7 @@ import {
   TabsTab,
   TabsPanel,
   LoaderCircle,
+  RotateCw,
   Eye,
   EyeOff,
   FolderKanban,
@@ -48,7 +49,6 @@ import type { Project,
   WorkspacePriority,
   WorkspaceWorkflowStatus } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
-import { CreateWorkspaceDialog } from '@/components/dialogs/CreateWorkspaceDialog';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
@@ -60,6 +60,8 @@ import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import {
   Bot,
+  ChevronDown,
+  ChevronUp,
   ChevronRight,
   Group,
   SquareKanban,
@@ -162,6 +164,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const { setCurrentContext } = useGitInfoStore();
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
+    const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
@@ -170,6 +173,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isWorkspacesExpanded, setIsWorkspacesExpanded] = useState(
         currentView === 'workspaces' || currentView === 'skills' || currentView === 'terminals' || currentView === 'agents'
     );
+    const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
+    const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
 
     const [fileTreeData, setFileTreeData] = useState<FileTreeNode[]>([]);
@@ -185,8 +190,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const {
         isCreateProjectOpen,
         setCreateProjectOpen,
-        isCreateWorkspaceOpen,
-        setCreateWorkspaceOpen,
         selectedProjectId,
         setSelectedProjectId
     } = useDialogStore();
@@ -202,6 +205,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 if (groupingModeSetting === 'project' || groupingModeSetting === 'status' || groupingModeSetting === 'time') {
                     setGroupingMode(groupingModeSetting);
                 }
+                const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
+                if (typeof pinnedSectionCollapsed === 'boolean') {
+                    setIsPinnedSectionCollapsed(pinnedSectionCollapsed);
+                }
             })
             .finally(() => {
                 setIsGroupingSettingsReady(true);
@@ -212,6 +219,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         if (!isGroupingSettingsReady) return;
         void functionSettingsApi.update('workspace_sidebar', 'grouping_mode', groupingMode);
     }, [groupingMode, isGroupingSettingsReady]);
+
+    useEffect(() => {
+        if (!isGroupingSettingsReady) return;
+        void functionSettingsApi.update('workspace_sidebar', 'pinned_section_collapsed', isPinnedSectionCollapsed);
+    }, [isPinnedSectionCollapsed, isGroupingSettingsReady]);
 
     useEffect(() => {
         const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
@@ -493,7 +505,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const handleAddWorkspace = (projectId: string) => {
         setSelectedProjectId(projectId);
-        setCreateWorkspaceOpen(true);
+        void setNewWorkspace(true);
     };
 
     const handleQuickAddWorkspace = async (projectId: string) => {
@@ -607,7 +619,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
             >
                 <SortableContext items={pinnedWorkspaces.map(e => e.workspace.id)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-0.5 px-2 pb-1">
+                    <div className={cn(
+                        'grid transition-[grid-template-rows] duration-300 ease-in-out',
+                        isPinnedSectionCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+                    )}>
+                        <div className="overflow-hidden">
+                            <div className="space-y-0.5 px-2 pb-1">
                         {pinnedWorkspaces.map((entry) => (
                             (() => {
                                 const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
@@ -652,10 +669,42 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                 );
                             })()
                         ))}
+                            </div>
+                        </div>
                     </div>
                 </SortableContext>
             </DndContext>
-            <div className="mx-4 my-1.5 border-t border-dashed border-sidebar-border" />
+            <div
+                onClick={() => setIsPinnedSectionCollapsed(!isPinnedSectionCollapsed)}
+                className="group/divider relative mx-4 my-1.5 flex items-center cursor-pointer"
+            >
+                <div className='flex-1 border-t border-dashed border-sidebar-border' />
+                <div
+                    onMouseEnter={() => setIsPinnedDividerHovered(true)}
+                    onMouseLeave={() => setIsPinnedDividerHovered(false)}
+                    className={cn(
+                        'relative flex items-center gap-1 cursor-pointer pl-2 transition-colors duration-200',
+                        isPinnedDividerHovered ? 'text-sidebar-foreground' : 'text-muted-foreground'
+                    )}
+                >
+                    {isPinnedSectionCollapsed ? (
+                        <ChevronDown className='size-3.5 shrink-0' />
+                    ) : (
+                        <ChevronUp className='size-3.5 shrink-0' />
+                    )}
+                    {isPinnedSectionCollapsed ? (
+                        <span className='text-[11px] relative pr-1'>
+                            <span className={cn('transition-opacity duration-200', isPinnedDividerHovered ? 'opacity-0' : 'opacity-100')}>Pinned</span>
+                            <span className={cn('absolute left-0 top-0 transition-opacity duration-200', isPinnedDividerHovered ? 'opacity-100' : 'opacity-0')}>Expand</span>
+                        </span>
+                    ) : (
+                        <span className='text-[11px] overflow-hidden max-w-0 opacity-0 group-hover/divider:max-w-[60px] group-hover/divider:opacity-100 group-hover/divider:pr-1 transition-all duration-300 whitespace-nowrap'>
+                            Collapse
+                        </span>
+                    )}
+                </div>
+                <div className='flex-1 border-t border-dashed border-sidebar-border' />
+            </div>
         </>
     ) : null;
 
@@ -682,60 +731,124 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         isWorkspacesExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                     )}>
                         <div className="overflow-hidden border-t border-sidebar-border/30">
-                            <div className="grid grid-cols-1 @[200px]:grid-cols-2">
-                                {[
-                                    { id: 'workspaces', label: 'Workspaces', icon: SquareKanban, path: '/workspaces' },
+                            {(() => {
+                                const managementItems: Array<{
+                                    id: string;
+                                    label: string;
+                                    icon: typeof FolderKanban;
+                                    path?: string;
+                                    kind?: 'kanban' | 'new-workspace';
+                                }> = [
+                                    { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
                                     { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
                                     { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
                                     { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
-                                ].map((item, index) => {
-                                    const Icon = item.icon;
-                                    const isActive = currentView === item.id;
-                                    const isLeftColumnOnTwoCol = index % 2 === 0;
-                                    return (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => router.push(item.path)}
-                                            className={cn(
+                                    { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' },
+                                    { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' },
+                                ];
+                                const totalItems = managementItems.length;
+                                const isOddCount = totalItems % 2 === 1;
+                                return (
+                                    <div className="grid grid-cols-1 @[200px]:grid-cols-2">
+                                        {managementItems.map((item, index) => {
+                                            const Icon = item.icon;
+                                            const isActive = currentView === item.id;
+                                            const isLeftColumnOnTwoCol = index % 2 === 0;
+                                            const isLastItemAlone = isOddCount && index === totalItems - 1;
+                                            const cardClassName = cn(
                                                 "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 outline-none",
                                                 "border-b border-b-sidebar-border/30 transition-colors",
-                                                isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
+                                                isLastItemAlone
+                                                    ? "@[200px]:col-span-2"
+                                                    : isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
                                                 isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                                            )}
-                                        >
-                                            <AnimatePresence>
-                                                {isActive && (
-                                                    <motion.div
-                                                        initial={{ scaleX: 0, opacity: 0 }}
-                                                        animate={{ scaleX: 1, opacity: 1 }}
-                                                        exit={{ scaleX: 0, opacity: 0 }}
-                                                        transition={{
-                                                            default: { ease: [0.16, 1, 0.3, 1] },
-                                                            opacity: { duration: 0.5 },
-                                                            scaleX: {
-                                                                duration: isActive ? 0.6 : 1.0,
-                                                                type: "tween"
-                                                            }
-                                                        }}
-                                                        className="absolute bottom-0 left-0 right-0 h-px bg-sidebar-foreground z-10 origin-center"
-                                                    />
-                                                )}
-                                            </AnimatePresence>
+                                            );
+                                            const cardInner = (
+                                                <>
+                                                    <AnimatePresence>
+                                                        {isActive && (
+                                                            <motion.div
+                                                                initial={{ scaleX: 0, opacity: 0 }}
+                                                                animate={{ scaleX: 1, opacity: 1 }}
+                                                                exit={{ scaleX: 0, opacity: 0 }}
+                                                                transition={{
+                                                                    default: { ease: [0.16, 1, 0.3, 1] },
+                                                                    opacity: { duration: 0.5 },
+                                                                    scaleX: {
+                                                                        duration: isActive ? 0.6 : 1.0,
+                                                                        type: "tween"
+                                                                    }
+                                                                }}
+                                                                className="absolute bottom-0 left-0 right-0 h-px bg-sidebar-foreground z-10 origin-center"
+                                                            />
+                                                        )}
+                                                    </AnimatePresence>
 
-                                            <div className="flex flex-col h-[200%] w-full transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) group-hover:-translate-y-1/2">
-                                                <div className="flex items-center justify-center h-1/2 w-full transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
-                                                    <Icon className="size-4.5" />
+                                                    <div className="flex flex-col h-[200%] w-full transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) group-hover:-translate-y-1/2">
+                                                        <div className="flex items-center justify-center h-1/2 w-full transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
+                                                            <Icon className="size-4.5" />
+                                                        </div>
+                                                        <div className="flex items-center justify-center h-1/2 w-full px-1">
+                                                            <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
+                                                                {item.label}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            );
+
+                                            if (item.kind === 'kanban') {
+                                                return (
+                                                    <WorkspaceKanbanView
+                                                       key={item.id}
+                                                       projects={projects}
+                                                       availableLabels={workspaceLabels}
+                                                       onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                                                       onUpdatePriority={updateWorkspacePriority}
+                                                       onCreateLabel={createWorkspaceLabel}
+                                                       onUpdateLabel={updateWorkspaceLabel}
+                                                       onUpdateLabels={updateWorkspaceLabels}
+                                                       onPinWorkspace={pinWorkspace}
+                                                       onUnpinWorkspace={unpinWorkspace}
+                                                       filters={kanbanFilters}
+                                                       onFiltersChange={setKanbanFilters}
+                                                       trigger={(
+                                                            <div className={cardClassName}>
+                                                                {cardInner}
+                                                            </div>
+                                                        )}
+                                                    />
+                                                );
+                                            }
+
+                                            if (item.kind === 'new-workspace') {
+                                                return (
+                                                    <div
+                                                        key={item.id}
+                                                        onClick={() => {
+                                                            setSelectedProjectId(currentProjectId ?? "");
+                                                            void setNewWorkspace(true);
+                                                        }}
+                                                        className={cardClassName}
+                                                    >
+                                                        {cardInner}
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={item.id}
+                                                    onClick={() => item.path && router.push(item.path)}
+                                                    className={cardClassName}
+                                                >
+                                                    {cardInner}
                                                 </div>
-                                                <div className="flex items-center justify-center h-1/2 w-full px-1">
-                                                    <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
-                                                        {item.label}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
 
@@ -1008,8 +1121,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                             title="Refresh files"
                                             disabled={isLoadingFiles}
                                         >
-                                            <LoaderCircle className={cn("size-3.5 text-muted-foreground",
-                                                isLoadingFiles && "animate-spin")} />
+                                            {isLoadingFiles ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCw className="size-3.5 text-muted-foreground" />}
                                         </button>
                                     </div>
                                 </div>
@@ -1103,6 +1215,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                 onCreateLabel={createWorkspaceLabel}
                                 onUpdateLabel={updateWorkspaceLabel}
                                 onUpdateLabels={updateWorkspaceLabels}
+                                onPinWorkspace={pinWorkspace}
+                                onUnpinWorkspace={unpinWorkspace}
                                 filters={kanbanFilters}
                                 onFiltersChange={setKanbanFilters}
                                 trigger={(
@@ -1120,12 +1234,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     </div>
                 )}
             </aside >
-
-            <CreateWorkspaceDialog
-                isOpen={isCreateWorkspaceOpen}
-                onClose={() => setCreateWorkspaceOpen(false)}
-                defaultProjectId={selectedProjectId}
-            />
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
                 onClose={() => setCreateProjectOpen(false)}

@@ -42,6 +42,7 @@ import {
   Loader2,
   Puzzle,
   LoaderCircle,
+  RotateCw,
   Search,
   Store,
 } from "lucide-react";
@@ -137,7 +138,7 @@ function renderSkeletonGrid() {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {[...Array(6)].map((_, index) => (
-        <div key={index} className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div key={index} className="space-y-4 rounded-xl border border-border p-5">
           <div className="flex items-center gap-3">
             <Skeleton className="size-10 rounded-lg" />
             <div className="space-y-2">
@@ -227,8 +228,8 @@ function InstalledSkillListCard({
       className={cn(
         "group flex h-full cursor-pointer flex-col rounded-xl border p-5 transition-all duration-200",
         isDisabled
-          ? "border-border/70 bg-muted/25 hover:bg-muted/35"
-          : "border-border bg-card hover:shadow-md",
+          ? "border-border/70 hover:bg-muted/35"
+          : "border-border hover:bg-muted/25 hover:shadow-md",
       )}
     >
       <div className="flex flex-1 flex-col">
@@ -621,7 +622,7 @@ export const SkillsView: React.FC = () => {
                     className="size-10 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background cursor-pointer"
                     title="Refresh Skills"
                   >
-                    <LoaderCircle className={cn("size-4", isLoading && "animate-spin")} />
+                    {isLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
                   </Button>
                 </div>
               )}
@@ -825,7 +826,7 @@ export const SkillsView: React.FC = () => {
                                   initial={false}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.16) }}
-                                  className="group flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:shadow-md"
+                                  className="group flex h-full flex-col rounded-xl border border-border p-5 transition-all duration-200 hover:bg-muted/25 hover:shadow-md"
                                 >
                                   <div className="flex flex-1 flex-col">
                                     <div className="flex items-start justify-between gap-3">
@@ -943,7 +944,7 @@ export const SkillsView: React.FC = () => {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.16) }}
-                              className="group flex h-full flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:shadow-md"
+                              className="group flex h-full flex-col rounded-xl border border-border p-5 transition-all duration-200 hover:bg-muted/25 hover:shadow-md"
                             >
                               <div className="flex flex-1 flex-col justify-between">
                                 <div className="flex items-start justify-between gap-3">

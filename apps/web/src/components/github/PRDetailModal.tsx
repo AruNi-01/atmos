@@ -43,6 +43,7 @@ import {
   MessageSquare,
   CheckCircle2,
   LoaderCircle,
+  RotateCw,
   AlertCircle,
   GitPullRequest,
   GitCommit,
@@ -869,7 +870,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                 actionText = "closed this";
                                 break;
                               case 'reopened':
-                                icon = <LoaderCircle className="size-3.5 text-white" />;
+                                icon = <RotateCw className="size-3.5 text-white" />;
                                 colorClass = "bg-emerald-500";
                                 actionText = "reopened this";
                                 break;
@@ -1171,7 +1172,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             onClick={handleReopen}
                             disabled={!!actionLoading}
                           >
-                            <LoaderCircle className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
+                            <RotateCw className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
                           </Button>
                         )}
                         <Button
@@ -1527,7 +1528,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 disabled={!!actionLoading}
                 className="shadow-sm hover:shadow-md transition-all font-semibold"
               >
-                {actionLoading === 'reopen' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <LoaderCircle className="mr-2 size-4" />}
+                {actionLoading === 'reopen' ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <RotateCw className="mr-2 size-4" />}
                 Reopen PR
               </Button>
             ) : pr?.state === 'MERGED' ? (

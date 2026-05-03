@@ -4,9 +4,10 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Checkbox,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -29,11 +30,14 @@ import { cn } from '@/lib/utils';
 import {
   Check,
   ChevronDown,
+  CircleDot,
+  CloudDownload,
   ExternalLink,
   GitBranch,
+  GitPullRequestArrow,
   Github,
   Loader2,
-  LoaderCircle,
+  RotateCw,
   Sparkles,
 } from 'lucide-react';
 import type { WorkspacePriority, WorkspaceWorkflowStatus, WorkspaceLabel } from '@/types/types';
@@ -48,6 +52,7 @@ import {
   gitApi,
   llmProvidersApi,
   type GithubIssuePayload,
+  type GithubPrPayload,
   type LlmProvidersFile,
   wsScriptApi,
   wsGithubApi,
@@ -71,6 +76,7 @@ interface RepoContext {
 
 const ISSUE_CACHE_TTL_MS = 5 * 60 * 1000;
 const issueListCache = new Map<string, { expiresAt: number; issues: GithubIssuePayload[] }>();
+const prListCache = new Map<string, { expiresAt: number; prs: GithubPrPayload[] }>();
 
 const POKEMON_NAMES = [
   'bulbasaur',
@@ -130,6 +136,11 @@ function issueToWorkspaceName(issue: GithubIssuePayload): string {
 
 function issueToBranchName(issue: GithubIssuePayload): string {
   return `issue-${issue.number}-${getRandomPokemonName()}`;
+}
+
+function prToWorkspaceName(pr: GithubPrPayload): string {
+  const title = pr.title.trim();
+  return title ? `[PR#${pr.number}] ${title}` : `[PR#${pr.number}]`;
 }
 
 function regeneratePokemonSuffixBranch(branchName: string, issueNumber?: number): string {
@@ -219,6 +230,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const [selectedIssueNumber, setSelectedIssueNumber] = useState<string>('');
   const [issuePreview, setIssuePreview] = useState<GithubIssuePayload | null>(null);
   const [issues, setIssues] = useState<GithubIssuePayload[]>([]);
+  const [prUrl, setPrUrl] = useState('');
+  const [selectedPrNumber, setSelectedPrNumber] = useState<string>('');
+  const [prPreview, setPrPreview] = useState<GithubPrPayload | null>(null);
+  const [prs, setPrs] = useState<GithubPrPayload[]>([]);
+  const [prError, setPrError] = useState<string | null>(null);
+  const [isPrsLoading, setIsPrsLoading] = useState(false);
+  const [isPrPreviewLoading, setIsPrPreviewLoading] = useState(false);
   const [repoContext, setRepoContext] = useState<RepoContext | null>(null);
   const [isRepoLoading, setIsRepoLoading] = useState(false);
   const [isBaseBranchesLoading, setIsBaseBranchesLoading] = useState(false);
@@ -230,6 +248,12 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   const [branchError, setBranchError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [autoExtractTodos, setAutoExtractTodos] = useState(false);
+  const [autoExtractTodosPr, setAutoExtractTodosPr] = useState(false);
+  const [linkType, setLinkType] = useState<'none' | 'issue' | 'pr'>('none');
+  const [displayedLinkType, setDisplayedLinkType] = useState<'issue' | 'pr'>('issue');
+  useEffect(() => {
+    if (linkType !== 'none') setDisplayedLinkType(linkType);
+  }, [linkType]);
   const [todoProviderLabel, setTodoProviderLabel] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -287,12 +311,21 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setSelectedIssueNumber('');
       setIssuePreview(null);
       setIssues([]);
+      setPrUrl('');
+      setSelectedPrNumber('');
+      setPrPreview(null);
+      setPrs([]);
+      setPrError(null);
+      setIsPrsLoading(false);
+      setIsPrPreviewLoading(false);
       setRepoContext(null);
       setIsSubmitting(false);
       setIssueError(null);
       setBranchError(null);
       setSubmitError(null);
       setAutoExtractTodos(false);
+      setAutoExtractTodosPr(false);
+      setLinkType('none');
       setTodoProviderLabel(null);
       setIsRepoLoading(false);
       setIsBaseBranchesLoading(false);
@@ -359,6 +392,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setIssuePreview(null);
       setSelectedIssueNumber('');
       setIssueUrl('');
+      setPrs([]);
+      setPrPreview(null);
+      setSelectedPrNumber('');
+      setPrUrl('');
+      setPrError(null);
+      setLinkType('none');
+      setAutoExtractTodos(false);
+      setAutoExtractTodosPr(false);
       setHasSetupScript(false);
 
       try {
@@ -393,20 +434,39 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           setRepoContext(nextContext);
 
           const cacheKey = `${nextContext.owner}/${nextContext.repo}`;
-          const cached = issueListCache.get(cacheKey);
-          if (cached && cached.expiresAt > Date.now()) {
-            setIssues(cached.issues);
-            return;
+          const cachedIssues = issueListCache.get(cacheKey);
+          if (cachedIssues && cachedIssues.expiresAt > Date.now()) {
+            setIssues(cachedIssues.issues);
+          } else {
+            setIsIssuesLoading(true);
+            const fetchedIssues = await wsGithubApi.listIssues(nextContext);
+            if (cancelled) return;
+            setIssues(fetchedIssues);
+            issueListCache.set(cacheKey, {
+              expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
+              issues: fetchedIssues,
+            });
           }
 
-          setIsIssuesLoading(true);
-          const fetchedIssues = await wsGithubApi.listIssues(nextContext);
-          if (cancelled) return;
-          setIssues(fetchedIssues);
-          issueListCache.set(cacheKey, {
-            expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
-            issues: fetchedIssues,
-          });
+          const cachedPrs = prListCache.get(cacheKey);
+          if (cachedPrs && cachedPrs.expiresAt > Date.now()) {
+            setPrs(cachedPrs.prs);
+          } else {
+            setIsPrsLoading(true);
+            try {
+              const fetchedPrs = await wsGithubApi.listPrs(nextContext);
+              if (cancelled) return;
+              setPrs(fetchedPrs);
+              prListCache.set(cacheKey, {
+                expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
+                prs: fetchedPrs,
+              });
+            } catch (error) {
+              if (!cancelled) {
+                setPrError(error instanceof Error ? error.message : 'Failed to load GitHub PRs');
+              }
+            }
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -417,6 +477,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           setIsRepoLoading(false);
           setIsBaseBranchesLoading(false);
           setIsIssuesLoading(false);
+          setIsPrsLoading(false);
         }
       }
     }
@@ -429,7 +490,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
   useEffect(() => {
     if (!issuePreview) {
-      generatedBranchRef.current = null;
+      if (!prPreview) {
+        generatedBranchRef.current = null;
+      }
       return;
     }
 
@@ -441,13 +504,55 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       generatedBranchRef.current = generated;
       setBranch(generated);
     }
-  }, [issuePreview]);
+  }, [issuePreview, prPreview]);
 
   useEffect(() => {
-    if (!issuePreview || !todoProviderLabel) {
-      setAutoExtractTodos(false);
+    if (!prPreview) return;
+
+    if (!nameTouchedRef.current) {
+      setName(prToWorkspaceName(prPreview));
     }
+    setBranch(prPreview.head_ref);
+    if (prPreview.base_ref) {
+      setBaseBranch(prPreview.base_ref);
+    }
+  }, [prPreview]);
+
+  useEffect(() => {
+    if (!issuePreview || !todoProviderLabel) setAutoExtractTodos(false);
   }, [issuePreview, todoProviderLabel]);
+
+  useEffect(() => {
+    if (!prPreview || !todoProviderLabel) setAutoExtractTodosPr(false);
+  }, [prPreview, todoProviderLabel]);
+
+  const clearPrSelection = () => {
+    setPrPreview(null);
+    setSelectedPrNumber('');
+    setPrUrl('');
+    setPrError(null);
+    setAutoExtractTodosPr(false);
+  };
+
+  const clearIssueSelection = () => {
+    setIssuePreview(null);
+    setSelectedIssueNumber('');
+    setIssueUrl('');
+    setIssueError(null);
+    setAutoExtractTodos(false);
+  };
+
+  const handleSelectLinkType = (next: 'issue' | 'pr') => {
+    if (linkType === next) {
+      setLinkType('none');
+      if (next === 'issue') clearIssueSelection();
+      else clearPrSelection();
+      return;
+    }
+    setLinkType(next);
+    if (next === 'issue') clearPrSelection();
+    else clearIssueSelection();
+  };
 
   const handleSelectIssue = async (value: string) => {
     setSelectedIssueNumber(value);
@@ -458,6 +563,67 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
     const selected = issues.find((issue) => String(issue.number) === value) ?? null;
     setIssuePreview(selected);
+    clearPrSelection();
+  };
+
+  const handleSelectPr = (value: string) => {
+    setSelectedPrNumber(value);
+    setPrUrl('');
+    setPrError(null);
+    setBranchError(null);
+    setSubmitError(null);
+    const selected = prs.find((pr) => String(pr.number) === value) ?? null;
+    setPrPreview(selected);
+    clearIssueSelection();
+  };
+
+  const handleLoadPrFromUrl = async () => {
+    if (!prUrl.trim()) {
+      setPrError(null);
+      return;
+    }
+    setIsPrPreviewLoading(true);
+    setPrError(null);
+    setBranchError(null);
+    setSubmitError(null);
+    setSelectedPrNumber('');
+    try {
+      const preview = await wsGithubApi.getPr({ prUrl: prUrl.trim() });
+      const currentRepo = repoContext ? `${repoContext.owner}/${repoContext.repo}` : null;
+      const previewRepo = `${preview.owner}/${preview.repo}`;
+      if (currentRepo && currentRepo !== previewRepo) {
+        setPrPreview(null);
+        setPrError(`PR belongs to ${previewRepo}, but current project is ${currentRepo}.`);
+        return;
+      }
+      setPrPreview(preview);
+      clearIssueSelection();
+    } catch (error) {
+      setPrPreview(null);
+      setPrError(error instanceof Error ? error.message : 'Failed to load PR preview');
+    } finally {
+      setIsPrPreviewLoading(false);
+    }
+  };
+
+  const handleRefreshPrs = async () => {
+    if (!repoContext) return;
+    setIsPrsLoading(true);
+    setPrError(null);
+    try {
+      const cacheKey = `${repoContext.owner}/${repoContext.repo}`;
+      prListCache.delete(cacheKey);
+      const fetchedPrs = await wsGithubApi.listPrs(repoContext);
+      setPrs(fetchedPrs);
+      prListCache.set(cacheKey, {
+        expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
+        prs: fetchedPrs,
+      });
+    } catch (error) {
+      setPrError(error instanceof Error ? error.message : 'Failed to refresh GitHub PRs');
+    } finally {
+      setIsPrsLoading(false);
+    }
   };
 
   const handleLoadIssueFromUrl = async () => {
@@ -484,6 +650,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       }
 
       setIssuePreview(preview);
+      clearPrSelection();
     } catch (error) {
       setIssuePreview(null);
       setIssueError(error instanceof Error ? error.message : 'Failed to load issue preview');
@@ -536,21 +703,27 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     setBranchError(null);
     setSubmitError(null);
     try {
-      const finalDisplayName =
-        name.trim() || (issuePreview ? issueToWorkspaceName(issuePreview) : '');
-      const finalBranch =
-        branch.trim() ||
-        (!branchTouchedRef.current && generatedBranchRef.current) ||
-        (issuePreview ? issueToBranchName(issuePreview) : '');
+      const finalDisplayName = prPreview
+        ? name.trim() || prToWorkspaceName(prPreview)
+        : name.trim() || (issuePreview ? issueToWorkspaceName(issuePreview) : '');
+      const finalBranch = prPreview
+        ? prPreview.head_ref
+        : branch.trim() ||
+          (!branchTouchedRef.current && generatedBranchRef.current) ||
+          (issuePreview ? issueToBranchName(issuePreview) : '');
+      const finalBaseBranch = prPreview ? prPreview.base_ref || baseBranch : baseBranch;
       const workspaceId = await addWorkspace({
         projectId,
         name: finalBranch,
         displayName: finalDisplayName || null,
         branch: finalBranch,
-        baseBranch,
+        baseBranch: finalBaseBranch,
         initialRequirement: null,
-        githubIssue: issuePreview,
-        autoExtractTodos: autoExtractTodos && !!issuePreview && !!todoProviderLabel,
+        githubIssue: prPreview ? null : issuePreview,
+        githubPr: prPreview,
+        autoExtractTodos:
+          !!todoProviderLabel &&
+          ((prPreview && autoExtractTodosPr) || (!prPreview && !!issuePreview && autoExtractTodos)),
         hasSetupScript,
         priority,
         workflowStatus,
@@ -598,24 +771,28 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
 
   const repoLabel = repoContext ? `${repoContext.owner}/${repoContext.repo}` : 'No GitHub repository';
   const issueBodyPreview = issuePreview?.body?.trim() || 'No issue description provided.';
-  const canAutoExtractTodos = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
+  const hasGithubContext = !!issuePreview || !!prPreview;
+  const canAutoExtractTodosIssue = !!issuePreview && !!todoProviderLabel && !isLlmRoutingLoading;
+  const canAutoExtractTodosPr = !!prPreview && !!todoProviderLabel && !isLlmRoutingLoading;
   const filteredRemoteBranches = useMemo(
     () => remoteBranches.filter((remoteBranch) =>
       remoteBranch.toLowerCase().includes(baseBranchFilter.trim().toLowerCase()),
     ),
     [remoteBranches, baseBranchFilter],
   );
-  const autoExtractDescription = !issuePreview
-    ? 'Import a GitHub issue first.'
-    : isLlmRoutingLoading
-      ? 'Checking LLM routing...'
-      : todoProviderLabel
-        ? `Uses ${todoProviderLabel} to extract an initial task checklist from the issue description.`
-        : 'Configure LLM Providers > Routing > Workspace issue TODO extraction first.';
-
+  const buildAutoExtractDescription = (kind: 'issue' | 'pr') => {
+    const hasPreview = kind === 'issue' ? !!issuePreview : !!prPreview;
+    if (!hasPreview) return `Import a GitHub ${kind === 'pr' ? 'PR' : 'issue'} first.`;
+    if (isLlmRoutingLoading) return 'Checking LLM routing...';
+    if (todoProviderLabel)
+      return `Uses ${todoProviderLabel} to extract an initial task checklist from the ${kind === 'pr' ? 'PR' : 'issue'} description.`;
+    return 'Configure LLM Providers > Routing > Workspace issue TODO extraction first.';
+  };
+  const autoExtractDescriptionIssue = buildAutoExtractDescription('issue');
+  const autoExtractDescriptionPr = buildAutoExtractDescription('pr');
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[720px] h-[80vh] max-h-[720px] overflow-hidden">
+      <DialogContent className="sm:max-w-[720px] max-h-[80vh] overflow-y-auto [scrollbar-gutter:stable] gap-4 bg-background p-6 pt-7">
         <DialogHeader className="flex flex-row items-start justify-between gap-4 pr-8">
           <DialogTitle>Create New Workspace</DialogTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
@@ -636,9 +813,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             )}
           </div>
         </DialogHeader>
+        <div className="-mx-6 border-b border-border/60" />
 
-        <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
-          <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-5">
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <div className="pr-1 pt-2 space-y-5">
             {!defaultProjectId && projectSelectionInHeader && (
               <div className="grid gap-2">
                 <Label htmlFor="project-inline">Project</Label>
@@ -805,172 +983,395 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               </div>
             </div>
 
-            <Card className="border-border bg-background">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-medium">GitHub Issue</CardTitle>
-                {repoContext && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7"
-                    onClick={handleRefreshIssues}
-                    disabled={isIssuesLoading}
-                    title="Refresh issues"
-                  >
-                    <LoaderCircle className={`size-3.5 ${isIssuesLoading ? 'animate-spin' : ''}`} />
-                  </Button>
+            <div className="mt-1 rounded-md border border-border bg-background">
+              <div className="flex items-center gap-2 p-1.5">
+              <button
+                type="button"
+                onClick={() => handleSelectLinkType('issue')}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                  linkType === 'issue'
+                    ? 'bg-muted text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
                 )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {repoContext ? (
-                  <>
-                    <div className="grid gap-2">
-                      <Label htmlFor="issue-select">Select from repository</Label>
-                      <Select
-                        value={selectedIssueNumber}
-                        onValueChange={handleSelectIssue}
-                        disabled={!isIssuesLoading && issues.length === 0}
-                      >
-                        <SelectTrigger id="issue-select">
-                          <SelectValue
-                            placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
-                          />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-80">
-                          {issues.length === 0 ? (
-                            <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                              No GitHub issues found
-                            </div>
-                          ) : (
-                            issues.map((issue) => (
-                              <SelectItem key={issue.number} value={String(issue.number)}>
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="font-mono text-xs text-muted-foreground">
-                                    #{issue.number}
-                                  </span>
-                                  <span className="truncate">{issue.title}</span>
+              >
+                <CircleDot className="size-4" />
+                <span className="font-medium">GitHub Issue</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectLinkType('pr')}
+                className={cn(
+                  'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                  linkType === 'pr'
+                    ? 'bg-muted text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <GitPullRequestArrow className="size-4" />
+                <span className="font-medium">GitHub PR</span>
+              </button>
+              {repoContext && linkType === 'issue' ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => void handleRefreshIssues()}
+                  disabled={isIssuesLoading}
+                  title="Refresh issues"
+                >
+                  <RotateCw className={cn("size-3.5", isIssuesLoading && "animate-spin [animation-direction:reverse]")} />
+                </Button>
+              ) : repoContext && linkType === 'pr' ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  onClick={() => void handleRefreshPrs()}
+                  disabled={isPrsLoading}
+                  title="Refresh PRs"
+                >
+                  <RotateCw className={cn("size-3.5", isPrsLoading && "animate-spin [animation-direction:reverse]")} />
+                </Button>
+              ) : null}
+              </div>
+
+            <Collapsible open={linkType !== 'none'}>
+              <CollapsibleContent>
+            {displayedLinkType === 'issue' ? (
+              <div className="border-t border-border">
+                <div className="space-y-4 px-6 py-5">
+                    {repoContext ? (
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="issue-select">Select from repository</Label>
+                          <Select
+                            value={selectedIssueNumber}
+                            onValueChange={handleSelectIssue}
+                            disabled={!isIssuesLoading && issues.length === 0}
+                          >
+                            <SelectTrigger
+                              id="issue-select"
+                              className="w-full min-w-0 [&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+                            >
+                              <SelectValue
+                                placeholder={isIssuesLoading ? 'Loading issues...' : issues.length === 0 ? 'No issues available' : 'Select issue'}
+                              />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80">
+                              {issues.length === 0 ? (
+                                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                  No GitHub issues found
                                 </div>
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                              ) : (
+                                issues.map((issue) => (
+                                  <SelectItem key={issue.number} value={String(issue.number)}>
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <span className="font-mono text-xs text-muted-foreground">
+                                        #{issue.number}
+                                      </span>
+                                      <span className="truncate">{issue.title}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="issue-url">Or paste issue URL</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          id="issue-url"
-                          value={issueUrl}
-                          onChange={(event) => {
-                            setIssuePreview(null);
-                            setIssueError(null);
-                            setIssueUrl(event.target.value);
-                          }}
-                          placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleLoadIssueFromUrl}
-                          disabled={isIssuePreviewLoading || !issueUrl.trim()}
-                        >
-                          {isIssuePreviewLoading ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : (
-                            'Load'
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                ) : selectedProjectId ? (
-                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    This project does not expose a GitHub remote, so issue import is unavailable.
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    Select a project first to load GitHub issue sync.
-                  </div>
-                )}
-
-                {issueError && (
-                  <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                    {issueError}
-                  </div>
-                )}
-                {isIssuePreviewLoading ? (
-                  <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading issue preview
-                  </div>
-                ) : issuePreview ? (
-                  <Card className="border-border bg-muted/20">
-                    <CardContent className="space-y-3 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-xs text-muted-foreground">
-                            {issuePreview.owner}/{issuePreview.repo}#{issuePreview.number}
+                        <div className="grid gap-2">
+                          <Label htmlFor="issue-url">Or paste issue URL</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="issue-url"
+                              value={issueUrl}
+                              onChange={(event) => {
+                                setIssuePreview(null);
+                                setIssueError(null);
+                                setIssueUrl(event.target.value);
+                              }}
+                              placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={handleLoadIssueFromUrl}
+                              disabled={isIssuePreviewLoading || !issueUrl.trim()}
+                              title="Load issue"
+                            >
+                              {isIssuePreviewLoading ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <CloudDownload className="size-4" />
+                              )}
+                            </Button>
                           </div>
-                          <h3 className="mt-1 truncate text-sm font-medium text-foreground">
-                            {issuePreview.title}
-                          </h3>
                         </div>
-                        <Badge variant="secondary" className="capitalize shrink-0">
-                          {issuePreview.state}
-                        </Badge>
+                      </>
+                    ) : selectedProjectId ? (
+                      <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                        This project does not expose a GitHub remote, so issue import is unavailable.
                       </div>
+                    ) : (
+                      <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                        Select a project first to load GitHub issue sync.
+                      </div>
+                    )}
 
-                      {issuePreview.labels.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {issuePreview.labels.map((label) => (
-                            <Badge key={label.name} variant="outline">
-                              {label.name}
+                    {issueError && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                        {issueError}
+                      </div>
+                    )}
+                    {isIssuePreviewLoading ? (
+                      <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        Loading issue preview
+                      </div>
+                    ) : issuePreview ? (
+                      <Card className="border-border bg-muted/20">
+                        <CardContent className="space-y-3 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {issuePreview.owner}/{issuePreview.repo}#{issuePreview.number}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 gap-1 rounded-md px-2 text-[11px]"
+                                  onClick={() =>
+                                    window.open(issuePreview.url, '_blank', 'noopener,noreferrer')
+                                  }
+                                >
+                                  <ExternalLink className="size-3" />
+                                  Open on GitHub
+                                </Button>
+                              </div>
+                              <h3 className="mt-1 truncate text-sm font-medium text-foreground">
+                                {issuePreview.title}
+                              </h3>
+                            </div>
+                            <Badge variant="secondary" className="capitalize shrink-0">
+                              {issuePreview.state}
                             </Badge>
-                          ))}
+                          </div>
+
+                          {issuePreview.labels.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {issuePreview.labels.map((label) => (
+                                <Badge key={label.name} variant="outline">
+                                  {label.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
+                            {issueBodyPreview}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : null}
+
+                    <label className="flex items-center gap-3 rounded-md border border-border px-3 py-3 text-sm">
+                      <Checkbox
+                        checked={autoExtractTodos}
+                        onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
+                        disabled={!canAutoExtractTodosIssue}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 font-medium text-foreground">
+                          <Sparkles className="size-4 text-muted-foreground" />
+                          Auto-extract TODOs with LLM
                         </div>
-                      )}
-
-                      <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
-                        {issueBodyPreview}
-                      </p>
-
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1.5"
-                          onClick={() =>
-                            window.open(issuePreview.url, '_blank', 'noopener,noreferrer')
-                          }
-                        >
-                          <ExternalLink className="size-3.5" />
-                          Open on GitHub
-                        </Button>
+                        <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescriptionIssue}</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ) : null}
+                    </label>
+                </div>
+              </div>
+            ) : null}
 
-                <label className="flex items-center gap-3 rounded-md border border-border px-3 py-3 text-sm">
-                  <Checkbox
-                    checked={autoExtractTodos}
-                    onCheckedChange={(checked) => setAutoExtractTodos(Boolean(checked))}
-                    disabled={!canAutoExtractTodos}
-                  />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 font-medium text-foreground">
-                      <Sparkles className="size-4 text-muted-foreground" />
-                      Auto-extract TODOs with LLM
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescription}</p>
-                  </div>
-                </label>
-              </CardContent>
-            </Card>
+            {displayedLinkType === 'pr' ? (
+              <div className="border-t border-border">
+                <div className="space-y-4 px-6 py-5">
+                    {repoContext ? (
+                      <>
+                        <div className="grid gap-2">
+                          <Label htmlFor="pr-select">Select from repository</Label>
+                          <Select
+                            value={selectedPrNumber}
+                            onValueChange={handleSelectPr}
+                            disabled={!isPrsLoading && prs.length === 0}
+                          >
+                            <SelectTrigger
+                              id="pr-select"
+                              className="w-full min-w-0 [&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>span]:truncate"
+                            >
+                              <SelectValue
+                                placeholder={isPrsLoading ? 'Loading PRs...' : prs.length === 0 ? 'No PRs available' : 'Select PR'}
+                              />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80">
+                              {prs.length === 0 ? (
+                                <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                                  No GitHub PRs found
+                                </div>
+                              ) : (
+                                prs.map((pr) => (
+                                  <SelectItem key={pr.number} value={String(pr.number)}>
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <span className="font-mono text-xs text-muted-foreground">
+                                        #{pr.number}
+                                      </span>
+                                      <span className="truncate">{pr.title}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label htmlFor="pr-url">Or paste PR URL</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="pr-url"
+                              value={prUrl}
+                              onChange={(event) => {
+                                setPrPreview(null);
+                                setPrError(null);
+                                setPrUrl(event.target.value);
+                              }}
+                              placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/pull/40`}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={handleLoadPrFromUrl}
+                              disabled={isPrPreviewLoading || !prUrl.trim()}
+                              title="Load PR"
+                            >
+                              {isPrPreviewLoading ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <CloudDownload className="size-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    ) : selectedProjectId ? (
+                      <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                        This project does not expose a GitHub remote, so PR import is unavailable.
+                      </div>
+                    ) : (
+                      <div className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                        Select a project first to load GitHub PRs.
+                      </div>
+                    )}
+
+                    {prError && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                        {prError}
+                      </div>
+                    )}
+
+                    {isPrPreviewLoading ? (
+                      <div className="flex items-center gap-2 rounded-md border border-border px-3 py-4 text-sm text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" />
+                        Loading PR preview
+                      </div>
+                    ) : prPreview ? (
+                      <Card className="border-border bg-muted/20">
+                        <CardContent className="space-y-3 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {prPreview.owner}/{prPreview.repo}#{prPreview.number}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 gap-1 rounded-md px-2 text-[11px]"
+                                  onClick={() =>
+                                    window.open(prPreview.url, '_blank', 'noopener,noreferrer')
+                                  }
+                                >
+                                  <ExternalLink className="size-3" />
+                                  Open on GitHub
+                                </Button>
+                              </div>
+                              <h3 className="mt-1 truncate text-sm font-medium text-foreground">
+                                {prPreview.title}
+                              </h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                                <span className="inline-flex items-center gap-1">
+                                  <GitBranch className="size-3" />
+                                  {prPreview.head_ref}
+                                </span>
+                                <span className="opacity-50">→</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <GitBranch className="size-3" />
+                                  {prPreview.base_ref}
+                                </span>
+                              </div>
+                            </div>
+                            <Badge variant="secondary" className="capitalize shrink-0">
+                              {prPreview.is_draft ? 'draft' : prPreview.state}
+                            </Badge>
+                          </div>
+
+                          {prPreview.labels.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {prPreview.labels.map((label) => (
+                                <Badge key={label.name} variant="outline">
+                                  {label.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground line-clamp-6">
+                            {prPreview.body?.trim() || 'No PR description provided.'}
+                          </p>
+
+                          <div className="rounded-md border border-border bg-background/40 px-3 py-2 text-[11px] text-muted-foreground">
+                            The workspace will reuse <span className="font-mono text-foreground">{prPreview.head_ref}</span> directly — no new branch will be created.
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : null}
+
+                    <label className="flex items-center gap-3 rounded-md border border-border px-3 py-3 text-sm">
+                      <Checkbox
+                        checked={autoExtractTodosPr}
+                        onCheckedChange={(checked) => setAutoExtractTodosPr(Boolean(checked))}
+                        disabled={!canAutoExtractTodosPr}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 font-medium text-foreground">
+                          <Sparkles className="size-4 text-muted-foreground" />
+                          Auto-extract TODOs with LLM
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">{autoExtractDescriptionPr}</p>
+                      </div>
+                    </label>
+                </div>
+              </div>
+            ) : null}
+              </CollapsibleContent>
+            </Collapsible>
+            </div>
 
             {submitError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -979,7 +1380,8 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
             )}
           </div>
 
-          <DialogFooter className="mt-5 flex w-full flex-row items-center justify-between sm:justify-between">
+          <div className="mx-1 mt-4 border-b border-border/60" />
+          <DialogFooter className="mt-4 flex w-full flex-row items-center justify-between sm:justify-between">
             <div className="flex items-center gap-2">
               <WorkspacePrioritySelect
                 value={priority}

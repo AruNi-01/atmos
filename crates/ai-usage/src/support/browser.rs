@@ -126,6 +126,14 @@ pub(crate) fn load_factory_browser_cookie_source(
     )
 }
 
+pub(crate) fn load_mimo_browser_cookie_source() -> Result<Option<BrowserCookieSource>, ProviderError>
+{
+    load_browser_cookie_source_with_session_detection(
+        &["platform.xiaomimimo.com", "xiaomimimo.com"],
+        &["api-platform_serviceToken"],
+    )
+}
+
 pub(crate) fn load_minimax_browser_cookie_source(
 ) -> Result<Option<BrowserCookieSource>, ProviderError> {
     load_browser_cookie_source_with_session_detection(
@@ -161,6 +169,11 @@ pub(crate) fn load_zed_browser_cookie_source() -> Result<Option<BrowserCookieSou
         &["zed.dev", "cloud.zed.dev", "dashboard.zed.dev"],
         &["zed.session"],
     )
+}
+
+pub(crate) fn load_opencode_browser_cookie_source(
+) -> Result<Option<BrowserCookieSource>, ProviderError> {
+    load_browser_cookie_source(&["opencode.ai", "www.opencode.ai"], &["auth"])
 }
 
 pub(crate) fn load_workos_browser_cookie_source(

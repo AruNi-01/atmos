@@ -13,7 +13,7 @@ import {
   Loader2,
   ArrowDown,
   ChevronDown,
-  LoaderCircle,
+  RotateCw,
 } from "@workspace/ui";
 import {
   DropdownMenu,
@@ -812,7 +812,7 @@ Report back which files were resolved and whether any conflicts still need user 
                 <Upload className="mr-2 size-4" /> Push
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
-                <LoaderCircle className="mr-2 size-4" /> Fetch
+                <RotateCw className="mr-2 size-4" /> Fetch
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
                 <CloudSync className="mr-2 size-4" /> Sync with Remote

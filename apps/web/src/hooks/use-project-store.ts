@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { Project, Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
-import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel } from '@/api/ws-api';
+import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel, type WorkspaceAttachmentPayload } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { useWebSocketStore } from './use-websocket';
 
@@ -66,6 +66,7 @@ export interface WorkspaceSetupProgress {
   countdown?: number;
   setupContext?: {
     hasGithubIssue: boolean;
+    hasGithubPr: boolean;
     hasRequirementStep: boolean;
     autoExtractTodos: boolean;
     hasSetupScript: boolean;
@@ -79,6 +80,7 @@ export interface WorkspaceSetupProgress {
 
 interface WorkspaceSetupContextPayload {
   has_github_issue: boolean;
+  has_github_pr: boolean;
   has_requirement_step: boolean;
   auto_extract_todos: boolean;
   has_setup_script: boolean;
@@ -122,17 +124,8 @@ function getInitialAsyncSetupState(input: {
   autoExtractTodos: boolean;
   hasSetupScript: boolean;
 }): Pick<WorkspaceSetupProgress, 'status' | 'stepKey' | 'stepTitle' | 'success'> {
-  if (input.hasGithubIssue || input.hasRequirementStep) {
-    return {
-      status: 'creating',
-      stepKey: 'write_requirement',
-      stepTitle: input.hasGithubIssue
-        ? 'Filling Requirement Specification'
-        : 'Writing Requirement Specification',
-      success: true,
-    };
-  }
-
+  // requirement.md is now pre-filled synchronously during workspace creation,
+  // so the post-create flow no longer surfaces a "write_requirement" step.
   if (input.autoExtractTodos) {
     return {
       status: 'creating',
@@ -205,6 +198,10 @@ function isWorkspaceSetupProgressEventPayload(
     (payload.setup_context == null ||
       (typeof payload.setup_context === 'object' &&
         typeof (payload.setup_context as Record<string, unknown>).has_github_issue === 'boolean' &&
+        // has_github_pr was added later — accept payloads from older backends
+        // by treating a missing field as false rather than rejecting the event.
+        (typeof (payload.setup_context as Record<string, unknown>).has_github_pr === 'boolean' ||
+          (payload.setup_context as Record<string, unknown>).has_github_pr === undefined) &&
         typeof (payload.setup_context as Record<string, unknown>).has_requirement_step === 'boolean' &&
         typeof (payload.setup_context as Record<string, unknown>).auto_extract_todos === 'boolean' &&
         typeof (payload.setup_context as Record<string, unknown>).has_setup_script === 'boolean')) &&
@@ -236,11 +233,13 @@ interface ProjectStore {
     baseBranch?: string | null;
     initialRequirement?: string | null;
     githubIssue?: WorkspaceModel['github_issue'];
+    githubPr?: WorkspaceModel['github_pr'];
     autoExtractTodos?: boolean;
     hasSetupScript?: boolean;
     priority?: WorkspacePriority;
     workflowStatus?: WorkspaceWorkflowStatus;
     labels?: WorkspaceLabel[];
+    attachments?: WorkspaceAttachmentPayload[];
   }) => Promise<string>;
   quickAddWorkspace: (projectId: string) => Promise<string | null>;
   deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
@@ -326,6 +325,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     })),
     localPath: model.local_path,
     githubIssue: model.github_issue,
+    githubPr: model.github_pr,
   };
 }
 
@@ -509,17 +509,20 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         baseBranch: data.baseBranch,
         initialRequirement: data.initialRequirement,
         githubIssue: data.githubIssue,
+        githubPr: data.githubPr,
         autoExtractTodos: data.autoExtractTodos,
         priority: data.priority,
         workflowStatus: data.workflowStatus,
         labelGuids: data.labels?.map(label => label.id),
+        attachments: data.attachments,
       });
       
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
       const setupContext = {
-        hasGithubIssue: !!data.githubIssue,
+        hasGithubIssue: !!data.githubIssue && !data.githubPr,
+        hasGithubPr: !!data.githubPr,
         hasRequirementStep:
-          !!data.githubIssue || !!data.initialRequirement?.trim(),
+          !!data.githubIssue || !!data.githubPr || !!data.initialRequirement?.trim(),
         autoExtractTodos: !!data.autoExtractTodos,
         hasSetupScript: !!data.hasSetupScript,
       };
@@ -598,6 +601,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const newWorkspace = mapWorkspaceModel(newWorkspaceModel);
       const setupContext = {
         hasGithubIssue: false,
+        hasGithubPr: false,
         hasRequirementStep: false,
         autoExtractTodos: false,
         hasSetupScript,
@@ -1246,6 +1250,7 @@ export function subscribeToWorkspaceSetupProgress(): () => void {
       setupContext: data.setup_context
         ? {
             hasGithubIssue: data.setup_context.has_github_issue,
+            hasGithubPr: !!data.setup_context.has_github_pr,
             hasRequirementStep: data.setup_context.has_requirement_step,
             autoExtractTodos: data.setup_context.auto_extract_todos,
             hasSetupScript: data.setup_context.has_setup_script,

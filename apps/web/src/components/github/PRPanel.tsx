@@ -7,6 +7,7 @@ import {
   MessageSquare,
   GitCommit,
   LoaderCircle,
+  RotateCw,
   ArrowLeft,
 } from 'lucide-react';
 import {
@@ -116,7 +117,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
                 onClick={() => refresh()}
                 className="h-9 px-6 text-[11px] font-bold tracking-widest gap-2.5 shadow-sm cursor-pointer"
               >
-                <LoaderCircle className={cn("size-3.5", loading && "animate-spin")} />
+                {loading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
                 {refreshLabel}
               </Button>
             </div>

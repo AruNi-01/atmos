@@ -26,7 +26,7 @@ import {
   Folder,
   FolderGit2,
   Home,
-  LoaderCircle,
+  RotateCw,
   Search,
   X,
 } from '@workspace/ui';
@@ -299,7 +299,7 @@ export function FileBrowser({
                 title="Refresh"
                 className="cursor-pointer"
               >
-                <LoaderCircle className="w-4 h-4" />
+                <RotateCw className="w-4 h-4" />
               </Button>
             </>
           )}

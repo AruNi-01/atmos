@@ -99,7 +99,7 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
-  LoaderCircle,
+  RotateCw,
   Settings,
   SunMoon,
 } from "lucide-react";
@@ -899,7 +899,7 @@ const Header: React.FC = () => {
                   onClick={() => window.location.reload()}
                   className="size-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >
-                  <LoaderCircle className="size-4" />
+                  <RotateCw className="size-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent>

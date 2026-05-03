@@ -6,6 +6,7 @@ pub(crate) mod cursor;
 pub(crate) mod factory;
 pub(crate) mod gemini;
 pub(crate) mod kimi;
+pub(crate) mod mimo;
 pub(crate) mod minimax;
 pub(crate) mod opencode;
 pub(crate) mod zai;

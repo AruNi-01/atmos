@@ -202,7 +202,14 @@ export interface WorkspaceModel {
   priority: string;
   local_path: string;
   github_issue: GithubIssuePayload | null;
+  github_pr: GithubPrPayload | null;
   labels: WorkspaceLabelModel[];
+}
+
+export interface WorkspaceAttachmentPayload {
+  filename: string;
+  mime: string;
+  dataBase64: string;
 }
 
 export interface WorkspaceLabelModel {
@@ -440,6 +447,20 @@ export interface GithubIssuePayload {
   labels: GithubIssueLabelPayload[];
 }
 
+export interface GithubPrPayload {
+  owner: string;
+  repo: string;
+  number: number;
+  title: string;
+  body: string | null;
+  url: string;
+  state: string;
+  head_ref: string;
+  base_ref: string;
+  is_draft: boolean;
+  labels: GithubIssueLabelPayload[];
+}
+
 export type UsageDetailRowTone =
   | "default"
   | "muted"
@@ -599,6 +620,12 @@ async function wsRequest<T>(
   return send<T>(action, data, timeoutMs);
 }
 
+function emitUsageOverviewUpdated(overview: UsageOverviewResponse): void {
+  const listeners = useWebSocketStore.getState().eventListeners.get("usage_overview_updated");
+  if (!listeners) return;
+  listeners.forEach((listener) => listener(overview));
+}
+
 // ===== 文件系统 API =====
 
 export const fsApi = {
@@ -745,7 +772,7 @@ export const usageWsApi = {
     refresh = false,
     providerId?: string | null,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_get_overview",
       {
         refresh,
@@ -753,13 +780,15 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setProviderSwitch: async (
     providerId: string,
     enabled: boolean,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_provider_switch",
       {
         provider_id: providerId,
@@ -767,13 +796,15 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setProviderFooterCarousel: async (
     providerId: string,
     enabled: boolean,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_provider_footer_carousel",
       {
         provider_id: providerId,
@@ -781,16 +812,20 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setAllProvidersSwitch: async (
     enabled: boolean,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_all_providers_switch",
       { enabled },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setProviderManualSetup: async (
@@ -798,7 +833,7 @@ export const usageWsApi = {
     region: string | null,
     apiKey?: string | null,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_provider_manual_setup",
       {
         provider_id: providerId,
@@ -807,6 +842,8 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   addProviderApiKey: async (
@@ -814,7 +851,7 @@ export const usageWsApi = {
     region: string | null,
     apiKey: string,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_add_provider_api_key",
       {
         provider_id: providerId,
@@ -823,13 +860,15 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   deleteProviderApiKey: async (
     providerId: string,
     keyId: string,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_delete_provider_api_key",
       {
         provider_id: providerId,
@@ -837,18 +876,22 @@ export const usageWsApi = {
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 
   setAutoRefresh: async (
     intervalMinutes?: number | null,
   ): Promise<UsageOverviewResponse> => {
-    return wsRequest<UsageOverviewResponse>(
+    const overview = await wsRequest<UsageOverviewResponse>(
       "usage_set_auto_refresh",
       {
         interval_minutes: intervalMinutes ?? null,
       },
       45_000,
     );
+    emitUsageOverviewUpdated(overview);
+    return overview;
   },
 };
 
@@ -1168,10 +1211,12 @@ export const wsWorkspaceApi = {
     sidebarOrder?: number;
     initialRequirement?: string | null;
     githubIssue?: GithubIssuePayload | null;
+    githubPr?: GithubPrPayload | null;
     autoExtractTodos?: boolean;
     priority?: string | null;
     workflowStatus?: string | null;
     labelGuids?: string[];
+    attachments?: WorkspaceAttachmentPayload[];
   }): Promise<WorkspaceModel> => {
     return wsRequest<WorkspaceModel>("workspace_create", {
       project_guid: data.projectGuid,
@@ -1182,10 +1227,16 @@ export const wsWorkspaceApi = {
       sidebar_order: data.sidebarOrder ?? 0,
       initial_requirement: data.initialRequirement ?? null,
       github_issue: data.githubIssue ?? null,
+      github_pr: data.githubPr ?? null,
       auto_extract_todos: data.autoExtractTodos ?? false,
       priority: data.priority ?? null,
       workflow_status: data.workflowStatus ?? null,
       label_guids: data.labelGuids ?? null,
+      attachments: (data.attachments ?? []).map((a) => ({
+        filename: a.filename,
+        mime: a.mime,
+        data_base64: a.dataBase64,
+      })),
     });
   },
 
@@ -1613,6 +1664,32 @@ export const wsGithubApi = {
       issue_url: params.issueUrl ?? null,
     });
   },
+
+  listPrs: async (params: {
+    owner: string;
+    repo: string;
+    state?: string;
+    limit?: number;
+  }): Promise<GithubPrPayload[]> => {
+    return wsRequest<GithubPrPayload[]>("github_pr_list_repo", {
+      owner: params.owner,
+      repo: params.repo,
+      state: params.state ?? "open",
+      limit: params.limit ?? 50,
+    });
+  },
+
+  getPr: async (params:
+    | { owner: string; repo: string; prNumber: number; prUrl?: undefined }
+    | { prUrl: string; owner?: undefined; repo?: undefined; prNumber?: undefined },
+  ): Promise<GithubPrPayload> => {
+    return wsRequest<GithubPrPayload>("github_pr_get", {
+      owner: params.owner ?? null,
+      repo: params.repo ?? null,
+      pr_number: params.prNumber ?? null,
+      pr_url: params.prUrl ?? null,
+    });
+  },
 };
 
 // ===== Script API =====
@@ -1873,6 +1950,16 @@ export interface FunctionSettings {
   };
   git_commit?: {
     acp_new_session_switch?: boolean;
+  };
+  workspace_settings?: {
+    close_pr_on_delete?: boolean;
+    close_issue_on_delete?: boolean;
+    delete_remote_branch?: boolean;
+    confirm_before_delete?: boolean;
+    branch_prefix?: string;
+    confirm_before_archive?: boolean;
+    kill_tmux_on_archive?: boolean;
+    close_acp_on_archive?: boolean;
   };
   [key: string]: unknown;
 }
