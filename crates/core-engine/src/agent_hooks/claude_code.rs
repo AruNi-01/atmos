@@ -13,20 +13,22 @@ fn hook_url(port: u16) -> String {
     format!("http://localhost:{}/hooks/claude-code", port)
 }
 
-fn is_atmos_hook(hook_entry: &Value, port: u16) -> bool {
-    let url = hook_url(port);
+fn hook_path_marker() -> &'static str {
+    "ATMOS_MANAGED"
+}
+
+fn is_atmos_hook(hook_entry: &Value) -> bool {
+    let marker = hook_path_marker();
     hook_entry
         .get("hooks")
         .and_then(|h| h.as_array())
         .map(|arr| {
             arr.iter().any(|h| {
-                // Match HTTP hook by URL
-                if h.get("url").and_then(|u| u.as_str()) == Some(&url) {
-                    return true;
-                }
-                // Match command hook by URL substring in the command string
                 if let Some(cmd) = h.get("command").and_then(|c| c.as_str()) {
-                    return cmd.contains(&url);
+                    return cmd.contains(marker);
+                }
+                if let Some(url) = h.get("url").and_then(|u| u.as_str()) {
+                    return url.contains(marker);
                 }
                 false
             })
@@ -121,7 +123,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
 
                 if let Some(arr) = event_arr.as_array_mut() {
                     // Remove any existing atmos hooks (old format or current)
-                    arr.retain(|entry| !is_atmos_hook(entry, port));
+                    arr.retain(|entry| !is_atmos_hook(entry));
                     // Add new format hooks
                     if let Some(new_arr) = new_entries.as_array() {
                         arr.extend(new_arr.iter().cloned());
@@ -137,7 +139,7 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
     }
 }
 
-pub(super) fn uninstall(port: u16) -> AgentHookToolStatus {
+pub(super) fn uninstall() -> AgentHookToolStatus {
     let path = match settings_path() {
         Some(p) if p.exists() => p,
         _ => return AgentHookToolStatus::not_detected(),
@@ -157,7 +159,7 @@ pub(super) fn uninstall(port: u16) -> AgentHookToolStatus {
                 .get_mut(&event_name)
                 .and_then(|v| v.as_array_mut())
             {
-                arr.retain(|entry| !is_atmos_hook(entry, port));
+                arr.retain(|entry| !is_atmos_hook(entry));
                 if arr.is_empty() {
                     hooks_map.remove(&event_name);
                 }
@@ -178,7 +180,7 @@ pub(super) fn uninstall(port: u16) -> AgentHookToolStatus {
     }
 }
 
-pub(super) fn check(port: u16) -> AgentHookToolStatus {
+pub(super) fn check() -> AgentHookToolStatus {
     let path = match settings_path() {
         Some(p) => p,
         None => return AgentHookToolStatus::not_detected(),
@@ -209,7 +211,7 @@ pub(super) fn check(port: u16) -> AgentHookToolStatus {
         .get("hooks")
         .and_then(|h| h.get("Stop"))
         .and_then(|arr| arr.as_array())
-        .map(|arr| arr.iter().any(|entry| is_atmos_hook(entry, port)))
+        .map(|arr| arr.iter().any(|entry| is_atmos_hook(entry)))
         .unwrap_or(false);
 
     AgentHookToolStatus {

@@ -157,13 +157,25 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       ? 100
       : (currentStepIndex + 0.5) * (100 / Math.max(1, steps.length));
 
-  const [localCountdown, setLocalCountdown] = useState(5);
+  const [localCountdownState, setLocalCountdownState] = useState({ status, value: 5 });
   const [isHovered, setIsHovered] = useState(false);
-  const [isConfirmingTodos, setIsConfirmingTodos] = useState(false);
-  const [isSkippingFailedStep, setIsSkippingFailedStep] = useState(false);
+  const confirmationKey = `${workspaceId ?? ""}:${stepKey ?? ""}:${progress.requiresConfirmation ? "confirm" : "idle"}`;
+  const [confirmingTodosState, setConfirmingTodosState] = useState({ key: confirmationKey, value: false });
+  const [skippingFailedStepState, setSkippingFailedStepState] = useState({ workspaceId, value: false });
   const [isTodoEditing, setIsTodoEditing] = useState(false);
   const [editedTodoOutput, setEditedTodoOutput] = useState<string | null>(null);
-  const [isStale, setIsStale] = useState(false);
+  const staleKey = `${status}:${stepKey ?? ""}:${stepTitle}:${output.length}:${progress.requiresConfirmation ? "confirm" : "run"}`;
+  const [staleState, setStaleState] = useState({ key: staleKey, value: false });
+  const localCountdown = status === "completed" && localCountdownState.status === status
+    ? localCountdownState.value
+    : 5;
+  const isConfirmingTodos = progress.requiresConfirmation && confirmingTodosState.key === confirmationKey
+    ? confirmingTodosState.value
+    : false;
+  const isSkippingFailedStep = status === "error" && skippingFailedStepState.workspaceId === workspaceId
+    ? skippingFailedStepState.value
+    : false;
+  const isStale = staleState.key === staleKey ? staleState.value : false;
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
@@ -226,14 +238,14 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   }, [output]);
 
   useEffect(() => {
-    if (status !== "completed") {
-      setLocalCountdown(5);
-      return;
-    }
+    if (status !== "completed") return;
 
     if (localCountdown > 0 && !isHovered) {
       const timer = setInterval(() => {
-        setLocalCountdown((prev) => prev - 1);
+        setLocalCountdownState((prev) => ({
+          status,
+          value: prev.status === status ? prev.value - 1 : 4,
+        }));
       }, 1000);
       return () => clearInterval(timer);
     }
@@ -250,27 +262,13 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
   // Skip detection when waiting for user confirmation (requiresConfirmation).
   useEffect(() => {
     if (status === "completed" || status === "error" || progress.requiresConfirmation) {
-      setIsStale(false);
       return;
     }
-    setIsStale(false);
     // Allow a longer timeout for setup scripts which may take a while to run.
     const timeoutMs = status === "setting_up" ? 120_000 : 90_000;
-    const timer = setTimeout(() => setIsStale(true), timeoutMs);
+    const timer = setTimeout(() => setStaleState({ key: staleKey, value: true }), timeoutMs);
     return () => clearTimeout(timer);
-  }, [status, stepKey, stepTitle, output, progress.requiresConfirmation]);
-
-  useEffect(() => {
-    if (!progress.requiresConfirmation) {
-      setIsConfirmingTodos(false);
-    }
-  }, [progress.requiresConfirmation, progress.status, progress.stepKey]);
-
-  useEffect(() => {
-    if (status !== "error") {
-      setIsSkippingFailedStep(false);
-    }
-  }, [status]);
+  }, [progress.requiresConfirmation, staleKey, status]);
 
   useHotkeys(
     "mod+enter",
@@ -285,11 +283,11 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     if (!workspaceId || !finalOutput.trim() || isConfirmingTodos) return;
 
     try {
-      setIsConfirmingTodos(true);
+      setConfirmingTodosState({ key: confirmationKey, value: true });
       await wsWorkspaceApi.confirmTodos(workspaceId, finalOutput);
     } catch (error) {
       console.error("Failed to confirm extracted TODOs:", error);
-      setIsConfirmingTodos(false);
+      setConfirmingTodosState({ key: confirmationKey, value: false });
       toastManager.add({
         title: "Could not continue setup",
         description: "Failed to save the generated TODOs into task.md.",
@@ -309,7 +307,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
     if (!workspaceId || !skippableFailedStepKey || isSkippingFailedStep) return;
 
     try {
-      setIsSkippingFailedStep(true);
+      setSkippingFailedStepState({ workspaceId, value: true });
       await wsWorkspaceApi.skipSetupStep(workspaceId, skippableFailedStepKey, {
         initialRequirement: progress.retryContext?.initialRequirement ?? null,
         githubIssue: progress.retryContext?.githubIssue ?? null,
@@ -317,7 +315,7 @@ export const WorkspaceSetupProgressView: React.FC<WorkspaceSetupProgressProps> =
       });
     } catch (error) {
       console.error("Failed to skip setup step:", error);
-      setIsSkippingFailedStep(false);
+      setSkippingFailedStepState({ workspaceId, value: false });
       toastManager.add({
         title: "Could not skip setup step",
         description: "Failed to continue setup from the next step.",

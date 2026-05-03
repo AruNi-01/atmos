@@ -16,6 +16,10 @@ export type AgentHookState = (typeof AGENT_STATE)[keyof typeof AGENT_STATE];
 export const AGENT_TOOL = {
   CLAUDE_CODE: "claude-code",
   CODEX: "codex",
+  CURSOR: "cursor",
+  GEMINI: "gemini",
+  FACTORY_DROID: "factory-droid",
+  KIRO: "kiro",
   OPENCODE: "opencode",
 } as const;
 
@@ -24,6 +28,10 @@ export type AgentToolType = (typeof AGENT_TOOL)[keyof typeof AGENT_TOOL];
 export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.CLAUDE_CODE]: "Claude Code",
   [AGENT_TOOL.CODEX]: "Codex",
+  [AGENT_TOOL.CURSOR]: "Cursor",
+  [AGENT_TOOL.GEMINI]: "Gemini CLI",
+  [AGENT_TOOL.FACTORY_DROID]: "Factory Droid",
+  [AGENT_TOOL.KIRO]: "Kiro",
   [AGENT_TOOL.OPENCODE]: "OpenCode",
 };
 

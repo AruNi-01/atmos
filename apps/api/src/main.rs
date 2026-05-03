@@ -15,7 +15,8 @@ use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, MessagePushService, NotificationService,
-    ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService,
+    ProjectService, ReviewService, TerminalService, TestService, WorkspaceService,
+    WsMessageService,
 };
 use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
@@ -69,13 +70,14 @@ fn spawn_non_critical_startup_tasks(
     agent_service: Arc<AgentService>,
     project_service: Arc<ProjectService>,
     agent_hooks_service: Arc<core_service::AgentHooksService>,
+    api_port: u16,
 ) {
     tokio::task::spawn_blocking(|| {
         infra::utils::system_skill_sync::sync_system_skills_on_startup();
     });
 
-    tokio::task::spawn_blocking(|| {
-        let report = core_engine::agent_hooks::install_all_hooks();
+    tokio::task::spawn_blocking(move || {
+        let report = core_engine::agent_hooks::install_all_hooks(api_port);
         tracing::info!(
             "Agent hooks auto-install: claude_code={}, codex={}, opencode={}",
             if report.claude_code.installed {
@@ -177,6 +179,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting ATMOS API Server...");
 
+    if let Err(error) = infra::utils::atmos_cli::ensure_atmos_cli_on_startup() {
+        warn!(
+            "Non-critical startup task failed: Atmos CLI install: {}",
+            error
+        );
+    }
+
     let db_connection = DbConnection::new().await?;
     info!("Database connected");
 
@@ -193,6 +202,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), (*db).clone()));
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
+    let review_service = Arc::new(ReviewService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
     let agent_service_for_startup = Arc::clone(&agent_service);
     let usage_service = Arc::new(UsageService::default());
@@ -213,6 +223,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&terminal_service),
         Arc::clone(&agent_service),
         Arc::clone(&agent_session_service),
+        Arc::clone(&review_service),
         Arc::clone(&usage_service),
     ));
 
@@ -259,6 +270,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             notification_service: Arc::clone(&notification_service),
         },
         ws_config,
+        server_config.port,
     );
 
     // Inject WsManager into WsMessageService for server-to-client notifications
@@ -360,6 +372,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         agent_service_for_startup,
         project_service_for_startup,
         Arc::clone(&agent_hooks_for_startup),
+        actual_addr.port(),
     );
     spawn_idle_session_cleanup(agent_hooks_for_startup);
 

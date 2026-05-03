@@ -198,35 +198,6 @@ pub(crate) fn format_day_key(day: Date) -> String {
     )
 }
 
-pub(crate) fn day_from_filename(filename: &str) -> Option<Date> {
-    let bytes = filename.as_bytes();
-    for index in 0..bytes.len().saturating_sub(9) {
-        let slice = &filename[index..index + 10];
-        let chars = slice.as_bytes();
-        if chars[4] != b'-' || chars[7] != b'-' {
-            continue;
-        }
-        let year = slice[0..4].parse::<i32>().ok()?;
-        let month = slice[5..7].parse::<u8>().ok()?;
-        let day = slice[8..10].parse::<u8>().ok()?;
-        if let Ok(month) = time::Month::try_from(month) {
-            if let Ok(date) = Date::from_calendar_date(year, month, day) {
-                return Some(date);
-            }
-        }
-    }
-    None
-}
-
-pub(crate) fn normalize_codex_model(model: &str) -> String {
-    let trimmed = model.trim().to_lowercase();
-    match trimmed.as_str() {
-        "gpt-5-codex" => "gpt-5".to_string(),
-        "gpt-5-thinking" => "gpt-5".to_string(),
-        _ => trimmed,
-    }
-}
-
 pub(crate) fn format_tokens(value: u64) -> String {
     if value >= 1_000_000 {
         format!("{:.1}M tokens", value as f64 / 1_000_000.0)
@@ -235,14 +206,6 @@ pub(crate) fn format_tokens(value: u64) -> String {
     } else {
         format!("{value} tokens")
     }
-}
-
-pub(crate) fn format_reset_at(value: u64) -> String {
-    let date = OffsetDateTime::from_unix_timestamp(value as i64)
-        .ok()
-        .and_then(|value| value.format(&Rfc3339).ok())
-        .unwrap_or_else(|| value.to_string());
-    format!("Resets at {date}")
 }
 
 pub(crate) fn map_claude_rate_limit_tier(raw: String) -> String {

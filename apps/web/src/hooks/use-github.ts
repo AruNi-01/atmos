@@ -136,7 +136,7 @@ export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: str
         pr_number: prNumber,
         page,
         per_page: TIMELINE_PER_PAGE,
-      }) as { items: any[]; has_more: boolean };
+      }) as { items: unknown[]; has_more: boolean };
 
       const newItems = Array.isArray(result?.items) ? result.items : [];
       nextPageRef.current = page + 1;

@@ -2,7 +2,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::constants::{CURSOR_PLAN_INFO_URL, CURSOR_USAGE_SERVICE_URL};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
@@ -323,7 +323,7 @@ fn load_cursor_auth_from_keychain() -> Result<Option<CursorAuth>, ProviderError>
     }))
 }
 
-fn cursor_state_value(path: &PathBuf, key: &str) -> Result<Option<String>, ProviderError> {
+fn cursor_state_value(path: &Path, key: &str) -> Result<Option<String>, ProviderError> {
     let query = format!(
         "SELECT value FROM ItemTable WHERE key = '{}' LIMIT 1;",
         key.replace('\'', "''")

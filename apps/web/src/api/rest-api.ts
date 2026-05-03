@@ -35,6 +35,16 @@ export interface TmuxInstallPlanResponse {
   reason: string | null;
 }
 
+export interface CliVersionCheckResponse {
+  installed: boolean;
+  current_version: string | null;
+  latest_version: string | null;
+  latest_tag: string | null;
+  release_url: string | null;
+  update_available: boolean;
+  install_path: string | null;
+}
+
 export interface TmuxSession {
   name: string;
   windows: number;
@@ -368,6 +378,13 @@ export const systemApi = {
    */
   getTmuxInstallPlan: async (): Promise<TmuxInstallPlanResponse> => {
     return fetchApi<TmuxInstallPlanResponse>('/api/system/tmux-install-plan');
+  },
+
+  /**
+   * Check installed Atmos CLI version against the latest GitHub CLI release.
+   */
+  checkCliVersion: async (): Promise<CliVersionCheckResponse> => {
+    return fetchApi<CliVersionCheckResponse>('/api/system/cli-version-check');
   },
 
   /**

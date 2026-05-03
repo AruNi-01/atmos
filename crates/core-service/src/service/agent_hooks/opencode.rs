@@ -69,7 +69,7 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
                 );
             }
         }
-        "permission.asked" | "permission.updated" => {
+        "permission.asked" | "permission.updated" | "question.asked" => {
             service.update_state(
                 &session_id,
                 AgentToolType::Opencode,
@@ -113,6 +113,22 @@ mod tests {
         let sessions = service.get_all_sessions();
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].tool, AgentToolType::Opencode);
+        assert_eq!(sessions[0].state, AgentHookState::PermissionRequest);
+    }
+
+    #[test]
+    fn opencode_question_asked_sets_permission_request() {
+        let service = AgentHooksService::new();
+        let payload = serde_json::json!({
+            "type": "question.asked",
+            "session_id": "opencode-session",
+            "cwd": "/tmp/project",
+        });
+
+        handle_event(&service, &payload, &AtmosContext::default());
+
+        let sessions = service.get_all_sessions();
+        assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].state, AgentHookState::PermissionRequest);
     }
 

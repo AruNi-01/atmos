@@ -21,7 +21,6 @@ pub struct AppServices {
     pub notification_service: Arc<NotificationService>,
 }
 
-#[derive(Clone)]
 pub struct AppState {
     pub test_service: Arc<TestService>,
     pub project_service: Arc<ProjectService>,
@@ -34,10 +33,34 @@ pub struct AppState {
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub ws_service: Arc<WsService>,
+    pub api_port: std::sync::atomic::AtomicU16,
+}
+
+impl Clone for AppState {
+    fn clone(&self) -> Self {
+        Self {
+            test_service: Arc::clone(&self.test_service),
+            project_service: Arc::clone(&self.project_service),
+            workspace_service: Arc::clone(&self.workspace_service),
+            agent_service: Arc::clone(&self.agent_service),
+            agent_session_service: Arc::clone(&self.agent_session_service),
+            message_push_service: Arc::clone(&self.message_push_service),
+            terminal_service: Arc::clone(&self.terminal_service),
+            token_usage_service: Arc::clone(&self.token_usage_service),
+            agent_hooks_service: Arc::clone(&self.agent_hooks_service),
+            notification_service: Arc::clone(&self.notification_service),
+            ws_service: Arc::clone(&self.ws_service),
+            api_port: std::sync::atomic::AtomicU16::new(self.api_port()),
+        }
+    }
 }
 
 impl AppState {
-    pub fn new(services: AppServices, ws_service_config: WsServiceConfig) -> Self {
+    pub fn new(
+        services: AppServices,
+        ws_service_config: WsServiceConfig,
+        default_port: u16,
+    ) -> Self {
         let ws_service = WsService::with_config(ws_service_config)
             .with_message_handler(services.ws_message_service);
 
@@ -53,6 +76,11 @@ impl AppState {
             agent_hooks_service: services.agent_hooks_service,
             notification_service: services.notification_service,
             ws_service: Arc::new(ws_service),
+            api_port: std::sync::atomic::AtomicU16::new(default_port),
         }
+    }
+
+    pub fn api_port(&self) -> u16 {
+        self.api_port.load(std::sync::atomic::Ordering::SeqCst)
     }
 }

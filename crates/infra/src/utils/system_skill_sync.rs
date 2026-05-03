@@ -35,6 +35,8 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "typescript-react-reviewer",
     // Git skills
     "git-commit",
+    // Review workflow skills
+    "atmos-review-fix",
 ];
 
 #[derive(Clone, Debug, Deserialize)]
@@ -124,12 +126,11 @@ fn version_needs_update(current: &str, new: &str) -> bool {
     let current_parts = parse_v(current);
     let new_parts = parse_v(new);
 
-    for i in 0..new_parts.len() {
+    for (i, new_v) in new_parts.iter().enumerate() {
         let curr = current_parts.get(i).unwrap_or(&0);
-        let new_v = new_parts[i];
-        if new_v > *curr {
+        if *new_v > *curr {
             return true;
-        } else if new_v < *curr {
+        } else if *new_v < *curr {
             return false;
         }
     }
@@ -160,6 +161,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "code-review-expert" => Some("skills/code_review_skills/code-review-expert"),
         "typescript-react-reviewer" => Some("skills/code_review_skills/typescript-react-reviewer"),
         "git-commit" => Some("skills/git-commit"),
+        "atmos-review-fix" => Some("skills/atmos-review-fix"),
         _ => None,
     }
 }

@@ -276,7 +276,6 @@ fn detect_claude_version() -> &'static str {
                 .ok()
                 .and_then(|output| {
                     output
-                        .trim()
                         .split_whitespace()
                         .next()
                         .filter(|v| v.contains('.'))

@@ -60,7 +60,7 @@ export const AgentManagerView: React.FC = () => {
 
   const handleCustomDialogSaved = React.useCallback(() => {
     void mgr.loadData();
-  }, [mgr.loadData]);
+  }, [mgr]);
 
   const handleClearSearch = React.useCallback(() => {
     void setAgentParams({ agentQ: "" });

@@ -119,7 +119,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
   const handleCopyPrompt = useCallback(() => {
     const prompt = buildPrompt(language, customLanguage);
-    const command = buildCommand(agentId, prompt, true);
+    const command = buildCommand(agentId, prompt);
     navigator.clipboard.writeText(command);
     toastManager.add({
       title: "Copied to clipboard",
@@ -170,7 +170,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     }
 
     const prompt = buildPrompt(language, customLanguage);
-    const command = buildCommand(agentId, prompt, true);
+    const command = buildCommand(agentId, prompt);
 
     setIsGenerating(true);
     try {

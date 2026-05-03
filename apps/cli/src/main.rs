@@ -1,0 +1,63 @@
+mod commands;
+
+use std::sync::Arc;
+
+use clap::{Parser, Subcommand};
+use commands::local::{execute as execute_local, LocalCommand};
+use commands::review::{execute as execute_review, ReviewCommand};
+use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
+use core_service::ReviewService;
+use infra::db::migration::MigratorTrait;
+use infra::{DbConnection, Migrator};
+
+#[derive(Debug, Parser)]
+#[command(
+    name = "atmos",
+    about = "ATMOS command-line interface",
+    version = env!("CARGO_PKG_VERSION")
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Debug, Subcommand)]
+enum Commands {
+    Review {
+        #[command(subcommand)]
+        command: ReviewCommand,
+    },
+    Local {
+        #[command(subcommand)]
+        command: LocalCommand,
+    },
+    Update(UpdateArgs),
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
+    let should_check_for_updates = !matches!(cli.command, Commands::Update(_));
+
+    let output = match cli.command {
+        Commands::Review { command } => {
+            let db_connection = DbConnection::new().await?;
+            Migrator::clean_stale_migrations(db_connection.connection()).await?;
+            Migrator::up(db_connection.connection(), None).await?;
+            let db = Arc::new(db_connection.connection().clone());
+            let review_service = Arc::new(ReviewService::new(Arc::clone(&db)));
+            execute_review(review_service, command).await
+        }
+        Commands::Local { command } => execute_local(command).await,
+        Commands::Update(args) => execute_update(args).await,
+    }
+    .map_err(std::io::Error::other)?;
+
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    if should_check_for_updates {
+        if let Some(hint) = update_hint_if_needed().await {
+            eprintln!("{}", hint);
+        }
+    }
+    Ok(())
+}

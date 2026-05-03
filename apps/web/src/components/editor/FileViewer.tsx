@@ -220,31 +220,26 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className }) => {
   const isBase64 = file.content.startsWith('data:') && file.content.includes(';base64,');
   const isBinary = isStream || isBase64;
 
-  const [docData, setDocData] = useState<{ uri: string; ext: string } | null>(null);
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  const staticDocData = isBinary && !isStream ? { uri: file.content, ext } : null;
+  const [streamDocData, setStreamDocData] = useState<{ content: string; uri: string; ext: string } | null>(null);
+  const docData = isStream && streamDocData?.content === file.content
+    ? { uri: streamDocData.uri, ext: streamDocData.ext }
+    : staticDocData;
 
   useEffect(() => {
-    if (!isBinary) {
-      setDocData(null);
-      return;
-    }
+    if (!isStream) return;
 
-    const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    let uri = file.content;
-
-    if (isStream) {
-      const path = file.content.replace('stream://', '');
-      // Build URL pointing to Rust API's file-serving endpoint
-      getRuntimeApiConfig().then((cfg) => {
-        const base = httpBase(cfg);
-        const params = new URLSearchParams({ path });
-        if (cfg.token) params.set('token', cfg.token);
-        setDocData({ uri: `${base}/api/system/file?${params.toString()}`, ext });
-      });
-      return;
-    }
-
-    setDocData({ uri, ext });
-  }, [isBinary, file.content, file.name, isStream]);
+    const content = file.content;
+    const path = content.replace('stream://', '');
+    // Build URL pointing to Rust API's file-serving endpoint
+    getRuntimeApiConfig().then((cfg) => {
+      const base = httpBase(cfg);
+      const params = new URLSearchParams({ path });
+      if (cfg.token) params.set('token', cfg.token);
+      setStreamDocData({ content, uri: `${base}/api/system/file?${params.toString()}`, ext });
+    });
+  }, [ext, file.content, isStream]);
 
   if (isBinary && docData) {
     const { uri, ext } = docData;

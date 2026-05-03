@@ -25,6 +25,8 @@ export interface OpenFile {
 export interface FileNavigationTarget {
   line: number;
   column?: number;
+  reviewCommentGuid?: string;
+  reviewMessageGuid?: string;
 }
 
 export interface FileTreeRevealTarget {
@@ -44,20 +46,20 @@ interface EditorStore {
   navigationTargets: Record<string, Record<string, FileNavigationTarget>>;
   fileTreeRevealTarget: FileTreeRevealTarget | null;
   currentWorkspaceId: string | null;
-  
+
   // 当前项目路径 (这个可能是全局的或者也是按 workspace 的，根据之前代码暂定全局，但改为按 workspace 更合理)
   currentProjectPath: string | null;
-  
+
   // Hydration tracking
   _hasHydrated: boolean;
   setHasHydrated: (state: boolean) => void;
-  
+
   // 动作
   setWorkspaceId: (workspaceId: string | null) => void;
   openFile: (
     path: string,
     workspaceId?: string,
-    options?: { preview?: boolean; line?: number; column?: number }
+    options?: { preview?: boolean; line?: number; column?: number; reviewCommentGuid?: string; reviewMessageGuid?: string }
   ) => Promise<void>;
   reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
@@ -72,7 +74,7 @@ interface EditorStore {
   clearFileTreeRevealTarget: (requestId?: number) => void;
   replaceOpenFilePath: (from: string, to: string, workspaceId?: string) => void;
   closeFilesByPrefix: (prefix: string, workspaceId?: string) => void;
-  
+
   // 辅助方法
   getOpenFiles: (workspaceId?: string) => OpenFile[];
   getActiveFilePath: (workspaceId?: string) => string | null;
@@ -81,11 +83,12 @@ interface EditorStore {
 }
 
 export const EDITOR_DIFF_PREFIX = 'diff://';
+export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
 export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
 export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
 
 export function isDiffEditorPath(path: string): boolean {
-  return path.startsWith(EDITOR_DIFF_PREFIX);
+  return path.startsWith(EDITOR_DIFF_PREFIX) || path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
 }
 
 export function isConflictResolveEditorPath(path: string): boolean {
@@ -93,7 +96,13 @@ export function isConflictResolveEditorPath(path: string): boolean {
 }
 
 export function getEditorSourcePath(path: string): string {
-  if (isDiffEditorPath(path)) {
+  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
+    const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
+    const slashIdx = rest.indexOf('/');
+    return slashIdx >= 0 ? rest.slice(slashIdx + 1) : rest;
+  }
+
+  if (path.startsWith(EDITOR_DIFF_PREFIX)) {
     return path.slice(EDITOR_DIFF_PREFIX.length);
   }
 
@@ -104,6 +113,13 @@ export function getEditorSourcePath(path: string): string {
   return path;
 }
 
+export function getReviewDiffSnapshotGuid(path: string): string | null {
+  if (!path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) return null;
+  const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
+  const slashIdx = rest.indexOf('/');
+  return slashIdx >= 0 ? rest.slice(0, slashIdx) : null;
+}
+
 function getLanguageFromPath(path: string): string {
   return detectCodeLanguage(getEditorSourcePath(path));
 }
@@ -111,9 +127,9 @@ function getLanguageFromPath(path: string): string {
 function isBinaryFile(path: string): boolean {
     const ext = getEditorSourcePath(path).split('.').pop()?.toLowerCase();
     const binaryExts = [
-        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff', 
-        'pdf', 
-        'mp4', 'webm', 'ogg', 'mp3', 'wav', 
+        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff',
+        'pdf',
+        'mp4', 'webm', 'ogg', 'mp3', 'wav',
         'zip', 'tar', 'gz', '7z', 'rar',
         // Office docs often need special handling, treat as binary for now
         'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
@@ -124,6 +140,10 @@ function isBinaryFile(path: string): boolean {
 function getFileNameFromPath(path: string): string {
   const sourcePath = getEditorSourcePath(path);
   const baseName = sourcePath.split('/').pop() || sourcePath;
+
+  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
+    return `${baseName} (Review)`;
+  }
 
   if (isConflictResolveEditorPath(path)) {
     if (sourcePath === 'merge-conflicts') {
@@ -139,7 +159,15 @@ function getDiffTabName(name: string): string {
   return name.endsWith(' (Diff)') ? name : `${name} (Diff)`;
 }
 
+function getReviewDiffTabName(name: string): string {
+  return name.endsWith(' (Review)') ? name : `${name} (Review)`;
+}
+
 function getSpecialTabName(path: string, name: string): string {
+  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
+    return getReviewDiffTabName(name);
+  }
+
   if (isDiffEditorPath(path)) {
     return getDiffTabName(name);
   }
@@ -200,7 +228,7 @@ export const useEditorStore = create<EditorStore>()(
       currentWorkspaceId: null,
       currentProjectPath: null,
       _hasHydrated: false,
-      
+
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setWorkspaceId: (id) => set({ currentWorkspaceId: id }),
@@ -357,6 +385,8 @@ export const useEditorStore = create<EditorStore>()(
                   typeof options.column === 'number' && Number.isFinite(options.column)
                     ? Math.max(1, Math.floor(options.column))
                     : undefined,
+                reviewCommentGuid: options.reviewCommentGuid,
+                reviewMessageGuid: options.reviewMessageGuid,
               }
             : null;
 
@@ -468,11 +498,11 @@ export const useEditorStore = create<EditorStore>()(
                      [id]: {
                        ...ws,
                        // Use special protocol to indicate streaming/external load
-                       openFiles: ws.openFiles.map(f => f.path === path ? { 
-                           ...f, 
-                           content: `stream://${getEditorSourcePath(path)}`, 
-                           originalContent: `stream://${getEditorSourcePath(path)}`, 
-                           isLoading: false 
+                       openFiles: ws.openFiles.map(f => f.path === path ? {
+                           ...f,
+                           content: `stream://${getEditorSourcePath(path)}`,
+                           originalContent: `stream://${getEditorSourcePath(path)}`,
+                           isLoading: false
                        } : f)
                      }
                    }
@@ -591,26 +621,28 @@ export const useEditorStore = create<EditorStore>()(
       pinFile: (path, workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
-        const ws = get().workspaceStates[id];
-        if (!ws) return;
         const timestamp = nowTimestamp();
 
-        set((state) => ({
-          workspaceStates: {
-            ...state.workspaceStates,
-            [id]: {
-              ...ws,
-              openFiles: ws.openFiles.map(f => 
-                f.path === path
-                  ? touchOpenFile(f, timestamp, {
-                      isPreview: false,
-                      lastFocusedAt: timestamp,
-                    })
-                  : f
-              )
+        set((state) => {
+          const ws = state.workspaceStates[id];
+          if (!ws) return {};
+          return {
+            workspaceStates: {
+              ...state.workspaceStates,
+              [id]: {
+                ...ws,
+                openFiles: ws.openFiles.map(f =>
+                  f.path === path
+                    ? touchOpenFile(f, timestamp, {
+                        isPreview: false,
+                        lastFocusedAt: timestamp,
+                      })
+                    : f
+                )
+              }
             }
-          }
-        }));
+          };
+        });
       },
 
       closeFile: (path, workspaceId) => {

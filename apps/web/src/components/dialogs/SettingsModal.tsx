@@ -65,6 +65,7 @@ import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon'
 import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
 import WorldIcon from '@workspace/ui/components/icons/world-icon';
 import { FolderKanbanIcon } from '@workspace/ui/components/icons/folder-kanban-icon';
+import type { AnimatedIconHandle } from '@workspace/ui/components/icons/types';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
@@ -86,6 +87,7 @@ import {
   type LlmProvidersFile,
   type SessionTitleFormatConfig,
 } from '@/api/ws-api';
+import { systemApi } from '@/api/rest-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -216,7 +218,7 @@ function buildBuiltInOverrides(entries: CodeAgentCustomEntry[]) {
     if (!entry) continue;
 
     const cmd = entry.cmd !== agent.cmd ? entry.cmd : undefined;
-    const flags = entry.flags !== (agent.yoloFlag || '') ? entry.flags : undefined;
+    const flags = entry.flags !== (agent.params || '') ? entry.flags : undefined;
     const enabled = entry.enabled === false ? false : undefined;
     if (!cmd && !flags && enabled === undefined) continue;
 
@@ -235,9 +237,9 @@ function buildBuiltInEntries(
   return AGENT_OPTIONS.flatMap((agent) => {
     const draft = overrides[agent.id];
     const cmd = draft?.cmd ?? agent.cmd;
-    const flags = draft?.flags ?? (agent.yoloFlag || '');
+    const flags = draft?.flags ?? (agent.params || '');
     const enabled = draft?.enabled ?? true;
-    const changed = cmd !== agent.cmd || flags !== (agent.yoloFlag || '') || enabled !== true;
+    const changed = cmd !== agent.cmd || flags !== (agent.params || '') || enabled !== true;
 
     if (!changed) return [];
 
@@ -1161,6 +1163,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
+  const [isCheckingCliVersion, setIsCheckingCliVersion] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [activeSection, setActiveSection] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [llmConfig, setLlmConfig] = useState<LlmProvidersFile | null>(null);
@@ -1298,8 +1301,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (
       (nextBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
-      (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
-        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')
+      (nextBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')
     ) {
       delete nextBuiltInSettings[agentId];
     }
@@ -1343,8 +1346,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (
       (nextSavedBuiltInSettings[agentId]?.cmd ?? AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd) ===
         AGENT_OPTIONS.find((agent) => agent.id === agentId)?.cmd &&
-      (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '')) ===
-        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.yoloFlag || '') &&
+      (nextSavedBuiltInSettings[agentId]?.flags ?? (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '')) ===
+        (AGENT_OPTIONS.find((agent) => agent.id === agentId)?.params || '') &&
       (nextSavedBuiltInSettings[agentId]?.enabled ?? true) === true
     ) {
       delete nextSavedBuiltInSettings[agentId];
@@ -1692,6 +1695,76 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     });
   };
 
+  const handleCheckCliVersion = async () => {
+    setIsCheckingCliVersion(true);
+    const toastId = toastManager.add({
+      title: 'Checking Atmos CLI…',
+      description: 'Querying the installed CLI and latest GitHub release.',
+      type: 'loading',
+      timeout: 0,
+    });
+
+    try {
+      const result = await systemApi.checkCliVersion();
+
+      if (!result.installed) {
+        toastManager.update(toastId, {
+          title: 'Atmos CLI not installed',
+          description: 'The local Atmos CLI was not found in ~/.atmos/bin.',
+          type: 'error',
+          timeout: 6000,
+        });
+        return;
+      }
+
+      if (result.update_available) {
+        toastManager.update(toastId, {
+          title: `Atmos CLI ${result.latest_version} is available`,
+          description: (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Installed version: {result.current_version ?? 'unknown'}.
+              </p>
+              {result.release_url ? (
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={result.release_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="mr-1.5 size-3.5" />
+                    View Release
+                  </a>
+                </Button>
+              ) : null}
+            </div>
+          ),
+          type: 'info',
+          timeout: 0,
+        });
+        return;
+      }
+
+      toastManager.update(toastId, {
+        title: 'Atmos CLI is up to date',
+        description: result.current_version
+          ? `Installed version: ${result.current_version}.`
+          : 'No newer CLI release was found.',
+        type: 'success',
+        timeout: 4000,
+      });
+    } catch (error) {
+      toastManager.update(toastId, {
+        title: 'CLI version check failed',
+        description: error instanceof Error ? error.message : 'Unable to check Atmos CLI version.',
+        type: 'error',
+        timeout: 6000,
+      });
+    } finally {
+      setIsCheckingCliVersion(false);
+    }
+  };
+
   const isChecking = status.stage === 'checking';
   const isDownloading = status.stage === 'downloading';
   const isInstalling = status.stage === 'installing';
@@ -1848,7 +1921,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, []);
 
-  const sectionIconRefs = React.useRef<Record<string, React.RefObject<any>>>({});
+  const sectionIconRefs = React.useRef<Record<string, React.RefObject<AnimatedIconHandle | null>>>({});
   for (const section of SETTINGS_SECTIONS) {
     if (!sectionIconRefs.current[section.id]) {
       sectionIconRefs.current[section.id] = React.createRef();
@@ -1957,6 +2030,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                         <div className="flex items-center text-sm font-medium text-foreground">
                           {appVersion || 'Unavailable'}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 border-b border-border px-6 py-5">
+                        <div>
+                          <p className="text-base font-medium text-foreground">Atmos CLI</p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            Check for the latest CLI updates.
+                          </p>
+                        </div>
+                        <div className="flex items-center">
+                          <Button
+                            variant="outline"
+                            onClick={handleCheckCliVersion}
+                            disabled={isCheckingCliVersion}
+                            className="cursor-pointer"
+                          >
+                            {isCheckingCliVersion ? (
+                              <LoaderCircle className="mr-2 size-4 animate-spin" />
+                            ) : (
+                              <RotateCw className="mr-2 size-4" />
+                            )}
+                            Check for Updates
+                          </Button>
                         </div>
                       </div>
 
@@ -2094,11 +2191,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               const savedAgent = savedAgentCustomSettings[agent.id];
                               const isDirty =
                                 (savedAgent?.cmd ?? agent.cmd) !== (custom?.cmd ?? agent.cmd) ||
-                                (savedAgent?.flags ?? (agent.yoloFlag || '')) !== (custom?.flags ?? (agent.yoloFlag || ''));
+                                (savedAgent?.flags ?? (agent.params || '')) !== (custom?.flags ?? (agent.params || ''));
                               const isSaving = !!savingBuiltInAgentIds[agent.id];
                               const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
                               const enabled = custom?.enabled ?? true;
-                              const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.yoloFlag || '')]
+                              const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.params || '')]
                                 .filter(Boolean)
                                 .join(' ');
 
@@ -2160,8 +2257,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       <div>
                                         <label className="mb-1 block text-xs text-muted-foreground">Parameters</label>
                                         <Input
-                                          value={custom?.flags ?? (agent.yoloFlag || '')}
-                                          placeholder={agent.yoloFlag || 'No default parameters'}
+                                          value={custom?.flags ?? (agent.params || '')}
+                                          placeholder={agent.params || 'No default parameters'}
                                           onChange={(e) => handleAgentSettingChange(agent.id, 'flags', e.target.value)}
                                           className="h-9 text-sm font-mono"
                                         />
