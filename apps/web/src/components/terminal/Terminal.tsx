@@ -1053,14 +1053,19 @@ const Terminal = ({
     // Shift+Enter CSI u encoding ourselves.
     if (isTauriRuntime()) {
       const doc = containerRef.current?.ownerDocument ?? document;
+      let isHandlingPaste = false;
 
       const handleTauriPaste = (e: ClipboardEvent) => {
+        // Prevent recursive handling of synthetic paste events
+        if (isHandlingPaste) return;
+
         // Only intercept pastes targeting elements inside this terminal
         const target = e.target as Node;
         if (!containerRef.current?.contains(target)) return;
 
         e.preventDefault();
         e.stopImmediatePropagation();
+        isHandlingPaste = true;
 
         navigator.clipboard.readText().then((text) => {
           if (!text) return;
@@ -1080,6 +1085,8 @@ const Terminal = ({
           });
           // Use the element-level target so xterm.js's listener catches it
           (e.target as HTMLElement)?.dispatchEvent(synthetic);
+        }).finally(() => {
+          isHandlingPaste = false;
         });
       };
 

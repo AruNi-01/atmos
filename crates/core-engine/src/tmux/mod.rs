@@ -537,15 +537,6 @@ impl TmuxEngine {
         self.run_tmux(&args_refs)?;
         self.ensure_standard_config();
 
-        // Mark session as atmos-managed via tmux user option
-        let _ = self.run_tmux(&[
-            "set-option",
-            "-t",
-            session_name,
-            "@atmos_managed",
-            "true",
-        ]);
-
         info!("Created tmux session: {} (with window '1')", session_name);
         Ok(session_name.to_string())
     }
@@ -1119,34 +1110,10 @@ impl TmuxEngine {
             .map(|w| w.index))
     }
 
-    /// List all Atmos-managed sessions (marked with @atmos_managed user option)
+    /// List all Atmos-managed sessions
+    /// Note: All sessions on the isolated tmux socket are Atmos-managed
     pub fn list_atmos_sessions(&self) -> Result<Vec<TmuxSessionInfo>> {
-        let all_sessions = self.list_sessions()?;
-        let mut result = vec![];
-
-        for session in all_sessions {
-            // Check tmux user option @atmos_managed
-            match self.run_tmux(&[
-                "show-option",
-                "-t",
-                &session.name,
-                "-qv",
-                "@atmos_managed",
-            ]) {
-                Ok(output) if output.trim() == "true" => {
-                    result.push(session);
-                }
-                _ => {
-                    // Fallback: also match sessions with known atmos prefixes
-                    // (for backward compatibility with existing sessions)
-                    if session.name.starts_with("atmos_client_") {
-                        result.push(session);
-                    }
-                }
-            }
-        }
-
-        Ok(result)
+        self.list_sessions()
     }
 
     /// Clean up orphaned sessions (sessions for workspaces that no longer exist)
