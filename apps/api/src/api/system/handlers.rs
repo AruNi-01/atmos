@@ -846,13 +846,16 @@ async fn fetch_latest_cli_release_from_tags_feed() -> Result<LatestCliRelease, S
 
 fn find_latest_cli_tag_in_atom(feed: &str) -> Option<String> {
     for entry in feed.split("<entry").skip(1) {
-        let tag = extract_between(entry, "/releases/tag/", "\"")
+        if let Some(tag) = extract_between(entry, "/releases/tag/", "\"")
             .or_else(|| extract_between(entry, "/releases/tag/", "<"))
-            .or_else(|| extract_between(entry, "<title>", "</title>"))?;
-        let tag = tag.trim().to_string();
-        if is_stable_cli_release_tag(&tag) {
-            return Some(tag);
+            .or_else(|| extract_between(entry, "<title>", "</title>"))
+        {
+            let tag = tag.trim().to_string();
+            if is_stable_cli_release_tag(&tag) {
+                return Some(tag);
+            }
         }
+        // Continue to next entry if no parseable tag found
     }
     None
 }

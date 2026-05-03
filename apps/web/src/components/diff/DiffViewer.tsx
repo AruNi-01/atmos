@@ -412,8 +412,17 @@ export const DiffViewer = ({
             setNewFile(nextNewFile);
             setWorkingDiff(parseDiffFromFile(nextOldFile, nextNewFile));
             setDiffCompareRef(null);
-          } catch {
-            // Fall through to git diff path if review snapshot doesn't exist on disk
+          } catch (err) {
+            // Only fall through to git diff for "snapshot not found" errors
+            // Re-throw server errors, network failures, and other non-recoverable errors
+            const isNotFoundError =
+              err instanceof Error &&
+              (err.message.includes('404') ||
+                err.message.includes('Not Found') ||
+                err.message.toLowerCase().includes('snapshot not found'));
+            if (!isNotFoundError) {
+              throw err;
+            }
             const diff = await gitApi.getFileDiff(repoPath, filePath);
             const nextOldFile = { name: fileName, contents: diff.old_content };
             const nextNewFile = { name: fileName, contents: diff.new_content };
