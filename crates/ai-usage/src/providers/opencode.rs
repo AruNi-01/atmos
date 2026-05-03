@@ -2,7 +2,7 @@ use regex::Regex;
 use reqwest::redirect::Policy;
 use reqwest::Client;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::constants::{
@@ -433,12 +433,12 @@ fn resolve_path(raw: &str) -> Option<PathBuf> {
     expand_home(raw)
 }
 
-fn has_go_history(db_path: &PathBuf) -> Result<bool, ProviderError> {
+fn has_go_history(db_path: &Path) -> Result<bool, ProviderError> {
     let output = run_sqlite_query(db_path, HISTORY_EXISTS_SQL)?;
     Ok(!output.trim().is_empty())
 }
 
-fn load_go_rows(db_path: &PathBuf) -> Result<Vec<CostRow>, ProviderError> {
+fn load_go_rows(db_path: &Path) -> Result<Vec<CostRow>, ProviderError> {
     let output = run_sqlite_query(db_path, HISTORY_ROWS_SQL)?;
     let now_sec = unix_now() as i64;
     let mut rows = Vec::new();

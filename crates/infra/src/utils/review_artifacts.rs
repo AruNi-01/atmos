@@ -30,7 +30,7 @@ fn safe_short_dir_id(id: &str) -> String {
     let mut hasher = DefaultHasher::new();
     id.hash(&mut hasher);
     let hash = hasher.finish();
-    format!("{}_{}", safe_prefix, format!("{hash:016x}"))
+    format!("{safe_prefix}_{hash:016x}")
 }
 
 pub fn session_dir_id(session_guid: &str) -> String {
