@@ -64,7 +64,7 @@ export const ReviewActions: React.FC = () => {
   const getSortedRevisions = useCallback(
     (session: ReviewSessionDto) =>
       [...session.revisions].sort((a, b) =>
-        compareReviewTimestamps(a.created_at, b.created_at),
+        compareReviewTimestamps(b.created_at, a.created_at),
       ),
     [],
   );
@@ -221,7 +221,7 @@ export const ReviewActions: React.FC = () => {
             {sortedRevisions.map((rev, idx) => {
               const activeRevision =
                 activeSession && rev.guid === currentRevision?.guid;
-              const label = `v${idx + 1}`;
+              const label = `v${sortedRevisions.length - idx}`;
 
               return (
                 <DropdownMenuItem
