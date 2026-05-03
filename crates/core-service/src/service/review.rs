@@ -57,6 +57,37 @@ fn count_review_snapshot_changes(snapshot: &review_file_snapshot::Model) -> (usi
     (additions, deletions)
 }
 
+fn review_message_visible_in_revision(
+    message: &review_message::Model,
+    comment_revision_guid: &str,
+    target_revision_guid: &str,
+    fix_runs: &[review_fix_run::Model],
+) -> bool {
+    let Some(run) = message
+        .fix_run_guid
+        .as_deref()
+        .and_then(|guid| fix_runs.iter().find(|run| run.guid == guid))
+    else {
+        if message.author_type == "user" {
+            return true;
+        }
+        return !fix_runs.iter().any(|run| {
+            run.base_revision_guid == comment_revision_guid
+                && target_revision_guid == run.base_revision_guid
+                && message.created_at >= run.created_at
+        });
+    };
+
+    if target_revision_guid == run.base_revision_guid {
+        return false;
+    }
+
+    run.result_revision_guid
+        .as_deref()
+        .map(|result_revision_guid| target_revision_guid == result_revision_guid)
+        .unwrap_or(false)
+}
+
 fn installed_review_fix_skill_path() -> String {
     std::env::var("HOME")
         .map(|home| {
@@ -259,6 +290,7 @@ struct FileSnapshotMeta {
 #[derive(Debug, Clone, Serialize)]
 pub struct ReviewFixRunCreatedDto {
     pub run: review_fix_run::Model,
+    pub revision: ReviewRevisionDto,
     pub prompt: String,
 }
 
@@ -584,6 +616,178 @@ impl ReviewService {
         self.build_session_dto(session.clone()).await
     }
 
+    async fn create_fix_run_revision(
+        &self,
+        review_repo: &ReviewRepo<'_>,
+        session: &review_session::Model,
+        base_revision: &review_revision::Model,
+        run: &review_fix_run::Model,
+    ) -> Result<ReviewRevisionDto> {
+        let base_snapshots = review_repo
+            .list_file_snapshots_by_revision(&base_revision.guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+        let base_states = review_repo
+            .list_file_states_by_revision(&base_revision.guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+        let state_by_file_identity: HashMap<String, review_file_state::Model> = base_states
+            .into_iter()
+            .map(|state| (state.file_identity_guid.clone(), state))
+            .collect();
+
+        let revision_guid = Uuid::new_v4().to_string();
+        let revision_storage_root = revision_root_abs_path(&session.guid, &revision_guid)
+            .map_err(ServiceError::Infra)?
+            .to_string_lossy()
+            .to_string();
+        let revisions_before = review_repo
+            .list_revisions_by_session(&session.guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+        let revision = review_repo
+            .create_revision(
+                Some(revision_guid.clone()),
+                session.guid.clone(),
+                Some(base_revision.guid.clone()),
+                "ai_run".to_string(),
+                Some(run.guid.clone()),
+                Some(format!("Fix Run {}", revisions_before.len())),
+                revision_storage_root.clone(),
+                Some(base_revision.guid.clone()),
+                run.created_by.clone(),
+            )
+            .await
+            .map_err(ServiceError::Infra)?;
+
+        let mut snapshot_guid_map: HashMap<String, String> = HashMap::new();
+        for (index, snapshot) in base_snapshots.into_iter().enumerate() {
+            let old_content = std::fs::read_to_string(&snapshot.old_rel_path).unwrap_or_default();
+            let new_content = std::fs::read_to_string(&snapshot.new_rel_path).unwrap_or_default();
+            let file_snapshot_guid = Uuid::new_v4().to_string();
+            let (old_abs_path, new_abs_path, meta_abs_path) =
+                anchor_file_snapshot_abs_paths(&session.guid, &revision.guid, &file_snapshot_guid)
+                    .map_err(ServiceError::Infra)?;
+            write_text_atomic(&old_abs_path, &old_content)
+                .await
+                .map_err(ServiceError::Infra)?;
+            write_text_atomic(&new_abs_path, &new_content)
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            let meta = FileSnapshotMeta {
+                schema_version: 1,
+                file_path: snapshot.file_path.clone(),
+                git_status: snapshot.git_status.clone(),
+                is_binary: snapshot.is_binary,
+                old_rel_path: old_abs_path.to_string_lossy().to_string(),
+                new_rel_path: new_abs_path.to_string_lossy().to_string(),
+                old_sha256: sha256_hex(&old_content),
+                new_sha256: sha256_hex(&new_content),
+                old_size: old_content.len(),
+                new_size: new_content.len(),
+            };
+            write_json_atomic(&meta_abs_path, &meta)
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            let next_snapshot = review_repo
+                .create_file_snapshot(
+                    revision.guid.clone(),
+                    snapshot.file_identity_guid.clone(),
+                    snapshot.file_path.clone(),
+                    snapshot.git_status.clone(),
+                    old_abs_path.to_string_lossy().to_string(),
+                    new_abs_path.to_string_lossy().to_string(),
+                    meta_abs_path.to_string_lossy().to_string(),
+                    Some(meta.old_sha256.clone()),
+                    Some(meta.new_sha256.clone()),
+                    meta.old_size as i64,
+                    meta.new_size as i64,
+                    snapshot.is_binary,
+                    index as i32,
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+            snapshot_guid_map.insert(snapshot.guid.clone(), next_snapshot.guid.clone());
+
+            let prior_state = state_by_file_identity
+                .get(&snapshot.file_identity_guid)
+                .ok_or_else(|| {
+                    ServiceError::Processing(format!(
+                        "Missing base file state for identity {}",
+                        snapshot.file_identity_guid
+                    ))
+                })?;
+            review_repo
+                .create_file_state(
+                    revision.guid.clone(),
+                    snapshot.file_identity_guid.clone(),
+                    next_snapshot.guid,
+                    prior_state.reviewed,
+                    prior_state.reviewed_at,
+                    prior_state.reviewed_by.clone(),
+                    Some(prior_state.guid.clone()),
+                    prior_state.last_code_change_at,
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+        }
+
+        let base_comments = review_repo
+            .list_comments_by_revision(&base_revision.guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+        for base_comment in &base_comments {
+            let Some(new_snapshot_guid) = snapshot_guid_map.get(&base_comment.file_snapshot_guid)
+            else {
+                continue;
+            };
+            review_repo
+                .create_comment(
+                    session.guid.clone(),
+                    revision.guid.clone(),
+                    new_snapshot_guid.clone(),
+                    base_comment.anchor_side.clone(),
+                    base_comment.anchor_start_line,
+                    base_comment.anchor_end_line,
+                    base_comment.anchor_line_range_kind.clone(),
+                    base_comment.anchor_json.clone(),
+                    base_comment.status.clone(),
+                    Some(base_comment.guid.clone()),
+                    base_comment.title.clone(),
+                    base_comment.created_by.clone(),
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+        }
+
+        review_repo
+            .update_fix_run_status(
+                &run.guid,
+                &run.status,
+                Some(revision.guid.clone()),
+                Some(revision_storage_root),
+                None,
+                None,
+                None,
+                None,
+                None,
+                false,
+            )
+            .await
+            .map_err(ServiceError::Infra)?;
+        review_repo
+            .update_session_current_revision(&session.guid, &revision.guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+
+        Ok(ReviewRevisionDto {
+            files: self.list_files_by_revision(revision.guid.clone()).await?,
+            model: revision,
+        })
+    }
+
     pub async fn close_session(&self, session_guid: String) -> Result<()> {
         ReviewRepo::new(&self.db)
             .update_session_status(&session_guid, "closed")
@@ -684,10 +888,19 @@ impl ReviewService {
         revision_guid: Option<String>,
     ) -> Result<Vec<ReviewCommentDto>> {
         let review_repo = ReviewRepo::new(&self.db);
+        let target_revision_guid = revision_guid.clone();
         let comments = if let Some(revision_guid) = revision_guid.as_deref() {
             review_repo.list_comments_by_revision(revision_guid).await?
         } else {
             review_repo.list_comments_by_session(&session_guid).await?
+        };
+        let fix_runs = if target_revision_guid.is_some() {
+            review_repo
+                .list_fix_runs_by_session(&session_guid)
+                .await
+                .map_err(ServiceError::Infra)?
+        } else {
+            Vec::new()
         };
         let comment_guids: Vec<String> = comments.iter().map(|item| item.guid.clone()).collect();
         let messages = review_repo
@@ -734,6 +947,16 @@ impl ReviewService {
             let mut comment_messages = messages_by_comment
                 .remove(&comment_guid)
                 .unwrap_or_default();
+            if let Some(target_revision) = target_revision_guid.as_deref() {
+                comment_messages.retain(|message| {
+                    review_message_visible_in_revision(
+                        message,
+                        &comment.revision_guid,
+                        target_revision,
+                        &fix_runs,
+                    )
+                });
+            }
             if let Some(ref parent_guid) = comment.parent_comment_guid {
                 let mut chain_guids = vec![parent_guid.clone()];
                 let mut cursor = parent_guid.clone();
@@ -751,7 +974,22 @@ impl ReviewService {
                 }
                 for guid in &chain_guids {
                     if let Some(ancestor_msgs) = ancestor_messages.get(guid).cloned() {
-                        comment_messages.extend(ancestor_msgs);
+                        let ancestor_revision_guid = ancestor_comment_cache
+                            .get(guid)
+                            .map(|ancestor| ancestor.revision_guid.as_str())
+                            .unwrap_or(comment.revision_guid.as_str());
+                        if let Some(target_revision) = target_revision_guid.as_deref() {
+                            comment_messages.extend(ancestor_msgs.into_iter().filter(|message| {
+                                review_message_visible_in_revision(
+                                    message,
+                                    ancestor_revision_guid,
+                                    target_revision,
+                                    &fix_runs,
+                                )
+                            }));
+                        } else {
+                            comment_messages.extend(ancestor_msgs);
+                        }
                     }
                 }
             }
@@ -790,6 +1028,19 @@ impl ReviewService {
         input: CreateReviewCommentInput,
     ) -> Result<ReviewCommentDto> {
         let review_repo = ReviewRepo::new(&self.db);
+        let session = review_repo
+            .find_session_by_guid(&input.session_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review session {} not found", input.session_guid))
+            })?;
+        if input.revision_guid != session.current_revision_guid {
+            return Err(ServiceError::Validation(format!(
+                "Cannot create comment on sealed revision {} (current is {})",
+                input.revision_guid, session.current_revision_guid
+            )));
+        }
         let comment = review_repo
             .create_comment(
                 input.session_guid,
@@ -834,7 +1085,42 @@ impl ReviewService {
             .ok_or_else(|| {
                 ServiceError::NotFound(format!("Review comment {} not found", input.comment_guid))
             })?;
-        if let Some(run_guid) = input.fix_run_guid.as_deref() {
+        let session = review_repo
+            .find_session_by_guid(&comment.session_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review session {} not found", comment.session_guid))
+            })?;
+        if comment.revision_guid != session.current_revision_guid {
+            return Err(ServiceError::Validation(format!(
+                "Cannot add message to comment on sealed revision {} (current is {})",
+                comment.revision_guid, session.current_revision_guid
+            )));
+        }
+        let effective_fix_run_guid = if input.fix_run_guid.is_none() && input.author_type != "user"
+        {
+            let active_runs = review_repo
+                .list_fix_runs_by_session(&comment.session_guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .into_iter()
+                .filter(|run| {
+                    let matches_revision = run.base_revision_guid == comment.revision_guid
+                        || run.result_revision_guid.as_deref() == Some(&comment.revision_guid);
+                    matches_revision && (run.status == "pending" || run.status == "running")
+                })
+                .collect::<Vec<_>>();
+            if active_runs.len() == 1 {
+                Some(active_runs[0].guid.clone())
+            } else {
+                None
+            }
+        } else {
+            input.fix_run_guid.clone()
+        };
+
+        if let Some(run_guid) = effective_fix_run_guid.as_deref() {
             if let Some(run) = review_repo
                 .find_fix_run_by_guid(run_guid)
                 .await
@@ -849,7 +1135,7 @@ impl ReviewService {
             if input.body.len() > MESSAGE_INLINE_LIMIT {
                 let abs_path = run_root_abs_path(
                     &comment.session_guid,
-                    input.fix_run_guid.as_deref().unwrap_or("message"),
+                    effective_fix_run_guid.as_deref().unwrap_or("message"),
                 )
                 .map_err(ServiceError::Infra)?
                 .join("messages")
@@ -875,7 +1161,7 @@ impl ReviewService {
                 body_storage_kind,
                 body,
                 body_rel_path,
-                input.fix_run_guid,
+                effective_fix_run_guid,
             )
             .await
             .map_err(ServiceError::Infra)?;
@@ -963,7 +1249,23 @@ impl ReviewService {
             .soft_delete_message(&message.guid)
             .await
             .map_err(ServiceError::Infra)?;
-        if messages.len() == 1 {
+
+        // Get the comment to check if it has a parent (for inheritance chain)
+        let comment = review_repo
+            .find_comment_by_guid(&message.comment_guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+
+        // Only soft-delete the comment if:
+        // 1. It has only 1 message (the one being deleted)
+        // 2. AND it has no parent_comment_guid (not part of an inheritance chain)
+        // Child comments with parent_comment_guid should be preserved to maintain the chain
+        let should_delete_comment = messages.len() == 1
+            && comment
+                .as_ref()
+                .map_or(true, |c| c.parent_comment_guid.is_none());
+
+        if should_delete_comment {
             review_repo
                 .soft_delete_comment(&message.comment_guid)
                 .await
@@ -985,7 +1287,28 @@ impl ReviewService {
                 input.status
             )));
         }
-        ReviewRepo::new(&self.db)
+        let review_repo = ReviewRepo::new(&self.db);
+        let comment = review_repo
+            .find_comment_by_guid(&input.comment_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review comment {} not found", input.comment_guid))
+            })?;
+        let session = review_repo
+            .find_session_by_guid(&comment.session_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review session {} not found", comment.session_guid))
+            })?;
+        if comment.revision_guid != session.current_revision_guid {
+            return Err(ServiceError::Validation(format!(
+                "Cannot update comment on sealed revision {} (current is {})",
+                comment.revision_guid, session.current_revision_guid
+            )));
+        }
+        review_repo
             .update_comment_status(&input.comment_guid, &input.status)
             .await
             .map_err(ServiceError::Infra)
@@ -1142,21 +1465,35 @@ impl ReviewService {
                 ));
             }
         }
-        let comments = self
+        let base_revision = review_repo
+            .find_revision_by_guid(&input.base_revision_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!(
+                    "Review revision {} not found",
+                    input.base_revision_guid
+                ))
+            })?;
+        let base_comments = self
             .list_comments(session.guid.clone(), Some(input.base_revision_guid.clone()))
             .await?;
         let selected_set: HashSet<String> = input.selected_comment_guids.into_iter().collect();
-        let selected_comments: Vec<ReviewCommentDto> = comments
-            .into_iter()
-            .filter(|comment| {
+        let selected_base_comment_guids: HashSet<String> = base_comments
+            .iter()
+            .filter_map(|comment| {
                 if !selected_set.is_empty() {
-                    selected_set.contains(&comment.model.guid)
+                    selected_set
+                        .contains(&comment.model.guid)
+                        .then(|| comment.model.guid.clone())
+                } else if is_open_review_comment_status(&comment.model.status) {
+                    Some(comment.model.guid.clone())
                 } else {
-                    is_open_review_comment_status(&comment.model.status)
+                    None
                 }
             })
             .collect();
-        if selected_comments.is_empty() {
+        if selected_base_comment_guids.is_empty() {
             return Err(ServiceError::Validation(
                 "No review comments selected for fix run".to_string(),
             ));
@@ -1172,7 +1509,32 @@ impl ReviewService {
             )
             .await
             .map_err(ServiceError::Infra)?;
-        let prompt = self.render_fix_prompt(&session, &run, &selected_comments)?;
+        let revision = self
+            .create_fix_run_revision(&review_repo, &session, &base_revision, &run)
+            .await?;
+        let mut session_for_prompt = session.clone();
+        session_for_prompt.current_revision_guid = revision.model.guid.clone();
+        let selected_comments: Vec<ReviewCommentDto> = self
+            .list_comments(session.guid.clone(), Some(revision.model.guid.clone()))
+            .await?
+            .into_iter()
+            .filter(|comment| {
+                comment
+                    .model
+                    .parent_comment_guid
+                    .as_ref()
+                    .map(|parent_guid| selected_base_comment_guids.contains(parent_guid))
+                    .unwrap_or_else(|| selected_base_comment_guids.contains(&comment.model.guid))
+            })
+            .collect();
+        let run = review_repo
+            .find_fix_run_by_guid(&run.guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review fix run {} not found", run.guid))
+            })?;
+        let prompt = self.render_fix_prompt(&session_for_prompt, &run, &selected_comments)?;
         let prompt_abs_path = run_root_abs_path(&session.guid, &run.guid)
             .map_err(ServiceError::Infra)?
             .join("prompt.md");
@@ -1214,6 +1576,7 @@ impl ReviewService {
 
         Ok(ReviewFixRunCreatedDto {
             run: updated_run,
+            revision,
             prompt,
         })
     }
@@ -1395,7 +1758,7 @@ impl ReviewService {
     pub async fn finalize_fix_run(
         &self,
         run_guid: String,
-        title: Option<String>,
+        _title: Option<String>,
     ) -> Result<ReviewFixRunFinalizedDto> {
         let review_repo = ReviewRepo::new(&self.db);
         let run = review_repo
@@ -1405,11 +1768,24 @@ impl ReviewService {
             .ok_or_else(|| {
                 ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
             })?;
-        if run.result_revision_guid.is_some() {
-            return Err(ServiceError::Validation(format!(
-                "Review fix run {} has already been finalized",
-                run.guid
-            )));
+        if run.status == "succeeded" {
+            let target_revision_guid = run.result_revision_guid.clone().ok_or_else(|| {
+                ServiceError::Validation(format!(
+                    "Review fix run {} is succeeded but has no result revision",
+                    run.guid
+                ))
+            })?;
+            let revision = review_repo
+                .find_revision_by_guid(&target_revision_guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!(
+                        "Review revision {} not found",
+                        target_revision_guid
+                    ))
+                })?;
+            return Ok(ReviewFixRunFinalizedDto { run, revision });
         }
         if run.status == "failed" {
             return Err(ServiceError::Validation(format!(
@@ -1452,6 +1828,22 @@ impl ReviewService {
                         run.base_revision_guid
                     ))
                 })?;
+            let target_revision_guid = run.result_revision_guid.clone().ok_or_else(|| {
+                ServiceError::Validation(format!(
+                    "Review fix run {} has no target revision",
+                    run.guid
+                ))
+            })?;
+            let revision = review_repo
+                .find_revision_by_guid(&target_revision_guid)
+                .await
+                .map_err(ServiceError::Infra)?
+                .ok_or_else(|| {
+                    ServiceError::NotFound(format!(
+                        "Review revision {} not found",
+                        target_revision_guid
+                    ))
+                })?;
 
             let base_snapshots = review_repo
                 .list_file_snapshots_by_revision(&base_revision.guid)
@@ -1465,40 +1857,33 @@ impl ReviewService {
                 .into_iter()
                 .map(|state| (state.file_identity_guid.clone(), state))
                 .collect();
-
-            let revision_guid = Uuid::new_v4().to_string();
-            let revision_storage_root = revision_root_abs_path(&session.guid, &revision_guid)
-                .map_err(ServiceError::Infra)?
-                .to_string_lossy()
-                .to_string();
-            let revisions_before = review_repo
-                .list_revisions_by_session(&session.guid)
+            let target_snapshots = review_repo
+                .list_file_snapshots_by_revision(&revision.guid)
                 .await
                 .map_err(ServiceError::Infra)?;
-            let revision = review_repo
-                .create_revision(
-                    Some(revision_guid.clone()),
-                    session.guid.clone(),
-                    Some(base_revision.guid.clone()),
-                    "ai_run".to_string(),
-                    Some(run.guid.clone()),
-                    title.or_else(|| Some(format!("Fix Run {}", revisions_before.len()))),
-                    revision_storage_root.clone(),
-                    Some(base_revision.guid.clone()),
-                    run.created_by.clone(),
-                )
+            let mut target_snapshot_by_file_identity: HashMap<String, review_file_snapshot::Model> =
+                target_snapshots
+                    .into_iter()
+                    .map(|snapshot| (snapshot.file_identity_guid.clone(), snapshot))
+                    .collect();
+            let target_states = review_repo
+                .list_file_states_by_revision(&revision.guid)
                 .await
                 .map_err(ServiceError::Infra)?;
+            let target_state_by_file_identity: HashMap<String, review_file_state::Model> =
+                target_states
+                    .into_iter()
+                    .map(|state| (state.file_identity_guid.clone(), state))
+                    .collect();
 
             let change_time = chrono::Utc::now().naive_utc();
             let mut patch_chunks = Vec::new();
-            let mut snapshot_guid_map: HashMap<String, String> = HashMap::new();
             let mut seen_file_paths: HashSet<String> = base_snapshots
                 .iter()
                 .map(|snapshot| snapshot.file_path.clone())
                 .collect();
             let mut next_display_order = base_snapshots.len();
-            for (index, snapshot) in base_snapshots.into_iter().enumerate() {
+            for snapshot in base_snapshots.into_iter() {
                 // Baseline content is preserved across all revisions so that every
                 // revision's review diff shows the cumulative `baseline -> current`
                 // change set rather than the per-revision delta. Since V1's `old`
@@ -1518,17 +1903,18 @@ impl ReviewService {
                 } else {
                     String::new()
                 };
-                let file_snapshot_guid = Uuid::new_v4().to_string();
-                let (old_abs_path, new_abs_path, meta_abs_path) = anchor_file_snapshot_abs_paths(
-                    &session.guid,
-                    &revision.guid,
-                    &file_snapshot_guid,
-                )
-                .map_err(ServiceError::Infra)?;
-                write_text_atomic(&old_abs_path, &baseline_content)
+                let target_snapshot = target_snapshot_by_file_identity
+                    .remove(&snapshot.file_identity_guid)
+                    .ok_or_else(|| {
+                        ServiceError::Processing(format!(
+                            "Missing target snapshot for identity {}",
+                            snapshot.file_identity_guid
+                        ))
+                    })?;
+                write_text_atomic(Path::new(&target_snapshot.old_rel_path), &baseline_content)
                     .await
                     .map_err(ServiceError::Infra)?;
-                write_text_atomic(&new_abs_path, &current_content)
+                write_text_atomic(Path::new(&target_snapshot.new_rel_path), &current_content)
                     .await
                     .map_err(ServiceError::Infra)?;
 
@@ -1566,37 +1952,29 @@ impl ReviewService {
                     file_path: snapshot.file_path.clone(),
                     git_status: git_status.clone(),
                     is_binary: false,
-                    old_rel_path: old_abs_path.to_string_lossy().to_string(),
-                    new_rel_path: new_abs_path.to_string_lossy().to_string(),
+                    old_rel_path: target_snapshot.old_rel_path.clone(),
+                    new_rel_path: target_snapshot.new_rel_path.clone(),
                     old_sha256: sha256_hex(&baseline_content),
                     new_sha256: sha256_hex(&current_content),
                     old_size: baseline_content.len(),
                     new_size: current_content.len(),
                 };
-                write_json_atomic(&meta_abs_path, &meta)
+                write_json_atomic(Path::new(&target_snapshot.meta_rel_path), &meta)
                     .await
                     .map_err(ServiceError::Infra)?;
 
-                let next_snapshot = review_repo
-                    .create_file_snapshot(
-                        revision.guid.clone(),
-                        snapshot.file_identity_guid.clone(),
-                        snapshot.file_path.clone(),
+                review_repo
+                    .update_file_snapshot_content(
+                        &target_snapshot.guid,
                         git_status,
-                        old_abs_path.to_string_lossy().to_string(),
-                        new_abs_path.to_string_lossy().to_string(),
-                        meta_abs_path.to_string_lossy().to_string(),
                         Some(meta.old_sha256.clone()),
                         Some(meta.new_sha256.clone()),
                         meta.old_size as i64,
                         meta.new_size as i64,
                         false,
-                        index as i32,
                     )
                     .await
                     .map_err(ServiceError::Infra)?;
-
-                snapshot_guid_map.insert(snapshot.guid.clone(), next_snapshot.guid.clone());
 
                 let prior_state = state_by_file_identity
                     .get(&snapshot.file_identity_guid)
@@ -1611,17 +1989,16 @@ impl ReviewService {
                 } else {
                     prior_state.last_code_change_at
                 };
+                let target_state = target_state_by_file_identity
+                    .get(&snapshot.file_identity_guid)
+                    .ok_or_else(|| {
+                        ServiceError::Processing(format!(
+                            "Missing target file state for identity {}",
+                            snapshot.file_identity_guid
+                        ))
+                    })?;
                 review_repo
-                    .create_file_state(
-                        revision.guid.clone(),
-                        snapshot.file_identity_guid.clone(),
-                        next_snapshot.guid.clone(),
-                        prior_state.reviewed,
-                        prior_state.reviewed_at,
-                        prior_state.reviewed_by.clone(),
-                        Some(prior_state.guid.clone()),
-                        last_code_change_at,
-                    )
+                    .update_file_state_code_change(&target_state.guid, last_code_change_at)
                     .await
                     .map_err(ServiceError::Infra)?;
             }
@@ -1737,45 +2114,6 @@ impl ReviewService {
                     .map_err(ServiceError::Infra)?;
             }
 
-            let base_comments = review_repo
-                .list_comments_by_revision(&base_revision.guid)
-                .await
-                .map_err(ServiceError::Infra)?;
-            let mut base_to_inherited: Vec<(String, String)> = Vec::new();
-            for base_comment in &base_comments {
-                let new_snapshot_guid =
-                    match snapshot_guid_map.get(&base_comment.file_snapshot_guid) {
-                        Some(guid) => guid.clone(),
-                        None => continue,
-                    };
-                let inherited_comment = review_repo
-                    .create_comment(
-                        session.guid.clone(),
-                        revision.guid.clone(),
-                        new_snapshot_guid,
-                        base_comment.anchor_side.clone(),
-                        base_comment.anchor_start_line,
-                        base_comment.anchor_end_line,
-                        base_comment.anchor_line_range_kind.clone(),
-                        base_comment.anchor_json.clone(),
-                        base_comment.status.clone(),
-                        Some(base_comment.guid.clone()),
-                        base_comment.title.clone(),
-                        base_comment.created_by.clone(),
-                    )
-                    .await
-                    .map_err(ServiceError::Infra)?;
-                base_to_inherited.push((base_comment.guid.clone(), inherited_comment.guid.clone()));
-            }
-
-            let from_guids: Vec<String> =
-                base_to_inherited.iter().map(|(f, _)| f.clone()).collect();
-            let to_guids: Vec<String> = base_to_inherited.iter().map(|(_, t)| t.clone()).collect();
-            review_repo
-                .reassign_messages_by_fix_run(&run.guid, &from_guids, &to_guids)
-                .await
-                .map_err(ServiceError::Infra)?;
-
             let revisions_manifest = review_repo
                 .list_revisions_by_session(&session.guid)
                 .await
@@ -1818,7 +2156,7 @@ impl ReviewService {
                     &run.guid,
                     "succeeded",
                     Some(revision.guid.clone()),
-                    Some(revision_storage_root),
+                    Some(revision.storage_root_rel_path.clone()),
                     Some(patch_abs_path.to_string_lossy().to_string()),
                     None,
                     if run.started_at.is_none() {

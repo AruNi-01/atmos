@@ -322,6 +322,48 @@ impl<'a> ReviewRepo<'a> {
             .await?)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub async fn update_file_snapshot_content(
+        &self,
+        guid: &str,
+        git_status: String,
+        old_sha256: Option<String>,
+        new_sha256: Option<String>,
+        old_size: i64,
+        new_size: i64,
+        is_binary: bool,
+    ) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let result = review_file_snapshot::Entity::update_many()
+            .col_expr(
+                review_file_snapshot::Column::GitStatus,
+                Expr::value(git_status),
+            )
+            .col_expr(
+                review_file_snapshot::Column::OldSha256,
+                Expr::value(old_sha256),
+            )
+            .col_expr(
+                review_file_snapshot::Column::NewSha256,
+                Expr::value(new_sha256),
+            )
+            .col_expr(review_file_snapshot::Column::OldSize, Expr::value(old_size))
+            .col_expr(review_file_snapshot::Column::NewSize, Expr::value(new_size))
+            .col_expr(
+                review_file_snapshot::Column::IsBinary,
+                Expr::value(is_binary),
+            )
+            .col_expr(review_file_snapshot::Column::UpdatedAt, Expr::value(now))
+            .filter(review_file_snapshot::Column::Guid.eq(guid))
+            .filter(review_file_snapshot::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review file snapshot not found".into()));
+        }
+        Ok(())
+    }
+
     pub async fn create_file_state(
         &self,
         revision_guid: String,
@@ -349,6 +391,28 @@ impl<'a> ReviewRepo<'a> {
             last_code_change_at: Set(last_code_change_at),
         };
         Ok(model.insert(self.db).await?)
+    }
+
+    pub async fn update_file_state_code_change(
+        &self,
+        guid: &str,
+        last_code_change_at: Option<chrono::NaiveDateTime>,
+    ) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let result = review_file_state::Entity::update_many()
+            .col_expr(
+                review_file_state::Column::LastCodeChangeAt,
+                Expr::value(last_code_change_at),
+            )
+            .col_expr(review_file_state::Column::UpdatedAt, Expr::value(now))
+            .filter(review_file_state::Column::Guid.eq(guid))
+            .filter(review_file_state::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review file state not found".into()));
+        }
+        Ok(())
     }
 
     pub async fn list_file_states_by_revision(
@@ -620,6 +684,7 @@ impl<'a> ReviewRepo<'a> {
         fix_run_guid: &str,
         from_comment_guids: &[String],
         to_comment_guids: &[String],
+        include_unlinked_agent_messages_since: Option<chrono::NaiveDateTime>,
     ) -> Result<()> {
         if from_comment_guids.len() != to_comment_guids.len() {
             return Err(InfraError::Custom(
@@ -628,6 +693,16 @@ impl<'a> ReviewRepo<'a> {
         }
         for (from_guid, to_guid) in from_comment_guids.iter().zip(to_comment_guids.iter()) {
             let now = chrono::Utc::now().naive_utc();
+            let mut message_filter = Condition::any()
+                .add(review_message::Column::FixRunGuid.eq(fix_run_guid.to_string()));
+            if let Some(since) = include_unlinked_agent_messages_since {
+                message_filter = message_filter.add(
+                    Condition::all()
+                        .add(review_message::Column::FixRunGuid.is_null())
+                        .add(review_message::Column::AuthorType.ne("user"))
+                        .add(review_message::Column::CreatedAt.gte(since)),
+                );
+            }
             review_message::Entity::update_many()
                 .col_expr(
                     review_message::Column::CommentGuid,
@@ -635,7 +710,7 @@ impl<'a> ReviewRepo<'a> {
                 )
                 .col_expr(review_message::Column::UpdatedAt, Expr::value(now))
                 .filter(review_message::Column::CommentGuid.eq(from_guid.clone()))
-                .filter(review_message::Column::FixRunGuid.eq(fix_run_guid.to_string()))
+                .filter(message_filter)
                 .filter(review_message::Column::IsDeleted.eq(false))
                 .exec(self.db)
                 .await?;
