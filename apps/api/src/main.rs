@@ -14,8 +14,8 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentHooksService, AgentService, MessagePushService, NotificationService, ProjectService,
-    TerminalService, TestService, WorkspaceService, WsMessageService,
+    AgentHooksService, AgentService, AgentSessionService, MessagePushService, NotificationService,
+    ProjectService, TerminalService, TestService, WorkspaceService, WsMessageService,
 };
 use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
@@ -201,12 +201,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_hooks_service = Arc::new(AgentHooksService::new());
     let notification_service = Arc::new(NotificationService::new());
 
+    let agent_session_service = Arc::new(AgentSessionService::new(
+        Arc::clone(&agent_service),
+        Arc::clone(&db),
+    ));
+
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
         Arc::clone(&project_service),
         Arc::clone(&workspace_service),
         Arc::clone(&terminal_service),
         Arc::clone(&agent_service),
+        Arc::clone(&agent_session_service),
         Arc::clone(&usage_service),
     ));
 
@@ -244,6 +250,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             project_service,
             workspace_service,
             agent_service,
+            agent_session_service,
             ws_message_service: ws_message_service.clone(),
             message_push_service,
             terminal_service,
@@ -252,7 +259,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             notification_service: Arc::clone(&notification_service),
         },
         ws_config,
-        db,
     );
 
     // Inject WsManager into WsMessageService for server-to-client notifications
