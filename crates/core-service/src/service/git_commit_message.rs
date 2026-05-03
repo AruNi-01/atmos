@@ -1,8 +1,7 @@
 use core_engine::{ChangedFileInfo, ChangedFilesInfo};
 use llm::{
-    default_git_commit_prompt, generate_text, generate_text_stream,
-    render_prompt_template, FileLlmConfigStore, GenerateTextRequest, LlmFeature,
-    ResponseFormat,
+    default_git_commit_prompt, generate_text, generate_text_stream, render_prompt_template,
+    FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
 };
 use tokio::sync::mpsc;
 use tracing::{info, warn};
@@ -67,8 +66,12 @@ impl GitCommitMessageGenerator {
             })?;
 
         let max_summary_chars = context_window_to_summary_chars(provider.context_window);
-        let prompt =
-            build_generation_prompt(repo_name, changes, output_language.as_deref(), max_summary_chars);
+        let prompt = build_generation_prompt(
+            repo_name,
+            changes,
+            output_language.as_deref(),
+            max_summary_chars,
+        );
         let prompt_chars = prompt.chars().count();
         let system_prompt = build_system_prompt(output_language.as_deref());
         let request = GenerateTextRequest {
@@ -142,8 +145,12 @@ impl GitCommitMessageGenerator {
             })?;
 
         let max_summary_chars = context_window_to_summary_chars(provider.context_window);
-        let prompt =
-            build_generation_prompt(repo_name, changes, output_language.as_deref(), max_summary_chars);
+        let prompt = build_generation_prompt(
+            repo_name,
+            changes,
+            output_language.as_deref(),
+            max_summary_chars,
+        );
         let system_prompt = build_system_prompt(output_language.as_deref());
         let request = GenerateTextRequest {
             system: Some(system_prompt),

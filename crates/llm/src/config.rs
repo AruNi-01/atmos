@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
-use crate::types::{LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvider, SessionTitleFormatConfig};
+use crate::types::{
+    LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvider, SessionTitleFormatConfig,
+};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
@@ -177,9 +179,7 @@ pub fn resolve_provider_by_id(
         model: model.to_string(),
         timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
         max_output_tokens: entry.max_output_tokens,
-        context_window: entry
-            .context_window
-            .unwrap_or(CLOUD_DEFAULT_CONTEXT_WINDOW),
+        context_window: entry.context_window.unwrap_or(CLOUD_DEFAULT_CONTEXT_WINDOW),
     }))
 }
 

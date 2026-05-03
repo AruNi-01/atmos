@@ -80,7 +80,9 @@ impl LocalRuntimeManager {
     /// callers driving lifecycle transitions (e.g. the download flow) can
     /// surface terminal failures to subscribers.
     pub fn mark_failed(&self, error: impl Into<String>) {
-        self.set_state(LocalModelState::Failed { error: error.into() });
+        self.set_state(LocalModelState::Failed {
+            error: error.into(),
+        });
     }
 
     // ─── Download ────────────────────────────────────────────────────────────
@@ -89,8 +91,9 @@ impl LocalRuntimeManager {
     /// Emits `DownloadingBinary` state updates during download.
     pub async fn ensure_binary(&self, manifest: &ModelManifest) -> Result<()> {
         let bin_path = llama_server_bin()?;
-        let binary_entry = find_binary_for_platform(manifest)
-            .ok_or_else(|| LocalModelError::BinaryNotFound(crate::manifest::current_platform().to_string()))?;
+        let binary_entry = find_binary_for_platform(manifest).ok_or_else(|| {
+            LocalModelError::BinaryNotFound(crate::manifest::current_platform().to_string())
+        })?;
 
         if verify_file(&bin_path, &binary_entry.sha256).await? {
             info!("llama-server binary already present and valid");
@@ -111,7 +114,10 @@ impl LocalRuntimeManager {
             &bin_path,
             &binary_entry.sha256,
             move |p: DownloadProgress| {
-                let progress = p.total.map(|t| p.downloaded as f32 / t as f32).unwrap_or(0.0);
+                let progress = p
+                    .total
+                    .map(|t| p.downloaded as f32 / t as f32)
+                    .unwrap_or(0.0);
                 let eta = p.total.map(|_t| {
                     let elapsed = start.elapsed().as_secs_f64();
                     if progress > 0.0 {
@@ -168,7 +174,10 @@ impl LocalRuntimeManager {
             &dest,
             &entry.sha256,
             move |p: DownloadProgress| {
-                let progress = p.total.map(|t| p.downloaded as f32 / t as f32).unwrap_or(0.0);
+                let progress = p
+                    .total
+                    .map(|t| p.downloaded as f32 / t as f32)
+                    .unwrap_or(0.0);
                 let eta = p.total.map(|_t| {
                     let elapsed = start.elapsed().as_secs_f64();
                     if progress > 0.0 {
@@ -225,14 +234,15 @@ impl LocalRuntimeManager {
 
         let log_path = logs_dir()?.join(format!("{model_id}.log"));
 
-        let child = match spawn_llama_server(&bin_path, &model_path, port, context_size, &log_path).await {
-            Ok(c) => c,
-            Err(e) => {
-                let msg = e.to_string();
-                self.set_state(LocalModelState::Failed { error: msg.clone() });
-                return Err(LocalModelError::SpawnFailed(msg));
-            }
-        };
+        let child =
+            match spawn_llama_server(&bin_path, &model_path, port, context_size, &log_path).await {
+                Ok(c) => c,
+                Err(e) => {
+                    let msg = e.to_string();
+                    self.set_state(LocalModelState::Failed { error: msg.clone() });
+                    return Err(LocalModelError::SpawnFailed(msg));
+                }
+            };
 
         // Wait for readiness.
         if let Err(e) = wait_for_ready(port).await {

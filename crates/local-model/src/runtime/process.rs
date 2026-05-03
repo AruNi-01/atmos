@@ -39,11 +39,14 @@ pub async fn spawn_llama_server(
     }
 
     let log_file = std::fs::File::create(log_path).map_err(|e| {
-        LocalModelError::SpawnFailed(format!("cannot create log file {}: {e}", log_path.display()))
+        LocalModelError::SpawnFailed(format!(
+            "cannot create log file {}: {e}",
+            log_path.display()
+        ))
     })?;
-    let log_file_stderr = log_file.try_clone().map_err(|e| {
-        LocalModelError::SpawnFailed(format!("cannot clone log file handle: {e}"))
-    })?;
+    let log_file_stderr = log_file
+        .try_clone()
+        .map_err(|e| LocalModelError::SpawnFailed(format!("cannot clone log file handle: {e}")))?;
 
     let child = Command::new(bin_path)
         .args([
@@ -79,8 +82,7 @@ pub async fn wait_for_ready(port: u16) -> Result<()> {
         .build()
         .map_err(|e| LocalModelError::Runtime(e.to_string()))?;
 
-    let deadline = tokio::time::Instant::now()
-        + Duration::from_secs(HEALTH_CHECK_TIMEOUT_SECS);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(HEALTH_CHECK_TIMEOUT_SECS);
 
     loop {
         if tokio::time::Instant::now() > deadline {

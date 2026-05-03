@@ -37,9 +37,7 @@ pub enum LocalModelState {
     },
 
     /// The server encountered a fatal error.
-    Failed {
-        error: String,
-    },
+    Failed { error: String },
 }
 
 impl LocalModelState {

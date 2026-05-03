@@ -4867,8 +4867,8 @@ set -x
             ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
         })?;
         let state = self.local_model_manager.state();
-        let state_json = serde_json::to_value(&state)
-            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let state_json =
+            serde_json::to_value(&state).map_err(|e| ServiceError::Processing(e.to_string()))?;
         let models_json = serde_json::to_value(&manifest.models)
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
         Ok(json!({
@@ -4911,9 +4911,10 @@ set -x
                         );
                         let _ = mgr.send_to(&conn_id_notify, &notification).await;
                     }
-                    if matches!(state,
+                    if matches!(
+                        state,
                         local_model::LocalModelState::InstalledNotRunning
-                        | local_model::LocalModelState::Failed { .. }
+                            | local_model::LocalModelState::Failed { .. }
                     ) {
                         break;
                     }
@@ -4970,9 +4971,10 @@ set -x
                         );
                         let _ = mgr.send_to(&conn_id_notify, &notification).await;
                     }
-                    if matches!(state,
+                    if matches!(
+                        state,
                         local_model::LocalModelState::Running { .. }
-                        | local_model::LocalModelState::Failed { .. }
+                            | local_model::LocalModelState::Failed { .. }
                     ) {
                         break;
                     }
@@ -4994,10 +4996,12 @@ set -x
         let manager = Arc::clone(&self.local_model_manager);
         let ws_manager = self.ws_manager.get().cloned();
         let conn_id = conn_id.to_string();
-        manager.stop().await.map_err(|e| ServiceError::Processing(e.to_string()))?;
+        manager
+            .stop()
+            .await
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
         if let Some(ref mgr) = ws_manager {
-            let state_json = serde_json::to_value(&manager.state())
-                .unwrap_or(json!(null));
+            let state_json = serde_json::to_value(&manager.state()).unwrap_or(json!(null));
             let notification = infra::WsMessage::notification(
                 WsEvent::LocalModelStateChanged,
                 json!({ "state": state_json }),
@@ -5019,8 +5023,7 @@ set -x
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
         if let Some(ref mgr) = self.ws_manager.get() {
-            let state_json = serde_json::to_value(&manager.state())
-                .unwrap_or(json!(null));
+            let state_json = serde_json::to_value(&manager.state()).unwrap_or(json!(null));
             let notification = infra::WsMessage::notification(
                 WsEvent::LocalModelStateChanged,
                 json!({ "state": state_json }),

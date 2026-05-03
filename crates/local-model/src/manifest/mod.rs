@@ -8,17 +8,12 @@ pub use types::{BinaryEntry, ModelEntry, ModelManifest};
 
 /// URL of the official Atmos model manifest.
 /// In production this would be a signed CDN URL; for now we use a placeholder.
-pub const MANIFEST_URL: &str =
-    "https://cdn.atmos.dev/local-model/manifest/v1/manifest.json";
+pub const MANIFEST_URL: &str = "https://cdn.atmos.dev/local-model/manifest/v1/manifest.json";
 
 /// Fetch the manifest from the CDN.
 pub async fn fetch_manifest(client: &Client) -> Result<ModelManifest> {
     debug!("Fetching local model manifest from {}", MANIFEST_URL);
-    let response = client
-        .get(MANIFEST_URL)
-        .send()
-        .await?
-        .error_for_status()?;
+    let response = client.get(MANIFEST_URL).send().await?.error_for_status()?;
     let manifest: ModelManifest = response.json().await?;
     Ok(manifest)
 }
