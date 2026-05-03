@@ -538,13 +538,7 @@ impl TmuxEngine {
         self.ensure_standard_config();
 
         // Mark session as atmos-managed via tmux user option
-        let _ = self.run_tmux(&[
-            "set-option",
-            "-t",
-            session_name,
-            "@atmos_managed",
-            "true",
-        ]);
+        let _ = self.run_tmux(&["set-option", "-t", session_name, "@atmos_managed", "true"]);
 
         info!("Created tmux session: {} (with window '1')", session_name);
         Ok(session_name.to_string())
@@ -1126,13 +1120,7 @@ impl TmuxEngine {
 
         for session in all_sessions {
             // Check tmux user option @atmos_managed
-            match self.run_tmux(&[
-                "show-option",
-                "-t",
-                &session.name,
-                "-qv",
-                "@atmos_managed",
-            ]) {
+            match self.run_tmux(&["show-option", "-t", &session.name, "-qv", "@atmos_managed"]) {
                 Ok(output) if output.trim() == "true" => {
                     result.push(session);
                 }

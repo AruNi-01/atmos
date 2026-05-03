@@ -260,10 +260,7 @@ impl GitEngine {
 
         let local_branches = self.list_branches(repo_path).unwrap_or_default();
         let result = if local_branches.iter().any(|b| b == remote_branch) {
-            run_git(
-                repo_path,
-                &["worktree", "add", worktree_str, remote_branch],
-            )
+            run_git(repo_path, &["worktree", "add", worktree_str, remote_branch])
         } else {
             let remote_ref = format!("origin/{}", remote_branch);
             run_git(

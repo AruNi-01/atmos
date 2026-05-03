@@ -127,9 +127,7 @@ async fn handle_kiro_hook(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let ctx = extract_atmos_context(&headers);
-    state
-        .agent_hooks_service
-        .handle_kiro_event(&payload, &ctx);
+    state.agent_hooks_service.handle_kiro_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
