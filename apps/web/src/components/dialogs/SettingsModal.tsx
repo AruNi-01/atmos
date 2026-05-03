@@ -86,7 +86,7 @@ import {
   type LlmProvidersFile,
   type SessionTitleFormatConfig,
 } from '@/api/ws-api';
-import { systemApi, type CliVersionCheckResponse } from '@/api/rest-api';
+import { systemApi } from '@/api/rest-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -1123,7 +1123,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
-  const [cliVersionStatus, setCliVersionStatus] = useState<CliVersionCheckResponse | null>(null);
   const [isCheckingCliVersion, setIsCheckingCliVersion] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [activeSection, setActiveSection] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
@@ -1667,7 +1666,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     try {
       const result = await systemApi.checkCliVersion();
-      setCliVersionStatus(result);
 
       if (!result.installed) {
         toastManager.update(toastId, {
@@ -1999,10 +1997,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div>
                           <p className="text-base font-medium text-foreground">Atmos CLI</p>
                           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            Check the locally installed CLI against the latest GitHub CLI release.
+                            Check for the latest CLI updates.
                           </p>
                         </div>
-                        <div className="flex flex-col items-start justify-center gap-3">
+                        <div className="flex items-center">
                           <Button
                             variant="outline"
                             onClick={handleCheckCliVersion}
@@ -2010,21 +2008,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className="cursor-pointer"
                           >
                             <LoaderCircle className={cn('mr-2 size-4', isCheckingCliVersion && 'animate-spin')} />
-                            Check CLI Version
+                            Check for Updates
                           </Button>
-                          {cliVersionStatus ? (
-                            <div className="text-xs leading-5 text-muted-foreground">
-                              <div>
-                                Installed: <span className="font-medium text-foreground">{cliVersionStatus.current_version ?? 'Unavailable'}</span>
-                              </div>
-                              <div>
-                                Latest: <span className="font-medium text-foreground">{cliVersionStatus.latest_version ?? 'Unavailable'}</span>
-                              </div>
-                              {cliVersionStatus.update_available ? (
-                                <div className="text-emerald-600 dark:text-emerald-400">Update available</div>
-                              ) : null}
-                            </div>
-                          ) : null}
                         </div>
                       </div>
 
