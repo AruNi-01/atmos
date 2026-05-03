@@ -100,7 +100,11 @@ export function RefreshableTabsTab({
           }}
           className="flex h-full flex-1 items-center justify-center gap-1.5 cursor-pointer hover:bg-sidebar-accent"
         >
-          <LoaderCircle className={cn("size-3.5", isSpinning && "animate-spin")} />
+          {isSpinning ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCw className="size-3.5" />
+          )}
           <span className="text-xs font-medium">Refresh</span>
         </span>
         {trailingAction?.({ isVisible: showRefreshButton })}

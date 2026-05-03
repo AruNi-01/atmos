@@ -2007,7 +2007,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             disabled={isCheckingCliVersion}
                             className="cursor-pointer"
                           >
-                            <LoaderCircle className={cn('mr-2 size-4', isCheckingCliVersion && 'animate-spin')} />
+                            {isCheckingCliVersion ? (
+                              <LoaderCircle className="mr-2 size-4 animate-spin" />
+                            ) : (
+                              <RotateCw className="mr-2 size-4" />
+                            )}
                             Check for Updates
                           </Button>
                         </div>
