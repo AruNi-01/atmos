@@ -46,23 +46,19 @@ function getReleaseTagFromArgs(argv) {
   return "";
 }
 
-const cliVersion = readCliVersion();
-const installerVersion = readInstallerVersion();
+const bundledCliVersion = readCliVersion();
+const runtimeVersion = readInstallerVersion();
 const releaseTag = getReleaseTagFromArgs(process.argv.slice(2));
 
-console.log(`apps/cli/Cargo.toml: ${cliVersion}`);
-console.log(`packages/local-installer/package.json: ${installerVersion}`);
-
-if (cliVersion !== installerVersion) {
-  fail(`Version mismatch: cli=${cliVersion}, installer=${installerVersion}`);
-}
+console.log(`packages/local-installer/package.json: ${runtimeVersion}`);
+console.log(`bundled CLI apps/cli/Cargo.toml: ${bundledCliVersion}`);
 
 if (releaseTag) {
-  const expectedTag = `local-v${cliVersion}`;
+  const expectedTag = `local-v${runtimeVersion}`;
   console.log(`release tag: ${releaseTag}`);
   if (releaseTag !== expectedTag) {
     fail(`Release tag mismatch: expected ${expectedTag}, got ${releaseTag}`);
   }
 }
 
-console.log("Local runtime versions are in sync.");
+console.log("Local runtime release version is valid.");

@@ -235,6 +235,7 @@ dependencies = [
  "dotenvy",
  "futures-util",
  "infra",
+ "reqwest 0.12.28",
  "sea-orm-migration",
  "serde",
  "serde_json",

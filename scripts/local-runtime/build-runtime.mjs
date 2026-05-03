@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 
 const rootDir = resolve(import.meta.dirname, "../..");
 const cliCargoToml = join(rootDir, "apps/cli/Cargo.toml");
+const localInstallerPackageJson = join(rootDir, "packages/local-installer/package.json");
 
 function fail(message) {
   console.error(message);
@@ -86,12 +87,28 @@ function detectTargetTriple(input) {
   return hostLine.replace("host:", "").trim();
 }
 
-function resolveVersion(input) {
-  if (input) return input;
-
+function readCliVersion() {
   const cargoToml = readFileSync(cliCargoToml, "utf8");
   const match = cargoToml.match(/^version\s*=\s*"([^"]+)"/m);
-  const baseVersion = match?.[1] ?? "0.1.0";
+  if (!match) {
+    fail(`Unable to resolve CLI version from ${cliCargoToml}`);
+  }
+  return match[1];
+}
+
+function readLocalRuntimeVersion() {
+  const packageJson = JSON.parse(readFileSync(localInstallerPackageJson, "utf8"));
+  const version = packageJson?.version;
+  if (!version) {
+    fail(`Unable to resolve local runtime version from ${localInstallerPackageJson}`);
+  }
+  return String(version);
+}
+
+function resolveRuntimeVersion(input) {
+  if (input) return input;
+
+  const baseVersion = readLocalRuntimeVersion();
   const git = spawnSync("git", ["rev-parse", "--short", "HEAD"], {
     cwd: rootDir,
     encoding: "utf-8",
@@ -147,7 +164,8 @@ function createArchive(runtimeDir, outputArchive) {
 
 const options = parseArgs(process.argv.slice(2));
 const targetTriple = detectTargetTriple(options.targetTriple);
-const version = resolveVersion(options.version);
+const runtimeVersion = resolveRuntimeVersion(options.version);
+const cliVersion = readCliVersion();
 const binExt = targetTriple.includes("windows") ? ".exe" : "";
 
 try {
@@ -195,12 +213,15 @@ if (existsSync(skillsDir)) {
   cpSync(skillsDir, join(runtimeDir, "system-skills"), { recursive: true });
 }
 
-writeFileSync(join(runtimeDir, "version.txt"), `${version}\n`, "utf8");
+writeFileSync(join(runtimeDir, "version.txt"), `${runtimeVersion}\n`, "utf8");
 writeFileSync(
   join(runtimeDir, "manifest.json"),
   JSON.stringify(
     {
-      version,
+      schema_version: 1,
+      product: "atmos-local-runtime",
+      runtime_version: runtimeVersion,
+      bundled_cli_version: cliVersion,
       target_triple: targetTriple,
       built_at: new Date().toISOString(),
       layout: {
