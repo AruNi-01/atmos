@@ -5,7 +5,7 @@ pub mod review_comment;
 pub mod review_file_identity;
 pub mod review_file_snapshot;
 pub mod review_file_state;
-pub mod review_fix_run;
+pub mod review_agent_run;
 pub mod review_message;
 pub mod review_revision;
 pub mod review_session;

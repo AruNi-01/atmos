@@ -14,7 +14,7 @@ pub struct Model {
     pub session_guid: String,
     pub parent_revision_guid: Option<String>,
     pub source_kind: String,
-    pub fix_run_guid: Option<String>,
+    pub agent_run_guid: Option<String>,
     pub title: Option<String>,
     pub storage_root_rel_path: String,
     pub base_revision_guid: Option<String>,

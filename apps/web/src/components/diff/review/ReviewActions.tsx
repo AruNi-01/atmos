@@ -17,6 +17,7 @@ import { Check, ChevronRight, LoaderCircle, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { FixActionsMenu } from "@/components/diff/review/FixActionsMenu";
+import { CODE_REVIEW_SKILLS } from "@/components/code-review";
 import {
   compareReviewTimestamps,
   sortReviewSessions,
@@ -36,15 +37,19 @@ export const ReviewActions: React.FC = () => {
     currentRevision,
     canEdit,
     openRevisionComments,
+    activeAgentRun,
+    activeReviewRun,
     activeFixRun,
     isCreating,
-    isCreatingFixRun,
+    isCreatingAgentRun,
     terminalAgentId,
     setTerminalAgentId,
     handleCreateSession,
-    handleCopyFixPrompt,
-    handleRunFixInTerminal,
-    handleMarkFixRunFailed,
+    handleCopyAgentPrompt,
+    handleRunAgentInTerminal,
+    handleRunAgentReview,
+    handleCopyAgentReviewPrompt,
+    handleMarkAgentRunFailed,
     loadSessions,
     loadComments,
     setSelectedSessionGuid,
@@ -78,7 +83,8 @@ export const ReviewActions: React.FC = () => {
     [setArtifactPreview, setSelectedRevisionGuid, setSelectedSessionGuid],
   );
 
-  const fixDisabled = !canEdit || openRevisionComments.length === 0 || !!activeFixRun;
+  const fixDisabled = !canEdit || openRevisionComments.length === 0 || !!activeFixRun || !!activeReviewRun;
+  const reviewDisabled = !canEdit || !!activeReviewRun || !!activeFixRun;
   const [archivedOpen, setArchivedOpen] = useState(false);
 
   const sessionGroups = useMemo<SessionGroup[]>(() => {
@@ -422,15 +428,57 @@ export const ReviewActions: React.FC = () => {
 
         <div className="w-px self-stretch bg-sidebar-border shrink-0" />
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={reviewDisabled || isCreatingAgentRun}
+              className={cn(
+                "inline-flex items-center justify-center px-2 text-[13px] shrink-0 h-full",
+                "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30",
+                "transition-colors cursor-pointer",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+              )}
+              title="Run agent review on current revision"
+            >
+              {isCreatingAgentRun ? (
+                <LoaderCircle className="size-3.5 animate-spin shrink-0" />
+              ) : (
+                <Check className="size-3.5 shrink-0" />
+              )}
+              <span className="ml-1">Agent Review</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {CODE_REVIEW_SKILLS.map((skill) => (
+              <DropdownMenuSub key={skill.id}>
+                <DropdownMenuSubTrigger className="text-xs">
+                  {skill.label}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => handleCopyAgentReviewPrompt(skill.id)}>
+                    Copy Prompt
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRunAgentReview(skill.id, "agent_chat")}>
+                    Send to Agent Chat
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="w-px self-stretch bg-sidebar-border shrink-0" />
+
         <FixActionsMenu
           disabled={fixDisabled}
-          isLoading={isCreatingFixRun}
-          activeRun={activeFixRun}
+          isLoading={isCreatingAgentRun}
+          activeRun={activeFixRun ?? activeAgentRun}
           agentId={terminalAgentId}
           onAgentChange={setTerminalAgentId}
-          onFix={(agentId) => handleRunFixInTerminal(undefined, agentId)}
-          onCopyPrompt={() => handleCopyFixPrompt()}
-          onMarkFailed={(run) => handleMarkFixRunFailed(run)}
+          onFix={(agentId) => handleRunAgentInTerminal(undefined, agentId)}
+          onCopyPrompt={() => handleCopyAgentPrompt()}
+          onMarkFailed={(run) => handleMarkAgentRunFailed(run)}
         />
       </div>
 

@@ -17,7 +17,7 @@ import {
 } from "@workspace/ui";
 import { Terminal, Bot, Loader2, AlertTriangle } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "@/components/wiki/AgentSelect";
-import { skillsApi, agentApi } from "@/api/ws-api";
+import { skillsApi, agentApi, reviewWsApi } from "@/api/ws-api";
 import { systemApi } from "@/api/rest-api";
 import type { RegistryAgent, CustomAgent } from "@/api/ws-api";
 import { cn } from "@/lib/utils";
@@ -242,6 +242,30 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     localStorage.setItem(AGENT_STORAGE_KEY, value);
   }, []);
 
+  const createReviewAgentRun = useCallback(
+    async (mode: "copy_prompt" | "agent_chat") => {
+      if (!workspaceId) return null;
+      const sessions = await reviewWsApi.listSessions(workspaceId, true);
+      let session = sessions.find((item) => item.status === "active") ?? null;
+      if (!session) {
+        const now = new Date();
+        const pad = (value: number) => String(value).padStart(2, "0");
+        session = await reviewWsApi.createSession({
+          workspaceGuid: workspaceId,
+          title: `Review_${pad(now.getMonth() + 1)}.${pad(now.getDate())}-${pad(now.getHours())}:${pad(now.getMinutes())}`,
+        });
+      }
+      return reviewWsApi.createAgentRun({
+        sessionGuid: session.guid,
+        baseRevisionGuid: session.current_revision_guid,
+        runKind: "review",
+        executionMode: mode,
+        skillId,
+      });
+    },
+    [skillId, workspaceId],
+  );
+
   /** Generate report file path: {projectMainPath}/.atmos/reviews/{workspaceId}/{project}_{branch}_{timestamp}_{topic}.md */
   const buildReportPath = useCallback((): string => {
     const now = new Date();
@@ -266,13 +290,17 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       if (isStarting) return;
       setIsStarting(true);
       try {
-        const reportPath = buildReportPath();
-        const command = buildCodeReviewCommand(agentId, skillId, reportPath);
+        const reviewRun = await createReviewAgentRun("copy_prompt");
+        const command = reviewRun
+          ? buildCommand(agentId, reviewRun.prompt)
+          : buildCodeReviewCommand(agentId, skillId, buildReportPath());
         onStartTerminalMode(command);
         onOpenChange(false);
         toastManager.add({
           title: "Code Review Started",
-          description: `Report will be written to .atmos/reviews/`,
+          description: reviewRun
+            ? "Agent Review run created for the active Review Session."
+            : `Report will be written to .atmos/reviews/`,
           type: "success",
         });
       } catch (err) {
@@ -285,7 +313,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         setIsStarting(false);
       }
     },
-    [isStarting, buildReportPath, agentId, skillId, onStartTerminalMode, onOpenChange]
+    [isStarting, buildReportPath, agentId, skillId, onStartTerminalMode, onOpenChange, createReviewAgentRun]
   );
 
   const handleReplace = useCallback(
@@ -293,8 +321,10 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       if (isStarting) return;
       setIsStarting(true);
       try {
-        const reportPath = buildReportPath();
-        const command = buildCodeReviewCommand(agentId, skillId, reportPath);
+        const reviewRun = await createReviewAgentRun("copy_prompt");
+        const command = reviewRun
+          ? buildCommand(agentId, reviewRun.prompt)
+          : buildCodeReviewCommand(agentId, skillId, buildReportPath());
         await onReplaceTerminalAndRun(command);
         onOpenChange(false);
       } catch (err) {
@@ -307,14 +337,15 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         setIsStarting(false);
       }
     },
-    [isStarting, buildReportPath, agentId, skillId, onReplaceTerminalAndRun, onOpenChange]
+    [isStarting, buildReportPath, agentId, skillId, onReplaceTerminalAndRun, onOpenChange, createReviewAgentRun]
   );
 
-  const handleStartInAgent = useCallback(() => {
+  const handleStartInAgent = useCallback(async () => {
     if (isStarting || !acpAgentId) return;
+    setIsStarting(true);
     try {
-      const reportPath = buildReportPath();
-      const prompt = buildCodeReviewPrompt(skillId, reportPath);
+      const reviewRun = await createReviewAgentRun("agent_chat");
+      const prompt = reviewRun?.prompt ?? buildCodeReviewPrompt(skillId, buildReportPath());
       const now = new Date();
       const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
       const titleName = projectName || "Project";
@@ -333,7 +364,9 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       setAgentChatOpen(true);
       toastManager.add({
         title: "Code Review Queued",
-        description: "The ACP code review prompt was added to the chat queue.",
+        description: reviewRun
+          ? "The Agent Review prompt was added to the chat queue."
+          : "The ACP code review prompt was added to the chat queue.",
         type: "success",
       });
     } catch (err) {
@@ -342,8 +375,10 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         description: err instanceof Error ? err.message : "Unknown error",
         type: "error",
       });
+    } finally {
+      setIsStarting(false);
     }
-  }, [isStarting, buildReportPath, skillId, acpAgentId, enqueueAgentChatPrompt, onOpenChange, setPendingAgentChatMode, setAgentChatOpen, projectName, workspaceId]);
+  }, [isStarting, acpAgentId, buildReportPath, skillId, projectName, enqueueAgentChatPrompt, workspaceId, setPendingAgentChatMode, onOpenChange, setAgentChatOpen, createReviewAgentRun]);
 
   const handleSyncSkills = useCallback(async () => {
     if (isSyncing) return;

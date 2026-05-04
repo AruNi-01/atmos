@@ -4,7 +4,7 @@ use sea_orm::*;
 
 use crate::db::entities::base::BaseFields;
 use crate::db::entities::{
-    review_comment, review_file_identity, review_file_snapshot, review_file_state, review_fix_run,
+    review_agent_run, review_comment, review_file_identity, review_file_snapshot, review_file_state,
     review_message, review_revision, review_session,
 };
 use crate::db::repo::base::BaseRepo;
@@ -187,7 +187,7 @@ impl<'a> ReviewRepo<'a> {
         session_guid: String,
         parent_revision_guid: Option<String>,
         source_kind: String,
-        fix_run_guid: Option<String>,
+        agent_run_guid: Option<String>,
         title: Option<String>,
         storage_root_rel_path: String,
         base_revision_guid: Option<String>,
@@ -205,7 +205,7 @@ impl<'a> ReviewRepo<'a> {
             session_guid: Set(session_guid),
             parent_revision_guid: Set(parent_revision_guid),
             source_kind: Set(source_kind),
-            fix_run_guid: Set(fix_run_guid),
+            agent_run_guid: Set(agent_run_guid),
             title: Set(title),
             storage_root_rel_path: Set(storage_root_rel_path),
             base_revision_guid: Set(base_revision_guid),
@@ -222,6 +222,36 @@ impl<'a> ReviewRepo<'a> {
             .filter(review_revision::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?)
+    }
+
+    pub async fn update_revision_title_and_source_kind(
+        &self,
+        guid: &str,
+        title: Option<&str>,
+        source_kind: &str,
+    ) -> Result<()> {
+        let now = Utc::now().naive_utc();
+        let mut update = review_revision::Entity::update_many()
+            .filter(review_revision::Column::Guid.eq(guid))
+            .filter(review_revision::Column::IsDeleted.eq(false))
+            .col_expr(review_revision::Column::UpdatedAt, Expr::value(now))
+            .col_expr(
+                review_revision::Column::SourceKind,
+                Expr::value(source_kind.to_string()),
+            );
+        if let Some(title) = title {
+            update = update.col_expr(
+                review_revision::Column::Title,
+                Expr::value(Some(title.to_string())),
+            );
+        }
+        let result = update
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom("Review revision not found".into()));
+        }
+        Ok(())
     }
 
     pub async fn list_revisions_by_session(
@@ -598,7 +628,7 @@ impl<'a> ReviewRepo<'a> {
         body_storage_kind: String,
         body: String,
         body_rel_path: Option<String>,
-        fix_run_guid: Option<String>,
+        agent_run_guid: Option<String>,
     ) -> Result<review_message::Model> {
         let base = BaseFields::new();
         let model = review_message::ActiveModel {
@@ -612,7 +642,7 @@ impl<'a> ReviewRepo<'a> {
             body_storage_kind: Set(body_storage_kind),
             body: Set(body),
             body_rel_path: Set(body_rel_path),
-            fix_run_guid: Set(fix_run_guid),
+            agent_run_guid: Set(agent_run_guid),
         };
         Ok(model.insert(self.db).await?)
     }
@@ -685,9 +715,9 @@ impl<'a> ReviewRepo<'a> {
             .await?)
     }
 
-    pub async fn reassign_messages_by_fix_run(
+    pub async fn reassign_messages_by_agent_run(
         &self,
-        fix_run_guid: &str,
+        agent_run_guid: &str,
         from_comment_guids: &[String],
         to_comment_guids: &[String],
         include_unlinked_agent_messages_since: Option<chrono::NaiveDateTime>,
@@ -700,11 +730,11 @@ impl<'a> ReviewRepo<'a> {
         for (from_guid, to_guid) in from_comment_guids.iter().zip(to_comment_guids.iter()) {
             let now = chrono::Utc::now().naive_utc();
             let mut message_filter = Condition::any()
-                .add(review_message::Column::FixRunGuid.eq(fix_run_guid.to_string()));
+                .add(review_message::Column::AgentRunGuid.eq(agent_run_guid.to_string()));
             if let Some(since) = include_unlinked_agent_messages_since {
                 message_filter = message_filter.add(
                     Condition::all()
-                        .add(review_message::Column::FixRunGuid.is_null())
+                        .add(review_message::Column::AgentRunGuid.is_null())
                         .add(review_message::Column::AuthorType.ne("user"))
                         .add(review_message::Column::CreatedAt.gte(since)),
                 );
@@ -724,16 +754,18 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
-    pub async fn create_fix_run(
+    pub async fn create_agent_run(
         &self,
         session_guid: String,
         base_revision_guid: String,
+        run_kind: String,
         execution_mode: String,
+        skill_id: Option<String>,
         prompt_rel_path: Option<String>,
         created_by: Option<String>,
-    ) -> Result<review_fix_run::Model> {
+    ) -> Result<review_agent_run::Model> {
         let base = BaseFields::new();
-        let model = review_fix_run::ActiveModel {
+        let model = review_agent_run::ActiveModel {
             guid: Set(base.guid),
             created_at: Set(base.created_at),
             updated_at: Set(base.updated_at),
@@ -741,8 +773,10 @@ impl<'a> ReviewRepo<'a> {
             session_guid: Set(session_guid),
             base_revision_guid: Set(base_revision_guid),
             result_revision_guid: Set(None),
+            run_kind: Set(run_kind),
             execution_mode: Set(execution_mode),
             status: Set("pending".to_string()),
+            skill_id: Set(skill_id),
             prompt_rel_path: Set(prompt_rel_path),
             result_rel_path: Set(None),
             patch_rel_path: Set(None),
@@ -757,49 +791,49 @@ impl<'a> ReviewRepo<'a> {
         Ok(model.insert(self.db).await?)
     }
 
-    pub async fn update_fix_run_prompt_rel_path(
+    pub async fn update_agent_run_prompt_rel_path(
         &self,
         guid: &str,
         prompt_rel_path: &str,
     ) -> Result<()> {
         let now = Utc::now().naive_utc();
-        let result = review_fix_run::Entity::update_many()
+        let result = review_agent_run::Entity::update_many()
             .col_expr(
-                review_fix_run::Column::PromptRelPath,
+                review_agent_run::Column::PromptRelPath,
                 Expr::value(Some(prompt_rel_path.to_string())),
             )
-            .col_expr(review_fix_run::Column::UpdatedAt, Expr::value(now))
-            .filter(review_fix_run::Column::Guid.eq(guid))
-            .filter(review_fix_run::Column::IsDeleted.eq(false))
+            .col_expr(review_agent_run::Column::UpdatedAt, Expr::value(now))
+            .filter(review_agent_run::Column::Guid.eq(guid))
+            .filter(review_agent_run::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(InfraError::Custom("Review fix run not found".into()));
+            return Err(InfraError::Custom("Review agent run not found".into()));
         }
         Ok(())
     }
 
-    pub async fn find_fix_run_by_guid(&self, guid: &str) -> Result<Option<review_fix_run::Model>> {
-        Ok(review_fix_run::Entity::find_by_id(guid.to_string())
-            .filter(review_fix_run::Column::IsDeleted.eq(false))
+    pub async fn find_agent_run_by_guid(&self, guid: &str) -> Result<Option<review_agent_run::Model>> {
+        Ok(review_agent_run::Entity::find_by_id(guid.to_string())
+            .filter(review_agent_run::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?)
     }
 
-    pub async fn list_fix_runs_by_session(
+    pub async fn list_agent_runs_by_session(
         &self,
         session_guid: &str,
-    ) -> Result<Vec<review_fix_run::Model>> {
-        Ok(review_fix_run::Entity::find()
-            .filter(review_fix_run::Column::SessionGuid.eq(session_guid))
-            .filter(review_fix_run::Column::IsDeleted.eq(false))
-            .order_by_desc(review_fix_run::Column::CreatedAt)
+    ) -> Result<Vec<review_agent_run::Model>> {
+        Ok(review_agent_run::Entity::find()
+            .filter(review_agent_run::Column::SessionGuid.eq(session_guid))
+            .filter(review_agent_run::Column::IsDeleted.eq(false))
+            .order_by_desc(review_agent_run::Column::CreatedAt)
             .all(self.db)
             .await?)
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub async fn update_fix_run_status(
+    pub async fn update_agent_run_status(
         &self,
         guid: &str,
         status: &str,
@@ -813,63 +847,63 @@ impl<'a> ReviewRepo<'a> {
         increment_finalize_attempts: bool,
     ) -> Result<()> {
         let now = Utc::now().naive_utc();
-        let mut update = review_fix_run::Entity::update_many()
+        let mut update = review_agent_run::Entity::update_many()
             .col_expr(
-                review_fix_run::Column::Status,
+                review_agent_run::Column::Status,
                 Expr::value(status.to_string()),
             )
-            .col_expr(review_fix_run::Column::UpdatedAt, Expr::value(now));
+            .col_expr(review_agent_run::Column::UpdatedAt, Expr::value(now));
 
         if let Some(value) = result_revision_guid {
             update = update.col_expr(
-                review_fix_run::Column::ResultRevisionGuid,
+                review_agent_run::Column::ResultRevisionGuid,
                 Expr::value(Some(value)),
             );
         }
         if let Some(value) = result_rel_path {
             update = update.col_expr(
-                review_fix_run::Column::ResultRelPath,
+                review_agent_run::Column::ResultRelPath,
                 Expr::value(Some(value)),
             );
         }
         if let Some(value) = patch_rel_path {
             update = update.col_expr(
-                review_fix_run::Column::PatchRelPath,
+                review_agent_run::Column::PatchRelPath,
                 Expr::value(Some(value)),
             );
         }
         if let Some(value) = summary_rel_path {
             update = update.col_expr(
-                review_fix_run::Column::SummaryRelPath,
+                review_agent_run::Column::SummaryRelPath,
                 Expr::value(Some(value)),
             );
         }
         if let Some(value) = started_at {
-            update = update.col_expr(review_fix_run::Column::StartedAt, Expr::value(Some(value)));
+            update = update.col_expr(review_agent_run::Column::StartedAt, Expr::value(Some(value)));
         }
         if let Some(value) = finished_at {
-            update = update.col_expr(review_fix_run::Column::FinishedAt, Expr::value(Some(value)));
+            update = update.col_expr(review_agent_run::Column::FinishedAt, Expr::value(Some(value)));
         }
         if let Some(value) = failure_reason {
             update = update.col_expr(
-                review_fix_run::Column::FailureReason,
+                review_agent_run::Column::FailureReason,
                 Expr::value(Some(value)),
             );
         }
         if increment_finalize_attempts {
             update = update.col_expr(
-                review_fix_run::Column::FinalizeAttempts,
-                Expr::col(review_fix_run::Column::FinalizeAttempts).add(1),
+                review_agent_run::Column::FinalizeAttempts,
+                Expr::col(review_agent_run::Column::FinalizeAttempts).add(1),
             );
         }
 
         let result = update
-            .filter(review_fix_run::Column::Guid.eq(guid))
-            .filter(review_fix_run::Column::IsDeleted.eq(false))
+            .filter(review_agent_run::Column::Guid.eq(guid))
+            .filter(review_agent_run::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(InfraError::Custom("Review fix run not found".into()));
+            return Err(InfraError::Custom("Review agent run not found".into()));
         }
         Ok(())
     }
@@ -877,9 +911,9 @@ impl<'a> ReviewRepo<'a> {
     /// Persist the summary artifact path (and optionally the run's finish
     /// timestamp / start timestamp) without touching the lifecycle status.
     /// Intended for "summary written, not yet finalized" transitions — the
-    /// terminal status must only be set by `finalize_fix_run` once all
+    /// terminal status must only be set by `finalize_agent_run` once all
     /// artifacts have been persisted.
-    pub async fn update_fix_run_summary_path(
+    pub async fn update_agent_run_summary_path(
         &self,
         guid: &str,
         summary_rel_path: String,
@@ -887,26 +921,26 @@ impl<'a> ReviewRepo<'a> {
         finished_at: Option<chrono::NaiveDateTime>,
     ) -> Result<()> {
         let now = Utc::now().naive_utc();
-        let mut update = review_fix_run::Entity::update_many()
-            .col_expr(review_fix_run::Column::UpdatedAt, Expr::value(now))
+        let mut update = review_agent_run::Entity::update_many()
+            .col_expr(review_agent_run::Column::UpdatedAt, Expr::value(now))
             .col_expr(
-                review_fix_run::Column::SummaryRelPath,
+                review_agent_run::Column::SummaryRelPath,
                 Expr::value(Some(summary_rel_path)),
             );
         if let Some(value) = started_at {
-            update = update.col_expr(review_fix_run::Column::StartedAt, Expr::value(Some(value)));
+            update = update.col_expr(review_agent_run::Column::StartedAt, Expr::value(Some(value)));
         }
         if let Some(value) = finished_at {
-            update = update.col_expr(review_fix_run::Column::FinishedAt, Expr::value(Some(value)));
+            update = update.col_expr(review_agent_run::Column::FinishedAt, Expr::value(Some(value)));
         }
 
         let result = update
-            .filter(review_fix_run::Column::Guid.eq(guid))
-            .filter(review_fix_run::Column::IsDeleted.eq(false))
+            .filter(review_agent_run::Column::Guid.eq(guid))
+            .filter(review_agent_run::Column::IsDeleted.eq(false))
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {
-            return Err(InfraError::Custom("Review fix run not found".into()));
+            return Err(InfraError::Custom("Review agent run not found".into()));
         }
         Ok(())
     }

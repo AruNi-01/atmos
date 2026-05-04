@@ -11,6 +11,22 @@ This skill is **project-agnostic** — it works with any language, framework, or
 stack. Analyze git changes, detect issues across both frontend and backend code, and
 output a structured Markdown report to the specified file path.
 
+## Atmos Review Session Integration
+
+When the prompt contains a `<review-agent-run>` block, use the run/session metadata from that block and create inline comments with:
+
+```bash
+atmos review create-comment --session <session_guid> --revision <current_revision_guid> --file <path> --side new --start-line <line> --end-line <line> --title "<short title>" --run <run_guid> --body "<Severity: P1\nIssue: ...\nSuggestion: ...>"
+```
+
+Create one comment per concrete finding. Prefer `--body-file` or `--body-stdin` for multi-line bodies. After the review is complete, call:
+
+```bash
+atmos review set-status --run <run_guid> succeeded --summary-stdin
+```
+
+If the run cannot be completed, call `atmos review set-status --run <run_guid> failed --message "<reason>"`.
+
 ## Severity Levels
 
 | Level | Label | Description | Action |

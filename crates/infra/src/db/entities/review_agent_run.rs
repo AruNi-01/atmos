@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::impl_base_entity;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "review_fix_run")]
+#[sea_orm(table_name = "review_agent_run")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub guid: String,
@@ -14,8 +14,10 @@ pub struct Model {
     pub session_guid: String,
     pub base_revision_guid: String,
     pub result_revision_guid: Option<String>,
+    pub run_kind: String,
     pub execution_mode: String,
     pub status: String,
+    pub skill_id: Option<String>,
     pub prompt_rel_path: Option<String>,
     pub result_rel_path: Option<String>,
     pub patch_rel_path: Option<String>,

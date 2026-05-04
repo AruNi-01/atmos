@@ -10,7 +10,7 @@ pub use entities::review_comment;
 pub use entities::review_file_identity;
 pub use entities::review_file_snapshot;
 pub use entities::review_file_state;
-pub use entities::review_fix_run;
+pub use entities::review_agent_run;
 pub use entities::review_message;
 pub use entities::review_revision;
 pub use entities::review_session;

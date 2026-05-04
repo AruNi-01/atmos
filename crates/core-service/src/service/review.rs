@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use core_engine::GitEngine;
 use infra::db::entities::{
-    review_comment, review_file_snapshot, review_file_state, review_fix_run, review_message,
+    review_agent_run, review_comment, review_file_snapshot, review_file_state, review_message,
     review_revision, review_session,
 };
 use infra::db::repo::{ProjectRepo, ReviewRepo, WorkspaceRepo};
@@ -29,6 +29,12 @@ fn is_open_review_comment_status(status: &str) -> bool {
 
 fn is_valid_review_comment_status(status: &str) -> bool {
     matches!(status, "open" | "agent_fixed" | "fixed" | "dismissed")
+}
+
+fn normalize_review_file_path(value: &str) -> String {
+    let normalized = value.replace('\\', "/");
+    let without_prefix = normalized.strip_prefix("./").unwrap_or(&normalized);
+    without_prefix.trim_start_matches('/').to_string()
 }
 
 fn count_review_snapshot_changes(snapshot: &review_file_snapshot::Model) -> (usize, usize) {
@@ -61,17 +67,17 @@ fn review_message_visible_in_revision(
     message: &review_message::Model,
     comment_revision_guid: &str,
     target_revision_guid: &str,
-    fix_runs: &[review_fix_run::Model],
+    agent_runs: &[review_agent_run::Model],
 ) -> bool {
     let Some(run) = message
-        .fix_run_guid
+        .agent_run_guid
         .as_deref()
-        .and_then(|guid| fix_runs.iter().find(|run| run.guid == guid))
+        .and_then(|guid| agent_runs.iter().find(|run| run.guid == guid))
     else {
         if message.author_type == "user" {
             return true;
         }
-        return !fix_runs.iter().any(|run| {
+        return !agent_runs.iter().any(|run| {
             run.base_revision_guid == comment_revision_guid
                 && target_revision_guid == run.base_revision_guid
                 && message.created_at >= run.created_at
@@ -162,7 +168,7 @@ pub struct ReviewSessionDto {
     #[serde(flatten)]
     pub model: review_session::Model,
     pub revisions: Vec<ReviewRevisionDto>,
-    pub runs: Vec<review_fix_run::Model>,
+    pub runs: Vec<review_agent_run::Model>,
     pub open_comment_count: usize,
     pub reviewed_file_count: usize,
     pub reviewed_then_changed_count: usize,
@@ -183,6 +189,23 @@ pub struct SetReviewFileReviewedInput {
     pub reviewed: bool,
     #[serde(default)]
     pub reviewed_by: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CreateReviewCommentByFilePathInput {
+    pub session_guid: String,
+    pub revision_guid: String,
+    pub file_path: String,
+    pub side: String,
+    pub start_line: i32,
+    pub end_line: i32,
+    pub body: String,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub author_type: String,
+    #[serde(default)]
+    pub agent_run_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -207,7 +230,7 @@ pub struct AddReviewMessageInput {
     pub kind: String,
     pub body: String,
     #[serde(default)]
-    pub fix_run_guid: Option<String>,
+    pub agent_run_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -228,10 +251,13 @@ pub struct UpdateReviewCommentStatusInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct CreateReviewFixRunInput {
+pub struct CreateReviewAgentRunInput {
     pub session_guid: String,
     pub base_revision_guid: String,
+    pub run_kind: String,
     pub execution_mode: String,
+    #[serde(default)]
+    pub skill_id: Option<String>,
     #[serde(default)]
     pub selected_comment_guids: Vec<String>,
     #[serde(default)]
@@ -239,7 +265,7 @@ pub struct CreateReviewFixRunInput {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct SetReviewFixRunStatusInput {
+pub struct SetReviewAgentRunStatusInput {
     pub run_guid: String,
     pub status: String,
     #[serde(default)]
@@ -268,7 +294,7 @@ struct RevisionManifestItem {
     revision_guid: String,
     parent_revision_guid: Option<String>,
     source_kind: String,
-    fix_run_guid: Option<String>,
+    agent_run_guid: Option<String>,
     storage_root_rel_path: String,
     created_at: String,
 }
@@ -288,8 +314,8 @@ struct FileSnapshotMeta {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ReviewFixRunCreatedDto {
-    pub run: review_fix_run::Model,
+pub struct ReviewAgentRunCreatedDto {
+    pub run: review_agent_run::Model,
     pub revision: ReviewRevisionDto,
     pub prompt: String,
 }
@@ -306,16 +332,16 @@ pub struct ReviewCommentContextDto {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ReviewFixRunFinalizedDto {
-    pub run: review_fix_run::Model,
+pub struct ReviewAgentRunFinalizedDto {
+    pub run: review_agent_run::Model,
     pub revision: review_revision::Model,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum ReviewFixRunStatusDto {
-    Run { run: review_fix_run::Model },
-    Finalized(ReviewFixRunFinalizedDto),
+pub enum ReviewAgentRunStatusDto {
+    Run { run: review_agent_run::Model },
+    Finalized(ReviewAgentRunFinalizedDto),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -327,7 +353,7 @@ pub struct ReviewFileContentDto {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ReviewRunArtifactDto {
-    pub run: review_fix_run::Model,
+    pub run: review_agent_run::Model,
     pub kind: String,
     pub content: String,
 }
@@ -336,6 +362,9 @@ pub struct ReviewService {
     db: Arc<DatabaseConnection>,
     git_engine: GitEngine,
 }
+
+const VALID_RUN_KINDS: &[&str] = &["review", "fix"];
+const VALID_EXECUTION_MODES: &[&str] = &["copy_prompt", "agent_chat", "terminal_cli"];
 
 impl ReviewService {
     pub fn new(db: Arc<DatabaseConnection>) -> Self {
@@ -603,7 +632,7 @@ impl ReviewService {
             revision_guid: revision.guid.clone(),
             parent_revision_guid: None,
             source_kind: revision.source_kind.clone(),
-            fix_run_guid: None,
+            agent_run_guid: None,
             storage_root_rel_path: revision.storage_root_rel_path.clone(),
             created_at: revision.created_at.to_string(),
         }];
@@ -616,12 +645,12 @@ impl ReviewService {
         self.build_session_dto(session.clone()).await
     }
 
-    async fn create_fix_run_revision(
+    async fn create_agent_run_revision(
         &self,
         review_repo: &ReviewRepo<'_>,
         session: &review_session::Model,
         base_revision: &review_revision::Model,
-        run: &review_fix_run::Model,
+        run: &review_agent_run::Model,
     ) -> Result<ReviewRevisionDto> {
         let base_snapshots = review_repo
             .list_file_snapshots_by_revision(&base_revision.guid)
@@ -645,14 +674,19 @@ impl ReviewService {
             .list_revisions_by_session(&session.guid)
             .await
             .map_err(ServiceError::Infra)?;
+        let (source_kind, title) = match run.run_kind.as_str() {
+            "review" => ("agent_review", format!("Review Checkpoint {}", revisions_before.len())),
+            "fix" => ("agent_fix", format!("Fix Run {}", revisions_before.len())),
+            _ => ("agent_run", format!("Agent Run {}", revisions_before.len())),
+        };
         let revision = review_repo
             .create_revision(
                 Some(revision_guid.clone()),
                 session.guid.clone(),
                 Some(base_revision.guid.clone()),
-                "ai_run".to_string(),
+                source_kind.to_string(),
                 Some(run.guid.clone()),
-                Some(format!("Fix Run {}", revisions_before.len())),
+                Some(title),
                 revision_storage_root.clone(),
                 Some(base_revision.guid.clone()),
                 run.created_by.clone(),
@@ -763,7 +797,7 @@ impl ReviewService {
         }
 
         review_repo
-            .update_fix_run_status(
+            .update_agent_run_status(
                 &run.guid,
                 &run.status,
                 Some(revision.guid.clone()),
@@ -894,9 +928,9 @@ impl ReviewService {
         } else {
             review_repo.list_comments_by_session(&session_guid).await?
         };
-        let fix_runs = if target_revision_guid.is_some() {
+        let agent_runs = if target_revision_guid.is_some() {
             review_repo
-                .list_fix_runs_by_session(&session_guid)
+                .list_agent_runs_by_session(&session_guid)
                 .await
                 .map_err(ServiceError::Infra)?
         } else {
@@ -953,7 +987,7 @@ impl ReviewService {
                         message,
                         &comment.revision_guid,
                         target_revision,
-                        &fix_runs,
+                        &agent_runs,
                     )
                 });
             }
@@ -984,7 +1018,7 @@ impl ReviewService {
                                     message,
                                     ancestor_revision_guid,
                                     target_revision,
-                                    &fix_runs,
+                                    &agent_runs,
                                 )
                             }));
                         } else {
@@ -1021,6 +1055,102 @@ impl ReviewService {
             cache.insert(parent_guid, comment);
         }
         Ok(())
+    }
+
+    pub async fn create_comment_by_file_path(
+        &self,
+        input: CreateReviewCommentByFilePathInput,
+    ) -> Result<ReviewCommentDto> {
+        let review_repo = ReviewRepo::new(&self.db);
+        let session = review_repo
+            .find_session_by_guid(&input.session_guid)
+            .await
+            .map_err(ServiceError::Infra)?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review session {} not found", input.session_guid))
+            })?;
+        if input.revision_guid != session.current_revision_guid {
+            return Err(ServiceError::Validation(format!(
+                "Cannot create comment on sealed revision {} (current is {})",
+                input.revision_guid, session.current_revision_guid
+            )));
+        }
+        if input.side != "new" && input.side != "old" {
+            return Err(ServiceError::Validation(
+                "Review comment side must be either 'new' or 'old'".to_string(),
+            ));
+        }
+        if input.start_line <= 0 || input.end_line < input.start_line {
+            return Err(ServiceError::Validation(
+                "Review comment line range must be positive and end_line must be >= start_line"
+                    .to_string(),
+            ));
+        }
+
+        let file_snapshots = review_repo
+            .list_file_snapshots_by_revision(&input.revision_guid)
+            .await
+            .map_err(ServiceError::Infra)?;
+        let requested_path = if let Ok(path) =
+            Path::new(&input.file_path).strip_prefix(Path::new(&session.repo_path))
+        {
+            normalize_review_file_path(&path.to_string_lossy())
+        } else {
+            normalize_review_file_path(&input.file_path)
+        };
+        let file_snapshot = file_snapshots
+            .into_iter()
+            .find(|fs| normalize_review_file_path(&fs.file_path) == requested_path)
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!(
+                    "File snapshot not found for path '{}' in revision {}",
+                    input.file_path, input.revision_guid
+                ))
+            })?;
+
+        let comment = review_repo
+            .create_comment(
+                input.session_guid,
+                input.revision_guid,
+                file_snapshot.guid.clone(),
+                input.side.clone(),
+                input.start_line,
+                input.end_line,
+                "line".to_string(),
+                serde_json::to_string(&json!({
+                    "side": input.side,
+                    "start_line": input.start_line,
+                    "end_line": input.end_line,
+                    "line_range_kind": "line"
+                }))
+                .map_err(|error| ServiceError::Processing(error.to_string()))?,
+                "open".to_string(),
+                None,
+                input.title,
+                Some(input.author_type.clone()),
+            )
+            .await
+            .map_err(ServiceError::Infra)?;
+        let message = self
+            .create_message(AddReviewMessageInput {
+                comment_guid: comment.guid.clone(),
+                author_type: input.author_type,
+                kind: "comment".to_string(),
+                body: input.body,
+                agent_run_guid: input.agent_run_guid,
+            })
+            .await?;
+        Ok(ReviewCommentDto {
+            anchor: serde_json::to_value(&json!({
+                "side": input.side,
+                "start_line": input.start_line,
+                "end_line": input.end_line,
+                "line_range_kind": "line"
+            }))
+            .map_err(|error| ServiceError::Processing(error.to_string()))?,
+            messages: vec![message],
+            model: comment,
+        })
     }
 
     pub async fn create_comment(
@@ -1065,7 +1195,7 @@ impl ReviewService {
                 author_type: "user".to_string(),
                 kind: "comment".to_string(),
                 body: input.body,
-                fix_run_guid: None,
+                agent_run_guid: None,
             })
             .await?;
         Ok(ReviewCommentDto {
@@ -1098,10 +1228,10 @@ impl ReviewService {
                 comment.revision_guid, session.current_revision_guid
             )));
         }
-        let effective_fix_run_guid = if input.fix_run_guid.is_none() && input.author_type != "user"
+        let effective_agent_run_guid = if input.agent_run_guid.is_none() && input.author_type != "user"
         {
             let active_runs = review_repo
-                .list_fix_runs_by_session(&comment.session_guid)
+                .list_agent_runs_by_session(&comment.session_guid)
                 .await
                 .map_err(ServiceError::Infra)?
                 .into_iter()
@@ -1117,17 +1247,17 @@ impl ReviewService {
                 None
             }
         } else {
-            input.fix_run_guid.clone()
+            input.agent_run_guid.clone()
         };
 
-        if let Some(run_guid) = effective_fix_run_guid.as_deref() {
+        if let Some(run_guid) = effective_agent_run_guid.as_deref() {
             if let Some(run) = review_repo
-                .find_fix_run_by_guid(run_guid)
+                .find_agent_run_by_guid(run_guid)
                 .await
                 .map_err(ServiceError::Infra)?
             {
                 if run.status == "pending" {
-                    self.mark_fix_run_running(run.guid.clone()).await?;
+                    self.mark_agent_run_running(run.guid.clone()).await?;
                 }
             }
         }
@@ -1135,7 +1265,7 @@ impl ReviewService {
             if input.body.len() > MESSAGE_INLINE_LIMIT {
                 let abs_path = run_root_abs_path(
                     &comment.session_guid,
-                    effective_fix_run_guid.as_deref().unwrap_or("message"),
+                    effective_agent_run_guid.as_deref().unwrap_or("message"),
                 )
                 .map_err(ServiceError::Infra)?
                 .join("messages")
@@ -1161,7 +1291,7 @@ impl ReviewService {
                 body_storage_kind,
                 body,
                 body_rel_path,
-                effective_fix_run_guid,
+                effective_agent_run_guid,
             )
             .await
             .map_err(ServiceError::Infra)?;
@@ -1196,7 +1326,7 @@ impl ReviewService {
             if input.body.len() > MESSAGE_INLINE_LIMIT {
                 let abs_path = run_root_abs_path(
                     &comment.session_guid,
-                    message.fix_run_guid.as_deref().unwrap_or("message"),
+                    message.agent_run_guid.as_deref().unwrap_or("message"),
                 )
                 .map_err(ServiceError::Infra)?
                 .join("messages")
@@ -1314,61 +1444,61 @@ impl ReviewService {
             .map_err(ServiceError::Infra)
     }
 
-    pub async fn set_fix_run_status(
+    pub async fn set_agent_run_status(
         &self,
-        input: SetReviewFixRunStatusInput,
-    ) -> Result<ReviewFixRunStatusDto> {
+        input: SetReviewAgentRunStatusInput,
+    ) -> Result<ReviewAgentRunStatusDto> {
         match input.status.as_str() {
             "running" => self
-                .mark_fix_run_running(input.run_guid)
+                .mark_agent_run_running(input.run_guid)
                 .await
-                .map(|run| ReviewFixRunStatusDto::Run { run }),
+                .map(|run| ReviewAgentRunStatusDto::Run { run }),
             "succeeded" => {
-                self.mark_fix_run_running(input.run_guid.clone()).await?;
+                self.mark_agent_run_running(input.run_guid.clone()).await?;
                 if let Some(summary) = input.summary.filter(|value| !value.trim().is_empty()) {
                     self.write_run_summary(input.run_guid.clone(), summary)
                         .await?;
                 }
-                self.finalize_fix_run(input.run_guid, input.title)
+                self.finalize_agent_run(input.run_guid, input.title)
                     .await
-                    .map(ReviewFixRunStatusDto::Finalized)
+                    .map(ReviewAgentRunStatusDto::Finalized)
             }
             "failed" => self
-                .mark_fix_run_failed(input.run_guid, input.message)
+                .mark_agent_run_failed(input.run_guid, input.message)
                 .await
-                .map(|run| ReviewFixRunStatusDto::Run { run }),
+                .map(|run| ReviewAgentRunStatusDto::Run { run }),
             status => Err(ServiceError::Validation(format!(
-                "Invalid review fix run status: {}",
+                "Invalid review agent run status: {}",
                 status
             ))),
         }
     }
 
-    pub async fn mark_fix_run_running(&self, run_guid: String) -> Result<review_fix_run::Model> {
+    pub async fn mark_agent_run_running(&self, run_guid: String) -> Result<review_agent_run::Model> {
         let review_repo = ReviewRepo::new(&self.db);
         let run = review_repo
-            .find_fix_run_by_guid(&run_guid)
+            .find_agent_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+                ServiceError::NotFound(format!("Review agent run {} not found", run_guid))
             })?;
         if run.status == "succeeded" || run.status == "failed" {
             return Ok(run);
         }
         let has_other_running_run = review_repo
-            .list_fix_runs_by_session(&run.session_guid)
+            .list_agent_runs_by_session(&run.session_guid)
             .await
             .map_err(ServiceError::Infra)?
             .into_iter()
             .any(|item| item.guid != run.guid && item.status == "running");
         if has_other_running_run {
             return Err(ServiceError::Validation(
-                "A review fix run is already running for this session".to_string(),
+                "A review agent run is already running for this session".to_string(),
             ));
         }
         review_repo
-            .update_fix_run_status(
+            .update_agent_run_status(
                 &run.guid,
                 "running",
                 None,
@@ -1387,31 +1517,31 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         review_repo
-            .find_fix_run_by_guid(&run.guid)
+            .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run.guid)))
+            .ok_or_else(|| ServiceError::NotFound(format!("Review agent run {} not found", run.guid)))
     }
 
-    pub async fn mark_fix_run_failed(
+    pub async fn mark_agent_run_failed(
         &self,
         run_guid: String,
         message: Option<String>,
-    ) -> Result<review_fix_run::Model> {
+    ) -> Result<review_agent_run::Model> {
         let review_repo = ReviewRepo::new(&self.db);
         let run = review_repo
-            .find_fix_run_by_guid(&run_guid)
+            .find_agent_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+                ServiceError::NotFound(format!("Review agent run {} not found", run_guid))
             })?;
         if run.status == "succeeded" || run.status == "failed" {
             return Ok(run);
         }
         let now = chrono::Utc::now().naive_utc();
         review_repo
-            .update_fix_run_status(
+            .update_agent_run_status(
                 &run.guid,
                 "failed",
                 None,
@@ -1427,23 +1557,49 @@ impl ReviewService {
                 Some(
                     message
                         .filter(|value| !value.trim().is_empty())
-                        .unwrap_or_else(|| "Review fix run failed".to_string()),
+                        .unwrap_or_else(|| "Review agent run failed".to_string()),
                 ),
                 false,
             )
             .await
             .map_err(ServiceError::Infra)?;
         review_repo
-            .find_fix_run_by_guid(&run.guid)
+            .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run.guid)))
+            .ok_or_else(|| ServiceError::NotFound(format!("Review agent run {} not found", run.guid)))
     }
 
-    pub async fn create_fix_run(
+    pub async fn create_agent_run(
         &self,
-        input: CreateReviewFixRunInput,
-    ) -> Result<ReviewFixRunCreatedDto> {
+        input: CreateReviewAgentRunInput,
+    ) -> Result<ReviewAgentRunCreatedDto> {
+        // Validate run_kind
+        if !VALID_RUN_KINDS.contains(&input.run_kind.as_str()) {
+            return Err(ServiceError::Validation(
+                format!("Invalid run_kind: {}. Must be one of: {:?}", input.run_kind, VALID_RUN_KINDS)
+            ));
+        }
+        
+        // Validate execution_mode
+        if !VALID_EXECUTION_MODES.contains(&input.execution_mode.as_str()) {
+            return Err(ServiceError::Validation(
+                format!("Invalid execution_mode: {}. Must be one of: {:?}", input.execution_mode, VALID_EXECUTION_MODES)
+            ));
+        }
+        if input.run_kind == "review"
+            && input
+                .skill_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_none()
+        {
+            return Err(ServiceError::Validation(
+                "Review agent runs require skill_id".to_string(),
+            ));
+        }
+        
         let review_repo = ReviewRepo::new(&self.db);
         let session = review_repo
             .find_session_by_guid(&input.session_guid)
@@ -1454,14 +1610,14 @@ impl ReviewService {
             })?;
         if input.execution_mode != "copy_prompt" {
             let has_running_run = review_repo
-                .list_fix_runs_by_session(&session.guid)
+                .list_agent_runs_by_session(&session.guid)
                 .await
                 .map_err(ServiceError::Infra)?
                 .into_iter()
                 .any(|run| run.status == "running");
             if has_running_run {
                 return Err(ServiceError::Validation(
-                    "A review fix run is already running for this session".to_string(),
+                    "A review agent run is already running for this session".to_string(),
                 ));
             }
         }
@@ -1493,48 +1649,62 @@ impl ReviewService {
                 }
             })
             .collect();
-        if selected_base_comment_guids.is_empty() {
+        
+        // Only fix runs require selected comments
+        if input.run_kind == "fix" && selected_base_comment_guids.is_empty() {
             return Err(ServiceError::Validation(
                 "No review comments selected for fix run".to_string(),
             ));
         }
 
         let run = review_repo
-            .create_fix_run(
+            .create_agent_run(
                 session.guid.clone(),
                 input.base_revision_guid.clone(),
+                input.run_kind.clone(),
                 input.execution_mode.clone(),
+                input.skill_id.clone(),
                 None,
                 input.created_by.clone(),
             )
             .await
             .map_err(ServiceError::Infra)?;
         let revision = self
-            .create_fix_run_revision(&review_repo, &session, &base_revision, &run)
+            .create_agent_run_revision(&review_repo, &session, &base_revision, &run)
             .await?;
         let mut session_for_prompt = session.clone();
         session_for_prompt.current_revision_guid = revision.model.guid.clone();
-        let selected_comments: Vec<ReviewCommentDto> = self
-            .list_comments(session.guid.clone(), Some(revision.model.guid.clone()))
-            .await?
-            .into_iter()
-            .filter(|comment| {
-                comment
-                    .model
-                    .parent_comment_guid
-                    .as_ref()
-                    .map(|parent_guid| selected_base_comment_guids.contains(parent_guid))
-                    .unwrap_or_else(|| selected_base_comment_guids.contains(&comment.model.guid))
-            })
-            .collect();
         let run = review_repo
-            .find_fix_run_by_guid(&run.guid)
+            .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review fix run {} not found", run.guid))
+                ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
             })?;
-        let prompt = self.render_fix_prompt(&session_for_prompt, &run, &selected_comments)?;
+        
+        // Dispatch prompt rendering based on run_kind
+        let prompt = match input.run_kind.as_str() {
+            "review" => self.render_review_prompt(&session_for_prompt, &run, &base_revision, &base_comments)?,
+            "fix" => {
+                let selected_comments: Vec<ReviewCommentDto> = self
+                    .list_comments(session.guid.clone(), Some(revision.model.guid.clone()))
+                    .await?
+                    .into_iter()
+                    .filter(|comment| {
+                        comment
+                            .model
+                            .parent_comment_guid
+                            .as_ref()
+                            .map(|parent_guid| selected_base_comment_guids.contains(parent_guid))
+                            .unwrap_or_else(|| selected_base_comment_guids.contains(&comment.model.guid))
+                    })
+                    .collect();
+                self.render_fix_prompt(&session_for_prompt, &run, &selected_comments)?
+            }
+            _ => return Err(ServiceError::Validation(
+                format!("Invalid run_kind: {}", input.run_kind)
+            )),
+        };
         let prompt_abs_path = run_root_abs_path(&session.guid, &run.guid)
             .map_err(ServiceError::Infra)?
             .join("prompt.md");
@@ -1542,7 +1712,7 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         review_repo
-            .update_fix_run_prompt_rel_path(
+            .update_agent_run_prompt_rel_path(
                 &run.guid,
                 &prompt_abs_path.to_string_lossy().to_string(),
             )
@@ -1550,7 +1720,7 @@ impl ReviewService {
             .map_err(ServiceError::Infra)?;
         if input.execution_mode != "copy_prompt" {
             review_repo
-                .update_fix_run_status(
+                .update_agent_run_status(
                     &run.guid,
                     "running",
                     None,
@@ -1567,23 +1737,23 @@ impl ReviewService {
         }
 
         let updated_run = review_repo
-            .find_fix_run_by_guid(&run.guid)
+            .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review fix run {} not found", run.guid))
+                ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
             })?;
 
-        Ok(ReviewFixRunCreatedDto {
+        Ok(ReviewAgentRunCreatedDto {
             run: updated_run,
             revision,
             prompt,
         })
     }
 
-    pub async fn list_fix_runs(&self, session_guid: String) -> Result<Vec<review_fix_run::Model>> {
+    pub async fn list_agent_runs(&self, session_guid: String) -> Result<Vec<review_agent_run::Model>> {
         ReviewRepo::new(&self.db)
-            .list_fix_runs_by_session(&session_guid)
+            .list_agent_runs_by_session(&session_guid)
             .await
             .map_err(ServiceError::Infra)
     }
@@ -1679,11 +1849,11 @@ impl ReviewService {
     ) -> Result<ReviewRunArtifactDto> {
         let review_repo = ReviewRepo::new(&self.db);
         let run = review_repo
-            .find_fix_run_by_guid(&run_guid)
+            .find_agent_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+                ServiceError::NotFound(format!("Review agent run {} not found", run_guid))
             })?;
         let abs_path = match kind.as_str() {
             "prompt" => run.prompt_rel_path.clone(),
@@ -1698,7 +1868,7 @@ impl ReviewService {
         }
         .ok_or_else(|| {
             ServiceError::NotFound(format!(
-                "Review fix run {} has no {} artifact",
+                "Review agent run {} has no {} artifact",
                 run.guid, kind
             ))
         })?;
@@ -1712,14 +1882,14 @@ impl ReviewService {
         &self,
         run_guid: String,
         body: String,
-    ) -> Result<review_fix_run::Model> {
+    ) -> Result<review_agent_run::Model> {
         let review_repo = ReviewRepo::new(&self.db);
         let run = review_repo
-            .find_fix_run_by_guid(&run_guid)
+            .find_agent_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+                ServiceError::NotFound(format!("Review agent run {} not found", run_guid))
             })?;
         let summary_abs_path = run_root_abs_path(&run.session_guid, &run.guid)
             .map_err(ServiceError::Infra)?
@@ -1728,15 +1898,15 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         if run.status == "pending" {
-            self.mark_fix_run_running(run.guid.clone()).await?;
+            self.mark_agent_run_running(run.guid.clone()).await?;
         }
         // Persist only the summary artifact path. The run's lifecycle status
         // must remain the caller's current status (typically "running") — only
-        // `finalize_fix_run` is allowed to transition the run to a terminal
+        // `finalize_agent_run` is allowed to transition the run to a terminal
         // state (`succeeded` / `failed`), and only once the result revision
         // and patch artifact are also persisted.
         review_repo
-            .update_fix_run_summary_path(
+            .update_agent_run_summary_path(
                 &run.guid,
                 summary_abs_path.to_string_lossy().to_string(),
                 if run.started_at.is_none() {
@@ -1749,29 +1919,29 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         review_repo
-            .find_fix_run_by_guid(&run.guid)
+            .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review fix run {} not found", run.guid)))
+            .ok_or_else(|| ServiceError::NotFound(format!("Review agent run {} not found", run.guid)))
     }
 
-    pub async fn finalize_fix_run(
+    pub async fn finalize_agent_run(
         &self,
         run_guid: String,
         _title: Option<String>,
-    ) -> Result<ReviewFixRunFinalizedDto> {
+    ) -> Result<ReviewAgentRunFinalizedDto> {
         let review_repo = ReviewRepo::new(&self.db);
         let run = review_repo
-            .find_fix_run_by_guid(&run_guid)
+            .find_agent_run_by_guid(&run_guid)
             .await
             .map_err(ServiceError::Infra)?
             .ok_or_else(|| {
-                ServiceError::NotFound(format!("Review fix run {} not found", run_guid))
+                ServiceError::NotFound(format!("Review agent run {} not found", run_guid))
             })?;
         if run.status == "succeeded" {
             let target_revision_guid = run.result_revision_guid.clone().ok_or_else(|| {
                 ServiceError::Validation(format!(
-                    "Review fix run {} is succeeded but has no result revision",
+                    "Review agent run {} is succeeded but has no result revision",
                     run.guid
                 ))
             })?;
@@ -1785,19 +1955,19 @@ impl ReviewService {
                         target_revision_guid
                     ))
                 })?;
-            return Ok(ReviewFixRunFinalizedDto { run, revision });
+            return Ok(ReviewAgentRunFinalizedDto { run, revision });
         }
         if run.status == "failed" {
             return Err(ServiceError::Validation(format!(
-                "Review fix run {} has already failed",
+                "Review agent run {} has already failed",
                 run.guid
             )));
         }
         if run.status == "pending" {
-            self.mark_fix_run_running(run.guid.clone()).await?;
+            self.mark_agent_run_running(run.guid.clone()).await?;
         }
 
-        let finalize_result: Result<ReviewFixRunFinalizedDto> = async {
+        let finalize_result: Result<ReviewAgentRunFinalizedDto> = async {
             let session = review_repo
                 .find_session_by_guid(&run.session_guid)
                 .await
@@ -1830,7 +2000,7 @@ impl ReviewService {
                 })?;
             let target_revision_guid = run.result_revision_guid.clone().ok_or_else(|| {
                 ServiceError::Validation(format!(
-                    "Review fix run {} has no target revision",
+                    "Review agent run {} has no target revision",
                     run.guid
                 ))
             })?;
@@ -1844,6 +2014,59 @@ impl ReviewService {
                         target_revision_guid
                     ))
                 })?;
+            let change_time = chrono::Utc::now().naive_utc();
+
+            if run.run_kind == "review" {
+                review_repo
+                    .update_session_current_revision(&session.guid, &revision.guid)
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                review_repo
+                    .update_revision_title_and_source_kind(
+                        &revision.guid,
+                        Some("Review Checkpoint"),
+                        "agent_review",
+                    )
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                review_repo
+                    .update_agent_run_status(
+                        &run.guid,
+                        "succeeded",
+                        Some(revision.guid.clone()),
+                        Some(revision.storage_root_rel_path.clone()),
+                        None,
+                        None,
+                        if run.started_at.is_none() {
+                            Some(change_time)
+                        } else {
+                            None
+                        },
+                        Some(change_time),
+                        None,
+                        true,
+                    )
+                    .await
+                    .map_err(ServiceError::Infra)?;
+                let updated_run = review_repo
+                    .find_agent_run_by_guid(&run.guid)
+                    .await
+                    .map_err(ServiceError::Infra)?
+                    .ok_or_else(|| {
+                        ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
+                    })?;
+                let updated_revision = review_repo
+                    .find_revision_by_guid(&revision.guid)
+                    .await
+                    .map_err(ServiceError::Infra)?
+                    .ok_or_else(|| {
+                        ServiceError::NotFound(format!("Review revision {} not found", revision.guid))
+                    })?;
+                return Ok(ReviewAgentRunFinalizedDto {
+                    run: updated_run,
+                    revision: updated_revision,
+                });
+            }
 
             let base_snapshots = review_repo
                 .list_file_snapshots_by_revision(&base_revision.guid)
@@ -1876,7 +2099,6 @@ impl ReviewService {
                     .map(|state| (state.file_identity_guid.clone(), state))
                     .collect();
 
-            let change_time = chrono::Utc::now().naive_utc();
             let mut patch_chunks = Vec::new();
             let mut seen_file_paths: HashSet<String> = base_snapshots
                 .iter()
@@ -2123,7 +2345,7 @@ impl ReviewService {
                     revision_guid: item.guid,
                     parent_revision_guid: item.parent_revision_guid,
                     source_kind: item.source_kind,
-                    fix_run_guid: item.fix_run_guid,
+                    agent_run_guid: item.agent_run_guid,
                     storage_root_rel_path: item.storage_root_rel_path,
                     created_at: item.created_at.to_string(),
                 })
@@ -2136,7 +2358,11 @@ impl ReviewService {
 
             let patch_abs_path = run_root_abs_path(&session.guid, &run.guid)
                 .map_err(ServiceError::Infra)?
-                .join("fix.patch");
+                .join(if run.run_kind == "review" {
+                    "review.patch"
+                } else {
+                    "fix.patch"
+                });
             let patch_text = if patch_chunks.is_empty() {
                 String::new()
             } else {
@@ -2151,8 +2377,23 @@ impl ReviewService {
                 .await
                 .map_err(ServiceError::Infra)?;
 
+            let (revision_title, source_kind) = match run.run_kind.as_str() {
+                "review" => ("Review Checkpoint".to_string(), "agent_review".to_string()),
+                "fix" => ("Fix Result".to_string(), "agent_fix".to_string()),
+                _ => ("Agent Run Result".to_string(), "agent_run".to_string()),
+            };
+            
             review_repo
-                .update_fix_run_status(
+                .update_revision_title_and_source_kind(
+                    &revision.guid,
+                    Some(&revision_title),
+                    &source_kind,
+                )
+                .await
+                .map_err(ServiceError::Infra)?;
+
+            review_repo
+                .update_agent_run_status(
                     &run.guid,
                     "succeeded",
                     Some(revision.guid.clone()),
@@ -2171,14 +2412,14 @@ impl ReviewService {
                 .await
                 .map_err(ServiceError::Infra)?;
             let updated_run = review_repo
-                .find_fix_run_by_guid(&run.guid)
+                .find_agent_run_by_guid(&run.guid)
                 .await
                 .map_err(ServiceError::Infra)?
                 .ok_or_else(|| {
-                    ServiceError::NotFound(format!("Review fix run {} not found", run.guid))
+                    ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
                 })?;
 
-            Ok(ReviewFixRunFinalizedDto {
+            Ok(ReviewAgentRunFinalizedDto {
                 run: updated_run,
                 revision,
             })
@@ -2187,7 +2428,7 @@ impl ReviewService {
 
         if let Err(error) = &finalize_result {
             if let Err(update_error) = review_repo
-                .update_fix_run_status(
+                .update_agent_run_status(
                     &run.guid,
                     "failed",
                     None,
@@ -2219,7 +2460,7 @@ impl ReviewService {
     fn render_fix_prompt(
         &self,
         session: &review_session::Model,
-        run: &review_fix_run::Model,
+        run: &review_agent_run::Model,
         comments: &[ReviewCommentDto],
     ) -> Result<String> {
         let mut output = String::new();
@@ -2264,6 +2505,68 @@ impl ReviewService {
         Ok(output)
     }
 
+    fn render_review_prompt(
+        &self,
+        session: &review_session::Model,
+        run: &review_agent_run::Model,
+        base_revision: &review_revision::Model,
+        all_comments: &[ReviewCommentDto],
+    ) -> Result<String> {
+        let mut output = String::new();
+        output.push_str("<review-agent-run>\n");
+        output.push_str(&format!(
+            "  <session guid=\"{}\" current_revision_guid=\"{}\" />\n",
+            xml_escape(&session.guid),
+            xml_escape(&session.current_revision_guid)
+        ));
+        output.push_str(&format!(
+            "  <run guid=\"{}\" run_kind=\"{}\" execution_mode=\"{}\" skill_id=\"{}\" />\n",
+            xml_escape(&run.guid),
+            xml_escape(&run.run_kind),
+            xml_escape(&run.execution_mode),
+            xml_escape(&run.skill_id.as_deref().unwrap_or("default"))
+        ));
+        output.push_str(&format!(
+            "  <base_revision guid=\"{}\" title=\"{}\" />\n",
+            xml_escape(&base_revision.guid),
+            xml_escape(&base_revision.title.as_deref().unwrap_or("Untitled"))
+        ));
+        
+        // Include existing comments in the prompt
+        if !all_comments.is_empty() {
+            output.push_str("  <existing_comments>\n");
+            for comment in all_comments {
+                output.push_str(&format!(
+                    "    <comment guid=\"{}\" file_snapshot_guid=\"{}\">\n",
+                    xml_escape(&comment.model.guid),
+                    xml_escape(&comment.model.file_snapshot_guid)
+                ));
+                output.push_str(&format!(
+                    "      <anchor side=\"{}\" start_line=\"{}\" end_line=\"{}\" />\n",
+                    xml_escape(&comment.model.anchor_side),
+                    comment.model.anchor_start_line,
+                    comment.model.anchor_end_line
+                ));
+                if let Some(message) = comment.messages.first() {
+                    output.push_str("      <comment>\n");
+                    output.push_str(&xml_escape(&message.body_full));
+                    output.push_str("\n      </comment>\n");
+                }
+                output.push_str("    </comment>\n");
+            }
+            output.push_str("  </existing_comments>\n");
+        }
+        
+        output.push_str("</review-agent-run>\n\n");
+        output.push_str("This is an Atmos Agent Review run. Analyze the code in the specified revision and identify issues, bugs, or improvements.\n");
+        output.push_str("Use the `atmos review create-comment` CLI command to create inline comments for each issue you find.\n");
+        if let Some(skill_id) = &run.skill_id {
+            output.push_str(&format!("Use the {} skill for this review.\n", skill_id));
+        }
+        output.push_str("After completing the review, use `atmos review set-status --status succeeded --summary-stdin` to mark the run as complete.\n");
+        Ok(output)
+    }
+
     async fn build_session_dto(&self, session: review_session::Model) -> Result<ReviewSessionDto> {
         let review_repo = ReviewRepo::new(&self.db);
         let revisions = review_repo
@@ -2275,7 +2578,7 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         let runs = review_repo
-            .list_fix_runs_by_session(&session.guid)
+            .list_agent_runs_by_session(&session.guid)
             .await
             .map_err(ServiceError::Infra)?;
         let mut revision_dtos = Vec::with_capacity(revisions.len());

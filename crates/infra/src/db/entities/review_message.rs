@@ -17,7 +17,7 @@ pub struct Model {
     pub body_storage_kind: String,
     pub body: String,
     pub body_rel_path: Option<String>,
-    pub fix_run_guid: Option<String>,
+    pub agent_run_guid: Option<String>,
 }
 
 impl_base_entity!(Model);
