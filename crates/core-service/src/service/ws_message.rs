@@ -612,6 +612,10 @@ impl WsMessageService {
                 self.handle_workspace_create(conn_id, parse_request(request.data)?)
                     .await
             }
+            WsAction::WorkspaceImportGithubIssues => {
+                self.handle_workspace_import_github_issues(parse_request(request.data)?)
+                    .await
+            }
             WsAction::WorkspaceUpdateName => {
                 self.handle_workspace_update_name(parse_request(request.data)?)
                     .await
@@ -1808,7 +1812,7 @@ impl WsMessageService {
     async fn handle_workspace_list(&self, req: WorkspaceListRequest) -> Result<Value> {
         let workspaces = self
             .workspace_service
-            .list_by_project(req.project_guid)
+            .list_by_project(req.project_guid, req.include_issue_only)
             .await?;
         Ok(json!(workspaces))
     }
@@ -1976,6 +1980,69 @@ impl WsMessageService {
         }
 
         Ok(json!(workspace))
+    }
+
+    async fn handle_workspace_import_github_issues(
+        &self,
+        req: WorkspaceImportGithubIssuesRequest,
+    ) -> Result<Value> {
+        use infra::websocket::message::GithubIssuePayload;
+        use infra::db::repo::workspace_repo::WorkspaceRepo;
+
+        let workspace_repo = WorkspaceRepo::new(&self.db);
+        let mut created_workspaces = Vec::new();
+        let mut skipped_issues = Vec::new();
+
+        // Get existing issue-only workspaces for this project to check for duplicates
+        let existing_workspaces = workspace_repo
+            .list_by_project(&req.project_guid, true)
+            .await?;
+
+        for issue in req.issues {
+            // Check for duplicate: project_guid + github_issue_url + create_source=issue_only
+            let is_duplicate = existing_workspaces.iter().any(|w| {
+                w.github_issue_url.as_ref() == Some(&issue.url) && w.create_source == "issue_only"
+            });
+
+            if is_duplicate {
+                skipped_issues.push(json!({
+                    "issue_url": issue.url,
+                    "reason": "duplicate",
+                }));
+                tracing::warn!(
+                    "Skipping duplicate issue import: project={}, issue_url={}",
+                    req.project_guid,
+                    issue.url
+                );
+                continue;
+            }
+
+            // Serialize issue data for storage
+            let issue_data = serde_json::to_string(&issue).map_err(|e| {
+                ServiceError::Validation(format!("Failed to serialize issue data: {e}"))
+            })?;
+
+            // Create issue-only workspace
+            let workspace = self
+                .workspace_service
+                .create_issue_only_workspace(
+                    req.project_guid.clone(),
+                    Some(issue.title.clone()),
+                    issue.url.clone(),
+                    issue_data,
+                    req.workflow_status.clone(),
+                    req.priority.clone(),
+                    req.label_guids.clone(),
+                )
+                .await?;
+
+            created_workspaces.push(workspace);
+        }
+
+        Ok(json!({
+            "created": created_workspaces,
+            "skipped": skipped_issues,
+        }))
     }
 
     async fn handle_workspace_update_name(&self, req: WorkspaceUpdateNameRequest) -> Result<Value> {
@@ -3602,6 +3669,8 @@ set -x
             body: issue.body,
             url: issue.url,
             state: issue.state,
+            created_at: issue.created_at,
+            updated_at: issue.updated_at,
             labels: issue
                 .labels
                 .into_iter()
@@ -3617,7 +3686,15 @@ set -x
     async fn handle_github_issue_list(&self, req: GithubIssueListRequest) -> Result<Value> {
         let issues = self
             .github_engine
-            .list_issues(&req.owner, &req.repo, &req.state, req.limit)
+            .list_issues(
+                &req.owner,
+                &req.repo,
+                &req.state,
+                req.limit,
+                &req.sort,
+                &req.direction,
+                req.search.as_deref(),
+            )
             .await
             .map_err(|error| {
                 ServiceError::Validation(format!("Failed to list GitHub issues: {error}"))

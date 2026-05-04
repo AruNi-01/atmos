@@ -204,12 +204,21 @@ export interface WorkspaceModel {
   github_issue: GithubIssuePayload | null;
   github_pr: GithubPrPayload | null;
   labels: WorkspaceLabelModel[];
+  create_source: string;
 }
 
 export interface WorkspaceAttachmentPayload {
   filename: string;
   mime: string;
   dataBase64: string;
+}
+
+export interface WorkspaceImportGithubIssuesResult {
+  created: WorkspaceModel[];
+  skipped: Array<{
+    issue_url: string;
+    reason: string;
+  }>;
 }
 
 export interface WorkspaceLabelModel {
@@ -444,6 +453,8 @@ export interface GithubIssuePayload {
   body: string | null;
   url: string;
   state: string;
+  created_at: string;
+  updated_at: string;
   labels: GithubIssueLabelPayload[];
 }
 
@@ -1193,9 +1204,10 @@ export const wsWorkspaceApi = {
   /**
    * 获取项目下的所有 Workspace
    */
-  listByProject: async (projectGuid: string): Promise<WorkspaceModel[]> => {
+  listByProject: async (projectGuid: string, includeIssueOnly = false): Promise<WorkspaceModel[]> => {
     return wsRequest<WorkspaceModel[]>("workspace_list", {
       project_guid: projectGuid,
+      include_issue_only: includeIssueOnly,
     });
   },
 
@@ -1237,6 +1249,25 @@ export const wsWorkspaceApi = {
         mime: a.mime,
         data_base64: a.dataBase64,
       })),
+    });
+  },
+
+  /**
+   * 从 GitHub Issues 导入创建 Issue Only Workspaces
+   */
+  importGithubIssues: async (data: {
+    projectGuid: string;
+    issues: GithubIssuePayload[];
+    workflowStatus?: string | null;
+    priority?: string | null;
+    labelGuids?: string[] | null;
+  }): Promise<WorkspaceImportGithubIssuesResult> => {
+    return wsRequest<WorkspaceImportGithubIssuesResult>("workspace_import_github_issues", {
+      project_guid: data.projectGuid,
+      issues: data.issues,
+      workflow_status: data.workflowStatus ?? null,
+      priority: data.priority ?? null,
+      label_guids: data.labelGuids ?? null,
     });
   },
 
@@ -1644,12 +1675,18 @@ export const wsGithubApi = {
     repo: string;
     state?: string;
     limit?: number;
+    sort?: "created" | "updated";
+    direction?: "asc" | "desc";
+    search?: string;
   }): Promise<GithubIssuePayload[]> => {
     return wsRequest<GithubIssuePayload[]>("github_issue_list", {
       owner: params.owner,
       repo: params.repo,
       state: params.state ?? "open",
       limit: params.limit ?? 50,
+      sort: params.sort ?? "created",
+      direction: params.direction ?? "desc",
+      search: params.search?.trim() || null,
     });
   },
 

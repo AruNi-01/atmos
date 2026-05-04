@@ -326,6 +326,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
+    createSource: model.create_source as 'manual' | 'issue_only',
   };
 }
 
@@ -567,6 +568,37 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return newWorkspace.id;
     } catch (error) {
       console.error('Error adding workspace:', error);
+      throw error;
+    }
+  },
+
+  addWorkspacesToProject: async (projectId: string, workspaceGuids: string[]) => {
+    try {
+      const project = get().projects.find(p => p.id === projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      // Fetch all workspaces for the project with issue_only included
+      const allWorkspaces = await wsWorkspaceApi.listByProject(projectId, true);
+      const newWorkspaces = allWorkspaces.filter(w => workspaceGuids.includes(w.guid));
+
+      const mappedWorkspaces = newWorkspaces.map(mapWorkspaceModel);
+
+      set(state => ({
+        projects: state.projects.map(p =>
+          p.id === projectId
+            ? {
+                ...p,
+                workspaces: sortWorkspaces([...p.workspaces, ...mappedWorkspaces]),
+              }
+            : p
+        )
+      }));
+
+      return mappedWorkspaces;
+    } catch (error) {
+      console.error('Error adding workspaces to project:', error);
       throw error;
     }
   },
