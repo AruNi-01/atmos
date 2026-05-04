@@ -41,6 +41,8 @@ pub struct Model {
     pub github_pr_url: Option<String>,
     /// Serialized GitHub PR metadata for workspace overview/import
     pub github_pr_data: Option<String>,
+    /// Workspace creation source: manual | issue_only
+    pub create_source: String,
 }
 
 impl_base_entity!(Model);

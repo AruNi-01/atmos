@@ -72,13 +72,13 @@ function statusLabel(state: LocalModelStatus): string {
 function statusColor(state: LocalModelStatus): string {
   switch (state.status) {
     case "running":
-      return "text-green-500";
+      return "text-success";
     case "failed":
       return "text-destructive";
     case "downloading_binary":
     case "downloading_model":
     case "starting":
-      return "text-amber-500";
+      return "text-warning";
     default:
       return "text-muted-foreground";
   }

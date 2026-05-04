@@ -67,6 +67,9 @@ interface CreateWorkspaceDialogProps {
   defaultWorkflowStatus?: WorkspaceWorkflowStatus;
   projectSelectionInHeader?: boolean;
   requireProjectSelection?: boolean;
+  // Build from Issue Only mode
+  preselectedIssue?: GithubIssuePayload;
+  sourceWorkspaceId?: string;
 }
 
 interface RepoContext {
@@ -207,7 +210,9 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   defaultWorkflowStatus,
   projectSelectionInHeader = false,
   requireProjectSelection = false,
-}) => {
+  preselectedIssue,
+  sourceWorkspaceId,
+}: CreateWorkspaceDialogProps) => {
   const router = useAppRouter();
   const projects = useProjectStore((s) => s.projects);
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
@@ -318,30 +323,46 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setPrError(null);
       setIsPrsLoading(false);
       setIsPrPreviewLoading(false);
-      setRepoContext(null);
-      setIsSubmitting(false);
-      setIssueError(null);
-      setBranchError(null);
-      setSubmitError(null);
-      setAutoExtractTodos(false);
-      setAutoExtractTodosPr(false);
-      setLinkType('none');
-      setTodoProviderLabel(null);
       setIsRepoLoading(false);
       setIsBaseBranchesLoading(false);
       setIsIssuesLoading(false);
       setIsIssuePreviewLoading(false);
       setIsLlmRoutingLoading(false);
       setHasSetupScript(false);
-      // Reset metadata states to defaults
+      setIssueError(null);
+      setBranchError(null);
+      setSubmitError(null);
+      setAutoExtractTodos(false);
+      setAutoExtractTodosPr(false);
+      setLinkType('none');
+      setDisplayedLinkType('issue');
+      setTodoProviderLabel(null);
+      setIsSubmitting(false);
       setPriority('no_priority');
       setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
       setSelectedLabels([]);
+      // Reset refs
       nameTouchedRef.current = false;
       branchTouchedRef.current = false;
       generatedBranchRef.current = null;
     }
-  }, [defaultProjectId, defaultWorkflowStatus, isOpen, projects, requireProjectSelection]);
+  }, [defaultProjectId, isOpen, projects, requireProjectSelection, defaultWorkflowStatus]);
+
+  // Handle preselectedIssue for Build from Issue Only mode
+  useEffect(() => {
+    if (isOpen && preselectedIssue) {
+      setIssuePreview(preselectedIssue);
+      setIssueUrl(preselectedIssue.url);
+      setSelectedIssueNumber(preselectedIssue.number.toString());
+      setLinkType('issue');
+      setDisplayedLinkType('issue');
+      // Auto-fill workspace name and branch from issue
+      const workspaceName = issueToWorkspaceName(preselectedIssue);
+      const branchName = issueToBranchName(preselectedIssue);
+      setName(workspaceName);
+      setBranch(branchName);
+    }
+  }, [isOpen, preselectedIssue]);
 
   useEffect(() => {
     let cancelled = false;
@@ -389,15 +410,19 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setRepoContext(null);
       setRemoteBranches([]);
       setIssues([]);
-      setIssuePreview(null);
-      setSelectedIssueNumber('');
-      setIssueUrl('');
+      if (!preselectedIssue) {
+        setIssuePreview(null);
+        setSelectedIssueNumber('');
+        setIssueUrl('');
+      }
       setPrs([]);
       setPrPreview(null);
       setSelectedPrNumber('');
       setPrUrl('');
       setPrError(null);
-      setLinkType('none');
+      if (!preselectedIssue) {
+        setLinkType('none');
+      }
       setAutoExtractTodos(false);
       setAutoExtractTodosPr(false);
       setHasSetupScript(false);
@@ -543,6 +568,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
   };
 
   const handleSelectLinkType = (next: 'issue' | 'pr') => {
+    if (preselectedIssue) {
+      return;
+    }
+
     if (linkType === next) {
       setLinkType('none');
       if (next === 'issue') clearIssueSelection();
@@ -794,7 +823,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[720px] max-h-[80vh] overflow-y-auto [scrollbar-gutter:stable] gap-4 bg-background p-6 pt-7">
         <DialogHeader className="flex flex-row items-start justify-between gap-4 pr-8">
-          <DialogTitle>Create New Workspace</DialogTitle>
+          <DialogTitle>{preselectedIssue ? 'Build Workspace from Issue' : 'Create New Workspace'}</DialogTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
             <Github className="size-3.5" />
             {!projectSelectionInHeader ? (
@@ -988,11 +1017,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               <button
                 type="button"
                 onClick={() => handleSelectLinkType('issue')}
+                disabled={!!preselectedIssue}
                 className={cn(
                   'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                   linkType === 'issue'
                     ? 'bg-muted text-foreground shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                  preselectedIssue && 'cursor-not-allowed opacity-80',
                 )}
               >
                 <CircleDot className="size-4" />
@@ -1001,11 +1032,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
               <button
                 type="button"
                 onClick={() => handleSelectLinkType('pr')}
+                disabled={!!preselectedIssue}
                 className={cn(
                   'inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                   linkType === 'pr'
                     ? 'bg-muted text-foreground shadow-sm'
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                  preselectedIssue && 'cursor-not-allowed opacity-50',
                 )}
               >
                 <GitPullRequestArrow className="size-4" />
@@ -1046,11 +1079,13 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                     {repoContext ? (
                       <>
                         <div className="grid gap-2">
-                          <Label htmlFor="issue-select">Select from repository</Label>
+                          <Label htmlFor="issue-select">
+                            {preselectedIssue ? 'Linked GitHub Issue' : 'Select from repository'}
+                          </Label>
                           <Select
                             value={selectedIssueNumber}
                             onValueChange={handleSelectIssue}
-                            disabled={!isIssuesLoading && issues.length === 0}
+                            disabled={!!preselectedIssue || (!isIssuesLoading && issues.length === 0)}
                           >
                             <SelectTrigger
                               id="issue-select"
@@ -1093,13 +1128,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                                 setIssueUrl(event.target.value);
                               }}
                               placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
+                              disabled={!!preselectedIssue}
                             />
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
                               onClick={handleLoadIssueFromUrl}
-                              disabled={isIssuePreviewLoading || !issueUrl.trim()}
+                              disabled={isIssuePreviewLoading || !issueUrl.trim() || !!preselectedIssue}
                               title="Load issue"
                             >
                               {isIssuePreviewLoading ? (

@@ -50,16 +50,25 @@ where
     let mut hasher = Sha256::new();
     let mut downloaded: u64 = 0;
 
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
-        hasher.update(&chunk);
-        file.write_all(&chunk).await?;
-        downloaded += chunk.len() as u64;
-        on_progress(DownloadProgress { downloaded, total });
-    }
+    let download_result = (|| async {
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk?;
+            hasher.update(&chunk);
+            file.write_all(&chunk).await?;
+            downloaded += chunk.len() as u64;
+            on_progress(DownloadProgress { downloaded, total });
+        }
 
-    file.flush().await?;
+        file.flush().await?;
+        Ok(())
+    })().await;
+
     drop(file);
+
+    if download_result.is_err() {
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return download_result;
+    }
 
     // Verify checksum.
     let actual_hex = hex::encode(hasher.finalize());

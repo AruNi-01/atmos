@@ -88,6 +88,7 @@ export type WsAction =
   | "workspace_skip_setup_step"
   | "workspace_skip_setup_script"
   | "workspace_confirm_todos"
+  | "workspace_import_github_issues"
   // Project 检查操作
   | "project_check_can_delete"
   // Review 操作

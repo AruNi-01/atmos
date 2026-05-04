@@ -25,6 +25,7 @@ mod m20260411_000016_backfill_workspace_label_guids;
 mod m20260412_000017_add_workspace_pin_order;
 mod m20260422_000019_create_review_tables;
 mod m20260427_000018_add_workspace_github_pr;
+mod m20260428_000020_add_workspace_create_source;
 
 pub struct Migrator;
 
@@ -52,6 +53,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260412_000017_add_workspace_pin_order::Migration),
             Box::new(m20260427_000018_add_workspace_github_pr::Migration),
             Box::new(m20260422_000019_create_review_tables::Migration),
+            Box::new(m20260428_000020_add_workspace_create_source::Migration),
         ]
     }
 }

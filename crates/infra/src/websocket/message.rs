@@ -277,6 +277,8 @@ pub enum WsAction {
     WorkspaceUpdatePinOrder,
     /// 归档 Workspace
     WorkspaceArchive,
+    /// 从 GitHub Issues 导入创建 Issue Only Workspaces
+    WorkspaceImportGithubIssues,
     /// 取消归档 Workspace
     WorkspaceUnarchive,
     /// 获取已归档的 Workspace 列表
@@ -1248,6 +1250,8 @@ pub struct ScriptSaveRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceListRequest {
     pub project_guid: String,
+    #[serde(default)]
+    pub include_issue_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1416,6 +1420,18 @@ pub struct ProjectCheckCanDeleteRequest {
     pub guid: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceImportGithubIssuesRequest {
+    pub project_guid: String,
+    pub issues: Vec<GithubIssuePayload>,
+    #[serde(default)]
+    pub workflow_status: Option<String>,
+    #[serde(default)]
+    pub priority: Option<String>,
+    #[serde(default)]
+    pub label_guids: Option<Vec<String>>,
+}
+
 // ===== Skills 操作数据结构 =====
 
 /// Skill 中的文件信息
@@ -1548,6 +1564,10 @@ pub struct GithubIssuePayload {
     pub url: String,
     pub state: String,
     #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    #[serde(default)]
     pub labels: Vec<GithubIssueLabelPayload>,
 }
 
@@ -1559,6 +1579,12 @@ pub struct GithubIssueListRequest {
     pub state: String,
     #[serde(default = "default_github_issue_limit")]
     pub limit: usize,
+    #[serde(default = "default_github_issue_sort")]
+    pub sort: String,
+    #[serde(default = "default_github_issue_direction")]
+    pub direction: String,
+    #[serde(default)]
+    pub search: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1579,6 +1605,14 @@ fn default_github_issue_state() -> String {
 
 fn default_github_issue_limit() -> usize {
     50
+}
+
+fn default_github_issue_sort() -> String {
+    "created".to_string()
+}
+
+fn default_github_issue_direction() -> String {
+    "desc".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

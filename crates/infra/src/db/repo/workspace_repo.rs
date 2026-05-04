@@ -25,11 +25,18 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 根据项目 GUID 查询所有工作区（过滤已归档，按置顶优先、pin_order ASC、pinned_at DESC、created_at DESC 排序）
-    pub async fn list_by_project(&self, project_guid: &str) -> Result<Vec<workspace::Model>> {
-        let workspaces = workspace::Entity::find()
+    pub async fn list_by_project(&self, project_guid: &str, include_issue_only: bool) -> Result<Vec<workspace::Model>> {
+        let mut query = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))
-            .filter(workspace::Column::IsArchived.eq(false))
+            .filter(workspace::Column::IsArchived.eq(false));
+
+        // Filter out issue_only workspaces by default
+        if !include_issue_only {
+            query = query.filter(workspace::Column::CreateSource.ne("issue_only"));
+        }
+
+        let workspaces = query
             .order_by_desc(workspace::Column::IsPinned)
             .order_by_asc(workspace::Column::PinOrder)
             .order_by_desc(workspace::Column::PinnedAt)
@@ -67,6 +74,7 @@ impl<'a> WorkspaceRepo<'a> {
         workflow_status: Option<String>,
         priority: Option<String>,
         label_guids: Option<Vec<String>>,
+        create_source: String,
     ) -> Result<workspace::Model> {
         let base = BaseFields::new();
 
@@ -102,6 +110,63 @@ impl<'a> WorkspaceRepo<'a> {
             github_pr_url: Set(github_pr_url),
             github_pr_data: Set(github_pr_data),
             auto_extract_todos: Set(auto_extract_todos),
+            create_source: Set(create_source),
+        };
+
+        let result = model.insert(self.db).await?;
+        Ok(result)
+    }
+
+    /// 创建 Issue Only 工作区（从 GitHub Issue 导入）
+    /// 不创建分支、不初始化 worktree、不运行 setup flow
+    pub async fn create_issue_only(
+        &self,
+        project_guid: String,
+        display_name: Option<String>,
+        github_issue_url: String,
+        github_issue_data: String,
+        workflow_status: Option<String>,
+        priority: Option<String>,
+        label_guids: Option<Vec<String>>,
+    ) -> Result<workspace::Model> {
+        let base = BaseFields::new();
+
+        let serialized_labels = match label_guids {
+            Some(guids) => self.serialize_existing_label_guids(guids).await?,
+            None => None,
+        };
+
+        // 生成占位分支名（不实际创建）
+        let placeholder_branch = format!("issue-only-{}", &base.guid[..8]);
+
+        let model = workspace::ActiveModel {
+            guid: Set(base.guid),
+            project_guid: Set(project_guid),
+            created_at: Set(base.created_at),
+            updated_at: Set(base.updated_at),
+            is_deleted: Set(base.is_deleted),
+            name: Set(placeholder_branch.clone()),
+            display_name: Set(display_name),
+            branch: Set(placeholder_branch),
+            base_branch: Set("main".to_string()),
+            sidebar_order: Set(0),
+            is_pinned: Set(false),
+            pinned_at: Set(None),
+            pin_order: Set(None),
+            is_archived: Set(false),
+            archived_at: Set(None),
+            last_visited_at: Set(None),
+            workflow_status: Set(workflow_status.unwrap_or_else(|| "backlog".to_string())),
+            priority: Set(priority.unwrap_or_else(|| "no_priority".to_string())),
+            label_guids: Set(serialized_labels),
+            terminal_layout: Set(None),
+            maximized_terminal_id: Set(None),
+            github_issue_url: Set(Some(github_issue_url)),
+            github_issue_data: Set(Some(github_issue_data)),
+            github_pr_url: Set(None),
+            github_pr_data: Set(None),
+            auto_extract_todos: Set(false),
+            create_source: Set("issue_only".to_string()),
         };
 
         let result = model.insert(self.db).await?;

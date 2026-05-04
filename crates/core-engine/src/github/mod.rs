@@ -34,6 +34,8 @@ pub struct GithubIssue {
     pub body: Option<String>,
     pub url: String,
     pub state: String,
+    pub created_at: String,
+    pub updated_at: String,
     pub labels: Vec<GithubIssueLabel>,
 }
 
@@ -240,8 +242,11 @@ impl GithubEngine {
         repo: &str,
         state: &str,
         limit: usize,
+        sort: &str,
+        direction: &str,
+        search: Option<&str>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
-        match self.list_issues_via_gh(owner, repo, state, limit).await {
+        match self.list_issues_via_gh(owner, repo, state, limit, search).await {
             Ok(issues) => Ok(issues),
             Err(gh_error) => {
                 tracing::warn!(
@@ -252,9 +257,13 @@ impl GithubEngine {
                     "gh issue list failed, falling back to GitHub API: {}",
                     gh_error
                 );
-                self.list_issues_via_api(owner, repo, state, limit).await
+                self.list_issues_via_api(owner, repo, state, limit, sort, direction, search).await
             }
         }
+        .map(|mut issues| {
+            sort_issues(&mut issues, sort, direction);
+            issues
+        })
     }
 
     pub async fn get_issue(
@@ -284,10 +293,11 @@ impl GithubEngine {
         repo: &str,
         state: &str,
         limit: usize,
+        search: Option<&str>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
         let repo_arg = format!("{owner}/{repo}");
         let limit_value = limit.to_string();
-        let args = vec![
+        let mut args = vec![
             "issue",
             "list",
             "--repo",
@@ -297,8 +307,12 @@ impl GithubEngine {
             "--limit",
             &limit_value,
             "--json",
-            "number,title,body,url,state,labels",
+            "number,title,body,url,state,createdAt,updatedAt,labels",
         ];
+        if let Some(search_query) = search.filter(|value| !value.trim().is_empty()) {
+            args.push("--search");
+            args.push(search_query);
+        }
         let output = self.run_gh(&args).await?;
         parse_issue_list_value(owner, repo, output)
     }
@@ -318,7 +332,7 @@ impl GithubEngine {
             "--repo",
             &repo_arg,
             "--json",
-            "number,title,body,url,state,labels",
+            "number,title,body,url,state,createdAt,updatedAt,labels",
         ];
         let output = self.run_gh(&args).await?;
         parse_issue_value(owner, repo, &output)
@@ -330,12 +344,31 @@ impl GithubEngine {
         repo: &str,
         state: &str,
         limit: usize,
+        sort: &str,
+        direction: &str,
+        search: Option<&str>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
-        let endpoint = format!(
-            "https://api.github.com/repos/{owner}/{repo}/issues?state={state}&per_page={limit}"
-        );
+        let mut url = reqwest::Url::parse(&format!("https://api.github.com/repos/{owner}/{repo}/issues"))
+            .map_err(|e| EngineError::Processing(format!("Invalid GitHub API URL: {e}")))?;
+        {
+            let mut pairs = url.query_pairs_mut();
+            pairs.append_pair("state", state);
+            pairs.append_pair("per_page", &limit.to_string());
+            pairs.append_pair("sort", if sort == "updated" { "updated" } else { "created" });
+            pairs.append_pair("direction", if direction == "asc" { "asc" } else { "desc" });
+        }
+        let endpoint = url.to_string();
         let output = self.fetch_api_json(&endpoint).await?;
-        parse_issue_list_value(owner, repo, output)
+        let mut issues = parse_issue_list_value(owner, repo, output)?;
+        if let Some(search_query) = search.map(str::trim).filter(|value| !value.is_empty()) {
+            let query = search_query.to_lowercase();
+            issues.retain(|issue| {
+                issue.title.to_lowercase().contains(&query)
+                    || issue.number.to_string().contains(&query)
+                    || issue.body.as_deref().unwrap_or_default().to_lowercase().contains(&query)
+            });
+        }
+        Ok(issues)
     }
 
     async fn get_issue_via_api(
@@ -430,6 +463,18 @@ fn parse_issue_value(
         .and_then(|v| v.as_str())
         .unwrap_or("open")
         .to_string();
+    let created_at = value
+        .get("createdAt")
+        .or_else(|| value.get("created_at"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let updated_at = value
+        .get("updatedAt")
+        .or_else(|| value.get("updated_at"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let body = value
         .get("body")
         .and_then(|v| v.as_str())
@@ -468,8 +513,22 @@ fn parse_issue_value(
         body,
         url,
         state,
+        created_at,
+        updated_at,
         labels,
     })
+}
+
+fn sort_issues(issues: &mut [GithubIssue], sort: &str, direction: &str) {
+    issues.sort_by(|a, b| {
+        let left = if sort == "updated" { &a.updated_at } else { &a.created_at };
+        let right = if sort == "updated" { &b.updated_at } else { &b.created_at };
+        if direction == "asc" {
+            left.cmp(right)
+        } else {
+            right.cmp(left)
+        }
+    });
 }
 
 fn parse_pr_list_value_gh(

@@ -120,9 +120,9 @@ impl WorkspaceService {
         }
     }
 
-    pub async fn list_by_project(&self, project_guid: String) -> Result<Vec<WorkspaceDto>> {
+    pub async fn list_by_project(&self, project_guid: String, include_issue_only: bool) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
-        let models = repo.list_by_project(&project_guid).await?;
+        let models = repo.list_by_project(&project_guid, include_issue_only).await?;
         let workspace_guids: Vec<String> = models.iter().map(|model| model.guid.clone()).collect();
         let mut labels_by_workspace = repo
             .list_labels_by_workspace_guids(&workspace_guids)
@@ -186,6 +186,8 @@ impl WorkspaceService {
             body: pr.body.clone(),
             url: pr.url.clone(),
             state: pr.state.clone(),
+            created_at: pr.created_at.clone(),
+            updated_at: pr.updated_at.clone(),
             labels: pr
                 .labels
                 .iter()
@@ -499,6 +501,7 @@ impl WorkspaceService {
                 workflow_status,
                 priority,
                 labels,
+                "manual".to_string(),
             )
             .await?;
 
@@ -509,6 +512,72 @@ impl WorkspaceService {
             .unwrap_or_default();
 
         self.to_dto(model, labels)
+    }
+
+    /// 创建 Issue Only 工作区（从 GitHub Issue 导入）
+    /// 不创建分支、不初始化 worktree、不运行 setup flow
+    pub async fn create_issue_only_workspace(
+        &self,
+        project_guid: String,
+        display_name: Option<String>,
+        github_issue_url: String,
+        github_issue_data: String,
+        workflow_status: Option<String>,
+        priority: Option<String>,
+        labels: Option<Vec<String>>,
+    ) -> Result<WorkspaceDto> {
+        let workflow_status = match workflow_status {
+            Some(status)
+                if WORKSPACE_WORKFLOW_STATUSES
+                    .iter()
+                    .any(|candidate| *candidate == status) =>
+            {
+                Some(status)
+            }
+            Some(status) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace workflow status: {status}"
+                )));
+            }
+            None => None,
+        };
+        let priority = match priority {
+            Some(value)
+                if WORKSPACE_PRIORITIES
+                    .iter()
+                    .any(|candidate| *candidate == value) =>
+            {
+                Some(value)
+            }
+            Some(value) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace priority: {value}"
+                )));
+            }
+            None => None,
+        };
+
+        let workspace_repo = WorkspaceRepo::new(&self.db);
+
+        let model = workspace_repo
+            .create_issue_only(
+                project_guid,
+                display_name,
+                github_issue_url,
+                github_issue_data,
+                workflow_status,
+                priority,
+                labels,
+            )
+            .await?;
+
+        let workspace_labels = workspace_repo
+            .list_labels_by_workspace_guids(std::slice::from_ref(&model.guid))
+            .await?
+            .remove(&model.guid)
+            .unwrap_or_default();
+
+        self.to_dto(model, workspace_labels)
     }
 
     /// 确保 Worktree 已就绪（不存在则创建）
