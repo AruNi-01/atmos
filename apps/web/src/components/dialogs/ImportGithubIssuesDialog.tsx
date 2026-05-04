@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -38,14 +38,14 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     return projects.length > 0 ? projects[0].id : '';
   });
 
-  // Sync projectId when projects change
+  // Sync projectId when projects change or defaultProjectId changes
   useEffect(() => {
     if (defaultProjectId) {
       setProjectId(defaultProjectId);
     } else if (projects.length > 0 && !projectId) {
       setProjectId(projects[0].id);
     }
-  }, [projects, defaultProjectId, projectId]);
+  }, [projects, defaultProjectId]);
 
   const [owner, setOwner] = useState('');
   const [repo, setRepo] = useState('');
@@ -57,6 +57,15 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
   const [isLoadingIssues, setIsLoadingIssues] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (projectId && projects.length > 0) {
@@ -186,7 +195,10 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
 
       if (result.skipped.length > 0) {
         setError(`${result.skipped.length} issue(s) were already imported and skipped.`);
-        setTimeout(() => onClose(), 2000);
+        if (closeTimerRef.current) {
+          clearTimeout(closeTimerRef.current);
+        }
+        closeTimerRef.current = setTimeout(() => onClose(), 2000);
       } else {
         onClose();
       }
