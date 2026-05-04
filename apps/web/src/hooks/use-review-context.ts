@@ -687,7 +687,9 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
             type: "success",
           });
         } else if (executionMode === "agent_chat" && workspaceId) {
-          enqueueAgentChatPrompt({
+          setPendingAgentChatMode("default");
+          setAgentChatOpen(true);
+          await enqueueAgentChatPrompt({
             prompt: result.prompt,
             workspaceId,
             projectId: null,
@@ -696,8 +698,6 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
             sessionTitle: `Review ${filePath.split("/").pop() || filePath}`,
             forceNewSession: false,
           });
-          setAgentChatOpen(true);
-          setPendingAgentChatMode("default");
         }
         await loadSessions();
       } catch (error) {

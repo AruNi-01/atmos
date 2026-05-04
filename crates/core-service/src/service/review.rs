@@ -31,6 +31,10 @@ fn is_valid_review_comment_status(status: &str) -> bool {
     matches!(status, "open" | "agent_fixed" | "fixed" | "dismissed")
 }
 
+fn default_author_type() -> String {
+    "user".to_string()
+}
+
 fn normalize_review_file_path(value: &str) -> String {
     let normalized = value.replace('\\', "/");
     let without_prefix = normalized.strip_prefix("./").unwrap_or(&normalized);
@@ -202,7 +206,7 @@ pub struct CreateReviewCommentByFilePathInput {
     pub body: String,
     #[serde(default)]
     pub title: Option<String>,
-    #[serde(default)]
+    #[serde(default = "default_author_type")]
     pub author_type: String,
     #[serde(default)]
     pub agent_run_guid: Option<String>,

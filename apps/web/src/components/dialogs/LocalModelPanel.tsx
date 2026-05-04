@@ -413,6 +413,7 @@ export function LocalModelPanel() {
               state: {
                 status: "downloading_binary",
                 progress: 0,
+                model_id: modelId,
               },
             }
           : prev,
@@ -428,7 +429,7 @@ export function LocalModelPanel() {
     setBusy(true);
     try {
       setData((prev) =>
-        prev ? { ...prev, state: { status: "starting" } } : prev,
+        prev ? { ...prev, state: { status: "starting", model_id: modelId } } : prev,
       );
       await localModelApi.start(modelId);
       await load();

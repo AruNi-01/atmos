@@ -11,7 +11,7 @@ use crate::config::{ensure_dirs, llama_server_bin, logs_dir, model_path};
 use crate::download::{download_with_fallback, verify_file, DownloadProgress};
 use crate::error::{LocalModelError, Result};
 use crate::manifest::{find_binary_for_platform, find_model, ModelManifest};
-use crate::runtime::port::reserve_runtime_port;
+use crate::runtime::port::{reserve_runtime_port, LOCAL_RUNTIME_PORT};
 use crate::runtime::process::{spawn_llama_server, wait_for_ready};
 use crate::runtime::state::LocalModelState;
 
@@ -104,6 +104,7 @@ impl LocalRuntimeManager {
         ensure_dirs()?;
 
         let tx = self.state_tx.clone();
+        let inner = self.inner.clone();
         let _total = binary_entry.size_bytes;
         let start = Instant::now();
 
@@ -126,10 +127,12 @@ impl LocalRuntimeManager {
                         0
                     }
                 });
-                let _ = tx.send(LocalModelState::DownloadingBinary {
+                let state = LocalModelState::DownloadingBinary {
                     progress,
                     eta_seconds: eta,
-                });
+                };
+                inner.lock().state = state.clone();
+                let _ = tx.send(state);
             },
         )
         .await?;
@@ -163,6 +166,7 @@ impl LocalRuntimeManager {
         ensure_dirs()?;
 
         let tx = self.state_tx.clone();
+        let inner = self.inner.clone();
         let start = Instant::now();
 
         let mut urls = vec![entry.gguf_url.clone()];
@@ -186,10 +190,12 @@ impl LocalRuntimeManager {
                         0
                     }
                 });
-                let _ = tx.send(LocalModelState::DownloadingModel {
+                let state = LocalModelState::DownloadingModel {
                     progress,
                     eta_seconds: eta,
-                });
+                };
+                inner.lock().state = state.clone();
+                let _ = tx.send(state);
             },
         )
         .await?;
@@ -226,7 +232,8 @@ impl LocalRuntimeManager {
 
         let bin_path = llama_server_bin()?;
         let model_path = model_path(model_id)?;
-        let port = reserve_runtime_port()?;
+        let listener = reserve_runtime_port()?;
+        let port = LOCAL_RUNTIME_PORT;
 
         let context_size = find_model(manifest, model_id)
             .map(|m| m.recommended_context_size)
@@ -244,7 +251,7 @@ impl LocalRuntimeManager {
                 }
             };
 
-        // Wait for readiness.
+        // Wait for readiness, then drop the listener to release port reservation.
         if let Err(e) = wait_for_ready(port).await {
             let msg = e.to_string();
             self.set_state(LocalModelState::Failed { error: msg.clone() });
@@ -252,6 +259,7 @@ impl LocalRuntimeManager {
             let _ = child.wait().await;
             return Err(e);
         }
+        drop(listener);
 
         let endpoint = format!("http://127.0.0.1:{port}");
         {
