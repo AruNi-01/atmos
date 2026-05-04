@@ -673,9 +673,10 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   const handleRunAgentReview = useCallback(
     async (skillId?: string, executionMode: "copy_prompt" | "agent_chat" = "copy_prompt") => {
       if (!currentSession || !currentRevision) return null;
+      const effectiveSkillId = skillId ?? "fullstack-reviewer";
       setIsCreatingAgentRun(true);
       try {
-        const result = await createAgentRun("review", executionMode, skillId);
+        const result = await createAgentRun("review", executionMode, effectiveSkillId);
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
         if (executionMode === "copy_prompt") {

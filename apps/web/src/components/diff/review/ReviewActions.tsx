@@ -473,7 +473,7 @@ export const ReviewActions: React.FC = () => {
         <FixActionsMenu
           disabled={fixDisabled}
           isLoading={isCreatingAgentRun}
-          activeRun={activeFixRun ?? activeAgentRun}
+          activeRun={activeFixRun}
           agentId={terminalAgentId}
           onAgentChange={setTerminalAgentId}
           onFix={(agentId) => handleRunAgentInTerminal(undefined, agentId)}
