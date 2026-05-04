@@ -270,6 +270,7 @@ interface ProjectStore {
     labels: WorkspaceLabel[],
   ) => Promise<void>;
   markWorkspaceVisited: (workspaceId: string) => Promise<void>;
+  addWorkspacesToProject: (projectId: string, workspaceGuids: string[]) => Promise<void>;
   
   updateWorkspacePinOrder: (orderedWorkspaceIds: string[]) => Promise<void>;
   reorderProjects: (newOrder: Project[]) => Promise<void>;
@@ -326,6 +327,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
+    createSource: model.create_source === 'issue_only' ? 'issue_only' : 'manual',
   };
 }
 
@@ -567,6 +569,37 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return newWorkspace.id;
     } catch (error) {
       console.error('Error adding workspace:', error);
+      throw error;
+    }
+  },
+
+  addWorkspacesToProject: async (projectId: string, workspaceGuids: string[]) => {
+    try {
+      const mappedWorkspaces = await wsWorkspaceApi.listProjectWorkspacesFiltered(projectId, workspaceGuids);
+
+      set(state => {
+        const project = state.projects.find(p => p.id === projectId);
+        if (!project) {
+          return state;
+        }
+
+        // Deduplicate by id using latest state
+        const existingIds = new Set(project.workspaces.map(w => w.id));
+        const uniqueNewWorkspaces = mappedWorkspaces.filter(w => !existingIds.has(w.id));
+
+        return {
+          projects: state.projects.map(p =>
+            p.id === projectId
+              ? {
+                  ...p,
+                  workspaces: sortWorkspaces([...p.workspaces, ...uniqueNewWorkspaces]),
+                }
+              : p
+          )
+        };
+      });
+    } catch (error) {
+      console.error('Error adding workspaces to project:', error);
       throw error;
     }
   },

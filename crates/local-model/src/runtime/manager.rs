@@ -23,6 +23,7 @@ struct Inner {
     child: Option<Child>,
     port: Option<u16>,
     model_id: Option<String>,
+    starting: bool,
 }
 
 /// The central manager for the local llama-server sidecar.
@@ -44,6 +45,7 @@ impl LocalRuntimeManager {
                 child: None,
                 port: None,
                 model_id: None,
+                starting: false,
             })),
             state_tx,
             http: Client::builder()
@@ -209,62 +211,73 @@ impl LocalRuntimeManager {
     /// 4. Transitions to `Running`.
     pub async fn start(&self, manifest: &ModelManifest, model_id: &str) -> Result<()> {
         {
-            let state = self.inner.lock().state.clone();
-            if state.is_running() {
+            let mut inner = self.inner.lock();
+            if inner.state.is_running() {
                 info!("llama-server already running");
                 return Ok(());
             }
+            if inner.starting {
+                info!("llama-server already starting");
+                return Ok(());
+            }
+            inner.starting = true;
         }
 
-        // Download binary if needed.
-        self.ensure_binary(manifest).await?;
-        // Download model if needed.
-        self.ensure_model(manifest, model_id).await?;
+        let result = async {
+            // Download binary if needed.
+            self.ensure_binary(manifest).await?;
+            // Download model if needed.
+            self.ensure_model(manifest, model_id).await?;
 
-        self.set_state(LocalModelState::InstalledNotRunning);
-        self.set_state(LocalModelState::Starting);
+            self.set_state(LocalModelState::InstalledNotRunning);
+            self.set_state(LocalModelState::Starting);
 
-        let bin_path = llama_server_bin()?;
-        let model_path = model_path(model_id)?;
-        let port = reserve_runtime_port()?;
+            let bin_path = llama_server_bin()?;
+            let model_path = model_path(model_id)?;
+            let port = reserve_runtime_port()?;
 
-        let context_size = find_model(manifest, model_id)
-            .map(|m| m.recommended_context_size)
-            .unwrap_or(2048);
+            let context_size = find_model(manifest, model_id)
+                .map(|m| m.recommended_context_size)
+                .unwrap_or(2048);
 
-        let log_path = logs_dir()?.join(format!("{model_id}.log"));
+            let log_path = logs_dir()?.join(format!("{model_id}.log"));
 
-        let mut child =
-            match spawn_llama_server(&bin_path, &model_path, port, context_size, &log_path).await {
-                Ok(c) => c,
-                Err(e) => {
-                    let msg = e.to_string();
-                    self.set_state(LocalModelState::Failed { error: msg.clone() });
-                    return Err(LocalModelError::SpawnFailed(msg));
-                }
-            };
+            let mut child =
+                match spawn_llama_server(&bin_path, &model_path, port, context_size, &log_path).await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        let msg = e.to_string();
+                        self.set_state(LocalModelState::Failed { error: msg.clone() });
+                        return Err(LocalModelError::SpawnFailed(msg));
+                    }
+                };
 
-        // Wait for readiness.
-        if let Err(e) = wait_for_ready(port).await {
-            let msg = e.to_string();
-            self.set_state(LocalModelState::Failed { error: msg.clone() });
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            return Err(e);
-        }
+            // Wait for readiness.
+            if let Err(e) = wait_for_ready(port).await {
+                let msg = e.to_string();
+                self.set_state(LocalModelState::Failed { error: msg.clone() });
+                let _ = child.kill().await;
+                let _ = child.wait().await;
+                return Err(e);
+            }
 
-        let endpoint = format!("http://127.0.0.1:{port}");
-        {
-            let mut inner = self.inner.lock();
-            inner.child = Some(child);
-            inner.port = Some(port);
-            inner.model_id = Some(model_id.to_string());
-        }
-        self.set_state(LocalModelState::Running {
-            endpoint,
-            model_id: model_id.to_string(),
-        });
-        Ok(())
+            let endpoint = format!("http://127.0.0.1:{port}");
+            {
+                let mut inner = self.inner.lock();
+                inner.child = Some(child);
+                inner.port = Some(port);
+                inner.model_id = Some(model_id.to_string());
+            }
+            self.set_state(LocalModelState::Running {
+                endpoint,
+                model_id: model_id.to_string(),
+            });
+            Ok(())
+        }.await;
+
+        // Reset starting flag regardless of success or failure
+        self.inner.lock().starting = false;
+        result
     }
 
     /// Stop the running llama-server.
