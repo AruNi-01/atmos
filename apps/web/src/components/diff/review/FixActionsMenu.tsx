@@ -13,24 +13,24 @@ import { ChevronDown, Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
-import type { ReviewFixRunModel } from "@/api/ws-api";
+import type { ReviewAgentRunModel } from "@/api/ws-api";
 
 interface FixActionsMenuProps {
   disabled: boolean;
   isLoading: boolean;
-  activeRun: ReviewFixRunModel | null;
+  activeRun: ReviewAgentRunModel | null;
   agentId: AgentId;
   onAgentChange: (agentId: AgentId) => void;
   onFix: (agentId: AgentId) => void | Promise<void>;
   onCopyPrompt: () => void | Promise<void>;
-  onMarkFailed: (run: ReviewFixRunModel) => void | Promise<void>;
+  onMarkFailed: (run: ReviewAgentRunModel) => void | Promise<void>;
 }
 
 function getAgentLabel(id: AgentId) {
   return AGENT_OPTIONS.find((opt) => opt.id === id)?.label ?? id;
 }
 
-function formatFixRunStatus(status: string) {
+function formatAgentRunStatus(status: string) {
   const label = status.replaceAll("_", " ");
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
@@ -65,7 +65,7 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
         ) : (
           <AgentIcon registryId={agentId} name={getAgentLabel(agentId)} size={16} />
         )}
-        <span>{activeRun ? formatFixRunStatus(activeRun.status) : "Fix"}</span>
+        <span>{activeRun ? formatAgentRunStatus(activeRun.status) : "Fix"}</span>
       </button>
       <div className="w-px self-stretch bg-sidebar-border/40 shrink-0" />
       <DropdownMenu>

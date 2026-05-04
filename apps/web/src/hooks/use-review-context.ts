@@ -6,7 +6,7 @@ import { toastManager } from "@workspace/ui";
 import {
   reviewWsApi,
   type ReviewFileDto,
-  type ReviewFixRunModel,
+  type ReviewAgentRunModel,
   type ReviewMessageDto,
   type ReviewSessionDto,
   type ReviewCommentDto,
@@ -54,7 +54,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
 
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [isCreatingFixRun, setIsCreatingFixRun] = useState(false);
+  const [isCreatingAgentRun, setIsCreatingAgentRun] = useState(false);
   const [isFinalizingRun, setIsFinalizingRun] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ReviewSessionDto[]>([]);
   const [selectedSessionGuid, setSelectedSessionGuid] = useQueryState(
@@ -108,7 +108,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       onWsEvent("review_comment_updated", () => void loadSessions()),
       onWsEvent("review_message_created", () => void loadSessions()),
       onWsEvent("review_file_updated", () => void loadSessions()),
-      onWsEvent("review_fix_run_updated", () => void loadSessions()),
+      onWsEvent("review_agent_run_updated", () => void loadSessions()),
     ];
     return () => {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -269,8 +269,18 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     [currentSession, currentRevision],
   );
 
-  const activeFixRun = useMemo(
+  const activeAgentRun = useMemo(
     () => currentSession?.runs.find((run) => run.status === "running") ?? null,
+    [currentSession],
+  );
+
+  const activeReviewRun = useMemo(
+    () => currentSession?.runs.find((run) => run.status === "running" && run.run_kind === "review") ?? null,
+    [currentSession],
+  );
+
+  const activeFixRun = useMemo(
+    () => currentSession?.runs.find((run) => run.status === "running" && run.run_kind === "fix") ?? null,
     [currentSession],
   );
 
@@ -492,24 +502,28 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     [loadSessions, loadComments],
   );
 
-  const createFixRun = useCallback(
+  const createAgentRun = useCallback(
     async (
+      runKind: "review" | "fix",
       executionMode: "copy_prompt" | "agent_chat" | "terminal_cli",
+      skillId?: string | null,
       selectedCommentGuids?: string[],
     ) => {
       if (!currentSession || !currentRevision) return null;
-      return reviewWsApi.createFixRun({
+      return reviewWsApi.createAgentRun({
         sessionGuid: currentSession.guid,
         baseRevisionGuid: currentRevision.guid,
+        runKind,
         executionMode,
+        skillId: skillId ?? null,
         selectedCommentGuids,
       });
     },
     [currentRevision, currentSession],
   );
 
-  const handleMarkFixRunFailed = useCallback(
-    async (run: ReviewFixRunModel, message = "Marked failed by user") => {
+  const handleMarkAgentRunFailed = useCallback(
+    async (run: ReviewAgentRunModel, message = "Marked failed by user") => {
       if (
         typeof window !== "undefined" &&
         !window.confirm("Mark this review fix run as failed?")
@@ -517,7 +531,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
         return;
       }
       try {
-        await reviewWsApi.setFixRunStatus({
+        await reviewWsApi.setAgentRunStatus({
           runGuid: run.guid,
           status: "failed",
           message,
@@ -540,11 +554,11 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     [loadSessions],
   );
 
-  const handleCopyFixPrompt = useCallback(
+  const handleCopyAgentPrompt = useCallback(
     async (selectedCommentGuids?: string[]) => {
-      setIsCreatingFixRun(true);
+      setIsCreatingAgentRun(true);
       try {
-        const result = await createFixRun("copy_prompt", selectedCommentGuids);
+        const result = await createAgentRun("fix", "copy_prompt", null, selectedCommentGuids);
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
         await navigator.clipboard.writeText(result.prompt);
@@ -562,18 +576,18 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
           type: "error",
         });
       } finally {
-        setIsCreatingFixRun(false);
+        setIsCreatingAgentRun(false);
       }
     },
-    [createFixRun, loadSessions, setSelectedRevisionGuid],
+    [createAgentRun, loadSessions, setSelectedRevisionGuid],
   );
 
-  const handleSendFixRunToAgentChat = useCallback(
+  const handleSendAgentRunToAgentChat = useCallback(
     async (selectedCommentGuids?: string[]) => {
       if (!workspaceId) return;
-      setIsCreatingFixRun(true);
+      setIsCreatingAgentRun(true);
       try {
-        const result = await createFixRun("agent_chat", selectedCommentGuids);
+        const result = await createAgentRun("fix", "agent_chat", null, selectedCommentGuids);
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
         enqueueAgentChatPrompt({
@@ -601,11 +615,11 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
           type: "error",
         });
       } finally {
-        setIsCreatingFixRun(false);
+        setIsCreatingAgentRun(false);
       }
     },
     [
-      createFixRun,
+      createAgentRun,
       enqueueAgentChatPrompt,
       filePath,
       loadSessions,
@@ -616,11 +630,11 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     ],
   );
 
-  const handleRunFixInTerminal = useCallback(
+  const handleRunAgentInTerminal = useCallback(
     async (selectedCommentGuids?: string[], agentIdOverride?: AgentId) => {
-      setIsCreatingFixRun(true);
+      setIsCreatingAgentRun(true);
       try {
-        const result = await createFixRun("terminal_cli", selectedCommentGuids);
+        const result = await createAgentRun("fix", "terminal_cli", null, selectedCommentGuids);
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
         const agentId = agentIdOverride ?? terminalAgentId;
@@ -650,17 +664,68 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
           type: "error",
         });
       } finally {
-        setIsCreatingFixRun(false);
+        setIsCreatingAgentRun(false);
       }
     },
-    [createFixRun, filePath, loadSessions, setSelectedRevisionGuid, terminalAgentId, terminalRunner],
+    [createAgentRun, filePath, loadSessions, setSelectedRevisionGuid, terminalAgentId, terminalRunner],
+  );
+
+  const handleRunAgentReview = useCallback(
+    async (skillId?: string, executionMode: "copy_prompt" | "agent_chat" = "copy_prompt") => {
+      if (!currentSession || !currentRevision) return null;
+      const effectiveSkillId = skillId ?? "fullstack-reviewer";
+      setIsCreatingAgentRun(true);
+      try {
+        const result = await createAgentRun("review", executionMode, effectiveSkillId);
+        if (!result) return;
+        setSelectedRevisionGuid(result.revision.guid);
+        if (executionMode === "copy_prompt") {
+          await navigator.clipboard.writeText(result.prompt);
+          toastManager.add({
+            title: "Review prompt copied",
+            description: "Paste it into your agent CLI or chat to process the review.",
+            type: "success",
+          });
+        } else if (executionMode === "agent_chat" && workspaceId) {
+          setPendingAgentChatMode("default");
+          setAgentChatOpen(true);
+          await enqueueAgentChatPrompt({
+            prompt: result.prompt,
+            workspaceId,
+            projectId: null,
+            mode: "default",
+            origin: "review_session",
+            sessionTitle: `Review ${filePath.split("/").pop() || filePath}`,
+            forceNewSession: false,
+          });
+        }
+        await loadSessions();
+      } catch (error) {
+        toastManager.add({
+          title: "Failed to create review run",
+          description:
+            error instanceof Error ? error.message : "Unknown review error",
+          type: "error",
+        });
+      } finally {
+        setIsCreatingAgentRun(false);
+      }
+    },
+    [createAgentRun, currentRevision, currentSession, filePath, loadSessions, setSelectedRevisionGuid, workspaceId, enqueueAgentChatPrompt, setAgentChatOpen, setPendingAgentChatMode],
+  );
+
+  const handleCopyAgentReviewPrompt = useCallback(
+    async (skillId?: string) => {
+      await handleRunAgentReview(skillId, "copy_prompt");
+    },
+    [handleRunAgentReview],
   );
 
   const handleFinalizeRun = useCallback(
-    async (run: ReviewFixRunModel) => {
+    async (run: ReviewAgentRunModel) => {
       setIsFinalizingRun(run.guid);
       try {
-        const result = await reviewWsApi.finalizeFixRun({
+        const result = await reviewWsApi.finalizeAgentRun({
           runGuid: run.guid,
           title: `Fix Result ${new Date().toLocaleTimeString([], {
             hour: "2-digit",
@@ -723,11 +788,13 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     openCurrentFileComments,
     openRevisionComments,
     fileRevisionEntries,
+    activeAgentRun,
+    activeReviewRun,
     activeFixRun,
     canEdit,
     isLoading,
     isCreating,
-    isCreatingFixRun,
+    isCreatingAgentRun,
     isFinalizingRun,
     latestSummaryRun,
     artifactPreview,
@@ -753,11 +820,13 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     handleReplyToComment,
     handleUpdateMessage,
     handleDeleteMessage,
-    createFixRun,
-    handleCopyFixPrompt,
-    handleSendFixRunToAgentChat,
-    handleRunFixInTerminal,
-    handleMarkFixRunFailed,
+    createAgentRun,
+    handleCopyAgentPrompt,
+    handleSendAgentRunToAgentChat,
+    handleRunAgentInTerminal,
+    handleRunAgentReview,
+    handleCopyAgentReviewPrompt,
+    handleMarkAgentRunFailed,
     handleFinalizeRun,
     handlePreviewArtifact,
   };

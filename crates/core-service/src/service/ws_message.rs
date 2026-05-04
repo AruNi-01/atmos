@@ -37,8 +37,8 @@ use infra::{
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
     ProjectUpdateTargetBranchRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
     ReviewCommentUpdateStatusRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
-    ReviewFileSetReviewedRequest, ReviewFixRunArtifactGetRequest, ReviewFixRunCreateRequest,
-    ReviewFixRunFinalizeRequest, ReviewFixRunListRequest, ReviewFixRunSetStatusRequest,
+    ReviewFileSetReviewedRequest, ReviewAgentRunArtifactGetRequest, ReviewAgentRunCreateRequest,
+    ReviewAgentRunFinalizeRequest, ReviewAgentRunListRequest, ReviewAgentRunSetStatusRequest,
     ReviewMessageAddRequest, ReviewMessageDeleteRequest, ReviewMessageUpdateRequest,
     ReviewSessionActivateRequest, ReviewSessionArchiveRequest, ReviewSessionCloseRequest,
     ReviewSessionCreateRequest, ReviewSessionGetRequest, ReviewSessionListRequest,
@@ -70,9 +70,9 @@ use tokio::sync::OnceCell;
 use crate::error::{Result, ServiceError};
 use crate::service::git_commit_message::GitCommitMessageGenerator;
 use crate::service::review::{
-    AddReviewMessageInput, CreateReviewCommentInput, CreateReviewFixRunInput,
+    AddReviewMessageInput, CreateReviewCommentInput, CreateReviewAgentRunInput,
     CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, SetReviewFileReviewedInput,
-    SetReviewFixRunStatusInput, UpdateReviewCommentStatusInput, UpdateReviewMessageInput,
+    SetReviewAgentRunStatusInput, UpdateReviewCommentStatusInput, UpdateReviewMessageInput,
 };
 use crate::{
     AgentService, AgentSessionService, ProjectService, ReviewService, TerminalService,
@@ -764,24 +764,24 @@ impl WsMessageService {
                 self.handle_review_message_delete(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewFixRunList => {
-                self.handle_review_fix_run_list(parse_request(request.data)?)
+            WsAction::ReviewAgentRunList => {
+                self.handle_review_agent_run_list(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewFixRunCreate => {
-                self.handle_review_fix_run_create(parse_request(request.data)?)
+            WsAction::ReviewAgentRunCreate => {
+                self.handle_review_agent_run_create(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewFixRunArtifactGet => {
-                self.handle_review_fix_run_artifact_get(parse_request(request.data)?)
+            WsAction::ReviewAgentRunArtifactGet => {
+                self.handle_review_agent_run_artifact_get(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewFixRunFinalize => {
-                self.handle_review_fix_run_finalize(parse_request(request.data)?)
+            WsAction::ReviewAgentRunFinalize => {
+                self.handle_review_agent_run_finalize(parse_request(request.data)?)
                     .await
             }
-            WsAction::ReviewFixRunSetStatus => {
-                self.handle_review_fix_run_set_status(parse_request(request.data)?)
+            WsAction::ReviewAgentRunSetStatus => {
+                self.handle_review_agent_run_set_status(parse_request(request.data)?)
                     .await
             }
 
@@ -4692,7 +4692,7 @@ set -x
                 author_type: req.author_type,
                 kind: req.kind,
                 body: req.body,
-                fix_run_guid: req.fix_run_guid,
+                agent_run_guid: req.agent_run_guid,
             })
             .await?;
         self.send_review_notification(
@@ -4748,24 +4748,26 @@ set -x
         Ok(json!(message))
     }
 
-    async fn handle_review_fix_run_list(&self, req: ReviewFixRunListRequest) -> Result<Value> {
-        let runs = self.review_service.list_fix_runs(req.session_guid).await?;
+    async fn handle_review_agent_run_list(&self, req: ReviewAgentRunListRequest) -> Result<Value> {
+        let runs = self.review_service.list_agent_runs(req.session_guid).await?;
         Ok(json!(runs))
     }
 
-    async fn handle_review_fix_run_create(&self, req: ReviewFixRunCreateRequest) -> Result<Value> {
+    async fn handle_review_agent_run_create(&self, req: ReviewAgentRunCreateRequest) -> Result<Value> {
         let run = self
             .review_service
-            .create_fix_run(CreateReviewFixRunInput {
+            .create_agent_run(CreateReviewAgentRunInput {
                 session_guid: req.session_guid,
                 base_revision_guid: req.base_revision_guid,
+                run_kind: req.run_kind,
                 execution_mode: req.execution_mode,
+                skill_id: req.skill_id,
                 selected_comment_guids: req.selected_comment_guids,
                 created_by: req.created_by,
             })
             .await?;
         self.send_review_notification(
-            WsEvent::ReviewFixRunUpdated,
+            WsEvent::ReviewAgentRunUpdated,
             json!({
                 "run_guid": run.run.guid,
                 "session_guid": run.run.session_guid,
@@ -4777,9 +4779,9 @@ set -x
         Ok(json!(run))
     }
 
-    async fn handle_review_fix_run_artifact_get(
+    async fn handle_review_agent_run_artifact_get(
         &self,
-        req: ReviewFixRunArtifactGetRequest,
+        req: ReviewAgentRunArtifactGetRequest,
     ) -> Result<Value> {
         let artifact = self
             .review_service
@@ -4788,16 +4790,16 @@ set -x
         Ok(json!(artifact))
     }
 
-    async fn handle_review_fix_run_finalize(
+    async fn handle_review_agent_run_finalize(
         &self,
-        req: ReviewFixRunFinalizeRequest,
+        req: ReviewAgentRunFinalizeRequest,
     ) -> Result<Value> {
         let finalized = self
             .review_service
-            .finalize_fix_run(req.run_guid.clone(), req.title)
+            .finalize_agent_run(req.run_guid.clone(), req.title)
             .await?;
         self.send_review_notification(
-            WsEvent::ReviewFixRunUpdated,
+            WsEvent::ReviewAgentRunUpdated,
             json!({
                 "run_guid": finalized.run.guid,
                 "session_guid": finalized.run.session_guid,
@@ -4810,13 +4812,13 @@ set -x
         Ok(json!(finalized))
     }
 
-    async fn handle_review_fix_run_set_status(
+    async fn handle_review_agent_run_set_status(
         &self,
-        req: ReviewFixRunSetStatusRequest,
+        req: ReviewAgentRunSetStatusRequest,
     ) -> Result<Value> {
         let status_result = self
             .review_service
-            .set_fix_run_status(SetReviewFixRunStatusInput {
+            .set_agent_run_status(SetReviewAgentRunStatusInput {
                 run_guid: req.run_guid,
                 status: req.status,
                 message: req.message,
@@ -4827,20 +4829,21 @@ set -x
         let payload = serde_json::to_value(&status_result)
             .map_err(|error| ServiceError::Processing(error.to_string()))?;
         let run = match &status_result {
-            crate::service::review::ReviewFixRunStatusDto::Run { run } => run,
-            crate::service::review::ReviewFixRunStatusDto::Finalized(finalized) => &finalized.run,
+            crate::service::review::ReviewAgentRunStatusDto::Run { run } => run,
+            crate::service::review::ReviewAgentRunStatusDto::Finalized(finalized) => &finalized.run,
         };
         self.send_review_notification(
-            WsEvent::ReviewFixRunUpdated,
+            WsEvent::ReviewAgentRunUpdated,
             json!({
                 "run_guid": run.guid,
                 "session_guid": run.session_guid,
-                "changed_fields": ["status", "started_at", "finished_at", "failure_reason", "result_revision_guid", "patch_rel_path", "result_rel_path", "updated_at"],
+                "changed_fields": ["status", "updated_at"],
                 "run": run,
+                "payload": payload,
             }),
         )
         .await;
-        Ok(payload)
+        Ok(json!(status_result))
     }
 
     async fn handle_llm_providers_get(&self) -> Result<Value> {

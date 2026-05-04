@@ -327,16 +327,16 @@ pub enum WsAction {
     ReviewMessageUpdate,
     /// 删除 review message
     ReviewMessageDelete,
-    /// 列出 review fix runs
-    ReviewFixRunList,
-    /// 创建 review fix run
-    ReviewFixRunCreate,
-    /// 读取 review fix run artifact
-    ReviewFixRunArtifactGet,
-    /// finalize review fix run into a new revision
-    ReviewFixRunFinalize,
-    /// Set review fix run status
-    ReviewFixRunSetStatus,
+    /// 列出 review agent runs
+    ReviewAgentRunList,
+    /// 创建 review agent run
+    ReviewAgentRunCreate,
+    /// 读取 review agent run artifact
+    ReviewAgentRunArtifactGet,
+    /// finalize review agent run into a new revision
+    ReviewAgentRunFinalize,
+    /// Set review agent run status
+    ReviewAgentRunSetStatus,
 
     // ===== Skills 操作 =====
     /// 获取已安装的 Skills 列表
@@ -509,8 +509,8 @@ pub enum WsEvent {
     ReviewMessageCreated,
     /// Review file state updated
     ReviewFileUpdated,
-    /// Review fix run changed
-    ReviewFixRunUpdated,
+    /// Review agent run changed
+    ReviewAgentRunUpdated,
     /// Local model state changed (download progress, started, stopped, error)
     LocalModelStateChanged,
 }
@@ -658,7 +658,7 @@ pub struct ReviewMessageAddRequest {
     pub kind: String,
     pub body: String,
     #[serde(default)]
-    pub fix_run_guid: Option<String>,
+    pub agent_run_guid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -673,15 +673,18 @@ pub struct ReviewMessageDeleteRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewFixRunListRequest {
+pub struct ReviewAgentRunListRequest {
     pub session_guid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewFixRunCreateRequest {
+pub struct ReviewAgentRunCreateRequest {
     pub session_guid: String,
     pub base_revision_guid: String,
+    pub run_kind: String,
     pub execution_mode: String,
+    #[serde(default)]
+    pub skill_id: Option<String>,
     #[serde(default)]
     pub selected_comment_guids: Vec<String>,
     #[serde(default)]
@@ -689,20 +692,20 @@ pub struct ReviewFixRunCreateRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewFixRunArtifactGetRequest {
+pub struct ReviewAgentRunArtifactGetRequest {
     pub run_guid: String,
     pub kind: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewFixRunFinalizeRequest {
+pub struct ReviewAgentRunFinalizeRequest {
     pub run_guid: String,
     #[serde(default)]
     pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewFixRunSetStatusRequest {
+pub struct ReviewAgentRunSetStatusRequest {
     pub run_guid: String,
     pub status: String,
     #[serde(default)]

@@ -124,7 +124,7 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(ReviewRevision::FixRunGuid).string().null())
+                    .col(ColumnDef::new(ReviewRevision::AgentRunGuid).string().null())
                     .col(ColumnDef::new(ReviewRevision::Title).string().null())
                     .col(
                         ColumnDef::new(ReviewRevision::StorageRootRelPath)
@@ -617,7 +617,7 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(ReviewMessage::Body).text().not_null())
                     .col(ColumnDef::new(ReviewMessage::BodyRelPath).string().null())
-                    .col(ColumnDef::new(ReviewMessage::FixRunGuid).string().null())
+                    .col(ColumnDef::new(ReviewMessage::AgentRunGuid).string().null())
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-review_message-comment")
@@ -644,81 +644,87 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(ReviewFixRun::Table)
+                    .table(ReviewAgentRun::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(ReviewFixRun::Guid)
+                        ColumnDef::new(ReviewAgentRun::Guid)
                             .string()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::CreatedAt)
+                        ColumnDef::new(ReviewAgentRun::CreatedAt)
                             .date_time()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::UpdatedAt)
+                        ColumnDef::new(ReviewAgentRun::UpdatedAt)
                             .date_time()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::IsDeleted)
+                        ColumnDef::new(ReviewAgentRun::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::SessionGuid)
+                        ColumnDef::new(ReviewAgentRun::SessionGuid)
                             .string()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::BaseRevisionGuid)
+                        ColumnDef::new(ReviewAgentRun::BaseRevisionGuid)
                             .string()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::ResultRevisionGuid)
+                        ColumnDef::new(ReviewAgentRun::ResultRevisionGuid)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::ExecutionMode)
+                        ColumnDef::new(ReviewAgentRun::RunKind)
                             .string()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(ReviewFixRun::Status).string().not_null())
-                    .col(ColumnDef::new(ReviewFixRun::PromptRelPath).string().null())
-                    .col(ColumnDef::new(ReviewFixRun::ResultRelPath).string().null())
-                    .col(ColumnDef::new(ReviewFixRun::PatchRelPath).string().null())
-                    .col(ColumnDef::new(ReviewFixRun::SummaryRelPath).string().null())
                     .col(
-                        ColumnDef::new(ReviewFixRun::AgentSessionRef)
+                        ColumnDef::new(ReviewAgentRun::ExecutionMode)
+                            .string()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ReviewAgentRun::Status).string().not_null())
+                    .col(ColumnDef::new(ReviewAgentRun::SkillId).string().null())
+                    .col(ColumnDef::new(ReviewAgentRun::PromptRelPath).string().null())
+                    .col(ColumnDef::new(ReviewAgentRun::ResultRelPath).string().null())
+                    .col(ColumnDef::new(ReviewAgentRun::PatchRelPath).string().null())
+                    .col(ColumnDef::new(ReviewAgentRun::SummaryRelPath).string().null())
+                    .col(
+                        ColumnDef::new(ReviewAgentRun::AgentSessionRef)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(ReviewFixRun::FinalizeAttempts)
+                        ColumnDef::new(ReviewAgentRun::FinalizeAttempts)
                             .integer()
                             .not_null()
                             .default(0),
                     )
-                    .col(ColumnDef::new(ReviewFixRun::FailureReason).text().null())
-                    .col(ColumnDef::new(ReviewFixRun::CreatedBy).string().null())
-                    .col(ColumnDef::new(ReviewFixRun::StartedAt).date_time().null())
-                    .col(ColumnDef::new(ReviewFixRun::FinishedAt).date_time().null())
+                    .col(ColumnDef::new(ReviewAgentRun::FailureReason).text().null())
+                    .col(ColumnDef::new(ReviewAgentRun::CreatedBy).string().null())
+                    .col(ColumnDef::new(ReviewAgentRun::StartedAt).date_time().null())
+                    .col(ColumnDef::new(ReviewAgentRun::FinishedAt).date_time().null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-review_fix_run-session")
-                            .from(ReviewFixRun::Table, ReviewFixRun::SessionGuid)
+                            .name("fk-review_agent_run-session")
+                            .from(ReviewAgentRun::Table, ReviewAgentRun::SessionGuid)
                             .to(ReviewSession::Table, ReviewSession::Guid)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-review_fix_run-base_revision")
-                            .from(ReviewFixRun::Table, ReviewFixRun::BaseRevisionGuid)
+                            .name("fk-review_agent_run-base_revision")
+                            .from(ReviewAgentRun::Table, ReviewAgentRun::BaseRevisionGuid)
                             .to(ReviewRevision::Table, ReviewRevision::Guid)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
@@ -729,10 +735,10 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx-review_fix_run-session-created")
-                    .table(ReviewFixRun::Table)
-                    .col(ReviewFixRun::SessionGuid)
-                    .col(ReviewFixRun::CreatedAt)
+                    .name("idx-review_agent_run-session-created")
+                    .table(ReviewAgentRun::Table)
+                    .col(ReviewAgentRun::SessionGuid)
+                    .col(ReviewAgentRun::CreatedAt)
                     .if_not_exists()
                     .to_owned(),
             )
@@ -743,7 +749,7 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(ReviewFixRun::Table).to_owned())
+            .drop_table(Table::drop().table(ReviewAgentRun::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(ReviewMessage::Table).to_owned())
@@ -802,7 +808,7 @@ enum ReviewRevision {
     SessionGuid,
     ParentRevisionGuid,
     SourceKind,
-    FixRunGuid,
+    AgentRunGuid,
     Title,
     StorageRootRelPath,
     BaseRevisionGuid,
@@ -894,11 +900,11 @@ enum ReviewMessage {
     BodyStorageKind,
     Body,
     BodyRelPath,
-    FixRunGuid,
+    AgentRunGuid,
 }
 
 #[derive(DeriveIden)]
-enum ReviewFixRun {
+enum ReviewAgentRun {
     Table,
     Guid,
     CreatedAt,
@@ -907,8 +913,10 @@ enum ReviewFixRun {
     SessionGuid,
     BaseRevisionGuid,
     ResultRevisionGuid,
+    RunKind,
     ExecutionMode,
     Status,
+    SkillId,
     PromptRelPath,
     ResultRelPath,
     PatchRelPath,

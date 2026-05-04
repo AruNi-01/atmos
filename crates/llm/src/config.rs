@@ -146,14 +146,14 @@ pub fn resolve_provider_by_id(
                     .local_model_id
                     .clone()
                     .unwrap_or_else(|| entry.model.clone());
-                let m = m.trim();
-                if m.is_empty() {
+                let m_trimmed = m.trim();
+                if m_trimmed.is_empty() {
                     return Err(LlmError::InvalidConfig(format!(
                         "LocalManaged provider {} has empty model ID",
                         provider_id
                     )));
                 }
-                m
+                m_trimmed.to_string()
             },
             timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
             max_output_tokens: entry.max_output_tokens,

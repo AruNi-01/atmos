@@ -250,7 +250,7 @@ export interface ReviewMessageModel {
   body_storage_kind: string;
   body: string;
   body_rel_path: string | null;
-  fix_run_guid: string | null;
+  agent_run_guid: string | null;
 }
 
 export interface ReviewMessageDto {
@@ -265,7 +265,7 @@ export interface ReviewMessageDto {
   body_storage_kind: string;
   body: string;
   body_rel_path: string | null;
-  fix_run_guid: string | null;
+  agent_run_guid: string | null;
 }
 
 export interface ReviewCommentDto {
@@ -342,7 +342,7 @@ export interface ReviewRevisionDto {
   session_guid: string;
   parent_revision_guid: string | null;
   source_kind: string;
-  fix_run_guid: string | null;
+  agent_run_guid: string | null;
   title: string | null;
   storage_root_rel_path: string;
   base_revision_guid: string | null;
@@ -358,14 +358,14 @@ export interface ReviewRevisionModel {
   session_guid: string;
   parent_revision_guid: string | null;
   source_kind: string;
-  fix_run_guid: string | null;
+  agent_run_guid: string | null;
   title: string | null;
   storage_root_rel_path: string;
   base_revision_guid: string | null;
   created_by: string | null;
 }
 
-export interface ReviewFixRunModel {
+export interface ReviewAgentRunModel {
   guid: string;
   created_at: string;
   updated_at: string;
@@ -373,8 +373,10 @@ export interface ReviewFixRunModel {
   session_guid: string;
   base_revision_guid: string;
   result_revision_guid: string | null;
+  run_kind: string;
   execution_mode: string;
   status: string;
+  skill_id: string | null;
   prompt_rel_path: string | null;
   result_rel_path: string | null;
   patch_rel_path: string | null;
@@ -406,26 +408,26 @@ export interface ReviewSessionDto {
   closed_at: string | null;
   archived_at: string | null;
   revisions: ReviewRevisionDto[];
-  runs: ReviewFixRunModel[];
+  runs: ReviewAgentRunModel[];
   open_comment_count: number;
   reviewed_file_count: number;
   reviewed_then_changed_count: number;
 }
 
-export interface ReviewFixRunCreatedDto {
-  run: ReviewFixRunModel;
+export interface ReviewAgentRunCreatedDto {
+  run: ReviewAgentRunModel;
   revision: ReviewRevisionDto;
   prompt: string;
 }
 
-export interface ReviewFixRunFinalizedDto {
-  run: ReviewFixRunModel;
+export interface ReviewAgentRunFinalizedDto {
+  run: ReviewAgentRunModel;
   revision: ReviewRevisionModel;
 }
 
-export type ReviewFixRunStatusDto =
-  | { kind: "run"; run: ReviewFixRunModel }
-  | { kind: "finalized"; run: ReviewFixRunModel; revision: ReviewRevisionModel };
+export type ReviewAgentRunStatusDto =
+  | { kind: "run"; run: ReviewAgentRunModel }
+  | { kind: "finalized"; run: ReviewAgentRunModel; revision: ReviewRevisionModel };
 
 export interface ReviewFileContentDto {
   file_snapshot: ReviewFileSnapshotModel;
@@ -434,7 +436,7 @@ export interface ReviewFileContentDto {
 }
 
 export interface ReviewRunArtifactDto {
-  run: ReviewFixRunModel;
+  run: ReviewAgentRunModel;
   kind: string;
   content: string;
 }
@@ -1592,14 +1594,14 @@ export const reviewWsApi = {
     authorType: string;
     kind: string;
     body: string;
-    fixRunGuid?: string | null;
+    agentRunGuid?: string | null;
   }): Promise<ReviewMessageDto> => {
     return wsRequest<ReviewMessageDto>("review_message_add", {
       comment_guid: data.commentGuid,
       author_type: data.authorType,
       kind: data.kind,
       body: data.body,
-      fix_run_guid: data.fixRunGuid ?? null,
+      agent_run_guid: data.agentRunGuid ?? null,
     });
   },
 
@@ -1616,23 +1618,27 @@ export const reviewWsApi = {
     });
   },
 
-  listFixRuns: async (sessionGuid: string): Promise<ReviewFixRunModel[]> => {
-    return wsRequest<ReviewFixRunModel[]>("review_fix_run_list", {
+  listAgentRuns: async (sessionGuid: string): Promise<ReviewAgentRunModel[]> => {
+    return wsRequest<ReviewAgentRunModel[]>("review_agent_run_list", {
       session_guid: sessionGuid,
     });
   },
 
-  createFixRun: async (data: {
+  createAgentRun: async (data: {
     sessionGuid: string;
     baseRevisionGuid: string;
+    runKind: string;
     executionMode: string;
+    skillId?: string | null;
     selectedCommentGuids?: string[];
     createdBy?: string | null;
-  }): Promise<ReviewFixRunCreatedDto> => {
-    return wsRequest<ReviewFixRunCreatedDto>("review_fix_run_create", {
+  }): Promise<ReviewAgentRunCreatedDto> => {
+    return wsRequest<ReviewAgentRunCreatedDto>("review_agent_run_create", {
       session_guid: data.sessionGuid,
       base_revision_guid: data.baseRevisionGuid,
+      run_kind: data.runKind,
       execution_mode: data.executionMode,
+      skill_id: data.skillId ?? null,
       selected_comment_guids: data.selectedCommentGuids ?? [],
       created_by: data.createdBy ?? null,
     }, 60_000);
@@ -1642,30 +1648,30 @@ export const reviewWsApi = {
     runGuid: string;
     kind: "prompt" | "patch" | "summary";
   }): Promise<ReviewRunArtifactDto> => {
-    return wsRequest<ReviewRunArtifactDto>("review_fix_run_artifact_get", {
+    return wsRequest<ReviewRunArtifactDto>("review_agent_run_artifact_get", {
       run_guid: data.runGuid,
       kind: data.kind,
     });
   },
 
-  finalizeFixRun: async (data: {
+  finalizeAgentRun: async (data: {
     runGuid: string;
     title?: string | null;
-  }): Promise<ReviewFixRunFinalizedDto> => {
-    return wsRequest<ReviewFixRunFinalizedDto>("review_fix_run_finalize", {
+  }): Promise<ReviewAgentRunFinalizedDto> => {
+    return wsRequest<ReviewAgentRunFinalizedDto>("review_agent_run_finalize", {
       run_guid: data.runGuid,
       title: data.title ?? null,
     }, 60_000);
   },
 
-  setFixRunStatus: async (data: {
+  setAgentRunStatus: async (data: {
     runGuid: string;
     status: "running" | "succeeded" | "failed";
     message?: string | null;
     title?: string | null;
     summary?: string | null;
-  }): Promise<ReviewFixRunStatusDto> => {
-    return wsRequest<ReviewFixRunStatusDto>("review_fix_run_set_status", {
+  }): Promise<ReviewAgentRunStatusDto> => {
+    return wsRequest<ReviewAgentRunStatusDto>("review_agent_run_set_status", {
       run_guid: data.runGuid,
       status: data.status,
       message: data.message ?? null,
