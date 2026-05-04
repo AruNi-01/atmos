@@ -1560,8 +1560,10 @@ pub struct GithubIssuePayload {
     pub body: Option<String>,
     pub url: String,
     pub state: String,
-    pub created_at: String,
-    pub updated_at: String,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
     #[serde(default)]
     pub labels: Vec<GithubIssueLabelPayload>,
 }

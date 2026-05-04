@@ -270,6 +270,7 @@ interface ProjectStore {
     labels: WorkspaceLabel[],
   ) => Promise<void>;
   markWorkspaceVisited: (workspaceId: string) => Promise<void>;
+  addWorkspacesToProject: (projectId: string, workspaceGuids: string[]) => Promise<void>;
   
   updateWorkspacePinOrder: (orderedWorkspaceIds: string[]) => Promise<void>;
   reorderProjects: (newOrder: Project[]) => Promise<void>;
@@ -585,15 +586,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
       const mappedWorkspaces = newWorkspaces.map(mapWorkspaceModel);
 
+      // Deduplicate by guid
+      const existingGuids = new Set(project.workspaces.map(w => w.guid));
+      const uniqueNewWorkspaces = mappedWorkspaces.filter(w => !existingGuids.has(w.guid));
+
       set(state => ({
         projects: state.projects.map(p =>
           p.id === projectId
             ? {
                 ...p,
-                workspaces: sortWorkspaces([...p.workspaces, ...mappedWorkspaces]),
+                workspaces: sortWorkspaces([...p.workspaces, ...uniqueNewWorkspaces]),
               }
             : p
-        )
+      )
       }));
 
       return mappedWorkspaces;

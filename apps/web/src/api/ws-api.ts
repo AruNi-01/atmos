@@ -453,8 +453,8 @@ export interface GithubIssuePayload {
   body: string | null;
   url: string;
   state: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
   labels: GithubIssueLabelPayload[];
 }
 
@@ -2231,7 +2231,7 @@ export const localModelApi = {
     return wsRequest<LocalModelListResponse>("local_model_list");
   },
   download: async (modelId: string): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("local_model_download", { model_id: modelId });
+    return wsRequest<{ ok: boolean }>("local_model_download", { model_id: modelId }, 600_000);
   },
   start: async (modelId: string): Promise<{ ok: boolean }> => {
     return wsRequest<{ ok: boolean }>("local_model_start", { model_id: modelId }, 60_000);

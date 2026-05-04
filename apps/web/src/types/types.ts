@@ -44,7 +44,7 @@ export interface Workspace {
   localPath: string;
   githubIssue?: GithubIssuePayload | null;
   githubPr?: GithubPrPayload | null;
-  createSource?: 'manual' | 'issue_only';
+  createSource: 'manual' | 'issue_only';
 }
 
 export interface Project {

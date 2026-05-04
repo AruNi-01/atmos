@@ -6,13 +6,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
+} from '@workspace/ui/components/ui/dialog';
+import { Button } from '@workspace/ui';
+import { Input } from '@workspace/ui/components/ui/input';
+import { Label } from '@workspace/ui/components/ui/label';
+import { Checkbox } from '@workspace/ui/components/ui/checkbox';
+import { ScrollArea } from '@workspace/ui/components/ui/scroll-area';
+import { Badge } from '@workspace/ui/components/ui/badge';
 import { GithubIssuePayload, wsWorkspaceApi, wsGithubApi } from '@/api/ws-api';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { Loader2, Search, ExternalLink } from 'lucide-react';
@@ -37,6 +37,15 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     if (defaultProjectId) return defaultProjectId;
     return projects.length > 0 ? projects[0].id : '';
   });
+
+  // Sync projectId when projects change
+  useEffect(() => {
+    if (defaultProjectId) {
+      setProjectId(defaultProjectId);
+    } else if (projects.length > 0 && !projectId) {
+      setProjectId(projects[0].id);
+    }
+  }, [projects, defaultProjectId, projectId]);
 
   const [owner, setOwner] = useState('');
   const [repo, setRepo] = useState('');
@@ -105,12 +114,18 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
 
   const toggleSelectAll = () => {
     const filtered = getFilteredIssues();
+    const filteredKeys = filtered.map((issue) => `${issue.owner}/${issue.repo}#${issue.number}`);
+    
     if (filtered.every((issue) => selectedIssues.has(`${issue.owner}/${issue.repo}#${issue.number}`))) {
-      setSelectedIssues(new Set());
+      // Deselect only filtered issues
+      const newSelected = new Set(selectedIssues);
+      filteredKeys.forEach(key => newSelected.delete(key));
+      setSelectedIssues(newSelected);
     } else {
-      setSelectedIssues(
-        new Set(filtered.map((issue) => `${issue.owner}/${issue.repo}#${issue.number}`))
-      );
+      // Select all filtered issues
+      const newSelected = new Set(selectedIssues);
+      filteredKeys.forEach(key => newSelected.add(key));
+      setSelectedIssues(newSelected);
     }
   };
 
@@ -169,7 +184,12 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
 
       await onImported?.();
 
-      onClose();
+      if (result.skipped.length > 0) {
+        setError(`${result.skipped.length} issue(s) were already imported and skipped.`);
+        setTimeout(() => onClose(), 2000);
+      } else {
+        onClose();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import issues');
     } finally {

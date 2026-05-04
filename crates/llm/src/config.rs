@@ -146,6 +146,7 @@ pub fn resolve_provider_by_id(
                     .local_model_id
                     .clone()
                     .unwrap_or_else(|| entry.model.clone());
+                let m = m.trim();
                 if m.is_empty() {
                     return Err(LlmError::InvalidConfig(format!(
                         "LocalManaged provider {} has empty model ID",

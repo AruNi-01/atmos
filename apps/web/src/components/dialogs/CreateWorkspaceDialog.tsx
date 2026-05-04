@@ -406,15 +406,19 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setRepoContext(null);
       setRemoteBranches([]);
       setIssues([]);
-      setIssuePreview(null);
-      setSelectedIssueNumber('');
-      setIssueUrl('');
+      if (!preselectedIssue) {
+        setIssuePreview(null);
+        setSelectedIssueNumber('');
+        setIssueUrl('');
+      }
       setPrs([]);
       setPrPreview(null);
       setSelectedPrNumber('');
       setPrUrl('');
       setPrError(null);
-      setLinkType('none');
+      if (!preselectedIssue) {
+        setLinkType('none');
+      }
       setAutoExtractTodos(false);
       setAutoExtractTodosPr(false);
       setHasSetupScript(false);
@@ -1120,13 +1124,14 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                                 setIssueUrl(event.target.value);
                               }}
                               placeholder={`https://github.com/${repoContext.owner}/${repoContext.repo}/issues/40`}
+                              disabled={!!preselectedIssue}
                             />
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
                               onClick={handleLoadIssueFromUrl}
-                              disabled={isIssuePreviewLoading || !issueUrl.trim()}
+                              disabled={isIssuePreviewLoading || !issueUrl.trim() || !!preselectedIssue}
                               title="Load issue"
                             >
                               {isIssuePreviewLoading ? (

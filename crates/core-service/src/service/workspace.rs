@@ -186,6 +186,8 @@ impl WorkspaceService {
             body: pr.body.clone(),
             url: pr.url.clone(),
             state: pr.state.clone(),
+            created_at: pr.created_at.clone(),
+            updated_at: pr.updated_at.clone(),
             labels: pr
                 .labels
                 .iter()
@@ -524,6 +526,37 @@ impl WorkspaceService {
         priority: Option<String>,
         labels: Option<Vec<String>>,
     ) -> Result<WorkspaceDto> {
+        let workflow_status = match workflow_status {
+            Some(status)
+                if WORKSPACE_WORKFLOW_STATUSES
+                    .iter()
+                    .any(|candidate| *candidate == status) =>
+            {
+                Some(status)
+            }
+            Some(status) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace workflow status: {status}"
+                )));
+            }
+            None => None,
+        };
+        let priority = match priority {
+            Some(value)
+                if WORKSPACE_PRIORITIES
+                    .iter()
+                    .any(|candidate| *candidate == value) =>
+            {
+                Some(value)
+            }
+            Some(value) => {
+                return Err(ServiceError::Validation(format!(
+                    "Unsupported workspace priority: {value}"
+                )));
+            }
+            None => None,
+        };
+
         let workspace_repo = WorkspaceRepo::new(&self.db);
 
         let model = workspace_repo

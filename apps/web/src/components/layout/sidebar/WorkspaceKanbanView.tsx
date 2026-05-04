@@ -582,14 +582,25 @@ export function WorkspaceKanbanView({
   }, [searchQuery]);
 
   const reloadKanbanProjects = React.useCallback(async () => {
-    const nextProjects = await Promise.all(
+    const results = await Promise.allSettled(
       projects.map(async (project) => {
-        const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
-        return {
-          ...project,
-          workspaces: workspaces.map(mapKanbanWorkspaceModel),
-        };
+        try {
+          const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
+          return {
+            ...project,
+            workspaces: workspaces.map(mapKanbanWorkspaceModel),
+          };
+        } catch (error) {
+          console.error(`Failed to load workspaces for project ${project.id}:`, error);
+          return {
+            ...project,
+            workspaces: [],
+          };
+        }
       }),
+    );
+    const nextProjects = results.map((result) =>
+      result.status === 'fulfilled' ? result.value : { ...result.reason.project, workspaces: [] }
     );
     setKanbanProjects(nextProjects);
   }, [projects]);
@@ -602,16 +613,27 @@ export function WorkspaceKanbanView({
 
     let cancelled = false;
     void (async () => {
-      const nextProjects = await Promise.all(
+      const results = await Promise.allSettled(
         projects.map(async (project) => {
-          const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
-          return {
-            ...project,
-            workspaces: workspaces.map(mapKanbanWorkspaceModel),
-          };
+          try {
+            const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
+            return {
+              ...project,
+              workspaces: workspaces.map(mapKanbanWorkspaceModel),
+            };
+          } catch (error) {
+            console.error(`Failed to load workspaces for project ${project.id}:`, error);
+            return {
+              ...project,
+              workspaces: [],
+            };
+          }
         }),
       );
       if (!cancelled) {
+        const nextProjects = results.map((result) =>
+          result.status === 'fulfilled' ? result.value : { ...result.reason.project, workspaces: [] }
+        );
         setKanbanProjects(nextProjects);
       }
     })();

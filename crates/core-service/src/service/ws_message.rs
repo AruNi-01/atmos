@@ -1986,10 +1986,10 @@ impl WsMessageService {
         &self,
         req: WorkspaceImportGithubIssuesRequest,
     ) -> Result<Value> {
-        use infra::websocket::message::GithubIssuePayload;
+        use infra::websocket::message::{GithubIssuePayload, WorkspaceImportGithubIssuesRequest};
         use infra::db::repo::workspace_repo::WorkspaceRepo;
 
-        let workspace_repo = WorkspaceRepo::new(&self.db);
+        let workspace_repo = WorkspaceRepo::new(&self.workspace_service.db);
         let mut created_workspaces = Vec::new();
         let mut skipped_issues = Vec::new();
 
@@ -1998,11 +1998,19 @@ impl WsMessageService {
             .list_by_project(&req.project_guid, true)
             .await?;
 
+        // Seed seen set with existing issue-only workspace URLs
+        use std::collections::HashSet;
+        let mut seen_urls: HashSet<String> = existing_workspaces
+            .iter()
+            .filter(|w| w.create_source == "issue_only")
+            .filter_map(|w| w.github_issue_url.clone())
+            .collect();
+
         for issue in req.issues {
             // Check for duplicate: project_guid + github_issue_url + create_source=issue_only
             let is_duplicate = existing_workspaces.iter().any(|w| {
                 w.github_issue_url.as_ref() == Some(&issue.url) && w.create_source == "issue_only"
-            });
+            }) || seen_urls.contains(&issue.url);
 
             if is_duplicate {
                 skipped_issues.push(json!({
@@ -2036,6 +2044,8 @@ impl WsMessageService {
                 )
                 .await?;
 
+            // Add to seen set after successful creation
+            seen_urls.insert(issue.url.clone());
             created_workspaces.push(workspace);
         }
 
