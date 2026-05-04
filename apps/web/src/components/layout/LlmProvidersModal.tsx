@@ -278,8 +278,10 @@ function validateRouting(
 }
 
 function fileToModalState(config: LlmProvidersFile): ModalDraftState {
-  const providers = Object.entries(config.providers ?? {}).map(
-    ([id, provider], index) => ({
+  // local-managed providers are managed by LocalModelPanel, not this editor.
+  const providers = Object.entries(config.providers ?? {})
+    .filter(([, provider]) => provider.kind !== "local-managed")
+    .map(([id, provider], index) => ({
       clientKey: `provider-${index + 1}-${id}`,
       persistedId: id,
       enabled: provider.enabled,
@@ -294,8 +296,7 @@ function fileToModalState(config: LlmProvidersFile): ModalDraftState {
         provider.max_output_tokens == null
           ? defaultMaxOutputTokens(provider.kind)
           : String(provider.max_output_tokens),
-    }),
-  );
+    }));
 
   const persistedToClientKey = new Map(
     providers.map((provider) => [provider.persistedId, provider.clientKey]),
@@ -330,8 +331,37 @@ function fileToModalState(config: LlmProvidersFile): ModalDraftState {
   };
 }
 
-function modalStateToFile(state: ModalDraftState): LlmProvidersFile {
+function modalStateToFile(
+  state: ModalDraftState,
+  originalConfig?: LlmProvidersFile,
+): LlmProvidersFile {
   const providerIdMap = buildDraftIdMap(state.providers);
+
+  // Preserve local-managed providers that were stripped from the editor state.
+  const localManagedProviders: Record<string, LlmProviderEntry> =
+    Object.fromEntries(
+      Object.entries(originalConfig?.providers ?? {}).filter(
+        ([, p]) => p.kind === "local-managed",
+      ),
+    );
+
+  // Resolve a feature binding from the draft. When the draft has no value
+  // and the original config bound this feature to a still-present
+  // local-managed provider, preserve that binding so the editor (which
+  // intentionally hides local-managed providers from its dropdowns) does
+  // not silently clear local routing on save.
+  const resolveFeatureBinding = (
+    draftKey: string | null | undefined,
+    originalProviderId: string | null | undefined,
+  ): string | null => {
+    if (draftKey) {
+      return providerIdMap.get(draftKey) ?? null;
+    }
+    if (originalProviderId && localManagedProviders[originalProviderId]) {
+      return originalProviderId;
+    }
+    return null;
+  };
 
   const providers = state.providers.reduce<Record<string, LlmProviderEntry>>(
     (acc, provider) => {
@@ -357,26 +387,28 @@ function modalStateToFile(state: ModalDraftState): LlmProvidersFile {
       };
       return acc;
     },
-    {},
+    { ...localManagedProviders },
   );
 
   return {
     version: state.version || 1,
     default_provider: null,
     features: {
-      session_title: state.routing.features.session_title
-        ? (providerIdMap.get(state.routing.features.session_title) ?? null)
-        : null,
-      git_commit: state.routing.features.git_commit
-        ? (providerIdMap.get(state.routing.features.git_commit) ?? null)
-        : null,
+      session_title: resolveFeatureBinding(
+        state.routing.features.session_title,
+        originalConfig?.features?.session_title,
+      ),
+      git_commit: resolveFeatureBinding(
+        state.routing.features.git_commit,
+        originalConfig?.features?.git_commit,
+      ),
       git_commit_language: normalizeFeatureLanguage(
         state.routing.features.git_commit_language,
       ),
-      workspace_issue_todo: state.routing.features.workspace_issue_todo
-        ? (providerIdMap.get(state.routing.features.workspace_issue_todo) ??
-          null)
-        : null,
+      workspace_issue_todo: resolveFeatureBinding(
+        state.routing.features.workspace_issue_todo,
+        originalConfig?.features?.workspace_issue_todo,
+      ),
       workspace_issue_todo_language: normalizeFeatureLanguage(
         state.routing.features.workspace_issue_todo_language,
       ),
@@ -489,6 +521,7 @@ export function LlmProviderEditorDialog({
   const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
   const [providerEditor, setProviderEditor] = useState<ProviderDraft | null>(null);
   const [loading, setLoading] = useState(false);
+  const [originalConfig, setOriginalConfig] = useState<LlmProvidersFile | null>(null);
   const [providerSaveState, setProviderSaveState] = useState<SaveState>("idle");
   const [providerNameTouched, setProviderNameTouched] = useState(false);
   const [providerSaveAttempted, setProviderSaveAttempted] = useState(false);
@@ -511,6 +544,7 @@ export function LlmProviderEditorDialog({
     setLoading(true);
     try {
       const config = await llmProvidersApi.get();
+      setOriginalConfig(config);
       const nextState = fileToModalState(config);
       setVersion(nextState.version);
       setProviders(nextState.providers);
@@ -652,11 +686,10 @@ export function LlmProviderEditorDialog({
     setProviderSaveState("saving");
     try {
       await llmProvidersApi.update(
-        modalStateToFile({
-          version,
-          providers: nextProviders,
-          routing: routingDraft,
-        }),
+        modalStateToFile(
+          { version, providers: nextProviders, routing: routingDraft },
+          originalConfig ?? undefined,
+        ),
       );
       setProviderSaveState("saved");
       scheduleSaveStateReset(setProviderSaveState, providerResetTimerRef);
@@ -707,11 +740,10 @@ export function LlmProviderEditorDialog({
     setProviderSaveState("saving");
     try {
       await llmProvidersApi.update(
-        modalStateToFile({
-          version,
-          providers: nextProviders,
-          routing: nextRouting,
-        }),
+        modalStateToFile(
+          { version, providers: nextProviders, routing: nextRouting },
+          originalConfig ?? undefined,
+        ),
       );
       onSaved?.();
       onOpenChange(false);
@@ -1044,6 +1076,7 @@ export function LlmRoutingDialog({
   const [providers, setProviders] = useState<ProviderDraft[]>([]);
   const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
   const [loading, setLoading] = useState(false);
+  const [originalConfig, setOriginalConfig] = useState<LlmProvidersFile | null>(null);
   const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
   const [titleFormatSaveState, setTitleFormatSaveState] =
     useState<SaveState>("idle");
@@ -1060,6 +1093,7 @@ export function LlmRoutingDialog({
     setLoading(true);
     try {
       const config = await llmProvidersApi.get();
+      setOriginalConfig(config);
       const nextState = fileToModalState(config);
       setVersion(nextState.version);
       setProviders(nextState.providers);
@@ -1111,11 +1145,10 @@ export function LlmRoutingDialog({
     setRoutingSaveState("saving");
     try {
       await llmProvidersApi.update(
-        modalStateToFile({
-          version,
-          providers,
-          routing: routingDraft,
-        }),
+        modalStateToFile(
+          { version, providers, routing: routingDraft },
+          originalConfig ?? undefined,
+        ),
       );
       setRoutingSaveState("saved");
       scheduleSaveStateReset(setRoutingSaveState, routingResetTimerRef);
@@ -1149,11 +1182,10 @@ export function LlmRoutingDialog({
     setTitleFormatSaveState("saving");
     try {
       await llmProvidersApi.update(
-        modalStateToFile({
-          version,
-          providers,
-          routing: nextRouting,
-        }),
+        modalStateToFile(
+          { version, providers, routing: nextRouting },
+          originalConfig ?? undefined,
+        ),
       );
       setRoutingDraft(nextRouting);
       setSessionTitleFormatDraft(normalized);

@@ -29,7 +29,8 @@ pub async fn generate_text(
     request: GenerateTextRequest,
 ) -> Result<GenerateTextResponse> {
     match provider.kind {
-        ProviderKind::OpenAiCompatible => {
+        // LocalManaged exposes an OpenAI-compatible HTTP endpoint.
+        ProviderKind::OpenAiCompatible | ProviderKind::LocalManaged => {
             OpenAiCompatibleClient
                 .generate_text(provider, request)
                 .await
@@ -51,7 +52,8 @@ pub async fn generate_text_stream(
 
     let handle = tokio::spawn(async move {
         let result = match provider.kind {
-            ProviderKind::OpenAiCompatible => {
+            // LocalManaged exposes an OpenAI-compatible HTTP endpoint.
+            ProviderKind::OpenAiCompatible | ProviderKind::LocalManaged => {
                 OpenAiCompatibleClient
                     .stream_text(&provider, request, tx.clone())
                     .await

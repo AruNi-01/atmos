@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 ai-usage = { path = "../ai-usage" }
+local-model = { path = "../local-model" }
 infra = { path = "../infra" }
 core-engine = { path = "../core-engine" }
 agent = { path = "../agent" }

@@ -4,11 +4,18 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
-use crate::types::{LlmFeature, LlmProvidersFile, ResolvedLlmProvider, SessionTitleFormatConfig};
+use crate::types::{
+    LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvider, SessionTitleFormatConfig,
+};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
     include_str!("../../../prompt/git-commit/git-commit-generator.md");
+
+/// Conservative context-window default for LocalManaged (small) models.
+const LOCAL_MANAGED_DEFAULT_CONTEXT_WINDOW: u32 = 4_096;
+/// Conservative default for cloud / OpenAI-compatible providers.
+const CLOUD_DEFAULT_CONTEXT_WINDOW: u32 = 16_384;
 
 #[derive(Debug, Clone)]
 pub struct FileLlmConfigStore {
@@ -122,6 +129,39 @@ pub fn resolve_provider_by_id(
         return Ok(None);
     }
 
+    // LocalManaged providers are served by the in-process llama-server
+    // managed by `crates/local-model`. That runtime binds to the fixed
+    // canonical port (`LOCAL_RUNTIME_PORT`, currently 18080) and fails fast
+    // on conflict, so we can resolve to a stable URL here. If you change the
+    // port, update both `crates/local-model/src/runtime/port.rs` and this
+    // constant together.
+    if entry.kind == ProviderKind::LocalManaged {
+        return Ok(Some(ResolvedLlmProvider {
+            id: provider_id.to_string(),
+            kind: entry.kind,
+            base_url: "http://127.0.0.1:18080".to_string(),
+            api_key: String::new(),
+            model: {
+                let m = entry
+                    .local_model_id
+                    .clone()
+                    .unwrap_or_else(|| entry.model.clone());
+                if m.is_empty() {
+                    return Err(LlmError::InvalidConfig(format!(
+                        "LocalManaged provider {} has empty model ID",
+                        provider_id
+                    )));
+                }
+                m
+            },
+            timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
+            max_output_tokens: entry.max_output_tokens,
+            context_window: entry
+                .context_window
+                .unwrap_or(LOCAL_MANAGED_DEFAULT_CONTEXT_WINDOW),
+        }));
+    }
+
     let base_url = entry.base_url.trim();
     if base_url.is_empty() {
         return Err(LlmError::InvalidConfig(format!(
@@ -148,6 +188,7 @@ pub fn resolve_provider_by_id(
         model: model.to_string(),
         timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
         max_output_tokens: entry.max_output_tokens,
+        context_window: entry.context_window.unwrap_or(CLOUD_DEFAULT_CONTEXT_WINDOW),
     }))
 }
 

@@ -460,6 +460,19 @@ pub enum WsAction {
     NotificationSettingsUpdate,
     /// Send a test push notification
     NotificationTestPush,
+    // ===== Local Model =====
+    /// Fetch the remote model manifest and return available models + current state
+    LocalModelList,
+    /// Download the binary + model GGUF (streams state via LocalModelStateChanged)
+    LocalModelDownload,
+    /// Start the llama-server for a given model
+    LocalModelStart,
+    /// Stop the running llama-server
+    LocalModelStop,
+    /// Delete a downloaded model file
+    LocalModelDelete,
+    /// Get the current runtime state
+    LocalModelStatus,
 }
 
 /// 服务端主动推送的事件类型
@@ -496,6 +509,8 @@ pub enum WsEvent {
     ReviewFileUpdated,
     /// Review fix run changed
     ReviewFixRunUpdated,
+    /// Local model state changed (download progress, started, stopped, error)
+    LocalModelStateChanged,
 }
 
 // ===== 消息通知数据结构 =====
@@ -1896,4 +1911,34 @@ pub struct NotificationSettingsUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationTestPushRequest {
     pub server_index: usize,
+}
+
+// ===== Local Model Request Structures =====
+
+/// Request to download (and optionally start) a model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelDownloadRequest {
+    /// Model id from the manifest, e.g. "qwen2.5-0.5b-instruct".
+    pub model_id: String,
+}
+
+/// Request to start the llama-server for a specific model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelStartRequest {
+    pub model_id: String,
+}
+
+/// Request to delete a downloaded model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelDeleteRequest {
+    pub model_id: String,
+}
+
+// ===== Local Model Notification Payload =====
+
+/// Notification payload pushed via WsEvent::LocalModelStateChanged.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelStateNotification {
+    /// Serialized `LocalModelState` (flattened as JSON object).
+    pub state: serde_json::Value,
 }

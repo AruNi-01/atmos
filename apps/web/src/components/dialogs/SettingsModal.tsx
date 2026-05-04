@@ -89,6 +89,7 @@ import {
 } from '@/api/ws-api';
 import { systemApi } from '@/api/rest-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
+import { LocalModelPanel } from '@/components/dialogs/LocalModelPanel';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { settingsModalParams } from '@/lib/nuqs/searchParams';
@@ -2590,7 +2591,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       </Popover>
                                     </div>
                                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                                      {provider.model || provider.kind}
+                                      {provider.kind === 'local-managed' ? 'Managed local model' : (provider.model || provider.kind)}
                                     </p>
                                   </div>
                                   <div className="flex items-center justify-end gap-3">
@@ -2604,6 +2605,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                         }}
                                       />
                                     </div>
+                                    {provider.kind !== 'local-managed' && (
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -2613,6 +2615,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     >
                                       Edit
                                     </Button>
+                                    )}
                                   </div>
                                 </div>
                               ))}
@@ -2926,6 +2929,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </div>
                             </div>
                           )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    {/* ── Local Model ── */}
+                    <Collapsible
+                      defaultOpen
+                      className="overflow-hidden rounded-2xl border border-border"
+                    >
+                      <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-3 px-6 py-5 text-left">
+                        <span className="relative mt-0.5 size-5 shrink-0">
+                          <ChevronDown className="absolute inset-0 size-5 transition-all duration-150 group-data-[state=closed]:-rotate-90" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-base font-medium text-foreground">Local Model</p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            Run a small language model on-device — no API key required.
+                          </p>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="border-t border-border px-6 py-4">
+                          <LocalModelPanel />
                         </div>
                       </CollapsibleContent>
                     </Collapsible>

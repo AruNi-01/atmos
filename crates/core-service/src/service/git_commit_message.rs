@@ -12,8 +12,17 @@ const MAX_SUBJECT_CHARS: usize = 72;
 const MAX_COMMIT_MESSAGE_CHARS: usize = 1_200;
 const MAX_FILES_IN_PROMPT: usize = 48;
 const MAX_FILE_PATH_CHARS: usize = 120;
-const MAX_FILES_SUMMARY_CHARS: usize = 4_000;
 const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4096;
+
+/// Approximate chars-per-token ratio used to convert a token budget into a
+/// character budget.  This is intentionally conservative (real ratio is ~4)
+/// so we never overshoot.
+const CHARS_PER_TOKEN: usize = 3;
+
+/// Fraction of the context window reserved for the system prompt, output, and
+/// other overhead.  We only use the remaining fraction for the files summary.
+const SUMMARY_CONTEXT_FRACTION: f64 = 0.40;
+
 const GIT_COMMIT_USER_PROMPT_TEMPLATE: &str =
     include_str!("../../../../prompt/git-commit/git-commit-user.md");
 
@@ -55,7 +64,14 @@ impl GitCommitMessageGenerator {
                     "Failed to load git commit output language: {error}"
                 ))
             })?;
-        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref());
+
+        let max_summary_chars = context_window_to_summary_chars(provider.context_window);
+        let prompt = build_generation_prompt(
+            repo_name,
+            changes,
+            output_language.as_deref(),
+            max_summary_chars,
+        );
         let prompt_chars = prompt.chars().count();
         let system_prompt = build_system_prompt(output_language.as_deref());
         let request = GenerateTextRequest {
@@ -72,8 +88,15 @@ impl GitCommitMessageGenerator {
                 model = %provider.model,
                 repo_name = %sanitize_prompt_text(repo_name.unwrap_or("unknown")),
                 prompt_chars,
-                changed_files = changes.staged_files.len() + changes.unstaged_files.len() + changes.untracked_files.len(),
-                prompt_preview = %prompt_preview(&build_generation_prompt(repo_name, changes, output_language.as_deref())),
+                changed_files = changes.staged_files.len()
+                    + changes.unstaged_files.len()
+                    + changes.untracked_files.len(),
+                prompt_preview = %prompt_preview(&build_generation_prompt(
+                    repo_name,
+                    changes,
+                    output_language.as_deref(),
+                    max_summary_chars,
+                )),
                 "git commit message generation failed"
             );
             ServiceError::Validation(format!("Failed to generate git commit message: {error}"))
@@ -107,6 +130,7 @@ impl GitCommitMessageGenerator {
             provider_id = %provider.id,
             model = %provider.model,
             kind = ?provider.kind,
+            context_window = provider.context_window,
             repo_name = %sanitize_prompt_text(repo_name.unwrap_or("unknown")),
             "resolved git commit message provider"
         );
@@ -119,7 +143,14 @@ impl GitCommitMessageGenerator {
                     "Failed to load git commit output language: {error}"
                 ))
             })?;
-        let prompt = build_generation_prompt(repo_name, changes, output_language.as_deref());
+
+        let max_summary_chars = context_window_to_summary_chars(provider.context_window);
+        let prompt = build_generation_prompt(
+            repo_name,
+            changes,
+            output_language.as_deref(),
+            max_summary_chars,
+        );
         let system_prompt = build_system_prompt(output_language.as_deref());
         let request = GenerateTextRequest {
             system: Some(system_prompt),
@@ -140,6 +171,17 @@ impl GitCommitMessageGenerator {
         Ok(rx)
     }
 }
+
+// ─── Context-window helpers ──────────────────────────────────────────────────
+
+/// Convert a token-count context window to a character budget for the files
+/// summary, reserving headroom for the system prompt and model output.
+fn context_window_to_summary_chars(context_window_tokens: u32) -> usize {
+    let budget_tokens = (context_window_tokens as f64 * SUMMARY_CONTEXT_FRACTION) as usize;
+    budget_tokens * CHARS_PER_TOKEN
+}
+
+// ─── Prompt builders ─────────────────────────────────────────────────────────
 
 fn build_system_prompt(output_language: Option<&str>) -> String {
     render_prompt_template(
@@ -162,7 +204,13 @@ fn build_git_commit_language_instruction(output_language: Option<&str>) -> Strin
     };
 
     format!(
-        "Output language requirement:\n- Write the description, body, and footer strictly in {language}.\n- This output-language requirement overrides the language of the input diff, filenames, comments, and examples.\n- Keep the conventional commit type token (such as feat/fix/docs) in its standard English form.\n- Do not mix in any other natural language."
+        "Output language requirement:\n\
+         - Write the description, body, and footer strictly in {language}.\n\
+         - This output-language requirement overrides the language of the input diff, \
+           filenames, comments, and examples.\n\
+         - Keep the conventional commit type token (such as feat/fix/docs) in its \
+           standard English form.\n\
+         - Do not mix in any other natural language."
     )
 }
 
@@ -175,7 +223,9 @@ fn build_git_commit_user_language_directive(output_language: Option<&str>) -> St
     };
 
     format!(
-        "Output language: {language}\nUse {language} for the commit description, body, and footer even if the repository changes or filenames are in another language."
+        "Output language: {language}\n\
+         Use {language} for the commit description, body, and footer even if the \
+         repository changes or filenames are in another language."
     )
 }
 
@@ -183,9 +233,10 @@ fn build_generation_prompt(
     repo_name: Option<&str>,
     changes: &ChangedFilesInfo,
     output_language: Option<&str>,
+    max_summary_chars: usize,
 ) -> String {
     let repo_name = sanitize_prompt_text(repo_name.unwrap_or("unknown"));
-    let (scope_label, files_summary) = generation_scope_and_summary(changes);
+    let (scope_label, files_summary) = generation_scope_and_summary(changes, max_summary_chars);
     let total_additions = changes.total_additions.to_string();
     let total_deletions = changes.total_deletions.to_string();
     let output_language_directive = build_git_commit_user_language_directive(output_language);
@@ -203,29 +254,50 @@ fn build_generation_prompt(
     )
 }
 
-fn generation_scope_and_summary(changes: &ChangedFilesInfo) -> (&'static str, String) {
+// ─── Files summary ───────────────────────────────────────────────────────────
+
+fn generation_scope_and_summary(
+    changes: &ChangedFilesInfo,
+    max_summary_chars: usize,
+) -> (&'static str, String) {
+    // Derive a proportional file-count cap: never more than MAX_FILES_IN_PROMPT,
+    // but scale down for very small context windows so we don't waste tokens on
+    // truncated lines.
+    let max_files = if max_summary_chars >= 4_000 {
+        MAX_FILES_IN_PROMPT
+    } else {
+        // Rough heuristic: ~80 chars per file line
+        (max_summary_chars / 80).min(MAX_FILES_IN_PROMPT).max(4)
+    };
+
     if !changes.staged_files.is_empty() {
         (
             "staged changes",
-            summarize_files(changes.staged_files.iter()),
+            summarize_files(changes.staged_files.iter(), max_files, max_summary_chars),
         )
     } else {
         let mut files = Vec::new();
         files.extend(changes.unstaged_files.iter());
         files.extend(changes.untracked_files.iter());
-        ("working tree changes", summarize_files(files))
+        (
+            "working tree changes",
+            summarize_files(files, max_files, max_summary_chars),
+        )
     }
 }
 
-fn summarize_files<'a>(files: impl IntoIterator<Item = &'a ChangedFileInfo>) -> String {
+fn summarize_files<'a>(
+    files: impl IntoIterator<Item = &'a ChangedFileInfo>,
+    max_files: usize,
+    max_chars: usize,
+) -> String {
     let collected = files.into_iter().collect::<Vec<_>>();
     let total_files = collected.len();
-    let omitted_files = total_files.saturating_sub(MAX_FILES_IN_PROMPT);
+    let omitted_files = total_files.saturating_sub(max_files);
 
     let mut lines = collected
         .into_iter()
-        .take(MAX_FILES_IN_PROMPT)
-        .into_iter()
+        .take(max_files)
         .map(|file| {
             format!(
                 "- [{}] {} (+{} -{})",
@@ -245,8 +317,10 @@ fn summarize_files<'a>(files: impl IntoIterator<Item = &'a ChangedFileInfo>) -> 
         lines.push(format!("- ... and {omitted_files} more files"));
     }
 
-    truncate_text(&lines.join("\n"), MAX_FILES_SUMMARY_CHARS)
+    truncate_text(&lines.join("\n"), max_chars)
 }
+
+// ─── Text utilities ──────────────────────────────────────────────────────────
 
 fn truncate_text(value: &str, max_chars: usize) -> String {
     let char_count = value.chars().count();
@@ -394,8 +468,9 @@ fn resolve_max_output_tokens(provider_max_output_tokens: Option<u32>) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::{
-        prompt_preview, resolve_max_output_tokens, sanitize_commit_message, sanitize_prompt_text,
-        summarize_files, DEFAULT_MAX_OUTPUT_TOKENS,
+        context_window_to_summary_chars, prompt_preview, resolve_max_output_tokens,
+        sanitize_commit_message, sanitize_prompt_text, summarize_files, DEFAULT_MAX_OUTPUT_TOKENS,
+        MAX_FILES_IN_PROMPT,
     };
     use core_engine::ChangedFileInfo;
 
@@ -433,9 +508,35 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let summary = summarize_files(files.iter());
+        let max_chars = context_window_to_summary_chars(16_384);
+        let summary = summarize_files(files.iter(), MAX_FILES_IN_PROMPT, max_chars);
         assert!(summary.contains("... and 32 more files"));
-        assert!(summary.chars().count() <= 4_000);
+        assert!(summary.chars().count() <= max_chars);
+    }
+
+    #[test]
+    fn small_context_window_produces_tighter_summary() {
+        let files = (0..20)
+            .map(|index| ChangedFileInfo {
+                path: format!("src/file_{index}.rs"),
+                status: "M".to_string(),
+                additions: 5,
+                deletions: 2,
+                staged: false,
+            })
+            .collect::<Vec<_>>();
+
+        // 4096-token window → ~4915 chars budget for summary
+        let max_chars_small = context_window_to_summary_chars(4_096);
+        // 16384-token window → ~19660 chars budget
+        let max_chars_large = context_window_to_summary_chars(16_384);
+
+        let summary_small = summarize_files(files.iter(), MAX_FILES_IN_PROMPT, max_chars_small);
+        let summary_large = summarize_files(files.iter(), MAX_FILES_IN_PROMPT, max_chars_large);
+
+        // Both should fit within their respective budgets
+        assert!(summary_small.chars().count() <= max_chars_small);
+        assert!(summary_large.chars().count() <= max_chars_large);
     }
 
     #[test]
