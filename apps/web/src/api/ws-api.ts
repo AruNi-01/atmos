@@ -1211,6 +1211,12 @@ export const wsWorkspaceApi = {
     });
   },
 
+  listProjectWorkspacesFiltered: async (projectId: string, guids: string[]): Promise<Workspace[]> => {
+    const allWorkspaces = await wsWorkspaceApi.listByProject(projectId, true);
+    const filtered = allWorkspaces.filter(w => guids.includes(w.guid));
+    return filtered.map(mapWorkspaceModel);
+  },
+
   /**
    * 创建 Workspace
    */

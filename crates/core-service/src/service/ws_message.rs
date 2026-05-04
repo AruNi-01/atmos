@@ -48,7 +48,7 @@ use infra::{
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
-    WorkspaceDeleteRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
+    WorkspaceDeleteRequest, WorkspaceImportGithubIssuesRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
     WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
     WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
     WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
@@ -1986,7 +1986,7 @@ impl WsMessageService {
         &self,
         req: WorkspaceImportGithubIssuesRequest,
     ) -> Result<Value> {
-        use infra::websocket::message::{GithubIssuePayload, WorkspaceImportGithubIssuesRequest};
+        use infra::websocket::message::GithubIssuePayload;
         use infra::db::repo::workspace_repo::WorkspaceRepo;
 
         let workspace_repo = WorkspaceRepo::new(&self.workspace_service.db);
@@ -5056,7 +5056,7 @@ set -x
                             WsEvent::LocalModelStateChanged,
                             json!({ "state": state_json }),
                         );
-                        let _ = mgr.send_to(&conn_id_notify, &notification).await;
+                        let _ = mgr.broadcast(&notification).await;
                     }
                     if matches!(
                         state,
@@ -5093,7 +5093,7 @@ set -x
                 WsEvent::LocalModelStateChanged,
                 json!({ "state": state_json }),
             );
-            let _ = mgr.send_to(&conn_id, &notification).await;
+            let _ = mgr.broadcast(&notification).await;
         }
         Ok(json!({ "ok": true }))
     }
@@ -5115,7 +5115,7 @@ set -x
                 WsEvent::LocalModelStateChanged,
                 json!({ "state": state_json }),
             );
-            let _ = mgr.send_to(conn_id, &notification).await;
+            let _ = mgr.broadcast(&notification).await;
         }
         Ok(json!({ "ok": true }))
     }

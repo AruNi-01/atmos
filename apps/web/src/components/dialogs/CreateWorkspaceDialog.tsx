@@ -341,6 +341,10 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
       setPriority('no_priority');
       setWorkflowStatus(defaultWorkflowStatus ?? 'in_progress');
       setSelectedLabels([]);
+      // Reset refs
+      nameTouchedRef.current = false;
+      branchTouchedRef.current = false;
+      generatedBranchRef.current = null;
     }
   }, [defaultProjectId, isOpen, projects, requireProjectSelection, defaultWorkflowStatus]);
 

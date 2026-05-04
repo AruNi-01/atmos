@@ -327,7 +327,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
-    createSource: model.create_source as 'manual' | 'issue_only',
+    createSource: model.create_source === 'issue_only' ? 'issue_only' : 'manual',
   };
 }
 
@@ -575,33 +575,29 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addWorkspacesToProject: async (projectId: string, workspaceGuids: string[]) => {
     try {
-      const project = get().projects.find(p => p.id === projectId);
-      if (!project) {
-        throw new Error('Project not found');
-      }
+      const mappedWorkspaces = await wsWorkspaceApi.listProjectWorkspacesFiltered(projectId, workspaceGuids);
 
-      // Fetch all workspaces for the project with issue_only included
-      const allWorkspaces = await wsWorkspaceApi.listByProject(projectId, true);
-      const newWorkspaces = allWorkspaces.filter(w => workspaceGuids.includes(w.guid));
+      set(state => {
+        const project = state.projects.find(p => p.id === projectId);
+        if (!project) {
+          return state;
+        }
 
-      const mappedWorkspaces = newWorkspaces.map(mapWorkspaceModel);
+        // Deduplicate by id using latest state
+        const existingIds = new Set(project.workspaces.map(w => w.id));
+        const uniqueNewWorkspaces = mappedWorkspaces.filter(w => !existingIds.has(w.id));
 
-      // Deduplicate by guid
-      const existingGuids = new Set(project.workspaces.map(w => w.guid));
-      const uniqueNewWorkspaces = mappedWorkspaces.filter(w => !existingGuids.has(w.guid));
-
-      set(state => ({
-        projects: state.projects.map(p =>
-          p.id === projectId
-            ? {
-                ...p,
-                workspaces: sortWorkspaces([...p.workspaces, ...uniqueNewWorkspaces]),
-              }
-            : p
-      )
-      }));
-
-      return mappedWorkspaces;
+        return {
+          projects: state.projects.map(p =>
+            p.id === projectId
+              ? {
+                  ...p,
+                  workspaces: sortWorkspaces([...p.workspaces, ...uniqueNewWorkspaces]),
+                }
+              : p
+          )
+        };
+      });
     } catch (error) {
       console.error('Error adding workspaces to project:', error);
       throw error;

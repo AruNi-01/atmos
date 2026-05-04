@@ -15,13 +15,13 @@ pub const LOCAL_RUNTIME_PORT: u16 = 18080;
 /// Probes the port by binding briefly. If it is already in use, returns a
 /// descriptive error rather than falling back to a different port that the
 /// LLM client wouldn't know how to reach.
-///
-/// Returns the bound TcpListener to keep the port reserved until the runtime
-/// process is spawned. The caller should drop the listener only after the
-/// runtime process has successfully started and bound the port itself.
-pub fn reserve_runtime_port() -> Result<TcpListener> {
+pub fn reserve_runtime_port() -> Result<u16> {
     match TcpListener::bind(("127.0.0.1", LOCAL_RUNTIME_PORT)) {
-        Ok(listener) => Ok(listener),
+        Ok(_listener) => {
+            // Immediately drop the listener to avoid blocking the port
+            drop(_listener);
+            Ok(LOCAL_RUNTIME_PORT)
+        }
         Err(err) => Err(LocalModelError::Runtime(format!(
             "Local model port {LOCAL_RUNTIME_PORT} is already in use ({err}); \
              stop the conflicting process and try again."

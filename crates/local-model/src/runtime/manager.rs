@@ -234,8 +234,7 @@ impl LocalRuntimeManager {
 
             let bin_path = llama_server_bin()?;
             let model_path = model_path(model_id)?;
-            let _listener = reserve_runtime_port()?;
-            let port = crate::runtime::port::LOCAL_RUNTIME_PORT;
+            let port = reserve_runtime_port()?;
 
             let context_size = find_model(manifest, model_id)
                 .map(|m| m.recommended_context_size)
