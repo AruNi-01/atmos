@@ -314,7 +314,6 @@ impl<'a> WorkspaceRepo<'a> {
         if let Some(existing) = workspace_label::Entity::find()
             .filter(workspace_label::Column::IsDeleted.eq(false))
             .filter(workspace_label::Column::Name.eq(trimmed_name.clone()))
-            .filter(workspace_label::Column::Source.eq(source.clone()))
             .one(self.db)
             .await?
         {
@@ -335,6 +334,23 @@ impl<'a> WorkspaceRepo<'a> {
         Ok(model.insert(self.db).await?)
     }
 
+    pub async fn delete_label(&self, guid: &str) -> Result<()> {
+        let now = chrono::Utc::now().naive_utc();
+        let result = workspace_label::Entity::update_many()
+            .col_expr(workspace_label::Column::IsDeleted, Expr::value(true))
+            .col_expr(workspace_label::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace_label::Column::Guid.eq(guid))
+            .filter(workspace_label::Column::IsDeleted.eq(false))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace label not found".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub async fn update_label(
         &self,
         guid: &str,
@@ -346,7 +362,6 @@ impl<'a> WorkspaceRepo<'a> {
         if workspace_label::Entity::find()
             .filter(workspace_label::Column::IsDeleted.eq(false))
             .filter(workspace_label::Column::Name.eq(name.clone()))
-            .filter(workspace_label::Column::Source.eq(source.clone()))
             .filter(workspace_label::Column::Guid.ne(guid))
             .one(self.db)
             .await?

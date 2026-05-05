@@ -1382,6 +1382,10 @@ export const wsWorkspaceApi = {
     });
   },
 
+  deleteLabel: async (guid: string): Promise<void> => {
+    return wsRequest<void>("workspace_label_delete", { guid });
+  },
+
   updateLabels: async (
     guid: string,
     labelGuids: string[],

@@ -5,8 +5,11 @@ import { useQueryState } from 'nuqs';
 import { useShallow } from 'zustand/shallow';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
   Button,
   Checkbox,
@@ -67,6 +70,11 @@ import {
   Archive,
   X,
   MoreHorizontal,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ListFilter,
 } from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
 import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
@@ -690,10 +698,12 @@ function WorkspaceSettingsSection() {
 }
 
 function LabelSettingsSection() {
-  const { workspaceLabels, updateWorkspaceLabel } = useProjectStore(
+  const { workspaceLabels, updateWorkspaceLabel, createWorkspaceLabel, deleteWorkspaceLabel } = useProjectStore(
     useShallow((s: any) => ({
       workspaceLabels: s.workspaceLabels,
       updateWorkspaceLabel: s.updateWorkspaceLabel,
+      createWorkspaceLabel: s.createWorkspaceLabel,
+      deleteWorkspaceLabel: s.deleteWorkspaceLabel,
     }))
   );
   const { theme } = useTheme();
@@ -704,6 +714,14 @@ function LabelSettingsSection() {
   const [editColor, setEditColor] = React.useState<{ r: number; g: number; b: number; a: number }>({
     r: 148, g: 163, b: 184, a: 1,
   });
+  const [sortField, setSortField] = React.useState<'name' | 'createdAt' | null>(null);
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+  const [filterQuery, setFilterQuery] = React.useState('');
+  const [selectedSources, setSelectedSources] = React.useState<Set<string>>(new Set());
+  const [isCreatingNew, setIsCreatingNew] = React.useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+  const [deleteConfirmLabelId, setDeleteConfirmLabelId] = React.useState<string | null>(null);
+  const [deleteConfirmIsBatch, setDeleteConfirmIsBatch] = React.useState(false);
 
   const parseColorToRgb = (colorStr: string): { r: number; g: number; b: number; a: number } => {
     const hex = colorStr.replace('#', '');
@@ -713,11 +731,49 @@ function LabelSettingsSection() {
     return { r, g, b, a: 1 };
   };
 
+  const filteredAndSortedLabels = React.useMemo(() => {
+    let labels = [...workspaceLabels];
+
+    if (filterQuery.trim()) {
+      const query = filterQuery.toLowerCase().trim();
+      labels = labels.filter((l: any) => l.name.toLowerCase().includes(query));
+    }
+
+    if (selectedSources.size > 0) {
+      labels = labels.filter((l: any) => selectedSources.has(l.source || 'manual'));
+    }
+
+    if (sortField) {
+      labels.sort((a: any, b: any) => {
+        let comparison = 0;
+        if (sortField === 'name') {
+          comparison = a.name.localeCompare(b.name);
+        } else if (sortField === 'createdAt') {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          comparison = aTime - bTime;
+        }
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+    }
+
+    return labels;
+  }, [workspaceLabels, filterQuery, selectedSources, sortField, sortDirection]);
+
+  const handleSort = (field: 'name' | 'createdAt') => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
   const toggleSelectAll = () => {
-    if (selectedLabels.size === workspaceLabels.length) {
+    if (selectedLabels.size === filteredAndSortedLabels.length) {
       setSelectedLabels(new Set());
     } else {
-      setSelectedLabels(new Set(workspaceLabels.map((l: any) => l.id)));
+      setSelectedLabels(new Set(filteredAndSortedLabels.map((l: any) => l.id)));
     }
   };
 
@@ -741,20 +797,41 @@ function LabelSettingsSection() {
   };
 
   const handleSave = async () => {
-    if (!editingLabel) return;
+    const trimmedName = editName.trim();
+    if (!trimmedName) return;
+
+    // Check for duplicate name when creating
+    if (isCreatingNew && workspaceLabels.some((l: any) => l.name.toLowerCase() === trimmedName.toLowerCase())) {
+      toastManager.add({ title: 'A label with this name already exists', type: 'error' });
+      return;
+    }
+
+    // Check for duplicate name when editing (excluding the current label)
+    if (!isCreatingNew && editingLabel && workspaceLabels.some((l: any) => l.id !== editingLabel && l.name.toLowerCase() === trimmedName.toLowerCase())) {
+      toastManager.add({ title: 'A label with this name already exists', type: 'error' });
+      return;
+    }
+
     try {
       const rgb = editColor;
       const hexColor = `#${((1 << 24) + (rgb.r << 16) + (rgb.g << 8) + rgb.b).toString(16).slice(1)}`;
-      await updateWorkspaceLabel(editingLabel, { name: editName, color: hexColor });
-      setEditingLabel(null);
-      toastManager.add({ title: 'Label updated', type: 'success' });
+      if (isCreatingNew) {
+        await createWorkspaceLabel({ name: trimmedName, color: hexColor });
+        setIsCreatingNew(false);
+        toastManager.add({ title: 'Label created', type: 'success' });
+      } else if (editingLabel) {
+        await updateWorkspaceLabel(editingLabel, { name: trimmedName, color: hexColor });
+        setEditingLabel(null);
+        toastManager.add({ title: 'Label updated', type: 'success' });
+      }
     } catch (error) {
-      toastManager.add({ title: 'Failed to update label', type: 'error' });
+      toastManager.add({ title: isCreatingNew ? 'Failed to create label' : 'Failed to update label', type: 'error' });
     }
   };
 
   const handleCancel = () => {
     setEditingLabel(null);
+    setIsCreatingNew(false);
     setEditName('');
   };
 
@@ -763,16 +840,54 @@ function LabelSettingsSection() {
     return new Date(dateStr).toLocaleDateString();
   };
 
-  const isAllSelected = workspaceLabels.length > 0 && selectedLabels.size === workspaceLabels.length;
+  const isAllSelected = filteredAndSortedLabels.length > 0 && selectedLabels.size === filteredAndSortedLabels.length;
 
   return (
     <div className="space-y-2">
-      {workspaceLabels.length === 0 ? (
-        <div className="rounded-2xl border border-border px-6 py-12 text-center">
-          <p className="text-sm text-muted-foreground">No labels created yet</p>
-        </div>
-      ) : (
-        <>
+      <div className="flex items-center gap-2 mb-2">
+            <Search className="size-4 text-muted-foreground shrink-0" />
+            <Input
+              placeholder="Filter by name..."
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              className="h-8 w-64 text-sm"
+            />
+            <div className="ml-auto">
+              <Popover
+                open={isCreatingNew}
+                onOpenChange={(open) => { if (!open) handleCancel(); }}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="h-8 gap-1"
+                    onClick={() => {
+                      setIsCreatingNew(true);
+                      setEditName('');
+                      setEditColor({ r: 148, g: 163, b: 184, a: 1 });
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    New
+                  </Button>
+                </PopoverTrigger>
+              {isCreatingNew && (
+                <LabelEditorContent
+                  isDark={isDark}
+                  side="bottom"
+                  surface={false}
+                  newLabelName={editName}
+                  newLabelColor={editColor}
+                  editingLabel={null}
+                  setNewLabelName={setEditName}
+                  setNewLabelColor={setEditColor}
+                  onSubmit={handleSave}
+                  popoverContentProps={{ align: 'start' }}
+                />
+              )}
+            </Popover>
+          </div>
+      </div>
           <div className="rounded-md border border-border overflow-hidden">
             <Table>
               <TableHeader>
@@ -784,14 +899,118 @@ function LabelSettingsSection() {
                       aria-label="Select all labels"
                     />
                   </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="w-8" />
+                  <TableHead
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Name
+                      {sortField === 'name' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="size-3" />
+                        ) : (
+                          <ArrowDown className="size-3" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="size-3 text-muted-foreground/50" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground">
+                          Source
+                          <ListFilter className={`size-3 ${selectedSources.size > 0 ? 'text-primary' : 'text-muted-foreground/50'}`} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-40">
+                        <DropdownMenuItem
+                          className="flex items-center gap-2 cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedSources((prev) => {
+                              const next = new Set(prev);
+                              if (next.has('manual')) {
+                                next.delete('manual');
+                              } else {
+                                next.add('manual');
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          <Checkbox checked={selectedSources.has('manual')} />
+                          <span>Manual</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="flex items-center gap-2 cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedSources((prev) => {
+                              const next = new Set(prev);
+                              if (next.has('gitHub_issue')) {
+                                next.delete('gitHub_issue');
+                              } else {
+                                next.add('gitHub_issue');
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          <Checkbox checked={selectedSources.has('gitHub_issue')} />
+                          <span>GitHub Issue</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="flex items-center gap-2 cursor-pointer"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedSources((prev) => {
+                              const next = new Set(prev);
+                              if (next.has('gitHub_pr')) {
+                                next.delete('gitHub_pr');
+                              } else {
+                                next.add('gitHub_pr');
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          <Checkbox checked={selectedSources.has('gitHub_pr')} />
+                          <span>GitHub PR</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('createdAt')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Created
+                      {sortField === 'createdAt' ? (
+                        sortDirection === 'asc' ? (
+                          <ArrowUp className="size-3" />
+                        ) : (
+                          <ArrowDown className="size-3" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="size-3 text-muted-foreground/50" />
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead className="w-8">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {workspaceLabels.map((label: any) => (
+                {filteredAndSortedLabels.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">
+                      {filterQuery.trim() ? 'No matching labels found' : 'No labels created yet'}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredAndSortedLabels.map((label: any) => (
                   <TableRow
                     key={label.id}
                     data-state={selectedLabels.has(label.id) ? 'selected' : undefined}
@@ -845,9 +1064,12 @@ function LabelSettingsSection() {
                                   Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                  variant="destructive"
+                                  className="cursor-pointer"
                                   onClick={() => {
-                                    toastManager.add({ title: 'Delete not implemented yet', type: 'warning' });
+                                    setDeleteConfirmLabelId(label.id);
+                                    setDeleteConfirmIsBatch(false);
+                                    setDeleteConfirmOpen(true);
                                   }}
                                 >
                                   <Trash2 className="size-4 mr-2" />
@@ -873,14 +1095,14 @@ function LabelSettingsSection() {
                       </Popover>
                     </TableCell>
                   </TableRow>
-                ))}
+                )))}
               </TableBody>
             </Table>
           </div>
           {selectedLabels.size > 0 && (
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-sm text-muted-foreground">
-                {selectedLabels.size} of {workspaceLabels.length} row{workspaceLabels.length !== 1 ? 's' : ''} selected
+                {selectedLabels.size} of {filteredAndSortedLabels.length} row{filteredAndSortedLabels.length !== 1 ? 's' : ''} selected
               </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -891,9 +1113,12 @@ function LabelSettingsSection() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                    variant="destructive"
+                    className="cursor-pointer"
                     onClick={() => {
-                      toastManager.add({ title: 'Delete not implemented yet', type: 'warning' });
+                      setDeleteConfirmLabelId(null);
+                      setDeleteConfirmIsBatch(true);
+                      setDeleteConfirmOpen(true);
                     }}
                   >
                     <Trash2 className="size-4 mr-2" />
@@ -903,8 +1128,49 @@ function LabelSettingsSection() {
               </DropdownMenu>
             </div>
           )}
-        </>
-      )}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent showCloseButton={false} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete {deleteConfirmIsBatch ? 'Labels' : 'Label'}?</DialogTitle>
+            <DialogDescription>
+              {deleteConfirmIsBatch
+                ? `Are you sure you want to delete ${selectedLabels.size} selected label${selectedLabels.size !== 1 ? 's' : ''}? This action cannot be undone.`
+                : 'Are you sure you want to delete this label? This action cannot be undone.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                try {
+                  if (deleteConfirmIsBatch) {
+                    const idsToDelete = Array.from(selectedLabels);
+                    await Promise.all(idsToDelete.map(id => deleteWorkspaceLabel(id)));
+                    setSelectedLabels(new Set());
+                    toastManager.add({ title: `${idsToDelete.length} label${idsToDelete.length !== 1 ? 's' : ''} deleted`, type: 'success' });
+                  } else if (deleteConfirmLabelId) {
+                    await deleteWorkspaceLabel(deleteConfirmLabelId);
+                    setSelectedLabels(prev => {
+                      const next = new Set(prev);
+                      next.delete(deleteConfirmLabelId);
+                      return next;
+                    });
+                    toastManager.add({ title: 'Label deleted', type: 'success' });
+                  }
+                } catch {
+                  toastManager.add({ title: deleteConfirmIsBatch ? 'Failed to delete labels' : 'Failed to delete label', type: 'error' });
+                }
+                setDeleteConfirmOpen(false);
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

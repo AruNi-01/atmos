@@ -49,7 +49,7 @@ use infra::{
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
     WorkspaceDeleteRequest, WorkspaceImportGithubIssuesRequest, WorkspaceLabelCreateRequest,
-    WorkspaceLabelUpdateRequest, WorkspaceListRequest, WorkspaceMarkVisitedRequest,
+    WorkspaceLabelDeleteRequest, WorkspaceLabelUpdateRequest, WorkspaceListRequest, WorkspaceMarkVisitedRequest,
     WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
     WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
     WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
@@ -639,6 +639,10 @@ impl WsMessageService {
             }
             WsAction::WorkspaceLabelUpdate => {
                 self.handle_workspace_label_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceLabelDelete => {
+                self.handle_workspace_label_delete(parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceUpdateLabels => {
@@ -2127,6 +2131,14 @@ impl WsMessageService {
             .update_label(req.guid, req.name, req.color, source)
             .await?;
         Ok(json!(label))
+    }
+
+    async fn handle_workspace_label_delete(
+        &self,
+        req: WorkspaceLabelDeleteRequest,
+    ) -> Result<Value> {
+        self.workspace_service.delete_label(&req.guid).await?;
+        Ok(json!({ "success": true }))
     }
 
     async fn handle_workspace_update_labels(

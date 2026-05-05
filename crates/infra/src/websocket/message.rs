@@ -261,6 +261,8 @@ pub enum WsAction {
     WorkspaceLabelCreate,
     /// 更新可复用 Workspace 标签
     WorkspaceLabelUpdate,
+    /// 删除可复用 Workspace 标签
+    WorkspaceLabelDelete,
     /// 更新 Workspace 标签关联
     WorkspaceUpdateLabels,
     /// 更新 Workspace 排序
@@ -1334,6 +1336,11 @@ pub struct WorkspaceLabelUpdateRequest {
     pub color: String,
     #[serde(default)]
     pub source: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLabelDeleteRequest {
+    pub guid: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

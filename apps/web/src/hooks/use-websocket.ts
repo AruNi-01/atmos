@@ -74,6 +74,7 @@ export type WsAction =
   | "workspace_label_list"
   | "workspace_label_create"
   | "workspace_label_update"
+  | "workspace_label_delete"
   | "workspace_update_labels"
   | "workspace_update_order"
   | "workspace_mark_visited"

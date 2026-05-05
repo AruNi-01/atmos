@@ -1186,6 +1186,11 @@ impl WorkspaceService {
         Ok(repo.update_label(&guid, name, color, source).await?.into())
     }
 
+    pub async fn delete_label(&self, guid: &str) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.delete_label(guid).await?)
+    }
+
     pub async fn update_labels(&self, guid: String, label_guids: Vec<String>) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
         Ok(repo.update_workspace_labels(&guid, label_guids).await?)

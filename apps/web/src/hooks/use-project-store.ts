@@ -264,6 +264,7 @@ interface ProjectStore {
     labelId: string,
     data: { name: string; color: string },
   ) => Promise<WorkspaceLabel>;
+  deleteWorkspaceLabel: (labelId: string) => Promise<void>;
   updateWorkspaceLabels: (
     projectId: string,
     workspaceId: string,
@@ -1033,6 +1034,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       })),
     }));
     return mappedLabel;
+  },
+
+  deleteWorkspaceLabel: async (labelId: string) => {
+    await waitForConnection();
+    await wsWorkspaceApi.deleteLabel(labelId);
+    set(state => ({
+      workspaceLabels: state.workspaceLabels.filter(l => l.id !== labelId),
+      projects: state.projects.map(project => ({
+        ...project,
+        workspaces: project.workspaces.map(workspace => ({
+          ...workspace,
+          labels: workspace.labels.filter(l => l.id !== labelId),
+        })),
+      })),
+    }));
   },
 
   updateWorkspaceLabels: async (
