@@ -259,7 +259,7 @@ interface ProjectStore {
     priority: WorkspacePriority,
   ) => Promise<void>;
   fetchWorkspaceLabels: () => Promise<void>;
-  createWorkspaceLabel: (data: { name: string; color: string }) => Promise<WorkspaceLabel>;
+  createWorkspaceLabel: (data: { name: string; color: string; source?: 'manual' | 'gitHub_issue' | 'gitHub_pr' }) => Promise<WorkspaceLabel>;
   updateWorkspaceLabel: (
     labelId: string,
     data: { name: string; color: string },
@@ -323,6 +323,7 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
       id: label.guid,
       name: label.name,
       color: label.color,
+      source: (label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr') || 'manual',
     })),
     localPath: model.local_path,
     githubIssue: model.github_issue,
@@ -389,6 +390,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           id: label.guid,
           name: label.name,
           color: label.color,
+          source: (label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr') || 'manual',
+          createdAt: label.created_at,
         })),
       });
 
@@ -714,26 +717,19 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
 
     const workspaceName = workspaceBeingDeleted?.displayName || workspaceBeingDeleted?.name || 'Untitled';
-    const toastId = String(toastManager.add({
-      title: 'Deleting workspace',
-      description: `"${workspaceName}" — cleaning up files...`,
-      type: 'loading',
-      timeout: 0,
-    }));
 
-    // Store toast id so the WS event handler can update it
-    deleteProgressToasts.set(workspaceId, { toastId, workspaceName });
+    // Store workspace name so the WS event handler can show a toast when deletion completes
+    deleteProgressToasts.set(workspaceId, { toastId: '', workspaceName });
 
     try {
       await waitForConnection();
       await wsWorkspaceApi.delete(workspaceId);
 
-      // Safety timeout: if no WS progress event arrives within 30s, resolve the toast
-      // Use 'info' instead of 'success' since we don't know the actual cleanup outcome
+      // Safety timeout: if no WS progress event arrives within 30s, show a toast
       setTimeout(() => {
         if (deleteProgressToasts.has(workspaceId)) {
           deleteProgressToasts.delete(workspaceId);
-          toastManager.update(toastId, {
+          toastManager.add({
             title: 'Deleted',
             description: `Workspace "${workspaceName}" removed (cleanup may still be running)`,
             type: 'info',
@@ -743,7 +739,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }, 30_000);
     } catch (error) {
       deleteProgressToasts.delete(workspaceId);
-      toastManager.update(toastId, {
+      toastManager.add({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to delete workspace',
         type: 'error',
@@ -999,14 +995,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         id: label.guid,
         name: label.name,
         color: label.color,
+        source: label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr',
+        createdAt: label.created_at,
       })),
     });
   },
 
-  createWorkspaceLabel: async ({ name, color }) => {
+  createWorkspaceLabel: async ({ name, color, source = 'manual' }: { name: string; color: string; source?: 'manual' | 'gitHub_issue' | 'gitHub_pr' }) => {
     await waitForConnection();
-    const label = await wsWorkspaceApi.createLabel({ name, color });
-    const mappedLabel = { id: label.guid, name: label.name, color: label.color };
+    const label = await wsWorkspaceApi.createLabel({ name, color, source });
+    const mappedLabel = { id: label.guid, name: label.name, color: label.color, source: label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr', createdAt: label.created_at };
     set(state => ({
       workspaceLabels: [
         ...state.workspaceLabels.filter(existing => existing.id !== mappedLabel.id),
@@ -1019,7 +1017,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   updateWorkspaceLabel: async (labelId, { name, color }) => {
     await waitForConnection();
     const label = await wsWorkspaceApi.updateLabel(labelId, { name, color });
-    const mappedLabel = { id: label.guid, name: label.name, color: label.color };
+    const mappedLabel = { id: label.guid, name: label.name, color: label.color, source: label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr', createdAt: label.created_at };
     set(state => ({
       workspaceLabels: state.workspaceLabels
         .map(existing => existing.id === mappedLabel.id ? mappedLabel : existing)
@@ -1312,7 +1310,7 @@ function isWorkspaceDeleteProgressPayload(data: unknown): data is WorkspaceDelet
 
 /**
  * Subscribe to workspace_delete_progress events.
- * Updates the loading toast with step-by-step cleanup progress.
+ * Shows toast when deletion completes.
  */
 export function subscribeToWorkspaceDeleteProgress(): () => void {
   return useWebSocketStore.getState().onEvent('workspace_delete_progress', (data: unknown) => {
@@ -1321,10 +1319,10 @@ export function subscribeToWorkspaceDeleteProgress(): () => void {
     const entry = deleteProgressToasts.get(data.workspace_id);
     if (!entry) return;
 
-    const { toastId, workspaceName } = entry;
+    const { workspaceName } = entry;
 
     if (data.step === 'completed') {
-      toastManager.update(toastId, {
+      toastManager.add({
         title: 'Deleted',
         description: `Workspace "${workspaceName}" removed`,
         type: 'success',
@@ -1332,19 +1330,13 @@ export function subscribeToWorkspaceDeleteProgress(): () => void {
       });
       deleteProgressToasts.delete(data.workspace_id);
     } else if (data.step === 'error') {
-      toastManager.update(toastId, {
+      toastManager.add({
         title: 'Cleanup warning',
         description: `"${workspaceName}" deleted but cleanup failed: ${data.message}`,
         type: 'warning',
         timeout: 5000,
       });
       deleteProgressToasts.delete(data.workspace_id);
-    } else {
-      toastManager.update(toastId, {
-        title: 'Deleting workspace',
-        description: `"${workspaceName}" — ${data.message}`,
-        type: 'loading',
-      });
     }
   });
 }

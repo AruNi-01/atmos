@@ -1,6 +1,7 @@
 "use client";
 
 import { useWebSocketStore, WsAction } from "@/hooks/use-websocket";
+import type { Workspace, WorkspaceWorkflowStatus, WorkspacePriority, WorkspaceLabel } from "@/types/types";
 
 // ===== 类型定义 =====
 
@@ -225,6 +226,8 @@ export interface WorkspaceLabelModel {
   guid: string;
   name: string;
   color: string;
+  created_at?: string;
+  source: string;
 }
 
 export interface ReviewAnchor {
@@ -1216,7 +1219,35 @@ export const wsWorkspaceApi = {
   listProjectWorkspacesFiltered: async (projectId: string, guids: string[]): Promise<Workspace[]> => {
     const allWorkspaces = await wsWorkspaceApi.listByProject(projectId, true);
     const filtered = allWorkspaces.filter(w => guids.includes(w.guid));
-    return filtered.map(mapWorkspaceModel);
+    return filtered.map((model): Workspace => ({
+      id: model.guid,
+      name: model.name,
+      displayName: model.display_name ?? undefined,
+      branch: model.branch,
+      baseBranch: model.base_branch,
+      isActive: false,
+      status: "clean",
+      projectId: model.project_guid,
+      isPinned: model.is_pinned,
+      pinnedAt: model.pinned_at ?? undefined,
+      pinOrder: model.pin_order ?? undefined,
+      isArchived: model.is_archived,
+      archivedAt: model.archived_at ?? undefined,
+      createdAt: model.created_at,
+      lastVisitedAt: model.last_visited_at ?? undefined,
+      workflowStatus: model.workflow_status as WorkspaceWorkflowStatus,
+      priority: model.priority as WorkspacePriority,
+      labels: (model.labels ?? []).map((label): WorkspaceLabel => ({
+        id: label.guid,
+        name: label.name,
+        color: label.color,
+        source: (label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr') || 'manual',
+      })),
+      localPath: model.local_path,
+      githubIssue: model.github_issue,
+      githubPr: model.github_pr,
+      createSource: model.create_source as "manual" | "issue_only",
+    }));
   },
 
   /**
@@ -1332,6 +1363,7 @@ export const wsWorkspaceApi = {
   createLabel: async (data: {
     name: string;
     color: string;
+    source?: string;
   }): Promise<WorkspaceLabelModel> => {
     return wsRequest<WorkspaceLabelModel>("workspace_label_create", data);
   },
@@ -1341,6 +1373,7 @@ export const wsWorkspaceApi = {
     data: {
       name: string;
       color: string;
+      source?: string;
     },
   ): Promise<WorkspaceLabelModel> => {
     return wsRequest<WorkspaceLabelModel>("workspace_label_update", {
@@ -2215,10 +2248,10 @@ export const agentApi = {
 // #[serde(tag = "status", rename_all = "snake_case")]
 export type LocalModelStatus =
   | { status: "not_installed" }
-  | { status: "downloading_binary"; progress: number; eta_seconds?: number | null }
-  | { status: "downloading_model"; progress: number; eta_seconds?: number | null }
-  | { status: "installed_not_running" }
-  | { status: "starting" }
+  | { status: "downloading_binary"; model_id: string; progress: number; eta_seconds?: number | null }
+  | { status: "downloading_model"; model_id: string; progress: number; eta_seconds?: number | null }
+  | { status: "installed_not_running"; model_id: string }
+  | { status: "starting"; model_id: string }
   | { status: "running"; endpoint: string; model_id: string }
   | { status: "failed"; error: string };
 
@@ -2231,6 +2264,7 @@ export interface LocalModelEntry {
   license_url: string;
   tags: string[];
   recommended: boolean;
+  installed: boolean;
 }
 
 export interface LocalModelListResponse {

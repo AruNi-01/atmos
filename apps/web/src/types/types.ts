@@ -20,6 +20,8 @@ export interface WorkspaceLabel {
   id: string;
   name: string;
   color: string;
+  source: 'manual' | 'gitHub_issue' | 'gitHub_pr';
+  createdAt?: string;
 }
 
 export interface Workspace {
