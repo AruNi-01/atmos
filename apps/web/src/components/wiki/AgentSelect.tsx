@@ -15,6 +15,7 @@ export const AGENT_OPTIONS = [
   { id: "claude", label: "Claude Code", cmd: "claude", params: "--dangerously-skip-permissions" },
   { id: "codex", label: "Codex", cmd: "codex", params: "--dangerously-bypass-approvals-and-sandbox" },
   { id: "gemini", label: "Gemini", cmd: "gemini", params: "--yolo" },
+  { id: "devin", label: "Devin", cmd: "devin", params: "--permission-mode bypass" },
   { id: "amp", label: "Amp", cmd: "amp", params: "" },
   { id: "droid", label: "Droid", cmd: "droid", params: "" },
   { id: "opencode", label: "OpenCode", cmd: "opencode", params: "--prompt" },

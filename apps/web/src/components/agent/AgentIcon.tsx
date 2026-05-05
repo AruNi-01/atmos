@@ -25,7 +25,7 @@ const AGENT_ICON_REMAP: Record<string, string> = {
 };
 
 /** Icons that use currentColor — need inverted theme handling (dark on light, light on dark) */
-const INVERTED_THEME_ICONS = new Set(["cline", "junie", "junie-acp"]);
+const INVERTED_THEME_ICONS = new Set(["cline", "junie", "junie-acp", "devin"]);
 
 export function getAgentIconCandidates(registryId: string): string[] {
   const primary = AGENT_ICON_REMAP[registryId] ?? registryId;
