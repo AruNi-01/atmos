@@ -40,7 +40,7 @@ pub async fn list_workspaces_by_project(
 ) -> ApiResult<Json<ApiResponse<Vec<WorkspaceDto>>>> {
     let workspaces = state
         .workspace_service
-        .list_by_project(project_guid)
+        .list_by_project(project_guid, false)
         .await?;
     Ok(Json(ApiResponse::success(workspaces)))
 }
