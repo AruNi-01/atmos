@@ -6,15 +6,51 @@ use tracing::debug;
 use crate::error::Result;
 pub use types::{BinaryEntry, ModelEntry, ModelManifest};
 
-/// URL of the official Atmos model manifest.
-/// In production this would be a signed CDN URL; for now we use a placeholder.
-pub const MANIFEST_URL: &str = "https://cdn.atmos.dev/local-model/manifest/v1/manifest.json";
+/// Default URL of the official Atmos model manifest from GitHub Releases.
+pub const DEFAULT_MANIFEST_URL: &str =
+    "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/manifest.json";
 
-/// Fetch the manifest from the CDN.
+/// Environment variable to override the manifest URL.
+pub const MANIFEST_URL_ENV: &str = "ATMOS_LOCAL_MODEL_MANIFEST_URL";
+
+/// Fetch the manifest with fallback chain:
+/// 1. Environment variable override (ATMOS_LOCAL_MODEL_MANIFEST_URL)
+/// 2. GitHub Release URL
+/// 3. Bundled fallback manifest
 pub async fn fetch_manifest(client: &Client) -> Result<ModelManifest> {
-    debug!("Fetching local model manifest from {}", MANIFEST_URL);
-    let response = client.get(MANIFEST_URL).send().await?.error_for_status()?;
+    // Try environment override first
+    if let Ok(url) = std::env::var(MANIFEST_URL_ENV) {
+        debug!("Fetching local model manifest from env override: {}", url);
+        if let Ok(manifest) = fetch_from_url(client, &url).await {
+            return Ok(manifest);
+        }
+        debug!("Env override failed, falling back to default");
+    }
+
+    // Try GitHub Release URL
+    debug!("Fetching local model manifest from GitHub Release: {}", DEFAULT_MANIFEST_URL);
+    if let Ok(manifest) = fetch_from_url(client, DEFAULT_MANIFEST_URL).await {
+        return Ok(manifest);
+    }
+    debug!("GitHub Release fetch failed, falling back to bundled manifest");
+
+    // Fallback to bundled manifest
+    debug!("Using bundled local model manifest");
+    Ok(fetch_bundled_manifest()?)
+}
+
+/// Fetch manifest from a specific URL.
+async fn fetch_from_url(client: &Client, url: &str) -> Result<ModelManifest> {
+    let response = client.get(url).send().await?.error_for_status()?;
     let manifest: ModelManifest = response.json().await?;
+    Ok(manifest)
+}
+
+/// Load the bundled fallback manifest.
+fn fetch_bundled_manifest() -> Result<ModelManifest> {
+    let manifest_json = include_str!("../../manifest/default.json");
+    let manifest: ModelManifest = serde_json::from_str(manifest_json)
+        .map_err(|e| crate::error::LocalModelError::Runtime(format!("Failed to parse bundled manifest: {}", e)))?;
     Ok(manifest)
 }
 

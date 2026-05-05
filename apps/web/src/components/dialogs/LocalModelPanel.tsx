@@ -363,7 +363,13 @@ export function LocalModelPanel() {
       setData(res);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load models");
+      const msg = e instanceof Error ? e.message : "Failed to load models";
+      // If the error mentions manifest fetch failure, show a more helpful message
+      if (msg.includes("manifest") || msg.includes("HTTP error")) {
+        setError("Using bundled local model catalog. Remote catalog unavailable.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "qwen2.5-0.5b-instruct-q4_k_m",
+      "display_name": "Qwen2.5 0.5B Instruct",
+      "description": "Small local model for lightweight tasks like git commit messages and simple Q&A.",
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+      "ram_footprint_mb": 1024,
+      "recommended_context_size": 4096,
+      "gguf_url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+      "mirror_urls": [],
+      "sha256": "PLACEHOLDER_SHA256",
+      "size_bytes": 397000000,
+      "tags": ["small", "fast"],
+      "recommended": true
+    }
+  ],
+  "binaries": [
+    {
+      "platform": "macos-arm64",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-aarch64-apple-darwin.tar.gz",
+      "sha256": "PLACEHOLDER_SHA256",
+      "size_bytes": 12345678,
+      "is_zip": true,
+      "zip_inner_path": "llama-server"
+    },
+    {
+      "platform": "macos-x86_64",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-x86_64-apple-darwin.tar.gz",
+      "sha256": "PLACEHOLDER_SHA256",
+      "size_bytes": 12345678,
+      "is_zip": true,
+      "zip_inner_path": "llama-server"
+    },
+    {
+      "platform": "linux-x86_64",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-x86_64-unknown-linux-gnu.tar.gz",
+      "sha256": "PLACEHOLDER_SHA256",
+      "size_bytes": 12345678,
+      "is_zip": true,
+      "zip_inner_path": "llama-server"
+    },
+    {
+      "platform": "linux-arm64",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-aarch64-unknown-linux-gnu.tar.gz",
+      "sha256": "PLACEHOLDER_SHA256",
+      "size_bytes": 12345678,
+      "is_zip": true,
+      "zip_inner_path": "llama-server"
+    },
+    {
+      "platform": "windows-x86_64",
+      "url": "https://github.com/AruNi-01/atmos/releases/download/local-model-runtime-v0.1.0/atmos-llama-server-x86_64-pc-windows-msvc.zip",
+      "sha256": "PLACEHOLDER_SHA256",
+      "size_bytes": 12345678,
+      "is_zip": true,
+      "zip_inner_path": "llama-server.exe"
+    }
+  ]
+}

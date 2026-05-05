@@ -1,0 +1,269 @@
+name: Local Model Runtime Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "local-model-runtime-v*"
+  workflow_dispatch:
+    inputs:
+      llama_cpp_ref:
+        description: "llama.cpp tag or commit"
+        required: true
+        default: "b5000"
+      create_release:
+        description: "Create GitHub Release"
+        required: true
+        default: true
+        type: boolean
+      release_tag:
+        description: "Release tag"
+        required: false
+      prerelease:
+        description: "Mark as prerelease"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  resolve-config:
+    runs-on: ubuntu-latest
+    outputs:
+      create_release: ${{ steps.resolve.outputs.create_release }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      release_version: ${{ steps.resolve.outputs.release_version }}
+      llama_cpp_ref: ${{ steps.resolve.outputs.llama_cpp_ref }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "create_release=true" >> $GITHUB_OUTPUT
+            echo "release_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+            echo "release_version=${GITHUB_REF_NAME#local-model-runtime-v}" >> $GITHUB_OUTPUT
+            echo "llama_cpp_ref=b5000" >> $GITHUB_OUTPUT
+          else
+            echo "create_release=${{ github.event.inputs.create_release }}" >> $GITHUB_OUTPUT
+            echo "release_tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+            echo "release_version=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+            echo "llama_cpp_ref=${{ github.event.inputs.llama_cpp_ref }}" >> $GITHUB_OUTPUT
+          fi
+
+  create-release:
+    if: needs.resolve-config.outputs.create_release == 'true'
+    runs-on: ubuntu-latest
+    needs: resolve-config
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-config.outputs.release_tag }}
+        run: |
+          gh release create "$RELEASE_TAG" --draft --title "Atmos Local Model Runtime ${{ needs.resolve-config.outputs.release_version }}" || true
+
+  build-llama-server:
+    needs: [resolve-config, create-release]
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            platform: macos-arm64
+            target: aarch64-apple-darwin
+          - os: macos-13
+            platform: macos-x86_64
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-22.04
+            platform: linux-arm64
+            target: aarch64-unknown-linux-gnu
+          - os: windows-2022
+            platform: windows-x86_64
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ needs.resolve-config.outputs.llama_cpp_ref }}
+      - name: Install deps (macOS)
+        if: matrix.os == 'macos-14' || matrix.os == 'macos-13'
+        run: brew install cmake
+      - name: Install deps (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++
+      - name: Install cross-compiler for ARM64 (Linux)
+        if: matrix.platform == 'linux-arm64'
+        run: sudo apt-get install -y g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
+      - name: Build (Unix)
+        if: matrix.os != 'windows-2022'
+        run: |
+          mkdir -p build && cd build
+          CMAKE_ARGS=""
+          if [ "${{ matrix.platform }}" = "linux-arm64" ]; then
+            CMAKE_ARGS="-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+          fi
+          cmake $CMAKE_ARGS -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build . --target llama-server --config Release
+      - name: Build (Windows)
+        if: matrix.os == 'windows-2022'
+        run: |
+          mkdir -p build && cd build
+          cmake -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build . --target llama-server --config Release
+      - name: Package (Unix)
+        if: matrix.os != 'windows-2022'
+        run: |
+          mkdir -p asset
+          cp build/llama-server asset/
+          chmod +x asset/llama-server
+          echo "${{ needs.resolve-config.outputs.llama_cpp_ref }}" > asset/VERSION
+          cd asset && tar -czf "../atmos-llama-server-${{ matrix.target }}.tar.gz" llama-server VERSION
+      - name: Package (Windows)
+        if: matrix.os == 'windows-2022'
+        run: |
+          mkdir -p asset
+          cp build/Release/llama-server.exe asset/
+          echo "${{ needs.resolve-config.outputs.llama_cpp_ref }}" > asset/VERSION
+          cd asset && 7z a "../atmos-llama-server-${{ matrix.target }}.zip" llama-server.exe VERSION
+      - name: Calculate SHA256 and size (Unix)
+        if: matrix.os != 'windows-2022'
+        run: |
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            SHA256=$(shasum -a 256 "atmos-llama-server-${{ matrix.target }}.tar.gz" | awk '{print $1}')
+          else
+            SHA256=$(sha256sum "atmos-llama-server-${{ matrix.target }}.tar.gz" | awk '{print $1}')
+          fi
+          SIZE=$(stat -f%z "atmos-llama-server-${{ matrix.target }}.tar.gz" 2>/dev/null || stat -c%s "atmos-llama-server-${{ matrix.target }}.tar.gz")
+          echo "SHA256=${SHA256}" >> $GITHUB_ENV
+          echo "SIZE=${SIZE}" >> $GITHUB_ENV
+      - name: Calculate SHA256 and size (Windows)
+        if: matrix.os == 'windows-2022'
+        run: |
+          $SHA256 = (Get-FileHash -Algorithm SHA256 "atmos-llama-server-${{ matrix.target }}.zip").Hash.ToLower()
+          $SIZE = (Get-Item "atmos-llama-server-${{ matrix.target }}.zip").Length
+          echo "SHA256=$SHA256" >> $env:GITHUB_ENV
+          echo "SIZE=$SIZE" >> $env:GITHUB_ENV
+      - name: Upload checksums as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: checksums-${{ matrix.target }}
+          path: |
+            ${{ env.SHA256 }}
+            ${{ env.SIZE }}
+      - name: Upload asset
+        if: needs.resolve-config.outputs.create_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-config.outputs.release_tag }}
+        run: |
+          ASSET_FILE="atmos-llama-server-${{ matrix.target }}.tar.gz"
+          if [ "${{ matrix.os }}" = "windows-2022" ]; then
+            ASSET_FILE="atmos-llama-server-${{ matrix.target }}.zip"
+          fi
+          gh release upload "$RELEASE_TAG" "$ASSET_FILE" --clobber
+
+  generate-manifest:
+    runs-on: ubuntu-latest
+    needs: [resolve-config, build-llama-server]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download checksums artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: checksums-*
+          merge-multiple: false
+      - name: Read checksums
+        id: checksums
+        run: |
+          # Read each platform's checksums
+          for dir in checksums-*; do
+            target="${dir#checksums-}"
+            if [ -f "$dir/SHA256" ]; then
+              SHA256=$(cat "$dir/SHA256")
+              echo "sha256_${target}=${SHA256}" >> $GITHUB_OUTPUT
+            fi
+            if [ -f "$dir/SIZE" ]; then
+              SIZE=$(cat "$dir/SIZE")
+              echo "size_${target}=${SIZE}" >> $GITHUB_OUTPUT
+            fi
+          done
+      - name: Generate manifest
+        run: |
+          cat > manifest.json <<EOF
+          {
+            "version": 1,
+            "models": [
+              {
+                "id": "qwen2.5-0.5b-instruct-q4_k_m",
+                "display_name": "Qwen2.5 0.5B Instruct",
+                "description": "Small local model for lightweight tasks like git commit messages.",
+                "license": "Apache-2.0",
+                "license_url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+                "ram_footprint_mb": 1024,
+                "recommended_context_size": 4096,
+                "gguf_url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+                "mirror_urls": [],
+                "sha256": "PLACEHOLDER_SHA256",
+                "size_bytes": 397000000,
+                "tags": ["small", "fast"],
+                "recommended": true
+              }
+            ],
+            "binaries": [
+              {
+                "platform": "macos-arm64",
+                "url": "https://github.com/AruNi-01/atmos/releases/download/${{ needs.resolve-config.outputs.release_tag }}/atmos-llama-server-aarch64-apple-darwin.tar.gz",
+                "sha256": "${{ steps.checksums.outputs.sha256_aarch64-apple-darwin }}",
+                "size_bytes": ${{ steps.checksums.outputs.size_aarch64-apple-darwin }},
+                "is_zip": true,
+                "zip_inner_path": "llama-server"
+              },
+              {
+                "platform": "macos-x86_64",
+                "url": "https://github.com/AruNi-01/atmos/releases/download/${{ needs.resolve-config.outputs.release_tag }}/atmos-llama-server-x86_64-apple-darwin.tar.gz",
+                "sha256": "${{ steps.checksums.outputs.sha256_x86_64-apple-darwin }}",
+                "size_bytes": ${{ steps.checksums.outputs.size_x86_64-apple-darwin }},
+                "is_zip": true,
+                "zip_inner_path": "llama-server"
+              },
+              {
+                "platform": "linux-x86_64",
+                "url": "https://github.com/AruNi-01/atmos/releases/download/${{ needs.resolve-config.outputs.release_tag }}/atmos-llama-server-x86_64-unknown-linux-gnu.tar.gz",
+                "sha256": "${{ steps.checksums.outputs.sha256_x86_64-unknown-linux-gnu }}",
+                "size_bytes": ${{ steps.checksums.outputs.size_x86_64-unknown-linux-gnu }},
+                "is_zip": true,
+                "zip_inner_path": "llama-server"
+              },
+              {
+                "platform": "linux-arm64",
+                "url": "https://github.com/AruNi-01/atmos/releases/download/${{ needs.resolve-config.outputs.release_tag }}/atmos-llama-server-aarch64-unknown-linux-gnu.tar.gz",
+                "sha256": "${{ steps.checksums.outputs.sha256_aarch64-unknown-linux-gnu }}",
+                "size_bytes": ${{ steps.checksums.outputs.size_aarch64-unknown-linux-gnu }},
+                "is_zip": true,
+                "zip_inner_path": "llama-server"
+              },
+              {
+                "platform": "windows-x86_64",
+                "url": "https://github.com/AruNi-01/atmos/releases/download/${{ needs.resolve-config.outputs.release_tag }}/atmos-llama-server-x86_64-pc-windows-msvc.zip",
+                "sha256": "${{ steps.checksums.outputs.sha256_x86_64-pc-windows-msvc }}",
+                "size_bytes": ${{ steps.checksums.outputs.size_x86_64-pc-windows-msvc }},
+                "is_zip": true,
+                "zip_inner_path": "llama-server.exe"
+              }
+            ]
+          }
+          EOF
+      - name: Upload manifest
+        if: needs.resolve-config.outputs.create_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.resolve-config.outputs.release_tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" manifest.json --clobber
