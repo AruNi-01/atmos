@@ -58,6 +58,14 @@ export * from "./components/ui/navigation-menu";
 export * from "./components/ui/rating";
 export * from "./components/ui/separator";
 export * from "./components/ui/switch";
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "./components/ui/table";
 export * from "./components/ui/accordion";
 export * from "./components/ui/expandable-screen";
 export { Calendar, CalendarDayButton } from "./components/ui/calendar";
