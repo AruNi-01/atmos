@@ -13,6 +13,7 @@ pub struct Model {
     pub is_deleted: bool,
     pub name: String,
     pub color: String,
+    pub source: String,
 }
 
 impl_base_entity!(Model);

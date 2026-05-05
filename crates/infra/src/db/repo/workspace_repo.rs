@@ -308,11 +308,13 @@ impl<'a> WorkspaceRepo<'a> {
         &self,
         name: String,
         color: String,
+        source: String,
     ) -> Result<workspace_label::Model> {
         let trimmed_name = name.trim().to_string();
         if let Some(existing) = workspace_label::Entity::find()
             .filter(workspace_label::Column::IsDeleted.eq(false))
             .filter(workspace_label::Column::Name.eq(trimmed_name.clone()))
+            .filter(workspace_label::Column::Source.eq(source.clone()))
             .one(self.db)
             .await?
         {
@@ -327,6 +329,7 @@ impl<'a> WorkspaceRepo<'a> {
             is_deleted: Set(base.is_deleted),
             name: Set(trimmed_name),
             color: Set(color),
+            source: Set(source),
         };
 
         Ok(model.insert(self.db).await?)
@@ -337,11 +340,13 @@ impl<'a> WorkspaceRepo<'a> {
         guid: &str,
         name: String,
         color: String,
+        source: String,
     ) -> Result<workspace_label::Model> {
         let name = name.trim().to_string();
         if workspace_label::Entity::find()
             .filter(workspace_label::Column::IsDeleted.eq(false))
             .filter(workspace_label::Column::Name.eq(name.clone()))
+            .filter(workspace_label::Column::Source.eq(source.clone()))
             .filter(workspace_label::Column::Guid.ne(guid))
             .one(self.db)
             .await?
@@ -356,6 +361,7 @@ impl<'a> WorkspaceRepo<'a> {
         let result = workspace_label::Entity::update_many()
             .col_expr(workspace_label::Column::Name, Expr::value(name))
             .col_expr(workspace_label::Column::Color, Expr::value(color))
+            .col_expr(workspace_label::Column::Source, Expr::value(source))
             .col_expr(workspace_label::Column::UpdatedAt, Expr::value(now))
             .filter(workspace_label::Column::Guid.eq(guid))
             .filter(workspace_label::Column::IsDeleted.eq(false))
