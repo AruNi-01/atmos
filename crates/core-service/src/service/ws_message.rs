@@ -35,22 +35,22 @@ use infra::{
     GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
     ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteProgressNotification,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
+    ProjectUpdateTargetBranchRequest, ReviewAgentRunArtifactGetRequest,
+    ReviewAgentRunCreateRequest, ReviewAgentRunFinalizeRequest, ReviewAgentRunListRequest,
+    ReviewAgentRunSetStatusRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
     ReviewCommentUpdateStatusRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
-    ReviewFileSetReviewedRequest, ReviewAgentRunArtifactGetRequest, ReviewAgentRunCreateRequest,
-    ReviewAgentRunFinalizeRequest, ReviewAgentRunListRequest, ReviewAgentRunSetStatusRequest,
-    ReviewMessageAddRequest, ReviewMessageDeleteRequest, ReviewMessageUpdateRequest,
-    ReviewSessionActivateRequest, ReviewSessionArchiveRequest, ReviewSessionCloseRequest,
-    ReviewSessionCreateRequest, ReviewSessionGetRequest, ReviewSessionListRequest,
-    ReviewSessionRenameRequest, ScriptGetRequest, ScriptSaveRequest, SkillsDeleteRequest,
-    SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
+    ReviewFileSetReviewedRequest, ReviewMessageAddRequest, ReviewMessageDeleteRequest,
+    ReviewMessageUpdateRequest, ReviewSessionActivateRequest, ReviewSessionArchiveRequest,
+    ReviewSessionCloseRequest, ReviewSessionCreateRequest, ReviewSessionGetRequest,
+    ReviewSessionListRequest, ReviewSessionRenameRequest, ScriptGetRequest, ScriptSaveRequest,
+    SkillsDeleteRequest, SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
-    WorkspaceDeleteRequest, WorkspaceImportGithubIssuesRequest, WorkspaceLabelCreateRequest, WorkspaceLabelUpdateRequest,
-    WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
-    WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
+    WorkspaceDeleteRequest, WorkspaceImportGithubIssuesRequest, WorkspaceLabelCreateRequest,
+    WorkspaceLabelUpdateRequest, WorkspaceListRequest, WorkspaceMarkVisitedRequest,
+    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
     WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
     WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
@@ -60,9 +60,9 @@ use infra::{
 };
 use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
-    LlmProviderEntry, LlmProvidersFile, ResponseFormat,
+    LlmProviderEntry, LlmProvidersFile, ProviderKind, ResponseFormat,
 };
-use local_model::{fetch_manifest, LocalRuntimeManager};
+use local_model_runtime::{fetch_manifest, LocalRuntimeManager};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
@@ -70,9 +70,9 @@ use tokio::sync::OnceCell;
 use crate::error::{Result, ServiceError};
 use crate::service::git_commit_message::GitCommitMessageGenerator;
 use crate::service::review::{
-    AddReviewMessageInput, CreateReviewCommentInput, CreateReviewAgentRunInput,
-    CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, SetReviewFileReviewedInput,
-    SetReviewAgentRunStatusInput, UpdateReviewCommentStatusInput, UpdateReviewMessageInput,
+    AddReviewMessageInput, CreateReviewAgentRunInput, CreateReviewCommentInput,
+    CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, SetReviewAgentRunStatusInput,
+    SetReviewFileReviewedInput, UpdateReviewCommentStatusInput, UpdateReviewMessageInput,
 };
 use crate::{
     AgentService, AgentSessionService, ProjectService, ReviewService, TerminalService,
@@ -1986,30 +1986,28 @@ impl WsMessageService {
         &self,
         req: WorkspaceImportGithubIssuesRequest,
     ) -> Result<Value> {
-        use infra::websocket::message::GithubIssuePayload;
-        use infra::db::repo::workspace_repo::WorkspaceRepo;
-
-        let workspace_repo = WorkspaceRepo::new(&self.workspace_service.db);
         let mut created_workspaces = Vec::new();
         let mut skipped_issues = Vec::new();
 
         // Get existing issue-only workspaces for this project to check for duplicates
-        let existing_workspaces = workspace_repo
-            .list_by_project(&req.project_guid, true)
+        let existing_workspaces = self
+            .workspace_service
+            .list_by_project(req.project_guid.clone(), true)
             .await?;
 
         // Seed seen set with existing issue-only workspace URLs
         use std::collections::HashSet;
         let mut seen_urls: HashSet<String> = existing_workspaces
             .iter()
-            .filter(|w| w.create_source == "issue_only")
-            .filter_map(|w| w.github_issue_url.clone())
+            .filter(|w| w.model.create_source == "issue_only")
+            .filter_map(|w| w.model.github_issue_url.clone())
             .collect();
 
         for issue in req.issues {
             // Check for duplicate: project_guid + github_issue_url + create_source=issue_only
             let is_duplicate = existing_workspaces.iter().any(|w| {
-                w.github_issue_url.as_ref() == Some(&issue.url) && w.create_source == "issue_only"
+                w.model.github_issue_url.as_ref() == Some(&issue.url)
+                    && w.model.create_source == "issue_only"
             }) || seen_urls.contains(&issue.url);
 
             if is_duplicate {
@@ -2025,12 +2023,23 @@ impl WsMessageService {
                 continue;
             }
 
+            // Create labels from GitHub issue labels with source 'gitHub_issue'
+            let mut label_guids = Vec::new();
+            for issue_label in &issue.labels {
+                let label_color = issue_label.color.clone().unwrap_or_else(|| "94a3b8".to_string());
+                let label = self
+                    .workspace_service
+                    .create_label(issue_label.name.clone(), label_color, "gitHub_issue".to_string())
+                    .await?;
+                label_guids.push(label.guid);
+            }
+
             // Serialize issue data for storage
             let issue_data = serde_json::to_string(&issue).map_err(|e| {
                 ServiceError::Validation(format!("Failed to serialize issue data: {e}"))
             })?;
 
-            // Create issue-only workspace
+            // Create issue-only workspace with created labels
             let workspace = self
                 .workspace_service
                 .create_issue_only_workspace(
@@ -2040,7 +2049,7 @@ impl WsMessageService {
                     issue_data,
                     req.workflow_status.clone(),
                     req.priority.clone(),
-                    req.label_guids.clone(),
+                    Some(label_guids),
                 )
                 .await?;
 
@@ -2103,7 +2112,7 @@ impl WsMessageService {
     ) -> Result<Value> {
         let label = self
             .workspace_service
-            .create_label(req.name, req.color)
+            .create_label(req.name, req.color, req.source)
             .await?;
         Ok(json!(label))
     }
@@ -2112,9 +2121,10 @@ impl WsMessageService {
         &self,
         req: WorkspaceLabelUpdateRequest,
     ) -> Result<Value> {
+        let source = req.source.unwrap_or_else(|| "manual".to_string());
         let label = self
             .workspace_service
-            .update_label(req.guid, req.name, req.color)
+            .update_label(req.guid, req.name, req.color, source)
             .await?;
         Ok(json!(label))
     }
@@ -3679,8 +3689,8 @@ set -x
             body: issue.body,
             url: issue.url,
             state: issue.state,
-            created_at: issue.created_at,
-            updated_at: issue.updated_at,
+            created_at: Some(issue.created_at),
+            updated_at: Some(issue.updated_at),
             labels: issue
                 .labels
                 .into_iter()
@@ -4749,11 +4759,17 @@ set -x
     }
 
     async fn handle_review_agent_run_list(&self, req: ReviewAgentRunListRequest) -> Result<Value> {
-        let runs = self.review_service.list_agent_runs(req.session_guid).await?;
+        let runs = self
+            .review_service
+            .list_agent_runs(req.session_guid)
+            .await?;
         Ok(json!(runs))
     }
 
-    async fn handle_review_agent_run_create(&self, req: ReviewAgentRunCreateRequest) -> Result<Value> {
+    async fn handle_review_agent_run_create(
+        &self,
+        req: ReviewAgentRunCreateRequest,
+    ) -> Result<Value> {
         let run = self
             .review_service
             .create_agent_run(CreateReviewAgentRunInput {
@@ -4959,8 +4975,21 @@ set -x
         let state = self.local_model_manager.state();
         let state_json =
             serde_json::to_value(&state).map_err(|e| ServiceError::Processing(e.to_string()))?;
-        let models_json = serde_json::to_value(&manifest.models)
-            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let models_json = manifest
+            .models
+            .iter()
+            .map(|model| {
+                let mut value = serde_json::to_value(model)
+                    .map_err(|e| ServiceError::Processing(e.to_string()))?;
+                if let Some(object) = value.as_object_mut() {
+                    object.insert(
+                        "installed".to_string(),
+                        json!(self.local_model_manager.is_model_installed(&model.id)),
+                    );
+                }
+                Ok(value)
+            })
+            .collect::<Result<Vec<_>>>()?;
         Ok(json!({
             "models": models_json,
             "state": state_json,
@@ -5003,8 +5032,8 @@ set -x
                     }
                     if matches!(
                         state,
-                        local_model::LocalModelState::InstalledNotRunning
-                            | local_model::LocalModelState::Failed { .. }
+                        local_model_runtime::LocalModelState::InstalledNotRunning { .. }
+                            | local_model_runtime::LocalModelState::Failed { .. }
                     ) {
                         break;
                     }
@@ -5013,7 +5042,7 @@ set -x
         });
 
         tokio::spawn(async move {
-            if let Err(e) = manager.ensure_binary(&manifest).await {
+            if let Err(e) = manager.ensure_binary(&manifest, &model_id).await {
                 tracing::error!("[LocalModel] binary download failed: {e}");
                 manager.mark_failed(format!("Binary download failed: {e}"));
                 return;
@@ -5023,7 +5052,7 @@ set -x
                 manager.mark_failed(format!("Model download failed: {e}"));
                 return;
             }
-            manager.mark_installed_not_running();
+            manager.mark_installed_not_running(model_id);
         });
 
         Ok(json!({ "ok": true }))
@@ -5063,8 +5092,8 @@ set -x
                     }
                     if matches!(
                         state,
-                        local_model::LocalModelState::Running { .. }
-                            | local_model::LocalModelState::Failed { .. }
+                        local_model_runtime::LocalModelState::Running { .. }
+                            | local_model_runtime::LocalModelState::Failed { .. }
                     ) {
                         break;
                     }
@@ -5075,6 +5104,12 @@ set -x
         tokio::spawn(async move {
             if let Err(e) = manager.start(&manifest, &model_id).await {
                 tracing::error!("[LocalModel] start failed: {e}");
+                return;
+            }
+            if let Some(endpoint) = manager.endpoint() {
+                if let Err(e) = upsert_local_managed_provider(&model_id, &endpoint) {
+                    tracing::warn!("[LocalModel] failed to update provider config: {e}");
+                }
             }
         });
 
@@ -5128,6 +5163,34 @@ set -x
         let state = self.local_model_manager.state();
         serde_json::to_value(&state).map_err(|e| ServiceError::Processing(e.to_string()))
     }
+}
+
+fn upsert_local_managed_provider(model_id: &str, endpoint: &str) -> Result<()> {
+    let store = FileLlmConfigStore::new()
+        .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
+    let mut config = store
+        .load()
+        .map_err(|e| ServiceError::Validation(format!("Failed to read llm providers: {}", e)))?;
+    let provider_id = format!("local-managed-{model_id}");
+    config.providers.insert(
+        provider_id,
+        LlmProviderEntry {
+            enabled: true,
+            display_name: Some(format!("Local {}", model_id)),
+            kind: ProviderKind::LocalManaged,
+            base_url: endpoint.to_string(),
+            api_key: String::new(),
+            model: model_id.to_string(),
+            timeout_ms: None,
+            max_output_tokens: None,
+            local_model_id: Some(model_id.to_string()),
+            context_window: None,
+        },
+    );
+    store
+        .save(&config)
+        .map_err(|e| ServiceError::Validation(format!("Failed to save llm providers: {}", e)))?;
+    Ok(())
 }
 
 fn function_settings_path() -> std::path::PathBuf {

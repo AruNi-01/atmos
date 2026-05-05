@@ -35,6 +35,8 @@ pub struct WorkspaceLabelDto {
     pub guid: String,
     pub name: String,
     pub color: String,
+    pub source: String,
+    pub created_at: String,
 }
 
 impl From<workspace_label::Model> for WorkspaceLabelDto {
@@ -43,6 +45,8 @@ impl From<workspace_label::Model> for WorkspaceLabelDto {
             guid: model.guid,
             name: model.name,
             color: model.color,
+            source: model.source,
+            created_at: model.created_at.to_string(),
         }
     }
 }
@@ -186,8 +190,8 @@ impl WorkspaceService {
             body: pr.body.clone(),
             url: pr.url.clone(),
             state: pr.state.clone(),
-            created_at: pr.created_at.clone(),
-            updated_at: pr.updated_at.clone(),
+            created_at: None,
+            updated_at: None,
             labels: pr
                 .labels
                 .iter()
@@ -1142,7 +1146,7 @@ impl WorkspaceService {
             .collect())
     }
 
-    pub async fn create_label(&self, name: String, color: String) -> Result<WorkspaceLabelDto> {
+    pub async fn create_label(&self, name: String, color: String, source: String) -> Result<WorkspaceLabelDto> {
         let name = name.trim().to_string();
         if name.is_empty() {
             return Err(ServiceError::Validation(
@@ -1156,7 +1160,7 @@ impl WorkspaceService {
         }
 
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.create_label(name, color).await?.into())
+        Ok(repo.create_label(name, color, source).await?.into())
     }
 
     pub async fn update_label(
@@ -1164,6 +1168,7 @@ impl WorkspaceService {
         guid: String,
         name: String,
         color: String,
+        source: String,
     ) -> Result<WorkspaceLabelDto> {
         let name = name.trim().to_string();
         if name.is_empty() {
@@ -1178,7 +1183,7 @@ impl WorkspaceService {
         }
 
         let repo = WorkspaceRepo::new(&self.db);
-        Ok(repo.update_label(&guid, name, color).await?.into())
+        Ok(repo.update_label(&guid, name, color, source).await?.into())
     }
 
     pub async fn update_labels(&self, guid: String, label_guids: Vec<String>) -> Result<()> {

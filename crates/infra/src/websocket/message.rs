@@ -1319,6 +1319,12 @@ pub struct WorkspaceUpdatePriorityRequest {
 pub struct WorkspaceLabelCreateRequest {
     pub name: String,
     pub color: String,
+    #[serde(default = "default_label_source")]
+    pub source: String,
+}
+
+fn default_label_source() -> String {
+    "manual".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1326,6 +1332,8 @@ pub struct WorkspaceLabelUpdateRequest {
     pub guid: String,
     pub name: String,
     pub color: String,
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
