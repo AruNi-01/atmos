@@ -1217,7 +1217,7 @@ dependencies = [
  "infra",
  "libc",
  "llm",
- "local-model",
+ "local-model-runtime",
  "parking_lot",
  "portable-pty",
  "rand 0.8.5",
@@ -3264,7 +3264,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "local-model"
+name = "local-model-runtime"
 version = "0.1.0"
 dependencies = [
  "async-trait",
