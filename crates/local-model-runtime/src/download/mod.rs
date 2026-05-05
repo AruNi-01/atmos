@@ -50,7 +50,7 @@ where
     let mut hasher = Sha256::new();
     let mut downloaded: u64 = 0;
 
-    let download_result = (|| async {
+    let download_result = async {
         while let Some(chunk) = stream.next().await {
             let chunk = chunk?;
             hasher.update(&chunk);
@@ -61,7 +61,8 @@ where
 
         file.flush().await?;
         Ok(())
-    })().await;
+    }
+    .await;
 
     drop(file);
 

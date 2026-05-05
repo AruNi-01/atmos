@@ -129,17 +129,19 @@ pub fn resolve_provider_by_id(
         return Ok(None);
     }
 
-    // LocalManaged providers are served by the in-process llama-server
-    // managed by `crates/local-model`. That runtime binds to the fixed
-    // canonical port (`LOCAL_RUNTIME_PORT`, currently 18080) and fails fast
-    // on conflict, so we can resolve to a stable URL here. If you change the
-    // port, update both `crates/local-model/src/runtime/port.rs` and this
-    // constant together.
     if entry.kind == ProviderKind::LocalManaged {
+        let base_url = entry.base_url.trim();
+        if base_url.is_empty() {
+            return Err(LlmError::InvalidConfig(format!(
+                "LocalManaged provider `{}` has no runtime endpoint",
+                provider_id
+            )));
+        }
+
         return Ok(Some(ResolvedLlmProvider {
             id: provider_id.to_string(),
             kind: entry.kind,
-            base_url: "http://127.0.0.1:18080".to_string(),
+            base_url: base_url.to_string(),
             api_key: String::new(),
             model: {
                 let m = entry

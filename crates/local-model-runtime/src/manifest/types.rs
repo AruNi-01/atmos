@@ -49,6 +49,12 @@ pub struct ModelEntry {
 
     /// File size in bytes (used for progress reporting).
     pub size_bytes: u64,
+
+    #[serde(default)]
+    pub tags: Vec<String>,
+
+    #[serde(default)]
+    pub recommended: bool,
 }
 
 /// A platform-specific llama-server binary.

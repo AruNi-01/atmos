@@ -9,6 +9,7 @@ pub enum LocalModelState {
 
     /// The llama-server binary is being downloaded.
     DownloadingBinary {
+        model_id: String,
         /// 0.0 – 1.0
         progress: f32,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -17,16 +18,17 @@ pub enum LocalModelState {
 
     /// The model GGUF file is being downloaded.
     DownloadingModel {
+        model_id: String,
         progress: f32,
         #[serde(skip_serializing_if = "Option::is_none")]
         eta_seconds: Option<u64>,
     },
 
     /// Everything is downloaded but the server is not running.
-    InstalledNotRunning,
+    InstalledNotRunning { model_id: String },
 
     /// The llama-server process is being launched.
-    Starting,
+    Starting { model_id: String },
 
     /// The server is up and accepting requests.
     Running {

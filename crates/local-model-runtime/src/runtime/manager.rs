@@ -11,7 +11,7 @@ use crate::config::{ensure_dirs, llama_server_bin, logs_dir, model_path};
 use crate::download::{download_with_fallback, verify_file, DownloadProgress};
 use crate::error::{LocalModelError, Result};
 use crate::manifest::{find_binary_for_platform, find_model, ModelManifest};
-use crate::runtime::port::{reserve_runtime_port, LOCAL_RUNTIME_PORT};
+use crate::runtime::port::runtime_port;
 use crate::runtime::process::{spawn_llama_server, wait_for_ready};
 use crate::runtime::state::LocalModelState;
 
@@ -74,8 +74,10 @@ impl LocalRuntimeManager {
     /// no llama-server running). Public so the download flow in the
     /// websocket layer can drive lifecycle transitions without exposing the
     /// generic state setter.
-    pub fn mark_installed_not_running(&self) {
-        self.set_state(LocalModelState::InstalledNotRunning);
+    pub fn mark_installed_not_running(&self, model_id: impl Into<String>) {
+        self.set_state(LocalModelState::InstalledNotRunning {
+            model_id: model_id.into(),
+        });
     }
 
     /// Mark the runtime as failed with the given error message. Public so
@@ -91,7 +93,7 @@ impl LocalRuntimeManager {
 
     /// Ensure the llama-server binary is present and valid.
     /// Emits `DownloadingBinary` state updates during download.
-    pub async fn ensure_binary(&self, manifest: &ModelManifest) -> Result<()> {
+    pub async fn ensure_binary(&self, manifest: &ModelManifest, model_id: &str) -> Result<()> {
         let bin_path = llama_server_bin()?;
         let binary_entry = find_binary_for_platform(manifest).ok_or_else(|| {
             LocalModelError::BinaryNotFound(crate::manifest::current_platform().to_string())
@@ -107,6 +109,7 @@ impl LocalRuntimeManager {
 
         let tx = self.state_tx.clone();
         let inner = self.inner.clone();
+        let model_id = model_id.to_string();
         let _total = binary_entry.size_bytes;
         let start = Instant::now();
 
@@ -130,6 +133,7 @@ impl LocalRuntimeManager {
                     }
                 });
                 let state = LocalModelState::DownloadingBinary {
+                    model_id: model_id.clone(),
                     progress,
                     eta_seconds: eta,
                 };
@@ -169,6 +173,7 @@ impl LocalRuntimeManager {
 
         let tx = self.state_tx.clone();
         let inner = self.inner.clone();
+        let model_id_for_progress = model_id.to_string();
         let start = Instant::now();
 
         let mut urls = vec![entry.gguf_url.clone()];
@@ -193,6 +198,7 @@ impl LocalRuntimeManager {
                     }
                 });
                 let state = LocalModelState::DownloadingModel {
+                    model_id: model_id_for_progress.clone(),
                     progress,
                     eta_seconds: eta,
                 };
@@ -230,18 +236,19 @@ impl LocalRuntimeManager {
         }
 
         let result = async {
-            // Download binary if needed.
-            self.ensure_binary(manifest).await?;
-            // Download model if needed.
+            self.ensure_binary(manifest, model_id).await?;
             self.ensure_model(manifest, model_id).await?;
 
-            self.set_state(LocalModelState::InstalledNotRunning);
-            self.set_state(LocalModelState::Starting);
+            self.set_state(LocalModelState::InstalledNotRunning {
+                model_id: model_id.to_string(),
+            });
+            self.set_state(LocalModelState::Starting {
+                model_id: model_id.to_string(),
+            });
 
-        let bin_path = llama_server_bin()?;
-        let model_path = model_path(model_id)?;
-        let listener = reserve_runtime_port()?;
-        let port = LOCAL_RUNTIME_PORT;
+            let bin_path = llama_server_bin()?;
+            let model_path = model_path(model_id)?;
+            let port = runtime_port()?;
 
             let context_size = find_model(manifest, model_id)
                 .map(|m| m.recommended_context_size)
@@ -250,7 +257,9 @@ impl LocalRuntimeManager {
             let log_path = logs_dir()?.join(format!("{model_id}.log"));
 
             let mut child =
-                match spawn_llama_server(&bin_path, &model_path, port, context_size, &log_path).await {
+                match spawn_llama_server(&bin_path, &model_path, port, context_size, &log_path)
+                    .await
+                {
                     Ok(c) => c,
                     Err(e) => {
                         let msg = e.to_string();
@@ -259,7 +268,6 @@ impl LocalRuntimeManager {
                     }
                 };
 
-            // Wait for readiness, then drop the listener to release port reservation.
             if let Err(e) = wait_for_ready(port).await {
                 let msg = e.to_string();
                 self.set_state(LocalModelState::Failed { error: msg.clone() });
@@ -267,7 +275,6 @@ impl LocalRuntimeManager {
                 let _ = child.wait().await;
                 return Err(e);
             }
-            drop(listener);
 
             let endpoint = format!("http://127.0.0.1:{port}");
             {
@@ -281,7 +288,8 @@ impl LocalRuntimeManager {
                 model_id: model_id.to_string(),
             });
             Ok(())
-        }.await;
+        }
+        .await;
 
         // Reset starting flag regardless of success or failure
         self.inner.lock().starting = false;
@@ -290,11 +298,11 @@ impl LocalRuntimeManager {
 
     /// Stop the running llama-server.
     pub async fn stop(&self) -> Result<()> {
-        let child = {
+        let (child, stopped_model_id) = {
             let mut inner = self.inner.lock();
+            let model_id = inner.model_id.take();
             inner.port = None;
-            inner.model_id = None;
-            inner.child.take()
+            (inner.child.take(), model_id)
         };
 
         if let Some(mut child) = child {
@@ -304,7 +312,11 @@ impl LocalRuntimeManager {
             warn!("stop() called but no child process found");
         }
 
-        self.set_state(LocalModelState::InstalledNotRunning);
+        if let Some(model_id) = stopped_model_id {
+            self.set_state(LocalModelState::InstalledNotRunning { model_id });
+        } else {
+            self.set_state(LocalModelState::NotInstalled);
+        }
         Ok(())
     }
 

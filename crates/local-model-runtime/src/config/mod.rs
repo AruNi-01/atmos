@@ -1,27 +1,27 @@
-use std::path::PathBuf;
 use std::path::Path;
+use std::path::PathBuf;
 
 use crate::error::{LocalModelError, Result};
 
-/// Root directory for all local-model data: `~/.atmos/local-model/`
-pub fn local_model_dir() -> Result<PathBuf> {
+/// Root directory for all managed local model runtime data.
+pub fn local_model_runtime_dir() -> Result<PathBuf> {
     let home = dirs::home_dir().ok_or(LocalModelError::HomeDirNotFound)?;
-    Ok(home.join(".atmos").join("local-model"))
+    Ok(home.join(".atmos").join("local-model-runtime"))
 }
 
 /// Directory where model GGUF files are stored.
 pub fn models_dir() -> Result<PathBuf> {
-    Ok(local_model_dir()?.join("models"))
+    Ok(local_model_runtime_dir()?.join("models"))
 }
 
 /// Directory where the llama-server binary lives.
 pub fn bin_dir() -> Result<PathBuf> {
-    Ok(local_model_dir()?.join("bin"))
+    Ok(local_model_runtime_dir()?.join("bin"))
 }
 
 /// Directory for llama-server runtime logs.
 pub fn logs_dir() -> Result<PathBuf> {
-    Ok(local_model_dir()?.join("logs"))
+    Ok(local_model_runtime_dir()?.join("logs"))
 }
 
 /// Full path for a model's GGUF file.

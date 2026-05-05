@@ -1,5 +1,5 @@
 [package]
-name = "local-model"
+name = "local-model-runtime"
 version = "0.1.0"
 edition = "2021"
 
