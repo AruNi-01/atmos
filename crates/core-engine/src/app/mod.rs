@@ -117,6 +117,19 @@ impl AppEngine {
                         .status()
                 }
             }
+            "Windsurf" => {
+                let windsurf_result = Command::new("windsurf").arg(path).status();
+
+                if windsurf_result.is_ok() {
+                    windsurf_result
+                } else {
+                    Command::new("open")
+                        .arg("-a")
+                        .arg("Windsurf")
+                        .arg(path)
+                        .status()
+                }
+            }
             "Antigravity" => {
                 let ag_result = Command::new("antigravity").arg(path).status();
 
@@ -258,6 +271,7 @@ impl AppEngine {
             }
             "VS Code Insiders" => Command::new("code-insiders").arg(path).status(),
             "Cursor" => Command::new("cursor").arg(path).status(),
+            "Windsurf" => Command::new("windsurf").arg(path).status(),
             "Antigravity" => Command::new("antigravity").arg(path).status(),
             "Sublime Text" => {
                 let subl_result = Command::new("subl").arg(path).status();
@@ -339,6 +353,7 @@ impl AppEngine {
             "VS Code" => Command::new("code").arg(path).status(),
             "VS Code Insiders" => Command::new("code-insiders").arg(path).status(),
             "Cursor" => Command::new("cursor").arg(path).status(),
+            "Windsurf" => Command::new("windsurf").arg(path).status(),
             "Antigravity" => Command::new("antigravity").arg(path).status(),
             "Sublime Text" => Command::new("subl").arg(path).status(),
             "Zed" => Command::new("zed").arg(path).status(),

@@ -17,6 +17,7 @@ export const QUICK_OPEN_APP_OPTIONS = [
   { name: 'Finder', label: 'Finder', iconName: 'finder', themed: false, group: 'system' },
   { name: 'Terminal', label: 'Terminal', iconName: 'terminal', themed: false, group: 'system' },
   { name: 'Cursor', label: 'Cursor', iconName: 'Cursor', themed: true, group: 'editors' },
+  { name: 'Windsurf', label: 'Windsurf', iconName: 'windsurf', themed: true, group: 'editors' },
   { name: 'Antigravity', label: 'Antigravity', iconName: 'antigravity', themed: false, group: 'editors' },
   { name: 'Zed', label: 'Zed', iconName: 'zed', themed: true, group: 'editors' },
   { name: 'Sublime Text', label: 'Sublime Text', iconName: 'sublime-text', themed: false, group: 'editors' },
