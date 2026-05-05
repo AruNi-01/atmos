@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
   Loader2,
 } from "@workspace/ui";
-import { ChevronDown, Check, Copy } from "lucide-react";
+import { ChevronDown, Check, Copy, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AGENT_OPTIONS, type AgentId } from "@/components/wiki/AgentSelect";
 import { AgentIcon } from "@/components/agent/AgentIcon";
@@ -24,6 +24,7 @@ interface FixActionsMenuProps {
   onFix: (agentId: AgentId) => void | Promise<void>;
   onCopyPrompt: () => void | Promise<void>;
   onMarkFailed: (run: ReviewAgentRunModel) => void | Promise<void>;
+  onOpenAgentReview: () => void;
 }
 
 function getAgentLabel(id: AgentId) {
@@ -44,6 +45,7 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
   onFix,
   onCopyPrompt,
   onMarkFailed,
+  onOpenAgentReview,
 }) => {
   const isRunActive = !!activeRun;
   return (
@@ -85,6 +87,14 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[12rem]">
+          <DropdownMenuItem
+            onClick={() => onOpenAgentReview()}
+            className="flex items-center gap-2 text-xs"
+          >
+            <Bot className="size-4" />
+            <span>Agent Review</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {AGENT_OPTIONS.map((opt) => {
             const isActive = opt.id === agentId;
             return (

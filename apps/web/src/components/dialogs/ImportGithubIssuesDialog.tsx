@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,15 +7,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/ui/dialog';
-import { Button } from '@workspace/ui';
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@workspace/ui';
 import { Input } from '@workspace/ui/components/ui/input';
 import { Label } from '@workspace/ui/components/ui/label';
 import { Checkbox } from '@workspace/ui/components/ui/checkbox';
 import { ScrollArea } from '@workspace/ui/components/ui/scroll-area';
 import { Badge } from '@workspace/ui/components/ui/badge';
-import { GithubIssuePayload, wsWorkspaceApi, wsGithubApi } from '@/api/ws-api';
+import { GithubIssuePayload, wsWorkspaceApi, wsGithubApi, gitApi } from '@/api/ws-api';
 import { useProjectStore } from '@/hooks/use-project-store';
-import { Loader2, Search, ExternalLink } from 'lucide-react';
+import { Loader2, Search, ExternalLink, Import, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
 
 interface ImportGithubIssuesDialogProps {
   isOpen: boolean;
@@ -47,8 +54,8 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     }
   }, [projects, defaultProjectId]);
 
-  const [owner, setOwner] = useState('');
-  const [repo, setRepo] = useState('');
+  const [repoContext, setRepoContext] = useState<{ owner: string; repo: string } | null>(null);
+  const [isRepoLoading, setIsRepoLoading] = useState(false);
   const [issues, setIssues] = useState<GithubIssuePayload[]>([]);
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,25 +74,60 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     };
   }, []);
 
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === projectId) ?? null,
+    [projectId, projects],
+  );
+
   useEffect(() => {
-    if (projectId && projects.length > 0) {
-      const project = projects.find((p) => p.id === projectId);
-      if (project?.mainFilePath) {
-        const path = project.mainFilePath;
-        const parts = path.split('/');
-        if (parts.length >= 2) {
-          setRepo(parts[parts.length - 1]);
-          if (parts.length >= 3) {
-            setOwner(parts[parts.length - 2]);
-          }
+    let cancelled = false;
+
+    async function loadRepoContext() {
+      if (!isOpen || !selectedProject?.mainFilePath) {
+        setRepoContext(null);
+        return;
+      }
+
+      setIsRepoLoading(true);
+      setError(null);
+      setIssues([]);
+      setSelectedIssues(new Set());
+
+      try {
+        const status = await gitApi.getStatus(selectedProject.mainFilePath);
+        if (cancelled) return;
+
+        if (status.github_owner && status.github_repo) {
+          const context = {
+            owner: status.github_owner,
+            repo: status.github_repo,
+          };
+          setRepoContext(context);
+        } else {
+          setRepoContext(null);
+          setError('This project is not associated with a GitHub repository. Please add a GitHub remote to import issues.');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRepoContext(null);
+          setError(error instanceof Error ? error.message : 'Failed to detect GitHub repository');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsRepoLoading(false);
         }
       }
     }
-  }, [projectId, projects]);
+
+    loadRepoContext();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, selectedProject]);
 
   const loadIssues = async () => {
-    if (!owner || !repo) {
-      setError('Please enter owner and repo');
+    if (!repoContext) {
+      setError('No GitHub repository detected');
       return;
     }
 
@@ -93,8 +135,8 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     setError(null);
     try {
       const loadedIssues = await wsGithubApi.listIssues({
-        owner,
-        repo,
+        owner: repoContext.owner,
+        repo: repoContext.repo,
         state: 'open',
         limit: 100,
         sort: sortBy,
@@ -152,8 +194,8 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     }
 
     filtered.sort((a, b) => {
-      const dateA = new Date(sortBy === 'created' ? a.created_at : a.updated_at).getTime();
-      const dateB = new Date(sortBy === 'created' ? b.created_at : b.updated_at).getTime();
+      const dateA = new Date(sortBy === 'created' ? (a.created_at || '') : (a.updated_at || '')).getTime();
+      const dateB = new Date(sortBy === 'created' ? (b.created_at || '') : (b.updated_at || '')).getTime();
       const base = dateA - dateB;
       return sortOrder === 'asc' ? base : -base;
     });
@@ -228,43 +270,40 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
           {/* Project Selection */}
           <div className="grid gap-2">
             <Label htmlFor="project">Project</Label>
-            <select
-              id="project"
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger id="project">
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Owner/Repo Input */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="owner">Owner</Label>
-              <Input
-                id="owner"
-                placeholder="e.g., AruNi-01"
-                value={owner}
-                onChange={(e) => setOwner(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="repo">Repository</Label>
-              <Input
-                id="repo"
-                placeholder="e.g., atmos"
-                value={repo}
-                onChange={(e) => setRepo(e.target.value)}
-              />
-            </div>
+          {/* GitHub Repository Info */}
+          <div className="grid gap-2">
+            <Label>GitHub Repository</Label>
+            {isRepoLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Detecting repository...
+              </div>
+            ) : repoContext ? (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">{repoContext.owner}/{repoContext.repo}</span>
+              </div>
+            ) : (
+              <div className="text-sm text-destructive">
+                No GitHub repository detected for this project
+              </div>
+            )}
           </div>
 
-          <Button onClick={loadIssues} disabled={isLoadingIssues || !owner || !repo}>
+          <Button onClick={loadIssues} disabled={isLoadingIssues || !repoContext}>
             {isLoadingIssues ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Load Issues
           </Button>
@@ -273,8 +312,8 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
 
           {/* Search and Sort */}
           {issues.length > 0 && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2 relative">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-4">
+              <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search issues..."
@@ -283,20 +322,23 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
                   className="pl-8"
                 />
               </div>
-              <select
-                value={`${sortBy}-${sortOrder}`}
-                onChange={(e) => {
-                  const [sort, order] = e.target.value.split('-');
-                  setSortBy(sort as 'created' | 'updated');
-                  setSortOrder(order as 'asc' | 'desc');
-                }}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'created' | 'updated')}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created">Created</SelectItem>
+                  <SelectItem value="updated">Updated</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                title={sortOrder === 'desc' ? 'Switch to ascending' : 'Switch to descending'}
               >
-                <option value="created-desc">Newest First</option>
-                <option value="created-asc">Oldest First</option>
-                <option value="updated-desc">Recently Updated</option>
-                <option value="updated-asc">Least Recently Updated</option>
-              </select>
+                {sortOrder === 'desc' ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpNarrowWide className="h-4 w-4" />}
+              </Button>
             </div>
           )}
 
@@ -389,7 +431,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
             Cancel
           </Button>
           <Button onClick={handleImport} disabled={isImporting || selectedIssues.size === 0}>
-            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Import className="mr-2 h-4 w-4" />}
             Import {selectedIssues.size} Issue{selectedIssues.size !== 1 ? 's' : ''}
           </Button>
         </DialogFooter>

@@ -846,6 +846,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                        onUpdateLabels={updateWorkspaceLabels}
                                                        onPinWorkspace={pinWorkspace}
                                                        onUnpinWorkspace={unpinWorkspace}
+                                                       onArchiveWorkspace={archiveWorkspace}
+                                                       onDeleteWorkspace={async (projectId, workspaceId) => {
+                                                           await deleteWorkspace(projectId, workspaceId);
+                                                           await fetchProjects();
+                                                       }}
                                                        filters={kanbanFilters}
                                                        onFiltersChange={setKanbanFilters}
                                                        trigger={(
@@ -1033,8 +1038,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                 onUpdateWorkspaceWorkflowStatus={() => { }}
                                                 onUpdateWorkspacePriority={() => { }}
                                                 availableLabels={workspaceLabels}
-                                                onCreateWorkspaceLabel={async data => ({ id: "", name: data.name, color: data.color })}
-                                                onUpdateWorkspaceLabel={async (_labelId, data) => ({ id: _labelId, name: data.name, color: data.color })}
+                                                onCreateWorkspaceLabel={async data => ({ id: "", name: data.name, color: data.color, source: "manual" })}
+                                                onUpdateWorkspaceLabel={async (_labelId, data) => ({ id: _labelId, name: data.name, color: data.color, source: "manual" })}
                                                 onUpdateWorkspaceLabels={async () => { }}
                                                 onConfigureScripts={() => { }}
                                                 onSelectMain={() => { }}
@@ -1262,6 +1267,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                 onUpdateLabels={updateWorkspaceLabels}
                                 onPinWorkspace={pinWorkspace}
                                 onUnpinWorkspace={unpinWorkspace}
+                                onArchiveWorkspace={archiveWorkspace}
+                                onDeleteWorkspace={async (projectId, workspaceId) => {
+                                    await deleteWorkspace(projectId, workspaceId);
+                                    await fetchProjects();
+                                }}
                                 filters={kanbanFilters}
                                 onFiltersChange={setKanbanFilters}
                                 trigger={(

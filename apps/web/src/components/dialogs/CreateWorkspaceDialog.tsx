@@ -741,6 +741,47 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
           (!branchTouchedRef.current && generatedBranchRef.current) ||
           (issuePreview ? issueToBranchName(issuePreview) : '');
       const finalBaseBranch = prPreview ? prPreview.base_ref || baseBranch : baseBranch;
+
+      // Create labels from GitHub issue/PR if present
+      let labelsToUse = selectedLabels;
+      if (prPreview && prPreview.labels && prPreview.labels.length > 0) {
+        const source = 'gitHub_pr' as const;
+        for (const prLabel of prPreview.labels) {
+          // Check if label already exists with same name (case-insensitive) and source
+          const existingLabel = workspaceLabels.find(
+            (l) => l.name.toLowerCase() === prLabel.name.toLowerCase() && l.source === source
+          );
+          if (!existingLabel) {
+            const newLabel = await createWorkspaceLabel({
+              name: prLabel.name,
+              color: prLabel.color ? `#${prLabel.color.replace(/^#/, '')}` : '#94a3b8',
+              source,
+            });
+            labelsToUse = [...labelsToUse, newLabel];
+          } else if (!labelsToUse.find((l) => l.id === existingLabel.id)) {
+            labelsToUse = [...labelsToUse, existingLabel];
+          }
+        }
+      } else if (issuePreview && issuePreview.labels && issuePreview.labels.length > 0) {
+        const source = 'gitHub_issue' as const;
+        for (const issueLabel of issuePreview.labels) {
+          // Check if label already exists with same name (case-insensitive) and source
+          const existingLabel = workspaceLabels.find(
+            (l) => l.name.toLowerCase() === issueLabel.name.toLowerCase() && l.source === source
+          );
+          if (!existingLabel) {
+            const newLabel = await createWorkspaceLabel({
+              name: issueLabel.name,
+              color: issueLabel.color ? `#${issueLabel.color.replace(/^#/, '')}` : '#94a3b8',
+              source,
+            });
+            labelsToUse = [...labelsToUse, newLabel];
+          } else if (!labelsToUse.find((l) => l.id === existingLabel.id)) {
+            labelsToUse = [...labelsToUse, existingLabel];
+          }
+        }
+      }
+
       const workspaceId = await addWorkspace({
         projectId,
         name: finalBranch,
@@ -756,7 +797,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
         hasSetupScript,
         priority,
         workflowStatus,
-        labels: selectedLabels,
+        labels: labelsToUse,
       });
       keepGlobalLoading = true;
       showOpening(workspaceId);

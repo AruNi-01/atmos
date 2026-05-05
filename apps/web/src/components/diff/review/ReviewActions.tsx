@@ -23,6 +23,7 @@ import {
   sortReviewSessions,
 } from "@/components/diff/review/utils";
 import { reviewWsApi, type ReviewSessionDto } from "@/api/ws-api";
+import { useDialogStore } from "@/hooks/use-dialog-store";
 
 type SessionGroup = {
   status: "active" | "closed" | "archived";
@@ -56,6 +57,12 @@ export const ReviewActions: React.FC = () => {
     setSelectedRevisionGuid,
     setArtifactPreview,
   } = useReviewCtx();
+
+  const setCodeReviewDialogOpen = useDialogStore((state) => state.setCodeReviewDialogOpen);
+
+  const handleOpenAgentReview = useCallback(() => {
+    setCodeReviewDialogOpen(true);
+  }, [setCodeReviewDialogOpen]);
 
   const revisionLabel = useMemo(() => {
     if (!currentSession || !currentRevision) return "Live";
@@ -428,48 +435,6 @@ export const ReviewActions: React.FC = () => {
 
         <div className="w-px self-stretch bg-sidebar-border shrink-0" />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              disabled={reviewDisabled || isCreatingAgentRun}
-              className={cn(
-                "inline-flex items-center justify-center px-2 text-[13px] shrink-0 h-full",
-                "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30",
-                "transition-colors cursor-pointer",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-              )}
-              title="Run agent review on current revision"
-            >
-              {isCreatingAgentRun ? (
-                <LoaderCircle className="size-3.5 animate-spin shrink-0" />
-              ) : (
-                <Check className="size-3.5 shrink-0" />
-              )}
-              <span className="ml-1">Agent Review</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {CODE_REVIEW_SKILLS.map((skill) => (
-              <DropdownMenuSub key={skill.id}>
-                <DropdownMenuSubTrigger className="text-xs">
-                  {skill.label}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={() => handleCopyAgentReviewPrompt(skill.id)}>
-                    Copy Prompt
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleRunAgentReview(skill.id, "agent_chat")}>
-                    Send to Agent Chat
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="w-px self-stretch bg-sidebar-border shrink-0" />
-
         <FixActionsMenu
           disabled={fixDisabled}
           isLoading={isCreatingAgentRun}
@@ -479,6 +444,7 @@ export const ReviewActions: React.FC = () => {
           onFix={(agentId) => handleRunAgentInTerminal(undefined, agentId)}
           onCopyPrompt={() => handleCopyAgentPrompt()}
           onMarkFailed={(run) => handleMarkAgentRunFailed(run)}
+          onOpenAgentReview={handleOpenAgentReview}
         />
       </div>
 
@@ -488,7 +454,7 @@ export const ReviewActions: React.FC = () => {
         type="button"
         onClick={handleRefresh}
         disabled={isRefreshing}
-        className="flex items-center justify-center px-2 h-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+        className="hidden sm:flex items-center justify-center px-2 h-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
         title="Refresh review data"
       >
         {isRefreshing ? (

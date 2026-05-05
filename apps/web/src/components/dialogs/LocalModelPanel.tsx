@@ -160,12 +160,13 @@ function ModelCard({
   const isDownloading =
     (state.status === "downloading_binary" ||
       state.status === "downloading_model") &&
-    (!state.model_id || state.model_id === model.id);
+    state.model_id === model.id;
   const isInstalled =
-    (state.status === "installed_not_running" ||
+    model.installed ||
+    ((state.status === "installed_not_running" ||
       state.status === "starting" ||
       state.status === "running") &&
-    (!state.model_id || state.model_id === model.id);
+      state.model_id === model.id);
 
   const downloadProgress =
     state.status === "downloading_binary" ||
@@ -262,7 +263,7 @@ function ModelCard({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Download model to ~/.atmos/local-model/models/
+                  Download model to ~/.atmos/local-model-runtime/models/
                 </TooltipContent>
               </Tooltip>
             )}
@@ -412,8 +413,8 @@ export function LocalModelPanel() {
               ...prev,
               state: {
                 status: "downloading_binary",
-                progress: 0,
                 model_id: modelId,
+                progress: 0,
               },
             }
           : prev,
@@ -539,7 +540,7 @@ export function LocalModelPanel() {
       <div className="pt-1 text-xs text-muted-foreground">
         Model files are stored in{" "}
         <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-          ~/.atmos/local-model/
+          ~/.atmos/local-model-runtime/
         </code>
         .{" "}
         <a

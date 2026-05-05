@@ -16,7 +16,7 @@ import {
   PopoverTrigger,
   cn,
 } from "@workspace/ui";
-import { Tags, Pencil } from "lucide-react";
+import { Tags, Pencil, UserPen, CircleDot, GitPullRequest } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import type { WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from "@/types/types";
@@ -482,77 +482,83 @@ export function WorkspaceLabelPicker({
             <div className="py-2 text-center text-xs text-muted-foreground">No labels yet</div>
           ) : filteredAvailableLabels.length === 0 ? (
             <div className="py-2 text-center text-xs text-muted-foreground">No matching labels</div>
-          ) : filteredAvailableLabels.map((label) => (
-            <div key={label.id} className="group/label-item relative">
-              <div
-                role="button"
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    handleToggleLabel(label);
-                  }
-                }}
-                onClick={() => handleToggleLabel(label)}
-                className={cn(
-                  "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-muted",
-                  selectedLabelIds.has(label.id) && "bg-muted",
-                )}
-              >
-                <Checkbox
-                  checked={selectedLabelIds.has(label.id)}
-                  tabIndex={-1}
-                  className="pointer-events-none size-3.5"
-                />
-                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
-                <span className="min-w-0 truncate">{label.name}</span>
-              </div>
-              {onUpdateLabel ? (
-                <Popover
-                  open={labelEditorKey === label.id}
-                  onOpenChange={(open) => {
-                    if (open) {
-                      openLabelEditor(label);
-                    } else if (labelEditorKey === label.id) {
-                      setLabelEditorKey(null);
-                      setEditingLabel(null);
+          ) : filteredAvailableLabels.map((label) => {
+            const SourceIcon = label.source === 'manual' ? UserPen : label.source === 'gitHub_issue' ? CircleDot : GitPullRequest;
+            return (
+              <div key={label.id} className="group/label-item relative">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      handleToggleLabel(label);
                     }
                   }}
+                  onClick={() => handleToggleLabel(label)}
+                  className={cn(
+                    "flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-xs transition-colors hover:bg-muted",
+                    selectedLabelIds.has(label.id) && "bg-muted",
+                  )}
                 >
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openLabelEditor(label);
-                      }}
-                      className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-muted hover:text-foreground group-hover/label-item:opacity-100"
-                    >
-                      <Pencil className="size-3" />
-                    </button>
-                  </PopoverTrigger>
-                  <LabelEditorContent
-                    isDark={isDark}
-                    side={editorSide}
-                    surface={surface}
-                    newLabelName={newLabelName}
-                    newLabelColor={newLabelColor}
-                    editingLabel={editingLabel}
-                    setNewLabelName={setNewLabelName}
-                    setNewLabelColor={setNewLabelColor}
-                    onSubmit={handleCreateLabel}
+                  <Checkbox
+                    checked={selectedLabelIds.has(label.id)}
+                    tabIndex={-1}
+                    className="pointer-events-none size-3.5"
                   />
-                </Popover>
-              ) : null}
-            </div>
-          ))}
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: label.color }} />
+                  <span className="min-w-0 truncate flex-1">{label.name}</span>
+                  {onUpdateLabel ? (
+                    <Popover
+                      open={labelEditorKey === label.id}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          openLabelEditor(label);
+                        } else if (labelEditorKey === label.id) {
+                          setLabelEditorKey(null);
+                          setEditingLabel(null);
+                        }
+                      }}
+                    >
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openLabelEditor(label);
+                          }}
+                          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                          <SourceIcon className="size-3 group-hover/label-item:hidden" />
+                          <Pencil className="size-3 hidden group-hover/label-item:block" />
+                        </button>
+                      </PopoverTrigger>
+                      <LabelEditorContent
+                        isDark={isDark}
+                        side={editorSide}
+                        surface={surface}
+                        newLabelName={newLabelName}
+                        newLabelColor={newLabelColor}
+                        editingLabel={editingLabel}
+                        setNewLabelName={setNewLabelName}
+                        setNewLabelColor={setNewLabelColor}
+                        onSubmit={handleCreateLabel}
+                      />
+                    </Popover>
+                  ) : (
+                    <SourceIcon className="size-3 shrink-0 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </PopoverContent>
     </Popover>
   );
 }
 
-function LabelEditorContent({
+export function LabelEditorContent({
   isDark,
   side,
   surface,
@@ -562,6 +568,7 @@ function LabelEditorContent({
   setNewLabelName,
   setNewLabelColor,
   onSubmit,
+  popoverContentProps,
 }: {
   isDark: boolean;
   side: PopoverSide;
@@ -572,6 +579,7 @@ function LabelEditorContent({
   setNewLabelName: (value: string) => void;
   setNewLabelColor: (value: { r: number; g: number; b: number; a: number }) => void;
   onSubmit: () => void;
+  popoverContentProps?: React.ComponentPropsWithoutRef<typeof PopoverContent>;
 }) {
   return (
     <PopoverContent
@@ -582,6 +590,7 @@ function LabelEditorContent({
       alignOffset={28}
       avoidCollisions
       className="w-72 space-y-2 p-3"
+      {...popoverContentProps}
     >
       <div className="flex items-center gap-2">
         <Input

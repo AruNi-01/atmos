@@ -23,6 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   cn,
   MouseSensor,
   useDraggable,
@@ -58,15 +62,20 @@ import {
   WorkspaceStatusSelect,
 } from "@/components/layout/sidebar/workspace-metadata-controls";
 import {
+  Archive,
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   Eye,
   EyeOff,
+  Github,
+  Import,
   LogIn,
+  MoreHorizontal,
   Pin,
   Plus,
   Search,
   Settings2,
+  Trash2,
   X,
 } from "lucide-react";
 import { CreateWorkspaceDialog } from "@/components/dialogs/CreateWorkspaceDialog";
@@ -109,6 +118,7 @@ function mapKanbanWorkspaceModel(model: WorkspaceModel): Workspace {
       id: label.guid,
       name: label.name,
       color: label.color,
+      source: (label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr') || 'manual',
     })),
     localPath: model.local_path,
     githubIssue: model.github_issue,
@@ -207,6 +217,8 @@ interface WorkspaceKanbanViewProps {
   ) => Promise<void>;
   onPinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   onUnpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  onArchiveWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
+  onDeleteWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
   filters: WorkspaceKanbanFilters;
   onFiltersChange: (filters: WorkspaceKanbanFilters) => void;
   trigger: React.ReactNode;
@@ -226,6 +238,8 @@ function KanbanWorkspaceCard({
   onUpdateLabels,
   onPinWorkspace,
   onUnpinWorkspace,
+  onArchiveWorkspace,
+  onDeleteWorkspace,
 }: {
   workspace: Workspace;
   projectId: string;
@@ -252,6 +266,8 @@ function KanbanWorkspaceCard({
   ) => Promise<void>;
   onPinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
   onUnpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
+  onArchiveWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
+  onDeleteWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
 }) {
   const isIssueOnly = workspace.createSource === "issue_only";
   const workspaceTitle = isIssueOnly && workspace.githubIssue
@@ -264,6 +280,7 @@ function KanbanWorkspaceCard({
         id: `${workspace.id}:${label.name}`,
         name: label.name,
         color: label.color ? `#${label.color.replace(/^#/, "")}` : "#94a3b8",
+        source: 'gitHub_issue' as const,
       }))
       : workspace.labels;
   const handlePinClick = (e: React.MouseEvent) => {
@@ -277,8 +294,9 @@ function KanbanWorkspaceCard({
 
   return (
     <div className={cn(
-      "w-full rounded-md border bg-background p-3 text-left shadow-xs",
-      workspace.isPinned ? "border-border/80 ring-1 ring-border/40" : "border-border",
+      "w-full rounded-md bg-background p-3 text-left shadow-xs",
+      workspace.isPinned ? "border border-border" : "",
+      isIssueOnly ? "border border-blue-500/30" : "",
     )}>
       {cardProperties.project || cardProperties.priority || cardProperties.status ? (
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -292,7 +310,32 @@ function KanbanWorkspaceCard({
                 triggerClassName="size-6 border border-border/60 bg-muted/35"
               />
             ) : null}
-            {cardProperties.project ? <span className="text-sm font-medium text-foreground">{projectName}</span> : null}
+            {cardProperties.project ? (
+              <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+                {projectName}
+                {workspace.createSource === 'issue_only' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (workspace.githubIssue?.url) {
+                            window.open(workspace.githubIssue.url, '_blank');
+                          }
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <Github className="size-3 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>GitHub Issue Only Workspace</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-1">
             {cardProperties.status ? (
@@ -317,6 +360,48 @@ function KanbanWorkspaceCard({
             >
               <Pin className={cn("size-3.5", workspace.isPinned ? "" : "rotate-45")} />
             </button>
+            {(onArchiveWorkspace || onDeleteWorkspace) ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    title="More"
+                  >
+                    <MoreHorizontal className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="bottom">
+                  {onArchiveWorkspace ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void onArchiveWorkspace(projectId, workspace.id);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground transition-colors hover:bg-accent"
+                    >
+                      <Archive className="size-3.5" />
+                      Archive
+                    </button>
+                  ) : null}
+                  {onDeleteWorkspace ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void onDeleteWorkspace(projectId, workspace.id);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive transition-colors hover:bg-accent"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Delete
+                    </button>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -345,31 +430,33 @@ function KanbanWorkspaceCard({
           <span className="text-xs text-muted-foreground">{formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt)}</span>
         ) : <span />}
         {cardProperties.enter_button ? (
-          workspace.createSource === 'issue_only' ? (
-            <Button
-              size="sm"
-              variant="default"
-              className="size-7 p-0"
-              onClick={() => {
-                onEnterWorkspace(projectId, workspace.id);
-              }}
-              aria-label="Build workspace from issue"
-            >
-              <Plus className="size-3.5" />
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              className="size-7 p-0"
-              onClick={() => {
-                onEnterWorkspace(projectId, workspace.id);
-              }}
-              aria-label="Enter workspace"
-            >
-              <LogIn className="size-3.5" />
-            </Button>
-          )
+          <div className="flex items-center gap-1">
+            {workspace.createSource === 'issue_only' ? (
+              <Button
+                size="sm"
+                variant="default"
+                className="size-7 p-0"
+                onClick={() => {
+                  onEnterWorkspace(projectId, workspace.id);
+                }}
+                aria-label="Build workspace from issue"
+              >
+                <Plus className="size-3.5" />
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="size-7 p-0"
+                onClick={() => {
+                  onEnterWorkspace(projectId, workspace.id);
+                }}
+                aria-label="Enter workspace"
+              >
+                <LogIn className="size-3.5" />
+              </Button>
+            )}
+          </div>
         ) : null}
       </div>
     </div>
@@ -529,6 +616,8 @@ export function WorkspaceKanbanView({
   onUpdateLabels,
   onPinWorkspace,
   onUnpinWorkspace,
+  onArchiveWorkspace,
+  onDeleteWorkspace,
   filters,
   onFiltersChange,
   trigger,
@@ -880,16 +969,14 @@ export function WorkspaceKanbanView({
         workspaceId,
         issue: workspace.githubIssue,
       });
-      void setIsKanbanExpanded(false).then(() => {
-        setIsCreateWorkspaceOpen(true);
-      });
+      setIsCreateWorkspaceOpen(true);
       return;
     }
 
     void setIsKanbanExpanded(false).then(() => {
       router.push(`/workspace?id=${workspaceId}`);
     });
-  }, [kanbanProjects, projects, router, setIsKanbanExpanded]);
+  }, [kanbanProjects, projects, router]);
 
   const selectedFilterChips = React.useMemo(() => {
     const chips: Array<{
@@ -1131,7 +1218,7 @@ export function WorkspaceKanbanView({
                 onClick={() => setIsImportIssuesOpen(true)}
                 title="Import GitHub Issues"
               >
-                <LogIn className="size-3.5" />
+                <Import className="size-3.5" />
               </Button>
               <Button
                 size="icon-xs"
@@ -1216,6 +1303,8 @@ export function WorkspaceKanbanView({
                               onUpdateLabels={onUpdateLabels}
                               onPinWorkspace={onPinWorkspace}
                               onUnpinWorkspace={onUnpinWorkspace}
+                              onArchiveWorkspace={onArchiveWorkspace}
+                              onDeleteWorkspace={onDeleteWorkspace}
                             />
                           ))}
                         </DroppableColumn>

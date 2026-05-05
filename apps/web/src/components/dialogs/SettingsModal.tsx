@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useQueryState } from 'nuqs';
+import { useShallow } from 'zustand/shallow';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
   Button,
+  Checkbox,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -29,6 +31,12 @@ import {
   Switch,
   cn,
   toastManager,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
   MotionSidebar,
   MotionSidebarContent,
   MotionSidebarHeader,
@@ -57,6 +65,8 @@ import {
   Webhook,
   GitBranch,
   Archive,
+  X,
+  MoreHorizontal,
 } from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
 import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
@@ -65,6 +75,7 @@ import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon'
 import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
 import WorldIcon from '@workspace/ui/components/icons/world-icon';
 import { FolderKanbanIcon } from '@workspace/ui/components/icons/folder-kanban-icon';
+import { TagIcon } from '@workspace/ui/components/icons/tag-icon';
 import type { AnimatedIconHandle } from '@workspace/ui/components/icons/types';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
@@ -78,7 +89,9 @@ import {
 } from '@/hooks/use-updater';
 import { useTerminalLinkSettings, type TerminalFileLinkOpenMode } from '@/hooks/use-terminal-link-settings';
 import { useWorkspaceSettings } from '@/hooks/use-workspace-settings';
+import { useProjectStore } from '@/hooks/use-project-store';
 import { QUICK_OPEN_APP_MAP, QUICK_OPEN_APP_OPTIONS, QuickOpenAppIcon } from '@/components/layout/quick-open-apps';
+import { useTheme } from 'next-themes';
 import {
   agentBehaviourSettingsApi,
   codeAgentCustomApi,
@@ -100,6 +113,7 @@ import {
   showDesktopNotification,
 } from '@/lib/notifications';
 import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
+import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -122,6 +136,11 @@ const SETTINGS_SECTIONS = [
     id: 'workspace',
     label: 'Workspace',
     description: 'Deletion behavior and cleanup options',
+  },
+  {
+    id: 'labels',
+    label: 'Labels',
+    description: 'Manage workspace labels and their properties',
   },
   {
     id: 'ai',
@@ -666,6 +685,226 @@ function WorkspaceSettingsSection() {
         </div>
       </CollapsibleContent>
     </Collapsible>
+    </div>
+  );
+}
+
+function LabelSettingsSection() {
+  const { workspaceLabels, updateWorkspaceLabel } = useProjectStore(
+    useShallow((s: any) => ({
+      workspaceLabels: s.workspaceLabels,
+      updateWorkspaceLabel: s.updateWorkspaceLabel,
+    }))
+  );
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const [selectedLabels, setSelectedLabels] = React.useState<Set<string>>(new Set());
+  const [editingLabel, setEditingLabel] = React.useState<string | null>(null);
+  const [editName, setEditName] = React.useState('');
+  const [editColor, setEditColor] = React.useState<{ r: number; g: number; b: number; a: number }>({
+    r: 148, g: 163, b: 184, a: 1,
+  });
+
+  const parseColorToRgb = (colorStr: string): { r: number; g: number; b: number; a: number } => {
+    const hex = colorStr.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    return { r, g, b, a: 1 };
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedLabels.size === workspaceLabels.length) {
+      setSelectedLabels(new Set());
+    } else {
+      setSelectedLabels(new Set(workspaceLabels.map((l: any) => l.id)));
+    }
+  };
+
+  const toggleSelect = (labelId: string) => {
+    const next = new Set(selectedLabels);
+    if (next.has(labelId)) {
+      next.delete(labelId);
+    } else {
+      next.add(labelId);
+    }
+    setSelectedLabels(next);
+  };
+
+  const handleEdit = (labelId: string, name: string, color: string) => {
+    // Delay to let DropdownMenu finish closing before opening Popover
+    setTimeout(() => {
+      setEditingLabel(labelId);
+      setEditName(name);
+      setEditColor(parseColorToRgb(color));
+    }, 250);
+  };
+
+  const handleSave = async () => {
+    if (!editingLabel) return;
+    try {
+      const rgb = editColor;
+      const hexColor = `#${((1 << 24) + (rgb.r << 16) + (rgb.g << 8) + rgb.b).toString(16).slice(1)}`;
+      await updateWorkspaceLabel(editingLabel, { name: editName, color: hexColor });
+      setEditingLabel(null);
+      toastManager.add({ title: 'Label updated', type: 'success' });
+    } catch (error) {
+      toastManager.add({ title: 'Failed to update label', type: 'error' });
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingLabel(null);
+    setEditName('');
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString();
+  };
+
+  const isAllSelected = workspaceLabels.length > 0 && selectedLabels.size === workspaceLabels.length;
+
+  return (
+    <div className="space-y-2">
+      {workspaceLabels.length === 0 ? (
+        <div className="rounded-2xl border border-border px-6 py-12 text-center">
+          <p className="text-sm text-muted-foreground">No labels created yet</p>
+        </div>
+      ) : (
+        <>
+          <div className="rounded-md border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all labels"
+                    />
+                  </TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="w-8" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {workspaceLabels.map((label: any) => (
+                  <TableRow
+                    key={label.id}
+                    data-state={selectedLabels.has(label.id) ? 'selected' : undefined}
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedLabels.has(label.id)}
+                        onCheckedChange={() => toggleSelect(label.id)}
+                        aria-label={`Select ${label.name}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="size-3 rounded-full shrink-0"
+                          style={{ backgroundColor: label.color }}
+                        />
+                        <span className="text-sm font-medium">{label.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {label.source === 'manual' ? 'Manual' : label.source === 'gitHub_issue' ? 'GitHub Issue' : 'GitHub PR'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground">{formatDate(label.createdAt)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Popover
+                        open={editingLabel === label.id}
+                        onOpenChange={(open) => { if (!open) handleCancel(); }}
+                      >
+                        <PopoverTrigger asChild>
+                          <div className="inline-block">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                >
+                                  <MoreHorizontal className="size-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => handleEdit(label.id, label.name, label.color)}
+                                  className="cursor-pointer"
+                                >
+                                  <SlidersHorizontal className="size-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                                  onClick={() => {
+                                    toastManager.add({ title: 'Delete not implemented yet', type: 'warning' });
+                                  }}
+                                >
+                                  <Trash2 className="size-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </PopoverTrigger>
+                        {editingLabel === label.id && (
+                          <LabelEditorContent
+                            isDark={isDark}
+                            side="left"
+                            surface={false}
+                            newLabelName={editName}
+                            newLabelColor={editColor}
+                            editingLabel={{ id: label.id, name: label.name, color: label.color, source: label.source }}
+                            setNewLabelName={setEditName}
+                            setNewLabelColor={setEditColor}
+                            onSubmit={handleSave}
+                          />
+                        )}
+                      </Popover>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {selectedLabels.size > 0 && (
+            <div className="flex items-center justify-between px-2 py-1">
+              <span className="text-sm text-muted-foreground">
+                {selectedLabels.size} of {workspaceLabels.length} row{workspaceLabels.length !== 1 ? 's' : ''} selected
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 gap-1">
+                    <MoreHorizontal className="size-3.5" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                    onClick={() => {
+                      toastManager.add({ title: 'Delete not implemented yet', type: 'warning' });
+                    }}
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    Delete All
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -1972,6 +2211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           >
                             {section.id === 'code-agent' && <BotIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'workspace' && <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'labels' && <TagIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'notify' && <BellIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'about' && <InfoCircleIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'terminal' && <TerminalIcon ref={iconRef} className="shrink-0" size={16} />}
@@ -2468,6 +2708,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 ) : resolvedActiveSection === 'workspace' ? (
                   <WorkspaceSettingsSection />
+                ) : resolvedActiveSection === 'labels' ? (
+                  <LabelSettingsSection />
                 ) : resolvedActiveSection === 'ai' ? (
                   <div className="space-y-4">
                     <Collapsible
