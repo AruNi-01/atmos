@@ -199,10 +199,10 @@ const PLACEHOLDER_TEMPLATES = [
   (project: string, agent: string) => `What should ${agent} make inside ${project}?`,
   (project: string, agent: string) => `Give ${agent} a direction for ${project}.`,
   (project: string, agent: string) => `Start something new in ${project} with ${agent}.`,
-  (project: string, agent: string) => `What do you want to shape in ${project}?`,
+  (project: string, agent: string) => `What do you want ${agent} to shape in ${project}?`,
   (project: string, agent: string) => `Let ${agent} build the next idea in ${project}.`,
-  (project: string, agent: string) => `Turn a spark into something real in ${project}.`,
-  (project: string, agent: string) => `What should come to life in ${project}?`,
+  (project: string, agent: string) => `Turn a spark into something real in ${project} with ${agent}.`,
+  (project: string, agent: string) => `What should ${agent} bring to life in ${project}?`,
   (project: string, agent: string) => `Begin with ${agent}. Build in ${project}.`,
 ] as const;
 
@@ -261,14 +261,6 @@ const promptCardNotchSurfaceStyle: React.CSSProperties = {
   filter:
     "drop-shadow(0 0 0.8px color-mix(in srgb, var(--border) 58%, transparent)) drop-shadow(0 14px 34px rgba(0,0,0,0.14))",
 };
-
-function hashString(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-}
 
 const POKEMON_NAMES = [
   "bulbasaur",
@@ -1005,8 +997,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const composerPlaceholder = React.useMemo(() => {
     const projectName = selectedProject?.name?.trim() || "Specified Project";
     const agentName = selectedAgent?.label?.trim() || "Code Agent";
-    const templateIndex =
-      hashString(`${projectName}:${agentName}`) % PLACEHOLDER_TEMPLATES.length;
+    const templateIndex = Math.floor(Math.random() * PLACEHOLDER_TEMPLATES.length);
 
     return PLACEHOLDER_TEMPLATES[templateIndex](projectName, agentName);
   }, [selectedAgent?.label, selectedProject?.name]);
