@@ -289,12 +289,17 @@ jobs:
             EXT=".exe"
           fi
 
-          OUT_DIR="${RUNNER_TEMP}/atmos-cli-${TARGET}"
+          RUNNER_TEMP_PATH="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then
+            RUNNER_TEMP_PATH="$(cygpath -u "$RUNNER_TEMP")"
+          fi
+
+          OUT_DIR="${RUNNER_TEMP_PATH}/atmos-cli-${TARGET}"
           mkdir -p "${OUT_DIR}/bin"
           cp "target/${TARGET}/release/atmos${EXT}" "${OUT_DIR}/bin/atmos${EXT}"
 
-          ARCHIVE="${RUNNER_TEMP}/atmos-cli-${TARGET}.tar.gz"
-          tar -C "${RUNNER_TEMP}" -czf "$ARCHIVE" "atmos-cli-${TARGET}"
+          ARCHIVE="${RUNNER_TEMP_PATH}/atmos-cli-${TARGET}.tar.gz"
+          tar -C "${RUNNER_TEMP_PATH}" -czf "$ARCHIVE" "atmos-cli-${TARGET}"
           echo "archive=${ARCHIVE}" >> "$GITHUB_OUTPUT"
 
       - name: Upload CI artifact
@@ -313,8 +318,12 @@ jobs:
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
         run: |
           set -euo pipefail
+          RUNNER_TEMP_PATH="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then
+            RUNNER_TEMP_PATH="$(cygpath -u "$RUNNER_TEMP")"
+          fi
           gh release upload "$RELEASE_TAG" \
-            "${RUNNER_TEMP}/atmos-cli-${{ matrix.target }}.tar.gz" \
+            "${RUNNER_TEMP_PATH}/atmos-cli-${{ matrix.target }}.tar.gz" \
             --clobber
 
   publish-release:
