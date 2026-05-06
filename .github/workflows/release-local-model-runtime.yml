@@ -115,9 +115,9 @@ jobs:
         if: matrix.os != 'windows-2022'
         run: |
           mkdir -p build && cd build
-          CMAKE_ARGS=""
+          CMAKE_ARGS="-DGGML_NATIVE=OFF"
           if [ "${{ matrix.platform }}" = "linux-arm64" ]; then
-            CMAKE_ARGS="-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
           fi
           cmake $CMAKE_ARGS -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..
           cmake --build . --target llama-server --config Release
@@ -125,7 +125,7 @@ jobs:
         if: matrix.os == 'windows-2022'
         run: |
           mkdir -p build && cd build
-          cmake -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..
+          cmake -DGGML_NATIVE=OFF -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..
           cmake --build . --target llama-server --config Release
       - name: Package (Unix)
         if: matrix.os != 'windows-2022'
