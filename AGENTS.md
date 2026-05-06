@@ -21,6 +21,7 @@
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
 | **CLI Tool**: (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
+| **Write a Spec** (Brainstorm / PRD / TECH / TEST) | [specs/AGENTS.md](specs/AGENTS.md) |
 
 ---
 
@@ -52,7 +53,16 @@ atmos/
 │   └── i18n/                  # @workspace/i18n (Translations)
 │
 ├── docs/                      # 📖 Deep Design & Architecture
-└── specs/                     # 📋 PRD & Technical Plans
+└── specs/                     # 📋 Specs (Brainstorm / PRD / TECH / TEST)
+    ├── AGENTS.md              # Specs conventions — read this before writing a spec
+    ├── APP/                   # Atmos application (web/desktop/cli/api) specs
+    │   └── APP-NNN_<title>/
+    │       ├── BRAINSTORM.md
+    │       ├── PRD.md
+    │       ├── TECH.md
+    │       └── TEST.md
+    ├── Landing/               # apps/landing specs
+    └── Docs/                  # apps/docs specs
 ```
 
 ---
@@ -64,6 +74,18 @@ atmos/
 
 ### Frontend Change Flow
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
+
+### Specs Flow
+Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-NNN_<title>/` with exactly four files: `BRAINSTORM.md` → `PRD.md` → `TECH.md` → `TEST.md`. The lifecycle is: brainstorm → PRD → TECH → test plan → implementation → test run. Each stage has a dedicated skill in [`.agents/skills/`](.agents/skills/):
+
+- `atmos-specs-brainstorm` — explore problem space, write `BRAINSTORM.md`
+- `atmos-specs-prd` — lock WHAT and WHY, write `PRD.md`
+- `atmos-specs-tech` — design HOW, write `TECH.md`
+- `atmos-specs-test-plan` — author scenario-level plan in `TEST.md`
+- `atmos-specs-impl` — ship production code under `crates/` / `apps/` / `packages/`, keep regression gate green
+- `atmos-specs-test-run` — write and run the real tests (`cargo test`, `bun test`), append Coverage Status to `TEST.md`
+
+Full conventions (zones, naming, the 4-file rule, review checklist) live in [specs/AGENTS.md](specs/AGENTS.md). Read it before creating or editing a spec.
 
 ---
 
