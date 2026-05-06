@@ -20,7 +20,7 @@ import { Button } from '@workspace/ui/components/ui/button'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { OsIcon } from '@/components/os-icon'
 
-const RELEASES_LATEST_URL = 'https://github.com/AruNi-01/atmos/releases/latest'
+const RELEASES_URL = 'https://github.com/AruNi-01/atmos/releases'
 
 type DownloadLinks = {
   macAppleSilicon: string
@@ -30,10 +30,10 @@ type DownloadLinks = {
 }
 
 const createDefaultDownloadLinks = (): DownloadLinks => ({
-  macAppleSilicon: RELEASES_LATEST_URL,
-  macIntel: RELEASES_LATEST_URL,
-  windows: RELEASES_LATEST_URL,
-  linux: RELEASES_LATEST_URL
+  macAppleSilicon: RELEASES_URL,
+  macIntel: RELEASES_URL,
+  windows: RELEASES_URL,
+  linux: RELEASES_URL
 })
 
 const ReadyDownload = () => {
@@ -45,10 +45,10 @@ const ReadyDownload = () => {
       .then(res => res.json())
       .then((data: Partial<DownloadLinks>) => {
         setDownloadLinks({
-          macAppleSilicon: data.macAppleSilicon ?? RELEASES_LATEST_URL,
-          macIntel: data.macIntel ?? RELEASES_LATEST_URL,
-          windows: data.windows ?? RELEASES_LATEST_URL,
-          linux: data.linux ?? RELEASES_LATEST_URL
+          macAppleSilicon: data.macAppleSilicon ?? RELEASES_URL,
+          macIntel: data.macIntel ?? RELEASES_URL,
+          windows: data.windows ?? RELEASES_URL,
+          linux: data.linux ?? RELEASES_URL
         })
       })
       .catch(console.error)

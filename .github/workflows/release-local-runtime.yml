@@ -215,6 +215,7 @@ jobs:
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists"
+            gh release edit "$RELEASE_TAG" --latest=false
             exit 0
           fi
 
@@ -236,6 +237,7 @@ jobs:
           gh release create "$RELEASE_TAG" \
             --title "Atmos Local Runtime ${RELEASE_VERSION}" \
             --draft \
+            --latest=false \
             "${EXTRA_ARGS[@]}" \
             --notes-file "$NOTES_FILE"
 
@@ -328,4 +330,4 @@ jobs:
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
         run: |
           set -euo pipefail
-          gh release edit "$RELEASE_TAG" --draft=false
+          gh release edit "$RELEASE_TAG" --draft=false --latest=false

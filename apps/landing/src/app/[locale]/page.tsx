@@ -1,4 +1,3 @@
-import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import HeroSection from "@/components/blocks/hero-section";
 import Portfolio from "@/components/blocks/portfolio";
@@ -62,8 +61,6 @@ const faqItems = [
 ]
 
 function LandingContent() {
-  const t = useTranslations("landing");
-
   return (
     <div className="min-h-screen font-sans transition-colors duration-300">
       <main className='relative flex flex-col overflow-x-clip *:scroll-mt-15.5'>

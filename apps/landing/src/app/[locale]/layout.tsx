@@ -18,12 +18,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3001");
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://land.atmos.desktop"
-  ),
-  title: "ATMOS - Your Personal Productivity Habitat",
-  description: "Build, create, and thrive in your personal productivity habitat. An open-source platform for developers to organize their digital life.",
+  metadataBase: new URL(siteUrl),
+  title: "ATMOS - Atmosphere for Agentic Builders",
+  description: "An open-source platform designed for developers to organize their agentic life and build in a unified workspace",
 };
 
 type Props = {

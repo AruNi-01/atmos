@@ -52,7 +52,7 @@ const THEME_INIT_SCRIPT = `
 
 export const metadata: Metadata = {
   title: "ATMOS",
-  description: "Your personal productivity habitat",
+  description: "An open-source platform designed for developers to organize their agentic life and build in a unified workspace",
 };
 
 type Props = {

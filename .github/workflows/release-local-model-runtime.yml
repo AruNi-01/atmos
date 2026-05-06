@@ -71,8 +71,11 @@ jobs:
           if [ "$PRERELEASE" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
-          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
-            gh release create "$RELEASE_TAG" $PRERELEASE_FLAG --title "Atmos Local Model Runtime ${{ needs.resolve-config.outputs.release_version }}"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --latest=false
+          else
+            gh release create "$RELEASE_TAG" $PRERELEASE_FLAG --latest=false --title "Atmos Local Model Runtime ${{ needs.resolve-config.outputs.release_version }}"
+          fi
 
   package-llama-server:
     needs: [resolve-config, create-release]

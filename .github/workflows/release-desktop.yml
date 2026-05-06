@@ -377,6 +377,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+          PRERELEASE: ${{ needs.resolve-release-config.outputs.prerelease }}
           NOTES_PATH: ${{ steps.notes.outputs.notes_path }}
         run: |
           set -euo pipefail
@@ -395,7 +396,11 @@ jobs:
             exit 1
           fi
 
-          jq -Rs '{draft: false, body: .}' "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+          if [ "$PRERELEASE" = "true" ]; then
+            jq -Rs '{draft: false, body: ., make_latest: "legacy"}' "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+          else
+            jq -Rs '{draft: false, body: ., make_latest: true}' "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+          fi
 
           curl -sS -f -X PATCH \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \

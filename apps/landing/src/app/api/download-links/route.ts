@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 
-const RELEASES_LATEST_URL = "https://github.com/AruNi-01/atmos/releases/latest";
-const LATEST_JSON_URL = "https://github.com/AruNi-01/atmos/releases/latest/download/latest.json";
-const GITHUB_REPO_PATH = "/AruNi-01/atmos";
+import { fetchLatestDesktopRelease, GITHUB_RELEASES_URL, type GitHubReleaseAsset } from "@/lib/github-desktop-release";
 
 type DownloadLinks = {
   macAppleSilicon: string;
@@ -11,88 +9,42 @@ type DownloadLinks = {
   linux: string;
 };
 
-type TauriPlatformAsset = {
-  url?: string;
-};
-
-type TauriLatestManifest = {
-  platforms?: Record<string, TauriPlatformAsset>;
-};
-
-const pickAssetName = (assetNames: string[], matcher: (name: string) => boolean): string | null =>
-  assetNames.find((name) => matcher(name)) ?? null;
-
-const toAssetUrl = (tag: string, assetName: string): string =>
-  `https://github.com${GITHUB_REPO_PATH}/releases/download/${tag}/${assetName}`;
+const pickAsset = (assets: GitHubReleaseAsset[], matcher: (name: string) => boolean): GitHubReleaseAsset | null =>
+  assets.find((asset) => matcher(asset.name)) ?? null;
 
 const createDefaultDownloadLinks = (): DownloadLinks => ({
-  macAppleSilicon: RELEASES_LATEST_URL,
-  macIntel: RELEASES_LATEST_URL,
-  windows: RELEASES_LATEST_URL,
-  linux: RELEASES_LATEST_URL,
+  macAppleSilicon: GITHUB_RELEASES_URL,
+  macIntel: GITHUB_RELEASES_URL,
+  windows: GITHUB_RELEASES_URL,
+  linux: GITHUB_RELEASES_URL,
 });
 
 export async function GET() {
   const links = createDefaultDownloadLinks();
 
   try {
-    const latestRes = await fetch(LATEST_JSON_URL, {
-      next: { revalidate: 3600 },
-      headers: { Accept: "application/json" },
-    });
+    const desktopRelease = await fetchLatestDesktopRelease();
+    const assets = desktopRelease?.assets.filter((asset) => !asset.name.endsWith(".sig") && asset.name !== "latest.json") ?? [];
 
-    if (!latestRes.ok) {
-      return NextResponse.json(links);
-    }
-
-    const data = (await latestRes.json()) as TauriLatestManifest;
-    const platforms = data.platforms ?? {};
-    const anyPlatformUrl = Object.values(platforms).find((asset) => typeof asset.url === "string")?.url;
-    const tag = anyPlatformUrl?.match(/\/releases\/download\/([^/]+)\//)?.[1];
-
-    if (!tag) {
-      return NextResponse.json(links);
-    }
-
-    const assetsRes = await fetch(`https://github.com${GITHUB_REPO_PATH}/releases/expanded_assets/${tag}`, {
-      next: { revalidate: 3600 },
-      headers: { Accept: "text/html" },
-    });
-
-    if (!assetsRes.ok) {
-      return NextResponse.json(links);
-    }
-
-    const assetsHtml = await assetsRes.text();
-    const downloadPathRegex = new RegExp(
-      `${GITHUB_REPO_PATH.replace(/\//g, "\\/")}\\/releases\\/download\\/${tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\/([^"?#]+)`,
-      "g",
-    );
-    const assetNames = Array.from(assetsHtml.matchAll(downloadPathRegex))
-      .map((match) => decodeURIComponent(match[1]))
-      .filter((name) => !name.endsWith(".sig") && name !== "latest.json");
-
-    const macArmDmg = pickAssetName(assetNames, (name) => name.endsWith(".dmg") && /aarch64|arm64/i.test(name));
-    const macIntelDmg = pickAssetName(assetNames, (name) => name.endsWith(".dmg") && /(x64|x86_64|intel)/i.test(name));
-    const windowsInstaller = pickAssetName(assetNames, (name) => name.endsWith(".exe")) ??
-      pickAssetName(assetNames, (name) => name.endsWith(".msi"));
-    const linuxInstaller = pickAssetName(assetNames, (name) => name.endsWith(".AppImage")) ??
-      pickAssetName(assetNames, (name) => name.endsWith(".deb"));
+    const macArmDmg = pickAsset(assets, (name) => name.endsWith(".dmg") && /aarch64|arm64/i.test(name));
+    const macIntelDmg = pickAsset(assets, (name) => name.endsWith(".dmg") && /(x64|x86_64|intel)/i.test(name));
+    const windowsInstaller = pickAsset(assets, (name) => name.endsWith(".exe")) ?? pickAsset(assets, (name) => name.endsWith(".msi"));
+    const linuxInstaller = pickAsset(assets, (name) => name.endsWith(".AppImage")) ?? pickAsset(assets, (name) => name.endsWith(".deb"));
 
     if (macArmDmg) {
-      links.macAppleSilicon = toAssetUrl(tag, macArmDmg);
+      links.macAppleSilicon = macArmDmg.browser_download_url;
     }
 
     if (macIntelDmg) {
-      links.macIntel = toAssetUrl(tag, macIntelDmg);
+      links.macIntel = macIntelDmg.browser_download_url;
     }
 
     if (windowsInstaller) {
-      links.windows = toAssetUrl(tag, windowsInstaller);
+      links.windows = windowsInstaller.browser_download_url;
     }
 
     if (linuxInstaller) {
-      links.linux = toAssetUrl(tag, linuxInstaller);
+      links.linux = linuxInstaller.browser_download_url;
     }
 
     return NextResponse.json(links);
