@@ -139,7 +139,7 @@ jobs:
         if: matrix.os == 'windows-2022'
         run: |
           mkdir -p asset
-          cp build/Release/llama-server.exe asset/
+          cp build/bin/Release/llama-server.exe asset/
           echo "${{ needs.resolve-config.outputs.llama_cpp_ref }}" > asset/VERSION
           cd asset && 7z a "../atmos-llama-server-${{ matrix.target }}.zip" llama-server.exe VERSION
       - name: Calculate SHA256 and size (Unix)
