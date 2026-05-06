@@ -1136,10 +1136,10 @@ impl WorkspaceService {
         Ok(repo.update_priority(&guid, priority).await?)
     }
 
-    pub async fn list_labels(&self) -> Result<Vec<WorkspaceLabelDto>> {
+    pub async fn list_labels(&self, deleted_only: bool) -> Result<Vec<WorkspaceLabelDto>> {
         let repo = WorkspaceRepo::new(&self.db);
         Ok(repo
-            .list_labels()
+            .list_labels(deleted_only)
             .await?
             .into_iter()
             .map(Into::into)
@@ -1189,6 +1189,11 @@ impl WorkspaceService {
     pub async fn delete_label(&self, guid: &str) -> Result<()> {
         let repo = WorkspaceRepo::new(&self.db);
         Ok(repo.delete_label(guid).await?)
+    }
+
+    pub async fn restore_label(&self, guid: &str) -> Result<()> {
+        let repo = WorkspaceRepo::new(&self.db);
+        Ok(repo.restore_label(guid).await?)
     }
 
     pub async fn update_labels(&self, guid: String, label_guids: Vec<String>) -> Result<()> {

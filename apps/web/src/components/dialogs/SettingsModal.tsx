@@ -698,12 +698,14 @@ function WorkspaceSettingsSection() {
 }
 
 function LabelSettingsSection() {
-  const { workspaceLabels, updateWorkspaceLabel, createWorkspaceLabel, deleteWorkspaceLabel } = useProjectStore(
+  const { workspaceLabels, updateWorkspaceLabel, createWorkspaceLabel, deleteWorkspaceLabel, fetchWorkspaceLabels, restoreWorkspaceLabel } = useProjectStore(
     useShallow((s: any) => ({
       workspaceLabels: s.workspaceLabels,
       updateWorkspaceLabel: s.updateWorkspaceLabel,
       createWorkspaceLabel: s.createWorkspaceLabel,
       deleteWorkspaceLabel: s.deleteWorkspaceLabel,
+      fetchWorkspaceLabels: s.fetchWorkspaceLabels,
+      restoreWorkspaceLabel: s.restoreWorkspaceLabel,
     }))
   );
   const { theme } = useTheme();
@@ -722,6 +724,11 @@ function LabelSettingsSection() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
   const [deleteConfirmLabelId, setDeleteConfirmLabelId] = React.useState<string | null>(null);
   const [deleteConfirmIsBatch, setDeleteConfirmIsBatch] = React.useState(false);
+  const [labelFilter, setLabelFilter] = React.useState<'active' | 'deleted'>('active');
+
+  React.useEffect(() => {
+    fetchWorkspaceLabels(labelFilter === 'deleted');
+  }, [labelFilter, fetchWorkspaceLabels]);
 
   const parseColorToRgb = (colorStr: string): { r: number; g: number; b: number; a: number } => {
     const hex = colorStr.replace('#', '');
@@ -845,164 +852,180 @@ function LabelSettingsSection() {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 mb-2">
-            <Search className="size-4 text-muted-foreground shrink-0" />
-            <Input
-              placeholder="Filter by name..."
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              className="h-8 w-64 text-sm"
-            />
+            <div className="relative w-64">
+              <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Filter by name..."
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={labelFilter} onValueChange={(value) => setLabelFilter(value as 'active' | 'deleted')}>
+                <SelectTrigger className="h-8 w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="deleted">Deleted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="ml-auto">
-              <Popover
-                open={isCreatingNew}
-                onOpenChange={(open) => { if (!open) handleCancel(); }}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="h-8 gap-1"
-                    onClick={() => {
-                      setIsCreatingNew(true);
-                      setEditName('');
-                      setEditColor({ r: 148, g: 163, b: 184, a: 1 });
-                    }}
-                  >
-                    <Plus className="size-3.5" />
-                    New
-                  </Button>
-                </PopoverTrigger>
-              {isCreatingNew && (
-                <LabelEditorContent
-                  isDark={isDark}
-                  side="bottom"
-                  surface={false}
-                  newLabelName={editName}
-                  newLabelColor={editColor}
-                  editingLabel={null}
-                  setNewLabelName={setEditName}
-                  setNewLabelColor={setEditColor}
-                  onSubmit={handleSave}
-                  popoverContentProps={{ align: 'start' }}
-                />
-              )}
-            </Popover>
-          </div>
-      </div>
-          <div className="rounded-md border border-border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">
-                    <Checkbox
-                      checked={isAllSelected}
-                      onCheckedChange={toggleSelectAll}
-                      aria-label="Select all labels"
+              {labelFilter === 'active' && (
+                <Popover
+                  open={isCreatingNew}
+                  onOpenChange={(open) => { if (!open) handleCancel(); }}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1"
+                      onClick={() => {
+                        setIsCreatingNew(true);
+                        setEditName('');
+                        setEditColor({ r: 148, g: 163, b: 184, a: 1 });
+                      }}
+                    >
+                      <Plus className="size-3.5" />
+                      New
+                    </Button>
+                  </PopoverTrigger>
+                  {isCreatingNew && (
+                    <LabelEditorContent
+                      isDark={isDark}
+                      side="bottom"
+                      surface={false}
+                      newLabelName={editName}
+                      newLabelColor={editColor}
+                      editingLabel={null}
+                      setNewLabelName={setEditName}
+                      setNewLabelColor={setEditColor}
+                      onSubmit={handleSave}
+                      popoverContentProps={{ align: 'start' }}
                     />
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none"
-                    onClick={() => handleSort('name')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Name
-                      {sortField === 'name' ? (
-                        sortDirection === 'asc' ? (
-                          <ArrowUp className="size-3" />
-                        ) : (
-                          <ArrowDown className="size-3" />
-                        )
+                  )}
+                </Popover>
+              )}
+            </div>
+          </div>
+      <div className="rounded-md border border-border overflow-hidden">
+        <div className="max-h-[500px] overflow-y-auto">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10">
+              <TableRow>
+                <TableHead className="w-8">
+                  <Checkbox
+                    checked={isAllSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all labels"
+                  />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none"
+                  onClick={() => handleSort('name')}
+                >
+                  <div className="flex items-center gap-1">
+                    Name
+                    {sortField === 'name' ? (
+                      sortDirection === 'asc' ? (
+                        <ArrowUp className="size-3" />
                       ) : (
-                        <ArrowUpDown className="size-3 text-muted-foreground/50" />
-                      )}
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button type="button" className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground">
-                          Source
-                          <ListFilter className={`size-3 ${selectedSources.size > 0 ? 'text-primary' : 'text-muted-foreground/50'}`} />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-40">
-                        <DropdownMenuItem
-                          className="flex items-center gap-2 cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedSources((prev) => {
-                              const next = new Set(prev);
-                              if (next.has('manual')) {
-                                next.delete('manual');
-                              } else {
-                                next.add('manual');
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          <Checkbox checked={selectedSources.has('manual')} />
-                          <span>Manual</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="flex items-center gap-2 cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedSources((prev) => {
-                              const next = new Set(prev);
-                              if (next.has('gitHub_issue')) {
-                                next.delete('gitHub_issue');
-                              } else {
-                                next.add('gitHub_issue');
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          <Checkbox checked={selectedSources.has('gitHub_issue')} />
-                          <span>GitHub Issue</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="flex items-center gap-2 cursor-pointer"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedSources((prev) => {
-                              const next = new Set(prev);
-                              if (next.has('gitHub_pr')) {
-                                next.delete('gitHub_pr');
-                              } else {
-                                next.add('gitHub_pr');
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          <Checkbox checked={selectedSources.has('gitHub_pr')} />
-                          <span>GitHub PR</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer select-none"
-                    onClick={() => handleSort('createdAt')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Created
-                      {sortField === 'createdAt' ? (
-                        sortDirection === 'asc' ? (
-                          <ArrowUp className="size-3" />
-                        ) : (
-                          <ArrowDown className="size-3" />
-                        )
+                        <ArrowDown className="size-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="size-3 text-muted-foreground/50" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="flex items-center gap-1 cursor-pointer select-none hover:text-foreground">
+                        Source
+                        <ListFilter className={`size-3 ${selectedSources.size > 0 ? 'text-primary' : 'text-muted-foreground/50'}`} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-40">
+                      <DropdownMenuItem
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedSources((prev) => {
+                            const next = new Set(prev);
+                            if (next.has('manual')) {
+                              next.delete('manual');
+                            } else {
+                              next.add('manual');
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        <Checkbox checked={selectedSources.has('manual')} />
+                        <span>Manual</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedSources((prev) => {
+                            const next = new Set(prev);
+                            if (next.has('gitHub_issue')) {
+                              next.delete('gitHub_issue');
+                            } else {
+                              next.add('gitHub_issue');
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        <Checkbox checked={selectedSources.has('gitHub_issue')} />
+                        <span>GitHub Issue</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSelectedSources((prev) => {
+                            const next = new Set(prev);
+                            if (next.has('gitHub_pr')) {
+                              next.delete('gitHub_pr');
+                            } else {
+                              next.add('gitHub_pr');
+                            }
+                            return next;
+                          });
+                        }}
+                      >
+                        <Checkbox checked={selectedSources.has('gitHub_pr')} />
+                        <span>GitHub PR</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none"
+                  onClick={() => handleSort('createdAt')}
+                >
+                  <div className="flex items-center gap-1">
+                    Created
+                    {sortField === 'createdAt' ? (
+                      sortDirection === 'asc' ? (
+                        <ArrowUp className="size-3" />
                       ) : (
-                        <ArrowUpDown className="size-3 text-muted-foreground/50" />
-                      )}
-                    </div>
-                  </TableHead>
-                  <TableHead className="w-8">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                        <ArrowDown className="size-3" />
+                      )
+                    ) : (
+                      <ArrowUpDown className="size-3 text-muted-foreground/50" />
+                    )}
+                  </div>
+                </TableHead>
+                <TableHead className="w-8">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
                 {filteredAndSortedLabels.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">
@@ -1056,25 +1079,45 @@ function LabelSettingsSection() {
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => handleEdit(label.id, label.name, label.color)}
-                                  className="cursor-pointer"
-                                >
-                                  <SlidersHorizontal className="size-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  className="cursor-pointer"
-                                  onClick={() => {
-                                    setDeleteConfirmLabelId(label.id);
-                                    setDeleteConfirmIsBatch(false);
-                                    setDeleteConfirmOpen(true);
-                                  }}
-                                >
-                                  <Trash2 className="size-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
+                                {labelFilter === 'active' ? (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() => handleEdit(label.id, label.name, label.color)}
+                                      className="cursor-pointer"
+                                    >
+                                      <SlidersHorizontal className="size-4 mr-2" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      className="cursor-pointer"
+                                      onClick={() => {
+                                        setDeleteConfirmLabelId(label.id);
+                                        setDeleteConfirmIsBatch(false);
+                                        setDeleteConfirmOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="size-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      try {
+                                        await restoreWorkspaceLabel(label.id);
+                                        toastManager.add({ title: 'Label restored', type: 'success' });
+                                        await fetchWorkspaceLabels(true);
+                                      } catch (error) {
+                                        toastManager.add({ title: 'Failed to restore label', type: 'error' });
+                                      }
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    <RotateCw className="size-4 mr-2" />
+                                    Restore
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -1099,6 +1142,7 @@ function LabelSettingsSection() {
               </TableBody>
             </Table>
           </div>
+      </div>
           {selectedLabels.size > 0 && (
             <div className="flex items-center justify-between px-2 py-1">
               <span className="text-sm text-muted-foreground">

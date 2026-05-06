@@ -258,7 +258,7 @@ interface ProjectStore {
     workspaceId: string,
     priority: WorkspacePriority,
   ) => Promise<void>;
-  fetchWorkspaceLabels: () => Promise<void>;
+  fetchWorkspaceLabels: (deletedOnly?: boolean) => Promise<void>;
   createWorkspaceLabel: (data: { name: string; color: string; source?: 'manual' | 'gitHub_issue' | 'gitHub_pr' }) => Promise<WorkspaceLabel>;
   updateWorkspaceLabel: (
     labelId: string,
@@ -988,9 +988,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
-  fetchWorkspaceLabels: async () => {
+  fetchWorkspaceLabels: async (deletedOnly: boolean = false) => {
     await waitForConnection();
-    const labels = await wsWorkspaceApi.listLabels();
+    const labels = await wsWorkspaceApi.listLabels(deletedOnly);
     set({
       workspaceLabels: labels.map(label => ({
         id: label.guid,
@@ -1041,13 +1041,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await wsWorkspaceApi.deleteLabel(labelId);
     set(state => ({
       workspaceLabels: state.workspaceLabels.filter(l => l.id !== labelId),
-      projects: state.projects.map(project => ({
-        ...project,
-        workspaces: project.workspaces.map(workspace => ({
-          ...workspace,
-          labels: workspace.labels.filter(l => l.id !== labelId),
-        })),
-      })),
+    }));
+  },
+
+  restoreWorkspaceLabel: async (labelId: string) => {
+    await waitForConnection();
+    await wsWorkspaceApi.restoreLabel(labelId);
+    set(state => ({
+      workspaceLabels: [...state.workspaceLabels, { id: labelId }],
     }));
   },
 

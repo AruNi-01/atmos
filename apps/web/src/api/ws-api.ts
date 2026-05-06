@@ -1356,8 +1356,8 @@ export const wsWorkspaceApi = {
     });
   },
 
-  listLabels: async (): Promise<WorkspaceLabelModel[]> => {
-    return wsRequest<WorkspaceLabelModel[]>("workspace_label_list", {});
+  listLabels: async (deletedOnly: boolean = false): Promise<WorkspaceLabelModel[]> => {
+    return wsRequest<WorkspaceLabelModel[]>("workspace_label_list", { deleted_only: deletedOnly });
   },
 
   createLabel: async (data: {
@@ -1384,6 +1384,10 @@ export const wsWorkspaceApi = {
 
   deleteLabel: async (guid: string): Promise<void> => {
     return wsRequest<void>("workspace_label_delete", { guid });
+  },
+
+  restoreLabel: async (guid: string): Promise<void> => {
+    return wsRequest<void>("workspace_label_restore", { guid });
   },
 
   updateLabels: async (

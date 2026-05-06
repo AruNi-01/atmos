@@ -49,7 +49,8 @@ use infra::{
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
     WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
     WorkspaceDeleteRequest, WorkspaceImportGithubIssuesRequest, WorkspaceLabelCreateRequest,
-    WorkspaceLabelDeleteRequest, WorkspaceLabelUpdateRequest, WorkspaceListRequest, WorkspaceMarkVisitedRequest,
+    WorkspaceLabelDeleteRequest, WorkspaceLabelListRequest, WorkspaceLabelRestoreRequest,
+    WorkspaceLabelUpdateRequest, WorkspaceListRequest, WorkspaceMarkVisitedRequest,
     WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
     WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
     WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
@@ -632,7 +633,10 @@ impl WsMessageService {
                 self.handle_workspace_update_priority(parse_request(request.data)?)
                     .await
             }
-            WsAction::WorkspaceLabelList => self.handle_workspace_label_list().await,
+            WsAction::WorkspaceLabelList => {
+                self.handle_workspace_label_list(parse_request(request.data)?)
+                    .await
+            }
             WsAction::WorkspaceLabelCreate => {
                 self.handle_workspace_label_create(parse_request(request.data)?)
                     .await
@@ -643,6 +647,10 @@ impl WsMessageService {
             }
             WsAction::WorkspaceLabelDelete => {
                 self.handle_workspace_label_delete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::WorkspaceLabelRestore => {
+                self.handle_workspace_label_restore(parse_request(request.data)?)
                     .await
             }
             WsAction::WorkspaceUpdateLabels => {
@@ -2105,8 +2113,8 @@ impl WsMessageService {
         Ok(json!({ "success": true }))
     }
 
-    async fn handle_workspace_label_list(&self) -> Result<Value> {
-        let labels = self.workspace_service.list_labels().await?;
+    async fn handle_workspace_label_list(&self, req: WorkspaceLabelListRequest) -> Result<Value> {
+        let labels = self.workspace_service.list_labels(req.deleted_only).await?;
         Ok(json!(labels))
     }
 
@@ -2138,6 +2146,14 @@ impl WsMessageService {
         req: WorkspaceLabelDeleteRequest,
     ) -> Result<Value> {
         self.workspace_service.delete_label(&req.guid).await?;
+        Ok(json!({ "success": true }))
+    }
+
+    async fn handle_workspace_label_restore(
+        &self,
+        req: WorkspaceLabelRestoreRequest,
+    ) -> Result<Value> {
+        self.workspace_service.restore_label(&req.guid).await?;
         Ok(json!({ "success": true }))
     }
 

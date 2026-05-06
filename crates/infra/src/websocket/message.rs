@@ -263,6 +263,8 @@ pub enum WsAction {
     WorkspaceLabelUpdate,
     /// 删除可复用 Workspace 标签
     WorkspaceLabelDelete,
+    /// 恢复可复用 Workspace 标签
+    WorkspaceLabelRestore,
     /// 更新 Workspace 标签关联
     WorkspaceUpdateLabels,
     /// 更新 Workspace 排序
@@ -1340,6 +1342,17 @@ pub struct WorkspaceLabelUpdateRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceLabelDeleteRequest {
+    pub guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLabelListRequest {
+    #[serde(default)]
+    pub deleted_only: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceLabelRestoreRequest {
     pub guid: String,
 }
 

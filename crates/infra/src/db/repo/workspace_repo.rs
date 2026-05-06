@@ -296,9 +296,9 @@ impl<'a> WorkspaceRepo<'a> {
         Ok(())
     }
 
-    pub async fn list_labels(&self) -> Result<Vec<workspace_label::Model>> {
+    pub async fn list_labels(&self, deleted_only: bool) -> Result<Vec<workspace_label::Model>> {
         Ok(workspace_label::Entity::find()
-            .filter(workspace_label::Column::IsDeleted.eq(false))
+            .filter(workspace_label::Column::IsDeleted.eq(deleted_only))
             .order_by_asc(workspace_label::Column::Name)
             .all(self.db)
             .await?)
@@ -346,6 +346,23 @@ impl<'a> WorkspaceRepo<'a> {
         if result.rows_affected == 0 {
             return Err(crate::error::InfraError::Custom(
                 "Workspace label not found".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub async fn restore_label(&self, guid: &str) -> Result<()> {
+        let now = chrono::Utc::now().naive_utc();
+        let result = workspace_label::Entity::update_many()
+            .col_expr(workspace_label::Column::IsDeleted, Expr::value(false))
+            .col_expr(workspace_label::Column::UpdatedAt, Expr::value(now))
+            .filter(workspace_label::Column::Guid.eq(guid))
+            .filter(workspace_label::Column::IsDeleted.eq(true))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom(
+                "Workspace label not found or not deleted".into(),
             ));
         }
         Ok(())
