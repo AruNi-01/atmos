@@ -77,6 +77,7 @@ jobs:
   build-llama-server:
     needs: [resolve-config, create-release]
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-14
@@ -131,7 +132,7 @@ jobs:
         if: matrix.os != 'windows-2022'
         run: |
           mkdir -p asset
-          cp build/llama-server asset/
+          cp build/bin/llama-server asset/
           chmod +x asset/llama-server
           echo "${{ needs.resolve-config.outputs.llama_cpp_ref }}" > asset/VERSION
           cd asset && tar -czf "../atmos-llama-server-${{ matrix.target }}.tar.gz" llama-server VERSION
