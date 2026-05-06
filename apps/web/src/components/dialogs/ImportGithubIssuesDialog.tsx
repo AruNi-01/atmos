@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -58,9 +58,11 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
   const [isRepoLoading, setIsRepoLoading] = useState(false);
   const [issues, setIssues] = useState<GithubIssuePayload[]>([]);
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'created' | 'updated'>('created');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isLoadingIssues, setIsLoadingIssues] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,9 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
       setError(null);
       setIssues([]);
       setSelectedIssues(new Set());
+      setHasLoadedOnce(false);
+      setSearchInput('');
+      setSearchQuery('');
 
       try {
         const status = await gitApi.getStatus(selectedProject.mainFilePath);
@@ -125,7 +130,7 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     };
   }, [isOpen, selectedProject]);
 
-  const loadIssues = async () => {
+  const loadIssues = useCallback(async () => {
     if (!repoContext) {
       setError('No GitHub repository detected');
       return;
@@ -144,13 +149,41 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
         search: searchQuery,
       });
       setIssues(loadedIssues);
-      setSelectedIssues(new Set());
+      setHasLoadedOnce(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load issues');
     } finally {
       setIsLoadingIssues(false);
     }
-  };
+  }, [repoContext, sortBy, sortOrder, searchQuery]);
+
+  // Reload from server when committed search query changes (always needs server search)
+  useEffect(() => {
+    if (!hasLoadedOnce || !repoContext) return;
+    loadIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
+  // Reload from server on sort change ONLY when results may be paginated (>=100).
+  // Otherwise sort client-side via the memo below.
+  useEffect(() => {
+    if (!hasLoadedOnce || !repoContext) return;
+    if (issues.length < 100) return;
+    loadIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder]);
+
+  const sortedIssues = useMemo(() => {
+    if (issues.length >= 100) return issues; // server already sorted; don't re-sort partial set
+    const arr = [...issues];
+    arr.sort((a, b) => {
+      const dateA = new Date(sortBy === 'created' ? (a.created_at || '') : (a.updated_at || '')).getTime();
+      const dateB = new Date(sortBy === 'created' ? (b.created_at || '') : (b.updated_at || '')).getTime();
+      const base = dateA - dateB;
+      return sortOrder === 'asc' ? base : -base;
+    });
+    return arr;
+  }, [issues, sortBy, sortOrder]);
 
   const toggleIssueSelection = (issue: GithubIssuePayload) => {
     const key = `${issue.owner}/${issue.repo}#${issue.number}`;
@@ -164,43 +197,17 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
   };
 
   const toggleSelectAll = () => {
-    const filtered = getFilteredIssues();
-    const filteredKeys = filtered.map((issue) => `${issue.owner}/${issue.repo}#${issue.number}`);
-    
-    if (filtered.every((issue) => selectedIssues.has(`${issue.owner}/${issue.repo}#${issue.number}`))) {
-      // Deselect only filtered issues
+    const allKeys = sortedIssues.map((issue) => `${issue.owner}/${issue.repo}#${issue.number}`);
+
+    if (sortedIssues.every((issue) => selectedIssues.has(`${issue.owner}/${issue.repo}#${issue.number}`))) {
       const newSelected = new Set(selectedIssues);
-      filteredKeys.forEach(key => newSelected.delete(key));
+      allKeys.forEach((key) => newSelected.delete(key));
       setSelectedIssues(newSelected);
     } else {
-      // Select all filtered issues
       const newSelected = new Set(selectedIssues);
-      filteredKeys.forEach(key => newSelected.add(key));
+      allKeys.forEach((key) => newSelected.add(key));
       setSelectedIssues(newSelected);
     }
-  };
-
-  const getFilteredIssues = () => {
-    let filtered = [...issues];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (issue) =>
-          issue.title.toLowerCase().includes(query) ||
-          issue.number.toString().includes(query) ||
-          issue.body?.toLowerCase().includes(query)
-      );
-    }
-
-    filtered.sort((a, b) => {
-      const dateA = new Date(sortBy === 'created' ? (a.created_at || '') : (a.updated_at || '')).getTime();
-      const dateB = new Date(sortBy === 'created' ? (b.created_at || '') : (b.updated_at || '')).getTime();
-      const base = dateA - dateB;
-      return sortOrder === 'asc' ? base : -base;
-    });
-
-    return filtered;
   };
 
   const handleImport = async () => {
@@ -251,14 +258,17 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
     }
   };
 
-  const filteredIssues = getFilteredIssues();
-  const allSelected = filteredIssues.length > 0 && filteredIssues.every((issue) =>
+  const allSelected = sortedIssues.length > 0 && sortedIssues.every((issue) =>
     selectedIssues.has(`${issue.owner}/${issue.repo}#${issue.number}`)
   );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+      <DialogContent
+        className={`!max-w-[600px] w-[85vw] flex flex-col ${
+          hasLoadedOnce ? 'h-[85vh]' : 'max-h-[85vh]'
+        }`}
+      >
         <DialogHeader>
           <DialogTitle>Import GitHub Issues</DialogTitle>
           <DialogDescription>
@@ -266,41 +276,42 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-          {/* Project Selection */}
-          <div className="grid gap-2">
-            <Label htmlFor="project">Project</Label>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger id="project">
-                <SelectValue placeholder="Select a project" />
-              </SelectTrigger>
-              <SelectContent>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
+          {/* Project Selection and GitHub Repository Info */}
+          <div className="grid grid-cols-[1fr_auto] items-end gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="project">Project</Label>
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger id="project">
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* GitHub Repository Info */}
-          <div className="grid gap-2">
-            <Label>GitHub Repository</Label>
-            {isRepoLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Detecting repository...
-              </div>
-            ) : repoContext ? (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">{repoContext.owner}/{repoContext.repo}</span>
-              </div>
-            ) : (
-              <div className="text-sm text-destructive">
-                No GitHub repository detected for this project
-              </div>
-            )}
+            <div className="flex flex-col gap-2 justify-end">
+              <Label>GitHub Repository</Label>
+              {isRepoLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Detecting repository...
+                </div>
+              ) : repoContext ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">{repoContext.owner}/{repoContext.repo}</span>
+                </div>
+              ) : (
+                <div className="text-sm text-destructive">
+                  No GitHub repository detected for this project
+                </div>
+              )}
+            </div>
           </div>
 
           <Button onClick={loadIssues} disabled={isLoadingIssues || !repoContext}>
@@ -311,14 +322,26 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
           {error && <div className="text-sm text-destructive">{error}</div>}
 
           {/* Search and Sort */}
-          {issues.length > 0 && (
+          {hasLoadedOnce && (
             <div className="grid grid-cols-[1fr_auto_auto] gap-4">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search issues..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search issues (press Enter)..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const next = searchInput.trim();
+                      if (next === searchQuery) {
+                        // Same query — explicit re-fetch
+                        loadIssues();
+                      } else {
+                        setSearchQuery(next);
+                      }
+                    }
+                  }}
                   className="pl-8"
                 />
               </div>
@@ -343,22 +366,35 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
           )}
 
           {/* Issues List */}
-          {issues.length > 0 && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="flex items-center gap-2 mb-2">
-                <Checkbox
-                  id="select-all"
-                  checked={allSelected}
-                  onCheckedChange={toggleSelectAll}
-                />
-                <Label htmlFor="select-all" className="text-sm">
-                  Select All ({selectedIssues.size} selected)
-                </Label>
-              </div>
+          {hasLoadedOnce && (
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              {issues.length > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <Checkbox
+                    id="select-all"
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                  <Label htmlFor="select-all" className="text-sm">
+                    Select All ({selectedIssues.size} selected)
+                  </Label>
+                </div>
+              )}
 
               <ScrollArea className="flex-1 border rounded-md">
                 <div className="p-4 space-y-2">
-                  {filteredIssues.map((issue) => {
+                  {issues.length === 0 && !isLoadingIssues && (
+                    <div className="text-center text-sm text-muted-foreground py-8">
+                      {searchQuery ? 'No issues match your search' : 'No open issues found'}
+                    </div>
+                  )}
+                  {issues.length === 0 && isLoadingIssues && (
+                    <div className="flex items-center justify-center text-sm text-muted-foreground py-8">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </div>
+                  )}
+                  {sortedIssues.map((issue) => {
                     const key = `${issue.owner}/${issue.repo}#${issue.number}`;
                     const isSelected = selectedIssues.has(key);
 
@@ -414,12 +450,6 @@ export const ImportGithubIssuesDialog: React.FC<ImportGithubIssuesDialogProps> =
                       </div>
                     );
                   })}
-
-                  {filteredIssues.length === 0 && (
-                    <div className="text-center text-sm text-muted-foreground py-8">
-                      No issues match your search
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
             </div>
