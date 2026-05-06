@@ -1,6 +1,6 @@
 # Specifications
 
-> **📋 Product & Technical Specifications**: This directory contains product requirements, technical specifications, and design assets.
+> **📋 Product & Technical Specs**: Organized by application, one spec per feature, with 4 standard documents each.
 
 ---
 
@@ -8,245 +8,102 @@
 
 ```
 specs/
-├── prd/                    # Product Requirements Documents
-│   ├── README.md
-│   └── *.md
+├── README.md                       # This file
+├── AGENTS.md                       # Conventions for AI agents & contributors
 │
-├── tech/                   # Technical Specifications
-│   ├── README.md
-│   └── *.md
+├── APP/                            # Atmos application (web / desktop / cli / api)
+│   ├── APP-001_atmos-core/
+│   │   ├── BRAINSTORM.md           # Brainstorm
+│   │   ├── PRD.md                  # Product Requirements
+│   │   ├── TECH.md                 # Technical Design
+│   │   └── TEST.md                 # Test Plan
+│   ├── APP-002_.../
+│   └── ...
 │
-└── design/                 # UI/UX Design Assets
-    ├── ui-mockups/
-    └── *.fig (links)
+├── Landing/                        # Marketing landing (apps/landing)
+│   └── Landing-NNN_.../
+│
+└── Docs/                           # Documentation site (apps/docs)
+    └── Docs-NNN_.../
 ```
 
 ---
 
-## 📄 Specification Types
+## 🧩 Three Top-Level Zones
 
-### 1. Product Requirements (PRD)
-
-**Location**: `prd/`
-
-**Purpose**: Define WHAT we're building and WHY
-
-**Content**:
-- Product vision and goals
-- User stories and use cases
-- Feature requirements
-- Success metrics
-- User personas
-
-**Audience**: Product Managers, Designers, Developers, Stakeholders
-
-**Examples**:
-- `prd-v1.md` - Initial product requirements
-- `feature-ai-assistant.md` - AI assistant feature spec
+| Zone | Scope | Code |
+|------|-------|------|
+| **APP/** | Atmos application features (web / desktop / cli / api) | [`apps/web`](../apps/web), [`apps/desktop`](../apps/desktop), [`apps/cli`](../apps/cli), [`apps/api`](../apps/api) |
+| **Landing/** | Marketing landing page | [`apps/landing`](../apps/landing) |
+| **Docs/** | Documentation site | [`apps/docs`](../apps/docs) |
 
 ---
 
-### 2. Technical Specifications
+## 📄 The 4 Standard Documents
 
-**Location**: `tech/`
+Every `APP-NNN_xxx` / `Landing-NNN_xxx` / `Docs-NNN_xxx` directory contains:
 
-**Purpose**: Define HOW we're building it
+| File | Role | Answers |
+|------|------|---------|
+| `BRAINSTORM.md` | Brainstorm | Problem space, exploration, open ideas |
+| `PRD.md` | Product Requirements | **WHAT & WHY** — user stories, features, success metrics |
+| `TECH.md` | Technical Design | **HOW** — architecture, data model, APIs, rollout |
+| `TEST.md` | Test Plan | Test strategy, key scenarios, acceptance criteria |
 
-**Content**:
-- System architecture
-- API specifications
-- Database schemas
-- Integration plans
-- Performance requirements
-
-**Audience**: Developers, Architects, QA Engineers
-
-**Examples**:
-- `TechPlan-V1.1.md` - Overall technical plan
-- `api-spec-v1.md` - API specification
-- `database-schema.md` - Database design
+All four files are always present. Missing content stays as a **template placeholder** to keep the structure uniform and discoverable.
 
 ---
 
-### 3. Design Assets
+## 📚 Current Specs
 
-**Location**: `design/`
+### APP
 
-**Purpose**: Visual design and UX specifications
+| ID | Topic | Existing Source |
+|----|-------|----------------|
+| **APP-001** | Atmos Core (v1.0 MVP) | `PRD.md`, `TECH.md`, `BRAINSTORM.md` (from legacy `mvp-scope`) |
+| **APP-002** | Terminal Multiplexing System | `TECH.md` |
+| **APP-003** | Web Terminal Dynamic Title (Shell Shim Injection) | `TECH.md` |
+| **APP-004** | Local Agent Integration (ACP) | `TECH.md` |
+| **APP-005** | GitHub Integration (via `gh` CLI) | `PRD.md` |
+| **APP-006** | Project Wiki | `TECH.md` |
+| **APP-007** | Wiki Incremental Update | `TECH.md` |
+| **APP-008** | Wiki Ask | `TECH.md` |
+| **APP-009** | Desktop (Tauri 2.0) | `TECH.md` |
+| **APP-010** | Preview Element Select (Same-Origin) | `TECH.md` |
+| **APP-011** | Preview Cross-Origin Extension (Browser Ext + Desktop) | `TECH.md` |
+| **APP-012** | Remote Access | `TECH.md` |
 
-**Content**:
-- UI mockups
-- Design system documentation
-- User flow diagrams
-- Figma/Sketch file links
+### Landing
 
-**Audience**: Designers, Frontend Developers
+_Empty. Start the first spec from `Landing-001_xxx`._
 
-**Examples**:
-- `ui-mockups/` - Screenshot and wireframes
-- `design-system.md` - Design system spec
-- `figma-link.md` - Link to Figma files
+### Docs
+
+_Empty. Start the first spec from `Docs-001_xxx`._
 
 ---
 
-## 🔄 Specification Workflow
+## 🆕 Creating a New Spec
 
-```
-1. PRD Created
-   └─ Product team defines requirements
+1. Pick a zone (`APP` / `Landing` / `Docs`).
+2. Take the next sequence number. Name the directory `<ZONE>-NNN_kebab-case-title` (e.g. `APP-013_new-feature`).
+3. Copy an existing spec directory as a template, or create the four files by hand.
+4. Register the new spec in the **Current Specs** table above (and in any zone-level README).
 
-2. Tech Spec Created
-   └─ Engineering team designs solution
-
-3. Design Assets Created
-   └─ Design team creates mockups
-
-4. Implementation
-   └─ Development team builds features
-
-5. Documentation Updated
-   └─ docs/ updated with final architecture
+```bash
+# Create a new APP spec
+mkdir -p specs/APP/APP-013_new-feature
+cp specs/APP/APP-012_remote-access/{BRAINSTORM,PRD,TECH,TEST}.md \
+   specs/APP/APP-013_new-feature/
 ```
 
----
-
-## 📝 Specification Templates
-
-### PRD Template
-
-```markdown
-# Feature: [Feature Name]
-
-## Problem Statement
-What problem are we solving?
-
-## Goals
-What do we want to achieve?
-
-## User Stories
-- As a [user], I want to [action], so that [benefit]
-
-## Requirements
-### Must Have
-- Requirement 1
-- Requirement 2
-
-### Nice to Have
-- Requirement 3
-
-## Success Metrics
-How do we measure success?
-
-## Out of Scope
-What are we NOT doing?
-```
-
-### Tech Spec Template
-
-```markdown
-# Technical Specification: [Feature Name]
-
-## Overview
-Brief description
-
-## Architecture
-System design
-
-## API Design
-Endpoints and schemas
-
-## Database Schema
-Tables and relationships
-
-## Implementation Plan
-1. Step 1
-2. Step 2
-
-## Testing Strategy
-How we'll test this
-
-## Risks & Mitigation
-Potential issues and solutions
-```
+See [`AGENTS.md`](./AGENTS.md) for detailed conventions.
 
 ---
 
-## 🎯 Documentation Hierarchy
+## 🔗 Related
 
-```
-specs/           ← You are here (WHAT & HOW to build)
-  ├── prd/       ← Product perspective (WHAT)
-  ├── tech/      ← Engineering perspective (HOW)
-  └── design/    ← Design perspective (LOOK)
-
-docs/            ← Architecture & decisions (WHY)
-  ├── architecture.md
-  └── adr/
-
-AGENTS.md        ← Working instructions (DO)
-README.md        ← Quick overview (INTRO)
-```
-
----
-
-## 📚 Reading Guide
-
-| You Want To... | Read This |
-|----------------|-----------|
-| Understand product vision | `prd/` |
-| Understand technical approach | `tech/` |
-| See UI designs | `design/` |
-| Understand architecture decisions | `../docs/adr/` |
-| Start development | Component AGENTS.md |
-
----
-
-## 🔄 Updating Specifications
-
-### When to Update PRD
-- New feature requests
-- Changed requirements
-- User feedback incorporation
-
-### When to Update Tech Spec
-- Architecture changes
-- New technical constraints
-- Implementation learnings
-
-### When to Update Design
-- UI/UX iterations
-- Design system updates
-- Accessibility improvements
-
----
-
-## 🛠 Tools
-
-- **Markdown**: For PRD and tech specs
-- **Mermaid**: For diagrams
-- **Figma**: For UI/UX designs
-- **Draw.io**: For architecture diagrams
-
----
-
-## 🔗 Related Documentation
-
-- **Architecture Docs**: [docs/](../docs/)
-- **Development Guide**: [docs/development.md](../docs/development.md)
-- **Component Work**: [apps/AGENTS.md](../apps/AGENTS.md)
-- **Quick Start**: [README.md](../README.md)
-
----
-
-## 📝 Versioning
-
-Specifications are versioned:
-- `v1.0` - Initial version
-- `v1.1` - Minor updates
-- `v2.0` - Major revisions
-
-Always reference the version number in spec filenames.
-
----
-
-**Contributing**: When creating new specs, use the templates above and ensure they're placed in the correct directory.
+- **Architecture & design docs**: [`docs/`](../docs/)
+- **AI collaboration guide**: [`../AGENTS.md`](../AGENTS.md)
+- **Application code**: [`apps/`](../apps/)
+- **Rust crates**: [`crates/`](../crates/)
