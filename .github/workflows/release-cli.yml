@@ -335,6 +335,7 @@ jobs:
       - name: Publish draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
         run: |
           set -euo pipefail
