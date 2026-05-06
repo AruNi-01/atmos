@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,6 +121,48 @@ export const ReviewActions: React.FC = () => {
     ];
     return groups.filter((group) => group.sessions.length > 0);
   }, [sessions]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [showRefresh, setShowRefresh] = useState(true);
+  const fitStateRef = useRef({ show: true, hideThreshold: 0 });
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    const check = () => {
+      const width = container.clientWidth;
+      const state = fitStateRef.current;
+
+      // We measure overflow on the *inner* wrapper (session + fix). With
+      // `min-w-0` all the way down, the outer container's scrollWidth never
+      // exceeds its clientWidth, so overflow must be observed where the
+      // squeezed content actually lives (the Fix button span).
+      const innerOverflow = inner.scrollWidth > inner.clientWidth + 1;
+
+      if (state.show) {
+        if (innerOverflow) {
+          state.hideThreshold = width;
+          state.show = false;
+          setShowRefresh(false);
+        }
+      } else if (width > state.hideThreshold + 40) {
+        // Hysteresis of 40px: refresh+separator reclaim ~29px when hidden, so
+        // we need enough extra headroom to avoid immediately re-hiding after
+        // bringing refresh back.
+        state.show = true;
+        setShowRefresh(true);
+      }
+    };
+
+    const observer = new ResizeObserver(check);
+    observer.observe(container);
+    observer.observe(inner);
+    check();
+    return () => observer.disconnect();
+  }, []);
 
   const isRefreshingRef = useRef(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -351,8 +399,8 @@ export const ReviewActions: React.FC = () => {
   );
 
   return (
-    <div className="flex-1 flex items-stretch min-w-0">
-      <div className="flex items-stretch flex-1 min-w-0">
+    <div ref={containerRef} className="flex-1 flex items-stretch min-w-0">
+      <div ref={innerRef} className="flex items-stretch flex-1 min-w-0">
         <div className="flex items-stretch shrink min-w-0 max-w-[60%]">
           <DropdownMenu
             onOpenChange={(open) => {
@@ -448,21 +496,24 @@ export const ReviewActions: React.FC = () => {
         />
       </div>
 
-      <div className="w-px self-stretch bg-sidebar-border shrink-0" />
-
-      <button
-        type="button"
-        onClick={handleRefresh}
-        disabled={isRefreshing}
-        className="hidden sm:flex items-center justify-center px-2 h-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
-        title="Refresh review data"
-      >
-        {isRefreshing ? (
-          <LoaderCircle className="size-3.5 animate-spin" />
-        ) : (
-          <RotateCw className="size-3.5" />
-        )}
-      </button>
+      {showRefresh && (
+        <>
+          <div className="w-px self-stretch bg-sidebar-border shrink-0" />
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center justify-center px-2 h-full text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/30 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+            title="Refresh review data"
+          >
+            {isRefreshing ? (
+              <LoaderCircle className="size-3.5 animate-spin" />
+            ) : (
+              <RotateCw className="size-3.5" />
+            )}
+          </button>
+        </>
+      )}
     </div>
   );
 };

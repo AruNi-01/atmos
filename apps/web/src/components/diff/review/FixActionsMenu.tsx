@@ -67,7 +67,7 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
         ) : (
           <AgentIcon registryId={agentId} name={getAgentLabel(agentId)} size={16} />
         )}
-        <span>{activeRun ? formatAgentRunStatus(activeRun.status) : "Fix"}</span>
+        <span className="truncate min-w-0">{activeRun ? formatAgentRunStatus(activeRun.status) : "Fix"}</span>
       </button>
       <div className="w-px self-stretch bg-sidebar-border/40 shrink-0" />
       <DropdownMenu>
