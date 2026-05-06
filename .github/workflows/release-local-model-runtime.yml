@@ -12,7 +12,7 @@ on:
       llama_cpp_ref:
         description: "llama.cpp tag or commit"
         required: true
-        default: "b9038"
+        default: "b9041"
       create_release:
         description: "Create GitHub Release"
         required: true
@@ -44,7 +44,7 @@ jobs:
             echo "create_release=true" >> $GITHUB_OUTPUT
             echo "release_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
             echo "release_version=${GITHUB_REF_NAME#local-model-runtime-v}" >> $GITHUB_OUTPUT
-            echo "llama_cpp_ref=b9038" >> $GITHUB_OUTPUT
+            echo "llama_cpp_ref=b9041" >> $GITHUB_OUTPUT
             echo "prerelease=false" >> $GITHUB_OUTPUT
           else
             echo "create_release=${{ github.event.inputs.create_release }}" >> $GITHUB_OUTPUT
@@ -74,93 +74,102 @@ jobs:
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
             gh release create "$RELEASE_TAG" $PRERELEASE_FLAG --title "Atmos Local Model Runtime ${{ needs.resolve-config.outputs.release_version }}"
 
-  build-llama-server:
+  package-llama-server:
     needs: [resolve-config, create-release]
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
-            platform: macos-arm64
+          - platform: macos-arm64
             target: aarch64-apple-darwin
-          - os: macos-13
-            platform: macos-x86_64
+            upstream_suffix: bin-macos-arm64.tar.gz
+            archive_ext: tar.gz
+            binary_name: llama-server
+          - platform: macos-x86_64
             target: x86_64-apple-darwin
-          - os: ubuntu-22.04
-            platform: linux-x86_64
+            upstream_suffix: bin-macos-x64.tar.gz
+            archive_ext: tar.gz
+            binary_name: llama-server
+          - platform: linux-x86_64
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-22.04
-            platform: linux-arm64
+            upstream_suffix: bin-ubuntu-x64.tar.gz
+            archive_ext: tar.gz
+            binary_name: llama-server
+          - platform: linux-arm64
             target: aarch64-unknown-linux-gnu
-          - os: windows-2022
-            platform: windows-x86_64
+            upstream_suffix: bin-ubuntu-arm64.tar.gz
+            archive_ext: tar.gz
+            binary_name: llama-server
+          - platform: windows-x86_64
             target: x86_64-pc-windows-msvc
-    runs-on: ${{ matrix.os }}
+            upstream_suffix: bin-win-cpu-x64.zip
+            archive_ext: zip
+            binary_name: llama-server.exe
     steps:
       - uses: actions/checkout@v5
-        with:
-          repository: ggml-org/llama.cpp
-          ref: ${{ needs.resolve-config.outputs.llama_cpp_ref }}
-      - name: Install deps (macOS)
-        if: matrix.os == 'macos-14' || matrix.os == 'macos-13'
-        run: brew install cmake
-      - name: Install deps (Linux)
-        if: matrix.os == 'ubuntu-22.04'
+      - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++
-      - name: Install cross-compiler for ARM64 (Linux)
-        if: matrix.platform == 'linux-arm64'
-        run: sudo apt-get install -y g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
-      - name: Build (Unix)
-        if: matrix.os != 'windows-2022'
+          sudo apt-get install -y unzip zip
+      - name: Download upstream runtime archive
+        env:
+          LLAMA_CPP_REF: ${{ needs.resolve-config.outputs.llama_cpp_ref }}
+          UPSTREAM_SUFFIX: ${{ matrix.upstream_suffix }}
         run: |
-          mkdir -p build && cd build
-          CMAKE_ARGS="-DGGML_NATIVE=OFF"
-          if [ "${{ matrix.platform }}" = "linux-arm64" ]; then
-            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
-          fi
-          cmake $CMAKE_ARGS -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..
-          cmake --build . --target llama-server --config Release
-      - name: Build (Windows)
-        if: matrix.os == 'windows-2022'
+          mkdir -p upstream
+          UPSTREAM_ASSET="llama-${LLAMA_CPP_REF}-${UPSTREAM_SUFFIX}"
+          echo "UPSTREAM_ASSET=${UPSTREAM_ASSET}" >> $GITHUB_ENV
+          curl -fL \
+            "https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_REF}/${UPSTREAM_ASSET}" \
+            -o "upstream/${UPSTREAM_ASSET}"
+      - name: Repack runtime
+        env:
+          ARCHIVE_EXT: ${{ matrix.archive_ext }}
+          BINARY_NAME: ${{ matrix.binary_name }}
+          LLAMA_CPP_REF: ${{ needs.resolve-config.outputs.llama_cpp_ref }}
+          TARGET: ${{ matrix.target }}
         run: |
-          mkdir -p build && cd build
-          cmake -DGGML_NATIVE=OFF -DLLAMA_BUILD_SERVER=ON -DLLAMA_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release ..
-          cmake --build . --target llama-server --config Release
-      - name: Package (Unix)
-        if: matrix.os != 'windows-2022'
-        run: |
-          mkdir -p asset
-          cp build/bin/llama-server asset/
-          chmod +x asset/llama-server
-          echo "${{ needs.resolve-config.outputs.llama_cpp_ref }}" > asset/VERSION
-          cd asset && tar -czf "../atmos-llama-server-${{ matrix.target }}.tar.gz" llama-server VERSION
-      - name: Package (Windows)
-        if: matrix.os == 'windows-2022'
-        run: |
-          mkdir -p asset
-          cp build/bin/Release/llama-server.exe asset/
-          echo "${{ needs.resolve-config.outputs.llama_cpp_ref }}" > asset/VERSION
-          cd asset && 7z a "../atmos-llama-server-${{ matrix.target }}.zip" llama-server.exe VERSION
-      - name: Calculate SHA256 and size (Unix)
-        if: matrix.os != 'windows-2022'
-        run: |
-          if [[ "$OSTYPE" == "darwin"* ]]; then
-            SHA256=$(shasum -a 256 "atmos-llama-server-${{ matrix.target }}.tar.gz" | awk '{print $1}')
+          set -euo pipefail
+          rm -rf unpacked asset
+          mkdir -p unpacked asset
+
+          if [ "$ARCHIVE_EXT" = "zip" ]; then
+            unzip -q "upstream/${UPSTREAM_ASSET}" -d unpacked
           else
-            SHA256=$(sha256sum "atmos-llama-server-${{ matrix.target }}.tar.gz" | awk '{print $1}')
+            tar -xzf "upstream/${UPSTREAM_ASSET}" -C unpacked
           fi
-          SIZE=$(stat -f%z "atmos-llama-server-${{ matrix.target }}.tar.gz" 2>/dev/null || stat -c%s "atmos-llama-server-${{ matrix.target }}.tar.gz")
+
+          binary_path="$(find unpacked -type f -name "$BINARY_NAME" | head -n 1)"
+          if [ -z "$binary_path" ]; then
+            echo "Could not find $BINARY_NAME in ${UPSTREAM_ASSET}" >&2
+            exit 1
+          fi
+
+          find unpacked -type f \( \
+            -name "$BINARY_NAME" \
+            -o -name '*.dylib' \
+            -o -name '*.so' \
+            -o -name '*.so.*' \
+            -o -name '*.dll' \
+            -o -name 'LICENSE' \
+          \) -exec cp -P {} asset/ \;
+          chmod +x "asset/${BINARY_NAME}" || true
+          printf '%s' "$LLAMA_CPP_REF" > asset/VERSION
+
+          if [ "$ARCHIVE_EXT" = "zip" ]; then
+            ASSET_FILE="atmos-llama-server-${TARGET}.zip"
+            (cd asset && zip -qr "../${ASSET_FILE}" .)
+          else
+            ASSET_FILE="atmos-llama-server-${TARGET}.tar.gz"
+            (cd asset && tar -czf "../${ASSET_FILE}" *)
+          fi
+
+          SHA256=$(sha256sum "$ASSET_FILE" | awk '{print $1}')
+          SIZE=$(stat -c%s "$ASSET_FILE")
+          echo "ASSET_FILE=${ASSET_FILE}" >> $GITHUB_ENV
           echo "SHA256=${SHA256}" >> $GITHUB_ENV
           echo "SIZE=${SIZE}" >> $GITHUB_ENV
-      - name: Calculate SHA256 and size (Windows)
-        if: matrix.os == 'windows-2022'
-        run: |
-          $SHA256 = (Get-FileHash -Algorithm SHA256 "atmos-llama-server-${{ matrix.target }}.zip").Hash.ToLower()
-          $SIZE = (Get-Item "atmos-llama-server-${{ matrix.target }}.zip").Length
-          echo "SHA256=$SHA256" >> $env:GITHUB_ENV
-          echo "SIZE=$SIZE" >> $env:GITHUB_ENV
       - name: Write checksum artifact files
         run: |
           mkdir -p checksum
@@ -175,20 +184,15 @@ jobs:
             checksum/SIZE
       - name: Upload asset
         if: needs.resolve-config.outputs.create_release == 'true'
-        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.resolve-config.outputs.release_tag }}
         run: |
-          ASSET_FILE="atmos-llama-server-${{ matrix.target }}.tar.gz"
-          if [ "${{ matrix.os }}" = "windows-2022" ]; then
-            ASSET_FILE="atmos-llama-server-${{ matrix.target }}.zip"
-          fi
           gh release upload "$RELEASE_TAG" "$ASSET_FILE" --clobber
 
   generate-manifest:
     runs-on: ubuntu-latest
-    needs: [resolve-config, build-llama-server]
+    needs: [resolve-config, package-llama-server]
     steps:
       - uses: actions/checkout@v5
       - name: Download checksums artifacts

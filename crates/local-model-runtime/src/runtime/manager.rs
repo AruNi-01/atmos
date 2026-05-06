@@ -449,9 +449,10 @@ fn extract_runtime_binary_blocking(
         "llama-server"
     });
 
-    if let Some(parent) = dest_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
+    let dest_dir = dest_path
+        .parent()
+        .ok_or_else(|| LocalModelError::Runtime("Runtime destination has no parent".to_string()))?;
+    std::fs::create_dir_all(dest_dir)?;
 
     let archive_name = archive_path
         .file_name()
@@ -459,25 +460,39 @@ fn extract_runtime_binary_blocking(
         .unwrap_or_default();
 
     if archive_name.ends_with(".zip") {
-        extract_from_zip(archive_path, dest_path, inner_path)
+        extract_from_zip(archive_path, dest_dir, dest_path, inner_path)
     } else {
-        extract_from_tar_gz(archive_path, dest_path, inner_path)
+        extract_from_tar_gz(archive_path, dest_dir, dest_path, inner_path)
     }
 }
 
-fn extract_from_tar_gz(archive_path: &Path, dest_path: &Path, inner_path: &str) -> Result<()> {
+fn extract_from_tar_gz(
+    archive_path: &Path,
+    dest_dir: &Path,
+    dest_path: &Path,
+    inner_path: &str,
+) -> Result<()> {
     let file = std::fs::File::open(archive_path)?;
     let decoder = flate2::read::GzDecoder::new(file);
     let mut archive = tar::Archive::new(decoder);
     let expected = Path::new(inner_path);
+    let mut found_binary = false;
 
     for entry in archive.entries()? {
         let mut entry = entry?;
         let path = entry.path()?;
         if path == expected {
-            entry.unpack(dest_path)?;
-            return Ok(());
+            found_binary = true;
         }
+        let out_path = safe_archive_dest(dest_dir, path.as_ref())?;
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        entry.unpack(out_path)?;
+    }
+
+    if found_binary && dest_path.exists() {
+        return Ok(());
     }
 
     Err(LocalModelError::Runtime(format!(
@@ -487,20 +502,40 @@ fn extract_from_tar_gz(archive_path: &Path, dest_path: &Path, inner_path: &str) 
     )))
 }
 
-fn extract_from_zip(archive_path: &Path, dest_path: &Path, inner_path: &str) -> Result<()> {
+fn extract_from_zip(
+    archive_path: &Path,
+    dest_dir: &Path,
+    dest_path: &Path,
+    inner_path: &str,
+) -> Result<()> {
     let file = std::fs::File::open(archive_path)?;
     let mut archive = zip::ZipArchive::new(file)
         .map_err(|e| LocalModelError::Runtime(format!("Failed to read runtime zip: {e}")))?;
+    let mut found_binary = false;
 
     for index in 0..archive.len() {
         let mut entry = archive.by_index(index).map_err(|e| {
             LocalModelError::Runtime(format!("Failed to read runtime zip entry: {e}"))
         })?;
         if entry.name() == inner_path {
-            let mut dest = std::fs::File::create(dest_path)?;
-            std::io::copy(&mut entry, &mut dest)?;
-            return Ok(());
+            found_binary = true;
         }
+        if entry.is_dir() {
+            continue;
+        }
+        let enclosed = entry.enclosed_name().ok_or_else(|| {
+            LocalModelError::Runtime(format!("Unsafe runtime zip entry: {}", entry.name()))
+        })?;
+        let out_path = dest_dir.join(enclosed);
+        if let Some(parent) = out_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut dest = std::fs::File::create(out_path)?;
+        std::io::copy(&mut entry, &mut dest)?;
+    }
+
+    if found_binary && dest_path.exists() {
+        return Ok(());
     }
 
     Err(LocalModelError::Runtime(format!(
@@ -508,4 +543,18 @@ fn extract_from_zip(archive_path: &Path, dest_path: &Path, inner_path: &str) -> 
         archive_path.display(),
         inner_path
     )))
+}
+
+fn safe_archive_dest(dest_dir: &Path, entry_path: &Path) -> Result<std::path::PathBuf> {
+    if entry_path.is_absolute()
+        || entry_path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(LocalModelError::Runtime(format!(
+            "Unsafe runtime archive entry: {}",
+            entry_path.display()
+        )));
+    }
+    Ok(dest_dir.join(entry_path))
 }

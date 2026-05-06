@@ -80,11 +80,11 @@ pub struct BinaryEntry {
     /// File size in bytes.
     pub size_bytes: u64,
 
-    /// Whether the downloaded file is a zip that needs extraction.
+    /// Whether the downloaded file is an archive that needs extraction.
     #[serde(default)]
     pub is_zip: bool,
 
-    /// Path inside the zip where the binary lives (only used when is_zip=true).
+    /// Path inside the archive where the binary lives (only used when is_zip=true).
     #[serde(default)]
     pub zip_inner_path: Option<String>,
 }
