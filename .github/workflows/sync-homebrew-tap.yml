@@ -21,9 +21,13 @@ on:
 jobs:
   sync-homebrew-tap:
     name: Update shared homebrew-tap
+    # Allow stable desktop releases and explicit manual dispatch.
+    # Prerelease detection (e.g. desktop-v1.1.0-rc.1, -beta.x, -alpha.x) for
+    # the workflow_run path is enforced inside the "Resolve release tag" step
+    # because GitHub Actions expressions cannot match SemVer prerelease shape.
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'desktop-v')) ||
+      (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'desktop-v') && github.event.release.prerelease == false) ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'desktop-v'))
     runs-on: ubuntu-latest
     permissions:
@@ -61,15 +65,28 @@ jobs:
 
           VERSION="${TAG#desktop-v}"
 
+          # Skip SemVer prereleases on the workflow_run path so they do not
+          # overwrite the stable cask. workflow_dispatch is always allowed
+          # because the operator opts in explicitly. The release-event path
+          # is already filtered by github.event.release.prerelease at job level.
+          if [ "${{ github.event_name }}" = "workflow_run" ] && [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+- ]]; then
+            echo "Detected prerelease tag $TAG; skipping Homebrew tap sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Checkout source repository
+        if: steps.release.outputs.skip != 'true'
         uses: actions/checkout@v5
         with:
           path: source
 
       - name: Generate cask file
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,6 +104,7 @@ jobs:
             --output "../tap/${CASK_PATH}"
 
       - name: Generate tap README
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         run: |
           cat > tap/README.md <<'EOF'
@@ -107,6 +125,7 @@ jobs:
           EOF
 
       - name: Checkout tap repository
+        if: steps.release.outputs.skip != 'true'
         uses: actions/checkout@v5
         with:
           repository: ${{ env.TAP_REPO }}
@@ -114,6 +133,7 @@ jobs:
           path: homebrew-tap
 
       - name: Validate tap token
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         run: |
           if [ -z "${HOMEBREW_TAP_PAT}" ]; then
@@ -122,6 +142,7 @@ jobs:
           fi
 
       - name: Copy generated tap files
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         run: |
           mkdir -p homebrew-tap/Casks
@@ -129,6 +150,7 @@ jobs:
           cp tap/${CASK_PATH} homebrew-tap/${CASK_PATH}
 
       - name: Commit and push tap update
+        if: steps.release.outputs.skip != 'true'
         shell: bash
         run: |
           cd homebrew-tap

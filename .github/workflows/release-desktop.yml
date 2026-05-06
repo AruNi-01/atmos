@@ -180,9 +180,17 @@ jobs:
 
           if [ "$EVENT" = "push" ]; then
             require_tag_commit_on_main
+            # Detect SemVer prerelease tags such as desktop-v1.1.0-rc.1,
+            # desktop-v0.5.0-beta.2 or desktop-v2.0.0-alpha. Stable tags
+            # (e.g. desktop-v1.1.0) have no `-` segment after the version.
+            if [[ "${GITHUB_REF_NAME}" =~ ^desktop-v[0-9]+\.[0-9]+\.[0-9]+- ]]; then
+              IS_PRERELEASE="true"
+            else
+              IS_PRERELEASE="false"
+            fi
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
             BUILD_MATRIX="$(matrix_for_platform "all")"
             echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
