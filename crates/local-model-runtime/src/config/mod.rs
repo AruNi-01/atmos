@@ -24,6 +24,11 @@ pub fn logs_dir() -> Result<PathBuf> {
     Ok(local_model_runtime_dir()?.join("logs"))
 }
 
+/// JSON file where user-added model entries are stored.
+pub fn custom_models_file() -> Result<PathBuf> {
+    Ok(local_model_runtime_dir()?.join("custom-models.json"))
+}
+
 /// Full path for a model's GGUF file.
 pub fn model_path(model_id: &str) -> Result<PathBuf> {
     // Validate model_id to prevent path traversal

@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -89,17 +90,49 @@ impl LocalRuntimeManager {
         });
     }
 
+    /// Mark the model lifecycle as idle with no selected model.
+    pub fn mark_not_installed(&self) {
+        self.set_state(LocalModelState::NotInstalled);
+    }
+
     // ─── Download ────────────────────────────────────────────────────────────
 
-    /// Ensure the llama-server binary is present and valid.
-    /// Emits `DownloadingBinary` state updates during download.
-    pub async fn ensure_binary(&self, manifest: &ModelManifest, model_id: &str) -> Result<()> {
+    /// Check whether the llama-server binary is present and matches the manifest.
+    pub async fn is_runtime_installed(&self, manifest: &ModelManifest) -> Result<bool> {
         let bin_path = llama_server_bin()?;
         let binary_entry = find_binary_for_platform(manifest).ok_or_else(|| {
             LocalModelError::BinaryNotFound(crate::manifest::current_platform().to_string())
         })?;
 
-        if verify_file(&bin_path, &binary_entry.sha256).await? {
+        if binary_entry.is_zip {
+            return Ok(bin_path.exists());
+        }
+
+        verify_file(&bin_path, &binary_entry.sha256).await
+    }
+
+    /// Check whether a model GGUF file is present and matches the manifest.
+    pub async fn is_model_installed(
+        &self,
+        manifest: &ModelManifest,
+        model_id: &str,
+    ) -> Result<bool> {
+        let entry = find_model(manifest, model_id)
+            .ok_or_else(|| LocalModelError::ModelNotFound(model_id.to_string()))?;
+        let dest = model_path(model_id)?;
+
+        verify_file(&dest, &entry.sha256).await
+    }
+
+    /// Ensure the llama-server binary is present and valid.
+    /// Emits `DownloadingRuntime` state updates during download.
+    pub async fn ensure_binary(&self, manifest: &ModelManifest) -> Result<()> {
+        let bin_path = llama_server_bin()?;
+        let binary_entry = find_binary_for_platform(manifest).ok_or_else(|| {
+            LocalModelError::BinaryNotFound(crate::manifest::current_platform().to_string())
+        })?;
+
+        if self.is_runtime_installed(manifest).await? {
             info!("llama-server binary already present and valid");
             return Ok(());
         }
@@ -109,15 +142,25 @@ impl LocalRuntimeManager {
 
         let tx = self.state_tx.clone();
         let inner = self.inner.clone();
-        let model_id = model_id.to_string();
         let _total = binary_entry.size_bytes;
         let start = Instant::now();
+
+        let archive_path = bin_path.with_extension(if binary_entry.url.ends_with(".zip") {
+            "zip"
+        } else {
+            "tar.gz"
+        });
+        let download_path = if binary_entry.is_zip {
+            archive_path.as_path()
+        } else {
+            bin_path.as_path()
+        };
 
         let urls: Vec<String> = std::iter::once(binary_entry.url.clone()).collect();
         download_with_fallback(
             &self.http,
             &urls,
-            &bin_path,
+            download_path,
             &binary_entry.sha256,
             move |p: DownloadProgress| {
                 let progress = p
@@ -132,8 +175,7 @@ impl LocalRuntimeManager {
                         0
                     }
                 });
-                let state = LocalModelState::DownloadingBinary {
-                    model_id: model_id.clone(),
+                let state = LocalModelState::DownloadingRuntime {
                     progress,
                     eta_seconds: eta,
                 };
@@ -142,6 +184,16 @@ impl LocalRuntimeManager {
             },
         )
         .await?;
+
+        if binary_entry.is_zip {
+            extract_runtime_binary(
+                &archive_path,
+                &bin_path,
+                binary_entry.zip_inner_path.as_deref(),
+            )
+            .await?;
+            let _ = tokio::fs::remove_file(&archive_path).await;
+        }
 
         // Make executable on Unix.
         #[cfg(unix)]
@@ -163,7 +215,7 @@ impl LocalRuntimeManager {
             .ok_or_else(|| LocalModelError::ModelNotFound(model_id.to_string()))?;
 
         let dest = model_path(model_id)?;
-        if verify_file(&dest, &entry.sha256).await? {
+        if self.is_model_installed(manifest, model_id).await? {
             info!("Model {model_id} already present and valid");
             return Ok(());
         }
@@ -217,7 +269,7 @@ impl LocalRuntimeManager {
     /// Start the llama-server for the given model.
     ///
     /// This method:
-    /// 1. Ensures binary + model are downloaded (emitting progress states).
+    /// 1. Verifies the runtime binary and model are already installed.
     /// 2. Spawns the process.
     /// 3. Waits for the health endpoint to respond.
     /// 4. Transitions to `Running`.
@@ -236,8 +288,17 @@ impl LocalRuntimeManager {
         }
 
         let result = async {
-            self.ensure_binary(manifest, model_id).await?;
-            self.ensure_model(manifest, model_id).await?;
+            if !self.is_runtime_installed(manifest).await? {
+                let msg =
+                    "Local model runtime is not installed. Download Runtime first.".to_string();
+                self.set_state(LocalModelState::Failed { error: msg.clone() });
+                return Err(LocalModelError::Runtime(msg));
+            }
+            if !self.is_model_installed(manifest, model_id).await? {
+                let msg = format!("Model {model_id} is not installed. Download the model first.");
+                self.set_state(LocalModelState::Failed { error: msg.clone() });
+                return Err(LocalModelError::Runtime(msg));
+            }
 
             self.set_state(LocalModelState::InstalledNotRunning {
                 model_id: model_id.to_string(),
@@ -340,8 +401,13 @@ impl LocalRuntimeManager {
     }
 
     /// Check whether a model GGUF file exists on disk (without verifying hash).
-    pub fn is_model_installed(&self, model_id: &str) -> bool {
+    pub fn is_model_file_present(&self, model_id: &str) -> bool {
         model_path(model_id).map(|p| p.exists()).unwrap_or(false)
+    }
+
+    /// Check whether the llama-server binary exists on disk (without verifying hash).
+    pub fn is_runtime_file_present(&self) -> bool {
+        llama_server_bin().map(|p| p.exists()).unwrap_or(false)
     }
 
     /// Return the current endpoint if running.
@@ -354,4 +420,92 @@ impl Default for LocalRuntimeManager {
     fn default() -> Self {
         Self::new()
     }
+}
+
+async fn extract_runtime_binary(
+    archive_path: &Path,
+    dest_path: &Path,
+    inner_path: Option<&str>,
+) -> Result<()> {
+    let archive_path = archive_path.to_path_buf();
+    let dest_path = dest_path.to_path_buf();
+    let inner_path = inner_path.map(str::to_string);
+
+    tokio::task::spawn_blocking(move || {
+        extract_runtime_binary_blocking(&archive_path, &dest_path, inner_path.as_deref())
+    })
+    .await
+    .map_err(|e| LocalModelError::Runtime(format!("Archive extraction task failed: {e}")))?
+}
+
+fn extract_runtime_binary_blocking(
+    archive_path: &Path,
+    dest_path: &Path,
+    inner_path: Option<&str>,
+) -> Result<()> {
+    let inner_path = inner_path.unwrap_or(if cfg!(target_os = "windows") {
+        "llama-server.exe"
+    } else {
+        "llama-server"
+    });
+
+    if let Some(parent) = dest_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    let archive_name = archive_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+
+    if archive_name.ends_with(".zip") {
+        extract_from_zip(archive_path, dest_path, inner_path)
+    } else {
+        extract_from_tar_gz(archive_path, dest_path, inner_path)
+    }
+}
+
+fn extract_from_tar_gz(archive_path: &Path, dest_path: &Path, inner_path: &str) -> Result<()> {
+    let file = std::fs::File::open(archive_path)?;
+    let decoder = flate2::read::GzDecoder::new(file);
+    let mut archive = tar::Archive::new(decoder);
+    let expected = Path::new(inner_path);
+
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        let path = entry.path()?;
+        if path == expected {
+            entry.unpack(dest_path)?;
+            return Ok(());
+        }
+    }
+
+    Err(LocalModelError::Runtime(format!(
+        "Runtime archive {} did not contain {}",
+        archive_path.display(),
+        inner_path
+    )))
+}
+
+fn extract_from_zip(archive_path: &Path, dest_path: &Path, inner_path: &str) -> Result<()> {
+    let file = std::fs::File::open(archive_path)?;
+    let mut archive = zip::ZipArchive::new(file)
+        .map_err(|e| LocalModelError::Runtime(format!("Failed to read runtime zip: {e}")))?;
+
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index).map_err(|e| {
+            LocalModelError::Runtime(format!("Failed to read runtime zip entry: {e}"))
+        })?;
+        if entry.name() == inner_path {
+            let mut dest = std::fs::File::create(dest_path)?;
+            std::io::copy(&mut entry, &mut dest)?;
+            return Ok(());
+        }
+    }
+
+    Err(LocalModelError::Runtime(format!(
+        "Runtime archive {} did not contain {}",
+        archive_path.display(),
+        inner_path
+    )))
 }

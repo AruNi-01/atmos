@@ -7,9 +7,8 @@ pub enum LocalModelState {
     /// The model GGUF file has not been downloaded yet.
     NotInstalled,
 
-    /// The llama-server binary is being downloaded.
-    DownloadingBinary {
-        model_id: String,
+    /// The llama-server runtime binary is being downloaded.
+    DownloadingRuntime {
         /// 0.0 – 1.0
         progress: f32,
         #[serde(skip_serializing_if = "Option::is_none")]

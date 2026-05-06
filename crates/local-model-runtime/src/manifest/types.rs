@@ -55,6 +55,14 @@ pub struct ModelEntry {
 
     #[serde(default)]
     pub recommended: bool,
+
+    /// True for models added by the user rather than the bundled catalog.
+    #[serde(default)]
+    pub custom: bool,
+
+    /// Original source URL for custom models.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_url: Option<String>,
 }
 
 /// A platform-specific llama-server binary.

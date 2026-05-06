@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   type LocalModelEntry,
+  type LocalModelHfResolveResponse,
   type LocalModelListResponse,
   type LocalModelStatus,
   localModelApi,
@@ -26,13 +27,16 @@ import {
 } from "@workspace/ui/components/ui/tooltip";
 import {
   CheckCircle2,
-  ChevronRight,
   CircleDot,
   Download,
   ExternalLink,
   HardDrive,
   Loader2,
+  LoaderCircle,
+  MemoryStick,
   Play,
+  Plus,
+  RotateCw,
   Square,
   Tag,
   Trash2,
@@ -41,6 +45,8 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
+
+const LOCAL_MODEL_REFRESH_EVENT = "atmos-local-model-refresh";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -54,12 +60,12 @@ function statusLabel(state: LocalModelStatus): string {
   switch (state.status) {
     case "not_installed":
       return "Not installed";
-    case "downloading_binary":
+    case "downloading_runtime":
       return `Downloading runtime… ${(state.progress * 100).toFixed(1)}%`;
     case "downloading_model":
       return `Downloading model… ${(state.progress * 100).toFixed(1)}%`;
     case "installed_not_running":
-      return "Installed, not running";
+      return "Model installed, not running";
     case "starting":
       return "Starting…";
     case "running":
@@ -75,7 +81,7 @@ function statusColor(state: LocalModelStatus): string {
       return "text-success";
     case "failed":
       return "text-destructive";
-    case "downloading_binary":
+    case "downloading_runtime":
     case "downloading_model":
     case "starting":
       return "text-warning";
@@ -86,7 +92,7 @@ function statusColor(state: LocalModelStatus): string {
 
 function isTransitioning(state: LocalModelStatus): boolean {
   return (
-    state.status === "downloading_binary" ||
+    state.status === "downloading_runtime" ||
     state.status === "downloading_model" ||
     state.status === "starting"
   );
@@ -132,25 +138,469 @@ function StatusBadge({ state }: { state: LocalModelStatus }) {
   );
 }
 
+// ─── CustomModelDialog ───────────────────────────────────────────────────────
+
+function CustomModelDialog({
+  open,
+  onOpenChange,
+  onAdded,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdded: () => void;
+}) {
+  const [url, setUrl] = useState("");
+  const [resolved, setResolved] = useState<LocalModelHfResolveResponse | null>(null);
+  const [lastChoices, setLastChoices] = useState<LocalModelHfResolveResponse | null>(null);
+  const [selectedUrl, setSelectedUrl] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [ramFootprintMb, setRamFootprintMb] = useState("");
+  const [resolving, setResolving] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const resolvedModel = resolved?.kind === "model" ? resolved.model : null;
+
+  const reset = () => {
+    setUrl("");
+    setResolved(null);
+    setLastChoices(null);
+    setSelectedUrl("");
+    setDisplayName("");
+    setRamFootprintMb("");
+    setResolving(false);
+    setSaving(false);
+    setError(null);
+  };
+
+  const handleResolve = async (nextUrl = url) => {
+    const trimmed = nextUrl.trim();
+    if (!trimmed) {
+      setError("Paste a Hugging Face GGUF URL first.");
+      return;
+    }
+    setResolving(true);
+    setError(null);
+    setLastChoices(null);
+    setSelectedUrl("");
+    try {
+      const result = await localModelApi.resolveHfUrl(trimmed);
+      setResolved(result);
+      if (result.kind === "choices") {
+        setLastChoices(result);
+        setSelectedUrl("");
+      }
+      if (result.kind === "model") {
+        setSelectedUrl(result.model.source_url ?? trimmed);
+        setDisplayName(result.model.display_name);
+        setRamFootprintMb(String(result.model.ram_footprint_mb));
+      }
+    } catch (e) {
+      setResolved(null);
+      setError(e instanceof Error ? e.message : "Failed to resolve Hugging Face URL");
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const handleChooseChoice = async (choiceUrl: string) => {
+    setResolving(true);
+    setError(null);
+    try {
+      const result = await localModelApi.resolveHfUrl(choiceUrl);
+      setResolved(result);
+      if (result.kind === "model") {
+        setSelectedUrl(result.model.source_url ?? choiceUrl);
+        setDisplayName(result.model.display_name);
+        setRamFootprintMb(String(result.model.ram_footprint_mb));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to resolve GGUF file");
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const handleChooseAnother = () => {
+    if (!lastChoices) return;
+    setResolved(lastChoices);
+    setSelectedUrl("");
+  };
+
+  const handleSave = async () => {
+    if (!resolvedModel) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await localModelApi.addCustom({
+        url: selectedUrl || resolvedModel.source_url || url,
+        displayName: displayName.trim() || resolvedModel.display_name,
+        ramFootprintMb: Number(ramFootprintMb) || resolvedModel.ram_footprint_mb,
+      });
+      onAdded();
+      onOpenChange(false);
+      reset();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add custom model");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+        if (!nextOpen) reset();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add custom Hugging Face model</DialogTitle>
+          <DialogDescription>
+            Paste a Hugging Face model page or GGUF file URL. If the model page
+            has no GGUF files, Atmos will search public GGUF variants.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-foreground">
+              Hugging Face URL
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://huggingface.co/Qwen/Qwen2.5-0.5B"
+                className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={resolving}
+                onClick={() => void handleResolve()}
+              >
+                {resolving ? <Loader2 className="size-4 animate-spin" /> : "Resolve"}
+              </Button>
+            </div>
+          </div>
+
+          {resolved?.kind === "choices" && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-foreground">
+                Choose a GGUF file
+              </p>
+              {resolved.choices.some((choice) => choice.discovered) && (
+                <p className="text-xs text-muted-foreground">
+                  No GGUF file was found in the pasted repo, so these candidates
+                  were discovered from Hugging Face search.
+                </p>
+              )}
+              <div className="max-h-48 space-y-1 overflow-auto rounded-lg border border-border p-2">
+                {resolved.choices.map((choice) => (
+                  <div
+                    key={choice.url}
+                    className="flex items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-xs hover:border-border"
+                  >
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => void handleChooseChoice(choice.url)}
+                    >
+                      <span className="block truncate font-medium text-foreground">
+                        {choice.filename}
+                      </span>
+                      <span className="mt-0.5 block truncate text-muted-foreground">
+                        {choice.repo_id}
+                      </span>
+                      <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {choice.size_bytes != null && (
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                            Storage ~{formatBytes(choice.size_bytes)}
+                          </span>
+                        )}
+                        {choice.ram_footprint_mb != null && (
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                            Min memory ~
+                            {formatBytes(choice.ram_footprint_mb * 1024 * 1024)}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    <a
+                      href={choice.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground"
+                      aria-label={`Open ${choice.filename} in browser`}
+                    >
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {resolvedModel && (
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div className="min-w-0 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">Selected GGUF file</p>
+                  <p className="mt-0.5 break-all" title={selectedUrl}>
+                    {selectedUrl}
+                  </p>
+                </div>
+                {lastChoices && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="justify-self-start text-xs sm:justify-self-end"
+                    onClick={handleChooseAnother}
+                  >
+                    Choose another file
+                  </Button>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-xs font-medium text-foreground">
+                  Display name
+                  <input
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-medium text-foreground">
+                  Min memory (MB)
+                  <input
+                    value={ramFootprintMb}
+                    onChange={(event) => setRamFootprintMb(event.target.value)}
+                    inputMode="numeric"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span>Storage ~{formatBytes(resolvedModel.size_bytes)}</span>
+                <span>SHA256 {resolvedModel.sha256.slice(0, 12)}…</span>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button disabled={!resolvedModel || saving} onClick={handleSave}>
+            {saving ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+            Add model
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── RuntimeControl ──────────────────────────────────────────────────────────
+
+export function LocalModelRuntimeControl() {
+  const [data, setData] = useState<LocalModelListResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const onEvent = useWebSocketStore((s) => s.onEvent);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await localModelApi.list();
+      setData(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to inspect runtime");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const unsub = onEvent("local_model_state_changed", (raw) => {
+      const payload = raw as { state: LocalModelStatus };
+      setData((prev) => (prev ? { ...prev, state: payload.state } : prev));
+      if (payload.state.status !== "downloading_runtime") {
+        void load();
+      }
+    });
+    return unsub;
+  }, [load, onEvent]);
+
+  useEffect(() => {
+    const downloading = data?.state.status === "downloading_runtime";
+    if (downloading && !pollRef.current) {
+      pollRef.current = setInterval(() => void load(), 2000);
+    } else if (!downloading && pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [data?.state.status, load]);
+
+  const handleDownload = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setBusy(true);
+    try {
+      await localModelApi.downloadRuntime();
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              state: {
+                status: "downloading_runtime",
+                progress: 0,
+              },
+            }
+          : prev,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Runtime download failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRefresh = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setRefreshing(true);
+    try {
+      await load();
+      window.dispatchEvent(new Event(LOCAL_MODEL_REFRESH_EVENT));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  if (loading) {
+    return <Skeleton className="h-9 w-36 rounded-md" />;
+  }
+
+  const state = data?.state;
+  const installed = data?.runtime.installed ?? false;
+  const downloading = state?.status === "downloading_runtime";
+  const progress =
+    state?.status === "downloading_runtime" ? state.progress * 100 : null;
+
+  if (installed) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 text-muted-foreground"
+          disabled={refreshing}
+          onClick={handleRefresh}
+          title="Refresh local model status"
+          aria-label="Refresh local model status"
+        >
+          {refreshing ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCw className="size-3.5" />
+          )}
+        </Button>
+        <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs font-medium text-success">
+          <CheckCircle2 className="size-3.5" />
+          Runtime installed
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 text-muted-foreground"
+        disabled={refreshing}
+        onClick={handleRefresh}
+        title="Refresh local model status"
+        aria-label="Refresh local model status"
+      >
+        {refreshing ? (
+          <LoaderCircle className="size-3.5 animate-spin" />
+        ) : (
+          <RotateCw className="size-3.5" />
+        )}
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy || downloading}
+        onClick={handleDownload}
+      >
+        {busy || downloading ? (
+          <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+        ) : (
+          <Download className="mr-1.5 size-3.5" />
+        )}
+        {downloading && progress !== null
+          ? `Runtime ${progress.toFixed(0)}%`
+          : "Download Runtime"}
+      </Button>
+      {error && (
+        <span className="max-w-48 truncate text-xs text-destructive" title={error}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── ModelCard ──────────────────────────────────────────────────────────────
 
 interface ModelCardProps {
   model: LocalModelEntry;
   state: LocalModelStatus;
+  runtimeInstalled: boolean;
   onDownload: (id: string) => void;
   onStart: (id: string) => void;
   onStop: () => void;
   onDelete: (id: string) => void;
+  onCustomDelete: (id: string) => void;
   busy: boolean;
 }
 
 function ModelCard({
   model,
   state,
+  runtimeInstalled,
   onDownload,
   onStart,
   onStop,
   onDelete,
+  onCustomDelete,
   busy,
 }: ModelCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -158,8 +608,7 @@ function ModelCard({
   const isRunning =
     state.status === "running" && state.model_id === model.id;
   const isDownloading =
-    (state.status === "downloading_binary" ||
-      state.status === "downloading_model") &&
+    state.status === "downloading_model" &&
     state.model_id === model.id;
   const isInstalled =
     model.installed ||
@@ -169,17 +618,20 @@ function ModelCard({
       state.model_id === model.id);
 
   const downloadProgress =
-    state.status === "downloading_binary" ||
     state.status === "downloading_model"
       ? state.progress * 100
       : null;
+  const canRemove =
+    model.custom && !isRunning && state.status !== "starting";
+  const canDeleteFiles =
+    isInstalled && !isRunning && state.status !== "starting";
 
   return (
     <>
       <div
         className={cn(
-          "rounded-xl border border-border bg-card p-4 transition-colors",
-          isRunning && "border-green-500/30 bg-green-500/5",
+          "rounded-xl border border-border p-4 transition-colors",
+          isRunning && "border-green-500/30",
         )}
       >
         <div className="flex items-start justify-between gap-4">
@@ -194,6 +646,11 @@ function ModelCard({
                   Recommended
                 </Badge>
               )}
+              {model.custom && (
+                <Badge variant="outline" className="text-xs">
+                  Custom
+                </Badge>
+              )}
             </div>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {model.description}
@@ -201,7 +658,11 @@ function ModelCard({
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <HardDrive className="size-3" />
-                {formatBytes(model.size_bytes)}
+                Storage ~{formatBytes(model.size_bytes)}
+              </span>
+              <span className="flex items-center gap-1">
+                <MemoryStick className="size-3" />
+                Min memory ~{formatBytes(model.ram_footprint_mb * 1024 * 1024)}
               </span>
               {model.license_url &&
               (model.license_url.startsWith('http://') ||
@@ -234,11 +695,8 @@ function ModelCard({
               <div className="mt-3 space-y-1">
                 <ProgressBar value={downloadProgress} />
                 <p className="text-xs text-muted-foreground">
-                  {state.status === "downloading_binary"
-                    ? "Downloading runtime binary"
-                    : "Downloading model weights"}
-                  {(state.status === "downloading_binary" ||
-                    state.status === "downloading_model") &&
+                  Downloading model weights
+                  {state.status === "downloading_model" &&
                   state.eta_seconds != null
                     ? ` — ~${state.eta_seconds}s remaining`
                     : ""}
@@ -271,15 +729,29 @@ function ModelCard({
             {isInstalled &&
               !isRunning &&
               state.status !== "starting" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => onStart(model.id)}
-                >
-                  <Play className="mr-1.5 size-3.5" />
-                  Start
-                </Button>
+                runtimeInstalled ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onStart(model.id)}
+                  >
+                    <Play className="mr-1.5 size-3.5" />
+                    Start
+                  </Button>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button size="sm" variant="outline" disabled>
+                          <Play className="mr-1.5 size-3.5" />
+                          Start
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Download Runtime first</TooltipContent>
+                  </Tooltip>
+                )
               )}
 
             {(isRunning || state.status === "starting") && (
@@ -294,9 +766,7 @@ function ModelCard({
               </Button>
             )}
 
-            {isInstalled &&
-              !isRunning &&
-              state.status !== "starting" && (
+            {(canDeleteFiles || canRemove) && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -309,7 +779,9 @@ function ModelCard({
                       <Trash2 className="size-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Delete model files</TooltipContent>
+                  <TooltipContent>
+                    {model.custom ? "Remove custom model" : "Delete model files"}
+                  </TooltipContent>
                 </Tooltip>
               )}
           </div>
@@ -320,11 +792,22 @@ function ModelCard({
       <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete model files?</DialogTitle>
+            <DialogTitle>
+              {model.custom ? "Remove custom model?" : "Delete model files?"}
+            </DialogTitle>
             <DialogDescription>
-              This will permanently delete the downloaded model files for{" "}
-              <strong>{model.display_name}</strong>. You can re-download it
-              later.
+              {model.custom ? (
+                <>
+                  This will remove <strong>{model.display_name}</strong> from
+                  your custom models and delete its downloaded files if present.
+                </>
+              ) : (
+                <>
+                  This will permanently delete the downloaded model files for{" "}
+                  <strong>{model.display_name}</strong>. You can re-download it
+                  later.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -335,10 +818,14 @@ function ModelCard({
               variant="destructive"
               onClick={() => {
                 setConfirmDelete(false);
-                onDelete(model.id);
+                if (model.custom) {
+                  onCustomDelete(model.id);
+                } else {
+                  onDelete(model.id);
+                }
               }}
             >
-              Delete
+              {model.custom ? "Remove" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -354,6 +841,7 @@ export function LocalModelPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
   const onEvent = useWebSocketStore((s) => s.onEvent);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -378,6 +866,12 @@ export function LocalModelPanel() {
   // Initial load
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const refresh = () => void load();
+    window.addEventListener(LOCAL_MODEL_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(LOCAL_MODEL_REFRESH_EVENT, refresh);
   }, [load]);
 
   // Subscribe to server-push state changes
@@ -418,7 +912,7 @@ export function LocalModelPanel() {
           ? {
               ...prev,
               state: {
-                status: "downloading_binary",
+                status: "downloading_model",
                 model_id: modelId,
                 progress: 0,
               },
@@ -473,6 +967,18 @@ export function LocalModelPanel() {
     }
   };
 
+  const handleCustomDelete = async (modelId: string) => {
+    setBusy(true);
+    try {
+      await localModelApi.deleteCustom(modelId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to remove custom model");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ── render ────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -484,21 +990,28 @@ export function LocalModelPanel() {
     );
   }
 
+  const sortedModels = data
+    ? data.models
+        .map((model, index) => {
+          const installed =
+            model.installed ||
+            ((data.state.status === "installed_not_running" ||
+              data.state.status === "starting" ||
+              data.state.status === "running") &&
+              data.state.model_id === model.id);
+          return { model, index, installed };
+        })
+        .sort((a, b) => Number(b.installed) - Number(a.installed) || a.index - b.index)
+        .map((entry) => entry.model)
+    : [];
+
   return (
     <div className="space-y-3">
       {/* Header row: global status */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center">
         <div className="flex items-center gap-2">
           {data && <StatusBadge state={data.state} />}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs text-muted-foreground"
-          onClick={() => void load()}
-        >
-          Refresh
-        </Button>
       </div>
 
       {/* Error banner */}
@@ -509,56 +1022,60 @@ export function LocalModelPanel() {
         </div>
       )}
 
-      {/* Notice: small models are less capable */}
-      <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-        <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-        <span>
-          Local models are compact (≤ 4 B parameters) and optimised for simple
-          tasks like git commit messages. Output quality may be lower than
-          cloud-hosted models — choose carefully when binding features.
-        </span>
-      </div>
-
       {/* Model list */}
       {data && data.models.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
           No models available in the manifest. Check your network connection or
           try again later.
         </div>
       ) : (
         <div className="space-y-2">
-          {data?.models.map((model) => (
+          {sortedModels.map((model) => (
             <ModelCard
               key={model.id}
               model={model}
               state={data.state}
+              runtimeInstalled={data.runtime.installed}
               onDownload={handleDownload}
               onStart={handleStart}
               onStop={handleStop}
               onDelete={handleDelete}
-              busy={busy}
+              onCustomDelete={handleCustomDelete}
+              busy={busy || isTransitioning(data.state)}
             />
           ))}
         </div>
       )}
 
-      {/* Docs link */}
-      <div className="pt-1 text-xs text-muted-foreground">
-        Model files are stored in{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
-          ~/.atmos/local-model-runtime/
-        </code>
-        .{" "}
-        <a
-          href="https://github.com/AruNi-01/atmos/issues/88"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-0.5 hover:text-foreground hover:underline"
-        >
-          Learn more
-          <ChevronRight className="size-3" />
-        </a>
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full justify-center"
+        onClick={() => setCustomDialogOpen(true)}
+      >
+        <Plus className="mr-1.5 size-3.5" />
+        Add custom model
+      </Button>
+
+      <div className="flex items-start gap-2 rounded-lg border border-border px-3 py-2 text-xs leading-5 text-muted-foreground">
+        <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <span>
+          Local models are compact (≤ 4 B parameters) and optimised for simple
+          tasks like git commit messages. Download Runtime before starting a
+          model. Output quality may be lower than cloud-hosted models — choose
+          carefully when binding features. Model files are stored in{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+            ~/.atmos/local-model-runtime/
+          </code>
+          .
+        </span>
       </div>
+
+      <CustomModelDialog
+        open={customDialogOpen}
+        onOpenChange={setCustomDialogOpen}
+        onAdded={() => void load()}
+      />
     </div>
   );
 }

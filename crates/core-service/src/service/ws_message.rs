@@ -63,7 +63,12 @@ use llm::{
     config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
     LlmProviderEntry, LlmProvidersFile, ProviderKind, ResponseFormat,
 };
-use local_model_runtime::{fetch_manifest, LocalRuntimeManager};
+use local_model_runtime::{
+    custom::{load_custom_models, merge_custom_models, remove_custom_model, upsert_custom_model},
+    fetch_manifest,
+    huggingface::{resolve_hf_model_url, HfResolveResult},
+    LocalRuntimeManager, ModelManifest,
+};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde_json::{json, Value};
 use tokio::sync::OnceCell;
@@ -987,6 +992,9 @@ impl WsMessageService {
 
             // ===== Local Model =====
             WsAction::LocalModelList => self.handle_local_model_list().await,
+            WsAction::LocalModelRuntimeDownload => {
+                self.handle_local_model_runtime_download(conn_id).await
+            }
             WsAction::LocalModelDownload => {
                 self.handle_local_model_download(conn_id, parse_request(request.data)?)
                     .await
@@ -1001,6 +1009,18 @@ impl WsMessageService {
                     .await
             }
             WsAction::LocalModelStatus => self.handle_local_model_status().await,
+            WsAction::LocalModelResolveHfUrl => {
+                self.handle_local_model_resolve_hf_url(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LocalModelCustomAdd => {
+                self.handle_local_model_custom_add(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LocalModelCustomDelete => {
+                self.handle_local_model_custom_delete(parse_request(request.data)?)
+                    .await
+            }
         }
     }
 
@@ -2038,10 +2058,17 @@ impl WsMessageService {
             // Create labels from GitHub issue labels with source 'gitHub_issue'
             let mut label_guids = Vec::new();
             for issue_label in &issue.labels {
-                let label_color = issue_label.color.clone().unwrap_or_else(|| "94a3b8".to_string());
+                let label_color = issue_label
+                    .color
+                    .clone()
+                    .unwrap_or_else(|| "94a3b8".to_string());
                 let label = self
                     .workspace_service
-                    .create_label(issue_label.name.clone(), label_color, "gitHub_issue".to_string())
+                    .create_label(
+                        issue_label.name.clone(),
+                        label_color,
+                        "gitHub_issue".to_string(),
+                    )
                     .await?;
                 label_guids.push(label.guid);
             }
@@ -4991,63 +5018,105 @@ set -x
 
     // ===== Local Model Handlers =====
 
-    /// Return the manifest (list of available models) plus the current runtime state.
-    async fn handle_local_model_list(&self) -> Result<Value> {
+    async fn fetch_local_model_manifest(&self) -> Result<ModelManifest> {
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(15))
             .build()
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        let manifest = fetch_manifest(&http).await.map_err(|e| {
+        let mut manifest = fetch_manifest(&http).await.map_err(|e| {
             ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
         })?;
+        merge_custom_models(&mut manifest).map_err(|e| {
+            ServiceError::Processing(format!("Failed to load custom local models: {e}"))
+        })?;
+        Ok(manifest)
+    }
+
+    /// Return the manifest (list of available models) plus the current runtime state.
+    async fn handle_local_model_list(&self) -> Result<Value> {
+        let manifest = self.fetch_local_model_manifest().await?;
+        let runtime_installed = self.local_model_manager.is_runtime_file_present();
         let state = self.local_model_manager.state();
         let state_json =
             serde_json::to_value(&state).map_err(|e| ServiceError::Processing(e.to_string()))?;
-        let models_json = manifest
-            .models
-            .iter()
-            .map(|model| {
-                let mut value = serde_json::to_value(model)
-                    .map_err(|e| ServiceError::Processing(e.to_string()))?;
-                if let Some(object) = value.as_object_mut() {
-                    object.insert(
-                        "installed".to_string(),
-                        json!(self.local_model_manager.is_model_installed(&model.id)),
-                    );
-                }
-                Ok(value)
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let mut models_json = Vec::with_capacity(manifest.models.len());
+        for model in &manifest.models {
+            let mut value =
+                serde_json::to_value(model).map_err(|e| ServiceError::Processing(e.to_string()))?;
+            let installed = self.local_model_manager.is_model_file_present(&model.id);
+            if let Some(object) = value.as_object_mut() {
+                object.insert("installed".to_string(), json!(installed));
+            }
+            models_json.push(value);
+        }
         Ok(json!({
+            "runtime": {
+                "installed": runtime_installed,
+            },
             "models": models_json,
             "state": state_json,
         }))
     }
 
-    /// Trigger download of the binary + model GGUF.  State updates are pushed
+    /// Trigger download of the llama-server runtime binary. State updates are pushed
     /// as `LocalModelStateChanged` notifications.
-    async fn handle_local_model_download(
-        &self,
-        conn_id: &str,
-        req: infra::LocalModelDownloadRequest,
-    ) -> Result<Value> {
-        let http = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(15))
-            .build()
-            .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        let manifest = fetch_manifest(&http).await.map_err(|e| {
-            ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
-        })?;
+    async fn handle_local_model_runtime_download(&self, _conn_id: &str) -> Result<Value> {
+        let manifest = self.fetch_local_model_manifest().await?;
 
         let manager = Arc::clone(&self.local_model_manager);
         let ws_manager = self.ws_manager.get().cloned();
-        let conn_id = conn_id.to_string();
+
+        let mut state_rx = manager.subscribe();
+        let ws_mgr_notify = ws_manager.clone();
+        tokio::spawn(async move {
+            while let Ok(state) = state_rx.recv().await {
+                if let Some(ref mgr) = ws_mgr_notify {
+                    if let Ok(state_json) = serde_json::to_value(&state) {
+                        let notification = infra::WsMessage::notification(
+                            WsEvent::LocalModelStateChanged,
+                            json!({ "state": state_json }),
+                        );
+                        let _ = mgr.broadcast(&notification).await;
+                    }
+                    if matches!(
+                        state,
+                        local_model_runtime::LocalModelState::NotInstalled
+                            | local_model_runtime::LocalModelState::Failed { .. }
+                    ) {
+                        break;
+                    }
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            if let Err(e) = manager.ensure_binary(&manifest).await {
+                tracing::error!("[LocalModel] runtime download failed: {e}");
+                manager.mark_failed(format!("Runtime download failed: {e}"));
+                return;
+            }
+            manager.mark_not_installed();
+        });
+
+        Ok(json!({ "ok": true }))
+    }
+
+    /// Trigger download of the model GGUF.  State updates are pushed
+    /// as `LocalModelStateChanged` notifications.
+    async fn handle_local_model_download(
+        &self,
+        _conn_id: &str,
+        req: infra::LocalModelDownloadRequest,
+    ) -> Result<Value> {
+        let manifest = self.fetch_local_model_manifest().await?;
+
+        let manager = Arc::clone(&self.local_model_manager);
+        let ws_manager = self.ws_manager.get().cloned();
         let model_id = req.model_id.clone();
 
         // Subscribe to state changes and forward them as WS notifications.
         let mut state_rx = manager.subscribe();
         let ws_mgr_notify = ws_manager.clone();
-        let conn_id_notify = conn_id.clone();
         tokio::spawn(async move {
             while let Ok(state) = state_rx.recv().await {
                 if let Some(ref mgr) = ws_mgr_notify {
@@ -5070,11 +5139,6 @@ set -x
         });
 
         tokio::spawn(async move {
-            if let Err(e) = manager.ensure_binary(&manifest, &model_id).await {
-                tracing::error!("[LocalModel] binary download failed: {e}");
-                manager.mark_failed(format!("Binary download failed: {e}"));
-                return;
-            }
             if let Err(e) = manager.ensure_model(&manifest, &model_id).await {
                 tracing::error!("[LocalModel] model download failed: {e}");
                 manager.mark_failed(format!("Model download failed: {e}"));
@@ -5089,25 +5153,17 @@ set -x
     /// Start the llama-server for a given model.
     async fn handle_local_model_start(
         &self,
-        conn_id: &str,
+        _conn_id: &str,
         req: infra::LocalModelStartRequest,
     ) -> Result<Value> {
-        let http = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(15))
-            .build()
-            .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        let manifest = fetch_manifest(&http).await.map_err(|e| {
-            ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
-        })?;
+        let manifest = self.fetch_local_model_manifest().await?;
 
         let manager = Arc::clone(&self.local_model_manager);
         let ws_manager = self.ws_manager.get().cloned();
-        let conn_id = conn_id.to_string();
         let model_id = req.model_id.clone();
 
         let mut state_rx = manager.subscribe();
         let ws_mgr_notify = ws_manager.clone();
-        let conn_id_notify = conn_id.clone();
         tokio::spawn(async move {
             while let Ok(state) = state_rx.recv().await {
                 if let Some(ref mgr) = ws_mgr_notify {
@@ -5145,10 +5201,9 @@ set -x
     }
 
     /// Stop the running llama-server.
-    async fn handle_local_model_stop(&self, conn_id: &str) -> Result<Value> {
+    async fn handle_local_model_stop(&self, _conn_id: &str) -> Result<Value> {
         let manager = Arc::clone(&self.local_model_manager);
         let ws_manager = self.ws_manager.get().cloned();
-        let conn_id = conn_id.to_string();
         manager
             .stop()
             .await
@@ -5167,7 +5222,7 @@ set -x
     /// Delete a downloaded model file.
     async fn handle_local_model_delete(
         &self,
-        conn_id: &str,
+        _conn_id: &str,
         req: infra::LocalModelDeleteRequest,
     ) -> Result<Value> {
         let manager = Arc::clone(&self.local_model_manager);
@@ -5184,6 +5239,78 @@ set -x
             let _ = mgr.broadcast(&notification).await;
         }
         Ok(json!({ "ok": true }))
+    }
+
+    async fn handle_local_model_resolve_hf_url(
+        &self,
+        req: infra::LocalModelResolveHfUrlRequest,
+    ) -> Result<Value> {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let resolved = resolve_hf_model_url(&http, &req.url).await.map_err(|e| {
+            ServiceError::Processing(format!("Failed to resolve Hugging Face URL: {e}"))
+        })?;
+        serde_json::to_value(resolved).map_err(|e| ServiceError::Processing(e.to_string()))
+    }
+
+    async fn handle_local_model_custom_add(
+        &self,
+        req: infra::LocalModelCustomAddRequest,
+    ) -> Result<Value> {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let resolved = resolve_hf_model_url(&http, &req.url).await.map_err(|e| {
+            ServiceError::Processing(format!("Failed to resolve Hugging Face URL: {e}"))
+        })?;
+        let HfResolveResult::Model { mut model } = resolved else {
+            return Err(ServiceError::Validation(
+                "Choose a specific GGUF file before adding the custom model".to_string(),
+            ));
+        };
+
+        if let Some(display_name) = req
+            .display_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            model.display_name = display_name.to_string();
+        }
+        if let Some(ram_footprint_mb) = req.ram_footprint_mb.filter(|value| *value > 0) {
+            model.ram_footprint_mb = ram_footprint_mb;
+        }
+
+        let model = upsert_custom_model(model).map_err(|e| {
+            ServiceError::Processing(format!("Failed to save custom local model: {e}"))
+        })?;
+        Ok(json!({ "ok": true, "model": model }))
+    }
+
+    async fn handle_local_model_custom_delete(
+        &self,
+        req: infra::LocalModelCustomDeleteRequest,
+    ) -> Result<Value> {
+        let custom_models = load_custom_models().map_err(|e| {
+            ServiceError::Processing(format!("Failed to read custom local models: {e}"))
+        })?;
+        if !custom_models.iter().any(|model| model.id == req.model_id) {
+            return Err(ServiceError::Validation(
+                "Custom local model not found".to_string(),
+            ));
+        }
+
+        self.local_model_manager
+            .delete_model(&req.model_id)
+            .await
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let removed = remove_custom_model(&req.model_id).map_err(|e| {
+            ServiceError::Processing(format!("Failed to remove custom local model: {e}"))
+        })?;
+        Ok(json!({ "ok": removed }))
     }
 
     /// Return the current runtime state.

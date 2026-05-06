@@ -55,6 +55,7 @@ import {
   ChevronDown,
   Download,
   ExternalLink,
+  House,
   Languages,
   LoaderCircle,
   Package,
@@ -110,7 +111,7 @@ import {
 } from '@/api/ws-api';
 import { systemApi } from '@/api/rest-api';
 import { LlmProviderEditorDialog } from '@/components/layout/LlmProvidersModal';
-import { LocalModelPanel } from '@/components/dialogs/LocalModelPanel';
+import { LocalModelPanel, LocalModelRuntimeControl } from '@/components/dialogs/LocalModelPanel';
 import { WIKI_LANGUAGE_OPTIONS } from '@/components/wiki/wiki-languages';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { settingsModalParams } from '@/lib/nuqs/searchParams';
@@ -3511,17 +3512,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       defaultOpen
                       className="overflow-hidden rounded-2xl border border-border"
                     >
-                      <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-3 px-6 py-5 text-left">
-                        <span className="relative mt-0.5 size-5 shrink-0">
-                          <ChevronDown className="absolute inset-0 size-5 transition-all duration-150 group-data-[state=closed]:-rotate-90" />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-base font-medium text-foreground">Local Model</p>
-                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            Run a small language model on-device — no API key required.
-                          </p>
+                      <div className="grid gap-4 px-6 py-5 sm:grid-cols-[minmax(0,1fr)_auto]">
+                        <CollapsibleTrigger className="group flex min-w-0 cursor-pointer items-start gap-3 pt-0.5 text-left">
+                          <span className="relative mt-0.5 size-5 shrink-0">
+                            <House className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                            <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-base font-medium text-foreground">Local Model</p>
+                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                              Run a small language model on-device — no API key required.
+                            </p>
+                          </div>
+                        </CollapsibleTrigger>
+                        <div className="flex items-start justify-end">
+                          <LocalModelRuntimeControl />
                         </div>
-                      </CollapsibleTrigger>
+                      </div>
                       <CollapsibleContent>
                         <div className="border-t border-border px-6 py-4">
                           <LocalModelPanel />

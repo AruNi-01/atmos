@@ -182,11 +182,15 @@ export type WsAction =
   | "github_actions_detail"
   // Local Model 操作
   | "local_model_list"
+  | "local_model_runtime_download"
   | "local_model_download"
   | "local_model_start"
   | "local_model_stop"
   | "local_model_delete"
-  | "local_model_status";
+  | "local_model_status"
+  | "local_model_resolve_hf_url"
+  | "local_model_custom_add"
+  | "local_model_custom_delete";
 
 export interface WsRequest {
   type: "request";

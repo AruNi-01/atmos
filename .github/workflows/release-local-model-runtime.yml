@@ -12,7 +12,7 @@ on:
       llama_cpp_ref:
         description: "llama.cpp tag or commit"
         required: true
-        default: "b5000"
+        default: "b9038"
       create_release:
         description: "Create GitHub Release"
         required: true
@@ -35,6 +35,7 @@ jobs:
       release_tag: ${{ steps.resolve.outputs.release_tag }}
       release_version: ${{ steps.resolve.outputs.release_version }}
       llama_cpp_ref: ${{ steps.resolve.outputs.llama_cpp_ref }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v5
       - id: resolve
@@ -43,12 +44,15 @@ jobs:
             echo "create_release=true" >> $GITHUB_OUTPUT
             echo "release_tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
             echo "release_version=${GITHUB_REF_NAME#local-model-runtime-v}" >> $GITHUB_OUTPUT
-            echo "llama_cpp_ref=b5000" >> $GITHUB_OUTPUT
+            echo "llama_cpp_ref=b9038" >> $GITHUB_OUTPUT
+            echo "prerelease=false" >> $GITHUB_OUTPUT
           else
             echo "create_release=${{ github.event.inputs.create_release }}" >> $GITHUB_OUTPUT
-            echo "release_tag=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
-            echo "release_version=${{ github.event.inputs.release_tag }}" >> $GITHUB_OUTPUT
+            release_tag="${{ github.event.inputs.release_tag }}"
+            echo "release_tag=${release_tag}" >> $GITHUB_OUTPUT
+            echo "release_version=${release_tag#local-model-runtime-v}" >> $GITHUB_OUTPUT
             echo "llama_cpp_ref=${{ github.event.inputs.llama_cpp_ref }}" >> $GITHUB_OUTPUT
+            echo "prerelease=${{ github.event.inputs.prerelease }}" >> $GITHUB_OUTPUT
           fi
 
   create-release:
@@ -57,12 +61,18 @@ jobs:
     needs: resolve-config
     steps:
       - uses: actions/checkout@v5
-      - name: Create draft release
+      - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ needs.resolve-config.outputs.release_tag }}
+          PRERELEASE: ${{ needs.resolve-config.outputs.prerelease }}
         run: |
-          gh release create "$RELEASE_TAG" --draft --title "Atmos Local Model Runtime ${{ needs.resolve-config.outputs.release_version }}" || true
+          PRERELEASE_FLAG=""
+          if [ "$PRERELEASE" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || \
+            gh release create "$RELEASE_TAG" $PRERELEASE_FLAG --title "Atmos Local Model Runtime ${{ needs.resolve-config.outputs.release_version }}"
 
   build-llama-server:
     needs: [resolve-config, create-release]
@@ -150,13 +160,18 @@ jobs:
           $SIZE = (Get-Item "atmos-llama-server-${{ matrix.target }}.zip").Length
           echo "SHA256=$SHA256" >> $env:GITHUB_ENV
           echo "SIZE=$SIZE" >> $env:GITHUB_ENV
+      - name: Write checksum artifact files
+        run: |
+          mkdir -p checksum
+          printf '%s' "${SHA256}" > checksum/SHA256
+          printf '%s' "${SIZE}" > checksum/SIZE
       - name: Upload checksums as artifact
         uses: actions/upload-artifact@v6
         with:
           name: checksums-${{ matrix.target }}
           path: |
-            ${{ env.SHA256 }}
-            ${{ env.SIZE }}
+            checksum/SHA256
+            checksum/SIZE
       - name: Upload asset
         if: needs.resolve-config.outputs.create_release == 'true'
         env:
@@ -201,19 +216,34 @@ jobs:
             "version": 1,
             "models": [
               {
-                "id": "qwen2.5-0.5b-instruct-q4_k_m",
-                "display_name": "Qwen2.5 0.5B Instruct",
-                "description": "Small local model for lightweight tasks like git commit messages.",
+                "id": "qwen3.5-2b-q4_k_m",
+                "display_name": "Qwen3.5 2B Q4_K_M",
+                "description": "Compact local model for everyday lightweight tasks and short assistant responses.",
                 "license": "Apache-2.0",
-                "license_url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
-                "ram_footprint_mb": 1024,
-                "recommended_context_size": 4096,
-                "gguf_url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+                "license_url": "https://huggingface.co/Qwen/Qwen3.5-2B",
+                "ram_footprint_mb": 1229,
+                "recommended_context_size": 8192,
+                "gguf_url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
                 "mirror_urls": [],
-                "sha256": "PLACEHOLDER_SHA256",
-                "size_bytes": 397000000,
-                "tags": ["small", "fast"],
+                "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+                "size_bytes": 1280000000,
+                "tags": ["2B", "Q4_K_M", "fast"],
                 "recommended": true
+              },
+              {
+                "id": "qwen3.5-4b-instruct-q4_k_m",
+                "display_name": "Qwen3.5 4B Instruct Q4_K_M",
+                "description": "Stronger local model for higher quality responses when more memory is available.",
+                "license": "Apache-2.0",
+                "license_url": "https://huggingface.co/Qwen/Qwen3.5-4B",
+                "ram_footprint_mb": 2560,
+                "recommended_context_size": 8192,
+                "gguf_url": "https://huggingface.co/openresearchtools/Qwen3.5-4B-Instruct-GGUF/resolve/main/qwen3.5-4b-instruct-Q4_K_M.gguf",
+                "mirror_urls": [],
+                "sha256": "2e3c607324e016a3f59bced47a5fa411330f1a252d18ad0237caded161f12b45",
+                "size_bytes": 2710000000,
+                "tags": ["4B", "Q4_K_M", "quality"],
+                "recommended": false
               }
             ],
             "binaries": [

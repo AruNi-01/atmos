@@ -28,7 +28,10 @@ pub async fn fetch_manifest(client: &Client) -> Result<ModelManifest> {
     }
 
     // Try GitHub Release URL
-    debug!("Fetching local model manifest from GitHub Release: {}", DEFAULT_MANIFEST_URL);
+    debug!(
+        "Fetching local model manifest from GitHub Release: {}",
+        DEFAULT_MANIFEST_URL
+    );
     if let Ok(manifest) = fetch_from_url(client, DEFAULT_MANIFEST_URL).await {
         return Ok(manifest);
     }
@@ -49,8 +52,9 @@ async fn fetch_from_url(client: &Client, url: &str) -> Result<ModelManifest> {
 /// Load the bundled fallback manifest.
 fn fetch_bundled_manifest() -> Result<ModelManifest> {
     let manifest_json = include_str!("../../manifest/default.json");
-    let manifest: ModelManifest = serde_json::from_str(manifest_json)
-        .map_err(|e| crate::error::LocalModelError::Runtime(format!("Failed to parse bundled manifest: {}", e)))?;
+    let manifest: ModelManifest = serde_json::from_str(manifest_json).map_err(|e| {
+        crate::error::LocalModelError::Runtime(format!("Failed to parse bundled manifest: {}", e))
+    })?;
     Ok(manifest)
 }
 

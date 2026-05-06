@@ -469,7 +469,9 @@ pub enum WsAction {
     // ===== Local Model =====
     /// Fetch the remote model manifest and return available models + current state
     LocalModelList,
-    /// Download the binary + model GGUF (streams state via LocalModelStateChanged)
+    /// Download the llama-server runtime binary
+    LocalModelRuntimeDownload,
+    /// Download a model GGUF (streams state via LocalModelStateChanged)
     LocalModelDownload,
     /// Start the llama-server for a given model
     LocalModelStart,
@@ -479,6 +481,12 @@ pub enum WsAction {
     LocalModelDelete,
     /// Get the current runtime state
     LocalModelStatus,
+    /// Resolve metadata from a Hugging Face GGUF URL
+    LocalModelResolveHfUrl,
+    /// Add a custom Hugging Face GGUF model
+    LocalModelCustomAdd,
+    /// Remove a custom Hugging Face GGUF model
+    LocalModelCustomDelete,
 }
 
 /// 服务端主动推送的事件类型
@@ -1996,6 +2004,28 @@ pub struct LocalModelStartRequest {
 /// Request to delete a downloaded model.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocalModelDeleteRequest {
+    pub model_id: String,
+}
+
+/// Request to resolve a Hugging Face model or GGUF file URL.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelResolveHfUrlRequest {
+    pub url: String,
+}
+
+/// Request to add a custom Hugging Face GGUF model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelCustomAddRequest {
+    pub url: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub ram_footprint_mb: Option<u64>,
+}
+
+/// Request to remove a custom Hugging Face GGUF model.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelCustomDeleteRequest {
     pub model_id: String,
 }
 
