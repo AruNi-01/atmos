@@ -56,7 +56,8 @@ export default function (amp: PluginAPI) {{
   }})
 
   amp.on("tool.call", async (event, _ctx) => {{
-    await post({{ hook_event_name: "ToolCall", tool: event.tool }})
+    // Fire-and-forget: do not await so tool execution is never stalled by hook latency
+    post({{ hook_event_name: "ToolCall", tool: event.tool }})
     return {{ action: "allow" }}
   }})
 
@@ -133,8 +134,9 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
 
     let path_str = plugin_file.display().to_string();
 
-    if let Ok(content) = std::fs::read_to_string(&plugin_file) {
-        if !content.contains(PLUGIN_MARKER) {
+    match std::fs::read_to_string(&plugin_file) {
+        Err(e) => return AgentHookToolStatus::failed(&path_str, e.to_string()),
+        Ok(content) if !content.contains(PLUGIN_MARKER) => {
             return AgentHookToolStatus {
                 detected: true,
                 installed: false,
@@ -142,6 +144,7 @@ pub(super) fn uninstall() -> AgentHookToolStatus {
                 error: None,
             };
         }
+        Ok(_) => {}
     }
 
     match std::fs::remove_file(&plugin_file) {
