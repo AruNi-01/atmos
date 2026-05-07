@@ -54,6 +54,7 @@ import {
   Check,
   ChevronDown,
   CircleCheck,
+  CircleMinus,
   CircleX,
   Download,
   ExternalLink,
@@ -440,7 +441,7 @@ function AgentHookStatusCard() {
                       ? tool.installed
                         ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" />
                         : <CircleX className="size-3.5 shrink-0 text-amber-500" />
-                      : <span className="size-3.5 shrink-0" />
+                      : <CircleMinus className="size-3.5 shrink-0 text-muted-foreground/50" />
                     }
                     <span className="text-sm font-medium text-foreground w-28 shrink-0">{label}</span>
                     <div className="flex flex-1 items-center gap-2 min-w-0">
@@ -459,11 +460,11 @@ function AgentHookStatusCard() {
                     <div className="shrink-0">
                       {tool.detected && !tool.error && (
                         tool.installed ? (
-                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive" disabled={isBusy || acting} onClick={() => handleUninstallTool(key)}>
+                          <Button variant="secondary" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive" disabled={isBusy || acting} onClick={() => handleUninstallTool(key)}>
                             {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : "Uninstall"}
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={isBusy || acting} onClick={() => handleInstallTool(key)}>
+                          <Button variant="secondary" size="sm" className="h-6 px-2 text-xs" disabled={isBusy || acting} onClick={() => handleInstallTool(key)}>
                             {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : "Install"}
                           </Button>
                         )
