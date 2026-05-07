@@ -77,8 +77,9 @@ use crate::error::{Result, ServiceError};
 use crate::service::git_commit_message::GitCommitMessageGenerator;
 use crate::service::review::{
     AddReviewMessageInput, CreateReviewAgentRunInput, CreateReviewCommentInput,
-    CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, SetReviewAgentRunStatusInput,
-    SetReviewFileReviewedInput, UpdateReviewCommentStatusInput, UpdateReviewMessageInput,
+    CreateReviewSessionInput, DeleteReviewMessageInput, ReviewAnchor, ReviewTarget,
+    SetReviewAgentRunStatusInput, SetReviewFileReviewedInput, UpdateReviewCommentStatusInput,
+    UpdateReviewMessageInput,
 };
 use crate::{
     AgentService, AgentSessionService, ProjectService, ReviewService, TerminalService,
@@ -4542,11 +4543,46 @@ set -x
         Ok(json!({ "ok": true }))
     }
 
+    fn parse_target(
+        workspace_guid: Option<String>,
+        project_guid: Option<String>,
+    ) -> Result<ReviewTarget> {
+        // Normalize inputs: trim whitespace and treat empty strings as None
+        let workspace_guid = workspace_guid.and_then(|s| {
+            let trimmed = s.trim();
+            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+        });
+        let project_guid = project_guid.and_then(|s| {
+            let trimmed = s.trim();
+            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+        });
+
+        match (workspace_guid, project_guid) {
+            (Some(w), None) => Ok(ReviewTarget::Workspace { workspace_guid: w }),
+            (None, Some(p)) => Ok(ReviewTarget::Project { project_guid: p }),
+            (Some(_), Some(_)) => Err(ServiceError::Validation(
+                "Specify exactly one of workspace_guid or project_guid".to_string(),
+            )),
+            (None, None) => Err(ServiceError::Validation(
+                "workspace_guid or project_guid is required".to_string(),
+            )),
+        }
+    }
+
     async fn handle_review_session_list(&self, req: ReviewSessionListRequest) -> Result<Value> {
-        let sessions = self
-            .review_service
-            .list_sessions_by_workspace(req.workspace_guid, req.include_archived)
-            .await?;
+        let target = Self::parse_target(req.workspace_guid, req.project_guid)?;
+        let sessions = match target {
+            ReviewTarget::Workspace { workspace_guid } => {
+                self.review_service
+                    .list_sessions_by_workspace(workspace_guid, req.include_archived)
+                    .await?
+            }
+            ReviewTarget::Project { project_guid } => {
+                self.review_service
+                    .list_sessions_by_project(project_guid, req.include_archived)
+                    .await?
+            }
+        };
         Ok(json!(sessions))
     }
 
@@ -4556,10 +4592,11 @@ set -x
     }
 
     async fn handle_review_session_create(&self, req: ReviewSessionCreateRequest) -> Result<Value> {
+        let target = Self::parse_target(req.workspace_guid, req.project_guid)?;
         let session = self
             .review_service
             .create_session(CreateReviewSessionInput {
-                workspace_guid: req.workspace_guid,
+                target,
                 title: req.title,
                 created_by: req.created_by,
             })
@@ -5504,5 +5541,45 @@ impl WsMessageHandler for WsMessageService {
 
     async fn on_disconnect(&self, conn_id: &str) {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::service::review::ReviewTarget;
+
+    // ── S10: parse_target unit tests ──────────────────────────────────────────
+
+    #[test]
+    fn s10_parse_target_workspace_only() {
+        let result = WsMessageService::parse_target(Some("ws-1".into()), None);
+        match result.unwrap() {
+            ReviewTarget::Workspace { workspace_guid } => assert_eq!(workspace_guid, "ws-1"),
+            _ => panic!("expected Workspace variant"),
+        }
+    }
+
+    #[test]
+    fn s10_parse_target_project_only() {
+        let result = WsMessageService::parse_target(None, Some("pj-1".into()));
+        match result.unwrap() {
+            ReviewTarget::Project { project_guid } => assert_eq!(project_guid, "pj-1"),
+            _ => panic!("expected Project variant"),
+        }
+    }
+
+    #[test]
+    fn s10_parse_target_both_set_returns_error() {
+        let result = WsMessageService::parse_target(Some("ws-1".into()), Some("pj-1".into()));
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("Specify exactly one"));
+    }
+
+    #[test]
+    fn s10_parse_target_neither_set_returns_error() {
+        let result = WsMessageService::parse_target(None, None);
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("required"));
     }
 }

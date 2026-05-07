@@ -76,6 +76,7 @@ import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { codeAgentCustomApi, type CodeAgentCustomEntry, functionSettingsApi } from "@/api/ws-api";
+import type { ReviewTarget } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import type { TerminalPaneAgent } from "@/components/terminal/types";
 import WelcomePage from "@/components/welcome/WelcomePage";
@@ -439,7 +440,7 @@ const CenterStage: React.FC = () => {
   // Wait for editor store hydration to avoid SSR mismatch
   useEditorStoreHydration();
 
-  const { workspaceId, effectiveContextId, currentView } = useContextParams();
+  const { workspaceId, projectId: projectIdFromUrl, effectiveContextId, currentView } = useContextParams();
   const {
     terminalTabs,
     createTerminalTab,
@@ -607,6 +608,12 @@ const CenterStage: React.FC = () => {
   const projects = useProjectStore(s => s.projects);
   const clearSetupProgress = useProjectStore(s => s.clearSetupProgress);
   const { currentBranch } = useGitInfoStore();
+
+  const reviewTarget = React.useMemo((): ReviewTarget | null => {
+    if (workspaceId) return { kind: "workspace", workspaceId };
+    if (projectIdFromUrl) return { kind: "project", projectId: projectIdFromUrl };
+    return null;
+  }, [workspaceId, projectIdFromUrl]);
 
   const closeFilesSafely = (files: OpenFile[]) => {
     if (files.length === 0) return;
@@ -2253,7 +2260,7 @@ const CenterStage: React.FC = () => {
           >
             {isDiffEditorPath(file.path) && currentRepoPath ? (
                 <ReviewContextProvider
-                  workspaceId={workspaceId}
+                  target={reviewTarget}
                   filePath={getEditorSourcePath(file.path)}
                   fileSnapshotGuid={
                     file.path.startsWith('review-diff://')
@@ -2460,6 +2467,7 @@ const CenterStage: React.FC = () => {
           open={isCodeReviewDialogOpen}
           onOpenChange={setCodeReviewDialogOpen}
           workspaceId={effectiveContextId}
+          reviewTarget={reviewTarget ?? undefined}
           projectName={currentProject?.name}
           workspacePath={currentWorkspace?.localPath || currentProject?.mainFilePath || ""}
           projectMainPath={currentProject?.mainFilePath}

@@ -20,6 +20,7 @@ import { FrozenFileList } from "@/components/diff/review/FrozenFileList";
 import {
   compareReviewTimestamps,
   formatReviewDateTime,
+  getScopeBadgeText,
   isOpenReviewCommentStatus,
   sortComments,
 } from "@/components/diff/review/utils";
@@ -28,9 +29,12 @@ import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 const REVIEW_FILE_VIEW_MODE_STORAGE_KEY = "atmos:right-sidebar:review-file-view-mode";
 
 const ReviewView: React.FC = () => {
-  const { workspaceId } = useContextParams();
+  const { effectiveContextId } = useContextParams();
+  // For review-diff editor tabs, use the same context key as the main editor
+  // to ensure file/comment navigation opens in the correct tab namespace.
+  const reviewEditorKey = effectiveContextId;
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
-  const rawFilePath = (workspaceId && getActiveFilePath(workspaceId)) || "";
+  const rawFilePath = (reviewEditorKey && getActiveFilePath(reviewEditorKey)) || "";
   const filePath = rawFilePath.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
     ? getEditorSourcePath(rawFilePath)
     : "";
@@ -109,10 +113,10 @@ const ReviewView: React.FC = () => {
     }
   }, [summaryRunGuid, hasLoadedSummary, artifactLoading, handlePreviewArtifact]);
 
-  if (!workspaceId) {
+  if (!reviewEditorKey) {
     return (
       <div className="p-3 text-xs text-muted-foreground">
-        No workspace selected.
+        No project or workspace selected.
       </div>
     );
   }
@@ -123,7 +127,7 @@ const ReviewView: React.FC = () => {
         <div className="rounded-lg border border-dashed border-sidebar-border bg-background/70 p-4 text-center">
           <p className="text-sm text-foreground">No review session yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Start a session to track comments and fix runs for this workspace.
+            Start a session to track comments and fix runs for this workspace or project.
           </p>
           <Button
             size="sm"
@@ -153,6 +157,10 @@ const ReviewView: React.FC = () => {
       {/* Inline stats line */}
       <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          {/* N2: scope badge */}
+          <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground border border-border">
+            {getScopeBadgeText(currentSession)}
+          </span>
           <span>{openCommentCount} open</span>
           <span>·</span>
           <span>
@@ -213,7 +221,7 @@ const ReviewView: React.FC = () => {
                       label,
                       filePath: snapFilePath,
                     });
-                    void openFile(`${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`, workspaceId, { preview: true });
+                    void openFile(`${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`, reviewEditorKey, { preview: true });
                   }}
                   onDoubleClickFile={(snapshotGuid, snapFilePath) => {
                     const tabPath = `${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`;
@@ -222,8 +230,8 @@ const ReviewView: React.FC = () => {
                       label: revisionLabel,
                       filePath: snapFilePath,
                     });
-                    void openFile(tabPath, workspaceId, { preview: false });
-                    pinFile(tabPath, workspaceId || undefined);
+                    void openFile(tabPath, reviewEditorKey, { preview: false });
+                    pinFile(tabPath, reviewEditorKey ?? undefined);
                   }}
                   onToggleReviewed={handleToggleReviewed}
                   revisionLabel={revisionLabel}
@@ -324,7 +332,7 @@ const ReviewView: React.FC = () => {
                               label: revisionLabel,
                               filePath: snapFilePath,
                             });
-                            void openFile(tabPath, workspaceId, {
+                            void openFile(tabPath, reviewEditorKey, {
                               preview: true,
                               line: targetComment.anchor_start_line,
                               reviewCommentGuid: targetComment.guid,

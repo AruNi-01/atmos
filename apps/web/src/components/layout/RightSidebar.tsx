@@ -58,6 +58,7 @@ import { ChangeSection } from "@/components/layout/sidebar/ChangeSection";
 import { CommitActions } from "@/components/layout/sidebar/CommitActions";
 import { RightSidebarDialogs } from "@/components/layout/sidebar/RightSidebarDialogs";
 import { ReviewContextProvider } from "@/components/diff/review/ReviewContextProvider";
+import type { ReviewTarget } from "@/api/ws-api";
 import { ReviewActions } from "@/components/diff/review/ReviewActions";
 import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
 
@@ -102,7 +103,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
-  const filePath = (workspaceId && getActiveFilePath(workspaceId)) || "";
+  const contextId = workspaceId || projectIdFromUrl;
+  const filePath = (contextId && getActiveFilePath(contextId)) || "";
   const projects = useProjectStore((s) => s.projects);
   const { enqueueAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
   const [, setAgentChatOpen] = useAgentChatUrl();
@@ -138,6 +140,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   );
 
   const effectiveContextId = workspaceId || projectIdFromUrl;
+
+  const reviewTarget = useMemo((): ReviewTarget | null => {
+    if (workspaceId) return { kind: "workspace", workspaceId };
+    if (projectIdFromUrl) return { kind: "project", projectId: projectIdFromUrl };
+    return null;
+  }, [workspaceId, projectIdFromUrl]);
 
   const {
     stagedFiles,
@@ -696,7 +704,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           >
             {hasWorkingContext ? (
               <ReviewContextProvider
-                workspaceId={workspaceId}
+                target={reviewTarget}
                 filePath={filePath}
               >
                 {/* Review actions bar */}

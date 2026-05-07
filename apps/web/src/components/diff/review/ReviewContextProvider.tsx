@@ -2,23 +2,24 @@
 
 import React, { createContext, useContext, useMemo } from "react";
 import { useReviewContext, type ReviewContext } from "@/hooks/use-review-context";
+import type { ReviewTarget } from "@/api/ws-api";
 
 const ReviewCtx = createContext<ReviewContext | null>(null);
 
 interface ReviewContextProviderProps {
-  workspaceId: string | null;
+  target: ReviewTarget | null;
   filePath: string;
   fileSnapshotGuid?: string | null;
   children: React.ReactNode;
 }
 
 export const ReviewContextProvider: React.FC<ReviewContextProviderProps> = ({
-  workspaceId,
+  target,
   filePath,
   fileSnapshotGuid,
   children,
 }) => {
-  const ctx = useReviewContext({ workspaceId, filePath, fileSnapshotGuid });
+  const ctx = useReviewContext({ target, filePath, fileSnapshotGuid });
 
   // Memoize context value to avoid unnecessary re-renders
   const contextValue = useMemo(() => ctx, [

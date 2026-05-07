@@ -11,7 +11,7 @@ pub struct Model {
     pub created_at: DateTime,
     pub updated_at: DateTime,
     pub is_deleted: bool,
-    pub workspace_guid: String,
+    pub workspace_guid: Option<String>,
     pub project_guid: String,
     pub repo_path: String,
     pub storage_root_rel_path: String,
