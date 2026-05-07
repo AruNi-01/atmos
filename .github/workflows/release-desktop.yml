@@ -405,7 +405,7 @@ jobs:
           fi
 
           if [ "$PRERELEASE" = "true" ]; then
-            jq -Rs '{draft: false, body: ., make_latest: "legacy"}' "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
+            jq -Rs '{draft: false, body: ., make_latest: false}' "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
           else
             jq -Rs '{draft: false, body: ., make_latest: true}' "${NOTES_PATH}" > "${RUNNER_TEMP}/release-payload.json"
           fi
