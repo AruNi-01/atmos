@@ -63,6 +63,7 @@ export default function (amp: PluginAPI) {{
 
   amp.on("tool.result", async (_event, _ctx) => {{
     await post({{ hook_event_name: "ToolResult" }})
+    return {{ action: "allow" }}
   }})
 
   amp.on("agent.end", async (event, _ctx) => {{
