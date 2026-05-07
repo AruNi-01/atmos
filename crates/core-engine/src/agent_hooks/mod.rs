@@ -151,3 +151,33 @@ fn home_dir() -> Result<PathBuf> {
     dirs::home_dir()
         .ok_or_else(|| EngineError::Processing("Cannot determine home directory".into()))
 }
+
+/// Install hook for a single tool. Returns `None` if `tool` is not a known tool name.
+pub fn install_hook(tool: &str, port: u16) -> Option<AgentHookToolStatus> {
+    Some(match tool {
+        "claude_code" => claude_code::install(port),
+        "codex" => codex::install(port),
+        "cursor" => cursor::install(port),
+        "gemini" => gemini::install(port),
+        "factory_droid" => factory_droid::install(port),
+        "kiro" => kiro::install(port),
+        "opencode" => opencode::install(port),
+        "ampcode" => ampcode::install(port),
+        _ => return None,
+    })
+}
+
+/// Uninstall hook for a single tool. Returns `None` if `tool` is not a known tool name.
+pub fn uninstall_hook(tool: &str) -> Option<AgentHookToolStatus> {
+    Some(match tool {
+        "claude_code" => claude_code::uninstall(),
+        "codex" => codex::uninstall(),
+        "cursor" => cursor::uninstall(),
+        "gemini" => gemini::uninstall(),
+        "factory_droid" => factory_droid::uninstall(),
+        "kiro" => kiro::uninstall(),
+        "opencode" => opencode::uninstall(),
+        "ampcode" => ampcode::uninstall(),
+        _ => return None,
+    })
+}
