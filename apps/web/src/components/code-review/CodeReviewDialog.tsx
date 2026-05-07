@@ -288,9 +288,13 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       .filter(Boolean)
       .join("_");
     const base = projectMainPath || workspacePath || ".";
-    const ctxId = workspaceId || "default";
+    // Derive context id from effective target
+    const effectiveTarget = reviewTarget ?? (workspaceId ? { kind: "workspace", workspaceId } : null);
+    const ctxId = effectiveTarget
+      ? (effectiveTarget.kind === "workspace" ? effectiveTarget.workspaceId : effectiveTarget.projectId)
+      : "default";
     return `${base}/.atmos/reviews/${ctxId}/${parts}.md`;
-  }, [projectName, currentBranch, projectMainPath, workspacePath, workspaceId]);
+  }, [projectName, currentBranch, projectMainPath, workspacePath, workspaceId, reviewTarget]);
 
   const handleStart = useCallback(
     async () => {

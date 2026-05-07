@@ -563,7 +563,7 @@ impl ReviewService {
                 ctx.project_guid.clone(),
                 ctx.repo_path.to_string_lossy().to_string(),
                 session_storage_root,
-                changed.compare_ref.clone(),
+                ctx.base_ref.clone().or_else(|| changed.compare_ref.clone()),
                 None,
                 head_commit.clone(),
                 revision_guid.clone(),
@@ -2779,6 +2779,18 @@ mod tests {
         infra::Migrator::up(&db, None).await.unwrap();
         Arc::new(db)
     }
+
+    fn run_cmd_assert_success(cmd: &mut std::process::Command) {
+        let output = cmd.output().expect("Command failed to execute");
+        assert!(
+            output.status.success(),
+            "Command failed with status {}: stdout: {}, stderr: {}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
     // ── S2: resolve_repo_context — project with target_branch set ─────────────
 
     #[tokio::test]
@@ -2788,11 +2800,11 @@ mod tests {
         let repo_path = tmp.path().to_string_lossy().to_string();
 
         // Init a bare git repo so GitEngine doesn't fail on get_default_branch
-        std::process::Command::new("git")
-            .args(["init", "-b", "main"])
-            .current_dir(tmp.path())
-            .output()
-            .ok();
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["init", "-b", "main"])
+                .current_dir(tmp.path()),
+        );
 
         let project = ProjectRepo::new(&db)
             .create(
@@ -2827,33 +2839,33 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
 
         // Init a git repo with a commit so origin/HEAD can be resolved locally
-        std::process::Command::new("git")
-            .args(["init", "-b", "main"])
-            .current_dir(tmp.path())
-            .output()
-            .ok();
-        std::process::Command::new("git")
-            .args(["config", "user.email", "test@test.com"])
-            .current_dir(tmp.path())
-            .output()
-            .ok();
-        std::process::Command::new("git")
-            .args(["config", "user.name", "Test"])
-            .current_dir(tmp.path())
-            .output()
-            .ok();
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["init", "-b", "main"])
+                .current_dir(tmp.path()),
+        );
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["config", "user.email", "test@test.com"])
+                .current_dir(tmp.path()),
+        );
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["config", "user.name", "Test"])
+                .current_dir(tmp.path()),
+        );
         // Create a file and commit so HEAD exists
         std::fs::write(tmp.path().join("README.md"), "test").unwrap();
-        std::process::Command::new("git")
-            .args(["add", "."])
-            .current_dir(tmp.path())
-            .output()
-            .ok();
-        std::process::Command::new("git")
-            .args(["commit", "-m", "init"])
-            .current_dir(tmp.path())
-            .output()
-            .ok();
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["add", "."])
+                .current_dir(tmp.path()),
+        );
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["commit", "-m", "init"])
+                .current_dir(tmp.path()),
+        );
 
         let repo_path = tmp.path().to_string_lossy().to_string();
         let project = ProjectRepo::new(&db)
@@ -2921,44 +2933,44 @@ mod tests {
         let work = tempfile::tempdir().unwrap();
 
         // Create a bare repo to act as the remote
-        std::process::Command::new("git")
-            .args(["init", "--bare", "-b", "main"])
-            .current_dir(bare.path())
-            .output()
-            .ok();
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["init", "--bare", "-b", "main"])
+                .current_dir(bare.path()),
+        );
 
         // Clone it so we have a proper remote
-        std::process::Command::new("git")
-            .args(["clone", bare.path().to_str().unwrap(), work.path().to_str().unwrap()])
-            .output()
-            .ok();
-        std::process::Command::new("git")
-            .args(["config", "user.email", "test@test.com"])
-            .current_dir(work.path())
-            .output()
-            .ok();
-        std::process::Command::new("git")
-            .args(["config", "user.name", "Test"])
-            .current_dir(work.path())
-            .output()
-            .ok();
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["clone", bare.path().to_str().unwrap(), work.path().to_str().unwrap()]),
+        );
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["config", "user.email", "test@test.com"])
+                .current_dir(work.path()),
+        );
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["config", "user.name", "Test"])
+                .current_dir(work.path()),
+        );
         // Commit and push so origin/main exists
         std::fs::write(work.path().join("README.md"), "test").unwrap();
-        std::process::Command::new("git")
-            .args(["add", "."])
-            .current_dir(work.path())
-            .output()
-            .ok();
-        std::process::Command::new("git")
-            .args(["commit", "-m", "init"])
-            .current_dir(work.path())
-            .output()
-            .ok();
-        std::process::Command::new("git")
-            .args(["push", "-u", "origin", "main"])
-            .current_dir(work.path())
-            .output()
-            .ok();
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["add", "."])
+                .current_dir(work.path()),
+        );
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["commit", "-m", "init"])
+                .current_dir(work.path()),
+        );
+        run_cmd_assert_success(
+            &mut std::process::Command::new("git")
+                .args(["push", "-u", "origin", "main"])
+                .current_dir(work.path()),
+        );
 
         let repo_path = work.path().to_string_lossy().to_string();
         let project = ProjectRepo::new(&db)

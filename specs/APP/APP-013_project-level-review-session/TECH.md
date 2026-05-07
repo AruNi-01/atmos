@@ -10,7 +10,7 @@ This doc resolves BRAINSTORM Fork 1 (schema shape) and the three "defer to TECH"
 
 ## Architecture overview
 
-```
+```text
 apps/web/components/diff/review        ← scope-aware Provider, View, Actions
         │
         ▼
@@ -256,19 +256,18 @@ No changes. All review traffic flows through the existing WS handler dispatcher 
 
 #### `apps/web/src/api/ws-api.ts`
 
-Update the typed wrappers around `review_session_list` and `review_session_create` to accept either `workspaceGuid` or `projectGuid`:
+Update the typed wrappers around `review_session_list` and `review_session_create` to accept a discriminated union for the target:
 
 ```ts
-export interface ReviewTarget {
-  workspaceGuid?: string;
-  projectGuid?: string;
-}
+export type ReviewTarget =
+  | { kind: "workspace"; workspaceId: string }
+  | { kind: "project"; projectId: string };
 
 reviewWsApi.listSessions(target: ReviewTarget, includeArchived = false)
-reviewWsApi.createSession(target: ReviewTarget, opts?: { title?: string; createdBy?: string })
+reviewWsApi.createSession(data: { target: ReviewTarget; title?: string | null; createdBy?: string | null })
 ```
 
-The runtime payload sends snake_case (`workspace_guid` / `project_guid`) per existing convention.
+The runtime payload sends snake_case (`workspace_guid` / `project_guid`) per existing convention, with the kind field determining which GUID is sent.
 
 #### `apps/web/src/hooks/use-review-context.ts`
 

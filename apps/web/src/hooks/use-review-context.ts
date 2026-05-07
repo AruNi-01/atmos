@@ -315,9 +315,10 @@ export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseRevi
       setSelectedSessionGuid(session.guid);
       setSelectedRevisionGuid(session.current_revision_guid);
       setSessions((prev) => [session, ...prev]);
+      const targetKind = target.kind === "workspace" ? "workspace" : "project";
       toastManager.add({
         title: "Review session started",
-        description: "Comments and reviewed file state are now tracked for this workspace.",
+        description: `Comments and reviewed file state are now tracked for this ${targetKind}.`,
         type: "success",
       });
     } catch (error) {

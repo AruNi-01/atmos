@@ -168,6 +168,11 @@ impl MigrationTrait for Migration {
             db.execute_unprepared(r#"ALTER TABLE "review_session_old" RENAME TO "review_session""#)
                 .await?;
         } else {
+            // Prune NULL rows before making the column NOT NULL
+            db.execute_unprepared(
+                r#"DELETE FROM "review_session" WHERE "workspace_guid" IS NULL"#,
+            )
+            .await?;
             db.execute_unprepared(
                 r#"ALTER TABLE "review_session" ALTER COLUMN "workspace_guid" SET NOT NULL"#,
             )

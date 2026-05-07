@@ -103,7 +103,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { workspaceId, projectId: projectIdFromUrl } = useContextParams();
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
-  const filePath = (workspaceId && getActiveFilePath(workspaceId)) || "";
+  const contextId = workspaceId || projectIdFromUrl;
+  const filePath = (contextId && getActiveFilePath(contextId)) || "";
   const projects = useProjectStore((s) => s.projects);
   const { enqueueAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
   const [, setAgentChatOpen] = useAgentChatUrl();

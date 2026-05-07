@@ -5,7 +5,7 @@
  * badge text. This is a pure logic test — no DOM rendering required.
  */
 
-// @ts-ignore bun:test is available at runtime but not in tsconfig types
+// @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, it, expect } from "bun:test";
 import type { ReviewSessionDto } from "@/api/ws-api";
 

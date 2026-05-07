@@ -25,7 +25,7 @@ Non-goals are listed in **Out of Scope** below.
 1. **Start a project review.** A solo developer makes changes on the project's main checkout, opens the right sidebar's Review tab on the project route, and clicks "New Review Session". A session is created against `project.target_branch`, listing all changed files.
 2. **Comment & fix.** They expand a changed file in the Review tab, leave inline comments, and trigger an AI fix run. The fix run rewrites the working tree on the project's current branch — same behavior as the workspace flow.
 3. **Coexist with workspace sessions.** While a project session is active, a teammate can independently start a workspace-scoped session in the same project; the two sessions are isolated and do not interfere.
-4. **Misconfiguration error path.** A user tries to start a project session, but the project has no `target_branch` set. The UI surfaces a clear validation error pointing them at the project's settings to configure a target branch.
+4. **Misconfiguration error path.** A user tries to start a project session, but the project has no `target_branch` set. The system falls back to the repository default branch and only surfaces an error if that fallback also fails. The error message points them at the project's settings to configure a target_branch.
 
 ## User Stories
 

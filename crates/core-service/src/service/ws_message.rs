@@ -4547,6 +4547,16 @@ set -x
         workspace_guid: Option<String>,
         project_guid: Option<String>,
     ) -> Result<ReviewTarget> {
+        // Normalize inputs: trim whitespace and treat empty strings as None
+        let workspace_guid = workspace_guid.and_then(|s| {
+            let trimmed = s.trim();
+            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+        });
+        let project_guid = project_guid.and_then(|s| {
+            let trimmed = s.trim();
+            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+        });
+
         match (workspace_guid, project_guid) {
             (Some(w), None) => Ok(ReviewTarget::Workspace { workspace_guid: w }),
             (None, Some(p)) => Ok(ReviewTarget::Project { project_guid: p }),

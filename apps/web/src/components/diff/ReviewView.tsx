@@ -126,7 +126,7 @@ const ReviewView: React.FC = () => {
         <div className="rounded-lg border border-dashed border-sidebar-border bg-background/70 p-4 text-center">
           <p className="text-sm text-foreground">No review session yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Start a session to track comments and fix runs for this workspace.
+            Start a session to track comments and fix runs for this workspace or project.
           </p>
           <Button
             size="sm"
