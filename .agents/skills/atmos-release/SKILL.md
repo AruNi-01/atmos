@@ -142,6 +142,39 @@ Do not load it for:
 - post-release verification only
 - Homebrew tap investigation only
 
+## Same-base-version continuity
+
+Every release-notes file under `releasenotes/` must be **self-sufficient** — it is published verbatim as the GitHub Release body and is the only document users see for that release. When a release shares its base version (`X.Y.Z`) with earlier pre-releases or RCs, the new file must carry forward their content instead of starting from the commit range alone.
+
+Why this rule exists:
+
+- `scripts/release/collect-desktop-release-context.mjs` picks the immediately previous desktop tag as the baseline. For an RC that follows another RC (or a stable that follows RCs), that tag range only contains the delta since the prior pre-release — typically just a bump commit or a single fix — and is insufficient as a stand-alone release note.
+- The release body is not an incremental changelog; it is the full product-facing description of the release.
+
+Apply the rule in these cases:
+
+- **Pre-release follows a pre-release of the same base** (e.g. `1.1.0-rc.2` after `1.1.0-rc.1`):
+  1. Read the previous pre-release file, `releasenotes/Atmos Desktop <base>-<prevTag>.md`.
+  2. Carry its body forward into the new file unchanged.
+  3. Insert a short `Changes Since <prevTag>` block at the top (above the existing content) that summarizes what changed since the previous pre-release. Keep the RC framing (for example the `Release candidate` callout) intact.
+  4. Only the `Changes Since ...` block needs to be generated from the commit-range context; the rest is inherited.
+
+- **Stable follows one or more pre-releases of the same base** (e.g. `1.1.0` after `1.1.0-rc.1`, `1.1.0-rc.2`):
+  1. Start from the most recent pre-release file as the foundation.
+  2. Remove the `Release candidate` framing, any `Changes Since RC*` preambles, and language that implies the release is still in progress.
+  3. Polish the surviving content into stable-release prose and merge in anything new from the final `rc.N..X.Y.Z` range.
+  4. The stable release notes must cover the full feature set introduced in the `X.Y.Z` line, not only the post-RC delta.
+
+- **Stable follows a stable (no pre-releases)** — normal flow: generate from the commit-range context alone. No continuity work required.
+
+How to locate sibling pre-release files:
+
+```bash
+ls "releasenotes/" | grep -E "^Atmos Desktop <base>-(rc|beta|alpha)\."
+```
+
+Read the newest matching file (by filename sort) as the inheritance source. If no match exists, fall back to the normal commit-range-only flow.
+
 ## Inputs
 
 ### `version`

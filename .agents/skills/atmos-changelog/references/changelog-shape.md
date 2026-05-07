@@ -27,6 +27,7 @@ The page currently renders:
 
 ## Repository-Specific Expectations
 
+- Only stable releases belong in this file. Skip any tag whose version contains a SemVer pre-release suffix (`-rc.N`, `-beta.N`, `-alpha.N`, etc.). See the `Prerelease Filter` section in `SKILL.md` for the full rule.
 - Keep entries sorted newest first.
 - Keep `id` stable and tag-like when possible, for example `desktop-v0.2.6`.
 - Keep `version` short and user-facing, for example `0.2.6`.

@@ -31,6 +31,22 @@ If omitted:
 - generate only releases that are missing from the landing data file
 - avoid duplicating or reordering existing entries unless a targeted refresh is requested
 
+## Prerelease Filter
+
+The landing `/changelog` page is user-facing and only tracks stable releases. Pre-release tags never belong in `apps/landing/src/lib/changelog-data.ts`.
+
+A release is a pre-release when its version contains a SemVer pre-release suffix, i.e. any `-` segment after `X.Y.Z`. Examples:
+
+- pre-release: `1.1.0-rc.1`, `1.1.0-rc.2`, `0.5.0-beta.3`, `2.0.0-alpha`
+- stable: `1.0.0`, `1.1.0`, `2.0.0`
+
+Apply the filter as follows:
+
+- **No `version` argument (auto-discovery)** — when enumerating GitHub releases, filter out anything whose tag is a pre-release. Even if a pre-release is missing from the landing data file, do not generate an entry for it.
+- **Explicit `version` argument matching a pre-release** — refuse the request and explain that the landing changelog only tracks stable releases. Do not silently no-op.
+- Do not rely on the GitHub API `prerelease` flag alone. Use the SemVer suffix in the tag, because the tag is the canonical source of truth for this repository.
+- Prior pre-release notes that describe in-progress work for an upcoming stable must be rolled up under the eventual stable entry, not re-surfaced as their own landing entries.
+
 ## Workflow
 
 1. Read `apps/landing/AGENTS.md` and `apps/landing/src/lib/changelog-data.ts` before editing.
@@ -38,6 +54,7 @@ If omitted:
 3. Determine scope from `version`:
    - if `version` is provided, target only that release
    - if `version` is omitted, detect which GitHub releases are missing from `apps/landing/src/lib/changelog-data.ts`
+   - apply the **Prerelease Filter** (see section below) to exclude `-rc.N`, `-beta.N`, `-alpha.N`, or any other SemVer pre-release suffix from both modes
 4. Fetch the relevant release notes from `https://github.com/AruNi-01/atmos/releases`.
 5. Write only the targeted or missing release-derived entries into `apps/landing/src/lib/changelog-data.ts`, keeping newest-first ordering intact.
 6. Do not duplicate an existing entry with the same `id`, `version`, or release tag.
