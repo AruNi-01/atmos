@@ -72,6 +72,7 @@ import { toastManager } from '@workspace/ui';
 import { DeleteWorkspaceDialog } from '@/components/dialogs/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
+import { LocalModelDownloadProgress } from '@/components/layout/LocalModelDownloadProgress';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { useRemoteAccess, type RemoteAccessStatus } from '@/hooks/use-remote-access';
@@ -1121,6 +1122,7 @@ const Header: React.FC = () => {
 
         {/* Right: Actions */}
         <div className="relative z-10 flex items-center space-x-3 justify-end">
+          <LocalModelDownloadProgress />
           <button
             aria-label="Search"
             className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"

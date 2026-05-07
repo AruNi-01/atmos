@@ -2272,7 +2272,7 @@ export type LocalModelStatus =
   | { status: "downloading_runtime"; progress: number; eta_seconds?: number | null }
   | { status: "downloading_model"; model_id: string; progress: number; eta_seconds?: number | null }
   | { status: "installed_not_running"; model_id: string }
-  | { status: "starting"; model_id: string }
+  | { status: "starting"; model_id: string; stage?: string | null }
   | { status: "running"; endpoint: string; model_id: string }
   | { status: "failed"; error: string };
 
@@ -2333,6 +2333,9 @@ export const localModelApi = {
   },
   delete: async (modelId: string): Promise<{ ok: boolean }> => {
     return wsRequest<{ ok: boolean }>("local_model_delete", { model_id: modelId });
+  },
+  deleteRuntime: async (): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("local_model_delete_runtime", {});
   },
   status: async (): Promise<LocalModelStatus> => {
     return wsRequest<LocalModelStatus>("local_model_status");

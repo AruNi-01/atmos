@@ -305,6 +305,7 @@ impl LocalRuntimeManager {
             });
             self.set_state(LocalModelState::Starting {
                 model_id: model_id.to_string(),
+                stage: Some("launching_process".to_string()),
             });
 
             let bin_path = llama_server_bin()?;
@@ -328,6 +329,11 @@ impl LocalRuntimeManager {
                         return Err(LocalModelError::SpawnFailed(msg));
                     }
                 };
+
+            self.set_state(LocalModelState::Starting {
+                model_id: model_id.to_string(),
+                stage: Some("waiting_for_ready".to_string()),
+            });
 
             if let Err(e) = wait_for_ready(port).await {
                 let msg = e.to_string();
@@ -395,6 +401,20 @@ impl LocalRuntimeManager {
         if path.exists() {
             tokio::fs::remove_file(&path).await?;
             info!("Deleted model file {}", path.display());
+        }
+        self.set_state(LocalModelState::NotInstalled);
+        Ok(())
+    }
+
+    /// Delete the llama-server runtime binary.
+    pub async fn delete_runtime(&self) -> Result<()> {
+        // Stop first if running.
+        self.stop().await?;
+
+        let bin_path = llama_server_bin()?;
+        if bin_path.exists() {
+            tokio::fs::remove_file(&bin_path).await?;
+            info!("Deleted runtime binary {}", bin_path.display());
         }
         self.set_state(LocalModelState::NotInstalled);
         Ok(())

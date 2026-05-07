@@ -13,6 +13,7 @@ use agent::{AgentId, CustomAgent};
 use ai_usage::UsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
+#[allow(unused_imports)]
 use infra::{
     AgentBehaviourSettingsUpdateRequest, AgentConfigGetRequest, AgentConfigSetRequest,
     AgentInstallRequest, AgentRegistryInstallRequest, AgentRegistryListRequest,
@@ -33,9 +34,11 @@ use infra::{
     GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
     GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
     GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
-    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteProgressNotification,
-    ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ReviewAgentRunArtifactGetRequest,
+    LocalModelCustomAddRequest, LocalModelCustomDeleteRequest, LocalModelDeleteRequest,
+    LocalModelDeleteRuntimeRequest, LocalModelDownloadRequest, LocalModelResolveHfUrlRequest,
+    LocalModelStartRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
+    ProjectDeleteProgressNotification, ProjectDeleteRequest, ProjectUpdateOrderRequest,
+    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, ReviewAgentRunArtifactGetRequest,
     ReviewAgentRunCreateRequest, ReviewAgentRunFinalizeRequest, ReviewAgentRunListRequest,
     ReviewAgentRunSetStatusRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
     ReviewCommentUpdateStatusRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
@@ -1007,6 +1010,10 @@ impl WsMessageService {
             WsAction::LocalModelStop => self.handle_local_model_stop(conn_id).await,
             WsAction::LocalModelDelete => {
                 self.handle_local_model_delete(conn_id, parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LocalModelDeleteRuntime => {
+                self.handle_local_model_delete_runtime(conn_id, parse_request(request.data)?)
                     .await
             }
             WsAction::LocalModelStatus => self.handle_local_model_status().await,
@@ -5228,7 +5235,14 @@ set -x
                 return;
             }
             if let Some(endpoint) = manager.endpoint() {
-                if let Err(e) = upsert_local_managed_provider(&model_id, &endpoint) {
+                // Get display_name from manifest
+                let display_name = manifest
+                    .models
+                    .iter()
+                    .find(|m| m.id == model_id)
+                    .map(|m| m.display_name.as_str())
+                    .unwrap_or(&model_id);
+                if let Err(e) = upsert_local_managed_provider(&model_id, display_name, &endpoint) {
                     tracing::warn!("[LocalModel] failed to update provider config: {e}");
                 }
             }
@@ -5265,6 +5279,34 @@ set -x
         let manager = Arc::clone(&self.local_model_manager);
         manager
             .delete_model(&req.model_id)
+            .await
+            .map_err(|e| ServiceError::Processing(e.to_string()))?;
+        
+        // Also delete the corresponding provider
+        if let Err(e) = delete_local_managed_provider(&req.model_id) {
+            tracing::warn!("[LocalModel] failed to delete provider config: {e}");
+        }
+        
+        if let Some(ref mgr) = self.ws_manager.get() {
+            let state_json = serde_json::to_value(&manager.state()).unwrap_or(json!(null));
+            let notification = infra::WsMessage::notification(
+                WsEvent::LocalModelStateChanged,
+                json!({ "state": state_json }),
+            );
+            let _ = mgr.broadcast(&notification).await;
+        }
+        Ok(json!({ "ok": true }))
+    }
+
+    /// Delete the llama-server runtime binary.
+    async fn handle_local_model_delete_runtime(
+        &self,
+        _conn_id: &str,
+        _req: infra::LocalModelDeleteRuntimeRequest,
+    ) -> Result<Value> {
+        let manager = Arc::clone(&self.local_model_manager);
+        manager
+            .delete_runtime()
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
         if let Some(ref mgr) = self.ws_manager.get() {
@@ -5357,7 +5399,7 @@ set -x
     }
 }
 
-fn upsert_local_managed_provider(model_id: &str, endpoint: &str) -> Result<()> {
+fn upsert_local_managed_provider(model_id: &str, display_name: &str, endpoint: &str) -> Result<()> {
     let store = FileLlmConfigStore::new()
         .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
     let mut config = store
@@ -5368,7 +5410,7 @@ fn upsert_local_managed_provider(model_id: &str, endpoint: &str) -> Result<()> {
         provider_id,
         LlmProviderEntry {
             enabled: true,
-            display_name: Some(format!("Local {}", model_id)),
+            display_name: Some(display_name.to_string()),
             kind: ProviderKind::LocalManaged,
             base_url: endpoint.to_string(),
             api_key: String::new(),
@@ -5379,6 +5421,20 @@ fn upsert_local_managed_provider(model_id: &str, endpoint: &str) -> Result<()> {
             context_window: None,
         },
     );
+    store
+        .save(&config)
+        .map_err(|e| ServiceError::Validation(format!("Failed to save llm providers: {}", e)))?;
+    Ok(())
+}
+
+fn delete_local_managed_provider(model_id: &str) -> Result<()> {
+    let store = FileLlmConfigStore::new()
+        .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
+    let mut config = store
+        .load()
+        .map_err(|e| ServiceError::Validation(format!("Failed to read llm providers: {}", e)))?;
+    let provider_id = format!("local-managed-{model_id}");
+    config.providers.remove(&provider_id);
     store
         .save(&config)
         .map_err(|e| ServiceError::Validation(format!("Failed to save llm providers: {}", e)))?;

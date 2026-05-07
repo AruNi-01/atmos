@@ -187,6 +187,7 @@ export type WsAction =
   | "local_model_start"
   | "local_model_stop"
   | "local_model_delete"
+  | "local_model_delete_runtime"
   | "local_model_status"
   | "local_model_resolve_hf_url"
   | "local_model_custom_add"

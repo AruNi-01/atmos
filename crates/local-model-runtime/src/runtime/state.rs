@@ -27,7 +27,12 @@ pub enum LocalModelState {
     InstalledNotRunning { model_id: String },
 
     /// The llama-server process is being launched.
-    Starting { model_id: String },
+    Starting {
+        model_id: String,
+        /// Current stage of the startup process
+        #[serde(skip_serializing_if = "Option::is_none")]
+        stage: Option<String>,
+    },
 
     /// The server is up and accepting requests.
     Running {

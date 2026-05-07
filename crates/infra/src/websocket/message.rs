@@ -479,6 +479,8 @@ pub enum WsAction {
     LocalModelStop,
     /// Delete a downloaded model file
     LocalModelDelete,
+    /// Delete the llama-server runtime binary
+    LocalModelDeleteRuntime,
     /// Get the current runtime state
     LocalModelStatus,
     /// Resolve metadata from a Hugging Face GGUF URL
@@ -2012,6 +2014,10 @@ pub struct LocalModelStartRequest {
 pub struct LocalModelDeleteRequest {
     pub model_id: String,
 }
+
+/// Request to delete the llama-server runtime binary.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalModelDeleteRuntimeRequest {}
 
 /// Request to resolve a Hugging Face model or GGUF file URL.
 #[derive(Debug, Clone, Serialize, Deserialize)]

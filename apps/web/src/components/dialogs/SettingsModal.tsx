@@ -3634,13 +3634,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </p>
                           </div>
                         </CollapsibleTrigger>
+                        {/* Runtime control button */}
                         <div className="flex items-start justify-end">
                           <LocalModelRuntimeControl />
                         </div>
                       </div>
                       <CollapsibleContent>
                         <div className="border-t border-border px-6 py-4">
-                          <LocalModelPanel />
+                          <LocalModelPanel onDownloadComplete={() => void loadLlmConfig()} />
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
