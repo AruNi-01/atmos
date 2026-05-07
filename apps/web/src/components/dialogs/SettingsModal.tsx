@@ -53,6 +53,8 @@ import {
   Building2,
   Check,
   ChevronDown,
+  CircleCheck,
+  CircleX,
   Download,
   ExternalLink,
   House,
@@ -433,34 +435,37 @@ function AgentHookStatusCard() {
               const isBusy = actingTool === key;
               return (
                 <div key={key} className="border-b border-border px-2 py-3 last:border-b-0">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 items-center">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-sm font-medium text-foreground shrink-0">{label}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-foreground w-28 shrink-0">{label}</span>
+                    <div className="flex flex-1 items-center gap-2 min-w-0">
+                      {tool.detected && (
+                        tool.installed
+                          ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" />
+                          : <CircleX className="size-3.5 shrink-0 text-amber-500" />
+                      )}
                       {tool.config_path && (
                         <span className="text-[10px] text-muted-foreground font-mono truncate" title={tool.config_path}>
                           {tool.config_path.split(/[\\/]/).slice(-2).join("/")}
                         </span>
                       )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {!tool.detected ? (
+                      {!tool.detected && (
                         <span className="text-xs text-muted-foreground">Not detected</span>
-                      ) : tool.error ? (
-                        <span className="text-xs text-destructive truncate max-w-[140px]" title={tool.error}>Error: {tool.error}</span>
-                      ) : tool.installed ? (
-                        <>
-                          <span className="text-xs font-medium text-emerald-500">Installed</span>
+                      )}
+                      {tool.error && (
+                        <span className="text-xs text-destructive truncate" title={tool.error}>Error: {tool.error}</span>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      {tool.detected && !tool.error && (
+                        tool.installed ? (
                           <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive" disabled={isBusy || acting} onClick={() => handleUninstallTool(key)}>
                             {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : "Uninstall"}
                           </Button>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-xs text-amber-500">Not installed</span>
+                        ) : (
                           <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={isBusy || acting} onClick={() => handleInstallTool(key)}>
                             {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : "Install"}
                           </Button>
-                        </>
+                        )
                       )}
                     </div>
                   </div>
