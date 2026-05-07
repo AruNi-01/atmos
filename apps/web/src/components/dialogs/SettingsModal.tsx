@@ -297,6 +297,7 @@ interface AgentHookInstallReport {
   factory_droid: AgentHookToolStatus;
   kiro: AgentHookToolStatus;
   opencode: AgentHookToolStatus;
+  ampcode: AgentHookToolStatus;
 }
 
 const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
@@ -307,6 +308,7 @@ const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
   { key: "factory_droid", label: "Factory Droid" },
   { key: "kiro", label: "Kiro" },
   { key: "opencode", label: "OpenCode" },
+  { key: "ampcode", label: "AMP" },
 ];
 
 function AgentHookStatusCard() {
