@@ -19,7 +19,7 @@ import { Terminal, Bot, Loader2, AlertTriangle } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "@/components/wiki/AgentSelect";
 import { skillsApi, agentApi, reviewWsApi } from "@/api/ws-api";
 import { systemApi } from "@/api/rest-api";
-import type { RegistryAgent, CustomAgent } from "@/api/ws-api";
+import type { RegistryAgent, CustomAgent, ReviewTarget } from "@/api/ws-api";
 import { cn } from "@/lib/utils";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
@@ -119,8 +119,10 @@ export function buildCodeReviewCommand(
 export interface CodeReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Workspace ID for context */
+  /** Workspace ID for context (kept for backward compat; prefer reviewTarget) */
   workspaceId?: string;
+  /** Review target (workspace or project scope). Takes precedence over workspaceId. */
+  reviewTarget?: ReviewTarget;
   /** Changed file paths from git diff, used to infer default skill */
   changedFilePaths?: string[];
   /** Called when user chooses Terminal Tab mode (first launch) */
@@ -143,6 +145,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   open,
   onOpenChange,
   workspaceId,
+  reviewTarget,
   changedFilePaths = [],
   onStartTerminalMode,
   onReplaceTerminalAndRun,
@@ -244,14 +247,18 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
 
   const createReviewAgentRun = useCallback(
     async (mode: "copy_prompt" | "agent_chat") => {
-      if (!workspaceId) return null;
-      const sessions = await reviewWsApi.listSessions(workspaceId, true);
+      // Resolve the effective target: prefer explicit reviewTarget, fall back to workspaceId prop
+      const effectiveTarget: ReviewTarget | null =
+        reviewTarget ??
+        (workspaceId ? { kind: "workspace", workspaceId } : null);
+      if (!effectiveTarget) return null;
+      const sessions = await reviewWsApi.listSessions(effectiveTarget, true);
       let session = sessions.find((item) => item.status === "active") ?? null;
       if (!session) {
         const now = new Date();
         const pad = (value: number) => String(value).padStart(2, "0");
         session = await reviewWsApi.createSession({
-          workspaceGuid: workspaceId,
+          target: effectiveTarget,
           title: `Review_${pad(now.getMonth() + 1)}.${pad(now.getDate())}-${pad(now.getHours())}:${pad(now.getMinutes())}`,
         });
       }
@@ -263,7 +270,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         skillId,
       });
     },
-    [skillId, workspaceId],
+    [skillId, workspaceId, reviewTarget],
   );
 
   /** Generate report file path: {projectMainPath}/.atmos/reviews/{workspaceId}/{project}_{branch}_{timestamp}_{topic}.md */

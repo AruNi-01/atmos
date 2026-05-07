@@ -31,7 +31,7 @@ impl<'a> ReviewRepo<'a> {
     pub async fn create_session(
         &self,
         guid: Option<String>,
-        workspace_guid: String,
+        workspace_guid: Option<String>,
         project_guid: String,
         repo_path: String,
         storage_root_rel_path: String,
@@ -83,6 +83,24 @@ impl<'a> ReviewRepo<'a> {
     ) -> Result<Vec<review_session::Model>> {
         let mut query = review_session::Entity::find()
             .filter(review_session::Column::WorkspaceGuid.eq(workspace_guid))
+            .filter(review_session::Column::IsDeleted.eq(false));
+        if !include_archived {
+            query = query.filter(review_session::Column::Status.ne("archived"));
+        }
+        Ok(query
+            .order_by_desc(review_session::Column::UpdatedAt)
+            .all(self.db)
+            .await?)
+    }
+
+    pub async fn list_sessions_by_project(
+        &self,
+        project_guid: &str,
+        include_archived: bool,
+    ) -> Result<Vec<review_session::Model>> {
+        let mut query = review_session::Entity::find()
+            .filter(review_session::Column::ProjectGuid.eq(project_guid))
+            .filter(review_session::Column::WorkspaceGuid.is_null())
             .filter(review_session::Column::IsDeleted.eq(false));
         if !include_archived {
             query = query.filter(review_session::Column::Status.ne("archived"));

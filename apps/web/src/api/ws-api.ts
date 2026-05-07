@@ -397,7 +397,7 @@ export interface ReviewSessionDto {
   created_at: string;
   updated_at: string;
   is_deleted: boolean;
-  workspace_guid: string;
+  workspace_guid: string | null;
   project_guid: string;
   repo_path: string;
   storage_root_rel_path: string;
@@ -1508,15 +1508,20 @@ export const wsWorkspaceApi = {
   },
 };
 
+export type ReviewTarget =
+  | { kind: "workspace"; workspaceId: string }
+  | { kind: "project"; projectId: string };
+
 export const reviewWsApi = {
   listSessions: async (
-    workspaceGuid: string,
+    target: ReviewTarget,
     includeArchived = false,
   ): Promise<ReviewSessionDto[]> => {
-    return wsRequest<ReviewSessionDto[]>("review_session_list", {
-      workspace_guid: workspaceGuid,
-      include_archived: includeArchived,
-    });
+    const payload =
+      target.kind === "workspace"
+        ? { workspace_guid: target.workspaceId, include_archived: includeArchived }
+        : { project_guid: target.projectId, include_archived: includeArchived };
+    return wsRequest<ReviewSessionDto[]>("review_session_list", payload);
   },
 
   getSession: async (sessionGuid: string): Promise<ReviewSessionDto | null> => {
@@ -1526,15 +1531,23 @@ export const reviewWsApi = {
   },
 
   createSession: async (data: {
-    workspaceGuid: string;
+    target: ReviewTarget;
     title?: string | null;
     createdBy?: string | null;
   }): Promise<ReviewSessionDto> => {
-    return wsRequest<ReviewSessionDto>("review_session_create", {
-      workspace_guid: data.workspaceGuid,
-      title: data.title ?? null,
-      created_by: data.createdBy ?? null,
-    }, 60_000);
+    const targetPayload =
+      data.target.kind === "workspace"
+        ? { workspace_guid: data.target.workspaceId }
+        : { project_guid: data.target.projectId };
+    return wsRequest<ReviewSessionDto>(
+      "review_session_create",
+      {
+        ...targetPayload,
+        title: data.title ?? null,
+        created_by: data.createdBy ?? null,
+      },
+      60_000,
+    );
   },
 
   closeSession: async (sessionGuid: string): Promise<{ ok: boolean }> => {

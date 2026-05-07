@@ -28,9 +28,12 @@ import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 const REVIEW_FILE_VIEW_MODE_STORAGE_KEY = "atmos:right-sidebar:review-file-view-mode";
 
 const ReviewView: React.FC = () => {
-  const { workspaceId } = useContextParams();
+  const { workspaceId, projectId } = useContextParams();
+  // For review-diff editor tabs, use workspaceId if available, else a synthetic
+  // project-scoped key. This key is ONLY used for EDITOR_REVIEW_DIFF_PREFIX paths.
+  const reviewEditorKey = workspaceId ?? (projectId ? `project:${projectId}` : null);
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
-  const rawFilePath = (workspaceId && getActiveFilePath(workspaceId)) || "";
+  const rawFilePath = (reviewEditorKey && getActiveFilePath(reviewEditorKey)) || "";
   const filePath = rawFilePath.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
     ? getEditorSourcePath(rawFilePath)
     : "";
@@ -109,10 +112,10 @@ const ReviewView: React.FC = () => {
     }
   }, [summaryRunGuid, hasLoadedSummary, artifactLoading, handlePreviewArtifact]);
 
-  if (!workspaceId) {
+  if (!reviewEditorKey) {
     return (
       <div className="p-3 text-xs text-muted-foreground">
-        No workspace selected.
+        No project or workspace selected.
       </div>
     );
   }
@@ -153,6 +156,10 @@ const ReviewView: React.FC = () => {
       {/* Inline stats line */}
       <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          {/* N2: scope badge */}
+          <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground border border-border">
+            {currentSession.workspace_guid ? "Workspace" : "Project"}
+          </span>
           <span>{openCommentCount} open</span>
           <span>·</span>
           <span>
@@ -213,7 +220,7 @@ const ReviewView: React.FC = () => {
                       label,
                       filePath: snapFilePath,
                     });
-                    void openFile(`${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`, workspaceId, { preview: true });
+                    void openFile(`${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`, reviewEditorKey, { preview: true });
                   }}
                   onDoubleClickFile={(snapshotGuid, snapFilePath) => {
                     const tabPath = `${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`;
@@ -222,8 +229,8 @@ const ReviewView: React.FC = () => {
                       label: revisionLabel,
                       filePath: snapFilePath,
                     });
-                    void openFile(tabPath, workspaceId, { preview: false });
-                    pinFile(tabPath, workspaceId || undefined);
+                    void openFile(tabPath, reviewEditorKey, { preview: false });
+                    pinFile(tabPath, reviewEditorKey ?? undefined);
                   }}
                   onToggleReviewed={handleToggleReviewed}
                   revisionLabel={revisionLabel}
@@ -324,7 +331,7 @@ const ReviewView: React.FC = () => {
                               label: revisionLabel,
                               filePath: snapFilePath,
                             });
-                            void openFile(tabPath, workspaceId, {
+                            void openFile(tabPath, reviewEditorKey, {
                               preview: true,
                               line: targetComment.anchor_start_line,
                               reviewCommentGuid: targetComment.guid,

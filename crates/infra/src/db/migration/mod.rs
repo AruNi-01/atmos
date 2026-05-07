@@ -28,6 +28,7 @@ mod m20260427_000018_add_workspace_github_pr;
 mod m20260428_000020_add_workspace_create_source;
 mod m20260505_000021_add_agent_run_guid_to_review_revision;
 mod m20260505_000022_add_workspace_label_source;
+mod m20260507_000023_make_review_session_workspace_optional;
 
 pub struct Migrator;
 
@@ -58,6 +59,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260428_000020_add_workspace_create_source::Migration),
             Box::new(m20260505_000021_add_agent_run_guid_to_review_revision::Migration),
             Box::new(m20260505_000022_add_workspace_label_source::Migration),
+            Box::new(m20260507_000023_make_review_session_workspace_optional::Migration),
         ]
     }
 }
@@ -273,6 +275,104 @@ mod tests {
         assert!(manager.has_column(TABLE_NAME, "mode").await?);
         assert!(manager.has_index(TABLE_NAME, MODE_CONTEXT_INDEX).await?);
         assert!(!manager.has_index(TABLE_NAME, LEGACY_CONTEXT_INDEX).await?);
+
+        Ok(())
+    }
+
+    // ── S12: migration applies on fresh and seeded DB ─────────────────────────
+
+    const REVIEW_SESSION_TABLE: &str = "review_session";
+    const OLD_WS_INDEX: &str = "idx-review_session-workspace-updated";
+    const NEW_WS_INDEX: &str = "idx-review_session-workspace-status-updated";
+    const NEW_PJ_INDEX: &str = "idx-review_session-project-status-updated";
+
+    #[tokio::test]
+    async fn s12_migration_applies_on_fresh_db() -> Result<(), DbErr> {
+        let db = Database::connect("sqlite::memory:").await?;
+        let manager = SchemaManager::new(&db);
+
+        // Apply all migrations up to and including 000022
+        m20260117_000001_create_test_message_table::Migration.up(&manager).await?;
+        m20260118_000002_create_project_tables::Migration.up(&manager).await?;
+        m20260422_000019_create_review_tables::Migration.up(&manager).await?;
+
+        // Old index should exist, new ones should not
+        assert!(manager.has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX).await?);
+        assert!(!manager.has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX).await?);
+        assert!(!manager.has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX).await?);
+
+        // Apply the new migration
+        m20260507_000023_make_review_session_workspace_optional::Migration
+            .up(&manager)
+            .await?;
+
+        // New indexes should exist, old one should be gone
+        assert!(!manager.has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX).await?);
+        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX).await?);
+        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX).await?);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn s12_migration_applies_on_seeded_db_preserves_existing_rows() -> Result<(), DbErr> {
+        let db = Database::connect("sqlite::memory:").await?;
+        let manager = SchemaManager::new(&db);
+
+        m20260117_000001_create_test_message_table::Migration.up(&manager).await?;
+        m20260118_000002_create_project_tables::Migration.up(&manager).await?;
+        m20260422_000019_create_review_tables::Migration.up(&manager).await?;
+
+        // Seed a row with workspace_guid set
+        db.execute(Statement::from_string(
+            DbBackend::Sqlite,
+            r#"
+            INSERT INTO "review_session" (
+                "guid","created_at","updated_at","is_deleted",
+                "workspace_guid","project_guid","repo_path","storage_root_rel_path",
+                "head_commit","current_revision_guid","status"
+            ) VALUES (
+                'sess-1','2026-01-01 00:00:00','2026-01-01 00:00:00',0,
+                'ws-1','pj-1','/tmp/repo','/tmp/storage',
+                'abc123','rev-1','active'
+            )
+            "#
+            .to_owned(),
+        ))
+        .await?;
+
+        // Apply migration
+        m20260507_000023_make_review_session_workspace_optional::Migration
+            .up(&manager)
+            .await?;
+
+        // Existing row should be preserved
+        let row = db
+            .query_one(Statement::from_string(
+                DbBackend::Sqlite,
+                r#"SELECT "workspace_guid","project_guid" FROM "review_session" WHERE "guid"='sess-1'"#
+                    .to_owned(),
+            ))
+            .await?
+            .expect("seeded row should still exist");
+
+        let ws_guid: Option<String> = row.try_get("", "workspace_guid")?;
+        let pj_guid: String = row.try_get("", "project_guid")?;
+        assert_eq!(ws_guid, Some("ws-1".to_string()));
+        assert_eq!(pj_guid, "pj-1");
+
+        // down() should work without error
+        m20260507_000023_make_review_session_workspace_optional::Migration
+            .down(&manager)
+            .await?;
+
+        // up() again should be idempotent
+        m20260507_000023_make_review_session_workspace_optional::Migration
+            .up(&manager)
+            .await?;
+
+        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX).await?);
+        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX).await?);
 
         Ok(())
     }

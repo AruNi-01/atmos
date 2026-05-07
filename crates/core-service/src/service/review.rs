@@ -178,9 +178,16 @@ pub struct ReviewSessionDto {
     pub reviewed_then_changed_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ReviewTarget {
+    Workspace { workspace_guid: String },
+    Project { project_guid: String },
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateReviewSessionInput {
-    pub workspace_guid: String,
+    pub target: ReviewTarget,
     #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
@@ -284,7 +291,7 @@ pub struct SetReviewAgentRunStatusInput {
 struct SessionManifest {
     schema_version: i32,
     session_guid: String,
-    workspace_guid: String,
+    workspace_guid: Option<String>,
     repo_path: String,
     base_ref: Option<String>,
     base_commit: Option<String>,
@@ -367,6 +374,22 @@ pub struct ReviewService {
     git_engine: GitEngine,
 }
 
+#[derive(Debug)]
+struct RepoContext {
+    project_guid: String,
+    workspace_guid: Option<String>,
+    repo_path: std::path::PathBuf,
+    base_ref: Option<String>,
+    base_ref_origin: BaseRefOrigin,
+}
+
+#[derive(PartialEq, Debug)]
+enum BaseRefOrigin {
+    ProjectTargetBranch,
+    DefaultBranchFallback,
+    WorkspaceBaseBranch,
+}
+
 const VALID_RUN_KINDS: &[&str] = &["review", "fix"];
 const VALID_EXECUTION_MODES: &[&str] = &["copy_prompt", "agent_chat", "terminal_cli"];
 
@@ -394,6 +417,22 @@ impl ReviewService {
         Ok(items)
     }
 
+    pub async fn list_sessions_by_project(
+        &self,
+        project_guid: String,
+        include_archived: bool,
+    ) -> Result<Vec<ReviewSessionDto>> {
+        let repo = ReviewRepo::new(&self.db);
+        let sessions = repo
+            .list_sessions_by_project(&project_guid, include_archived)
+            .await?;
+        let mut items = Vec::with_capacity(sessions.len());
+        for session in sessions {
+            items.push(self.build_session_dto(session).await?);
+        }
+        Ok(items)
+    }
+
     pub async fn get_session(&self, session_guid: String) -> Result<Option<ReviewSessionDto>> {
         let repo = ReviewRepo::new(&self.db);
         let Some(session) = repo.find_session_by_guid(&session_guid).await? else {
@@ -402,36 +441,85 @@ impl ReviewService {
         Ok(Some(self.build_session_dto(session).await?))
     }
 
+    async fn resolve_repo_context(&self, target: &ReviewTarget) -> Result<RepoContext> {
+        match target {
+            ReviewTarget::Workspace { workspace_guid } => {
+                let workspace = WorkspaceRepo::new(&self.db)
+                    .find_by_guid(workspace_guid)
+                    .await?
+                    .ok_or_else(|| {
+                        ServiceError::NotFound(format!("Workspace {} not found", workspace_guid))
+                    })?;
+                let project = ProjectRepo::new(&self.db)
+                    .find_by_guid(&workspace.project_guid)
+                    .await?
+                    .ok_or_else(|| {
+                        ServiceError::NotFound(format!(
+                            "Project {} not found",
+                            workspace.project_guid
+                        ))
+                    })?;
+                let repo_path = self
+                    .git_engine
+                    .get_worktree_path(&workspace.name)
+                    .map_err(ServiceError::Engine)?;
+                Ok(RepoContext {
+                    project_guid: project.guid,
+                    workspace_guid: Some(workspace.guid),
+                    repo_path,
+                    base_ref: Some(workspace.base_branch),
+                    base_ref_origin: BaseRefOrigin::WorkspaceBaseBranch,
+                })
+            }
+            ReviewTarget::Project { project_guid } => {
+                let project = ProjectRepo::new(&self.db)
+                    .find_by_guid(project_guid)
+                    .await?
+                    .ok_or_else(|| {
+                        ServiceError::NotFound(format!("Project {} not found", project_guid))
+                    })?;
+                let repo_path = std::path::PathBuf::from(&project.main_file_path);
+                let (base_ref, base_ref_origin) = if let Some(branch) = project.target_branch {
+                    (Some(branch), BaseRefOrigin::ProjectTargetBranch)
+                } else {
+                    match self.git_engine.get_default_branch(&repo_path) {
+                        Ok(Some(branch)) => {
+                            tracing::warn!(
+                                target: "review",
+                                project_guid = %project_guid,
+                                "target_branch missing, falling back to repo default branch"
+                            );
+                            (Some(branch), BaseRefOrigin::DefaultBranchFallback)
+                        }
+                        _ => {
+                            return Err(ServiceError::Validation(
+                                "Project has no target branch configured. Set one from the topbar before starting a review session.".to_string(),
+                            ));
+                        }
+                    }
+                };
+                Ok(RepoContext {
+                    project_guid: project.guid,
+                    workspace_guid: None,
+                    repo_path,
+                    base_ref,
+                    base_ref_origin,
+                })
+            }
+        }
+    }
+
     pub async fn create_session(
         &self,
         input: CreateReviewSessionInput,
     ) -> Result<ReviewSessionDto> {
-        let workspace_repo = WorkspaceRepo::new(&self.db);
-        let project_repo = ProjectRepo::new(&self.db);
         let review_repo = ReviewRepo::new(&self.db);
 
-        let workspace = workspace_repo
-            .find_by_guid(&input.workspace_guid)
-            .await?
-            .ok_or_else(|| {
-                ServiceError::NotFound(format!("Workspace {} not found", input.workspace_guid))
-            })?;
-
-        let project = project_repo
-            .find_by_guid(&workspace.project_guid)
-            .await?
-            .ok_or_else(|| {
-                ServiceError::NotFound(format!("Project {} not found", workspace.project_guid))
-            })?;
-
-        let workspace_root = self
-            .git_engine
-            .get_worktree_path(&workspace.name)
-            .map_err(ServiceError::Engine)?;
+        let ctx = self.resolve_repo_context(&input.target).await?;
 
         let changed = self
             .git_engine
-            .get_changed_files(&workspace_root, Some(&workspace.base_branch), false)
+            .get_changed_files(&ctx.repo_path, ctx.base_ref.as_deref(), false)
             .map_err(ServiceError::Engine)?;
 
         let mut ordered_paths = Vec::new();
@@ -465,15 +553,15 @@ impl ReviewService {
             .to_string();
         let head_commit = self
             .git_engine
-            .get_head_commit(&workspace_root)
+            .get_head_commit(&ctx.repo_path)
             .unwrap_or_else(|_| "HEAD".to_string());
 
         let session = review_repo
             .create_session(
                 Some(session_guid.clone()),
-                workspace.guid.clone(),
-                project.guid.clone(),
-                project.main_file_path.clone(),
+                ctx.workspace_guid.clone(),
+                ctx.project_guid.clone(),
+                ctx.repo_path.to_string_lossy().to_string(),
                 session_storage_root,
                 changed.compare_ref.clone(),
                 None,
@@ -489,17 +577,19 @@ impl ReviewService {
         // `current_revision_guid` that does not yet exist on disk or in the DB.
         // If any step below fails we must soft-delete the session to avoid
         // leaving an orphaned row with a dangling forward reference.
+        let repo_path_str = ctx.repo_path.to_string_lossy().to_string();
+        let base_ref_str = ctx.base_ref.clone().unwrap_or_default();
         let build_result = self
             .populate_initial_session(
                 &review_repo,
                 &session,
                 &revision_guid,
                 &revision_storage_root,
-                &workspace_root,
+                &ctx.repo_path,
                 ordered_paths,
-                &workspace.base_branch,
+                &base_ref_str,
                 input.created_by.clone(),
-                &project.main_file_path,
+                &repo_path_str,
                 &head_commit,
             )
             .await;
@@ -1979,19 +2069,26 @@ impl ReviewService {
                 .ok_or_else(|| {
                     ServiceError::NotFound(format!("Review session {} not found", run.session_guid))
                 })?;
-            let workspace = WorkspaceRepo::new(&self.db)
-                .find_by_guid(&session.workspace_guid)
-                .await?
-                .ok_or_else(|| {
-                    ServiceError::NotFound(format!(
-                        "Workspace {} not found",
-                        session.workspace_guid
-                    ))
-                })?;
-            let workspace_root = self
-                .git_engine
-                .get_worktree_path(&workspace.name)
-                .map_err(ServiceError::Engine)?;
+            // Use session.repo_path as the source of truth for the working tree.
+            // Fall back to workspace worktree resolution only for legacy rows where
+            // repo_path is empty (should not occur for sessions created after APP-013).
+            let workspace_root = if !session.repo_path.is_empty() {
+                std::path::PathBuf::from(&session.repo_path)
+            } else if let Some(ref ws_guid) = session.workspace_guid {
+                let workspace = WorkspaceRepo::new(&self.db)
+                    .find_by_guid(ws_guid)
+                    .await?
+                    .ok_or_else(|| {
+                        ServiceError::NotFound(format!("Workspace {} not found", ws_guid))
+                    })?;
+                self.git_engine
+                    .get_worktree_path(&workspace.name)
+                    .map_err(ServiceError::Engine)?
+            } else {
+                return Err(ServiceError::Processing(
+                    "Review session has no repo_path and no workspace_guid".to_string(),
+                ));
+            };
             let base_revision = review_repo
                 .find_revision_by_guid(&run.base_revision_guid)
                 .await
@@ -2231,7 +2328,7 @@ impl ReviewService {
 
             let changed = self
                 .git_engine
-                .get_changed_files(&workspace_root, Some(&workspace.base_branch), false)
+                .get_changed_files(&workspace_root, session.base_ref.as_deref(), false)
                 .map_err(ServiceError::Engine)?;
             let mut ordered_new_paths = Vec::new();
             for file in changed
@@ -2667,4 +2764,386 @@ fn xml_escape(text: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use infra::db::repo::{ProjectRepo, ReviewRepo};
+    use sea_orm::Database;
+    use sea_orm_migration::MigratorTrait;
+    use std::sync::Arc;
+
+    async fn setup_db() -> Arc<sea_orm::DatabaseConnection> {
+        let db = Database::connect("sqlite::memory:").await.unwrap();
+        infra::Migrator::up(&db, None).await.unwrap();
+        Arc::new(db)
+    }
+    // ── S2: resolve_repo_context — project with target_branch set ─────────────
+
+    #[tokio::test]
+    async fn s2_resolve_repo_context_project_target_branch() {
+        let db = setup_db().await;
+        let tmp = tempfile::tempdir().unwrap();
+        let repo_path = tmp.path().to_string_lossy().to_string();
+
+        // Init a bare git repo so GitEngine doesn't fail on get_default_branch
+        std::process::Command::new("git")
+            .args(["init", "-b", "main"])
+            .current_dir(tmp.path())
+            .output()
+            .ok();
+
+        let project = ProjectRepo::new(&db)
+            .create(
+                "test-project".into(),
+                repo_path.clone(),
+                0,
+                None,
+                Some("main".into()),
+            )
+            .await
+            .unwrap();
+
+        let service = ReviewService::new(db);
+        let ctx = service
+            .resolve_repo_context(&ReviewTarget::Project {
+                project_guid: project.guid.clone(),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(ctx.project_guid, project.guid);
+        assert!(ctx.workspace_guid.is_none());
+        assert_eq!(ctx.base_ref.as_deref(), Some("main"));
+        assert_eq!(ctx.base_ref_origin, BaseRefOrigin::ProjectTargetBranch);
+    }
+
+    // ── S3: resolve_repo_context — target_branch NULL, origin/HEAD resolves ──
+
+    #[tokio::test]
+    async fn s3_resolve_repo_context_fallback_to_default_branch() {
+        let db = setup_db().await;
+        let tmp = tempfile::tempdir().unwrap();
+
+        // Init a git repo with a commit so origin/HEAD can be resolved locally
+        std::process::Command::new("git")
+            .args(["init", "-b", "main"])
+            .current_dir(tmp.path())
+            .output()
+            .ok();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(tmp.path())
+            .output()
+            .ok();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(tmp.path())
+            .output()
+            .ok();
+        // Create a file and commit so HEAD exists
+        std::fs::write(tmp.path().join("README.md"), "test").unwrap();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(tmp.path())
+            .output()
+            .ok();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(tmp.path())
+            .output()
+            .ok();
+
+        let repo_path = tmp.path().to_string_lossy().to_string();
+        let project = ProjectRepo::new(&db)
+            .create("test-project".into(), repo_path, 0, None, None)
+            .await
+            .unwrap();
+
+        let service = ReviewService::new(db);
+
+        // Capture tracing events to verify warn is emitted
+        let subscriber = tracing_subscriber::fmt()
+            .with_test_writer()
+            .with_max_level(tracing::Level::WARN)
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        let ctx = service
+            .resolve_repo_context(&ReviewTarget::Project {
+                project_guid: project.guid.clone(),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(ctx.project_guid, project.guid);
+        assert!(ctx.workspace_guid.is_none());
+        // base_ref should be Some (the default branch from git)
+        assert!(ctx.base_ref.is_some());
+        assert_eq!(ctx.base_ref_origin, BaseRefOrigin::DefaultBranchFallback);
+    }
+
+    // ── S4: resolve_repo_context — both target_branch and origin/HEAD missing ─
+
+    #[tokio::test]
+    async fn s4_resolve_repo_context_hard_fail() {
+        let db = setup_db().await;
+        let tmp = tempfile::tempdir().unwrap();
+        // No git init — no remote, no default branch
+        let repo_path = tmp.path().to_string_lossy().to_string();
+
+        let project = ProjectRepo::new(&db)
+            .create("test-project".into(), repo_path, 0, None, None)
+            .await
+            .unwrap();
+
+        let service = ReviewService::new(db);
+        let result = service
+            .resolve_repo_context(&ReviewTarget::Project {
+                project_guid: project.guid,
+            })
+            .await;
+
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("target branch"),
+            "error should mention target branch: {err}"
+        );
+    }
+
+    // ── S5: empty changeset returns validation error ───────────────────────────
+
+    #[tokio::test]
+    async fn s5_create_session_empty_changeset() {
+        let db = setup_db().await;
+        let bare = tempfile::tempdir().unwrap();
+        let work = tempfile::tempdir().unwrap();
+
+        // Create a bare repo to act as the remote
+        std::process::Command::new("git")
+            .args(["init", "--bare", "-b", "main"])
+            .current_dir(bare.path())
+            .output()
+            .ok();
+
+        // Clone it so we have a proper remote
+        std::process::Command::new("git")
+            .args(["clone", bare.path().to_str().unwrap(), work.path().to_str().unwrap()])
+            .output()
+            .ok();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(work.path())
+            .output()
+            .ok();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(work.path())
+            .output()
+            .ok();
+        // Commit and push so origin/main exists
+        std::fs::write(work.path().join("README.md"), "test").unwrap();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(work.path())
+            .output()
+            .ok();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(work.path())
+            .output()
+            .ok();
+        std::process::Command::new("git")
+            .args(["push", "-u", "origin", "main"])
+            .current_dir(work.path())
+            .output()
+            .ok();
+
+        let repo_path = work.path().to_string_lossy().to_string();
+        let project = ProjectRepo::new(&db)
+            .create("test-project".into(), repo_path, 0, None, Some("main".into()))
+            .await
+            .unwrap();
+
+        let service = ReviewService::new(db);
+        let result = service
+            .create_session(CreateReviewSessionInput {
+                target: ReviewTarget::Project {
+                    project_guid: project.guid,
+                },
+                title: None,
+                created_by: None,
+            })
+            .await;
+
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("no changed files"),
+            "error should mention no changed files: {err}"
+        );
+    }
+
+    // ── S7: list_sessions_by_project returns only project-scoped sessions ─────
+
+    #[tokio::test]
+    async fn s7_list_sessions_by_project_excludes_workspace_sessions() {
+        let db = setup_db().await;
+        let review_repo = ReviewRepo::new(&db);
+
+        let project_guid = uuid::Uuid::new_v4().to_string();
+        let workspace_guid = uuid::Uuid::new_v4().to_string();
+
+        // Create a project-scoped session (workspace_guid = None)
+        let project_session = review_repo
+            .create_session(
+                None,
+                None, // project-scoped
+                project_guid.clone(),
+                "/tmp/repo".into(),
+                "/tmp/storage".into(),
+                Some("main".into()),
+                None,
+                "HEAD".into(),
+                uuid::Uuid::new_v4().to_string(),
+                "active".into(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        // Create a workspace-scoped session (workspace_guid = Some)
+        review_repo
+            .create_session(
+                None,
+                Some(workspace_guid.clone()),
+                project_guid.clone(),
+                "/tmp/worktree".into(),
+                "/tmp/storage2".into(),
+                Some("main".into()),
+                None,
+                "HEAD".into(),
+                uuid::Uuid::new_v4().to_string(),
+                "active".into(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let sessions = review_repo
+            .list_sessions_by_project(&project_guid, false)
+            .await
+            .unwrap();
+
+        assert_eq!(sessions.len(), 1, "should return exactly one project-scoped session");
+        assert_eq!(sessions[0].guid, project_session.guid);
+        assert!(sessions[0].workspace_guid.is_none());
+    }
+
+    // ── S8: workspace flow unchanged ──────────────────────────────────────────
+
+    #[tokio::test]
+    async fn s8_workspace_session_has_workspace_guid() {
+        let db = setup_db().await;
+        let review_repo = ReviewRepo::new(&db);
+
+        let project_guid = uuid::Uuid::new_v4().to_string();
+        let workspace_guid = uuid::Uuid::new_v4().to_string();
+
+        let session = review_repo
+            .create_session(
+                None,
+                Some(workspace_guid.clone()),
+                project_guid.clone(),
+                "/tmp/worktree".into(),
+                "/tmp/storage".into(),
+                Some("feature".into()),
+                None,
+                "HEAD".into(),
+                uuid::Uuid::new_v4().to_string(),
+                "active".into(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(session.workspace_guid, Some(workspace_guid.clone()));
+        assert_eq!(session.project_guid, project_guid);
+
+        let sessions = review_repo
+            .list_sessions_by_workspace(&workspace_guid, false)
+            .await
+            .unwrap();
+
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].guid, session.guid);
+    }
+
+    // ── S9: coexistence — project + workspace sessions are independent ─────────
+
+    #[tokio::test]
+    async fn s9_project_and_workspace_sessions_coexist() {
+        let db = setup_db().await;
+        let review_repo = ReviewRepo::new(&db);
+
+        let project_guid = uuid::Uuid::new_v4().to_string();
+        let workspace_guid = uuid::Uuid::new_v4().to_string();
+
+        // Project-scoped session
+        let project_session = review_repo
+            .create_session(
+                None,
+                None,
+                project_guid.clone(),
+                "/tmp/repo".into(),
+                "/tmp/storage-p".into(),
+                Some("main".into()),
+                None,
+                "HEAD".into(),
+                uuid::Uuid::new_v4().to_string(),
+                "active".into(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        // Workspace-scoped session
+        let workspace_session = review_repo
+            .create_session(
+                None,
+                Some(workspace_guid.clone()),
+                project_guid.clone(),
+                "/tmp/worktree".into(),
+                "/tmp/storage-w".into(),
+                Some("feature".into()),
+                None,
+                "HEAD".into(),
+                uuid::Uuid::new_v4().to_string(),
+                "active".into(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        // list_sessions_by_project returns only the project session
+        let project_sessions = review_repo
+            .list_sessions_by_project(&project_guid, false)
+            .await
+            .unwrap();
+        assert_eq!(project_sessions.len(), 1);
+        assert_eq!(project_sessions[0].guid, project_session.guid);
+
+        // list_sessions_by_workspace returns only the workspace session
+        let workspace_sessions = review_repo
+            .list_sessions_by_workspace(&workspace_guid, false)
+            .await
+            .unwrap();
+        assert_eq!(workspace_sessions.len(), 1);
+        assert_eq!(workspace_sessions[0].guid, workspace_session.guid);
+    }
 }

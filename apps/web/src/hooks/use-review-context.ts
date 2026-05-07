@@ -10,6 +10,7 @@ import {
   type ReviewMessageDto,
   type ReviewSessionDto,
   type ReviewCommentDto,
+  type ReviewTarget,
 } from "@/api/ws-api";
 import { buildCommand, type AgentId } from "@/components/wiki/AgentSelect";
 import { useDialogStore } from "@/hooks/use-dialog-store";
@@ -32,7 +33,7 @@ export interface ArtifactPreview {
 }
 
 interface UseReviewContextArgs {
-  workspaceId: string | null;
+  target: ReviewTarget | null;
   filePath: string;
   fileSnapshotGuid?: string | null;
 }
@@ -43,7 +44,7 @@ function readStoredAgentId(): AgentId {
   return stored ? (stored as AgentId) : "codex";
 }
 
-export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: UseReviewContextArgs) {
+export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseReviewContextArgs) {
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
   const setPendingAgentChatMode = useDialogStore(
@@ -78,13 +79,13 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   }, []);
 
   const loadSessions = useCallback(async () => {
-    if (!workspaceId) {
+    if (!target) {
       setSessions([]);
       return;
     }
     setIsLoading(true);
     try {
-      const nextSessions = await reviewWsApi.listSessions(workspaceId, true);
+      const nextSessions = await reviewWsApi.listSessions(target, true);
       setSessions(nextSessions);
     } catch (error) {
       console.error("Failed to load review sessions", error);
@@ -97,7 +98,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     } finally {
       setIsLoading(false);
     }
-  }, [workspaceId]);
+  }, [target]);
 
   useEffect(() => {
     void loadSessions();
@@ -298,7 +299,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
   const autoLoadedSummaryRunRef = useRef<string | null>(null);
 
   const handleCreateSession = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!target) return;
     setIsCreating(true);
     try {
       const now = new Date();
@@ -308,7 +309,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       const min = String(now.getMinutes()).padStart(2, "0");
       const defaultTitle = `Review_${mm}.${dd}-${hh}:${min}`;
       const session = await reviewWsApi.createSession({
-        workspaceGuid: workspaceId,
+        target,
         title: defaultTitle,
       });
       setSelectedSessionGuid(session.guid);
@@ -329,7 +330,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
     } finally {
       setIsCreating(false);
     }
-  }, [workspaceId]);
+  }, [target]);
 
   const handleCloseSession = useCallback(async () => {
     if (!currentSession) return;
@@ -584,7 +585,9 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
 
   const handleSendAgentRunToAgentChat = useCallback(
     async (selectedCommentGuids?: string[]) => {
-      if (!workspaceId) return;
+      if (!target) return;
+      const workspaceId = target.kind === "workspace" ? target.workspaceId : null;
+      const projectId = target.kind === "project" ? target.projectId : null;
       setIsCreatingAgentRun(true);
       try {
         const result = await createAgentRun("fix", "agent_chat", null, selectedCommentGuids);
@@ -593,7 +596,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
         enqueueAgentChatPrompt({
           prompt: result.prompt,
           workspaceId,
-          projectId: null,
+          projectId,
           mode: "default",
           origin: "review_session",
           sessionTitle: `Review Fix ${filePath.split("/").pop() || filePath}`,
@@ -626,7 +629,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
       setSelectedRevisionGuid,
       setAgentChatOpen,
       setPendingAgentChatMode,
-      workspaceId,
+      target,
     ],
   );
 
@@ -686,13 +689,15 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
             description: "Paste it into your agent CLI or chat to process the review.",
             type: "success",
           });
-        } else if (executionMode === "agent_chat" && workspaceId) {
+        } else if (executionMode === "agent_chat" && target) {
+          const workspaceId = target.kind === "workspace" ? target.workspaceId : null;
+          const projectId = target.kind === "project" ? target.projectId : null;
           setPendingAgentChatMode("default");
           setAgentChatOpen(true);
           await enqueueAgentChatPrompt({
             prompt: result.prompt,
             workspaceId,
-            projectId: null,
+            projectId,
             mode: "default",
             origin: "review_session",
             sessionTitle: `Review ${filePath.split("/").pop() || filePath}`,
@@ -711,7 +716,7 @@ export function useReviewContext({ workspaceId, filePath, fileSnapshotGuid }: Us
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, currentRevision, currentSession, filePath, loadSessions, setSelectedRevisionGuid, workspaceId, enqueueAgentChatPrompt, setAgentChatOpen, setPendingAgentChatMode],
+    [createAgentRun, currentRevision, currentSession, filePath, loadSessions, setSelectedRevisionGuid, target, enqueueAgentChatPrompt, setAgentChatOpen, setPendingAgentChatMode],
   );
 
   const handleCopyAgentReviewPrompt = useCallback(

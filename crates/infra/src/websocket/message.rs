@@ -577,7 +577,10 @@ pub struct WorkspaceDeleteProgressNotification {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewSessionListRequest {
-    pub workspace_guid: String,
+    #[serde(default)]
+    pub workspace_guid: Option<String>,
+    #[serde(default)]
+    pub project_guid: Option<String>,
     #[serde(default)]
     pub include_archived: bool,
 }
@@ -589,7 +592,10 @@ pub struct ReviewSessionGetRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewSessionCreateRequest {
-    pub workspace_guid: String,
+    #[serde(default)]
+    pub workspace_guid: Option<String>,
+    #[serde(default)]
+    pub project_guid: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
