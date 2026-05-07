@@ -460,12 +460,12 @@ function AgentHookStatusCard() {
                     <div className="shrink-0">
                       {tool.detected && !tool.error && (
                         tool.installed ? (
-                          <Button variant="secondary" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive" disabled={isBusy || acting} onClick={() => handleUninstallTool(key)}>
-                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : "Uninstall"}
+                          <Button variant="secondary" size="icon" className="size-6" disabled={isBusy || acting} onClick={() => handleUninstallTool(key)}>
+                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
                           </Button>
                         ) : (
-                          <Button variant="secondary" size="sm" className="h-6 px-2 text-xs" disabled={isBusy || acting} onClick={() => handleInstallTool(key)}>
-                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : "Install"}
+                          <Button variant="secondary" size="icon" className="size-6" disabled={isBusy || acting} onClick={() => handleInstallTool(key)}>
+                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : <Download className="size-3" />}
                           </Button>
                         )
                       )}
