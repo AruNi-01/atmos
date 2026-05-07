@@ -1028,7 +1028,7 @@ export function LocalModelPanel() {
           No models available in the manifest. Check your network connection or
           try again later.
         </div>
-      ) : (
+      ) : data ? (
         <div className="space-y-2">
           {sortedModels.map((model) => (
             <ModelCard
@@ -1045,7 +1045,7 @@ export function LocalModelPanel() {
             />
           ))}
         </div>
-      )}
+      ) : null}
 
       <Button
         variant="outline"

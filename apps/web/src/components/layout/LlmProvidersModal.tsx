@@ -685,13 +685,12 @@ export function LlmProviderEditorDialog({
 
     setProviderSaveState("saving");
     try {
-      const savedConfig = await llmProvidersApi.update(
-        modalStateToFile(
-          { version, providers: nextProviders, routing: routingDraft },
-          originalConfig ?? undefined,
-        ),
+      const nextConfig = modalStateToFile(
+        { version, providers: nextProviders, routing: routingDraft },
+        originalConfig ?? undefined,
       );
-      setOriginalConfig(savedConfig);
+      await llmProvidersApi.update(nextConfig);
+      setOriginalConfig(nextConfig);
       setProviderSaveState("saved");
       scheduleSaveStateReset(setProviderSaveState, providerResetTimerRef);
       onSaved?.();
@@ -740,13 +739,12 @@ export function LlmProviderEditorDialog({
 
     setProviderSaveState("saving");
     try {
-      const savedConfig = await llmProvidersApi.update(
-        modalStateToFile(
-          { version, providers: nextProviders, routing: nextRouting },
-          originalConfig ?? undefined,
-        ),
+      const nextConfig = modalStateToFile(
+        { version, providers: nextProviders, routing: nextRouting },
+        originalConfig ?? undefined,
       );
-      setOriginalConfig(savedConfig);
+      await llmProvidersApi.update(nextConfig);
+      setOriginalConfig(nextConfig);
       onSaved?.();
       onOpenChange(false);
     } catch (error) {
@@ -1146,13 +1144,12 @@ export function LlmRoutingDialog({
 
     setRoutingSaveState("saving");
     try {
-      const savedConfig = await llmProvidersApi.update(
-        modalStateToFile(
-          { version, providers, routing: routingDraft },
-          originalConfig ?? undefined,
-        ),
+      const nextConfig = modalStateToFile(
+        { version, providers, routing: routingDraft },
+        originalConfig ?? undefined,
       );
-      setOriginalConfig(savedConfig);
+      await llmProvidersApi.update(nextConfig);
+      setOriginalConfig(nextConfig);
       setRoutingSaveState("saved");
       scheduleSaveStateReset(setRoutingSaveState, routingResetTimerRef);
       onSaved?.();
@@ -1184,13 +1181,12 @@ export function LlmRoutingDialog({
 
     setTitleFormatSaveState("saving");
     try {
-      const savedConfig = await llmProvidersApi.update(
-        modalStateToFile(
-          { version, providers, routing: nextRouting },
-          originalConfig ?? undefined,
-        ),
+      const nextConfig = modalStateToFile(
+        { version, providers, routing: nextRouting },
+        originalConfig ?? undefined,
       );
-      setOriginalConfig(savedConfig);
+      await llmProvidersApi.update(nextConfig);
+      setOriginalConfig(nextConfig);
       setRoutingDraft(nextRouting);
       setSessionTitleFormatDraft(normalized);
       setTitleFormatSaveState("saved");

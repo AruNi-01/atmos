@@ -1047,9 +1047,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   restoreWorkspaceLabel: async (labelId: string) => {
     await waitForConnection();
     await wsWorkspaceApi.restoreLabel(labelId);
-    set(state => ({
-      workspaceLabels: [...state.workspaceLabels, { id: labelId }],
-    }));
+    // Refetch labels so the restored entry has its full data (name, color, source).
+    await get().fetchWorkspaceLabels();
   },
 
   updateWorkspaceLabels: async (
