@@ -579,7 +579,11 @@ const Header: React.FC = () => {
   };
 
   React.useEffect(() => {
-    if (isTauriRuntime()) return;
+    // Previously this handler was skipped on Tauri because the native menu
+    // owned `Command+[` / `Command+]`. That made `cmd+[/ ]` in the terminal
+    // unable to switch panes on desktop (the menu swallowed the key before
+    // the WebView saw it). The native menu accelerators have been removed,
+    // so the same JS handler now drives navigation on both web and desktop.
 
     const handleNavigationHotkey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
@@ -610,26 +614,10 @@ const Header: React.FC = () => {
     description: 'Toggle left sidebar'
   });
 
-  // In Tauri (desktop), navigation shortcuts are handled by native menu
-  useHotkeys(['mod+[', 'mod+leftbracket'], (e) => {
-    if (isTauriRuntime() || isTerminalHotkeyTarget(e.target)) return;
-    e.preventDefault();
-  }, {
-    enabled: !isTauriRuntime(),
-    enableOnFormTags: false,
-    preventDefault: true,
-    description: 'Go back'
-  });
-
-  useHotkeys(['mod+]', 'mod+rightbracket'], (e) => {
-    if (isTauriRuntime() || isTerminalHotkeyTarget(e.target)) return;
-    e.preventDefault();
-  }, {
-    enabled: !isTauriRuntime(),
-    enableOnFormTags: false,
-    preventDefault: true,
-    description: 'Go forward'
-  });
+  // Note: `mod+[` / `mod+]` navigation shortcuts are handled by the
+  // window-level capture listener in the `useEffect` above (unified across
+  // web and desktop). Keep them out of `useHotkeys` to avoid duplicate
+  // preventDefault registrations.
 
   useHotkeys('mod+r', () => window.location.reload(), {
     enableOnFormTags: false,

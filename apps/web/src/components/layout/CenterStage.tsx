@@ -1158,13 +1158,16 @@ const CenterStage: React.FC = () => {
   );
 
   // ⌘0 → Overview tab (only when a workspace/project context is active).
+  // `enableOnFormTags: true` so the shortcut still fires when focus is on
+  // xterm.js's hidden `<textarea.xterm-helper-textarea>` (without this the
+  // hook silently skips the event while any terminal pane is focused).
   useHotkeys(
     "mod+0",
     () => {
       if (!effectiveContextId) return;
       handleCenterStageTabChange("overview");
     },
-    { enableOnFormTags: false, preventDefault: true },
+    { enableOnFormTags: true, preventDefault: true },
     [effectiveContextId, handleCenterStageTabChange],
   );
 
@@ -1174,7 +1177,7 @@ const CenterStage: React.FC = () => {
     () => {
       handleCenterStageTabChange(FIXED_TERMINAL_TAB_VALUE);
     },
-    { enableOnFormTags: false, preventDefault: true },
+    { enableOnFormTags: true, preventDefault: true },
     [handleCenterStageTabChange],
   );
 
@@ -1186,7 +1189,7 @@ const CenterStage: React.FC = () => {
       const target = additionalTerminalTabs[0];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: false, preventDefault: true },
+    { enableOnFormTags: true, preventDefault: true },
     [additionalTerminalTabs, handleCenterStageTabChange],
   );
   useHotkeys(
@@ -1195,7 +1198,7 @@ const CenterStage: React.FC = () => {
       const target = additionalTerminalTabs[1];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: false, preventDefault: true },
+    { enableOnFormTags: true, preventDefault: true },
     [additionalTerminalTabs, handleCenterStageTabChange],
   );
   useHotkeys(
@@ -1204,7 +1207,7 @@ const CenterStage: React.FC = () => {
       const target = additionalTerminalTabs[2];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: false, preventDefault: true },
+    { enableOnFormTags: true, preventDefault: true },
     [additionalTerminalTabs, handleCenterStageTabChange],
   );
   useHotkeys(
@@ -1213,7 +1216,7 @@ const CenterStage: React.FC = () => {
       const target = additionalTerminalTabs[3];
       if (target) handleCenterStageTabChange(target.id);
     },
-    { enableOnFormTags: false, preventDefault: true },
+    { enableOnFormTags: true, preventDefault: true },
     [additionalTerminalTabs, handleCenterStageTabChange],
   );
 

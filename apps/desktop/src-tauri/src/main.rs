@@ -247,20 +247,28 @@ fn main() {
                     .close_window()
                     .build()?;
 
+                // NOTE: Do NOT set accelerators on Back/Forward. On macOS,
+                // NSMenu accelerators are consumed by AppKit before the WebView
+                // receives the keydown event. If we bind `Command+[` / `Command+]`
+                // here, the terminal pane-switch shortcut (handled in
+                // `TerminalGrid.tsx`) can never fire on desktop — breaking parity
+                // with the web build. Keyboard navigation is therefore handled
+                // entirely in JS (see `Header.tsx`); these menu items remain
+                // click-only affordances in the menu bar.
                 let navigation_menu = SubmenuBuilder::new(app, "Navigation")
                     .item(&MenuItem::with_id(
                         app,
                         "back",
                         "Back",
                         true,
-                        Some("Command+["),
+                        None::<&str>,
                     )?)
                     .item(&MenuItem::with_id(
                         app,
                         "forward",
                         "Forward",
                         true,
-                        Some("Command+]"),
+                        None::<&str>,
                     )?)
                     .build()?;
                 let menu = MenuBuilder::new(app)

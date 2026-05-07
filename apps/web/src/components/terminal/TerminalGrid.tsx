@@ -598,14 +598,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         return;
       }
 
-      if (event.key === "[" || event.code === "BracketLeft") {
+      if (!event.shiftKey && (event.key === "[" || event.code === "BracketLeft")) {
         event.preventDefault();
         event.stopImmediatePropagation();
         focusPaneByOffset(-1);
         return;
       }
 
-      if (event.key === "]" || event.code === "BracketRight") {
+      if (!event.shiftKey && (event.key === "]" || event.code === "BracketRight")) {
         event.preventDefault();
         event.stopImmediatePropagation();
         focusPaneByOffset(1);
