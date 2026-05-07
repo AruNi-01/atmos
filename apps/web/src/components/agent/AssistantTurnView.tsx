@@ -143,11 +143,10 @@ export function AssistantTurnView({
     return -1;
   }, [entry.blocks]);
 
-  const isStreamingFinalText = entry.isStreaming === true
-    && lastVisibleTextIndex >= 0
-    && !entry.blocks.slice(lastVisibleTextIndex + 1).some(b => b.type === "text");
-
-  const canCollapse = lastVisibleTextIndex >= 0 && (!entry.isStreaming || isStreamingFinalText);
+  // Only collapse after the assistant turn has fully finished streaming.
+  // During streaming we keep everything expanded so the user can see progress
+  // of tool calls / thinking / intermediate text in real time.
+  const canCollapse = lastVisibleTextIndex >= 0 && !entry.isStreaming;
 
   const intermediateBlocks = useMemo(() => {
     if (!canCollapse) return [];
@@ -258,11 +257,14 @@ export function AssistantTurnView({
             {trailingBlocks.map(({ block, origIndex }) => (
               <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
             ))}
-            <div className="flex w-full items-center gap-2 py-1">
+            <CollapsibleTrigger
+              aria-label="Collapse process"
+              className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
+            >
               <div className="h-px flex-1 bg-border" />
-              <span className="shrink-0 text-xs text-muted-foreground">Process end</span>
+              <span className="shrink-0 text-xs leading-none">Collapse process</span>
               <div className="h-px flex-1 bg-border" />
-            </div>
+            </CollapsibleTrigger>
           </CollapsibleContent>
         </Collapsible>
 
