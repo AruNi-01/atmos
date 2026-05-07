@@ -5,7 +5,6 @@
 import "@/lib/suppress-react19-ref-warning";
 
 import React, { useCallback, useEffect } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import {
   Mosaic,
   MosaicWindow,
@@ -549,32 +548,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     splitTerminal(paneId, direction);
   }, [getFocusedPaneId, splitTerminal]);
 
-  const terminalHotkeyScopeRef = useHotkeys<HTMLDivElement>(
-    ["mod+d", "mod+shift+d", "mod+w", "mod+t"],
-    (event, handler) => {
-      event.preventDefault();
-      switch (handler.hotkey) {
-        case "mod+d":
-          splitFocusedTerminal("row");
-          break;
-        case "mod+shift+d":
-          splitFocusedTerminal("column");
-          break;
-        case "mod+w":
-          requestCloseTerminal(getFocusedPaneId());
-          break;
-        case "mod+t":
-          onNewTerminalTab?.();
-          break;
-      }
-    },
-    {
-      enableOnFormTags: true,
-      preventDefault: true,
-      description: "Terminal pane shortcuts",
-    },
-    [getFocusedPaneId, onNewTerminalTab, requestCloseTerminal, splitFocusedTerminal],
-  );
+  const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleTerminalNavigationHotkey = (event: KeyboardEvent) => {
@@ -583,6 +557,20 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       const target = event.target;
       const isTerminalEventTarget = target instanceof Node && container.contains(target);
       if (!isTerminalEventTarget || !(event.metaKey || event.ctrlKey) || event.altKey) return;
+
+      if (!event.shiftKey && (event.key.toLowerCase() === "d" || event.code === "KeyD")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        splitFocusedTerminal("row");
+        return;
+      }
+
+      if (event.shiftKey && (event.key.toLowerCase() === "d" || event.code === "KeyD")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        splitFocusedTerminal("column");
+        return;
+      }
 
       if (!event.shiftKey && (event.key.toLowerCase() === "t" || event.code === "KeyT")) {
         event.preventDefault();
@@ -616,7 +604,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     return () => {
       window.removeEventListener("keydown", handleTerminalNavigationHotkey, { capture: true });
     };
-  }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, requestCloseTerminal, terminalHotkeyScopeRef]);
+  }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, requestCloseTerminal, splitFocusedTerminal]);
 
   const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
     const newPaneId = splitTerminal(id, direction, agent);
