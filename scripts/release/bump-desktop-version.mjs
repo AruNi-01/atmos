@@ -3,6 +3,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { computeMsiWixVersion } from "./lib/msi-version.mjs";
+
 const DESKTOP_PACKAGE_JSON = "apps/desktop/package.json";
 const DESKTOP_CARGO_TOML = "apps/desktop/src-tauri/Cargo.toml";
 const DESKTOP_TAURI_CONF = "apps/desktop/src-tauri/tauri.conf.json";
@@ -130,12 +132,38 @@ function updateTauriConfigVersion(jsonText, fileLabel, nextVersion) {
   const previousVersion = parsed.version;
   parsed.version = nextVersion;
 
+  syncWindowsWixVersion(parsed, fileLabel, nextVersion);
+
   const updatedText = `${JSON.stringify(parsed, null, 2)}\n`;
 
   return {
     previousVersion,
     updatedText,
   };
+}
+
+/**
+ * Keep `bundle.windows.wix.version` in sync with the top-level Tauri
+ * `version` field. Delegates the actual translation rules to
+ * `./lib/msi-version.mjs` so the release check script can reuse them.
+ */
+function syncWindowsWixVersion(parsed, fileLabel, nextVersion) {
+  const wixVersion = computeMsiWixVersion(nextVersion, fileLabel);
+
+  const bundle = (parsed.bundle ??= {});
+  const windows = (bundle.windows ??= {});
+  const wix = (windows.wix ??= {});
+
+  if (wixVersion === null) {
+    // Stable release: remove the override entirely so MSI derives it from
+    // the top-level `version`. Clean up empty parents to avoid clutter.
+    delete wix.version;
+    if (Object.keys(wix).length === 0) delete windows.wix;
+    if (Object.keys(windows).length === 0) delete bundle.windows;
+    return;
+  }
+
+  wix.version = wixVersion;
 }
 
 function readText(rootDir, relativePath) {
