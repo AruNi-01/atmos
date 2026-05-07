@@ -1,0 +1,124 @@
+specs/APP/APP-013_project-level-review-session/BRAINSTORM.md
+  s_25a092fa3878ac::t_259456be57b816 2,4-6,8,10,12,14,18-20,22,24,29,83-84
+  s_242962e53ad4d8::t_8b9ec5bdc84956 1,3,7,9,11,13,15-17,21,23,25-28,30-68,74-76,82,85-108
+  s_c18b3328ee1afc::t_909739ae97d60e 70
+  s_835f6ed0016a60::t_d482d1d67407eb 69,71-73,77-81
+specs/APP/APP-013_project-level-review-session/TECH.md
+  s_1991fbf81da468::t_a4df9726c26e98 1-2,4
+  s_6e30fef6d008e8::t_f44153c9f64711 3,5-456
+specs/APP/APP-013_project-level-review-session/PRD.md
+  s_a2cc5d5f1a26dc::t_b81e23f29c857d 1
+  s_9b82c8626b1fa7::t_3f0bfc5dd45f16 42,75,82-85
+  s_9c1a8a9f0a5251::t_6b12debd95bb2e 3,5-41,43-74,76-81
+  s_25a092fa3878ac::t_259456be57b816 2,4
+specs/README.md
+  s_d0e2465ef7af7e::t_b8c25806b4795f 75
+specs/APP/APP-013_project-level-review-session/TEST.md
+  s_25a092fa3878ac::t_259456be57b816 2,4
+  s_3bcfed4f20b15c::t_c1bf1bfc1238c9 3,5-203
+  s_bf44f468dc39bd::t_f2a359ae974e75 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "23e4472ffa96cb9cc6b53700f8481163026c86fa",
+  "prompts": {},
+  "sessions": {
+    "s_1991fbf81da468": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYUj3erwDZD2Kf9R2Ba",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_242962e53ad4d8": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYUm6TV7F3wLjtlckVJ",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_25a092fa3878ac": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYUWm8uD1d7Y2U9RNXH",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_3bcfed4f20b15c": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYv03oxWENfKdYMO9We",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_6e30fef6d008e8": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYna5corW5I6D7jqIpr",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_835f6ed0016a60": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYbPyqr6S9WkAnkdx9b",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9b82c8626b1fa7": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYkjxi2Qv3wE2zy26Qo",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9c1a8a9f0a5251": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYcEYt0SLQJ0iCe8WSG",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a2cc5d5f1a26dc": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYUih2gEirNqDHlXTsR",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_bf44f468dc39bd": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYUkpc6dIOI1hFvqSDY",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c18b3328ee1afc": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYl7DvglCeVQ4PTFicK",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d0e2465ef7af7e": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033CYW6Z0z2mnAzGe8cNca",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
