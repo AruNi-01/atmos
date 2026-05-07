@@ -278,17 +278,25 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               className="max-h-[360px]"
               indentOffset={28}
               isFileActionActive={(path) =>
-                confirmingActionKey?.includes(`:${path}:`) ||
-                runningActionKey?.includes(`:${path}:`) ||
-                false
+                confirmingActionKey === `${kind}:file:${path}:stage` ||
+                confirmingActionKey === `${kind}:file:${path}:unstage` ||
+                confirmingActionKey === `${kind}:file:${path}:discard` ||
+                runningActionKey === `${kind}:file:${path}:stage` ||
+                runningActionKey === `${kind}:file:${path}:unstage` ||
+                runningActionKey === `${kind}:file:${path}:discard`
               }
-              isDirectoryActionActive={(items) =>
-                items.some(
-                  (item) =>
-                    confirmingActionKey?.includes(item.path) ||
-                    runningActionKey?.includes(item.path),
-                )
-              }
+              isDirectoryActionActive={(items) => {
+                const paths = items.map((item) => item.path);
+                const key = paths.join("|");
+                return (
+                  confirmingActionKey === `${kind}:dir:${key}:stage` ||
+                  confirmingActionKey === `${kind}:dir:${key}:unstage` ||
+                  confirmingActionKey === `${kind}:dir:${key}:discard` ||
+                  runningActionKey === `${kind}:dir:${key}:stage` ||
+                  runningActionKey === `${kind}:dir:${key}:unstage` ||
+                  runningActionKey === `${kind}:dir:${key}:discard`
+                );
+              }}
               renderFileActions={(file) => {
                 const fileName = file.path.split("/").pop() || file.path;
 
@@ -302,7 +310,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                         onDoubleClick={stopActionEvent}
                         onClick={(e) => {
                           stopActionEvent(e);
-                          void runAction(`${kind}:${file.path}:stage`, () =>
+                          void runAction(`${kind}:file:${file.path}:stage`, () =>
                             onStage([file.path]),
                           );
                         }}
@@ -320,7 +328,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                         onDoubleClick={stopActionEvent}
                         onClick={(e) => {
                           stopActionEvent(e);
-                          void runAction(`${kind}:${file.path}:unstage`, () =>
+                          void runAction(`${kind}:file:${file.path}:unstage`, () =>
                             onUnstage([file.path]),
                           );
                         }}
@@ -332,7 +340,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                     )}
                     {isDestructiveSection
                       ? renderConfirmableMinusAction({
-                          actionKey: `${kind}:${file.path}:discard`,
+                          actionKey: `${kind}:file:${file.path}:discard`,
                           onConfirm: () => onDiscard?.([file.path]),
                           title:
                             kind === "untracked"
@@ -350,6 +358,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               renderDirectoryActions={(items) => {
                 const paths = items.map((item) => item.path);
                 const label = `${paths.length} files`;
+                const key = paths.join("|");
 
                 return (
                   <>
@@ -361,7 +370,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                         onDoubleClick={stopActionEvent}
                         onClick={(e) => {
                           stopActionEvent(e);
-                          void runAction(`${kind}:${paths.join("|")}:stage`, () =>
+                          void runAction(`${kind}:dir:${key}:stage`, () =>
                             onStage(paths),
                           );
                         }}
@@ -379,7 +388,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                         onDoubleClick={stopActionEvent}
                         onClick={(e) => {
                           stopActionEvent(e);
-                          void runAction(`${kind}:${paths.join("|")}:unstage`, () =>
+                          void runAction(`${kind}:dir:${key}:unstage`, () =>
                             onUnstage(paths),
                           );
                         }}
@@ -391,7 +400,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                     )}
                     {isDestructiveSection
                       ? renderConfirmableMinusAction({
-                          actionKey: `${kind}:${paths.join("|")}:discard`,
+                          actionKey: `${kind}:dir:${key}:discard`,
                           onConfirm: () => onDiscard?.(paths),
                           title:
                             kind === "untracked"
