@@ -1,3 +1,4 @@
+mod ampcode;
 mod claude_code;
 mod codex;
 mod cursor;
@@ -22,6 +23,7 @@ pub struct AgentHookInstallReport {
     pub factory_droid: AgentHookToolStatus,
     pub kiro: AgentHookToolStatus,
     pub opencode: AgentHookToolStatus,
+    pub ampcode: AgentHookToolStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,9 +75,10 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
     let factory = factory_droid::install(port);
     let kiro_status = kiro::install(port);
     let opencode = opencode::install(port);
+    let ampcode = ampcode::install(port);
 
     info!(
-        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, factory_droid={}, kiro={}, opencode={}",
+        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, factory_droid={}, kiro={}, opencode={}, ampcode={}",
         if claude.installed { "ok" } else { "skip" },
         if codex.installed { "ok" } else { "skip" },
         if cursor.installed { "ok" } else { "skip" },
@@ -83,6 +86,7 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
         if factory.installed { "ok" } else { "skip" },
         if kiro_status.installed { "ok" } else { "skip" },
         if opencode.installed { "ok" } else { "skip" },
+        if ampcode.installed { "ok" } else { "skip" },
     );
 
     AgentHookInstallReport {
@@ -93,6 +97,7 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
         factory_droid: factory,
         kiro: kiro_status,
         opencode,
+        ampcode,
     }
 }
 
@@ -106,6 +111,7 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
     let factory = factory_droid::uninstall();
     let kiro_status = kiro::uninstall();
     let opencode = opencode::uninstall();
+    let ampcode = ampcode::uninstall();
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -115,6 +121,7 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
         factory_droid: factory,
         kiro: kiro_status,
         opencode,
+        ampcode,
     }
 }
 
@@ -126,6 +133,7 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
     let factory = factory_droid::check();
     let kiro_status = kiro::check();
     let opencode = opencode::check();
+    let ampcode = ampcode::check();
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -135,10 +143,41 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
         factory_droid: factory,
         kiro: kiro_status,
         opencode,
+        ampcode,
     }
 }
 
 fn home_dir() -> Result<PathBuf> {
     dirs::home_dir()
         .ok_or_else(|| EngineError::Processing("Cannot determine home directory".into()))
+}
+
+/// Install hook for a single tool. Returns `None` if `tool` is not a known tool name.
+pub fn install_hook(tool: &str, port: u16) -> Option<AgentHookToolStatus> {
+    Some(match tool {
+        "claude_code" => claude_code::install(port),
+        "codex" => codex::install(port),
+        "cursor" => cursor::install(port),
+        "gemini" => gemini::install(port),
+        "factory_droid" => factory_droid::install(port),
+        "kiro" => kiro::install(port),
+        "opencode" => opencode::install(port),
+        "ampcode" => ampcode::install(port),
+        _ => return None,
+    })
+}
+
+/// Uninstall hook for a single tool. Returns `None` if `tool` is not a known tool name.
+pub fn uninstall_hook(tool: &str) -> Option<AgentHookToolStatus> {
+    Some(match tool {
+        "claude_code" => claude_code::uninstall(),
+        "codex" => codex::uninstall(),
+        "cursor" => cursor::uninstall(),
+        "gemini" => gemini::uninstall(),
+        "factory_droid" => factory_droid::uninstall(),
+        "kiro" => kiro::uninstall(),
+        "opencode" => opencode::uninstall(),
+        "ampcode" => ampcode::uninstall(),
+        _ => return None,
+    })
 }

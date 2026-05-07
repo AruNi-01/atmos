@@ -1,3 +1,4 @@
+mod ampcode;
 mod claude_code;
 mod codex;
 mod cursor;
@@ -47,6 +48,7 @@ pub enum AgentToolType {
     FactoryDroid,
     Kiro,
     Opencode,
+    Ampcode,
 }
 
 impl std::fmt::Display for AgentToolType {
@@ -59,6 +61,7 @@ impl std::fmt::Display for AgentToolType {
             Self::FactoryDroid => write!(f, "factory-droid"),
             Self::Kiro => write!(f, "kiro"),
             Self::Opencode => write!(f, "opencode"),
+            Self::Ampcode => write!(f, "ampcode"),
         }
     }
 }
@@ -339,6 +342,10 @@ impl AgentHooksService {
 
     pub fn handle_opencode_event(&self, payload: &Value, ctx: &AtmosContext) {
         opencode::handle_event(self, payload, ctx);
+    }
+
+    pub fn handle_ampcode_event(&self, payload: &Value, ctx: &AtmosContext) {
+        ampcode::handle_event(self, payload, ctx);
     }
 
     /// Prefer Atmos pane_id (stable, per-terminal-pane) > payload session_id > fallback.

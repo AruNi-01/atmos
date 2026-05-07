@@ -35,6 +35,7 @@ pub fn routes() -> Router<AppState> {
         .route("/factory-droid", post(handle_factory_droid_hook))
         .route("/kiro", post(handle_kiro_hook))
         .route("/opencode", post(handle_opencode_hook))
+        .route("/ampcode", post(handle_ampcode_hook))
         .route("/sessions", get(list_hook_sessions))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
         .route(
@@ -48,6 +49,8 @@ pub fn routes() -> Router<AppState> {
         .route("/install", post(install_hooks))
         .route("/uninstall", post(uninstall_hooks))
         .route("/status", get(hooks_status))
+        .route("/{tool}/install", post(install_hook))
+        .route("/{tool}/uninstall", post(uninstall_hook))
         .route("/refresh-projects", post(refresh_project_paths))
 }
 
@@ -82,6 +85,18 @@ async fn handle_opencode_hook(
     state
         .agent_hooks_service
         .handle_opencode_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_ampcode_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_ampcode_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
@@ -252,6 +267,24 @@ async fn install_hooks(State(state): State<AppState>) -> Json<Value> {
 async fn uninstall_hooks() -> Json<Value> {
     let report = core_engine::agent_hooks::uninstall_all_hooks();
     Json(serde_json::to_value(report).unwrap_or_default())
+}
+
+async fn install_hook(
+    State(state): State<AppState>,
+    Path(tool): Path<String>,
+) -> impl IntoResponse {
+    let port = state.api_port.load(std::sync::atomic::Ordering::SeqCst);
+    match core_engine::agent_hooks::install_hook(&tool, port) {
+        Some(status) => (StatusCode::OK, Json(serde_json::to_value(status).unwrap_or_default())),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "unknown tool" }))),
+    }
+}
+
+async fn uninstall_hook(Path(tool): Path<String>) -> impl IntoResponse {
+    match core_engine::agent_hooks::uninstall_hook(&tool) {
+        Some(status) => (StatusCode::OK, Json(serde_json::to_value(status).unwrap_or_default())),
+        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "unknown tool" }))),
+    }
 }
 
 async fn hooks_status() -> Json<Value> {

@@ -348,6 +348,7 @@ fn tool_display_name(tool: &AgentToolType) -> &'static str {
         AgentToolType::FactoryDroid => "Factory Droid",
         AgentToolType::Kiro => "Kiro",
         AgentToolType::Opencode => "OpenCode",
+        AgentToolType::Ampcode => "AMP",
     }
 }
 

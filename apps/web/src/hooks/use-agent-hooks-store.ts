@@ -21,6 +21,7 @@ export const AGENT_TOOL = {
   FACTORY_DROID: "factory-droid",
   KIRO: "kiro",
   OPENCODE: "opencode",
+  AMPCODE: "ampcode",
 } as const;
 
 export type AgentToolType = (typeof AGENT_TOOL)[keyof typeof AGENT_TOOL];
@@ -33,6 +34,7 @@ export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.FACTORY_DROID]: "Factory Droid",
   [AGENT_TOOL.KIRO]: "Kiro",
   [AGENT_TOOL.OPENCODE]: "OpenCode",
+  [AGENT_TOOL.AMPCODE]: "AMP",
 };
 
 

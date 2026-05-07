@@ -53,6 +53,9 @@ import {
   Building2,
   Check,
   ChevronDown,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
   Download,
   ExternalLink,
   House,
@@ -297,6 +300,7 @@ interface AgentHookInstallReport {
   factory_droid: AgentHookToolStatus;
   kiro: AgentHookToolStatus;
   opencode: AgentHookToolStatus;
+  ampcode: AgentHookToolStatus;
 }
 
 const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
@@ -307,53 +311,83 @@ const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
   { key: "factory_droid", label: "Factory Droid" },
   { key: "kiro", label: "Kiro" },
   { key: "opencode", label: "OpenCode" },
+  { key: "ampcode", label: "AMP" },
 ];
 
 function AgentHookStatusCard() {
   const [report, setReport] = React.useState<AgentHookInstallReport | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [acting, setActing] = React.useState(false);
+  const [actingTool, setActingTool] = React.useState<string | null>(null);
   const [expanded, setExpanded] = React.useState(true);
+
+  const getBase = React.useCallback(async () => {
+    const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
+    return (await import("@/lib/desktop-runtime")).httpBase(config);
+  }, []);
 
   const fetchStatus = React.useCallback(async () => {
     setLoading(true);
     try {
-      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
-      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const base = await getBase();
       const res = await fetch(`${base}/hooks/status`);
       if (res.ok) setReport(await res.json());
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getBase]);
 
   React.useEffect(() => { void fetchStatus(); }, [fetchStatus]);
 
-  const handleInstall = React.useCallback(async () => {
+  const handleInstallAll = React.useCallback(async () => {
     setActing(true);
     try {
-      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
-      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const base = await getBase();
       const res = await fetch(`${base}/hooks/install`, { method: "POST" });
       if (res.ok) setReport(await res.json());
     } catch { /* ignore */ } finally {
       setActing(false);
     }
-  }, []);
+  }, [getBase]);
 
-  const handleUninstall = React.useCallback(async () => {
+  const handleUninstallAll = React.useCallback(async () => {
     setActing(true);
     try {
-      const config = await import("@/lib/desktop-runtime").then(m => m.getRuntimeApiConfig());
-      const base = (await import("@/lib/desktop-runtime")).httpBase(config);
+      const base = await getBase();
       const res = await fetch(`${base}/hooks/uninstall`, { method: "POST" });
-      if (res.ok) {
-        setReport(await res.json());
-      }
+      if (res.ok) setReport(await res.json());
     } catch { /* ignore */ } finally {
       setActing(false);
     }
-  }, []);
+  }, [getBase]);
+
+  const handleInstallTool = React.useCallback(async (key: string) => {
+    setActingTool(key);
+    try {
+      const base = await getBase();
+      const res = await fetch(`${base}/hooks/${key}/install`, { method: "POST" });
+      if (res.ok) {
+        const status: AgentHookToolStatus = await res.json();
+        setReport(prev => prev ? { ...prev, [key]: status } : prev);
+      }
+    } catch { /* ignore */ } finally {
+      setActingTool(null);
+    }
+  }, [getBase]);
+
+  const handleUninstallTool = React.useCallback(async (key: string) => {
+    setActingTool(key);
+    try {
+      const base = await getBase();
+      const res = await fetch(`${base}/hooks/${key}/uninstall`, { method: "POST" });
+      if (res.ok) {
+        const status: AgentHookToolStatus = await res.json();
+        setReport(prev => prev ? { ...prev, [key]: status } : prev);
+      }
+    } catch { /* ignore */ } finally {
+      setActingTool(null);
+    }
+  }, [getBase]);
 
   const anyInstalled = report && HOOK_TOOL_META.some(t => report[t.key].installed);
   const anyDetected = report && HOOK_TOOL_META.some(t => report[t.key].detected);
@@ -378,13 +412,14 @@ function AgentHookStatusCard() {
           </div>
         </CollapsibleTrigger>
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={handleInstall} disabled={acting || loading}>
+          <Button variant="outline" size="sm" onClick={handleInstallAll} disabled={acting || loading}>
             {acting ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
-            Install
+            Install All
           </Button>
           {anyInstalled && (
-            <Button variant="outline" size="sm" onClick={handleUninstall} disabled={acting || loading} className="text-destructive hover:text-destructive">
-              Uninstall
+            <Button variant="outline" size="sm" onClick={handleUninstallAll} disabled={acting || loading} className="text-destructive hover:text-destructive">
+              <Trash2 className="size-4" />
+              Uninstall All
             </Button>
           )}
         </div>
@@ -399,26 +434,41 @@ function AgentHookStatusCard() {
           ) : report ? (
             HOOK_TOOL_META.map(({ key, label }) => {
               const tool = report[key];
+              const isBusy = actingTool === key;
               return (
                 <div key={key} className="border-b border-border px-2 py-3 last:border-b-0">
-                  <div className="grid grid-cols-[minmax(0,1fr)_200px] gap-8">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-sm font-medium text-foreground">{label}</span>
+                  <div className="flex items-center gap-3">
+                    {tool.detected
+                      ? tool.installed
+                        ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" />
+                        : <CircleX className="size-3.5 shrink-0 text-amber-500" />
+                      : <CircleMinus className="size-3.5 shrink-0 text-muted-foreground/50" />
+                    }
+                    <span className="text-sm font-medium text-foreground w-28 shrink-0">{label}</span>
+                    <div className="flex flex-1 items-center gap-2 min-w-0">
                       {tool.config_path && (
-                        <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[200px]" title={tool.config_path}>
+                        <span className="text-[10px] text-muted-foreground font-mono truncate" title={tool.config_path}>
                           {tool.config_path.split(/[\\/]/).slice(-2).join("/")}
                         </span>
                       )}
-                    </div>
-                    <div className="flex items-center justify-end gap-2">
-                      {!tool.detected ? (
+                      {!tool.detected && (
                         <span className="text-xs text-muted-foreground">Not detected</span>
-                      ) : tool.installed ? (
-                        <span className="text-xs font-medium text-emerald-500">Installed</span>
-                      ) : tool.error ? (
-                        <span className="text-xs text-destructive truncate max-w-[180px]" title={tool.error}>Error: {tool.error}</span>
-                      ) : (
-                        <span className="text-xs text-amber-500">Not installed</span>
+                      )}
+                      {tool.error && (
+                        <span className="text-xs text-destructive truncate" title={tool.error}>Error: {tool.error}</span>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      {tool.detected && !tool.error && (
+                        tool.installed ? (
+                          <Button variant="secondary" size="icon" className="size-6 text-destructive hover:text-destructive" disabled={isBusy || acting} onClick={() => handleUninstallTool(key)}>
+                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                          </Button>
+                        ) : (
+                          <Button variant="secondary" size="icon" className="size-6 text-emerald-500 hover:text-emerald-500" disabled={isBusy || acting} onClick={() => handleInstallTool(key)}>
+                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : <Download className="size-3" />}
+                          </Button>
+                        )
                       )}
                     </div>
                   </div>
