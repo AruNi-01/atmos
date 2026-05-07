@@ -418,6 +418,7 @@ function AgentHookStatusCard() {
           </Button>
           {anyInstalled && (
             <Button variant="outline" size="sm" onClick={handleUninstallAll} disabled={acting || loading} className="text-destructive hover:text-destructive">
+              <Trash2 className="size-4" />
               Uninstall All
             </Button>
           )}
