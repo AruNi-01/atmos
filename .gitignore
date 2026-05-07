@@ -85,6 +85,8 @@ apps/desktop/src-tauri/binaries/api-*
 apps/desktop/src-tauri/binaries/system-skills/
 apps/desktop/src-tauri/binaries/web-out/*
 !apps/desktop/src-tauri/binaries/web-out/.gitkeep
+apps/desktop/src-tauri/binaries/atmos-cli/
+!apps/desktop/src-tauri/binaries/atmos-cli/.gitkeep
 
 # ===== tmp =====
 *.tmp
