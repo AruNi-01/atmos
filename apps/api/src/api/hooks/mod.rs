@@ -35,6 +35,7 @@ pub fn routes() -> Router<AppState> {
         .route("/factory-droid", post(handle_factory_droid_hook))
         .route("/kiro", post(handle_kiro_hook))
         .route("/opencode", post(handle_opencode_hook))
+        .route("/ampcode", post(handle_ampcode_hook))
         .route("/sessions", get(list_hook_sessions))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
         .route(
@@ -82,6 +83,18 @@ async fn handle_opencode_hook(
     state
         .agent_hooks_service
         .handle_opencode_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_ampcode_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_ampcode_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 
