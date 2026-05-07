@@ -979,12 +979,32 @@ function AggregateProviderRow({
                       ) : null}
                     </div>
                     <div className="mt-2 space-y-1.5">
-                      {visibleSectionRows(provider, section).map((row) => (
-                        <div key={`${section.title}:${row.label}`} className="flex items-start justify-between gap-4 text-[11px]">
-                          <div className="text-foreground/90">{row.label}</div>
-                          <div className="text-right text-foreground">{row.value}</div>
-                        </div>
-                      ))}
+                      {visibleSectionRows(provider, section).map((row) => {
+                        const rowPercent = extractPercent(row.value);
+                        const rowResetText = extractResetText(row.value);
+                        const displayValue = rowResetText
+                          ? row.value.replace(/\s*·\s*resets in[^·]*/i, "").trim()
+                          : row.value;
+                        return (
+                          <div key={`${section.title}:${row.label}`}>
+                            <div className="flex items-start justify-between gap-4 text-[11px]">
+                              <div className="text-foreground/90">{row.label}</div>
+                              <div className="text-right text-foreground">{displayValue}</div>
+                            </div>
+                            {rowPercent !== null ? (
+                              <div className="mt-1">
+                                <UsageBar percent={rowPercent} />
+                              </div>
+                            ) : null}
+                            {rowPercent !== null ? (
+                              <div className="mt-0.5 flex items-center justify-between gap-4 text-[11px]">
+                                <div />
+                                <div className="text-foreground/90">{rowResetText}</div>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -1137,12 +1157,32 @@ function ProviderDetail({
             ) : null}
           </div>
           <div className="mt-3 space-y-2">
-            {visibleSectionRows(provider, section).map((row) => (
-              <div key={`${section.title}:${row.label}`} className="flex items-start justify-between gap-4 text-sm">
-                <div className="text-foreground/90">{row.label}</div>
-                <div className="text-right text-foreground">{row.value}</div>
-              </div>
-            ))}
+            {visibleSectionRows(provider, section).map((row) => {
+              const rowPercent = extractPercent(row.value);
+              const rowResetText = extractResetText(row.value);
+              const displayValue = rowResetText
+                ? row.value.replace(/\s*·\s*resets in[^·]*/i, "").trim()
+                : row.value;
+              return (
+                <div key={`${section.title}:${row.label}`}>
+                  <div className="flex items-start justify-between gap-4 text-sm">
+                    <div className="text-foreground/90">{row.label}</div>
+                    <div className="text-right text-foreground">{displayValue}</div>
+                  </div>
+                  {rowPercent !== null ? (
+                    <div className="mt-1.5">
+                      <UsageBar percent={rowPercent} />
+                    </div>
+                  ) : null}
+                  {rowPercent !== null ? (
+                    <div className="mt-1 flex items-center justify-between gap-4 text-[11px]">
+                      <div />
+                      <div className="text-foreground/90">{rowResetText}</div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </section>
       ))}

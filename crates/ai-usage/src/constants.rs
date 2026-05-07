@@ -6,6 +6,7 @@ pub(crate) const CURSOR_USAGE_SERVICE_URL: &str =
     "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
 pub(crate) const CURSOR_PLAN_INFO_URL: &str =
     "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo";
+pub(crate) const CURSOR_USAGE_SUMMARY_URL: &str = "https://cursor.com/api/usage-summary";
 pub(crate) const OPENCODE_LOCAL_DB_PATH: &str = "~/.local/share/opencode/opencode.db";
 pub(crate) const OPENCODE_LOCAL_AUTH_PATH: &str = "~/.local/share/opencode/auth.json";
 pub(crate) const OPENCODE_SESSION_LIMIT_USD: f64 = 12.0;

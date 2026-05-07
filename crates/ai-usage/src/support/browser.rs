@@ -214,7 +214,7 @@ pub fn load_cursor_session_token() -> Result<Option<BrowserCookieSource>, Provid
 
     load_browser_cookie_source(
         &["cursor.com", "www.cursor.com"],
-        &["WorkosCursorSessionToken"],
+        &["WorkosCursorSessionToken", "team_id"],
     )
 }
 

@@ -221,3 +221,19 @@ pub(crate) fn map_claude_rate_limit_tier(raw: String) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
+
+pub(crate) fn format_usd(value: f64) -> String {
+    let cents = (value * 100.0).round() as i64;
+    let dollars = cents / 100;
+    let frac = (cents % 100).unsigned_abs();
+    // Insert thousands separators
+    let dollars_str = dollars.to_string();
+    let with_commas = dollars_str
+        .as_bytes()
+        .rchunks(3)
+        .rev()
+        .map(|chunk| std::str::from_utf8(chunk).unwrap())
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("${}.{:02}", with_commas, frac)
+}
