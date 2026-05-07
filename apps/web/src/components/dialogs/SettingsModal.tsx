@@ -81,6 +81,7 @@ import {
   ListFilter,
 } from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
+import LayoutDashboardIcon from '@workspace/ui/components/icons/layout-dashboard-icon';
 import TerminalIcon from '@workspace/ui/components/icons/terminal-icon';
 import { BotIcon } from '@workspace/ui/components/icons/bot-icon';
 import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon';
@@ -125,6 +126,7 @@ import {
   showDesktopNotification,
 } from '@/lib/notifications';
 import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
+import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
 
 interface SettingsModalProps {
@@ -134,6 +136,11 @@ interface SettingsModalProps {
 }
 
 const SETTINGS_SECTIONS = [
+  {
+    id: 'layout',
+    label: 'Layout',
+    description: 'Panel arrangement and sidebar preferences',
+  },
   {
     id: 'code-agent',
     label: 'Code Agent',
@@ -497,6 +504,57 @@ const TEST_NOTIFICATION_PAYLOAD = {
   title: 'Atmos Test Notification',
   body: 'This is a test notification from Atmos.',
 };
+
+function LayoutSettingsSection() {
+  const { projectFilesSide, loadSettings, setProjectFilesSide } = useLayoutSettings();
+
+  React.useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+          <div>
+            <p className="text-base font-medium text-foreground">Project Files show side</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Choose which sidebar displays the project file tree.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <div className="inline-flex h-9 items-center rounded-lg border border-border bg-background p-0.5">
+              <button
+                type="button"
+                onClick={() => setProjectFilesSide('left')}
+                className={cn(
+                  "h-full rounded-md px-3 text-sm font-medium transition-colors",
+                  projectFilesSide === 'left'
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Left Sidebar
+              </button>
+              <button
+                type="button"
+                onClick={() => setProjectFilesSide('right')}
+                className={cn(
+                  "h-full rounded-md px-3 text-sm font-medium transition-colors",
+                  projectFilesSide === 'right'
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Right Sidebar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function WorkspaceSettingsSection() {
   const {
@@ -2591,6 +2649,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onMouseEnter={() => iconRef.current?.startAnimation?.()}
                             onMouseLeave={() => iconRef.current?.stopAnimation?.()}
                           >
+                            {section.id === 'layout' && <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'code-agent' && <BotIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'workspace' && <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'labels' && <TagIcon ref={iconRef} className="shrink-0" size={16} />}
@@ -3617,6 +3676,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                 ) : resolvedActiveSection === 'remote-access' ? (
                   <RemoteAccessSection />
+                ) : resolvedActiveSection === 'layout' ? (
+                  <LayoutSettingsSection />
                 ) : null}
                 </div>
               </ScrollArea>

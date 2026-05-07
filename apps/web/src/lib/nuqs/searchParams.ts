@@ -87,11 +87,11 @@ export const tokenUsageParams = {
   tokenUsage: parseAsBoolean.withDefault(false),
 };
 
-export type SettingsModalTab = "about" | "terminal" | "code-agent" | "workspace" | "labels" | "ai" | "notify" | "remote-access";
+export type SettingsModalTab = "about" | "terminal" | "code-agent" | "workspace" | "labels" | "ai" | "notify" | "remote-access" | "layout";
 
 export const settingsModalParams = {
   settingsModal: parseAsBoolean.withDefault(false),
-  activeSettingTab: parseAsStringEnum<SettingsModalTab>(["about", "terminal", "code-agent", "workspace", "labels", "ai", "notify", "remote-access"]).withDefault("about"),
+  activeSettingTab: parseAsStringEnum<SettingsModalTab>(["about", "terminal", "code-agent", "workspace", "labels", "ai", "notify", "remote-access", "layout"]).withDefault("layout"),
 };
 
 // ---------------------------------------------------------------------------
@@ -129,14 +129,25 @@ export const leftSidebarParams = {
 };
 
 // ---------------------------------------------------------------------------
-// RightSidebar – tab & sub-view
+// RightSidebar – tab
 // ---------------------------------------------------------------------------
-export type RightSidebarTab = "changes" | "run-preview";
-export type ChangesView = "changes" | "pr" | "actions" | "review";
+export type RightSidebarTab =
+  | "files"
+  | "changes"
+  | "pr"
+  | "actions"
+  | "review"
+  | "run-preview";
 
 export const rightSidebarParams = {
-  rsTab: parseAsStringEnum<RightSidebarTab>(["changes", "run-preview"]).withDefault("changes"),
-  rsView: parseAsStringEnum<ChangesView>(["changes", "pr", "actions", "review"]).withDefault("changes"),
+  rsTab: parseAsStringEnum<RightSidebarTab>([
+    "files",
+    "changes",
+    "pr",
+    "actions",
+    "review",
+    "run-preview",
+  ]).withDefault("changes"),
 };
 
 // ---------------------------------------------------------------------------

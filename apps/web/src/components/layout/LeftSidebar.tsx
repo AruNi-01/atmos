@@ -22,7 +22,6 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-  toastManager,
   cn,
   restrictToVerticalAxis,
   restrictToWindowEdges,
@@ -33,10 +32,6 @@ import {
   TabsList,
   TabsTab,
   TabsPanel,
-  LoaderCircle,
-  RotateCw,
-  Eye,
-  EyeOff,
   FolderKanban,
   ArrowRight,
   Puzzle,
@@ -56,8 +51,8 @@ import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
-import { FileTree } from '@/components/files/FileTree';
-import { fsApi, FileTreeNode, functionSettingsApi } from '@/api/ws-api';
+import { FileTreePanel } from '@/components/files/FileTreePanel';
+import { functionSettingsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
@@ -99,6 +94,8 @@ import {
 } from '@/components/layout/sidebar/WorkspaceKanbanFilterMenu';
 import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
+import { useLayoutSettings } from '@/hooks/use-layout-settings';
+import { useFileTreeStore } from '@/hooks/use-file-tree-store';
 
 interface LeftSidebarProps {
     projects?: Project[];
@@ -168,6 +165,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
     const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
     const { setCurrentContext } = useGitInfoStore();
+    const filesOnRight = useLayoutSettings((s) => s.projectFilesSide === 'right');
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
@@ -184,15 +182,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
 
-    const [fileTreeData, setFileTreeData] = useState<FileTreeNode[]>([]);
-    const [fileTreeProjectId, setFileTreeProjectId] = useState<string | null>(null);
-    const [fileTreeWorkspaceId, setFileTreeWorkspaceId] = useState<string | null>(null);
-    const [fileTreeShowHidden, setFileTreeShowHidden] = useState(false);
-
-    const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-    const [showHiddenFiles, setShowHiddenFiles] = useState(false);
-
-    const fetchRequestId = useRef(0);
+    const fileTreeProjectId = useFileTreeStore((s) => s.projectId);
+    const fileTreeWorkspaceId = useFileTreeStore((s) => s.workspaceId);
+    const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);
+    const isLoadingFiles = useFileTreeStore((s) => s.isLoading);
+    const fetchFileTree = useFileTreeStore((s) => s.fetch);
+    const showHiddenFiles = useFileTreeStore((s) => s.showHidden);
 
     const {
         isCreateProjectOpen,
@@ -356,45 +351,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string | null, effectivePath: string, showHidden: boolean = false) => {
         if (!effectivePath) return;
-
-        const currentRequestId = ++fetchRequestId.current;
-
-        setIsLoadingFiles(true);
-        setFileTreeData([]);
-
-        try {
-            const response = await fsApi.listProjectFiles(effectivePath, { showHidden });
-
-            if (fetchRequestId.current === currentRequestId) {
-                setFileTreeData(response.tree);
-                setFileTreeProjectId(projectId);
-                setFileTreeWorkspaceId(workspaceId);
-                setFileTreeShowHidden(showHidden);
-                setCurrentProjectPath(effectivePath);
-            } else {
-                console.log(`[Req #${currentRequestId}] Stale response ignored.`);
-            }
-        } catch (error) {
-            if (fetchRequestId.current === currentRequestId) {
-                console.error(`[Req #${currentRequestId}] Failed to fetch file tree:`, error);
-                toastManager.add({
-                    title: 'Error',
-                    description: 'Failed to load project files',
-                    type: 'error',
-                });
-                setFileTreeData([]);
-                setFileTreeProjectId(projectId);
-                setFileTreeWorkspaceId(workspaceId);
-            }
-        } finally {
-            if (fetchRequestId.current === currentRequestId) {
-                setIsLoadingFiles(false);
-            }
-        }
-    }, [setCurrentProjectPath]);
+        setCurrentProjectPath(effectivePath);
+        await fetchFileTree(projectId, workspaceId, effectivePath, showHidden);
+    }, [setCurrentProjectPath, fetchFileTree]);
 
     useEffect(() => {
-        if (activeTab === 'files' && currentProjectId && currentEffectivePath) {
+        if ((activeTab === 'files' || filesOnRight) && currentProjectId && currentEffectivePath) {
             const canFetch = currentWorkspaceId ? !isSettingUp : true;
 
             if (canFetch) {
@@ -406,7 +368,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 }
             }
         }
-    }, [activeTab, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
+    }, [activeTab, filesOnRight, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
 
     useEffect(() => {
         if (!fileTreeRevealTarget) return;
@@ -430,19 +392,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const handleTabChange = (value: string) => {
         setActiveTab(value as LeftSidebarTab);
     };
-
-    const handleRefreshFiles = () => {
-        if (currentProjectId && currentEffectivePath) {
-            doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
-        }
-    };
-
-    const toggleHiddenFiles = () => {
-        setShowHiddenFiles(prev => !prev);
-    };
-
-    const isIdsMatching = fileTreeProjectId === currentProjectId && fileTreeWorkspaceId === currentWorkspaceId;
-    const shouldShowLoader = isLoadingFiles || (activeTab === 'files' && !isIdsMatching && !!currentProject);
 
     const isAnyProjectDragging = activeId !== null && projects.some(p => p.id === activeId);
 
@@ -748,9 +697,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         <>
             <aside className="@container w-full flex flex-col h-full select-none">
                 {/* Management Center */}
-                <div className="flex flex-col border-b border-sidebar-border shrink-0">
+                <div className="flex flex-col shrink-0">
                     <div
-                        className="h-[39px] flex items-center justify-between px-4 text-sm font-medium cursor-pointer hover:bg-sidebar-accent/50 transition-colors select-none"
+                        className="h-10 flex items-center justify-between px-4 text-sm font-medium border-b border-sidebar-border cursor-pointer hover:bg-sidebar-accent/50 transition-colors select-none"
                         onClick={() => setIsWorkspacesExpanded(!isWorkspacesExpanded)}
                     >
                         <div className="flex items-center gap-2">
@@ -764,9 +713,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
                     <div className={cn(
                         "grid transition-[grid-template-rows] duration-200 ease-in-out",
-                        isWorkspacesExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                        isWorkspacesExpanded ? "grid-rows-[1fr] border-b border-sidebar-border" : "grid-rows-[0fr]"
                     )}>
-                        <div className="overflow-hidden border-t border-sidebar-border/30">
+                        <div className="overflow-hidden">
                             {(() => {
                                 const managementItems: Array<{
                                     id: string;
@@ -913,7 +862,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         className="flex flex-col h-full overflow-hidden"
                         onValueChange={handleTabChange}
                     >
-                        <div className="h-10 flex border-b border-sidebar-border">
+                        <div className={cn("h-10 flex border-b border-sidebar-border", filesOnRight && "hidden")}>
                             <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
                                 <TabsTab
                                     value="projects"
@@ -1144,69 +1093,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             )}
                         </TabsPanel>
 
-                        <TabsPanel value="files" className="flex-1 overflow-y-auto no-scrollbar flex flex-col">
-                            {currentProject && (
-                                <div className="flex items-center justify-between px-3 py-1.5 border-b border-sidebar-border">
-                                    <span className="text-[12px] font-medium text-muted-foreground truncate">
-                                        {currentProject.name}
-                                    </span>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={toggleHiddenFiles}
-                                            className={cn(
-                                                "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
-                                                showHiddenFiles ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground"
-                                            )}
-                                            title={showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
-                                        >
-                                            {showHiddenFiles ? (
-                                                <Eye className="size-3.5" />
-                                            ) : (
-                                                <EyeOff className="size-3.5" />
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={handleRefreshFiles}
-                                            className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
-                                            title="Refresh files"
-                                            disabled={isLoadingFiles}
-                                        >
-                                            {isLoadingFiles ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCw className="size-3.5 text-muted-foreground" />}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex-1 overflow-y-auto pt-1.5">
-                                {!currentProject ? (
-                                    <div className="px-4 py-8 text-center">
-                                        <Folder className="size-8 mx-auto text-muted-foreground mb-2 opacity-50" />
-                                        <p className="text-muted-foreground text-xs text-pretty italic">
-                                            Select a workspace to view files
-                                        </p>
-                                    </div>
-                                ) : !currentEffectivePath ? (
-                                    <div className="px-4 py-8 text-center text-muted-foreground">
-                                        <p className="text-sm">No project path configured</p>
-                                    </div>
-                                ) : shouldShowLoader ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
-                                    </div>
-                                ) : (
-                                    <FileTree
-                                        key={`${currentProjectId}-${currentWorkspaceId}`}
-                                        data={fileTreeData}
-                                        rootPath={currentEffectivePath}
-                                        onRefresh={handleRefreshFiles}
-                                    />
-                                )}
-                            </div>
+                        {!filesOnRight && (
+                        <TabsPanel value="files" className="flex-1 overflow-hidden flex flex-col">
+                            <FileTreePanel projectName={currentProject?.name} />
                         </TabsPanel>
+                        )}
 
                     </Tabs>
                 </div>
-                {activeTab === 'projects' && (
+                {(activeTab === 'projects' || filesOnRight) && (
                     <div className="relative shrink-0 bg-transparent">
                         <div className="relative flex items-center justify-between gap-1 px-1.5 py-0.5">
                             <div className="flex items-center gap-0">
@@ -1257,7 +1152,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     );
                                 })()}
                             </div>
-                            <WorkspaceKanbanView
+                            <div className="flex items-center gap-0">
+                                {(
+                                    <button
+                                        type="button"
+                                        title="Add Project"
+                                        onClick={handleAddProject}
+                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                    >
+                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                            <Plus className="size-3.5" />
+                                        </span>
+                                    </button>
+                                )}
+                                <WorkspaceKanbanView
                                 projects={projects}
                                 availableLabels={workspaceLabels}
                                 onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
@@ -1285,6 +1193,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     </button>
                                 )}
                             />
+                            </div>
                         </div>
                     </div>
                 )}
