@@ -12,6 +12,9 @@ impl MigrationTrait for Migration {
         let backend = manager.get_database_backend();
 
         if backend == sea_orm::DatabaseBackend::Sqlite {
+            // Disable foreign keys to prevent cascade deletion of dependent records
+            db.execute_unprepared(r#"PRAGMA foreign_keys = OFF"#).await?;
+
             db.execute_unprepared(
                 r#"
                 CREATE TABLE "review_session_new" (
@@ -52,6 +55,9 @@ impl MigrationTrait for Migration {
             db.execute_unprepared(r#"DROP TABLE "review_session""#).await?;
             db.execute_unprepared(r#"ALTER TABLE "review_session_new" RENAME TO "review_session""#)
                 .await?;
+
+            // Re-enable foreign keys
+            db.execute_unprepared(r#"PRAGMA foreign_keys = ON"#).await?;
         } else {
             // Postgres
             db.execute_unprepared(
@@ -126,6 +132,9 @@ impl MigrationTrait for Migration {
             .ok();
 
         if backend == sea_orm::DatabaseBackend::Sqlite {
+            // Disable foreign keys to prevent cascade deletion of dependent records
+            db.execute_unprepared(r#"PRAGMA foreign_keys = OFF"#).await?;
+
             db.execute_unprepared(
                 r#"
                 CREATE TABLE "review_session_old" (
@@ -167,6 +176,9 @@ impl MigrationTrait for Migration {
             db.execute_unprepared(r#"DROP TABLE "review_session""#).await?;
             db.execute_unprepared(r#"ALTER TABLE "review_session_old" RENAME TO "review_session""#)
                 .await?;
+
+            // Re-enable foreign keys
+            db.execute_unprepared(r#"PRAGMA foreign_keys = ON"#).await?;
         } else {
             // Prune NULL rows before making the column NOT NULL
             db.execute_unprepared(

@@ -42,7 +42,7 @@ No external dependencies change. No new background jobs, no Redis surface.
 - **CREATE** two replacement indexes on `review_session`:
   - `idx-review_session-workspace-status-updated` on `(workspace_guid, status, updated_at)` — only useful for rows where `workspace_guid IS NOT NULL`. SQLite/Postgres both index NULLs implicitly; we accept the small cost.
   - `idx-review_session-project-status-updated` on `(project_guid, status, updated_at)` — for the new project-scoped listing.
-- **No data backfill**: every existing row already has both `workspace_guid` and `project_guid` set, so the schema change is forward-only and free of data migration. `down()` re-tightens the column to `NOT NULL` (safe because all current data is non-null).
+- **No data backfill**: every existing row already has both `workspace_guid` and `project_guid` set, so the schema change is forward-only and free of data migration. `down()` re-tightens the column to `NOT NULL` but **is NOT safe** after project-scoped sessions (`workspace_guid = NULL`) have been created — the rollback filters to `WHERE "workspace_guid" IS NOT NULL` (SQLite) or deletes NULL rows (Postgres), which would lose project-scoped session data. Rollback should only be used before any project-scoped sessions are created, or with explicit data migration to preserve those sessions.
 
 #### Entity: `crates/infra/src/db/entities/review_session.rs`
 

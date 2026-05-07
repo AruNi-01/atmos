@@ -2,17 +2,13 @@
  * S11 — N2: scope badge in session header
  *
  * Verifies that ReviewSessionDto.workspace_guid drives the "Project" / "Workspace"
- * badge text. This is a pure logic test — no DOM rendering required.
+ * badge text. This tests the shared utility function used by ReviewView.
  */
 
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, it, expect } from "bun:test";
 import type { ReviewSessionDto } from "@/api/ws-api";
-
-/** Mirrors the badge logic in ReviewView.tsx */
-function getScopeBadgeText(session: Pick<ReviewSessionDto, "workspace_guid">): string {
-  return session.workspace_guid ? "Workspace" : "Project";
-}
+import { getScopeBadgeText } from "@/components/diff/review/utils";
 
 const baseSession: Omit<ReviewSessionDto, "workspace_guid"> = {
   guid: "sess-1",

@@ -132,4 +132,8 @@ export function sortComments(
   });
 }
 
+export function getScopeBadgeText(session: Pick<ReviewSessionDto, "workspace_guid">): string {
+  return session.workspace_guid ? "Workspace" : "Project";
+}
+
 export const REVIEW_AGENT_STORAGE_KEY = "atmos.review.default_agent_id";

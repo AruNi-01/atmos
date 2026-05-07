@@ -2069,12 +2069,10 @@ impl ReviewService {
                 .ok_or_else(|| {
                     ServiceError::NotFound(format!("Review session {} not found", run.session_guid))
                 })?;
-            // Use session.repo_path as the source of truth for the working tree.
-            // Fall back to workspace worktree resolution only for legacy rows where
-            // repo_path is empty (should not occur for sessions created after APP-013).
-            let workspace_root = if !session.repo_path.is_empty() {
-                std::path::PathBuf::from(&session.repo_path)
-            } else if let Some(ref ws_guid) = session.workspace_guid {
+            // For workspace-scoped sessions, always resolve the workspace worktree
+            // to ensure legacy sessions use the correct path. For project-scoped
+            // sessions (workspace_guid is None), use session.repo_path.
+            let workspace_root = if let Some(ref ws_guid) = session.workspace_guid {
                 let workspace = WorkspaceRepo::new(&self.db)
                     .find_by_guid(ws_guid)
                     .await?
@@ -2084,6 +2082,8 @@ impl ReviewService {
                 self.git_engine
                     .get_worktree_path(&workspace.name)
                     .map_err(ServiceError::Engine)?
+            } else if !session.repo_path.is_empty() {
+                std::path::PathBuf::from(&session.repo_path)
             } else {
                 return Err(ServiceError::Processing(
                     "Review session has no repo_path and no workspace_guid".to_string(),

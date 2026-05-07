@@ -20,6 +20,7 @@ import { FrozenFileList } from "@/components/diff/review/FrozenFileList";
 import {
   compareReviewTimestamps,
   formatReviewDateTime,
+  getScopeBadgeText,
   isOpenReviewCommentStatus,
   sortComments,
 } from "@/components/diff/review/utils";
@@ -28,10 +29,10 @@ import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 const REVIEW_FILE_VIEW_MODE_STORAGE_KEY = "atmos:right-sidebar:review-file-view-mode";
 
 const ReviewView: React.FC = () => {
-  const { workspaceId, projectId } = useContextParams();
-  // For review-diff editor tabs, use workspaceId if available, else a synthetic
-  // project-scoped key. This key is ONLY used for EDITOR_REVIEW_DIFF_PREFIX paths.
-  const reviewEditorKey = workspaceId ?? (projectId ? `project:${projectId}` : null);
+  const { effectiveContextId } = useContextParams();
+  // For review-diff editor tabs, use the same context key as the main editor
+  // to ensure file/comment navigation opens in the correct tab namespace.
+  const reviewEditorKey = effectiveContextId;
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
   const rawFilePath = (reviewEditorKey && getActiveFilePath(reviewEditorKey)) || "";
   const filePath = rawFilePath.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
@@ -158,7 +159,7 @@ const ReviewView: React.FC = () => {
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {/* N2: scope badge */}
           <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground border border-border">
-            {currentSession.workspace_guid ? "Workspace" : "Project"}
+            {getScopeBadgeText(currentSession)}
           </span>
           <span>{openCommentCount} open</span>
           <span>·</span>
