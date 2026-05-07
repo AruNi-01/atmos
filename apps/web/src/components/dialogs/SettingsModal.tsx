@@ -436,13 +436,14 @@ function AgentHookStatusCard() {
               return (
                 <div key={key} className="border-b border-border px-2 py-3 last:border-b-0">
                   <div className="flex items-center gap-3">
+                    {tool.detected
+                      ? tool.installed
+                        ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" />
+                        : <CircleX className="size-3.5 shrink-0 text-amber-500" />
+                      : <span className="size-3.5 shrink-0" />
+                    }
                     <span className="text-sm font-medium text-foreground w-28 shrink-0">{label}</span>
                     <div className="flex flex-1 items-center gap-2 min-w-0">
-                      {tool.detected && (
-                        tool.installed
-                          ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" />
-                          : <CircleX className="size-3.5 shrink-0 text-amber-500" />
-                      )}
                       {tool.config_path && (
                         <span className="text-[10px] text-muted-foreground font-mono truncate" title={tool.config_path}>
                           {tool.config_path.split(/[\\/]/).slice(-2).join("/")}
