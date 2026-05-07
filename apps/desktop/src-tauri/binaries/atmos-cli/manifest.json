@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "product": "atmos-cli",
+  "cli_version": "0.1.0",
+  "target_triple": "aarch64-apple-darwin",
+  "built_at": "2026-05-07T14:28:09.972Z",
+  "layout": {
+    "cli": "atmos"
+  }
+}
