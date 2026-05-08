@@ -1,6 +1,6 @@
 ---
 name: code-review-expert
-version: "1.0.0"
+version: "1.2.0"
 description: "Expert code review of current git changes with a senior engineer lens. Detects SOLID violations, security risks, and proposes actionable improvements."
 ---
 
@@ -12,19 +12,38 @@ Perform a structured review of the current git changes with focus on SOLID, arch
 
 ## Atmos Review Session Integration
 
-When the prompt contains a `<review-agent-run>` block, use the run/session metadata from that block and create inline comments with:
+When the prompt contains a `<review-agent-run>` block, the session may target either a **workspace** (isolated git worktree) or a **project** (the project's main checkout). The reviewer flow is target-agnostic — it only needs the `session`, `current_revision_guid`, and `run` GUIDs from the block — but respect the target kind if you need to read repo state (target kind is visible in the output of `atmos review session-show --session <session_guid>`).
+
+Use the run/session metadata to create one inline comment per concrete finding:
 
 ```bash
-atmos review create-comment --session <session_guid> --revision <current_revision_guid> --file <path> --side new --start-line <line> --end-line <line> --title "<short title>" --run <run_guid> --body "<Severity: P1\nIssue: ...\nSuggestion: ...>"
+atmos review create-comment \
+  --session <session_guid> \
+  --revision <current_revision_guid> \
+  --file <path> \
+  --side new \
+  --start-line <line> \
+  --end-line <line> \
+  --title "<short title>" \
+  --run <run_guid> \
+  --body-stdin <<'EOF'
+Severity: P1
+Issue: ...
+Suggestion: ...
+EOF
 ```
 
-Create one comment per concrete finding. Prefer `--body-file` or `--body-stdin` for multi-line bodies. After the review is complete, call:
+Prefer `--body-stdin` (or `--body-file <path>`) for multi-line bodies; `--body "..."` is only for short single-line text. After the review is complete, call:
 
 ```bash
-atmos review set-status --run <run_guid> succeeded --summary-stdin
+atmos review set-status --run <run_guid> succeeded --summary-stdin <<'EOF'
+<one-paragraph summary>
+EOF
 ```
 
 If the run cannot be completed, call `atmos review set-status --run <run_guid> failed --message "<reason>"`.
+
+For the full command surface (session discovery, comment reading, run lifecycle, body-input conventions, and workspace vs project semantics), see [`references/atmos-review-cli.md`](references/atmos-review-cli.md).
 
 ## Severity Levels
 
@@ -91,6 +110,22 @@ If the run cannot be completed, call `atmos review set-status --run <run_guid> f
 ### 6) Output format
 
 Structure your review as follows:
+
+> **Traceability frontmatter**: When this review is run inside an Atmos review session, the prompt will include a ready-to-copy YAML frontmatter block (under the key `atmos_review`). If you write the review to a Markdown report file, write that block **verbatim** as the very first lines of the file, before the `## Code Review Summary` heading. Do not edit, reformat, or omit any field. When there is no session context, omit the frontmatter.
+
+Example of the frontmatter the prompt will supply:
+
+```yaml
+---
+atmos_review:
+  session_guid: "<guid>"
+  run_guid: "<guid>"
+  base_revision_guid: "<guid>"
+  current_revision_guid: "<guid>"
+  skill_id: "code-review-expert"
+  generated_at: "<ISO-8601 UTC>"
+---
+```
 
 ```markdown
 ## Code Review Summary
@@ -172,3 +207,4 @@ Please choose an option or provide specific instructions.
 | `security-checklist.md` | Web/app security and runtime risk checklist |
 | `code-quality-checklist.md` | Error handling, performance, boundary conditions |
 | `removal-plan.md` | Template for deletion candidates and follow-up plan |
+| `atmos-review-cli.md` | Shared Atmos review CLI reference (symlinked from `atmos-review-fix`) |

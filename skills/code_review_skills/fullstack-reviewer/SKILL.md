@@ -1,6 +1,6 @@
 ---
 name: fullstack-reviewer
-version: "1.0.0"
+version: "1.2.0"
 description: "This skill should be used when the user asks to review code, review my changes, code review, review this project, check code quality, security review, find bugs, or requests a comprehensive, structured code review covering both frontend and backend."
 ---
 
@@ -13,19 +13,38 @@ output a structured Markdown report to the specified file path.
 
 ## Atmos Review Session Integration
 
-When the prompt contains a `<review-agent-run>` block, use the run/session metadata from that block and create inline comments with:
+When the prompt contains a `<review-agent-run>` block, the session may target either a **workspace** (isolated git worktree) or a **project** (the project's main checkout). The reviewer flow is target-agnostic — it only needs the `session`, `current_revision_guid`, and `run` GUIDs from the block — but respect the target kind if you need to read repo state (target kind is visible in the output of `atmos review session-show --session <session_guid>`).
+
+Use the run/session metadata to create one inline comment per concrete finding:
 
 ```bash
-atmos review create-comment --session <session_guid> --revision <current_revision_guid> --file <path> --side new --start-line <line> --end-line <line> --title "<short title>" --run <run_guid> --body "<Severity: P1\nIssue: ...\nSuggestion: ...>"
+atmos review create-comment \
+  --session <session_guid> \
+  --revision <current_revision_guid> \
+  --file <path> \
+  --side new \
+  --start-line <line> \
+  --end-line <line> \
+  --title "<short title>" \
+  --run <run_guid> \
+  --body-stdin <<'EOF'
+Severity: P1
+Issue: ...
+Suggestion: ...
+EOF
 ```
 
-Create one comment per concrete finding. Prefer `--body-file` or `--body-stdin` for multi-line bodies. After the review is complete, call:
+Prefer `--body-stdin` (or `--body-file <path>`) for multi-line bodies; `--body "..."` is only for short single-line text. After the review is complete, call:
 
 ```bash
-atmos review set-status --run <run_guid> succeeded --summary-stdin
+atmos review set-status --run <run_guid> succeeded --summary-stdin <<'EOF'
+<one-paragraph summary>
+EOF
 ```
 
 If the run cannot be completed, call `atmos review set-status --run <run_guid> failed --message "<reason>"`.
+
+For the full command surface (session discovery, comment reading, run lifecycle, body-input conventions, and workspace vs project semantics), see [`references/atmos-review-cli.md`](references/atmos-review-cli.md).
 
 ## Severity Levels
 
@@ -95,6 +114,7 @@ Load the appropriate reference checklist(s) based on file categories:
 - **`references/backend-checklist.md`** — API design, error handling, concurrency, database queries, business logic
 - **`references/security-checklist.md`** — XSS, injection, auth, secrets, CORS, CSRF, race conditions
 - **`references/architecture-checklist.md`** — SOLID principles, code smells, coupling, cohesion, dependency management
+- **`references/atmos-review-cli.md`** — Shared Atmos review CLI reference (symlinked from `atmos-review-fix`)
 
 For each file, check:
 1. **Correctness** — Logic errors, off-by-one, null handling, boundary conditions
@@ -113,6 +133,22 @@ When generating the review report, you MUST save it to the specified directory u
 - Example filename: `atmos_main_20260225-143815_overview_tab_redesign.md`
 
 Write the review report to this file path. The report MUST follow this exact structure:
+
+> **Traceability frontmatter**: When this review is run inside an Atmos review session, the prompt will include a ready-to-copy YAML frontmatter block (under the key `atmos_review`). Write that block **verbatim** as the very first lines of the report file, before the `# Code Review Report` heading. Do not edit, reformat, or omit any field. When there is no session context (e.g. the CLI is run ad-hoc without a `<review-agent-run>` block), omit the frontmatter.
+
+Example of the frontmatter the prompt will supply:
+
+```yaml
+---
+atmos_review:
+  session_guid: "<guid>"
+  run_guid: "<guid>"
+  base_revision_guid: "<guid>"
+  current_revision_guid: "<guid>"
+  skill_id: "fullstack-reviewer"
+  generated_at: "<ISO-8601 UTC>"
+---
+```
 
 ```markdown
 # Code Review Report

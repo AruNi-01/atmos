@@ -15,7 +15,7 @@ export const AGENT_OPTIONS = [
   { id: "claude", label: "Claude Code", cmd: "claude", params: "--dangerously-skip-permissions" },
   { id: "codex", label: "Codex", cmd: "codex", params: "--dangerously-bypass-approvals-and-sandbox" },
   { id: "gemini", label: "Gemini", cmd: "gemini", params: "--yolo" },
-  { id: "devin", label: "Devin", cmd: "devin", params: "--permission-mode bypass" },
+  { id: "devin", label: "Devin", cmd: "devin", params: "--permission-mode bypass --" },
   { id: "amp", label: "Amp", cmd: "amp", params: "" },
   { id: "droid", label: "Droid", cmd: "droid", params: "" },
   { id: "opencode", label: "OpenCode", cmd: "opencode", params: "--prompt" },
@@ -50,12 +50,19 @@ interface AgentSelectProps {
   value: AgentId;
   onValueChange: (value: AgentId) => void;
   className?: string;
+  /**
+   * Helper text shown under the select. Defaults to the wiki-specific guidance because
+   * this component originated in the wiki flow; non-wiki callers (e.g. code review) should
+   * pass their own copy so we don't mention "wiki content" outside of wiki dialogs.
+   */
+  helperText?: React.ReactNode;
 }
 
 export const AgentSelect: React.FC<AgentSelectProps> = ({
   value,
   onValueChange,
   className,
+  helperText = "Prefer models with strong text editing capabilities (e.g. Claude, Gemini, GPT). Coding-focused models may produce lower quality wiki content.",
 }) => {
   return (
     <div className={className}>
@@ -77,9 +84,9 @@ export const AgentSelect: React.FC<AgentSelectProps> = ({
           ))}
         </SelectContent>
       </Select>
-      <p className="text-[11px] text-muted-foreground mt-1.5">
-        Prefer models with strong text editing capabilities (e.g. Claude, Gemini, GPT). Coding-focused models may produce lower quality wiki content.
-      </p>
+      {helperText ? (
+        <p className="text-[11px] text-muted-foreground mt-1.5">{helperText}</p>
+      ) : null}
     </div>
   );
 };

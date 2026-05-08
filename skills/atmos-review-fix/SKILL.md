@@ -1,6 +1,6 @@
 ---
 name: atmos-review-fix
-version: "2.1.0"
+version: "2.3.0"
 description: Handle an Atmos review fix run by reading review comments, marking run status with the installed `atmos review` CLI, editing code, replying to each comment, writing a run summary, and finalizing the run into a new review revision.
 user-invokable: true
 ---
@@ -23,7 +23,17 @@ Given a review run:
 
 Do not mark comments `fixed` automatically.
 
-## Required CLI commands
+## Atmos review CLI
+
+The full command reference (including workspace vs project session targets, body-input conventions, and every `atmos review` subcommand) lives in [`references/atmos-review-cli.md`](references/atmos-review-cli.md). Read it before running CLI commands. This skill uses a fix-run subset of those commands (listed again under "Commands used in this skill" below for quick reference).
+
+Target-awareness reminders for fix runs:
+
+- **Workspace-level session** — edits happen in the workspace's isolated git worktree; unrelated branches/worktrees are not touched.
+- **Project-level session** — edits land directly in the project's main checkout, with **no worktree isolation**. Preserve unrelated staged/unstaged/untracked files.
+- `session-show` reports the target kind; fix-run CLI commands themselves are target-agnostic and take only `--session` / `--comment` / `--run` GUIDs.
+
+## Commands used in this skill
 
 - `atmos review session-show --session <session_guid>`
 - `atmos review comment-list --session <session_guid>`
@@ -74,7 +84,7 @@ For each selected comment:
 
 Do not skip comment-context lookup. The review snapshot is the source of truth, not the current diff UI. Do not blindly edit just because a comment exists; if the comment is incorrect or unclear, reply with that finding instead of forcing a code change.
 
-### 3. Edit the workspace
+### 3. Edit the repository
 
 Make the smallest coherent code change that addresses the comment set.
 
@@ -84,6 +94,7 @@ Rules:
 - preserve unrelated local changes
 - do not revert user work
 - if a comment cannot be fully addressed, still reply with the blocker clearly
+- for project-level sessions, edits land on the project's main checkout — double-check that unrelated staged, unstaged, and untracked files stay intact
 
 ### 4. Reply to each comment
 
