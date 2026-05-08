@@ -164,11 +164,11 @@ const ReadyDownload = () => {
             <div className='mt-8 w-full max-w-2xl'>
               <Tabs defaultValue='homebrew' value={activeTab} onValueChange={setActiveTab} className='w-full'>
                 <TabsList className='grid w-full grid-cols-5 mb-4'>
-                  <TabsTrigger value='homebrew'>Homebrew</TabsTrigger>
-                  <TabsTrigger value='bash'>Bash</TabsTrigger>
-                  <TabsTrigger value='npx'>npx</TabsTrigger>
-                  <TabsTrigger value='bunx'>bunx</TabsTrigger>
-                  <TabsTrigger value='local-web-bash'>Local Web</TabsTrigger>
+                  <TabsTrigger value='homebrew'>Homebrew (Desktop)</TabsTrigger>
+                  <TabsTrigger value='bash'>Bash (Desktop)</TabsTrigger>
+                  <TabsTrigger value='npx'>npx (Local Web)</TabsTrigger>
+                  <TabsTrigger value='bunx'>bunx (Local Web)</TabsTrigger>
+                  <TabsTrigger value='local-web-bash'>Bash (Local Web)</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value='homebrew' className='mt-0'>
