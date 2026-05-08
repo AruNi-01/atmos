@@ -27,7 +27,7 @@ jobs:
         run: |
           aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws configure set default.region us-east-1
+          aws configure set default.region auto
           echo "Endpoint: $AWS_ENDPOINT_URL"
 
       - name: Upload install-desktop.sh to R2
@@ -87,7 +87,7 @@ jobs:
         run: |
           aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws configure set default.region us-east-1
+          aws configure set default.region auto
           echo "Endpoint: $AWS_ENDPOINT_URL"
 
       - name: Upload to Cloudflare R2
@@ -142,7 +142,7 @@ jobs:
         run: |
           aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws configure set default.region us-east-1
+          aws configure set default.region auto
           echo "Endpoint: $AWS_ENDPOINT_URL"
 
       - name: Upload to Cloudflare R2
