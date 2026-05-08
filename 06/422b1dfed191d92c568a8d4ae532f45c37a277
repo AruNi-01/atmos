@@ -1,0 +1,29 @@
+apps/landing/public/agents/devin.svg
+  s_350ae2edc84263::t_5edd183460e93e 1
+apps/landing/src/components/blocks/agent-show.tsx
+  s_350ae2edc84263::t_93eee7b62e231f 49
+  s_350ae2edc84263::t_b61f48442c89af 13
+apps/landing/src/components/blocks/ready-download.tsx
+  s_350ae2edc84263::t_356a111c46e016 73-80,82-91,93-98,101-137,140-174,176,178-190,192-193,195-203,205-211,227-228
+  s_350ae2edc84263::t_52fe9b22919d5a 81
+  s_350ae2edc84263::t_683c7730acaedb 191
+  s_350ae2edc84263::t_f9c2ab066d6f8d 43
+  s_350ae2edc84263::t_4b690f61df564d 5
+  s_350ae2edc84263::t_2c8529ed85858a 71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "06422b1dfed191d92c568a8d4ae532f45c37a277",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
