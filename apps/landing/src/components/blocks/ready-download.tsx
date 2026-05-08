@@ -148,7 +148,10 @@ const ReadyDownload = () => {
             <div className='mt-8 w-full max-w-2xl space-y-8'>
               {/* Desktop Installation */}
               <div className='space-y-3 text-left'>
-                <h3 className='text-sm font-medium text-muted-foreground'>Desktop App</h3>
+                <div className='flex items-center gap-2'>
+                  <h3 className='text-sm font-medium text-muted-foreground'>Desktop App</h3>
+                  <OsIcon os='apple' className='size-4 text-muted-foreground' />
+                </div>
                 <Tabs defaultValue='homebrew' value={desktopTab} onValueChange={setDesktopTab} className='w-fit'>
                   <TabsList className='grid w-fit grid-cols-2 mb-3'>
                     <TabsTrigger value='homebrew'>Homebrew</TabsTrigger>
