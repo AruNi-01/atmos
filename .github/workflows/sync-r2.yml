@@ -135,8 +135,8 @@ jobs:
 
   sync-local-runtime:
     if: |
-      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-v')) ||
-      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-v'))
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-model-runtime-v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-model-runtime-v'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -156,7 +156,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "Downloading assets for tag: $TAG"
-          gh release download "$TAG" --dir /tmp/assets --pattern "atmos-local-runtime-*.tar.gz"
+          gh release download "$TAG" --dir /tmp/assets --pattern "*.tar.gz"
           echo "Downloaded files:"
           ls -la /tmp/assets/
 
@@ -194,7 +194,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest local runtime release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c "import json,sys; releases=json.load(sys.stdin); print(next((r['tag_name'] for r in releases if not r.get('draft') and not r.get('prerelease') and r['tag_name'].startswith('local-v')), ''))")
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c "import json,sys; releases=json.load(sys.stdin); print(next((r['tag_name'] for r in releases if not r.get('draft') and not r.get('prerelease') and r['tag_name'].startswith('local-model-runtime-v')), ''))")
 
           echo "Latest stable local runtime release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
