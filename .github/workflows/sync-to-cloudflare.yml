@@ -58,8 +58,11 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          echo "Downloading assets for tag: $TAG"
           # Only sync macOS assets (Linux/Windows users download directly from GitHub)
           gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz"
+          echo "Downloaded files:"
+          ls -la /tmp/assets/
 
       - name: Install wrangler
         run: npm install -g wrangler
@@ -69,6 +72,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
+          echo "Uploading files:"
+          ls -la /tmp/assets/
           wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/ --path /tmp/assets
 
   sync-local-runtime:
@@ -92,7 +98,10 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          echo "Downloading assets for tag: $TAG"
           gh release download "$TAG" --dir /tmp/assets --pattern "atmos-local-runtime-*.tar.gz"
+          echo "Downloaded files:"
+          ls -la /tmp/assets/
 
       - name: Install wrangler
         run: npm install -g wrangler
@@ -102,4 +111,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
+          echo "Uploading files:"
+          ls -la /tmp/assets/
           wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/ --path /tmp/assets
