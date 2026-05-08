@@ -1,0 +1,60 @@
+.agents/skills/atmos-local-release/references/release-checklist.md
+  s_350ae2edc84263::t_bd9e90d1a751e6 229
+  s_350ae2edc84263::t_d70c62d02c3cad 41
+  s_350ae2edc84263::t_09dbbb7c719722 42,131,142,226,230
+  s_350ae2edc84263::t_bde54e82dcb2e3 141
+docs/release.md
+  s_350ae2edc84263::t_4120cb6f962401 14,178,245,266,278-279,397,411,513
+packages/local-installer/README.md
+  s_350ae2edc84263::t_f6e54b882ce2d2 1,8,14,28
+.agents/skills/atmos-local-release/SKILL.md
+  s_350ae2edc84263::t_1328100569ec52 54
+  s_350ae2edc84263::t_1ad7d70334f682 3,30,55,115,196,247,250,285,287,293,300,308,342
+  s_350ae2edc84263::t_566ab7de6b489a 286
+  s_350ae2edc84263::t_bebb2c460d3429 121
+  s_350ae2edc84263::t_ddc8a7f7d05807 249
+  s_350ae2edc84263::t_925b0127623874 299
+install-local-web-runtime.sh
+  s_350ae2edc84263::t_11552a333baeac 14
+install-desktop.sh
+  s_350ae2edc84263::t_570dc313d9c6b8 1-122
+.agents/skills/atmos-local-release/references/post-release-verification.md
+  s_350ae2edc84263::t_3d9b244617ae84 67
+  s_350ae2edc84263::t_5a18856a04bb9f 37
+  s_350ae2edc84263::t_564cd91cf61816 129
+  s_350ae2edc84263::t_22c7d1f7623509 199
+  s_350ae2edc84263::t_27368619e018db 38,68,138,200
+packages/local-installer/bin/atmos-local.mjs
+  s_350ae2edc84263::t_16f63fb89413aa 11
+packages/local-installer/package.json
+  s_350ae2edc84263::t_2d47c9c33f1535 2
+.github/workflows/release-local-runtime.yml
+  s_350ae2edc84263::t_0b5c14c7309335 36
+  s_350ae2edc84263::t_b832f829d9b936 229
+  s_350ae2edc84263::t_b2f29dfe8b1588 306,314,316
+.agents/skills/atmos-cli-release/SKILL.md
+  s_350ae2edc84263::t_8ddba5c145500e 39
+README.md
+  s_350ae2edc84263::t_eb84f4d275857a 87
+  s_350ae2edc84263::t_f8e8317d17924f 78,81
+  s_350ae2edc84263::t_6fc7ac289cbee9 86,91-95
+  s_350ae2edc84263::t_b320be1bac753c 43,59-63,65-77,79-80
+  s_350ae2edc84263::t_c5f6219ce918e9 64
+  s_350ae2edc84263::t_41a40964bc2ed6 49-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "dbe799e8d572ebd6208bd78298e29a2f1ce9f0c3",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
