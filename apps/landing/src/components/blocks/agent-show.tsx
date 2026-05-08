@@ -10,6 +10,7 @@ const agents = [
   { name: 'Kilo', icon: '/agents/kilo.svg' },
   { name: 'OpenCode', icon: '/agents/opencode.svg' },
   { name: 'Gemini', icon: '/agents/gemini.svg' },
+  { name: 'Devin', icon: '/agents/devin.svg' },
 ] as const
 
 export const AgentShow = () => {
@@ -45,7 +46,7 @@ export const AgentShow = () => {
                 <img
                   src={agent.icon}
                   alt={agent.name}
-                  className='size-6 invert dark:invert-0'
+                  className={`size-6 ${agent.name === 'Devin' ? 'dark:invert invert-0' : 'invert dark:invert-0'}`}
                 />
                 <span className='text-lg font-semibold opacity-70'>{agent.name}</span>
               </div>
