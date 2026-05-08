@@ -194,14 +194,14 @@ export function useGithubPRDetailSidebar(prNumber: number, owner?: string, repo?
 }
 
 // Actions List
-export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
+export function useGithubActionsList({ owner, repo, branch, enabled = true }: GithubContext & { enabled?: boolean }) {
   const send = useWebSocketStore(s => s.send);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetch = useCallback(async (isAuto = false) => {
-    if (!owner || !repo || !branch) return;
+    if (!enabled || !owner || !repo || !branch) return;
     if (!isAuto) setLoading(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -214,10 +214,10 @@ export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
     } finally {
       if (!isAuto) setLoading(false);
     }
-  }, [owner, repo, branch, send]);
+  }, [owner, repo, branch, send, enabled]);
 
   useEffect(() => {
-    if (!owner || !repo || !branch) return;
+    if (!enabled || !owner || !repo || !branch) return;
     
     let timer: ReturnType<typeof setTimeout> | null = null;
     let isMounted = true;
@@ -242,7 +242,7 @@ export function useGithubActionsList({ owner, repo, branch }: GithubContext) {
       isMounted = false;
       if (timer) clearTimeout(timer); 
     };
-  }, [fetch]); // Dependencies owner, repo, branch are in fetch
+  }, [fetch, enabled]); // Dependencies owner, repo, branch are in fetch
 
   return { data, loading, refresh: () => fetch() };
 }

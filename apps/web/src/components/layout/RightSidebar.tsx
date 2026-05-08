@@ -321,6 +321,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
           variant="sidebar"
           mode="wiki_ask"
           publishStatus={false}
+          active={showWikiAskSidebar}
         />
       </div>
       <div className={cn("flex-1 min-h-0", showWikiAskSidebar && "hidden")}>
@@ -654,6 +655,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                       onPrClick={(num) => setModalParams({ rsPr: num })}
                       prSubTab={prSubTab}
                       onLoadingChange={setPRPanelLoading}
+                      enabled={activeTab === "pr"}
                     />
                   </div>
                 </>
@@ -685,6 +687,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                     owner={githubOwner}
                     repo={githubRepo}
                     branch={currentBranch}
+                    enabled={activeTab === "actions"}
                     onRunClick={(run: ActionRun) => {
                       setActiveActionRun(run);
                       setModalParams({ rsRunId: run.databaseId });

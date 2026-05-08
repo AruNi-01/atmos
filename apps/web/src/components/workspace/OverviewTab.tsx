@@ -86,6 +86,7 @@ interface OverviewTabProps {
   priority?: WorkspacePriority;
   workflowStatus?: WorkspaceWorkflowStatus;
   labels?: WorkspaceLabel[];
+  active?: boolean;
 }
 
 function formatDate(isoString?: string): string {
@@ -211,6 +212,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   priority,
   workflowStatus,
   labels,
+  active = true,
 }) => {
   const openFile = useEditorStore(s => s.openFile);
   const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
@@ -238,12 +240,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const { data: prs, loading: prsLoading, refresh: refreshPRs } = useGithubPRList({
     owner: githubOwner || '',
     repo: githubRepo || '',
-    branch: effectiveGitBranch
+    branch: effectiveGitBranch,
+    enabled: active,
   });
   const { data: actionRuns, loading: actionsLoading, refresh: refreshActions } = useGithubActionsList({
     owner: githubOwner || '',
     repo: githubRepo || '',
-    branch: effectiveGitBranch
+    branch: effectiveGitBranch,
+    enabled: active,
   });
   const { latestRuns, stats } = useProcessedActions(actionRuns);
 

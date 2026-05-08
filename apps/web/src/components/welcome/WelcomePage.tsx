@@ -88,6 +88,7 @@ import {
   type ComposerHandle,
 } from "@/components/welcome/PromptComposer";
 import { useProjectStore } from "@/hooks/use-project-store";
+import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
 import { useWorkspaceCreationStore } from "@/hooks/use-workspace-creation-store";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useDialogStore } from "@/hooks/use-dialog-store";
@@ -731,7 +732,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   }, [activeMentionFileIndex, mentionNavItems, mentionPopover, selectMentionNavItem]);
 
   React.useEffect(() => {
-    Promise.all([functionSettingsApi.get(), codeAgentCustomApi.get()])
+    Promise.all([useFunctionSettingsStore.getState().load(), codeAgentCustomApi.get()])
       .then(([settings, customData]) => {
         const saved = (settings as Record<string, unknown>)?.agent_cli as
           | Record<string, unknown>

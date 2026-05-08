@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
+import { useFunctionSettingsStore } from '@/hooks/use-function-settings-store';
 
 export type ProjectFilesSide = 'left' | 'right';
 
@@ -19,7 +20,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
   loadSettings: async () => {
     if (get().loaded) return;
     try {
-      const settings = await functionSettingsApi.get();
+      const settings = await useFunctionSettingsStore.getState().load();
       const layout = settings.layout as { project_files_side?: string } | undefined;
       const side = layout?.project_files_side;
       set({

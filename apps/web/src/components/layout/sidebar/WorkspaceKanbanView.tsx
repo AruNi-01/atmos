@@ -36,6 +36,7 @@ import {
 } from "@workspace/ui";
 import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import { functionSettingsApi, wsWorkspaceApi } from "@/api/ws-api";
+import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
 import type { GithubIssuePayload, WorkspaceModel } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useQueryState } from "nuqs";
@@ -651,7 +652,6 @@ export function WorkspaceKanbanView({
     workspaceId: string;
     issue: GithubIssuePayload;
   } | null>(null);
-  const [kanbanProjects, setKanbanProjects] = React.useState<Project[] | null>(null);
   const skipPersistRef = React.useRef(false);
   const searchContainerRef = React.useRef<HTMLDivElement | null>(null);
   const boardScrollRef = React.useRef<HTMLDivElement | null>(null);
@@ -670,67 +670,55 @@ export function WorkspaceKanbanView({
     }
   }, [searchQuery]);
 
-  const reloadKanbanProjects = React.useCallback(async () => {
+  // Issue-only workspaces are not loaded by the sidebar store (fetchProjects).
+  // We only fetch them when the user toggles showIssueOnly on.
+  const [issueOnlyWorkspaces, setIssueOnlyWorkspaces] = React.useState<Map<string, Workspace[]>>(new Map());
+  const [issueOnlyLoaded, setIssueOnlyLoaded] = React.useState(false);
+
+  const fetchIssueOnlyWorkspaces = React.useCallback(async () => {
     const results = await Promise.allSettled(
       projects.map(async (project) => {
-        try {
-          const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
-          return {
-            ...project,
-            workspaces: workspaces.map(mapKanbanWorkspaceModel),
-          };
-        } catch (error) {
-          console.error(`Failed to load workspaces for project ${project.id}:`, error);
-          return {
-            ...project,
-            workspaces: [],
-          };
-        }
+        const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
+        // Filter to only issue_only workspaces (the store already has manual ones)
+        const issueOnly = workspaces
+          .filter((w) => w.create_source === 'issue_only')
+          .map(mapKanbanWorkspaceModel);
+        return { projectId: project.id, workspaces: issueOnly };
       }),
     );
-    const nextProjects = results.map((result) =>
-      result.status === 'fulfilled' ? result.value : { ...result.reason.project, workspaces: [] }
-    );
-    setKanbanProjects(nextProjects);
+    const map = new Map<string, Workspace[]>();
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        map.set(result.value.projectId, result.value.workspaces);
+      }
+    });
+    setIssueOnlyWorkspaces(map);
+    setIssueOnlyLoaded(true);
   }, [projects]);
 
+  // Fetch issue_only workspaces when showIssueOnly is toggled on
   React.useEffect(() => {
-    if (!isKanbanExpanded) {
-      setKanbanProjects(null);
-      return;
-    }
+    if (!isKanbanExpanded || !showIssueOnly || issueOnlyLoaded) return;
+    void fetchIssueOnlyWorkspaces();
+  }, [isKanbanExpanded, showIssueOnly, issueOnlyLoaded, fetchIssueOnlyWorkspaces]);
 
-    let cancelled = false;
-    void (async () => {
-      const results = await Promise.allSettled(
-        projects.map(async (project) => {
-          try {
-            const workspaces = await wsWorkspaceApi.listByProject(project.id, true);
-            return {
-              ...project,
-              workspaces: workspaces.map(mapKanbanWorkspaceModel),
-            };
-          } catch (error) {
-            console.error(`Failed to load workspaces for project ${project.id}:`, error);
-            return {
-              ...project,
-              workspaces: [],
-            };
-          }
-        }),
-      );
-      if (!cancelled) {
-        const nextProjects = results.map((result) =>
-          result.status === 'fulfilled' ? result.value : { ...result.reason.project, workspaces: [] }
-        );
-        setKanbanProjects(nextProjects);
-      }
-    })();
+  // Build kanbanProjects by merging store data with issue_only workspaces
+  const kanbanProjects = React.useMemo(() => {
+    if (!isKanbanExpanded) return null;
+    return projects.map((project) => {
+      if (!showIssueOnly) return project;
+      const extra = issueOnlyWorkspaces.get(project.id) ?? [];
+      if (extra.length === 0) return project;
+      const existingIds = new Set(project.workspaces.map((w) => w.id));
+      const uniqueExtra = extra.filter((w) => !existingIds.has(w.id));
+      return { ...project, workspaces: [...project.workspaces, ...uniqueExtra] };
+    });
+  }, [isKanbanExpanded, projects, showIssueOnly, issueOnlyWorkspaces]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isKanbanExpanded, projects]);
+  const reloadKanbanProjects = React.useCallback(async () => {
+    // Re-fetch issue_only workspaces after import
+    await fetchIssueOnlyWorkspaces();
+  }, [fetchIssueOnlyWorkspaces]);
 
   const loadWorkspaceKanbanSettings = React.useCallback(async ({ blocking = false }: { blocking?: boolean } = {}) => {
     if (blocking) {
@@ -739,7 +727,7 @@ export function WorkspaceKanbanView({
     skipPersistRef.current = true;
 
     try {
-      const settings = await functionSettingsApi.get();
+      const settings = await useFunctionSettingsStore.getState().load();
       const section = settings.workspace_kanban_view;
       const raw = (section && typeof section === "object" && "state" in (section as Record<string, unknown>))
         ? (section as { state?: unknown }).state

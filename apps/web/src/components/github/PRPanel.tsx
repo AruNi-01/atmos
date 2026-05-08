@@ -31,6 +31,7 @@ interface PRPanelProps {
   prSubTab?: 'open' | 'closed';
   refreshRef?: React.Ref<PRPanelHandle>;
   onLoadingChange?: (loading: { open: boolean; closed: boolean }) => void;
+  enabled?: boolean;
 }
 
 export interface PRPanelHandle {
@@ -42,7 +43,7 @@ export interface PRPanelHandle {
 
 type PRState = 'OPEN' | 'CLOSED';
 
-export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PRPanel({ owner, repo, branch, onPrClick, prSubTab, onLoadingChange }, ref) {
+export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PRPanel({ owner, repo, branch, onPrClick, prSubTab, onLoadingChange, enabled = true }, ref) {
   const stateFilter: PRState = prSubTab === 'closed' ? 'CLOSED' : 'OPEN';
 
   const openPrList = useGithubPRList({
@@ -51,7 +52,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
     branch,
     state: 'open',
     emitBranchStatusRefresh: true,
-    enabled: true,
+    enabled,
   });
   const closedPrList = useGithubPRList({
     owner,
@@ -59,7 +60,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
     branch,
     state: 'closed',
     emitBranchStatusRefresh: true,
-    enabled: prSubTab === 'closed',
+    enabled: enabled && prSubTab === 'closed',
   });
 
   useEffect(() => {

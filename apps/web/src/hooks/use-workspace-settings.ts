@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { toastManager } from '@workspace/ui';
 
 import { functionSettingsApi } from '@/api/ws-api';
+import { useFunctionSettingsStore } from '@/hooks/use-function-settings-store';
 
 interface WorkspaceSettingsState {
   closePrOnDelete: boolean;
@@ -57,7 +58,7 @@ export const useWorkspaceSettings = create<WorkspaceSettingsState>((set, get) =>
     set({ loading: true, loadRequestToken });
 
     try {
-      const settings = await functionSettingsApi.get();
+      const settings = await useFunctionSettingsStore.getState().load();
       const current = get();
       if (current.loadRequestToken !== loadRequestToken) return;
 

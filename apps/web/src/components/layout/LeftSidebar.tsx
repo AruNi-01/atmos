@@ -53,6 +53,7 @@ import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialo
 import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { FileTreePanel } from '@/components/files/FileTreePanel';
 import { functionSettingsApi } from '@/api/ws-api';
+import { useFunctionSettingsStore } from '@/hooks/use-function-settings-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
@@ -204,7 +205,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [fetchProjects]);
 
     useEffect(() => {
-        functionSettingsApi.get()
+        useFunctionSettingsStore.getState().load()
             .then((settings) => {
                 const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
                 if (groupingModeSetting === 'project' || groupingModeSetting === 'status' || groupingModeSetting === 'time') {
@@ -234,7 +235,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
         const availablePrioritySet = new Set(WORKSPACE_PRIORITY_OPTIONS.map((option) => option.value));
 
-        functionSettingsApi.get()
+        useFunctionSettingsStore.getState().load()
             .then((settings) => {
                 const section = settings.workspace_kanban_view;
                 const raw = (section && typeof section === "object" && "state" in (section as Record<string, unknown>))

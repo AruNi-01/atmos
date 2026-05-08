@@ -184,7 +184,6 @@ impl WsManager {
         let mut connections = self.connections.write().await;
         if let Some(conn) = connections.get_mut(id) {
             conn.touch();
-            debug!("Connection {} touched", id);
         }
     }
 

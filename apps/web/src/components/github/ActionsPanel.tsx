@@ -105,10 +105,11 @@ interface ActionsPanelProps {
   branch: string;
   onRunClick?: (run: ActionRun) => void;
   refreshKey?: number;
+  enabled?: boolean;
 }
 
-export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey }: ActionsPanelProps) {
-  const { data: runs, loading } = useGithubActionsList({ owner, repo, branch });
+export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enabled = true }: ActionsPanelProps) {
+  const { data: runs, loading } = useGithubActionsList({ owner, repo, branch, enabled });
   const { latestRuns, stats } = useProcessedActions(runs);
 
   if (loading && !runs) {

@@ -44,14 +44,16 @@ interface AgentChatPanelProps {
   variant?: "modal" | "sidebar";
   mode?: AgentChatMode;
   publishStatus?: boolean;
+  active?: boolean;
 }
 
 export function AgentChatPanel({
   variant = "modal",
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus = variant === "modal",
+  active = true,
 }: AgentChatPanelProps = {}) {
-  const session = useAgentChatSession({ variant, mode, publishStatus });
+  const session = useAgentChatSession({ variant, mode, publishStatus, active });
 
   // ---------------------------------------------------------------------------
   // Draggable & Resizable layout (UI-only, stays in component)

@@ -60,6 +60,7 @@ export interface UseAgentChatSessionOptions {
   variant: "modal" | "sidebar";
   mode: AgentChatMode;
   publishStatus: boolean;
+  active?: boolean;
 }
 
 export interface UseAgentChatSessionReturn {
@@ -200,6 +201,7 @@ export function useAgentChatSession({
   variant,
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus,
+  active = true,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
   const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
@@ -221,7 +223,7 @@ export function useAgentChatSession({
     })),
   );
 
-  const isPanelOpen = variant === "sidebar" ? true : isAgentChatOpen;
+  const isPanelOpen = variant === "sidebar" ? active : isAgentChatOpen;
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const chatMode = mode;
   const [entries, setEntries] = useState<ThreadEntry[]>([]);

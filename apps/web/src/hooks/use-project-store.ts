@@ -373,6 +373,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   isLoading: false,
 
   fetchProjects: async () => {
+    if (get().isLoading) return;
     set({ isLoading: true });
     try {
       // 确保 WebSocket 连接

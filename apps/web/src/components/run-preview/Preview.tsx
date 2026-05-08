@@ -40,6 +40,7 @@ import {
 } from "@workspace/ui";
 import { fetchExtensionDownload, fetchExtensionVersion } from "@/api/preview";
 import { functionSettingsApi } from "@/api/ws-api";
+import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useSidebarLayout } from "@/components/layout/SidebarLayoutContext";
 import { invokeDesktopPreviewBridge } from "@/lib/desktop-preview-bridge";
@@ -609,7 +610,7 @@ export const Preview: React.FC<PreviewProps> = ({
 
     const loadFavorites = async () => {
       try {
-        const settings = await functionSettingsApi.get();
+        const settings = await useFunctionSettingsStore.getState().load();
         const sites = Array.isArray(settings.inner_browser?.favorite_site)
           ? settings.inner_browser.favorite_site.filter(
               (site): site is FavoriteSite =>

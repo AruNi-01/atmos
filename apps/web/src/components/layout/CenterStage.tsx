@@ -76,6 +76,7 @@ import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { codeAgentCustomApi, type CodeAgentCustomEntry, functionSettingsApi } from "@/api/ws-api";
+import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
 import type { ReviewTarget } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import type { TerminalPaneAgent } from "@/components/terminal/types";
@@ -874,7 +875,7 @@ const CenterStage: React.FC = () => {
   React.useEffect(() => {
     if (isSetupBlocking) return;
     Promise.all([
-      functionSettingsApi.get(),
+      useFunctionSettingsStore.getState().load(),
       codeAgentCustomApi.get(),
     ]).then(([settings, customData]) => {
       const saved = (settings as Record<string, unknown>)?.agent_cli as Record<string, unknown> | undefined;
@@ -2195,6 +2196,7 @@ const CenterStage: React.FC = () => {
               priority={currentWorkspace?.priority}
               workflowStatus={currentWorkspace?.workflowStatus}
               labels={currentWorkspace?.labels}
+              active={activeValue === "overview"}
             />
           </div>
         )}

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
+import { useFunctionSettingsStore } from '@/hooks/use-function-settings-store';
 import { toastManager } from '@workspace/ui';
 
 interface EditorSettingsState {
@@ -26,7 +27,7 @@ export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
     set({ loading: true });
 
     try {
-      const settings = await functionSettingsApi.get();
+      const settings = await useFunctionSettingsStore.getState().load();
       set({
         autoSave: settings.editor?.auto_save ?? false,
         lineWrap: settings.editor?.line_wrap ?? true,
