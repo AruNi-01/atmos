@@ -429,7 +429,6 @@ export function LocalModelRuntimeControl() {
   const [data, setData] = useState<LocalModelListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDeleteRuntime, setConfirmDeleteRuntime] = useState(false);
 
@@ -479,16 +478,6 @@ export function LocalModelRuntimeControl() {
     }
   };
 
-  const handleRefresh = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    setRefreshing(true);
-    try {
-      await load();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const handleDeleteRuntime = async () => {
     setBusy(true);
     try {
@@ -516,20 +505,6 @@ export function LocalModelRuntimeControl() {
       <div className="flex items-center gap-2">
         {installed ? (
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-7 text-muted-foreground"
-              disabled={refreshing}
-              onClick={handleRefresh}
-              title="Refresh runtime status"
-            >
-              {refreshing ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : (
-                <RotateCw className="size-3.5" />
-              )}
-            </Button>
             <Button
               size="sm"
               variant="outline"
