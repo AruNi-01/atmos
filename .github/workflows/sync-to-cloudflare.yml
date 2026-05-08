@@ -116,8 +116,9 @@ jobs:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
-          echo "Checking if this is the latest stable release..."
-          # Get all stable desktop releases from GitHub
+          echo "Checking if this is the latest desktop release..."
+          # GitHub API returns releases in reverse chronological order (newest first)
+          # We filter for desktop-v prefix and skip prereleases to find latest stable desktop release
           LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
 import json
 import sys
@@ -132,14 +133,14 @@ for release in releases:
     if tag.startswith("desktop-v"):
         print(tag)
         break
-' | head -n 1)
+')
 
-          echo "Latest stable release from GitHub: ${LATEST_TAG}"
+          echo "Latest stable desktop release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
 
-          # Only update latest if this is actually the latest stable release
+          # Only update latest if this is actually the latest stable desktop release
           if [[ "$TAG" == "$LATEST_TAG" ]]; then
-            echo "This is the latest stable release, updating latest path..."
+            echo "This is the latest stable desktop release, updating latest path..."
             # Copy files to latest path
             for file in /tmp/assets/*.app.tar.gz; do
               aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file") \
@@ -150,7 +151,7 @@ for release in releases:
             done
             echo "Successfully updated latest files"
           else
-            echo "This is not the latest stable release, skipping latest path update"
+            echo "This is not the latest stable desktop release, skipping latest path update"
           fi
 
   sync-local-runtime:
@@ -215,8 +216,9 @@ for release in releases:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
-          echo "Checking if this is the latest stable release..."
-          # Get all stable local runtime releases from GitHub
+          echo "Checking if this is the latest local runtime release..."
+          # GitHub API returns releases in reverse chronological order (newest first)
+          # We filter for local-v prefix and skip prereleases to find latest stable local runtime release
           LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
 import json
 import sys
@@ -231,14 +233,14 @@ for release in releases:
     if tag.startswith("local-v"):
         print(tag)
         break
-' | head -n 1)
+')
 
-          echo "Latest stable release from GitHub: ${LATEST_TAG}"
+          echo "Latest stable local runtime release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
 
-          # Only update latest if this is actually the latest stable release
+          # Only update latest if this is actually the latest stable local runtime release
           if [[ "$TAG" == "$LATEST_TAG" ]]; then
-            echo "This is the latest stable release, updating latest path..."
+            echo "This is the latest stable local runtime release, updating latest path..."
             # Copy files to latest path
             for file in /tmp/assets/*.tar.gz; do
               aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/latest/$(basename "$file") \
@@ -249,5 +251,5 @@ for release in releases:
             done
             echo "Successfully updated latest files"
           else
-            echo "This is not the latest stable release, skipping latest path update"
+            echo "This is not the latest stable local runtime release, skipping latest path update"
           fi
