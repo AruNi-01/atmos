@@ -114,22 +114,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest desktop release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 << 'EOF'
-import json
-import sys
-
-releases = json.load(sys.stdin)
-for release in releases:
-    tag = str(release.get("tag_name") or "")
-    if release.get("draft"):
-        continue
-    if release.get("prerelease"):
-        continue
-    if tag.startswith("desktop-v"):
-        print(tag)
-        break
-EOF
-)
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c "import json,sys; releases=json.load(sys.stdin); print(next((r['tag_name'] for r in releases if not r.get('draft') and not r.get('prerelease') and r['tag_name'].startswith('desktop-v')), ''))")
 
           echo "Latest stable desktop release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
@@ -209,22 +194,7 @@ EOF
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest local runtime release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 << 'EOF'
-import json
-import sys
-
-releases = json.load(sys.stdin)
-for release in releases:
-    tag = str(release.get("tag_name") or "")
-    if release.get("draft"):
-        continue
-    if release.get("prerelease"):
-        continue
-    if tag.startswith("local-v"):
-        print(tag)
-        break
-EOF
-)
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c "import json,sys; releases=json.load(sys.stdin); print(next((r['tag_name'] for r in releases if not r.get('draft') and not r.get('prerelease') and r['tag_name'].startswith('local-v')), ''))")
 
           echo "Latest stable local runtime release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
