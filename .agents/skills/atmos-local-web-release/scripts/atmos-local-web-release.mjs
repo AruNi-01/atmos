@@ -19,12 +19,12 @@ function printUsage() {
   console.log(`Atmos local runtime release helper
 
 Usage:
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> [options]
+  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> [options]
 
 Examples:
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.1.0
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.2.0-rc.1 --prerelease
-  node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.1.0 --dry-run
+  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0
+  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.2.0-rc.1 --prerelease
+  node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0 --dry-run
 
 Options:
   --prerelease           Mark release intent as prerelease

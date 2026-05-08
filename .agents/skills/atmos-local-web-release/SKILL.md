@@ -1,6 +1,6 @@
 ---
-name: atmos-local-release
-description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local runtime release, verify the local runtime installer version, create the required `local-web-runtime-v<version>` tag, publish the runtime archives, and publish the `@atmos/local-web-runtime` installer package. Prefer this over a generic GitHub release process for Atmos local runtime releases.
+name: atmos-local-web-release
+description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local web runtime release, verify the local web runtime installer version, create the required `local-web-runtime-v<version>` tag, publish the runtime archives, and publish the `@atmos/local-web-runtime` installer package. Prefer this over a generic GitHub release process for Atmos local web runtime releases.
 user-invokable: true
 args:
   - name: version
@@ -33,7 +33,7 @@ This skill handles the Atmos local runtime release sequence:
 
 The repository-specific execution wrapper lives in the bundled script:
 
-- `scripts/atmos-local-release.mjs`
+- `scripts/atmos-local-web-release.mjs`
 
 Use that script for the operational steps. Keep this file focused on orchestration and decision-making.
 
@@ -76,7 +76,7 @@ This script is the source of truth for confirming:
 ### Execution script
 Use the bundled script for the actual release-prep steps:
 
-- `scripts/atmos-local-release.mjs`
+- `scripts/atmos-local-web-release.mjs`
 
 This script encapsulates the operational workflow:
 
@@ -199,13 +199,13 @@ When asked to perform an Atmos local runtime release:
 Recommended command sequence for the validation portion:
 
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run
 ```
 
 Recommended command sequence for the standard path:
 
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>
 ```
 
 Recommended command sequence for workflow monitoring:
@@ -233,7 +233,7 @@ For a preview-only run, do not create tags or publish anything. Instead:
 Run:
 
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run
 ```
 
 ## Required behavior
@@ -313,12 +313,12 @@ npx @atmos/local-web-runtime --version <version> --no-start
 
 ### Dry run
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run
 ```
 
 ### Standard release-prep
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>
 ```
 
 ### Validate versions directly

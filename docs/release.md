@@ -181,8 +181,8 @@ The Local Runtime release publishes the full local Web runtime used by `@atmos/l
 
 - Version source: `packages/local-installer/package.json`
 - Workflow: `.github/workflows/release-local-runtime.yml`
-- Skill: `.agents/skills/atmos-local-release/SKILL.md`
-- Helper script: `.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs`
+- Skill: `.agents/skills/atmos-local-web-release/SKILL.md`
+- Helper script: `.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs`
 - Build script: `scripts/local-runtime/build-runtime.mjs`
 - Version checker: `scripts/release/check-local-runtime-version.mjs`
 - Installer package: `packages/local-installer`
@@ -229,8 +229,8 @@ atmos-runtime/
 Use the local runtime release helper:
 
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.1.0 --dry-run
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs 0.1.0
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0 --dry-run
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs 0.1.0
 ```
 
 The helper:
@@ -434,8 +434,8 @@ If Local Runtime or Desktop should embed this new CLI, cut their releases afterw
 Use Local Runtime release for local Web users:
 
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>
 ```
 
 Use Desktop release separately if Desktop users need the same change.
@@ -507,8 +507,8 @@ gh release view cli-v<version>
 ### Local Runtime
 
 ```bash
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run
-node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run
+node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>
 gh release view local-web-runtime-v<version>
 npm view @atmos/local-web-runtime version
 ```

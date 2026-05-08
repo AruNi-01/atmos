@@ -111,8 +111,8 @@ scripts/open-source/
 !.agents/skills/atmos-changelog/
 !.agents/skills/atmos-cli-release/
 !.agents/skills/atmos-cli-release/**
-!.agents/skills/atmos-local-release/
-!.agents/skills/atmos-local-release/**
+!.agents/skills/atmos-local-web-release/
+!.agents/skills/atmos-local-web-release/**
 !.agents/skills/atmos-specs-brainstorm/
 !.agents/skills/atmos-specs-brainstorm/**
 !.agents/skills/atmos-specs-prd/

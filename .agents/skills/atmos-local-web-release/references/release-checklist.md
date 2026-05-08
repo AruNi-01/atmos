@@ -73,7 +73,7 @@ Before tagging, confirm all of the following:
 
 Typical commands:
 - `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>`
-- `node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run`
+- `node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run`
 
 Example for `0.1.0`:
 - files = `0.1.0`
@@ -212,10 +212,10 @@ Action:
 
 Validation:
 - `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>`
-- `node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run`
+- `node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run`
 
 Release helper:
-- `node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>`
+- `node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version>`
 
 Monitoring:
 - `gh release view local-web-runtime-v<version>`
