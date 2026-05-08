@@ -1,0 +1,25 @@
+install-desktop.sh
+  s_350ae2edc84263::t_4a579690ef4fb2 18,22-24
+  s_350ae2edc84263::t_d1fdbddd0876f8 72-73,76-78
+  s_350ae2edc84263::t_c1630547d01ed9 141,158-159,161,163
+README.md
+  s_350ae2edc84263::t_11162eb5d1d290 49,55-58,62
+.github/workflows/sync-to-cloudflare.yml
+  s_350ae2edc84263::t_041624f2c3f1b3 58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "8818cbae588bd5985691ae5cd81bf045b17d012d",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
