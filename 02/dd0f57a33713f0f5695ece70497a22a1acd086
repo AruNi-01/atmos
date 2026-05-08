@@ -1,0 +1,21 @@
+apps/landing/src/components/blocks/ready-download.tsx
+  s_350ae2edc84263::t_1f60eb275c8a9c 148,150,152-188,192,194-245
+  s_350ae2edc84263::t_be5aaf4bf14f25 16
+  s_350ae2edc84263::t_e23a40ba77e7d3 42-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "02dd0f57a33713f0f5695ece70497a22a1acd086",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
