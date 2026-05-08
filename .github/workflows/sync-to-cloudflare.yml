@@ -55,7 +55,8 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz" --pattern "*.dmg" --pattern "*.zip" --pattern "*.AppImage" --pattern "*.exe" --pattern "*.msi"
+          # Only sync macOS assets (Linux/Windows users download directly from GitHub)
+          gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz"
 
       - name: Upload to Cloudflare R2
         uses: cloudflare/wrangler-action@v3

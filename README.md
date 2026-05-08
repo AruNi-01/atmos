@@ -46,20 +46,20 @@ Latest desktop release: [View the latest release](https://github.com/AruNi-01/at
 brew install --cask AruNi-01/tap/atmos
 ```
 
-### Desktop App (Install Script)
+### Desktop App (macOS Install Script)
 
 ```bash
 curl -fsSL https://install.atmos.land/install-desktop.sh | bash
 ```
 
-Supported platforms:
-- **macOS** (Intel & Apple Silicon): Extracts to `/Applications`
-- **Linux** (x64): Installs AppImage to `~/.local/bin/`
-- **Windows** (x64): Runs silent installer
+This installer is for **macOS only** (Intel & Apple Silicon). It downloads and extracts the app to `/Applications`.
+
+For **Linux/Windows**, download the installer directly from GitHub Releases:
+https://github.com/AruNi-01/atmos/releases
 
 Options:
 - `--version <tag>` - Install a specific release tag
-- `--archive <path>` - Install from a local archive
+- `--archive <path>` - Install from a local .app.tar.gz archive
 - `--github-source` - Use GitHub Releases instead of custom domain
 
 ### Local Web Runtime

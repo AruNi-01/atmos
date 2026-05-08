@@ -15,14 +15,13 @@ Usage: install-desktop.sh [options]
 
 Options:
   --version <tag>        Install a specific release tag instead of latest
-  --archive <path>       Install from a prebuilt local archive
+  --archive <path>       Install from a prebuilt local .app.tar.gz archive
   --github-source        Use GitHub Releases instead of custom domain
   -h, --help             Show this help
 
-Supported platforms:
-  - macOS (Intel & Apple Silicon): .app.tar.gz → /Applications
-  - Linux (x64): .AppImage → ~/.local/bin/
-  - Windows (x64): .exe installer → silent install
+This installer is for macOS only.
+For Linux/Windows, download the installer directly from GitHub Releases:
+https://github.com/AruNi-01/atmos/releases
 EOF
 }
 
@@ -70,67 +69,13 @@ detect_target() {
   arch="$(uname -m)"
 
   case "${os}:${arch}" in
-    Darwin:arm64|Darwin:aarch64) echo "macos-aarch64" ;;
-    Darwin:x86_64) echo "macos-x64" ;;
-    Linux:x86_64) echo "linux-x64" ;;
-    Linux:arm64|Linux:aarch64) echo "linux-arm64" ;;
-    MINGW*|MSYS*|CYGWIN*:x86_64) echo "windows-x64" ;;
+    Darwin:arm64|Darwin:aarch64) echo "aarch64" ;;
+    Darwin:x86_64) echo "x64" ;;
     *)
       echo "Unsupported platform: ${os} ${arch}" >&2
-      exit 1
-      ;;
-  esac
-}
-
-get_asset_name() {
-  local target="$1"
-  case "$target" in
-    macos-aarch64) echo "Atmos_aarch64.app.tar.gz" ;;
-    macos-x64) echo "Atmos_x64.app.tar.gz" ;;
-    linux-x64) echo "Atmos_amd64.AppImage" ;;
-    linux-arm64)
-      echo "Unsupported: Linux ARM64 desktop app not available yet" >&2
-      exit 1
-      ;;
-    windows-x64) echo "Atmos_x64-setup.exe" ;;
-    *)
-      echo "Unknown target: $target" >&2
-      exit 1
-      ;;
-  esac
-}
-
-install_asset() {
-  local target="$1"
-  local asset_file="$2"
-
-  case "$target" in
-    macos-*)
-      echo "Extracting to /Applications..."
-      tar -xzf "$asset_file" -C /Applications
-      echo "Installed Atmos Desktop app to /Applications"
-      echo "Launch with: open /Applications/Atmos.app"
-      ;;
-    linux-x64)
-      echo "Installing AppImage..."
-      chmod +x "$asset_file"
-      mv "$asset_file" "$HOME/.local/bin/atmos-desktop.AppImage"
-      mkdir -p "$HOME/.local/bin"
-      echo "Installed Atmos Desktop AppImage to $HOME/.local/bin/atmos-desktop.AppImage"
-      echo "Launch with: $HOME/.local/bin/atmos-desktop.AppImage"
-      ;;
-    windows-x64)
-      echo "Running Windows installer..."
-      # Windows: just run the installer
-      if command -v cmd.exe >/dev/null 2>&1; then
-        cmd.exe //c "$asset_file" //silent
-      else
-        "$asset_file" //silent
-      fi
-      echo "Atmos Desktop installer completed"
-      ;;
-    *)
-      echo "Unsupported installation method for target: $target" >&2
+      echo "This installer is for macOS only." >&2
+      echo "For Linux/Windows, download the installer directly from GitHub Releases:" >&2
+      echo "https://github.com/AruNi-01/atmos/releases" >&2
       exit 1
       ;;
   esac
@@ -193,7 +138,7 @@ for release in releases:
 }
 
 TARGET="$(detect_target)"
-ASSET="$(get_asset_name "$TARGET")"
+ASSET="Atmos_${TARGET}.app.tar.gz"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -210,6 +155,9 @@ else
   download_with_fallback "$ASSET" "$RESOLVED_VERSION"
 fi
 
-install_asset "$TARGET" "$ARCHIVE_FILE"
+echo "Extracting to /Applications..."
+tar -xzf "$ARCHIVE_FILE" -C /Applications
 
+echo "Installed Atmos Desktop app to /Applications"
 echo "Installed release: ${RESOLVED_VERSION}"
+echo "Launch with: open /Applications/Atmos.app"
