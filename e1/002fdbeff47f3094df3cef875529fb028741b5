@@ -1,0 +1,21 @@
+apps/web/src/components/dialogs/LocalModelPanel.tsx
+  s_350ae2edc84263::t_69d325b49bbceb 864
+apps/web/src/hooks/use-websocket.ts
+  s_350ae2edc84263::t_f66ac9aed70ef1 185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "e1002fdbeff47f3094df3cef875529fb028741b5",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
