@@ -1,0 +1,20 @@
+.github/workflows/release-local-runtime.yml
+  s_350ae2edc84263::t_860f0e372f4842 38
+  s_350ae2edc84263::t_aeeda4298216de 130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "fe8fefbb332e52377e26e1ffc5d8b25fcda3a8d6",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
