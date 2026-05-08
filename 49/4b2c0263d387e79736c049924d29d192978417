@@ -1,0 +1,38 @@
+install-local-web-runtime.sh
+  s_350ae2edc84263::t_70f420e39a1605 111-138
+  s_350ae2edc84263::t_020677fd7b21c4 11-14,27
+  s_350ae2edc84263::t_078a1aa663e2f2 72-75
+  s_350ae2edc84263::t_dff1b7d1803646 242
+.github/workflows/sync-to-cloudflare.yml
+  s_350ae2edc84263::t_cd418ab50c2c2b 1-71
+README.md
+  s_350ae2edc84263::t_50641ed871f491 52,58
+  s_350ae2edc84263::t_8145b01f1a80bc 65,74
+packages/local-installer/bin/atmos-local.mjs
+  s_350ae2edc84263::t_2e4d20bd8a19b4 121-156
+  s_350ae2edc84263::t_7ea357713c10ec 93-96
+  s_350ae2edc84263::t_e93d31b48b5132 44
+  s_350ae2edc84263::t_a7c38f3570ba44 9-11,23
+  s_350ae2edc84263::t_10c240c7025f06 241
+install-desktop.sh
+  s_350ae2edc84263::t_d70373a845ce3d 80-107
+  s_350ae2edc84263::t_349d7762ab8051 148
+  s_350ae2edc84263::t_f8c66f0fa25466 7-10,19
+  s_350ae2edc84263::t_1fd4d61341c1eb 46-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "494b2c0263d387e79736c049924d29d192978417",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
