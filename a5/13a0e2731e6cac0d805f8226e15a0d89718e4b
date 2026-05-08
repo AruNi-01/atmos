@@ -1,0 +1,20 @@
+.github/workflows/sync-to-cloudflare.yml
+  s_350ae2edc84263::t_b781a1d431f5e7 47-48
+  s_350ae2edc84263::t_435d749d32ad1d 89-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "a513a0e2731e6cac0d805f8226e15a0d89718e4b",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
