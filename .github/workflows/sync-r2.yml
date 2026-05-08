@@ -133,7 +133,87 @@ jobs:
             echo "This is not the latest stable desktop release, skipping latest path update"
           fi
 
-  sync-local-runtime:
+  sync-local-web-runtime:
+    if: |
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-web-runtime-v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-web-runtime-v'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if release is stable
+        if: github.event_name == 'release'
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            echo "Skipping prerelease: ${{ github.event.release.tag_name }}"
+            exit 1
+          fi
+          echo "Syncing stable release: ${{ github.event.release.tag_name }}"
+
+      - name: Download release assets
+        env:
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Downloading assets for tag: $TAG"
+          gh release download "$TAG" --dir /tmp/assets --pattern "*.tar.gz"
+          echo "Downloaded files:"
+          ls -la /tmp/assets/
+
+      - name: Configure AWS CLI for R2
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          aws configure set default.region auto
+          echo "Endpoint: $AWS_ENDPOINT_URL"
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+        run: |
+          echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
+          echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
+          echo "Endpoint: $AWS_ENDPOINT_URL"
+          echo "Tag: $TAG"
+          echo "Uploading files:"
+          ls -la /tmp/assets/
+          aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-web-runtime/${TAG}/ \
+            --endpoint-url $AWS_ENDPOINT_URL \
+            --recursive || {
+            echo "Failed to upload files"
+            exit 1
+          }
+          echo "All files uploaded successfully"
+
+      - name: Upload to latest path
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+        run: |
+          echo "Checking if this is the latest local web runtime release..."
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c "import json,sys; releases=json.load(sys.stdin); print(next((r['tag_name'] for r in releases if not r.get('draft') and not r.get('prerelease') and r['tag_name'].startswith('local-web-runtime-v')), ''))")
+
+          echo "Latest stable local web runtime release: ${LATEST_TAG}"
+          echo "Current release being synced: ${TAG}"
+
+          if [[ "$TAG" == "$LATEST_TAG" ]]; then
+            echo "This is the latest stable local web runtime release, updating latest path..."
+            for file in /tmp/assets/*.tar.gz; do
+              aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-web-runtime/latest/$(basename "$file") \
+                --endpoint-url $AWS_ENDPOINT_URL || {
+                echo "Failed to copy $file to latest"
+                exit 1
+              }
+            done
+            echo "Successfully updated latest files"
+          else
+            echo "This is not the latest stable local web runtime release, skipping latest path update"
+          fi
+
+  sync-local-model-runtime:
     if: |
       (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-model-runtime-v')) ||
       (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-model-runtime-v'))
@@ -180,7 +260,7 @@ jobs:
           echo "Tag: $TAG"
           echo "Uploading files:"
           ls -la /tmp/assets/
-          aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/ \
+          aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-model-runtime/${TAG}/ \
             --endpoint-url $AWS_ENDPOINT_URL \
             --recursive || {
             echo "Failed to upload files"
@@ -193,16 +273,16 @@ jobs:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
-          echo "Checking if this is the latest local runtime release..."
+          echo "Checking if this is the latest local model runtime release..."
           LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c "import json,sys; releases=json.load(sys.stdin); print(next((r['tag_name'] for r in releases if not r.get('draft') and not r.get('prerelease') and r['tag_name'].startswith('local-model-runtime-v')), ''))")
 
-          echo "Latest stable local runtime release: ${LATEST_TAG}"
+          echo "Latest stable local model runtime release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
 
           if [[ "$TAG" == "$LATEST_TAG" ]]; then
-            echo "This is the latest stable local runtime release, updating latest path..."
+            echo "This is the latest stable local model runtime release, updating latest path..."
             for file in /tmp/assets/*.tar.gz; do
-              aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/latest/$(basename "$file") \
+              aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-model-runtime/latest/$(basename "$file") \
                 --endpoint-url $AWS_ENDPOINT_URL || {
                 echo "Failed to copy $file to latest"
                 exit 1
@@ -210,5 +290,5 @@ jobs:
             done
             echo "Successfully updated latest files"
           else
-            echo "This is not the latest stable local runtime release, skipping latest path update"
+            echo "This is not the latest stable local model runtime release, skipping latest path update"
           fi

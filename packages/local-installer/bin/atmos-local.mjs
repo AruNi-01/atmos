@@ -122,7 +122,7 @@ function downloadUrl(version, asset, useGitHubSource = false) {
   if (useGitHubSource) {
     return `https://github.com/${REPO}/releases/download/${version}/${asset}`;
   }
-  return `${DOWNLOAD_BASE}/local-runtime/${version}/${asset}`;
+  return `${DOWNLOAD_BASE}/local-web-runtime/${version}/${asset}`;
 }
 
 async function downloadWithFallback(version, asset, useGitHubSource = false) {
@@ -173,12 +173,12 @@ async function resolveReleaseTag(version) {
   const match = Array.isArray(releases)
     ? releases.find((release) => {
         const tag = String(release?.tag_name || "");
-        return tag.startsWith("local-v") && !release?.draft && !release?.prerelease;
+        return tag.startsWith("local-web-runtime-v") && !release?.draft && !release?.prerelease;
       })
     : null;
 
   if (!match?.tag_name) {
-    throw new Error("No published local-v release was found.");
+    throw new Error("No published local-web-runtime-v release was found.");
   }
   return String(match.tag_name);
 }

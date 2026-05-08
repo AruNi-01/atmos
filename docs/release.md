@@ -11,7 +11,7 @@ Atmos has three independent release lines:
 | Release line | Tag | GitHub Actions | Artifacts | Purpose |
 | --- | --- | --- | --- | --- |
 | CLI | `cli-v<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the control plane for agents and scripts |
-| Local Runtime | `local-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` + `@atmos/local-web-runtime` | Local Web runtime package containing API, static Web assets, system skills, and a bundled CLI |
+| Local Runtime | `local-web-runtime-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` + `@atmos/local-web-runtime` | Local Web runtime package containing API, static Web assets, system skills, and a bundled CLI |
 | Desktop | `desktop-v<version>` | `.github/workflows/release-desktop.yml` | Tauri desktop installers and updater manifest | Desktop application distribution |
 
 Core principles:
@@ -33,7 +33,7 @@ Stable releases use stable tags:
 
 ```bash
 cli-v0.1.0
-local-v0.1.0
+local-web-runtime-v0.1.0
 desktop-v1.0.0
 ```
 
@@ -51,7 +51,7 @@ Use prerelease tags when testing the real release path:
 
 ```bash
 cli-v0.2.0-rc.1
-local-v0.2.0-rc.1
+local-web-runtime-v0.2.0-rc.1
 desktop-v1.1.0-rc.1
 ```
 
@@ -237,9 +237,9 @@ The helper:
 
 1. verifies git and GitHub authentication
 2. verifies working tree cleanliness
-3. verifies `packages/local-installer/package.json` version matches `local-v0.1.0`
+3. verifies `packages/local-installer/package.json` version matches `local-web-runtime-v0.1.0`
 4. builds one local runtime archive as a preflight check
-5. creates `local-v0.1.0`
+5. creates `local-web-runtime-v0.1.0`
 6. pushes the tag
 7. lets GitHub Actions publish runtime assets
 8. lets GitHub Actions publish `@atmos/local-web-runtime`
@@ -252,7 +252,7 @@ Use workflow dispatch on `.github/workflows/release-local-runtime.yml`:
 
 - `ref`: branch or commit SHA
 - `create_release`: `true`
-- `release_tag`: `local-v0.2.0-rc.1`
+- `release_tag`: `local-web-runtime-v0.2.0-rc.1`
 - `publish_npm`: usually `false` unless intentionally testing npm prerelease publication
 - `prerelease`: `true`
 
@@ -262,21 +262,21 @@ Use `create_release=false` for build-only validation without creating a GitHub R
 
 ```bash
 gh run list --workflow release-local-runtime.yml --limit 5
-gh release view local-v0.1.0
+gh release view local-web-runtime-v0.1.0
 npm view @atmos/local-web-runtime version
 ```
 
 Check assets:
 
 ```bash
-gh release view local-v0.1.0 --json assets --jq '.assets[].name'
+gh release view local-web-runtime-v0.1.0 --json assets --jq '.assets[].name'
 ```
 
 Optionally verify installation paths:
 
 ```bash
-npx @atmos/local-web-runtime --version local-v0.1.0 --no-start
-bunx @atmos/local-web-runtime --version local-v0.1.0 --no-start
+npx @atmos/local-web-runtime --version local-web-runtime-v0.1.0 --no-start
+bunx @atmos/local-web-runtime --version local-web-runtime-v0.1.0 --no-start
 ```
 
 ---
@@ -394,7 +394,7 @@ The primary GitHub Releases API path filters out draft and prerelease releases. 
 
 ### Local Runtime Installer Checks
 
-`@atmos/local-web-runtime` resolves the latest non-draft, non-prerelease `local-v*` release when installing `latest`.
+`@atmos/local-web-runtime` resolves the latest non-draft, non-prerelease `local-web-runtime-v*` release when installing `latest`.
 
 ### Desktop Updater Checks
 
@@ -509,7 +509,7 @@ gh release view cli-v<version>
 ```bash
 node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run
 node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>
-gh release view local-v<version>
+gh release view local-web-runtime-v<version>
 npm view @atmos/local-web-runtime version
 ```
 

@@ -54,7 +54,7 @@ console.log(`packages/local-installer/package.json: ${runtimeVersion}`);
 console.log(`bundled CLI apps/cli/Cargo.toml: ${bundledCliVersion}`);
 
 if (releaseTag) {
-  const expectedTag = `local-v${runtimeVersion}`;
+  const expectedTag = `local-web-runtime-v${runtimeVersion}`;
   console.log(`release tag: ${releaseTag}`);
   if (releaseTag !== expectedTag) {
     fail(`Release tag mismatch: expected ${expectedTag}, got ${releaseTag}`);

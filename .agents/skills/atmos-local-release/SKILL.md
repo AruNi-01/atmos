@@ -1,6 +1,6 @@
 ---
 name: atmos-local-release
-description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local runtime release, verify the local runtime installer version, create the required `local-v<version>` tag, publish the runtime archives, and publish the `@atmos/local-web-runtime` installer package. Prefer this over a generic GitHub release process for Atmos local runtime releases.
+description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local runtime release, verify the local runtime installer version, create the required `local-web-runtime-v<version>` tag, publish the runtime archives, and publish the `@atmos/local-web-runtime` installer package. Prefer this over a generic GitHub release process for Atmos local runtime releases.
 user-invokable: true
 args:
   - name: version
@@ -25,7 +25,7 @@ This skill handles the Atmos local runtime release sequence:
 1. validate repository state
 2. validate the local runtime installer version and tag alignment
 3. optionally build the local runtime archive locally for a spot check
-4. create and push the `local-v<version>` tag
+4. create and push the `local-web-runtime-v<version>` tag
 5. rely on GitHub Actions to build and upload runtime archives
 6. rely on GitHub Actions to publish `@atmos/local-web-runtime`
 7. verify the published GitHub Release assets
@@ -43,7 +43,7 @@ This skill does not own the standalone CLI release flow, desktop release flow, T
 
 Atmos local runtime releases follow these rules:
 
-- local runtime tag format is `local-v<version>`
+- local runtime tag format is `local-web-runtime-v<version>`
 - local runtime release version is sourced from:
   - `packages/local-installer/package.json`
 - local runtime archives include a bundled CLI binary, but the bundled CLI version is tracked independently from the local runtime version
@@ -186,11 +186,11 @@ The local runtime release does not require the desktop-signing or Homebrew tap s
 When asked to perform an Atmos local runtime release:
 
 1. normalize the requested inputs
-2. construct the local runtime tag as `local-v<version>`
+2. construct the local runtime tag as `local-web-runtime-v<version>`
 3. run the local version validation script
 4. optionally build one local runtime archive for confidence checking
 5. if `dry_run=true`, stop after validation and report the exact release commands
-6. create and push the `local-v<version>` tag
+6. create and push the `local-web-runtime-v<version>` tag
 7. monitor `.github/workflows/release-local-runtime.yml`
 8. verify the GitHub Release contains the expected runtime archives
 9. verify npm has the expected `@atmos/local-web-runtime` version
@@ -276,20 +276,20 @@ If the GitHub Release assets, npm version, and tag version disagree, treat it as
 After a non-dry-run release, verify:
 
 - the local runtime release workflow ran
-- the GitHub Release exists for `local-v<version>`
+- the GitHub Release exists for `local-web-runtime-v<version>`
 - the expected runtime archives are present for the supported targets
 - the published archive names follow:
   - `atmos-local-runtime-aarch64-apple-darwin.tar.gz`
   - `atmos-local-runtime-x86_64-apple-darwin.tar.gz`
   - `atmos-local-runtime-x86_64-unknown-linux-gnu.tar.gz`
 - npm reports the expected `@atmos/local-web-runtime` version
-- `install-local-web-runtime.sh` resolves the correct `local-v<version>` release
-- `npx @atmos/local-web-runtime` or `bunx @atmos/local-web-runtime` resolves the correct `local-v<version>` release
+- `install-local-web-runtime.sh` resolves the correct `local-web-runtime-v<version>` release
+- `npx @atmos/local-web-runtime` or `bunx @atmos/local-web-runtime` resolves the correct `local-web-runtime-v<version>` release
 
 Minimum verification commands:
 
 ```bash
-gh release view local-v<version>
+gh release view local-web-runtime-v<version>
 npm view @atmos/local-web-runtime version
 ```
 
@@ -323,7 +323,7 @@ node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <versi
 
 ### Validate versions directly
 ```bash
-node ./scripts/release/check-local-runtime-version.mjs --release-tag local-v<version>
+node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>
 ```
 
 ### Build local runtime archive directly

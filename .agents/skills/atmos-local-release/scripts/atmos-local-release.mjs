@@ -37,7 +37,7 @@ Options:
   --help, -h             Show this help
 
 This script is Atmos-specific and assumes:
-- local runtime tag format: local-v<version>
+- local runtime tag format: local-web-runtime-v<version>
 - version files:
   - packages/local-installer/package.json
 - release workflow: .github/workflows/release-local-runtime.yml
@@ -133,7 +133,7 @@ function ensureValidVersion(version) {
 }
 
 function buildLocalTag(version) {
-  return `local-v${version}`;
+  return `local-web-runtime-v${version}`;
 }
 
 function sh(command, args = [], options = {}) {

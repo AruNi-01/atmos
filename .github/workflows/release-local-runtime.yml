@@ -7,7 +7,7 @@ permissions:
 on:
   push:
     tags:
-      - "local-v*"
+      - "local-web-runtime-v*"
   workflow_dispatch:
     inputs:
       ref:
@@ -30,7 +30,7 @@ on:
         default: true
         type: boolean
       release_tag:
-        description: "Release tag when create_release=true (example: local-v0.1.0)"
+        description: "Release tag when create_release=true (example: local-web-runtime-v0.1.0)"
         required: false
       publish_npm:
         description: "Publish @atmos/local-web-runtime to npm"
@@ -121,7 +121,7 @@ jobs:
           EVENT="${{ github.event_name }}"
           if [ "$EVENT" = "push" ]; then
             RELEASE_TAG="${GITHUB_REF_NAME}"
-            if [[ ! "$RELEASE_TAG" =~ ^local-v.+$ ]]; then
+            if [[ ! "$RELEASE_TAG" =~ ^local-web-runtime-v.+$ ]]; then
               echo "Unexpected release tag: $RELEASE_TAG" >&2
               exit 1
             fi
@@ -129,7 +129,7 @@ jobs:
             echo "create_release=true" >> "$GITHUB_OUTPUT"
             echo "publish_npm=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-            echo "release_version=${RELEASE_TAG#local-v}" >> "$GITHUB_OUTPUT"
+            echo "release_version=${RELEASE_TAG#local-web-runtime-v}" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
             echo "build_matrix=$(matrix_for_platform all)" >> "$GITHUB_OUTPUT"
@@ -153,13 +153,13 @@ jobs:
             exit 1
           fi
 
-          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^local-v.+$ ]]; then
-            echo "release_tag must match local-v<version>" >&2
+          if [ -n "$RELEASE_TAG" ] && [[ ! "$RELEASE_TAG" =~ ^local-web-runtime-v.+$ ]]; then
+            echo "release_tag must match local-web-runtime-v<version>" >&2
             exit 1
           fi
 
           if [ -n "$RELEASE_TAG" ]; then
-            RELEASE_VERSION="${RELEASE_TAG#local-v}"
+            RELEASE_VERSION="${RELEASE_TAG#local-web-runtime-v}"
           else
             # Read the installer version from CHECKOUT_REF (not the default-checked-out
             # workspace) so manual dispatches against non-default refs publish the correct

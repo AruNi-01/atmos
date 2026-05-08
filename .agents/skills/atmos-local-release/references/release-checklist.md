@@ -27,7 +27,7 @@ If any layer disagrees, the release is not complete.
 
 ## Repository conventions
 
-- Tag format: `local-v<version>`
+- Tag format: `local-web-runtime-v<version>`
 - Version files:
   - `apps/cli/Cargo.toml`
   - `packages/local-installer/package.json`
@@ -54,7 +54,7 @@ If any layer disagrees, the release is not complete.
 ### Version planning
 - [ ] Target version is correct
 - [ ] Version format is valid
-- [ ] Intended tag is clear, for example `local-v0.1.0`
+- [ ] Intended tag is clear, for example `local-web-runtime-v0.1.0`
 
 ### Access and secrets
 - [ ] Push permission is available
@@ -72,12 +72,12 @@ Before tagging, confirm all of the following:
 - [ ] Release tag matches the same version
 
 Typical commands:
-- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-v<version>`
+- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>`
 - `node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run`
 
 Example for `0.1.0`:
 - files = `0.1.0`
-- tag = `local-v0.1.0`
+- tag = `local-web-runtime-v0.1.0`
 
 ---
 
@@ -90,8 +90,8 @@ Example for `0.1.0`:
 - [ ] Diff reviewed
 
 ### Git actions
-- [ ] `local-v<version>` tag created
-- [ ] `local-v<version>` tag pushed
+- [ ] `local-web-runtime-v<version>` tag created
+- [ ] `local-web-runtime-v<version>` tag pushed
 
 ### Automation
 - [ ] `release-local-runtime.yml` started
@@ -117,7 +117,7 @@ For version `0.1.0`, expect:
 
 Verify:
 - [ ] all expected archives exist
-- [ ] archives are attached to `local-v<version>`
+- [ ] archives are attached to `local-web-runtime-v<version>`
 - [ ] archive set matches supported targets
 
 If tag and runtime assets disagree, stop and treat the release as invalid.
@@ -211,14 +211,14 @@ Action:
 ## Quick command reminders
 
 Validation:
-- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-v<version>`
+- `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>`
 - `node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run`
 
 Release helper:
 - `node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>`
 
 Monitoring:
-- `gh release view local-v<version>`
+- `gh release view local-web-runtime-v<version>`
 - `gh run list --workflow release-local-runtime.yml --limit 10`
 - `gh run view --web`
 

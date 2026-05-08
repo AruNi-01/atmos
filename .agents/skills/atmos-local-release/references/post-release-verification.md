@@ -16,7 +16,7 @@ Do not load this by default during normal release execution.
 
 A local runtime release is fully verified only when these agree:
 
-1. `local-v<version>` tag
+1. `local-web-runtime-v<version>` tag
 2. GitHub Release
 3. runtime archive set
 4. npm package version
@@ -31,7 +31,7 @@ If one layer disagrees, the release is not fully verified.
 Use this reference when the user asks to:
 
 - verify a release
-- check whether `local-vX.Y.Z` is good
+- check whether `local-web-runtime-vX.Y.Z` is good
 - confirm runtime archives
 - confirm npm publish
 - confirm `install-local-web-runtime.sh`
@@ -74,10 +74,10 @@ Check:
 ### 1. Confirm target
 Identify:
 - version, for example `0.1.0`
-- tag, for example `local-v0.1.0`
+- tag, for example `local-web-runtime-v0.1.0`
 
 Rule:
-- tag must be `local-v<version>`
+- tag must be `local-web-runtime-v<version>`
 
 If the target is ambiguous, clarify first.
 

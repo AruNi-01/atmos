@@ -112,14 +112,14 @@ download_url() {
   if [[ "$USE_GITHUB_SOURCE" -eq 1 ]]; then
     echo "https://github.com/${REPO}/releases/download/${resolved_version}/${asset}"
   else
-    echo "${DOWNLOAD_BASE}/local-runtime/${resolved_version}/${asset}"
+    echo "${DOWNLOAD_BASE}/local-web-runtime/${resolved_version}/${asset}"
   fi
 }
 
 download_with_fallback() {
   local asset="$1"
   local version="$2"
-  local custom_url="${DOWNLOAD_BASE}/local-runtime/${version}/${asset}"
+  local custom_url="${DOWNLOAD_BASE}/local-web-runtime/${version}/${asset}"
   local github_url="https://github.com/${REPO}/releases/download/${version}/${asset}"
 
   if [[ "$USE_GITHUB_SOURCE" -eq 1 ]]; then
@@ -140,7 +140,7 @@ download_with_fallback() {
 
 download_latest_with_fallback() {
   local asset="$1"
-  local latest_url="${DOWNLOAD_BASE}/local-runtime/latest/${asset}"
+  local latest_url="${DOWNLOAD_BASE}/local-web-runtime/latest/${asset}"
 
   echo "Trying to download from custom domain latest path: ${latest_url}"
   if curl -fsSL "$latest_url" -o "$ARCHIVE_FILE"; then
@@ -238,7 +238,7 @@ for release in releases:
         continue
     if release.get("prerelease"):
         continue
-    if tag.startswith("local-v"):
+    if tag.startswith("local-web-runtime-v"):
         print(tag)
         break
 ' | head -n 1
