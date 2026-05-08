@@ -11,7 +11,7 @@ Atmos has three independent release lines:
 | Release line | Tag | GitHub Actions | Artifacts | Purpose |
 | --- | --- | --- | --- | --- |
 | CLI | `cli-v<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the control plane for agents and scripts |
-| Local Runtime | `local-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` + `@atmos/local` | Local Web runtime package containing API, static Web assets, system skills, and a bundled CLI |
+| Local Runtime | `local-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` + `@atmos/local-web-runtime` | Local Web runtime package containing API, static Web assets, system skills, and a bundled CLI |
 | Desktop | `desktop-v<version>` | `.github/workflows/release-desktop.yml` | Tauri desktop installers and updater manifest | Desktop application distribution |
 
 Core principles:
@@ -175,7 +175,7 @@ Expected behavior:
 
 ## Local Runtime Release
 
-The Local Runtime release publishes the full local Web runtime used by `@atmos/local`.
+The Local Runtime release publishes the full local Web runtime used by `@atmos/local-web-runtime`.
 
 ### Owned Files
 
@@ -242,7 +242,7 @@ The helper:
 5. creates `local-v0.1.0`
 6. pushes the tag
 7. lets GitHub Actions publish runtime assets
-8. lets GitHub Actions publish `@atmos/local`
+8. lets GitHub Actions publish `@atmos/local-web-runtime`
 
 The workflow enforces that stable tag-push releases come from `origin/main`.
 
@@ -263,7 +263,7 @@ Use `create_release=false` for build-only validation without creating a GitHub R
 ```bash
 gh run list --workflow release-local-runtime.yml --limit 5
 gh release view local-v0.1.0
-npm view @atmos/local version
+npm view @atmos/local-web-runtime version
 ```
 
 Check assets:
@@ -275,8 +275,8 @@ gh release view local-v0.1.0 --json assets --jq '.assets[].name'
 Optionally verify installation paths:
 
 ```bash
-npx @atmos/local --version local-v0.1.0 --no-start
-bunx @atmos/local --version local-v0.1.0 --no-start
+npx @atmos/local-web-runtime --version local-v0.1.0 --no-start
+bunx @atmos/local-web-runtime --version local-v0.1.0 --no-start
 ```
 
 ---
@@ -394,7 +394,7 @@ The primary GitHub Releases API path filters out draft and prerelease releases. 
 
 ### Local Runtime Installer Checks
 
-`@atmos/local` resolves the latest non-draft, non-prerelease `local-v*` release when installing `latest`.
+`@atmos/local-web-runtime` resolves the latest non-draft, non-prerelease `local-v*` release when installing `latest`.
 
 ### Desktop Updater Checks
 
@@ -408,7 +408,7 @@ Desktop uses the Tauri updater endpoint from `tauri.conf.json` and the desktop G
 | --- | --- |
 | Publish a new standalone `atmos` binary | CLI release |
 | Let agents or scripts use a new CLI capability | CLI release |
-| Publish a complete local Web runtime for `npx @atmos/local` | Local Runtime release |
+| Publish a complete local Web runtime for `npx @atmos/local-web-runtime` | Local Runtime release |
 | Update bundled API, Web, or system skills for local Web installs | Local Runtime release |
 | Publish the Tauri desktop app | Desktop release |
 | Test real release assets from a branch | workflow dispatch + prerelease |
@@ -510,7 +510,7 @@ gh release view cli-v<version>
 node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version> --dry-run
 node ./.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs <version>
 gh release view local-v<version>
-npm view @atmos/local version
+npm view @atmos/local-web-runtime version
 ```
 
 ### Desktop

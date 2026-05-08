@@ -1,6 +1,6 @@
 ---
 name: atmos-local-release
-description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local runtime release, verify the local runtime installer version, create the required `local-v<version>` tag, publish the runtime archives, and publish the `@atmos/local` installer package. Prefer this over a generic GitHub release process for Atmos local runtime releases.
+description: Run the Atmos local web runtime release workflow for this repository. Use this whenever you need to cut an Atmos local runtime release, verify the local runtime installer version, create the required `local-v<version>` tag, publish the runtime archives, and publish the `@atmos/local-web-runtime` installer package. Prefer this over a generic GitHub release process for Atmos local runtime releases.
 user-invokable: true
 args:
   - name: version
@@ -27,7 +27,7 @@ This skill handles the Atmos local runtime release sequence:
 3. optionally build the local runtime archive locally for a spot check
 4. create and push the `local-v<version>` tag
 5. rely on GitHub Actions to build and upload runtime archives
-6. rely on GitHub Actions to publish `@atmos/local`
+6. rely on GitHub Actions to publish `@atmos/local-web-runtime`
 7. verify the published GitHub Release assets
 8. verify the shell and npm installer entrypoints are aligned with the published release
 
@@ -51,8 +51,8 @@ Atmos local runtime releases follow these rules:
 - local runtime release workflow:
   - `.github/workflows/release-local-runtime.yml`
 - installer entrypoints:
-  - `install.sh`
-  - `@atmos/local`
+  - `install-local-web-runtime.sh`
+  - `@atmos/local-web-runtime`
 - runtime build script:
   - `scripts/local-runtime/build-runtime.mjs`
 - version consistency script:
@@ -112,13 +112,13 @@ This workflow is responsible for:
 
 - building each supported target
 - uploading runtime archives to the GitHub Release
-- publishing `@atmos/local` to npm
+- publishing `@atmos/local-web-runtime` to npm
 - marking the GitHub Release published
 
 ### Installer entrypoints
 Use these files when validating the published install path:
 
-- `install.sh`
+- `install-local-web-runtime.sh`
 - `packages/local-installer/bin/atmos-local.mjs`
 - `packages/local-installer/README.md`
 
@@ -193,7 +193,7 @@ When asked to perform an Atmos local runtime release:
 6. create and push the `local-v<version>` tag
 7. monitor `.github/workflows/release-local-runtime.yml`
 8. verify the GitHub Release contains the expected runtime archives
-9. verify npm has the expected `@atmos/local` version
+9. verify npm has the expected `@atmos/local-web-runtime` version
 10. verify the install entrypoints still resolve the published release correctly
 
 Recommended command sequence for the validation portion:
@@ -244,10 +244,10 @@ When using this skill:
 - preserve the repository's version consistency checks
 - rely on `release-local-runtime.yml` for publication
 - treat GitHub Release assets as the canonical runtime download source
-- treat `@atmos/local` as the canonical `npx` and `bunx` entrypoint
+- treat `@atmos/local-web-runtime` as the canonical `npx` and `bunx` entrypoint
 - verify both installer paths after release:
-  - `install.sh`
-  - `npx @atmos/local` or `bunx @atmos/local`
+  - `install-local-web-runtime.sh`
+  - `npx @atmos/local-web-runtime` or `bunx @atmos/local-web-runtime`
 
 ## Failure handling
 
@@ -282,22 +282,22 @@ After a non-dry-run release, verify:
   - `atmos-local-runtime-aarch64-apple-darwin.tar.gz`
   - `atmos-local-runtime-x86_64-apple-darwin.tar.gz`
   - `atmos-local-runtime-x86_64-unknown-linux-gnu.tar.gz`
-- npm reports the expected `@atmos/local` version
-- `install.sh` resolves the correct `local-v<version>` release
-- `npx @atmos/local` or `bunx @atmos/local` resolves the correct `local-v<version>` release
+- npm reports the expected `@atmos/local-web-runtime` version
+- `install-local-web-runtime.sh` resolves the correct `local-v<version>` release
+- `npx @atmos/local-web-runtime` or `bunx @atmos/local-web-runtime` resolves the correct `local-v<version>` release
 
 Minimum verification commands:
 
 ```bash
 gh release view local-v<version>
-npm view @atmos/local version
+npm view @atmos/local-web-runtime version
 ```
 
 Use installer verification only when the user explicitly wants install-path confirmation or release health checks:
 
 ```bash
-bash ./install.sh --version <version> --no-start
-npx @atmos/local --version <version> --no-start
+bash ./install-local-web-runtime.sh --version <version> --no-start
+npx @atmos/local-web-runtime --version <version> --no-start
 ```
 
 ## Never do these things
@@ -305,7 +305,7 @@ npx @atmos/local --version <version> --no-start
 - never use a plain `v<version>` tag for Atmos local runtime
 - never skip the local runtime version consistency check
 - never create the local runtime tag before the installer version matches the tag
-- never publish `@atmos/local` from a version that does not match the release tag
+- never publish `@atmos/local-web-runtime` from a version that does not match the release tag
 - never manually upload ad-hoc runtime archives to work around a broken workflow
 - never declare the release complete before both GitHub Release assets and npm publish are verified
 
@@ -339,7 +339,7 @@ gh run watch <run-id>
 
 ### Check published npm version
 ```bash
-npm view @atmos/local version
+npm view @atmos/local-web-runtime version
 ```
 
 ## Summary

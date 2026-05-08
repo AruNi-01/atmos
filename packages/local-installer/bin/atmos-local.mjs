@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 const REPO = process.env.ATMOS_GITHUB_REPO || "AruNi-01/atmos";
 
 function usage() {
-  console.log(`Usage: npx @atmos/local [options]
+  console.log(`Usage: npx @atmos/local-web-runtime [options]
 
 Options:
   --version <tag>        Install a specific release tag instead of latest

@@ -1,17 +1,17 @@
-# `@atmos/local`
+# `@atmos/local-web-runtime`
 
 Install and run the local Atmos web runtime on your machine.
 
 ## Usage
 
 ```bash
-npx @atmos/local
+npx @atmos/local-web-runtime
 ```
 
 Or with Bun:
 
 ```bash
-bunx @atmos/local
+bunx @atmos/local-web-runtime
 ```
 
 ## What it does
@@ -25,5 +25,5 @@ bunx @atmos/local
 ## Options
 
 ```bash
-npx @atmos/local --help
+npx @atmos/local-web-runtime --help
 ```

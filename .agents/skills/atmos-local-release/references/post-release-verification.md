@@ -34,8 +34,8 @@ Use this reference when the user asks to:
 - check whether `local-vX.Y.Z` is good
 - confirm runtime archives
 - confirm npm publish
-- confirm `install.sh`
-- confirm `npx @atmos/local` or `bunx @atmos/local`
+- confirm `install-local-web-runtime.sh`
+- confirm `npx @atmos/local-web-runtime` or `bunx @atmos/local-web-runtime`
 - investigate why installers still resolve the wrong version
 
 ---
@@ -64,8 +64,8 @@ Use when the user wants confidence that users can actually install the local run
 
 Check:
 - all Level 1 and Level 2 items
-- `install.sh --version <version> --no-start`
-- `npx @atmos/local --version <version> --no-start`
+- `install-local-web-runtime.sh --version <version> --no-start`
+- `npx @atmos/local-web-runtime --version <version> --no-start`
 
 ---
 
@@ -126,7 +126,7 @@ Fail if:
 
 ### 5. Verify shell installer
 Run:
-- `bash ./install.sh --version <version> --no-start`
+- `bash ./install-local-web-runtime.sh --version <version> --no-start`
 
 Check:
 - it resolves the intended release tag
@@ -135,7 +135,7 @@ Check:
 
 ### 6. Verify npm installer
 Run:
-- `npx @atmos/local --version <version> --no-start`
+- `npx @atmos/local-web-runtime --version <version> --no-start`
 
 Check:
 - it resolves the intended release tag
@@ -196,8 +196,8 @@ Examples:
 - npm verdict:
 
 ## Installers
-- `install.sh` result:
-- `npx @atmos/local` result:
+- `install-local-web-runtime.sh` result:
+- `npx @atmos/local-web-runtime` result:
 - Installer verdict:
 
 ## Overall Verdict

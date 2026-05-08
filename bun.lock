@@ -11,7 +11,7 @@
     },
     "apps/desktop": {
       "name": "desktop",
-      "version": "1.0.0",
+      "version": "1.1.0-rc.4",
       "devDependencies": {
         "@tauri-apps/cli": "^2.0.0",
       },
@@ -212,7 +212,7 @@
       },
     },
     "packages/local-installer": {
-      "name": "@atmos/local",
+      "name": "@atmos/local-web-runtime",
       "version": "0.1.0",
       "bin": {
         "atmos-local": "./bin/atmos-local.mjs",
@@ -333,7 +333,7 @@
 
     "@atmos/i18n": ["@atmos/i18n@workspace:packages/i18n"],
 
-    "@atmos/local": ["@atmos/local@workspace:packages/local-installer"],
+    "@atmos/local-web-runtime": ["@atmos/local-web-runtime@workspace:packages/local-installer"],
 
     "@atmos/shared": ["@atmos/shared@workspace:packages/shared"],
 

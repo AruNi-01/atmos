@@ -11,7 +11,7 @@ NO_OPEN=0
 
 usage() {
   cat <<'EOF'
-Usage: install.sh [options]
+Usage: install-local-web-runtime.sh [options]
 
 Options:
   --version <tag>        Install a specific release tag instead of latest

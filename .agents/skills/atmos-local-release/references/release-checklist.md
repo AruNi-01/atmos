@@ -38,8 +38,8 @@ If any layer disagrees, the release is not complete.
 - Version check script:
   - `scripts/release/check-local-runtime-version.mjs`
 - Installer entrypoints:
-  - `install.sh`
-  - `@atmos/local`
+  - `install-local-web-runtime.sh`
+  - `@atmos/local-web-runtime`
 
 ---
 
@@ -128,7 +128,7 @@ If tag and runtime assets disagree, stop and treat the release as invalid.
 
 Verify:
 - [ ] npm publish step succeeded
-- [ ] `npm view @atmos/local version` matches target version
+- [ ] `npm view @atmos/local-web-runtime version` matches target version
 - [ ] npm package is consistent with the GitHub Release version
 
 If GitHub Release and npm version disagree, treat the release as invalid.
@@ -138,8 +138,8 @@ If GitHub Release and npm version disagree, treat the release as invalid.
 ## Minimum installer checks
 
 Verify:
-- [ ] `install.sh` resolves the correct local release tag
-- [ ] `npx @atmos/local` resolves the correct local release tag
+- [ ] `install-local-web-runtime.sh` resolves the correct local release tag
+- [ ] `npx @atmos/local-web-runtime` resolves the correct local release tag
 - [ ] both entrypoints still download the published runtime asset set
 
 If installers resolve the wrong release, the distribution path is not healthy even if assets exist.
@@ -223,10 +223,10 @@ Monitoring:
 - `gh run view --web`
 
 npm:
-- `npm view @atmos/local version`
+- `npm view @atmos/local-web-runtime version`
 
 Install path:
-- `bash ./install.sh --version <version> --no-start`
-- `npx @atmos/local --version <version> --no-start`
+- `bash ./install-local-web-runtime.sh --version <version> --no-start`
+- `npx @atmos/local-web-runtime --version <version> --no-start`
 
 ---

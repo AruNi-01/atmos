@@ -40,17 +40,59 @@
 
 Latest desktop release: [View the latest release](https://github.com/AruNi-01/atmos/releases/latest).
 
-### Homebrew
+### Homebrew (Desktop App)
 
 ```bash
 brew install --cask AruNi-01/tap/atmos
 ```
 
+### Desktop App (Install Script)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AruNi-01/atmos/main/install-desktop.sh | bash
+```
+
+Options:
+- `--version <tag>` - Install a specific release tag
+- `--archive <path>` - Install from a local .app.tar.gz archive
+
+### Local Web Runtime
+
+#### Option 1: Install Script
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/AruNi-01/atmos/main/install-local-web-runtime.sh | bash
+```
+
+Options:
+- `--version <tag>` - Install a specific release tag
+- `--install-dir <path>` - Custom install directory (default: `~/.atmos`)
+- `--port <port>` - Port for local runtime (default: `30303`)
+- `--no-start` - Install only, do not start
+- `--no-open` - Do not auto-open browser
+
+#### Option 2: npm/bun Package
+
+```bash
+# Using npm
+npx @atmos/local-web-runtime
+
+# Using bun
+bunx @atmos/local-web-runtime
+```
+
 ### Quick Use
 
-1. Install Atmos from one of the packages above.
+#### Desktop App
+1. Install Atmos via Homebrew or install script.
 2. Launch the desktop app and create or open a workspace.
 3. Connect your project, open a terminal, and work with agents in the same place.
+
+#### Local Web Runtime
+1. Install via install script or npm/bun package.
+2. The runtime will start automatically (or run `~/.atmos/bin/atmos local start`).
+3. Open your browser to the displayed URL (default: `http://127.0.0.1:30303`).
+4. Create a workspace and start working with agents.
 
 ### Run From Source
 

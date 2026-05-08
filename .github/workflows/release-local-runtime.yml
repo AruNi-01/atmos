@@ -33,7 +33,7 @@ on:
         description: "Release tag when create_release=true (example: local-v0.1.0)"
         required: false
       publish_npm:
-        description: "Publish @atmos/local to npm"
+        description: "Publish @atmos/local-web-runtime to npm"
         required: true
         default: true
         type: boolean
@@ -226,7 +226,7 @@ jobs:
           Assets:
           - prebuilt local runtime archives for each supported platform
           - bundled Atmos CLI binary for local runtime control
-          - npm installer package: \`@atmos/local\`
+          - npm installer package: \`@atmos/local-web-runtime\`
           EOF
 
           EXTRA_ARGS=()
@@ -303,7 +303,7 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Publish @atmos/local
+      - name: Publish @atmos/local-web-runtime
         working-directory: packages/local-installer
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -311,9 +311,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          CURRENT_VERSION="$(npm view @atmos/local version 2>/dev/null || true)"
+          CURRENT_VERSION="$(npm view @atmos/local-web-runtime version 2>/dev/null || true)"
           if [ "$CURRENT_VERSION" = "$RELEASE_VERSION" ]; then
-            echo "@atmos/local ${RELEASE_VERSION} is already published"
+            echo "@atmos/local-web-runtime ${RELEASE_VERSION} is already published"
             exit 0
           fi
 
