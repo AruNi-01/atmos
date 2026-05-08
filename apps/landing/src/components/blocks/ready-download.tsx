@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@workspace/ui/components/ui/dropdown-menu'
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/ui/tabs'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { TextShimmer } from '@workspace/ui/components/ui/text-shimmer'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
@@ -38,6 +39,8 @@ const createDefaultDownloadLinks = (): DownloadLinks => ({
 
 const ReadyDownload = () => {
   const [copied, setCopied] = useState('')
+  const [desktopTab, setDesktopTab] = useState('homebrew')
+  const [localWebTab, setLocalWebTab] = useState('npx')
   const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(createDefaultDownloadLinks)
 
   useEffect(() => {
@@ -142,80 +145,104 @@ const ReadyDownload = () => {
               </Button>
             </div>
 
-            <div className='mt-8 w-full max-w-2xl space-y-6'>
+            <div className='mt-8 w-full max-w-2xl space-y-8'>
               {/* Desktop Installation */}
-              <div className='space-y-3'>
+              <div className='space-y-3 text-left'>
                 <h3 className='text-sm font-medium text-muted-foreground'>Desktop App</h3>
-                <div className='space-y-2'>
-                  <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
-                    <img src='/icons/homebrew.svg' alt='Homebrew' className='size-4 opacity-60 select-none absolute left-4 top-1/2 -translate-y-1/2' />
-                    <TextShimmer as='code' className='pl-7 overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>brew install --cask AruNi-01/tap/atmos</TextShimmer>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='shrink-0 transition-opacity'
-                      onClick={() => copyToClipboard('brew install --cask AruNi-01/tap/atmos')}
-                      aria-label='Copy command'
-                    >
-                      {copied === 'brew install --cask AruNi-01/tap/atmos' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
-                    </Button>
-                  </div>
-                  <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
-                    <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>curl -fsSL https://install.atmos.land/install-desktop.sh | bash</TextShimmer>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='shrink-0 transition-opacity'
-                      onClick={() => copyToClipboard('curl -fsSL https://install.atmos.land/install-desktop.sh | bash')}
-                      aria-label='Copy command'
-                    >
-                      {copied === 'curl -fsSL https://install.atmos.land/install-desktop.sh | bash' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
-                    </Button>
-                  </div>
-                </div>
+                <Tabs defaultValue='homebrew' value={desktopTab} onValueChange={setDesktopTab} className='w-fit'>
+                  <TabsList className='grid w-fit grid-cols-2 mb-3'>
+                    <TabsTrigger value='homebrew'>Homebrew</TabsTrigger>
+                    <TabsTrigger value='bash'>Bash</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value='homebrew' className='mt-0'>
+                    <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
+                      <img src='/icons/homebrew.svg' alt='Homebrew' className='size-4 opacity-60 select-none absolute left-4 top-1/2 -translate-y-1/2' />
+                      <TextShimmer as='code' className='pl-7 overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>brew install --cask AruNi-01/tap/atmos</TextShimmer>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='shrink-0 transition-opacity'
+                        onClick={() => copyToClipboard('brew install --cask AruNi-01/tap/atmos')}
+                        aria-label='Copy command'
+                      >
+                        {copied === 'brew install --cask AruNi-01/tap/atmos' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value='bash' className='mt-0'>
+                    <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
+                      <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>curl -fsSL https://install.atmos.land/install-desktop.sh | bash</TextShimmer>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='shrink-0 transition-opacity'
+                        onClick={() => copyToClipboard('curl -fsSL https://install.atmos.land/install-desktop.sh | bash')}
+                        aria-label='Copy command'
+                      >
+                        {copied === 'curl -fsSL https://install.atmos.land/install-desktop.sh | bash' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
 
               {/* Local Web Runtime Installation */}
-              <div className='space-y-3'>
+              <div className='space-y-3 text-left'>
                 <h3 className='text-sm font-medium text-muted-foreground'>Local Web Runtime</h3>
-                <div className='space-y-2'>
-                  <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
-                    <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>npx @atmos/local-web-runtime</TextShimmer>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='shrink-0 transition-opacity'
-                      onClick={() => copyToClipboard('npx @atmos/local-web-runtime')}
-                      aria-label='Copy command'
-                    >
-                      {copied === 'npx @atmos/local-web-runtime' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
-                    </Button>
-                  </div>
-                  <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
-                    <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>bunx @atmos/local-web-runtime</TextShimmer>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='shrink-0 transition-opacity'
-                      onClick={() => copyToClipboard('bunx @atmos/local-web-runtime')}
-                      aria-label='Copy command'
-                    >
-                      {copied === 'bunx @atmos/local-web-runtime' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
-                    </Button>
-                  </div>
-                  <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
-                    <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash</TextShimmer>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='shrink-0 transition-opacity'
-                      onClick={() => copyToClipboard('curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash')}
-                      aria-label='Copy command'
-                    >
-                      {copied === 'curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
-                    </Button>
-                  </div>
-                </div>
+                <Tabs defaultValue='npx' value={localWebTab} onValueChange={setLocalWebTab} className='w-fit'>
+                  <TabsList className='grid w-fit grid-cols-3 mb-3'>
+                    <TabsTrigger value='npx'>npx</TabsTrigger>
+                    <TabsTrigger value='bunx'>bunx</TabsTrigger>
+                    <TabsTrigger value='bash'>Bash</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value='npx' className='mt-0'>
+                    <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
+                      <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>npx @atmos/local-web-runtime</TextShimmer>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='shrink-0 transition-opacity'
+                        onClick={() => copyToClipboard('npx @atmos/local-web-runtime')}
+                        aria-label='Copy command'
+                      >
+                        {copied === 'npx @atmos/local-web-runtime' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value='bunx' className='mt-0'>
+                    <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
+                      <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>bunx @atmos/local-web-runtime</TextShimmer>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='shrink-0 transition-opacity'
+                        onClick={() => copyToClipboard('bunx @atmos/local-web-runtime')}
+                        aria-label='Copy command'
+                      >
+                        {copied === 'bunx @atmos/local-web-runtime' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value='bash' className='mt-0'>
+                    <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
+                      <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash</TextShimmer>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='shrink-0 transition-opacity'
+                        onClick={() => copyToClipboard('curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash')}
+                        aria-label='Copy command'
+                      >
+                        {copied === 'curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           </MotionPreset>
