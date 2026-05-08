@@ -52,9 +52,14 @@ brew install --cask AruNi-01/tap/atmos
 curl -fsSL https://install.atmos.land/install-desktop.sh | bash
 ```
 
+Supported platforms:
+- **macOS** (Intel & Apple Silicon): Extracts to `/Applications`
+- **Linux** (x64): Installs AppImage to `~/.local/bin/`
+- **Windows** (x64): Runs silent installer
+
 Options:
 - `--version <tag>` - Install a specific release tag
-- `--archive <path>` - Install from a local .app.tar.gz archive
+- `--archive <path>` - Install from a local archive
 - `--github-source` - Use GitHub Releases instead of custom domain
 
 ### Local Web Runtime
