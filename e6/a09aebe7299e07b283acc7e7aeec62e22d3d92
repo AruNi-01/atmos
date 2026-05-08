@@ -1,0 +1,35 @@
+crates/infra/src/websocket/message.rs
+  s_350ae2edc84263::t_592edfbe5b6fd0 472-473
+apps/web/src/components/dialogs/LocalModelPanel.tsx
+  s_350ae2edc84263::t_d185a790725635 1080-1093
+  s_350ae2edc84263::t_4eb8d82d2943f6 448-460
+apps/web/src/api/ws-api.ts
+  s_350ae2edc84263::t_f9ae011eb70c95 2322-2324
+crates/local-model-runtime/src/manifest/mod.rs
+  s_350ae2edc84263::t_47b892f5a87fe9 4-5,19-30,32-89,94,106
+  s_350ae2edc84263::t_184aad7bcac168 9
+  s_350ae2edc84263::t_6487bd573ed710 31
+crates/local-model-runtime/Cargo.toml
+  s_350ae2edc84263::t_d5b7fa477f1548 23
+crates/core-service/src/service/ws_message.rs
+  s_350ae2edc84263::t_673ec7fab44d50 5182,5230
+  s_350ae2edc84263::t_b39b9042f8ab26 5066,5071,5082
+  s_350ae2edc84263::t_90710e0a430fe7 999
+  s_350ae2edc84263::t_20434a3864fc30 5106-5108,5135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "e6a09aebe7299e07b283acc7e7aeec62e22d3d92",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
