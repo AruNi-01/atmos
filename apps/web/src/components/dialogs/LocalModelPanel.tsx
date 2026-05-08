@@ -861,6 +861,7 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const previousStateRef = useRef<LocalModelStatus | null>(null);
