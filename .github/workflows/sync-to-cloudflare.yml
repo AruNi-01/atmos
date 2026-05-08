@@ -77,7 +77,14 @@ jobs:
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Uploading files:"
           ls -la /tmp/assets/
-          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/ --path /tmp/assets
+          # Upload each file individually
+          for file in /tmp/assets/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "Uploading $filename to desktop/${TAG}/"
+              wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/$filename --file "$file"
+            fi
+          done
 
   sync-local-runtime:
     # Only sync stable releases (not prerelease, rc, beta, etc.)
@@ -118,4 +125,11 @@ jobs:
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Uploading files:"
           ls -la /tmp/assets/
-          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/ --path /tmp/assets
+          # Upload each file individually
+          for file in /tmp/assets/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "Uploading $filename to local-runtime/${TAG}/"
+              wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/$filename --file "$file"
+            fi
+          done
