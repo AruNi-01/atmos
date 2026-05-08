@@ -1,0 +1,20 @@
+.github/workflows/sync-r2.yml
+  s_350ae2edc84263::t_8e59839d13a0fc 212,225-227
+  s_350ae2edc84263::t_ca12711f1e9ac6 117,131-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "55ad76bc54d15aa37dc2b8ab3baf9216f3406a30",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
