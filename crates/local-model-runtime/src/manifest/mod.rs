@@ -1,9 +1,12 @@
 pub mod types;
 
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use tracing::debug;
 
 use crate::error::Result;
+use crate::config::local_model_runtime_dir;
 pub use types::{BinaryEntry, ModelEntry, ModelManifest};
 
 /// Default URL of the official Atmos model manifest from GitHub Releases.
@@ -13,15 +16,82 @@ pub const DEFAULT_MANIFEST_URL: &str =
 /// Environment variable to override the manifest URL.
 pub const MANIFEST_URL_ENV: &str = "ATMOS_LOCAL_MODEL_MANIFEST_URL";
 
-/// Fetch the manifest with fallback chain:
-/// 1. Environment variable override (ATMOS_LOCAL_MODEL_MANIFEST_URL)
-/// 2. GitHub Release URL
-/// 3. Bundled fallback manifest
-pub async fn fetch_manifest(client: &Client) -> Result<ModelManifest> {
+/// Cache duration: 12 hours in seconds
+const CACHE_DURATION_SECONDS: u64 = 12 * 60 * 60;
+
+/// Cached manifest with timestamp
+#[derive(Debug, Serialize, Deserialize)]
+struct CachedManifest {
+    manifest: ModelManifest,
+    cached_at: i64,
+}
+
+/// Get the cache file path
+fn cache_file_path() -> Result<PathBuf> {
+    let dir = local_model_runtime_dir()?;
+    Ok(dir.join("manifest-cache.json"))
+}
+
+/// Load cached manifest if it exists and is not expired
+fn load_cached_manifest() -> Option<ModelManifest> {
+    let cache_path = cache_file_path().ok()?;
+    if !cache_path.exists() {
+        return None;
+    }
+
+    let cached_json = std::fs::read_to_string(cache_path).ok()?;
+    let cached: CachedManifest = serde_json::from_str(&cached_json).ok()?;
+
+    let now = chrono::Utc::now().timestamp();
+    let age = now - cached.cached_at;
+
+    if age < CACHE_DURATION_SECONDS as i64 {
+        debug!("Using cached manifest (age: {}s)", age);
+        Some(cached.manifest)
+    } else {
+        debug!("Cache expired (age: {}s), fetching fresh", age);
+        None
+    }
+}
+
+/// Save manifest to cache
+fn save_cached_manifest(manifest: &ModelManifest) -> Result<()> {
+    let cache_path = cache_file_path()?;
+    let cached = CachedManifest {
+        manifest: manifest.clone(),
+        cached_at: chrono::Utc::now().timestamp(),
+    };
+
+    let cached_json = serde_json::to_string_pretty(&cached)
+        .map_err(|e| crate::error::LocalModelError::Runtime(format!("Failed to serialize cache: {}", e)))?;
+
+    std::fs::write(&cache_path, cached_json)
+        .map_err(|e| crate::error::LocalModelError::Runtime(format!("Failed to write cache: {}", e)))?;
+
+    debug!("Saved manifest to cache");
+    Ok(())
+}
+
+/// Fetch the manifest with fallback chain and caching:
+/// 1. Try cache (if not expired and not force_refresh)
+/// 2. Environment variable override (ATMOS_LOCAL_MODEL_MANIFEST_URL)
+/// 3. GitHub Release URL
+/// 4. Bundled fallback manifest
+pub async fn fetch_manifest(client: &Client, force_refresh: bool) -> Result<ModelManifest> {
+    // Try cache first (unless force_refresh)
+    if !force_refresh {
+        if let Some(cached) = load_cached_manifest() {
+            return Ok(cached);
+        }
+    } else {
+        debug!("Force refresh requested, skipping cache");
+    }
+
     // Try environment override first
     if let Ok(url) = std::env::var(MANIFEST_URL_ENV) {
         debug!("Fetching local model manifest from env override: {}", url);
         if let Ok(manifest) = fetch_from_url(client, &url).await {
+            let _ = save_cached_manifest(&manifest);
             return Ok(manifest);
         }
         debug!("Env override failed, falling back to default");
@@ -33,6 +103,7 @@ pub async fn fetch_manifest(client: &Client) -> Result<ModelManifest> {
         DEFAULT_MANIFEST_URL
     );
     if let Ok(manifest) = fetch_from_url(client, DEFAULT_MANIFEST_URL).await {
+        let _ = save_cached_manifest(&manifest);
         return Ok(manifest);
     }
     debug!("GitHub Release fetch failed, falling back to bundled manifest");

@@ -445,6 +445,19 @@ export function LocalModelRuntimeControl() {
     }
   }, []);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const res = await localModelApi.refresh();
+      setData(res);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to refresh manifest");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -1064,6 +1077,20 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
         <div className="flex items-center gap-2">
           {data && <StatusBadge state={data.state} />}
         </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-muted-foreground"
+          onClick={handleRefresh}
+          disabled={refreshing || busy}
+        >
+          {refreshing ? (
+            <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+          ) : (
+            <RotateCw className="mr-1.5 size-3.5" />
+          )}
+          Refresh
+        </Button>
       </div>
 
       {/* Error banner */}

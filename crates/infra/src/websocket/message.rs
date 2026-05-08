@@ -469,6 +469,8 @@ pub enum WsAction {
     // ===== Local Model =====
     /// Fetch the remote model manifest and return available models + current state
     LocalModelList,
+    /// Force refresh the manifest from remote (bypass cache)
+    LocalModelRefresh,
     /// Download the llama-server runtime binary
     LocalModelRuntimeDownload,
     /// Download a model GGUF (streams state via LocalModelStateChanged)

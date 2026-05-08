@@ -996,6 +996,7 @@ impl WsMessageService {
 
             // ===== Local Model =====
             WsAction::LocalModelList => self.handle_local_model_list().await,
+            WsAction::LocalModelRefresh => self.handle_local_model_refresh().await,
             WsAction::LocalModelRuntimeDownload => {
                 self.handle_local_model_runtime_download(conn_id).await
             }
@@ -5062,12 +5063,12 @@ set -x
 
     // ===== Local Model Handlers =====
 
-    async fn fetch_local_model_manifest(&self) -> Result<ModelManifest> {
+    async fn fetch_local_model_manifest(&self, force_refresh: bool) -> Result<ModelManifest> {
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(15))
             .build()
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        let mut manifest = fetch_manifest(&http).await.map_err(|e| {
+        let mut manifest = fetch_manifest(&http, force_refresh).await.map_err(|e| {
             ServiceError::Processing(format!("Failed to fetch local model manifest: {e}"))
         })?;
         merge_custom_models(&mut manifest).map_err(|e| {
@@ -5078,7 +5079,33 @@ set -x
 
     /// Return the manifest (list of available models) plus the current runtime state.
     async fn handle_local_model_list(&self) -> Result<Value> {
-        let manifest = self.fetch_local_model_manifest().await?;
+        let manifest = self.fetch_local_model_manifest(false).await?;
+        let runtime_installed = self.local_model_manager.is_runtime_file_present();
+        let state = self.local_model_manager.state();
+        let state_json =
+            serde_json::to_value(&state).map_err(|e| ServiceError::Processing(e.to_string()))?;
+        let mut models_json = Vec::with_capacity(manifest.models.len());
+        for model in &manifest.models {
+            let mut value =
+                serde_json::to_value(model).map_err(|e| ServiceError::Processing(e.to_string()))?;
+            let installed = self.local_model_manager.is_model_file_present(&model.id);
+            if let Some(object) = value.as_object_mut() {
+                object.insert("installed".to_string(), json!(installed));
+            }
+            models_json.push(value);
+        }
+        Ok(json!({
+            "runtime": {
+                "installed": runtime_installed,
+            },
+            "models": models_json,
+            "state": state_json,
+        }))
+    }
+
+    /// Force refresh the local model manifest from remote (bypass cache).
+    async fn handle_local_model_refresh(&self) -> Result<Value> {
+        let manifest = self.fetch_local_model_manifest(true).await?;
         let runtime_installed = self.local_model_manager.is_runtime_file_present();
         let state = self.local_model_manager.state();
         let state_json =
@@ -5105,7 +5132,7 @@ set -x
     /// Trigger download of the llama-server runtime binary. State updates are pushed
     /// as `LocalModelStateChanged` notifications.
     async fn handle_local_model_runtime_download(&self, _conn_id: &str) -> Result<Value> {
-        let manifest = self.fetch_local_model_manifest().await?;
+        let manifest = self.fetch_local_model_manifest(false).await?;
 
         let manager = Arc::clone(&self.local_model_manager);
         let ws_manager = self.ws_manager.get().cloned();
@@ -5152,7 +5179,7 @@ set -x
         _conn_id: &str,
         req: infra::LocalModelDownloadRequest,
     ) -> Result<Value> {
-        let manifest = self.fetch_local_model_manifest().await?;
+        let manifest = self.fetch_local_model_manifest(false).await?;
 
         let manager = Arc::clone(&self.local_model_manager);
         let ws_manager = self.ws_manager.get().cloned();
@@ -5200,7 +5227,7 @@ set -x
         _conn_id: &str,
         req: infra::LocalModelStartRequest,
     ) -> Result<Value> {
-        let manifest = self.fetch_local_model_manifest().await?;
+        let manifest = self.fetch_local_model_manifest(false).await?;
 
         let manager = Arc::clone(&self.local_model_manager);
         let ws_manager = self.ws_manager.get().cloned();
