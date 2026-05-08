@@ -10,6 +10,7 @@ on:
         required: true
 
 env:
+  REPO: AruNi-01/atmos
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
   R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -115,16 +116,42 @@ jobs:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
-          echo "Copying files to latest path for direct access"
-          # Copy files to latest path
-          for file in /tmp/assets/*.app.tar.gz; do
-            aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file") \
-              --endpoint-url $AWS_ENDPOINT_URL || {
-              echo "Failed to copy $file to latest"
-              exit 1
-            }
-          done
-          echo "Successfully updated latest files"
+          echo "Checking if this is the latest stable release..."
+          # Get all stable desktop releases from GitHub
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
+import json
+import sys
+
+releases = json.load(sys.stdin)
+for release in releases:
+    tag = str(release.get("tag_name") or "")
+    if release.get("draft"):
+        continue
+    if release.get("prerelease"):
+        continue
+    if tag.startswith("desktop-v"):
+        print(tag)
+        break
+' | head -n 1)
+
+          echo "Latest stable release from GitHub: ${LATEST_TAG}"
+          echo "Current release being synced: ${TAG}"
+
+          # Only update latest if this is actually the latest stable release
+          if [[ "$TAG" == "$LATEST_TAG" ]]; then
+            echo "This is the latest stable release, updating latest path..."
+            # Copy files to latest path
+            for file in /tmp/assets/*.app.tar.gz; do
+              aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file") \
+                --endpoint-url $AWS_ENDPOINT_URL || {
+                echo "Failed to copy $file to latest"
+                exit 1
+              }
+            done
+            echo "Successfully updated latest files"
+          else
+            echo "This is not the latest stable release, skipping latest path update"
+          fi
 
   sync-local-runtime:
     # Only sync stable releases (not prerelease, rc, beta, etc.)
@@ -188,13 +215,39 @@ jobs:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
-          echo "Copying files to latest path for direct access"
-          # Copy files to latest path
-          for file in /tmp/assets/*.tar.gz; do
-            aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/latest/$(basename "$file") \
-              --endpoint-url $AWS_ENDPOINT_URL || {
-              echo "Failed to copy $file to latest"
-              exit 1
-            }
-          done
-          echo "Successfully updated latest files"
+          echo "Checking if this is the latest stable release..."
+          # Get all stable local runtime releases from GitHub
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
+import json
+import sys
+
+releases = json.load(sys.stdin)
+for release in releases:
+    tag = str(release.get("tag_name") or "")
+    if release.get("draft"):
+        continue
+    if release.get("prerelease"):
+        continue
+    if tag.startswith("local-v"):
+        print(tag)
+        break
+' | head -n 1)
+
+          echo "Latest stable release from GitHub: ${LATEST_TAG}"
+          echo "Current release being synced: ${TAG}"
+
+          # Only update latest if this is actually the latest stable release
+          if [[ "$TAG" == "$LATEST_TAG" ]]; then
+            echo "This is the latest stable release, updating latest path..."
+            # Copy files to latest path
+            for file in /tmp/assets/*.tar.gz; do
+              aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/latest/$(basename "$file") \
+                --endpoint-url $AWS_ENDPOINT_URL || {
+                echo "Failed to copy $file to latest"
+                exit 1
+              }
+            done
+            echo "Successfully updated latest files"
+          else
+            echo "This is not the latest stable release, skipping latest path update"
+          fi
