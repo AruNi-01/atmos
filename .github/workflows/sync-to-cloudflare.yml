@@ -35,9 +35,21 @@ jobs:
           command: r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-local-web-runtime.sh --file ./install-local-web-runtime.sh
 
   sync-desktop:
-    if: startsWith(github.event.release.tag_name, 'desktop-v') || github.event.inputs.release_tag
+    # Only sync stable releases (not prerelease, rc, beta, etc.)
+    if: |
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'desktop-v')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag)
     runs-on: ubuntu-latest
     steps:
+      - name: Check if release is stable
+        if: github.event_name == 'release'
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            echo "Skipping prerelease: ${{ github.event.release.tag_name }}"
+            exit 1
+          fi
+          echo "Syncing stable release: ${{ github.event.release.tag_name }}"
+
       - name: Download release assets
         env:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
@@ -53,9 +65,21 @@ jobs:
           command: r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/ --path /tmp/assets
 
   sync-local-runtime:
-    if: startsWith(github.event.release.tag_name, 'local-v') || github.event.inputs.release_tag
+    # Only sync stable releases (not prerelease, rc, beta, etc.)
+    if: |
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-v')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag)
     runs-on: ubuntu-latest
     steps:
+      - name: Check if release is stable
+        if: github.event_name == 'release'
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            echo "Skipping prerelease: ${{ github.event.release.tag_name }}"
+            exit 1
+          fi
+          echo "Syncing stable release: ${{ github.event.release.tag_name }}"
+
       - name: Download release assets
         env:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
