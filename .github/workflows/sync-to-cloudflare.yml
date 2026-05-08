@@ -41,7 +41,7 @@ jobs:
     # Only sync stable releases (not prerelease, rc, beta, etc.)
     if: |
       (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'desktop-v')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag)
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'desktop-v'))
     runs-on: ubuntu-latest
     steps:
       - name: Check if release is stable
@@ -75,7 +75,7 @@ jobs:
     # Only sync stable releases (not prerelease, rc, beta, etc.)
     if: |
       (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-v')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag)
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-v'))
     runs-on: ubuntu-latest
     steps:
       - name: Check if release is stable
