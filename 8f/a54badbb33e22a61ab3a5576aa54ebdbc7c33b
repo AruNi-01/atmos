@@ -1,0 +1,30 @@
+.agents/skills/atmos-cli-release/SKILL.md
+  s_350ae2edc84263::t_91183b5dd6da8f 39
+docs/release.md
+  s_350ae2edc84263::t_6835ed51d317c1 184-185,232-233,437-438,510-511
+.gitignore
+  s_350ae2edc84263::t_6204ec54dbf74a 114-115
+.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs
+  s_350ae2edc84263::t_55449fafb28cae 22-27
+.agents/skills/atmos-local-web-release/references/release-checklist.md
+  s_350ae2edc84263::t_6456533e433fa6 76-218
+.agents/skills/atmos-local-web-release/SKILL.md
+  s_350ae2edc84263::t_c085ff91d66d6d 2-3
+  s_350ae2edc84263::t_6f97f8732a5715 36-321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "8fa54badbb33e22a61ab3a5576aa54ebdbc7c33b",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
