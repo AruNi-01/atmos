@@ -19,7 +19,7 @@ import {
   Input,
   toastManager,
 } from "@workspace/ui";
-import { Check, ChevronRight, LoaderCircle, RotateCw } from "lucide-react";
+import { Check, ChevronRight, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { FixActionsMenu } from "@/components/diff/review/FixActionsMenu";
@@ -509,7 +509,7 @@ export const ReviewActions: React.FC = () => {
             {isRefreshing ? (
               <LoaderCircle className="size-3.5 animate-spin" />
             ) : (
-              <RotateCw className="size-3.5" />
+              <RotateCcw className="size-3.5" />
             )}
           </button>
         </>

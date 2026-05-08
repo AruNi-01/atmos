@@ -62,7 +62,7 @@ import {
   Languages,
   LoaderCircle,
   Package,
-  RotateCw,
+  RotateCcw,
   Plus,
   Route,
   Save,
@@ -420,7 +420,7 @@ function AgentHookStatusCard() {
         </CollapsibleTrigger>
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={handleInstallAll} disabled={acting || loading}>
-            {acting ? <LoaderCircle className="size-4 animate-spin" /> : <Download className="size-4" />}
+            {acting ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <Download className="size-4" />}
             Install All
           </Button>
           {anyInstalled && (
@@ -469,11 +469,11 @@ function AgentHookStatusCard() {
                       {tool.detected && !tool.error && (
                         tool.installed ? (
                           <Button variant="secondary" size="icon" className="size-6 text-destructive hover:text-destructive" disabled={isBusy || acting} onClick={() => handleUninstallTool(key)}>
-                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                            {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <Trash2 className="size-3" />}
                           </Button>
                         ) : (
                           <Button variant="secondary" size="icon" className="size-6 text-emerald-500 hover:text-emerald-500" disabled={isBusy || acting} onClick={() => handleInstallTool(key)}>
-                            {isBusy ? <LoaderCircle className="size-3 animate-spin" /> : <Download className="size-3" />}
+                            {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <Download className="size-3" />}
                           </Button>
                         )
                       )}
@@ -1244,7 +1244,7 @@ function LabelSettingsSection() {
                                     }}
                                     className="cursor-pointer"
                                   >
-                                    <RotateCw className="size-4 mr-2" />
+                                    <RotateCcw className="size-4 mr-2" />
                                     Restore
                                   </DropdownMenuItem>
                                 )}
@@ -1830,7 +1830,7 @@ function SaveActionButton({
       disabled={saving}
       className={cn('h-8 rounded-lg px-3 shadow-sm', className)}
     >
-      {saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+      {saving ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <Save className="size-4" />}
       Save
     </Button>
   );
@@ -2730,9 +2730,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className="cursor-pointer"
                           >
                             {isCheckingCliVersion ? (
-                              <LoaderCircle className="mr-2 size-4 animate-spin" />
+                              <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
                             ) : (
-                              <RotateCw className="mr-2 size-4" />
+                              <RotateCcw className="mr-2 size-4" />
                             )}
                             Check for Updates
                           </Button>
@@ -2754,7 +2754,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               disabled={isChecking || isDownloading || isInstalling}
                               className="cursor-pointer"
                             >
-                              <RotateCw className="mr-2 size-4" />
+                              <RotateCcw className="mr-2 size-4" />
                               Check for Updates
                             </Button>
                           </div>
@@ -3047,7 +3047,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       disabled={isRemoving}
                                     >
                                       {isRemoving ? (
-                                        <LoaderCircle className="size-4 animate-spin" />
+                                        <LoaderCircle className="size-4 animate-spin-reverse" />
                                       ) : (
                                         <Trash2 className="size-4" />
                                       )}
@@ -3139,7 +3139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   }
                                 }}
                               >
-                                {savingIdleTimeout ? <LoaderCircle className="size-3.5 animate-spin" /> : "Save"}
+                                {savingIdleTimeout ? <LoaderCircle className="size-3.5 animate-spin-reverse" /> : "Save"}
                               </Button>
                             )}
                           </div>

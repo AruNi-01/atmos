@@ -37,6 +37,7 @@ import {
   GitPullRequestArrow,
   Github,
   Loader2,
+  LoaderCircle,
   RotateCw,
   Sparkles,
 } from 'lucide-react';
@@ -1095,7 +1096,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   disabled={isIssuesLoading}
                   title="Refresh issues"
                 >
-                  <RotateCw className={cn("size-3.5", isIssuesLoading && "animate-spin [animation-direction:reverse]")} />
+                  {isIssuesLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
                 </Button>
               ) : repoContext && linkType === 'pr' ? (
                 <Button
@@ -1107,7 +1108,7 @@ export const CreateWorkspaceDialog: React.FC<CreateWorkspaceDialogProps> = ({
                   disabled={isPrsLoading}
                   title="Refresh PRs"
                 >
-                  <RotateCw className={cn("size-3.5", isPrsLoading && "animate-spin [animation-direction:reverse]")} />
+                  {isPrsLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
                 </Button>
               ) : null}
               </div>

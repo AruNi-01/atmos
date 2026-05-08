@@ -1971,7 +1971,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                               disabled={isIssuesLoading}
                               title="Refresh issues"
                             >
-                              <RotateCw className={cn("size-4", isIssuesLoading && "animate-spin [animation-direction:reverse]")} />
+                              {isIssuesLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
                             </Button>
                           ) : repoContext && linkType === "pr" ? (
                             <Button
@@ -1983,7 +1983,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                               disabled={isPrsLoading}
                               title="Refresh PRs"
                             >
-                              <RotateCw className={cn("size-4", isPrsLoading && "animate-spin [animation-direction:reverse]")} />
+                              {isPrsLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
                             </Button>
                           ) : null}
                           </div>

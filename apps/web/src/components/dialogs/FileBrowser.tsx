@@ -26,6 +26,7 @@ import {
   Folder,
   FolderGit2,
   Home,
+  LoaderCircle,
   RotateCw,
   Search,
   X,
