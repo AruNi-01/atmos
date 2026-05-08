@@ -54,7 +54,6 @@ jobs:
           echo "Successfully uploaded install-local-web-runtime.sh"
 
   sync-desktop:
-    # Only sync stable releases (not prerelease, rc, beta, etc.)
     if: |
       (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'desktop-v')) ||
       (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'desktop-v'))
@@ -77,7 +76,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "Downloading assets for tag: $TAG"
-          # Only sync macOS assets (Linux/Windows users download directly from GitHub)
           gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz"
           echo "Downloaded files:"
           ls -la /tmp/assets/
@@ -102,7 +100,6 @@ jobs:
           echo "Tag: $TAG"
           echo "Uploading files:"
           ls -la /tmp/assets/
-          # Upload entire directory
           aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/ \
             --endpoint-url $AWS_ENDPOINT_URL \
             --recursive || {
@@ -117,8 +114,6 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest desktop release..."
-          # GitHub API returns releases in reverse chronological order (newest first)
-          # We filter for desktop-v prefix and skip prereleases to find latest stable desktop release
           LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
 import json
 import sys
@@ -138,10 +133,8 @@ for release in releases:
           echo "Latest stable desktop release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
 
-          # Only update latest if this is actually the latest stable desktop release
           if [[ "$TAG" == "$LATEST_TAG" ]]; then
             echo "This is the latest stable desktop release, updating latest path..."
-            # Copy files to latest path
             for file in /tmp/assets/*.app.tar.gz; do
               aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file") \
                 --endpoint-url $AWS_ENDPOINT_URL || {
@@ -155,7 +148,6 @@ for release in releases:
           fi
 
   sync-local-runtime:
-    # Only sync stable releases (not prerelease, rc, beta, etc.)
     if: |
       (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'local-v')) ||
       (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-v'))
@@ -202,7 +194,6 @@ for release in releases:
           echo "Tag: $TAG"
           echo "Uploading files:"
           ls -la /tmp/assets/
-          # Upload entire directory
           aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/ \
             --endpoint-url $AWS_ENDPOINT_URL \
             --recursive || {
@@ -217,8 +208,6 @@ for release in releases:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest local runtime release..."
-          # GitHub API returns releases in reverse chronological order (newest first)
-          # We filter for local-v prefix and skip prereleases to find latest stable local runtime release
           LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
 import json
 import sys
@@ -238,10 +227,8 @@ for release in releases:
           echo "Latest stable local runtime release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
 
-          # Only update latest if this is actually the latest stable local runtime release
           if [[ "$TAG" == "$LATEST_TAG" ]]; then
             echo "This is the latest stable local runtime release, updating latest path..."
-            # Copy files to latest path
             for file in /tmp/assets/*.tar.gz; do
               aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/latest/$(basename "$file") \
                 --endpoint-url $AWS_ENDPOINT_URL || {
