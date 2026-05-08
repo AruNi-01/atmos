@@ -1,0 +1,26 @@
+install-local-web-runtime.sh
+  s_350ae2edc84263::t_25ca0b41ac93b0 141-160
+  s_350ae2edc84263::t_3a9c62118e4838 256-262
+.github/workflows/sync-to-cloudflare.yml
+  s_350ae2edc84263::t_3e78c331a80509 113-128
+  s_350ae2edc84263::t_648153c4f73608 185-200
+install-desktop.sh
+  s_350ae2edc84263::t_019eeec416c840 117-136
+  s_350ae2edc84263::t_327ec621f01bc4 169-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "fa05372b2fe624805f2fe5a5d1ac8be223f291fb",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
