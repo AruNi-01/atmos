@@ -221,7 +221,7 @@ for release in releases:
         continue
     if tag.startswith("local-v"):
         print(tag)
-        break
+                break
 ')
 
           echo "Latest stable local runtime release: ${LATEST_TAG}"
