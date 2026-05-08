@@ -93,10 +93,12 @@ jobs:
       - name: Upload to Cloudflare R2
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
           echo "Endpoint: $AWS_ENDPOINT_URL"
+          echo "Tag: $TAG"
           echo "Uploading files:"
           ls -la /tmp/assets/
           # Upload entire directory
@@ -148,10 +150,12 @@ jobs:
       - name: Upload to Cloudflare R2
         env:
           AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
           echo "Endpoint: $AWS_ENDPOINT_URL"
+          echo "Tag: $TAG"
           echo "Uploading files:"
           ls -la /tmp/assets/
           # Upload entire directory
