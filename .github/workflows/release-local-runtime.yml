@@ -35,7 +35,7 @@ on:
       publish_npm:
         description: "Publish @atmos/local-web-runtime to npm"
         required: true
-        default: true
+        default: false
         type: boolean
       prerelease:
         description: "Mark release as prerelease"
@@ -127,7 +127,7 @@ jobs:
             fi
             require_tag_commit_on_main
             echo "create_release=true" >> "$GITHUB_OUTPUT"
-            echo "publish_npm=true" >> "$GITHUB_OUTPUT"
+            echo "publish_npm=false" >> "$GITHUB_OUTPUT"
             echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
             echo "release_version=${RELEASE_TAG#local-web-runtime-v}" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
