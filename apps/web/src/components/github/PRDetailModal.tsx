@@ -11,6 +11,7 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
+  TabsTab,
   TabsPanel,
   Textarea,
   Avatar,
@@ -69,6 +70,7 @@ import { getFileIconProps } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
+import { CommitList, type CommitListItem } from './CommitList';
 
 interface StatusCheck {
   state?: string;
@@ -428,11 +430,32 @@ function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
   );
 }
 
+function prCommitsToListItems(
+  commits: Array<{ oid: string; messageHeadline: string; messageBody?: string; authors?: Array<{ login?: string; avatarUrl?: string }>; committedDate?: string }>,
+  owner: string,
+  repo: string,
+): CommitListItem[] {
+  return commits.map(c => ({
+    hash: c.oid,
+    shortHash: c.oid.substring(0, 7),
+    subject: c.messageHeadline,
+    body: c.messageBody,
+    authorName: c.authors?.[0]?.login ?? 'unknown',
+    authorAvatarUrl: c.authors?.[0]?.avatarUrl ?? `https://github.com/${c.authors?.[0]?.login?.replace('[bot]', '')}.png?size=32`,
+    timestamp: c.committedDate ? new Date(c.committedDate) : new Date(0),
+    isPushed: true,
+    githubUrl: `https://github.com/${owner}/${repo}/commit/${c.oid}`,
+  }));
+}
+
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
   const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
+  const [activeMainTab, setActiveMainTab] = React.useState<'description' | 'discussion' | 'commits'>('description');
+  const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(false);
+  const [hasVisitedCommits, setHasVisitedCommits] = React.useState(false);
   const { items: timelineItems, isLoading: timelineLoading, hasMore: timelineHasMore, loadMore: loadMoreTimeline } = useGithubPRTimeline(
-    prNumber || 0, owner, repo, !!prNumber && isOpen
+    prNumber || 0, owner, repo, hasVisitedDiscussion && !!prNumber && isOpen
   );
   const send = useWebSocketStore(s => s.send);
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
@@ -441,6 +464,15 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [comment, setComment] = React.useState('');
   const [commentTab, setCommentTab] = React.useState<'write' | 'preview'>('write');
   const [mergeStrategy, setMergeStrategy] = React.useState<'merge' | 'squash' | 'rebase'>('merge');
+
+  // Reset tab state when modal opens/closes or PR changes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setActiveMainTab('description');
+      setHasVisitedDiscussion(false);
+      setHasVisitedCommits(false);
+    }
+  }, [isOpen, prNumber]);
 
   const reviewComments = sidebarData?.review_comments;
   const reviewCommentThreadsByReviewId = React.useMemo(() => {
@@ -675,7 +707,8 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
             <div className="flex gap-3 text-sm flex-1 min-h-0">
               {/* Left: main content */}
               <div className="flex-1 min-w-0 flex flex-col pb-16 pr-1 overflow-y-auto">
-                <div className="shrink-0 pb-4 pt-1 border-b border-border/50">
+                {/* PR title + meta */}
+                <div className="shrink-0 pb-3 pt-1 border-b border-border/50">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-semibold text-foreground">{pr.title}</h3>
                     {pr.isDraft && (
@@ -712,7 +745,27 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   </div>
                 </div>
 
-                <div className="pt-4 flex flex-col gap-4">
+                {/* Top-level tabs: Description / Discussion / Commits */}
+                {/* Top-level tabs: Description / Discussion / Commits */}
+                <Tabs
+                  value={activeMainTab}
+                  onValueChange={(v) => {
+                    const tab = v as typeof activeMainTab;
+                    setActiveMainTab(tab);
+                    if (tab === 'discussion') setHasVisitedDiscussion(true);
+                    if (tab === 'commits') setHasVisitedCommits(true);
+                  }}
+                  className="shrink-0 pt-1"
+                >
+                  <TabsList variant="underline" className="w-fit gap-0">
+                    <TabsTab value="description" className="text-[12px] px-3 h-8">Description</TabsTab>
+                    <TabsTab value="discussion" className="text-[12px] px-3 h-8">Discussion</TabsTab>
+                    <TabsTab value="commits" className="text-[12px] px-3 h-8">Commits ({pr.commits?.length || 0})</TabsTab>
+                  </TabsList>
+                </Tabs>
+
+                {/* Description tab */}
+                <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'description' && "hidden")}>
                   {pr.body && (
                     <div className="p-4 rounded-md border border-border/50 text-[13px] shrink-0">
                       <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
@@ -782,21 +835,22 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       </div>
                     )}
                   </div>
+                </div>
 
+                {/* Discussion tab */}
+                {hasVisitedDiscussion && (
+                  <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'discussion' && "hidden")}>
                   {(conversation.length > 0 || timelineLoading) && (
-                    <div className="mt-8 flex flex-col gap-0 relative">
-                      <h4 className="text-sm font-semibold border-b border-border pb-2 shrink-0 mb-6 flex items-center gap-2">
-                        Timeline
-                        {timelineLoading && (
-                          <span className="flex items-center gap-1.5 text-[11px] font-normal text-muted-foreground">
-                            <Loader2 className="size-3 animate-spin" />
-                            {conversation.length > 0 ? `${conversation.length} loaded…` : 'Loading…'}
-                          </span>
-                        )}
-                      </h4>
+                    <div className="flex flex-col gap-0 relative">
+                      {timelineLoading && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-4">
+                          <Loader2 className="size-3 animate-spin" />
+                          {conversation.length > 0 ? `${conversation.length} loaded…` : 'Loading…'}
+                        </div>
+                      )}
 
                       {/* Vertical Timeline Line */}
-                      <div className="absolute left-4 top-12 bottom-0 w-0.5 bg-border/60 z-0" />
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border/60 z-0" />
 
                       <TooltipProvider delayDuration={300}>
                         <div className="flex flex-col gap-6 relative z-10">
@@ -1188,7 +1242,15 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       </div>
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
+
+                {/* Commits tab */}
+                {hasVisitedCommits && (
+                  <div className={cn("pt-2", activeMainTab !== 'commits' && "hidden")}>
+                    <CommitList commits={prCommitsToListItems(pr.commits ?? [], owner, repo)} owner={owner} repo={repo} />
+                  </div>
+                )}
               </div>
 
               {/* Left: sidebar metadata */}
