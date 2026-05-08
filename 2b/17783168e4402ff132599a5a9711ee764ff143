@@ -1,0 +1,28 @@
+apps/landing/src/components/blocks/ready-download.tsx
+  s_350ae2edc84263::t_45b2f2654869d7 200,203-211
+  s_350ae2edc84263::t_aefaa60a4f7b55 201-202
+  s_350ae2edc84263::t_53c81921a2f543 179-180
+  s_350ae2edc84263::t_d688a580516a62 196,198
+  s_350ae2edc84263::t_c02cec744e8fb3 197,199
+  s_350ae2edc84263::t_70a0dfc36e8ef5 16
+  s_350ae2edc84263::t_877b23b44e2961 153-158,161-178,181-191
+  s_350ae2edc84263::t_c84efd15e31066 5
+  s_350ae2edc84263::t_ef0c8135ed6117 152
+  s_350ae2edc84263::t_08c7924e3dd7c1 212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "2b17783168e4402ff132599a5a9711ee764ff143",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
