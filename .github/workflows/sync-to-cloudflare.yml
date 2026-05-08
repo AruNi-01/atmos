@@ -12,8 +12,7 @@ on:
 env:
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
-  CLOUDFLARE_R2_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-  CLOUDFLARE_R2_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
 jobs:
   sync-install-scripts:
@@ -21,21 +20,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS CLI
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-          aws configure set default.region auto
+      - name: Install wrangler
+        run: npm install -g wrangler
 
       - name: Upload install-desktop.sh to R2
         env:
-          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
           echo "Bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
-          echo "Endpoint: $AWS_ENDPOINT_URL"
-          aws s3 cp ./install-desktop.sh s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-desktop.sh \
-            --endpoint-url $AWS_ENDPOINT_URL || {
+          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-desktop.sh --file ./install-desktop.sh || {
             echo "Failed to upload install-desktop.sh"
             exit 1
           }
@@ -43,10 +38,10 @@ jobs:
 
       - name: Upload install-local-web-runtime.sh to R2
         env:
-          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          aws s3 cp ./install-local-web-runtime.sh s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-local-web-runtime.sh \
-            --endpoint-url $AWS_ENDPOINT_URL || {
+          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-local-web-runtime.sh --file ./install-local-web-runtime.sh || {
             echo "Failed to upload install-local-web-runtime.sh"
             exit 1
           }
@@ -81,28 +76,30 @@ jobs:
           echo "Downloaded files:"
           ls -la /tmp/assets/
 
-      - name: Configure AWS CLI
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-          aws configure set default.region auto
+      - name: Install wrangler
+        run: npm install -g wrangler
 
       - name: Upload to Cloudflare R2
         env:
-          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          echo "Endpoint: $AWS_ENDPOINT_URL"
           echo "Uploading files:"
           ls -la /tmp/assets/
-          # Upload entire directory
-          aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/ \
-            --endpoint-url $AWS_ENDPOINT_URL \
-            --recursive || {
-            echo "Failed to upload files"
-            exit 1
-          }
+          # Upload each file individually
+          for file in /tmp/assets/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "Uploading $filename to desktop/${TAG}/"
+              wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/$filename --file "$file" || {
+                echo "Failed to upload $filename"
+                exit 1
+              }
+              echo "Successfully uploaded $filename"
+            fi
+          done
           echo "All files uploaded successfully"
 
   sync-local-runtime:
@@ -133,26 +130,28 @@ jobs:
           echo "Downloaded files:"
           ls -la /tmp/assets/
 
-      - name: Configure AWS CLI
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-          aws configure set default.region auto
+      - name: Install wrangler
+        run: npm install -g wrangler
 
       - name: Upload to Cloudflare R2
         env:
-          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           echo "Uploading to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
           echo "Account ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
-          echo "Endpoint: $AWS_ENDPOINT_URL"
           echo "Uploading files:"
           ls -la /tmp/assets/
-          # Upload entire directory
-          aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/ \
-            --endpoint-url $AWS_ENDPOINT_URL \
-            --recursive || {
-            echo "Failed to upload files"
-            exit 1
-          }
+          # Upload each file individually
+          for file in /tmp/assets/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              echo "Uploading $filename to local-runtime/${TAG}/"
+              wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/$filename --file "$file" || {
+                echo "Failed to upload $filename"
+                exit 1
+              }
+              echo "Successfully uploaded $filename"
+            fi
+          done
           echo "All files uploaded successfully"
