@@ -107,7 +107,7 @@ scripts/open-source/
 .agents/*
 !.agents/skills/
 .agents/skills/*
-!.agents/skills/atmos-release/
+!.agents/skills/atmos-desktop-release/
 !.agents/skills/atmos-changelog/
 !.agents/skills/atmos-cli-release/
 !.agents/skills/atmos-cli-release/**

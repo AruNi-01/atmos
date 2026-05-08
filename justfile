@@ -253,14 +253,14 @@ bump-desktop-version version *args:
 #   just release-desktop 0.2.1 --dry-run
 #   just release-desktop 0.5.0-rc.1 --prerelease
 release-desktop version *args:
-    node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs "{{version}}" {{args}}
+    node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" {{args}}
 
 # Atmos Desktop 发布预演
 # 用法:
 #   just release-desktop-dry-run 0.2.1
 #   just release-desktop-dry-run 0.2.1 --allow-dirty
 release-desktop-dry-run version *args:
-    node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs "{{version}}" --dry-run {{args}}
+    node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs "{{version}}" --dry-run {{args}}
 
 # ============================================
 # 构建命令 (Build)

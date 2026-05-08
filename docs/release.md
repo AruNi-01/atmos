@@ -292,8 +292,8 @@ The Desktop release publishes the Tauri desktop app.
   - `apps/desktop/src-tauri/Cargo.toml`
   - `apps/desktop/src-tauri/tauri.conf.json`
 - Workflow: `.github/workflows/release-desktop.yml`
-- Skill: `.agents/skills/atmos-release/SKILL.md`
-- Helper script: `.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs`
+- Skill: `.agents/skills/atmos-desktop-release/SKILL.md`
+- Helper script: `.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs`
 - Homebrew sync workflow: `.github/workflows/sync-homebrew-tap.yml`
 
 ### What It Builds

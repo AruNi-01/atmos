@@ -36,7 +36,7 @@ The repository-specific execution wrapper lives in the bundled script:
 
 Use that script for operational steps. Keep this file focused on orchestration and decision-making.
 
-This skill does not own the local runtime release flow, `@atmos/local-web-runtime`, Desktop release packaging, or Homebrew tap updates. Keep those in `atmos-local-web-release` and `atmos-release`.
+This skill does not own the local runtime release flow, `@atmos/local-web-runtime`, Desktop release packaging, or Homebrew tap updates. Keep those in `atmos-local-web-release` and `atmos-desktop-release`.
 
 ## Repository release model
 

@@ -22,13 +22,13 @@ function printUsage() {
   console.log(`Atmos desktop release helper
 
 Usage:
-  node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version> [options]
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version> [options]
 
 Examples:
-  node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs 0.2.1
-  node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs 0.5.0-rc.1 --prerelease
-  node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs 0.2.1 --dry-run
-  node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs 0.2.1 --no-commit --no-push-commit
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.2.1
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.5.0-rc.1 --prerelease
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.2.1 --dry-run
+  node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs 0.2.1 --no-commit --no-push-commit
 
 Options:
   --prerelease           Mark release intent as prerelease

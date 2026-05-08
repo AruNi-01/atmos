@@ -1,5 +1,5 @@
 ---
-name: atmos-release
+name: atmos-desktop-release
 description: Run the Atmos desktop release workflow for this repository. Use this whenever you need to cut an Atmos desktop release, bump the desktop version, create the required `desktop-v<version>` tag, push the release-prep commit, and verify the GitHub Actions + Homebrew tap flow. Prefer this over a generic GitHub release process for Atmos desktop releases.
 user-invokable: true
 args:
@@ -227,7 +227,7 @@ When asked to perform an Atmos desktop release:
 Recommended command sequence for the note-generation portion:
 
 ```bash
-node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --output /tmp/atmos-release-context.json
+node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --output /tmp/atmos-desktop-release-context.json
 node ./scripts/release/desktop-release-notes.mjs --version <version> --print abs-path
 # write the model-generated markdown into the resolved path
 ```
@@ -249,21 +249,21 @@ Expected model behavior for this step:
 If the user wants a preview, run:
 
 ```bash
-node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version> --dry-run
+node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version> --dry-run
 ```
 
 ### Standard release
 For a normal release, run:
 
 ```bash
-node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version>
+node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version>
 ```
 
 ### Prerelease
 For a prerelease, run:
 
 ```bash
-node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version> --prerelease
+node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version> --prerelease
 ```
 
 ## When to read the script
@@ -390,22 +390,22 @@ brew upgrade --cask atmos
 
 ### Standard release
 ```bash
-node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version>
+node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version>
 ```
 
 ### Dry run
 ```bash
-node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version> --dry-run
+node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version> --dry-run
 ```
 
 ### Prerelease
 ```bash
-node ./.agents/skills/atmos-release/scripts/atmos-desktop-release.mjs <version> --prerelease
+node ./.agents/skills/atmos-desktop-release/scripts/atmos-desktop-release.mjs <version> --prerelease
 ```
 
 ### Collect release-note context
 ```bash
-node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --to-ref HEAD --output /tmp/atmos-release-context.json
+node ./scripts/release/collect-desktop-release-context.mjs --current-tag desktop-v<version> --to-ref HEAD --output /tmp/atmos-desktop-release-context.json
 ```
 
 ### Resolve release-note path

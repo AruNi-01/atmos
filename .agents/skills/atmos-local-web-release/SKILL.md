@@ -37,7 +37,7 @@ The repository-specific execution wrapper lives in the bundled script:
 
 Use that script for the operational steps. Keep this file focused on orchestration and decision-making.
 
-This skill does not own the standalone CLI release flow, desktop release flow, Tauri artifacts, DMG packaging, or Homebrew tap updates. Keep those in the separate `atmos-cli-release` and `atmos-release` skills.
+This skill does not own the standalone CLI release flow, desktop release flow, Tauri artifacts, DMG packaging, or Homebrew tap updates. Keep those in the separate `atmos-cli-release` and `atmos-desktop-release` skills.
 
 ## Repository release model
 
