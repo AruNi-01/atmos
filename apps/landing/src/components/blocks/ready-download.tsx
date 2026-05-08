@@ -68,7 +68,11 @@ const ReadyDownload = () => {
         return 'brew install --cask AruNi-01/tap/atmos'
       case 'bash':
         return 'curl -fsSL https://install.atmos.land/install-desktop.sh | bash'
-      case 'local-web':
+      case 'npx':
+        return 'npx @atmos/local-web-runtime'
+      case 'bunx':
+        return 'bunx @atmos/local-web-runtime'
+      case 'local-web-bash':
         return 'curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash'
       default:
         return 'brew install --cask AruNi-01/tap/atmos'
@@ -99,7 +103,7 @@ const ReadyDownload = () => {
             </h2>
 
             <p className='text-muted-foreground max-w-2xl text-xl'>
-              Download Atmos for your operating system and transform the way you build software. Connect your first workspace in seconds.
+              Choose your installation method: Desktop app or Local Web Runtime. Download Atmos and transform the way you build software.
             </p>
 
             <div className='flex flex-col items-center gap-4 pt-4 sm:flex-row'>
@@ -159,10 +163,12 @@ const ReadyDownload = () => {
 
             <div className='mt-8 w-full max-w-2xl'>
               <Tabs defaultValue='homebrew' value={activeTab} onValueChange={setActiveTab} className='w-full'>
-                <TabsList className='grid w-full grid-cols-3 mb-4'>
+                <TabsList className='grid w-full grid-cols-5 mb-4'>
                   <TabsTrigger value='homebrew'>Homebrew</TabsTrigger>
                   <TabsTrigger value='bash'>Bash</TabsTrigger>
-                  <TabsTrigger value='local-web'>Local Web Runtime</TabsTrigger>
+                  <TabsTrigger value='npx'>npx</TabsTrigger>
+                  <TabsTrigger value='bunx'>bunx</TabsTrigger>
+                  <TabsTrigger value='local-web-bash'>Local Web</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value='homebrew' className='mt-0'>
@@ -196,7 +202,37 @@ const ReadyDownload = () => {
                   </div>
                 </TabsContent>
 
-                <TabsContent value='local-web' className='mt-0'>
+                <TabsContent value='npx' className='mt-0'>
+                  <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
+                    <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>npx @atmos/local-web-runtime</TextShimmer>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='shrink-0 transition-opacity'
+                      onClick={() => copyToClipboard('npx @atmos/local-web-runtime')}
+                      aria-label='Copy command'
+                    >
+                      {copied ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value='bunx' className='mt-0'>
+                  <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
+                    <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>bunx @atmos/local-web-runtime</TextShimmer>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='shrink-0 transition-opacity'
+                      onClick={() => copyToClipboard('bunx @atmos/local-web-runtime')}
+                      aria-label='Copy command'
+                    >
+                      {copied ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value='local-web-bash' className='mt-0'>
                   <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
                     <TextShimmer as='code' className='overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash</TextShimmer>
                     <Button
