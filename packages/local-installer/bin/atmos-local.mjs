@@ -6,6 +6,9 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const REPO = process.env.ATMOS_GITHUB_REPO || "AruNi-01/atmos";
+// Default to custom domain, fallback to GitHub
+const DOWNLOAD_BASE = process.env.ATMOS_DOWNLOAD_BASE_URL || "https://install.atmos.land";
+const USE_GITHUB_SOURCE = process.env.ATMOS_GITHUB_SOURCE === "1";
 
 function usage() {
   console.log(`Usage: npx @atmos/local-web-runtime [options]
@@ -17,6 +20,7 @@ Options:
   --port <port>          Port used when auto-starting the local runtime
   --no-start             Install only, do not launch the local runtime
   --no-open              Install/start but do not open the browser
+  --github-source        Use GitHub Releases instead of custom domain
   -h, --help             Show this help`);
 }
 
@@ -37,6 +41,7 @@ function parseArgs(argv) {
     archive: "",
     noStart: false,
     noOpen: false,
+    useGitHubSource: USE_GITHUB_SOURCE,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -85,6 +90,10 @@ function parseArgs(argv) {
       options.noOpen = true;
       continue;
     }
+    if (arg === "--github-source") {
+      options.useGitHubSource = true;
+      continue;
+    }
     throw new Error(`Unknown option: ${arg}`);
   }
 
@@ -109,8 +118,42 @@ function spawnChecked(command, args, options = {}) {
   return result;
 }
 
-function downloadUrl(version, asset) {
-  return `https://github.com/${REPO}/releases/download/${version}/${asset}`;
+function downloadUrl(version, asset, useGitHubSource = false) {
+  if (useGitHubSource) {
+    return `https://github.com/${REPO}/releases/download/${version}/${asset}`;
+  }
+  return `${DOWNLOAD_BASE}/local-runtime/${version}/${asset}`;
+}
+
+async function downloadWithFallback(version, asset, useGitHubSource = false) {
+  const customUrl = downloadUrl(version, asset, false);
+  const githubUrl = downloadUrl(version, asset, true);
+
+  if (useGitHubSource) {
+    console.log(`Downloading from GitHub: ${githubUrl}`);
+    const response = await fetch(githubUrl);
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  console.log(`Downloading from custom domain: ${customUrl}`);
+  try {
+    const response = await fetch(customUrl);
+    if (response.ok) {
+      return Buffer.from(await response.arrayBuffer());
+    }
+  } catch (error) {
+    console.log(`Failed to download from custom domain: ${error.message}`);
+  }
+
+  console.log(`Trying GitHub as fallback: ${githubUrl}`);
+  const response = await fetch(githubUrl);
+  if (!response.ok) {
+    throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 async function resolveReleaseTag(version) {
@@ -195,13 +238,7 @@ async function main() {
     if (options.archive) {
       cpSync(options.archive, archivePath);
     } else {
-      const url = downloadUrl(resolvedVersion, asset);
-      console.log(`Downloading ${url}`);
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
-      }
-      const buffer = Buffer.from(await response.arrayBuffer());
+      const buffer = await downloadWithFallback(resolvedVersion, asset, options.useGitHubSource);
       await writeFile(archivePath, buffer);
     }
 

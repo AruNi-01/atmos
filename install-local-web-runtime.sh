@@ -8,6 +8,10 @@ PORT="${ATMOS_PORT:-30303}"
 ARCHIVE_PATH=""
 NO_START=0
 NO_OPEN=0
+USE_GITHUB_SOURCE=0
+
+# Default to custom domain, fallback to GitHub
+DOWNLOAD_BASE="${ATMOS_DOWNLOAD_BASE_URL:-https://install.atmos.land}"
 
 usage() {
   cat <<'EOF'
@@ -20,6 +24,7 @@ Options:
   --port <port>          Port used when auto-starting the local runtime
   --no-start             Install only, do not launch the local runtime
   --no-open              Install/start but do not open the browser
+  --github-source        Use GitHub Releases instead of custom domain
   -h, --help             Show this help
 EOF
 }
@@ -64,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       NO_OPEN=1
       shift
       ;;
+    --github-source)
+      USE_GITHUB_SOURCE=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -99,7 +108,34 @@ detect_target() {
 download_url() {
   local asset="$1"
   local resolved_version="$2"
-  echo "https://github.com/${REPO}/releases/download/${resolved_version}/${asset}"
+
+  if [[ "$USE_GITHUB_SOURCE" -eq 1 ]]; then
+    echo "https://github.com/${REPO}/releases/download/${resolved_version}/${asset}"
+  else
+    echo "${DOWNLOAD_BASE}/local-runtime/${resolved_version}/${asset}"
+  fi
+}
+
+download_with_fallback() {
+  local asset="$1"
+  local version="$2"
+  local custom_url="${DOWNLOAD_BASE}/local-runtime/${version}/${asset}"
+  local github_url="https://github.com/${REPO}/releases/download/${version}/${asset}"
+
+  if [[ "$USE_GITHUB_SOURCE" -eq 1 ]]; then
+    echo "Downloading from GitHub: ${github_url}"
+    curl -fsSL "$github_url" -o "$ARCHIVE_FILE"
+    return 0
+  fi
+
+  echo "Downloading from custom domain: ${custom_url}"
+  if curl -fsSL "$custom_url" -o "$ARCHIVE_FILE"; then
+    return 0
+  fi
+
+  echo "Failed to download from custom domain, trying GitHub as fallback..."
+  echo "Downloading from GitHub: ${github_url}"
+  curl -fsSL "$github_url" -o "$ARCHIVE_FILE"
 }
 
 ensure_path_hint() {
@@ -203,9 +239,7 @@ ARCHIVE_FILE="${TMP_DIR}/${ASSET}"
 if [[ -n "$ARCHIVE_PATH" ]]; then
   cp "$ARCHIVE_PATH" "$ARCHIVE_FILE"
 else
-  URL="$(download_url "$ASSET" "$RESOLVED_VERSION")"
-  echo "Downloading ${URL}"
-  curl -fsSL "$URL" -o "$ARCHIVE_FILE"
+  download_with_fallback "$ASSET" "$RESOLVED_VERSION"
 fi
 
 mkdir -p "${INSTALL_ROOT}/runtime"

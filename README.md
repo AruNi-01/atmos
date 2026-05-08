@@ -49,19 +49,20 @@ brew install --cask AruNi-01/tap/atmos
 ### Desktop App (Install Script)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AruNi-01/atmos/main/install-desktop.sh | bash
+curl -fsSL https://install.atmos.land/install-desktop.sh | bash
 ```
 
 Options:
 - `--version <tag>` - Install a specific release tag
 - `--archive <path>` - Install from a local .app.tar.gz archive
+- `--github-source` - Use GitHub Releases instead of custom domain
 
 ### Local Web Runtime
 
 #### Option 1: Install Script
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AruNi-01/atmos/main/install-local-web-runtime.sh | bash
+curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 ```
 
 Options:
@@ -70,6 +71,7 @@ Options:
 - `--port <port>` - Port for local runtime (default: `30303`)
 - `--no-start` - Install only, do not start
 - `--no-open` - Do not auto-open browser
+- `--github-source` - Use GitHub Releases instead of custom domain
 
 #### Option 2: npm/bun Package
 
