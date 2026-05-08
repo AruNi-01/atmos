@@ -166,6 +166,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
     const { setCurrentContext } = useGitInfoStore();
     const filesOnRight = useLayoutSettings((s) => s.projectFilesSide === 'right');
+    const layoutLoaded = useLayoutSettings((s) => s.loaded);
+    const loadLayoutSettings = useLayoutSettings((s) => s.loadSettings);
+    useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
@@ -862,7 +865,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         className="flex flex-col h-full overflow-hidden"
                         onValueChange={handleTabChange}
                     >
-                        <div className={cn("h-10 flex border-b border-sidebar-border", filesOnRight && "hidden")}>
+                        <div className={cn("h-10 flex border-b border-sidebar-border", (filesOnRight || !layoutLoaded) && "hidden")}>
                             <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
                                 <TabsTab
                                     value="projects"
@@ -1093,7 +1096,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             )}
                         </TabsPanel>
 
-                        {!filesOnRight && (
+                        {!filesOnRight && layoutLoaded && (
                         <TabsPanel value="files" className="flex-1 overflow-hidden flex flex-col">
                             <FileTreePanel projectName={currentProject?.name} />
                         </TabsPanel>

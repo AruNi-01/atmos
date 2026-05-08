@@ -4,6 +4,7 @@ import { useEffect, ReactNode } from 'react';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useAgentHooksStore } from '@/hooks/use-agent-hooks-store';
 import { useAgentNotifications } from '@/hooks/use-agent-notifications';
+import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { subscribeToWorkspaceSetupProgress, subscribeToWorkspaceDeleteProgress } from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
@@ -71,6 +72,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // the event listener persists across reconnections (same Map ref).
     if (connectionState === 'connected') {
       useAgentHooksStore.getState().init();
+      useLayoutSettings.getState().loadSettings();
     }
   }, [connectionState]);
 
