@@ -1,0 +1,43 @@
+scripts/release/check-local-runtime-version.mjs
+  s_350ae2edc84263::t_cce5a6fc8f7997 57
+docs/release.md
+  s_350ae2edc84263::t_e427a538cce992 14,36,54,240,242,255,265,272,278-279,397,512
+.github/workflows/release-local-runtime.yml
+  s_350ae2edc84263::t_fc1b6a91c80192 10,33,124,132,156-157,162
+.agents/skills/atmos-local-release/references/post-release-verification.md
+  s_350ae2edc84263::t_a4cdc002be4fdc 19,34,77,80
+.github/workflows/sync-r2.yml
+  s_350ae2edc84263::t_0447bc92f6ee63 136-213
+  s_350ae2edc84263::t_7dac23ff1c9792 215-216,263,276,279,283,285,293
+install-local-web-runtime.sh
+  s_350ae2edc84263::t_e3f45d0bb6b6b2 143
+  s_350ae2edc84263::t_d51881d05bf067 122
+  s_350ae2edc84263::t_1bc358e5bed248 241
+  s_350ae2edc84263::t_e12105e294b515 115
+.agents/skills/atmos-local-release/scripts/atmos-local-release.mjs
+  s_350ae2edc84263::t_167d136eb88455 40,136
+.agents/skills/atmos-local-release/SKILL.md
+  s_350ae2edc84263::t_f1046071cf3f54 3,28,46,189,193,279,286-287,292,326
+.agents/skills/atmos-local-release/references/release-checklist.md
+  s_350ae2edc84263::t_de718db22e29c2 30,57,75,80,93-94,120,214,221
+packages/local-installer/bin/atmos-local.mjs
+  s_350ae2edc84263::t_86b1d83fbe4b7f 176
+  s_350ae2edc84263::t_7b72e8865c74e8 181
+  s_350ae2edc84263::t_9f771872e41f8c 125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "18c131bd4d51b89883cbe9029d8716bf89873e0f",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
