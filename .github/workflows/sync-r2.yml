@@ -114,7 +114,7 @@ jobs:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest desktop release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 << 'EOF'
 import json
 import sys
 
@@ -128,7 +128,8 @@ for release in releases:
     if tag.startswith("desktop-v"):
         print(tag)
         break
-')
+EOF
+)
 
           echo "Latest stable desktop release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
@@ -208,7 +209,7 @@ for release in releases:
           TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
         run: |
           echo "Checking if this is the latest local runtime release..."
-          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
+          LATEST_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 << 'EOF'
 import json
 import sys
 
@@ -221,8 +222,9 @@ for release in releases:
         continue
     if tag.startswith("local-v"):
         print(tag)
-                break
-')
+        break
+EOF
+)
 
           echo "Latest stable local runtime release: ${LATEST_TAG}"
           echo "Current release being synced: ${TAG}"
