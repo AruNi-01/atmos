@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorView } from '@codemirror/view';
 import { useHotkeys } from 'react-hotkeys-hook';
 import {
@@ -24,6 +24,8 @@ import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorSettings } from '@/hooks/use-editor-settings';
+import { parseReviewReportMetadata } from '@/lib/review-report-frontmatter';
+import { ReviewReportMetadataCard } from '@/components/code-review/ReviewReportMetadataCard';
 
 interface CodeMirrorEditorProps {
   file: OpenFile;
@@ -54,6 +56,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
   const isPreview = isMarkdown && previewFilePath === file.path;
+  const isReviewReport = isMarkdown && file.path.includes('/.atmos/reviews/');
+
+  // When previewing an Atmos review report, pull the `atmos_review:` frontmatter out so we
+  // can render a dedicated card above the preview and strip the raw YAML from the markdown
+  // body (otherwise the agent's traceability block would show up as code-ish text).
+  const { reportMetadata, previewBody } = useMemo(() => {
+    if (!isPreview || !isReviewReport) {
+      return { reportMetadata: null, previewBody: debouncedContent };
+    }
+    const { metadata, body } = parseReviewReportMetadata(debouncedContent);
+    return { reportMetadata: metadata, previewBody: body };
+  }, [isPreview, isReviewReport, debouncedContent]);
 
   // Auto-enable preview for .atmos/reviews/ markdown files
   useEffect(() => {
@@ -313,11 +327,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
             {isPreview && isMarkdown && (
               <>
                 <div id="editor-preview-root" className="absolute inset-0 overflow-y-auto bg-background px-8 py-12 scroll-smooth">
+                  {reportMetadata ? (
+                    <ReviewReportMetadataCard metadata={reportMetadata} />
+                  ) : null}
                   <MarkdownRenderer>
-                    {debouncedContent}
+                    {previewBody}
                   </MarkdownRenderer>
                 </div>
-                <MarkdownToc markdown={debouncedContent} scrollContainerId="editor-preview-root" />
+                <MarkdownToc markdown={previewBody} scrollContainerId="editor-preview-root" />
               </>
             )}
           </div>

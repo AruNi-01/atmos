@@ -2665,6 +2665,26 @@ impl ReviewService {
             output.push_str(&format!("Use the {} skill for this review.\n", skill_id));
         }
         output.push_str("After completing the review, use `atmos review set-status --status succeeded --summary-stdin` to mark the run as complete.\n");
+
+        // Traceability metadata — if the skill writes a review report to a Markdown file,
+        // the agent MUST start the file with this exact YAML frontmatter block so the
+        // report can be traced back to the originating session and revision later.
+        let generated_at = chrono::Utc::now().to_rfc3339();
+        let frontmatter = format!(
+            "---\natmos_review:\n  session_guid: \"{}\"\n  run_guid: \"{}\"\n  base_revision_guid: \"{}\"\n  current_revision_guid: \"{}\"\n  skill_id: \"{}\"\n  generated_at: \"{}\"\n---\n",
+            session.guid,
+            run.guid,
+            base_revision.guid,
+            session.current_revision_guid,
+            run.skill_id.as_deref().unwrap_or("default"),
+            generated_at,
+        );
+        output.push_str(
+            "\nIf the review skill writes a report to a Markdown file, write the following YAML frontmatter block EXACTLY as shown, as the very first lines of the file (before any `#` heading or other content). Copy the block verbatim — do not modify, reformat, or omit any field:\n\n",
+        );
+        output.push_str(&frontmatter);
+        output.push_str("\nThis frontmatter makes the report traceable back to this review session and revision so it can be looked up later.\n");
+
         Ok(output)
     }
 
