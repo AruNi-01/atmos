@@ -103,7 +103,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
         })}
         selectedPath={currentFilePath}
         ariaLabel="Review changed files tree"
-        className="max-h-[320px]"
+        className=""
         renderFileInlineDecoration={(item) => {
           const file = fileByPath.get(item.path);
           if (!file || file.open_comment_count <= 0) return null;

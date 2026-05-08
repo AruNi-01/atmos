@@ -275,7 +275,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   : undefined
               }
               ariaLabel={`${title} tree`}
-              className="max-h-[360px]"
+              className=""
               indentOffset={28}
               isFileActionActive={(path) =>
                 confirmingActionKey === `${kind}:file:${path}:stage` ||
