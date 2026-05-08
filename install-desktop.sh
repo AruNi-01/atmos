@@ -114,6 +114,26 @@ download_with_fallback() {
   curl -fsSL "$github_url" -o "$ARCHIVE_FILE"
 }
 
+download_latest_with_fallback() {
+  local asset="$1"
+  local latest_url="${DOWNLOAD_BASE}/desktop/latest/${asset}"
+
+  echo "Trying to download from custom domain latest path: ${latest_url}"
+  if curl -fsSL "$latest_url" -o "$ARCHIVE_FILE"; then
+    echo "Successfully downloaded from latest path"
+    return 0
+  fi
+
+  echo "Latest path not available, falling back to GitHub API to resolve version..."
+  RESOLVED_VERSION="$(resolve_release_tag)"
+  if [[ -z "$RESOLVED_VERSION" ]]; then
+    echo "Unable to resolve a desktop release tag from GitHub releases." >&2
+    exit 1
+  fi
+
+  download_with_fallback "$asset" "$RESOLVED_VERSION"
+}
+
 resolve_release_tag() {
   if [[ "$VERSION" != "latest" ]]; then
     echo "$VERSION"
@@ -142,17 +162,17 @@ ASSET="Atmos_${TARGET}.app.tar.gz"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-RESOLVED_VERSION="$(resolve_release_tag)"
-if [[ -z "$RESOLVED_VERSION" ]]; then
-  echo "Unable to resolve a desktop release tag from GitHub releases." >&2
-  exit 1
-fi
-
 ARCHIVE_FILE="${TMP_DIR}/${ASSET}"
 if [[ -n "$ARCHIVE_PATH" ]]; then
   cp "$ARCHIVE_PATH" "$ARCHIVE_FILE"
 else
-  download_with_fallback "$ASSET" "$RESOLVED_VERSION"
+  if [[ "$VERSION" == "latest" ]]; then
+    download_latest_with_fallback "$ASSET"
+    RESOLVED_VERSION="latest"
+  else
+    RESOLVED_VERSION="$VERSION"
+    download_with_fallback "$ASSET" "$RESOLVED_VERSION"
+  fi
 fi
 
 echo "Extracting to /Applications..."

@@ -110,6 +110,22 @@ jobs:
           }
           echo "All files uploaded successfully"
 
+      - name: Upload to latest path
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+        run: |
+          echo "Copying files to latest path for direct access"
+          # Copy files to latest path
+          for file in /tmp/assets/*.app.tar.gz; do
+            aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/latest/$(basename "$file") \
+              --endpoint-url $AWS_ENDPOINT_URL || {
+              echo "Failed to copy $file to latest"
+              exit 1
+            }
+          done
+          echo "Successfully updated latest files"
+
   sync-local-runtime:
     # Only sync stable releases (not prerelease, rc, beta, etc.)
     if: |
@@ -166,3 +182,19 @@ jobs:
             exit 1
           }
           echo "All files uploaded successfully"
+
+      - name: Upload to latest path
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+        run: |
+          echo "Copying files to latest path for direct access"
+          # Copy files to latest path
+          for file in /tmp/assets/*.tar.gz; do
+            aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/latest/$(basename "$file") \
+              --endpoint-url $AWS_ENDPOINT_URL || {
+              echo "Failed to copy $file to latest"
+              exit 1
+            }
+          done
+          echo "Successfully updated latest files"
