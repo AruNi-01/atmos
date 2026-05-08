@@ -106,12 +106,13 @@ pub struct SkillScanner;
 pub struct SkillManager;
 
 impl SkillScanner {
-    /// Scan for all installed skills (global + project-level).
+    /// Scan for all installed skills (global + project-level + system built-in).
     pub fn scan_all(project_paths: &[(String, String, String)]) -> Vec<SkillInfo> {
         let mut raw_skills = Vec::new();
 
         if let Some(home_dir) = dirs::home_dir() {
             raw_skills.extend(Self::scan_scope(&home_dir, "global", None, None));
+            raw_skills.extend(Self::scan_system_skills(&home_dir));
         }
 
         for (project_id, project_name, project_path) in project_paths {
@@ -127,6 +128,99 @@ impl SkillScanner {
         }
 
         Self::merge_skills(raw_skills)
+    }
+
+    /// Scan the Atmos system skills directory (`~/.atmos/skills/.system/`).
+    ///
+    /// Layout:
+    /// ```text
+    /// ~/.atmos/skills/.system/
+    /// ├── project-wiki/                SKILL.md        (direct subdir)
+    /// ├── project-wiki-update/         SKILL.md
+    /// ├── project-wiki-specify/        SKILL.md
+    /// ├── git-commit/                  SKILL.md
+    /// ├── atmos-review-fix/            SKILL.md
+    /// └── code_review_skills/                          (container, no SKILL.md)
+    ///     ├── fullstack-reviewer/         SKILL.md
+    ///     ├── code-review-expert/         SKILL.md
+    ///     ├── typescript-react-reviewer/  SKILL.md
+    ///     └── custom-review-skill-<hex>/  SKILL.md     (user-scaffolded)
+    /// ```
+    ///
+    /// We walk every direct child of `.system/`; any dir with `SKILL.md` becomes a
+    /// `scope="system"` skill, and for the well-known `code_review_skills/` container we
+    /// recurse one level. The generic `scan_scope` walker does not find these because
+    /// they live outside `AGENT_SKILL_DIRS`; this method fills that gap so the Skills
+    /// list/detail UI can expose them uniformly.
+    pub(crate) fn scan_system_skills(home: &Path) -> Vec<SkillInfo> {
+        let base = home.join(".atmos").join("skills").join(".system");
+        if !base.is_dir() {
+            return Vec::new();
+        }
+
+        let mut skills = Vec::new();
+        Self::collect_system_skill_dirs(&base, &mut skills);
+        skills
+    }
+
+    /// Walk `.system/` with one level of nesting through known container dirs.
+    ///
+    /// A directory is a skill when it contains `SKILL.md`. Otherwise, if its name is a
+    /// recognized container (today: `code_review_skills`), recurse one level; anything
+    /// else is ignored so we don't descend into random user directories.
+    fn collect_system_skill_dirs(base: &Path, skills: &mut Vec<SkillInfo>) {
+        const CONTAINER_DIRS: &[&str] = &["code_review_skills"];
+
+        let entries = match fs::read_dir(base) {
+            Ok(entries) => entries,
+            Err(_) => return,
+        };
+
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n,
+                None => continue,
+            };
+            if name.starts_with('.') {
+                continue;
+            }
+
+            if path.join("SKILL.md").is_file() {
+                if let Some(skill) = Self::build_system_skill(&path) {
+                    skills.push(skill);
+                }
+                continue;
+            }
+
+            if CONTAINER_DIRS.contains(&name) {
+                Self::collect_system_skill_dirs(&path, skills);
+            }
+        }
+    }
+
+    fn build_system_skill(path: &Path) -> Option<SkillInfo> {
+        let metadata = fs::symlink_metadata(path).ok()?;
+        let resolved_path = fs::canonicalize(path).ok();
+        let entry_kind = Self::classify_entry_kind(path, &metadata);
+        let meta = SkillEntryMeta {
+            original_path: path.to_path_buf(),
+            resolved_path,
+            entry_kind,
+            symlink_target: None,
+            status: ScanStatus::Enabled,
+        };
+        Self::parse_skill_dir(
+            path,
+            /* agent */ "atmos",
+            /* scope */ "system",
+            /* project_id */ None,
+            /* project_name */ None,
+            meta,
+        )
     }
 
     /// Scan for a specific skill by stable id.
@@ -572,6 +666,8 @@ impl SkillScanner {
             absolute_path: path.to_string_lossy().to_string(),
             content,
             is_main: true,
+            is_symlink: false,
+            symlink_target: None,
         }];
 
         Some(Self::build_skill_info(
@@ -662,7 +758,13 @@ impl SkillScanner {
         if let Ok(entries) = fs::read_dir(current) {
             for entry in entries.filter_map(|e| e.ok()) {
                 let path = entry.path();
-                if path.is_dir() {
+                // Use symlink_metadata so we can detect symlinks before following them.
+                let link_meta = match fs::symlink_metadata(&path) {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+                let is_symlink = link_meta.file_type().is_symlink();
+                if !is_symlink && path.is_dir() {
                     let dir_name = path
                         .file_name()
                         .map(|n| n.to_string_lossy().to_string())
@@ -674,7 +776,10 @@ impl SkillScanner {
                         Self::collect_files_recursive(base, &path, files);
                     }
                 } else if path.is_file() {
-                    if let Some(file) = Self::parse_file(&path, base) {
+                    // `path.is_file()` follows symlinks, so a symlink pointing at a file
+                    // is included here just like a regular file — but we record it as a
+                    // symlink so the UI can badge it.
+                    if let Some(file) = Self::parse_file(&path, base, is_symlink) {
                         files.push(file);
                     }
                 }
@@ -682,7 +787,7 @@ impl SkillScanner {
         }
     }
 
-    fn parse_file(path: &Path, base: &Path) -> Option<SkillFile> {
+    fn parse_file(path: &Path, base: &Path, is_symlink: bool) -> Option<SkillFile> {
         let file_name = path.file_name()?.to_string_lossy().to_string();
         if file_name.starts_with('.') {
             return None;
@@ -694,12 +799,20 @@ impl SkillScanner {
             .iter()
             .any(|&c| c.eq_ignore_ascii_case(&file_name));
 
-        let mut content = path
+        let content = path
             .extension()
             .and_then(|ext| ext.to_str())
             .filter(|ext| TEXT_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
             .and_then(|_| fs::read_to_string(path).ok())
             .filter(|c| c.len() < 100_000);
+
+        let symlink_target = if is_symlink {
+            fs::read_link(path)
+                .ok()
+                .map(|target| target.to_string_lossy().to_string())
+        } else {
+            None
+        };
 
         Some(SkillFile {
             name: file_name,
@@ -707,6 +820,8 @@ impl SkillScanner {
             absolute_path,
             content,
             is_main,
+            is_symlink,
+            symlink_target,
         })
     }
 
@@ -1169,4 +1284,168 @@ fn create_symlink(target: &Path, link: &Path, _target_is_dir: bool) -> Result<()
     }
 
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::SkillScanner;
+    use std::fs;
+
+    fn write_skill(skill_dir: &std::path::Path, name: &str) {
+        fs::create_dir_all(skill_dir).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            format!("---\nname: {name}\nversion: \"0.1.0\"\ndescription: \"Test\"\n---\n\n# {name}\n"),
+        )
+        .unwrap();
+    }
+
+    /// Build a `~/.atmos/skills/.system/` layout covering both the direct-subdir skills
+    /// (e.g. `project-wiki`, `git-commit`) and the nested `code_review_skills/*` skills,
+    /// then assert `scan_system_skills` emits every SKILL.md-bearing dir with
+    /// `scope = "system"` and ignores containers without their own `SKILL.md`.
+    #[test]
+    fn scan_system_skills_finds_direct_and_nested_skills() {
+        let tmp = tempfile::tempdir().expect("create tempdir");
+        let fake_home = tmp.path();
+        let system_dir = fake_home.join(".atmos").join("skills").join(".system");
+
+        // Direct subdirs: project-wiki, git-commit, atmos-review-fix
+        for name in ["project-wiki", "git-commit", "atmos-review-fix"] {
+            write_skill(&system_dir.join(name), name);
+        }
+
+        // Container dir with nested review skills
+        for name in [
+            "fullstack-reviewer",
+            "code-review-expert",
+            "typescript-react-reviewer",
+            "custom-review-skill-abc123",
+        ] {
+            write_skill(&system_dir.join("code_review_skills").join(name), name);
+        }
+
+        // Noise: a dir without SKILL.md directly under .system/ must be ignored.
+        fs::create_dir_all(system_dir.join("not-a-skill")).unwrap();
+        // Noise: a dir without SKILL.md inside code_review_skills must be ignored.
+        fs::create_dir_all(
+            system_dir
+                .join("code_review_skills")
+                .join("empty-container"),
+        )
+        .unwrap();
+        // Noise: an unknown container dir with a SKILL.md-bearing child must NOT recurse —
+        // we only descend into the whitelisted `code_review_skills/`.
+        write_skill(
+            &system_dir.join("unknown_container").join("hidden-skill"),
+            "hidden-skill",
+        );
+
+        let skills = SkillScanner::scan_system_skills(fake_home);
+
+        let names: Vec<_> = skills.iter().map(|s| s.name.as_str()).collect();
+        for expected in [
+            "project-wiki",
+            "git-commit",
+            "atmos-review-fix",
+            "fullstack-reviewer",
+            "code-review-expert",
+            "typescript-react-reviewer",
+            "custom-review-skill-abc123",
+        ] {
+            assert!(
+                names.contains(&expected),
+                "expected {expected} in scan output, got {names:?}",
+            );
+        }
+        assert!(
+            !names.contains(&"not-a-skill"),
+            "dirs without SKILL.md must be skipped, got {names:?}",
+        );
+        assert!(
+            !names.contains(&"empty-container"),
+            "nested dirs without SKILL.md must be skipped, got {names:?}",
+        );
+        assert!(
+            !names.contains(&"hidden-skill"),
+            "skills under unknown container dirs must be ignored, got {names:?}",
+        );
+
+        for skill in &skills {
+            assert_eq!(
+                skill.scope, "system",
+                "skill {} has wrong scope {}",
+                skill.name, skill.scope,
+            );
+        }
+    }
+
+    /// File-level symlinks inside a skill dir must surface as `is_symlink=true` plus the
+    /// original link target (not its resolved path) so the file-tree UI can badge them.
+    #[cfg(unix)]
+    #[test]
+    fn scan_skill_files_marks_symlinks() {
+        let tmp = tempfile::tempdir().expect("create tempdir");
+        let fake_home = tmp.path();
+        let base = fake_home
+            .join(".atmos")
+            .join("skills")
+            .join(".system")
+            .join("code_review_skills");
+        fs::create_dir_all(&base).unwrap();
+
+        // Target file lives in a sibling canonical skill.
+        let canonical = fake_home
+            .join(".atmos")
+            .join("skills")
+            .join(".system")
+            .join("atmos-review-fix")
+            .join("references");
+        fs::create_dir_all(&canonical).unwrap();
+        fs::write(canonical.join("atmos-review-cli.md"), "# Shared CLI ref\n").unwrap();
+
+        // Custom skill with a references/ symlink to the shared file.
+        let skill_dir = base.join("custom-review-skill-sym01");
+        let refs = skill_dir.join("references");
+        fs::create_dir_all(&refs).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: custom-review-skill-sym01\nversion: \"0.1.0\"\ndescription: \"Test\"\n---\n\n# Body\n",
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            "../../../atmos-review-fix/references/atmos-review-cli.md",
+            refs.join("atmos-review-cli.md"),
+        )
+        .unwrap();
+
+        let skills = SkillScanner::scan_system_skills(fake_home);
+        let skill = skills
+            .iter()
+            .find(|s| s.name == "custom-review-skill-sym01")
+            .expect("scaffolded skill missing from scan");
+
+        let linked = skill
+            .files
+            .iter()
+            .find(|f| f.relative_path == "references/atmos-review-cli.md")
+            .expect("symlinked reference file missing from skill.files");
+
+        assert!(linked.is_symlink, "expected is_symlink=true for the link");
+        assert_eq!(
+            linked.symlink_target.as_deref(),
+            Some("../../../atmos-review-fix/references/atmos-review-cli.md"),
+            "symlink_target should report the raw link value, not a resolved path",
+        );
+
+        // SKILL.md itself is a regular file — must not be flagged as a symlink.
+        let skill_md = skill
+            .files
+            .iter()
+            .find(|f| f.relative_path == "SKILL.md")
+            .expect("SKILL.md missing");
+        assert!(!skill_md.is_symlink);
+        assert!(skill_md.symlink_target.is_none());
+    }
 }

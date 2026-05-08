@@ -1493,6 +1493,12 @@ pub struct SkillFile {
     pub content: Option<String>,
     /// 是否是主文件 (SKILL.md, README.md 等)
     pub is_main: bool,
+    /// 是否是符号链接
+    #[serde(default)]
+    pub is_symlink: bool,
+    /// 符号链接目标 (相对/绝对路径, 原样)
+    #[serde(default)]
+    pub symlink_target: Option<String>,
 }
 
 /// Skill 的单个安装位置

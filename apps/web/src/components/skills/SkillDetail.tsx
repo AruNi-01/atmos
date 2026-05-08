@@ -14,6 +14,7 @@ import {
   CircleX,
   ChevronRight,
   ChevronLeft,
+  CornerUpRight,
   Loader2,
   getFileIconProps,
   Eye,
@@ -28,6 +29,9 @@ import {
   PanelGroup,
   PanelResizeHandle,
   ImperativePanelHandle,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
   toastManager,
   Circle,
   Save,
@@ -135,6 +139,12 @@ function getScopeMeta(scope: SkillInfo['scope']) {
         icon: Folder,
         className: 'bg-muted text-foreground',
       };
+    case 'system':
+      return {
+        label: 'System',
+        icon: Puzzle,
+        className: 'bg-muted text-foreground',
+      };
     default:
       return {
         label: 'InsideTheProject',
@@ -208,6 +218,21 @@ const TreeItem: React.FC<{
           <FileIcon name={node.name} isDir={node.isDir} isOpen={isExpanded} className="size-4" />
         </span>
         <span className="text-[13px] truncate flex-1">{node.name}</span>
+        {node.file?.is_symlink && (
+          <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <CornerUpRight className="size-3 text-muted-foreground/60" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[300px] break-all">
+                <p className="text-[11px] leading-tight">
+                  <span className="mr-1">Points to:</span>
+                  {node.file.symlink_target || 'Unknown'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </span>
+        )}
         {node.file?.is_main && (
           <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary ml-1">Main</span>
         )}

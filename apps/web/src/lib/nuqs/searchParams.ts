@@ -48,11 +48,11 @@ export const workspacesParams = {
 // SkillsView – scope filter & search
 // ---------------------------------------------------------------------------
 export type SkillsTab = "installed" | "market" | "resources";
-export type ScopeFilter = "all" | "global" | "project";
+export type ScopeFilter = "all" | "global" | "project" | "system";
 
 export const skillsParams = {
   tab: parseAsStringEnum<SkillsTab>(["installed", "market", "resources"]).withDefault("installed"),
-  filter: parseAsStringEnum<ScopeFilter>(["all", "global", "project"]).withDefault("all"),
+  filter: parseAsStringEnum<ScopeFilter>(["all", "global", "project", "system"]).withDefault("all"),
   projects: parseAsString.withDefault(""),
   q: parseAsString.withDefault(""),
 };

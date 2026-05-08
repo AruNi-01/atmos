@@ -15,7 +15,7 @@ import {
   SelectValue,
   toastManager,
 } from "@workspace/ui";
-import { Terminal, Bot, Loader2, AlertTriangle } from "lucide-react";
+import { Terminal, Bot, Loader2, AlertTriangle, Plus } from "lucide-react";
 import { AgentSelect, buildCommand, type AgentId } from "@/components/wiki/AgentSelect";
 import { skillsApi, agentApi, reviewWsApi } from "@/api/ws-api";
 import { systemApi } from "@/api/rest-api";
@@ -23,6 +23,7 @@ import type { RegistryAgent, CustomAgent, ReviewTarget } from "@/api/ws-api";
 import { cn } from "@/lib/utils";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
+import { useAppRouter } from "@/hooks/use-app-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 
@@ -165,8 +166,36 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   const [skillsReady, setSkillsReady] = useState<boolean | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isCreatingSkill, setIsCreatingSkill] = useState(false);
   const [, setAgentChatOpen] = useAgentChatUrl();
   const { enqueueAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
+  const router = useAppRouter();
+
+  // Load or refresh the review skill list. Returns the fetched array so callers
+  // can react to new entries (e.g. preselect a skill that was just scaffolded).
+  const refreshSkillsList = useCallback(async (): Promise<CodeReviewSkill[]> => {
+    setLoadingSkillsList(true);
+    try {
+      const { skills } = await systemApi.listReviewSkills();
+      if (skills.length > 0) {
+        const mapped: CodeReviewSkill[] = skills.map((s) => ({
+          id: s.id as CodeReviewSkillId,
+          label: s.label,
+          badge: s.badge,
+          description: s.description,
+          bestFor: s.bestFor,
+        }));
+        setSkillsList(mapped);
+        return mapped;
+      }
+      return skillsList;
+    } catch {
+      // Keep the hardcoded defaults on failure
+      return skillsList;
+    } finally {
+      setLoadingSkillsList(false);
+    }
+  }, [skillsList]);
 
   // Fetch ACP agents, skills list, and system status
   useEffect(() => {
@@ -178,22 +207,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       setSkillsReady(false);
     });
 
-    setLoadingSkillsList(true);
-    systemApi.listReviewSkills().then(({ skills }) => {
-      if (skills.length > 0) {
-        setSkillsList(skills.map(s => ({
-          id: s.id as CodeReviewSkillId,
-          label: s.label,
-          badge: s.badge,
-          description: s.description,
-          bestFor: s.bestFor,
-        })));
-      }
-    }).catch(() => {
-      // Keep the hardcoded defaults on failure
-    }).finally(() => {
-      setLoadingSkillsList(false);
-    });
+    refreshSkillsList();
 
     setLoadingAcpAgents(true);
     Promise.all([
@@ -222,6 +236,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     }).finally(() => {
       setLoadingAcpAgents(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Auto-infer skill from changed files when dialog opens
@@ -417,6 +432,43 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     }
   }, [isSyncing]);
 
+  const handleCreateCustomSkill = useCallback(async () => {
+    if (isCreatingSkill) return;
+    setIsCreatingSkill(true);
+    try {
+      const result = await systemApi.scaffoldReviewSkill();
+
+      // Navigate to the Skills detail page for the newly created skill. The backend
+      // scanner exposes `~/.atmos/skills/.system/code_review_skills/<id>` as a
+      // scope="system" SkillInfo (id = `system::-::<dir_name>`), which SkillsView loads
+      // via skillsApi.get and renders inside SkillDetail so the user can browse the
+      // tree and edit SKILL.md immediately.
+      const skillInfoId = `system::-::${result.id}`;
+      const href = `/skills?scope=system&skillId=${encodeURIComponent(skillInfoId)}`;
+
+      onOpenChange(false);
+      router.push(href);
+
+      toastManager.add({
+        title: "Custom Review Skill Created",
+        description: `Opened ${result.path} in the Skills detail page for editing.${
+          result.needs_sync
+            ? " The shared Atmos CLI reference is not yet on disk — open the Agent Review dialog and click 'Sync Skills Manually' to install atmos-review-fix, otherwise the references/atmos-review-cli.md symlink will be dangling."
+            : ""
+        }`,
+        type: result.needs_sync ? "warning" : "success",
+      });
+    } catch (err) {
+      toastManager.add({
+        title: "Failed to Create Custom Skill",
+        description: err instanceof Error ? err.message : "Unknown error",
+        type: "error",
+      });
+    } finally {
+      setIsCreatingSkill(false);
+    }
+  }, [isCreatingSkill, onOpenChange, router]);
+
   const selectedSkill = skillsList.find((s) => s.id === skillId) ?? skillsList[0];
 
   return (
@@ -497,8 +549,25 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                   Great for: {selectedSkill?.bestFor}
                 </p>
               </div>
-              <div className="pt-2 border-t border-border/50 text-[10px] text-muted-foreground/80">
-                Tip: You can add custom review skills by creating folders containing a <code className="bg-muted px-1 py-0.5 rounded">SKILL.md</code> file inside <code className="bg-muted px-1 py-0.5 rounded">~/.atmos/skills/.system/code_review_skills/</code>.
+              <div className="pt-2 border-t border-border/50 text-[10px] text-muted-foreground/80 flex items-center justify-between gap-2">
+                <span className="flex-1">
+                  Built-in skills don't fit? Click <span className="font-medium text-foreground/80">Create</span> to scaffold your own.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-1.5 text-[10px] shrink-0 gap-1"
+                  onClick={handleCreateCustomSkill}
+                  disabled={isCreatingSkill}
+                  title="Create a new custom review skill scaffold"
+                >
+                  {isCreatingSkill ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <Plus className="size-3" />
+                  )}
+                  {isCreatingSkill ? "Creating..." : "Create"}
+                </Button>
               </div>
             </div>
           </div>
@@ -537,7 +606,11 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
             </TabsContent>
 
             <TabsContent value="cli" className="mt-0">
-              <AgentSelect value={agentId} onValueChange={handleAgentChange} />
+              <AgentSelect
+                value={agentId}
+                onValueChange={handleAgentChange}
+                helperText="Any installed Code Agent CLI works. Prefer a reasoning-capable model (e.g. Claude, Gemini, GPT) for deeper architectural and security findings."
+              />
             </TabsContent>
           </Tabs>
 

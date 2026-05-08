@@ -485,6 +485,12 @@ export const systemApi = {
   listReviewSkills: async (): Promise<{ skills: { id: string; label: string; badge: string; description: string; bestFor: string }[] }> => {
     return fetchApi('/api/system/review-skills');
   },
+
+  scaffoldReviewSkill: async (): Promise<{ id: string; path: string; needs_sync: boolean }> => {
+    return fetchApi('/api/system/review-skills/scaffold', {
+      method: 'POST',
+    });
+  },
 };
 
 // ===== Agent Hooks API =====

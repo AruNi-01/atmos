@@ -1829,12 +1829,14 @@ export interface SkillFile {
   absolute_path: string;
   content: string | null;
   is_main: boolean;
+  is_symlink?: boolean;
+  symlink_target?: string | null;
 }
 
 export interface SkillPlacement {
   id: string;
   agent: string;
-  scope: 'global' | 'project' | 'inside_project';
+  scope: 'global' | 'project' | 'inside_project' | 'system';
   project_id: string | null;
   project_name: string | null;
   path: string;
@@ -1852,7 +1854,7 @@ export interface SkillInfo {
   name: string;
   description: string;
   agents: string[];
-  scope: "global" | "project" | "inside_project";
+  scope: "global" | "project" | "inside_project" | "system";
   project_id: string | null;
   project_name: string | null;
   path: string;

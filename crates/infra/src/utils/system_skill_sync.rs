@@ -139,6 +139,13 @@ fn version_needs_update(current: &str, new: &str) -> bool {
 }
 
 /// Helper function to determine the target directory for a skill.
+///
+/// **Invariant**: the returned path always points at a **specific skill's** directory
+/// (e.g. `.system/code_review_skills/fullstack-reviewer`), never at a parent such as
+/// `.system/code_review_skills`. Callers that delete/replace this path must only touch
+/// the returned directory so that user-created sibling skills (e.g. a custom
+/// `custom-review-skill-<id>` folder under `code_review_skills/`) are preserved across
+/// sync runs.
 fn get_target_dir(system_dir: &Path, skill_name: &str) -> PathBuf {
     let review_skills = [
         "fullstack-reviewer",
@@ -733,5 +740,78 @@ Body
             parse_skill_version_from_content("---\ndescription: Only text\n---\n\nBody"),
             None
         );
+    }
+
+    /// Guard against future refactors that accidentally wipe sibling directories
+    /// under `code_review_skills/`. A user-owned `custom-review-skill-*` folder must
+    /// survive a fresh sync of one of the built-in review skills.
+    #[test]
+    fn sync_preserves_user_created_custom_review_skills() {
+        use std::fs;
+
+        let tmp = tempfile::tempdir().expect("create tempdir");
+        let system_dir = tmp.path().join("system");
+        let source_root = tmp.path().join("source");
+
+        // Source layout: skills/code_review_skills/fullstack-reviewer/SKILL.md
+        let source_skill = source_root
+            .join("code_review_skills")
+            .join("fullstack-reviewer");
+        fs::create_dir_all(&source_skill).unwrap();
+        fs::write(
+            source_skill.join("SKILL.md"),
+            "---\nname: fullstack-reviewer\nversion: \"9.9.9\"\n---\n\n# Fullstack Reviewer\n",
+        )
+        .unwrap();
+
+        // Target layout: pre-populate a user-created custom skill AND an older install of
+        // the built-in skill so we can verify the built-in is replaced but the user skill
+        // (and an unrelated sibling in a different subtree) survives.
+        let built_in_target = system_dir.join("code_review_skills").join("fullstack-reviewer");
+        fs::create_dir_all(&built_in_target).unwrap();
+        fs::write(
+            built_in_target.join("SKILL.md"),
+            "---\nname: fullstack-reviewer\nversion: \"0.0.1\"\n---\nold\n",
+        )
+        .unwrap();
+
+        let user_skill = system_dir
+            .join("code_review_skills")
+            .join("custom-review-skill-abc123");
+        let user_skill_refs = user_skill.join("references");
+        fs::create_dir_all(&user_skill_refs).unwrap();
+        let user_md = user_skill.join("SKILL.md");
+        let user_ref = user_skill_refs.join("notes.md");
+        fs::write(&user_md, "user content\n").unwrap();
+        fs::write(&user_ref, "user references\n").unwrap();
+
+        // Sanity: sibling outside code_review_skills/ must also be untouched.
+        let unrelated = system_dir.join("atmos-review-fix");
+        fs::create_dir_all(&unrelated).unwrap();
+        fs::write(unrelated.join("SKILL.md"), "---\nversion: \"1.0.0\"\n---\n").unwrap();
+
+        // Act: sync the built-in skill from the fake source root.
+        let ok = super::sync_skill_from_root(
+            "fullstack-reviewer",
+            &system_dir,
+            &source_root,
+            "test",
+        );
+        assert!(ok, "sync should succeed against the fake source");
+
+        // The built-in was replaced with the source version.
+        let installed = fs::read_to_string(built_in_target.join("SKILL.md")).unwrap();
+        assert!(
+            installed.contains("version: \"9.9.9\""),
+            "built-in skill should be replaced with source version, got:\n{installed}"
+        );
+
+        // The user's custom skill directory and its files are untouched.
+        assert!(user_skill.exists(), "user custom skill directory was removed");
+        assert_eq!(fs::read_to_string(&user_md).unwrap(), "user content\n");
+        assert_eq!(fs::read_to_string(&user_ref).unwrap(), "user references\n");
+
+        // Unrelated siblings are also untouched.
+        assert!(unrelated.join("SKILL.md").is_file());
     }
 }

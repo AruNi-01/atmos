@@ -42,7 +42,7 @@ import {
   Loader2,
   Puzzle,
   LoaderCircle,
-  RotateCw,
+  RotateCcw,
   Search,
   Store,
 } from "lucide-react";
@@ -393,8 +393,13 @@ export const SkillsView: React.FC = () => {
         return false;
       }
 
-      if (scopeFilter === "all") return true;
+      if (scopeFilter === "all") {
+        // Atmos built-in skills are considered "internal" by default — they only show
+        // when the user explicitly selects the Atmos Built-in filter chip.
+        return skill.scope !== "system";
+      }
       if (scopeFilter === "global") return skill.scope === "global";
+      if (scopeFilter === "system") return skill.scope === "system";
       if (scopeFilter === "project") {
         const isProjectScoped =
           skill.scope === "project" || skill.scope === "inside_project";
@@ -622,7 +627,7 @@ export const SkillsView: React.FC = () => {
                     className="size-10 shrink-0 rounded-xl border-border/50 bg-muted/20 shadow-sm transition-all hover:bg-background cursor-pointer"
                     title="Refresh Skills"
                   >
-                    {isLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+                    {isLoading ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <RotateCcw className="size-4" />}
                   </Button>
                 </div>
               )}
@@ -680,6 +685,19 @@ export const SkillsView: React.FC = () => {
                   className="h-7 cursor-pointer text-xs"
                 >
                   All
+                </Button>
+                <Button
+                  variant={scopeFilter === "system" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => handleScopeFilterChange("system")}
+                  className={cn(
+                    "h-7 cursor-pointer gap-1.5 text-xs",
+                    scopeFilter === "system" && "text-primary",
+                  )}
+                  title="Skills installed by Atmos under ~/.atmos/skills/.system/"
+                >
+                  <Puzzle className="size-3" />
+                  Atmos Built-in
                 </Button>
                 <Button
                   variant={scopeFilter === "global" ? "secondary" : "ghost"}

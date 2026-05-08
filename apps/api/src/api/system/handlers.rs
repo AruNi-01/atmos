@@ -599,6 +599,23 @@ pub async fn list_review_skills() -> ApiResult<Json<ApiResponse<Value>>> {
     Ok(Json(ApiResponse::success(json!({ "skills": skills }))))
 }
 
+/// POST /api/system/review-skills/scaffold
+///
+/// Create a scaffolded custom review skill under
+/// `~/.atmos/skills/.system/code_review_skills/`. Returns the new skill id / path
+/// so the client can refresh its list and preselect the new skill.
+pub async fn scaffold_review_skill() -> ApiResult<Json<ApiResponse<Value>>> {
+    let result = skills::scaffold_review_skill()
+        .await
+        .map_err(ApiError::InternalError)?;
+
+    Ok(Json(ApiResponse::success(json!({
+        "id": result.id,
+        "path": result.path.to_string_lossy(),
+        "needs_sync": result.needs_sync,
+    }))))
+}
+
 /// POST /api/system/sync-skills
 pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
     let report = tokio::task::spawn_blocking(|| {

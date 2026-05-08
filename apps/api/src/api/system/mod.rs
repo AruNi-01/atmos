@@ -38,6 +38,10 @@ pub fn routes() -> Router<AppState> {
         .route("/terminal-cleanup", post(handlers::cleanup_terminals))
         .route("/sync-skills", post(handlers::sync_skills))
         .route("/review-skills", get(handlers::list_review_skills))
+        .route(
+            "/review-skills/scaffold",
+            post(handlers::scaffold_review_skill),
+        )
         .route("/cli-version-check", get(handlers::check_cli_version))
         .route("/ws-connections", get(handlers::list_ws_connections))
         .route("/file", get(handlers::serve_file))

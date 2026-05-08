@@ -36,7 +36,12 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
   };
 
   const isProjectScoped = skill.scope === 'project' || skill.scope === 'inside_project';
-  const scopeLabel = skill.scope === 'inside_project' ? 'Inside Project' : skill.scope;
+  const isSystemScoped = skill.scope === 'system';
+  const scopeLabel = isSystemScoped
+    ? 'Atmos Built-in'
+    : skill.scope === 'inside_project'
+      ? 'Inside Project'
+      : skill.scope;
 
   return (
     <div
@@ -58,13 +63,21 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
                   <TooltipTrigger asChild>
                     <span className={cn(
                       "text-[9px] px-1 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider",
-                      skill.scope === 'global'
+                      isSystemScoped
+                        ? "bg-violet-500/10 text-violet-600 dark:text-violet-400"
+                        : skill.scope === 'global'
                         ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
                         : skill.scope === 'project'
                         ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                         : "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
                     )}>
-                      {skill.scope === 'global' ? <Globe className="size-2" /> : <Folder className="size-2" />}
+                      {isSystemScoped ? (
+                        <Puzzle className="size-2" />
+                      ) : skill.scope === 'global' ? (
+                        <Globe className="size-2" />
+                      ) : (
+                        <Folder className="size-2" />
+                      )}
                       {scopeLabel}
                     </span>
                   </TooltipTrigger>
