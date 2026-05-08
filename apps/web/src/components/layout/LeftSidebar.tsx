@@ -862,7 +862,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 <div className="flex-1 flex flex-col min-h-0">
 
                     <Tabs
-                        value={activeTab}
+                        value={filesOnRight ? 'projects' : activeTab}
                         className="flex flex-col h-full overflow-hidden"
                         onValueChange={handleTabChange}
                     >

@@ -209,8 +209,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const rootItemIds = useMemo(() => data.map((node) => node.path), [data]);
 
   useEffect(() => {
+    // Reset lazily-loaded entries only when the project root itself
+    // changes. Resetting on every `data` update (e.g. show-hidden toggle
+    // or refresh) would orphan already-expanded deep directories, since
+    // they live exclusively in this map (not in `initialItemsMap`).
     setLazyItemsMap(new Map());
-  }, [data]);
+  }, [rootPath]);
 
   const loadDirectoryChildren = useCallback(async (itemPath: string): Promise<string[]> => {
     const existingItem = initialItemsMap.get(itemPath) || lazyItemsMap.get(itemPath);
@@ -224,6 +228,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
     const newChildren = response.entries.map((entry) => entry.path);
     const newEntriesMap = new Map<string, FileTreeItem>();
 
+    // If the parent directory is gitignored, every descendant is effectively
+    // ignored too. The backend's per-directory gitignore check can't see that
+    // because an ignored directory's own contents aren't separately covered
+    // by any rule — the rule lives on the ancestor. Propagate the flag here
+    // so the UI can dim the entire subtree consistently.
+    const parentIgnored = existingItem.isIgnored;
+
     response.entries.forEach((entry) => {
       newEntriesMap.set(entry.path, {
         id: entry.path,
@@ -231,7 +242,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         path: entry.path,
         isDir: entry.is_dir,
         isSymlink: entry.is_symlink,
-        isIgnored: entry.is_ignored,
+        isIgnored: entry.is_ignored || parentIgnored,
         symlinkTarget: entry.symlink_target,
       });
     });
@@ -298,6 +309,26 @@ export const FileTree: React.FC<FileTreeProps> = ({
     },
     features: [asyncDataLoaderFeature],
   });
+
+  // The async data loader caches children IDs keyed by itemId, so simply
+  // updating the `data` prop (e.g. after toggling show-hidden or
+  // refreshing) would otherwise keep the UI pinned to the previously
+  // cached tree structure. Re-running the dataLoader closures via
+  // invalidate picks up the latest `data`.
+  //
+  // Only invalidate children IDs — not item data — because the store's
+  // fetch briefly sets `data` to `[]` mid-refresh, during which
+  // `initialItemsMap` is empty and `getItem(path)` would otherwise cache
+  // the fallback `{ name: path, isDir: false }` placeholder for every
+  // item, flattening the tree once real data arrives.
+  useEffect(() => {
+    void tree.getRootItem().invalidateChildrenIds(true);
+    for (const item of tree.getItems()) {
+      if (item.isFolder()) {
+        void item.invalidateChildrenIds(true);
+      }
+    }
+  }, [data, tree]);
 
   const handleRefresh = useCallback(async () => {
     await onRefresh?.();

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Eye, EyeOff, Folder, LoaderCircle, RotateCw } from "lucide-react";
+import { Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FileTree } from "@/components/files/FileTree";
 import { useFileTreeStore } from "@/hooks/use-file-tree-store";
@@ -53,7 +53,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({ projectName }) => 
               title="Refresh files"
               disabled={isLoading}
             >
-              {isLoading ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCw className="size-3.5 text-muted-foreground" />}
+              {isLoading ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCcw className="size-3.5 text-muted-foreground" />}
             </button>
           </div>
         </div>

@@ -29,7 +29,12 @@ export const useFileTreeStore = create<FileTreeStoreState>((set, get) => ({
   fetch: async (projectId, workspaceId, rootPath, showHidden) => {
     const id = get().fetchId + 1;
     const hidden = showHidden ?? get().showHidden;
-    set({ fetchId: id, isLoading: true, data: [] });
+    // Keep existing `data` in place while fetching. Resetting it to `[]`
+    // mid-flight would briefly pass an empty `data` prop to `FileTree`,
+    // which makes its async-data-loader cache the fallback
+    // `{ name: path, isDir: false }` placeholders for every visible item
+    // and then serve those stale entries once the real data arrives.
+    set({ fetchId: id, isLoading: true });
     try {
       const response = await fsApi.listProjectFiles(rootPath, { showHidden: hidden });
       if (get().fetchId === id) {
