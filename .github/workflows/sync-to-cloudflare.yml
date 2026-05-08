@@ -20,19 +20,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install wrangler
+        run: npm install -g wrangler
+
       - name: Upload install-desktop.sh to R2
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-desktop.sh --file ./install-desktop.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-desktop.sh --file ./install-desktop.sh
 
       - name: Upload install-local-web-runtime.sh to R2
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-local-web-runtime.sh --file ./install-local-web-runtime.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/install-local-web-runtime.sh --file ./install-local-web-runtime.sh
 
   sync-desktop:
     # Only sync stable releases (not prerelease, rc, beta, etc.)
@@ -58,12 +61,15 @@ jobs:
           # Only sync macOS assets (Linux/Windows users download directly from GitHub)
           gh release download "$TAG" --dir /tmp/assets --pattern "*.app.tar.gz"
 
+      - name: Install wrangler
+        run: npm install -g wrangler
+
       - name: Upload to Cloudflare R2
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/ --path /tmp/assets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/desktop/${TAG}/ --path /tmp/assets
 
   sync-local-runtime:
     # Only sync stable releases (not prerelease, rc, beta, etc.)
@@ -88,9 +94,12 @@ jobs:
         run: |
           gh release download "$TAG" --dir /tmp/assets --pattern "atmos-local-runtime-*.tar.gz"
 
+      - name: Install wrangler
+        run: npm install -g wrangler
+
       - name: Upload to Cloudflare R2
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/ --path /tmp/assets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          wrangler r2 object put ${{ secrets.CLOUDFLARE_R2_BUCKET }}/local-runtime/${TAG}/ --path /tmp/assets
