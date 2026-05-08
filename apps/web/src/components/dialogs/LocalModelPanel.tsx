@@ -445,19 +445,6 @@ export function LocalModelRuntimeControl() {
     }
   }, []);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      const res = await localModelApi.refresh();
-      setData(res);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to refresh manifest");
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   useEffect(() => {
     void load();
   }, [load]);
@@ -1081,7 +1068,18 @@ export function LocalModelPanel({ onDownloadComplete }: LocalModelPanelProps) {
           size="sm"
           variant="ghost"
           className="h-7 px-2 text-muted-foreground"
-          onClick={handleRefresh}
+          onClick={async () => {
+            setRefreshing(true);
+            try {
+              const res = await localModelApi.refresh();
+              setData(res);
+              setError(null);
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Failed to refresh manifest");
+            } finally {
+              setRefreshing(false);
+            }
+          }}
           disabled={refreshing || busy}
         >
           {refreshing ? (
