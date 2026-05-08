@@ -12,12 +12,29 @@ use serde_json::Value;
 
 pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Result<Value, String> {
     match command {
-        ReviewCommand::SessionList(args) => service
-            .list_sessions_by_workspace(args.workspace, args.include_archived)
-            .await
-            .map(serde_json::to_value)
-            .map_err(|error| error.to_string())?
-            .map_err(|error| error.to_string()),
+        ReviewCommand::SessionList(args) => {
+            let SessionListArgs {
+                workspace,
+                project,
+                include_archived,
+            } = args;
+            match (workspace, project) {
+                (Some(workspace_guid), None) => service
+                    .list_sessions_by_workspace(workspace_guid, include_archived)
+                    .await
+                    .map(serde_json::to_value)
+                    .map_err(|error| error.to_string())?
+                    .map_err(|error| error.to_string()),
+                (None, Some(project_guid)) => service
+                    .list_sessions_by_project(project_guid, include_archived)
+                    .await
+                    .map(serde_json::to_value)
+                    .map_err(|error| error.to_string())?
+                    .map_err(|error| error.to_string()),
+                (Some(_), Some(_)) => Err("Pass only one of --workspace or --project".to_string()),
+                (None, None) => Err("Pass exactly one of --workspace or --project".to_string()),
+            }
+        }
         ReviewCommand::SessionShow(args) => service
             .get_session(args.session)
             .await
@@ -232,9 +249,14 @@ pub enum ReviewCommand {
 }
 
 #[derive(Debug, Args)]
+#[command(
+    after_help = "Pass exactly one of --workspace <workspace_guid> or --project <project_guid>."
+)]
 pub struct SessionListArgs {
-    #[arg(long)]
-    pub workspace: String,
+    #[arg(long, group = "target")]
+    pub workspace: Option<String>,
+    #[arg(long, group = "target")]
+    pub project: Option<String>,
     #[arg(long, default_value_t = false)]
     pub include_archived: bool,
 }
