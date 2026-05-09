@@ -46,7 +46,8 @@ use infra::{
     ReviewMessageUpdateRequest, ReviewSessionActivateRequest, ReviewSessionArchiveRequest,
     ReviewSessionCloseRequest, ReviewSessionCreateRequest, ReviewSessionGetRequest,
     ReviewSessionListRequest, ReviewSessionRenameRequest, ScriptGetRequest, ScriptSaveRequest,
-    SkillsDeleteRequest, SkillsGetRequest, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
+    SkillsDeleteRequest, SkillsGetRequest, SkillsListRequest, SkillsSetEnabledRequest,
+    SyncSingleSystemSkillRequest,
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
@@ -807,7 +808,16 @@ impl WsMessageService {
             }
 
             // Skills
-            WsAction::SkillsList => self.handle_skills_list().await,
+            WsAction::SkillsList => {
+                // Legacy callers may omit the payload entirely. Treat `null` as "default
+                // request" (force_refresh = false) so existing frontends keep working.
+                let req: SkillsListRequest = if request.data.is_null() {
+                    SkillsListRequest::default()
+                } else {
+                    parse_request(request.data)?
+                };
+                self.handle_skills_list(req).await
+            }
             WsAction::SkillsGet => self.handle_skills_get(parse_request(request.data)?).await,
             WsAction::SkillsSetEnabled => {
                 self.handle_skills_set_enabled(parse_request(request.data)?)
@@ -3246,22 +3256,117 @@ set -x
 
     // ===== Skills Handlers =====
 
-    async fn handle_skills_list(&self) -> Result<Value> {
-        use crate::service::skill::SkillScanner;
+    /// Best-effort invalidation of the skills disk cache. Called after any mutation
+    /// (enable/disable, delete, system sync) so the next list call returns fresh data.
+    fn invalidate_skills_cache() {
+        if let Ok(cache) = infra::utils::disk_cache::DiskCache::new() {
+            if let Err(e) = cache.remove_feature("skills") {
+                tracing::warn!(error = %e, "failed to invalidate skills disk cache");
+            }
+        }
+    }
 
-        // Get all projects with their paths
+    async fn handle_skills_list(&self, req: SkillsListRequest) -> Result<Value> {
+        use crate::service::skill::{ScanMode, SkillScanner};
+        use infra::utils::disk_cache::DiskCache;
+        use std::time::Duration;
+
+        const FEATURE: &str = "skills";
+        const CACHE_KEY: &str = "list";
+        const TTL: Duration = Duration::from_secs(30 * 60); // 30 minutes
+
+        // Pull the current project list (cheap — DB call).
         let projects = self.project_service.list_projects().await?;
         let project_paths: Vec<(String, String, String)> = projects
             .iter()
             .map(|p| (p.guid.clone(), p.name.clone(), p.main_file_path.clone()))
             .collect();
 
-        // Scan for skills
-        let skills = SkillScanner::scan_all(&project_paths);
+        let cache = DiskCache::new().ok();
 
-        Ok(json!({
-            "skills": skills
-        }))
+        // Helper: run the scan on a blocking thread pool so the tokio worker stays free.
+        // Uses Lazy mode: list UI only needs frontmatter from SKILL.md — non-main file
+        // contents stay None, dropping ~250KB of reads per list call.
+        async fn run_scan(
+            project_paths: Vec<(String, String, String)>,
+        ) -> Result<Vec<infra::SkillInfo>> {
+            tokio::task::spawn_blocking(move || {
+                SkillScanner::scan_all_with_mode(&project_paths, ScanMode::Lazy)
+            })
+            .await
+            .map_err(|e| ServiceError::Processing(format!("skills scan join error: {e}")))
+        }
+
+        /// Strip file content from skills before writing to disk cache. The list UI
+        /// only needs metadata (title, description, scope, agents, file names, etc.);
+        /// storing ~900KB of SKILL.md bodies in the cache file is wasteful. The detail
+        /// page uses `skills_get` which does a fresh Full scan and never touches cache.
+        fn strip_for_cache(skills: &[infra::SkillInfo]) -> Vec<infra::SkillInfo> {
+            skills
+                .iter()
+                .map(|s| {
+                    let mut s = s.clone();
+                    for f in &mut s.files {
+                        f.content = None;
+                    }
+                    s
+                })
+                .collect()
+        }
+
+        // Force path: bypass cache, sync scan, overwrite cache.
+        if req.force_refresh {
+            let skills = run_scan(project_paths).await?;
+            if let Some(cache) = cache.as_ref() {
+                if let Err(e) = cache.put(FEATURE, CACHE_KEY, &strip_for_cache(&skills)) {
+                    tracing::warn!(error = %e, "disk_cache put (force) failed");
+                }
+            }
+            return Ok(json!({ "skills": skills }));
+        }
+
+        // Try disk cache first. Serve cached immediately (even if stale) and refresh
+        // in the background when past TTL.
+        if let Some(cache) = cache.as_ref() {
+            match cache.get::<Vec<infra::SkillInfo>>(FEATURE, CACHE_KEY) {
+                Ok(Some(entry)) => {
+                    if entry.age >= TTL {
+                        // Stale — kick off background rescan. Error-swallow: a failed
+                        // background refresh does NOT affect the current response.
+                        let project_paths_bg = project_paths.clone();
+                        let cache_bg = cache.clone();
+                        tokio::spawn(async move {
+                            match run_scan(project_paths_bg).await {
+                                Ok(fresh) => {
+                                    if let Err(e) = cache_bg.put(FEATURE, CACHE_KEY, &strip_for_cache(&fresh)) {
+                                        tracing::warn!(
+                                            error = %e,
+                                            "background disk_cache put failed"
+                                        );
+                                    }
+                                }
+                                Err(e) => tracing::warn!(
+                                    error = %e,
+                                    "background skills rescan failed"
+                                ),
+                            }
+                        });
+                    }
+                    return Ok(json!({ "skills": entry.value }));
+                }
+                Ok(None) => {} // fall through to sync scan
+                Err(e) => tracing::warn!(error = %e, "disk_cache get failed; scanning"),
+            }
+        }
+
+        // Cache miss (or cache unavailable): do a synchronous scan and write back.
+        let skills = run_scan(project_paths).await?;
+        if let Some(cache) = cache.as_ref() {
+            if let Err(e) = cache.put(FEATURE, CACHE_KEY, &strip_for_cache(&skills)) {
+                tracing::warn!(error = %e, "disk_cache put (miss) failed");
+            }
+        }
+        Ok(json!({ "skills": skills }))
     }
 
     async fn handle_skills_get(&self, req: SkillsGetRequest) -> Result<Value> {
@@ -3300,6 +3405,7 @@ set -x
             req.placement_ids.as_deref(),
         )?;
 
+        Self::invalidate_skills_cache();
         Ok(json!({ "success": true }))
     }
 
@@ -3314,6 +3420,7 @@ set -x
 
         SkillManager::delete(&project_paths, &req.id, req.placement_ids.as_deref())?;
 
+        Self::invalidate_skills_cache();
         Ok(json!({ "success": true }))
     }
 
@@ -3613,6 +3720,7 @@ set -x
                 report.versions,
                 report.missing_skills
             );
+            Self::invalidate_skills_cache();
         });
 
         Ok(json!({ "initiated": true }))

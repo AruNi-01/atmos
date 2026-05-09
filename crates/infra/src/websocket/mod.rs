@@ -51,7 +51,7 @@ pub use message::{
     ReviewSessionCloseRequest, ReviewSessionCreateRequest, ReviewSessionGetRequest,
     ReviewSessionListRequest, ReviewSessionRenameRequest, ScriptGetRequest, ScriptSaveRequest,
     SkillFile, SkillInfo, SkillPlacement, SkillsDeleteRequest, SkillsGetRequest,
-    SkillsListResponse, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
+    SkillsListRequest, SkillsListResponse, SkillsSetEnabledRequest, SyncSingleSystemSkillRequest,
     UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
     UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
     UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,

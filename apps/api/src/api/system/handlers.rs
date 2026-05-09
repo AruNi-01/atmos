@@ -609,6 +609,8 @@ pub async fn scaffold_review_skill() -> ApiResult<Json<ApiResponse<Value>>> {
         .await
         .map_err(ApiError::InternalError)?;
 
+    invalidate_skills_cache();
+
     Ok(Json(ApiResponse::success(json!({
         "id": result.id,
         "path": result.path.to_string_lossy(),
@@ -638,6 +640,8 @@ pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
         report.missing_skills
     );
 
+    invalidate_skills_cache();
+
     Ok(Json(ApiResponse {
         success: completed,
         data: Some(json!({
@@ -653,6 +657,15 @@ pub async fn sync_skills() -> ApiResult<Json<ApiResponse<Value>>> {
             Some("One or more system skills could not be synced".to_string())
         },
     }))
+}
+
+/// Best-effort invalidation of the skills disk cache after mutations.
+fn invalidate_skills_cache() {
+    if let Ok(cache) = infra::utils::disk_cache::DiskCache::new() {
+        if let Err(e) = cache.remove_feature("skills") {
+            tracing::warn!(error = %e, "failed to invalidate skills disk cache");
+        }
+    }
 }
 
 // ===== File serving for binary preview =====
