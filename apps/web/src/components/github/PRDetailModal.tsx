@@ -368,13 +368,16 @@ const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ th
     return `--- a/${thread.path}\n+++ b/${thread.path}\n${thread.diffHunk}`;
   }, [thread.diffHunk, thread.path]);
 
-  const diffOptions = useMemo(() => ({
-    theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
-    diffStyle: 'unified' as const,
-    overflow: 'wrap' as const,
-    disableLineNumbers: false,
-    disableFileHeader: true,
-  }), [resolvedTheme]);
+  const diffOptions = useMemo(() => {
+    const isDark = resolvedTheme === 'dark' || (!resolvedTheme && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    return {
+      theme: (isDark ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
+      diffStyle: 'unified' as const,
+      overflow: 'wrap' as const,
+      disableLineNumbers: false,
+      disableFileHeader: true,
+    };
+  }, [resolvedTheme]);
 
   return (
     <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">
