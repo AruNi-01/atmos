@@ -517,16 +517,26 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const conversation = React.useMemo(() => {
     if (!pr || timelineItems.length === 0) return [];
 
+    // Build sha → {login, avatarUrl} map from pr.commits for committed events
+    const commitAuthorMap = new Map<string, { login: string; avatarUrl: string }>();
+    if (Array.isArray(pr.commits)) {
+      for (const c of pr.commits) {
+        const a = c.authors?.[0];
+        if (c.oid && a?.login) commitAuthorMap.set(c.oid, { login: a.login, avatarUrl: a.avatarUrl ?? `https://github.com/${a.login}.png?size=32` });
+      }
+    }
+
     return timelineItems
       .map((item: TimelineItem) => {
         const rawAuthor = item.actor || item.author || item.user;
         // For 'committed' events, author has {name, email, date} but no login/avatar_url.
-        // Synthesize a usable author object so the avatar renders.
+        const sha = (item as Record<string, unknown>).sha as string | undefined;
+        const commitMeta = sha ? commitAuthorMap.get(sha) : undefined;
         const author = item.event === 'committed' && item.author && !item.author.login
           ? {
               ...item.author,
-              login: item.author.name,
-              avatar_url: `https://github.com/${encodeURIComponent(item.author.name ?? 'ghost')}.png?size=32`,
+              login: commitMeta?.login ?? item.author.name,
+              avatar_url: commitMeta?.avatarUrl ?? `https://github.com/${encodeURIComponent(item.author.name ?? 'ghost')}.png?size=32`,
             }
           : rawAuthor;
         const reviewId = (item as Record<string, unknown>).id as number | undefined;
