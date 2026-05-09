@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
-import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps } from '@workspace/ui';
+import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps, ScrollArea } from '@workspace/ui';
 import { Panel, PanelGroup, PanelResizeHandle } from '@workspace/ui';
 import { MessageSquare, Plus, Minus, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -181,7 +181,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   return (
       <PanelGroup direction="horizontal" className="h-full min-h-0">
         <Panel defaultSize={20} minSize={12} maxSize={40}>
-          <div className="h-full overflow-y-auto no-scrollbar py-1">
+          <ScrollArea className="h-full py-1">
           <DiffFileTree
             items={treeItems}
             selectedPath={selectedPath ?? undefined}
@@ -197,13 +197,14 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             }}
             onSelectFile={handleSelect}
           />
-          </div>
+          </ScrollArea>
         </Panel>
 
         <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/40 transition-colors" />
 
         <Panel>
-        <div ref={scrollContainerRef} className="p-2 h-full overflow-y-auto no-scrollbar">
+        <ScrollArea className="h-full">
+        <div ref={scrollContainerRef} className="p-2">
           <Virtualizer>
             {files.map((file, idx) => (
               <div key={file.filename} id={`pr-diff-${file.filename}`}>
@@ -217,6 +218,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             ))}
           </Virtualizer>
         </div>
+        </ScrollArea>
         </Panel>
       </PanelGroup>
   );
