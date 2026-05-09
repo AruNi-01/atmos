@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps } from '@workspace/ui';
+import { Panel, PanelGroup, PanelResizeHandle } from '@workspace/ui';
 import { MessageSquare, Plus, Minus, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -164,29 +165,6 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const [treeWidth, setTreeWidth] = useState(224); // 14rem default
-  const isDragging = React.useRef(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  const onDragStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    isDragging.current = true;
-    const startX = e.clientX;
-    const startWidth = treeWidth;
-    const onMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return;
-      const next = Math.max(140, Math.min(480, startWidth + ev.clientX - startX));
-      setTreeWidth(next);
-    };
-    const onUp = () => {
-      isDragging.current = false;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  };
-
   if (loading) {
     return (
       <div className="flex gap-3 h-full">
@@ -201,9 +179,8 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   }
 
   return (
-      <div ref={containerRef} className="flex h-full min-h-0">
-        {/* File tree sidebar */}
-        <div className="shrink-0 overflow-y-auto no-scrollbar py-1" style={{ width: treeWidth }}>
+      <PanelGroup direction="horizontal" className="h-full min-h-0">
+        <Panel defaultSize={20} minSize={12} maxSize={40} className="overflow-y-auto no-scrollbar py-1">
           <DiffFileTree
             items={treeItems}
             selectedPath={selectedPath ?? undefined}
@@ -219,16 +196,12 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             }}
             onSelectFile={handleSelect}
           />
-        </div>
+        </Panel>
 
-        {/* Drag handle */}
-        <div
-          className="w-1 shrink-0 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors bg-border/40"
-          onMouseDown={onDragStart}
-        />
+        <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/40 transition-colors" />
 
-        {/* Diff area */}
-        <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-y-auto no-scrollbar p-2">
+        <Panel className="overflow-y-auto no-scrollbar">
+        <div ref={scrollContainerRef} className="p-2 h-full">
           <Virtualizer>
             {files.map((file, idx) => (
               <div key={file.filename} id={`pr-diff-${file.filename}`}>
@@ -242,6 +215,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             ))}
           </Virtualizer>
         </div>
-      </div>
+        </Panel>
+      </PanelGroup>
   );
 }
