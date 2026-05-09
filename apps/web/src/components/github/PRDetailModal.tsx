@@ -465,6 +465,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [comment, setComment] = React.useState('');
   const [commentTab, setCommentTab] = React.useState<'write' | 'preview'>('write');
   const [mergeStrategy, setMergeStrategy] = React.useState<'merge' | 'squash' | 'rebase'>('merge');
+  const [branchCopied, setBranchCopied] = React.useState(false);
 
   // Reset tab state when modal opens/closes or PR changes
   React.useEffect(() => {
@@ -745,10 +746,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     </span>
                     <button
                       className="text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
-                      onClick={() => navigator.clipboard.writeText(pr.headRefName || branch)}
+                      onClick={() => {
+                        navigator.clipboard.writeText(pr.headRefName || branch);
+                        setBranchCopied(true);
+                        setTimeout(() => setBranchCopied(false), 1500);
+                      }}
                       title="Copy branch name"
                     >
-                      <Copy className="size-3" />
+                      {branchCopied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
                     </button>
                   </div>
                 </div>
