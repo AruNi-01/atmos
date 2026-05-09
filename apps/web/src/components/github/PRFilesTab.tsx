@@ -55,12 +55,12 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px]" style={{ contain: 'layout' }}>
       <button
-        className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex items-center gap-1.5 w-full text-left group"
+        className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex items-center gap-1.5 w-full text-left group cursor-pointer"
         onClick={() => setCollapsed(v => !v)}
       >
         <div className="relative size-3 shrink-0">
           <MessageSquare className="absolute inset-0 size-3 transition-opacity duration-150 group-hover:opacity-0" />
-          <ChevronRight className={cn("absolute inset-0 size-3 opacity-0 transition-all duration-150 group-hover:opacity-100", collapsed && "rotate-90")} />
+          <ChevronRight className={cn("absolute inset-0 size-3 opacity-0 transition-all duration-150 group-hover:opacity-100", !collapsed && "rotate-90")} />
         </div>
         {first?.line != null ? `Line ${first.line}` : 'Comment'}
       </button>
