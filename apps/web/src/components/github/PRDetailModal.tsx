@@ -354,7 +354,7 @@ function SidebarSection({ title, icon, children }: { title: string; icon: React.
   );
 }
 
-function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
+const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
   const [isExpanded, setIsExpanded] = React.useState(true);
   const { resolvedTheme } = useTheme();
   const isMounted = React.useSyncExternalStore(
@@ -429,7 +429,7 @@ function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
       </AnimatePresence>
     </div>
   );
-}
+});
 
 function prCommitsToListItems(
   commits: Array<{ oid: string; messageHeadline: string; messageBody?: string; authors?: Array<{ login?: string; avatarUrl?: string }>; committedDate?: string }>,
@@ -541,16 +541,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       .sort((a: ConversationItem, b: ConversationItem) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [pr, timelineItems, reviewCommentThreadsByReviewId]);
 
-  // Incremental rendering: drip-feed conversation into the DOM in chunks per frame
-  const RENDER_CHUNK = 5;
+  // Incremental rendering: yield main thread between chunks
+  const RENDER_CHUNK = 3;
   const [displayCount, setDisplayCount] = React.useState(RENDER_CHUNK);
-  const rafRef = React.useRef<number | null>(null);
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
     React.startTransition(() => setDisplayCount(RENDER_CHUNK));
-
     if (conversation.length <= RENDER_CHUNK) return;
 
     let count = RENDER_CHUNK;
@@ -558,13 +556,13 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       count = Math.min(count + RENDER_CHUNK, conversation.length);
       React.startTransition(() => setDisplayCount(count));
       if (count < conversation.length) {
-        rafRef.current = requestAnimationFrame(tick);
+        timerRef.current = setTimeout(tick, 32);
       } else {
-        rafRef.current = null;
+        timerRef.current = null;
       }
     };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current); };
+    timerRef.current = setTimeout(tick, 32);
+    return () => { if (timerRef.current !== null) clearTimeout(timerRef.current); };
   }, [conversation.length]);
 
   const displayedConversation = conversation.slice(0, displayCount);
