@@ -18,6 +18,7 @@ interface ReviewComment {
   path?: string;
   line?: number | null;
   original_line?: number | null;
+  side?: string;
   user?: { login?: string; avatar_url?: string };
   created_at?: string;
   in_reply_to_id?: number;
@@ -94,6 +95,18 @@ function FileDiffItem({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const fileName = file.filename.split('/').pop() ?? file.filename;
 
+  // Split threads: line-specific vs file-level
+  const lineThreads = threads.filter(t => t[0]?.line != null || t[0]?.original_line != null);
+  const fileThreads = threads.filter(t => t[0]?.line == null && t[0]?.original_line == null);
+
+  // Build lineAnnotations for PatchDiff
+  const lineAnnotations = lineThreads.map((thread, i) => {
+    const first = thread[0];
+    const lineNumber = first?.line ?? first?.original_line ?? 1;
+    const side = first?.side === 'LEFT' ? 'deletions' : 'additions';
+    return { side: side as 'deletions' | 'additions', lineNumber, metadata: i };
+  });
+
   return (
     <div className="border border-border/40 rounded-lg overflow-hidden mb-2">
       {/* File header */}
@@ -123,13 +136,20 @@ function FileDiffItem({
             <PatchDiff
               patch={`--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`}
               options={options}
+              lineAnnotations={lineAnnotations}
+              renderAnnotation={(annotation) => {
+                const thread = lineThreads[annotation.metadata as number];
+                if (!thread) return null;
+                return <FileCommentThread thread={thread} />;
+              }}
             />
           ) : (
             <div className="px-4 py-3 text-[11px] text-muted-foreground italic">
               {file.status === 'renamed' ? 'File renamed' : file.status === 'added' ? 'New file' : file.status === 'removed' ? 'File deleted' : 'No diff available (file too large)'}
             </div>
           )}
-          {threads.map((thread, i) => (
+          {/* File-level comments (no line info) at the bottom */}
+          {fileThreads.map((thread, i) => (
             <FileCommentThread key={i} thread={thread} />
           ))}
         </div>
