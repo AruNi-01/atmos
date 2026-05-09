@@ -167,7 +167,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [treeVisible, setTreeVisible] = useState(true);
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
-  const [wordWrap, setWordWrap] = useState(true);
+  const wordWrap = true;
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(() => new Set());
 
@@ -264,9 +264,6 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
           <DropdownMenuContent align="end" className="min-w-[10rem]">
             <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setDiffStyle(s => s === 'unified' ? 'split' : 'unified')} className="text-xs">
               {diffStyle === 'unified' ? 'Split view' : 'Unified view'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setWordWrap(v => !v)} className="text-xs">
-              {wordWrap ? 'Scroll (no wrap)' : 'Wrap lines'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
