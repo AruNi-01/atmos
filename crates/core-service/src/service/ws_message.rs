@@ -33,7 +33,7 @@ use infra::{
     GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
     GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
     GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
-    GithubPrTimelinePageRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
+    GithubPrTimelinePageRequest, GithubPrFilesRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
     LocalModelCustomAddRequest, LocalModelCustomDeleteRequest, LocalModelDeleteRequest,
     LocalModelDeleteRuntimeRequest, LocalModelDownloadRequest, LocalModelResolveHfUrlRequest,
     LocalModelStartRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
@@ -966,6 +966,10 @@ impl WsMessageService {
             }
             WsAction::GithubActionsDetail => {
                 self.handle_github_actions_detail(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::GithubPrFiles => {
+                self.handle_github_pr_files(parse_request(request.data)?)
                     .await
             }
 
@@ -4069,7 +4073,7 @@ set -x
     async fn handle_github_pr_detail(&self, req: GithubPrDetailRequest) -> Result<Value> {
         let pr_num_str = req.pr_number.to_string();
         let repo_arg = format!("{}/{}", req.owner, req.repo);
-        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels,reviewRequests,closingIssuesReferences"];
+        let args = vec!["pr", "view", &pr_num_str, "--repo", &repo_arg, "--json", "number,title,body,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,statusCheckRollup,comments,reviews,author,commits,isDraft,assignees,labels,reviewRequests,closingIssuesReferences,changedFiles"];
         let output = self
             .github_engine
             .run_gh(&args)
@@ -4467,6 +4471,20 @@ set -x
             output = json!({ "success": true });
         }
         Ok(output)
+    }
+
+    async fn handle_github_pr_files(&self, req: GithubPrFilesRequest) -> Result<Value> {
+        let endpoint = format!(
+            "repos/{}/{}/pulls/{}/files?per_page=100",
+            req.owner, req.repo, req.pr_number
+        );
+        let args = vec!["api", &endpoint];
+        let result = self
+            .github_engine
+            .run_gh(&args)
+            .await
+            .map_err(|e| ServiceError::Validation(format!("Failed to get PR files: {}", e)))?;
+        Ok(result)
     }
 
     async fn handle_github_actions_detail(&self, req: GithubActionsDetailRequest) -> Result<Value> {

@@ -36,7 +36,7 @@ pub use message::{
     GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
     GithubPrDraftRequest, GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest,
     GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest,
-    GithubPrReopenRequest, GithubPrTimelinePageRequest, LlmProviderTestRequest,
+    GithubPrReopenRequest, GithubPrTimelinePageRequest, GithubPrFilesRequest, LlmProviderTestRequest,
     LlmProvidersUpdateRequest, LocalModelCustomAddRequest, LocalModelCustomDeleteRequest,
     LocalModelDeleteRequest, LocalModelDeleteRuntimeRequest, LocalModelDownloadRequest,
     LocalModelResolveHfUrlRequest, LocalModelStartRequest, LocalModelStateNotification, MessagePayload,

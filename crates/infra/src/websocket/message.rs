@@ -436,6 +436,7 @@ pub enum WsAction {
     GithubActionsDetail,
     /// Rerun workflow
     GithubActionsRerun,
+    GithubPrFiles,
 
     // ===== Function Settings =====
     /// Read ~/.atmos/function_settings.json
@@ -1955,6 +1956,13 @@ pub struct GithubActionsRerunRequest {
     pub repo: String,
     pub run_id: u64,
     pub failed_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GithubPrFilesRequest {
+    pub owner: String,
+    pub repo: String,
+    pub pr_number: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

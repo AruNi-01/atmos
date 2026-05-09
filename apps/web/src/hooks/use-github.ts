@@ -179,6 +179,38 @@ export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: str
   return { items, isLoading, hasMore, loadMore };
 }
 
+export interface PrFile {
+  sha: string;
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+  patch?: string;
+}
+
+export function useGithubPRFiles(prNumber: number, owner?: string, repo?: string, enabled = true) {
+  const send = useWebSocketStore(s => s.send);
+  const [files, setFiles] = useState<PrFile[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setFiles([]);
+    if (!enabled || !owner || !repo || !prNumber) return;
+    let cancelled = false;
+    setLoading(true);
+    send('github_pr_files', { owner, repo, pr_number: prNumber })
+      .then((result) => {
+        if (!cancelled) setFiles(Array.isArray(result) ? result as PrFile[] : []);
+      })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [prNumber, owner, repo, enabled, send]);
+
+  return { files, loading };
+}
+
 export function useGithubPRDetailSidebar(prNumber: number, owner?: string, repo?: string) {
   const send = useWebSocketStore(s => s.send);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

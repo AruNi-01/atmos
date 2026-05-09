@@ -31,7 +31,7 @@ import {
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
-import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline } from '@/hooks/use-github';
+import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
 import {
   Github,
@@ -72,6 +72,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { CommitList, type CommitListItem } from './CommitList';
+import { PRFilesTab } from './PRFilesTab';
 
 interface StatusCheck {
   state?: string;
@@ -455,11 +456,15 @@ function prCommitsToListItems(
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
   const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
-  const [activeMainTab, setActiveMainTab] = React.useState<'description' | 'discussion' | 'commits'>('description');
+  const [activeMainTab, setActiveMainTab] = React.useState<'description' | 'discussion' | 'commits' | 'files'>('description');
   const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(false);
   const [hasVisitedCommits, setHasVisitedCommits] = React.useState(false);
+  const [hasVisitedFiles, setHasVisitedFiles] = React.useState(false);
   const { items: timelineItems, isLoading: timelineLoading, hasMore: timelineHasMore, loadMore: loadMoreTimeline } = useGithubPRTimeline(
     prNumber || 0, owner, repo, hasVisitedDiscussion && !!prNumber && isOpen
+  );
+  const { files: prFiles, loading: prFilesLoading } = useGithubPRFiles(
+    prNumber || 0, owner, repo, hasVisitedFiles && !!prNumber && isOpen
   );
   const send = useWebSocketStore(s => s.send);
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
@@ -475,6 +480,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     setActiveMainTab('description');
     setHasVisitedDiscussion(false);
     setHasVisitedCommits(false);
+    setHasVisitedFiles(false);
   }, [prNumber]);
 
   React.useEffect(() => {
@@ -482,6 +488,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       setActiveMainTab('description');
       setHasVisitedDiscussion(false);
       setHasVisitedCommits(false);
+      setHasVisitedFiles(false);
     }
   }, [isOpen]);
 
@@ -734,7 +741,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
           ) : pr ? (
             <div className="flex gap-3 text-sm flex-1 min-h-0">
               {/* Left: main content */}
-              <div className="flex-1 min-w-0 flex flex-col pb-16 pr-1 overflow-y-auto">
+              <div className={cn("flex-1 min-w-0 flex flex-col pr-1", activeMainTab === 'files' ? "overflow-hidden" : "overflow-y-auto pb-16")}>
                 {/* PR title + meta */}
                 <div className="shrink-0 pb-3 pt-1 border-b border-border/50">
                   <div className="flex items-center gap-2">
@@ -784,8 +791,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   </div>
                 </div>
 
-                {/* Top-level tabs: Description / Discussion / Commits */}
-                {/* Top-level tabs: Description / Discussion / Commits */}
+                {/* Top-level tabs: Description / Discussion / Commits / Files */}
                 <Tabs
                   value={activeMainTab}
                   onValueChange={(v) => {
@@ -793,6 +799,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     setActiveMainTab(tab);
                     if (tab === 'discussion') setHasVisitedDiscussion(true);
                     if (tab === 'commits') setHasVisitedCommits(true);
+                    if (tab === 'files') setHasVisitedFiles(true);
                   }}
                   className="shrink-0 pt-1"
                 >
@@ -802,6 +809,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       {`Discussion${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
                     </TabsTab>
                     <TabsTab value="commits" className="text-[12px] px-3 h-8">Commits ({pr.commits?.length || 0})</TabsTab>
+                    <TabsTab value="files" className="text-[12px] px-3 h-8">Files changed ({pr.changedFiles ?? 0})</TabsTab>
                   </TabsList>
                 </Tabs>
 
@@ -1297,6 +1305,19 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 {hasVisitedCommits && (
                   <div className={cn("pt-2", activeMainTab !== 'commits' && "hidden")}>
                     <CommitList commits={prCommitsToListItems(pr.commits ?? [], owner, repo)} owner={owner} repo={repo} />
+                  </div>
+                )}
+
+                {/* Files Changed tab */}
+                {hasVisitedFiles && (
+                  <div className={cn("pt-2 flex-1 min-h-0 overflow-hidden", activeMainTab !== 'files' && "hidden")} style={{ height: 'calc(100% - 120px)' }}>
+                    <PRFilesTab
+                      files={prFiles}
+                      loading={prFilesLoading}
+                      reviewComments={sidebarData?.review_comments ?? []}
+                      owner={owner}
+                      repo={repo}
+                    />
                   </div>
                 )}
               </div>
