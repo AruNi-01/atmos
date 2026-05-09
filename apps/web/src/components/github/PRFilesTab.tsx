@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { PatchDiff, WorkerPoolContextProvider, Virtualizer } from '@pierre/diffs/react';
+import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
 import { getFileIconProps } from '@workspace/ui';
 import { Avatar, AvatarImage, AvatarFallback, Skeleton } from '@workspace/ui';
@@ -117,7 +117,11 @@ function FileDiffItem({
       {expanded && (
         <div>
           {file.patch ? (
-            <PatchDiff patch={file.patch} options={options} />
+            <PatchDiff
+              patch={`--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`}
+              options={options}
+              disableWorkerPool
+            />
           ) : (
             <div className="px-4 py-3 text-[11px] text-muted-foreground italic">
               {file.status === 'renamed' ? 'File renamed' : file.status === 'added' ? 'New file' : file.status === 'removed' ? 'File deleted' : 'No diff available (file too large)'}
@@ -283,13 +287,6 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   }
 
   return (
-    <WorkerPoolContextProvider
-      poolOptions={{
-        workerFactory: () => new Worker(new URL('@pierre/diffs/worker/worker.js', import.meta.url), { type: 'module' }),
-        poolSize: 2,
-      }}
-      highlighterOptions={{}}
-    >
       <div className="flex h-full min-h-0">
         {/* File tree sidebar */}
         <div className="w-56 shrink-0 border-r border-border/40 overflow-y-auto no-scrollbar py-1">
@@ -313,6 +310,5 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
           </Virtualizer>
         </div>
       </div>
-    </WorkerPoolContextProvider>
   );
 }
