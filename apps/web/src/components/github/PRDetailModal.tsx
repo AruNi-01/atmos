@@ -885,10 +885,17 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'discussion' && "hidden")}>
                   {(conversation.length > 0 || timelineLoading) && (
                     <div className="flex flex-col gap-0 relative">
-                      {timelineLoading && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-4">
-                          <Loader2 className="size-3 animate-spin" />
-                          {conversation.length > 0 ? `${conversation.length} loaded…` : 'Loading…'}
+                      {timelineLoading && conversation.length === 0 && (
+                        <div className="flex flex-col gap-6 pt-2">
+                          {[0, 1, 2, 3].map((i) => (
+                            <div key={i} className="flex gap-4 items-start">
+                              <Skeleton className="size-8 rounded-full shrink-0" />
+                              <div className="flex-1 space-y-2">
+                                <Skeleton className="h-3 w-1/3 rounded" />
+                                <Skeleton className="h-16 w-full rounded-lg" />
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
 
