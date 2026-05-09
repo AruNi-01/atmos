@@ -303,7 +303,7 @@ export function DiffFileTree({
       className={cn("w-full overflow-y-auto pr-1", className)}
       style={style}
     >
-      <AnimatePresence initial={false}>
+      <AnimatePresence>
       {rows.map((row) => {
         const file = row.type === "file" ? row.file : undefined;
         const isSelected = !!file && selectedPath === row.path;
@@ -333,7 +333,7 @@ export function DiffFileTree({
           <motion.div
             key={`${row.type}:${row.id}`}
             initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 28 }}
+            animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
             style={{ overflow: 'hidden' }}
