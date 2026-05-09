@@ -1266,7 +1266,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       {commentTab === 'write' ? (
                         <Textarea
                           placeholder="Leave a comment"
-                          className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent"
+                          className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent dark:bg-transparent"
                           value={comment}
                           onChange={(e) => setComment(e.target.value)}
                         />
