@@ -25,6 +25,8 @@ import {
   Maximize,
   Minimize,
   SquareTerminal,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react";
 
 import {
@@ -688,8 +690,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       case "close":
         requestCloseTerminal(focusedPaneId);
         break;
+      case "previous-panel":
+        focusPaneByOffset(-1);
+        break;
+      case "next-panel":
+        focusPaneByOffset(1);
+        break;
     }
-  }, [getFocusedPaneId, onNewTerminalTab, onToggleMaximize, requestCloseTerminal, splitFocusedTerminal]);
+  }, [getFocusedPaneId, onNewTerminalTab, onToggleMaximize, requestCloseTerminal, splitFocusedTerminal, focusPaneByOffset]);
 
   const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
@@ -1060,6 +1068,17 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           <ClipboardPaste className="size-4 mr-2 text-muted-foreground" />
           <span>Paste</span>
           <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleContextMenuAction("previous-panel")} className="cursor-pointer">
+          <ArrowLeft className="size-4 mr-2 text-muted-foreground" />
+          <span>Previous Panel</span>
+          <DropdownMenuShortcut>⌘[</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleContextMenuAction("next-panel")} className="cursor-pointer">
+          <ArrowRight className="size-4 mr-2 text-muted-foreground" />
+          <span>Next Panel</span>
+          <DropdownMenuShortcut>⌘]</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleContextMenuAction("split-horizontal")} className="cursor-pointer">
