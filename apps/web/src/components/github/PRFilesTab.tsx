@@ -58,7 +58,7 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
         {first?.line != null ? `Line ${first.line}` : 'Comment'}
       </div>
       {thread.map((c, i) => (
-        <div key={c.id ?? i} className="px-3 py-2 border-b border-border/20 last:border-0">
+        <div key={c.id ?? i} className="px-3 py-2 border-b border-border/20 last:border-0 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Avatar className="size-4 border border-border/50">
               <AvatarImage src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`} />
@@ -71,7 +71,7 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
               </span>
             )}
           </div>
-          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed">
+          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed break-words">
             {c.body ?? ''}
           </MarkdownRenderer>
         </div>
@@ -296,8 +296,8 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         {treeVisible && <PanelResizeHandle className="w-px bg-border/40 hover:bg-primary/40 transition-colors" />}
 
         <Panel>
-        <ScrollArea className="h-full">
-        <div ref={scrollContainerRef} className="p-2 pb-20">
+        <div className="h-full overflow-auto">
+        <div ref={scrollContainerRef} className="p-2 pb-20 min-w-0">
           <Virtualizer>
             {files.map((file) => (
               <div key={file.filename} id={`pr-diff-${file.filename}`}>
@@ -316,7 +316,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             ))}
           </Virtualizer>
         </div>
-        </ScrollArea>
+        </div>
         </Panel>
       </PanelGroup>
     </div>
