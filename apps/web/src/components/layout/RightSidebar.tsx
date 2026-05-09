@@ -25,7 +25,7 @@ import {
   GitBranch,
   GitCommit as GitCommitIcon,
   File,
-  FileCheckCorner,
+  ScanSearch,
   FolderOpen,
   FolderTree,
   List,
@@ -86,7 +86,7 @@ const BASE_TABS: Array<{
   Icon: React.ComponentType<{ className?: string }>;
 }> = [
   { value: "changes", label: "Changes", Icon: GitBranch },
-  { value: "review", label: "Review", Icon: FileCheckCorner },
+  { value: "review", label: "Review", Icon: ScanSearch },
   { value: "run-preview", label: "Run / Preview", Icon: Play },
   { value: "pr", label: "Pull Requests", Icon: GitPullRequest },
   { value: "actions", label: "Actions", Icon: Workflow },
@@ -116,10 +116,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const { projectFilesSide, loaded: layoutLoaded, loadSettings: loadLayoutSettings } = useLayoutSettings();
   useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
   const showFilesTab = projectFilesSide === "right";
-  const topTabs = useMemo(
-    () => (showFilesTab ? [FILES_TAB, ...BASE_TABS] : BASE_TABS),
-    [showFilesTab],
-  );
+  const topTabs = useMemo(() => {
+    if (!showFilesTab) return BASE_TABS;
+    const idx = BASE_TABS.findIndex((t) => t.value === "run-preview");
+    return [...BASE_TABS.slice(0, idx + 1), FILES_TAB, ...BASE_TABS.slice(idx + 1)];
+  }, [showFilesTab]);
 
   const currentProject = useMemo(
     () =>

@@ -452,7 +452,9 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   className="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
                   dir="rtl"
                 >
-                  {dirPath ? `${dirPath}/` : ""}
+                  <bdi>
+                    {dirPath ? `${dirPath}/` : ""}
+                  </bdi>
                 </span>
 
                 <div className="flex items-center h-4 shrink min-w-0 overflow-hidden">

@@ -227,6 +227,9 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
       {revision.files.map((file) => {
         const path = file.snapshot.file_path;
         const fileName = path.split("/").pop() || path;
+        const parts = path.split("/");
+        parts.pop();
+        const dirPath = parts.join("/");
         const isCurrent = path === currentFilePath;
         const status = file.snapshot.git_status;
         return (
@@ -256,7 +259,18 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
               title={path}
             >
               <FileIcon name={fileName} className="size-4 shrink-0" />
-              <span className="truncate text-foreground">{path}</span>
+              <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0">
+                {fileName}
+              </span>
+
+              <span
+                className="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
+                dir="rtl"
+              >
+                <bdi>
+                  {dirPath ? `${dirPath}/` : ""}
+                </bdi>
+              </span>
               {file.open_comment_count > 0 && (
                 <span className="flex items-center gap-0.5 text-muted-foreground shrink-0">
                   <MessageSquare className="size-3" />
