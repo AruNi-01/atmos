@@ -154,6 +154,8 @@ export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: str
   }, [owner, repo, prNumber, send]);
 
   useEffect(() => {
+    setItems([]);
+    setHasMore(false);
     if (!enabled || !owner || !repo || !prNumber) return;
     nextPageRef.current = 1;
     void fetchPage(1);

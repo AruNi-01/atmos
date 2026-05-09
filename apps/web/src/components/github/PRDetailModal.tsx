@@ -469,12 +469,18 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
   // Reset tab state when modal opens/closes or PR changes
   React.useEffect(() => {
+    setActiveMainTab('description');
+    setHasVisitedDiscussion(false);
+    setHasVisitedCommits(false);
+  }, [prNumber]);
+
+  React.useEffect(() => {
     if (!isOpen) {
       setActiveMainTab('description');
       setHasVisitedDiscussion(false);
       setHasVisitedCommits(false);
     }
-  }, [isOpen, prNumber]);
+  }, [isOpen]);
 
   const reviewComments = sidebarData?.review_comments;
   const reviewCommentThreadsByReviewId = React.useMemo(() => {
