@@ -195,7 +195,7 @@ export const PRPanel = React.forwardRef<PRPanelHandle, PRPanelProps>(function PR
 
                       <div className="flex items-center gap-1.5">
                         <MessageSquare className="size-3" />
-                        <span className="font-mono tabular-nums">{pr.comments?.length || 0}</span>
+                        <span className="font-mono tabular-nums">{(pr.comments?.length || 0) + (pr.reviews?.length || 0)}</span>
                       </div>
 
                       <div className="flex items-center gap-1.5">

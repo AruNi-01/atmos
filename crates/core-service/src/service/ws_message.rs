@@ -3896,7 +3896,7 @@ set -x
             "--head", &req.branch, 
             "--state", &state, 
             "--limit", "30", 
-            "--json", "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits"
+            "--json", "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits,reviews"
         ];
 
         // Fetch PRs where current branch is the BASE (incoming)
@@ -3906,7 +3906,7 @@ set -x
             "--base", &req.branch, 
             "--state", &state, 
             "--limit", "30", 
-            "--json", "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits"
+            "--json", "number,title,state,mergeable,reviewDecision,baseRefName,headRefName,createdAt,url,author,isDraft,comments,commits,reviews"
         ];
 
         let (head_res, base_res) = tokio::join!(
