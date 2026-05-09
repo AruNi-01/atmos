@@ -740,16 +740,16 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       {pr.baseRefName || 'main'}
                     </span>
                     <span>from</span>
-                    <span className="inline-flex items-center gap-1 bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono shadow-sm group/branch">
-                      <span className="truncate max-w-[200px]">{pr.headRefName || branch}</span>
-                      <button
-                        className="opacity-0 group-hover/branch:opacity-100 transition-opacity shrink-0"
-                        onClick={() => navigator.clipboard.writeText(pr.headRefName || branch)}
-                        title="Copy branch name"
-                      >
-                        <Copy className="size-3" />
-                      </button>
+                    <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
+                      {pr.headRefName || branch}
                     </span>
+                    <button
+                      className="text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
+                      onClick={() => navigator.clipboard.writeText(pr.headRefName || branch)}
+                      title="Copy branch name"
+                    >
+                      <Copy className="size-3" />
+                    </button>
                   </div>
                 </div>
 
