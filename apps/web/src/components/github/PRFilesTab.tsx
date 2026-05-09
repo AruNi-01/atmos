@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from 'react';
-import { PatchDiff, WorkerPoolContextProvider, Virtualizer } from '@pierre/diffs/react';
+import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
 import { getFileIconProps } from '@workspace/ui';
 import { Avatar, AvatarImage, AvatarFallback, Skeleton } from '@workspace/ui';
@@ -82,13 +82,15 @@ function FileDiffItem({
   file,
   threads,
   options,
+  defaultExpanded = false,
 }: {
   file: PrFile;
   threads: ReviewComment[][];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options: any;
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const fileName = file.filename.split('/').pop() ?? file.filename;
 
   return (
@@ -256,11 +258,11 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
   const isDark = resolvedTheme === 'dark' || (!resolvedTheme && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const diffOptions = useMemo(() => ({
-    theme: (isDark ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
+    theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
     diffStyle: 'unified' as const,
     overflow: 'wrap' as const,
     disableFileHeader: true,
-  }), [isDark]);
+  }), [resolvedTheme]);
 
   const commentsByPath = useMemo(() => groupCommentsByPath(reviewComments), [reviewComments]);
   const tree = useMemo(() => buildTree(files, commentsByPath), [files, commentsByPath]);
@@ -286,13 +288,6 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   }
 
   return (
-    <WorkerPoolContextProvider
-      poolOptions={{
-        workerFactory: () => new Worker('/pierre-diffs-worker.js', { type: 'module' }),
-        poolSize: 2,
-      }}
-      highlighterOptions={{}}
-    >
       <div className="flex h-full min-h-0">
         {/* File tree sidebar */}
         <div className="w-56 shrink-0 border-r border-border/40 overflow-y-auto no-scrollbar py-1">
@@ -304,18 +299,18 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         {/* Diff area */}
         <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-y-auto no-scrollbar p-2">
           <Virtualizer>
-            {files.map(file => (
+            {files.map((file, idx) => (
               <div key={file.filename} id={`pr-diff-${file.filename}`}>
                 <FileDiffItem
                   file={file}
                   threads={commentsByPath.get(file.filename) ?? []}
                   options={diffOptions}
+                  defaultExpanded={idx < 3}
                 />
               </div>
             ))}
           </Virtualizer>
         </div>
       </div>
-    </WorkerPoolContextProvider>
   );
 }
