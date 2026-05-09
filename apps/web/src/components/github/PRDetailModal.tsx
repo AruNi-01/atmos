@@ -461,7 +461,7 @@ const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ th
                       </span>
                     )}
                   </div>
-                  <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed">
+                  <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:my-2">
                     {comment.body || ''}
                   </MarkdownRenderer>
                 </div>
@@ -931,7 +931,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'description' && "hidden")}>
                   {pr.body && (
                     <div className="p-4 rounded-md border border-border/50 text-[13px] shrink-0">
-                      <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
+                      <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:my-2">
                         {pr.body}
                       </MarkdownRenderer>
                     </div>
@@ -1060,7 +1060,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                       </div>
                                       {item.body ? (
                                         <div className="p-4 bg-background">
-                                          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
+                                          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:my-2">
                                             {item.body}
                                           </MarkdownRenderer>
                                         </div>
