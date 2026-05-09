@@ -3,6 +3,7 @@ import type { SkillInfo } from '@/api/ws-api';
 // Agent display names
 export const AGENT_CONFIG: Record<string, { name: string }> = {
   unified: { name: 'Unified' },
+  atmos: { name: 'Atmos' },
   amp: { name: 'Amp' },
   antigravity: { name: 'Antigravity' },
   augment: { name: 'Augment' },

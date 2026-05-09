@@ -15,6 +15,7 @@ export const SkillAgentBadge: React.FC<SkillAgentBadgeProps> = ({ agent, status,
   const config = getAgentConfig(agent);
   const registryId = getAgentRegistryId(agent);
   const isUnified = agent === 'unified';
+  const isAtmos = agent === 'atmos';
   const isDisabled = status === 'disabled';
 
   const badge = (
@@ -25,7 +26,7 @@ export const SkillAgentBadge: React.FC<SkillAgentBadgeProps> = ({ agent, status,
       )}
     >
       {isDisabled && <EyeOff className="size-3 text-muted-foreground mr-0.5" />}
-      {isUnified ? (
+      {isUnified || isAtmos ? (
         <Bot className="size-4 text-muted-foreground" />
       ) : registryId ? (
         <AgentIcon registryId={registryId} name={config.name} size={16} />
