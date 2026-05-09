@@ -190,7 +190,23 @@ function buildTree(files: PrFile[], commentsByPath: Map<string, ReviewComment[][
   }
   propagate(root);
 
-  return root;
+  // Compact single-child dir chains (e.g. "apps" > "web" > "src" → "apps/web/src")
+  function compact(nodes: TreeNode[]): TreeNode[] {
+    return nodes.map(node => {
+      if (!node.isDir) return node;
+      node.children = compact(node.children);
+      while (node.children.length === 1 && node.children[0].isDir) {
+        const child = node.children[0];
+        node.name = `${node.name}/${child.name}`;
+        node.path = child.path;
+        node.children = child.children;
+        node.commentCount = child.commentCount;
+      }
+      return node;
+    });
+  }
+
+  return compact(root);
 }
 
 function TreeNodeItem({
@@ -204,7 +220,7 @@ function TreeNodeItem({
   onSelect: (path: string) => void;
   depth?: number;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   if (node.isDir) {
     return (
