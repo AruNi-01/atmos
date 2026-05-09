@@ -359,11 +359,15 @@ function ChecksSection({ checks }: { checks: StatusCheck[] }) {
   return (
     <div className="flex flex-col gap-2">
       <button
-        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left"
+        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left group"
         onClick={() => setOpen(v => !v)}
       >
-        <ChevronRight className={cn("size-3 shrink-0 transition-transform", open && "rotate-90")} />
-        {allPassed ? <CheckCircle2 className="size-3.5 text-emerald-500" /> : <AlertCircle className="size-3.5 text-amber-500" />}
+        <div className="relative size-3.5 shrink-0">
+          {allPassed
+            ? <CheckCircle2 className="absolute inset-0 size-3.5 text-emerald-500 transition-opacity duration-150 group-hover:opacity-0" />
+            : <AlertCircle className="absolute inset-0 size-3.5 text-amber-500 transition-opacity duration-150 group-hover:opacity-0" />}
+          <ChevronRight className={cn("absolute inset-0 size-3.5 opacity-0 transition-all duration-150 group-hover:opacity-100", open && "rotate-90")} />
+        </div>
         <span>Checks</span>
         <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">{passedCount}/{checks.length}</span>
       </button>
