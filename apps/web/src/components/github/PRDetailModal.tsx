@@ -28,7 +28,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@workspace/ui';
-import { MultiFileDiff, WorkerPoolContextProvider } from '@pierre/diffs/react';
+import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline } from '@/hooks/use-github';
@@ -669,10 +669,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   };
 
   return (
-    <WorkerPoolContextProvider
-      poolOptions={{ workerFactory: () => new Worker(new URL('@pierre/diffs/worker/worker.js', import.meta.url), { type: 'module' }), poolSize: 2 }}
-      highlighterOptions={{}}
-    >
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
@@ -1647,6 +1643,5 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
         </div>
       </DialogContent>
     </Dialog>
-    </WorkerPoolContextProvider>
   );
 }
