@@ -3,12 +3,12 @@
 import React, { useMemo, useState } from 'react';
 import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
-import { getFileIconProps } from '@workspace/ui';
-import { Avatar, AvatarImage, AvatarFallback, Skeleton } from '@workspace/ui';
-import { ChevronRight, ChevronDown, MessageSquare, Plus, Minus } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps } from '@workspace/ui';
+import { MessageSquare, Plus, Minus, ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
+import { DiffFileTree } from '@/components/diff/DiffFileTree';
 import type { PrFile } from '@/hooks/use-github';
 
 interface ReviewComment {
@@ -138,141 +138,11 @@ function FileDiffItem({
 }
 
 // Simple file tree node
-interface TreeNode {
-  name: string;
-  path: string;
-  isDir: boolean;
-  children: TreeNode[];
-  file?: PrFile;
-  commentCount: number;
-}
-
-function buildTree(files: PrFile[], commentsByPath: Map<string, ReviewComment[][]>): TreeNode[] {
-  const root: TreeNode[] = [];
-  const dirMap = new Map<string, TreeNode>();
-
-  for (const file of files) {
-    const parts = file.filename.split('/');
-    let current = root;
-    let pathSoFar = '';
-
-    for (let i = 0; i < parts.length - 1; i++) {
-      pathSoFar = pathSoFar ? `${pathSoFar}/${parts[i]}` : parts[i];
-      if (!dirMap.has(pathSoFar)) {
-        const node: TreeNode = { name: parts[i], path: pathSoFar, isDir: true, children: [], commentCount: 0 };
-        dirMap.set(pathSoFar, node);
-        current.push(node);
-      }
-      current = dirMap.get(pathSoFar)!.children;
-    }
-
-    const threads = commentsByPath.get(file.filename) ?? [];
-    current.push({
-      name: parts[parts.length - 1],
-      path: file.filename,
-      isDir: false,
-      children: [],
-      file,
-      commentCount: threads.length,
-    });
-  }
-
-  // Propagate comment counts up
-  function propagate(nodes: TreeNode[]): number {
-    let total = 0;
-    for (const n of nodes) {
-      if (n.isDir) {
-        n.commentCount = propagate(n.children);
-      }
-      total += n.commentCount;
-    }
-    return total;
-  }
-  propagate(root);
-
-  // Compact single-child dir chains (e.g. "apps" > "web" > "src" → "apps/web/src")
-  function compact(nodes: TreeNode[]): TreeNode[] {
-    return nodes.map(node => {
-      if (!node.isDir) return node;
-      node.children = compact(node.children);
-      while (node.children.length === 1 && node.children[0].isDir) {
-        const child = node.children[0];
-        node.name = `${node.name}/${child.name}`;
-        node.path = child.path;
-        node.children = child.children;
-        node.commentCount = child.commentCount;
-      }
-      return node;
-    });
-  }
-
-  return compact(root);
-}
-
-function TreeNodeItem({
-  node,
-  selectedPath,
-  onSelect,
-  depth = 0,
-}: {
-  node: TreeNode;
-  selectedPath: string | null;
-  onSelect: (path: string) => void;
-  depth?: number;
-}) {
-  const [open, setOpen] = useState(false);
-
-  if (node.isDir) {
-    return (
-      <div>
-        <button
-          className="flex items-center gap-1.5 w-full px-2 py-1 hover:bg-muted/40 transition-colors text-left text-[12px] text-muted-foreground"
-          style={{ paddingLeft: `${8 + depth * 12}px` }}
-          onClick={() => setOpen(v => !v)}
-        >
-          {open ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />}
-          <img {...getFileIconProps({ name: node.name, isDir: true })} className="size-4 shrink-0" />
-          <span className="truncate">{node.name}</span>
-          {node.commentCount > 0 && (
-            <span className="ml-auto text-[10px] text-muted-foreground/60 flex items-center gap-0.5 shrink-0">
-              <MessageSquare className="size-2.5" />{node.commentCount}
-            </span>
-          )}
-        </button>
-        {open && node.children.map(child => (
-          <TreeNodeItem key={child.path} node={child} selectedPath={selectedPath} onSelect={onSelect} depth={depth + 1} />
-        ))}
-      </div>
-    );
-  }
-
-  const isSelected = selectedPath === node.path;
-  return (
-    <button
-      className={cn(
-        "flex items-center gap-1.5 w-full px-2 py-1 transition-colors text-left text-[12px]",
-        isSelected ? "bg-muted text-foreground" : "hover:bg-muted/40 text-muted-foreground hover:text-foreground"
-      )}
-      style={{ paddingLeft: `${8 + depth * 12}px` }}
-      onClick={() => onSelect(node.path)}
-    >
-      <img {...getFileIconProps({ name: node.name, isDir: false })} className="size-4 shrink-0" />
-      <span className="truncate flex-1">{node.name}</span>
-      {node.commentCount > 0 && (
-        <span className="text-[10px] text-muted-foreground/60 flex items-center gap-0.5 shrink-0">
-          <MessageSquare className="size-2.5" />{node.commentCount}
-        </span>
-      )}
-    </button>
-  );
-}
-
 export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }: PRFilesTabProps) {
   const { resolvedTheme } = useTheme();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
-  const isDark = resolvedTheme === 'dark' || (!resolvedTheme && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const diffOptions = useMemo(() => ({
     theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
     diffStyle: 'unified' as const,
@@ -281,12 +151,16 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   }), [resolvedTheme]);
 
   const commentsByPath = useMemo(() => groupCommentsByPath(reviewComments), [reviewComments]);
-  const tree = useMemo(() => buildTree(files, commentsByPath), [files, commentsByPath]);
+
+  const treeItems = useMemo(() => files.map(f => ({
+    path: f.filename,
+    additions: f.additions,
+    deletions: f.deletions,
+  })), [files]);
 
   const handleSelect = (path: string) => {
     setSelectedPath(path);
-    const id = `pr-diff-${CSS.escape(path)}`;
-    const el = scrollContainerRef.current?.querySelector(`#${id}`);
+    const el = scrollContainerRef.current?.querySelector(`#pr-diff-${CSS.escape(path)}`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -307,9 +181,21 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
       <div className="flex h-full min-h-0">
         {/* File tree sidebar */}
         <div className="w-56 shrink-0 border-r border-border/40 overflow-y-auto no-scrollbar py-1">
-          {tree.map(node => (
-            <TreeNodeItem key={node.path} node={node} selectedPath={selectedPath} onSelect={handleSelect} />
-          ))}
+          <DiffFileTree
+            items={treeItems}
+            selectedPath={selectedPath ?? undefined}
+            ariaLabel="PR changed files"
+            renderFileInlineDecoration={(item) => {
+              const count = commentsByPath.get(item.path)?.length ?? 0;
+              if (!count) return null;
+              return (
+                <span className="ml-1 flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0">
+                  <MessageSquare className="size-3" />{count}
+                </span>
+              );
+            }}
+            onSelectFile={handleSelect}
+          />
         </div>
 
         {/* Diff area */}
