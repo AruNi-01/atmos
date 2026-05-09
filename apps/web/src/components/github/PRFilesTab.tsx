@@ -168,12 +168,6 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   const [treeVisible, setTreeVisible] = useState(true);
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
   const [wordWrap, setWordWrap] = useState(true);
-
-  // Force layout recalculation after mount so PatchDiff measures correct width
-  React.useEffect(() => {
-    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
-    return () => clearTimeout(t);
-  }, []);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(() => new Set());
 

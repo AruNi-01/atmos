@@ -913,7 +913,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                     setActiveMainTab(tab);
                     if (tab === 'discussion') setHasVisitedDiscussion(true);
                     if (tab === 'commits') setHasVisitedCommits(true);
-                    if (tab === 'files') setHasVisitedFiles(true);
+                    if (tab === 'files') { setHasVisitedFiles(true); setIsSidebarCollapsed(true); }
                   }}
                   className="shrink-0 pt-1"
                 >
