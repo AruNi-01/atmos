@@ -1934,8 +1934,10 @@ export const skillsApi = {
   /**
    * 获取已安装的 Skills 列表
    */
-  list: async (): Promise<{ skills: SkillInfo[] }> => {
-    return wsRequest<{ skills: SkillInfo[] }>("skills_list");
+  list: async (options?: { forceRefresh?: boolean }): Promise<{ skills: SkillInfo[] }> => {
+    return wsRequest<{ skills: SkillInfo[] }>("skills_list", {
+      force_refresh: options?.forceRefresh ?? false,
+    });
   },
 
   /**

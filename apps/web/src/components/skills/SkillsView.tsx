@@ -437,7 +437,7 @@ export const SkillsView: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const result = await skillsApi.list();
+      const result = await skillsApi.list({ forceRefresh: force });
       setSkills(result.skills || []);
     } catch (error) {
       console.error("Failed to load skills:", error);
