@@ -52,28 +52,30 @@ function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComme
 function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
   const first = thread[0];
   return (
-    <div className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px]">
+    <div className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px] max-w-full">
       <div className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex items-center gap-1.5">
-        <MessageSquare className="size-3" />
+        <MessageSquare className="size-3 shrink-0" />
         {first?.line != null ? `Line ${first.line}` : 'Comment'}
       </div>
       {thread.map((c, i) => (
-        <div key={c.id ?? i} className="px-3 py-2 border-b border-border/20 last:border-0 min-w-0">
+        <div key={c.id ?? i} className="px-3 py-2 border-b border-border/20 last:border-0 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
-            <Avatar className="size-4 border border-border/50">
+            <Avatar className="size-4 border border-border/50 shrink-0">
               <AvatarImage src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`} />
               <AvatarFallback className="text-[6px]">{c.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <span className="font-semibold text-foreground/90">{c.user?.login}</span>
+            <span className="font-semibold text-foreground/90 truncate">{c.user?.login}</span>
             {c.created_at && (
-              <span className="text-[10px] text-muted-foreground/60 ml-auto">
+              <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
                 {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
               </span>
             )}
           </div>
-          <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed break-words">
-            {c.body ?? ''}
-          </MarkdownRenderer>
+          <div className="overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+            <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto [&_code]:break-all">
+              {c.body ?? ''}
+            </MarkdownRenderer>
+          </div>
         </div>
       ))}
     </div>
