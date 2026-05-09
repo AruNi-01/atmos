@@ -772,7 +772,9 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 >
                   <TabsList variant="underline" className="w-fit gap-0">
                     <TabsTab value="description" className="text-[12px] px-3 h-8">Description</TabsTab>
-                    <TabsTab value="discussion" className="text-[12px] px-3 h-8">Discussion</TabsTab>
+                    <TabsTab value="discussion" className="text-[12px] px-3 h-8">
+                      Discussion{pr.totalCommentsCount != null ? ` (${pr.totalCommentsCount})` : ''}
+                    </TabsTab>
                     <TabsTab value="commits" className="text-[12px] px-3 h-8">Commits ({pr.commits?.length || 0})</TabsTab>
                   </TabsList>
                 </Tabs>
