@@ -126,9 +126,20 @@ const IDLE_SHELL_COMMANDS = new Set([
   "xonsh",
 ]);
 
+const RUNTIME_WRAPPER_COMMANDS = new Set([
+  "node",
+  "bun",
+  "deno",
+]);
+
 function isIdleShellCommand(command: string | null | undefined): boolean {
   const normalized = command?.trim().split("/").filter(Boolean).pop()?.toLowerCase();
   return Boolean(normalized && IDLE_SHELL_COMMANDS.has(normalized));
+}
+
+function isRuntimeWrapperTitle(value: string | undefined): boolean {
+  const normalized = value?.trim().split(/\s+/)[0]?.split("/").filter(Boolean).pop()?.toLowerCase();
+  return Boolean(normalized && RUNTIME_WRAPPER_COMMANDS.has(normalized));
 }
 
 function flattenMosaicLayout(layout: MosaicNode<string> | null): string[] {
@@ -499,6 +510,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return;
 
+    if (isPathLikeTitle(pane.dynamicTitle)) {
+      removeTerminal(id);
+      return;
+    }
+
     // If the tmux window is currently sitting at a shell prompt, close directly.
     // If we cannot determine this confidently, fall back to confirmation.
     if (pane.tmuxWindowName) {
@@ -708,18 +724,18 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const labelAgent = dynamicTitleIsVersion
       ? resolveAgentForLabel(pane.label, configuredAgents)
       : undefined;
-    const fallbackAgent = !pane.dynamicTitle
+    const fallbackAgent = isRuntimeWrapperTitle(pane.dynamicTitle)
       ? pane.agent
       : dynamicTitleIsVersion
       ? labelAgent ?? pane.agent
       : undefined;
     const toolbarAgent = matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
-    const displayTitle = toolbarAgent?.label ?? (dynamicTitleIsVersion ? pane.label : pane.dynamicTitle) ?? pane.label;
+    const displayTitle = toolbarAgent?.label ?? (dynamicTitleIsVersion ? pane.label : pane.dynamicTitle);
 
     return (
       <MosaicWindow<string>
         path={path}
-        title={displayTitle}
+        title={displayTitle ?? ""}
         className={cn(
           maximizedId === id && "is-maximized",
           hasMultiplePanes && (effectiveActivePaneId === id ? "is-active-pane" : "is-inactive-pane"),
@@ -738,9 +754,11 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                   <TerminalIcon className="size-3.5 text-muted-foreground" />
                 )}
 
-                <span className="terminal-mosaic-title flex items-center gap-1.5 ml-0.5">
-                  {displayTitle}
-                </span>
+                {displayTitle ? (
+                  <span className="terminal-mosaic-title flex items-center gap-1.5 ml-0.5">
+                    {displayTitle}
+                  </span>
+                ) : null}
                 <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
               </div>
 
