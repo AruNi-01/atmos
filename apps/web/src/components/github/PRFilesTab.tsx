@@ -52,7 +52,7 @@ function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComme
 function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
   const first = thread[0];
   return (
-    <div className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px] max-w-full" style={{ marginLeft: '3.5rem', marginRight: '0.5rem' }}>
+    <div className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px]" style={{ width: 'calc(100% - 3.5rem - 1rem)' }}>
       <div className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex items-center gap-1.5">
         <MessageSquare className="size-3 shrink-0" />
         {first?.line != null ? `Line ${first.line}` : 'Comment'}
