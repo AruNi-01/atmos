@@ -178,13 +178,13 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [treeVisible, setTreeVisible] = useState(true);
   const [treeWidth, setTreeWidth] = useState(224);
-  const isDragging = React.useRef(false);
+  const [isResizing, setIsResizing] = useState(false);
   const onResizeDragStart = (e: React.MouseEvent) => {
     e.preventDefault();
-    isDragging.current = true;
+    setIsResizing(true);
     const startX = e.clientX, startW = treeWidth;
-    const onMove = (ev: MouseEvent) => { if (isDragging.current) setTreeWidth(Math.max(140, Math.min(480, startW + ev.clientX - startX))); };
-    const onUp = () => { isDragging.current = false; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    const onMove = (ev: MouseEvent) => setTreeWidth(Math.max(140, Math.min(480, startW + ev.clientX - startX)));
+    const onUp = () => { setIsResizing(false); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
@@ -295,7 +295,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: treeWidth, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            transition={isResizing ? { duration: 0 } : { duration: 0.2, ease: 'easeInOut' }}
             className="shrink-0 overflow-hidden"
           >
             <ScrollArea className="h-full py-1 border-r border-border/40" style={{ width: treeWidth }}>
@@ -321,7 +321,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
         {treeVisible && (
           <div
-            className="w-1 shrink-0 cursor-col-resize hover:bg-primary/40 bg-border/40 transition-colors"
+            className="w-px shrink-0 cursor-col-resize hover:bg-primary/40 bg-border/40 transition-colors"
             onMouseDown={onResizeDragStart}
           />
         )}
