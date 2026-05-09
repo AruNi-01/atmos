@@ -21,6 +21,10 @@ import {
   Maximize2,
   AlertTriangle,
   Terminal as TerminalIcon,
+  ClipboardPaste,
+  Maximize,
+  Minimize,
+  SquareTerminal,
 } from "lucide-react";
 
 import {
@@ -34,6 +38,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
   cn,
 } from "@workspace/ui";
@@ -203,6 +209,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const [isPaneDragging, setIsPaneDragging] = React.useState(false);
   const [activePaneId, setActivePaneId] = React.useState<string | null>(null);
   const [closeConfirmPaneId, setCloseConfirmPaneId] = React.useState<string | null>(null);
+  const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isProjectWiki = scope === "project-wiki";
@@ -548,6 +555,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     splitTerminal(paneId, direction);
   }, [getFocusedPaneId, splitTerminal]);
 
+  const onToggleMaximize = useCallback((id: string) => {
+    if (isCodeReview || isProjectWiki) {
+      toggleMaximizeForScope(workspaceId, id);
+      return;
+    }
+    toggleMaximizeForScope(workspaceId, id, terminalTabId);
+  }, [workspaceId, toggleMaximizeForScope, isCodeReview, isProjectWiki, terminalTabId]);
+
   const terminalHotkeyScopeRef = React.useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -586,6 +601,16 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         return;
       }
 
+      if (event.shiftKey && (event.key.toLowerCase() === "f" || event.code === "KeyF")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const focusedPaneId = getFocusedPaneId();
+        if (focusedPaneId) {
+          onToggleMaximize(focusedPaneId);
+        }
+        return;
+      }
+
       if (!event.shiftKey && (event.key === "[" || event.code === "BracketLeft")) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -604,7 +629,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     return () => {
       window.removeEventListener("keydown", handleTerminalNavigationHotkey, { capture: true });
     };
-  }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, requestCloseTerminal, splitFocusedTerminal]);
+  }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, onToggleMaximize, requestCloseTerminal, splitFocusedTerminal]);
 
   const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
     const newPaneId = splitTerminal(id, direction, agent);
@@ -626,13 +651,45 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }, 120);
   }, []);
 
-  const onToggleMaximize = useCallback((id: string) => {
-    if (isCodeReview || isProjectWiki) {
-      toggleMaximizeForScope(workspaceId, id);
-      return;
+  const handleContextMenu = useCallback((event: React.MouseEvent) => {
+    // Only show context menu when right-clicking inside the terminal mosaic container
+    // but not on toolbar buttons or other interactive elements
+    const target = event.target as HTMLElement;
+    if (target.closest("button") || target.closest(".terminal-mosaic-toolbar")) return;
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleContextMenuAction = useCallback((action: string) => {
+    setContextMenu(null);
+    const focusedPaneId = getFocusedPaneId();
+    switch (action) {
+      case "new-tab":
+        onNewTerminalTab?.();
+        break;
+      case "paste": {
+        const termRef = focusedPaneId ? terminalRefsMap.current.get(focusedPaneId) : null;
+        if (termRef) {
+          void termRef.paste();
+        }
+        break;
+      }
+      case "split-horizontal":
+        splitFocusedTerminal("row");
+        break;
+      case "split-vertical":
+        splitFocusedTerminal("column");
+        break;
+      case "maximize":
+        if (focusedPaneId) {
+          onToggleMaximize(focusedPaneId);
+        }
+        break;
+      case "close":
+        requestCloseTerminal(focusedPaneId);
+        break;
     }
-    toggleMaximizeForScope(workspaceId, id, terminalTabId);
-  }, [workspaceId, toggleMaximizeForScope, isCodeReview, isProjectWiki, terminalTabId]);
+  }, [getFocusedPaneId, onNewTerminalTab, onToggleMaximize, requestCloseTerminal, splitFocusedTerminal]);
 
   const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
@@ -918,21 +975,23 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const closeConfirmTitle = closeConfirmPane?.dynamicTitle ?? closeConfirmPane?.label ?? "Terminal";
 
   return (
-    <div
-      ref={terminalHotkeyScopeRef}
-      tabIndex={-1}
-      className={cn("terminal-mosaic-container", className)}
-      data-maximized-id={maximizedId || undefined}
-      data-pane-dragging={isPaneDragging ? "true" : undefined}
-    >
-      <Mosaic<string>
-        renderTile={renderTile}
-        value={layout}
-        onChange={onChange}
-        className="atmos-mosaic-theme"
-      />
+    <>
+      <div
+        ref={terminalHotkeyScopeRef}
+        tabIndex={-1}
+        className={cn("terminal-mosaic-container", className)}
+        data-maximized-id={maximizedId || undefined}
+        data-pane-dragging={isPaneDragging ? "true" : undefined}
+        onContextMenu={handleContextMenu}
+      >
+        <Mosaic<string>
+          renderTile={renderTile}
+          value={layout}
+          onChange={onChange}
+          className="atmos-mosaic-theme"
+        />
 
-      <Dialog
+        <Dialog
         open={!!closeConfirmPaneId}
         onOpenChange={(open) => {
           if (!open) cancelCloseTerminal();
@@ -972,6 +1031,72 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         </DialogContent>
       </Dialog>
     </div>
+
+    <DropdownMenu
+      open={!!contextMenu}
+      onOpenChange={(open) => {
+        if (!open) setContextMenu(null);
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-hidden
+          className="fixed size-0 pointer-events-none"
+          style={{
+            left: contextMenu?.x ?? -9999,
+            top: contextMenu?.y ?? -9999,
+          }}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={4} className="w-56">
+        <DropdownMenuItem onClick={() => handleContextMenuAction("new-tab")} className="cursor-pointer">
+          <SquareTerminal className="size-4 mr-2 text-muted-foreground" />
+          <span>New Terminal Tab</span>
+          <DropdownMenuShortcut>⌘T</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleContextMenuAction("paste")} className="cursor-pointer">
+          <ClipboardPaste className="size-4 mr-2 text-muted-foreground" />
+          <span>Paste</span>
+          <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleContextMenuAction("split-horizontal")} className="cursor-pointer">
+          <Columns className="size-4 mr-2 text-muted-foreground" />
+          <span>Split Horizontal</span>
+          <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleContextMenuAction("split-vertical")} className="cursor-pointer">
+          <Rows className="size-4 mr-2 text-muted-foreground" />
+          <span>Split Vertical</span>
+          <DropdownMenuShortcut>⌘⇧D</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleContextMenuAction("maximize")} className="cursor-pointer">
+          {maximizedId ? (
+            <>
+              <Minimize className="size-4 mr-2 text-muted-foreground" />
+              <span>Restore Terminal</span>
+              <DropdownMenuShortcut>⌘⇧F</DropdownMenuShortcut>
+            </>
+          ) : (
+            <>
+              <Maximize className="size-4 mr-2 text-muted-foreground" />
+              <span>Maximize Terminal</span>
+              <DropdownMenuShortcut>⌘⇧F</DropdownMenuShortcut>
+            </>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleContextMenuAction("close")} className="cursor-pointer text-destructive focus:text-destructive">
+          <X className="size-4 mr-2" />
+          <span>Close Terminal</span>
+          <DropdownMenuShortcut>⌘W</DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </>
   );
 });
 

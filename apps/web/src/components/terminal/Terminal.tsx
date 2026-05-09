@@ -245,6 +245,8 @@ export interface TerminalRef {
   write: (data: string) => void;
   sendText: (data: string) => void;
   scrollToBottom: () => void;
+  /** Paste clipboard content into the terminal */
+  paste: () => Promise<void>;
   /** Destroy the terminal session (kills tmux window) */
   destroy: () => void;
 }
@@ -621,6 +623,22 @@ const Terminal = ({
       write: (data: string) => terminalRef.current?.write(data),
       sendText: (data: string) => sendInput(data),
       scrollToBottom: () => terminalRef.current?.scrollToBottom(),
+      paste: async () => {
+        const terminal = terminalRef.current;
+        if (!terminal) return;
+        try {
+          const text = await navigator.clipboard.readText();
+          if (!text) return;
+          // Convert newlines to \r (same as xterm.js prepareTextForTerminal)
+          const normalised = text.replace(/\r?\n/g, "\r");
+          // Wrap in bracketed paste markers so the TUI app treats
+          // the content as a literal paste, not typed keystrokes.
+          const wrapped = `\x1b[200~${normalised}\x1b[201~`;
+          terminal.input(wrapped, false);
+        } catch {
+          // Clipboard read failed — ignore
+        }
+      },
       destroy: () => {
         // Send destroy message to kill tmux window before disconnecting
         sendDestroy();
