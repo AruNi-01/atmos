@@ -81,7 +81,7 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
                 )}
               </div>
               <div className="overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto [&_code]:break-all prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-headings:my-2">
+                <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto [&_code]:break-all prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
                   {c.body ?? ''}
                 </MarkdownRenderer>
               </div>
