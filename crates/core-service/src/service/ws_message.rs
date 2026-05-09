@@ -4003,7 +4003,7 @@ set -x
             req.owner, req.repo, req.pr_number
         );
         let graphql_query = format!(
-            r#"query {{ repository(owner: "{}", name: "{}") {{ pullRequest(number: {}) {{ participants(first: 50) {{ nodes {{ login avatarUrl }} }} }} }} }}"#,
+            r#"query {{ repository(owner: "{}", name: "{}") {{ pullRequest(number: {}) {{ totalCommentsCount participants(first: 50) {{ nodes {{ login avatarUrl }} }} }} }} }}"#,
             req.owner, req.repo, req.pr_number
         );
         let graphql_query_arg = format!("query={}", graphql_query);
@@ -4029,19 +4029,24 @@ set -x
         }
 
         if let Some(gql) = participants_result {
-            if let Some(nodes) = gql
-                .pointer("/data/repository/pullRequest/participants/nodes")
-                .and_then(|v| v.as_array())
-            {
-                let participants: Vec<Value> = nodes
-                    .iter()
-                    .filter_map(|n| {
-                        let login = n.get("login")?.as_str()?;
-                        let avatar = n.get("avatarUrl").and_then(|a| a.as_str()).unwrap_or("");
-                        Some(json!({ "login": login, "avatar_url": avatar }))
-                    })
-                    .collect();
-                obj.insert("participants".to_string(), json!(participants));
+            if let Some(pr_node) = gql.pointer("/data/repository/pullRequest") {
+                if let Some(count) = pr_node.get("totalCommentsCount") {
+                    obj.insert("totalCommentsCount".to_string(), count.clone());
+                }
+                if let Some(nodes) = pr_node
+                    .pointer("/participants/nodes")
+                    .and_then(|v| v.as_array())
+                {
+                    let participants: Vec<Value> = nodes
+                        .iter()
+                        .filter_map(|n| {
+                            let login = n.get("login")?.as_str()?;
+                            let avatar = n.get("avatarUrl").and_then(|a| a.as_str()).unwrap_or("");
+                            Some(json!({ "login": login, "avatar_url": avatar }))
+                        })
+                        .collect();
+                    obj.insert("participants".to_string(), json!(participants));
+                }
             }
         }
 
