@@ -288,7 +288,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   return (
     <WorkerPoolContextProvider
       poolOptions={{
-        workerFactory: () => new Worker(new URL('../lib/pierre-diffs-worker.js', import.meta.url), { type: 'module' }),
+        workerFactory: () => new Worker('/pierre-diffs-worker.js', { type: 'module' }),
         poolSize: 2,
       }}
       highlighterOptions={{}}
