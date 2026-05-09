@@ -464,7 +464,7 @@
   padding: 0 !important; /* No padding on xterm mount — FitAddon uses clientWidth which includes padding */
   width: 100% !important;
   height: 100% !important;
-  border-radius: 0 0 8px 8px; /* Internal content rounding matches container */
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -564,6 +564,7 @@
   border: none !important;
   box-shadow: none !important;
   border-radius: 8px 8px 0 0 !important;
+  overflow: hidden;
 }
 
 .atmos-mosaic-theme .mosaic-window-toolbar.draggable {
