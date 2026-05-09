@@ -343,6 +343,41 @@ function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
   );
 }
 
+function ChecksSection({ checks }: { checks: StatusCheck[] }) {
+  const [open, setOpen] = React.useState(false);
+  const allPassed = checks.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS');
+  const passedCount = checks.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length;
+
+  const groups: Record<string, StatusCheck[]> = {};
+  checks.forEach((c: StatusCheck) => {
+    let g = c.workflowName;
+    if (!g) g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(c);
+  });
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left"
+        onClick={() => setOpen(v => !v)}
+      >
+        <ChevronRight className={cn("size-3 shrink-0 transition-transform", open && "rotate-90")} />
+        {allPassed ? <CheckCircle2 className="size-3.5 text-emerald-500" /> : <AlertCircle className="size-3.5 text-amber-500" />}
+        <span>Checks</span>
+        <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">{passedCount}/{checks.length}</span>
+      </button>
+      {open && (
+        <div className="flex flex-col border rounded-lg overflow-hidden border-border/50">
+          {Object.entries(groups).map(([groupName, groupChecks]) => (
+            <CheckGroupItem key={groupName} groupName={groupName} checks={groupChecks} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SidebarSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
@@ -1332,33 +1367,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
                     {/* Status Checks */}
                     {pr.statusCheckRollup?.length > 0 && (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
-                          {pr.statusCheckRollup.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS')
-                            ? <CheckCircle2 className="size-3.5 text-emerald-500" />
-                            : <AlertCircle className="size-3.5 text-amber-500" />}
-                          <span>Checks</span>
-                          <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">
-                            {pr.statusCheckRollup.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length}/{pr.statusCheckRollup.length}
-                          </span>
-                        </div>
-                        <div className="flex flex-col border rounded-lg overflow-hidden border-border/50">
-                          {(() => {
-                            const groups: Record<string, StatusCheck[]> = {};
-                            pr.statusCheckRollup.forEach((c: StatusCheck) => {
-                              let g = c.workflowName;
-                              if (!g) {
-                                g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
-                              }
-                              if (!groups[g]) groups[g] = [];
-                              groups[g].push(c);
-                            });
-                            return Object.entries(groups).map(([groupName, checks]) => (
-                              <CheckGroupItem key={groupName} groupName={groupName} checks={checks} />
-                            ));
-                          })()}
-                        </div>
-                      </div>
+                      <ChecksSection checks={pr.statusCheckRollup} />
                     )}
 
                     {/* Reviewers */}

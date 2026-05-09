@@ -204,7 +204,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
         <Panel>
         <ScrollArea className="h-full">
-        <div ref={scrollContainerRef} className="p-2">
+        <div ref={scrollContainerRef} className="p-2 pb-20">
           <Virtualizer>
             {files.map((file, idx) => (
               <div key={file.filename} id={`pr-diff-${file.filename}`}>
