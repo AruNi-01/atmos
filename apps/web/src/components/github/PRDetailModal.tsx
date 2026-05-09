@@ -324,20 +324,33 @@ function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
   diffHunk: string;
 }) {
   const diffFiles = useMemo(() => buildDiffFiles(path, diffHunk), [path, diffHunk]);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = React.useState(false);
 
-  if (!isMounted || !diffFiles) {
-    return (
-      <div className="max-h-[180px] overflow-auto border-b border-border/30">
-        <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
-          {diffHunk}
-        </pre>
-      </div>
-    );
-  }
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setIsVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const fallback = (
+    <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
+      {diffHunk}
+    </pre>
+  );
 
   return (
-    <div className="max-h-[180px] overflow-auto border-b border-border/30">
-      <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
+    <div ref={containerRef} className="max-h-[180px] overflow-auto border-b border-border/30">
+      {isMounted && isVisible && diffFiles
+        ? <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
+        : fallback}
     </div>
   );
 }
@@ -533,7 +546,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   }, [pr, timelineItems, reviewCommentThreadsByReviewId]);
 
   // Incremental rendering: drip-feed conversation into the DOM in chunks per frame
-  const RENDER_CHUNK = 30;
+  const RENDER_CHUNK = 5;
   const [displayCount, setDisplayCount] = React.useState(RENDER_CHUNK);
   const rafRef = React.useRef<number | null>(null);
 
