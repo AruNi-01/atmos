@@ -1266,12 +1266,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       {commentTab === 'write' ? (
                         <Textarea
                           placeholder="Leave a comment"
-                          className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px]"
+                          className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent"
                           value={comment}
                           onChange={(e) => setComment(e.target.value)}
                         />
                       ) : (
-                        <div className="p-4 min-h-[120px] bg-background">
+                        <div className="p-4 min-h-[120px]">
                           {comment.trim() ? (
                             <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">
                               {comment}
