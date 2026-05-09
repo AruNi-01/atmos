@@ -84,15 +84,16 @@ function FileDiffItem({
   file,
   threads,
   options,
-  defaultExpanded = false,
+  expanded,
+  onToggle,
 }: {
   file: PrFile;
   threads: ReviewComment[][];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   options: any;
-  defaultExpanded?: boolean;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
   const fileName = file.filename.split('/').pop() ?? file.filename;
 
   // Split threads: line-specific vs file-level
@@ -112,7 +113,7 @@ function FileDiffItem({
       {/* File header */}
       <button
         className="flex items-center gap-2 w-full px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors text-left border-b border-border/30"
-        onClick={() => setExpanded(v => !v)}
+        onClick={() => onToggle()}
       >
         {expanded ? <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />}
         <img {...getFileIconProps({ name: fileName, isDir: false })} className="size-4 shrink-0" />
@@ -166,6 +167,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
   const [wordWrap, setWordWrap] = useState(true);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(() => new Set());
 
   const diffOptions = useMemo(() => ({
     theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
@@ -182,6 +184,10 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
   const commentsByPath = useMemo(() => groupCommentsByPath(reviewComments), [reviewComments]);
 
+  React.useEffect(() => {
+    setExpandedFiles(new Set(files.slice(0, 3).map(f => f.filename)));
+  }, [files]);
+
   const treeItems = useMemo(() => files.map(f => ({
     path: f.filename,
     additions: f.additions,
@@ -190,8 +196,12 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
   const handleSelect = (path: string) => {
     setSelectedPath(path);
-    const el = scrollContainerRef.current?.querySelector(`#pr-diff-${CSS.escape(path)}`);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setExpandedFiles(prev => { const next = new Set(prev); next.add(path); return next; });
+    // Scroll after a tick to allow expansion to render
+    setTimeout(() => {
+      const el = scrollContainerRef.current?.querySelector(`#pr-diff-${CSS.escape(path)}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
   };
 
   if (loading) {
@@ -289,13 +299,18 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         <ScrollArea className="h-full">
         <div ref={scrollContainerRef} className="p-2 pb-20">
           <Virtualizer>
-            {files.map((file, idx) => (
+            {files.map((file) => (
               <div key={file.filename} id={`pr-diff-${file.filename}`}>
                 <FileDiffItem
                   file={file}
                   threads={commentsByPath.get(file.filename) ?? []}
                   options={diffOptions}
-                  defaultExpanded={idx < 3}
+                  expanded={expandedFiles.has(file.filename)}
+                  onToggle={() => setExpandedFiles(prev => {
+                    const next = new Set(prev);
+                    if (next.has(file.filename)) next.delete(file.filename); else next.add(file.filename);
+                    return next;
+                  })}
                 />
               </div>
             ))}
