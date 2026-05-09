@@ -90,6 +90,7 @@ struct ScanContext<'a> {
     project_id: Option<String>,
     project_name: Option<String>,
     status: ScanStatus,
+    mode: ScanMode,
 }
 
 /// Per-entry classification data produced during directory traversal.
@@ -105,14 +106,42 @@ pub struct SkillScanner;
 
 pub struct SkillManager;
 
+/// Controls how aggressively file contents are read during a scan.
+///
+/// Skills carry a `files` list with per-file `content` strings. A full scan reads every
+/// text file (`.md`, `.json`, `.py`, …) under every skill directory — fine for the
+/// detail page, but wasteful for the list UI which only needs the main file's
+/// frontmatter (title / description). Lazy mode reads content only for `is_main`
+/// files, leaving every other file's `content` as `None`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScanMode {
+    /// Populate `content` for every text file in the skill. Used by `skills_get`
+    /// (detail page), where the editor needs to load files on demand.
+    Full,
+    /// Populate `content` only for `is_main` files (SKILL.md / README.md / …).
+    /// Used by `skills_list` so the list endpoint doesn't pay for ~250KB of markdown
+    /// bodies the list UI never reads.
+    Lazy,
+}
+
 impl SkillScanner {
-    /// Scan for all installed skills (global + project-level + system built-in).
+    /// Scan for all installed skills (global + project-level + system built-in) with
+    /// full file contents. Preserved for callers that need every `content` field,
+    /// e.g. the detail endpoint.
     pub fn scan_all(project_paths: &[(String, String, String)]) -> Vec<SkillInfo> {
+        Self::scan_all_with_mode(project_paths, ScanMode::Full)
+    }
+
+    /// Scan for all installed skills with caller-controlled content-loading depth.
+    pub fn scan_all_with_mode(
+        project_paths: &[(String, String, String)],
+        mode: ScanMode,
+    ) -> Vec<SkillInfo> {
         let mut raw_skills = Vec::new();
 
         if let Some(home_dir) = dirs::home_dir() {
-            raw_skills.extend(Self::scan_scope(&home_dir, "global", None, None));
-            raw_skills.extend(Self::scan_system_skills(&home_dir));
+            raw_skills.extend(Self::scan_scope(&home_dir, "global", None, None, mode));
+            raw_skills.extend(Self::scan_system_skills_with_mode(&home_dir, mode));
         }
 
         for (project_id, project_name, project_path) in project_paths {
@@ -123,6 +152,7 @@ impl SkillScanner {
                     "project",
                     Some(project_id.clone()),
                     Some(project_name.clone()),
+                    mode,
                 ));
             }
         }
@@ -152,14 +182,14 @@ impl SkillScanner {
     /// recurse one level. The generic `scan_scope` walker does not find these because
     /// they live outside `AGENT_SKILL_DIRS`; this method fills that gap so the Skills
     /// list/detail UI can expose them uniformly.
-    pub(crate) fn scan_system_skills(home: &Path) -> Vec<SkillInfo> {
+    pub(crate) fn scan_system_skills_with_mode(home: &Path, mode: ScanMode) -> Vec<SkillInfo> {
         let base = home.join(".atmos").join("skills").join(".system");
         if !base.is_dir() {
             return Vec::new();
         }
 
         let mut skills = Vec::new();
-        Self::collect_system_skill_dirs(&base, &mut skills);
+        Self::collect_system_skill_dirs(&base, mode, &mut skills);
         skills
     }
 
@@ -168,7 +198,7 @@ impl SkillScanner {
     /// A directory is a skill when it contains `SKILL.md`. Otherwise, if its name is a
     /// recognized container (today: `code_review_skills`), recurse one level; anything
     /// else is ignored so we don't descend into random user directories.
-    fn collect_system_skill_dirs(base: &Path, skills: &mut Vec<SkillInfo>) {
+    fn collect_system_skill_dirs(base: &Path, mode: ScanMode, skills: &mut Vec<SkillInfo>) {
         const CONTAINER_DIRS: &[&str] = &["code_review_skills"];
 
         let entries = match fs::read_dir(base) {
@@ -190,19 +220,19 @@ impl SkillScanner {
             }
 
             if path.join("SKILL.md").is_file() {
-                if let Some(skill) = Self::build_system_skill(&path) {
+                if let Some(skill) = Self::build_system_skill(&path, mode) {
                     skills.push(skill);
                 }
                 continue;
             }
 
             if CONTAINER_DIRS.contains(&name) {
-                Self::collect_system_skill_dirs(&path, skills);
+                Self::collect_system_skill_dirs(&path, mode, skills);
             }
         }
     }
 
-    fn build_system_skill(path: &Path) -> Option<SkillInfo> {
+    fn build_system_skill(path: &Path, mode: ScanMode) -> Option<SkillInfo> {
         let metadata = fs::symlink_metadata(path).ok()?;
         let resolved_path = fs::canonicalize(path).ok();
         let entry_kind = Self::classify_entry_kind(path, &metadata);
@@ -220,6 +250,7 @@ impl SkillScanner {
             /* project_id */ None,
             /* project_name */ None,
             meta,
+            mode,
         )
     }
 
@@ -240,6 +271,7 @@ impl SkillScanner {
         scope: &str,
         project_id: Option<String>,
         project_name: Option<String>,
+        mode: ScanMode,
     ) -> Vec<SkillInfo> {
         let mut skills = Self::scan_directory(
             scope_root,
@@ -248,6 +280,7 @@ impl SkillScanner {
             project_id.clone(),
             project_name.clone(),
             ScanStatus::Enabled,
+            mode,
         );
 
         let disabled_root = scope_root.join(DISABLED_STORAGE_REL_PATH);
@@ -259,6 +292,7 @@ impl SkillScanner {
                 project_id,
                 project_name,
                 ScanStatus::Disabled,
+                mode,
             ));
         }
 
@@ -273,6 +307,7 @@ impl SkillScanner {
         project_id: Option<String>,
         project_name: Option<String>,
         status: ScanStatus,
+        mode: ScanMode,
     ) -> Vec<SkillInfo> {
         let mut skills = Vec::new();
         let mut visited_dirs = HashSet::new();
@@ -292,6 +327,7 @@ impl SkillScanner {
                 project_id: project_id.clone(),
                 project_name: project_name.clone(),
                 status,
+                mode,
             };
             Self::scan_skill_entries_recursive(&skills_path, &ctx, &mut visited_dirs, &mut skills);
         }
@@ -361,6 +397,7 @@ impl SkillScanner {
                         ctx.project_id.clone(),
                         ctx.project_name.clone(),
                         meta,
+                        ctx.mode,
                     ) {
                         Self::apply_unified_label(&mut skill, ctx.skill_dir);
                         skills.push(skill);
@@ -386,6 +423,7 @@ impl SkillScanner {
                     ctx.project_id.clone(),
                     ctx.project_name.clone(),
                     meta,
+                    ctx.mode,
                 ) {
                     Self::apply_unified_label(&mut skill, ctx.skill_dir);
                     skills.push(skill);
@@ -602,9 +640,10 @@ impl SkillScanner {
         project_id: Option<String>,
         project_name: Option<String>,
         meta: SkillEntryMeta,
+        mode: ScanMode,
     ) -> Option<SkillInfo> {
         let name = path.file_name()?.to_string_lossy().to_string();
-        let files = Self::collect_skill_files(path);
+        let files = Self::collect_skill_files(path, mode);
         let main_file_content = files
             .iter()
             .find(|f| f.is_main)
@@ -644,9 +683,13 @@ impl SkillScanner {
         project_id: Option<String>,
         project_name: Option<String>,
         meta: SkillEntryMeta,
+        _mode: ScanMode,
     ) -> Option<SkillInfo> {
         let name = path.file_stem()?.to_string_lossy().to_string();
         let file_name = path.file_name()?.to_string_lossy().to_string();
+        // Single-file skills ARE the main file — we always keep its content so detail
+        // view continues to work without a separate re-read, and the list view still
+        // gets the frontmatter it needs for title/description.
         let content = fs::read_to_string(path).ok();
         let (description, title) = if let Some(c) = content.as_ref() {
             let desc = Self::extract_description(c);
@@ -741,9 +784,9 @@ impl SkillScanner {
     }
 
     /// Collect all files in a skill directory recursively.
-    fn collect_skill_files(skill_dir: &Path) -> Vec<SkillFile> {
+    fn collect_skill_files(skill_dir: &Path, mode: ScanMode) -> Vec<SkillFile> {
         let mut files = Vec::new();
-        Self::collect_files_recursive(skill_dir, skill_dir, &mut files);
+        Self::collect_files_recursive(skill_dir, skill_dir, mode, &mut files);
 
         files.sort_by(|a, b| match (a.is_main, b.is_main) {
             (true, false) => std::cmp::Ordering::Less,
@@ -754,7 +797,12 @@ impl SkillScanner {
         files
     }
 
-    fn collect_files_recursive(base: &Path, current: &Path, files: &mut Vec<SkillFile>) {
+    fn collect_files_recursive(
+        base: &Path,
+        current: &Path,
+        mode: ScanMode,
+        files: &mut Vec<SkillFile>,
+    ) {
         if let Ok(entries) = fs::read_dir(current) {
             for entry in entries.filter_map(|e| e.ok()) {
                 let path = entry.path();
@@ -773,13 +821,13 @@ impl SkillScanner {
                         && dir_name != "node_modules"
                         && dir_name != "__pycache__"
                     {
-                        Self::collect_files_recursive(base, &path, files);
+                        Self::collect_files_recursive(base, &path, mode, files);
                     }
                 } else if path.is_file() {
                     // `path.is_file()` follows symlinks, so a symlink pointing at a file
                     // is included here just like a regular file — but we record it as a
                     // symlink so the UI can badge it.
-                    if let Some(file) = Self::parse_file(&path, base, is_symlink) {
+                    if let Some(file) = Self::parse_file(&path, base, is_symlink, mode) {
                         files.push(file);
                     }
                 }
@@ -787,7 +835,7 @@ impl SkillScanner {
         }
     }
 
-    fn parse_file(path: &Path, base: &Path, is_symlink: bool) -> Option<SkillFile> {
+    fn parse_file(path: &Path, base: &Path, is_symlink: bool, mode: ScanMode) -> Option<SkillFile> {
         let file_name = path.file_name()?.to_string_lossy().to_string();
         if file_name.starts_with('.') {
             return None;
@@ -799,12 +847,19 @@ impl SkillScanner {
             .iter()
             .any(|&c| c.eq_ignore_ascii_case(&file_name));
 
-        let content = path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .filter(|ext| TEXT_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
-            .and_then(|_| fs::read_to_string(path).ok())
-            .filter(|c| c.len() < 100_000);
+        // Lazy mode: only the main file's content is read (needed for frontmatter /
+        // title / description). Every other text file's `content` stays `None` so the
+        // list endpoint doesn't eat hundreds of KB of markdown bodies.
+        let should_read_content = is_main || matches!(mode, ScanMode::Full);
+        let content = if should_read_content {
+            path.extension()
+                .and_then(|ext| ext.to_str())
+                .filter(|ext| TEXT_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+                .and_then(|_| fs::read_to_string(path).ok())
+                .filter(|c| c.len() < 100_000)
+        } else {
+            None
+        };
 
         let symlink_target = if is_symlink {
             fs::read_link(path)
@@ -1289,7 +1344,7 @@ fn create_symlink(target: &Path, link: &Path, _target_is_dir: bool) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::SkillScanner;
+    use super::{ScanMode, SkillScanner};
     use std::fs;
 
     fn write_skill(skill_dir: &std::path::Path, name: &str) {
@@ -1342,7 +1397,7 @@ mod tests {
             "hidden-skill",
         );
 
-        let skills = SkillScanner::scan_system_skills(fake_home);
+        let skills = SkillScanner::scan_system_skills_with_mode(fake_home, ScanMode::Full);
 
         let names: Vec<_> = skills.iter().map(|s| s.name.as_str()).collect();
         for expected in [
@@ -1420,7 +1475,7 @@ mod tests {
         )
         .unwrap();
 
-        let skills = SkillScanner::scan_system_skills(fake_home);
+        let skills = SkillScanner::scan_system_skills_with_mode(fake_home, ScanMode::Full);
         let skill = skills
             .iter()
             .find(|s| s.name == "custom-review-skill-sym01")
@@ -1447,5 +1502,75 @@ mod tests {
             .expect("SKILL.md missing");
         assert!(!skill_md.is_symlink);
         assert!(skill_md.symlink_target.is_none());
+    }
+
+    /// Lazy mode must populate `content` for SKILL.md (title/description need it) but
+    /// leave every other file's `content` as `None`. Full mode keeps content for all.
+    /// This is the core of the list-endpoint perf win — regressing it would silently
+    /// re-add ~250KB of reads per list call.
+    #[test]
+    fn scan_lazy_mode_drops_non_main_file_content() {
+        let tmp = tempfile::tempdir().expect("create tempdir");
+        let fake_home = tmp.path();
+        let base = fake_home
+            .join(".atmos")
+            .join("skills")
+            .join(".system");
+        let skill_dir = base.join("test-skill");
+        let refs_dir = skill_dir.join("references");
+        fs::create_dir_all(&refs_dir).unwrap();
+        fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: test-skill\ndescription: \"desc\"\n---\n\n# body\n",
+        )
+        .unwrap();
+        fs::write(
+            refs_dir.join("extra.md"),
+            "# extra notes\n\nsome content that Lazy mode should not read\n",
+        )
+        .unwrap();
+
+        let lazy = SkillScanner::scan_system_skills_with_mode(fake_home, ScanMode::Lazy);
+        let skill = lazy
+            .iter()
+            .find(|s| s.name == "test-skill")
+            .expect("test-skill missing in lazy scan");
+        let main = skill
+            .files
+            .iter()
+            .find(|f| f.relative_path == "SKILL.md")
+            .expect("SKILL.md missing from lazy files");
+        let extra = skill
+            .files
+            .iter()
+            .find(|f| f.relative_path == "references/extra.md")
+            .expect("non-main file missing from lazy files");
+
+        assert!(
+            main.content.is_some(),
+            "main file content MUST be read in Lazy mode (title/description depend on it)",
+        );
+        assert!(
+            extra.content.is_none(),
+            "non-main file content MUST be skipped in Lazy mode, got {:?}",
+            extra.content,
+        );
+
+        // Full mode reads every file.
+        let full = SkillScanner::scan_system_skills_with_mode(fake_home, ScanMode::Full);
+        let full_extra = full
+            .iter()
+            .find(|s| s.name == "test-skill")
+            .unwrap()
+            .files
+            .iter()
+            .find(|f| f.relative_path == "references/extra.md")
+            .unwrap()
+            .clone();
+        assert!(
+            full_extra.content.is_some(),
+            "Full mode must still read non-main file content, got {:?}",
+            full_extra.content,
+        );
     }
 }
