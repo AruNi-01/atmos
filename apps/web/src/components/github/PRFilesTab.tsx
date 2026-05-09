@@ -164,6 +164,29 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const [treeWidth, setTreeWidth] = useState(224); // 14rem default
+  const isDragging = React.useRef(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  const onDragStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const startX = e.clientX;
+    const startWidth = treeWidth;
+    const onMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const next = Math.max(140, Math.min(480, startWidth + ev.clientX - startX));
+      setTreeWidth(next);
+    };
+    const onUp = () => {
+      isDragging.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   if (loading) {
     return (
       <div className="flex gap-3 h-full">
@@ -178,9 +201,9 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   }
 
   return (
-      <div className="flex h-full min-h-0">
+      <div ref={containerRef} className="flex h-full min-h-0">
         {/* File tree sidebar */}
-        <div className="w-56 shrink-0 border-r border-border/40 overflow-y-auto no-scrollbar py-1">
+        <div className="shrink-0 overflow-y-auto no-scrollbar py-1" style={{ width: treeWidth }}>
           <DiffFileTree
             items={treeItems}
             selectedPath={selectedPath ?? undefined}
@@ -197,6 +220,12 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             onSelectFile={handleSelect}
           />
         </div>
+
+        {/* Drag handle */}
+        <div
+          className="w-1 shrink-0 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors bg-border/40"
+          onMouseDown={onDragStart}
+        />
 
         {/* Diff area */}
         <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-y-auto no-scrollbar p-2">
