@@ -147,7 +147,7 @@ export const rightSidebarParams = {
     "actions",
     "review",
     "run-preview",
-  ]),
+  ]).withDefault("changes"),
 };
 
 // ---------------------------------------------------------------------------

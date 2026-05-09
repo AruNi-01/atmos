@@ -113,7 +113,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const agentIsBusy = useAgentChatStatusStore((s) => s.isBusy);
 
   // Layout settings
-  const { projectFilesSide, loaded: layoutLoaded, loadSettings: loadLayoutSettings } = useLayoutSettings();
+  const { projectFilesSide, loadSettings: loadLayoutSettings } = useLayoutSettings();
   useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
   const showFilesTab = projectFilesSide === "right";
   const topTabs = useMemo(() => {
@@ -185,15 +185,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     setModalParams,
   ] = useQueryStates(rightSidebarModalParams);
   const { activeActionRun, setActiveActionRun } = useDialogStore();
-
-  // Default to "files" tab when layout places files on the right side
-  const didApplyFilesDefault = useRef(false);
-  useEffect(() => {
-    if (layoutLoaded && !didApplyFilesDefault.current && activeTab === null) {
-      didApplyFilesDefault.current = true;
-      setSidebarParams({ rsTab: showFilesTab ? "files" : "changes" });
-    }
-  }, [layoutLoaded, showFilesTab, activeTab, setSidebarParams]);
 
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
