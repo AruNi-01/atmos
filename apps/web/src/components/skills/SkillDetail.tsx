@@ -141,9 +141,9 @@ function getScopeMeta(scope: SkillInfo['scope']) {
       };
     case 'system':
       return {
-        label: 'System',
+        label: 'Atmos Built-in',
         icon: Puzzle,
-        className: 'bg-muted text-foreground',
+        className: 'bg-foreground text-background',
       };
     default:
       return {

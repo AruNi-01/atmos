@@ -177,7 +177,7 @@ function getScopeMeta(scope: SkillInfo["scope"]) {
       return {
         label: "Atmos Built-in",
         icon: Puzzle,
-        className: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+        className: "bg-foreground text-background",
       };
     default:
       return {
@@ -312,7 +312,7 @@ function InstalledSkillListCard({
         )}
 
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {sortAgents(skill.agents).filter((agent) => agent !== "in-project" && agent !== "atmos").map((agent) => {
+          {sortAgents(skill.agents).filter((agent) => agent !== "in-project").map((agent) => {
             const agentStatus = getAgentStatus(skill, agent);
             return (
               <SkillAgentBadge
