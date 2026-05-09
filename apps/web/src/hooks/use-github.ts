@@ -115,7 +115,7 @@ export function useGithubPRDetail(prNumber: number, owner?: string, repo?: strin
   return { data, loading, fetch };
 }
 
-const TIMELINE_PER_PAGE = 20;
+const TIMELINE_PER_PAGE = 100;
 
 export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: string, enabled = true) {
   const send = useWebSocketStore(s => s.send);
@@ -124,6 +124,7 @@ export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: str
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const nextPageRef = useRef(1);
+  const fetchingRef = useRef(false);
 
   const fetchPage = useCallback(async (page: number) => {
     if (!owner || !repo || !prNumber) return;
@@ -140,14 +141,21 @@ export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: str
 
       const newItems = Array.isArray(result?.items) ? result.items : [];
       nextPageRef.current = page + 1;
-      const hasMore = result?.has_more ?? false;
+      const more = result?.has_more ?? false;
       startTransition(() => {
         setItems(prev => page === 1 ? newItems : [...prev, ...newItems]);
-        setHasMore(hasMore);
+        setHasMore(more);
       });
+      // Auto-fetch next page
+      if (more) {
+        void fetchPage(page + 1);
+      } else {
+        fetchingRef.current = false;
+      }
     } catch (e) {
       console.error('Failed to fetch PR timeline page', e);
       setHasMore(false);
+      fetchingRef.current = false;
     } finally {
       setIsLoading(false);
     }
@@ -156,8 +164,10 @@ export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: str
   useEffect(() => {
     setItems([]);
     setHasMore(false);
+    fetchingRef.current = false;
     if (!enabled || !owner || !repo || !prNumber) return;
     nextPageRef.current = 1;
+    fetchingRef.current = true;
     void fetchPage(1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prNumber, owner, repo, enabled]);
