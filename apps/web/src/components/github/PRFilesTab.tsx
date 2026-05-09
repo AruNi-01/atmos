@@ -67,7 +67,7 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
       {!collapsed && (
         <div className="overflow-x-hidden">
           {thread.map((c, i) => (
-            <div key={c.id ?? i} className="px-3 py-2 border-b border-border/20 last:border-0 min-w-0 overflow-hidden">
+            <div key={c.id ?? i} className="px-3 py-2 border-b border-border/50 last:border-0 min-w-0 overflow-hidden">
               <div className="flex items-center gap-2 mb-1">
                 <Avatar className="size-4 border border-border/50 shrink-0">
                   <AvatarImage src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`} />
