@@ -842,7 +842,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   }}
                   className="shrink-0 pt-1"
                 >
-                  <TabsList variant="underline" className="w-fit gap-0">
+                  <TabsList className="w-fit gap-0">
                     <TabsTab value="description" className="text-[12px] px-3 h-8">Description</TabsTab>
                     <TabsTab value="discussion" className="text-[12px] px-3 h-8">
                       {`Discussion${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
@@ -1249,8 +1249,8 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   )}
 
                   {/* Add a comment section */}
-                  <div className="mt-8 border border-border rounded-lg overflow-hidden bg-background shadow-sm">
-                    <div className="bg-muted/50 px-4 py-2 border-b border-border flex items-center justify-between">
+                  <div className="mt-8 border border-border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 border-b border-border flex items-center justify-between">
                       <span className="text-xs font-semibold flex items-center gap-2">
                         <MessageSquare className="size-3.5" /> Add a comment
                       </span>
@@ -1283,7 +1283,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       )}
                     </div>
 
-                    <div className="px-4 py-2 bg-muted/30 border-t border-border flex items-center justify-between">
+                    <div className="px-4 py-2 border-t border-border flex items-center justify-between">
                       <div className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Github className="size-3" /> Markdown supported
                       </div>

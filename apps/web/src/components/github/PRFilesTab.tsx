@@ -200,7 +200,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
           </ScrollArea>
         </Panel>
 
-        <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/40 transition-colors" />
+        <PanelResizeHandle className="w-px bg-border/40 hover:bg-primary/40 transition-colors" />
 
         <Panel>
         <ScrollArea className="h-full">
