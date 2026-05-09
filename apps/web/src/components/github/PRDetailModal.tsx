@@ -474,6 +474,86 @@ const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ th
   );
 });
 
+interface CommentBoxProps {
+  prState: string;
+  isDraft: boolean;
+  mergeable: string;
+  actionLoading: string | null;
+  onComment: (body: string) => void;
+  onClose: (body: string) => void;
+  onMerge: (body: string) => void;
+  onReopen: (body: string) => void;
+}
+
+function CommentBox({ prState, isDraft, mergeable, actionLoading, onComment, onClose, onMerge, onReopen }: CommentBoxProps) {
+  const [comment, setComment] = React.useState('');
+  const [tab, setTab] = React.useState<'write' | 'preview'>('write');
+
+  return (
+    <div className="mt-8 border border-border rounded-lg overflow-hidden">
+      <div className="px-4 py-2 border-b border-border flex items-center justify-between">
+        <span className="text-xs font-semibold flex items-center gap-2">
+          <MessageSquare className="size-3.5" /> Add a comment
+        </span>
+        <Tabs value={tab} onValueChange={(v: string) => setTab(v as 'write' | 'preview')}>
+          <TabsList>
+            <TabsTrigger value="write" className="text-[11px] px-3">Write</TabsTrigger>
+            <TabsTrigger value="preview" className="text-[11px] px-3">Preview</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+      <div className="p-0">
+        {tab === 'write' ? (
+          <Textarea
+            placeholder="Leave a comment"
+            className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent dark:bg-transparent"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+        ) : (
+          <div className="p-4 min-h-[120px]">
+            {comment.trim() ? (
+              <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">{comment}</MarkdownRenderer>
+            ) : (
+              <div className="text-muted-foreground italic text-xs">Nothing to preview</div>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="px-4 py-2 border-t border-border flex items-center justify-between">
+        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <Github className="size-3" /> Markdown supported
+        </div>
+        <div className="flex gap-2">
+          {prState === 'OPEN' && (
+            <>
+              <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onClose(comment)} disabled={!!actionLoading}>
+                <XCircle className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Close PR' : 'Close PR'}
+              </Button>
+              <Button
+                variant="default" size="sm"
+                className={cn("h-8 text-xs font-medium text-white", (isDraft || mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed opacity-70" : "bg-emerald-600 hover:bg-emerald-700")}
+                onClick={() => onMerge(comment)} disabled={!!actionLoading || isDraft || mergeable !== 'MERGEABLE'}
+              >
+                <GitMerge className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Merge' : 'Merge'}
+              </Button>
+            </>
+          )}
+          {prState === 'CLOSED' && (
+            <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onReopen(comment)} disabled={!!actionLoading}>
+              <RotateCw className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" className="h-8 text-xs font-medium" onClick={() => { onComment(comment); setComment(''); }} disabled={!comment.trim() || !!actionLoading}>
+            {actionLoading === 'comment' ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <MessageSquare className="mr-2 size-3.5" />}
+            Comment
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function prCommitsToListItems(
   commits: Array<{ oid: string; messageHeadline: string; messageBody?: string; authors?: Array<{ login?: string; avatarUrl?: string }>; committedDate?: string }>,
   owner: string,
@@ -509,8 +589,6 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
-  const [comment, setComment] = React.useState('');
-  const [commentTab, setCommentTab] = React.useState<'write' | 'preview'>('write');
   const [mergeStrategy, setMergeStrategy] = React.useState<'merge' | 'squash' | 'rebase'>('merge');
   const [branchCopied, setBranchCopied] = React.useState(false);
 
@@ -626,7 +704,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
   const displayedConversation = conversation.slice(0, displayCount);
 
-  const handleMerge = async () => {
+  const handleMerge = async (body = '') => {
     if (!prNumber) return;
     setActionLoading('merge');
     try {
@@ -635,9 +713,8 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
         repo,
         pr_number: prNumber,
         strategy: mergeStrategy,
-        body: comment.trim() || undefined
+        body: body.trim() || undefined
       });
-      setComment('');
       fetch?.();
       onMerged?.();
       onOpenChange(false);
@@ -648,12 +725,11 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     }
   };
 
-  const handleClose = async () => {
+  const handleClose = async (body = '') => {
     if (!prNumber) return;
     setActionLoading('close');
     try {
-      await send('github_pr_close', { owner, repo, pr_number: prNumber, comment: comment.trim() || undefined });
-      setComment('');
+      await send('github_pr_close', { owner, repo, pr_number: prNumber, comment: body.trim() || undefined });
       fetch?.();
       onClosed?.();
       onOpenChange(false);
@@ -664,7 +740,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     }
   };
 
-  const handleReopen = async () => {
+  const handleReopen = async (body = '') => {
     if (!prNumber) return;
     setActionLoading('reopen');
     try {
@@ -713,13 +789,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     window.open(`https://better-hub.com/${owner}/${repo}/pull/${prNumber}`, '_blank');
   };
 
-  const handlePostComment = async () => {
-    if (!prNumber || !comment.trim()) return;
+  const handlePostComment = async (body: string) => {
+    if (!prNumber || !body.trim()) return;
     setActionLoading('comment');
     try {
-      await send('github_pr_comment', { owner, repo, pr_number: prNumber, body: comment });
-      setComment('');
-      fetch(); // Refresh details to show new comment
+      await send('github_pr_comment', { owner, repo, pr_number: prNumber, body });
+      fetch();
     } catch (e) {
       console.error(e);
     } finally {
@@ -1249,94 +1324,16 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   )}
 
                   {/* Add a comment section */}
-                  <div className="mt-8 border border-border rounded-lg overflow-hidden">
-                    <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-                      <span className="text-xs font-semibold flex items-center gap-2">
-                        <MessageSquare className="size-3.5" /> Add a comment
-                      </span>
-                      <Tabs value={commentTab} onValueChange={(v: string) => setCommentTab(v as 'write' | 'preview')}>
-                        <TabsList>
-                          <TabsTrigger value="write" className="text-[11px] px-3">Write</TabsTrigger>
-                          <TabsTrigger value="preview" className="text-[11px] px-3">Preview</TabsTrigger>
-                        </TabsList>
-                      </Tabs>
-                    </div>
-
-                    <div className="p-0">
-                      {commentTab === 'write' ? (
-                        <Textarea
-                          placeholder="Leave a comment"
-                          className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent dark:bg-transparent"
-                          value={comment}
-                          onChange={(e) => setComment(e.target.value)}
-                        />
-                      ) : (
-                        <div className="p-4 min-h-[120px]">
-                          {comment.trim() ? (
-                            <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">
-                              {comment}
-                            </MarkdownRenderer>
-                          ) : (
-                            <div className="text-muted-foreground italic text-xs">Nothing to preview</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="px-4 py-2 border-t border-border flex items-center justify-between">
-                      <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Github className="size-3" /> Markdown supported
-                      </div>
-                      <div className="flex gap-2">
-                        {pr.state === 'OPEN' && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs font-medium"
-                              onClick={handleClose}
-                              disabled={!!actionLoading}
-                            >
-                              <XCircle className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Close PR' : 'Close PR'}
-                            </Button>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className={cn(
-                                "h-8 text-xs font-medium text-white",
-                                (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed opacity-70" : "bg-emerald-600 hover:bg-emerald-700"
-                              )}
-                              onClick={handleMerge}
-                              disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
-                            >
-                              <GitMerge className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Merge' : 'Merge'}
-                            </Button>
-                          </>
-                        )}
-                        {pr.state === 'CLOSED' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs font-medium"
-                            onClick={handleReopen}
-                            disabled={!!actionLoading}
-                          >
-                            <RotateCw className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="h-8 text-xs font-medium"
-                          onClick={handlePostComment}
-                          disabled={!comment.trim() || !!actionLoading}
-                        >
-                          {actionLoading === 'comment' ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <MessageSquare className="mr-2 size-3.5" />}
-                          Comment
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  <CommentBox
+                    prState={pr.state}
+                    isDraft={pr.isDraft}
+                    mergeable={pr.mergeable}
+                    actionLoading={actionLoading}
+                    onComment={handlePostComment}
+                    onClose={handleClose}
+                    onMerge={handleMerge}
+                    onReopen={handleReopen}
+                  />
                   </div>
                 )}
 
@@ -1585,7 +1582,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={handleClose}
+                  onClick={() => handleClose()}
                   disabled={!!actionLoading}
                   className="shadow-sm hover:shadow-md hover:bg-red-600 transition-all"
                 >
@@ -1596,7 +1593,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={handleMerge}
+                    onClick={() => handleMerge()}
                     disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
                     className={cn(
                       "rounded-none h-full shadow-none transition-all transform active:scale-[0.98] text-white border-r border-white/10",
@@ -1668,7 +1665,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleReopen}
+                onClick={() => handleReopen()}
                 disabled={!!actionLoading}
                 className="shadow-sm hover:shadow-md transition-all font-semibold"
               >
