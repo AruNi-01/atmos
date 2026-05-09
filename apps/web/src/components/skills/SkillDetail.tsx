@@ -143,7 +143,7 @@ function getScopeMeta(scope: SkillInfo['scope']) {
       return {
         label: 'Atmos Built-in',
         icon: Puzzle,
-        className: 'bg-foreground text-background',
+        className: 'bg-foreground/80 text-background',
       };
     default:
       return {

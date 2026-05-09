@@ -64,7 +64,7 @@ export const SkillCard: React.FC<SkillCardProps> = ({ skill, onClick }) => {
                     <span className={cn(
                       "text-[9px] px-1 py-0.5 rounded font-medium flex items-center gap-1 cursor-default uppercase tracking-wider",
                       isSystemScoped
-                        ? "bg-foreground text-background"
+                        ? "bg-foreground/80 text-background"
                         : skill.scope === 'global'
                         ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
                         : skill.scope === 'project'
