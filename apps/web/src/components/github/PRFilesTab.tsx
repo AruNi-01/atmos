@@ -4,12 +4,12 @@ import React, { useMemo, useState } from 'react';
 import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps, ScrollArea, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
-import { Panel, PanelGroup, PanelResizeHandle } from '@workspace/ui';
 import { MessageSquare, Plus, Minus, ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { DiffFileTree } from '@/components/diff/DiffFileTree';
+import { motion, AnimatePresence } from 'motion/react';
 import type { PrFile } from '@/hooks/use-github';
 
 interface ReviewComment {
@@ -280,10 +280,18 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         </DropdownMenu>
       </div>
 
-      <PanelGroup direction="horizontal" className="flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0">
+        <AnimatePresence initial={false}>
         {treeVisible && (
-        <Panel defaultSize={20} minSize={12} maxSize={40}>
-          <ScrollArea className="h-full py-1">
+          <motion.div
+            key="tree"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 224, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className="shrink-0 overflow-hidden border-r border-border/40"
+          >
+            <ScrollArea className="h-full py-1" style={{ width: 224 }}>
           <DiffFileTree
             items={treeItems}
             selectedPath={selectedPath ?? undefined}
@@ -300,13 +308,11 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             onSelectFile={handleSelect}
           />
           </ScrollArea>
-        </Panel>
+          </motion.div>
         )}
+        </AnimatePresence>
 
-        {treeVisible && <PanelResizeHandle className="w-px bg-border/40 hover:bg-primary/40 transition-colors" />}
-
-        <Panel>
-        <div className="h-full overflow-auto">
+        <div className="flex-1 min-w-0 h-full overflow-auto">
         <div ref={scrollContainerRef} className="p-2 pb-20 min-w-0">
           <Virtualizer>
             {files.map((file) => (
@@ -327,8 +333,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
           </Virtualizer>
         </div>
         </div>
-        </Panel>
-      </PanelGroup>
+      </div>
     </div>
   );
 }
