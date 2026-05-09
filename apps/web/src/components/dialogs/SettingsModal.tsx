@@ -89,6 +89,7 @@ import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
 import WorldIcon from '@workspace/ui/components/icons/world-icon';
 import { FolderKanbanIcon } from '@workspace/ui/components/icons/folder-kanban-icon';
 import { TagIcon } from '@workspace/ui/components/icons/tag-icon';
+import KeyboardIcon from '@workspace/ui/components/icons/keyboard-icon';
 import type { AnimatedIconHandle } from '@workspace/ui/components/icons/types';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
@@ -128,6 +129,47 @@ import {
 import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
+
+interface ShortcutEntry {
+  keys: string[];
+  description: string;
+}
+
+function ShortcutGroup({ title, shortcuts }: { title: string; shortcuts: ShortcutEntry[] }) {
+  return (
+    <div>
+      <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
+      <div className="overflow-hidden rounded-xl border border-border">
+        <table className="w-full">
+          <tbody>
+            {shortcuts.map((shortcut, i) => (
+              <tr
+                key={i}
+                className={i !== shortcuts.length - 1 ? 'border-b border-border' : ''}
+              >
+                <td className="w-[200px] px-4 py-3">
+                  <div className="flex items-center gap-1">
+                    {shortcut.keys.map((key, j) => (
+                      <kbd
+                        key={j}
+                        className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-md border border-muted-foreground/20 bg-muted px-1.5 text-xs font-medium text-foreground shadow-sm"
+                      >
+                        {key}
+                      </kbd>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">
+                  {shortcut.description}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -180,6 +222,11 @@ const SETTINGS_SECTIONS = [
     id: 'about',
     label: 'About',
     description: 'Product overview and desktop updates',
+  },
+  {
+    id: 'shortcuts',
+    label: 'Shortcuts',
+    description: 'Keyboard shortcuts across the application',
   },
 ] as const;
 
@@ -2658,6 +2705,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             {section.id === 'terminal' && <TerminalIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'ai' && <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'shortcuts' && <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />}
                             <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
                           </MotionSidebarMenuButton>
                         </MotionSidebarMenuItem>
@@ -3677,6 +3725,74 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                 ) : resolvedActiveSection === 'remote-access' ? (
                   <RemoteAccessSection />
+                ) : resolvedActiveSection === 'shortcuts' ? (
+                  <div className="space-y-8">
+                    <ShortcutGroup
+                      title="Global"
+                      shortcuts={[
+                        { keys: ['⌘', 'B'], description: 'Toggle left sidebar' },
+                        { keys: ['⌘', '⇧', 'B'], description: 'Toggle right sidebar' },
+                        { keys: ['⌘', 'K'], description: 'Command palette / global search' },
+                        { keys: ['⌘', 'O'], description: 'Quick open file' },
+                        { keys: ['⌘', '['], description: 'Navigate back' },
+                        { keys: ['⌘', ']'], description: 'Navigate forward' },
+                        { keys: ['⌘', '⇧', 'M'], description: 'Toggle action menu' },
+                        { keys: ['⌘', 'U'], description: 'Toggle usage popover' },
+                      ]}
+                    />
+                    <ShortcutGroup
+                      title="Workspace"
+                      shortcuts={[
+                        { keys: ['⌘', 'N'], description: 'New workspace overlay' },
+                        { keys: ['⌘', '⇧', 'K'], description: 'Expand Kanban overlay' },
+                        { keys: ['⌘', '⇧', '↵'], description: 'Open / create workspace (In new workspace overlay)' },
+                      ]}
+                    />
+                    <ShortcutGroup
+                      title="Center Stage Tabs"
+                      shortcuts={[
+                        { keys: ['⌘', '0'], description: 'Switch to Overview tab' },
+                        { keys: ['⌘', '1'], description: 'Switch to Fixed Terminal tab' },
+                        { keys: ['⌘', '2'], description: 'Switch to terminal tab 1' },
+                        { keys: ['⌘', '3'], description: 'Switch to terminal tab 2' },
+                        { keys: ['⌘', '4'], description: 'Switch to terminal tab 3' },
+                        { keys: ['⌘', '5'], description: 'Switch to terminal tab 4' },
+                      ]}
+                    />
+                    <ShortcutGroup
+                      title="Terminal"
+                      shortcuts={[
+                        { keys: ['⌘', 'D'], description: 'Split terminal horizontally' },
+                        { keys: ['⌘', '⇧', 'D'], description: 'Split terminal vertically' },
+                        { keys: ['⌘', 'T'], description: 'New terminal tab' },
+                        { keys: ['⌘', 'W'], description: 'Close terminal pane' },
+                        { keys: ['⌘', '⇧', 'F'], description: 'Maximize / minimize terminal panel' },
+                        { keys: ['⌘', 'F'], description: 'Find in terminal' },
+                        { keys: ['⌘', '['], description: 'Previous terminal tab' },
+                        { keys: ['⌘', ']'], description: 'Next terminal tab' },
+                        { keys: ['⌘', 'C'], description: 'Copy selection' },
+                      ]}
+                    />
+                    <ShortcutGroup
+                      title="Editor"
+                      shortcuts={[
+                        { keys: ['⌘', 'S'], description: 'Save current file' },
+                        { keys: ['⌘', 'F'], description: 'Find in editor' },
+                      ]}
+                    />
+                    <ShortcutGroup
+                      title="Submit & Commit"
+                      shortcuts={[
+                        { keys: ['⌘', '↵'], description: 'Submit prompt / commit message' },
+                      ]}
+                    />
+                    <ShortcutGroup
+                      title="Diff Viewer"
+                      shortcuts={[
+                        { keys: ['⇧', 'Click'], description: 'Multi-select lines for annotation' },
+                      ]}
+                    />
+                  </div>
                 ) : resolvedActiveSection === 'layout' ? (
                   <LayoutSettingsSection />
                 ) : null}
