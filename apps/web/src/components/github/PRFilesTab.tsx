@@ -249,6 +249,7 @@ function TreeNodeItem({
 export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }: PRFilesTabProps) {
   const { resolvedTheme } = useTheme();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   const isDark = resolvedTheme === 'dark' || (!resolvedTheme && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const diffOptions = useMemo(() => ({
@@ -261,10 +262,12 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   const commentsByPath = useMemo(() => groupCommentsByPath(reviewComments), [reviewComments]);
   const tree = useMemo(() => buildTree(files, commentsByPath), [files, commentsByPath]);
 
-  const displayedFiles = useMemo(
-    () => selectedPath ? files.filter(f => f.filename === selectedPath) : files,
-    [files, selectedPath]
-  );
+  const handleSelect = (path: string) => {
+    setSelectedPath(path);
+    const id = `pr-diff-${CSS.escape(path)}`;
+    const el = scrollContainerRef.current?.querySelector(`#${id}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   if (loading) {
     return (
@@ -290,27 +293,22 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
       <div className="flex h-full min-h-0">
         {/* File tree sidebar */}
         <div className="w-56 shrink-0 border-r border-border/40 overflow-y-auto no-scrollbar py-1">
-          <button
-            className={cn("flex items-center gap-1.5 w-full px-2 py-1 text-[11px] transition-colors mb-1", selectedPath === null ? "text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
-            onClick={() => setSelectedPath(null)}
-          >
-            All files ({files.length})
-          </button>
           {tree.map(node => (
-            <TreeNodeItem key={node.path} node={node} selectedPath={selectedPath} onSelect={setSelectedPath} />
+            <TreeNodeItem key={node.path} node={node} selectedPath={selectedPath} onSelect={handleSelect} />
           ))}
         </div>
 
         {/* Diff area */}
-        <div className="flex-1 min-w-0 overflow-y-auto no-scrollbar p-2">
+        <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-y-auto no-scrollbar p-2">
           <Virtualizer>
-            {displayedFiles.map(file => (
-              <FileDiffItem
-                key={file.filename}
-                file={file}
-                threads={commentsByPath.get(file.filename) ?? []}
-                options={diffOptions}
-              />
+            {files.map(file => (
+              <div key={file.filename} id={`pr-diff-${file.filename}`}>
+                <FileDiffItem
+                  file={file}
+                  threads={commentsByPath.get(file.filename) ?? []}
+                  options={diffOptions}
+                />
+              </div>
             ))}
           </Virtualizer>
         </div>
