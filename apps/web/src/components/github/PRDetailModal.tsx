@@ -359,7 +359,7 @@ function ChecksSection({ checks }: { checks: StatusCheck[] }) {
   return (
     <div className="flex flex-col gap-2">
       <button
-        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left group"
+        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left group cursor-pointer"
         onClick={() => setOpen(v => !v)}
       >
         <div className="relative size-3.5 shrink-0">
