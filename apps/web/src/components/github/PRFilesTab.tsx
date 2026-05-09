@@ -57,7 +57,7 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
         <MessageSquare className="size-3 shrink-0" />
         {first?.line != null ? `Line ${first.line}` : 'Comment'}
       </div>
-      <div className="overflow-y-auto">
+      <div className="overflow-y-auto overflow-x-hidden">
       {thread.map((c, i) => (
         <div key={c.id ?? i} className="px-3 py-2 border-b border-border/20 last:border-0 min-w-0 overflow-hidden">
           <div className="flex items-center gap-2 mb-1">
