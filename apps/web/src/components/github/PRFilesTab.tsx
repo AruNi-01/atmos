@@ -3,9 +3,9 @@
 import React, { useMemo, useState } from 'react';
 import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
 import { useTheme } from 'next-themes';
-import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps, ScrollArea } from '@workspace/ui';
+import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps, ScrollArea, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
 import { Panel, PanelGroup, PanelResizeHandle } from '@workspace/ui';
-import { MessageSquare, Plus, Minus, ChevronRight, ChevronDown } from 'lucide-react';
+import { MessageSquare, Plus, Minus, ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
@@ -162,14 +162,23 @@ function FileDiffItem({
 export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }: PRFilesTabProps) {
   const { resolvedTheme } = useTheme();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [treeVisible, setTreeVisible] = useState(true);
+  const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
+  const [wordWrap, setWordWrap] = useState(true);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   const diffOptions = useMemo(() => ({
     theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
-    diffStyle: 'unified' as const,
-    overflow: 'wrap' as const,
+    diffStyle: diffStyle as 'unified' | 'split',
+    overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
     disableFileHeader: true,
-  }), [resolvedTheme]);
+  }), [resolvedTheme, diffStyle, wordWrap]);
+
+  const totalStats = useMemo(() => ({
+    additions: files.reduce((s, f) => s + f.additions, 0),
+    deletions: files.reduce((s, f) => s + f.deletions, 0),
+    changed: files.length,
+  }), [files]);
 
   const commentsByPath = useMemo(() => groupCommentsByPath(reviewComments), [reviewComments]);
 
@@ -199,7 +208,60 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   }
 
   return (
-      <PanelGroup direction="horizontal" className="h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/40 shrink-0">
+        <button
+          className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          onClick={() => setTreeVisible(v => !v)}
+          title={treeVisible ? 'Hide file tree' : 'Show file tree'}
+        >
+          {treeVisible ? <PanelLeftClose className="size-3.5" /> : <PanelLeftOpen className="size-3.5" />}
+        </button>
+
+        <div className="flex-1" />
+
+        {/* Stats */}
+        {files.length > 0 && (
+          <div className="flex items-center gap-2 text-[11px] font-mono font-medium">
+            <span className="text-emerald-500">+{totalStats.additions}</span>
+            <span className="text-red-500">-{totalStats.deletions}</span>
+            <div className="flex gap-0.5">
+              {Array.from({ length: 5 }, (_, i) => {
+                const filled = Math.round((totalStats.changed / Math.max(totalStats.changed, 1)) * 5);
+                return (
+                  <div
+                    key={i}
+                    className={cn("size-2.5 rounded-sm", i < filled ? "bg-emerald-500" : "bg-muted-foreground/20")}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              title="View options"
+            >
+              <MoreHorizontal className="size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[10rem]">
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setDiffStyle(s => s === 'unified' ? 'split' : 'unified')} className="text-xs">
+              {diffStyle === 'unified' ? 'Split view' : 'Unified view'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setWordWrap(v => !v)} className="text-xs">
+              {wordWrap ? 'Scroll (no wrap)' : 'Wrap lines'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <PanelGroup direction="horizontal" className="flex-1 min-h-0">
+        {treeVisible && (
         <Panel defaultSize={20} minSize={12} maxSize={40}>
           <ScrollArea className="h-full py-1">
           <DiffFileTree
@@ -219,8 +281,9 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
           />
           </ScrollArea>
         </Panel>
+        )}
 
-        <PanelResizeHandle className="w-px bg-border/40 hover:bg-primary/40 transition-colors" />
+        {treeVisible && <PanelResizeHandle className="w-px bg-border/40 hover:bg-primary/40 transition-colors" />}
 
         <Panel>
         <ScrollArea className="h-full">
@@ -241,5 +304,6 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         </ScrollArea>
         </Panel>
       </PanelGroup>
+    </div>
   );
 }
