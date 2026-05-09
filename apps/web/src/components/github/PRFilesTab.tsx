@@ -180,7 +180,8 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
   return (
       <PanelGroup direction="horizontal" className="h-full min-h-0">
-        <Panel defaultSize={20} minSize={12} maxSize={40} className="overflow-y-auto no-scrollbar py-1">
+        <Panel defaultSize={20} minSize={12} maxSize={40}>
+          <div className="h-full overflow-y-auto no-scrollbar py-1">
           <DiffFileTree
             items={treeItems}
             selectedPath={selectedPath ?? undefined}
@@ -196,12 +197,13 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
             }}
             onSelectFile={handleSelect}
           />
+          </div>
         </Panel>
 
         <PanelResizeHandle className="w-1 bg-border/40 hover:bg-primary/40 transition-colors" />
 
-        <Panel className="overflow-y-auto no-scrollbar">
-        <div ref={scrollContainerRef} className="p-2 h-full">
+        <Panel>
+        <div ref={scrollContainerRef} className="p-2 h-full overflow-y-auto no-scrollbar">
           <Virtualizer>
             {files.map((file, idx) => (
               <div key={file.filename} id={`pr-diff-${file.filename}`}>
