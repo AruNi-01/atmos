@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { getFileIconProps } from "@workspace/ui";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "motion/react";
 
 export interface DiffFileTreeItem {
   path: string;
@@ -302,6 +303,7 @@ export function DiffFileTree({
       className={cn("w-full overflow-y-auto pr-1", className)}
       style={style}
     >
+      <AnimatePresence initial={false}>
       {rows.map((row) => {
         const file = row.type === "file" ? row.file : undefined;
         const isSelected = !!file && selectedPath === row.path;
@@ -328,8 +330,15 @@ export function DiffFileTree({
               : null;
 
         return (
-          <div
+          <motion.div
             key={`${row.type}:${row.id}`}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 28 }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+          <div
             role="treeitem"
             aria-selected={isSelected || undefined}
             aria-expanded={
@@ -432,8 +441,10 @@ export function DiffFileTree({
               </>
             ) : null}
           </div>
+          </motion.div>
         );
       })}
+      </AnimatePresence>
     </div>
   );
 }

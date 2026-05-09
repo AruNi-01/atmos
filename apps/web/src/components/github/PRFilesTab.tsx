@@ -217,14 +217,56 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     }, 50);
   };
 
+  const toolbar = (
+    <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/40 shrink-0">
+      <button
+        className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+        onClick={() => setTreeVisible(v => !v)}
+        title={treeVisible ? 'Hide file tree' : 'Show file tree'}
+      >
+        {treeVisible ? <PanelLeftClose className="size-3.5" /> : <PanelLeftOpen className="size-3.5" />}
+      </button>
+      <div className="flex-1" />
+      {files.length > 0 && (
+        <div className="flex items-center gap-2 text-[11px] font-mono font-medium">
+          <span className="text-emerald-500">+{totalStats.additions}</span>
+          <span className="text-red-500">-{totalStats.deletions}</span>
+          <div className="flex gap-0.5">
+            {Array.from({ length: 5 }, (_, i) => {
+              const filled = Math.round((totalStats.changed / Math.max(totalStats.changed, 1)) * 5);
+              return <div key={i} className={cn("size-2.5 rounded-sm", i < filled ? "bg-emerald-500" : "bg-muted-foreground/20")} />;
+            })}
+          </div>
+        </div>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors" title="View options">
+            <MoreHorizontal className="size-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-[10rem]">
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setDiffStyle(s => s === 'unified' ? 'split' : 'unified')} className="text-xs">
+            {diffStyle === 'unified' ? 'Split view' : 'Unified view'}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="flex gap-3 h-full">
-        <div className="w-56 shrink-0 border-r border-border/40 p-2 flex flex-col gap-1">
-          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-5 rounded" style={{ width: `${50 + (i % 4) * 12}%` }} />)}
-        </div>
-        <div className="flex-1 p-2 flex flex-col gap-2">
-          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
+      <div className="flex flex-col h-full min-h-0">
+        {toolbar}
+        <div className="flex flex-1 min-h-0 gap-0">
+          <div className="w-56 shrink-0 border-r border-border/40 p-2 flex flex-col gap-1.5 overflow-hidden">
+            {[...Array(16)].map((_, i) => (
+              <Skeleton key={i} className="h-4 rounded shrink-0" style={{ width: `${40 + (i % 5) * 10}%`, marginLeft: i % 3 !== 0 ? '12px' : '0' }} />
+            ))}
+          </div>
+          <div className="flex-1 p-2 flex flex-col gap-3">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
+          </div>
         </div>
       </div>
     );
@@ -232,53 +274,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/40 shrink-0">
-        <button
-          className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          onClick={() => setTreeVisible(v => !v)}
-          title={treeVisible ? 'Hide file tree' : 'Show file tree'}
-        >
-          {treeVisible ? <PanelLeftClose className="size-3.5" /> : <PanelLeftOpen className="size-3.5" />}
-        </button>
-
-        <div className="flex-1" />
-
-        {/* Stats */}
-        {files.length > 0 && (
-          <div className="flex items-center gap-2 text-[11px] font-mono font-medium">
-            <span className="text-emerald-500">+{totalStats.additions}</span>
-            <span className="text-red-500">-{totalStats.deletions}</span>
-            <div className="flex gap-0.5">
-              {Array.from({ length: 5 }, (_, i) => {
-                const filled = Math.round((totalStats.changed / Math.max(totalStats.changed, 1)) * 5);
-                return (
-                  <div
-                    key={i}
-                    className={cn("size-2.5 rounded-sm", i < filled ? "bg-emerald-500" : "bg-muted-foreground/20")}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              title="View options"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[10rem]">
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setDiffStyle(s => s === 'unified' ? 'split' : 'unified')} className="text-xs">
-              {diffStyle === 'unified' ? 'Split view' : 'Unified view'}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {toolbar}
 
       <div className="flex flex-1 min-h-0">
         <AnimatePresence initial={false}>
