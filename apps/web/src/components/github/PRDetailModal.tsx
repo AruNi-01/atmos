@@ -86,7 +86,7 @@ interface TimelineItem {
   event?: string;
   type?: string;
   actor?: Record<string, unknown>;
-  author?: { login?: string; avatar_url?: string; avatarUrl?: string; is_bot?: boolean; date?: string };
+  author?: { login?: string; name?: string; avatar_url?: string; avatarUrl?: string; is_bot?: boolean; date?: string };
   user?: Record<string, unknown>;
   created_at?: string;
   submitted_at?: string;
@@ -529,7 +529,16 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
     return timelineItems
       .map((item: TimelineItem) => {
-        const author = item.actor || item.author || item.user;
+        const rawAuthor = item.actor || item.author || item.user;
+        // For 'committed' events, author has {name, email, date} but no login/avatar_url.
+        // Synthesize a usable author object so the avatar renders.
+        const author = item.event === 'committed' && item.author && !item.author.login
+          ? {
+              ...item.author,
+              login: item.author.name,
+              avatar_url: `https://github.com/${encodeURIComponent(item.author.name ?? 'ghost')}.png?size=32`,
+            }
+          : rawAuthor;
         const reviewId = (item as Record<string, unknown>).id as number | undefined;
         const threads = (item.event === 'reviewed' && reviewId) ? reviewCommentThreadsByReviewId.get(reviewId) : undefined;
 
