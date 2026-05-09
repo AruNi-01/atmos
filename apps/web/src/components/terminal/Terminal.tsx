@@ -1377,7 +1377,7 @@ const Terminal = ({
         width: "100%",
         height: "100%",
         /* Left = scrollbar width; right = 0 (scrollbar occupies right, overlay) */
-        padding: "8px 0 8px 14px",
+        padding: "8px 0 8px 8px",
         backgroundColor: "transparent",
         position: "relative",
         boxSizing: "border-box",

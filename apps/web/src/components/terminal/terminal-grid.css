@@ -15,20 +15,28 @@
 }
 
 .atmos-mosaic-theme .mosaic-window {
-  border: 1px solid var(--border) !important;
+  border: none !important;
   box-shadow: none !important;
   background: var(--background) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   overflow: hidden !important;
   isolation: isolate;
 }
 
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane .terminal-mosaic-content {
-  filter: saturate(0.6) brightness(0.55);
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane {
+  filter: saturate(0.95) brightness(0.95);
   transition: filter 0.18s ease;
 }
 
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover .terminal-mosaic-content {
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover {
+  filter: saturate(0.98) brightness(0.98);
+}
+
+.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane {
+  filter: saturate(0.6) brightness(0.55);
+}
+
+.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover {
   filter: saturate(0.75) brightness(0.7);
 }
 
@@ -47,7 +55,7 @@
 
 .atmos-mosaic-theme .mosaic-tile {
   margin: 0;
-  padding: 4px; /* Reduced gap size */
+  padding: 2px; /* Reduced gap size */
 }
 
 .atmos-mosaic-theme .mosaic-root {
@@ -87,6 +95,7 @@
   background: var(--background) !important;
   color: var(--foreground);
   border: none !important; /* Content is contained by parent window */
+  border-radius: 0 !important;
 }
 
 .atmos-mosaic-theme.mosaic-drop-target > .drop-target-container,
@@ -458,6 +467,7 @@
   overflow: hidden;
   position: relative;
   background: var(--background);
+  border-radius: 0;
 }
 
 .atmos-terminal {
@@ -563,9 +573,9 @@
   background: var(--background) !important;
   border: none !important;
   box-shadow: none !important;
-  border-radius: 8px 8px 0 0 !important;
+  border-radius: 0 !important;
   overflow: hidden;
-  margin: -1px -1px 0 -1px;
+  position: relative;
 }
 
 .atmos-mosaic-theme .mosaic-window-toolbar.draggable {
@@ -672,7 +682,7 @@
   height: calc(100% - 8px) !important;
   z-index: 9999 !important;
   margin: 0 !important;
-  border-radius: 8px !important; /* Restored rounded corners */
+  border-radius: 0 !important;
   border: 1px solid var(--border) !important; /* Ensure border is visible */
   background: var(--background) !important;
   opacity: 1 !important;
