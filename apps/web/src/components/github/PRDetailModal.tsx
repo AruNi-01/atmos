@@ -324,33 +324,20 @@ function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
   diffHunk: string;
 }) {
   const diffFiles = useMemo(() => buildDiffFiles(path, diffHunk), [path, diffHunk]);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = React.useState(false);
 
-  React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {
-        setIsVisible(true);
-        observer.disconnect();
-      }
-    }, { rootMargin: '200px' });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const fallback = (
-    <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
-      {diffHunk}
-    </pre>
-  );
+  if (!isMounted || !diffFiles) {
+    return (
+      <div className="max-h-[180px] overflow-auto border-b border-border/30">
+        <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
+          {diffHunk}
+        </pre>
+      </div>
+    );
+  }
 
   return (
-    <div ref={containerRef} className="max-h-[180px] overflow-auto border-b border-border/30">
-      {isMounted && isVisible && diffFiles
-        ? <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
-        : fallback}
+    <div className="max-h-[180px] overflow-auto border-b border-border/30">
+      <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
     </div>
   );
 }
