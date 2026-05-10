@@ -71,7 +71,7 @@ export const DiffViewer = ({
   filePath,
   originalPath,
 }: DiffViewerProps) => {
-  const { workspaceId } = useContextParams();
+  const { effectiveContextId } = useContextParams();
   const snapshotGuidFromPath = originalPath?.startsWith('review-diff://')
     ? originalPath.slice('review-diff://'.length).split('/')[0] || null
     : null;
@@ -124,8 +124,8 @@ export const DiffViewer = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const clearNavigationTarget = useEditorStore((state) => state.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
-    workspaceId && originalPath
-      ? state.navigationTargets[workspaceId]?.[originalPath] ?? null
+    effectiveContextId && originalPath
+      ? state.navigationTargets[effectiveContextId]?.[originalPath] ?? null
       : null,
   );
 
@@ -503,23 +503,24 @@ export const DiffViewer = ({
     [inlineComposerAnnotation, commentAnnotations],
   );
 
+  // Track which navigationTarget object identity we've already attempted to scroll to.
+  // This prevents the effect from re-scrolling when unrelated state (e.g. WS comment
+  // updates) changes — without it, every `reviewContext.comments` mutation would
+  // re-fire scrollIntoView and yank the user's manual scroll back to the anchor.
+  const lastHandledNavRef = useRef<unknown>(null);
+
   useEffect(() => {
-    if (!navigationTarget || !originalPath || !workspaceId || isLoading) return;
-    let cancelled = false;
+    if (!navigationTarget || !originalPath || !effectiveContextId || isLoading) return;
+    if (lastHandledNavRef.current === navigationTarget) return;
+
     const targetCommentGuid = navigationTarget.reviewCommentGuid;
     const targetMessageGuid = navigationTarget.reviewMessageGuid;
-    if (
-      targetCommentGuid &&
-      !reviewContext.comments.some(
-        (comment) =>
-          comment.guid === targetCommentGuid &&
-          (!targetMessageGuid ||
-            comment.messages.some((message) => message.guid === targetMessageGuid)),
-      )
-    ) {
-      return;
-    }
+    const targetLine = navigationTarget.line;
 
+    // Expand the target comment immediately and start the highlight pulse so
+    // the message DOM node is available to scroll to. Doing this synchronously
+    // (rather than only when the element is found) means the pierre annotation
+    // re-renders right away and the polling below can finish quickly.
     if (targetCommentGuid) {
       setCollapsedInlineCommentGuids((prev) => {
         if (!prev.has(targetCommentGuid)) return prev;
@@ -534,50 +535,98 @@ export const DiffViewer = ({
       }
     }
 
-    const scrollToTarget = () => {
-      const container = containerRef.current;
-      if (!container) return false;
-      const target = targetMessageGuid
-        ? container.querySelector<HTMLElement>(
-            `[data-review-message-guid="${targetMessageGuid}"]`,
-          )
-        : targetCommentGuid
-        ? container.querySelector<HTMLElement>(
-            `[data-review-comment-guid="${targetCommentGuid}"]`,
-          )
-        : container.querySelector<HTMLElement>(
-            `[data-review-anchor-line="${navigationTarget.line}"]`,
-          );
-      if (!target) return false;
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return true;
+    let cancelled = false;
+    let attempts = 0;
+    // ~3s of polling at ~100ms cadence — comfortably covers the worst case
+    // where the file/diff parses and pierre/diffs renders the annotation row
+    // after the navigationTarget was set.
+    const MAX_ATTEMPTS = 30;
+    const POLL_INTERVAL_MS = 100;
+    let timerId: number | undefined;
+
+    const queryTarget = (
+      root: ParentNode | null | undefined,
+      selector: string,
+    ): HTMLElement | null => {
+      if (!root) return null;
+      return root.querySelector<HTMLElement>(selector);
     };
 
-    const frame = requestAnimationFrame(() => {
-      if (scrollToTarget()) {
-        clearNavigationTarget(originalPath, workspaceId);
+    const findTarget = (): HTMLElement | null => {
+      const container = containerRef.current;
+      if (!container) return null;
+      const diffElement = container.querySelector('diffs-container');
+      const shadowRoot = diffElement?.shadowRoot;
+      if (targetMessageGuid) {
+        const selector = `[data-review-message-guid="${targetMessageGuid}"]`;
+        return queryTarget(container, selector) ?? queryTarget(shadowRoot, selector);
+      }
+      if (targetCommentGuid) {
+        const selector = `[data-review-comment-guid="${targetCommentGuid}"]`;
+        return queryTarget(container, selector) ?? queryTarget(shadowRoot, selector);
+      }
+      if (typeof targetLine === 'number') {
+        const selector = `[data-review-anchor-line="${targetLine}"]`;
+        return queryTarget(container, selector) ?? queryTarget(shadowRoot, selector);
+      }
+      return null;
+    };
+
+    const scrollTargetIntoContainer = (target: HTMLElement) => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const currentTop = container.scrollTop;
+      const offsetWithinContainer =
+        targetRect.top - containerRect.top + currentTop;
+      const centeredTop =
+        offsetWithinContainer - container.clientHeight / 2 + targetRect.height / 2;
+
+      container.scrollTo({
+        top: Math.max(0, centeredTop),
+        behavior: 'smooth',
+      });
+    };
+
+    const finalize = () => {
+      lastHandledNavRef.current = navigationTarget;
+      clearNavigationTarget(originalPath, effectiveContextId);
+    };
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const target = findTarget();
+      if (target) {
+        scrollTargetIntoContainer(target);
+        finalize();
         return;
       }
+      attempts += 1;
+      if (attempts >= MAX_ATTEMPTS) {
+        // Give up so we don't retain a dangling navigationTarget that would
+        // re-trigger a scroll the next time isLoading flips.
+        finalize();
+        return;
+      }
+      timerId = window.setTimeout(tryScroll, POLL_INTERVAL_MS);
+    };
 
-      window.setTimeout(() => {
-        if (cancelled) return;
-        scrollToTarget();
-        clearNavigationTarget(originalPath, workspaceId);
-      }, 120);
-    });
+    const frameId = requestAnimationFrame(tryScroll);
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(frame);
+      cancelAnimationFrame(frameId);
+      if (timerId !== undefined) window.clearTimeout(timerId);
     };
   }, [
     clearNavigationTarget,
+    effectiveContextId,
+    filePath,
     isLoading,
-    lineAnnotations,
     navigationTarget,
     originalPath,
-    reviewContext.comments,
-    workspaceId,
   ]);
 
   useEffect(() => {
