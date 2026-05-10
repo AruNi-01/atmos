@@ -219,6 +219,10 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     diffStyle: diffStyle as 'unified' | 'split',
     overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
     disableFileHeader: true,
+    // Note: expandUnchanged is not enabled here because PatchDiff only receives patch strings
+    // from GitHub API (not full file contents), so it cannot expand collapsed unmodified lines.
+    // To enable expansion, we would need to fetch complete file contents via GitHub contents API
+    // and use FileDiff instead of PatchDiff.
   }), [resolvedTheme, diffStyle, wordWrap]);
 
   const totalStats = useMemo(() => ({
@@ -342,7 +346,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
         {treeVisible && (
           <div
-            className="w-px shrink-0 cursor-col-resize hover:bg-primary/40 bg-border/40 transition-colors"
+            className="w-px shrink-0 cursor-col-resize bg-border/40 transition-colors relative before:absolute before:-inset-x-2 before:h-full before:hover:bg-primary/40 before:transition-colors"
             onMouseDown={onResizeDragStart}
           />
         )}
