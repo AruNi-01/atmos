@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { useFocusRestore } from '@/hooks/use-focus-restore';
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useTheme } from 'next-themes';
@@ -119,6 +120,7 @@ export function GlobalSearch() {
   const { setTheme, theme } = useTheme();
 
   const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
+  const { onCloseAutoFocusPrevent } = useFocusRestore(isGlobalSearchOpen);
   const setGlobalSearchOpen = useDialogStore(s => s.setGlobalSearchOpen);
   const globalSearchTab = useDialogStore(s => s.globalSearchTab);
   const setGlobalSearchTab = useDialogStore(s => s.setGlobalSearchTab);
@@ -888,6 +890,7 @@ export function GlobalSearch() {
         }
         setGlobalSearchOpen(open);
       }}
+      onCloseAutoFocus={onCloseAutoFocusPrevent}
       className="w-[min(740px,calc(100vw-2rem))] sm:max-w-[740px] h-[min(82vh,900px)]"
     >
       {subView === 'todo' ? (

@@ -1118,7 +1118,8 @@ const CenterStage: React.FC = () => {
     setUrlParams({ tab: nextTab.id, wikiPage: null });
     setActiveFile(null, effectiveContextId);
     setAgentDropdownTabId(null);
-  }, [effectiveContextId, createTerminalTab, setActiveFile, setActiveTerminalTab, setUrlParams]);
+    runWhenTerminalGridReady(nextTab.id, (grid) => grid.focusActivePane());
+  }, [effectiveContextId, createTerminalTab, runWhenTerminalGridReady, setActiveFile, setActiveTerminalTab, setUrlParams]);
 
   const handleCloseTerminalCenterTab = React.useCallback((tabId: string) => {
     if (!effectiveContextId || tabId === FIXED_TERMINAL_TAB_VALUE) return;
@@ -1148,6 +1149,12 @@ const CenterStage: React.FC = () => {
       }
       setUrlParams({ tab: val, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);
+      // Focus the active pane after switching to a terminal tab
+      if (val === FIXED_TERMINAL_TAB_VALUE) {
+        terminalGridRef.current?.focusActivePane();
+      } else {
+        runWhenTerminalGridReady(val, (grid) => grid.focusActivePane());
+      }
     } else if (FIXED_TABS.has(val)) {
       setFixedTab(val as FixedTab);
       setActiveFile(null, effectiveContextId || undefined);

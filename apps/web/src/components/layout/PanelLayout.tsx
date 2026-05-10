@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   Panel,
   PanelGroup,
@@ -51,13 +51,25 @@ export function PanelLayout({
   const prevNewWorkspaceRef = useRef(false);
   const setCreateProjectOpen = useDialogStore((s) => s.setCreateProjectOpen);
   const router = useAppRouter();
+  const previousFocusRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    if (showOverlay && !isWelcomeClosing) {
+      previousFocusRef.current = document.activeElement;
+    }
+  }, [showOverlay, isWelcomeClosing]);
 
   const handleCloseWelcomeOverlay = useCallback(() => {
     setIsWelcomeClosing(true);
+    const savedEl = previousFocusRef.current;
     setTimeout(() => {
       setIsWelcomeClosing(false);
       setWelcomeAnimState("idle");
       void setNewWorkspace(false);
+      if (savedEl instanceof HTMLElement && savedEl.isConnected) {
+        savedEl.focus();
+      }
+      previousFocusRef.current = null;
     }, 350);
   }, [setNewWorkspace]);
 

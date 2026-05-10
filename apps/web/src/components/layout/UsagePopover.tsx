@@ -1232,9 +1232,10 @@ interface UsagePopoverProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   embedded?: boolean;
+  onPopoverCloseAutoFocus?: (e: Event) => void;
 }
 
-export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false }: UsagePopoverProps = {}) {
+export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenChange, embedded = false, onPopoverCloseAutoFocus }: UsagePopoverProps = {}) {
   const providerScrollRef = useRef<HTMLDivElement | null>(null);
   const [internalOpen, setInternalOpen] = useState(false);
   const open = embedded ? true : externalOpen !== undefined ? externalOpen : internalOpen;
@@ -1641,6 +1642,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     : {
       align: "end" as const,
       sideOffset: 10,
+      onCloseAutoFocus: onPopoverCloseAutoFocus,
       className:
         "w-[min(92vw,560px)] rounded-[24px] border-border/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.985),rgba(244,244,245,0.985))] p-0 shadow-[0_28px_80px_-36px_rgba(15,23,42,0.30)] dark:bg-[linear-gradient(180deg,rgba(30,30,30,0.98),rgba(15,15,15,0.99))]",
     };

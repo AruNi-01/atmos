@@ -108,6 +108,46 @@ Full conventions (zones, naming, the 4-file rule, review checklist) live in [spe
 
 ---
 
+## ⌨️ Keyboard Shortcuts & Overlay Focus
+
+**Every Global/Workspace shortcut must work inside the terminal.** xterm.js uses a hidden `<textarea>` for input, so `react-hotkeys-hook` needs `enableOnFormTags: true` on all `useHotkeys` calls for shortcuts that should fire when the terminal is focused.
+
+### Opening Overlays from Terminal — Focus Capture Rule
+
+**When a keyboard shortcut opens an overlay (popover, dialog, menu) while the terminal is focused, you MUST capture `document.activeElement` BEFORE the overlay opens, and restore focus to it on close.** Otherwise, the UI library will return focus to the trigger button — not the terminal input.
+
+#### Pattern: `useFocusRestore` hook
+
+```tsx
+// apps/web/src/hooks/use-focus-restore.ts
+const { onCloseAutoFocusPrevent } = useFocusRestore(isOpen);
+```
+
+The hook:
+- Captures `document.activeElement` when `open` → `true`
+- Restores focus via `requestAnimationFrame` when `open` → `false` (deferred to let the UI library's cleanup run first)
+- Returns `onCloseAutoFocusPrevent` to pass to Radix `PopoverContent` / `DialogContent`
+
+#### Per-Component Application
+
+| Overlay Library | Pattern |
+|----------------|---------|
+| **Radix Popover** | Use `useFocusRestore`, pass `onCloseAutoFocusPrevent` to `PopoverContent` |
+| **Radix Dialog** | Use `useFocusRestore`, pass `onCloseAutoFocusPrevent` to `DialogContent` |
+| **Base UI Menu** | Capture in hotkey handler: `actionMenuFocusRef.current = document.activeElement` BEFORE `setIsOpen(true)`, then pass `finalFocus={actionMenuFocusRef}` to `MenuPanel` |
+| **Custom overlay** | Manual: save `document.activeElement` in an effect/ref when overlay opens, restore in close handler |
+
+> **Why Base UI Menu is different:** Its focus management runs synchronously during open, so `document.activeElement` changes before any effect can capture it. Capture must happen in the hotkey handler, before the state setter fires.
+
+#### Checklist for new keyboard-shortcut-driven overlays
+
+- [ ] `useHotkeys` has `enableOnFormTags: true`
+- [ ] Focus is captured before the overlay opens (not in `onOpenChange` callback)
+- [ ] Focus is restored to the captured element on close
+- [ ] Verify by opening the overlay from the terminal via keyboard shortcut, then pressing Esc — cursor should return to the terminal input
+
+---
+
 ## 🚀 Commands
 
 ```bash

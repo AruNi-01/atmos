@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useFocusRestore } from "@/hooks/use-focus-restore";
 import {
   Badge,
   Button,
@@ -625,6 +626,7 @@ export function WorkspaceKanbanView({
 }: WorkspaceKanbanViewProps) {
   const router = useAppRouter();
   const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
+  const { onCloseAutoFocusPrevent } = useFocusRestore(!!isKanbanExpanded);
   const [searchQuery, setSearchQuery] = useQueryState("lsKanbanQ", leftSidebarParams.lsKanbanQ);
   const availableStatusSet = React.useMemo(
     () => new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value)),
@@ -1074,6 +1076,7 @@ export function WorkspaceKanbanView({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent
         showCloseButton={false}
+        onCloseAutoFocus={onCloseAutoFocusPrevent}
         className="top-1/2 left-1/2 h-[100dvh] w-[100vw] max-w-[100vw] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-border"
       >
         <DialogHeader className="sr-only">

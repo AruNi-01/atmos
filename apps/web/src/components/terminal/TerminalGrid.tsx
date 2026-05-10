@@ -98,6 +98,8 @@ export interface TerminalGridHandle {
   /** Create a new terminal and pre-fill command text without executing it */
   prefillTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => void;
   destroyAllTerminals: () => void;
+  /** Focus the currently active pane's terminal input */
+  focusActivePane: () => void;
 }
 
 const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
@@ -382,14 +384,20 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     return entry?.[0] ?? getPaneId(workspaceId, labelOrWindowName);
   }, [getPaneId, panes, workspaceId]);
   const addTerminal = useCallback((label?: string, agent?: TerminalPaneAgent) => {
-    if (isCodeReview) {
-      return addCodeReviewTerminal(workspaceId, label, agent);
+    const result = (() => {
+      if (isCodeReview) {
+        return addCodeReviewTerminal(workspaceId, label, agent);
+      }
+      if (isProjectWiki) {
+        return addProjectWikiTerminal(workspaceId, label, agent);
+      }
+      return addTerminalToStore(workspaceId, label, terminalTabId, agent);
+    })();
+    if (result) {
+      focusPane(result);
     }
-    if (isProjectWiki) {
-      return addProjectWikiTerminal(workspaceId, label, agent);
-    }
-    return addTerminalToStore(workspaceId, label, terminalTabId, agent);
-  }, [addCodeReviewTerminal, addProjectWikiTerminal, addTerminalToStore, isCodeReview, isProjectWiki, terminalTabId, workspaceId]);
+    return result;
+  }, [addCodeReviewTerminal, addProjectWikiTerminal, addTerminalToStore, focusPane, isCodeReview, isProjectWiki, terminalTabId, workspaceId]);
   const removeTerminalFromScope = useCallback((id: string) => {
     if (isCodeReview) {
       removeCodeReviewTerminal(workspaceId, id);
@@ -465,7 +473,12 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       }
       terminalRefsMap.current.clear();
     },
-  }), [workspaceId, addTerminal, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope, panes, setPaneAgent]);
+    focusActivePane: () => {
+      if (effectiveActivePaneId) {
+        focusPane(effectiveActivePaneId);
+      }
+    },
+  }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope, panes, setPaneAgent]);
 
   const setLayoutForScope = isCodeReview
     ? setCodeReviewLayout

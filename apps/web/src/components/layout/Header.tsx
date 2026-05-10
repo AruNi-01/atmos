@@ -74,6 +74,7 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { LocalModelDownloadProgress } from '@/components/layout/LocalModelDownloadProgress';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
+import { useFocusRestore } from '@/hooks/use-focus-restore';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { useRemoteAccess, type RemoteAccessStatus } from '@/hooks/use-remote-access';
 import {
@@ -335,6 +336,8 @@ const Header: React.FC = () => {
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useQueryState("tokenUsage", tokenUsageParams.tokenUsage);
   const [isUsagePopoverOpen, setIsUsagePopoverOpen] = useState(false);
+  const { onCloseAutoFocusPrevent } = useFocusRestore(isUsagePopoverOpen);
+  const actionMenuFocusRef = useRef<HTMLElement | null>(null);
   const [isDesktopFullscreen, setIsDesktopFullscreen] = useState(false);
   const [isDesktopFullscreenExiting, setIsDesktopFullscreenExiting] = useState(false);
   const desktopFullscreenRef = useRef<boolean | null>(null);
@@ -632,11 +635,16 @@ const Header: React.FC = () => {
     description: 'Toggle AI Usage'
   });
 
-  useHotkeys('mod+shift+m', () => setIsActionMenuOpen(prev => !prev), {
+  useHotkeys('mod+shift+m', () => {
+    if (!isActionMenuOpen && document.activeElement instanceof HTMLElement) {
+      actionMenuFocusRef.current = document.activeElement;
+    }
+    setIsActionMenuOpen(prev => !prev);
+  }, {
     enableOnFormTags: true,
     preventDefault: true,
     description: 'Toggle menu'
-  });
+  }, [isActionMenuOpen]);
 
   useHotkeys('mod+shift+b', () => {
     if (showRightSidebar) {
@@ -1241,7 +1249,7 @@ const Header: React.FC = () => {
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <UsagePopover open={isUsagePopoverOpen} onOpenChange={setIsUsagePopoverOpen} />
+                <UsagePopover open={isUsagePopoverOpen} onOpenChange={setIsUsagePopoverOpen} onPopoverCloseAutoFocus={onCloseAutoFocusPrevent} />
               </TooltipTrigger>
               <TooltipContent>
                 <div className="flex items-center gap-2">
@@ -1277,7 +1285,7 @@ const Header: React.FC = () => {
                   </div>
                 </TooltipContent>
               </Tooltip>
-              <MenuPanel align="end" sideOffset={8} className="w-56">
+              <MenuPanel finalFocus={actionMenuFocusRef} align="end" sideOffset={8} className="w-56">
                 <MenuItem
                   closeOnClick
                   onClick={() => {
