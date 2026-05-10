@@ -25,7 +25,7 @@ import {
   GitBranch,
   GitCommit as GitCommitIcon,
   File,
-  ScanSearch,
+  FileDiff,
   FolderOpen,
   FolderTree,
   List,
@@ -86,7 +86,7 @@ const BASE_TABS: Array<{
   Icon: React.ComponentType<{ className?: string }>;
 }> = [
   { value: "changes", label: "Changes", Icon: GitBranch },
-  { value: "review", label: "Review", Icon: ScanSearch },
+  { value: "review", label: "Review", Icon: FileDiff },
   { value: "run-preview", label: "Run / Preview", Icon: Play },
   { value: "pr", label: "Pull Requests", Icon: GitPullRequest },
   { value: "actions", label: "Actions", Icon: Workflow },
