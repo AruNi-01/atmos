@@ -219,14 +219,14 @@ const SETTINGS_SECTIONS = [
     description: 'Tunnel gateway and remote browser access',
   },
   {
-    id: 'about',
-    label: 'About',
-    description: 'Product overview and desktop updates',
-  },
-  {
     id: 'shortcuts',
     label: 'Shortcuts',
     description: 'Keyboard shortcuts across the application',
+  },
+  {
+    id: 'about',
+    label: 'About',
+    description: 'Product overview and desktop updates',
   },
 ] as const;
 
