@@ -21,3 +21,14 @@ pub(crate) const FACTORY_USAGE_PATH: &str = "/api/organization/subscription/usag
 pub(crate) const ZED_BILLING_USAGE_URL: &str = "https://cloud.zed.dev/frontend/billing/usage";
 pub(crate) const ZED_SUBSCRIPTION_URL: &str =
     "https://cloud.zed.dev/frontend/billing/subscriptions/current";
+pub(crate) const COMMANDCODE_API_URL: &str = "https://api.commandcode.ai";
+pub(crate) const COMMANDCODE_CREDITS_PATH: &str = "/internal/billing/credits";
+pub(crate) const COMMANDCODE_SUBSCRIPTIONS_PATH: &str = "/internal/billing/subscriptions";
+// CommandCode session cookie names (updated from better-auth to commandcode_prod_)
+pub(crate) const COMMANDCODE_COOKIE_NAMES: &[&str] = &[
+    "__Secure-commandcode_prod_.session_token",
+    "__Secure-commandcode_prod_.session_data",
+    "__Host-better-auth.session_token",
+    "__Secure-better-auth.session_token",
+    "better-auth.session_token",
+];

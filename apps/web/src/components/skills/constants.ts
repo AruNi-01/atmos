@@ -56,6 +56,7 @@ export const AGENT_REGISTRY_ID_MAP: Record<string, string> = {
   cline: 'cline',
   codebuddy: 'codebuddy-code',
   codex: 'codex',
+  commandcode: 'commandcode',
   cursor: 'cursor',
   factory: 'factory-droid',
   gemini: 'gemini',

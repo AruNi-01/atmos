@@ -17,7 +17,8 @@ use crate::models::{
     ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, UsageSummary,
 };
 use crate::providers::{
-    amp, antigravity, claude, codex, cursor, factory, mimo, minimax, opencode, zai, zed,
+    amp, antigravity, claude, codex, // commandcode disabled due to API data consistency issues
+    cursor, factory, mimo, minimax, opencode, zai, zed,
 };
 use crate::support::{
     expand_home, load_amp_browser_cookie_source, load_factory_browser_cookie_source,
@@ -56,6 +57,8 @@ pub(crate) enum LiveProviderKind {
     MiniMax,
     Mimo,
     Zed,
+    // CommandCode disabled due to API data consistency issues
+    // CommandCode,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -356,6 +359,18 @@ pub(crate) fn detect_auth(spec: &ProviderSpec) -> AuthState {
         }
     }
 
+    // CommandCode disabled due to API data consistency issues
+    // if spec.id == "commandcode" {
+    //     if commandcode::commandcode_auth_available() {
+    //         return AuthState {
+    //             status: AuthStateStatus::Detected,
+    //             source: commandcode::commandcode_auth_source(),
+    //             detail: Some("Detected CommandCode auth.json".to_string()),
+    //             setup_hint: Some(spec.setup_hint.to_string()),
+    //         };
+    //     }
+    // }
+
     AuthState {
         status: AuthStateStatus::Missing,
         source: None,
@@ -614,6 +629,17 @@ fn provider_specs() -> Vec<ProviderSpec> {
             auth_env_keys: &["OPENAI_API_KEY"],
             auth_paths: &["~/.codex/auth.json", "~/.config/codex/auth.json"],
         },
+        // CommandCode disabled due to API data consistency issues
+        // ProviderSpec {
+        //     id: "commandcode",
+        //     label: "CommandCode",
+        //     kind: ProviderKind::Cli,
+        //     live_kind: Some(LiveProviderKind::CommandCode),
+        //     timeout_millis: PROVIDER_TIMEOUT_MILLIS,
+        //     setup_hint: "Run cmd login, or make ~/.commandcode/auth.json available. Usage tracking is available in CommandCode Studio.",
+        //     auth_env_keys: &[],
+        //     auth_paths: &["~/.commandcode/auth.json", "~/.config/commandcode/auth.json"],
+        // },
         ProviderSpec {
             id: "cursor",
             label: "Cursor",
@@ -760,5 +786,7 @@ async fn collect_live(
         LiveProviderKind::MiniMax => minimax::fetch_minimax_live(client).await,
         LiveProviderKind::Mimo => mimo::fetch_mimo_live(client).await,
         LiveProviderKind::Zed => zed::fetch_zed_live(client).await,
+        // CommandCode disabled due to API data consistency issues
+        // LiveProviderKind::CommandCode => commandcode::fetch_commandcode_live(client).await,
     }
 }

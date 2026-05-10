@@ -8,6 +8,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::constants::COMMANDCODE_COOKIE_NAMES;
 use crate::models::ProviderError;
 use crate::support::{run_command, run_sqlite_query};
 
@@ -181,6 +182,14 @@ pub(crate) fn load_workos_browser_cookie_source(
     load_browser_cookie_source_with_session_detection(
         &["workos.com"],
         &["__wuid", "__kduid", "wos-session"],
+    )
+}
+
+pub(crate) fn load_commandcode_browser_cookie_source(
+) -> Result<Option<BrowserCookieSource>, ProviderError> {
+    load_browser_cookie_source_with_session_detection(
+        &["commandcode.ai", "www.commandcode.ai"],
+        COMMANDCODE_COOKIE_NAMES,
     )
 }
 

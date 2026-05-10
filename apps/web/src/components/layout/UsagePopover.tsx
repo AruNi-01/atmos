@@ -371,6 +371,7 @@ function providerIdentity(provider: UsageProviderResponse) {
 export const PROVIDER_ICON_IDS = new Set([
   "claude",
   "codex",
+  "commandcode",
   "cursor",
   "opencode",
   "factory",

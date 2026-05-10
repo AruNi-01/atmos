@@ -23,6 +23,7 @@ export const AGENT_OPTIONS = [
   { id: "cursor", label: "Cursor Agent", cmd: "agent", params: "--force" },
   { id: "kilocode", label: "Kilo Code", cmd: "kilocode", params: "" },
   { id: "kiro", label: "Kiro", cmd: "kiro-cli", params: "chat --agent atmos --trust-all-tools" },
+  { id: "commandcode", label: "CommandCode", cmd: "cmd", params: "--trust --yolo" },
 ] as const;
 
 export type AgentId = (typeof AGENT_OPTIONS)[number]["id"];
