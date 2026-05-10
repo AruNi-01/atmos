@@ -1891,6 +1891,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
   const [isCheckingCliVersion, setIsCheckingCliVersion] = useState(false);
+  const [isInstallingCli, setIsInstallingCli] = useState(false);
+  const [cliVersionInfo, setCliVersionInfo] = useState<{
+    current: string | null;
+    latest: string | null;
+    updateAvailable: boolean;
+  } | null>(null);
   const [appVersion, setAppVersion] = useState('');
   const [activeSection, setActiveSection] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [llmConfig, setLlmConfig] = useState<LlmProvidersFile | null>(null);
@@ -2441,33 +2447,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           type: 'error',
           timeout: 6000,
         });
+        setCliVersionInfo(null);
         return;
       }
+
+      // Update version info state
+      setCliVersionInfo({
+        current: result.current_version,
+        latest: result.latest_version,
+        updateAvailable: result.update_available,
+      });
 
       if (result.update_available) {
         toastManager.update(toastId, {
           title: `Atmos CLI ${result.latest_version} is available`,
-          description: (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Installed version: {result.current_version ?? 'unknown'}.
-              </p>
-              {result.release_url ? (
-                <Button variant="outline" size="sm" asChild>
-                  <a
-                    href={result.release_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="mr-1.5 size-3.5" />
-                    View Release
-                  </a>
-                </Button>
-              ) : null}
-            </div>
-          ),
+          description: `Installed version: ${result.current_version ?? 'unknown'}. Click Install to update.`,
           type: 'info',
-          timeout: 0,
+          timeout: 4000,
         });
         return;
       }
@@ -2489,6 +2485,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
     } finally {
       setIsCheckingCliVersion(false);
+    }
+  };
+
+  const handleInstallCli = async () => {
+    setIsInstallingCli(true);
+    const toastId = toastManager.add({
+      title: 'Installing Atmos CLI…',
+      description: 'Downloading and installing the latest version.',
+      type: 'loading',
+      timeout: 0,
+    });
+
+    try {
+      const installResult = await systemApi.installCli(false);
+      
+      // Refresh version info after installation
+      const versionResult = await systemApi.checkCliVersion();
+      setCliVersionInfo({
+        current: versionResult.current_version,
+        latest: versionResult.latest_version,
+        updateAvailable: versionResult.update_available,
+      });
+
+      toastManager.update(toastId, {
+        title: 'Atmos CLI installed successfully',
+        description: installResult.version
+          ? `Updated to version ${installResult.version}.`
+          : 'CLI has been updated to the latest version.',
+        type: 'success',
+        timeout: 4000,
+      });
+    } catch (error) {
+      toastManager.update(toastId, {
+        title: 'CLI installation failed',
+        description: error instanceof Error ? error.message : 'Unable to install Atmos CLI.',
+        type: 'error',
+        timeout: 6000,
+      });
+    } finally {
+      setIsInstallingCli(false);
     }
   };
 
@@ -2769,21 +2805,48 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <p className="mt-2 text-sm leading-6 text-muted-foreground">
                             Check for the latest CLI updates.
                           </p>
+                          {cliVersionInfo && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs text-muted-foreground">
+                                Current: {cliVersionInfo.current || 'unknown'}
+                              </p>
+                              {cliVersionInfo.latest && (
+                                <p className="text-xs text-muted-foreground">
+                                  Latest: {cliVersionInfo.latest}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center">
-                          <Button
-                            variant="outline"
-                            onClick={handleCheckCliVersion}
-                            disabled={isCheckingCliVersion}
-                            className="cursor-pointer"
-                          >
-                            {isCheckingCliVersion ? (
-                              <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
-                            ) : (
-                              <RotateCcw className="mr-2 size-4" />
-                            )}
-                            Check for Updates
-                          </Button>
+                          {cliVersionInfo?.updateAvailable ? (
+                            <Button
+                              onClick={handleInstallCli}
+                              disabled={isInstallingCli}
+                              className="cursor-pointer"
+                            >
+                              {isInstallingCli ? (
+                                <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                              ) : (
+                                <Download className="mr-2 size-4" />
+                              )}
+                              Install Update
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              onClick={handleCheckCliVersion}
+                              disabled={isCheckingCliVersion}
+                              className="cursor-pointer"
+                            >
+                              {isCheckingCliVersion ? (
+                                <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                              ) : (
+                                <RotateCcw className="mr-2 size-4" />
+                              )}
+                              Check for Updates
+                            </Button>
+                          )}
                         </div>
                       </div>
 

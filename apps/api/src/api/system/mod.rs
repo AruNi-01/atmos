@@ -43,6 +43,7 @@ pub fn routes() -> Router<AppState> {
             post(handlers::scaffold_review_skill),
         )
         .route("/cli-version-check", get(handlers::check_cli_version))
+        .route("/cli-install", post(handlers::install_cli))
         .route("/ws-connections", get(handlers::list_ws_connections))
         .route("/file", get(handlers::serve_file))
         .route("/debug-log", post(handlers::ingest_frontend_debug_log))

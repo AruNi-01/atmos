@@ -74,6 +74,13 @@ struct GithubRelease {
     html_url: String,
     draft: bool,
     prerelease: bool,
+    assets: Vec<GithubAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GithubAsset {
+    name: String,
+    browser_download_url: String,
 }
 
 /// GET /api/system/cli-version-check
@@ -97,6 +104,183 @@ pub async fn check_cli_version() -> ApiResult<Json<ApiResponse<CliVersionCheckRe
         update_available,
         install_path: cli_path.map(|path| path.to_string_lossy().to_string()),
     })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InstallCliRequest {
+    #[serde(default)]
+    modify_path: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CliInstallResponse {
+    success: bool,
+    version: Option<String>,
+    message: String,
+    path_modified: Option<bool>,
+    path_modified_file: Option<String>,
+}
+
+/// POST /api/system/cli-install
+///
+/// Download and install the latest Atmos CLI from GitHub releases.
+pub async fn install_cli(Json(payload): Json<InstallCliRequest>) -> ApiResult<Json<ApiResponse<CliInstallResponse>>> {
+    let cli_path = infra::utils::atmos_cli::installed_cli_path()
+        .ok_or_else(|| ApiError::InternalError("Cannot determine CLI install path".to_string()))?;
+
+    // Ensure the bin directory exists
+    if let Some(bin_dir) = cli_path.parent() {
+        std::fs::create_dir_all(bin_dir)
+            .map_err(|e| ApiError::InternalError(format!("Failed to create bin directory: {}", e)))?;
+    }
+
+    // Fetch the latest CLI release with assets
+    let release = fetch_latest_cli_release_with_assets().await
+        .map_err(|e| ApiError::InternalError(format!("Failed to fetch CLI release: {}", e)))?;
+
+    // Determine the correct asset for the current platform
+    let asset_url = get_platform_asset_url(&release.assets)
+        .ok_or_else(|| ApiError::InternalError("No compatible CLI asset found for this platform".to_string()))?;
+
+    info!("Downloading CLI from: {}", asset_url);
+
+    // Download the asset
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(300))
+        .user_agent("atmos-api")
+        .build()
+        .map_err(|e| ApiError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
+
+    let response = client.get(&asset_url)
+        .send()
+        .await
+        .map_err(|e| ApiError::InternalError(format!("Failed to download CLI: {}", e)))?;
+
+    if !response.status().is_success() {
+        return Err(ApiError::InternalError(format!("Failed to download CLI: HTTP {}", response.status())));
+    }
+
+    let bytes = response.bytes()
+        .await
+        .map_err(|e| ApiError::InternalError(format!("Failed to read CLI bytes: {}", e)))?;
+
+    // Write to a temporary file first
+    let temp_path = cli_path.with_extension("tmp");
+    tokio::fs::write(&temp_path, bytes)
+        .await
+        .map_err(|e| ApiError::InternalError(format!("Failed to write CLI to temp file: {}", e)))?;
+
+    // Set executable permissions
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata = std::fs::metadata(&temp_path)
+            .map_err(|e| ApiError::InternalError(format!("Failed to stat temp file: {}", e)))?;
+        let mut permissions = metadata.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&temp_path, permissions)
+            .map_err(|e| ApiError::InternalError(format!("Failed to set executable permissions: {}", e)))?;
+    }
+
+    // Replace the old CLI with the new one
+    tokio::fs::rename(&temp_path, &cli_path)
+        .await
+        .map_err(|e| ApiError::InternalError(format!("Failed to replace CLI: {}", e)))?;
+
+    // Verify the new version
+    let new_version = read_cli_version(&cli_path);
+
+    info!("Successfully installed Atmos CLI version: {:?}", new_version);
+
+    // Modify shell config if requested
+    let mut path_modified = false;
+    let mut path_modified_file = None::<String>;
+    
+    if payload.modify_path {
+        if let Some(bin_dir) = cli_path.parent() {
+            let result = modify_shell_config(bin_dir);
+            path_modified = result.modified;
+            path_modified_file = result.config_file;
+        }
+    }
+
+    let mut message = format!("CLI installed successfully to {}", cli_path.display());
+    if path_modified {
+        if let Some(file) = &path_modified_file {
+            message.push_str(&format!(". Added to PATH in {}", file));
+        }
+    }
+
+    Ok(Json(ApiResponse::success(CliInstallResponse {
+        success: true,
+        version: new_version,
+        message,
+        path_modified: Some(path_modified),
+        path_modified_file,
+    })))
+}
+
+async fn fetch_latest_cli_release_with_assets() -> Result<GithubRelease, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .user_agent("atmos-api")
+        .build()
+        .map_err(|error| error.to_string())?;
+    let releases = client
+        .get(format!("{}?per_page=100", CLI_RELEASES_API_URL))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .json::<Vec<GithubRelease>>()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    releases
+        .into_iter()
+        .find(|release| {
+            !release.draft && !release.prerelease && is_cli_release_tag(&release.tag_name)
+        })
+        .ok_or_else(|| "No published Atmos CLI release was found".to_string())
+}
+
+fn get_platform_asset_url(assets: &[GithubAsset]) -> Option<String> {
+    let (os, arch) = detect_platform();
+    
+    // Common asset name patterns
+    let patterns = match (os.as_str(), arch.as_str()) {
+        ("darwin", "aarch64") => vec![
+            "aarch64-apple-darwin", "arm64-apple-darwin", "darwin-arm64", "macos-arm64",
+        ],
+        ("darwin", "x86_64") => vec![
+            "x86_64-apple-darwin", "darwin-amd64", "macos-amd64", "macos-x86_64",
+        ],
+        ("linux", "aarch64") => vec![
+            "aarch64-unknown-linux", "arm64-unknown-linux", "linux-arm64",
+        ],
+        ("linux", "x86_64") => vec![
+            "x86_64-unknown-linux", "amd64-unknown-linux", "linux-amd64", "linux-x86_64",
+        ],
+        ("windows", "x86_64") => vec![
+            "x86_64-pc-windows", "windows-amd64", "windows-x86_64",
+        ],
+        _ => return None,
+    };
+
+    for pattern in patterns {
+        if let Some(asset) = assets.iter().find(|a| a.name.contains(pattern)) {
+            return Some(asset.browser_download_url.clone());
+        }
+    }
+
+    None
+}
+
+fn detect_platform() -> (String, String) {
+    let os = std::env::consts::OS.to_string();
+    let arch = std::env::consts::ARCH.to_string();
+    (os, arch)
 }
 
 /// GET /api/system/tmux-install-plan
@@ -944,4 +1128,110 @@ fn version_parts(version: &str) -> Vec<u64> {
         .split('.')
         .map(|part| part.parse::<u64>().unwrap_or(0))
         .collect()
+}
+
+// ===== Shell Config Modification =====
+
+struct ShellConfigResult {
+    modified: bool,
+    config_file: Option<String>,
+}
+
+fn modify_shell_config(bin_dir: &std::path::Path) -> ShellConfigResult {
+    let home_dir = dirs::home_dir();
+    if home_dir.is_none() {
+        warn!("Cannot determine home directory for shell config modification");
+        return ShellConfigResult {
+            modified: false,
+            config_file: None,
+        };
+    }
+
+    let home = home_dir.unwrap();
+    let shell = std::env::var("SHELL").unwrap_or_default();
+    let shell_name = std::path::Path::new(&shell)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("bash");
+
+    let config_files = get_shell_config_files(&home, shell_name);
+    let bin_dir_str = bin_dir.to_string_lossy().to_string();
+    let path_command = format!("export PATH=\"{}:$PATH\"", bin_dir_str);
+
+    // Find the first writable config file
+    for config_file in &config_files {
+        if config_file.exists() {
+            // Check if already in the file
+            if let Ok(content) = std::fs::read_to_string(config_file) {
+                if content.contains(&path_command) || content.contains(&bin_dir_str) {
+                    info!("PATH already configured in {}", config_file.display());
+                    return ShellConfigResult {
+                        modified: false,
+                        config_file: Some(config_file.display().to_string()),
+                    };
+                }
+            }
+
+            // Try to write to the file
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(config_file) {
+                use std::io::Write;
+                if writeln!(file, "\n# Atmos CLI").is_ok() 
+                    && writeln!(file, "{}", path_command).is_ok() 
+                {
+                    info!("Successfully added Atmos CLI to PATH in {}", config_file.display());
+                    return ShellConfigResult {
+                        modified: true,
+                        config_file: Some(config_file.display().to_string()),
+                    };
+                }
+            }
+        }
+    }
+
+    // No writable config file found
+    warn!("No writable shell config file found. Tried: {:?}", config_files);
+    ShellConfigResult {
+        modified: false,
+        config_file: None,
+    }
+}
+
+fn get_shell_config_files(home: &std::path::Path, shell_name: &str) -> Vec<std::path::PathBuf> {
+    let xdg_config_home = std::env::var("XDG_CONFIG_HOME")
+        .map(|path| std::path::PathBuf::from(path))
+        .unwrap_or_else(|_| home.join(".config"));
+
+    match shell_name {
+        "fish" => vec![
+            home.join(".config/fish/config.fish"),
+        ],
+        "zsh" => vec![
+            std::env::var("ZDOTDIR")
+                .map(|path| std::path::PathBuf::from(path).join(".zshrc"))
+                .unwrap_or_else(|_| home.join(".zshrc")),
+            std::env::var("ZDOTDIR")
+                .map(|path| std::path::PathBuf::from(path).join(".zshenv"))
+                .unwrap_or_else(|_| home.join(".zshenv")),
+            xdg_config_home.join("zsh/.zshrc"),
+            xdg_config_home.join("zsh/.zshenv"),
+        ],
+        "bash" => vec![
+            home.join(".bashrc"),
+            home.join(".bash_profile"),
+            home.join(".profile"),
+            xdg_config_home.join("bash/.bashrc"),
+            xdg_config_home.join("bash/.bash_profile"),
+        ],
+        "ash" | "sh" => vec![
+            home.join(".ashrc"),
+            home.join(".profile"),
+            std::path::PathBuf::from("/etc/profile"),
+        ],
+        _ => vec![
+            home.join(".bashrc"),
+            home.join(".bash_profile"),
+            xdg_config_home.join("bash/.bashrc"),
+            xdg_config_home.join("bash/.bash_profile"),
+        ],
+    }
 }

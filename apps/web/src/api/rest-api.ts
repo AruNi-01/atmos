@@ -45,6 +45,14 @@ export interface CliVersionCheckResponse {
   install_path: string | null;
 }
 
+export interface CliInstallResponse {
+  success: boolean;
+  version: string | null;
+  message: string;
+  path_modified: boolean | null;
+  path_modified_file: string | null;
+}
+
 export interface TmuxSession {
   name: string;
   windows: number;
@@ -385,6 +393,16 @@ export const systemApi = {
    */
   checkCliVersion: async (): Promise<CliVersionCheckResponse> => {
     return fetchApi<CliVersionCheckResponse>('/api/system/cli-version-check');
+  },
+
+  /**
+   * Download and install the latest Atmos CLI from GitHub releases.
+   */
+  installCli: async (modifyPath: boolean = false): Promise<CliInstallResponse> => {
+    return fetchApi<CliInstallResponse>('/api/system/cli-install', {
+      method: 'POST',
+      body: JSON.stringify({ modify_path: modifyPath }),
+    });
   },
 
   /**

@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::io::Write;
 
 use tracing::{info, warn};
 
@@ -119,5 +120,131 @@ pub fn ensure_atmos_cli_on_startup() -> Result<Option<PathBuf>, String> {
     }
 
     prepend_bin_dir_to_process_path(&bin_dir)?;
+    
+    // Automatically add to shell config if not already present
+    ensure_cli_in_shell_config(&bin_dir);
+    
     Ok(installed.is_file().then_some(installed))
+}
+
+// ===== Shell Config Modification =====
+
+fn ensure_cli_in_shell_config(bin_dir: &Path) {
+    let home_dir = dirs::home_dir();
+    if home_dir.is_none() {
+        warn!("Cannot determine home directory for shell config modification");
+        return;
+    }
+
+    let home = home_dir.unwrap();
+    let shell = std::env::var("SHELL").unwrap_or_default();
+    let shell_name = std::path::Path::new(&shell)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("bash");
+
+    let config_files = get_shell_config_files(&home, shell_name);
+    let bin_dir_str = bin_dir.to_string_lossy().to_string();
+    let path_command = format!("export PATH=\"{}:$PATH\"", bin_dir_str);
+
+    // Find the first writable config file
+    for config_file in &config_files {
+        if config_file.exists() {
+            // Check if already in the file
+            if let Ok(content) = std::fs::read_to_string(config_file) {
+                if content.contains(&path_command) || content.contains(&bin_dir_str) {
+                    info!("Atmos CLI already configured in {}", config_file.display());
+                    return;
+                }
+            }
+
+            // Try to write to the file
+            if let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(config_file) {
+                if writeln!(file, "\n# Atmos CLI").is_ok() 
+                    && writeln!(file, "{}", path_command).is_ok() 
+                {
+                    info!("Successfully added Atmos CLI to PATH in {}", config_file.display());
+                    return;
+                } else {
+                    warn!("Failed to write to config file {}", config_file.display());
+                }
+            } else {
+                warn!("Failed to open config file {} for writing", config_file.display());
+            }
+        }
+    }
+
+    // No writable config file found, try to create a default one
+    if let Some(default_config) = get_default_config_file(&home, shell_name) {
+        if !default_config.exists() {
+            if let Some(parent) = default_config.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if let Ok(mut file) = std::fs::File::create(&default_config) {
+                if writeln!(file, "# Atmos CLI").is_ok() 
+                    && writeln!(file, "{}", path_command).is_ok() 
+                {
+                    info!("Created {} and added Atmos CLI to PATH", default_config.display());
+                    return;
+                } else {
+                    warn!("Failed to write to default config file {}", default_config.display());
+                }
+            } else {
+                warn!("Failed to create default config file {}", default_config.display());
+            }
+        } else {
+            info!("Default config file {} already exists, skipping creation", default_config.display());
+        }
+    }
+
+    warn!("No writable shell config file found. Tried: {:?}", config_files);
+}
+
+fn get_shell_config_files(home: &Path, shell_name: &str) -> Vec<PathBuf> {
+    let xdg_config_home = std::env::var("XDG_CONFIG_HOME")
+        .map(|path| PathBuf::from(path))
+        .unwrap_or_else(|_| home.join(".config"));
+
+    match shell_name {
+        "fish" => vec![
+            home.join(".config/fish/config.fish"),
+        ],
+        "zsh" => vec![
+            std::env::var("ZDOTDIR")
+                .map(|path| PathBuf::from(path).join(".zshrc"))
+                .unwrap_or_else(|_| home.join(".zshrc")),
+            std::env::var("ZDOTDIR")
+                .map(|path| PathBuf::from(path).join(".zshenv"))
+                .unwrap_or_else(|_| home.join(".zshenv")),
+            xdg_config_home.join("zsh/.zshrc"),
+            xdg_config_home.join("zsh/.zshenv"),
+        ],
+        "bash" => vec![
+            home.join(".bashrc"),
+            home.join(".bash_profile"),
+            home.join(".profile"),
+            xdg_config_home.join("bash/.bashrc"),
+            xdg_config_home.join("bash/.bash_profile"),
+        ],
+        "ash" | "sh" => vec![
+            home.join(".ashrc"),
+            home.join(".profile"),
+            PathBuf::from("/etc/profile"),
+        ],
+        _ => vec![
+            home.join(".bashrc"),
+            home.join(".bash_profile"),
+            xdg_config_home.join("bash/.bashrc"),
+            xdg_config_home.join("bash/.bash_profile"),
+        ],
+    }
+}
+
+fn get_default_config_file(home: &Path, shell_name: &str) -> Option<PathBuf> {
+    match shell_name {
+        "zsh" => Some(home.join(".zshrc")),
+        "bash" => Some(home.join(".bashrc")),
+        "fish" => Some(home.join(".config/fish/config.fish")),
+        _ => Some(home.join(".bashrc")),
+    }
 }
