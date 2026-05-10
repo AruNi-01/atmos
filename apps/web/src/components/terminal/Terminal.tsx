@@ -298,8 +298,8 @@ function shortenPath(fullPath: string): string {
   return parts.slice(-2).join("/");
 }
 
-function isFindShortcut(event: { ctrlKey: boolean; metaKey: boolean; key: string }): boolean {
-  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f";
+function isFindShortcut(event: { ctrlKey: boolean; metaKey: boolean; key: string; shiftKey?: boolean }): boolean {
+  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && !event.shiftKey;
 }
 
 const Terminal = ({

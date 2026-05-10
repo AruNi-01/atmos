@@ -242,9 +242,20 @@ fn main() {
                     .paste()
                     .select_all()
                     .build()?;
+                // Use a custom Close item (without the default Cmd+W accelerator)
+                // so that AppKit does not intercept Cmd+W before the WebView.
+                // Cmd+W handling (closing terminal panes, etc.) is done in JS.
+                // The red window button still fires CloseRequested → hide window.
+                let close_item = MenuItem::with_id(
+                    app,
+                    "close_window",
+                    "Close",
+                    true,
+                    None::<&str>,
+                )?;
                 let window_menu = SubmenuBuilder::new(app, "Window")
                     .minimize()
-                    .close_window()
+                    .item(&close_item)
                     .build()?;
 
                 // NOTE: Do NOT set accelerators on Back/Forward. On macOS,
@@ -280,7 +291,7 @@ fn main() {
             let quit_item = MenuItem::with_id(app, "quit", "Quit Atmos", true, None::<&str>)?;
             let show_item = MenuItem::with_id(app, "show", "Show Atmos", true, None::<&str>)?;
 
-            // Handle navigation menu events
+            // Handle navigation / window menu events
             app.on_menu_event(move |app_handle, event| match event.id.as_ref() {
                 "back" => {
                     if let Some(w) = app_handle.get_webview_window("main") {
@@ -290,6 +301,11 @@ fn main() {
                 "forward" => {
                     if let Some(w) = app_handle.get_webview_window("main") {
                         let _ = w.eval("window.history.forward()");
+                    }
+                }
+                "close_window" => {
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.close();
                     }
                 }
                 _ => {}
