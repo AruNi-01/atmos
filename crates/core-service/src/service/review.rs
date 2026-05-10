@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 
+use chrono::{Datelike, Timelike};
 use core_engine::GitEngine;
 use infra::db::entities::{
     review_agent_run, review_comment, review_file_snapshot, review_file_state, review_message,
@@ -2696,7 +2697,30 @@ impl ReviewService {
         }
         output.push_str("After completing the review, use `atmos review set-status --status succeeded --summary-stdin` to mark the run as complete.\n");
 
-        // Traceability metadata — if the skill writes a review report to a Markdown file,
+        // Generate report output path
+        let repo_path = &session.repo_path;
+        let context_id = session.workspace_guid.as_deref().unwrap_or(&session.project_guid);
+        let project_name = std::path::Path::new(repo_path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("project");
+        let safe_project_name = project_name.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
+        let branch_name = session.base_ref.as_deref().unwrap_or("unknown");
+        let safe_branch_name = branch_name.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
+        let now = chrono::Utc::now();
+        let timestamp = format!("{}{:02}{:02}-{:02}{:02}{:02}",
+            now.year(), now.month(), now.day(),
+            now.hour(), now.minute(), now.second());
+        let report_filename = format!("{}_{}_{}_code_review.md", safe_project_name, safe_branch_name, timestamp);
+        let report_path = format!("{}/.atmos/reviews/{}/{}", repo_path, context_id, report_filename);
+        
+        output.push_str(&format!(
+            "If the review skill writes a report to a Markdown file, write it to: {}\n",
+            report_path
+        ));
+        output.push_str("Create parent directories if needed. Do not ask for confirmation before writing the file.\n");
+
+        // Traceability metadata — when writing the report to the specified path,
         // the agent MUST start the file with this exact YAML frontmatter block so the
         // report can be traced back to the originating session and revision later.
         let generated_at = chrono::Utc::now().to_rfc3339();
@@ -2710,7 +2734,7 @@ impl ReviewService {
             generated_at,
         );
         output.push_str(
-            "\nIf the review skill writes a report to a Markdown file, write the following YAML frontmatter block EXACTLY as shown, as the very first lines of the file (before any `#` heading or other content). Copy the block verbatim — do not modify, reformat, or omit any field:\n\n",
+            "\nWhen writing the report, include the following YAML frontmatter block EXACTLY as shown, as the very first lines of the file (before any `#` heading or other content). Copy the block verbatim — do not modify, reformat, or omit any field:\n\n",
         );
         output.push_str(&frontmatter);
         output.push_str("\nThis frontmatter makes the report traceable back to this review session and revision so it can be looked up later.\n");
