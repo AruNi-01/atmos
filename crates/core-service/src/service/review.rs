@@ -118,6 +118,30 @@ fn installed_review_fix_skill_path() -> String {
         .unwrap_or_else(|_| "~/.atmos/skills/.system/atmos-review-fix/SKILL.md".to_string())
 }
 
+fn installed_code_review_skill_path(skill_id: &str) -> String {
+    std::env::var("HOME")
+        .map(|home| {
+            Path::new(&home)
+                .join(".atmos/skills/.system/code_review_skills")
+                .join(skill_id)
+                .to_string_lossy()
+                .to_string()
+        })
+        .or_else(|_| {
+            std::env::var("USER").map(|user| {
+                Path::new("/Users")
+                    .join(user)
+                    .join(".atmos/skills/.system/code_review_skills")
+                    .join(skill_id)
+                    .to_string_lossy()
+                    .to_string()
+            })
+        })
+        .unwrap_or_else(|_| {
+            format!("~/.atmos/skills/.system/code_review_skills/{skill_id}")
+        })
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewAnchor {
     pub file_path: String,
@@ -2660,6 +2684,12 @@ impl ReviewService {
         
         output.push_str("</review-agent-run>\n\n");
         output.push_str("This is an Atmos Agent Review run. Analyze the code in the specified revision and identify issues, bugs, or improvements.\n");
+        if let Some(skill_id) = &run.skill_id {
+            output.push_str(&format!(
+                "Before reviewing code, read and follow `{}`.\n",
+                installed_code_review_skill_path(skill_id)
+            ));
+        }
         output.push_str("Use the `atmos review create-comment` CLI command to create inline comments for each issue you find.\n");
         if let Some(skill_id) = &run.skill_id {
             output.push_str(&format!("Use the {} skill for this review.\n", skill_id));
@@ -3177,5 +3207,73 @@ mod tests {
             .unwrap();
         assert_eq!(workspace_sessions.len(), 1);
         assert_eq!(workspace_sessions[0].guid, workspace_session.guid);
+    }
+
+    #[tokio::test]
+    async fn s10_review_prompt_includes_skill_path_instruction() {
+        let service = ReviewService::new(setup_db().await);
+        let session = review_session::Model {
+            guid: "session-1".into(),
+            created_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().naive_utc(),
+            is_deleted: false,
+            workspace_guid: None,
+            project_guid: "project-1".into(),
+            repo_path: "/tmp/repo".into(),
+            storage_root_rel_path: "/tmp/storage".into(),
+            base_ref: Some("main".into()),
+            base_commit: None,
+            head_commit: "HEAD".into(),
+            current_revision_guid: "revision-2".into(),
+            status: "active".into(),
+            title: None,
+            created_by: None,
+            closed_at: None,
+            archived_at: None,
+        };
+        let run = review_agent_run::Model {
+            guid: "run-1".into(),
+            created_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().naive_utc(),
+            is_deleted: false,
+            session_guid: session.guid.clone(),
+            base_revision_guid: "revision-1".into(),
+            result_revision_guid: Some("revision-2".into()),
+            run_kind: "review".into(),
+            execution_mode: "copy_prompt".into(),
+            skill_id: Some("fullstack-reviewer".into()),
+            prompt_rel_path: None,
+            result_rel_path: None,
+            patch_rel_path: None,
+            summary_rel_path: None,
+            agent_session_ref: None,
+            finalize_attempts: 0,
+            failure_reason: None,
+            status: "pending".into(),
+            started_at: None,
+            finished_at: None,
+            created_by: None,
+        };
+        let base_revision = review_revision::Model {
+            guid: "revision-1".into(),
+            created_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().naive_utc(),
+            is_deleted: false,
+            session_guid: session.guid.clone(),
+            parent_revision_guid: None,
+            source_kind: "initial".into(),
+            agent_run_guid: None,
+            title: Some("Initial Review".into()),
+            storage_root_rel_path: "/tmp/revision".into(),
+            base_revision_guid: None,
+            created_by: None,
+        };
+
+        let prompt = service
+            .render_review_prompt(&session, &run, &base_revision, &[])
+            .unwrap();
+
+        assert!(prompt.contains("Before reviewing code, read and follow"));
+        assert!(prompt.contains("code_review_skills/fullstack-reviewer"));
     }
 }

@@ -33,7 +33,7 @@ pub struct AgentSessionSummary {
 }
 
 /// Tool handler that routes ACP tool calls to FsEngine.
-/// When allow_file_access is false (general assistant mode, no workspace), rejects file operations.
+/// When allow_file_access is false (temp/general assistant mode), rejects file operations.
 struct AgentToolHandler {
     fs_engine: FsEngine,
     allow_file_access: bool,
@@ -149,6 +149,10 @@ impl AgentSessionService {
         }
     }
 
+    fn allow_file_access(workspace_id: Option<&str>, project_id: Option<&str>) -> bool {
+        workspace_id.is_some() || project_id.is_some()
+    }
+
     async fn persist_new_session(
         &self,
         session_id: &str,
@@ -190,7 +194,7 @@ impl AgentSessionService {
             self.resolve_agent_launch(registry_id).await?;
 
         let session_id_hint = uuid::Uuid::new_v4().to_string();
-        let allow_file_access = workspace_id.is_some();
+        let allow_file_access = Self::allow_file_access(workspace_id, project_id);
         let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
             fs_engine: FsEngine::new(),
             allow_file_access,
@@ -252,7 +256,7 @@ impl AgentSessionService {
             self.resolve_agent_launch(registry_id).await?;
 
         let session_id = uuid::Uuid::new_v4().to_string();
-        let allow_file_access = workspace_id.is_some();
+        let allow_file_access = Self::allow_file_access(workspace_id, project_id);
         let cwd_str = cwd.to_string_lossy().to_string();
 
         let spec = LazySessionSpec {
@@ -797,5 +801,41 @@ impl AgentSessionService {
                 session_id
             )))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AgentSessionService;
+
+    #[test]
+    fn file_access_enabled_for_workspace_context() {
+        assert!(AgentSessionService::allow_file_access(Some("ws-1"), None));
+    }
+
+    #[test]
+    fn file_access_enabled_for_project_context() {
+        assert!(AgentSessionService::allow_file_access(None, Some("pj-1")));
+    }
+
+    #[test]
+    fn file_access_disabled_for_temp_context() {
+        assert!(!AgentSessionService::allow_file_access(None, None));
+    }
+
+    #[test]
+    fn resolve_context_prefers_workspace_over_project() {
+        let (context_type, context_guid) =
+            AgentSessionService::resolve_context(Some("ws-1"), Some("pj-1"));
+        assert_eq!(context_type, "workspace");
+        assert_eq!(context_guid.as_deref(), Some("ws-1"));
+    }
+
+    #[test]
+    fn resolve_context_uses_project_when_workspace_missing() {
+        let (context_type, context_guid) =
+            AgentSessionService::resolve_context(None, Some("pj-1"));
+        assert_eq!(context_type, "project");
+        assert_eq!(context_guid.as_deref(), Some("pj-1"));
     }
 }

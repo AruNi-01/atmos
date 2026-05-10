@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useRef } from "react";
-import { Checkbox, getFileIconProps } from "@workspace/ui";
+import { Checkbox } from "@workspace/ui";
 import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ReviewFileDto, ReviewSessionDto } from "@/api/ws-api";
 import { DiffFileTree } from "@/components/diff/DiffFileTree";
+import { DiffFilePathLabel } from "@/components/diff/DiffFilePathLabel";
 
 interface FrozenFileListProps {
   revision: ReviewSessionDto["revisions"][number] | null;
@@ -16,11 +17,6 @@ interface FrozenFileListProps {
   onToggleReviewed: (file: ReviewFileDto, checked: boolean) => void | Promise<void>;
   revisionLabel: string;
   viewMode?: "list" | "tree";
-}
-
-function FileIcon({ name, className }: { name: string; className?: string }) {
-  const iconProps = getFileIconProps({ name, isDir: false, className });
-  return <img {...iconProps} />;
 }
 
 function gitStatusClassName(status: string | null | undefined) {
@@ -226,10 +222,6 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
     <div className="space-y-1">
       {revision.files.map((file) => {
         const path = file.snapshot.file_path;
-        const fileName = path.split("/").pop() || path;
-        const parts = path.split("/");
-        parts.pop();
-        const dirPath = parts.join("/");
         const isCurrent = path === currentFilePath;
         const status = file.snapshot.git_status;
         return (
@@ -258,19 +250,12 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
               className="flex flex-1 items-center gap-2 min-w-0 text-left cursor-pointer"
               title={path}
             >
-              <FileIcon name={fileName} className="size-4 shrink-0" />
-              <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0">
-                {fileName}
-              </span>
-
-              <span
-                className="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
-                dir="rtl"
-              >
-                <bdi>
-                  {dirPath ? `${dirPath}/` : ""}
-                </bdi>
-              </span>
+              <DiffFilePathLabel
+                path={path}
+                className="flex min-w-0 flex-1 items-center gap-2"
+                fileNameClassName="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0"
+                dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
+              />
               {file.open_comment_count > 0 && (
                 <span className="flex items-center gap-0.5 text-muted-foreground shrink-0">
                   <MessageSquare className="size-3" />

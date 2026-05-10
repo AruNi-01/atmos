@@ -10,7 +10,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  getFileIconProps,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -19,11 +18,7 @@ import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import type { GitChangedFile } from "@/api/ws-api";
 import { DiffFileTree } from "@/components/diff/DiffFileTree";
-
-function FileIcon({ name, className }: { name: string; className?: string }) {
-  const iconProps = getFileIconProps({ name, isDir: false, className });
-  return <img {...iconProps} />;
-}
+import { DiffFilePathLabel } from "@/components/diff/DiffFilePathLabel";
 
 function stopActionEvent(
   event:
@@ -423,9 +418,6 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
             {files.map((file) => {
             const fileName = file.path.split("/").pop() || file.path;
-            const parts = file.path.split("/");
-            parts.pop();
-            const dirPath = parts.join("/");
             const hasActiveRowAction =
               confirmingActionKey?.includes(`:${file.path}:`) ||
               runningActionKey?.includes(`:${file.path}:`);
@@ -442,20 +434,12 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                     : "hover:bg-sidebar-accent/50",
                 )}
               >
-                <FileIcon name={fileName} className="size-4 shrink-0" />
-
-                <span className="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0">
-                  {fileName}
-                </span>
-
-                <span
-                  className="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
-                  dir="rtl"
-                >
-                  <bdi>
-                    {dirPath ? `${dirPath}/` : ""}
-                  </bdi>
-                </span>
+                <DiffFilePathLabel
+                  path={file.path}
+                  className="flex min-w-0 flex-1 items-center gap-2"
+                  fileNameClassName="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0"
+                  dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
+                />
 
                 <div className="flex items-center h-4 shrink min-w-0 overflow-hidden">
                   <div

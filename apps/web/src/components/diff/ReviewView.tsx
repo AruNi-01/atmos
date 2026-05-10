@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Button,
-  getFileIconProps,
   Loader2,
   Collapsible,
   CollapsibleContent,
@@ -15,6 +14,7 @@ import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { useReviewSnapshotStore } from "@/hooks/use-review-snapshot-store";
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorStore, EDITOR_REVIEW_DIFF_PREFIX, getEditorSourcePath } from "@/hooks/use-editor-store";
+import { DiffFilePathLabel } from "@/components/diff/DiffFilePathLabel";
 import { CommentCard } from "@/components/diff/review/CommentCard";
 import { FrozenFileList } from "@/components/diff/review/FrozenFileList";
 import {
@@ -277,34 +277,12 @@ const ReviewView: React.FC = () => {
                     className="space-y-2"
                   >
                     <CollapsibleTrigger className="group/comment-file flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-sidebar-accent/40 cursor-pointer">
-                      {(() => {
-                        const fileName = file.split("/").pop() || file;
-                        const iconProps = getFileIconProps({
-                          name: fileName,
-                          isDir: false,
-                          className:
-                            "absolute inset-0 size-4 shrink-0 transition-all duration-200 group-hover/comment-file:scale-50 group-hover/comment-file:rotate-[-20deg] group-hover/comment-file:opacity-0",
-                        });
-                        return (
-                          <>
-                            <span className="relative size-4 shrink-0">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img {...iconProps} alt={`File: ${fileName}`} />
-                              <ChevronRight
-                                className={cn(
-                                  "absolute inset-0 size-4 scale-50 rotate-60 text-muted-foreground opacity-0 transition-all duration-200 group-hover/comment-file:scale-100 group-hover/comment-file:opacity-100",
-                                  (commentGroupsOpen[file] ?? true)
-                                    ? "group-hover/comment-file:rotate-90"
-                                    : "group-hover/comment-file:rotate-0",
-                                )}
-                              />
-                            </span>
-                            <span className="truncate text-[13px] font-semibold text-foreground">
-                              {file}
-                            </span>
-                          </>
-                        );
-                      })()}
+                      <DiffFilePathLabel
+                        path={file}
+                        className="flex min-w-0 flex-1 items-center gap-2"
+                        fileNameClassName="text-[13px] text-foreground font-semibold whitespace-nowrap shrink-0"
+                        dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
+                      />
                       <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
                         {group.length}
                       </span>
