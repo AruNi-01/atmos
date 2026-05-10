@@ -112,7 +112,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   }, [handleMainClick]);
 
   useHotkeys('mod+o', handleMainClick, {
-    enableOnFormTags: false,
+    enableOnFormTags: true,
     preventDefault: true,
     description: 'Open in external app'
   });

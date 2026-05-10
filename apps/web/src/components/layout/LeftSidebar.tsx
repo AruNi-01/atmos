@@ -482,7 +482,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useHotkeys(
         "mod+n",
         handleOpenNewWorkspace,
-        { enableOnFormTags: false, preventDefault: true },
+        { enableOnFormTags: true, preventDefault: true },
         [handleOpenNewWorkspace],
     );
 
@@ -493,7 +493,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         () => {
             void setIsKanbanExpanded(true);
         },
-        { enableOnFormTags: false, preventDefault: true },
+        { enableOnFormTags: true, preventDefault: true },
         [setIsKanbanExpanded],
     );
 

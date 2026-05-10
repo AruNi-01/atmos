@@ -610,7 +610,7 @@ const Header: React.FC = () => {
 
   // Keyboard shortcuts using react-hotkeys-hook
   useHotkeys('mod+b', toggleLeftSidebar, {
-    enableOnFormTags: false,
+    enableOnFormTags: true,
     preventDefault: true,
     description: 'Toggle left sidebar'
   });
@@ -621,19 +621,19 @@ const Header: React.FC = () => {
   // preventDefault registrations.
 
   useHotkeys('mod+r', () => window.location.reload(), {
-    enableOnFormTags: false,
+    enableOnFormTags: true,
     preventDefault: true,
     description: 'Refresh page'
   });
 
   useHotkeys('mod+u', () => setIsUsagePopoverOpen(prev => !prev), {
-    enableOnFormTags: false,
+    enableOnFormTags: true,
     preventDefault: true,
     description: 'Toggle AI Usage'
   });
 
   useHotkeys('mod+shift+m', () => setIsActionMenuOpen(prev => !prev), {
-    enableOnFormTags: false,
+    enableOnFormTags: true,
     preventDefault: true,
     description: 'Toggle menu'
   });
@@ -643,7 +643,7 @@ const Header: React.FC = () => {
       toggleRightSidebar();
     }
   }, {
-    enableOnFormTags: false,
+    enableOnFormTags: true,
     preventDefault: true,
     description: 'Toggle right sidebar'
   });

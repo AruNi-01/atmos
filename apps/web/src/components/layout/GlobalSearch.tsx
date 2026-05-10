@@ -217,7 +217,7 @@ export function GlobalSearch() {
 
   // Keyboard shortcut to open search
   useHotkeys('mod+k', () => setGlobalSearchOpen(!isGlobalSearchOpen), {
-    enableOnFormTags: false,
+    enableOnFormTags: true,
     preventDefault: true,
     description: 'Toggle global search'
   });
