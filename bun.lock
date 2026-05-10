@@ -11,7 +11,7 @@
     },
     "apps/desktop": {
       "name": "desktop",
-      "version": "1.1.0-rc.4",
+      "version": "1.1.0-rc.6",
       "devDependencies": {
         "@tauri-apps/cli": "^2.0.0",
       },

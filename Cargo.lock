@@ -141,6 +141,7 @@ dependencies = [
  "cbc",
  "dirs 5.0.1",
  "hex",
+ "infra",
  "pbkdf2",
  "regex",
  "reqwest 0.12.28",

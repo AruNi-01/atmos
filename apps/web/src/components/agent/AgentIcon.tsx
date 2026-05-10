@@ -12,6 +12,7 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
   "factory-droid": ["droid"],
   "junie-acp": ["junie"],
   "agent": ["cursor"],
+  "commandcode": ["command-code"],
 };
 
 // Map registry IDs that don't have a matching SVG file to the actual filename.
@@ -22,6 +23,7 @@ const AGENT_ICON_REMAP: Record<string, string> = {
   "claude": "claude-code",
   "kilocode": "kilo",
   "kiro": "kiro-cli",
+  "commandcode": "command-code",
 };
 
 /** Icons that use currentColor — need inverted theme handling (dark on light, light on dark) */
