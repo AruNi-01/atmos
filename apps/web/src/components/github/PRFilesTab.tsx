@@ -53,7 +53,18 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
   const first = thread[0];
   const [collapsed, setCollapsed] = React.useState(false);
   return (
-    <div className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px]" style={{ contain: 'layout' }}>
+    // `contain: inline-size` is critical: when this thread is slotted into the
+    // pierre/diffs `[data-line-annotation]` grid item, its descendants' min-content
+    // would normally propagate up and widen the grid track (in split view this
+    // pushes the right diff side past the container, hiding the left side).
+    // Containing the inline-size makes our intrinsic width = 0 from the parent's
+    // perspective, so the diff column stays at its allotted 1fr width.
+    // `container-type: inline-size` also lets inner content react to our actual
+    // rendered width via container queries if needed.
+    <div
+      className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px] block"
+      style={{ contain: 'layout inline-size', containerType: 'inline-size', minWidth: 0, maxWidth: '100%' }}
+    >
       <button
         className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex items-center gap-1.5 w-full text-left group cursor-pointer"
         onClick={() => setCollapsed(v => !v)}
@@ -80,8 +91,18 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
                   </span>
                 )}
               </div>
-              <div className="overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto [&_code]:break-all prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
+              {/*
+                Mirror the center-area review CommentCard/MessageBubble behavior:
+                let prose flow naturally and provide a single horizontal scroll
+                container around the entire markdown body. When a `<details>`
+                block expands and reveals wide content (long URLs, code blocks,
+                tables), the user can scroll horizontally INSIDE the comment
+                — the comment box itself stays pinned to the diff column width
+                because the FileCommentThread root has `contain: inline-size`.
+                Plain prose paragraphs still wrap normally via the renderer.
+              */}
+              <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden">
+                <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
                   {c.body ?? ''}
                 </MarkdownRenderer>
               </div>
