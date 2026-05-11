@@ -45,6 +45,7 @@ import {
   Eye,
   ExternalLink,
   Files,
+  Folder,
   GitBranch,
   GitCommitHorizontal,
   GitPullRequestArrow,
@@ -52,6 +53,7 @@ import {
   Loader2,
   LoaderCircle,
   Plus,
+  Puzzle,
   RotateCw,
   Sparkles,
 } from "lucide-react";
@@ -74,11 +76,13 @@ import {
   fsApi,
   gitApi,
   llmProvidersApi,
+  skillsApi,
   type CodeAgentCustomEntry,
   type FileTreeNode,
   type GithubIssuePayload,
   type GithubPrPayload,
   type LlmProvidersFile,
+  type SkillInfo,
   wsGithubApi,
   wsScriptApi,
 } from "@/api/ws-api";
@@ -86,6 +90,7 @@ import {
   PromptComposer,
   type AtTriggerContext,
   type ComposerHandle,
+  type SlashTriggerContext,
 } from "@/components/welcome/PromptComposer";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
@@ -461,12 +466,33 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     atOffset: number;
     query: string;
   } | null>(null);
+  const [slashPopover, setSlashPopover] = React.useState<{
+    top: number;
+    left: number;
+    slashOffset: number;
+    query: string;
+  } | null>(null);
+  const [debouncedSlashQuery, setDebouncedSlashQuery] = React.useState("");
+  const [expandedSections, setExpandedSections] = React.useState<{
+    skills: boolean;
+    projects: boolean;
+    agents: boolean;
+  }>({
+    skills: false,
+    projects: false,
+    agents: false,
+  });
+  const [skills, setSkills] = React.useState<SkillInfo[]>([]);
+  const [isSkillsLoading, setIsSkillsLoading] = React.useState(false);
   const [projectTreeEntries, setProjectTreeEntries] = React.useState<MentionFileCandidate[]>([]);
   const [debouncedMentionQuery, setDebouncedMentionQuery] = React.useState("");
   const [isMentionFilesLoading, setIsMentionFilesLoading] = React.useState(false);
   const [activeMentionFileIndex, setActiveMentionFileIndex] = React.useState(0);
   const mentionPopoverListRef = React.useRef<HTMLDivElement | null>(null);
   const mentionItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const [activeSlashItemIndex, setActiveSlashItemIndex] = React.useState(0);
+  const slashPopoverListRef = React.useRef<HTMLDivElement | null>(null);
+  const slashItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const [previewAttachment, setPreviewAttachment] = React.useState<ComposerAttachment | null>(null);
   const [name, setName] = React.useState("");
   const [branch, setBranch] = React.useState("");
@@ -529,6 +555,26 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
 
   React.useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    const loadSkills = async () => {
+      setIsSkillsLoading(true);
+      try {
+        const response = await skillsApi.list({ forceRefresh: false });
+        // Filter to only show global and project skills, not system skills
+        const filteredSkills = response.skills.filter(
+          (skill) => skill.scope === "global" || skill.scope === "project"
+        );
+        setSkills(filteredSkills);
+      } catch (error) {
+        console.error("Failed to load skills:", error);
+        setSkills([]);
+      } finally {
+        setIsSkillsLoading(false);
+      }
+    };
+    loadSkills();
   }, []);
 
   React.useEffect(() => {
@@ -607,6 +653,17 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     return () => clearTimeout(timer);
   }, [mentionPopover]);
 
+  React.useEffect(() => {
+    if (!slashPopover) {
+      setDebouncedSlashQuery("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedSlashQuery(slashPopover.query.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [slashPopover]);
+
   const mentionFileFuse = React.useMemo(
     () =>
       new Fuse(projectTreeEntries, {
@@ -634,6 +691,88 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       })
       .slice(0, 12);
   }, [debouncedMentionQuery, mentionFileFuse]);
+
+  const skillsFuse = React.useMemo(
+    () =>
+      new Fuse(skills, {
+        keys: ["name", "description"],
+        threshold: 0.4,
+        ignoreLocation: true,
+      }),
+    [skills],
+  );
+
+  const projectsFuse = React.useMemo(
+    () =>
+      new Fuse(projects, {
+        keys: ["name"],
+        threshold: 0.4,
+        ignoreLocation: true,
+      }),
+    [projects],
+  );
+
+  const filteredSkills = React.useMemo(() => {
+    const query = debouncedSlashQuery;
+    if (!query) return skills;
+    const results = skillsFuse.search(query);
+    return results.map((r) => r.item);
+  }, [debouncedSlashQuery, skills, skillsFuse]);
+
+  const filteredProjects = React.useMemo(() => {
+    const query = debouncedSlashQuery;
+    if (!query) return projects;
+    const results = projectsFuse.search(query);
+    return results.map((r) => r.item);
+  }, [debouncedSlashQuery, projects, projectsFuse]);
+
+  // Define availableAgents here to avoid circular dependency
+  const availableAgents = React.useMemo<AgentMenuOption[]>(
+    () => [
+      ...AGENT_OPTIONS.filter((agent) => agentCustomSettings[agent.id]?.enabled ?? true).map(
+        (agent) => {
+          const command = agentCustomSettings[agent.id]?.cmd?.trim() || agent.cmd;
+          const flags = agentCustomSettings[agent.id]?.flags?.trim() || agent.params || "";
+          return {
+            id: agent.id,
+            label: agent.label,
+            command,
+            launchCommand: flags ? `${command} ${flags}` : command,
+            iconType: "built-in" as const,
+          };
+        },
+      ),
+      ...customAgents.map((agent) => {
+        const command = agent.cmd.trim();
+        const flags = agent.flags?.trim() || "";
+        return {
+          id: agent.id,
+          label: agent.label,
+          command,
+          launchCommand: flags ? `${command} ${flags}` : command,
+          iconType: "custom" as const,
+        };
+      }),
+    ],
+    [agentCustomSettings, customAgents],
+  );
+
+  const agentsFuse = React.useMemo(
+    () =>
+      new Fuse(availableAgents, {
+        keys: ["label", "command"],
+        threshold: 0.4,
+        ignoreLocation: true,
+      }),
+    [availableAgents],
+  );
+
+  const filteredAgents = React.useMemo(() => {
+    const query = debouncedSlashQuery;
+    if (!query) return availableAgents;
+    const results = agentsFuse.search(query);
+    return results.map((r) => r.item);
+  }, [debouncedSlashQuery, availableAgents, agentsFuse]);
 
   const selectMentionFile = React.useCallback(
     (item: MentionFileCandidate) => {
@@ -691,9 +830,80 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     [mentionPopover, selectMentionFile],
   );
 
+  const selectSlashSkill = React.useCallback(
+    (skill: SkillInfo) => {
+      const popover = slashPopover;
+      if (!popover) return;
+      composerRef.current?.applySlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+        { kind: "skill", absolutePath: skill.path, name: skill.name },
+      );
+      setSlashPopover(null);
+    },
+    [slashPopover],
+  );
+
+  const selectSlashProject = React.useCallback(
+    (project: { id: string }) => {
+      const popover = slashPopover;
+      if (!popover) return;
+      // Close popover immediately to prevent re-opening from side effects
+      setSlashPopover(null);
+      // Then switch project
+      setProjectId(project.id);
+    },
+    [slashPopover],
+  );
+
+  const selectSlashAgent = React.useCallback(
+    (agent: AgentMenuOption) => {
+      const popover = slashPopover;
+      if (!popover) return;
+      // Close popover immediately to prevent re-opening from side effects
+      setSlashPopover(null);
+      // Then switch agent
+      setSelectedAgentId(agent.id);
+    },
+    [slashPopover],
+  );
+
   React.useEffect(() => {
     setActiveMentionFileIndex(0);
   }, [mentionPopover?.query, mentionNavItems.length]);
+
+  // Calculate all visible slash items for keyboard navigation
+  const visibleSlashItems = React.useMemo(() => {
+    const items: Array<{
+      type: "skill" | "project" | "agent" | "show-more";
+      item?: any;
+      section?: "skills" | "projects" | "agents";
+    }> = [];
+
+    const skillsToShow = expandedSections.skills ? filteredSkills : filteredSkills.slice(0, 3);
+    const projectsToShow = expandedSections.projects ? filteredProjects : filteredProjects.slice(0, 3);
+    const agentsToShow = expandedSections.agents ? filteredAgents : filteredAgents.slice(0, 3);
+
+    // Skills section
+    items.push(...skillsToShow.map((item) => ({ type: "skill" as const, item })));
+    if (filteredSkills.length > 3 && !expandedSections.skills) {
+      items.push({ type: "show-more", section: "skills" });
+    }
+
+    // Projects section
+    items.push(...projectsToShow.map((item) => ({ type: "project" as const, item })));
+    if (filteredProjects.length > 3 && !expandedSections.projects) {
+      items.push({ type: "show-more", section: "projects" });
+    }
+
+    // Agents section
+    items.push(...agentsToShow.map((item) => ({ type: "agent" as const, item })));
+    if (filteredAgents.length > 3 && !expandedSections.agents) {
+      items.push({ type: "show-more", section: "agents" });
+    }
+
+    return items;
+  }, [filteredSkills, filteredProjects, filteredAgents, expandedSections]);
 
   React.useEffect(() => {
     if (!mentionPopover) return;
@@ -732,6 +942,75 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   }, [activeMentionFileIndex, mentionNavItems, mentionPopover, selectMentionNavItem]);
 
   React.useEffect(() => {
+    setActiveSlashItemIndex(0);
+    setExpandedSections({
+      skills: false,
+      projects: false,
+      agents: false,
+    });
+  }, [slashPopover?.query]);
+
+  // Reset active index if it's out of bounds after expanding/collapsing
+  React.useEffect(() => {
+    setActiveSlashItemIndex((prev) => {
+      if (prev >= visibleSlashItems.length) {
+        return 0;
+      }
+      return prev;
+    });
+  }, [visibleSlashItems.length]);
+
+  React.useEffect(() => {
+    if (!slashPopover) return;
+    const container = slashPopoverListRef.current;
+    const activeItem = slashItemRefs.current[activeSlashItemIndex];
+    if (!container || !activeItem) return;
+    activeItem.scrollIntoView({ block: "nearest" });
+  }, [activeSlashItemIndex, slashPopover]);
+
+  React.useEffect(() => {
+    if (!slashPopover) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowDown") {
+        if (visibleSlashItems.length === 0) return;
+        event.preventDefault();
+        setActiveSlashItemIndex((prev) => (prev + 1) % visibleSlashItems.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        if (visibleSlashItems.length === 0) return;
+        event.preventDefault();
+        setActiveSlashItemIndex(
+          (prev) => (prev - 1 + visibleSlashItems.length) % visibleSlashItems.length,
+        );
+        return;
+      }
+      if (event.key === "Enter") {
+        const item = visibleSlashItems[activeSlashItemIndex];
+        if (!item) return;
+        event.preventDefault();
+        if (item.type === "skill") {
+          selectSlashSkill(item.item);
+        } else if (item.type === "project") {
+          selectSlashProject(item.item);
+        } else if (item.type === "agent") {
+          selectSlashAgent(item.item);
+        } else if (item.type === "show-more" && item.section) {
+          if (item.section === "skills") {
+            setExpandedSections((prev) => ({ ...prev, skills: true }));
+          } else if (item.section === "projects") {
+            setExpandedSections((prev) => ({ ...prev, projects: true }));
+          } else if (item.section === "agents") {
+            setExpandedSections((prev) => ({ ...prev, agents: true }));
+          }
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [activeSlashItemIndex, visibleSlashItems, slashPopover, selectSlashSkill, selectSlashProject, selectSlashAgent]);
+
+  React.useEffect(() => {
     Promise.all([useFunctionSettingsStore.getState().load(), codeAgentCustomApi.get()])
       .then(([settings, customData]) => {
         const saved = (settings as Record<string, unknown>)?.agent_cli as
@@ -767,36 +1046,6 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       })
       .catch(() => {});
   }, []);
-
-  const availableAgents = React.useMemo<AgentMenuOption[]>(
-    () => [
-      ...AGENT_OPTIONS.filter((agent) => agentCustomSettings[agent.id]?.enabled ?? true).map(
-        (agent) => {
-          const command = agentCustomSettings[agent.id]?.cmd?.trim() || agent.cmd;
-          const flags = agentCustomSettings[agent.id]?.flags?.trim() || agent.params || "";
-          return {
-            id: agent.id,
-            label: agent.label,
-            command,
-            launchCommand: flags ? `${command} ${flags}` : command,
-            iconType: "built-in" as const,
-          };
-        },
-      ),
-      ...customAgents.map((agent) => {
-        const command = agent.cmd.trim();
-        const flags = agent.flags?.trim() || "";
-        return {
-          id: agent.id,
-          label: agent.label,
-          command,
-          launchCommand: flags ? `${command} ${flags}` : command,
-          iconType: "custom" as const,
-        };
-      }),
-    ],
-    [agentCustomSettings, customAgents],
-  );
 
   const selectedAgent =
     availableAgents.find((agent) => agent.id === selectedAgentId) ?? availableAgents[0] ?? null;
@@ -1661,6 +1910,22 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                       setMentionPopover(null);
                       setIsMentionFilesLoading(false);
                     }}
+                    onSlashTrigger={(ctx: SlashTriggerContext) => {
+                      setSlashPopover({
+                        top: ctx.caretRect.bottom + 4,
+                        left: ctx.caretRect.left,
+                        slashOffset: ctx.slashOffset,
+                        query: ctx.query,
+                      });
+                    }}
+                    onSlashCancel={() => {
+                      setSlashPopover(null);
+                      setExpandedSections({
+                        skills: false,
+                        projects: false,
+                        agents: false,
+                      });
+                    }}
                   />
 
                   <AttachmentBar
@@ -2512,6 +2777,237 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                 Continue typing after @ to search files
                               </div>
                             )}
+                          </div>
+                        </>,
+                        document.body,
+                      )
+                    : null}
+
+                  {slashPopover && typeof document !== "undefined"
+                    ? createPortal(
+                        <>
+                          <div
+                            className="fixed inset-0 z-[2147483646]"
+                            onMouseDown={() => setSlashPopover(null)}
+                          />
+                          <div
+                            ref={slashPopoverListRef}
+                            className="fixed z-[2147483647] w-[min(90vw,460px)] max-h-80 overflow-y-auto rounded-md border border-border/70 bg-popover p-1 text-sm text-popover-foreground shadow-md"
+                            style={{
+                              top: slashPopover.top,
+                              left: slashPopover.left,
+                            }}
+                          >
+                            {/* Skills Section */}
+                            <div className="px-2 py-1 text-sm font-medium text-foreground">
+                              Skills
+                            </div>
+                            {isSkillsLoading ? (
+                              <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
+                                <Loader2 className="size-3.5 animate-spin" />
+                                Loading skills...
+                              </div>
+                            ) : filteredSkills.length > 0 ? (
+                              <>
+                                {(expandedSections.skills ? filteredSkills : filteredSkills.slice(0, 3)).map((skill, index) => (
+                                  <button
+                                    key={skill.id}
+                                    type="button"
+                                    ref={(el) => {
+                                      slashItemRefs.current[index] = el;
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                                      index === activeSlashItemIndex && "bg-muted",
+                                    )}
+                                    onMouseDown={(event) => {
+                                      event.preventDefault();
+                                      selectSlashSkill(skill);
+                                    }}
+                                  >
+                                    <Puzzle className="size-4 text-muted-foreground" />
+                                    <span className="min-w-0 flex-1 truncate">{skill.name}</span>
+                                    <span className="ml-2 shrink-0 rounded-md border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                                      {skill.scope === "global" ? "Global" : "Project"}
+                                    </span>
+                                  </button>
+                                ))}
+                                {filteredSkills.length > 3 && !expandedSections.skills && (
+                                  <button
+                                    type="button"
+                                    ref={(el) => {
+                                      const showMoreIndex = filteredSkills.slice(0, 3).length;
+                                      slashItemRefs.current[showMoreIndex] = el;
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted text-[11px] text-muted-foreground",
+                                      filteredSkills.slice(0, 3).length === activeSlashItemIndex && "bg-muted",
+                                    )}
+                                    onMouseDown={(event) => {
+                                      event.preventDefault();
+                                      setExpandedSections((prev) => ({ ...prev, skills: true }));
+                                    }}
+                                  >
+                                    Show {filteredSkills.length - 3} more
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                                No skills available
+                              </div>
+                            )}
+
+                            <div className="my-1 h-px bg-border/60" />
+
+                            {/* Projects Section */}
+                            <div className="px-2 py-1 text-sm font-medium text-foreground">
+                              Projects
+                            </div>
+                            {filteredProjects.length > 0 ? (
+                              <>
+                                {(expandedSections.projects ? filteredProjects : filteredProjects.slice(0, 3)).map((project, index) => {
+                                  const skillsCount = expandedSections.skills ? filteredSkills.length : Math.min(filteredSkills.length, 3);
+                                  const skillsShowMore = filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
+                                  const navIndex = skillsCount + skillsShowMore + index;
+                                  return (
+                                    <button
+                                      key={project.id}
+                                      type="button"
+                                      ref={(el) => {
+                                        slashItemRefs.current[navIndex] = el;
+                                      }}
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                                        navIndex === activeSlashItemIndex && "bg-muted",
+                                      )}
+                                      onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        selectSlashProject(project);
+                                      }}
+                                    >
+                                      <Folder className="size-4 text-muted-foreground" />
+                                      <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                                    </button>
+                                  );
+                                })}
+                                {filteredProjects.length > 3 && !expandedSections.projects && (
+                                  <button
+                                    type="button"
+                                    ref={(el) => {
+                                      const skillsCount = expandedSections.skills ? filteredSkills.length : Math.min(filteredSkills.length, 3);
+                                      const skillsShowMore = filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
+                                      const showMoreIndex = skillsCount + skillsShowMore + Math.min(filteredProjects.length, 3);
+                                      slashItemRefs.current[showMoreIndex] = el;
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted text-[11px] text-muted-foreground",
+                                      (() => {
+                                        const skillsCount = expandedSections.skills ? filteredSkills.length : Math.min(filteredSkills.length, 3);
+                                        const skillsShowMore = filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
+                                        return skillsCount + skillsShowMore + Math.min(filteredProjects.length, 3) === activeSlashItemIndex;
+                                      })() && "bg-muted",
+                                    )}
+                                    onMouseDown={(event) => {
+                                      event.preventDefault();
+                                      setExpandedSections((prev) => ({ ...prev, projects: true }));
+                                    }}
+                                  >
+                                    Show {filteredProjects.length - 3} more
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                                No projects available
+                              </div>
+                            )}
+
+                            <div className="my-1 h-px bg-border/60" />
+
+                            {/* Code Agents Section */}
+                            <div className="px-2 py-1 text-sm font-medium text-foreground">
+                              Code Agents
+                            </div>
+                            {filteredAgents.length > 0 ? (
+                              <>
+                                {(expandedSections.agents ? filteredAgents : filteredAgents.slice(0, 3)).map((agent: AgentMenuOption, index) => {
+                                  const skillsCount = expandedSections.skills ? filteredSkills.length : Math.min(filteredSkills.length, 3);
+                                  const skillsShowMore = filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
+                                  const projectsCount = expandedSections.projects ? filteredProjects.length : Math.min(filteredProjects.length, 3);
+                                  const projectsShowMore = filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
+                                  const navIndex = skillsCount + skillsShowMore + projectsCount + projectsShowMore + index;
+                                  return (
+                                    <button
+                                      key={agent.id}
+                                      type="button"
+                                      ref={(el) => {
+                                        slashItemRefs.current[navIndex] = el;
+                                      }}
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                                        navIndex === activeSlashItemIndex && "bg-muted",
+                                      )}
+                                      onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        selectSlashAgent(agent);
+                                      }}
+                                    >
+                                      <AgentIcon
+                                        registryId={agent.id}
+                                        name={agent.label}
+                                        size={16}
+                                        isCustom={agent.iconType === "custom"}
+                                        registryIcon={agent.iconType === "custom" ? undefined : undefined}
+                                      />
+                                      <span className="min-w-0 flex-1 truncate">{agent.label}</span>
+                                    </button>
+                                  );
+                                })}
+                                {filteredAgents.length > 3 && !expandedSections.agents && (
+                                  <button
+                                    type="button"
+                                    ref={(el) => {
+                                      const skillsCount = expandedSections.skills ? filteredSkills.length : Math.min(filteredSkills.length, 3);
+                                      const skillsShowMore = filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
+                                      const projectsCount = expandedSections.projects ? filteredProjects.length : Math.min(filteredProjects.length, 3);
+                                      const projectsShowMore = filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
+                                      const showMoreIndex = skillsCount + skillsShowMore + projectsCount + projectsShowMore + Math.min(filteredAgents.length, 3);
+                                      slashItemRefs.current[showMoreIndex] = el;
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted text-[11px] text-muted-foreground",
+                                      (() => {
+                                        const skillsCount = expandedSections.skills ? filteredSkills.length : Math.min(filteredSkills.length, 3);
+                                        const skillsShowMore = filteredSkills.length > 3 && !expandedSections.skills ? 1 : 0;
+                                        const projectsCount = expandedSections.projects ? filteredProjects.length : Math.min(filteredProjects.length, 3);
+                                        const projectsShowMore = filteredProjects.length > 3 && !expandedSections.projects ? 1 : 0;
+                                        return skillsCount + skillsShowMore + projectsCount + projectsShowMore + Math.min(filteredAgents.length, 3) === activeSlashItemIndex;
+                                      })() && "bg-muted",
+                                    )}
+                                    onMouseDown={(event) => {
+                                      event.preventDefault();
+                                      setExpandedSections((prev) => ({ ...prev, agents: true }));
+                                    }}
+                                  >
+                                    Show {filteredAgents.length - 3} more
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <div className="px-2.5 py-2 text-xs text-muted-foreground">
+                                No agents available
+                              </div>
+                            )}
+
+                            {/* Hidden counts */}
+                            <div className="my-1 h-px bg-border/60" />
+                            <div className="flex items-center justify-between px-2 py-1 text-[11px] text-muted-foreground">
+                              <span>Hidden</span>
+                              <span>
+                                {Math.max(0, filteredSkills.length - (expandedSections.skills ? filteredSkills.length : 3))} skills, {Math.max(0, filteredProjects.length - (expandedSections.projects ? filteredProjects.length : 3))} projects, {Math.max(0, filteredAgents.length - (expandedSections.agents ? filteredAgents.length : 3))} agents
+                              </span>
+                            </div>
                           </div>
                         </>,
                         document.body,

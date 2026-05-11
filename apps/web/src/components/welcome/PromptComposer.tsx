@@ -6,12 +6,19 @@ import { cn, getFileIconProps } from "@workspace/ui";
 
 export type MentionRef =
   | { kind: "issue" | "pr"; number: number }
-  | { kind: "file"; relativePath: string };
+  | { kind: "file"; relativePath: string }
+  | { kind: "skill"; absolutePath: string; name: string };
 
 export interface AtTriggerContext {
   caretRect: DOMRect;
   query: string;
   atOffset: number;
+}
+
+export interface SlashTriggerContext {
+  caretRect: DOMRect;
+  query: string;
+  slashOffset: number;
 }
 
 export interface ComposerHandle {
@@ -26,6 +33,12 @@ export interface ComposerHandle {
    * so the user can keep typing.
    */
   applyMentionAtRange: (atOffset: number, queryLength: number, mention: MentionRef) => void;
+  /**
+   * Replace the `/<query>` slice (computed via popover slash-context) with the
+   * mention chip + a trailing space, then place the caret right after the space
+   * so the user can keep typing.
+   */
+  applySlashAtRange: (slashOffset: number, queryLength: number, mention: MentionRef) => void;
   insertImagePlaceholder: (n: number) => void;
   removeImagePlaceholder: (n: number) => void;
   focus: () => void;
@@ -36,6 +49,8 @@ export interface ComposerCallbacks {
   onImagePaste?: (blob: Blob, ext: string) => void;
   onAtTrigger?: (ctx: AtTriggerContext) => void;
   onAtCancel?: () => void;
+  onSlashTrigger?: (ctx: SlashTriggerContext) => void;
+  onSlashCancel?: () => void;
 }
 
 interface PromptComposerProps extends ComposerCallbacks {
@@ -44,7 +59,7 @@ interface PromptComposerProps extends ComposerCallbacks {
   onSubmit?: () => void;
 }
 
-const TOKEN_REGEX = /(@(?:issue|pr)#\d+|@file:[^\s]+|\[#img-\d+\])/g;
+const TOKEN_REGEX = /(@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\])/g;
 
 /**
  * SVG icons used inside chips live as static assets under
@@ -79,12 +94,13 @@ function buildChipNode(token: string): HTMLSpanElement {
   // chip sits flush with the surrounding text without the bordered box towering
   // above/below the caret line.
   span.className =
-    "inline-flex select-none items-center gap-1 rounded-md border border-border/70 bg-muted/60 px-1.5 py-px text-[12px] leading-[18px] font-medium text-foreground align-middle mx-[1px]";
+    "inline-flex select-none items-center gap-1 rounded-md border px-1.5 py-px text-[12px] leading-[18px] font-medium align-middle mx-[1px]";
 
   if (token.startsWith("@issue#")) {
     span.dataset.kind = "issue";
     const n = token.split("#")[1];
     span.dataset.tooltip = `Issue #${n}`;
+    span.className += " border-border/70 bg-muted/60 text-foreground";
     span.appendChild(buildMaskIcon("/icons/circle-dot.svg"));
     const label = document.createElement("span");
     label.textContent = `#${n}`;
@@ -93,6 +109,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     span.dataset.kind = "pr";
     const n = token.split("#")[1];
     span.dataset.tooltip = `PR #${n}`;
+    span.className += " border-border/70 bg-muted/60 text-foreground";
     span.appendChild(buildMaskIcon("/icons/git-pull-request-arrow.svg"));
     const label = document.createElement("span");
     label.textContent = `#${n}`;
@@ -102,6 +119,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const filename = relativePath.split("/").pop() || relativePath;
     const isDir = relativePath.endsWith("/");
     span.dataset.tooltip = relativePath;
+    span.className += " border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400";
     const iconProps = getFileIconProps({ name: filename, isDir, className: "size-3.5" });
     const icon = document.createElement("img");
     icon.src = iconProps.src;
@@ -111,8 +129,19 @@ function buildChipNode(token: string): HTMLSpanElement {
     const label = document.createElement("span");
     label.textContent = filename;
     span.appendChild(label);
+  } else if (token.startsWith("/skill:")) {
+    span.dataset.kind = "skill";
+    const absolutePath = token.slice("/skill:".length);
+    const filename = absolutePath.split("/").pop() || absolutePath;
+    span.dataset.tooltip = absolutePath;
+    span.className += " border-yellow-500/30 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400";
+    span.appendChild(buildMaskIcon("/icons/puzzle.svg"));
+    const label = document.createElement("span");
+    label.textContent = filename;
+    span.appendChild(label);
   } else if (token.startsWith("[#img-")) {
     span.dataset.kind = "img";
+    span.className += " border-border/70 bg-muted/60 text-foreground";
     span.textContent = token.replace(/[\[\]]/g, "");
   }
   return span;
@@ -146,6 +175,12 @@ function serialize(root: HTMLElement): string {
   };
   root.childNodes.forEach(walk);
   return out;
+}
+
+function serializeRange(range: Range): string {
+  const container = document.createElement("div");
+  container.appendChild(range.cloneContents());
+  return serialize(container);
 }
 
 function inflateInto(root: HTMLElement, text: string) {
@@ -295,19 +330,43 @@ function readAtContextFromSelection(root: HTMLElement): AtTriggerContext | null 
   if (/\s/.test(query)) return null;
 
   // Find the atOffset in serialize() space so applyMentionAtRange slices correctly.
-  // We look for the last "@" in the serialized text that is followed by the same query.
-  const fullText = serialize(root);
-  const searchStr = "@" + query;
-  const serializeAtIndex = fullText.lastIndexOf(searchStr);
+  const beforeSerializedText = serializeRange(beforeRange);
+  const serializeAtIndex = beforeSerializedText.lastIndexOf("@");
   if (serializeAtIndex < 0) return null;
 
   const rect = measureCaretRect(root);
   return { caretRect: rect, query, atOffset: serializeAtIndex + 1 };
 }
 
+function readSlashContextFromSelection(root: HTMLElement): SlashTriggerContext | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return null;
+
+  // Use DOM toString() to reliably detect the / trigger and extract the query.
+  const beforeRange = range.cloneRange();
+  beforeRange.selectNodeContents(root);
+  beforeRange.setEnd(range.endContainer, range.endOffset);
+  const beforeDomText = beforeRange.toString();
+  const domAtIndex = beforeDomText.lastIndexOf("/");
+  if (domAtIndex < 0) return null;
+
+  const query = beforeDomText.slice(domAtIndex + 1);
+  if (/\s/.test(query)) return null;
+
+  // Find the slashOffset in serialize() space so applySlashAtRange slices correctly.
+  const beforeSerializedText = serializeRange(beforeRange);
+  const serializeAtIndex = beforeSerializedText.lastIndexOf("/");
+  if (serializeAtIndex < 0) return null;
+
+  const rect = measureCaretRect(root);
+  return { caretRect: rect, query, slashOffset: serializeAtIndex + 1 };
+}
+
 export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerProps>(
   function PromptComposer(props, ref) {
-    const { onTextChange, onImagePaste, onAtTrigger, onAtCancel, className, placeholder, onSubmit } = props;
+    const { onTextChange, onImagePaste, onAtTrigger, onAtCancel, onSlashTrigger, onSlashCancel, className, placeholder, onSubmit } = props;
     const editorRef = React.useRef<HTMLDivElement | null>(null);
     const [isEmpty, setIsEmpty] = React.useState(true);
     const [chipTooltip, setChipTooltip] = React.useState<{
@@ -344,14 +403,14 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       insertMention: (mention) => {
         if (!editorRef.current) return;
         editorRef.current.focus();
+        let token: string;
         if (mention.kind === "file") {
-          const token = `@file:${mention.relativePath}`;
-          insertNodeAtCaret(editorRef.current, buildChipNode(token));
-          insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
-          fireChange();
-          return;
+          token = `@file:${mention.relativePath}`;
+        } else if (mention.kind === "skill") {
+          token = `/skill:${mention.absolutePath}`;
+        } else {
+          token = `@${mention.kind}#${mention.number}`;
         }
-        const token = `@${mention.kind}#${mention.number}`;
         insertNodeAtCaret(editorRef.current, buildChipNode(token));
         insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
         fireChange();
@@ -367,13 +426,40 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       applyMentionAtRange: (atOffset, queryLength, mention) => {
         if (!editorRef.current) return;
         editorRef.current.focus();
-        const token =
-          mention.kind === "file"
-            ? `@file:${mention.relativePath}`
-            : `@${mention.kind}#${mention.number}`;
+        let token: string;
+        if (mention.kind === "file") {
+          token = `@file:${mention.relativePath}`;
+        } else if (mention.kind === "skill") {
+          token = `/skill:${mention.absolutePath}`;
+        } else {
+          token = `@${mention.kind}#${mention.number}`;
+        }
         const currentText = serialize(editorRef.current);
         const replaceFrom = Math.max(atOffset - 1, 0);
         const replaceTo = Math.min(atOffset + queryLength, currentText.length);
+        const insertText = `${token} `;
+        const nextText =
+          currentText.slice(0, replaceFrom) +
+          insertText +
+          currentText.slice(replaceTo);
+        inflateInto(editorRef.current, nextText);
+        fireChange();
+        setCaretAtTextOffset(editorRef.current, replaceFrom + insertText.length);
+      },
+      applySlashAtRange: (slashOffset, queryLength, mention) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        let token: string;
+        if (mention.kind === "skill") {
+          token = `/skill:${mention.absolutePath}`;
+        } else if (mention.kind === "file") {
+          token = `@file:${mention.relativePath}`;
+        } else {
+          token = `@${mention.kind}#${mention.number}`;
+        }
+        const currentText = serialize(editorRef.current);
+        const replaceFrom = Math.max(slashOffset - 1, 0);
+        const replaceTo = Math.min(slashOffset + queryLength, currentText.length);
         const insertText = `${token} `;
         const nextText =
           currentText.slice(0, replaceFrom) +
@@ -425,8 +511,27 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         });
         return;
       }
+      if (event.key === "/") {
+        // After the browser inserts "/", measure the caret position by inserting
+        // a temporary inline-block marker so it always has a layout box.
+        requestAnimationFrame(() => {
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0 || !editorRef.current) return;
+          const range = sel.getRangeAt(0);
+          if (!editorRef.current.contains(range.startContainer)) return;
+          const measuredRect = measureCaretRect(editorRef.current);
+          const slashCtx = readSlashContextFromSelection(editorRef.current);
+          if (slashCtx) {
+            onSlashTrigger?.({ ...slashCtx, caretRect: measuredRect });
+          } else {
+            onSlashCancel?.();
+          }
+        });
+        return;
+      }
       if (event.key === "Escape") {
         onAtCancel?.();
+        onSlashCancel?.();
       }
     };
 
@@ -443,6 +548,12 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
         onAtTrigger?.(atCtx);
       } else {
         onAtCancel?.();
+      }
+      const slashCtx = readSlashContextFromSelection(editorRef.current);
+      if (slashCtx) {
+        onSlashTrigger?.(slashCtx);
+      } else {
+        onSlashCancel?.();
       }
     };
 
