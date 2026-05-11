@@ -173,7 +173,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
-    const [, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
+    const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
@@ -464,27 +464,46 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setCreateProjectOpen(true);
     };
 
-    const handleAddWorkspace = (projectId: string) => {
+    const handleAddWorkspace = useCallback((projectId: string) => {
+        if (currentView === "welcome") {
+            return;
+        }
         setSelectedProjectId(projectId);
         void setNewWorkspace(true);
-    };
+    }, [currentView, setSelectedProjectId, setNewWorkspace]);
 
     /**
      * Open the New Workspace dialog scoped to the currently active project (or
-     * empty selection when there is no active project). Shared between the
-     * sidebar card click and the global ⌘N hotkey.
+     * empty selection when there is no active project). Used by sidebar card click.
+     * Does nothing if on the welcome page (which already has a composer).
      */
     const handleOpenNewWorkspace = useCallback(() => {
+        if (currentView === "welcome") {
+            return;
+        }
         setSelectedProjectId(currentProjectId ?? "");
         void setNewWorkspace(true);
-    }, [currentProjectId, setNewWorkspace, setSelectedProjectId]);
+    }, [currentProjectId, setNewWorkspace, setSelectedProjectId, currentView]);
 
-    // ⌘N → open the New Workspace overlay from anywhere in the app.
+    /**
+     * Toggle the New Workspace dialog. Used by the global ⌘N hotkey.
+     * If already open, close it; if closed, open it.
+     * Does nothing if on the welcome page (which already has a composer).
+     */
+    const handleToggleNewWorkspace = useCallback(() => {
+        if (currentView === "welcome") {
+            return;
+        }
+        setSelectedProjectId(currentProjectId ?? "");
+        void setNewWorkspace(!newWorkspace);
+    }, [currentProjectId, setNewWorkspace, setSelectedProjectId, newWorkspace, currentView]);
+
+    // ⌘N → toggle the New Workspace overlay from anywhere in the app.
     useHotkeys(
         "mod+n",
-        handleOpenNewWorkspace,
+        handleToggleNewWorkspace,
         { enableOnFormTags: true, preventDefault: true },
-        [handleOpenNewWorkspace],
+        [handleToggleNewWorkspace],
     );
 
     // ⌘⇧K → expand the Kanban board overlay. The kanban dialog is bound to the
