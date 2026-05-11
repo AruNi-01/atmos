@@ -510,13 +510,34 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   }, [workspaceId, setLayoutForScope, isCodeReview, isProjectWiki, terminalTabId]);
 
   const removeTerminal = useCallback((id: string) => {
+    // Find the next pane to focus before removing the current one
+    const currentIndex = paneOrder.indexOf(id);
+    let nextPaneId: string | null = null;
+
+    if (currentIndex !== -1 && paneOrder.length > 1) {
+      // Try to focus the previous pane, or the next one if there's no previous
+      if (currentIndex > 0) {
+        nextPaneId = paneOrder[currentIndex - 1];
+      } else if (currentIndex < paneOrder.length - 1) {
+        nextPaneId = paneOrder[currentIndex + 1];
+      }
+    }
+
     const terminalRef = terminalRefsMap.current.get(id);
     if (terminalRef) {
       terminalRef.destroy();
       terminalRefsMap.current.delete(id);
     }
     removeTerminalFromScope(id);
-  }, [removeTerminalFromScope]);
+
+    // Focus the next pane after removal
+    if (nextPaneId) {
+      // Use setTimeout to ensure the layout has updated
+      window.setTimeout(() => {
+        focusPane(nextPaneId);
+      }, 0);
+    }
+  }, [removeTerminalFromScope, paneOrder, focusPane]);
 
   const requestCloseTerminal = useCallback(async (id?: string | null) => {
     if (!id) return;
