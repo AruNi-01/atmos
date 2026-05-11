@@ -24,6 +24,13 @@ export interface TmuxStatusResponse {
   version: string | null;
 }
 
+export interface GhCliStatusResponse {
+  installed: boolean;
+  authenticated: boolean;
+  version: string | null;
+  username: string | null;
+}
+
 export interface TmuxInstallPlanResponse {
   installed: boolean;
   supported: boolean;
@@ -379,6 +386,13 @@ export const systemApi = {
    */
   getTmuxStatus: async (): Promise<TmuxStatusResponse> => {
     return fetchApi<TmuxStatusResponse>('/api/system/tmux-status');
+  },
+
+  /**
+   * Check GitHub CLI installation and authentication status.
+   */
+  getGhCliStatus: async (): Promise<GhCliStatusResponse> => {
+    return fetchApi<GhCliStatusResponse>('/api/system/gh-cli-status');
   },
 
   /**

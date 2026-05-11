@@ -58,6 +58,148 @@ pub async fn get_tmux_status(State(state): State<AppState>) -> ApiResult<Json<Ap
 }
 
 #[derive(Debug, Serialize)]
+pub struct GhCliStatusResponse {
+    installed: bool,
+    authenticated: bool,
+    version: Option<String>,
+    username: Option<String>,
+}
+
+/// GET /api/system/gh-cli-status
+pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusResponse>>> {
+    let installed = Command::new("gh")
+        .arg("--version")
+        .output()
+        .is_ok();
+
+    let (authenticated, username) = if installed {
+        // Try to get auth status using JSON format
+        match Command::new("gh")
+            .args(["auth", "status", "--json", "hosts"])
+            .output()
+        {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+
+                // Debug logging to see actual output
+                info!("GitHub CLI auth status stdout: {}", stdout);
+                info!("GitHub CLI auth status stderr: {}", stderr);
+
+                // Parse JSON output
+                // Format: {"hosts":{"github.com":[{"state":"success","active":true,"host":"github.com","login":"username",...}]}
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&stdout) {
+                    let is_authenticated = json
+                        .as_object()
+                        .and_then(|obj| obj.get("hosts"))
+                        .and_then(|hosts| hosts.as_object())
+                        .and_then(|hosts_obj| {
+                            // Find the first host with an active account
+                            hosts_obj.values().find_map(|host_accounts| {
+                                host_accounts.as_array().and_then(|accounts| {
+                                    accounts.iter().find_map(|account| {
+                                        account.as_object().and_then(|acc| {
+                                            let state = acc.get("state").and_then(|s| s.as_str());
+                                            let active = acc.get("active").and_then(|a| a.as_bool());
+                                            // Consider authenticated if state is "success" and active is true
+                                            if state == Some("success") && active == Some(true) {
+                                                Some(true)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                    })
+                                })
+                            })
+                        })
+                        .unwrap_or(false);
+
+                    let user = if is_authenticated {
+                        json
+                            .as_object()
+                            .and_then(|obj| obj.get("hosts"))
+                            .and_then(|hosts| hosts.as_object())
+                            .and_then(|hosts_obj| {
+                                // Find the login from the active account
+                                hosts_obj.values().find_map(|host_accounts| {
+                                    host_accounts.as_array().and_then(|accounts| {
+                                        accounts.iter().find_map(|account| {
+                                            account.as_object().and_then(|acc| {
+                                                let state = acc.get("state").and_then(|s| s.as_str());
+                                                let active = acc.get("active").and_then(|a| a.as_bool());
+                                                let login = acc.get("login").and_then(|l| l.as_str());
+                                                if state == Some("success") && active == Some(true) {
+                                                    login.map(|s| s.to_string())
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                        })
+                                    })
+                                })
+                            })
+                    } else {
+                        None
+                    };
+
+                    info!("JSON parsed - authenticated: {:?}, username: {:?}", is_authenticated, user);
+                    (is_authenticated, user)
+                } else {
+                    // Fallback to text parsing if JSON fails
+                    info!("JSON parsing failed, falling back to text parsing");
+                    let combined = format!("{}{}", stdout, stderr);
+                    let is_authenticated = combined.contains("Logged in") ||
+                                           combined.contains("GitHub.com") ||
+                                           !combined.contains("not logged in");
+                    (is_authenticated, None)
+                }
+            }
+            Err(_) => {
+                // If JSON command fails, try basic check
+                match Command::new("gh")
+                    .args(["auth", "status"])
+                    .output()
+                {
+                    Ok(output) => {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        let stderr = String::from_utf8_lossy(&output.stderr);
+                        let combined = format!("{}{}", stdout, stderr);
+                        let is_authenticated = combined.contains("Logged in") ||
+                                               combined.contains("GitHub.com") ||
+                                               !combined.contains("not logged in");
+                        info!("Fallback text parsing - authenticated: {}", is_authenticated);
+                        (is_authenticated, None)
+                    }
+                    Err(_) => (false, None),
+                }
+            }
+        }
+    } else {
+        (false, None)
+    };
+
+    let version = if installed {
+        Command::new("gh")
+            .arg("--version")
+            .output()
+            .ok()
+            .and_then(|output| {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                stdout.lines().next().map(String::from)
+            })
+    } else {
+        None
+    };
+
+    Ok(Json(ApiResponse::success(GhCliStatusResponse {
+        installed,
+        authenticated,
+        version,
+        username,
+    })))
+}
+
+#[derive(Debug, Serialize)]
 pub struct CliVersionCheckResponse {
     installed: bool,
     current_version: Option<String>,
