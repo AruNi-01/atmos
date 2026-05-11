@@ -177,6 +177,12 @@ function serialize(root: HTMLElement): string {
   return out;
 }
 
+function serializeRange(range: Range): string {
+  const container = document.createElement("div");
+  container.appendChild(range.cloneContents());
+  return serialize(container);
+}
+
 function inflateInto(root: HTMLElement, text: string) {
   root.innerHTML = "";
   const lines = text.split("\n");
@@ -324,10 +330,8 @@ function readAtContextFromSelection(root: HTMLElement): AtTriggerContext | null 
   if (/\s/.test(query)) return null;
 
   // Find the atOffset in serialize() space so applyMentionAtRange slices correctly.
-  // We look for the last "@" in the serialized text that is followed by the same query.
-  const fullText = serialize(root);
-  const searchStr = "@" + query;
-  const serializeAtIndex = fullText.lastIndexOf(searchStr);
+  const beforeSerializedText = serializeRange(beforeRange);
+  const serializeAtIndex = beforeSerializedText.lastIndexOf("@");
   if (serializeAtIndex < 0) return null;
 
   const rect = measureCaretRect(root);
@@ -352,10 +356,8 @@ function readSlashContextFromSelection(root: HTMLElement): SlashTriggerContext |
   if (/\s/.test(query)) return null;
 
   // Find the slashOffset in serialize() space so applySlashAtRange slices correctly.
-  // We look for the last "/" in the serialized text that is followed by the same query.
-  const fullText = serialize(root);
-  const searchStr = "/" + query;
-  const serializeAtIndex = fullText.lastIndexOf(searchStr);
+  const beforeSerializedText = serializeRange(beforeRange);
+  const serializeAtIndex = beforeSerializedText.lastIndexOf("/");
   if (serializeAtIndex < 0) return null;
 
   const rect = measureCaretRect(root);
