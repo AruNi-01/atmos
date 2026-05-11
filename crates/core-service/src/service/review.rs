@@ -1261,6 +1261,7 @@ impl ReviewService {
             .await?;
         Ok(ReviewCommentDto {
             anchor: serde_json::to_value(&json!({
+                "file_path": file_snapshot.file_path,
                 "side": input.side,
                 "start_line": input.start_line,
                 "end_line": input.end_line,
