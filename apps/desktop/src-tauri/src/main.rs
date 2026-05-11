@@ -3,6 +3,7 @@ mod logging;
 mod preview_bridge;
 mod remote_access;
 mod state;
+mod updater;
 
 use std::collections::VecDeque;
 use std::ffi::CStr;
@@ -404,6 +405,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_api_config,
+            commands::get_version_info,
             commands::write_log,
             commands::open_in_external_editor,
             commands::send_notification,
