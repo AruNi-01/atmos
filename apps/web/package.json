@@ -42,6 +42,7 @@
     "@pierre/trees": "1.0.0-beta.3",
     "@radix-ui/react-dialog": "^1.1.15",
     "@replit/codemirror-lang-svelte": "^6.0.0",
+    "@replit/codemirror-minimap": "^0.5.2",
     "@tailwindcss/typography": "^0.5.19",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.0.0",

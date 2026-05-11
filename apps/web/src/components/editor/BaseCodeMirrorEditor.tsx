@@ -6,7 +6,9 @@ import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   bracketMatching,
+  codeFolding,
   defaultHighlightStyle,
+  foldGutter,
   foldKeymap,
   indentOnInput,
   syntaxHighlighting,
@@ -39,6 +41,7 @@ import {
   rectangularSelection,
 } from '@codemirror/view';
 import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
+import { showMinimap } from '@replit/codemirror-minimap';
 import { ArrowLeftRight, CaseSensitive, ChevronLeft, ChevronRight, Regex, Replace, ReplaceAll, WholeWord, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
@@ -52,6 +55,11 @@ export interface BaseCodeMirrorEditorProps {
   isReadOnly?: boolean;
   autoFocus?: boolean;
   lineWrap?: boolean;
+  enableBracketMatching?: boolean;
+  minimap?: boolean;
+  breadcrumbs?: boolean;
+  lineHighlight?: boolean;
+  gitIntegration?: boolean;
   navigationTarget?: { line: number; column?: number } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
@@ -474,7 +482,14 @@ function createEditorTheme(isDark: boolean): Extension {
         backgroundColor: isDark ? '#3f3f46' : '#d4d4d8',
       },
       '.cm-activeLine': {
-        backgroundColor: isDark ? '#ffffff08' : '#18181b08',
+        backgroundColor: isDark ? '#ffffff12' : '#18181b0f',
+      },
+      '.cm-matchingBracket': {
+        color: isDark ? '#22d3ee' : '#0891b2',
+        fontWeight: 'bold',
+      },
+      '.cm-nonmatchingBracket': {
+        color: isDark ? '#f87171' : '#dc2626',
       },
       '.cm-gutters': {
         backgroundColor: isDark ? '#09090b' : '#ffffff',
@@ -494,7 +509,7 @@ function createEditorTheme(isDark: boolean): Extension {
         paddingRight: '6px',
       },
       '.cm-foldGutter': {
-        display: 'none',
+        width: '1.5rem',
       },
       '.cm-activeLineGutter': {
         backgroundColor: isDark ? '#09090b' : '#ffffff',
@@ -804,6 +819,23 @@ function createEditorTheme(isDark: boolean): Extension {
       '.cm-searchMatch.cm-searchMatch-selected': {
         backgroundColor: isDark ? '#ca8a0444' : '#fde047aa',
       },
+      '.cm-selectionMatch': {
+        backgroundColor: isDark ? '#3b82f633' : '#3b82f622',
+      },
+      '.cm-minimap-gutter': {
+        width: '50px !important',
+        maxWidth: '50px !important',
+        fontSize: '2px',
+        backgroundColor: isDark ? '#09090b' : '#ffffff',
+        borderLeft: "1px solid " + (isDark ? "#27272a" : "#e4e4e7"),
+      },
+      '.cm-minimap-inner': {
+        backgroundColor: isDark ? '#09090b' : '#ffffff',
+      },
+      '.cm-minimap-inner canvas': {
+        maxWidth: '50px !important',
+        width: '50px !important',
+      },
       '.cm-scroller::-webkit-scrollbar': {
         width: '6px',
         height: '6px',
@@ -839,6 +871,11 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   isReadOnly,
   autoFocus,
   lineWrap = false,
+  enableBracketMatching = true,
+  minimap = false,
+  breadcrumbs = true,
+  lineHighlight = true,
+  gitIntegration = false,
   navigationTarget,
   onChange,
   onCreateEditor,
@@ -856,12 +893,21 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     isDark,
     autoFocus,
     lineWrap,
+    enableBracketMatching,
+    minimap,
+    breadcrumbs,
+    lineHighlight,
+    gitIntegration,
     useDrawSelection: !isTauriRuntime(),
   });
   const [languageCompartment] = useState(() => new Compartment());
   const [readOnlyCompartment] = useState(() => new Compartment());
   const [themeCompartment] = useState(() => new Compartment());
   const [lineWrapCompartment] = useState(() => new Compartment());
+  const [bracketMatchingCompartment] = useState(() => new Compartment());
+  const [breadcrumbsCompartment] = useState(() => new Compartment());
+  const [lineHighlightCompartment] = useState(() => new Compartment());
+  const [gitIntegrationCompartment] = useState(() => new Compartment());
   const [searchCompartment] = useState(() => new Compartment());
   const onChangeRef = useRef(onChange);
   const onCreateEditorRef = useRef(onCreateEditor);
@@ -894,6 +940,8 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
         doc: initialState.value,
         extensions: [
           lineNumbers(),
+          foldGutter(),
+          codeFolding(),
           highlightActiveLineGutter(),
           highlightSpecialChars(),
           history(),
@@ -901,15 +949,23 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           dropCursor(),
           EditorState.allowMultipleSelections.of(true),
           indentOnInput(),
-          bracketMatching(),
+          bracketMatchingCompartment.of(initialState.enableBracketMatching ? [bracketMatching()] : []),
           closeBrackets(),
           rectangularSelection(),
           crosshairCursor(),
-          highlightActiveLine(),
-          highlightSelectionMatches(),
+          lineHighlightCompartment.of(initialState.lineHighlight ? [highlightActiveLine(), highlightSelectionMatches()] : []),
           EditorState.tabSize.of(2),
           lineWrapCompartment.of(initialState.lineWrap ? EditorView.lineWrapping : []),
           searchCompartment.of(createSearchExtension()),
+          ...(initialState.minimap ? [showMinimap.of({
+            create: (view: EditorView) => {
+              const dom = document.createElement('div');
+              dom.className = 'cm-minimap';
+              return { dom };
+            },
+            displayText: 'blocks',
+            showOverlay: 'mouse-over',
+          })] : []),
           EditorView.contentAttributes.of({
             spellcheck: 'false',
             autocorrect: 'off',
@@ -965,7 +1021,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       editorRef.current = null;
       view.destroy();
     };
-  }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, searchCompartment, themeCompartment]);
+  }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, searchCompartment, themeCompartment, bracketMatchingCompartment, breadcrumbsCompartment, lineHighlightCompartment, gitIntegrationCompartment]);
 
   useEffect(() => {
     const view = editorRef.current;
@@ -1023,6 +1079,47 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       effects: lineWrapCompartment.reconfigure(lineWrap ? EditorView.lineWrapping : []),
     });
   }, [lineWrap, lineWrapCompartment]);
+
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+
+    view.dispatch({
+      effects: bracketMatchingCompartment.reconfigure(enableBracketMatching ? [bracketMatching()] : []),
+    });
+  }, [enableBracketMatching, bracketMatchingCompartment]);
+
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+
+    view.dispatch({
+      effects: lineHighlightCompartment.reconfigure(lineHighlight ? [highlightActiveLine(), highlightSelectionMatches()] : []),
+    });
+  }, [lineHighlight, lineHighlightCompartment]);
+
+  // Breadcrumbs - simple file path breadcrumbs
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+
+    // Breadcrumbs are implemented in the parent component (CodeMirrorEditor)
+    // This compartment is kept for future AST-based breadcrumbs
+    view.dispatch({
+      effects: breadcrumbsCompartment.reconfigure([]),
+    });
+  }, [breadcrumbs, breadcrumbsCompartment]);
+
+  // Git integration - placeholder for now, requires backend API
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+
+    // TODO: Implement git integration when backend API is available
+    view.dispatch({
+      effects: gitIntegrationCompartment.reconfigure([]),
+    });
+  }, [gitIntegration, gitIntegrationCompartment]);
 
   useEffect(() => {
     const view = editorRef.current;

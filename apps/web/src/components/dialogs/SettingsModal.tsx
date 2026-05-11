@@ -93,6 +93,7 @@ import { TagIcon } from '@workspace/ui/components/icons/tag-icon';
 import KeyboardIcon from '@workspace/ui/components/icons/keyboard-icon';
 import { BlocksIcon } from '@workspace/ui/components/icons/blocks-icon';
 import { TmuxIcon } from '@workspace/ui/components/icons/tmux-icon';
+import CodeXmlIcon from '@workspace/ui/components/ui/code-xml-icon';
 import type { AnimatedIconHandle } from '@workspace/ui/components/icons/types';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
@@ -132,6 +133,7 @@ import {
 import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
+import { useEditorSettings } from '@/hooks/use-editor-settings';
 
 interface ShortcutEntry {
   keys: string[];
@@ -185,6 +187,11 @@ const SETTINGS_SECTIONS = [
     id: 'layout',
     label: 'Layout',
     description: 'Panel arrangement and sidebar preferences',
+  },
+  {
+    id: 'editor',
+    label: 'Editor',
+    description: 'Code editor preferences and features',
   },
   {
     id: 'code-agent',
@@ -604,6 +611,144 @@ function LayoutSettingsSection() {
                 Right Sidebar
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditorSettingsSection() {
+  const {
+    autoSave,
+    lineWrap,
+    bracketMatching,
+    minimap,
+    breadcrumbs,
+    lineHighlight,
+    gitIntegration,
+    loaded: editorSettingsLoaded,
+    setAutoSave,
+    setLineWrap,
+    setBracketMatching,
+    setMinimap,
+    setBreadcrumbs,
+    setLineHighlight,
+    setGitIntegration,
+  } = useEditorSettings();
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-medium text-foreground">Auto Save</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Automatically saves the current file after 2 seconds of no typing.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={autoSave}
+              disabled={!editorSettingsLoaded}
+              onCheckedChange={(checked) => void setAutoSave(!!checked)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-medium text-foreground">Line Wrap</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Wrap long lines inside the editor instead of scrolling horizontally.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={lineWrap}
+              disabled={!editorSettingsLoaded}
+              onCheckedChange={(checked) => void setLineWrap(!!checked)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-medium text-foreground">Bracket Matching</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Highlight matching brackets and show bracket pairs.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={bracketMatching}
+              disabled={!editorSettingsLoaded}
+              onCheckedChange={(checked) => void setBracketMatching(!!checked)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-medium text-foreground">Minimap</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Show a minimap on the right side for quick navigation.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={minimap}
+              disabled={!editorSettingsLoaded}
+              onCheckedChange={(checked) => void setMinimap(!!checked)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-medium text-foreground">Breadcrumbs</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Show breadcrumb navigation at the top of the editor.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={breadcrumbs}
+              disabled={!editorSettingsLoaded}
+              onCheckedChange={(checked) => void setBreadcrumbs(!!checked)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-medium text-foreground">Line Highlight</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Highlight the current line and matching selections.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={lineHighlight}
+              disabled={!editorSettingsLoaded}
+              onCheckedChange={(checked) => void setLineHighlight(!!checked)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-5">
+          <div>
+            <p className="text-sm font-medium text-foreground">Git Integration</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Show git changes and diff information in the editor.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={gitIntegration}
+              disabled={!editorSettingsLoaded}
+              onCheckedChange={(checked) => void setGitIntegration(!!checked)}
+            />
           </div>
         </div>
       </div>
@@ -2959,6 +3104,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             {section.id === 'ai' && <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'shortcuts' && <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'editor' && <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />}
                             <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
                           </MotionSidebarMenuButton>
                         </MotionSidebarMenuItem>
@@ -4065,6 +4211,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 ) : resolvedActiveSection === 'layout' ? (
                   <LayoutSettingsSection />
+                ) : resolvedActiveSection === 'editor' ? (
+                  <EditorSettingsSection />
                 ) : null}
                 </div>
               </ScrollArea>

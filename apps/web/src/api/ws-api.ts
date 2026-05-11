@@ -2036,6 +2036,11 @@ export interface FunctionSettings {
   editor?: {
     auto_save?: boolean;
     line_wrap?: boolean;
+    bracket_matching?: boolean;
+    minimap?: boolean;
+    breadcrumbs?: boolean;
+    line_highlight?: boolean;
+    git_integration?: boolean;
   };
   workspace_kanban_view?: {
     state?: unknown;
