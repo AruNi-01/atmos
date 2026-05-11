@@ -109,6 +109,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     return relativePath.split('/').filter(Boolean);
   }, [relativePath]);
 
+  const editorGitDiffSource = useMemo(
+    () =>
+      projectRoot && relativePath
+        ? { repoPath: projectRoot, fileRelativePath: relativePath }
+        : null,
+    [projectRoot, relativePath],
+  );
+
   // Get the full path for a breadcrumb part at a given index
   const getBreadcrumbPath = useCallback((index: number) => {
     const parts = relativePath.split('/').filter(Boolean);
@@ -631,6 +639,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                 breadcrumbs={breadcrumbs}
                 lineHighlight={lineHighlight}
                 gitIntegration={gitIntegration}
+                gitDiffSource={editorGitDiffSource}
                 navigationTarget={navigationTarget}
                 onChange={handleEditorChange}
                 onCreateEditor={handleEditorCreate}
