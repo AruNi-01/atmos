@@ -719,7 +719,7 @@ export const TerminalCanvasView: React.FC = () => {
                   <Plus className="size-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-full max-h-[90vh] z-50 overflow-hidden !sm:max-w-lg">
+              <DialogContent className="w-full max-h-[90vh] z-50 overflow-hidden">
                 <DialogHeader>
                   <DialogTitle>Import Terminal</DialogTitle>
                 </DialogHeader>
