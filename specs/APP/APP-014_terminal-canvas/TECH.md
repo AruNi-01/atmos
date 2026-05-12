@@ -73,6 +73,7 @@ runtime terminal traffic
 - **D7**: Viewport state (camera position and zoom) is persisted and restored in v1. This provides a better user experience when returning to the canvas.
 - **D8**: V1 import flow supports importing panes from all terminal tabs (both the default `"terminal"` tab and any custom `"terminal-tab:*"` tabs created by the user). The picker should display tabs as collapsible sections to make the organization clear.
 - **D9**: When a terminal card's referenced tmux window no longer exists, the card enters a "broken reference" state with a visual error indicator and a remove action. It does not attempt to mount a live terminal.
+- **D10**: Multi-page support is enabled in tldraw. Users can create multiple pages within the canvas to organize different terminal layouts. Pages are persisted as part of the tldraw snapshot.
 
 ## Module-by-module design
 
@@ -632,3 +633,4 @@ None. All open questions have been resolved:
 - **D7**: Viewport position/zoom is persisted and restored in v1
 - **D8**: V1 import flow supports importing panes from all terminal tabs (default + custom)
 - **D9**: Broken tmux window references display an error state with a remove action
+- **D10**: Multi-page support is enabled in tldraw for organizing different terminal layouts

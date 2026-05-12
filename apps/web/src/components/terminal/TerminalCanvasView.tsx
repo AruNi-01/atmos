@@ -49,8 +49,6 @@ const TERMINAL_CARD_SHAPE_TYPE = "terminal-canvas-terminal" as const;
 const SAVE_DEBOUNCE_MS = 800;
 const TERMINAL_CANVAS_ALLOWED_TOOL_IDS = new Set(["select", "hand", "zoom", "text", "frame"]);
 const TERMINAL_CANVAS_BLOCKED_ACTION_IDS = new Set([
-  "change-page-next",
-  "change-page-prev",
   "convert-to-bookmark",
   "copy-as-json",
   "copy-as-png",
@@ -59,7 +57,6 @@ const TERMINAL_CANVAS_BLOCKED_ACTION_IDS = new Set([
   "export-as-svg",
   "insert-embed",
   "insert-media",
-  "move-to-new-page",
 ]);
 const TERMINAL_CANVAS_EXTERNAL_CONTENT_TYPES = ["embed", "excalidraw", "file-replace", "files", "svg-text", "tldraw", "url"] as const;
 
@@ -165,7 +162,6 @@ const TERMINAL_CANVAS_UI_COMPONENTS: TLComponents = {
   KeyboardShortcutsDialog: null,
   MainMenu: null,
   Minimap: null,
-  PageMenu: null,
   PeopleMenu: null,
   SharePanel: null,
   StylePanel: null,
