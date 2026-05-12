@@ -49,7 +49,7 @@ interface GitGutterState {
 
 /**
  * Inclusive 1-based line range in the **current document** covered by this chunk.
- * Zed-style gutters draw one vertical bar per line in this range (see zed `buffer_diff`).
+ * Draws one vertical bar per line in this range in the change gutter.
  */
 function chunkDocLineRange(chunk: Chunk, doc: Text): { from: number; to: number } | null {
   if (doc.lines === 0) return null;
@@ -75,7 +75,7 @@ function classifyChunkKind(chunk: Chunk): 'added' | 'deleted' | 'modified' {
   return 'modified';
 }
 
-/** Start position of the first line in doc B for this chunk — expanded panel sits above it (Zed-like). */
+/** Start position of the first line in doc B for this chunk — expanded panel sits above it. */
 function chunkFirstLineFrom(chunk: Chunk, doc: Text): number {
   if (doc.length === 0) return 0;
   const pos =
@@ -97,7 +97,7 @@ class GitDiffGutterBgMarker extends GutterMarker {
   }
 }
 
-/** Full-height vertical bar in the gutter (one per changed line), similar to Zed diff hunks. */
+/** Full-height vertical bar in the gutter (one per changed line). */
 class GitChunkBarMarker extends GutterMarker {
   constructor(
     readonly chunkIndex: number,
@@ -237,9 +237,8 @@ function fillDiffPanelBody(
     for (const line of oldLines) appendSolidPanelRow(body, line, 'old');
     return;
   }
-  // modified: Git is add + remove — show full old block (red) then new block (green); gutter bar stays yellow.
+  // modified: only the removed side in the panel; the buffer already shows the new side (green line highlight).
   for (const line of oldLines) appendSolidPanelRow(body, line, 'old');
-  for (const line of newLines) appendSolidPanelRow(body, line, 'new');
 }
 
 /**
@@ -425,12 +424,6 @@ class DiffPanelWidget extends WidgetType {
     (wrap as HTMLElement & { _cmGitBleedRo?: ResizeObserver })._cmGitBleedRo = ro;
     requestAnimationFrame(applyGutterBleed);
 
-    wrap.addEventListener('mousedown', (e) => {
-      const t = e.target;
-      if (t instanceof Node && body.contains(t)) return;
-      e.preventDefault();
-    });
-
     return wrap;
   }
 
@@ -582,15 +575,13 @@ const gitGutterTheme = EditorView.baseTheme({
   '.cm-git-line-bg-added': {
     background: 'rgba(34, 197, 94, 0.14)',
   },
-  '.cm-git-line-bg-modified': {
-    background: 'rgba(234, 179, 8, 0.12)',
-  },
   '.cm-git-line-bg-expanded': {
     filter: 'brightness(1.04)',
   },
-  /* Panel paints above gutters so full-bleed row backgrounds meet the strip. */
+  // Keep change gutter above panel bleed so the strip stays visible; body margin (below) avoids hit-stealing.
   '.cm-editor .cm-gutters': {
-    zIndex: '1',
+    position: 'relative',
+    zIndex: '20',
   },
   '.cm-git-diff-panel-widget-gutter': {
     width: '100%',
@@ -625,13 +616,27 @@ const gitGutterTheme = EditorView.baseTheme({
     paddingBottom: '0',
     border: 'none',
     background: 'transparent',
+    pointerEvents: 'none',
   },
-  // Block widget line: avoid extra vertical rhythm — tint-only on editor lines, no layout gap.
+  // Let clicks reach the gutter: bleed overlaps gutter column — neutralize hits on the line tree except panel text + toolbar.
   '.cm-line:has(.cm-git-diff-panel)': {
     paddingTop: '0',
     paddingBottom: '0',
     marginTop: '0',
     marginBottom: '0',
+    pointerEvents: 'none',
+  },
+  '.cm-line:has(.cm-git-diff-panel) *': {
+    pointerEvents: 'none',
+  },
+  '.cm-line:has(.cm-git-diff-panel) .cm-git-panel-body': {
+    pointerEvents: 'auto',
+  },
+  '.cm-line:has(.cm-git-diff-panel) .cm-git-panel-body *': {
+    pointerEvents: 'auto',
+  },
+  '.cm-line:has(.cm-git-diff-panel) .cm-git-panel-floatbar': {
+    pointerEvents: 'none',
   },
   '.cm-editor.cm-git-hunk-ui-hover .cm-git-panel-floatbar, .cm-git-panel-floatbar:focus-within': {
     opacity: '1',
@@ -687,6 +692,7 @@ const gitGutterTheme = EditorView.baseTheme({
     minWidth: '24px',
   },
   '.cm-git-panel-body': {
+    marginLeft: 'var(--cm-git-gutters-bleed, 0px)',
     paddingTop: '0',
     paddingBottom: '2px',
     paddingLeft: '0',
@@ -696,13 +702,15 @@ const gitGutterTheme = EditorView.baseTheme({
     userSelect: 'text',
     cursor: 'text',
     WebkitUserSelect: 'text',
+    pointerEvents: 'auto',
+    boxSizing: 'border-box',
   },
   '.cm-git-panel-line': {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
     paddingTop: '2px',
     paddingBottom: '2px',
-    paddingLeft: 'calc(var(--cm-git-gutters-bleed, 0px) + 6px)',
+    paddingLeft: '6px',
     paddingRight: '6px',
     margin: '0',
     borderRadius: '0',
@@ -715,16 +723,17 @@ const gitGutterTheme = EditorView.baseTheme({
   },
 });
 
-function lineBgClassForChunk(kind: 'added' | 'modified', expanded: boolean): string {
-  const base = kind === 'added' ? 'cm-git-line-bg-added' : 'cm-git-line-bg-modified';
+/**
+ * Line backgrounds when a hunk is expanded: document B is always the **new** side → green tint.
+ * The gutter bar for `modified` stays yellow via {@link GitChunkBarMarker}; only the in-text highlight follows “latest = green”.
+ */
+function lineBgClassForChunk(expanded: boolean): string {
+  const base = 'cm-git-line-bg-added';
   return expanded ? `${base} cm-git-line-bg-expanded cm-git-active-hunk-target` : base;
 }
 
 /** Lines in the document (`line.from`) that belong to the currently expanded git hunk. */
-function forEachExpandedGitDiffLine(
-  state: EditorState,
-  fn: (lineFrom: number, kind: 'added' | 'modified') => void,
-): void {
+function forEachExpandedGitDiffLine(state: EditorState, fn: (lineFrom: number) => void): void {
   const gs = state.field(gitGutterStateField);
   for (let i = 0; i < gs.chunks.length; i++) {
     const ch = gs.chunks[i]!;
@@ -736,7 +745,7 @@ function forEachExpandedGitDiffLine(
     const end = ch.toB;
     while (pos < end) {
       const line = state.doc.lineAt(pos);
-      fn(line.from, kind);
+      fn(line.from);
       pos = line.to + 1;
     }
   }
@@ -744,8 +753,8 @@ function forEachExpandedGitDiffLine(
 
 const gitDiffLineGutterHighlighter = gutterLineClass.compute([gitGutterStateField], (state) => {
   const marks: Range<GitDiffGutterBgMarker>[] = [];
-  forEachExpandedGitDiffLine(state, (lineFrom, kind) => {
-    marks.push(new GitDiffGutterBgMarker(lineBgClassForChunk(kind, true)).range(lineFrom));
+  forEachExpandedGitDiffLine(state, (lineFrom) => {
+    marks.push(new GitDiffGutterBgMarker(lineBgClassForChunk(true)).range(lineFrom));
   });
   return RangeSet.of(marks, true);
 });
@@ -754,8 +763,8 @@ function buildGitDiffDecorations(state: EditorState): DecorationSet {
   const gs = state.field(gitGutterStateField);
   const parts: Range<Decoration>[] = [];
 
-  forEachExpandedGitDiffLine(state, (lineFrom, kind) => {
-    parts.push(Decoration.line({ class: lineBgClassForChunk(kind, true) }).range(lineFrom));
+  forEachExpandedGitDiffLine(state, (lineFrom) => {
+    parts.push(Decoration.line({ class: lineBgClassForChunk(true) }).range(lineFrom));
   });
 
   if (gs.selectedIndex !== null && state.doc.length > 0) {
@@ -855,7 +864,7 @@ const gitChangeGutter = gutter({
 });
 
 /**
- * Git gutter (Zed-inspired): per-line bars, line backgrounds, expandable hunk panel above the first line.
+ * Git gutter: per-line bars, line backgrounds, expandable hunk panel above the first line.
  */
 export function createGitChangeGutterExtensions(host: GitGutterHost): Extension[] {
   return [
