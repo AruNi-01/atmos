@@ -82,7 +82,8 @@ export function useTerminalCanvasBoard() {
     setError(null);
     try {
       const nextBoard = await terminalCanvasApi.updateDefaultBoard(stringifyBoardDocument(nextDocument));
-      setDocument(nextDocument);  // Only update document after successful save
+      // Don't update document state on auto-save - tldraw already has the latest state
+      // Only update board metadata (updated_at, etc.)
       setBoard(nextBoard);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save terminal canvas");
