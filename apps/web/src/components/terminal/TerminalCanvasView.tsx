@@ -16,6 +16,7 @@ import {
   type TLEditorSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
+import "./tldraw-theme.css";
 import { Button, ScrollArea, toastManager, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@workspace/ui";
 import {
   AlertTriangle,

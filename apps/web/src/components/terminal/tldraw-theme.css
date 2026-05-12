@@ -1,0 +1,67 @@
+/* Tldraw dark theme adaptations for Atmos */
+
+.dark .tl-canvas {
+  background: #09090b;
+}
+
+.dark .tl-ui {
+  --tl-ui-panel: #27272a;
+  --tl-ui-panel-hover: #3f3f46;
+  --tl-ui-panel-active: #52525b;
+  --tl-ui-border: #27272a;
+  --tl-ui-text: #f8f8f8;
+  --tl-ui-text-muted: #a1a1aa;
+  --tl-ui-accent: #58a6ff;
+  --tl-ui-accent-hover: #79c0ff;
+  --tl-ui-accent-active: #218bff;
+  --tl-ui-background: #09090b;
+  --tl-ui-selection: rgba(88, 166, 255, 0.2);
+}
+
+.dark .tl-ui-menu {
+  background: #27272a;
+  border-color: #27272a;
+}
+
+.dark .tl-ui-button {
+  color: #f8f8f8;
+}
+
+.dark .tl-ui-button:hover {
+  background: #3f3f46;
+}
+
+.dark .tl-ui-input {
+  background: #18181b;
+  border-color: #27272a;
+  color: #f8f8f8;
+}
+
+.dark .tl-ui-toolbar {
+  background: #27272a;
+  border-color: #27272a;
+}
+
+.dark .tl-ui-panel {
+  background: #27272a;
+  border-color: #27272a;
+}
+
+/* Light theme adjustments */
+.light .tl-canvas {
+  background: #ffffff;
+}
+
+.light .tl-ui {
+  --tl-ui-panel: #f6f8fa;
+  --tl-ui-panel-hover: #eaeef2;
+  --tl-ui-panel-active: #d8dee4;
+  --tl-ui-border: #d0d7de;
+  --tl-ui-text: #24292f;
+  --tl-ui-text-muted: #6e7781;
+  --tl-ui-accent: #0969da;
+  --tl-ui-accent-hover: #218bff;
+  --tl-ui-accent-active: #0550ae;
+  --tl-ui-background: #ffffff;
+  --tl-ui-selection: rgba(9, 105, 218, 0.2);
+}
