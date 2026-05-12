@@ -719,12 +719,12 @@ export const TerminalCanvasView: React.FC = () => {
                   <Plus className="size-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-full max-w-[90vw] max-h-[90vh] z-50 overflow-hidden">
+              <DialogContent className="w-full max-h-[90vh] z-50 overflow-hidden !sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>Import Terminal</DialogTitle>
                 </DialogHeader>
                 <ScrollArea className="max-h-[calc(90vh-10rem)]">
-                  <div className="space-y-6 p-6 max-w-4xl mx-auto">
+                  <div className="space-y-6 p-6">
                     <section className="space-y-3">
                       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                         <SquareTerminal className="size-4" />
