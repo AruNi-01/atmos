@@ -45,8 +45,16 @@ import { showMinimap } from '@replit/codemirror-minimap';
 import { ArrowLeftRight, CaseSensitive, ChevronLeft, ChevronRight, Regex, Replace, ReplaceAll, WholeWord, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
+import { gitApi } from '@/api/ws-api';
 import { loadCodeLanguageSupport } from '@/lib/code-language';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
+import { createGitUnifiedMergeExtensions } from '@/lib/codemirror-git-unified-merge';
+
+/** 用于在启用 Git 集成时拉取 `git_file_diff`（仓库根路径 + 相对路径）。 */
+export interface BaseCodeMirrorEditorGitDiffSource {
+  repoPath: string;
+  fileRelativePath: string;
+}
 
 export interface BaseCodeMirrorEditorProps {
   className?: string;
@@ -60,6 +68,8 @@ export interface BaseCodeMirrorEditorProps {
   breadcrumbs?: boolean;
   lineHighlight?: boolean;
   gitIntegration?: boolean;
+  /** 提供仓库与文件相对路径时才可显示与 HEAD/比较基 的差异；缺省则仅关闭合并视图。 */
+  gitDiffSource?: BaseCodeMirrorEditorGitDiffSource | null;
   navigationTarget?: { line: number; column?: number } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
@@ -876,6 +886,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   breadcrumbs = true,
   lineHighlight = true,
   gitIntegration = false,
+  gitDiffSource = null,
   navigationTarget,
   onChange,
   onCreateEditor,
@@ -954,6 +965,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           rectangularSelection(),
           crosshairCursor(),
           lineHighlightCompartment.of(initialState.lineHighlight ? [highlightActiveLine(), highlightSelectionMatches()] : []),
+          gitIntegrationCompartment.of([]),
           EditorState.tabSize.of(2),
           lineWrapCompartment.of(initialState.lineWrap ? EditorView.lineWrapping : []),
           searchCompartment.of(createSearchExtension()),
@@ -1110,16 +1122,49 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     });
   }, [breadcrumbs, breadcrumbsCompartment]);
 
-  // Git integration - placeholder for now, requires backend API
   useEffect(() => {
     const view = editorRef.current;
     if (!view) return;
 
-    // TODO: Implement git integration when backend API is available
-    view.dispatch({
-      effects: gitIntegrationCompartment.reconfigure([]),
-    });
-  }, [gitIntegration, gitIntegrationCompartment]);
+    if (!gitIntegration || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
+      view.dispatch({
+        effects: gitIntegrationCompartment.reconfigure([]),
+      });
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const diff = await gitApi.getFileDiff(
+          gitDiffSource.repoPath,
+          gitDiffSource.fileRelativePath,
+        );
+        if (cancelled || editorRef.current !== view) return;
+
+        view.dispatch({
+          effects: gitIntegrationCompartment.reconfigure(
+            createGitUnifiedMergeExtensions(diff.old_content),
+          ),
+        });
+      } catch {
+        if (cancelled || editorRef.current !== view) return;
+        view.dispatch({
+          effects: gitIntegrationCompartment.reconfigure([]),
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    gitIntegration,
+    gitDiffSource?.repoPath,
+    gitDiffSource?.fileRelativePath,
+    gitIntegrationCompartment,
+  ]);
 
   useEffect(() => {
     const view = editorRef.current;
