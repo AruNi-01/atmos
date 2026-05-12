@@ -23,7 +23,6 @@ import {
   Loader2,
   LoaderCircle,
   Map,
-  NotebookText,
   RefreshCcw,
   SquareTerminal,
   ArrowUpRight,
@@ -719,16 +718,16 @@ export const TerminalCanvasView: React.FC = () => {
                   variant="outline"
                   size="icon"
                   className="h-10 w-10 rounded-xl bg-muted/20 shadow-sm"
-                  title="Import terminal"
+                  title="Import terminal - Click to import from saved layouts or active tmux sessions"
                 >
                   <Plus className="size-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh]">
+              <DialogContent className="max-w-4xl max-h-[85vh] z-50">
                 <DialogHeader>
                   <DialogTitle>Import Terminal</DialogTitle>
                 </DialogHeader>
-                <ScrollArea className="max-h-[60vh]">
+                <ScrollArea className="max-h-[70vh]">
                   <div className="space-y-6 p-4">
                     <section className="space-y-3">
                       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -778,18 +777,42 @@ export const TerminalCanvasView: React.FC = () => {
                           )}
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          {workspaceItems.map((item) => (
-                            <button
-                              key={item.key}
-                              type="button"
-                              onClick={() => handleToggleContext(item)}
-                              className="w-full rounded-xl border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
-                            >
-                              <div className="truncate text-sm font-medium text-foreground">{item.projectName}</div>
-                              <div className="truncate text-xs text-muted-foreground">{item.workspaceName}</div>
-                            </button>
-                          ))}
+                        <div className="space-y-4">
+                          {(() => {
+                            // Group items by project
+                            const groupedByProject: Record<string, WorkspaceImportItem[]> = {};
+                            workspaceItems.forEach((item) => {
+                              if (!groupedByProject[item.projectName]) {
+                                groupedByProject[item.projectName] = [];
+                              }
+                              groupedByProject[item.projectName].push(item);
+                            });
+                            
+                            return Object.entries(groupedByProject).map(([projectName, items]) => (
+                              <div key={projectName} className="space-y-2">
+                                <div className="flex items-center gap-2 px-2">
+                                  <div className="h-px flex-1 bg-border" />
+                                  <span className="text-xs font-semibold text-muted-foreground">{projectName}</span>
+                                  <div className="h-px flex-1 bg-border" />
+                                </div>
+                                <div className="grid gap-2 pl-2">
+                                  {items.map((item) => (
+                                    <button
+                                      key={item.key}
+                                      type="button"
+                                      onClick={() => handleToggleContext(item)}
+                                      className="w-full rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-accent"
+                                    >
+                                      <div className="truncate text-sm font-medium text-foreground">{item.workspaceName}</div>
+                                      {item.localPath && (
+                                        <div className="truncate text-xs text-muted-foreground">{item.localPath}</div>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ));
+                          })()}
                           {!workspaceItems.length && (
                             <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                               No projects or workspaces loaded yet.
@@ -822,7 +845,7 @@ export const TerminalCanvasView: React.FC = () => {
                                 handleImportSession(session);
                                 setIsImportModalOpen(false);
                               }}
-                              className="w-full rounded-xl border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
+                              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-accent"
                             >
                               <div className="truncate text-sm font-medium text-foreground">
                                 {session.terminal_name || `Window ${session.tmux_window_index}`}
@@ -866,17 +889,9 @@ export const TerminalCanvasView: React.FC = () => {
         <aside className="w-[320px] shrink-0 border-r border-border bg-muted/15">
           <ScrollArea className="h-full">
             <div className="p-5">
-              <section className="space-y-3 rounded-2xl border border-border bg-background p-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <NotebookText className="size-4" />
-                  Quick tips
-                </div>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>Click the + button in the top-right to import terminals from saved layouts or active tmux sessions.</li>
-                  <li>Use the text tool for plain-text notes and the frame tool for lightweight grouping.</li>
-                  <li>Select a terminal card to resize it with the standard canvas handles.</li>
-                </ul>
-              </section>
+              <div className="text-sm text-muted-foreground">
+                Click the + button in the top-right to import terminals from saved layouts or active tmux sessions.
+              </div>
             </div>
           </ScrollArea>
         </aside>
