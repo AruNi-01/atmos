@@ -357,11 +357,15 @@ function TerminalCanvasTerminalCardInner({ shape }: { shape: TerminalCanvasTermi
   );
 
   return (
-    <div
-      className="flex h-full flex-col overflow-hidden rounded-[20px] border border-border bg-background shadow-lg"
-      onPointerDown={() => setActiveShapeId(shape.id)}
-    >
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+    <div className="flex h-full flex-col overflow-hidden rounded-[20px] border border-border bg-background shadow-lg">
+      <div
+        className="flex items-center justify-between gap-3 border-b border-border px-4 py-3"
+        onPointerDown={(event) => {
+          // Activate shape when clicking on the header
+          setActiveShapeId(shape.id);
+          event.stopPropagation();
+        }}
+      >
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-foreground">{shape.props.terminalName}</div>
           <div className="truncate text-xs text-muted-foreground">
@@ -381,7 +385,22 @@ function TerminalCanvasTerminalCardInner({ shape }: { shape: TerminalCanvasTermi
           <div className="truncate text-[11px] text-muted-foreground">{shape.props.tmuxWindowName}</div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 bg-background">
+      <div
+        className="min-h-0 flex-1 bg-background"
+        onPointerDown={(event) => {
+          // When card is inactive, clicking activates it
+          // When card is active, clicking doesn't re-activate (to avoid focus loss)
+          if (!isActive) {
+            setActiveShapeId(shape.id);
+          }
+          // Always prevent propagation to tldraw
+          event.stopPropagation();
+        }}
+        onWheel={(event) => {
+          // Prevent scroll propagation to tldraw when scrolling inside the terminal
+          event.stopPropagation();
+        }}
+      >
         {isActive ? (
           <Terminal
             sessionId={sessionId}
