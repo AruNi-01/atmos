@@ -1,0 +1,77 @@
+apps/web/src/components/files/FileTree.tsx
+  s_ad3cb6a126b7cc::t_4e0fd220eb1b35 355,358
+  s_ad3cb6a126b7cc::t_ad1482d8b1e1ef 67-68
+  s_ad3cb6a126b7cc::t_8e0c7ad6a8ba02 183
+apps/web/src/components/editor/CodeMirrorEditor.tsx
+  s_ad3cb6a126b7cc::t_17bf390e6a1c52 4
+  s_ad3cb6a126b7cc::t_ed848797ccf8c3 177-184,202
+  s_ad3cb6a126b7cc::t_849e2459dd8fe4 219-227
+  s_ad3cb6a126b7cc::t_bfbe40b05a85a6 445-457,462-463,466,475,486-488,499
+  s_ad3cb6a126b7cc::t_7d1c881833a81b 89,92
+  s_ad3cb6a126b7cc::t_6412f0a58e28f9 314
+  s_ad3cb6a126b7cc::t_331e3d74dc0d38 439
+  s_678db9b47eb8c9::t_f7b2591ae6b5f7 86-87,90-91,93-96
+  s_678db9b47eb8c9::t_15affc8aeaf146 31-32
+  s_ad3cb6a126b7cc::t_3652e947778713 513
+  s_ad3cb6a126b7cc::t_80f339bdb11e2c 461,464
+  s_ad3cb6a126b7cc::t_3a5e50272fbca3 228-235
+  s_678db9b47eb8c9::t_d1d23e9ffd33c4 88
+  s_ad3cb6a126b7cc::t_cda5ebbf353491 742-743
+  s_ad3cb6a126b7cc::t_ef19e351b568f1 693
+  s_678db9b47eb8c9::t_ca4ef227536241 720,725
+  s_ad3cb6a126b7cc::t_6762daa7c50040 53
+  s_678db9b47eb8c9::t_e90135d35b0617 337
+  s_ad3cb6a126b7cc::t_499ee55f2621d8 434-435,437
+  s_678db9b47eb8c9::t_463bc2954a66fb 85,261-267,703-719,721-724
+  s_ad3cb6a126b7cc::t_80a758dff2e260 696-701
+  s_ad3cb6a126b7cc::t_75b2300b8b0b99 43-44,47-51
+  s_ad3cb6a126b7cc::t_bab14eb7b231df 317-324
+  s_ad3cb6a126b7cc::t_0232e3953f72f7 407
+apps/web/src/hooks/use-editor-settings.ts
+  s_678db9b47eb8c9::t_bc7fe2ba70f1e8 121-125
+  s_678db9b47eb8c9::t_0a43f23a516472 58-63
+apps/web/src/components/layout/CenterStage.tsx
+  s_ad3cb6a126b7cc::t_5a0c8728ef6907 2289
+apps/web/src/components/editor/BaseCodeMirrorEditor.tsx
+  s_678db9b47eb8c9::t_83f9d06a64310d 844,850-855
+  s_678db9b47eb8c9::t_1071f31342b276 885-892,894-896,992
+  s_678db9b47eb8c9::t_def3498aea26e8 893
+apps/web/src/components/dialogs/SettingsModal.tsx
+  s_678db9b47eb8c9::t_e67b8d5d1c17c9 630,640-642
+apps/web/src/components/editor/FileViewer.tsx
+  s_ad3cb6a126b7cc::t_d5705c7fcb2991 280
+  s_ad3cb6a126b7cc::t_4d76770b73f7be 215
+  s_ad3cb6a126b7cc::t_dcbd8b1877e6b9 33-34
+apps/web/next.config.ts
+  s_678db9b47eb8c9::t_65a09f33f10b76 10-48,83,89
+  s_678db9b47eb8c9::t_b5dfd3a1b71fc3 3-4,8-9,49,81-82,84-88,90-92
+package.json
+  s_678db9b47eb8c9::t_1a0843f19641b0 42-44
+apps/web/package.json
+  s_678db9b47eb8c9::t_3c1e54b25ed6f9 36
+  s_678db9b47eb8c9::t_7ceb78a90277fc 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "11af84aa82ff9f61dc8ecbf86a0f2d54e01c7e49",
+  "prompts": {},
+  "sessions": {
+    "s_678db9b47eb8c9": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8860a92a-f070-4f9b-b86a-3ffb9c84d532",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ad3cb6a126b7cc": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6f61a353-8e86-4957-910a-a0c3abcdf450",
+        "model": "composer-2"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
