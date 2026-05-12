@@ -841,10 +841,18 @@ function createEditorTheme(isDark: boolean): Extension {
       },
       '.cm-minimap-inner': {
         backgroundColor: isDark ? '#09090b' : '#ffffff',
+        width: '50px !important',
       },
       '.cm-minimap-inner canvas': {
         maxWidth: '50px !important',
         width: '50px !important',
+      },
+      '.cm-minimap-overlay-container': {
+        zIndex: '2',
+        pointerEvents: 'auto',
+      },
+      '.cm-minimap-overlay': {
+        backgroundColor: isDark ? 'rgba(161, 161, 170, 0.55)' : 'rgba(113, 113, 122, 0.45)',
       },
       '.cm-scroller::-webkit-scrollbar': {
         width: '6px',
@@ -872,6 +880,18 @@ function createEditorTheme(isDark: boolean): Extension {
     },
     { dark: isDark }
   );
+}
+
+function createMinimapExtension(): Extension {
+  return showMinimap.compute(['doc'], () => ({
+    create: () => {
+      const dom = document.createElement('div');
+      dom.className = 'cm-minimap';
+      return { dom };
+    },
+    displayText: 'blocks',
+    showOverlay: 'always',
+  }));
 }
 
 export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
@@ -969,15 +989,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           EditorState.tabSize.of(2),
           lineWrapCompartment.of(initialState.lineWrap ? EditorView.lineWrapping : []),
           searchCompartment.of(createSearchExtension()),
-          ...(initialState.minimap ? [showMinimap.of({
-            create: (view: EditorView) => {
-              const dom = document.createElement('div');
-              dom.className = 'cm-minimap';
-              return { dom };
-            },
-            displayText: 'blocks',
-            showOverlay: 'mouse-over',
-          })] : []),
+          ...(initialState.minimap ? [createMinimapExtension()] : []),
           EditorView.contentAttributes.of({
             spellcheck: 'false',
             autocorrect: 'off',

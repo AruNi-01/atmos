@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { EditorView } from '@codemirror/view';
 import { openSearchPanel } from '@codemirror/search';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -27,6 +28,8 @@ import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorSettings } from '@/hooks/use-editor-settings';
+import { useQueryState } from 'nuqs';
+import { settingsModalParams } from '@/lib/nuqs/searchParams';
 import { parseReviewReportMetadata } from '@/lib/review-report-frontmatter';
 import { ReviewReportMetadataCard } from '@/components/code-review/ReviewReportMetadataCard';
 import { useProjectStore } from '@/hooks/use-project-store';
@@ -37,10 +40,17 @@ import { tryRelativePathUnderRoot } from '@/lib/path-under-root';
 interface CodeMirrorEditorProps {
   file: OpenFile;
   className?: string;
+  /** False when mounted but not visible (inactive keepMounted editor tab — avoids orphaned floating overlays). */
+  surfaceActive?: boolean;
 }
 
-export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, className }) => {
+export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
+  file,
+  className,
+  surfaceActive = true,
+}) => {
   const { effectiveContextId } = useContextParams();
+  const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(effectiveContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
@@ -72,6 +82,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
+  const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
+
+  const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
+    if (!surfaceActive) return;
+    if (open && settingsModalOpen) return;
+    setSettingsOpen(open);
+  }, [settingsModalOpen, surfaceActive]);
+
+  useEffect(() => {
+    if (settingsModalOpen) setSettingsOpen(false);
+  }, [settingsModalOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
   const fileTreeData = useFileTreeStore((s) => s.data);
   const fileTreeRootPath = useFileTreeStore((s) => s.rootPath);
@@ -152,6 +174,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     };
 
     const parentPath = getParentPath(normalizedTargetPath);
+    const normalizedParentPath = normalizePath(parentPath);
+    const normalizedTreeRootPath = normalizePath(fileTreeRootPath);
+
+    // `list_project_files` returns immediate children of `root_path` only — no node whose
+    // `path` equals the project root. Siblings under the workspace root live at `fileTreeData`.
+    if (normalizedParentPath === normalizedTreeRootPath) {
+      return fileTreeData;
+    }
 
     // Helper function to find the parent directory and return its children
     const findSiblings = (nodes: FileTreeNode[], targetParentPath: string): FileTreeNode[] => {
@@ -169,21 +199,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
       return [];
     };
 
-    const result = findSiblings(fileTreeData, parentPath);
-
-    // Debug logging (can be removed later)
-    if (result.length === 0) {
-      console.log('Breadcrumb siblings not found:', {
-        targetPath,
-        normalizedTargetPath,
-        parentPath,
-        fileTreeRootPath,
-        fileTreeDataLength: fileTreeData.length,
-        firstNodePath: fileTreeData[0]?.path,
-      });
-    }
-
-    return result;
+    return findSiblings(fileTreeData, normalizedParentPath);
   }, [fileTreeData, fileTreeRootPath]);
 
   // Handle search button click (trigger Cmd+F)
@@ -199,6 +215,23 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
       setOpenBreadcrumbIndex(null);
     }
   }, [file.path]);
+
+  // KeepMounted editor tabs hide inactive panels via CSS; Radix Popovers portal to body and can
+  // briefly reposition to (0,0) if still "open" while this panel's file is no longer active.
+  useEffect(() => {
+    if (workspaceActivePath != null && workspaceActivePath !== file.path) {
+      setOpenBreadcrumbIndex(null);
+      setSettingsOpen(false);
+    }
+  }, [workspaceActivePath, file.path]);
+
+  // Popover anchor is the breadcrumb trigger; close as soon as we enter a loading state so
+  // Floating UI never repositions against a detached trigger (top-left flash).
+  useEffect(() => {
+    if (file.isLoading) {
+      setOpenBreadcrumbIndex(null);
+    }
+  }, [file.isLoading]);
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
   const isPreview = isMarkdown && previewFilePath === file.path;
@@ -225,7 +258,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   }, [file.path]);
 
   useEffect(() => {
-    void loadSettings();
+    let cancelled = false;
+    void loadSettings().finally(() => {
+      if (!cancelled) setEditorSettingsSettled(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadSettings]);
 
   // Selection popover for copying code to AI
@@ -272,7 +311,16 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const selectionPopover = useSelectionPopover({
     getSelectionInfo,
     containerRef,
+    enabled: surfaceActive && !file.isLoading,
   });
+
+  useEffect(() => {
+    if (!surfaceActive) {
+      selectionPopover.dismiss();
+      setOpenBreadcrumbIndex(null);
+      setSettingsOpen(false);
+    }
+  }, [surfaceActive, selectionPopover.dismiss]);
 
   // Debounce preview updates
   useEffect(() => {
@@ -286,7 +334,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   }, [file.content, isPreview, isMarkdown]);
 
   useEffect(() => {
-    if (!editorSettingsLoaded || !autoSave || file.isLoading || !file.isDirty) return;
+    if (!autoSave || file.isLoading || !file.isDirty) return;
 
     const timer = setTimeout(() => {
       void saveFile(file.path, effectiveContextId || undefined).catch(() => {
@@ -301,7 +349,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     return () => clearTimeout(timer);
   }, [
     autoSave,
-    editorSettingsLoaded,
     file.content,
     file.isDirty,
     file.isLoading,
@@ -357,11 +404,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
   return (
     <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
-      {file.isLoading ? (
-        <div className="flex items-center justify-center h-full bg-background">
-          <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
+      {!surfaceActive || file.isLoading ? null : (
         <>
           {/* Selection Popover for AI */}
           <SelectionPopover
@@ -388,27 +431,39 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
               </button>
             )}
           </div>
+        </>
+      )}
 
-          <div className="flex-1 min-h-0 w-full flex flex-col">
+      <div className="flex flex-1 min-h-0 w-full flex-col">
             {breadcrumbs && !isPreview && (
-              <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+              <div className="flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-1 flex-1 min-w-0">
                   {breadcrumbParts.map((part, index, array) => {
                     const breadcrumbPath = getBreadcrumbPath(index);
                     const siblingsData = getBreadcrumbSiblings(breadcrumbPath);
-                    const isOpen = openBreadcrumbIndex === index;
+                    const segmentClass =
+                      index === array.length - 1
+                        ? 'text-foreground font-medium cursor-default truncate flex items-center gap-1'
+                        : 'hover:text-foreground cursor-pointer transition-colors flex items-center gap-1 truncate';
+
+                    if (!surfaceActive) {
+                      return (
+                        <span key={index} className={segmentClass}>
+                          {part}
+                          {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
+                        </span>
+                      );
+                    }
 
                     return (
                       <React.Fragment key={index}>
-                        <Popover open={isOpen} onOpenChange={(open) => setOpenBreadcrumbIndex(open ? index : null)}>
+                        <Popover
+                          open={openBreadcrumbIndex === index}
+                          onOpenChange={(open) => setOpenBreadcrumbIndex(open ? index : null)}
+                        >
                           <PopoverTrigger asChild>
-                            <span
-                              className={index === array.length - 1
-                                ? 'text-foreground font-medium cursor-default truncate'
-                                : 'hover:text-foreground cursor-pointer transition-colors flex items-center gap-1 truncate'
-                              }
-                            >
+                            <span className={segmentClass}>
                               {part}
                               {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
                             </span>
@@ -417,7 +472,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                             align="start"
                             side="bottom"
                             sideOffset={4}
-                            className="w-80 max-h-96 overflow-y-auto p-0"
+                            className="z-[80] w-80 max-h-96 overflow-y-auto p-0"
                           >
                             {siblingsData.length === 0 ? (
                               <div className="text-xs text-muted-foreground px-2 py-4 text-center">
@@ -428,6 +483,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                                 data={siblingsData}
                                 rootPath={breadcrumbPath}
                                 onRefresh={() => {}}
+                                beforeOpenFile={() => {
+                                  flushSync(() => setOpenBreadcrumbIndex(null));
+                                }}
                               />
                             )}
                           </PopoverContent>
@@ -438,6 +496,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                 </div>
 
                 {/* Right side buttons */}
+                {surfaceActive ? (
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Search button */}
                   <button
@@ -451,7 +510,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                   </button>
 
                   {/* Settings button */}
-                  <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+                  <Popover open={settingsOpen} onOpenChange={handleEditorSettingsPopoverOpenChange}>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
@@ -484,7 +543,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
                   <Switch
                     checked={lineWrap}
-                    disabled={!editorSettingsLoaded}
                     onCheckedChange={(checked) => {
                       void setLineWrap(!!checked);
                     }}
@@ -508,7 +566,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
                   <Switch
                     checked={autoSave}
-                    disabled={!editorSettingsLoaded}
                     onCheckedChange={(checked) => {
                       void setAutoSave(!!checked);
                     }}
@@ -532,7 +589,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
                   <Switch
                     checked={bracketMatching}
-                    disabled={!editorSettingsLoaded}
                     onCheckedChange={(checked) => {
                       void setBracketMatching(!!checked);
                     }}
@@ -556,7 +612,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
                   <Switch
                     checked={minimap}
-                    disabled={!editorSettingsLoaded}
                     onCheckedChange={(checked) => {
                       void setMinimap(!!checked);
                     }}
@@ -580,7 +635,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
                   <Switch
                     checked={breadcrumbs}
-                    disabled={!editorSettingsLoaded}
                     onCheckedChange={(checked) => {
                       void setBreadcrumbs(!!checked);
                     }}
@@ -604,7 +658,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
                   <Switch
                     checked={lineHighlight}
-                    disabled={!editorSettingsLoaded}
                     onCheckedChange={(checked) => {
                       void setLineHighlight(!!checked);
                     }}
@@ -628,7 +681,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
 
                   <Switch
                     checked={gitIntegration}
-                    disabled={!editorSettingsLoaded}
                     onCheckedChange={(checked) => {
                       void setGitIntegration(!!checked);
                     }}
@@ -638,26 +690,39 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
               </PopoverContent>
             </Popover>
                 </div>
+                ) : null}
               </div>
             )}
+            {file.isLoading ? (
+              <div className="flex flex-1 min-h-0 items-center justify-center bg-background">
+                <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
             <div className={cn("flex-1 min-h-0 relative", isPreview && "hidden")}>
-              <BaseCodeMirrorEditor
-                language={file.language}
-                value={file.content}
-                lineWrap={lineWrap}
-                enableBracketMatching={bracketMatching}
-                minimap={minimap}
-                breadcrumbs={breadcrumbs}
-                lineHighlight={lineHighlight}
-                gitIntegration={gitIntegration}
-                gitDiffSource={editorGitDiffSource}
-                navigationTarget={navigationTarget}
-                onChange={handleEditorChange}
-                onCreateEditor={handleEditorCreate}
-                onNavigationTargetApplied={() => clearNavigationTarget(file.path, effectiveContextId || undefined)}
-                onSave={handleSave}
-                autoFocus
-              />
+              {editorSettingsSettled ? (
+                <BaseCodeMirrorEditor
+                  language={file.language}
+                  value={file.content}
+                  lineWrap={lineWrap}
+                  enableBracketMatching={bracketMatching}
+                  minimap={minimap}
+                  breadcrumbs={breadcrumbs}
+                  lineHighlight={lineHighlight}
+                  gitIntegration={gitIntegration}
+                  gitDiffSource={editorGitDiffSource}
+                  navigationTarget={navigationTarget}
+                  onChange={handleEditorChange}
+                  onCreateEditor={handleEditorCreate}
+                  onNavigationTargetApplied={() => clearNavigationTarget(file.path, effectiveContextId || undefined)}
+                  onSave={handleSave}
+                  autoFocus
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-background">
+                  <LucideLoader2 className="size-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
             </div>
 
             {isPreview && isMarkdown && (
@@ -674,9 +739,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
             {isPreview && isMarkdown && (
               <MarkdownToc markdown={previewBody} scrollContainerId="editor-preview-root" />
             )}
+              </>
+            )}
           </div>
-        </>
-      )}
     </div>
   );
 };

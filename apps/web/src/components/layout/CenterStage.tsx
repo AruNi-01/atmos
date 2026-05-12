@@ -2286,7 +2286,7 @@ const CenterStage: React.FC = () => {
               ) : isConflictResolveEditorPath(file.path) ? (
               <GitConflictResolver />
             ) : (
-              <FileViewer file={file} className="flex-1" />
+              <FileViewer file={file} className="flex-1" surfaceActive={activeValue === file.path} />
             )}
           </TabsPanel>
         ))}

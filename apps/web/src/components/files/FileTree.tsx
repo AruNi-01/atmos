@@ -64,6 +64,8 @@ interface FileTreeProps {
   rootPath: string | null;
   isLoading?: boolean;
   onRefresh?: () => Promise<void> | void;
+  /** Runs synchronously before opening a file from the tree (e.g. close ancestor Popovers). */
+  beforeOpenFile?: () => void;
 }
 
 type PendingPanelState =
@@ -178,6 +180,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   rootPath,
   isLoading,
   onRefresh,
+  beforeOpenFile,
 }) => {
   const { effectiveContextId } = useContextParams();
   const openFile = useEditorStore((s) => s.openFile);
@@ -349,9 +352,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
     if (isFolder) {
       toggle();
     } else {
+      beforeOpenFile?.();
       openFile(item.path, effectiveContextId || undefined, { preview: true });
     }
-  }, [effectiveContextId, openFile]);
+  }, [beforeOpenFile, effectiveContextId, openFile]);
 
   const handleItemDoubleClick = useCallback((item: FileTreeItem, isFolder: boolean) => {
     if (!isFolder) {

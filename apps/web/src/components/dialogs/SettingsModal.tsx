@@ -627,7 +627,7 @@ function EditorSettingsSection() {
     breadcrumbs,
     lineHighlight,
     gitIntegration,
-    loaded: editorSettingsLoaded,
+    loadSettings,
     setAutoSave,
     setLineWrap,
     setBracketMatching,
@@ -636,6 +636,10 @@ function EditorSettingsSection() {
     setLineHighlight,
     setGitIntegration,
   } = useEditorSettings();
+
+  React.useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
 
   return (
     <div className="space-y-4">
@@ -650,7 +654,6 @@ function EditorSettingsSection() {
           <div className="flex items-center justify-end">
             <Switch
               checked={autoSave}
-              disabled={!editorSettingsLoaded}
               onCheckedChange={(checked) => void setAutoSave(!!checked)}
             />
           </div>
@@ -666,7 +669,6 @@ function EditorSettingsSection() {
           <div className="flex items-center justify-end">
             <Switch
               checked={lineWrap}
-              disabled={!editorSettingsLoaded}
               onCheckedChange={(checked) => void setLineWrap(!!checked)}
             />
           </div>
@@ -682,7 +684,6 @@ function EditorSettingsSection() {
           <div className="flex items-center justify-end">
             <Switch
               checked={bracketMatching}
-              disabled={!editorSettingsLoaded}
               onCheckedChange={(checked) => void setBracketMatching(!!checked)}
             />
           </div>
@@ -698,7 +699,6 @@ function EditorSettingsSection() {
           <div className="flex items-center justify-end">
             <Switch
               checked={minimap}
-              disabled={!editorSettingsLoaded}
               onCheckedChange={(checked) => void setMinimap(!!checked)}
             />
           </div>
@@ -714,7 +714,6 @@ function EditorSettingsSection() {
           <div className="flex items-center justify-end">
             <Switch
               checked={breadcrumbs}
-              disabled={!editorSettingsLoaded}
               onCheckedChange={(checked) => void setBreadcrumbs(!!checked)}
             />
           </div>
@@ -730,7 +729,6 @@ function EditorSettingsSection() {
           <div className="flex items-center justify-end">
             <Switch
               checked={lineHighlight}
-              disabled={!editorSettingsLoaded}
               onCheckedChange={(checked) => void setLineHighlight(!!checked)}
             />
           </div>
@@ -746,7 +744,6 @@ function EditorSettingsSection() {
           <div className="flex items-center justify-end">
             <Switch
               checked={gitIntegration}
-              disabled={!editorSettingsLoaded}
               onCheckedChange={(checked) => void setGitIntegration(!!checked)}
             />
           </div>

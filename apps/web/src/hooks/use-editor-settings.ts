@@ -55,7 +55,12 @@ export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
         loading: false,
       });
     } catch {
-      set({ loaded: false, loading: false });
+      set({ loading: false });
+      toastManager.add({
+        title: 'Settings Load Failed',
+        description: 'Could not load editor preferences from the server.',
+        type: 'error',
+      });
     }
   },
 
@@ -113,6 +118,11 @@ export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
 
     try {
       await functionSettingsApi.update('editor', 'minimap', minimap);
+      toastManager.add({
+        title: 'Editor Reload Required',
+        description: 'Refresh the page or reopen the editor for the minimap change to take effect.',
+        type: 'info',
+      });
     } catch {
       set({ minimap: previous });
       toastManager.add({
