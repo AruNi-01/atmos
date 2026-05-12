@@ -15,6 +15,9 @@ pub use service::terminal::{
     AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
     SessionType, TerminalMessage, TerminalResponse, TerminalService,
 };
+pub use service::terminal_canvas::{
+    SaveTerminalCanvasBoardReq, TerminalCanvasBoardDto, TerminalCanvasService,
+};
 pub use service::test::TestService;
 pub use service::workspace::{WorkspaceDto, WorkspaceService};
 pub use service::ws_message::WsMessageService;

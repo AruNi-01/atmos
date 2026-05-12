@@ -93,7 +93,7 @@ import { isWorkspaceSetupBlocking } from "@/utils/workspace-setup";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { WorkspacesManagementView } from "@/components/workspace/WorkspacesManagementView";
 import { SkillsView } from "@/components/skills/SkillsView";
-import { TerminalManagerView } from "@/components/terminal/TerminalManagerView";
+import { TerminalsView } from "@/components/terminal/TerminalsView";
 import { AgentManagerView } from "@/components/agent/AgentManagerView";
 import { useGitInfoStore } from "@/hooks/use-git-info-store";
 import { systemApi } from "@/api/rest-api";
@@ -1476,7 +1476,7 @@ const CenterStage: React.FC = () => {
     if (currentView === "terminals") {
       return (
         <main className="h-full overflow-hidden">
-          <TerminalManagerView />
+          <TerminalsView />
         </main>
       );
     }

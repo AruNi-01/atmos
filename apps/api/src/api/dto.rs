@@ -46,3 +46,17 @@ pub struct TerminalLayoutResponse {
     pub layout: Option<String>,
     pub maximized_terminal_id: Option<String>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct TerminalCanvasBoardResponse {
+    pub guid: String,
+    pub slug: String,
+    pub name: String,
+    pub document_json: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateTerminalCanvasBoardPayload {
+    pub document_json: String,
+}

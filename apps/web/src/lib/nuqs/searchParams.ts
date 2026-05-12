@@ -45,6 +45,15 @@ export const workspacesParams = {
 };
 
 // ---------------------------------------------------------------------------
+// Terminals – manager / canvas tab
+// ---------------------------------------------------------------------------
+export type TerminalsView = "manager" | "canvas";
+
+export const terminalsParams = {
+  terminalView: parseAsStringEnum<TerminalsView>(["manager", "canvas"]).withDefault("manager"),
+};
+
+// ---------------------------------------------------------------------------
 // SkillsView – scope filter & search
 // ---------------------------------------------------------------------------
 export type SkillsTab = "installed" | "market" | "resources";

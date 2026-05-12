@@ -8,7 +8,7 @@ use axum::{
 use infra::utils::debug_logging::DebugLogger;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::process::Command;
 use std::time::Duration;
 use tokio_util::io::ReaderStream;
@@ -640,23 +640,62 @@ pub async fn get_terminal_overview(
     let tmux_engine = terminal_service.tmux_engine();
 
     let active_sessions = terminal_service.list_session_details().await;
-    let active_sessions_json: Vec<Value> = active_sessions
-        .iter()
-        .map(|s| {
+    let mut tmux_window_names_by_session: HashMap<String, HashMap<u32, String>> = HashMap::new();
+    let mut active_sessions_json = Vec::with_capacity(active_sessions.len());
+
+    for s in &active_sessions {
+        let context_scope = if state
+            .project_service
+            .get_project(s.workspace_id.clone())
+            .await?
+            .is_some()
+        {
+            "project"
+        } else {
+            "workspace"
+        };
+
+        let tmux_window_name = if let Some(name) = s.terminal_name.clone() {
+            Some(name)
+        } else if let (Some(session_name), Some(window_index)) =
+            (s.tmux_session.as_ref(), s.tmux_window_index)
+        {
+            let session_windows = tmux_window_names_by_session
+                .entry(session_name.clone())
+                .or_insert_with(|| {
+                    tmux_engine
+                    .list_windows(session_name)
+                    .map(|windows| {
+                        windows
+                            .into_iter()
+                            .map(|window| (window.index, window.name))
+                            .collect::<HashMap<_, _>>()
+                    })
+                    .unwrap_or_default()
+                });
+
+            session_windows.get(&window_index).cloned()
+        } else {
+            None
+        };
+
+        active_sessions_json.push(
             json!({
                 "session_id": s.session_id,
                 "workspace_id": s.workspace_id,
+                "context_scope": context_scope,
                 "session_type": s.session_type,
                 "project_name": s.project_name,
                 "workspace_name": s.workspace_name,
                 "terminal_name": s.terminal_name,
                 "tmux_session": s.tmux_session,
                 "tmux_window_index": s.tmux_window_index,
+                "tmux_window_name": tmux_window_name,
                 "cwd": s.cwd,
                 "uptime_secs": s.uptime_secs,
-            })
-        })
-        .collect();
+            }),
+        );
+    }
 
     let tmux_installed = terminal_service.is_tmux_available();
     let tmux_version = if tmux_installed {

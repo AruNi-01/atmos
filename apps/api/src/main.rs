@@ -15,8 +15,8 @@ use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, MessagePushService, NotificationService,
-    ProjectService, ReviewService, TerminalService, TestService, WorkspaceService,
-    WsMessageService,
+    ProjectService, ReviewService, TerminalCanvasService, TerminalService, TestService,
+    WorkspaceService, WsMessageService,
 };
 use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
@@ -202,6 +202,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_service = Arc::new(TestService::new(Arc::clone(&test_engine), (*db).clone()));
     let project_service = Arc::new(ProjectService::new(Arc::clone(&db)));
     let workspace_service = Arc::new(WorkspaceService::new(Arc::clone(&db)));
+    let terminal_canvas_service = Arc::new(TerminalCanvasService::new(Arc::clone(&db)));
     let review_service = Arc::new(ReviewService::new(Arc::clone(&db)));
     let agent_service = Arc::new(AgentService::new());
     let agent_service_for_startup = Arc::clone(&agent_service);
@@ -259,6 +260,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         AppServices {
             test_service,
             project_service,
+            terminal_canvas_service,
             workspace_service,
             agent_service,
             agent_session_service,

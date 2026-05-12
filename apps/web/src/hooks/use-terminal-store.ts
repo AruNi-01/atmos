@@ -5,44 +5,24 @@ import { v4 as uuidv4 } from "uuid";
 import { MosaicNode, MosaicDirection, getLeaves } from "react-mosaic-component";
 import { workspaceLayoutApi, projectLayoutApi, systemApi, TmuxWindow } from "@/api/rest-api";
 import type { TerminalPaneAgent, TerminalPaneProps } from "@/components/terminal/types";
+import {
+  FIXED_TERMINAL_TAB_VALUE,
+  TERMINAL_LAYOUT_SCHEMA,
+  migrateTerminalLayoutDocument,
+  type PersistedTerminalPane,
+  type PersistedTerminalTabDocument,
+  type PersistedTerminalWorkspaceLayoutDocument,
+} from "@/lib/terminal-layout-document";
+
+export { FIXED_TERMINAL_TAB_VALUE } from "@/lib/terminal-layout-document";
 
 const SAVE_DEBOUNCE_MS = 500;
-export const FIXED_TERMINAL_TAB_VALUE = "terminal";
 export const TERMINAL_TAB_VALUE_PREFIX = "terminal-tab:";
-const TERMINAL_LAYOUT_SCHEMA = "terminal-layout.v1";
 
 export interface TerminalCenterTab {
   id: string;
   title: string;
   closable: boolean;
-}
-
-interface PersistedTerminalTab {
-  id: string;
-  title: string;
-  closable: boolean;
-  layout: MosaicNode<string> | null;
-  maximizedTerminalId?: string | null;
-  panes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">>;
-}
-
-interface PersistedTerminalWorkspaceLayout {
-  schema: typeof TERMINAL_LAYOUT_SCHEMA;
-  activeTabId?: string | null;
-  tabs: PersistedTerminalTab[];
-}
-
-interface LegacyPersistedTerminalTabState {
-  panes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">>;
-  layout: MosaicNode<string> | null;
-  maximizedTerminalId?: string | null;
-}
-
-interface LegacyPersistedTerminalWorkspaceLayout {
-  version: 2;
-  tabs: TerminalCenterTab[];
-  activeTabId?: string | null;
-  tabStates: Record<string, LegacyPersistedTerminalTabState>;
 }
 
 interface TerminalStore {
@@ -66,7 +46,7 @@ interface TerminalStore {
   /** Cache of existing tmux windows per workspace */
   tmuxWindowsCache: Record<string, TmuxWindow[]>;
   /** Canonical persisted terminal layout document cache by workspace/project context */
-  persistedTerminalLayouts: Record<string, PersistedTerminalWorkspaceLayout | null>;
+  persistedTerminalLayouts: Record<string, PersistedTerminalWorkspaceLayoutDocument | null>;
   /** Track whether each workspaceId is actually a project context (used for API selection) */
   workspaceContexts: Record<string, boolean>;
 
@@ -284,96 +264,9 @@ function getNextTerminalTabTitle(existingTabs: TerminalCenterTab[]): string {
   return `Term - ${index}`;
 }
 
-function isPersistedTerminalWorkspaceLayout(value: unknown): value is PersistedTerminalWorkspaceLayout {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    (value as PersistedTerminalWorkspaceLayout).schema === TERMINAL_LAYOUT_SCHEMA &&
-    Array.isArray((value as PersistedTerminalWorkspaceLayout).tabs)
-  );
-}
-
-function isLegacyPersistedTerminalWorkspaceLayout(value: unknown): value is LegacyPersistedTerminalWorkspaceLayout {
-  return !!value && typeof value === "object" && (value as LegacyPersistedTerminalWorkspaceLayout).version === 2;
-}
-
-function normalizePersistedTerminalTabs(tabs: PersistedTerminalTab[] | TerminalCenterTab[]): PersistedTerminalTab[] {
-  return tabs.map((tab) => ({
-    ...tab,
-    title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-    closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
-    panes: "panes" in tab ? tab.panes : {},
-    layout: "layout" in tab ? tab.layout : null,
-    maximizedTerminalId: "maximizedTerminalId" in tab ? tab.maximizedTerminalId ?? null : null,
-  }));
-}
-
-function migrateTerminalLayoutDocument(
-  value: unknown,
-): { layout: PersistedTerminalWorkspaceLayout; migrated: boolean } | null {
-  if (isPersistedTerminalWorkspaceLayout(value)) {
-    return {
-      layout: {
-        schema: TERMINAL_LAYOUT_SCHEMA,
-        activeTabId: value.activeTabId ?? null,
-        tabs: normalizePersistedTerminalTabs(value.tabs),
-      },
-      migrated: false,
-    };
-  }
-
-  if (isLegacyPersistedTerminalWorkspaceLayout(value)) {
-    const tabs = normalizePersistedTerminalTabs(value.tabs).map((tab) => {
-      const tabState = value.tabStates[tab.id];
-      return {
-        ...tab,
-        panes: tabState?.panes ?? {},
-        layout: tabState?.layout ?? null,
-        maximizedTerminalId: tabState?.maximizedTerminalId ?? null,
-      };
-    });
-
-    return {
-      layout: {
-        schema: TERMINAL_LAYOUT_SCHEMA,
-        activeTabId: value.activeTabId ?? null,
-        tabs,
-      },
-      migrated: true,
-    };
-  }
-
-  const legacyValue = value as {
-    panes?: Record<string, TerminalPaneProps>;
-    layout?: MosaicNode<string> | null;
-  } | null;
-
-  if (legacyValue?.panes && legacyValue.layout) {
-    return {
-      layout: {
-        schema: TERMINAL_LAYOUT_SCHEMA,
-        activeTabId: FIXED_TERMINAL_TAB_VALUE,
-        tabs: [
-          {
-            id: FIXED_TERMINAL_TAB_VALUE,
-            title: "Term",
-            closable: false,
-            panes: legacyValue.panes,
-            layout: legacyValue.layout,
-            maximizedTerminalId: null,
-          },
-        ],
-      },
-      migrated: true,
-    };
-  }
-
-  return null;
-}
-
 function hydratePersistedTab(
   workspaceId: string,
-  tab: PersistedTerminalTab,
+  tab: PersistedTerminalTabDocument,
   existingWindowNames: Set<string>,
 ): {
   panes: Record<string, TerminalPaneProps>;
@@ -1255,7 +1148,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       try {
         const tabs = getWorkspaceTerminalTabs(currentState, workspaceId);
         const persistedCache = currentState.persistedTerminalLayouts[workspaceId];
-        const persistedTabs: PersistedTerminalTab[] = [];
+        const persistedTabs: PersistedTerminalTabDocument[] = [];
 
         for (const tab of tabs) {
           const scopeKey = getScopeKey(workspaceId, tab.id);
@@ -1273,7 +1166,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
             continue;
           }
 
-          const cleanPanes: Record<string, Omit<TerminalPaneProps, "sessionId" | "dynamicTitle">> = {};
+          const cleanPanes: Record<string, PersistedTerminalPane> = {};
           for (const [id, pane] of Object.entries(panes)) {
             cleanPanes[id] = {
               id: pane.id,
@@ -1298,7 +1191,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         }
 
         const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
-        const payload: PersistedTerminalWorkspaceLayout = {
+        const payload: PersistedTerminalWorkspaceLayoutDocument = {
           schema: TERMINAL_LAYOUT_SCHEMA,
           activeTabId:
             persistedTabs.some((tab) => tab.id === (currentState.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE))

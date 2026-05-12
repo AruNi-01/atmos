@@ -78,6 +78,14 @@ export interface TerminalLayoutResponse {
   maximized_terminal_id?: string | null;
 }
 
+export interface TerminalCanvasBoardResponse {
+  guid: string;
+  slug: string;
+  name: string;
+  document_json: string;
+  updated_at: string;
+}
+
 // ===== API Response wrapper =====
 
 interface ApiResponse<T> {
@@ -151,16 +159,19 @@ async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T>
 // ===== Terminal Overview Types =====
 
 export type SessionType = 'tmux' | 'simple';
+export type TerminalContextScope = 'workspace' | 'project';
 
 export interface ActiveSessionInfo {
   session_id: string;
   workspace_id: string;
+  context_scope: TerminalContextScope;
   session_type: SessionType;
   project_name: string | null;
   workspace_name: string | null;
   terminal_name: string | null;
   tmux_session: string | null;
   tmux_window_index: number | null;
+  tmux_window_name: string | null;
   cwd: string | null;
   uptime_secs: number;
 }
@@ -802,6 +813,19 @@ export const workspaceLayoutApi = {
     await fetchApi<{ message: string }>(`/api/workspace/${workspaceId}/maximized-terminal-id`, {
       method: 'PUT',
       body: JSON.stringify({ terminal_id: terminalId }),
+    });
+  },
+};
+
+export const terminalCanvasApi = {
+  getDefaultBoard: async (): Promise<TerminalCanvasBoardResponse> => {
+    return fetchApi<TerminalCanvasBoardResponse>("/api/terminal-canvas/default");
+  },
+
+  updateDefaultBoard: async (documentJson: string): Promise<TerminalCanvasBoardResponse> => {
+    return fetchApi<TerminalCanvasBoardResponse>("/api/terminal-canvas/default", {
+      method: "PUT",
+      body: JSON.stringify({ document_json: documentJson }),
     });
   },
 };
