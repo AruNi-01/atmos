@@ -10,6 +10,7 @@ pub mod session_title;
 pub mod skill;
 pub mod terminal;
 pub mod terminal_canvas;
+pub mod terminal_overview;
 pub mod test;
 pub mod workspace;
 pub mod ws_message;

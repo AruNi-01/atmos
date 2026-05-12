@@ -1,5 +1,6 @@
 use sea_orm::sea_query::Expr;
 use sea_orm::*;
+use std::collections::HashSet;
 
 use crate::db::entities::base::BaseFields;
 use crate::db::entities::project;
@@ -38,6 +39,19 @@ impl<'a> ProjectRepo<'a> {
             .filter(project::Column::IsDeleted.eq(false))
             .one(self.db)
             .await?)
+    }
+
+    /// Returns the subset of `guids` that exist as non-deleted projects (single query).
+    pub async fn existing_non_deleted_guids(&self, guids: &[String]) -> Result<HashSet<String>> {
+        if guids.is_empty() {
+            return Ok(HashSet::new());
+        }
+        let rows = project::Entity::find()
+            .filter(project::Column::IsDeleted.eq(false))
+            .filter(project::Column::Guid.is_in(guids.to_vec()))
+            .all(self.db)
+            .await?;
+        Ok(rows.into_iter().map(|row| row.guid).collect())
     }
 
     /// 创建新项目

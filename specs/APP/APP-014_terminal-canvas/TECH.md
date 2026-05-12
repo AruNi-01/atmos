@@ -27,7 +27,7 @@ The key design choice is:
 
 ## Architecture overview
 
-```
+```text
 apps/web
   ├─ CenterStage.tsx
   ├─ TerminalsView.tsx

@@ -1,67 +1,39 @@
-/* Tldraw dark theme adaptations for Atmos */
+/* Tldraw v5: theme tokens live on `.tl-container` (see tldraw.css / .tl-theme__dark). */
 
-.dark .tl-canvas {
-  background: #09090b;
+.dark .tl-container {
+  --tl-color-background: #09090b;
+  --tl-color-grid: hsl(0, 0%, 40%);
+  --tl-color-low: hsl(260, 4.5%, 10.5%);
+  --tl-color-low-border: hsl(207, 10%, 10%);
+  --tl-color-divider: hsl(240, 9%, 22%);
+  --tl-color-panel: #27272a;
+  --tl-color-panel-contrast: hsl(245, 12%, 23%);
+  --tl-color-panel-overlay: hsl(210, 10%, 24%, 82%);
+  --tl-color-text: #f8f8f8;
+  --tl-color-text-0: hsl(0, 9%, 94%);
+  --tl-color-text-1: hsl(0, 0%, 85%);
+  --tl-color-text-3: #a1a1aa;
+  --tl-color-primary: #58a6ff;
+  --tl-color-selected: hsl(217, 89%, 61%);
+  --tl-color-focus: hsl(217, 76%, 80%);
+  --tl-color-selection-fill: rgba(88, 166, 255, 0.2);
+  --tl-color-selection-stroke: hsl(214, 84%, 56%);
 }
 
-.dark .tl-ui {
-  --tl-ui-panel: #27272a;
-  --tl-ui-panel-hover: #3f3f46;
-  --tl-ui-panel-active: #52525b;
-  --tl-ui-border: #27272a;
-  --tl-ui-text: #f8f8f8;
-  --tl-ui-text-muted: #a1a1aa;
-  --tl-ui-accent: #58a6ff;
-  --tl-ui-accent-hover: #79c0ff;
-  --tl-ui-accent-active: #218bff;
-  --tl-ui-background: #09090b;
-  --tl-ui-selection: rgba(88, 166, 255, 0.2);
-}
-
-.dark .tl-ui-menu {
-  background: #27272a;
-  border-color: #27272a;
-}
-
-.dark .tl-ui-button {
-  color: #f8f8f8;
-}
-
-.dark .tl-ui-button:hover {
-  background: #3f3f46;
-}
-
-.dark .tl-ui-input {
-  background: #18181b;
-  border-color: #27272a;
-  color: #f8f8f8;
-}
-
-.dark .tl-ui-toolbar {
-  background: #27272a;
-  border-color: #27272a;
-}
-
-.dark .tl-ui-panel {
-  background: #27272a;
-  border-color: #27272a;
-}
-
-/* Light theme adjustments */
-.light .tl-canvas {
-  background: #ffffff;
-}
-
-.light .tl-ui {
-  --tl-ui-panel: #f6f8fa;
-  --tl-ui-panel-hover: #eaeef2;
-  --tl-ui-panel-active: #d8dee4;
-  --tl-ui-border: #d0d7de;
-  --tl-ui-text: #24292f;
-  --tl-ui-text-muted: #6e7781;
-  --tl-ui-accent: #0969da;
-  --tl-ui-accent-hover: #218bff;
-  --tl-ui-accent-active: #0550ae;
-  --tl-ui-background: #ffffff;
-  --tl-ui-selection: rgba(9, 105, 218, 0.2);
+.light .tl-container {
+  --tl-color-background: #ffffff;
+  --tl-color-panel: #f6f8fa;
+  --tl-color-panel-contrast: #ffffff;
+  --tl-color-divider: #d0d7de;
+  --tl-color-low: hsl(204, 16%, 94%);
+  --tl-color-low-border: hsl(204, 16%, 92%);
+  --tl-color-text: #24292f;
+  --tl-color-text-0: hsl(0, 9%, 15%);
+  --tl-color-text-1: hsl(0, 0%, 25%);
+  --tl-color-text-3: #6e7781;
+  --tl-color-primary: #0969da;
+  --tl-color-selected: hsl(214, 84%, 56%);
+  --tl-color-focus: hsl(219, 65%, 50%);
+  --tl-color-selection-fill: rgba(9, 105, 218, 0.2);
+  --tl-color-selection-stroke: hsl(214, 84%, 56%);
 }

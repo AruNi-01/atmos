@@ -3,6 +3,7 @@ use core_engine::GitEngine;
 use infra::db::entities::project;
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 use sea_orm::DatabaseConnection;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 pub struct ProjectService {
@@ -168,6 +169,11 @@ impl ProjectService {
     pub async fn get_project(&self, guid: String) -> Result<Option<project::Model>> {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.find_by_guid(&guid).await?)
+    }
+
+    pub async fn existing_non_deleted_project_guids(&self, candidates: &[String]) -> Result<HashSet<String>> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.existing_non_deleted_guids(candidates).await?)
     }
 
     pub async fn update_order(&self, guid: String, order: i32) -> Result<()> {
