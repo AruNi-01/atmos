@@ -1,0 +1,31 @@
+apps/web/src/lib/codemirror-git-gutter.ts
+  s_678db9b47eb8c9::t_ab6bea2dccd79f 100
+  s_678db9b47eb8c9::t_96179c0f0082e6 695,706,713
+  s_678db9b47eb8c9::t_e9411e3383a825 726-731,756-757,766-767
+  s_678db9b47eb8c9::t_46b48122483d29 736,748
+  s_678db9b47eb8c9::t_a173d2a3a539ef 627,632,638-639
+  s_678db9b47eb8c9::t_6a1502aa694764 705
+  s_678db9b47eb8c9::t_9415961047a8e4 240
+  s_678db9b47eb8c9::t_53b463c1800f14 581,583-584
+  s_678db9b47eb8c9::t_714f196968fff0 867
+  s_678db9b47eb8c9::t_fe98094d3fc3c8 619
+  s_678db9b47eb8c9::t_3178d430b978ef 621,629-631,633-635
+  s_678db9b47eb8c9::t_19367443d03f76 52
+  s_678db9b47eb8c9::t_1ce0288c4e1a4f 78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "d257387f6db27071b32f9a17d057d3831e4c37ff",
+  "prompts": {},
+  "sessions": {
+    "s_678db9b47eb8c9": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "8860a92a-f070-4f9b-b86a-3ffb9c84d532",
+        "model": "composer-2"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
