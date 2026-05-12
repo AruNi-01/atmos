@@ -874,11 +874,15 @@ impl GitEngine {
     }
 
     /// Get file diff content (old vs new)
+    ///
+    /// When `against_index` is true, `old_content` is read from the Git index (`git show :path`)
+    /// so the diff reflects **unstaged** changes only (index vs worktree).
     pub fn get_file_diff(
         &self,
         repo_path: &Path,
         file_path: &str,
         base_branch: Option<&str>,
+        against_index: bool,
     ) -> Result<FileDiffInfo> {
         let status_stdout = run_git(
             repo_path,
@@ -906,9 +910,20 @@ impl GitEngine {
             "M".to_string()
         };
 
-        let compare_ref = self.resolve_preferred_compare_ref(repo_path, base_branch)?;
+        let compare_ref = if against_index {
+            None
+        } else {
+            self.resolve_preferred_compare_ref(repo_path, base_branch)?
+        };
 
-        let old_content = if status == "A" {
+        let old_content = if against_index {
+            if status == "A" {
+                String::new()
+            } else {
+                let spec = format!(":{file_path}");
+                try_run_git(repo_path, &["show", &spec])?.unwrap_or_default()
+            }
+        } else if status == "A" {
             String::new()
         } else {
             let show_ref = compare_ref
@@ -932,6 +947,80 @@ impl GitEngine {
             status,
             compare_ref,
         })
+    }
+
+    /// Apply a unified diff to the Git index only (`git apply --cached`).
+    pub fn apply_patch_to_index(&self, repo_path: &Path, patch: &str) -> Result<()> {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let mut child = Command::new("git")
+            .current_dir(repo_path)
+            .args(["apply", "--cached", "--unidiff-zero", "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                EngineError::Git(format!("Failed to spawn git apply --cached ({})", e))
+            })?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(patch.as_bytes())
+                .map_err(|e| EngineError::Git(format!("git apply stdin: {}", e)))?;
+        }
+
+        let output = child.wait_with_output().map_err(|e| {
+            EngineError::Git(format!("Failed to wait for git apply --cached ({})", e))
+        })?;
+
+        if output.status.success() {
+            return Ok(());
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(EngineError::Git(format!(
+            "git apply --cached failed: {}",
+            stderr.trim()
+        )))
+    }
+
+    /// Reverse-apply a unified diff to the worktree only (`git apply --reverse`).
+    pub fn apply_patch_to_worktree_reverse(&self, repo_path: &Path, patch: &str) -> Result<()> {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let mut child = Command::new("git")
+            .current_dir(repo_path)
+            .args(["apply", "--reverse", "--unidiff-zero", "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| {
+                EngineError::Git(format!("Failed to spawn git apply --reverse ({})", e))
+            })?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(patch.as_bytes())
+                .map_err(|e| EngineError::Git(format!("git apply stdin: {}", e)))?;
+        }
+
+        let output = child.wait_with_output().map_err(|e| {
+            EngineError::Git(format!("Failed to wait for git apply --reverse ({})", e))
+        })?;
+
+        if output.status.success() {
+            return Ok(());
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(EngineError::Git(format!(
+            "git apply --reverse failed: {}",
+            stderr.trim()
+        )))
     }
 
     /// Commit all staged and unstaged changes
@@ -1724,6 +1813,54 @@ mod tests {
 
         let remote_branch = git_output(&repo_path, &["rev-parse", "--verify", "origin/feature"]);
         assert!(!remote_branch.trim().is_empty());
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn apply_patch_to_index_stages_trailing_line() {
+        let root = unique_temp_dir("patch-cached");
+        let repo_path = root.join("repo");
+        fs::create_dir_all(&repo_path).expect("repo dir");
+        git(&repo_path, &["init"]);
+        configure_repo(&repo_path);
+        git(&repo_path, &["branch", "-m", "main"]);
+        commit_file(&repo_path, "a.txt", "one\ntwo\n", "init");
+        write_file(&repo_path.join("a.txt"), "one\ntwo\nthree\n");
+
+        let patch = git_output(&repo_path, &["diff", "a.txt"]);
+
+        let engine = GitEngine::new();
+        engine
+            .apply_patch_to_index(&repo_path, &patch)
+            .expect("apply cached");
+
+        let staged = git_output(&repo_path, &["show", ":a.txt"]);
+        assert!(staged.contains("three"));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn apply_patch_to_worktree_reverse_removes_line() {
+        let root = unique_temp_dir("patch-reverse");
+        let repo_path = root.join("repo");
+        fs::create_dir_all(&repo_path).expect("repo dir");
+        git(&repo_path, &["init"]);
+        configure_repo(&repo_path);
+        git(&repo_path, &["branch", "-m", "main"]);
+        commit_file(&repo_path, "a.txt", "one\ntwo\n", "init");
+        write_file(&repo_path.join("a.txt"), "one\ntwo\nthree\n");
+
+        let patch = git_output(&repo_path, &["diff", "a.txt"]);
+
+        let engine = GitEngine::new();
+        engine
+            .apply_patch_to_worktree_reverse(&repo_path, &patch)
+            .expect("reverse apply");
+
+        let wt = fs::read_to_string(repo_path.join("a.txt")).expect("read worktree");
+        assert!(!wt.contains("three"));
 
         fs::remove_dir_all(root).expect("temp repo should be removed");
     }

@@ -33,6 +33,8 @@ export type WsAction =
   | "git_rename_branch"
   | "git_changed_files"
   | "git_file_diff"
+  | "git_stage_patch_chunk"
+  | "git_restore_patch_chunk"
   | "git_generate_commit_message"
   | "git_commit"
   | "git_push"

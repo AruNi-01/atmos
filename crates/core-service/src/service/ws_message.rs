@@ -23,7 +23,7 @@ use infra::{
     FsReadFileRequest, FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest,
     FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
     GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
+    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitPatchChunkRequest,
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
     GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
     GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
@@ -531,6 +531,8 @@ impl WsMessageService {
                 self.handle_git_changed_files(parse_request(request.data)?)
             }
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
+            WsAction::GitStagePatchChunk => self.handle_git_stage_patch_chunk(parse_request(request.data)?),
+            WsAction::GitRestorePatchChunk => self.handle_git_restore_patch_chunk(parse_request(request.data)?),
             WsAction::GitGenerateCommitMessage => {
                 self.handle_git_generate_commit_message(conn_id, parse_request(request.data)?)
                     .await
@@ -1400,7 +1402,12 @@ impl WsMessageService {
         let path = self.fs_engine.expand_path(&req.path)?;
         let diff = self
             .git_engine
-            .get_file_diff(&path, &req.file_path, req.base_branch.as_deref())
+            .get_file_diff(
+                &path,
+                &req.file_path,
+                req.base_branch.as_deref(),
+                req.against_index,
+            )
             .map_err(|e| ServiceError::Validation(format!("Failed to get file diff: {}", e)))?;
 
         Ok(json!({
@@ -1410,6 +1417,30 @@ impl WsMessageService {
             "status": diff.status,
             "compare_ref": diff.compare_ref,
         }))
+    }
+
+    fn handle_git_stage_patch_chunk(&self, req: GitPatchChunkRequest) -> Result<Value> {
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine
+            .apply_patch_to_index(&path, &req.patch)
+            .map_err(|e| ServiceError::Validation(format!("Failed to stage patch chunk: {}", e)))?;
+        Ok(json!({ "success": true }))
+    }
+
+    fn handle_git_restore_patch_chunk(&self, req: GitPatchChunkRequest) -> Result<Value> {
+        if req.file_status == "A" {
+            return Ok(json!({
+                "success": false,
+                "error": "Cannot restore an untracked/new file chunk; use discard untracked instead.",
+            }));
+        }
+        let path = self.fs_engine.expand_path(&req.path)?;
+        self.git_engine
+            .apply_patch_to_worktree_reverse(&path, &req.patch)
+            .map_err(|e| {
+                ServiceError::Validation(format!("Failed to restore patch chunk: {}", e))
+            })?;
+        Ok(json!({ "success": true }))
     }
 
     async fn handle_git_generate_commit_message(

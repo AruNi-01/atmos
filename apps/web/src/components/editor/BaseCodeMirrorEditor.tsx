@@ -45,8 +45,16 @@ import { showMinimap } from '@replit/codemirror-minimap';
 import { ArrowLeftRight, CaseSensitive, ChevronLeft, ChevronRight, Regex, Replace, ReplaceAll, WholeWord, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui';
+import { gitApi } from '@/api/ws-api';
 import { loadCodeLanguageSupport } from '@/lib/code-language';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
+import { createGitChangeGutterExtensions } from '@/lib/codemirror-git-gutter';
+
+/** 用于在启用 Git 集成时拉取 `git_file_diff`（仓库根路径 + 相对路径）。 */
+export interface BaseCodeMirrorEditorGitDiffSource {
+  repoPath: string;
+  fileRelativePath: string;
+}
 
 export interface BaseCodeMirrorEditorProps {
   className?: string;
@@ -60,6 +68,11 @@ export interface BaseCodeMirrorEditorProps {
   breadcrumbs?: boolean;
   lineHighlight?: boolean;
   gitIntegration?: boolean;
+  /** 提供仓库与文件相对路径时才可显示 git gutter；缺省则关闭。 */
+  gitDiffSource?: BaseCodeMirrorEditorGitDiffSource | null;
+  /** 变化时重新拉取 `git_file_diff`（index vs 工作区）。 */
+  gitDiffRefreshNonce?: number;
+  onGitGutterStateChanged?: (kind: 'stage' | 'restore') => void;
   navigationTarget?: { line: number; column?: number } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
@@ -831,10 +844,18 @@ function createEditorTheme(isDark: boolean): Extension {
       },
       '.cm-minimap-inner': {
         backgroundColor: isDark ? '#09090b' : '#ffffff',
+        width: '50px !important',
       },
       '.cm-minimap-inner canvas': {
         maxWidth: '50px !important',
         width: '50px !important',
+      },
+      '.cm-minimap-overlay-container': {
+        zIndex: '2',
+        pointerEvents: 'auto',
+      },
+      '.cm-minimap-overlay': {
+        backgroundColor: isDark ? 'rgba(161, 161, 170, 0.55)' : 'rgba(113, 113, 122, 0.45)',
       },
       '.cm-scroller::-webkit-scrollbar': {
         width: '6px',
@@ -864,6 +885,18 @@ function createEditorTheme(isDark: boolean): Extension {
   );
 }
 
+function createMinimapExtension(): Extension {
+  return showMinimap.compute(['doc'], () => ({
+    create: () => {
+      const dom = document.createElement('div');
+      dom.className = 'cm-minimap';
+      return { dom };
+    },
+    displayText: 'blocks',
+    showOverlay: 'always',
+  }));
+}
+
 export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   className,
   value,
@@ -876,6 +909,9 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   breadcrumbs = true,
   lineHighlight = true,
   gitIntegration = false,
+  gitDiffSource = null,
+  gitDiffRefreshNonce = 0,
+  onGitGutterStateChanged,
   navigationTarget,
   onChange,
   onCreateEditor,
@@ -913,6 +949,11 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   const onCreateEditorRef = useRef(onCreateEditor);
   const onSaveRef = useRef(onSave);
   const onNavigationTargetAppliedRef = useRef(onNavigationTargetApplied);
+  const onGitGutterStateChangedRef = useRef(onGitGutterStateChanged);
+
+  useEffect(() => {
+    onGitGutterStateChangedRef.current = onGitGutterStateChanged;
+  }, [onGitGutterStateChanged]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -939,6 +980,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       state: EditorState.create({
         doc: initialState.value,
         extensions: [
+          gitIntegrationCompartment.of([]),
           lineNumbers(),
           foldGutter(),
           codeFolding(),
@@ -957,15 +999,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           EditorState.tabSize.of(2),
           lineWrapCompartment.of(initialState.lineWrap ? EditorView.lineWrapping : []),
           searchCompartment.of(createSearchExtension()),
-          ...(initialState.minimap ? [showMinimap.of({
-            create: (view: EditorView) => {
-              const dom = document.createElement('div');
-              dom.className = 'cm-minimap';
-              return { dom };
-            },
-            displayText: 'blocks',
-            showOverlay: 'mouse-over',
-          })] : []),
+          ...(initialState.minimap ? [createMinimapExtension()] : []),
           EditorView.contentAttributes.of({
             spellcheck: 'false',
             autocorrect: 'off',
@@ -1110,16 +1144,95 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     });
   }, [breadcrumbs, breadcrumbsCompartment]);
 
-  // Git integration - placeholder for now, requires backend API
   useEffect(() => {
     const view = editorRef.current;
     if (!view) return;
 
-    // TODO: Implement git integration when backend API is available
-    view.dispatch({
-      effects: gitIntegrationCompartment.reconfigure([]),
-    });
-  }, [gitIntegration, gitIntegrationCompartment]);
+    if (!gitIntegration || !gitDiffSource?.repoPath || !gitDiffSource?.fileRelativePath) {
+      view.dispatch({
+        effects: gitIntegrationCompartment.reconfigure([]),
+      });
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const diff = await gitApi.getFileDiff(
+          gitDiffSource.repoPath,
+          gitDiffSource.fileRelativePath,
+          null,
+          { againstIndex: true },
+        );
+        if (cancelled || editorRef.current !== view) return;
+
+        view.dispatch({
+          effects: gitIntegrationCompartment.reconfigure(
+            createGitChangeGutterExtensions({
+              fileRelativePath: gitDiffSource.fileRelativePath,
+              fileStatus: diff.status,
+              originalContent: diff.old_content,
+              stagePatch: async (patch) => {
+                try {
+                  const r = await gitApi.stagePatchChunk(
+                    gitDiffSource.repoPath,
+                    gitDiffSource.fileRelativePath,
+                    patch,
+                    diff.status,
+                  );
+                  if (!r.success) {
+                    return { ok: false, error: r.error ?? 'stage_patch_chunk failed' };
+                  }
+                  return { ok: true };
+                } catch (e) {
+                  return {
+                    ok: false,
+                    error: e instanceof Error ? e.message : String(e),
+                  };
+                }
+              },
+              restorePatch: async (patch) => {
+                try {
+                  const r = await gitApi.restorePatchChunk(
+                    gitDiffSource.repoPath,
+                    gitDiffSource.fileRelativePath,
+                    patch,
+                    diff.status,
+                  );
+                  if (!r.success) {
+                    return { ok: false, error: r.error ?? 'restore_patch_chunk failed' };
+                  }
+                  return { ok: true };
+                } catch (e) {
+                  return {
+                    ok: false,
+                    error: e instanceof Error ? e.message : String(e),
+                  };
+                }
+              },
+              onGitStateChanged: (kind) => onGitGutterStateChangedRef.current?.(kind),
+            }),
+          ),
+        });
+      } catch {
+        if (cancelled || editorRef.current !== view) return;
+        view.dispatch({
+          effects: gitIntegrationCompartment.reconfigure([]),
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    gitIntegration,
+    gitDiffSource?.repoPath,
+    gitDiffSource?.fileRelativePath,
+    gitDiffRefreshNonce,
+    gitIntegrationCompartment,
+  ]);
 
   useEffect(() => {
     const view = editorRef.current;

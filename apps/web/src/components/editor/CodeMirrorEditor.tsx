@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { EditorView } from '@codemirror/view';
 import { openSearchPanel } from '@codemirror/search';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -19,6 +20,7 @@ import {
 } from '@workspace/ui';
 import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search } from 'lucide-react';
 import { useEditorStore, OpenFile } from '@/hooks/use-editor-store';
+import { useGitStore } from '@/hooks/use-git-store';
 import { useFileTreeStore } from '@/hooks/use-file-tree-store';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/components/markdown/MarkdownToc';
@@ -27,27 +29,40 @@ import { useSelectionPopover } from '@/hooks/use-selection-popover';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useContextParams } from "@/hooks/use-context-params";
 import { useEditorSettings } from '@/hooks/use-editor-settings';
+import { useQueryState } from 'nuqs';
+import { settingsModalParams } from '@/lib/nuqs/searchParams';
 import { parseReviewReportMetadata } from '@/lib/review-report-frontmatter';
 import { ReviewReportMetadataCard } from '@/components/code-review/ReviewReportMetadataCard';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { type FileTreeNode } from '@/api/ws-api';
 import { FileTree } from '@/components/files/FileTree';
+import { tryRelativePathUnderRoot } from '@/lib/path-under-root';
 
 interface CodeMirrorEditorProps {
   file: OpenFile;
   className?: string;
+  /** False when mounted but not visible (inactive keepMounted editor tab — avoids orphaned floating overlays). */
+  surfaceActive?: boolean;
 }
 
-export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, className }) => {
+export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
+  file,
+  className,
+  surfaceActive = true,
+}) => {
   const { effectiveContextId } = useContextParams();
+  const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(effectiveContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
+  const reloadFileContent = useEditorStore((s) => s.reloadFileContent);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
     effectiveContextId ? state.navigationTargets[effectiveContextId]?.[file.path] ?? null : null
   );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const { projects } = useProjectStore();
+  const refreshChangedFiles = useGitStore((s) => s.refreshChangedFiles);
+  const refreshGitStatus = useGitStore((s) => s.refreshGitStatus);
   const {
     autoSave,
     lineWrap,
@@ -71,34 +86,69 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
+  const [gitDiffRefreshNonce, setGitDiffRefreshNonce] = useState(0);
+  const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
+
+  const handleGitGutterStateChanged = useCallback(
+    async (kind: 'stage' | 'restore') => {
+      await refreshChangedFiles();
+      await refreshGitStatus();
+      setGitDiffRefreshNonce((n) => n + 1);
+      if (kind === 'restore') {
+        await reloadFileContent(file.path, effectiveContextId || undefined);
+      }
+    },
+    [refreshChangedFiles, refreshGitStatus, reloadFileContent, file.path, effectiveContextId],
+  );
+
+  const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
+    if (!surfaceActive) return;
+    if (open && settingsModalOpen) return;
+    setSettingsOpen(open);
+  }, [settingsModalOpen, surfaceActive]);
+
+  useEffect(() => {
+    if (settingsModalOpen) setSettingsOpen(false);
+  }, [settingsModalOpen]);
   const [openBreadcrumbIndex, setOpenBreadcrumbIndex] = useState<number | null>(null);
   const fileTreeData = useFileTreeStore((s) => s.data);
   const fileTreeRootPath = useFileTreeStore((s) => s.rootPath);
   const editorViewRef = useRef<EditorView | null>(null);
 
-  // Get relative path for breadcrumbs
+  // Get relative path for breadcrumbs (strict root boundary + longest project prefix)
   const { relativePath, projectRoot } = useMemo(() => {
     const fullPath = file.path;
 
-    // Use currentProjectPath from editor store as the project root
-    if (currentProjectPath && fullPath.startsWith(currentProjectPath)) {
-      return {
-        relativePath: fullPath.slice(currentProjectPath.length).replace(/^\//, ''),
-        projectRoot: currentProjectPath,
-      };
-    }
-
-    // Fallback: find the project that contains this file
-    for (const project of projects) {
-      if (fullPath.startsWith(project.mainFilePath)) {
+    if (currentProjectPath) {
+      const rel = tryRelativePathUnderRoot(fullPath, currentProjectPath);
+      if (rel !== null) {
         return {
-          relativePath: fullPath.slice(project.mainFilePath.length).replace(/^\//, ''),
-          projectRoot: project.mainFilePath,
+          relativePath: rel,
+          projectRoot: currentProjectPath,
         };
       }
     }
 
-    // If no project found, return full path
+    let bestRoot: string | null = null;
+    let bestRel: string | null = null;
+    for (const project of projects) {
+      const rel = tryRelativePathUnderRoot(fullPath, project.mainFilePath);
+      if (rel !== null) {
+        const root = project.mainFilePath;
+        if (!bestRoot || root.length > bestRoot.length) {
+          bestRoot = root;
+          bestRel = rel;
+        }
+      }
+    }
+    if (bestRoot !== null && bestRel !== null) {
+      return {
+        relativePath: bestRel,
+        projectRoot: bestRoot,
+      };
+    }
+
     return {
       relativePath: fullPath,
       projectRoot: '',
@@ -108,6 +158,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const breadcrumbParts = useMemo(() => {
     return relativePath.split('/').filter(Boolean);
   }, [relativePath]);
+
+  const editorGitDiffSource = useMemo(
+    () =>
+      projectRoot && relativePath
+        ? { repoPath: projectRoot, fileRelativePath: relativePath }
+        : null,
+    [projectRoot, relativePath],
+  );
 
   // Get the full path for a breadcrumb part at a given index
   const getBreadcrumbPath = useCallback((index: number) => {
@@ -133,6 +191,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     };
 
     const parentPath = getParentPath(normalizedTargetPath);
+    const normalizedParentPath = normalizePath(parentPath);
+    const normalizedTreeRootPath = normalizePath(fileTreeRootPath);
+
+    // `list_project_files` returns immediate children of `root_path` only — no node whose
+    // `path` equals the project root. Siblings under the workspace root live at `fileTreeData`.
+    if (normalizedParentPath === normalizedTreeRootPath) {
+      return fileTreeData;
+    }
 
     // Helper function to find the parent directory and return its children
     const findSiblings = (nodes: FileTreeNode[], targetParentPath: string): FileTreeNode[] => {
@@ -150,21 +216,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
       return [];
     };
 
-    const result = findSiblings(fileTreeData, parentPath);
-
-    // Debug logging (can be removed later)
-    if (result.length === 0) {
-      console.log('Breadcrumb siblings not found:', {
-        targetPath,
-        normalizedTargetPath,
-        parentPath,
-        fileTreeRootPath,
-        fileTreeDataLength: fileTreeData.length,
-        firstNodePath: fileTreeData[0]?.path,
-      });
-    }
-
-    return result;
+    return findSiblings(fileTreeData, normalizedParentPath);
   }, [fileTreeData, fileTreeRootPath]);
 
   // Handle search button click (trigger Cmd+F)
@@ -180,6 +232,23 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
       setOpenBreadcrumbIndex(null);
     }
   }, [file.path]);
+
+  // KeepMounted editor tabs hide inactive panels via CSS; Radix Popovers portal to body and can
+  // briefly reposition to (0,0) if still "open" while this panel's file is no longer active.
+  useEffect(() => {
+    if (workspaceActivePath != null && workspaceActivePath !== file.path) {
+      setOpenBreadcrumbIndex(null);
+      setSettingsOpen(false);
+    }
+  }, [workspaceActivePath, file.path]);
+
+  // Popover anchor is the breadcrumb trigger; close as soon as we enter a loading state so
+  // Floating UI never repositions against a detached trigger (top-left flash).
+  useEffect(() => {
+    if (file.isLoading) {
+      setOpenBreadcrumbIndex(null);
+    }
+  }, [file.isLoading]);
 
   const isMarkdown = file.language === 'markdown' || file.name.endsWith('.md') || file.name.endsWith('.mdx');
   const isPreview = isMarkdown && previewFilePath === file.path;
@@ -206,7 +275,13 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   }, [file.path]);
 
   useEffect(() => {
-    void loadSettings();
+    let cancelled = false;
+    void loadSettings().finally(() => {
+      if (!cancelled) setEditorSettingsSettled(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadSettings]);
 
   // Selection popover for copying code to AI
@@ -253,7 +328,16 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const selectionPopover = useSelectionPopover({
     getSelectionInfo,
     containerRef,
+    enabled: surfaceActive && !file.isLoading,
   });
+
+  useEffect(() => {
+    if (!surfaceActive) {
+      selectionPopover.dismiss();
+      setOpenBreadcrumbIndex(null);
+      setSettingsOpen(false);
+    }
+  }, [surfaceActive, selectionPopover.dismiss]);
 
   // Debounce preview updates
   useEffect(() => {
@@ -267,7 +351,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   }, [file.content, isPreview, isMarkdown]);
 
   useEffect(() => {
-    if (!editorSettingsLoaded || !autoSave || file.isLoading || !file.isDirty) return;
+    if (!autoSave || file.isLoading || !file.isDirty) return;
 
     const timer = setTimeout(() => {
       void saveFile(file.path, effectiveContextId || undefined).catch(() => {
@@ -282,7 +366,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     return () => clearTimeout(timer);
   }, [
     autoSave,
-    editorSettingsLoaded,
     file.content,
     file.isDirty,
     file.isLoading,
@@ -336,13 +419,212 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
     enableOnContentEditable: true,
   }, [handleSave]);
 
+  const toolbarIconBtnClass =
+    'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none';
+  const floatingChromeBtnClass =
+    'flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground cursor-pointer select-none';
+
+  /** When the breadcrumb strip is hidden, surface preview + settings in the top-right overlay. */
+  const showFloatingMarkdownEditorChrome = !breadcrumbs || isPreview;
+
+  const renderMarkdownPreviewButton = (buttonClassName: string) =>
+    isMarkdown ? (
+      <button
+        type="button"
+        onClick={togglePreview}
+        className={buttonClassName}
+        title={isPreview ? 'Show Editor' : 'Show Preview'}
+        aria-label={isPreview ? 'Show Editor' : 'Show Preview'}
+      >
+        {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
+      </button>
+    ) : null;
+
+  const renderEditorSettingsMenu = (triggerClassName: string) => (
+    <Popover open={settingsOpen} onOpenChange={handleEditorSettingsPopoverOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={triggerClassName}
+          title="Editor Settings"
+          aria-label="Open editor settings"
+        >
+          <Settings2 className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-64 p-1.5 max-h-[80vh] overflow-y-auto"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Line Wrap
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Wrap long lines inside the editor instead of scrolling horizontally.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={lineWrap}
+            onCheckedChange={(checked) => {
+              void setLineWrap(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Auto Save
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Automatically saves the current file after 2 seconds of no typing.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={autoSave}
+            onCheckedChange={(checked) => {
+              void setAutoSave(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Bracket Matching
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Highlight matching brackets and show bracket pairs.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={bracketMatching}
+            onCheckedChange={(checked) => {
+              void setBracketMatching(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Minimap
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Show a minimap on the right side for quick navigation.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={minimap}
+            onCheckedChange={(checked) => {
+              void setMinimap(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Breadcrumbs
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Show breadcrumb navigation at the top of the editor.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={breadcrumbs}
+            onCheckedChange={(checked) => {
+              void setBreadcrumbs(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Line Highlight
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Highlight the current line and matching selections.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={lineHighlight}
+            onCheckedChange={(checked) => {
+              void setLineHighlight(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Git Integration
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Show git changes and diff information in the editor.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={gitIntegration}
+            onCheckedChange={(checked) => {
+              void setGitIntegration(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
     <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
-      {file.isLoading ? (
-        <div className="flex items-center justify-center h-full bg-background">
-          <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
+      {!surfaceActive || file.isLoading ? null : (
         <>
           {/* Selection Popover for AI */}
           <SelectionPopover
@@ -356,40 +638,51 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
             popoverRef={selectionPopover.popoverRef}
           />
 
-          <div className="absolute right-6 top-6 z-20 flex items-center gap-2">
-            {isMarkdown && (
-              <button
-                role="button"
-                onClick={togglePreview}
-                className="flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground cursor-pointer select-none"
-                title={isPreview ? "Show Editor" : "Show Preview"}
-                aria-label={isPreview ? "Show Editor" : "Show Preview"}
-              >
-                {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
-              </button>
-            )}
-          </div>
+          {showFloatingMarkdownEditorChrome ? (
+            <div
+              className={cn(
+                'absolute top-6 z-20 flex items-center gap-2',
+                // Base editor minimap gutter is 50px; +8px gap — clears overlay when breadcrumbs strip is hidden.
+                minimap ? 'right-[calc(1.5rem+58px)]' : 'right-6',
+              )}
+            >
+              {renderMarkdownPreviewButton(floatingChromeBtnClass)}
+              {renderEditorSettingsMenu(floatingChromeBtnClass)}
+            </div>
+          ) : null}
+        </>
+      )}
 
-          <div className="flex-1 min-h-0 w-full flex flex-col">
+      <div className="flex flex-1 min-h-0 w-full flex-col">
             {breadcrumbs && !isPreview && (
-              <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
+              <div className="flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground border-b border-border bg-background/50 backdrop-blur-sm flex-shrink-0">
                 {/* Breadcrumbs */}
                 <div className="flex items-center gap-1 flex-1 min-w-0">
                   {breadcrumbParts.map((part, index, array) => {
                     const breadcrumbPath = getBreadcrumbPath(index);
                     const siblingsData = getBreadcrumbSiblings(breadcrumbPath);
-                    const isOpen = openBreadcrumbIndex === index;
+                    const segmentClass =
+                      index === array.length - 1
+                        ? 'text-foreground font-medium cursor-default truncate flex items-center gap-1'
+                        : 'hover:text-foreground cursor-pointer transition-colors flex items-center gap-1 truncate';
+
+                    if (!surfaceActive) {
+                      return (
+                        <span key={index} className={segmentClass}>
+                          {part}
+                          {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
+                        </span>
+                      );
+                    }
 
                     return (
                       <React.Fragment key={index}>
-                        <Popover open={isOpen} onOpenChange={(open) => setOpenBreadcrumbIndex(open ? index : null)}>
+                        <Popover
+                          open={openBreadcrumbIndex === index}
+                          onOpenChange={(open) => setOpenBreadcrumbIndex(open ? index : null)}
+                        >
                           <PopoverTrigger asChild>
-                            <span
-                              className={index === array.length - 1
-                                ? 'text-foreground font-medium cursor-default truncate'
-                                : 'hover:text-foreground cursor-pointer transition-colors flex items-center gap-1 truncate'
-                              }
-                            >
+                            <span className={segmentClass}>
                               {part}
                               {index < array.length - 1 && <ChevronRight className="size-3 shrink-0" />}
                             </span>
@@ -398,7 +691,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                             align="start"
                             side="bottom"
                             sideOffset={4}
-                            className="w-80 max-h-96 overflow-y-auto p-0"
+                            className="z-[80] w-80 max-h-96 overflow-y-auto p-0"
                           >
                             {siblingsData.length === 0 ? (
                               <div className="text-xs text-muted-foreground px-2 py-4 text-center">
@@ -409,6 +702,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                                 data={siblingsData}
                                 rootPath={breadcrumbPath}
                                 onRefresh={() => {}}
+                                beforeOpenFile={() => {
+                                  flushSync(() => setOpenBreadcrumbIndex(null));
+                                }}
                               />
                             )}
                           </PopoverContent>
@@ -419,225 +715,57 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
                 </div>
 
                 {/* Right side buttons */}
+                {surfaceActive ? (
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Search button */}
                   <button
                     type="button"
                     onClick={handleSearchClick}
-                    className="flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none"
+                    className={toolbarIconBtnClass}
                     title="Search (Cmd+F)"
                     aria-label="Search"
                   >
                     <Search className="size-3.5" />
                   </button>
 
-                  {/* Settings button */}
-                  <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none"
-                        title="Editor Settings"
-                        aria-label="Open editor settings"
-                      >
-                        <Settings2 className="size-3.5" />
-                      </button>
-                    </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    sideOffset={8}
-                    className="w-64 p-1.5 max-h-[80vh] overflow-y-auto"
-                    onOpenAutoFocus={(event) => event.preventDefault()}
-                  >
-                    <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                      <TooltipProvider delayDuration={150}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                              Line Wrap
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                            Wrap long lines inside the editor instead of scrolling horizontally.
-                          </TooltipContent>
-                        </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={lineWrap}
-                    disabled={!editorSettingsLoaded}
-                    onCheckedChange={(checked) => {
-                      void setLineWrap(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
+                  {renderMarkdownPreviewButton(toolbarIconBtnClass)}
+                  {renderEditorSettingsMenu(toolbarIconBtnClass)}
                 </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Auto Save
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Automatically saves the current file after 2 seconds of no typing.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={autoSave}
-                    disabled={!editorSettingsLoaded}
-                    onCheckedChange={(checked) => {
-                      void setAutoSave(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Bracket Matching
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Highlight matching brackets and show bracket pairs.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={bracketMatching}
-                    disabled={!editorSettingsLoaded}
-                    onCheckedChange={(checked) => {
-                      void setBracketMatching(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Minimap
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Show a minimap on the right side for quick navigation.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={minimap}
-                    disabled={!editorSettingsLoaded}
-                    onCheckedChange={(checked) => {
-                      void setMinimap(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Breadcrumbs
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Show breadcrumb navigation at the top of the editor.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={breadcrumbs}
-                    disabled={!editorSettingsLoaded}
-                    onCheckedChange={(checked) => {
-                      void setBreadcrumbs(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Line Highlight
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Highlight the current line and matching selections.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={lineHighlight}
-                    disabled={!editorSettingsLoaded}
-                    onCheckedChange={(checked) => {
-                      void setLineHighlight(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Git Integration
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Show git changes and diff information in the editor.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={gitIntegration}
-                    disabled={!editorSettingsLoaded}
-                    onCheckedChange={(checked) => {
-                      void setGitIntegration(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-              </PopoverContent>
-            </Popover>
-                </div>
+                ) : null}
               </div>
             )}
+            {file.isLoading ? (
+              <div className="flex flex-1 min-h-0 items-center justify-center bg-background">
+                <LucideLoader2 className="size-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
             <div className={cn("flex-1 min-h-0 relative", isPreview && "hidden")}>
-              <BaseCodeMirrorEditor
-                language={file.language}
-                value={file.content}
-                lineWrap={lineWrap}
-                enableBracketMatching={bracketMatching}
-                minimap={minimap}
-                breadcrumbs={breadcrumbs}
-                lineHighlight={lineHighlight}
-                gitIntegration={gitIntegration}
-                navigationTarget={navigationTarget}
-                onChange={handleEditorChange}
-                onCreateEditor={handleEditorCreate}
-                onNavigationTargetApplied={() => clearNavigationTarget(file.path, effectiveContextId || undefined)}
-                onSave={handleSave}
-                autoFocus
-              />
+              {editorSettingsSettled ? (
+                <BaseCodeMirrorEditor
+                  language={file.language}
+                  value={file.content}
+                  lineWrap={lineWrap}
+                  enableBracketMatching={bracketMatching}
+                  minimap={minimap}
+                  breadcrumbs={breadcrumbs}
+                  lineHighlight={lineHighlight}
+                  gitIntegration={gitIntegration}
+                  gitDiffSource={editorGitDiffSource}
+                  gitDiffRefreshNonce={gitDiffRefreshNonce}
+                  onGitGutterStateChanged={handleGitGutterStateChanged}
+                  navigationTarget={navigationTarget}
+                  onChange={handleEditorChange}
+                  onCreateEditor={handleEditorCreate}
+                  onNavigationTargetApplied={() => clearNavigationTarget(file.path, effectiveContextId || undefined)}
+                  onSave={handleSave}
+                  autoFocus
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-background">
+                  <LucideLoader2 className="size-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
             </div>
 
             {isPreview && isMarkdown && (
@@ -654,9 +782,9 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
             {isPreview && isMarkdown && (
               <MarkdownToc markdown={previewBody} scrollContainerId="editor-preview-root" />
             )}
+              </>
+            )}
           </div>
-        </>
-      )}
     </div>
   );
 };

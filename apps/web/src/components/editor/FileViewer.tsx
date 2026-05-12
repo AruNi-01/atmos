@@ -30,6 +30,8 @@ const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
 interface FileViewerProps {
   file: OpenFile;
   className?: string;
+  /** False when this tab is mounted but not active (see CenterStage keepMounted file tabs). */
+  surfaceActive?: boolean;
 }
 
 const UnsupportedView: React.FC<{ fileName: string; uri: string; ext?: string }> = ({ fileName, uri, ext }) => {
@@ -210,7 +212,7 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
   return <UnsupportedView fileName={fileName} uri={uri} ext={ext} />;
 }
 
-export const FileViewer: React.FC<FileViewerProps> = ({ file, className }) => {
+export const FileViewer: React.FC<FileViewerProps> = ({ file, className, surfaceActive = true }) => {
   const { resolvedTheme } = useTheme();
   const [errorFilePath, setErrorFilePath] = useState<string | null>(null);
   const hasError = errorFilePath === file.path;
@@ -275,7 +277,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className }) => {
     );
   }
 
-  return <CodeMirrorEditor file={file} className={className} />;
+  return <CodeMirrorEditor file={file} className={className} surfaceActive={surfaceActive} />;
 };
 
 export default FileViewer;

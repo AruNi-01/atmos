@@ -250,7 +250,8 @@ function ResizeHandle({
       onDragging={onDragging}
       className={cn(
         "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
-        "before:absolute before:inset-y-0 before:-left-1 before:-right-1 before:z-10", // Expand hit area
+        // Narrow grab strip (was -left-1/-right-1 each side → easy to hit when near the divider)
+        "before:absolute before:inset-y-0 before:left-1/2 before:z-10 before:w-1 before:-translate-x-1/2",
         className
       )}
     />
