@@ -16,7 +16,7 @@ import {
   type TLEditorSnapshot,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import { Button, ScrollArea, toastManager } from "@workspace/ui";
+import { Button, ScrollArea, toastManager, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@workspace/ui";
 import {
   AlertTriangle,
   Loader2,
@@ -26,6 +26,7 @@ import {
   RefreshCcw,
   SquareTerminal,
   ArrowUpRight,
+  Plus,
 } from "lucide-react";
 import {
   projectLayoutApi,
@@ -449,7 +450,8 @@ export const TerminalCanvasView: React.FC = () => {
   const [isOverviewLoading, setIsOverviewLoading] = React.useState(false);
   const [overviewError, setOverviewError] = React.useState<string | null>(null);
   const [editor, setEditor] = React.useState<Editor | null>(null);
-  const [expandedContextKey, setExpandedContextKey] = React.useState<string | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
+  const [selectedContextKey, setSelectedContextKey] = React.useState<string | null>(null);
   const [contextPaneState, setContextPaneState] = React.useState<Record<string, ContextPaneState>>({});
   const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveInFlightRef = React.useRef(false);
@@ -507,7 +509,7 @@ export const TerminalCanvasView: React.FC = () => {
 
   React.useEffect(() => {
     resetRuntime();
-    setExpandedContextKey(null);
+    setSelectedContextKey(null);
   }, [board?.guid, resetRuntime]);
 
   React.useEffect(() => {
@@ -637,7 +639,7 @@ export const TerminalCanvasView: React.FC = () => {
 
   const handleToggleContext = React.useCallback(
     (item: WorkspaceImportItem) => {
-      setExpandedContextKey((current) => (current === item.key ? null : item.key));
+      setSelectedContextKey((current) => (current === item.key ? null : item.key));
       const currentState = contextPaneState[item.key];
       if (!currentState || currentState.status === "idle") {
         void loadContextPanes(item);
@@ -710,6 +712,138 @@ export const TerminalCanvasView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl bg-muted/20 shadow-sm"
+                  title="Import terminal"
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh]">
+                <DialogHeader>
+                  <DialogTitle>Import Terminal</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh]">
+                  <div className="space-y-6 p-4">
+                    <section className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <SquareTerminal className="size-4" />
+                        Import saved terminal panes
+                      </div>
+                      {selectedContextKey ? (
+                        <div className="space-y-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedContextKey(null)}
+                            className="mb-2"
+                          >
+                            ← Back to projects/workspaces
+                          </Button>
+                          {contextPaneState[selectedContextKey]?.status === "loading" ? (
+                            <div className="flex items-center justify-center rounded-lg border border-dashed border-border px-3 py-4">
+                              <DefaultSpinner />
+                            </div>
+                          ) : contextPaneState[selectedContextKey]?.status === "error" ? (
+                            <div className="rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 px-3 py-3 text-sm text-amber-700 dark:text-amber-300">
+                              {contextPaneState[selectedContextKey]?.error}
+                            </div>
+                          ) : contextPaneState[selectedContextKey]?.panes.length ? (
+                            contextPaneState[selectedContextKey]?.panes.map((pane) => (
+                              <button
+                                key={pane.key}
+                                type="button"
+                                onClick={() => {
+                                  handleImportSavedPane(pane);
+                                  setIsImportModalOpen(false);
+                                }}
+                                className="w-full rounded-lg border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
+                              >
+                                <div className="truncate text-sm font-medium text-foreground">{pane.terminalName}</div>
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {pane.tmuxWindowName}
+                                  {pane.terminalTabTitle && pane.terminalTabTitle !== "Term" ? ` · ${pane.terminalTabTitle}` : ""}
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
+                              No saved attachable panes in this context yet.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {workspaceItems.map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              onClick={() => handleToggleContext(item)}
+                              className="w-full rounded-xl border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
+                            >
+                              <div className="truncate text-sm font-medium text-foreground">{item.projectName}</div>
+                              <div className="truncate text-xs text-muted-foreground">{item.workspaceName}</div>
+                            </button>
+                          ))}
+                          {!workspaceItems.length && (
+                            <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                              No projects or workspaces loaded yet.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <RefreshCcw className="size-4" />
+                        Attach active tmux sessions
+                      </div>
+                      {overviewError ? (
+                        <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 px-3 py-4 text-sm text-amber-700 dark:text-amber-300">
+                          {overviewError}
+                        </div>
+                      ) : isOverviewLoading && !overview ? (
+                        <div className="flex items-center justify-center rounded-xl border border-dashed border-border px-3 py-6">
+                          <DefaultSpinner />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {attachableSessions.map((session) => (
+                            <button
+                              key={session.session_id}
+                              type="button"
+                              onClick={() => {
+                                handleImportSession(session);
+                                setIsImportModalOpen(false);
+                              }}
+                              className="w-full rounded-xl border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
+                            >
+                              <div className="truncate text-sm font-medium text-foreground">
+                                {session.terminal_name || `Window ${session.tmux_window_index}`}
+                              </div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {(session.project_name || "Workspace") + " · " + (session.workspace_name || "Main")}
+                              </div>
+                              {session.cwd && <div className="truncate pt-1 text-[11px] text-muted-foreground">{session.cwd}</div>}
+                            </button>
+                          ))}
+                          {!attachableSessions.length && (
+                            <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                              No attachable tmux sessions are active right now.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
             <Button
               variant="outline"
               size="icon"
@@ -730,115 +864,16 @@ export const TerminalCanvasView: React.FC = () => {
       <div className="flex min-h-0 flex-1">
         <aside className="w-[320px] shrink-0 border-r border-border bg-muted/15">
           <ScrollArea className="h-full">
-            <div className="space-y-6 p-5">
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <SquareTerminal className="size-4" />
-                  Import saved terminal panes
-                </div>
-                <div className="space-y-2">
-                  {workspaceItems.map((item) => (
-                    <div key={item.key} className="rounded-xl border border-border bg-background">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleContext(item)}
-                        className="w-full px-3 py-3 text-left transition-colors hover:bg-accent"
-                      >
-                        <div className="truncate text-sm font-medium text-foreground">{item.projectName}</div>
-                        <div className="truncate text-xs text-muted-foreground">{item.workspaceName}</div>
-                        <div className="truncate pt-1 text-[11px] text-muted-foreground">{item.localPath}</div>
-                      </button>
-                      {expandedContextKey === item.key && (
-                        <div className="space-y-2 border-t border-border px-3 py-3">
-                          {contextPaneState[item.key]?.status === "loading" ? (
-                            <div className="flex items-center justify-center rounded-lg border border-dashed border-border px-3 py-4">
-                              <DefaultSpinner />
-                            </div>
-                          ) : contextPaneState[item.key]?.status === "error" ? (
-                            <div className="rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 px-3 py-3 text-sm text-amber-700 dark:text-amber-300">
-                              {contextPaneState[item.key]?.error}
-                            </div>
-                          ) : contextPaneState[item.key]?.panes.length ? (
-                            contextPaneState[item.key]?.panes.map((pane) => (
-                              <button
-                                key={pane.key}
-                                type="button"
-                                onClick={() => handleImportSavedPane(pane)}
-                                className="w-full rounded-lg border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
-                              >
-                                <div className="truncate text-sm font-medium text-foreground">{pane.terminalName}</div>
-                                <div className="truncate text-xs text-muted-foreground">
-                                  {pane.tmuxWindowName}
-                                  {pane.terminalTabTitle && pane.terminalTabTitle !== "Term" ? ` · ${pane.terminalTabTitle}` : ""}
-                                </div>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
-                              No saved attachable panes in this context yet.
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {!workspaceItems.length && (
-                    <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                      No projects or workspaces loaded yet.
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section className="space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <RefreshCcw className="size-4" />
-                  Attach active tmux sessions
-                </div>
-                {overviewError ? (
-                  <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 px-3 py-4 text-sm text-amber-700 dark:text-amber-300">
-                    {overviewError}
-                  </div>
-                ) : isOverviewLoading && !overview ? (
-                  <div className="flex items-center justify-center rounded-xl border border-dashed border-border px-3 py-6">
-                    <DefaultSpinner />
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {attachableSessions.map((session) => (
-                      <button
-                        key={session.session_id}
-                        type="button"
-                        onClick={() => handleImportSession(session)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
-                      >
-                        <div className="truncate text-sm font-medium text-foreground">
-                          {session.terminal_name || `Window ${session.tmux_window_index}`}
-                        </div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {(session.project_name || "Workspace") + " · " + (session.workspace_name || "Main")}
-                        </div>
-                        {session.cwd && <div className="truncate pt-1 text-[11px] text-muted-foreground">{session.cwd}</div>}
-                      </button>
-                    ))}
-                    {!attachableSessions.length && (
-                      <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                        No attachable tmux sessions are active right now.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </section>
-
+            <div className="p-5">
               <section className="space-y-3 rounded-2xl border border-border bg-background p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <NotebookText className="size-4" />
                   Quick tips
                 </div>
                 <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>Click the + button in the top-right to import terminals from saved layouts or active tmux sessions.</li>
                   <li>Use the text tool for plain-text notes and the frame tool for lightweight grouping.</li>
                   <li>Select a terminal card to resize it with the standard canvas handles.</li>
-                  <li>Import from saved project or workspace layouts to attach existing panes without creating new ownership.</li>
                 </ul>
               </section>
             </div>
