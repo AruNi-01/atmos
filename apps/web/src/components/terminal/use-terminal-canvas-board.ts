@@ -78,11 +78,11 @@ export function useTerminalCanvasBoard() {
   }, []);
 
   const saveDocument = useCallback(async (nextDocument: TerminalCanvasBoardDocument) => {
-    setDocument(nextDocument);
     setIsSaving(true);
     setError(null);
     try {
       const nextBoard = await terminalCanvasApi.updateDefaultBoard(stringifyBoardDocument(nextDocument));
+      setDocument(nextDocument);  // Only update document after successful save
       setBoard(nextBoard);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save terminal canvas");
