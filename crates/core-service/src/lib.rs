@@ -15,6 +15,7 @@ pub use service::terminal::{
     AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, SessionDetail,
     SessionType, TerminalMessage, TerminalResponse, TerminalService,
 };
+pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::terminal_canvas::{
     SaveTerminalCanvasBoardReq, TerminalCanvasBoardDto, TerminalCanvasService,
 };

@@ -114,7 +114,7 @@ export function migrateTerminalLayoutDocument(
     layout?: MosaicNode<string> | null;
   } | null;
 
-  if (legacyValue?.panes && legacyValue.layout) {
+  if (legacyValue?.panes) {
     return {
       layout: {
         schema: TERMINAL_LAYOUT_SCHEMA,
@@ -125,7 +125,7 @@ export function migrateTerminalLayoutDocument(
             title: "Term",
             closable: false,
             panes: legacyValue.panes,
-            layout: legacyValue.layout,
+            layout: legacyValue.layout ?? null,
             maximizedTerminalId: null,
           },
         ],

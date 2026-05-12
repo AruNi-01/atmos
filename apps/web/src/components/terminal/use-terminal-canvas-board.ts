@@ -21,6 +21,24 @@ export function createDefaultDocument(): TerminalCanvasBoardDocument {
   };
 }
 
+function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Validates persisted snapshot shape expected by tldraw v5 (`TLEditorSnapshot`). */
+function parseStoredTldrawSnapshot(value: unknown): TLEditorSnapshot | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (!isPlainJsonObject(value)) {
+    throw new Error("Terminal canvas tldraw snapshot must be a JSON object when present");
+  }
+  if (!isPlainJsonObject(value.document) || !isPlainJsonObject(value.session)) {
+    throw new Error("Terminal canvas tldraw snapshot must include document and session objects");
+  }
+  return value as TLEditorSnapshot;
+}
+
 export function parseBoardDocument(documentJson: string): TerminalCanvasBoardDocument {
   let parsed: Partial<TerminalCanvasBoardDocument>;
 
@@ -47,7 +65,7 @@ export function parseBoardDocument(documentJson: string): TerminalCanvasBoardDoc
   return {
     schema: TERMINAL_CANVAS_SCHEMA,
     boardSlug: TERMINAL_CANVAS_BOARD_SLUG,
-    tldrawSnapshot: parsed.tldrawSnapshot ?? null,
+    tldrawSnapshot: parseStoredTldrawSnapshot(parsed.tldrawSnapshot),
   };
 }
 

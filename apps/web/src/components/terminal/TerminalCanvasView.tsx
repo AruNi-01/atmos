@@ -14,6 +14,8 @@ import {
   type TLUiOverrides,
   type Editor,
   type TLEditorSnapshot,
+  type TLBaseShape,
+  type TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
 import "./tldraw-theme.css";
@@ -23,7 +25,7 @@ import {
   Loader2,
   LoaderCircle,
   Map,
-  RefreshCcw,
+  RotateCw,
   SquareTerminal,
   ArrowUpRight,
   Plus,
@@ -60,10 +62,9 @@ const TERMINAL_CANVAS_BLOCKED_ACTION_IDS = new Set([
 ]);
 const TERMINAL_CANVAS_EXTERNAL_CONTENT_TYPES = ["embed", "excalidraw", "file-replace", "files", "svg-text", "tldraw", "url"] as const;
 
-type TerminalCanvasTerminalShape = {
-  id: string;
-  type: typeof TERMINAL_CARD_SHAPE_TYPE;
-  props: {
+type TerminalCanvasTerminalShape = TLBaseShape<
+  typeof TERMINAL_CARD_SHAPE_TYPE,
+  {
     w: number;
     h: number;
     contextScope: TerminalContextScope;
@@ -74,8 +75,8 @@ type TerminalCanvasTerminalShape = {
     terminalName: string;
     tmuxWindowName: string;
     isNewTerminal: boolean;
-  };
-};
+  }
+>;
 
 type WorkspaceImportItem = {
   scope: "project" | "workspace";
@@ -107,7 +108,7 @@ type ContextPaneState = {
   error: string | null;
 };
 
-class TerminalCanvasTerminalShapeUtil extends BaseBoxShapeUtil<any> {
+class TerminalCanvasTerminalShapeUtil extends BaseBoxShapeUtil<TerminalCanvasTerminalShape> {
   static override type = TERMINAL_CARD_SHAPE_TYPE;
 
   static override props = {
@@ -319,7 +320,7 @@ function TerminalCanvasTerminalCardInner({ shape }: { shape: TerminalCanvasTermi
   const router = useAppRouter();
   const activeShapeId = useTerminalCanvasRuntime((state) => state.activeShapeId);
   const setActiveShapeId = useTerminalCanvasRuntime((state) => state.setActiveShapeId);
-  const isSelected = useValue("terminal-canvas-card-selected", () => editor.getSelectedShapeIds().includes(shape.id as any), [
+  const isSelected = useValue("terminal-canvas-card-selected", () => editor.getSelectedShapeIds().includes(shape.id as TLShapeId), [
     editor,
     shape.id,
   ]);
@@ -337,7 +338,7 @@ function TerminalCanvasTerminalCardInner({ shape }: { shape: TerminalCanvasTermi
         ...shape.props,
         isNewTerminal: false,
       },
-    } as any);
+    });
   }, [editor, shape]);
 
   const handleRevealSource = React.useCallback(
@@ -385,13 +386,10 @@ function TerminalCanvasTerminalCardInner({ shape }: { shape: TerminalCanvasTermi
       <div
         className="min-h-0 flex-1 bg-background"
         onPointerDown={(event) => {
-          // When card is inactive, clicking activates it
-          // When card is active, clicking doesn't re-activate (to avoid focus loss)
-          if (!isActive) {
-            setActiveShapeId(shape.id);
+          // Let tldraw handle selection / transforms when the live terminal is not mounted.
+          if (isActive) {
+            event.stopPropagation();
           }
-          // Always prevent propagation to tldraw
-          event.stopPropagation();
         }}
         onWheel={(event) => {
           // Prevent scroll propagation to tldraw when scrolling inside the terminal
@@ -508,14 +506,6 @@ export const TerminalCanvasView: React.FC = () => {
     setSelectedContextKey(null);
   }, [board?.guid, resetRuntime]);
 
-  React.useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const flushSnapshotSave = React.useCallback(async () => {
     if (saveInFlightRef.current) {
       needsResaveRef.current = true;
@@ -539,6 +529,19 @@ export const TerminalCanvasView: React.FC = () => {
       }
     }
   }, [saveDocument]);
+
+  const flushSnapshotSaveRef = React.useRef(flushSnapshotSave);
+  flushSnapshotSaveRef.current = flushSnapshotSave;
+
+  React.useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current !== null) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      void flushSnapshotSaveRef.current();
+    };
+  }, []);
 
   const scheduleSnapshotSave = React.useCallback(
     (snapshot: TLEditorSnapshot) => {
@@ -579,16 +582,16 @@ export const TerminalCanvasView: React.FC = () => {
       spawnIndexRef.current += 1;
       const offset = (spawnIndexRef.current - 1) % 8;
 
-      const shapeId = `shape:${crypto.randomUUID()}`;
+      const shapeId = `shape:${crypto.randomUUID()}` as TLShapeId;
 
-      editor.createShape({
+      editor.createShape<TerminalCanvasTerminalShape>({
         id: shapeId,
         type: TERMINAL_CARD_SHAPE_TYPE,
         x: 120 + offset * 44,
         y: 120 + offset * 44,
         props,
-      } as any);
-      editor.select(shapeId as any);
+      });
+      editor.select(shapeId);
       setActiveShapeId(shapeId);
 
       scheduleSnapshotSave(getSnapshot(editor.store) as TLEditorSnapshot);
@@ -679,7 +682,7 @@ export const TerminalCanvasView: React.FC = () => {
   if (error || !document) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-        <AlertTriangle className="size-12 text-amber-500" />
+        <AlertTriangle className="size-12 text-warning" />
         <div>
           <div className="text-base font-semibold text-foreground">Failed to load Terminal Canvas</div>
           <div className="text-sm text-muted-foreground">{error}</div>
@@ -748,7 +751,7 @@ export const TerminalCanvasView: React.FC = () => {
                               <DefaultSpinner />
                             </div>
                           ) : contextPaneState[selectedContextKey]?.status === "error" ? (
-                            <div className="rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 px-3 py-3 text-sm text-amber-700 dark:text-amber-300">
+                            <div className="rounded-lg border border-dashed border-warning/30 bg-warning/5 px-3 py-3 text-sm text-warning">
                               {contextPaneState[selectedContextKey]?.error}
                             </div>
                           ) : contextPaneState[selectedContextKey]?.panes.length ? (
@@ -823,11 +826,11 @@ export const TerminalCanvasView: React.FC = () => {
 
                     <section className="space-y-3">
                       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <RefreshCcw className="size-4" />
+                        <RotateCw className="size-4" />
                         Attach active tmux sessions
                       </div>
                       {overviewError ? (
-                        <div className="rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 px-3 py-4 text-sm text-amber-700 dark:text-amber-300">
+                        <div className="rounded-xl border border-dashed border-warning/30 bg-warning/5 px-3 py-4 text-sm text-warning">
                           {overviewError}
                         </div>
                       ) : isOverviewLoading && !overview ? (
@@ -875,7 +878,7 @@ export const TerminalCanvasView: React.FC = () => {
               className="h-10 w-10 rounded-xl bg-muted/20 shadow-sm"
               title="Refresh active sessions"
             >
-              {isOverviewLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCcw className="size-4" />}
+              {isOverviewLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
             </Button>
             <div className="rounded-xl border border-border bg-background px-3 py-2 text-xs text-muted-foreground shadow-sm">
               {isSaving ? "Saving…" : error ? "Save failed" : `Saved${board?.updated_at ? ` · ${new Date(board.updated_at).toLocaleTimeString()}` : ""}`}
