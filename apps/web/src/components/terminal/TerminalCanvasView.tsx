@@ -562,7 +562,7 @@ export const TerminalCanvasView: React.FC = () => {
       spawnIndexRef.current += 1;
       const offset = (spawnIndexRef.current - 1) % 8;
 
-      const shapeId = crypto.randomUUID();
+      const shapeId = `shape:${crypto.randomUUID()}`;
 
       editor.createShape({
         id: shapeId,
