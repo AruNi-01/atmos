@@ -32,6 +32,7 @@ import { ReviewReportMetadataCard } from '@/components/code-review/ReviewReportM
 import { useProjectStore } from '@/hooks/use-project-store';
 import { type FileTreeNode } from '@/api/ws-api';
 import { FileTree } from '@/components/files/FileTree';
+import { tryRelativePathUnderRoot } from '@/lib/path-under-root';
 
 interface CodeMirrorEditorProps {
   file: OpenFile;
@@ -76,29 +77,39 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({ file, classN
   const fileTreeRootPath = useFileTreeStore((s) => s.rootPath);
   const editorViewRef = useRef<EditorView | null>(null);
 
-  // Get relative path for breadcrumbs
+  // Get relative path for breadcrumbs (strict root boundary + longest project prefix)
   const { relativePath, projectRoot } = useMemo(() => {
     const fullPath = file.path;
 
-    // Use currentProjectPath from editor store as the project root
-    if (currentProjectPath && fullPath.startsWith(currentProjectPath)) {
-      return {
-        relativePath: fullPath.slice(currentProjectPath.length).replace(/^\//, ''),
-        projectRoot: currentProjectPath,
-      };
-    }
-
-    // Fallback: find the project that contains this file
-    for (const project of projects) {
-      if (fullPath.startsWith(project.mainFilePath)) {
+    if (currentProjectPath) {
+      const rel = tryRelativePathUnderRoot(fullPath, currentProjectPath);
+      if (rel !== null) {
         return {
-          relativePath: fullPath.slice(project.mainFilePath.length).replace(/^\//, ''),
-          projectRoot: project.mainFilePath,
+          relativePath: rel,
+          projectRoot: currentProjectPath,
         };
       }
     }
 
-    // If no project found, return full path
+    let bestRoot: string | null = null;
+    let bestRel: string | null = null;
+    for (const project of projects) {
+      const rel = tryRelativePathUnderRoot(fullPath, project.mainFilePath);
+      if (rel !== null) {
+        const root = project.mainFilePath;
+        if (!bestRoot || root.length > bestRoot.length) {
+          bestRoot = root;
+          bestRel = rel;
+        }
+      }
+    }
+    if (bestRoot !== null && bestRel !== null) {
+      return {
+        relativePath: bestRel,
+        projectRoot: bestRoot,
+      };
+    }
+
     return {
       relativePath: fullPath,
       projectRoot: '',
