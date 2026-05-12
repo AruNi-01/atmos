@@ -17,7 +17,7 @@ import {
 } from "tldraw";
 import "tldraw/tldraw.css";
 import "./tldraw-theme.css";
-import { Button, ScrollArea, toastManager, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@workspace/ui";
+import { Button, ScrollArea, toastManager, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@workspace/ui";
 import {
   AlertTriangle,
   Loader2,
@@ -722,6 +722,9 @@ export const TerminalCanvasView: React.FC = () => {
               <DialogContent className="w-full max-h-[90vh] z-50 overflow-hidden">
                 <DialogHeader>
                   <DialogTitle>Import Terminal</DialogTitle>
+                  <DialogDescription>
+                    Import terminals from saved project/workspace layouts or attach active tmux sessions to the canvas.
+                  </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[calc(90vh-10rem)]">
                   <div className="space-y-6 p-6">
