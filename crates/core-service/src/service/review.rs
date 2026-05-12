@@ -666,7 +666,7 @@ impl ReviewService {
         for (index, (file_path, status)) in ordered_paths.into_iter().enumerate() {
             let diff = self
                 .git_engine
-                .get_file_diff(workspace_root, &file_path, Some(base_branch))
+                .get_file_diff(workspace_root, &file_path, Some(base_branch), false)
                 .map_err(ServiceError::Engine)?;
             let file_identity = review_repo
                 .find_or_create_file_identity(session.guid.clone(), file_path.clone())

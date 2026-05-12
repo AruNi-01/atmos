@@ -179,6 +179,10 @@ pub enum WsAction {
     GitChangedFiles,
     /// 获取单个文件的 diff
     GitFileDiff,
+    /// 将补丁块应用到暂存区（index）
+    GitStagePatchChunk,
+    /// 逆向应用补丁块到工作区（撤销该块的未暂存改动）
+    GitRestorePatchChunk,
     /// 生成 git commit message
     GitGenerateCommitMessage,
     /// 提交更改
@@ -1120,6 +1124,27 @@ pub struct GitFileDiffRequest {
     pub file_path: String,
     #[serde(default)]
     pub base_branch: Option<String>,
+    /// 为 true 时对比 index 与工作区（仅未暂存部分）；默认 false 表示对比 compare_ref 与工作区
+    #[serde(default)]
+    pub against_index: bool,
+}
+
+/// 针对单个变更块的补丁应用请求（unified diff 文本）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitPatchChunkRequest {
+    pub path: String,
+    pub file_path: String,
+    pub patch: String,
+    /// 来自 `git_file_diff` 的 status（例如 M / A）
+    pub file_status: String,
+}
+
+/// 补丁应用响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitPatchChunkResponse {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 /// 获取单个文件 diff 响应

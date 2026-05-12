@@ -48,7 +48,7 @@ import { cn } from '@workspace/ui';
 import { gitApi } from '@/api/ws-api';
 import { loadCodeLanguageSupport } from '@/lib/code-language';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
-import { createGitUnifiedMergeExtensions } from '@/lib/codemirror-git-unified-merge';
+import { createGitChangeGutterExtensions } from '@/lib/codemirror-git-gutter';
 
 /** 用于在启用 Git 集成时拉取 `git_file_diff`（仓库根路径 + 相对路径）。 */
 export interface BaseCodeMirrorEditorGitDiffSource {
@@ -68,8 +68,11 @@ export interface BaseCodeMirrorEditorProps {
   breadcrumbs?: boolean;
   lineHighlight?: boolean;
   gitIntegration?: boolean;
-  /** 提供仓库与文件相对路径时才可显示与 HEAD/比较基 的差异；缺省则仅关闭合并视图。 */
+  /** 提供仓库与文件相对路径时才可显示 git gutter；缺省则关闭。 */
   gitDiffSource?: BaseCodeMirrorEditorGitDiffSource | null;
+  /** 变化时重新拉取 `git_file_diff`（index vs 工作区）。 */
+  gitDiffRefreshNonce?: number;
+  onGitGutterStateChanged?: (kind: 'stage' | 'restore') => void;
   navigationTarget?: { line: number; column?: number } | null;
   onChange?: (value: string) => void;
   onCreateEditor?: (view: EditorView) => void;
@@ -907,6 +910,8 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   lineHighlight = true,
   gitIntegration = false,
   gitDiffSource = null,
+  gitDiffRefreshNonce = 0,
+  onGitGutterStateChanged,
   navigationTarget,
   onChange,
   onCreateEditor,
@@ -944,6 +949,11 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
   const onCreateEditorRef = useRef(onCreateEditor);
   const onSaveRef = useRef(onSave);
   const onNavigationTargetAppliedRef = useRef(onNavigationTargetApplied);
+  const onGitGutterStateChangedRef = useRef(onGitGutterStateChanged);
+
+  useEffect(() => {
+    onGitGutterStateChangedRef.current = onGitGutterStateChanged;
+  }, [onGitGutterStateChanged]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -970,6 +980,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       state: EditorState.create({
         doc: initialState.value,
         extensions: [
+          gitIntegrationCompartment.of([]),
           lineNumbers(),
           foldGutter(),
           codeFolding(),
@@ -985,7 +996,6 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           rectangularSelection(),
           crosshairCursor(),
           lineHighlightCompartment.of(initialState.lineHighlight ? [highlightActiveLine(), highlightSelectionMatches()] : []),
-          gitIntegrationCompartment.of([]),
           EditorState.tabSize.of(2),
           lineWrapCompartment.of(initialState.lineWrap ? EditorView.lineWrapping : []),
           searchCompartment.of(createSearchExtension()),
@@ -1152,12 +1162,57 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
         const diff = await gitApi.getFileDiff(
           gitDiffSource.repoPath,
           gitDiffSource.fileRelativePath,
+          null,
+          { againstIndex: true },
         );
         if (cancelled || editorRef.current !== view) return;
 
         view.dispatch({
           effects: gitIntegrationCompartment.reconfigure(
-            createGitUnifiedMergeExtensions(diff.old_content),
+            createGitChangeGutterExtensions({
+              fileRelativePath: gitDiffSource.fileRelativePath,
+              fileStatus: diff.status,
+              originalContent: diff.old_content,
+              stagePatch: async (patch) => {
+                try {
+                  const r = await gitApi.stagePatchChunk(
+                    gitDiffSource.repoPath,
+                    gitDiffSource.fileRelativePath,
+                    patch,
+                    diff.status,
+                  );
+                  if (!r.success) {
+                    return { ok: false, error: r.error ?? 'stage_patch_chunk failed' };
+                  }
+                  return { ok: true };
+                } catch (e) {
+                  return {
+                    ok: false,
+                    error: e instanceof Error ? e.message : String(e),
+                  };
+                }
+              },
+              restorePatch: async (patch) => {
+                try {
+                  const r = await gitApi.restorePatchChunk(
+                    gitDiffSource.repoPath,
+                    gitDiffSource.fileRelativePath,
+                    patch,
+                    diff.status,
+                  );
+                  if (!r.success) {
+                    return { ok: false, error: r.error ?? 'restore_patch_chunk failed' };
+                  }
+                  return { ok: true };
+                } catch (e) {
+                  return {
+                    ok: false,
+                    error: e instanceof Error ? e.message : String(e),
+                  };
+                }
+              },
+              onGitStateChanged: (kind) => onGitGutterStateChangedRef.current?.(kind),
+            }),
           ),
         });
       } catch {
@@ -1175,6 +1230,7 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
     gitIntegration,
     gitDiffSource?.repoPath,
     gitDiffSource?.fileRelativePath,
+    gitDiffRefreshNonce,
     gitIntegrationCompartment,
   ]);
 

@@ -20,6 +20,7 @@ import {
 } from '@workspace/ui';
 import { Loader2 as LucideLoader2, Eye, FileText, Settings2, ChevronRight, Folder, File, Search } from 'lucide-react';
 import { useEditorStore, OpenFile } from '@/hooks/use-editor-store';
+import { useGitStore } from '@/hooks/use-git-store';
 import { useFileTreeStore } from '@/hooks/use-file-tree-store';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { MarkdownToc } from '@/components/markdown/MarkdownToc';
@@ -53,12 +54,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(effectiveContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
+  const reloadFileContent = useEditorStore((s) => s.reloadFileContent);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
     effectiveContextId ? state.navigationTargets[effectiveContextId]?.[file.path] ?? null : null
   );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const { projects } = useProjectStore();
+  const refreshChangedFiles = useGitStore((s) => s.refreshChangedFiles);
+  const refreshGitStatus = useGitStore((s) => s.refreshGitStatus);
   const {
     autoSave,
     lineWrap,
@@ -83,7 +87,20 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const [debouncedContent, setDebouncedContent] = useState(file.content);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editorSettingsSettled, setEditorSettingsSettled] = useState(editorSettingsLoaded);
+  const [gitDiffRefreshNonce, setGitDiffRefreshNonce] = useState(0);
   const [settingsModalOpen] = useQueryState('settingsModal', settingsModalParams.settingsModal);
+
+  const handleGitGutterStateChanged = useCallback(
+    async (kind: 'stage' | 'restore') => {
+      await refreshChangedFiles();
+      await refreshGitStatus();
+      setGitDiffRefreshNonce((n) => n + 1);
+      if (kind === 'restore') {
+        await reloadFileContent(file.path, effectiveContextId || undefined);
+      }
+    },
+    [refreshChangedFiles, refreshGitStatus, reloadFileContent, file.path, effectiveContextId],
+  );
 
   const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
     if (!surfaceActive) return;
@@ -402,6 +419,209 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     enableOnContentEditable: true,
   }, [handleSave]);
 
+  const toolbarIconBtnClass =
+    'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none';
+  const floatingChromeBtnClass =
+    'flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground cursor-pointer select-none';
+
+  /** When the breadcrumb strip is hidden, surface preview + settings in the top-right overlay. */
+  const showFloatingMarkdownEditorChrome = !breadcrumbs || isPreview;
+
+  const renderMarkdownPreviewButton = (buttonClassName: string) =>
+    isMarkdown ? (
+      <button
+        type="button"
+        onClick={togglePreview}
+        className={buttonClassName}
+        title={isPreview ? 'Show Editor' : 'Show Preview'}
+        aria-label={isPreview ? 'Show Editor' : 'Show Preview'}
+      >
+        {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
+      </button>
+    ) : null;
+
+  const renderEditorSettingsMenu = (triggerClassName: string) => (
+    <Popover open={settingsOpen} onOpenChange={handleEditorSettingsPopoverOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={triggerClassName}
+          title="Editor Settings"
+          aria-label="Open editor settings"
+        >
+          <Settings2 className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-64 p-1.5 max-h-[80vh] overflow-y-auto"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Line Wrap
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Wrap long lines inside the editor instead of scrolling horizontally.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={lineWrap}
+            onCheckedChange={(checked) => {
+              void setLineWrap(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Auto Save
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Automatically saves the current file after 2 seconds of no typing.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={autoSave}
+            onCheckedChange={(checked) => {
+              void setAutoSave(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Bracket Matching
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Highlight matching brackets and show bracket pairs.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={bracketMatching}
+            onCheckedChange={(checked) => {
+              void setBracketMatching(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Minimap
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Show a minimap on the right side for quick navigation.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={minimap}
+            onCheckedChange={(checked) => {
+              void setMinimap(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Breadcrumbs
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Show breadcrumb navigation at the top of the editor.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={breadcrumbs}
+            onCheckedChange={(checked) => {
+              void setBreadcrumbs(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Line Highlight
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Highlight the current line and matching selections.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={lineHighlight}
+            onCheckedChange={(checked) => {
+              void setLineHighlight(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
+          <TooltipProvider delayDuration={150}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
+                  Git Integration
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
+                Show git changes and diff information in the editor.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <Switch
+            checked={gitIntegration}
+            onCheckedChange={(checked) => {
+              void setGitIntegration(!!checked);
+            }}
+            className="shrink-0"
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   return (
     <div ref={containerRef} className={cn('h-full w-full relative flex flex-col', className)}>
       {!surfaceActive || file.isLoading ? null : (
@@ -418,19 +638,18 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
             popoverRef={selectionPopover.popoverRef}
           />
 
-          <div className="absolute right-6 top-6 z-20 flex items-center gap-2">
-            {isMarkdown && (
-              <button
-                role="button"
-                onClick={togglePreview}
-                className="flex size-8 items-center justify-center rounded-md border border-border bg-muted/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-muted hover:text-foreground cursor-pointer select-none"
-                title={isPreview ? "Show Editor" : "Show Preview"}
-                aria-label={isPreview ? "Show Editor" : "Show Preview"}
-              >
-                {isPreview ? <FileText className="size-3.5" /> : <Eye className="size-3.5" />}
-              </button>
-            )}
-          </div>
+          {showFloatingMarkdownEditorChrome ? (
+            <div
+              className={cn(
+                'absolute top-6 z-20 flex items-center gap-2',
+                // Base editor minimap gutter is 50px; +8px gap — clears overlay when breadcrumbs strip is hidden.
+                minimap ? 'right-[calc(1.5rem+58px)]' : 'right-6',
+              )}
+            >
+              {renderMarkdownPreviewButton(floatingChromeBtnClass)}
+              {renderEditorSettingsMenu(floatingChromeBtnClass)}
+            </div>
+          ) : null}
         </>
       )}
 
@@ -502,193 +721,15 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   <button
                     type="button"
                     onClick={handleSearchClick}
-                    className="flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none"
+                    className={toolbarIconBtnClass}
                     title="Search (Cmd+F)"
                     aria-label="Search"
                   >
                     <Search className="size-3.5" />
                   </button>
 
-                  {/* Settings button */}
-                  <Popover open={settingsOpen} onOpenChange={handleEditorSettingsPopoverOpenChange}>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none"
-                        title="Editor Settings"
-                        aria-label="Open editor settings"
-                      >
-                        <Settings2 className="size-3.5" />
-                      </button>
-                    </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    sideOffset={8}
-                    className="w-64 p-1.5 max-h-[80vh] overflow-y-auto"
-                    onOpenAutoFocus={(event) => event.preventDefault()}
-                  >
-                    <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                      <TooltipProvider delayDuration={150}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                              Line Wrap
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                            Wrap long lines inside the editor instead of scrolling horizontally.
-                          </TooltipContent>
-                        </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={lineWrap}
-                    onCheckedChange={(checked) => {
-                      void setLineWrap(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Auto Save
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Automatically saves the current file after 2 seconds of no typing.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={autoSave}
-                    onCheckedChange={(checked) => {
-                      void setAutoSave(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Bracket Matching
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Highlight matching brackets and show bracket pairs.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={bracketMatching}
-                    onCheckedChange={(checked) => {
-                      void setBracketMatching(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Minimap
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Show a minimap on the right side for quick navigation.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={minimap}
-                    onCheckedChange={(checked) => {
-                      void setMinimap(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Breadcrumbs
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Show breadcrumb navigation at the top of the editor.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={breadcrumbs}
-                    onCheckedChange={(checked) => {
-                      void setBreadcrumbs(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Line Highlight
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Highlight the current line and matching selections.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={lineHighlight}
-                    onCheckedChange={(checked) => {
-                      void setLineHighlight(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2 rounded-md px-2 py-1">
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help text-[13px] font-medium leading-none text-popover-foreground">
-                          Git Integration
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" sideOffset={8} className="max-w-[220px]">
-                        Show git changes and diff information in the editor.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <Switch
-                    checked={gitIntegration}
-                    onCheckedChange={(checked) => {
-                      void setGitIntegration(!!checked);
-                    }}
-                    className="shrink-0"
-                  />
-                </div>
-              </PopoverContent>
-            </Popover>
+                  {renderMarkdownPreviewButton(toolbarIconBtnClass)}
+                  {renderEditorSettingsMenu(toolbarIconBtnClass)}
                 </div>
                 ) : null}
               </div>
@@ -711,6 +752,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   lineHighlight={lineHighlight}
                   gitIntegration={gitIntegration}
                   gitDiffSource={editorGitDiffSource}
+                  gitDiffRefreshNonce={gitDiffRefreshNonce}
+                  onGitGutterStateChanged={handleGitGutterStateChanged}
                   navigationTarget={navigationTarget}
                   onChange={handleEditorChange}
                   onCreateEditor={handleEditorCreate}

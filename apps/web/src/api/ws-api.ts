@@ -159,6 +159,11 @@ export interface GitFileDiffResponse {
   compare_ref: string | null;
 }
 
+export interface GitPatchChunkResponse {
+  success: boolean;
+  error?: string;
+}
+
 // Git 提交响应
 export interface GitCommitResponse {
   success: boolean;
@@ -999,11 +1004,47 @@ export const gitApi = {
     path: string,
     filePath: string,
     baseBranch?: string | null,
+    options?: { againstIndex?: boolean },
   ): Promise<GitFileDiffResponse> => {
     return wsRequest<GitFileDiffResponse>("git_file_diff", {
       path,
       file_path: filePath,
       base_branch: baseBranch ?? null,
+      against_index: options?.againstIndex ?? false,
+    });
+  },
+
+  /**
+   * 将单块 unified diff 应用到暂存区
+   */
+  stagePatchChunk: async (
+    path: string,
+    filePath: string,
+    patch: string,
+    fileStatus: string,
+  ): Promise<GitPatchChunkResponse> => {
+    return wsRequest<GitPatchChunkResponse>("git_stage_patch_chunk", {
+      path,
+      file_path: filePath,
+      patch,
+      file_status: fileStatus,
+    });
+  },
+
+  /**
+   * 逆向将单块 unified diff 应用到工作区（撤销未暂存改动）
+   */
+  restorePatchChunk: async (
+    path: string,
+    filePath: string,
+    patch: string,
+    fileStatus: string,
+  ): Promise<GitPatchChunkResponse> => {
+    return wsRequest<GitPatchChunkResponse>("git_restore_patch_chunk", {
+      path,
+      file_path: filePath,
+      patch,
+      file_status: fileStatus,
     });
   },
 
