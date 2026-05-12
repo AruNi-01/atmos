@@ -885,31 +885,19 @@ export const TerminalCanvasView: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="w-[320px] shrink-0 border-r border-border bg-muted/15">
-          <ScrollArea className="h-full">
-            <div className="p-5">
-              <div className="text-sm text-muted-foreground">
-                Click the + button in the top-right to import terminals from saved layouts or active tmux sessions.
-              </div>
-            </div>
-          </ScrollArea>
-        </aside>
-
-        <div className="min-h-0 min-w-0 flex-1 bg-muted/10 p-4">
-          <div className="h-full overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
-            <Tldraw
-              key={board?.guid || "terminal-canvas"}
-              snapshot={document.tldrawSnapshot ?? undefined}
-              overrides={TERMINAL_CANVAS_UI_OVERRIDES}
-              shapeUtils={shapeUtils}
-              onMount={(nextEditor) => {
-                disableUnsupportedExternalContent(nextEditor);
-                setEditor(nextEditor);
-              }}
-              components={tldrawComponents}
-            />
-          </div>
+      <div className="min-h-0 min-w-0 flex-1 bg-muted/10 p-4">
+        <div className="h-full overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
+          <Tldraw
+            key={board?.guid || "terminal-canvas"}
+            snapshot={document.tldrawSnapshot ?? undefined}
+            overrides={TERMINAL_CANVAS_UI_OVERRIDES}
+            shapeUtils={shapeUtils}
+            onMount={(nextEditor) => {
+              disableUnsupportedExternalContent(nextEditor);
+              setEditor(nextEditor);
+            }}
+            components={tldrawComponents}
+          />
         </div>
       </div>
     </div>
