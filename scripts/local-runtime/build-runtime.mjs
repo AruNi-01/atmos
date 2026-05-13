@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 const rootDir = resolve(import.meta.dirname, "../..");
 const cliCargoToml = join(rootDir, "apps/cli/Cargo.toml");
 const localInstallerPackageJson = join(rootDir, "packages/local-installer/package.json");
+const webEnvLocalPath = join(rootDir, "apps/web/.env.local");
 
 function fail(message) {
   console.error(message);
@@ -27,6 +28,24 @@ function run(command, args, options = {}) {
     error.exitCode = result.status ?? 1;
     throw error;
   }
+}
+
+function loadWebEnvVar(name) {
+  if (process.env[name]) return process.env[name];
+  if (!existsSync(webEnvLocalPath)) return undefined;
+
+  const content = readFileSync(webEnvLocalPath, "utf8");
+  const line = content
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .find((entry) => entry && !entry.startsWith("#") && entry.startsWith(`${name}=`));
+
+  if (!line) return undefined;
+
+  const rawValue = line.slice(name.length + 1).trim();
+  const quotedWithDouble = rawValue.startsWith('"') && rawValue.endsWith('"');
+  const quotedWithSingle = rawValue.startsWith("'") && rawValue.endsWith("'");
+  return quotedWithDouble || quotedWithSingle ? rawValue.slice(1, -1) : rawValue;
 }
 
 function parseArgs(argv) {
@@ -136,6 +155,7 @@ function buildStaticWebExport() {
       env: {
         ...process.env,
         BUILD_TARGET: "local-web",
+        NEXT_PUBLIC_TLDRAW_LICENSE_KEY: process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ?? loadWebEnvVar("NEXT_PUBLIC_TLDRAW_LICENSE_KEY"),
         ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
       },
     });

@@ -269,6 +269,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build local runtime
+        env:
+          NEXT_PUBLIC_TLDRAW_LICENSE_KEY: ${{ secrets.TLDRAW_LICENSE_KEY }}
         run: node ./scripts/local-runtime/build-runtime.mjs --target ${{ matrix.target }} --version ${{ needs.resolve-release-config.outputs.release_version }} --output-dir ${{ runner.temp }}/local-runtime
 
       - name: Upload CI artifact
