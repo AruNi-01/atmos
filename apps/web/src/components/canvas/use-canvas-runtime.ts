@@ -2,13 +2,13 @@
 
 import { create } from "zustand";
 
-interface TerminalCanvasRuntimeState {
+interface CanvasRuntimeState {
   activeShapeId: string | null;
   setActiveShapeId: (shapeId: string | null) => void;
   reset: () => void;
 }
 
-export const useTerminalCanvasRuntime = create<TerminalCanvasRuntimeState>((set) => ({
+export const useCanvasRuntime = create<CanvasRuntimeState>((set) => ({
   activeShapeId: null,
   setActiveShapeId: (shapeId) => set({ activeShapeId: shapeId }),
   reset: () => set({ activeShapeId: null }),

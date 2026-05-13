@@ -11,6 +11,7 @@ import {
   Plus,
   Folder,
   Layers,
+  Frame,
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -174,6 +175,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
+    const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
@@ -746,12 +748,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     label: string;
                                     icon: typeof FolderKanban;
                                     path?: string;
-                                    kind?: 'kanban' | 'new-workspace';
+                                    kind?: 'kanban' | 'new-workspace' | 'canvas';
                                 }> = [
                                     { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
                                     { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
                                     { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
                                     { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
+                                    { id: 'canvas', label: 'Canvas', icon: Frame, kind: 'canvas' },
                                     { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' },
                                     { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' },
                                 ];
@@ -761,7 +764,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     <div className="grid grid-cols-1 @[200px]:grid-cols-2">
                                         {managementItems.map((item, index) => {
                                             const Icon = item.icon;
-                                            const isActive = currentView === item.id;
+                                            const isActive = currentView === item.id || (item.kind === 'canvas' && canvasOpen);
                                             const isLeftColumnOnTwoCol = index % 2 === 0;
                                             const isLastItemAlone = isOddCount && index === totalItems - 1;
                                             const cardClassName = cn(
@@ -832,6 +835,18 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                             </div>
                                                         )}
                                                     />
+                                                );
+                                            }
+
+                                            if (item.kind === 'canvas') {
+                                                return (
+                                                    <div
+                                                        key={item.id}
+                                                        onClick={() => void setCanvasOpen(true)}
+                                                        className={cardClassName}
+                                                    >
+                                                        {cardInner}
+                                                    </div>
                                                 );
                                             }
 

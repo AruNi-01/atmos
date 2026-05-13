@@ -22,6 +22,7 @@ export const centerStageParams = {
   tab: parseAsString.withDefault("terminal"),
   wikiPage: parseAsString,
   newWorkspace: parseAsBoolean.withDefault(false),
+  canvas: parseAsBoolean.withDefault(false),
 };
 
 // ---------------------------------------------------------------------------
@@ -42,15 +43,6 @@ export type WorkspacesView = "recent" | "archived";
 export const workspacesParams = {
   view: parseAsStringEnum<WorkspacesView>(["recent", "archived"]).withDefault("recent"),
   q: parseAsString.withDefault(""),
-};
-
-// ---------------------------------------------------------------------------
-// Terminals – manager / canvas tab
-// ---------------------------------------------------------------------------
-export type TerminalsView = "manager" | "canvas";
-
-export const terminalsParams = {
-  terminalView: parseAsStringEnum<TerminalsView>(["manager", "canvas"]).withDefault("manager"),
 };
 
 // ---------------------------------------------------------------------------

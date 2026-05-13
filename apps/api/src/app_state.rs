@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use core_service::{
-    AgentHooksService, AgentService, AgentSessionService, MessagePushService, NotificationService,
-    ProjectService, TerminalCanvasService, TerminalService, TestService, WorkspaceService,
+    AgentHooksService, AgentService, AgentSessionService, CanvasService, MessagePushService,
+    NotificationService, ProjectService, TerminalService, TestService, WorkspaceService,
     WsMessageService,
 };
 use infra::{WsService, WsServiceConfig};
@@ -11,7 +11,7 @@ use token_usage::TokenUsageService;
 pub struct AppServices {
     pub test_service: Arc<TestService>,
     pub project_service: Arc<ProjectService>,
-    pub terminal_canvas_service: Arc<TerminalCanvasService>,
+    pub canvas_service: Arc<CanvasService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub agent_service: Arc<AgentService>,
     pub agent_session_service: Arc<AgentSessionService>,
@@ -26,7 +26,7 @@ pub struct AppServices {
 pub struct AppState {
     pub test_service: Arc<TestService>,
     pub project_service: Arc<ProjectService>,
-    pub terminal_canvas_service: Arc<TerminalCanvasService>,
+    pub canvas_service: Arc<CanvasService>,
     pub workspace_service: Arc<WorkspaceService>,
     pub agent_service: Arc<AgentService>,
     pub agent_session_service: Arc<AgentSessionService>,
@@ -44,7 +44,7 @@ impl Clone for AppState {
         Self {
             test_service: Arc::clone(&self.test_service),
             project_service: Arc::clone(&self.project_service),
-            terminal_canvas_service: Arc::clone(&self.terminal_canvas_service),
+            canvas_service: Arc::clone(&self.canvas_service),
             workspace_service: Arc::clone(&self.workspace_service),
             agent_service: Arc::clone(&self.agent_service),
             agent_session_service: Arc::clone(&self.agent_session_service),
@@ -71,7 +71,7 @@ impl AppState {
         Self {
             test_service: services.test_service,
             project_service: services.project_service,
-            terminal_canvas_service: services.terminal_canvas_service,
+            canvas_service: services.canvas_service,
             workspace_service: services.workspace_service,
             agent_service: services.agent_service,
             agent_session_service: services.agent_session_service,

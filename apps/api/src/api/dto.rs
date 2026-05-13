@@ -48,7 +48,7 @@ pub struct TerminalLayoutResponse {
 }
 
 #[derive(Debug, Serialize)]
-pub struct TerminalCanvasBoardResponse {
+pub struct CanvasBoardResponse {
     pub guid: String,
     pub slug: String,
     pub name: String,
@@ -57,6 +57,6 @@ pub struct TerminalCanvasBoardResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UpdateTerminalCanvasBoardPayload {
+pub struct UpdateCanvasBoardPayload {
     pub document_json: String,
 }

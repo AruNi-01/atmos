@@ -1,12 +1,12 @@
-# TEST · APP-014: Terminal Canvas
+# TEST · APP-014: Canvas
 
-> Test Plan · how we verify the global Terminal Canvas experience across backend persistence, frontend canvas behavior, and live terminal attachment. References PRD `APP-014` and TECH `APP-014`.
+> Test Plan · how we verify the global Canvas experience across backend persistence, frontend canvas behavior, and live terminal attachment. References PRD `APP-014` and TECH `APP-014`.
 
 ## Test strategy
 
 - **Unit / integration**: validate backend default-board creation, schema validation, and save/load round-trips for the persisted canvas document.
-- **Frontend integration**: validate URL mode switching, document hydration, import parsing, and canvas store persistence behavior.
-- **End-to-end / browser smoke**: validate the visible `/terminals` manager/canvas switch, note creation, terminal import, source reveal, and persistence across reload.
+- **Frontend integration**: validate `canvas` query persistence (`?canvas=true`), document hydration, import parsing, and canvas store persistence behavior.
+- **End-to-end / browser smoke**: validate the immersive Canvas overlay (`?canvas=true`), note creation, terminal import, source reveal, and persistence across reload.
 - **Manual-only**:
   - live terminal interaction quality inside a tldraw custom shape, because focus, resize, and xterm rendering are hard to prove cheaply without a dedicated browser harness
   - performance with many cards on a realistic machine, because this depends on real browser and tmux behavior
@@ -29,19 +29,19 @@
 
 ## Scenarios
 
-### S1 — Happy path: user opens Terminal Canvas from the global terminals destination
+### S1 — Happy path: user opens the immersive Canvas overlay from Management Center
 
 - **Level**: Frontend integration / browser smoke
-- **Given**: the user navigates to `/terminals`
-- **When**: the user switches from `manager` mode to `canvas` mode
-- **Then**: the canvas view renders inside the existing terminals destination, without creating a second top-level route
-- **Signals**: mode switch visible, canvas container rendered, URL state reflects `terminalView=canvas`
+- **Given**: the user is in the main workspace shell with Management Center available in the left sidebar
+- **When**: the user expands Management Center and chooses **Canvas**
+- **Then**: a full-screen Canvas overlay opens above the entire app (including sidebar and header), with the default tldraw surface and controls visible
+- **Signals**: overlay covers the viewport, canvas mounts and loads the persisted board, URL reflects `canvas=true`; collapsing (SharePanel control or clearing the query param) removes the overlay and returns focus to the prior surface
 
 ### S2 — Happy path: import terminal panes from more than one source context
 
 - **Level**: Browser smoke
 - **Given**: at least one project terminal layout and one workspace terminal layout exist with persisted panes
-- **When**: the user imports panes from both contexts into Terminal Canvas
+- **When**: the user imports panes from both contexts into Canvas
 - **Then**: two or more terminal cards appear on the same canvas and each card shows the correct source identity
 - **Signals**: terminal cards rendered, source badges visible, imported card count matches selection
 
@@ -96,10 +96,10 @@
 ### S9 — Happy path: backend lazily creates the default board on first access
 
 - **Level**: Rust integration
-- **Given**: no `terminal_canvas_board` row exists
-- **When**: the client requests `GET /api/terminal-canvas/default`
+- **Given**: no `canvas_board` row exists
+- **When**: the client requests `GET /api/canvas/default`
 - **Then**: the backend returns a valid default board document and persists it
-- **Signals**: HTTP 200, response body contains `schema=terminal-canvas.v1`, database row created with `slug=default`
+- **Signals**: HTTP 200, response body contains `schema=canvas.v1`, database row created with `slug=default`
 
 ### S10 — Failure: backend rejects malformed document payloads
 
@@ -130,7 +130,7 @@
 - **Level**: Browser smoke
 - **Given**: the user is in a workspace/project terminal surface
 - **When**: the user uses a future quick-add action
-- **Then**: the selected pane appears in Terminal Canvas without opening the import picker
+- **Then**: the selected pane appears in Canvas without opening the import picker
 - **Signals**: new terminal card added to the default board
 
 ## Performance & load budgets

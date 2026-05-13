@@ -1,53 +1,59 @@
-# TECH · APP-014: Terminal Canvas
+# TECH · APP-014: Canvas
 
-> Technical Design · HOW. Implements PRD `APP-014: Terminal Canvas`.
+> Technical Design · HOW. Implements PRD `APP-014: Canvas`.
 
 ## Scope summary
 
-This document implements **M1–M10** from the PRD:
+This document implements **M1–M12** from the PRD:
 
-- M1 global Terminal Canvas view
-- M2 cross-workspace / cross-project terminal import
-- M3 free movement and resize on an infinite canvas
-- M4 plain-text notes
-- M5 clear source identity on each terminal card
-- M6 live terminal interaction from the canvas
-- M7 reveal source workspace/project
-- M8 persistence across sessions
-- M9 lightweight grouping / framing
-- M10 acceptable performance with multiple cards
+- M1 global Canvas as an immersive full-screen overlay launched from Management Center
+- M2 collapse / dismiss control inside the overlay
+- M3 cross-workspace / cross-project terminal import
+- M4 free movement, resize, and full tldraw default toolset (page menu, tools palette, style panel, minimap, undo/redo)
+- M5 built-in tldraw shapes (notes, frames, drawings, geo, text, …)
+- M6 clear source identity on each terminal card
+- M7 live terminal interaction from the canvas
+- M8 reveal source workspace/project
+- M9 canvas document persistence across sessions
+- M10 tldraw user preferences persistence across reloads
+- M11 Atmos↔canvas theme sync with user override
+- M12 acceptable performance with multiple cards
 
 `N1` (fast add from existing terminal UI) is designed but lands after the core canvas path. `N2–N4` are deferred.
 
-The key design choice is:
+The key design choices are:
 
-- use **tldraw** for the canvas layer
+- use **tldraw** for the canvas layer, with the **full default tldraw UI** (no tools/actions/components are stripped). Custom Atmos behavior is layered via a custom shape util only.
 - keep the existing **tmux + `/ws/terminal/:sessionId`** runtime for live terminal I/O
 - use **REST** for canvas document bootstrap and persistence because this is explicit persisted state, not streaming session logic
+- tldraw user preferences (theme/color scheme, page list state, snap mode, animation speed, …) are persisted by tldraw's default `getUserPreferences()` machinery in `localStorage` — Atmos does not need its own preferences store.
+- Atmos theme (from `next-themes`) is propagated into tldraw via `editor.user.updateUserPreferences({ colorScheme })` so the two stay in sync. Users may still pick a different color scheme from tldraw's own menu; that override remains until the Atmos theme changes again.
 
 ## Architecture overview
 
 ```text
 apps/web
-  ├─ CenterStage.tsx
-  ├─ TerminalsView.tsx
-  └─ TerminalCanvasView.tsx
-       ├─ Tldraw editor
-       ├─ custom terminal-card shape
-       ├─ use-terminal-canvas-board.ts
-       └─ existing Terminal.tsx
+  ├─ (app)/layout.tsx                 # mounts <CanvasOverlay />
+  ├─ components/layout/LeftSidebar    # Management Center "Canvas" item
+  ├─ components/canvas/CanvasOverlay  # full-screen overlay shell
+  └─ components/canvas/CanvasView     # tldraw editor + import + theme bridge
+       ├─ Tldraw editor (full default UI)
+       ├─ custom canvas-terminal shape
+       ├─ CanvasThemeBridge (next-themes ↔ tldraw user prefs)
+       ├─ use-canvas-board.ts
+       └─ existing terminal Terminal.tsx
 
 apps/api
-  └─ /api/terminal-canvas/default
+  └─ /api/canvas/default
 
 crates/core-service
-  └─ TerminalCanvasService
+  └─ CanvasService
 
 crates/infra
-  └─ terminal_canvas_board table + repo
+  └─ canvas_board table + repo
 
 runtime terminal traffic
-  TerminalCanvasView → existing /ws/terminal/:sessionId → terminal_handler.rs → TerminalService → tmux
+  CanvasView → existing /ws/terminal/:sessionId → terminal_handler.rs → TerminalService → tmux
 ```
 
 ### Existing code reused
@@ -64,16 +70,19 @@ runtime terminal traffic
 
 ### Resolved decisions
 
-- **D1**: Terminal Canvas lives under the existing global `/terminals` destination, not a brand-new top-level route.
-- **D2**: `/terminals` gains a **manager / canvas** view switch. `TerminalManagerView` remains; `TerminalCanvasView` is added beside it.
-- **D3**: tldraw is the canvas engine. We start from the quick-start React integration (`Tldraw` + `tldraw.css`) and layer Atmos-specific behavior via a custom shape util.
+- **D1**: Canvas is an immersive full-screen overlay, not a route. It lives at the app layout level (next to `<WorkspaceCreationOverlay />`) and is opened by setting the `canvas=true` URL query param. Trigger is the **Canvas** item in Management Center.
+- **D2**: Canvas is *not* an embedded tab inside `/terminals`. The previous `manager / canvas` tab switch is removed; `/terminals` simplifies to just `TerminalManagerView`.
+- **D3**: tldraw is the canvas engine. We start from the quick-start React integration (`Tldraw` + `tldraw.css`) and layer Atmos-specific behavior via a custom shape util only. **No** `components` / `overrides` / `tools` filtering is applied — the full default tldraw UI ships (main menu, page menu, tools palette, style panel, minimap, helpers, …).
 - **D4**: V1 persists one logical board: `default`. The storage model allows rows, but the product surface only exposes one board.
-- **D5**: Only the **active** terminal card mounts a full live xterm instance by default. Other cards render a lightweight placeholder shell. This satisfies M6 while protecting M10.
+- **D5**: Only the **active** terminal card mounts a full live xterm instance by default. Other cards render a lightweight placeholder shell. This satisfies M7 while protecting M12.
 - **D6**: No new app-level `WsAction` variants are added in v1. Existing terminal websocket transport is reused as-is.
-- **D7**: Viewport state (camera position and zoom) is persisted and restored in v1. This provides a better user experience when returning to the canvas.
-- **D8**: V1 import flow supports importing panes from all terminal tabs (both the default `"terminal"` tab and any custom `"terminal-tab:*"` tabs created by the user). The picker should display tabs as collapsible sections to make the organization clear.
+- **D7**: Viewport state (camera position and zoom) is persisted as part of the tldraw snapshot.
+- **D8**: V1 import flow supports importing panes from all terminal tabs (both the default `"terminal"` tab and any custom `"terminal-tab:*"` tabs created by the user). The picker is rendered as a modal dialog opened from a `+` icon button on top of the overlay.
 - **D9**: When a terminal card's referenced tmux window no longer exists, the card enters a "broken reference" state with a visual error indicator and a remove action. It does not attempt to mount a live terminal.
-- **D10**: Multi-page support is enabled in tldraw. Users can create multiple pages within the canvas to organize different terminal layouts. Pages are persisted as part of the tldraw snapshot.
+- **D10**: Multi-page support is enabled in tldraw. Users can create multiple pages within the canvas to organize different layouts. Pages are persisted as part of the tldraw snapshot.
+- **D11**: Canvas user preferences (color scheme, snap mode, animation speed, page list view state, …) use tldraw's default `localStorage`-backed `TLUserPreferences`. No Atmos-side preferences store is introduced.
+- **D12**: Atmos theme is the source of truth for canvas color scheme. A `CanvasThemeBridge` component inside `<Tldraw>` reads `useTheme()` from `next-themes` and on change calls `editor.user.updateUserPreferences({ colorScheme })`. Users may still override the canvas color scheme from tldraw's own preferences menu; that choice persists in tldraw's localStorage until the Atmos theme changes again, at which point Atmos re-asserts.
+- **D13**: Schema name is `canvas.v1` (renamed from the earlier `terminal-canvas.v1`) and shape type is `canvas-terminal` (renamed from `terminal-canvas-terminal`). This keeps the naming aligned with the broader Canvas surface that may host non-terminal widgets in future phases.
 
 ## Module-by-module design
 
@@ -83,14 +92,14 @@ runtime terminal traffic
 
 Add a new table for the persisted canvas document:
 
-- file: `crates/infra/src/db/migration/m20260512_000024_create_terminal_canvas_board.rs`
-- entity: `crates/infra/src/db/entities/terminal_canvas_board.rs`
-- repo: `crates/infra/src/db/repo/terminal_canvas_board_repo.rs`
+- file: `crates/infra/src/db/migration/m20260512_000024_create_canvas_board.rs`
+- entity: `crates/infra/src/db/entities/canvas_board.rs`
+- repo: `crates/infra/src/db/repo/canvas_board_repo.rs`
 
 The table stores one JSON document per board row. V1 only uses the `default` row.
 
 ```sql
-CREATE TABLE terminal_canvas_board (
+CREATE TABLE canvas_board (
   guid TEXT PRIMARY KEY,
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
@@ -109,11 +118,11 @@ Notes:
 
 #### Repo API
 
-`TerminalCanvasBoardRepo` should expose:
+`CanvasBoardRepo` should expose:
 
 ```rust
-pub async fn get_by_slug(&self, slug: &str) -> Result<Option<terminal_canvas_board::Model>>;
-pub async fn upsert_default(&self, name: &str, document_json: String) -> Result<terminal_canvas_board::Model>;
+pub async fn get_by_slug(&self, slug: &str) -> Result<Option<canvas_board::Model>>;
+pub async fn upsert_default(&self, name: &str, document_json: String) -> Result<canvas_board::Model>;
 ```
 
 ### crates/core-engine
@@ -126,13 +135,13 @@ We intentionally reuse:
 - existing terminal session attach/create behavior
 - existing project/workspace filesystem and path knowledge already surfaced into the web app
 
-This keeps the engine layer clean: Terminal Canvas is a product-level orchestration feature, not a new terminal capability.
+This keeps the engine layer clean: Canvas is a product-level orchestration feature, not a new terminal capability.
 
 ### crates/core-service
 
 Add a dedicated service:
 
-- file: `crates/core-service/src/service/terminal_canvas.rs`
+- file: `crates/core-service/src/service/canvas.rs`
 
 Export from:
 
@@ -149,7 +158,7 @@ Export from:
 #### Service API
 
 ```rust
-pub struct TerminalCanvasBoardDto {
+pub struct CanvasBoardDto {
     pub guid: String,
     pub slug: String,
     pub name: String,
@@ -157,20 +166,20 @@ pub struct TerminalCanvasBoardDto {
     pub updated_at: String,
 }
 
-pub struct SaveTerminalCanvasBoardReq {
+pub struct SaveCanvasBoardReq {
     pub document_json: String,
 }
 
-impl TerminalCanvasService {
-    pub async fn get_default_board(&self) -> Result<TerminalCanvasBoardDto>;
-    pub async fn save_default_board(&self, req: SaveTerminalCanvasBoardReq) -> Result<TerminalCanvasBoardDto>;
+impl CanvasService {
+    pub async fn get_default_board(&self) -> Result<CanvasBoardDto>;
+    pub async fn save_default_board(&self, req: SaveCanvasBoardReq) -> Result<CanvasBoardDto>;
 }
 ```
 
 #### Validation rules
 
 - `document_json` must parse as JSON
-- top-level `schema` must equal `terminal-canvas.v1`
+- top-level `schema` must equal `canvas.v1`
 - top-level `boardSlug` must equal `default`
 - the service does **not** deeply validate every tldraw shape in v1; that stays frontend-owned
 
@@ -180,16 +189,16 @@ This mirrors the current terminal layout model where the backend stores the layo
 
 Add a dedicated module:
 
-- `apps/api/src/api/terminal_canvas/mod.rs`
-- `apps/api/src/api/terminal_canvas/handlers.rs`
+- `apps/api/src/api/canvas/mod.rs`
+- `apps/api/src/api/canvas/handlers.rs`
 
 Wire routes in the main router next to other feature modules.
 
 #### REST endpoints
 
 ```text
-GET /api/terminal-canvas/default
-PUT /api/terminal-canvas/default
+GET /api/canvas/default
+PUT /api/canvas/default
 ```
 
 #### DTOs
@@ -198,7 +207,7 @@ Add shared DTOs in `apps/api/src/api/dto.rs`:
 
 ```rust
 #[derive(Debug, Serialize)]
-pub struct TerminalCanvasBoardResponse {
+pub struct CanvasBoardResponse {
     pub guid: String,
     pub slug: String,
     pub name: String,
@@ -207,7 +216,7 @@ pub struct TerminalCanvasBoardResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UpdateTerminalCanvasBoardPayload {
+pub struct UpdateCanvasBoardPayload {
     pub document_json: String,
 }
 ```
@@ -273,7 +282,7 @@ Add the dependency to `apps/web/package.json`:
 
 Implementation lives in a client-only surface:
 
-- `apps/web/src/components/terminal-canvas/TerminalCanvasView.tsx`
+- `apps/web/src/components/canvas/CanvasView.tsx`
 
 Render pattern:
 
@@ -290,20 +299,20 @@ The canvas must live inside an explicitly sized container; it should not assume 
 Recommended structure:
 
 ```text
-apps/web/src/components/terminal-canvas/
-  TerminalCanvasView.tsx
-  TerminalCanvasToolbar.tsx
-  TerminalCanvasModeToggle.tsx
+apps/web/src/components/canvas/
+  CanvasView.tsx
+  CanvasToolbar.tsx
+  CanvasModeToggle.tsx
   TerminalSourcePickerDialog.tsx
   TerminalCardInner.tsx
   shapes/
     terminal-card-types.ts
     TerminalCardShapeUtil.tsx
   lib/
-    terminal-canvas-document.ts
-    terminal-canvas-import.ts
+    canvas-document.ts
+    canvas-import.ts
   hooks/
-    use-terminal-canvas-store.ts
+    use-canvas-runtime.ts
 ```
 
 Also extract shared terminal-layout parsing out of `use-terminal-store.ts`:
@@ -327,7 +336,7 @@ Use built-in tldraw shapes where possible:
 Add one custom shape type for live terminals:
 
 ```ts
-export type TerminalCanvasSource =
+export type CanvasTerminalSource =
   | {
       scope: "workspace";
       contextId: string;
@@ -354,12 +363,12 @@ export type TerminalCanvasSource =
 export interface TerminalCardShapeProps {
   w: number;
   h: number;
-  source: TerminalCanvasSource;
+  source: CanvasTerminalSource;
   title: string;
 }
 
-export interface TerminalCanvasDocument {
-  schema: "terminal-canvas.v1";
+export interface CanvasBoardDocument {
+  schema: "canvas.v1";
   boardSlug: "default";
   tldrawSnapshot: unknown;
 }
@@ -392,10 +401,10 @@ This is the main M10 decision. We avoid mounting N xterm instances just because 
 
 #### Active card registry
 
-`use-terminal-canvas-store.ts` should keep ephemeral runtime state separate from persisted board state:
+`use-canvas-runtime.ts` should keep ephemeral runtime state separate from persisted board state:
 
 ```ts
-interface TerminalCanvasRuntimeState {
+interface CanvasRuntimeState {
   activeShapeId: string | null;
   mountedSessions: Record<string, string>; // shapeId -> sessionId
 }
@@ -449,20 +458,20 @@ Reveal source is a pure router action:
 - workspace → `/workspace?id=<guid>`
 - project → `/project?id=<guid>`
 
-This is implemented in `TerminalCanvasView.tsx` / `TerminalCardInner.tsx` via the existing app router helpers.
+This is implemented in `CanvasView.tsx` / `TerminalCardInner.tsx` via the existing app router helpers.
 
 #### Persistence flow
 
-`use-terminal-canvas-store.ts` loads once on entry:
+`use-canvas-runtime.ts` loads once on entry:
 
 ```ts
-const board = await terminalCanvasApi.getDefault();
+const board = await canvasApi.getDefault();
 ```
 
 Then saves debounced updates:
 
 ```ts
-await terminalCanvasApi.updateDefault({ document_json });
+await canvasApi.updateDefault({ document_json });
 ```
 
 Persistence is triggered on:
@@ -502,19 +511,19 @@ Do **not** move tldraw-specific state or API logic into `packages/ui`.
 ### Persisted backend record
 
 ```rust
-pub struct TerminalCanvasBoard {
+pub struct CanvasBoard {
     pub guid: String,
     pub slug: String,          // "default"
-    pub name: String,          // "Terminal Canvas"
-    pub document_json: String, // serialized TerminalCanvasDocument
+    pub name: String,          // "Canvas"
+    pub document_json: String, // serialized CanvasBoardDocument
 }
 ```
 
 ### Persisted frontend document
 
 ```ts
-interface TerminalCanvasDocument {
-  schema: "terminal-canvas.v1";
+interface CanvasBoardDocument {
+  schema: "canvas.v1";
   boardSlug: "default";
   tldrawSnapshot: unknown;
 }
@@ -555,8 +564,8 @@ The source-of-truth terminal runtime remains tmux plus the existing terminal web
 ### REST
 
 ```text
-GET /api/terminal-canvas/default
-PUT /api/terminal-canvas/default
+GET /api/canvas/default
+PUT /api/canvas/default
 ```
 
 Request / response shape:
@@ -599,10 +608,10 @@ This reuses the backend in `apps/api/src/api/ws/terminal_handler.rs`.
 
 ## Rollout plan
 
-1. **Infra + service**: add `terminal_canvas_board` table, repo, service, and API endpoints.
-2. **Canvas document client**: add `terminalCanvasApi`, `use-terminal-canvas-store`, and the shared `terminal-layout-document.ts` parser extraction.
+1. **Infra + service**: add `canvas_board` table, repo, service, and API endpoints.
+2. **Canvas document client**: add `canvasApi`, `use-canvas-runtime`, and the shared `terminal-layout-document.ts` parser extraction.
 3. **Terminals entry integration**: replace the `/terminals` center-stage branch with `TerminalsView` and add the manager/canvas URL param.
-4. **tldraw shell**: mount `TerminalCanvasView` with notes and frames only, load/save the document successfully.
+4. **tldraw shell**: mount `CanvasView` with notes and frames only, load/save the document successfully.
 5. **Terminal card shape**: add import flow, custom shape util, active-card live attachment, and reveal-source action.
 6. **Performance pass**: ensure inactive cards remain lightweight and only the active card mounts a live terminal.
 7. **Phase 2 follow-up**: add fast-add actions from existing `TerminalGrid` surfaces (`N1`).
@@ -617,7 +626,7 @@ This reuses the backend in `apps/api/src/api/ws/terminal_handler.rs`.
 
 ## Dependencies & compatibility
 
-- Depends on: `APP-014_terminal-canvas/PRD.md`
+- Depends on: `APP-014_canvas/PRD.md`
 - External frontend dependency: `tldraw`
 - Reuses existing dependencies already in `apps/web/package.json`:
   - `@xterm/xterm`

@@ -9,42 +9,42 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(TerminalCanvasBoard::Table)
+                    .table(CanvasBoard::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(TerminalCanvasBoard::Guid)
+                        ColumnDef::new(CanvasBoard::Guid)
                             .string()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(TerminalCanvasBoard::CreatedAt)
+                        ColumnDef::new(CanvasBoard::CreatedAt)
                             .date_time()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(TerminalCanvasBoard::UpdatedAt)
+                        ColumnDef::new(CanvasBoard::UpdatedAt)
                             .date_time()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(TerminalCanvasBoard::IsDeleted)
+                        ColumnDef::new(CanvasBoard::IsDeleted)
                             .boolean()
                             .not_null()
                             .default(false),
                     )
                     .col(
-                        ColumnDef::new(TerminalCanvasBoard::Slug)
+                        ColumnDef::new(CanvasBoard::Slug)
                             .string()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(TerminalCanvasBoard::Name)
+                        ColumnDef::new(CanvasBoard::Name)
                             .string()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(TerminalCanvasBoard::DocumentJson)
+                        ColumnDef::new(CanvasBoard::DocumentJson)
                             .text()
                             .not_null(),
                     )
@@ -55,9 +55,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx-terminal_canvas_board-slug")
-                    .table(TerminalCanvasBoard::Table)
-                    .col(TerminalCanvasBoard::Slug)
+                    .name("idx-canvas_board-slug")
+                    .table(CanvasBoard::Table)
+                    .col(CanvasBoard::Slug)
                     .unique()
                     .if_not_exists()
                     .to_owned(),
@@ -69,14 +69,14 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(TerminalCanvasBoard::Table).to_owned())
+            .drop_table(Table::drop().table(CanvasBoard::Table).to_owned())
             .await?;
         Ok(())
     }
 }
 
 #[derive(DeriveIden)]
-enum TerminalCanvasBoard {
+enum CanvasBoard {
     Table,
     Guid,
     CreatedAt,

@@ -78,7 +78,7 @@ export interface TerminalLayoutResponse {
   maximized_terminal_id?: string | null;
 }
 
-export interface TerminalCanvasBoardResponse {
+export interface CanvasBoardResponse {
   guid: string;
   slug: string;
   name: string;
@@ -817,13 +817,13 @@ export const workspaceLayoutApi = {
   },
 };
 
-export const terminalCanvasApi = {
-  getDefaultBoard: async (): Promise<TerminalCanvasBoardResponse> => {
-    return fetchApi<TerminalCanvasBoardResponse>("/api/terminal-canvas/default");
+export const canvasApi = {
+  getDefaultBoard: async (): Promise<CanvasBoardResponse> => {
+    return fetchApi<CanvasBoardResponse>("/api/canvas/default");
   },
 
-  updateDefaultBoard: async (documentJson: string): Promise<TerminalCanvasBoardResponse> => {
-    return fetchApi<TerminalCanvasBoardResponse>("/api/terminal-canvas/default", {
+  updateDefaultBoard: async (documentJson: string): Promise<CanvasBoardResponse> => {
+    return fetchApi<CanvasBoardResponse>("/api/canvas/default", {
       method: "PUT",
       body: JSON.stringify({ document_json: documentJson }),
     });
