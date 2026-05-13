@@ -87,6 +87,7 @@ interface TerminalStore {
   
   // Tmux window tracking
   setTmuxWindowName: (workspaceId: string, paneId: string, tmuxWindowName: string, terminalTabId?: string) => void;
+  markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;
   
   // Dynamic title (from shell shim OSC sequences)
   setDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string, terminalTabId?: string) => void;
@@ -105,6 +106,7 @@ interface TerminalStore {
   getProjectWikiPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   setProjectWikiDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
   setProjectWikiPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
+  markProjectWikiPaneAttached: (workspaceId: string, paneId: string) => void;
   toggleProjectWikiMaximize: (workspaceId: string, id: string) => void;
 
   // Code Review scope (separate from main Terminal and Project Wiki)
@@ -124,6 +126,7 @@ interface TerminalStore {
   getCodeReviewPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
   setCodeReviewDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
   setCodeReviewPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
+  markCodeReviewPaneAttached: (workspaceId: string, paneId: string) => void;
   toggleCodeReviewMaximize: (workspaceId: string, id: string) => void;
   splitCodeReviewTerminal: (workspaceId: string, id: string, direction: MosaicDirection, agent?: TerminalPaneAgent) => string | null;
 }
@@ -1254,6 +1257,28 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     get().saveToBackend(workspaceId);
   },
 
+  markPaneAttached: (workspaceId, paneId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const panes = get().workspacePanes[scopeKey];
+    const pane = panes?.[paneId];
+    if (!pane || !pane.isNewPane) return;
+
+    set((state) => ({
+      workspacePanes: {
+        ...state.workspacePanes,
+        [scopeKey]: {
+          ...state.workspacePanes[scopeKey],
+          [paneId]: {
+            ...pane,
+            isNewPane: false,
+          },
+        },
+      },
+    }));
+
+    get().saveToBackend(workspaceId);
+  },
+
   setDynamicTitle: (workspaceId, paneId, dynamicTitle, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     const panes = get().workspacePanes[scopeKey];
@@ -1475,6 +1500,24 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       },
     }));
   },
+  markProjectWikiPaneAttached: (workspaceId, paneId) => {
+    const panes = get().projectWikiPanes[workspaceId];
+    const pane = panes?.[paneId];
+    if (!pane || !pane.isNewPane) return;
+
+    set((state) => ({
+      projectWikiPanes: {
+        ...state.projectWikiPanes,
+        [workspaceId]: {
+          ...state.projectWikiPanes[workspaceId],
+          [paneId]: {
+            ...pane,
+            isNewPane: false,
+          },
+        },
+      },
+    }));
+  },
   setProjectWikiPaneAgent: (workspaceId, paneId, agent) => {
     const panes = get().projectWikiPanes[workspaceId];
     if (!panes?.[paneId]) return;
@@ -1618,6 +1661,24 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         [workspaceId]: {
           ...panes,
           [paneId]: { ...panes[paneId], dynamicTitle },
+        },
+      },
+    }));
+  },
+  markCodeReviewPaneAttached: (workspaceId, paneId) => {
+    const panes = get().codeReviewPanes[workspaceId];
+    const pane = panes?.[paneId];
+    if (!pane || !pane.isNewPane) return;
+
+    set((state) => ({
+      codeReviewPanes: {
+        ...state.codeReviewPanes,
+        [workspaceId]: {
+          ...state.codeReviewPanes[workspaceId],
+          [paneId]: {
+            ...pane,
+            isNewPane: false,
+          },
         },
       },
     }));
