@@ -485,6 +485,7 @@ const CenterStage: React.FC = () => {
   const previousTerminalContextRef = React.useRef<string | null>(null);
 
   const centerWikiTabEnabled = useExperimentSettings((s) => s.centerWikiTabEnabled);
+  const experimentPrefsLoaded = useExperimentSettings((s) => s.loaded);
   const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
   React.useEffect(() => {
     void loadExperimentSettings();
@@ -497,8 +498,16 @@ const CenterStage: React.FC = () => {
   // --- URL-synced tab state ---
   const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl }, setUrlParams] = useQueryStates(centerStageParams);
 
+  /** Until experiment prefs load, preserve `tab=wiki` from the URL so we do not strip deep links. */
+  const wikiCenterEligible = React.useMemo(() => {
+    if (experimentPrefsLoaded) return centerWikiTabEnabled;
+    return tabFromUrl === "wiki";
+  }, [experimentPrefsLoaded, centerWikiTabEnabled, tabFromUrl]);
+
   const resolvedTab = React.useMemo(() => {
-    if (tabFromUrl === "wiki" && !centerWikiTabEnabled) return FIXED_TERMINAL_TAB_VALUE;
+    if (tabFromUrl === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
+      return FIXED_TERMINAL_TAB_VALUE;
+    }
     if (tabFromUrl === "project-wiki" && !projectWikiTabVisible) return "terminal";
     if (tabFromUrl === "code-review" && !codeReviewTabVisible) return "terminal";
     if (isTerminalCenterTabValue(tabFromUrl)) {
@@ -507,17 +516,23 @@ const CenterStage: React.FC = () => {
         : FIXED_TERMINAL_TAB_VALUE;
     }
     return tabFromUrl;
-  }, [tabFromUrl, centerWikiTabEnabled, projectWikiTabVisible, codeReviewTabVisible, visibleTerminalTabs]);
+  }, [
+    tabFromUrl,
+    experimentPrefsLoaded,
+    centerWikiTabEnabled,
+    projectWikiTabVisible,
+    codeReviewTabVisible,
+    visibleTerminalTabs,
+  ]);
 
   React.useEffect(() => {
-    if (!centerWikiTabEnabled && tabFromUrl === "wiki") {
-      setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
-    }
-  }, [centerWikiTabEnabled, tabFromUrl, setUrlParams]);
+    if (!experimentPrefsLoaded || centerWikiTabEnabled || tabFromUrl !== "wiki") return;
+    setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
+  }, [experimentPrefsLoaded, centerWikiTabEnabled, tabFromUrl, setUrlParams]);
 
   const setFixedTab = React.useCallback(
     (tab: FixedTab) => {
-      if (tab === "wiki" && !centerWikiTabEnabled) return;
+      if (tab === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) return;
       if (tab === resolvedTab) return;
       const updates: Parameters<typeof setUrlParams>[0] = { tab };
       // Clear wikiPage when leaving wiki tab
@@ -526,15 +541,15 @@ const CenterStage: React.FC = () => {
       }
       setUrlParams(updates);
     },
-    [resolvedTab, setUrlParams, centerWikiTabEnabled]
+    [resolvedTab, setUrlParams, experimentPrefsLoaded, centerWikiTabEnabled]
   );
 
   const setWikiPage = React.useCallback(
     (page: string) => {
-      if (!centerWikiTabEnabled) return;
+      if (experimentPrefsLoaded && !centerWikiTabEnabled) return;
       setUrlParams({ tab: "wiki" as const, wikiPage: page });
     },
-    [setUrlParams, centerWikiTabEnabled]
+    [setUrlParams, experimentPrefsLoaded, centerWikiTabEnabled]
   );
 
   // Check Project Wiki window on mount and when workspace changes. Redirect to terminal only when window doesn't exist.
@@ -1159,7 +1174,7 @@ const CenterStage: React.FC = () => {
   }, [activeValue, closeTerminalTab, effectiveContextId, setUrlParams]);
 
   const handleCenterStageTabChange = React.useCallback((val: string) => {
-    if (val === "wiki" && !centerWikiTabEnabled) {
+    if (val === "wiki" && experimentPrefsLoaded && !centerWikiTabEnabled) {
       setUrlParams({ tab: FIXED_TERMINAL_TAB_VALUE, wikiPage: null });
       setActiveFile(null, effectiveContextId || undefined);
       return;
@@ -1184,7 +1199,15 @@ const CenterStage: React.FC = () => {
       // Clear tab param when opening a file
       setUrlParams({ tab: null, wikiPage: null });
     }
-  }, [centerWikiTabEnabled, effectiveContextId, setActiveFile, setActiveTerminalTab, setFixedTab, setUrlParams]);
+  }, [
+    centerWikiTabEnabled,
+    experimentPrefsLoaded,
+    effectiveContextId,
+    setActiveFile,
+    setActiveTerminalTab,
+    setFixedTab,
+    setUrlParams,
+  ]);
 
   // Additional terminal tabs (excluding the fixed Term tab), in display order.
   // Used to map ⌘2..⌘5 onto the first 4 of these tabs.
@@ -1565,7 +1588,7 @@ const CenterStage: React.FC = () => {
               </TooltipContent>
             </Tooltip>
           )}
-          {effectiveContextId && centerWikiTabEnabled && (
+          {effectiveContextId && wikiCenterEligible && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <TabsTab
@@ -2230,7 +2253,7 @@ const CenterStage: React.FC = () => {
         )}
 
         {/* Wiki Tab Content */}
-        {effectiveContextId && centerWikiTabEnabled && (
+        {effectiveContextId && wikiCenterEligible && (
           <div
             className={cn(
               "flex-1 min-h-0 min-w-0 overflow-hidden",

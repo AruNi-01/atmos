@@ -18,6 +18,8 @@ interface ExperimentSettingsState extends ExperimentPrefs {
   setCenterWikiTabEnabled: (value: boolean) => Promise<void>;
 }
 
+let loadInflight: Promise<void> | null = null;
+
 function readExperiments(raw: unknown): ExperimentPrefs {
   const section =
     raw && typeof raw === 'object' && 'experiments' in raw
@@ -39,13 +41,22 @@ export const useExperimentSettings = create<ExperimentSettingsState>((set, get) 
 
   loadSettings: async () => {
     if (get().loaded) return;
-    try {
-      const settings = await useFunctionSettingsStore.getState().load();
-      const prefs = readExperiments(settings);
-      set({ ...prefs, loaded: true });
-    } catch {
-      set({ loaded: true });
-    }
+
+    if (loadInflight) return loadInflight;
+
+    loadInflight = (async () => {
+      try {
+        const settings = await useFunctionSettingsStore.getState().load();
+        const prefs = readExperiments(settings);
+        set({ ...prefs, loaded: true });
+      } catch {
+        // Keep loaded false so callers can retry (e.g. after WS reconnect).
+      } finally {
+        loadInflight = null;
+      }
+    })();
+
+    return loadInflight;
   },
 
   setManagementTerminalsEnabled: async (value) => {
