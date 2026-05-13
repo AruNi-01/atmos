@@ -1,3 +1,4 @@
+import { highlightingFor, language } from '@codemirror/language';
 import { Chunk } from '@codemirror/merge';
 import {
   Facet,
@@ -16,11 +17,13 @@ import {
   GutterMarker,
   ViewPlugin,
   WidgetType,
+  gutter,
   gutterLineClass,
+  gutterWidgetClass,
   type DecorationSet,
   type ViewUpdate,
-  gutter,
 } from '@codemirror/view';
+import { highlightTree } from '@lezer/highlight';
 import { toastManager } from '@workspace/ui';
 import { buildUnifiedPatchForChunk, sliceLines } from '@/lib/git-chunk-patch';
 
@@ -149,96 +152,75 @@ class GitChunkBarMarker extends GutterMarker {
   }
 }
 
-/** Fills the tall gutter cell for a {@link DiffPanelWidget} so tint reaches the strip (no “black gap”). */
-class GitDiffPanelGutterMarker extends GutterMarker {
-  constructor(readonly chunkIndex: number) {
-    super();
-  }
+/**
+ * Render `text` (joined-with-\n source of the deleted chunk) as one panel row per source line, applying full
+ * syntax highlighting via the editor's current language parser + highlight style. Modeled directly on the approach
+ * used by `@codemirror/merge`'s `unifiedMergeView` for its `cm-deletedChunk` widget — same library, same idea:
+ * widget DOM rendered with the language's tokens, so deleted code reads exactly like an editor line, supports
+ * native text selection / copy, but never enters `state.doc` (which would break save / undo / diff).
+ *
+ * We render every deleted line — no truncation — to mirror Zed-style display where the full removed snippet is
+ * always visible (the file save / undo / diff still don't see any of this since it's pure widget DOM).
+ */
+const SYNTAX_HIGHLIGHT_MAX = 3000;
 
-  override eq(other: GutterMarker): boolean {
-    return other instanceof GitDiffPanelGutterMarker && other.chunkIndex === this.chunkIndex;
-  }
+/**
+ * Render `oldLines` into a single `<pre>` block where the source text is preserved EXACTLY (`white-space: pre`,
+ * \n separators) and syntax highlighting is overlaid via inline `<span>` tokens emitted by `highlightTree`. Using
+ * one `<pre>` instead of one `<div>` per line guarantees we don't introduce phantom rows: the output's vertical
+ * extent equals exactly `(oldLines.length) * line-height`, just like a regular editor area would render the same
+ * snippet. (The previous one-div-per-line approach made it look like every row had a blank line below it on
+ * certain themes — `<div>`s with `whiteSpace:pre` and short content interact oddly with surrounding line-height
+ * inheritance; a single `<pre>` sidesteps the whole class of problem.)
+ */
+function appendHighlightedOldRows(view: EditorView, body: HTMLElement, oldLines: string[]) {
+  const text = oldLines.join('\n');
+  const pre = document.createElement('pre');
+  pre.className = 'cm-git-panel-pre';
+  body.appendChild(pre);
 
-  override toDOM(view: EditorView): HTMLElement {
-    const root = document.createElement('div');
-    root.className = 'cm-git-diff-panel-widget-gutter';
-
-    const gs = view.state.field(gitGutterStateField);
-    const ch = gs.chunks[this.chunkIndex];
-    if (!ch) return root;
-
-    const kind = classifyChunkKind(ch);
-
-    const R = 'rgba(239, 68, 68, 0.16)';
-    const G = 'rgba(34, 197, 94, 0.15)';
-    const Y = 'rgba(234, 179, 8, 0.14)';
-
-    if (kind === 'modified') {
-      root.style.background = Y;
-    } else if (kind === 'added') {
-      root.style.background = G;
-    } else if (kind === 'deleted') {
-      root.style.background = R;
+  const append = (from: number, to: number, cls: string) => {
+    if (from >= to) return;
+    const slice = text.slice(from, to);
+    if (cls) {
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = slice;
+      pre.appendChild(span);
     } else {
-      root.style.background = Y;
+      pre.appendChild(document.createTextNode(slice));
     }
+  };
 
-    const barKind =
-      kind === 'added' ? 'added' : kind === 'deleted' ? 'deleted' : 'modified';
-    const hit = document.createElement('div');
-    hit.className =
-      'cm-git-gutter-bar-hit cm-git-gutter-bar-hit--panel-widget cm-git-active-hunk-target';
-    hit.setAttribute('role', 'button');
-    hit.tabIndex = 0;
-    hit.setAttribute('aria-label', 'Toggle inline diff for this change');
-
-    const chunkIndex = this.chunkIndex;
-    const toggle = () => {
-      const st = view.state.field(gitGutterStateField);
-      const next = st.selectedIndex === chunkIndex ? null : chunkIndex;
-      view.dispatch({ effects: setGitSelection.of(next) });
-    };
-    hit.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      toggle();
-    });
-    hit.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggle();
-      }
-    });
-
-    const bar = document.createElement('div');
-    bar.className = `cm-git-gutter-bar cm-git-gutter-${barKind} cm-git-gutter-bar-expanded`;
-    hit.appendChild(bar);
-    root.appendChild(hit);
-    return root;
+  const lang = view.state.facet(language);
+  if (lang && text.length <= SYNTAX_HIGHLIGHT_MAX) {
+    const tree = lang.parser.parse(text);
+    let pos = 0;
+    highlightTree(
+      tree,
+      { style: (tags) => highlightingFor(view.state, tags) },
+      (from, to, cls) => {
+        if (from > pos) append(pos, from, '');
+        append(from, to, cls ?? '');
+        pos = to;
+      },
+    );
+    if (pos < text.length) append(pos, text.length, '');
+  } else {
+    append(0, text.length, '');
   }
-}
-
-function appendSolidPanelRow(body: HTMLElement, text: string, side: 'old' | 'new') {
-  const row = document.createElement('div');
-  row.className = `cm-git-panel-line cm-git-panel-${side}`;
-  row.textContent = text;
-  body.appendChild(row);
 }
 
 function fillDiffPanelBody(
+  view: EditorView,
   body: HTMLElement,
   kind: 'added' | 'deleted' | 'modified',
   oldLines: string[],
-  newLines: string[],
 ) {
-  if (kind === 'added') {
-    return;
-  }
-  if (kind === 'deleted') {
-    for (const line of oldLines) appendSolidPanelRow(body, line, 'old');
-    return;
-  }
-  // modified: only the removed side in the panel; the buffer already shows the new side (green line highlight).
-  for (const line of oldLines) appendSolidPanelRow(body, line, 'old');
+  if (kind === 'added') return;
+  // For both `deleted` and `modified` we only show the removed side in the panel — the buffer already shows the
+  // new side (green line tint). Git only knows additions and deletions; "modified" is the union.
+  appendHighlightedOldRows(view, body, oldLines);
 }
 
 /**
@@ -401,36 +383,32 @@ class DiffPanelWidget extends WidgetType {
     const body = document.createElement('div');
     body.className = 'cm-git-panel-body';
 
-    const newLines = sliceLines(doc, chunk.fromB, chunk.toB);
     const chunkKind = classifyChunkKind(chunk);
-    fillDiffPanelBody(body, chunkKind, oldLines, newLines);
+    fillDiffPanelBody(view, body, chunkKind, oldLines);
 
     wrap.appendChild(floatbar);
-    wrap.appendChild(body);
 
     body.setAttribute('contenteditable', 'false');
     body.addEventListener('mousedown', (e) => {
       e.stopPropagation();
     });
 
-    const applyGutterBleed = () => {
-      const gutters = view.scrollDOM.querySelector('.cm-gutters');
-      const w = gutters ? Math.round(gutters.getBoundingClientRect().width) : 0;
-      wrap.style.setProperty('--cm-git-gutters-bleed', `${w}px`);
-    };
-    applyGutterBleed();
-    const ro = new ResizeObserver(() => applyGutterBleed());
-    ro.observe(view.scrollDOM);
-    (wrap as HTMLElement & { _cmGitBleedRo?: ResizeObserver })._cmGitBleedRo = ro;
-    requestAnimationFrame(applyGutterBleed);
+    if (body.childNodes.length > 0) {
+      wrap.appendChild(body);
+    }
+
+    // Paint the chunk tint on `wrap` so the panel body (inside cm-content) gets a red bg. The matching tint on the
+    // gutter side comes from `panelCellBgGutterClass` — a `gutterWidgetClass` facet contribution that adds a class
+    // to every gutter cell aligned with this `DiffPanelWidget` (line numbers + fold + change-gutter all get red).
+    // We deliberately do NOT bleed the wrap left over the gutters (no negative `marginLeft`): doing so would
+    // require making `.cm-gutters` transparent globally, which then lets horizontally-scrolled code show through
+    // the line-number column. Splitting the bg into "wrap (content side) + gutter cell class (gutter side)" keeps
+    // the gutters opaque + gives a continuous red strip across the whole row.
+    if (chunkKind !== 'added') {
+      wrap.style.background = 'rgba(239, 68, 68, 0.14)';
+    }
 
     return wrap;
-  }
-
-  override destroy(dom: HTMLElement): void {
-    const el = dom as HTMLElement & { _cmGitBleedRo?: ResizeObserver };
-    el._cmGitBleedRo?.disconnect();
-    delete el._cmGitBleedRo;
   }
 }
 
@@ -575,68 +553,60 @@ const gitGutterTheme = EditorView.baseTheme({
   '.cm-git-line-bg-added': {
     background: 'rgba(34, 197, 94, 0.14)',
   },
+  // Force the gutter element row tint over the active-line gutter highlight (which would otherwise paint solid bg).
+  '.cm-gutterElement.cm-git-line-bg-added': {
+    background: 'rgba(34, 197, 94, 0.14) !important',
+  },
   '.cm-git-line-bg-expanded': {
     filter: 'brightness(1.04)',
   },
-  // Keep change gutter above panel bleed so the strip stays visible; body margin (below) avoids hit-stealing.
-  '.cm-editor .cm-gutters': {
-    position: 'relative',
-    zIndex: '20',
+  // Keep git line tint when the active-line theme would otherwise replace it; layer a faint highlight on top instead.
+  '.cm-line.cm-activeLine.cm-git-line-bg-added': {
+    backgroundColor: 'rgba(34, 197, 94, 0.14) !important',
+    backgroundImage:
+      'linear-gradient(rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.07)) !important',
   },
-  '.cm-git-diff-panel-widget-gutter': {
-    width: '100%',
-    height: '100%',
-    minHeight: '100%',
-    boxSizing: 'border-box',
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    justifyContent: 'center',
-  },
-  '.cm-git-gutter-bar-hit--panel-widget': {
-    width: '100%',
-    display: 'flex',
-    alignItems: 'stretch',
-    justifyContent: 'center',
+  '.cm-gutterElement.cm-activeLineGutter.cm-git-line-bg-added': {
+    backgroundColor: 'rgba(34, 197, 94, 0.14) !important',
+    backgroundImage:
+      'linear-gradient(rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.07)) !important',
   },
   '.cm-editor .cm-gutters .cm-gutter': {
     borderInlineEnd: 'none',
   },
+  // Per-cell red tint for `DiffPanelWidget` gutter cells. `gutterWidgetClass` (registered above as
+  // `panelCellBgGutterClass`) attaches `cm-git-panel-cell` + a kind-specific class to the gutter element of EVERY
+  // gutter (line numbers / fold / change-gutter) that is part of the panel widget's vertical extent. This is what
+  // gives the panel its full-width red strip without us having to make `.cm-gutters` transparent globally — so
+  // horizontally-scrolled code is still hidden behind opaque non-panel gutter cells.
+  '.cm-gutterElement.cm-git-panel-cell-deleted, .cm-gutterElement.cm-git-panel-cell-modified': {
+    backgroundColor: 'rgba(239, 68, 68, 0.14) !important',
+  },
+  // Panel wrap (lives inside cm-content). Wrap-only red bg covers the content side; the gutter-side red bg comes
+  // from the `gutterWidgetClass` facet that paints panel-cell-* class on every gutter cell aligned with this
+  // widget. No measurement / negative margin / stacking trickery needed — keeps the gutter strip opaque so
+  // horizontally-scrolled code can't show through the line numbers.
   '.cm-git-diff-panel': {
     fontFamily: 'var(--font-mono, ui-monospace, monospace)',
     fontSize: '12px',
     boxSizing: 'border-box',
     position: 'relative',
-    zIndex: '6',
-    marginLeft: 'calc(-1 * var(--cm-git-gutters-bleed, 0px))',
-    width: 'calc(100% + var(--cm-git-gutters-bleed, 0px))',
     marginTop: '0',
     marginBottom: '0',
     paddingTop: '0',
     paddingBottom: '0',
     border: 'none',
-    background: 'transparent',
-    pointerEvents: 'none',
+    lineHeight: '0',
+    minHeight: '0',
+    display: 'block',
   },
-  // Let clicks reach the gutter: bleed overlaps gutter column — neutralize hits on the line tree except panel text + toolbar.
   '.cm-line:has(.cm-git-diff-panel)': {
     paddingTop: '0',
     paddingBottom: '0',
     marginTop: '0',
     marginBottom: '0',
-    pointerEvents: 'none',
-  },
-  '.cm-line:has(.cm-git-diff-panel) *': {
-    pointerEvents: 'none',
-  },
-  '.cm-line:has(.cm-git-diff-panel) .cm-git-panel-body': {
-    pointerEvents: 'auto',
-  },
-  '.cm-line:has(.cm-git-diff-panel) .cm-git-panel-body *': {
-    pointerEvents: 'auto',
-  },
-  '.cm-line:has(.cm-git-diff-panel) .cm-git-panel-floatbar': {
-    pointerEvents: 'none',
+    minHeight: '0',
+    lineHeight: '0',
   },
   '.cm-editor.cm-git-hunk-ui-hover .cm-git-panel-floatbar, .cm-git-panel-floatbar:focus-within': {
     opacity: '1',
@@ -691,35 +661,34 @@ const gitGutterTheme = EditorView.baseTheme({
     lineHeight: 1,
     minWidth: '24px',
   },
+  // Body sits inside `wrap`. Wrap's red bg covers the content area; the body itself stays transparent so it
+  // doesn't double-tint. Body text aligns naturally with editor lines because we don't bleed wrap left over the
+  // gutters anymore (`.cm-line` already provides the correct left edge inside cm-content).
   '.cm-git-panel-body': {
-    marginLeft: 'var(--cm-git-gutters-bleed, 0px)',
     paddingTop: '0',
-    paddingBottom: '2px',
+    paddingBottom: '0',
     paddingLeft: '0',
-    paddingRight: '128px',
-    maxHeight: '220px',
-    overflowY: 'auto',
+    paddingRight: '0',
     userSelect: 'text',
     cursor: 'text',
     WebkitUserSelect: 'text',
-    pointerEvents: 'auto',
     boxSizing: 'border-box',
   },
-  '.cm-git-panel-line': {
-    whiteSpace: 'pre-wrap',
-    wordBreak: 'break-word',
-    paddingTop: '2px',
-    paddingBottom: '2px',
+  // Single `<pre>` for the whole deleted snippet. `white-space: pre` preserves the exact source whitespace + line
+  // breaks; line-height matches `.cm-scroller` (1.6) so each line aligns vertically with regular editor rows.
+  // Match `.cm-line`'s `padding-left: 6px` so deleted text starts at the same x-coordinate as live editor text.
+  '.cm-git-panel-pre': {
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    color: 'inherit',
+    whiteSpace: 'pre',
+    margin: '0',
+    paddingTop: '0',
+    paddingBottom: '0',
     paddingLeft: '6px',
     paddingRight: '6px',
-    margin: '0',
-    borderRadius: '0',
-  },
-  '.cm-git-panel-old': {
-    background: 'rgba(239, 68, 68, 0.14)',
-  },
-  '.cm-git-panel-new': {
-    background: 'rgba(34, 197, 94, 0.12)',
+    background: 'transparent',
+    lineHeight: '1.6',
   },
 });
 
@@ -832,6 +801,38 @@ const gitHunkFloatbarHover = ViewPlugin.fromClass(
   },
 );
 
+/**
+ * `elementClass`-only marker — paints the chunk tint on every gutter cell that aligns with a `DiffPanelWidget`,
+ * via the `gutterWidgetClass` facet (see `panelCellBgGutterClass` below). This is the mechanism that makes the
+ * red bg "bleed" across line-numbers + fold + change-gutter for the panel widget without us having to touch
+ * `.cm-gutters` global background. Keeping `.cm-gutters` opaque is important so that horizontally-scrolled code
+ * doesn't show through the line-number column.
+ *
+ * Two markers (one per chunk kind) so a single class name carries the chunk tint — CSS-only, no DOM nodes.
+ */
+class GitPanelCellBgMarker extends GutterMarker {
+  constructor(readonly chunkKind: 'added' | 'deleted' | 'modified') {
+    super();
+    this.elementClass = `cm-git-panel-cell cm-git-panel-cell-${chunkKind}`;
+  }
+  override eq(other: GutterMarker): boolean {
+    return other instanceof GitPanelCellBgMarker && other.chunkKind === this.chunkKind;
+  }
+}
+
+const PANEL_CELL_BG_DELETED = new GitPanelCellBgMarker('deleted');
+const PANEL_CELL_BG_MODIFIED = new GitPanelCellBgMarker('modified');
+
+const panelCellBgGutterClass = gutterWidgetClass.of((view, widget) => {
+  if (!(widget instanceof DiffPanelWidget)) return null;
+  const gs = view.state.field(gitGutterStateField);
+  const ch = gs.chunks[widget.chunkIndex];
+  if (!ch) return null;
+  const kind = classifyChunkKind(ch);
+  if (kind === 'added') return null;
+  return kind === 'modified' ? PANEL_CELL_BG_MODIFIED : PANEL_CELL_BG_DELETED;
+});
+
 const gitChangeGutter = gutter({
   class: 'cm-git-change-gutter',
   lineMarker(view, line) {
@@ -855,8 +856,14 @@ const gitChangeGutter = gutter({
     return null;
   },
   widgetMarker(view, widget) {
-    if (widget instanceof DiffPanelWidget) return new GitDiffPanelGutterMarker(widget.chunkIndex);
-    return null;
+    // Render the bar in the panel widget's gutter cell using the same `GitChunkBarMarker` we use for editor lines.
+    // This guarantees pixel-perfect alignment with the bars on the lines below — no manual positioning needed.
+    if (!(widget instanceof DiffPanelWidget)) return null;
+    const gs = view.state.field(gitGutterStateField);
+    const ch = gs.chunks[widget.chunkIndex];
+    if (!ch) return null;
+    const kind = classifyChunkKind(ch);
+    return new GitChunkBarMarker(widget.chunkIndex, kind, true);
   },
   lineMarkerChange: (update: ViewUpdate) =>
     update.docChanged ||
@@ -874,6 +881,7 @@ export function createGitChangeGutterExtensions(host: GitGutterHost): Extension[
     gitDiffDecorationsField,
     gitHunkFloatbarHover,
     gitChangeGutter,
+    panelCellBgGutterClass,
     gitGutterTheme,
   ];
 }
