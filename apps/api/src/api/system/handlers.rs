@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use core_service::build_terminal_overview_active_sessions_json;
 use infra::utils::debug_logging::DebugLogger;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -639,24 +640,9 @@ pub async fn get_terminal_overview(
     let terminal_service = &state.terminal_service;
     let tmux_engine = terminal_service.tmux_engine();
 
-    let active_sessions = terminal_service.list_session_details().await;
-    let active_sessions_json: Vec<Value> = active_sessions
-        .iter()
-        .map(|s| {
-            json!({
-                "session_id": s.session_id,
-                "workspace_id": s.workspace_id,
-                "session_type": s.session_type,
-                "project_name": s.project_name,
-                "workspace_name": s.workspace_name,
-                "terminal_name": s.terminal_name,
-                "tmux_session": s.tmux_session,
-                "tmux_window_index": s.tmux_window_index,
-                "cwd": s.cwd,
-                "uptime_secs": s.uptime_secs,
-            })
-        })
-        .collect();
+    let (active_sessions_json, active_session_count) =
+        build_terminal_overview_active_sessions_json(terminal_service, &state.project_service)
+            .await?;
 
     let tmux_installed = terminal_service.is_tmux_available();
     let tmux_version = if tmux_installed {
@@ -732,7 +718,7 @@ pub async fn get_terminal_overview(
 
     Ok(Json(ApiResponse::success(json!({
         "active_sessions": active_sessions_json,
-        "active_session_count": active_sessions.len(),
+        "active_session_count": active_session_count,
         "tmux": {
             "installed": tmux_installed,
             "version": tmux_version,

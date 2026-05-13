@@ -29,6 +29,7 @@ mod m20260428_000020_add_workspace_create_source;
 mod m20260505_000021_add_agent_run_guid_to_review_revision;
 mod m20260505_000022_add_workspace_label_source;
 mod m20260507_000023_make_review_session_workspace_optional;
+mod m20260512_000024_create_canvas_board;
 
 pub struct Migrator;
 
@@ -60,6 +61,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260505_000021_add_agent_run_guid_to_review_revision::Migration),
             Box::new(m20260505_000022_add_workspace_label_source::Migration),
             Box::new(m20260507_000023_make_review_session_workspace_optional::Migration),
+            Box::new(m20260512_000024_create_canvas_board::Migration),
         ]
     }
 }

@@ -487,6 +487,7 @@
   background-color: #09090b !important;
   /* Hide native scrollbar - xterm uses custom overlay scrollbar */
   overflow-y: hidden !important;
+  overscroll-behavior: contain;
 }
 
 .atmos-terminal .xterm-screen {

@@ -22,6 +22,7 @@ export const centerStageParams = {
   tab: parseAsString.withDefault("terminal"),
   wikiPage: parseAsString,
   newWorkspace: parseAsBoolean.withDefault(false),
+  canvas: parseAsBoolean.withDefault(false),
 };
 
 // ---------------------------------------------------------------------------
@@ -87,11 +88,38 @@ export const tokenUsageParams = {
   tokenUsage: parseAsBoolean.withDefault(false),
 };
 
-export type SettingsModalTab = "about" | "terminal" | "code-agent" | "workspace" | "labels" | "integrations" | "ai" | "notify" | "remote-access" | "layout" | "shortcuts" | "editor";
+export type SettingsModalTab =
+  | "about"
+  | "terminal"
+  | "code-agent"
+  | "workspace"
+  | "labels"
+  | "integrations"
+  | "ai"
+  | "notify"
+  | "remote-access"
+  | "layout"
+  | "shortcuts"
+  | "editor"
+  | "experiments";
 
 export const settingsModalParams = {
   settingsModal: parseAsBoolean.withDefault(false),
-  activeSettingTab: parseAsStringEnum<SettingsModalTab>(["about", "terminal", "code-agent", "workspace", "labels", "integrations", "ai", "notify", "remote-access", "layout", "shortcuts", "editor"]).withDefault("layout"),
+  activeSettingTab: parseAsStringEnum<SettingsModalTab>([
+    "about",
+    "terminal",
+    "code-agent",
+    "workspace",
+    "labels",
+    "integrations",
+    "ai",
+    "notify",
+    "remote-access",
+    "layout",
+    "shortcuts",
+    "editor",
+    "experiments",
+  ]).withDefault("layout"),
 };
 
 // ---------------------------------------------------------------------------

@@ -20,13 +20,13 @@ import {
   Plus,
   Maximize2,
   AlertTriangle,
-  Terminal as TerminalIcon,
   ClipboardPaste,
   Maximize,
   Minimize,
   SquareTerminal,
   ArrowLeft,
   ArrowRight,
+  Pin,
 } from "lucide-react";
 
 import {
@@ -44,15 +44,27 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
   cn,
+  toastManager,
 } from "@workspace/ui";
 import { Terminal, TerminalRef } from "./Terminal";
 import type { MosaicBranch, TerminalPaneAgent } from "./types";
+import { getTerminalDisplayMeta, isPathLikeTitle, resolveAgentForTitle, TerminalTitleWithAgent } from "./terminal-title";
 import { systemApi } from "@/api/rest-api";
 import { useTerminalStore } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
+import { canvasApi } from "@/api/rest-api";
+import { createCanvasSnapshot, createDefaultCanvasSession, createDefaultDocument, parseBoardDocument } from "@/components/canvas/use-canvas-board";
+import {
+  buildCanvasTerminalPinKey,
+  CANVAS_TERMINAL_PIN_STATE_EVENT,
+  createCanvasTerminalShapeProps,
+  dispatchCanvasTerminalPinStateChange,
+  getPinnedCanvasTerminalPinKeys,
+  pinCanvasTerminalShapeInSnapshot,
+} from "@/components/canvas/canvas-terminal-shape";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
@@ -108,12 +120,6 @@ const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
   close: true,
 };
 
-function normalizeAgentCommand(value: string): string {
-  const firstToken = value.trim().split(/\s+/)[0] ?? "";
-  const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
-  return withoutPath.toLowerCase();
-}
-
 const IDLE_SHELL_COMMANDS = new Set([
   "bash",
   "zsh",
@@ -128,20 +134,9 @@ const IDLE_SHELL_COMMANDS = new Set([
   "xonsh",
 ]);
 
-const RUNTIME_WRAPPER_COMMANDS = new Set([
-  "node",
-  "bun",
-  "deno",
-]);
-
 function isIdleShellCommand(command: string | null | undefined): boolean {
   const normalized = command?.trim().split("/").filter(Boolean).pop()?.toLowerCase();
   return Boolean(normalized && IDLE_SHELL_COMMANDS.has(normalized));
-}
-
-function isRuntimeWrapperTitle(value: string | undefined): boolean {
-  const normalized = value?.trim().split(/\s+/)[0]?.split("/").filter(Boolean).pop()?.toLowerCase();
-  return Boolean(normalized && RUNTIME_WRAPPER_COMMANDS.has(normalized));
 }
 
 function flattenMosaicLayout(layout: MosaicNode<string> | null): string[] {
@@ -149,50 +144,6 @@ function flattenMosaicLayout(layout: MosaicNode<string> | null): string[] {
   if (typeof layout === "string") return [layout];
   const branch = layout as MosaicBranch<string>;
   return [...flattenMosaicLayout(branch.first), ...flattenMosaicLayout(branch.second)];
-}
-
-function isPathLikeTitle(value: string | undefined): boolean {
-  if (!value) return false;
-  const trimmed = value.trim();
-  return (
-    trimmed.startsWith("/") ||
-    trimmed.startsWith("~/") ||
-    trimmed === "~" ||
-    trimmed === "." ||
-    trimmed === ".." ||
-    trimmed.startsWith("../") ||
-    trimmed.includes("/")
-  );
-}
-
-function isVersionLikeTitle(value: string | undefined): boolean {
-  if (!value) return false;
-  return /^v?\d+(?:\.\d+)+(?:[-+][\w.-]+)?$/i.test(value.trim());
-}
-
-function resolveAgentForTitle(
-  title: string | undefined,
-  agents: TerminalPaneAgent[],
-): TerminalPaneAgent | undefined {
-  if (!title || isPathLikeTitle(title)) return undefined;
-  const normalizedTitle = normalizeAgentCommand(title);
-  if (!normalizedTitle) return undefined;
-  return agents.find((agent) => {
-    const normalizedCommand = normalizeAgentCommand(agent.command);
-    return (
-      normalizedCommand !== "" &&
-      normalizedTitle.includes(normalizedCommand)
-    );
-  });
-}
-
-function resolveAgentForLabel(
-  label: string | undefined,
-  agents: TerminalPaneAgent[],
-): TerminalPaneAgent | undefined {
-  if (!label) return undefined;
-  const normalizedLabel = label.trim().toLowerCase();
-  return agents.find((agent) => agent.label.trim().toLowerCase() === normalizedLabel);
 }
 
 function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId: string }) {
@@ -225,6 +176,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   const [activePaneId, setActivePaneId] = React.useState<string | null>(null);
   const [closeConfirmPaneId, setCloseConfirmPaneId] = React.useState<string | null>(null);
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
+  const [pinnedPaneKeys, setPinnedPaneKeys] = React.useState<Set<string>>(() => new Set());
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isProjectWiki = scope === "project-wiki";
@@ -252,6 +204,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     getMaximizedTerminalId,
     setDynamicTitle,
     setPaneAgent,
+    markPaneAttached,
     getProjectWikiPanes,
     getProjectWikiLayout,
     setProjectWikiLayout,
@@ -262,6 +215,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     getProjectWikiPaneIdByTmuxWindowName,
     setProjectWikiDynamicTitle,
     setProjectWikiPaneAgent,
+    markProjectWikiPaneAttached,
     toggleProjectWikiMaximize,
     isProjectWikiReady,
     projectWikiMaximizedIds,
@@ -275,6 +229,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     getCodeReviewPaneIdByTmuxWindowName,
     setCodeReviewDynamicTitle,
     setCodeReviewPaneAgent,
+    markCodeReviewPaneAttached,
     toggleCodeReviewMaximize,
     isCodeReviewReady,
     codeReviewMaximizedIds,
@@ -586,6 +541,124 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     setCloseConfirmPaneId(null);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPinnedPaneKeys = async () => {
+      try {
+        const board = await canvasApi.getDefaultBoard();
+        const document = board.document_json
+          ? parseBoardDocument(board.document_json)
+          : createDefaultDocument();
+
+        if (!cancelled) {
+          setPinnedPaneKeys(
+            getPinnedCanvasTerminalPinKeys(
+              createCanvasSnapshot(document.tldrawDocument, createDefaultCanvasSession()),
+            ),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setPinnedPaneKeys(new Set());
+        }
+      }
+    };
+
+    const handlePinStateChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ pinKey?: string; pinned?: boolean }>).detail;
+      if (!detail?.pinKey) {
+        return;
+      }
+
+      const pinKey = detail.pinKey;
+      setPinnedPaneKeys((current) => {
+        const next = new Set(current);
+        if (detail.pinned) {
+          next.add(pinKey);
+        } else {
+          next.delete(pinKey);
+        }
+        return next;
+      });
+    };
+
+    void loadPinnedPaneKeys();
+    window.addEventListener(CANVAS_TERMINAL_PIN_STATE_EVENT, handlePinStateChange);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(CANVAS_TERMINAL_PIN_STATE_EVENT, handlePinStateChange);
+    };
+  }, []);
+
+  const pinPaneToCanvas = useCallback(async (id?: string | null) => {
+    if (!id) return;
+
+    const pane = panes[id];
+    if (!pane || !workspaceInfo?.localPath) {
+      return;
+    }
+
+    if (!pane.tmuxWindowName || pane.isNewPane) {
+      toastManager.add({
+        title: "Canvas",
+        description: "This terminal cannot be pinned until the session is fully attached.",
+        type: "error",
+      });
+      return;
+    }
+
+    const contextScope = isProjectContext ? "project" : "workspace";
+    const pinKey = buildCanvasTerminalPinKey(contextScope, workspaceId, pane.tmuxWindowName);
+
+    if (pinnedPaneKeys.has(pinKey)) {
+      return;
+    }
+
+    try {
+      const board = await canvasApi.getDefaultBoard();
+      const document = board.document_json
+        ? parseBoardDocument(board.document_json)
+        : createDefaultDocument();
+      const result = pinCanvasTerminalShapeInSnapshot(
+        createCanvasSnapshot(document.tldrawDocument, createDefaultCanvasSession()),
+        createCanvasTerminalShapeProps({
+          contextScope,
+          workspaceId,
+          projectName: workspaceInfo.projectName,
+          workspaceName: workspaceInfo.workspaceName,
+          localPath: workspaceInfo.localPath,
+          terminalName: pane.label,
+          tmuxWindowName: pane.tmuxWindowName,
+          isNewTerminal: false,
+          isPinned: true,
+          pinKey,
+        }),
+      );
+
+      await canvasApi.updateDefaultBoard(
+        JSON.stringify({
+          ...document,
+          tldrawDocument: result.snapshot.document,
+        }),
+      );
+      dispatchCanvasTerminalPinStateChange(pinKey, true);
+
+      toastManager.add({
+        title: "Canvas",
+        description: result.inserted ? "Pinned to Canvas" : "Already pinned to Canvas",
+        type: "success",
+      });
+    } catch (error) {
+      toastManager.add({
+        title: "Canvas",
+        description: error instanceof Error ? error.message : "Failed to pin terminal to Canvas",
+        type: "error",
+      });
+    }
+  }, [isProjectContext, panes, pinnedPaneKeys, workspaceId, workspaceInfo]);
+
   const splitTerminal = useCallback((id: string, direction: "row" | "column", agent?: TerminalPaneAgent) => {
     const newPaneId = isCodeReview
       ? splitCodeReviewTerminal(workspaceId, id, direction, agent)
@@ -663,6 +736,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         return;
       }
 
+      if (event.shiftKey && (event.key.toLowerCase() === "p" || event.code === "KeyP")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void pinPaneToCanvas(getFocusedPaneId());
+        return;
+      }
+
       if (!event.shiftKey && (event.key === "[" || event.code === "BracketLeft")) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -681,7 +761,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     return () => {
       window.removeEventListener("keydown", handleTerminalNavigationHotkey, { capture: true });
     };
-  }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, onToggleMaximize, requestCloseTerminal, splitFocusedTerminal]);
+  }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, onToggleMaximize, pinPaneToCanvas, requestCloseTerminal, splitFocusedTerminal]);
 
   const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
     const newPaneId = splitTerminal(id, direction, agent);
@@ -737,6 +817,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           onToggleMaximize(focusedPaneId);
         }
         break;
+      case "pin-to-canvas":
+        void pinPaneToCanvas(focusedPaneId);
+        break;
       case "close":
         requestCloseTerminal(focusedPaneId);
         break;
@@ -747,24 +830,28 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         focusPaneByOffset(1);
         break;
     }
-  }, [getFocusedPaneId, onNewTerminalTab, onToggleMaximize, requestCloseTerminal, splitFocusedTerminal, focusPaneByOffset]);
+  }, [getFocusedPaneId, onNewTerminalTab, onToggleMaximize, pinPaneToCanvas, requestCloseTerminal, splitFocusedTerminal, focusPaneByOffset]);
+
+  const focusedPane = effectiveActivePaneId ? panes[effectiveActivePaneId] : null;
+  const focusedPanePinKey = focusedPane?.tmuxWindowName
+    ? buildCanvasTerminalPinKey(isProjectContext ? "project" : "workspace", workspaceId, focusedPane.tmuxWindowName)
+    : null;
+  const isFocusedPanePinned = focusedPanePinKey ? pinnedPaneKeys.has(focusedPanePinKey) : false;
 
   const renderTile = useCallback((id: string, path: MosaicPath) => {
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
-    const dynamicTitleIsVersion = isVersionLikeTitle(pane.dynamicTitle);
-    const matchedDynamicAgent = resolveAgentForTitle(pane.dynamicTitle, configuredAgents);
-    const labelAgent = dynamicTitleIsVersion
-      ? resolveAgentForLabel(pane.label, configuredAgents)
-      : undefined;
-    const fallbackAgent = isRuntimeWrapperTitle(pane.dynamicTitle)
-      ? pane.agent
-      : dynamicTitleIsVersion
-      ? labelAgent ?? pane.agent
-      : undefined;
-    const toolbarAgent = matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
-    const displayTitle = toolbarAgent?.label ?? (dynamicTitleIsVersion ? pane.label : pane.dynamicTitle);
+    const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
+      baseTitle: pane.label,
+      dynamicTitle: pane.dynamicTitle,
+      configuredAgents,
+      agent: pane.agent,
+    });
+    const panePinKey = pane.tmuxWindowName
+      ? buildCanvasTerminalPinKey(isProjectContext ? "project" : "workspace", workspaceId, pane.tmuxWindowName)
+      : null;
+    const isPanePinned = panePinKey ? pinnedPaneKeys.has(panePinKey) : false;
 
     return (
       <MosaicWindow<string>
@@ -780,24 +867,31 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           return (
             <div className="terminal-mosaic-toolbar group/toolbar">
               <div className="terminal-mosaic-toolbar-left">
-                {toolbarAgent?.iconType === "built-in" ? (
-                  <AgentIcon registryId={toolbarAgent.id} name={toolbarAgent.label} size={14} />
-                ) : toolbarAgent?.iconType === "custom" ? (
-                  <Bot className="size-3.5 text-muted-foreground" />
-                ) : (
-                  <TerminalIcon className="size-3.5 text-muted-foreground" />
-                )}
-
                 {displayTitle ? (
-                  <span className="terminal-mosaic-title flex items-center gap-1.5 ml-0.5">
-                    {displayTitle}
-                  </span>
+                  <TerminalTitleWithAgent
+                    displayTitle={displayTitle}
+                    toolbarAgent={toolbarAgent}
+                    className="terminal-mosaic-title gap-1.5"
+                  />
                 ) : null}
                 <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
               </div>
 
               {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
+                    <button
+                      className={cn(
+                        "terminal-mosaic-btn transition-opacity",
+                        "opacity-0 group-hover/toolbar:opacity-100",
+                        isPanePinned && "bg-accent text-primary cursor-not-allowed",
+                      )}
+                      onClick={() => void pinPaneToCanvas(id)}
+                      title={isPanePinned ? "Already pinned to Canvas" : "Pin to Canvas (⌘⇧P)"}
+                      disabled={isPanePinned}
+                      aria-pressed={isPanePinned}
+                    >
+                      <Pin size={12} />
+                    </button>
                   <div className="flex items-center gap-0.5">
                     {actions.split && (
                       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/toolbar:opacity-100">
@@ -954,6 +1048,13 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             }}
             onSessionReady={() => {
               readyPanesRef.current.add(id);
+              if (isCodeReview) {
+                markCodeReviewPaneAttached(workspaceId, id);
+              } else if (isProjectWiki) {
+                markProjectWikiPaneAttached(workspaceId, id);
+              } else {
+                markPaneAttached(workspaceId, id, terminalTabId);
+              }
               const cmd = pendingCommandsRef.current.get(id);
               if (cmd) {
                 pendingCommandsRef.current.delete(id);
@@ -980,6 +1081,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     projects,
     isCodeReview,
     isProjectWiki,
+    markCodeReviewPaneAttached,
+    markPaneAttached,
+    markProjectWikiPaneAttached,
     terminalTabId,
     splitMenuKey,
     quickOpenAgents,
@@ -987,6 +1091,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     handleSplitMenuLeave,
     hasMultiplePanes,
     effectiveActivePaneId,
+    isProjectContext,
+    pinnedPaneKeys,
+    pinPaneToCanvas,
   ]);
 
   // Wait for workspace to be ready before rendering any Terminal components
@@ -1120,6 +1227,15 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           <ClipboardPaste className="size-4 mr-2 text-muted-foreground" />
           <span>Paste</span>
           <DropdownMenuShortcut>⌘V</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => handleContextMenuAction("pin-to-canvas")}
+          className={cn("cursor-pointer", isFocusedPanePinned && "bg-accent text-primary")}
+          disabled={isFocusedPanePinned}
+        >
+          <Pin className="size-4 mr-2 text-muted-foreground" />
+          <span>{isFocusedPanePinned ? "Pinned to Canvas" : "Pin to Canvas"}</span>
+          <DropdownMenuShortcut>⌘⇧P</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleContextMenuAction("previous-panel")} className="cursor-pointer">

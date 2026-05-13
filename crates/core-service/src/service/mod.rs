@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod agent_hooks;
 pub mod agent_session;
+pub mod canvas;
 pub mod git_commit_message;
 pub mod message_push;
 pub mod notification;
@@ -9,6 +10,7 @@ pub mod review;
 pub mod session_title;
 pub mod skill;
 pub mod terminal;
+pub mod terminal_overview;
 pub mod test;
 pub mod workspace;
 pub mod ws_message;

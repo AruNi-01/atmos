@@ -65,6 +65,7 @@ import { useWorkspaceContext } from '@/hooks/use-workspace-context';
 import { TaskListPanel } from '@/components/workspace/TaskListPanel';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { UsagePopover } from '@/components/layout/UsagePopover';
+import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 
 
 
@@ -143,6 +144,14 @@ export function GlobalSearch() {
   const [, setLeftSidebarTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
   const [, setKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
+
+  const managementTerminalsEnabled = useExperimentSettings((s) => s.managementTerminalsEnabled);
+  const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+
+  useEffect(() => {
+    void loadExperimentSettings();
+  }, [loadExperimentSettings]);
 
   // Sub-view state (null = search, inline panels reuse the command dialog shell)
   const [subView, setSubView] = useState<'todo' | 'usage' | null>(null);
@@ -442,46 +451,51 @@ export function GlobalSearch() {
       },
     });
 
-    items.push({
-      id: 'management-terminals',
-      type: 'management',
-      title: 'Management Center: Terminals',
-      description: 'Open terminal management',
-      keywords: ['management', 'center', 'terminals', 'terminal', 'sessions'],
-      icon: <Terminal className="size-4 text-muted-foreground" />,
-      action: () => {
-        router.push('/terminals');
-        setGlobalSearchOpen(false);
-      },
-    });
+    if (managementTerminalsEnabled) {
+      items.push({
+        id: 'management-terminals',
+        type: 'management',
+        title: 'Management Center: Terminals',
+        description: 'Open terminal management',
+        keywords: ['management', 'center', 'terminals', 'terminal', 'sessions'],
+        icon: <Terminal className="size-4 text-muted-foreground" />,
+        action: () => {
+          router.push('/terminals');
+          setGlobalSearchOpen(false);
+        },
+      });
+    }
 
-    // Management Center: Agents
-    items.push({
-      id: 'management-agents',
-      type: 'management',
-      title: 'Management Center: Agents',
-      description: 'Open agent management',
-      keywords: ['management', 'center', 'agents', 'agent', 'bot', 'ai', 'chat'],
-      icon: <Bot className="size-4 text-muted-foreground" />,
-      action: () => {
-        router.push('/agents');
-        setGlobalSearchOpen(false);
-      },
-    });
+    if (managementAgentsEnabled) {
+      items.push({
+        id: 'management-agents',
+        type: 'management',
+        title: 'Management Center: Agents',
+        description: 'Open agent management',
+        keywords: ['management', 'center', 'agents', 'agent', 'bot', 'ai', 'chat'],
+        icon: <Bot className="size-4 text-muted-foreground" />,
+        action: () => {
+          router.push('/agents');
+          setGlobalSearchOpen(false);
+        },
+      });
+    }
 
     // Quick Open Modals
-    items.push({
-      id: 'modal-chat-panel',
-      type: 'modal',
-      title: 'Open ACP Chat',
-      description: 'Toggle the ACP Chat panel',
-      keywords: ['chat', 'agent', 'panel', 'ai', 'assistant', 'message', 'conversation', 'open', 'acp'],
-      icon: <Bot className="size-4 text-muted-foreground" />,
-      action: () => {
-        setAgentChatOpen(true);
-        setGlobalSearchOpen(false);
-      },
-    });
+    if (managementAgentsEnabled) {
+      items.push({
+        id: 'modal-chat-panel',
+        type: 'modal',
+        title: 'Open ACP Chat',
+        description: 'Toggle the ACP Chat panel',
+        keywords: ['chat', 'agent', 'panel', 'ai', 'assistant', 'message', 'conversation', 'open', 'acp'],
+        icon: <Bot className="size-4 text-muted-foreground" />,
+        action: () => {
+          setAgentChatOpen(true);
+          setGlobalSearchOpen(false);
+        },
+      });
+    }
 
     items.push({
       id: 'modal-llm-providers',
@@ -657,7 +671,7 @@ export function GlobalSearch() {
     }
 
     return items;
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled]);
 
   // Fuse.js instance for app search
   const appFuse = useMemo(() => {

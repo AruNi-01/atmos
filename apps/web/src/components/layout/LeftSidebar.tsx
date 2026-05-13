@@ -11,6 +11,7 @@ import {
   Plus,
   Folder,
   Layers,
+  Frame,
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -97,6 +98,7 @@ import {
 import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
+import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 import { useFileTreeStore } from '@/hooks/use-file-tree-store';
 
 interface LeftSidebarProps {
@@ -174,6 +176,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
+    const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
     const [, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
@@ -193,6 +196,39 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const isLoadingFiles = useFileTreeStore((s) => s.isLoading);
     const fetchFileTree = useFileTreeStore((s) => s.fetch);
     const showHiddenFiles = useFileTreeStore((s) => s.showHidden);
+
+    const managementTerminalsEnabled = useExperimentSettings((s) => s.managementTerminalsEnabled);
+    const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
+    const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+    useEffect(() => {
+        void loadExperimentSettings();
+    }, [loadExperimentSettings]);
+
+    const managementCenterItems = useMemo(
+        (): Array<{
+            id: string;
+            label: string;
+            icon: typeof FolderKanban;
+            path?: string;
+            kind?: 'kanban' | 'new-workspace' | 'canvas';
+        }> => {
+            const all = [
+                { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
+                { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
+                { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
+                { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
+                { id: 'canvas', label: 'Canvas', icon: Frame, kind: 'canvas' as const },
+                { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' as const },
+                { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' as const },
+            ];
+            return all.filter((item) => {
+                if (item.id === 'terminals' && !managementTerminalsEnabled) return false;
+                if (item.id === 'agents' && !managementAgentsEnabled) return false;
+                return true;
+            });
+        },
+        [managementTerminalsEnabled, managementAgentsEnabled],
+    );
 
     const {
         isCreateProjectOpen,
@@ -498,12 +534,28 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         void setNewWorkspace(!newWorkspace);
     }, [currentProjectId, setNewWorkspace, setSelectedProjectId, newWorkspace, currentView]);
 
+    /**
+     * Toggle the Canvas/Presentation overlay. Used by the global ⌘⇧H hotkey.
+     * If already open, close it; if closed, open it.
+     */
+    const handleToggleCanvas = useCallback(() => {
+        void setCanvasOpen(!canvasOpen);
+    }, [canvasOpen, setCanvasOpen]);
+
     // ⌘N → toggle the New Workspace overlay from anywhere in the app.
     useHotkeys(
         "mod+n",
         handleToggleNewWorkspace,
         { enableOnFormTags: true, preventDefault: true },
         [handleToggleNewWorkspace],
+    );
+
+    // ⌘⇧H → toggle the Canvas/Presentation overlay from anywhere in the app.
+    useHotkeys(
+        "mod+shift+h",
+        handleToggleCanvas,
+        { enableOnFormTags: true, preventDefault: true },
+        [handleToggleCanvas],
     );
 
     // ⌘⇧K → expand the Kanban board overlay. The kanban dialog is bound to the
@@ -741,27 +793,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     )}>
                         <div className="overflow-hidden">
                             {(() => {
-                                const managementItems: Array<{
-                                    id: string;
-                                    label: string;
-                                    icon: typeof FolderKanban;
-                                    path?: string;
-                                    kind?: 'kanban' | 'new-workspace';
-                                }> = [
-                                    { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
-                                    { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
-                                    { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
-                                    { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
-                                    { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' },
-                                    { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' },
-                                ];
+                                const managementItems = managementCenterItems;
                                 const totalItems = managementItems.length;
                                 const isOddCount = totalItems % 2 === 1;
                                 return (
                                     <div className="grid grid-cols-1 @[200px]:grid-cols-2">
                                         {managementItems.map((item, index) => {
                                             const Icon = item.icon;
-                                            const isActive = currentView === item.id;
+                                            const isActive = currentView === item.id || (item.kind === 'canvas' && canvasOpen);
                                             const isLeftColumnOnTwoCol = index % 2 === 0;
                                             const isLastItemAlone = isOddCount && index === totalItems - 1;
                                             const cardClassName = cn(
@@ -832,6 +871,31 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                             </div>
                                                         )}
                                                     />
+                                                );
+                                            }
+
+                                            if (item.kind === 'canvas') {
+                                                return (
+                                                    <Tooltip key={item.id}>
+                                                        <TooltipTrigger asChild>
+                                                            <div
+                                                                onClick={() => void setCanvasOpen(true)}
+                                                                className={cardClassName}
+                                                            >
+                                                                {cardInner}
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <div className="flex items-center gap-2">
+                                                                <span>Canvas</span>
+                                                                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                                                                    <Command className="size-3" />
+                                                                    <span className="text-xs">⇧</span>
+                                                                    <span className="text-xs">H</span>
+                                                                </kbd>
+                                                            </div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 );
                                             }
 
