@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import {
   cn,
@@ -313,7 +313,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
   const ScopeIcon = scopeMeta.icon;
   const statusMeta = getStatusMeta(skill.status);
   const StatusIcon = statusMeta.icon;
-  
+
   const [selectedFile, setSelectedFile] = useState<SkillFile | null>(
     skill.files?.find(f => f.is_main) || skill.files?.[0] || null
   );
@@ -321,7 +321,7 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
     // Expand only the directory of the selected file (if any)
     const dirs = new Set<string>();
     const fileToExpand = skill.files?.find(f => f.is_main) || skill.files?.[0];
-    
+
     if (fileToExpand) {
       const parts = fileToExpand.relative_path.split('/');
       // Add all parent paths
@@ -334,6 +334,8 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
   const [isReadOnly, setIsReadOnly] = useState(true);
   const [isPreview, setIsPreview] = useState(true);
   const [fileContent, setFileContent] = useState<string>(selectedFile?.content || '');
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const loadedFilesRef = useRef<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
 
   const [isFilesCollapsed, setIsFilesCollapsed] = useState(false);
@@ -344,6 +346,44 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
   const isMarkdown = selectedFile?.name.endsWith('.md') || selectedFile?.name.endsWith('.mdx');
   const language = selectedFile ? getLanguageFromFileName(selectedFile.name) : 'plaintext';
+
+  // Load file content if it's not already available
+  useEffect(() => {
+    const loadFileContent = async () => {
+      if (!selectedFile) return;
+
+      // If content is already available (including empty string), use it
+      if (selectedFile.content !== null) {
+        setFileContent(selectedFile.content);
+        return;
+      }
+
+      // If we already tried to load this file, don't try again
+      if (loadedFilesRef.current.has(selectedFile.absolute_path)) {
+        setFileContent('');
+        return;
+      }
+
+      // Otherwise, fetch it from the backend
+      setIsLoadingContent(true);
+      loadedFilesRef.current.add(selectedFile.absolute_path);
+      try {
+        const result = await fsApi.readFile(selectedFile.absolute_path);
+        if (result.exists && result.content !== null) {
+          setFileContent(result.content);
+        } else {
+          setFileContent('');
+        }
+      } catch (error) {
+        console.error('Failed to load file content:', error);
+        setFileContent('');
+      } finally {
+        setIsLoadingContent(false);
+      }
+    };
+
+    void loadFileContent();
+  }, [selectedFile]);
 
   // Convert YAML frontmatter into a fenced yaml code block for markdown preview
   const previewContent = useMemo(() => {
@@ -415,7 +455,6 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
   const handleSelectFile = useCallback((file: SkillFile) => {
     setSelectedFile(file);
-    setFileContent(file.content || '');
     setIsPreview(file.name.endsWith('.md') || file.name.endsWith('.mdx'));
   }, []);
 
@@ -665,7 +704,12 @@ export const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack, onUpdat
 
               {/* Editor / Preview */}
               <div className="flex-1 overflow-hidden relative">
-                {selectedFile.content !== null ? (
+                {isLoadingContent ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <Loader2 className="size-6 animate-spin mr-2" />
+                    <p className="text-sm">Loading file content...</p>
+                  </div>
+                ) : fileContent !== null && fileContent !== '' ? (
                   isMarkdown && isPreview ? (
                     <>
                       <ScrollArea key={selectedFile.relative_path} className="h-full">
