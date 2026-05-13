@@ -18,15 +18,28 @@ import { CanvasView } from "./CanvasView";
 export function CanvasOverlay() {
   const [canvas, setCanvas] = useQueryState("canvas", centerStageParams.canvas);
   const [animState, setAnimState] = React.useState<"idle" | "entering" | "visible" | "closing">("idle");
-  const prevOpenRef = React.useRef(false);
+  /** Previous committed value of `canvas` from nuqs (starts false so `?canvas=true` on first paint opens correctly). */
+  const prevCanvasOpenRef = React.useRef(false);
   const previousFocusRef = React.useRef<Element | null>(null);
 
   React.useEffect(() => {
-    if (canvas && !prevOpenRef.current) {
+    const wasOpen = prevCanvasOpenRef.current;
+    prevCanvasOpenRef.current = canvas;
+
+    if (canvas && !wasOpen) {
       previousFocusRef.current = document.activeElement;
       setAnimState("entering");
+      return;
     }
-    prevOpenRef.current = canvas;
+
+    // Query cleared externally (URL edit, router replace, etc.) while overlay was active —
+    // drive the same closing animation so `animState` cannot stay visible/entering with canvas=false.
+    if (!canvas && wasOpen) {
+      setAnimState((prev) => {
+        if (prev === "idle" || prev === "closing") return prev;
+        return "closing";
+      });
+    }
   }, [canvas]);
 
   React.useEffect(() => {
@@ -37,10 +50,10 @@ export function CanvasOverlay() {
     return () => cancelAnimationFrame(raf);
   }, [animState]);
 
-  const handleClose = React.useCallback(() => {
-    setAnimState("closing");
+  React.useEffect(() => {
+    if (animState !== "closing") return;
     const savedEl = previousFocusRef.current;
-    window.setTimeout(() => {
+    const id = window.setTimeout(() => {
       setAnimState("idle");
       void setCanvas(false);
       if (savedEl instanceof HTMLElement && savedEl.isConnected) {
@@ -48,7 +61,12 @@ export function CanvasOverlay() {
       }
       previousFocusRef.current = null;
     }, 300);
-  }, [setCanvas]);
+    return () => clearTimeout(id);
+  }, [animState, setCanvas]);
+
+  const handleClose = React.useCallback(() => {
+    setAnimState("closing");
+  }, []);
 
   if (!canvas && animState === "idle") {
     return null;

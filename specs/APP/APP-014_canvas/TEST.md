@@ -5,8 +5,8 @@
 ## Test strategy
 
 - **Unit / integration**: validate backend default-board creation, schema validation, and save/load round-trips for the persisted canvas document.
-- **Frontend integration**: validate URL mode switching, document hydration, import parsing, and canvas store persistence behavior.
-- **End-to-end / browser smoke**: validate the visible `/terminals` manager/canvas switch, note creation, terminal import, source reveal, and persistence across reload.
+- **Frontend integration**: validate `canvas` query persistence (`?canvas=true`), document hydration, import parsing, and canvas store persistence behavior.
+- **End-to-end / browser smoke**: validate the immersive Canvas overlay (`?canvas=true`), note creation, terminal import, source reveal, and persistence across reload.
 - **Manual-only**:
   - live terminal interaction quality inside a tldraw custom shape, because focus, resize, and xterm rendering are hard to prove cheaply without a dedicated browser harness
   - performance with many cards on a realistic machine, because this depends on real browser and tmux behavior
@@ -29,13 +29,13 @@
 
 ## Scenarios
 
-### S1 — Happy path: user opens Canvas from the global terminals destination
+### S1 — Happy path: user opens the immersive Canvas overlay from Management Center
 
 - **Level**: Frontend integration / browser smoke
-- **Given**: the user navigates to `/terminals`
-- **When**: the user switches from `manager` mode to `canvas` mode
-- **Then**: the canvas view renders inside the existing terminals destination, without creating a second top-level route
-- **Signals**: mode switch visible, canvas container rendered, URL state reflects `terminalView=canvas`
+- **Given**: the user is in the main workspace shell with Management Center available in the left sidebar
+- **When**: the user expands Management Center and chooses **Canvas**
+- **Then**: a full-screen Canvas overlay opens above the entire app (including sidebar and header), with the default tldraw surface and controls visible
+- **Signals**: overlay covers the viewport, canvas mounts and loads the persisted board, URL reflects `canvas=true`; collapsing (SharePanel control or clearing the query param) removes the overlay and returns focus to the prior surface
 
 ### S2 — Happy path: import terminal panes from more than one source context
 
