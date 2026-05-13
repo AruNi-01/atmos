@@ -9,13 +9,32 @@ describe("parseBoardDocument", () => {
         JSON.stringify({
           schema: "canvas.v1",
           boardSlug: "default",
-          tldrawSnapshot: null,
+          tldrawDocument: null,
         }),
       ),
     ).toEqual({
       schema: "canvas.v1",
       boardSlug: "default",
-      tldrawSnapshot: null,
+      tldrawDocument: null,
+    });
+  });
+
+  it("accepts legacy full snapshots by extracting only the document", () => {
+    expect(
+      parseBoardDocument(
+        JSON.stringify({
+          schema: "canvas.v1",
+          boardSlug: "default",
+          tldrawSnapshot: {
+            document: { store: {}, schema: {} },
+            session: { version: 0 },
+          },
+        }),
+      ),
+    ).toEqual({
+      schema: "canvas.v1",
+      boardSlug: "default",
+      tldrawDocument: { store: {}, schema: {} },
     });
   });
 
@@ -29,7 +48,7 @@ describe("parseBoardDocument", () => {
         JSON.stringify({
           schema: "canvas.v2",
           boardSlug: "default",
-          tldrawSnapshot: null,
+          tldrawDocument: null,
         }),
       ),
     ).toThrow("Unsupported Canvas schema");
@@ -41,7 +60,7 @@ describe("parseBoardDocument", () => {
         JSON.stringify({
           schema: "canvas.v1",
           boardSlug: "other",
-          tldrawSnapshot: null,
+          tldrawDocument: null,
         }),
       ),
     ).toThrow("Unsupported Canvas board slug");

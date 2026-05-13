@@ -6,18 +6,42 @@ import { canvasApi, type CanvasBoardResponse } from "@/api/rest-api";
 
 const CANVAS_SCHEMA = "canvas.v1";
 const CANVAS_BOARD_SLUG = "default";
+const SESSION_SNAPSHOT_VERSION = 0;
+
+export type CanvasTldrawDocument = TLEditorSnapshot["document"];
+export type CanvasTldrawSession = TLEditorSnapshot["session"];
 
 export interface CanvasBoardDocument {
   schema: typeof CANVAS_SCHEMA;
   boardSlug: typeof CANVAS_BOARD_SLUG;
-  tldrawSnapshot: TLEditorSnapshot | null;
+  tldrawDocument: CanvasTldrawDocument | null;
 }
 
 export function createDefaultDocument(): CanvasBoardDocument {
   return {
     schema: CANVAS_SCHEMA,
     boardSlug: CANVAS_BOARD_SLUG,
-    tldrawSnapshot: null,
+    tldrawDocument: null,
+  };
+}
+
+export function createDefaultCanvasSession(): CanvasTldrawSession {
+  return {
+    version: SESSION_SNAPSHOT_VERSION,
+  } as CanvasTldrawSession;
+}
+
+export function createCanvasSnapshot(
+  document: CanvasTldrawDocument | null,
+  session?: CanvasTldrawSession | null,
+): TLEditorSnapshot | null {
+  if (!document) {
+    return null;
+  }
+
+  return {
+    document,
+    session: session ?? createDefaultCanvasSession(),
   };
 }
 
@@ -25,25 +49,40 @@ function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Validates persisted snapshot shape expected by tldraw v5 (`TLEditorSnapshot`). */
-function parseStoredTldrawSnapshot(value: unknown): TLEditorSnapshot | null {
+function parseStoredTldrawDocument(value: unknown): CanvasTldrawDocument | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (!isPlainJsonObject(value)) {
+    throw new Error("Canvas tldraw document must be a JSON object when present");
+  }
+  return value as unknown as CanvasTldrawDocument;
+}
+
+function parseLegacyStoredSnapshot(value: unknown): CanvasTldrawDocument | null {
   if (value === undefined || value === null) {
     return null;
   }
   if (!isPlainJsonObject(value)) {
     throw new Error("Canvas tldraw snapshot must be a JSON object when present");
   }
-  if (!isPlainJsonObject(value.document) || !isPlainJsonObject(value.session)) {
-    throw new Error("Canvas tldraw snapshot must include document and session objects");
+  if (!isPlainJsonObject(value.document)) {
+    throw new Error("Canvas tldraw snapshot must include a document object");
   }
-  return value as TLEditorSnapshot;
+  return value.document as unknown as CanvasTldrawDocument;
 }
 
 export function parseBoardDocument(documentJson: string): CanvasBoardDocument {
-  let parsed: Partial<CanvasBoardDocument>;
+  let parsed: Partial<CanvasBoardDocument> & {
+    tldrawSnapshot?: unknown;
+    tldrawDocument?: unknown;
+  };
 
   try {
-    parsed = JSON.parse(documentJson) as Partial<CanvasBoardDocument>;
+    parsed = JSON.parse(documentJson) as Partial<CanvasBoardDocument> & {
+      tldrawSnapshot?: unknown;
+      tldrawDocument?: unknown;
+    };
   } catch (error) {
     throw new Error(
       `The saved Canvas board contains invalid JSON${error instanceof Error ? `: ${error.message}` : ""}`,
@@ -65,7 +104,10 @@ export function parseBoardDocument(documentJson: string): CanvasBoardDocument {
   return {
     schema: CANVAS_SCHEMA,
     boardSlug: CANVAS_BOARD_SLUG,
-    tldrawSnapshot: parseStoredTldrawSnapshot(parsed.tldrawSnapshot),
+    tldrawDocument:
+      "tldrawDocument" in parsed
+        ? parseStoredTldrawDocument(parsed.tldrawDocument)
+        : parseLegacyStoredSnapshot(parsed.tldrawSnapshot),
   };
 }
 
@@ -100,6 +142,7 @@ export function useCanvasBoard() {
     setError(null);
     try {
       const nextBoard = await canvasApi.updateDefaultBoard(stringifyBoardDocument(nextDocument));
+      setDocument(parseBoardDocument(nextBoard.document_json));
       setBoard(nextBoard);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save canvas");
