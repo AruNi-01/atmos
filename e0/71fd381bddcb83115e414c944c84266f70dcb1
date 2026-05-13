@@ -1,0 +1,31 @@
+apps/web/src/components/canvas/use-canvas-board.ts
+  s_350ae2edc84263::t_033a1792f477fd 9-12,17,24-44,52-62,69-70,72,76-79,82-85,107-110,145
+apps/web/src/components/canvas/CanvasView.tsx
+  s_350ae2edc84263::t_12854655c8d183 40,61-74,77-79,122,157,161,165-200,243,252,261,270,280,290,293,328-384,398-410,415-416,430-440,453,455-461,546-553,565-568,661-663,670-676,680,682-683,691-694,699-712,715-732,734-742,746-751,753-755,758-773,781-782,784-785,787,791-812,837-839,841
+  s_350ae2edc84263::t_9d4ce274de9827 578-610
+  s_350ae2edc84263::t_49474ae352cd65 419-424,426-427
+  s_350ae2edc84263::t_4181ea7f33c1d9 50,53,58-59
+  s_350ae2edc84263::t_acfc5140667941 543-545
+  s_350ae2edc84263::t_69109033f4bef2 120
+  s_350ae2edc84263::t_359ae33a0811ee 296,303-310
+  s_350ae2edc84263::t_3bcbda9bea9cb4 634,636-659
+  s_350ae2edc84263::t_76d4427b4f91a3 1182-1196
+  s_350ae2edc84263::t_0a5930044c4e87 425
+  s_350ae2edc84263::t_6579699d385361 57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e071fd381bddcb83115e414c944c84266f70dcb1",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
