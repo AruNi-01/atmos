@@ -1,0 +1,30 @@
+apps/web/src/components/terminal/terminal-title.tsx
+  s_350ae2edc84263::t_9d86f544a30b4a 5
+  s_350ae2edc84263::t_f026c2ac24f809 136
+apps/web/src/components/terminal/TerminalGrid.tsx
+  s_350ae2edc84263::t_60ed543dcff7ef 655-656
+  s_350ae2edc84263::t_ed6b81a550c563 51
+  s_350ae2edc84263::t_503be31d2230a1 649-650
+  s_350ae2edc84263::t_ab5594e5f7b209 874
+  s_350ae2edc84263::t_7144f6782a7d41 605
+  s_350ae2edc84263::t_7e00dc2aee145a 871-873,875
+  s_350ae2edc84263::t_033a1792f477fd 29,47,58-67,179,207,218,232,544-604,606-648,651-654,657-661,739-745,764,820-822,833-839,845-854,882-888,890-894,1051-1057,1084-1086,1094-1096,1231-1236,1238
+  s_350ae2edc84263::t_81b17bc7ee60e0 889
+  s_350ae2edc84263::t_f34e32c3e04127 1237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e95c64d672d545116358b33f38b8e70d73fa08d9",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
