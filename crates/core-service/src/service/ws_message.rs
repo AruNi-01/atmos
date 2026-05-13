@@ -13,11 +13,13 @@ use agent::{AgentId, CustomAgent};
 use ai_usage::UsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
+use crate::{CanvasService, SaveCanvasBoardReq};
 #[allow(unused_imports)]
 use infra::{
     AgentBehaviourSettingsUpdateRequest, AgentConfigGetRequest, AgentConfigSetRequest,
     AgentInstallRequest, AgentRegistryInstallRequest, AgentRegistryListRequest,
-    AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
+    AgentRegistryRemoveRequest, AppOpenRequest, CanvasBoardResponse, CanvasUpdateDefaultBoardRequest,
+    CodeAgentCustomUpdateRequest,
     CustomAgentAddRequest, CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest,
     FsDeletePathRequest, FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest,
     FsReadFileRequest, FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest,
@@ -103,6 +105,7 @@ pub struct WsMessageService {
     agent_session_service: Arc<AgentSessionService>,
     review_service: Arc<ReviewService>,
     usage_service: Arc<UsageService>,
+    canvas_service: Arc<CanvasService>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
 }
@@ -444,6 +447,7 @@ impl WsMessageService {
         agent_session_service: Arc<AgentSessionService>,
         review_service: Arc<ReviewService>,
         usage_service: Arc<UsageService>,
+        canvas_service: Arc<CanvasService>,
     ) -> Self {
         Self {
             fs_engine: FsEngine::new(),
@@ -457,6 +461,7 @@ impl WsMessageService {
             agent_session_service,
             review_service,
             usage_service,
+            canvas_service,
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
         }
@@ -509,6 +514,12 @@ impl WsMessageService {
 
             // App
             WsAction::AppOpen => self.handle_app_open(parse_request(request.data)?),
+
+            // Canvas
+            WsAction::CanvasGetDefaultBoard => self.handle_canvas_get_default_board().await,
+            WsAction::CanvasUpdateDefaultBoard => {
+                self.handle_canvas_update_default_board(parse_request(request.data)?).await
+            }
 
             // Git
             WsAction::GitGetStatus => self.handle_git_get_status(parse_request(request.data)?),
@@ -1269,6 +1280,35 @@ impl WsMessageService {
     }
 
     // ===== App Handlers =====
+
+    // ===== Canvas Handlers =====
+
+    async fn handle_canvas_get_default_board(&self) -> Result<Value> {
+        let board = self.canvas_service.get_default_board().await?;
+        Ok(json!(CanvasBoardResponse {
+            guid: board.guid,
+            slug: board.slug,
+            name: board.name,
+            document_json: board.document_json,
+            updated_at: board.updated_at,
+        }))
+    }
+
+    async fn handle_canvas_update_default_board(&self, req: CanvasUpdateDefaultBoardRequest) -> Result<Value> {
+        let board = self
+            .canvas_service
+            .save_default_board(SaveCanvasBoardReq {
+                document_json: req.document_json,
+            })
+            .await?;
+        Ok(json!(CanvasBoardResponse {
+            guid: board.guid,
+            slug: board.slug,
+            name: board.name,
+            document_json: board.document_json,
+            updated_at: board.updated_at,
+        }))
+    }
 
     fn handle_app_open(&self, req: AppOpenRequest) -> Result<Value> {
         let path = self.fs_engine.expand_path(&req.path)?;

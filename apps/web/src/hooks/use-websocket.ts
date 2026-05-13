@@ -24,6 +24,9 @@ export type WsAction =
   | "fs_search_content"
   // App 操作
   | "app_open"
+  // Canvas 操作
+  | "canvas_get_default_board"
+  | "canvas_update_default_board"
   // Git 操作
   | "git_get_status"
   | "git_get_head_commit"

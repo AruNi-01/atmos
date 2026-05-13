@@ -162,6 +162,12 @@ pub enum WsAction {
     /// 使用外部应用打开路径
     AppOpen,
 
+    // ===== Canvas 操作 =====
+    /// 获取默认 canvas board
+    CanvasGetDefaultBoard,
+    /// 更新默认 canvas board
+    CanvasUpdateDefaultBoard,
+
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
     GitGetStatus,
@@ -791,6 +797,24 @@ pub struct FsListDirResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FsValidateGitPathRequest {
     pub path: String,
+}
+
+// ===== Canvas 操作数据结构 =====
+
+/// 获取默认 canvas board 响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasBoardResponse {
+    pub guid: String,
+    pub slug: String,
+    pub name: String,
+    pub document_json: String,
+    pub updated_at: String,
+}
+
+/// 更新默认 canvas board 请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasUpdateDefaultBoardRequest {
+    pub document_json: String,
 }
 
 /// 验证 Git 路径响应

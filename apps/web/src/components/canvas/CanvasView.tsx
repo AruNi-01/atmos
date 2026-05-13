@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTheme } from "next-themes";
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   DefaultSpinner,
   HTMLContainer,
@@ -47,7 +48,8 @@ import {
   type TerminalOverviewResponse,
   type TmuxWindow,
 } from "@/api/rest-api";
-import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
+import { useCanvasSettings } from "@/hooks/use-canvas-settings";
+import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useProjectStore } from "@/hooks/use-project-store";
 import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
@@ -73,7 +75,6 @@ import {
   type CanvasTerminalShape,
 } from "./canvas-terminal-shape";
 
-const SAVE_DEBOUNCE_MS = 800;
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
 const CANVAS_SESSION_STORAGE_KEY_PREFIX = "atmos.canvas.session";
@@ -526,12 +527,15 @@ function CanvasThemeBridge() {
 }
 
 export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
-  const { board, document, isLoading, isSaving, error, loadBoard, saveDocument } = useCanvasBoard();
+  const { board, document, isLoading, isSaving, error, loadBoard } = useCanvasBoard();
+  const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
+  const [isManualSaving, setIsManualSaving] = React.useState(false);
   const projects = useProjectStore((state) => state.projects);
   const isProjectsLoading = useProjectStore((state) => state.isLoading);
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
   const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
   const resetRuntime = useCanvasRuntime((state) => state.reset);
+  const { autoSaveInterval, loadSettings: loadCanvasSettings } = useCanvasSettings();
   const [overview, setOverview] = React.useState<TerminalOverviewResponse | null>(null);
   const [isOverviewLoading, setIsOverviewLoading] = React.useState(false);
   const [overviewError, setOverviewError] = React.useState<string | null>(null);
@@ -543,14 +547,11 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
   const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
   const [agentSettingsLoading, setAgentSettingsLoading] = React.useState(false);
-  const documentSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const documentSaveInFlightRef = React.useRef(false);
-  const needsDocumentResaveRef = React.useRef(false);
-  const pendingDocumentRef = React.useRef<CanvasTldrawDocument | null>(document?.tldrawDocument ?? null);
-  const documentDirtyRef = React.useRef(false);
   const sessionSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSessionRef = React.useRef<CanvasTldrawSession | null>(null);
   const sessionDirtyRef = React.useRef(false);
+  const autoSaveIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const spawnIndexRef = React.useRef(0);
   const sharePanelRef = React.useRef<React.ReactNode>(null);
   const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil], []);
@@ -658,105 +659,100 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   }, []);
 
   React.useEffect(() => {
-    pendingDocumentRef.current = document?.tldrawDocument ?? null;
+    void loadCanvasSettings();
+  }, [loadCanvasSettings]);
+
+  React.useEffect(() => {
     pendingSessionRef.current = readStoredCanvasSession(board?.guid);
-  }, [board?.guid, document]);
+    if (board?.updated_at && !lastSavedAt) {
+      setLastSavedAt(new Date(board.updated_at));
+    }
+  }, [board?.guid, board?.updated_at, lastSavedAt]);
+
+  // Auto-save with configurable interval
+  React.useEffect(() => {
+    if (!editorReady) return;
+
+    autoSaveIntervalRef.current = setInterval(() => {
+      const editor = editorRef.current;
+      if (!editor) return;
+
+      const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
+
+      // Directly save without debounce for auto-save
+      void (async () => {
+        if (documentSaveInFlightRef.current) {
+          return;
+        }
+
+        documentSaveInFlightRef.current = true;
+        try {
+          const documentJson = JSON.stringify(createCanvasDocument(snapshot.document));
+          await canvasWsApi.updateDefaultBoard(documentJson);
+          setLastSavedAt(new Date());
+        } catch (err) {
+          // Auto-save errors are logged silently
+        } finally {
+          documentSaveInFlightRef.current = false;
+        }
+      })();
+    }, autoSaveInterval * 1000);
+
+    return () => {
+      if (autoSaveIntervalRef.current) {
+        clearInterval(autoSaveIntervalRef.current);
+        autoSaveIntervalRef.current = null;
+      }
+    };
+  }, [editorReady, autoSaveInterval]);
+
+  // Manual save function
+  const handleManualSave = React.useCallback(async () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    if (documentSaveInFlightRef.current) {
+      return;
+    }
+
+    setIsManualSaving(true);
+    documentSaveInFlightRef.current = true;
+
+    try {
+      const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
+      const documentJson = JSON.stringify(createCanvasDocument(snapshot.document));
+      await canvasWsApi.updateDefaultBoard(documentJson);
+      setLastSavedAt(new Date());
+      toastManager.add({
+        title: "Canvas",
+        description: "Saved successfully",
+        type: "success",
+      });
+    } catch (err) {
+      toastManager.add({
+        title: "Canvas",
+        description: "Failed to save canvas",
+        type: "error",
+      });
+    } finally {
+      setIsManualSaving(false);
+      documentSaveInFlightRef.current = false;
+    }
+  }, []);
+
+  // Keyboard shortcut for manual save (Cmd+S / Ctrl+S)
+  useHotkeys('cmd+s, ctrl+s', (e) => {
+    e.preventDefault();
+    void handleManualSave();
+  }, {
+    enableOnFormTags: true,
+    enableOnContentEditable: true,
+  });
 
   React.useEffect(() => {
     resetRuntime();
     setSelectedContextKey(null);
   }, [board?.guid, resetRuntime]);
-
-  const flushDocumentSave = React.useCallback(async () => {
-    if (!documentDirtyRef.current) {
-      return;
-    }
-
-    if (documentSaveInFlightRef.current) {
-      needsDocumentResaveRef.current = true;
-      return;
-    }
-
-    documentSaveInFlightRef.current = true;
-    try {
-      await saveDocument(createCanvasDocument(pendingDocumentRef.current));
-      documentDirtyRef.current = false;
-    } catch {
-      toastManager.add({
-        title: "Canvas",
-        description: "Failed to save canvas changes",
-        type: "error",
-      });
-    } finally {
-      documentSaveInFlightRef.current = false;
-      if (needsDocumentResaveRef.current) {
-        needsDocumentResaveRef.current = false;
-        void flushDocumentSave();
-      }
-    }
-  }, [saveDocument]);
-
-  const flushDocumentSaveRef = React.useRef(flushDocumentSave);
-  flushDocumentSaveRef.current = flushDocumentSave;
-
-  const flushSessionSave = React.useCallback(() => {
-    if (!sessionDirtyRef.current || !pendingSessionRef.current) {
-      return;
-    }
-
-    writeStoredCanvasSession(pendingSessionRef.current, board?.guid);
-    sessionDirtyRef.current = false;
-  }, [board?.guid]);
-
-  const flushSessionSaveRef = React.useRef(flushSessionSave);
-  flushSessionSaveRef.current = flushSessionSave;
-
-  React.useEffect(() => {
-    const handlePageHide = () => {
-      if (documentSaveTimeoutRef.current !== null) {
-        clearTimeout(documentSaveTimeoutRef.current);
-        documentSaveTimeoutRef.current = null;
-      }
-
-      if (sessionSaveTimeoutRef.current !== null) {
-        clearTimeout(sessionSaveTimeoutRef.current);
-        sessionSaveTimeoutRef.current = null;
-      }
-
-      void flushDocumentSaveRef.current();
-      flushSessionSaveRef.current();
-    };
-
-    const handleVisibilityChange = () => {
-      if (window.document.visibilityState === "hidden") {
-        handlePageHide();
-      }
-    };
-
-    window.addEventListener("pagehide", handlePageHide);
-    window.document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("pagehide", handlePageHide);
-      window.document.removeEventListener("visibilitychange", handleVisibilityChange);
-      handlePageHide();
-    };
-  }, []);
-
-  const scheduleDocumentSave = React.useCallback(
-    (nextDocument: CanvasTldrawDocument) => {
-      pendingDocumentRef.current = nextDocument;
-      documentDirtyRef.current = true;
-      if (documentSaveTimeoutRef.current) {
-        clearTimeout(documentSaveTimeoutRef.current);
-      }
-      documentSaveTimeoutRef.current = setTimeout(() => {
-        documentSaveTimeoutRef.current = null;
-        void flushDocumentSave();
-      }, SAVE_DEBOUNCE_MS);
-    },
-    [flushDocumentSave],
-  );
 
   const scheduleSessionSave = React.useCallback(
     (nextSession: CanvasTldrawSession) => {
@@ -767,10 +763,13 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
       }
       sessionSaveTimeoutRef.current = setTimeout(() => {
         sessionSaveTimeoutRef.current = null;
-        flushSessionSave();
+        if (sessionDirtyRef.current && pendingSessionRef.current) {
+          writeStoredCanvasSession(pendingSessionRef.current, board?.guid);
+          sessionDirtyRef.current = false;
+        }
       }, SESSION_SAVE_DEBOUNCE_MS);
     },
-    [flushSessionSave],
+    [board?.guid],
   );
 
   React.useEffect(() => {
@@ -788,14 +787,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
       }
     });
 
-    const cleanupDocument = editor.store.listen(
-      () => {
-        const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
-        scheduleDocumentSave(snapshot.document);
-      },
-      { scope: "document" },
-    );
-
+    // Keep session listener for local storage
     const cleanupSession = editor.store.listen(
       () => {
         const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
@@ -806,10 +798,9 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
 
     return () => {
       cleanupSelection();
-      cleanupDocument();
       cleanupSession();
     };
-  }, [editorReady, scheduleDocumentSave, scheduleSessionSave, setActiveShapeId]);
+  }, [editorReady, scheduleSessionSave, setActiveShapeId]);
 
   const placeTerminalShape = React.useCallback(
     (props: CanvasTerminalShape["props"]) => {
@@ -835,10 +826,9 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
       setActiveShapeId(shapeId);
 
       const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
-      scheduleDocumentSave(snapshot.document);
       scheduleSessionSave(snapshot.session);
     },
-    [scheduleDocumentSave, scheduleSessionSave, setActiveShapeId],
+    [scheduleSessionSave, setActiveShapeId],
   );
 
   const loadContextPanes = React.useCallback(async (item: WorkspaceImportItem) => {
@@ -1164,13 +1154,28 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
       >
         {isOverviewLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
       </Button>
-      <div className="rounded-xl border border-border bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm">
-        {isSaving
-          ? "Saving…"
-          : error
-            ? "Save failed"
-            : `Saved${board?.updated_at ? ` · ${new Date(board.updated_at).toLocaleTimeString()}` : ""}`}
-      </div>
+      <Button
+        variant="outline"
+        onClick={() => void handleManualSave()}
+        disabled={isManualSaving || documentSaveInFlightRef.current}
+        className="group rounded-xl bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground w-[140px]"
+      >
+        {isManualSaving || isSaving ? (
+          <span className="flex items-center gap-2">
+            <LoaderCircle className="size-3 animate-spin" />
+            Saving…
+          </span>
+        ) : error ? (
+          "Save failed"
+        ) : (
+          <>
+            <span className="group-hover:hidden">
+              Saved{lastSavedAt ? ` · ${lastSavedAt.toLocaleTimeString()}` : board?.updated_at ? ` · ${new Date(board.updated_at).toLocaleTimeString()}` : ""}
+            </span>
+            <span className="hidden group-hover:block">Save</span>
+          </>
+        )}
+      </Button>
       {trailingActions}
     </div>
   );

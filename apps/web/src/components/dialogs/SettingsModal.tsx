@@ -94,6 +94,7 @@ import KeyboardIcon from '@workspace/ui/components/icons/keyboard-icon';
 import { BlocksIcon } from '@workspace/ui/components/icons/blocks-icon';
 import { TmuxIcon } from '@workspace/ui/components/icons/tmux-icon';
 import CodeXmlIcon from '@workspace/ui/components/ui/code-xml-icon';
+import CanvasIcon from '@workspace/ui/components/icons/canvas-icon';
 import type { AnimatedIconHandle } from '@workspace/ui/components/icons/types';
 import { AGENT_OPTIONS } from '@/components/wiki/AgentSelect';
 import { AgentIcon } from '@/components/agent/AgentIcon';
@@ -135,6 +136,7 @@ import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
 import { useEditorSettings } from '@/hooks/use-editor-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
+import { useCanvasSettings } from '@/hooks/use-canvas-settings';
 import { FlaskIcon, type FlaskIconHandle } from '@/components/ui/flask-icon';
 
 interface ShortcutEntry {
@@ -194,6 +196,11 @@ const SETTINGS_SECTIONS = [
     id: 'editor',
     label: 'Editor',
     description: 'Code editor preferences and features',
+  },
+  {
+    id: 'canvas',
+    label: 'Canvas',
+    description: 'Canvas board preferences and auto-save behavior',
   },
   {
     id: 'code-agent',
@@ -617,6 +624,61 @@ function LayoutSettingsSection() {
               >
                 Right Sidebar
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CanvasSettingsSection() {
+  const { autoSaveInterval, loadSettings, setAutoSaveInterval } = useCanvasSettings();
+  const [localInterval, setLocalInterval] = React.useState(autoSaveInterval.toString());
+
+  React.useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  React.useEffect(() => {
+    setLocalInterval(autoSaveInterval.toString());
+  }, [autoSaveInterval]);
+
+  const handleIntervalChange = async (value: string) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num) || num < 1) return;
+
+    setLocalInterval(value);
+    await setAutoSaveInterval(num);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+          <div>
+            <p className="text-base font-medium text-foreground">Auto-save Interval</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              How often the canvas automatically saves your work (in seconds).
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="1"
+                max="60"
+                value={localInterval}
+                onChange={(e) => setLocalInterval(e.target.value)}
+                onBlur={(e) => handleIntervalChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleIntervalChange(localInterval);
+                  }
+                }}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">seconds</span>
             </div>
           </div>
         </div>
@@ -3174,6 +3236,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'shortcuts' && <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'editor' && <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />}
+                            {section.id === 'canvas' && <CanvasIcon ref={iconRef} className="shrink-0" size={16} />}
                             {section.id === 'experiments' && (
                               <FlaskIcon ref={iconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />
                             )}
@@ -4289,6 +4352,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <LayoutSettingsSection />
                 ) : resolvedActiveSection === 'editor' ? (
                   <EditorSettingsSection />
+                ) : resolvedActiveSection === 'canvas' ? (
+                  <CanvasSettingsSection />
                 ) : null}
                 </div>
               </ScrollArea>

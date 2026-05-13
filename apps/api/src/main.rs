@@ -226,6 +226,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&agent_session_service),
         Arc::clone(&review_service),
         Arc::clone(&usage_service),
+        Arc::clone(&canvas_service),
     ));
 
     // CRITICAL: Clean up stale tmux client sessions from previous crashes/hot-reloads.

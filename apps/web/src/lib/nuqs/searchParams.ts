@@ -101,6 +101,7 @@ export type SettingsModalTab =
   | "layout"
   | "shortcuts"
   | "editor"
+  | "canvas"
   | "experiments";
 
 export const settingsModalParams = {
@@ -118,6 +119,7 @@ export const settingsModalParams = {
     "layout",
     "shortcuts",
     "editor",
+    "canvas",
     "experiments",
   ]).withDefault("layout"),
 };

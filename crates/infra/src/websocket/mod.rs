@@ -17,7 +17,8 @@ pub use manager::{ConnectionInfo, WsManager};
 pub use message::{
     AgentBehaviourSettingsUpdateRequest, AgentConfigGetRequest, AgentConfigSetRequest,
     AgentInstallRequest, AgentRegistryInstallRequest, AgentRegistryListRequest,
-    AgentRegistryRemoveRequest, AppOpenRequest, CodeAgentCustomUpdateRequest,
+    AgentRegistryRemoveRequest, AppOpenRequest, CanvasBoardResponse, CanvasUpdateDefaultBoardRequest,
+    CodeAgentCustomUpdateRequest,
     CustomAgentAddRequest, CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FileTreeNode,
     FsCreateDirRequest, FsDeletePathRequest, FsDuplicatePathRequest, FsEntry, FsListDirRequest,
     FsListDirResponse, FsListProjectFilesRequest, FsListProjectFilesResponse, FsReadFileRequest,
