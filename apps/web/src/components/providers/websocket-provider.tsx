@@ -5,6 +5,7 @@ import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useAgentHooksStore } from '@/hooks/use-agent-hooks-store';
 import { useAgentNotifications } from '@/hooks/use-agent-notifications';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
+import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 import { subscribeToWorkspaceSetupProgress, subscribeToWorkspaceDeleteProgress } from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
@@ -73,6 +74,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     if (connectionState === 'connected') {
       useAgentHooksStore.getState().init();
       useLayoutSettings.getState().loadSettings();
+      void useExperimentSettings.getState().loadSettings();
     }
   }, [connectionState]);
 
