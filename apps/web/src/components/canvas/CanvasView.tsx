@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  cn,
 } from "@workspace/ui";
 import {
   AlertTriangle,
@@ -49,6 +50,7 @@ import {
   type TmuxWindow,
 } from "@/api/rest-api";
 import { useCanvasSettings } from "@/hooks/use-canvas-settings";
+import { useDesktopTrafficLightsPadding } from "@/hooks/use-desktop-traffic-lights-padding";
 import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useProjectStore } from "@/hooks/use-project-store";
@@ -536,6 +538,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
   const resetRuntime = useCanvasRuntime((state) => state.reset);
   const { autoSaveInterval, loadSettings: loadCanvasSettings } = useCanvasSettings();
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const [overview, setOverview] = React.useState<TerminalOverviewResponse | null>(null);
   const [isOverviewLoading, setIsOverviewLoading] = React.useState(false);
   const [overviewError, setOverviewError] = React.useState<string | null>(null);
@@ -1183,7 +1186,10 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   sharePanelRef.current = sharePanelContent;
 
   return (
-    <div className="tldraw-wrapper relative h-full w-full overflow-hidden bg-background">
+    <div className={cn(
+      "tldraw-wrapper relative h-full w-full overflow-hidden bg-background",
+      needsTrafficLightsPadding && "pt-[52px]"
+    )}>
       <CanvasAgentContext.Provider value={configuredAgents}>
         <Tldraw
           key={board?.guid || "canvas"}

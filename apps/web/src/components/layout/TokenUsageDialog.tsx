@@ -65,6 +65,7 @@ import {
   TabsList,
   TabsTrigger,
   TextScramble,
+  cn,
 } from "@workspace/ui";
 
 import {
@@ -82,6 +83,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { useWebSocketStore } from "@/hooks/use-websocket";
+import { useDesktopTrafficLightsPadding } from "@/hooks/use-desktop-traffic-lights-padding";
 import { useTheme } from "next-themes";
 
 type Resolution = "month" | "day";
@@ -258,6 +260,7 @@ export function TokenUsageDialog({
   const requestRef = React.useRef(0);
   const { resolvedTheme } = useTheme();
   const onEvent = useWebSocketStore((state) => state.onEvent);
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const isDarkTheme = resolvedTheme !== "light";
   const heatmapPalette = isDarkTheme ? darkHeatmapPalette : lightHeatmapPalette;
 
@@ -515,7 +518,10 @@ export function TokenUsageDialog({
 
       <DialogContent
         showCloseButton={false}
-        className="top-1/2 left-1/2 h-[100dvh] w-[100vw] max-w-[100vw] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-[28px] sm:border sm:border-border/70"
+        className={cn(
+          "top-1/2 left-1/2 h-[100dvh] w-[100vw] max-w-[100vw] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-[28px] sm:border sm:border-border/70",
+          needsTrafficLightsPadding && "pt-[52px]"
+        )}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>Token usage</DialogTitle>

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useFocusRestore } from "@/hooks/use-focus-restore";
+import { useDesktopTrafficLightsPadding } from "@/hooks/use-desktop-traffic-lights-padding";
 import {
   Badge,
   Button,
@@ -661,6 +662,7 @@ export function WorkspaceKanbanView({
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
   );
 
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const [isBrowser, setIsBrowser] = React.useState(false);
   React.useEffect(() => {
     setIsBrowser(true);
@@ -1077,7 +1079,10 @@ export function WorkspaceKanbanView({
       <DialogContent
         showCloseButton={false}
         onCloseAutoFocus={onCloseAutoFocusPrevent}
-        className="top-1/2 left-1/2 h-[100dvh] w-[100vw] max-w-[100vw] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-border"
+        className={cn(
+          "top-1/2 left-1/2 h-[100dvh] w-[100vw] max-w-[100vw] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-2xl sm:border sm:border-border",
+          needsTrafficLightsPadding && "pt-[52px]"
+        )}
       >
         <DialogHeader className="sr-only">
           <DialogTitle>Workspace Kanban</DialogTitle>
