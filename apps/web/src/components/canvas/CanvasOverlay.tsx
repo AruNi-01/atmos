@@ -2,6 +2,8 @@
 
 import React from "react";
 import { useQueryState } from "nuqs";
+import { Button } from "@workspace/ui";
+import { Minimize2 } from "lucide-react";
 import { centerStageParams } from "@/lib/nuqs/searchParams";
 import { CanvasView } from "./CanvasView";
 
@@ -11,7 +13,7 @@ import { CanvasView } from "./CanvasView";
  * Lives at the top of the app layout (next to <WorkspaceCreationOverlay/>) so it
  * covers the entire app — including sidebars and header — when the `canvas=true`
  * query param is active. Open with the Canvas item in Management Center;
- * collapse via the close button in CanvasView's top bar.
+ * collapse via the close button injected into tldraw's SharePanel.
  */
 export function CanvasOverlay() {
   const [canvas, setCanvas] = useQueryState("canvas", centerStageParams.canvas);
@@ -55,6 +57,21 @@ export function CanvasOverlay() {
   const isOpen = animState === "visible";
   const isClosing = animState === "closing";
 
+  // Collapse button is rendered inside tldraw's SharePanel slot via `trailingActions`
+  // so it lines up with the canvas-level Import / Refresh / Save-status controls.
+  const collapseButton = (
+    <Button
+      variant="outline"
+      size="icon"
+      onClick={handleClose}
+      className="size-9 rounded-xl bg-background/95 shadow-sm"
+      title="Collapse canvas"
+      aria-label="Collapse canvas"
+    >
+      <Minimize2 className="size-4" />
+    </Button>
+  );
+
   return (
     <div
       role="dialog"
@@ -64,7 +81,7 @@ export function CanvasOverlay() {
         isOpen ? "translate-y-0" : isClosing ? "translate-y-full" : "translate-y-full"
       }`}
     >
-      <CanvasView onClose={handleClose} />
+      <CanvasView trailingActions={collapseButton} />
     </div>
   );
 }

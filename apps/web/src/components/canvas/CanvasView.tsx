@@ -12,6 +12,7 @@ import {
   useEditor,
   useValue,
   type Editor,
+  type TLComponents,
   type TLEditorSnapshot,
   type TLBaseShape,
   type TLShapeId,
@@ -37,7 +38,6 @@ import {
   SquareTerminal,
   ArrowUpRight,
   Plus,
-  Minimize2,
 } from "lucide-react";
 import {
   projectLayoutApi,
@@ -106,7 +106,12 @@ type ContextPaneState = {
 };
 
 interface CanvasViewProps {
-  onClose?: () => void;
+  /**
+   * Optional render slot for trailing buttons inside tldraw's `SharePanel` —
+   * used by `CanvasOverlay` to inject the "collapse overlay" control next to
+   * the canvas-level Import / Refresh / Saved-status controls.
+   */
+  trailingActions?: React.ReactNode;
 }
 
 class CanvasTerminalShapeUtil extends BaseBoxShapeUtil<CanvasTerminalShape> {
@@ -426,7 +431,7 @@ function CanvasThemeBridge() {
   return null;
 }
 
-export const CanvasView: React.FC<CanvasViewProps> = ({ onClose }) => {
+export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   const { board, document, isLoading, isSaving, error, loadBoard, saveDocument } = useCanvasBoard();
   const projects = useProjectStore((state) => state.projects);
   const isProjectsLoading = useProjectStore((state) => state.isLoading);
@@ -446,7 +451,14 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onClose }) => {
   const needsResaveRef = React.useRef(false);
   const pendingSnapshotRef = React.useRef<TLEditorSnapshot | null>(document?.tldrawSnapshot ?? null);
   const spawnIndexRef = React.useRef(0);
+  const sharePanelRef = React.useRef<React.ReactNode>(null);
   const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil], []);
+  const tldrawComponents = React.useMemo<TLComponents>(
+    () => ({
+      SharePanel: () => <>{sharePanelRef.current}</>,
+    }),
+    [],
+  );
 
   const workspaceItems = React.useMemo(() => getWorkspaceImportItems(projects), [projects]);
   const attachableSessions = React.useMemo(
@@ -683,36 +695,31 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onClose }) => {
     );
   }
 
-  return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-background">
-      {/* Compact top bar: collapse + import + status. Sits above tldraw, does not block its UI. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-3">
-        <div className="pointer-events-auto flex items-center gap-2">
-          {onClose ? (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onClose}
-              className="size-9 rounded-xl bg-background/80 shadow-sm backdrop-blur"
-              title="Collapse canvas"
-              aria-label="Collapse canvas"
-            >
-              <Minimize2 className="size-4" />
-            </Button>
-          ) : null}
-        </div>
-        <div className="pointer-events-auto flex items-center gap-2">
-          <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="size-9 rounded-xl bg-background/80 shadow-sm backdrop-blur"
-                title="Import terminal — Click to import from saved layouts or active tmux sessions"
-              >
-                <Plus className="size-4" />
-              </Button>
-            </DialogTrigger>
+  /**
+   * SharePanel is tldraw's official slot for app-level controls in the top-right
+   * area next to the style panel. Putting our buttons there avoids fighting
+   * with tldraw's default top-left main-menu / page-menu UI and keeps the
+   * canvas's own UI (toolbar, style panel, minimap, etc.) fully intact.
+   *
+   * tldraw's `components` prop must be stable across renders, but our share
+   * panel needs to reflect ever-changing state (selected pane, modal open,
+   * save status, …). We solve this by storing the *current* render output
+   * in a ref and exposing a stable wrapper component to tldraw — the wrapper
+   * simply re-evaluates the ref's value when rendered.
+   */
+  const sharePanelContent = (
+    <div className="pointer-events-auto flex items-center gap-2 p-2">
+      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-xl bg-background/95 shadow-sm"
+            title="Import terminal — Click to import from saved layouts or active tmux sessions"
+          >
+            <Plus className="size-4" />
+          </Button>
+        </DialogTrigger>
             <DialogContent className="w-full sm:max-w-3xl max-h-[90vh] z-[2147483647] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>Import Terminal</DialogTitle>
@@ -867,39 +874,43 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ onClose }) => {
               </ScrollArea>
             </DialogContent>
           </Dialog>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => void loadOverview()}
-            disabled={isOverviewLoading}
-            className="size-9 rounded-xl bg-background/80 shadow-sm backdrop-blur"
-            title="Refresh active sessions"
-          >
-            {isOverviewLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
-          </Button>
-          <div className="rounded-xl border border-border bg-background/80 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur">
-            {isSaving
-              ? "Saving…"
-              : error
-                ? "Save failed"
-                : `Saved${board?.updated_at ? ` · ${new Date(board.updated_at).toLocaleTimeString()}` : ""}`}
-          </div>
-        </div>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => void loadOverview()}
+        disabled={isOverviewLoading}
+        className="size-9 rounded-xl bg-background/95 shadow-sm"
+        title="Refresh active sessions"
+      >
+        {isOverviewLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
+      </Button>
+      <div className="rounded-xl border border-border bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+        {isSaving
+          ? "Saving…"
+          : error
+            ? "Save failed"
+            : `Saved${board?.updated_at ? ` · ${new Date(board.updated_at).toLocaleTimeString()}` : ""}`}
       </div>
+      {trailingActions}
+    </div>
+  );
 
-      <div className="absolute inset-0">
-        <Tldraw
-          key={board?.guid || "canvas"}
-          snapshot={document.tldrawSnapshot ?? undefined}
-          shapeUtils={shapeUtils}
-          onMount={(nextEditor) => {
-            editorRef.current = nextEditor;
-            setEditorReady(true);
-          }}
-        >
-          <CanvasThemeBridge />
-        </Tldraw>
-      </div>
+  sharePanelRef.current = sharePanelContent;
+
+  return (
+    <div className="tldraw-wrapper relative h-full w-full overflow-hidden bg-background">
+      <Tldraw
+        key={board?.guid || "canvas"}
+        snapshot={document.tldrawSnapshot ?? undefined}
+        shapeUtils={shapeUtils}
+        components={tldrawComponents}
+        onMount={(nextEditor) => {
+          editorRef.current = nextEditor;
+          setEditorReady(true);
+        }}
+      >
+        <CanvasThemeBridge />
+      </Tldraw>
     </div>
   );
 };
