@@ -1,6 +1,6 @@
-# TEST · APP-014: Terminal Canvas
+# TEST · APP-014: Canvas
 
-> Test Plan · how we verify the global Terminal Canvas experience across backend persistence, frontend canvas behavior, and live terminal attachment. References PRD `APP-014` and TECH `APP-014`.
+> Test Plan · how we verify the global Canvas experience across backend persistence, frontend canvas behavior, and live terminal attachment. References PRD `APP-014` and TECH `APP-014`.
 
 ## Test strategy
 
@@ -29,7 +29,7 @@
 
 ## Scenarios
 
-### S1 — Happy path: user opens Terminal Canvas from the global terminals destination
+### S1 — Happy path: user opens Canvas from the global terminals destination
 
 - **Level**: Frontend integration / browser smoke
 - **Given**: the user navigates to `/terminals`
@@ -41,7 +41,7 @@
 
 - **Level**: Browser smoke
 - **Given**: at least one project terminal layout and one workspace terminal layout exist with persisted panes
-- **When**: the user imports panes from both contexts into Terminal Canvas
+- **When**: the user imports panes from both contexts into Canvas
 - **Then**: two or more terminal cards appear on the same canvas and each card shows the correct source identity
 - **Signals**: terminal cards rendered, source badges visible, imported card count matches selection
 
@@ -96,10 +96,10 @@
 ### S9 — Happy path: backend lazily creates the default board on first access
 
 - **Level**: Rust integration
-- **Given**: no `terminal_canvas_board` row exists
-- **When**: the client requests `GET /api/terminal-canvas/default`
+- **Given**: no `canvas_board` row exists
+- **When**: the client requests `GET /api/canvas/default`
 - **Then**: the backend returns a valid default board document and persists it
-- **Signals**: HTTP 200, response body contains `schema=terminal-canvas.v1`, database row created with `slug=default`
+- **Signals**: HTTP 200, response body contains `schema=canvas.v1`, database row created with `slug=default`
 
 ### S10 — Failure: backend rejects malformed document payloads
 
@@ -130,7 +130,7 @@
 - **Level**: Browser smoke
 - **Given**: the user is in a workspace/project terminal surface
 - **When**: the user uses a future quick-add action
-- **Then**: the selected pane appears in Terminal Canvas without opening the import picker
+- **Then**: the selected pane appears in Canvas without opening the import picker
 - **Signals**: new terminal card added to the default board
 
 ## Performance & load budgets

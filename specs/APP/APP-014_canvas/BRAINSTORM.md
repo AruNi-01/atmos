@@ -1,10 +1,12 @@
-# Brainstorm · APP-014: Terminal Canvas
+# Brainstorm · APP-014: Canvas
 
 > Problem space and exploration. Settled content graduates to `PRD.md`; committed architecture graduates to `TECH.md`.
+>
+> **Scope note**: This spec was originally framed as a "Canvas" because the first concrete use case is placing terminal cards from multiple workspaces onto a shared spatial surface. The product surface is intentionally a general **Canvas** — terminal cards are the first widget type but the canvas is designed to host arbitrary future widgets (notes, agent sessions, references, charts, …).
 
 ## Context
 
-Issue #106 proposes a new global **Terminal Canvas** so users can work with terminal panels from multiple workspaces and projects at the same time. Today Atmos is strong at per-workspace organization, but weak at cross-workspace operations such as multi-service debugging, release coordination, and incident response.
+Issue #106 proposes a new global **Canvas** so users can keep work from multiple workspaces and projects visible together. The first concrete need is multi-workspace terminal panels (debugging, release coordination, incident response), but the same surface is meant to host future widgets such as notes, agent sessions, file/PR references, or anything else worth spatially organizing.
 
 The current workaround is context switching:
 
@@ -120,7 +122,7 @@ Render terminal cards as lightweight previews or summaries by default. Only the 
 ## Ready to promote
 
 - **Promote to PRD**:
-  - Terminal Canvas is a global workbench, not another per-workspace tab.
+  - Canvas is a global workbench, not another per-workspace tab.
   - Users can import terminals from multiple workspace/project contexts onto one shared board.
   - Notes and grouping are part of the value proposition, not follow-up polish.
   - Persistence across app sessions is required for the first meaningful version.

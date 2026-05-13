@@ -1,19 +1,19 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
-import { parseBoardDocument } from "../use-terminal-canvas-board";
+import { parseBoardDocument } from "../use-canvas-board";
 
 describe("parseBoardDocument", () => {
   it("accepts the expected v1 document wrapper", () => {
     expect(
       parseBoardDocument(
         JSON.stringify({
-          schema: "terminal-canvas.v1",
+          schema: "canvas.v1",
           boardSlug: "default",
           tldrawSnapshot: null,
         }),
       ),
     ).toEqual({
-      schema: "terminal-canvas.v1",
+      schema: "canvas.v1",
       boardSlug: "default",
       tldrawSnapshot: null,
     });
@@ -27,23 +27,23 @@ describe("parseBoardDocument", () => {
     expect(() =>
       parseBoardDocument(
         JSON.stringify({
-          schema: "terminal-canvas.v2",
+          schema: "canvas.v2",
           boardSlug: "default",
           tldrawSnapshot: null,
         }),
       ),
-    ).toThrow("Unsupported Terminal Canvas schema");
+    ).toThrow("Unsupported Canvas schema");
   });
 
   it("rejects unsupported board slugs instead of silently resetting the board", () => {
     expect(() =>
       parseBoardDocument(
         JSON.stringify({
-          schema: "terminal-canvas.v1",
+          schema: "canvas.v1",
           boardSlug: "other",
           tldrawSnapshot: null,
         }),
       ),
-    ).toThrow("Unsupported Terminal Canvas board slug");
+    ).toThrow("Unsupported Canvas board slug");
   });
 });

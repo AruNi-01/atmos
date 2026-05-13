@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::impl_base_entity;
 
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "terminal_canvas_board")]
+#[sea_orm(table_name = "canvas_board")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub guid: String,

@@ -1,5 +1,6 @@
 pub mod agent_chat_session;
 pub mod base;
+pub mod canvas_board;
 pub mod project;
 pub mod review_comment;
 pub mod review_file_identity;
@@ -9,7 +10,6 @@ pub mod review_agent_run;
 pub mod review_message;
 pub mod review_revision;
 pub mod review_session;
-pub mod terminal_canvas_board;
 pub mod test_message;
 pub mod workspace;
 pub mod workspace_label;
