@@ -647,7 +647,7 @@ function ExperimentSettingsSection() {
           <div>
             <p className="text-sm font-medium text-foreground">Terminals (Management Center)</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Show the Terminals tile in the left sidebar Management Center. Workspaces still have terminal tabs.
+              Monitor and manage terminal usage across your system from the Management Center.
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -659,10 +659,9 @@ function ExperimentSettingsSection() {
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Agents (Management Center and footer ACP Chat)</p>
+            <p className="text-sm font-medium text-foreground">ACP Agents (Management Center and footer ACP Chat)</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Show Agents in Management Center, command palette shortcuts, and the ACP Chat control in the footer. ACP Chat
-              inside the wiki flow is unchanged.
+              Enable ACP Chat panel for GUI-based agent conversations with quick access from Management Center and footer.
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -674,9 +673,9 @@ function ExperimentSettingsSection() {
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 px-6 py-4">
           <div>
-            <p className="text-sm font-medium text-foreground">Project Wiki (center tab)</p>
+            <p className="text-sm font-medium text-foreground">Project Wiki (Center Tabs)</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Show the Project Wiki tab in the center stage tab bar next to Overview and Terminals.
+              Enable Project Wiki as a center stage tab for quick access to your project documentation and knowledge base.
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -4233,6 +4232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       title="Workspace"
                       shortcuts={[
                         { keys: ['⌘', 'N'], description: 'New workspace overlay' },
+                        { keys: ['⌘', '⇧', 'H'], description: 'Toggle Canvas overlay' },
                         { keys: ['⌘', '⇧', 'K'], description: 'Expand Kanban overlay' },
                         { keys: ['⌘', '⇧', '↵'], description: 'Open / create workspace (In new workspace overlay)' },
                       ]}
@@ -4256,6 +4256,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         { keys: ['⌘', 'T'], description: 'New terminal tab' },
                         { keys: ['⌘', 'W'], description: 'Close terminal pane' },
                         { keys: ['⌘', '⇧', 'F'], description: 'Maximize / minimize terminal panel' },
+                        { keys: ['⌘', '⇧', 'P'], description: 'Pin terminal to Canvas' },
                         { keys: ['⌘', 'F'], description: 'Find in terminal' },
                         { keys: ['⌘', '['], description: 'Previous terminal tab' },
                         { keys: ['⌘', ']'], description: 'Next terminal tab' },

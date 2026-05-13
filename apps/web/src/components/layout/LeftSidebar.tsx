@@ -534,12 +534,28 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         void setNewWorkspace(!newWorkspace);
     }, [currentProjectId, setNewWorkspace, setSelectedProjectId, newWorkspace, currentView]);
 
+    /**
+     * Toggle the Canvas/Presentation overlay. Used by the global ⌘⇧H hotkey.
+     * If already open, close it; if closed, open it.
+     */
+    const handleToggleCanvas = useCallback(() => {
+        void setCanvasOpen(!canvasOpen);
+    }, [canvasOpen, setCanvasOpen]);
+
     // ⌘N → toggle the New Workspace overlay from anywhere in the app.
     useHotkeys(
         "mod+n",
         handleToggleNewWorkspace,
         { enableOnFormTags: true, preventDefault: true },
         [handleToggleNewWorkspace],
+    );
+
+    // ⌘⇧H → toggle the Canvas/Presentation overlay from anywhere in the app.
+    useHotkeys(
+        "mod+shift+h",
+        handleToggleCanvas,
+        { enableOnFormTags: true, preventDefault: true },
+        [handleToggleCanvas],
     );
 
     // ⌘⇧K → expand the Kanban board overlay. The kanban dialog is bound to the
@@ -860,13 +876,26 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
                                             if (item.kind === 'canvas') {
                                                 return (
-                                                    <div
-                                                        key={item.id}
-                                                        onClick={() => void setCanvasOpen(true)}
-                                                        className={cardClassName}
-                                                    >
-                                                        {cardInner}
-                                                    </div>
+                                                    <Tooltip key={item.id}>
+                                                        <TooltipTrigger asChild>
+                                                            <div
+                                                                onClick={() => void setCanvasOpen(true)}
+                                                                className={cardClassName}
+                                                            >
+                                                                {cardInner}
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom">
+                                                            <div className="flex items-center gap-2">
+                                                                <span>Canvas</span>
+                                                                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
+                                                                    <Command className="size-3" />
+                                                                    <span className="text-xs">⇧</span>
+                                                                    <span className="text-xs">H</span>
+                                                                </kbd>
+                                                            </div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 );
                                             }
 
