@@ -1,0 +1,25 @@
+agents/AGENTS.md
+  s_350ae2edc84263::t_e46d958798291f 1-45
+AGENTS.md
+  s_350ae2edc84263::t_d55d31cdcb643f 13
+  s_350ae2edc84263::t_dd5eeb5966d43c 33-36
+  s_350ae2edc84263::t_31fd42f89bfebf 118,120
+agents/references/keyboard-shortcuts.md
+  s_350ae2edc84263::t_c15ccd42ff1421 1-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e2a35e2a1227b7ffa6c4bc205bb9d8ebb01a01bc",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
