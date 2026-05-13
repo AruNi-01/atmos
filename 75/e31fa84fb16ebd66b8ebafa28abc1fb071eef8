@@ -1,0 +1,30 @@
+apps/web/src/components/layout/LeftSidebar.tsx
+  s_350ae2edc84263::t_21c3c3e937a70c 553-560
+  s_350ae2edc84263::t_2c077eab214b81 537-544
+  s_350ae2edc84263::t_750ed7648f6f28 890
+  s_350ae2edc84263::t_5e9f9e4a0044e3 879-889,891-898
+apps/web/src/components/dialogs/SettingsModal.tsx
+  s_350ae2edc84263::t_a8b1258c5510cf 4259
+  s_350ae2edc84263::t_26198a1caf5992 4235
+  s_350ae2edc84263::t_f29db0257cf93f 676
+  s_350ae2edc84263::t_d7eb3ffec1eea6 664
+  s_350ae2edc84263::t_c032e5e89d9d64 662
+  s_350ae2edc84263::t_5c5b2459719819 678
+  s_350ae2edc84263::t_c806ab13c7071b 650
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "75e31fa84fb16ebd66b8ebafa28abc1fb071eef8",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
