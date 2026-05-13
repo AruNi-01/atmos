@@ -49,8 +49,6 @@ import { gitApi } from '@/api/ws-api';
 import { loadCodeLanguageSupport } from '@/lib/code-language';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
 import { createGitChangeGutterExtensions } from '@/lib/codemirror-git-gutter';
-import { selectionGutterExtension } from '@/lib/codemirror-selection-gutter';
-
 /** 用于在启用 Git 集成时拉取 `git_file_diff`（仓库根路径 + 相对路径）。 */
 export interface BaseCodeMirrorEditorGitDiffSource {
   repoPath: string;
@@ -492,6 +490,10 @@ function createEditorTheme(isDark: boolean): Extension {
       '.cm-cursor': {
         borderLeftColor: isDark ? '#fafafa' : '#111827',
       },
+      // Selection bg is text-bound only — `drawSelection` sizes the rect to the actual character widths, leaving
+      // the rest of the line (and the gutter strip) untouched so the user can see exactly which characters are
+      // selected. The small line-height gap above/below the rect is intentional: prior attempts (pseudo-bleed,
+      // per-line full-width bg, gutter strip) all introduced worse visual artifacts than the gap.
       '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
         backgroundColor: isDark ? '#3f3f46' : '#d4d4d8',
       },
@@ -989,7 +991,6 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
           gitIntegrationCompartment.of([]),
           lineNumbers(),
           foldGutter(),
-          selectionGutterExtension(),
           codeFolding(),
           highlightActiveLineGutter(),
           highlightSpecialChars(),
