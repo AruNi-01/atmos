@@ -30,6 +30,7 @@ import { ProviderGlyph } from '@/components/layout/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/components/layout/NappingBotIcon';
+import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -362,6 +363,8 @@ function HoverScrollText({ text, active }: { text: string; active: boolean }) {
 const Footer: React.FC = () => {
   const connectionState = useWebSocketStore(s => s.connectionState);
   const [, setAgentChatOpen] = useAgentChatUrl();
+  const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [usageOverview, setUsageOverview] = useState<UsageOverviewResponse | null>(null);
   const [usageIndex, setUsageIndex] = useState(0);
@@ -383,6 +386,10 @@ const Footer: React.FC = () => {
   const usageCarouselItem = usageCarouselItems.length > 0
     ? usageCarouselItems[usageIndex % usageCarouselItems.length]
     : null;
+
+  useEffect(() => {
+    void loadExperimentSettings();
+  }, [loadExperimentSettings]);
 
   useEffect(() => {
     if (connectionState !== 'connected') return;
@@ -621,8 +628,12 @@ const Footer: React.FC = () => {
             <AgentStatusPopoverContent />
           </PopoverContent>
         </Popover>
-        <div className="h-3 w-px bg-border"></div>
-        <AcpChatButton onClick={() => setAgentChatOpen(true)} />
+        {managementAgentsEnabled ? (
+          <>
+            <div className="h-3 w-px bg-border"></div>
+            <AcpChatButton onClick={() => setAgentChatOpen(true)} />
+          </>
+        ) : null}
       </div>
     </footer>
   );

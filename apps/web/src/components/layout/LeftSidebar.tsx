@@ -98,6 +98,7 @@ import {
 import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
+import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 import { useFileTreeStore } from '@/hooks/use-file-tree-store';
 
 interface LeftSidebarProps {
@@ -195,6 +196,39 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const isLoadingFiles = useFileTreeStore((s) => s.isLoading);
     const fetchFileTree = useFileTreeStore((s) => s.fetch);
     const showHiddenFiles = useFileTreeStore((s) => s.showHidden);
+
+    const managementTerminalsEnabled = useExperimentSettings((s) => s.managementTerminalsEnabled);
+    const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
+    const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+    useEffect(() => {
+        void loadExperimentSettings();
+    }, [loadExperimentSettings]);
+
+    const managementCenterItems = useMemo(
+        (): Array<{
+            id: string;
+            label: string;
+            icon: typeof FolderKanban;
+            path?: string;
+            kind?: 'kanban' | 'new-workspace' | 'canvas';
+        }> => {
+            const all = [
+                { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
+                { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
+                { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
+                { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
+                { id: 'canvas', label: 'Canvas', icon: Frame, kind: 'canvas' as const },
+                { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' as const },
+                { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' as const },
+            ];
+            return all.filter((item) => {
+                if (item.id === 'terminals' && !managementTerminalsEnabled) return false;
+                if (item.id === 'agents' && !managementAgentsEnabled) return false;
+                return true;
+            });
+        },
+        [managementTerminalsEnabled, managementAgentsEnabled],
+    );
 
     const {
         isCreateProjectOpen,
@@ -743,21 +777,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     )}>
                         <div className="overflow-hidden">
                             {(() => {
-                                const managementItems: Array<{
-                                    id: string;
-                                    label: string;
-                                    icon: typeof FolderKanban;
-                                    path?: string;
-                                    kind?: 'kanban' | 'new-workspace' | 'canvas';
-                                }> = [
-                                    { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
-                                    { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
-                                    { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
-                                    { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
-                                    { id: 'canvas', label: 'Canvas', icon: Frame, kind: 'canvas' },
-                                    { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' },
-                                    { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' },
-                                ];
+                                const managementItems = managementCenterItems;
                                 const totalItems = managementItems.length;
                                 const isOddCount = totalItems % 2 === 1;
                                 return (

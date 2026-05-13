@@ -2114,6 +2114,12 @@ export interface FunctionSettings {
     kill_tmux_on_archive?: boolean;
     close_acp_on_archive?: boolean;
   };
+  experiments?: {
+    mgmt_terminals?: boolean;
+    mgmt_agents?: boolean;
+    center_wiki_tab?: boolean;
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 }
 
