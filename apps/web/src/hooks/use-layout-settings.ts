@@ -60,62 +60,56 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
   },
 
   setProjectFilesSide: async (value) => {
-    const previous = get().projectFilesSide;
     set({ projectFilesSide: value });
     try {
       await functionSettingsApi.update('layout', 'project_files_side', value);
     } catch {
-      set({ projectFilesSide: previous });
+      await get().loadSettings();
     }
   },
 
   setWorkspaceSidebarTwoColumn: async (value) => {
-    const previous = get().workspaceSidebarTwoColumn;
     set({ workspaceSidebarTwoColumn: value });
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_two_column', value);
     } catch {
-      set({ workspaceSidebarTwoColumn: previous });
+      await get().loadSettings();
     }
   },
 
   setWorkspaceSidebarTwoColumnShowPinned: async (value) => {
-    const previous = get().workspaceSidebarTwoColumnShowPinned;
     set({ workspaceSidebarTwoColumnShowPinned: value });
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_two_column_show_pinned', value);
     } catch {
-      set({ workspaceSidebarTwoColumnShowPinned: previous });
+      await get().loadSettings();
     }
   },
 
   setWorkspaceSidebarSecondColumnKanban: async (value) => {
-    const previous = get().workspaceSidebarSecondColumnKanban;
     set({ workspaceSidebarSecondColumnKanban: value });
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_second_column_kanban', value);
     } catch {
-      set({ workspaceSidebarSecondColumnKanban: previous });
+      await get().loadSettings();
     }
   },
 
   setWorkspaceSidebarTimeTwoColumn: async (value) => {
-    const previous = get().workspaceSidebarTimeTwoColumn;
     set({ workspaceSidebarTimeTwoColumn: value });
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_time_two_column', value);
     } catch {
-      set({ workspaceSidebarTimeTwoColumn: previous });
+      await get().loadSettings();
     }
   },
 
   setWorkspaceSidebarStatusTwoColumn: async (value) => {
-    const previous = get().workspaceSidebarStatusTwoColumn;
     set({ workspaceSidebarStatusTwoColumn: value });
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_status_two_column', value);
     } catch {
-      set({ workspaceSidebarStatusTwoColumn: previous });
+      await get().loadSettings();
     }
   },
 }));

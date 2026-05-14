@@ -1418,6 +1418,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                             sensors={sensors}
                                             collisionDetection={closestCenter}
                                             onDragEnd={(event) => {
+                                                if (isPinnedSortingDisabled) return;
                                                 const { active, over } = event;
                                                 if (!over || active.id === over.id) return;
                                                 const oldIndex = selectedProjectPinnedEntries.findIndex((entry) => entry.workspace.id === active.id);
@@ -1432,14 +1433,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                                 <div className={cn("space-y-0.5", workspaceSidebarSecondColumnKanban && "space-y-2")}>
                                                     {selectedProjectPinnedEntries.map((entry) =>
                                                         workspaceSidebarSecondColumnKanban ? (
-                                                            <SortableSidebarKanbanCard
-                                                                key={entry.workspace.id}
-                                                                workspaceId={entry.workspace.id}
-                                                            >
-                                                                {renderWorkspaceKanbanCard(entry)}
-                                                            </SortableSidebarKanbanCard>
+                                                            isPinnedSortingDisabled ? (
+                                                                <div key={entry.workspace.id}>
+                                                                    {renderWorkspaceKanbanCard(entry)}
+                                                                </div>
+                                                            ) : (
+                                                                <SortableSidebarKanbanCard
+                                                                    key={entry.workspace.id}
+                                                                    workspaceId={entry.workspace.id}
+                                                                >
+                                                                    {renderWorkspaceKanbanCard(entry)}
+                                                                </SortableSidebarKanbanCard>
+                                                            )
                                                         ) : renderWorkspaceItemRow(entry, {
-                                                            sortingDisabled: activeKanbanFilterCount > 0,
+                                                            sortingDisabled: isPinnedSortingDisabled,
                                                             sortingDisabledMessage: "Clear workspace filters before reordering pinned workspaces.",
                                                         }),
                                                     )}

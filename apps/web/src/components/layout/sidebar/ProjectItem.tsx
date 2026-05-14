@@ -247,6 +247,16 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     }
 
     setLogoUrl(null);
+
+    // If it's a remote URL, use it directly
+    if (isRemoteLogoSource(project.logoPath)) {
+      setLogoUrl(project.logoPath);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // For local file paths, use the local file endpoint
     void getRuntimeApiConfig()
       .then((config) => {
         if (cancelled) {
