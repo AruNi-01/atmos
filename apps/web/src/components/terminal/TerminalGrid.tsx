@@ -4,7 +4,7 @@
 // This must be imported before react-mosaic-component
 import "@/lib/suppress-react19-ref-warning";
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import {
   Mosaic,
   MosaicWindow,
@@ -47,16 +47,19 @@ import {
   toastManager,
 } from "@workspace/ui";
 import { Terminal, TerminalRef } from "./Terminal";
-import type { MosaicBranch, TerminalPaneAgent } from "./types";
+import type { MosaicBranch, TerminalPaneAgent, TerminalPaneProps } from "./types";
 import { getTerminalDisplayMeta, isPathLikeTitle, resolveAgentForTitle, TerminalTitleWithAgent } from "./terminal-title";
+import { useTerminalToolbarTitle } from "./use-terminal-toolbar-title";
 import { systemApi } from "@/api/rest-api";
-import { useTerminalStore } from "@/hooks/use-terminal-store";
+import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/hooks/use-terminal-store";
 import { useProjectStore } from "@/hooks/use-project-store";
+import type { Project } from "@/types/types";
 import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { canvasApi } from "@/api/rest-api";
 import { createCanvasSnapshot, createDefaultCanvasSession, createDefaultDocument, parseBoardDocument } from "@/components/canvas/use-canvas-board";
+import { readStoredCanvasSession } from "@/components/canvas/canvas-session-storage";
 import {
   buildCanvasTerminalPinKey,
   CANVAS_TERMINAL_PIN_STATE_EVENT,
@@ -112,6 +115,8 @@ export interface TerminalGridHandle {
   destroyAllTerminals: () => void;
   /** Focus the currently active pane's terminal input */
   focusActivePane: () => void;
+  /** Focus pane whose tmux window name matches (current grid scope). Returns false if not found. */
+  focusPaneByTmuxWindowName: (tmuxWindowName: string) => boolean;
 }
 
 const DEFAULT_TOOLBAR_ACTIONS: Required<TerminalToolbarActions> = {
@@ -160,6 +165,300 @@ function TerminalPaneAgentStatus({ paneId }: { paneId: string; contextId: string
       variant="full"
       className="ml-2"
     />
+  );
+}
+
+type WorkspaceMosaicPaneWindowProps = {
+  id: string;
+  path: MosaicPath;
+  pane: TerminalPaneProps;
+  workspaceId: string;
+  terminalTabId: string;
+  workspaceInfo: { projectName: string; workspaceName: string; localPath: string } | null | undefined;
+  projects: Project[];
+  configuredAgents: TerminalPaneAgent[];
+  isProjectContext: boolean;
+  pinnedPaneKeys: Set<string>;
+  maximizedId: string | null;
+  effectiveActivePaneId: string | null;
+  hasMultiplePanes: boolean;
+  actions: Required<TerminalToolbarActions>;
+  quickOpenAgents: NonNullable<TerminalGridProps["quickOpenAgents"]>;
+  splitMenuKey: string | null;
+  setSplitMenuKey: React.Dispatch<React.SetStateAction<string | null>>;
+  splitTerminal: (id: string, direction: "row" | "column", agent?: TerminalPaneAgent) => string | null | undefined;
+  splitAndRunAgent: (id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => void;
+  handleSplitMenuEnter: (key: string) => void;
+  handleSplitMenuLeave: () => void;
+  pinPaneToCanvas: (id?: string | null) => void;
+  onToggleMaximize: (id: string) => void;
+  requestCloseTerminal: (id?: string | null) => void;
+  setActivePaneId: (id: string | null) => void;
+  setIsPaneDragging: (v: boolean) => void;
+  terminalRefsMap: React.MutableRefObject<Map<string, TerminalRef>>;
+  readyPanesRef: React.MutableRefObject<Set<string>>;
+  pendingCommandsRef: React.MutableRefObject<Map<string, string>>;
+  markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;
+};
+
+/** Center-grid terminal tile: shared title hook + mosaic chrome (default scope only). */
+function TerminalMosaicWorkspacePaneWindow(props: WorkspaceMosaicPaneWindowProps) {
+  const {
+    id,
+    path,
+    pane,
+    workspaceId,
+    terminalTabId,
+    workspaceInfo,
+    projects,
+    configuredAgents,
+    isProjectContext,
+    pinnedPaneKeys,
+    maximizedId,
+    effectiveActivePaneId,
+    hasMultiplePanes,
+    actions,
+    quickOpenAgents,
+    splitMenuKey,
+    setSplitMenuKey,
+    splitTerminal,
+    splitAndRunAgent,
+    handleSplitMenuEnter,
+    handleSplitMenuLeave,
+    pinPaneToCanvas,
+    onToggleMaximize,
+    requestCloseTerminal,
+    setActivePaneId,
+    setIsPaneDragging,
+    terminalRefsMap,
+    readyPanesRef,
+    pendingCommandsRef,
+    markPaneAttached,
+  } = props;
+
+  const storeWrite = useMemo(
+    () =>
+      ({
+        kind: "mosaic-pane" as const,
+        workspaceId,
+        paneId: id,
+        terminalTabId,
+      }),
+    [workspaceId, id, terminalTabId],
+  );
+
+  const { displayTitle, toolbarAgent, onTitleChange } = useTerminalToolbarTitle({
+    baseTitle: pane.label,
+    configuredAgents,
+    storeWrite,
+  });
+
+  const panePinKey = pane.tmuxWindowName
+    ? buildCanvasTerminalPinKey(isProjectContext ? "project" : "workspace", workspaceId, pane.tmuxWindowName)
+    : null;
+  const isPanePinned = panePinKey ? pinnedPaneKeys.has(panePinKey) : false;
+
+  return (
+    <MosaicWindow<string>
+      path={path}
+      title={displayTitle ?? ""}
+      className={cn(
+        maximizedId === id && "is-maximized",
+        hasMultiplePanes && (effectiveActivePaneId === id ? "is-active-pane" : "is-inactive-pane"),
+      )}
+      onDragStart={() => setIsPaneDragging(true)}
+      onDragEnd={() => setIsPaneDragging(false)}
+      renderToolbar={() => {
+        return (
+          <div className="terminal-mosaic-toolbar group/toolbar">
+            <div className="terminal-mosaic-toolbar-left">
+              {displayTitle ? (
+                <TerminalTitleWithAgent
+                  displayTitle={displayTitle}
+                  toolbarAgent={toolbarAgent}
+                  className="terminal-mosaic-title gap-1.5"
+                />
+              ) : null}
+              <TerminalPaneAgentStatus paneId={pane.tmuxWindowName ? `${workspaceId}:${pane.tmuxWindowName}` : pane.sessionId} contextId={workspaceId} />
+            </div>
+
+            {(actions.split || actions.maximize || actions.close) && (
+              <div className="terminal-mosaic-toolbar-right">
+                <button
+                  type="button"
+                  className={cn(
+                    "terminal-mosaic-btn transition-opacity opacity-0 group-hover/toolbar:opacity-100",
+                    isPanePinned && "cursor-default text-primary hover:text-primary",
+                  )}
+                  onClick={() => {
+                    if (isPanePinned) return;
+                    void pinPaneToCanvas(id);
+                  }}
+                  title={isPanePinned ? "Already pinned to Canvas" : "Pin to Canvas (⌘⇧P)"}
+                  aria-disabled={isPanePinned}
+                  aria-pressed={isPanePinned}
+                >
+                  <Pin size={12} className={cn(!isPanePinned && "rotate-45")} />
+                </button>
+                <div className="flex items-center gap-0.5">
+                  {actions.split && (
+                    <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover/toolbar:opacity-100">
+                      <DropdownMenu
+                        open={splitMenuKey === `${id}:row`}
+                        onOpenChange={(open) => setSplitMenuKey(open ? `${id}:row` : null)}
+                        modal={false}
+                      >
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="terminal-mosaic-btn"
+                            onClick={() => splitTerminal(id, "row")}
+                            onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
+                            onMouseLeave={handleSplitMenuLeave}
+                            title="Split Horizontal (⌘D)"
+                          >
+                            <Columns size={12} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        {quickOpenAgents.length > 0 && (
+                          <DropdownMenuContent
+                            align="start"
+                            onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
+                            onMouseLeave={handleSplitMenuLeave}
+                            onCloseAutoFocus={(e) => e.preventDefault()}
+                          >
+                            {quickOpenAgents.map(({ agent, command }) => (
+                              <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgent(id, "row", command, agent)}>
+                                {agent.iconType === "built-in" ? (
+                                  <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                                ) : (
+                                  <Bot className="size-4 text-muted-foreground" />
+                                )}
+                                <span>{agent.label}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        )}
+                      </DropdownMenu>
+                      <DropdownMenu
+                        open={splitMenuKey === `${id}:column`}
+                        onOpenChange={(open) => setSplitMenuKey(open ? `${id}:column` : null)}
+                        modal={false}
+                      >
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="terminal-mosaic-btn"
+                            onClick={() => splitTerminal(id, "column")}
+                            onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
+                            onMouseLeave={handleSplitMenuLeave}
+                            title="Split Vertical (⌘⇧D)"
+                          >
+                            <Rows size={12} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        {quickOpenAgents.length > 0 && (
+                          <DropdownMenuContent
+                            align="start"
+                            onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
+                            onMouseLeave={handleSplitMenuLeave}
+                            onCloseAutoFocus={(e) => e.preventDefault()}
+                          >
+                            {quickOpenAgents.map(({ agent, command }) => (
+                              <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgent(id, "column", command, agent)}>
+                                {agent.iconType === "built-in" ? (
+                                  <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                                ) : (
+                                  <Bot className="size-4 text-muted-foreground" />
+                                )}
+                                <span>{agent.label}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        )}
+                      </DropdownMenu>
+                    </div>
+                  )}
+                  {(actions.maximize || actions.close) && (
+                    <div
+                      className={cn(
+                        "flex items-center gap-0.5 transition-opacity",
+                        maximizedId === id ? "opacity-100" : "opacity-0 group-hover/toolbar:opacity-100",
+                      )}
+                    >
+                      {actions.maximize && (
+                        <button
+                          type="button"
+                          className={cn("terminal-mosaic-btn", maximizedId === id && "text-primary")}
+                          onClick={() => onToggleMaximize(id)}
+                          title={maximizedId === id ? "Restore" : "Maximize"}
+                        >
+                          {maximizedId === id ? (
+                            <div className="relative flex size-3 items-center justify-center">
+                              <Maximize2 size={11} className="scale-75 opacity-70" />
+                              <div className="absolute inset-0 translate-x-0.5 -translate-y-0.5 scale-50 rounded-[1px] border-[1.5px] border-current" />
+                            </div>
+                          ) : (
+                            <Maximize2 size={11} />
+                          )}
+                        </button>
+                      )}
+                      {actions.close && (
+                        <button
+                          type="button"
+                          className="terminal-mosaic-btn terminal-mosaic-btn-close ml-1"
+                          onClick={() => requestCloseTerminal(id)}
+                          title="Close (⌘W)"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }}
+    >
+      <div
+        className="terminal-mosaic-content"
+        data-pane-id={id}
+        onMouseDownCapture={() => setActivePaneId(id)}
+        onFocusCapture={() => setActivePaneId(id)}
+      >
+        <Terminal
+          ref={(termRef) => {
+            if (termRef) {
+              terminalRefsMap.current.set(id, termRef);
+            } else {
+              terminalRefsMap.current.delete(id);
+            }
+          }}
+          sessionId={pane.sessionId}
+          workspaceId={pane.workspaceId}
+          tmuxWindowName={pane.tmuxWindowName}
+          projectName={workspaceInfo?.projectName}
+          workspaceName={workspaceInfo?.workspaceName}
+          isNewPane={pane.isNewPane}
+          cwd={workspaceInfo?.localPath}
+          projectRootPath={projects.find((project) =>
+            project.id === workspaceId || project.workspaces.some((workspace) => workspace.id === workspaceId),
+          )?.mainFilePath}
+          onTitleChange={onTitleChange}
+          onSessionReady={() => {
+            readyPanesRef.current.add(id);
+            markPaneAttached(workspaceId, id, terminalTabId);
+            const cmd = pendingCommandsRef.current.get(id);
+            if (cmd) {
+              pendingCommandsRef.current.delete(id);
+              terminalRefsMap.current.get(id)?.sendText(cmd);
+            }
+          }}
+        />
+      </div>
+    </MosaicWindow>
   );
 }
 
@@ -433,6 +732,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         focusPane(effectiveActivePaneId);
       }
     },
+    focusPaneByTmuxWindowName: (tmuxWindowName: string) => {
+      const trimmed = tmuxWindowName.trim();
+      if (!trimmed) return false;
+      const paneId = getPaneId(workspaceId, trimmed);
+      if (!paneId || !panes[paneId]) return false;
+      focusPane(paneId);
+      return true;
+    },
   }), [workspaceId, addTerminal, effectiveActivePaneId, focusPane, getPaneId, getPaneIdByLabelOrWindowName, removeTerminalFromScope, panes, setPaneAgent]);
 
   const setLayoutForScope = isCodeReview
@@ -622,15 +929,29 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         ? parseBoardDocument(board.document_json)
         : createDefaultDocument();
       const result = pinCanvasTerminalShapeInSnapshot(
-        createCanvasSnapshot(document.tldrawDocument, createDefaultCanvasSession()),
+        createCanvasSnapshot(
+          document.tldrawDocument,
+          readStoredCanvasSession(board.guid) ?? createDefaultCanvasSession(),
+        ),
         createCanvasTerminalShapeProps({
           contextScope,
           workspaceId,
           projectName: workspaceInfo.projectName,
           workspaceName: workspaceInfo.workspaceName,
           localPath: workspaceInfo.localPath,
-          terminalName: pane.label,
+          terminalName: (() => {
+            const { displayTitle } = getTerminalDisplayMeta({
+              baseTitle: pane.label,
+              dynamicTitle: pane.dynamicTitle,
+              configuredAgents,
+              agent: pane.agent,
+            });
+            const trimmed = displayTitle.trim();
+            return trimmed || pane.label;
+          })(),
           tmuxWindowName: pane.tmuxWindowName,
+          paneAgent: pane.agent,
+          sourceTerminalTabId: terminalTabId ?? FIXED_TERMINAL_TAB_VALUE,
           isNewTerminal: false,
           isPinned: true,
           pinKey,
@@ -657,7 +978,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
         type: "error",
       });
     }
-  }, [isProjectContext, panes, pinnedPaneKeys, workspaceId, workspaceInfo]);
+  }, [isProjectContext, panes, pinnedPaneKeys, workspaceId, workspaceInfo, configuredAgents, terminalTabId]);
 
   const splitTerminal = useCallback((id: string, direction: "row" | "column", agent?: TerminalPaneAgent) => {
     const newPaneId = isCodeReview
@@ -842,6 +1163,43 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     const pane = panes[id];
     if (!pane) return <div className="p-4 text-xs text-muted-foreground">Pane not found: {id}</div>;
 
+    if (!isCodeReview && !isProjectWiki) {
+      return (
+        <TerminalMosaicWorkspacePaneWindow
+          id={id}
+          path={path}
+          pane={pane}
+          workspaceId={workspaceId}
+          terminalTabId={terminalTabId ?? FIXED_TERMINAL_TAB_VALUE}
+          workspaceInfo={workspaceInfo}
+          projects={projects}
+          configuredAgents={configuredAgents}
+          isProjectContext={isProjectContext}
+          pinnedPaneKeys={pinnedPaneKeys}
+          maximizedId={maximizedId}
+          effectiveActivePaneId={effectiveActivePaneId}
+          hasMultiplePanes={hasMultiplePanes}
+          actions={actions}
+          quickOpenAgents={quickOpenAgents}
+          splitMenuKey={splitMenuKey}
+          setSplitMenuKey={setSplitMenuKey}
+          splitTerminal={splitTerminal}
+          splitAndRunAgent={splitAndRunAgent}
+          handleSplitMenuEnter={handleSplitMenuEnter}
+          handleSplitMenuLeave={handleSplitMenuLeave}
+          pinPaneToCanvas={pinPaneToCanvas}
+          onToggleMaximize={onToggleMaximize}
+          requestCloseTerminal={requestCloseTerminal}
+          setActivePaneId={setActivePaneId}
+          setIsPaneDragging={setIsPaneDragging}
+          terminalRefsMap={terminalRefsMap}
+          readyPanesRef={readyPanesRef}
+          pendingCommandsRef={pendingCommandsRef}
+          markPaneAttached={markPaneAttached}
+        />
+      );
+    }
+
     const { displayTitle, toolbarAgent } = getTerminalDisplayMeta({
       baseTitle: pane.label,
       dynamicTitle: pane.dynamicTitle,
@@ -880,13 +1238,17 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
               {(actions.split || actions.maximize || actions.close) && (
               <div className="terminal-mosaic-toolbar-right">
                     <button
+                      type="button"
                       className={cn(
-                        "terminal-mosaic-btn transition-opacity",
-                        isPanePinned ? "opacity-100 bg-accent text-foreground cursor-not-allowed" : "opacity-0 group-hover/toolbar:opacity-100",
+                        "terminal-mosaic-btn transition-opacity opacity-0 group-hover/toolbar:opacity-100",
+                        isPanePinned && "cursor-default text-primary hover:text-primary",
                       )}
-                      onClick={() => void pinPaneToCanvas(id)}
+                      onClick={() => {
+                        if (isPanePinned) return;
+                        void pinPaneToCanvas(id);
+                      }}
                       title={isPanePinned ? "Already pinned to Canvas" : "Pin to Canvas (⌘⇧P)"}
-                      disabled={isPanePinned}
+                      aria-disabled={isPanePinned}
                       aria-pressed={isPanePinned}
                     >
                       <Pin size={12} className={cn(!isPanePinned && "rotate-45")} />
@@ -1033,16 +1395,9 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             )?.mainFilePath}
             onTitleChange={(title) => {
               const detectedAgent = resolveAgentForTitle(title, configuredAgents);
-              if (isCodeReview || isProjectWiki) {
-                setDynamicTitleForScope(workspaceId, id, title);
-                if (detectedAgent) {
-                  setPaneAgentForScope(workspaceId, id, detectedAgent);
-                }
-                return;
-              }
-              setDynamicTitleForScope(workspaceId, id, title, terminalTabId);
+              setDynamicTitleForScope(workspaceId, id, title);
               if (detectedAgent) {
-                setPaneAgentForScope(workspaceId, id, detectedAgent, terminalTabId);
+                setPaneAgentForScope(workspaceId, id, detectedAgent);
               }
             }}
             onSessionReady={() => {
@@ -1051,8 +1406,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                 markCodeReviewPaneAttached(workspaceId, id);
               } else if (isProjectWiki) {
                 markProjectWikiPaneAttached(workspaceId, id);
-              } else {
-                markPaneAttached(workspaceId, id, terminalTabId);
               }
               const cmd = pendingCommandsRef.current.get(id);
               if (cmd) {

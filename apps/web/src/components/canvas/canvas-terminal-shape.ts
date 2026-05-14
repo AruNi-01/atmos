@@ -14,6 +14,7 @@ import {
 } from "tldraw";
 import type { IndexKey } from "@tldraw/utils";
 import type { TerminalContextScope } from "@/api/rest-api";
+import type { TerminalPaneAgent } from "@/components/terminal/types";
 
 export const CANVAS_TERMINAL_SHAPE_TYPE = "canvas-terminal" as const;
 export const CANVAS_TERMINAL_PIN_STATE_EVENT = "canvas-terminal-pin-state-change";
@@ -31,6 +32,10 @@ export type CanvasTerminalShapeProps = {
   localPath: string;
   terminalName: string;
   tmuxWindowName: string;
+  /** Center-stage terminal sub-tab (`terminal` or `terminal-tab-*`) this pane was pinned from; used by Source deep link. */
+  sourceTerminalTabId: string;
+  /** When pinned from the Terminal panel, mirrors `pane.agent` for title/icon parity after reload. */
+  paneAgent?: TerminalPaneAgent;
   isNewTerminal: boolean;
   isPinned: boolean;
   pinKey: string;
@@ -58,6 +63,16 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
     localPath: T.string,
     terminalName: T.string,
     tmuxWindowName: T.string,
+    sourceTerminalTabId: T.string,
+    paneAgent: T.optional(
+      T.object({
+        id: T.string,
+        label: T.string,
+        command: T.string,
+        iconType: T.string,
+        pipeCommand: T.optional(T.string),
+      }),
+    ),
     isNewTerminal: T.boolean,
     isPinned: T.boolean,
     pinKey: T.string,
@@ -83,6 +98,8 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
       localPath: "",
       terminalName: "Canvas Terminal",
       tmuxWindowName: "Canvas Terminal",
+      sourceTerminalTabId: "terminal",
+      paneAgent: undefined,
       isNewTerminal: true,
       isPinned: false,
       pinKey: "",
@@ -121,6 +138,8 @@ export function createCanvasTerminalShapeProps(
     w: 720,
     h: 420,
     ...props,
+    sourceTerminalTabId: props.sourceTerminalTabId ?? "terminal",
+    paneAgent: props.paneAgent,
     isPinned: props.isPinned ?? false,
     pinKey: props.pinKey ?? "",
     lastAttachedAt: props.lastAttachedAt ?? null,
@@ -140,15 +159,24 @@ export function normalizeCanvasTerminalShapePropsInDocument(
 
   for (const [recordId, record] of Object.entries(store)) {
     if (isCanvasTerminalShapeRecord(record)) {
-      const currentLastAttachedAt = (record.props as { lastAttachedAt?: unknown }).lastAttachedAt;
-      const normalizedLastAttachedAt = normalizeLastAttachedAt(currentLastAttachedAt);
-      if (currentLastAttachedAt !== normalizedLastAttachedAt) {
+      const rawProps = record.props as CanvasTerminalShape["props"] & { lastAttachedAt?: unknown };
+      const normalizedLastAttachedAt = normalizeLastAttachedAt(rawProps.lastAttachedAt);
+      const normalizedSourceTab =
+        typeof rawProps.sourceTerminalTabId === "string" && rawProps.sourceTerminalTabId.length > 0
+          ? rawProps.sourceTerminalTabId
+          : "terminal";
+
+      if (
+        rawProps.lastAttachedAt !== normalizedLastAttachedAt ||
+        rawProps.sourceTerminalTabId !== normalizedSourceTab
+      ) {
         changed = true;
         nextStore[recordId] = {
           ...record,
           props: {
-            ...record.props,
+            ...rawProps,
             lastAttachedAt: normalizedLastAttachedAt,
+            sourceTerminalTabId: normalizedSourceTab,
           },
         } satisfies CanvasTerminalShape;
         continue;

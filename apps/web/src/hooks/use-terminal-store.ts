@@ -212,7 +212,8 @@ function samePaneAgent(left: TerminalPaneAgent | undefined, right: TerminalPaneA
     left?.id === right.id &&
     left?.label === right.label &&
     left?.command === right.command &&
-    left?.iconType === right.iconType
+    left?.iconType === right.iconType &&
+    left?.pipeCommand === right.pipeCommand
   );
 }
 
@@ -224,6 +225,53 @@ function getScopeKey(workspaceId: string, terminalTabId: string = FIXED_TERMINAL
 
 function getWorkspaceTerminalTabs(state: Pick<TerminalStore, "workspaceTerminalTabs">, workspaceId: string): TerminalCenterTab[] {
   return state.workspaceTerminalTabs[workspaceId] || [createFixedTerminalTab()];
+}
+
+/** Locate a pane in the main workspace terminal grid by its tmux window name (any tab). */
+export function findWorkspacePaneIdsByTmuxWindowName(
+  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes">,
+  workspaceId: string,
+  tmuxWindowName: string,
+): { paneId: string; terminalTabId: string } | null {
+  const tabs = getWorkspaceTerminalTabs(state, workspaceId);
+  for (const tab of tabs) {
+    const scopeKey = getScopeKey(workspaceId, tab.id);
+    const panes = state.workspacePanes[scopeKey];
+    if (!panes) continue;
+    for (const [paneId, pane] of Object.entries(panes)) {
+      if (pane.tmuxWindowName === tmuxWindowName) {
+        return { paneId, terminalTabId: tab.id };
+      }
+    }
+  }
+  return null;
+}
+
+/** Read transient title + agent for a pane in the main grid (by pane id). */
+export function getWorkspacePaneFieldsByPaneId(
+  state: Pick<TerminalStore, "workspacePanes">,
+  workspaceId: string,
+  paneId: string,
+  terminalTabId: string = FIXED_TERMINAL_TAB_VALUE,
+): { dynamicTitle?: string; agent?: TerminalPaneAgent } {
+  const scopeKey = getScopeKey(workspaceId, terminalTabId);
+  const pane = state.workspacePanes[scopeKey]?.[paneId];
+  if (!pane) return {};
+  return { dynamicTitle: pane.dynamicTitle, agent: pane.agent };
+}
+
+/** Read transient title + agent for a tmux-attached pane (same fields the mosaic uses). */
+export function getWorkspacePaneLiveFieldsByTmuxWindow(
+  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes">,
+  workspaceId: string,
+  tmuxWindowName: string,
+): { dynamicTitle?: string; agent?: TerminalPaneAgent } {
+  const hit = findWorkspacePaneIdsByTmuxWindowName(state, workspaceId, tmuxWindowName);
+  if (!hit) return {};
+  const scopeKey = getScopeKey(workspaceId, hit.terminalTabId);
+  const pane = state.workspacePanes[scopeKey]?.[hit.paneId];
+  if (!pane) return {};
+  return { dynamicTitle: pane.dynamicTitle, agent: pane.agent };
 }
 
 function getAllDefaultPanesForWorkspace(

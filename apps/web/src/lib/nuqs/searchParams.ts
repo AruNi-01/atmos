@@ -23,6 +23,8 @@ export const centerStageParams = {
   wikiPage: parseAsString,
   newWorkspace: parseAsBoolean.withDefault(false),
   canvas: parseAsBoolean.withDefault(false),
+  /** Deep-link: focus terminal pane by tmux window name (paired with `tab` = terminal sub-tab id). */
+  terminalTmux: parseAsString,
 };
 
 // ---------------------------------------------------------------------------

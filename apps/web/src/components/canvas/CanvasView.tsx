@@ -57,8 +57,9 @@ import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
 import type { Project } from "@/types/types";
 import { parseTerminalLayoutDocument } from "@/lib/terminal-layout-document";
 import { Terminal } from "@/components/terminal/Terminal";
-import { getTerminalDisplayMeta, TerminalTitleWithAgent } from "@/components/terminal/terminal-title";
+import { TerminalTitleWithAgent } from "@/components/terminal/terminal-title";
 import type { TerminalPaneAgent } from "@/components/terminal/types";
+import { useTerminalToolbarTitle } from "@/components/terminal/use-terminal-toolbar-title";
 import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { useCanvasRuntime } from "./use-canvas-runtime";
 import {
@@ -68,6 +69,7 @@ import {
   type CanvasTldrawDocument,
   type CanvasTldrawSession,
 } from "./use-canvas-board";
+import { readStoredCanvasSession, writeStoredCanvasSession } from "./canvas-session-storage";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
@@ -81,11 +83,10 @@ import {
   promoteRenderedShapeId,
   trimRenderedShapeIds,
 } from "./canvas-terminal-rendering";
-import { createAtmosTldrawThemes } from "./tldraw-theme";
+import { FIXED_TERMINAL_TAB_VALUE } from "@/hooks/use-terminal-store";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
-const CANVAS_SESSION_STORAGE_KEY_PREFIX = "atmos.canvas.session";
 
 type WorkspaceImportItem = {
   scope: "project" | "workspace";
@@ -171,42 +172,6 @@ function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoar
   };
 }
 
-function getCanvasSessionStorageKey(boardGuid?: string | null) {
-  return `${CANVAS_SESSION_STORAGE_KEY_PREFIX}:${boardGuid ?? "default"}`;
-}
-
-function readStoredCanvasSession(boardGuid?: string | null): CanvasTldrawSession | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const stored = window.localStorage.getItem(getCanvasSessionStorageKey(boardGuid));
-    if (!stored) {
-      return null;
-    }
-    const parsed = JSON.parse(stored) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return null;
-    }
-    return parsed as CanvasTldrawSession;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredCanvasSession(session: CanvasTldrawSession, boardGuid?: string | null) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(getCanvasSessionStorageKey(boardGuid), JSON.stringify(session));
-  } catch {
-    // localStorage may be unavailable in restricted browser modes.
-  }
-}
-
 function getImportablePaneItems(
   context: WorkspaceImportItem,
   layout: string | null,
@@ -257,6 +222,7 @@ function createImportedPaneProps(item: ImportablePaneItem): CanvasTerminalShape[
     localPath: item.localPath,
     terminalName: item.terminalName,
     tmuxWindowName: item.tmuxWindowName,
+    sourceTerminalTabId: item.terminalTabId,
     isNewTerminal: false,
   });
 }
@@ -275,6 +241,7 @@ function createSessionTerminalProps(session: ActiveSessionInfo): CanvasTerminalS
     localPath: session.cwd || "",
     terminalName: tmuxWindowName,
     tmuxWindowName,
+    sourceTerminalTabId: FIXED_TERMINAL_TAB_VALUE,
     isNewTerminal: false,
   });
 }
@@ -306,19 +273,9 @@ function CanvasTerminalCard({ shape }: { shape: CanvasTerminalShape }) {
   );
 }
 
-type CanvasCardThemeStyle = React.CSSProperties & {
-  "--canvas-card-bg": string;
-  "--canvas-card-panel-bg": string;
-  "--canvas-card-border": string;
-  "--canvas-card-text": string;
-  "--canvas-card-muted": string;
-  "--canvas-card-hover-bg": string;
-  "--canvas-card-shadow": string;
-};
-
 function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const [sessionId] = React.useState(() => crypto.randomUUID());
-  const [dynamicTitle, setDynamicTitle] = React.useState<string | undefined>(undefined);
+  const { workspaceId, tmuxWindowName, contextScope } = shape.props;
   const editor = useEditor();
   const router = useAppRouter();
   const terminalHostRef = React.useRef<HTMLDivElement | null>(null);
@@ -329,51 +286,29 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const removeRenderedShapeId = useCanvasRuntime((state) => state.removeRenderedShapeId);
   const maxRenderedTerminals = useCanvasSettings((state) => state.maxRenderedTerminals);
   const configuredAgents = React.useContext(CanvasAgentContext);
+
+  const storeWrite = React.useMemo(
+    () =>
+      contextScope === "workspace" || contextScope === "project"
+        ? ({ kind: "tmux-window" as const, workspaceId, tmuxWindowName, contextScope })
+        : ({ kind: "none" as const }),
+    [contextScope, workspaceId, tmuxWindowName],
+  );
+
+  const { displayTitle, toolbarAgent, onTitleChange } = useTerminalToolbarTitle({
+    baseTitle: shape.props.terminalName,
+    configuredAgents,
+    pinnedAgent: shape.props.paneAgent,
+    storeWrite,
+  });
+
   const isSelected = useValue(
     "canvas-card-selected",
     () => editor.getSelectedShapeIds().includes(shape.id as TLShapeId),
     [editor, shape.id],
   );
-  const colorMode = useValue("canvas-card-color-mode", () => editor.getColorMode(), [editor]);
-  const themeColors = useValue(
-    "canvas-card-theme-colors",
-    () => editor.getCurrentTheme().colors[editor.getColorMode()],
-    [editor],
-  );
   const isActive = activeShapeId === shape.id;
   const isRendered = renderedShapeIds.includes(shape.id);
-  const { displayTitle, toolbarAgent } = React.useMemo(
-    () => {
-      const shapeAgent = configuredAgents.find(
-        (agent) => agent.label.trim().toLowerCase() === shape.props.terminalName.trim().toLowerCase(),
-      );
-
-      return getTerminalDisplayMeta({
-        baseTitle: shape.props.terminalName,
-        dynamicTitle,
-        configuredAgents,
-        agent: shapeAgent,
-      });
-    },
-    [dynamicTitle, shape.props.terminalName, configuredAgents],
-  );
-  const cardThemeStyle = React.useMemo<CanvasCardThemeStyle>(() => {
-    const isFocused = isActive || isSelected;
-
-    return {
-      "--canvas-card-bg": themeColors.solid,
-      "--canvas-card-panel-bg": themeColors.background,
-      "--canvas-card-border": isFocused ? themeColors.selectionStroke : themeColors.noteBorder,
-      "--canvas-card-text": themeColors.text,
-      "--canvas-card-muted": `var(--muted-foreground, ${themeColors.text})`,
-      "--canvas-card-hover-bg": `var(--accent, ${themeColors.background})`,
-      "--canvas-card-shadow": isFocused
-        ? `0 0 0 1px ${themeColors.selectionStroke}, 0 0 0 6px ${themeColors.selectionFill}, 0 18px 40px rgba(0, 0, 0, 0.24)`
-        : colorMode === "dark"
-          ? "0 14px 36px rgba(0, 0, 0, 0.42)"
-          : "0 12px 30px rgba(15, 23, 42, 0.14)",
-    };
-  }, [colorMode, isActive, isSelected, themeColors]);
 
   const markAttached = React.useCallback(() => {
     if (!shape.props.isNewTerminal) {
@@ -462,27 +397,40 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     }
 
     const handleWheel = (event: WheelEvent) => {
+      if (!isRendered) {
+        return;
+      }
       editor.markEventAsHandled(event);
       event.stopPropagation();
+      // xterm stops scrolling at buffer ends but the wheel event still chains to the canvas
+      // unless default scrolling is cancelled (passive: false is required).
+      event.preventDefault();
     };
 
     host.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       host.removeEventListener("wheel", handleWheel);
     };
-  }, [editor]);
+  }, [editor, isRendered]);
 
   const handleRevealSource = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      router.push(
-        shape.props.contextScope === "project"
-          ? `/project?id=${shape.props.workspaceId}`
-          : `/workspace?id=${shape.props.workspaceId}`,
-      );
+      const base = shape.props.contextScope === "project" ? "/project" : "/workspace";
+      const params = new URLSearchParams();
+      params.set("id", shape.props.workspaceId);
+      params.set("tab", shape.props.sourceTerminalTabId || FIXED_TERMINAL_TAB_VALUE);
+      params.set("terminalTmux", shape.props.tmuxWindowName);
+      router.push(`${base}?${params.toString()}`);
     },
-    [router, shape.props.contextScope, shape.props.workspaceId],
+    [
+      router,
+      shape.props.contextScope,
+      shape.props.workspaceId,
+      shape.props.sourceTerminalTabId,
+      shape.props.tmuxWindowName,
+    ],
   );
 
   const handleUnpin = React.useCallback(
@@ -501,11 +449,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
 
   return (
     <div
-      className="flex h-full flex-col overflow-hidden rounded-[20px] border bg-[var(--canvas-card-bg)] text-[var(--canvas-card-text)]"
-      style={{ ...cardThemeStyle, boxShadow: "var(--canvas-card-shadow)" }}
+      className={cn(
+        "flex h-full flex-col overflow-hidden rounded-[20px] bg-background text-foreground",
+        // 已挂载 live terminal：不画卡片外框，由 tldraw 选区/形状指示承担轮廓
+        isRendered ? "border-0 shadow-none" : "border border-border shadow-sm",
+      )}
     >
       <div
-        className="flex items-center justify-between gap-3 border-b border-[var(--canvas-card-border)] bg-[var(--canvas-card-panel-bg)] px-4 py-3"
+        className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3"
         onPointerDown={() => {
           activateTerminal();
         }}
@@ -514,9 +465,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
           <TerminalTitleWithAgent
             displayTitle={displayTitle}
             toolbarAgent={toolbarAgent}
-            className="text-sm font-semibold text-[var(--canvas-card-text)]"
+            className="gap-1.5 text-sm font-semibold text-foreground"
           />
-          <span className="text-xs whitespace-nowrap text-[var(--canvas-card-muted)]">
+          <span className="text-xs whitespace-nowrap text-muted-foreground">
             ({shape.props.projectName} · {shape.props.workspaceName})
           </span>
         </div>
@@ -526,7 +477,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               type="button"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={handleUnpin}
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--canvas-card-border)] px-2 text-[11px] text-[var(--canvas-card-muted)] transition-colors hover:bg-[var(--canvas-card-hover-bg)] hover:text-[var(--canvas-card-text)]"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               Unpin
               <PinOff className="size-3" />
@@ -536,7 +487,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleRevealSource}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--canvas-card-border)] px-2 text-[11px] text-[var(--canvas-card-muted)] transition-colors hover:bg-[var(--canvas-card-hover-bg)] hover:text-[var(--canvas-card-text)]"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             Source
             <ArrowUpRight className="size-3" />
@@ -545,7 +496,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       </div>
       <div
         ref={terminalHostRef}
-        className="min-h-0 flex-1 bg-[var(--canvas-card-bg)]"
+        className="min-h-0 flex-1 bg-background"
         style={{ overscrollBehavior: "contain" }}
         onPointerDown={markTerminalInteractionHandled}
         onPointerMove={stopCanvasInteractionWhileActive}
@@ -567,7 +518,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             isNewPane={shape.props.isNewTerminal}
             className="h-full"
             onSessionReady={markAttached}
-            onTitleChange={setDynamicTitle}
+            onTitleChange={onTitleChange}
             onSessionError={(_, error) => {
               toastManager.add({
                 title: "Canvas",
@@ -578,14 +529,14 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <SquareTerminal className="size-8 text-[var(--canvas-card-muted)]" />
+            <SquareTerminal className="size-8 text-muted-foreground" />
             <div className="space-y-1">
-              <div className="text-sm font-medium text-[var(--canvas-card-text)]">
+              <div className="text-sm font-medium text-foreground">
                 {isSelected
                   ? "Activate this card to open the live terminal"
                   : "Select this card to activate the live terminal"}
               </div>
-              <div className="text-xs text-[var(--canvas-card-muted)]">
+              <div className="text-xs text-muted-foreground">
                 {shape.props.localPath || "Attached tmux window"}
               </div>
             </div>
@@ -639,7 +590,6 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
     loaded: canvasSettingsLoaded,
     loadSettings: loadCanvasSettings,
   } = useCanvasSettings();
-  const { resolvedTheme } = useTheme();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const [overview, setOverview] = React.useState<TerminalOverviewResponse | null>(null);
   const [isOverviewLoading, setIsOverviewLoading] = React.useState(false);
@@ -661,7 +611,6 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   const spawnIndexRef = React.useRef(0);
   const sharePanelRef = React.useRef<React.ReactNode>(null);
   const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil], []);
-  const tldrawThemes = React.useMemo(() => createAtmosTldrawThemes(), [resolvedTheme]);
   const tldrawComponents = React.useMemo<TLComponents>(
     () => ({
       SharePanel: () => <>{sharePanelRef.current}</>,
@@ -1378,7 +1327,6 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
           key={board?.guid || "canvas"}
           licenseKey={TLDRAW_LICENSE_KEY}
           snapshot={initialSnapshot ?? undefined}
-          themes={tldrawThemes}
           shapeUtils={shapeUtils}
           components={tldrawComponents}
           onMount={(nextEditor) => {

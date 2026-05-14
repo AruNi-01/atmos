@@ -158,15 +158,17 @@ export const TmuxSessionCard: React.FC<{ session: TmuxSessionDetail; onKillSessi
   };
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-muted/20 p-4">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex items-center justify-center size-8 rounded-lg bg-emerald-500/10 text-emerald-500 shrink-0">
             <Layers className="size-4" />
           </div>
-          <div>
-            <span className="text-sm font-medium">{displaySessionName(session.name)}</span>
-            <p className="text-xs text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">
+              {displaySessionName(session.name)}
+            </span>
+            <p className="truncate text-xs text-muted-foreground">
               {session.windows} window{session.windows !== 1 ? 's' : ''}
               {session.attached && (
                 <span className="ml-1.5 text-emerald-500">&middot; attached</span>
@@ -174,7 +176,7 @@ export const TmuxSessionCard: React.FC<{ session: TmuxSessionDetail; onKillSessi
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <span className="text-xs text-muted-foreground">{session.created}</span>
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>

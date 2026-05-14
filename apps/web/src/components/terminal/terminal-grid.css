@@ -498,6 +498,8 @@
 /* xterm-scrollable-element: scrollbar overlays but FitAddon reserves space — compensate with left padding */
 .atmos-terminal .xterm-scrollable-element {
   position: relative;
+  /* Actual scroll container for xterm buffer; contain avoids chaining to parent (e.g. tldraw canvas) */
+  overscroll-behavior: contain;
 }
 .atmos-terminal .xterm-scrollable-element > .scrollbar.vertical,
 .atmos-terminal .xterm-scrollable-element > .visible.scrollbar.vertical,

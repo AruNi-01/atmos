@@ -47,6 +47,17 @@ function isRuntimeWrapperTitle(value: string | undefined): boolean {
   return Boolean(normalized && RUNTIME_WRAPPER_COMMANDS.has(normalized));
 }
 
+/** When dynamic title is a version string or a runtime wrapper (node, env, …) and we have no agent/toolbar match, show the stable pane title — same idea as version-number tabs. */
+function shouldPreferBaseTitleOverDynamic(
+  dynamicTitle: string | undefined,
+  dynamicTitleIsVersion: boolean,
+  toolbarAgent: TerminalPaneAgent | undefined,
+): boolean {
+  if (dynamicTitleIsVersion) return true;
+  if (!dynamicTitle?.trim()) return false;
+  return isRuntimeWrapperTitle(dynamicTitle) && !toolbarAgent;
+}
+
 function isVersionLikeTitle(value: string | undefined): boolean {
   if (!value) return false;
   return /^v?\d+(?:\.\d+)+(?:[-+][\w.-]+)?$/i.test(value.trim());
@@ -115,10 +126,13 @@ export function getTerminalDisplayTitle(options: {
     : dynamicTitleIsVersion
     ? labelAgent ?? agent
     : undefined;
-  return (matchedDynamicAgent ?? fallbackAgent ?? labelAgent)?.label
-    ?? (dynamicTitleIsVersion ? baseTitle : dynamicTitle)
+  const toolbarAgent = matchedDynamicAgent ?? fallbackAgent ?? labelAgent;
+  return (
+    toolbarAgent?.label
+    ?? (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent) ? baseTitle : dynamicTitle)
     ?? baseTitle
-    ?? "";
+    ?? ""
+  );
 }
 
 export function getTerminalDisplayMeta(options: {
@@ -142,7 +156,11 @@ export function getTerminalDisplayMeta(options: {
 
   return {
     toolbarAgent,
-    displayTitle: toolbarAgent?.label ?? (dynamicTitleIsVersion ? baseTitle : dynamicTitle) ?? baseTitle ?? "",
+    displayTitle:
+      toolbarAgent?.label
+      ?? (shouldPreferBaseTitleOverDynamic(dynamicTitle, dynamicTitleIsVersion, toolbarAgent) ? baseTitle : dynamicTitle)
+      ?? baseTitle
+      ?? "",
   };
 }
 

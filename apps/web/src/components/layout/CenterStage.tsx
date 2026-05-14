@@ -496,7 +496,7 @@ const CenterStage: React.FC = () => {
   const codeReviewTabVisible = effectiveContextId ? (codeReviewVisibleMap[effectiveContextId] ?? false) : false;
 
   // --- URL-synced tab state ---
-  const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl }, setUrlParams] = useQueryStates(centerStageParams);
+  const [{ tab: tabFromUrl, wikiPage: wikiPageFromUrl, terminalTmux }, setUrlParams] = useQueryStates(centerStageParams);
 
   /** Until experiment prefs load, preserve `tab=wiki` from the URL so we do not strip deep links. */
   const wikiCenterEligible = React.useMemo(() => {
@@ -956,6 +956,7 @@ const CenterStage: React.FC = () => {
             label: agent.label,
             command: cmd,
             iconType: "built-in",
+            pipeCommand: "useEcho" in agent && agent.useEcho ? cmd : undefined,
           } satisfies TerminalPaneAgent,
           command: parts.join(" "),
         };
@@ -1004,6 +1005,46 @@ const CenterStage: React.FC = () => {
 
     attempt(attemptsLeft);
   }, []);
+
+  React.useEffect(() => {
+    const tmux = terminalTmux?.trim();
+    if (!effectiveContextId || !tmux) return;
+    if (isSetupBlocking) return;
+    if (currentView !== "workspace" && currentView !== "project") return;
+    if (!isTerminalWorkspaceReady) return;
+
+    if (activeFilePath) {
+      setActiveFile(null, effectiveContextId);
+    }
+
+    const tabForGrid = isTerminalCenterTabValue(resolvedTab) ? resolvedTab : FIXED_TERMINAL_TAB_VALUE;
+
+    let cancelled = false;
+    runWhenTerminalGridReady(
+      tabForGrid,
+      (grid) => {
+        if (cancelled) return;
+        if (!grid.focusPaneByTmuxWindowName(tmux)) return;
+        setUrlParams({ terminalTmux: null });
+      },
+      40,
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeFilePath,
+    currentView,
+    effectiveContextId,
+    isSetupBlocking,
+    isTerminalWorkspaceReady,
+    resolvedTab,
+    runWhenTerminalGridReady,
+    setActiveFile,
+    setUrlParams,
+    terminalTmux,
+  ]);
 
   React.useEffect(() => {
     if (
