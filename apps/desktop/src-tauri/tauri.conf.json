@@ -63,12 +63,13 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "binaries/api"
+      "binaries/atmos-sidecar"
     ],
     "resources": {
       "binaries/web-out": "web-out",
       "binaries/system-skills": "system-skills",
-      "binaries/atmos-cli": "atmos-cli"
+      "binaries/atmos-cli": "atmos-cli",
+      "icons/icon.icns": "AtmosSidecar.icns"
     },
     "windows": {
       "wix": {

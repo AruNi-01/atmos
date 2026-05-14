@@ -23,7 +23,7 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "binaries/api",
+          "name": "binaries/atmos-sidecar",
           "sidecar": true
         }
       ]

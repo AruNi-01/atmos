@@ -12,8 +12,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::menu::{MenuBuilder, MenuItem, SubmenuBuilder};
-use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::menu::{IconMenuItem, MenuBuilder, NativeIcon, SubmenuBuilder};
 use tauri::utils::config::Color;
 use tauri::{Listener, Manager, PhysicalPosition, PhysicalSize, Position, Size};
 use tauri_plugin_shell::ShellExt;
@@ -247,8 +246,14 @@ fn main() {
                 // so that AppKit does not intercept Cmd+W before the WebView.
                 // Cmd+W handling (closing terminal panes, etc.) is done in JS.
                 // The red window button still fires CloseRequested → hide window.
-                let close_item =
-                    MenuItem::with_id(app, "close_window", "Close", true, None::<&str>)?;
+                let close_item = IconMenuItem::with_id_and_native_icon(
+                    app,
+                    "close_window",
+                    "Close",
+                    true,
+                    Some(NativeIcon::StopProgress),
+                    None::<&str>,
+                )?;
                 let window_menu = SubmenuBuilder::new(app, "Window")
                     .minimize()
                     .item(&close_item)
@@ -262,24 +267,31 @@ fn main() {
                 // with the web build. Keyboard navigation is therefore handled
                 // entirely in JS (see `Header.tsx`); these menu items remain
                 // click-only affordances in the menu bar.
+                let back_item = IconMenuItem::with_id_and_native_icon(
+                    app,
+                    "back",
+                    "Back",
+                    true,
+                    Some(NativeIcon::GoLeft),
+                    None::<&str>,
+                )?;
+                let forward_item = IconMenuItem::with_id_and_native_icon(
+                    app,
+                    "forward",
+                    "Forward",
+                    true,
+                    Some(NativeIcon::GoRight),
+                    None::<&str>,
+                )?;
                 let navigation_menu = SubmenuBuilder::new(app, "Navigation")
-                    .item(&MenuItem::with_id(app, "back", "Back", true, None::<&str>)?)
-                    .item(&MenuItem::with_id(
-                        app,
-                        "forward",
-                        "Forward",
-                        true,
-                        None::<&str>,
-                    )?)
+                    .item(&back_item)
+                    .item(&forward_item)
                     .build()?;
                 let menu = MenuBuilder::new(app)
                     .items(&[&app_menu, &edit_menu, &window_menu, &navigation_menu])
                     .build()?;
                 app.set_menu(menu)?;
             }
-
-            let quit_item = MenuItem::with_id(app, "quit", "Quit Atmos", true, None::<&str>)?;
-            let show_item = MenuItem::with_id(app, "show", "Show Atmos", true, None::<&str>)?;
 
             // Handle navigation / window menu events
             app.on_menu_event(move |app_handle, event| match event.id.as_ref() {
@@ -300,41 +312,12 @@ fn main() {
                 }
                 _ => {}
             });
-            let tray_menu = MenuBuilder::new(app)
-                .items(&[&show_item, &quit_item])
-                .build()?;
-            TrayIconBuilder::new()
-                .menu(&tray_menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "quit" => app.exit(0),
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(w) = app.get_webview_window("main") {
-                            if w.is_visible().unwrap_or(false) {
-                                let _ = w.hide();
-                            } else {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
-                        }
-                    }
-                })
-                .build(app)?;
 
             Ok(())
         })
         .on_window_event(|window, event| {
             // macOS: close button hides the window instead of quitting.
-            // The app stays in the dock; user can re-show via tray icon or dock click.
+            // The app stays in the dock; user can re-show via dock click.
             #[cfg(target_os = "macos")]
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
@@ -423,7 +406,7 @@ fn main() {
 
     app.run(|app_handle, event| match event {
         // Sidecar cleanup on ALL exit paths:
-        // tray "Quit", Cmd+Q, dock "Quit", system shutdown, etc.
+        // Cmd+Q, dock "Quit", system shutdown, etc.
         tauri::RunEvent::Exit => {
             let _ = preview_bridge::close_preview_window(&app_handle);
             let child = {
@@ -692,7 +675,7 @@ async fn spawn_and_wait_sidecar(
 
     let mut sidecar_cmd = app_handle
         .shell()
-        .sidecar("api")
+        .sidecar("atmos-sidecar")
         .map_err(|e| StartupFailure {
             root_cause: clean_error_text(&e.to_string()),
             log_path: sidecar_log_path.clone(),

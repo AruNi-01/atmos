@@ -62,7 +62,7 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "binaries/api"
+      "binaries/atmos-sidecar"
     ]
   },
   "plugins": {

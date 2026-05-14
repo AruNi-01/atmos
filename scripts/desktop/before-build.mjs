@@ -118,7 +118,7 @@ const binariesDir = join(rootDir, "apps/desktop/src-tauri/binaries");
 mkdirSync(binariesDir, { recursive: true });
 
 const fromSidecar = join(rootDir, `target/${targetTriple}/release/api${binExt}`);
-const toSidecar = join(binariesDir, `api-${targetTriple}${binExt}`);
+const toSidecar = join(binariesDir, `atmos-sidecar-${targetTriple}${binExt}`);
 cpSync(fromSidecar, toSidecar);
 console.log(`Prepared sidecar: ${toSidecar}`);
 
