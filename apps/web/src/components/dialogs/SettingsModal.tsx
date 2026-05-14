@@ -110,6 +110,7 @@ import {
 import { useTerminalLinkSettings, type TerminalFileLinkOpenMode } from '@/hooks/use-terminal-link-settings';
 import { useWorkspaceSettings } from '@/hooks/use-workspace-settings';
 import { useProjectStore } from '@/hooks/use-project-store';
+import type { WorkspaceLabel } from '@/types/types';
 import { QUICK_OPEN_APP_MAP, QUICK_OPEN_APP_OPTIONS, QuickOpenAppIcon } from '@/components/layout/quick-open-apps';
 import { useTheme } from 'next-themes';
 import {
@@ -1292,7 +1293,7 @@ function WorkspaceSettingsSection() {
 
 function LabelSettingsSection() {
   const { workspaceLabels, updateWorkspaceLabel, createWorkspaceLabel, deleteWorkspaceLabel, fetchWorkspaceLabels, restoreWorkspaceLabel } = useProjectStore(
-    useShallow((s: any) => ({
+    useShallow((s) => ({
       workspaceLabels: s.workspaceLabels,
       updateWorkspaceLabel: s.updateWorkspaceLabel,
       createWorkspaceLabel: s.createWorkspaceLabel,
@@ -1336,15 +1337,15 @@ function LabelSettingsSection() {
 
     if (filterQuery.trim()) {
       const query = filterQuery.toLowerCase().trim();
-      labels = labels.filter((l: any) => l.name.toLowerCase().includes(query));
+      labels = labels.filter((l: WorkspaceLabel) => l.name.toLowerCase().includes(query));
     }
 
     if (selectedSources.size > 0) {
-      labels = labels.filter((l: any) => selectedSources.has(l.source || 'manual'));
+      labels = labels.filter((l: WorkspaceLabel) => selectedSources.has(l.source || 'manual'));
     }
 
     if (sortField) {
-      labels.sort((a: any, b: any) => {
+      labels.sort((a: WorkspaceLabel, b: WorkspaceLabel) => {
         let comparison = 0;
         if (sortField === 'name') {
           comparison = a.name.localeCompare(b.name);
@@ -1373,7 +1374,7 @@ function LabelSettingsSection() {
     if (selectedLabels.size === filteredAndSortedLabels.length) {
       setSelectedLabels(new Set());
     } else {
-      setSelectedLabels(new Set(filteredAndSortedLabels.map((l: any) => l.id)));
+      setSelectedLabels(new Set(filteredAndSortedLabels.map((l: WorkspaceLabel) => l.id)));
     }
   };
 
@@ -1401,13 +1402,13 @@ function LabelSettingsSection() {
     if (!trimmedName) return;
 
     // Check for duplicate name when creating
-    if (isCreatingNew && workspaceLabels.some((l: any) => l.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (isCreatingNew && workspaceLabels.some((l: WorkspaceLabel) => l.name.toLowerCase() === trimmedName.toLowerCase())) {
       toastManager.add({ title: 'A label with this name already exists', type: 'error' });
       return;
     }
 
     // Check for duplicate name when editing (excluding the current label)
-    if (!isCreatingNew && editingLabel && workspaceLabels.some((l: any) => l.id !== editingLabel && l.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (!isCreatingNew && editingLabel && workspaceLabels.some((l: WorkspaceLabel) => l.id !== editingLabel && l.name.toLowerCase() === trimmedName.toLowerCase())) {
       toastManager.add({ title: 'A label with this name already exists', type: 'error' });
       return;
     }
@@ -1626,7 +1627,7 @@ function LabelSettingsSection() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAndSortedLabels.map((label: any) => (
+                  filteredAndSortedLabels.map((label: WorkspaceLabel) => (
                   <TableRow
                     key={label.id}
                     data-state={selectedLabels.has(label.id) ? 'selected' : undefined}

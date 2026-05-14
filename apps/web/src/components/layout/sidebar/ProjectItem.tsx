@@ -67,7 +67,7 @@ export interface ProjectItemProps {
   onAddWorkspace: (projectId: string) => void;
   onQuickAddWorkspace: (projectId: string) => void;
   onSetColor: (projectId: string, color?: string) => void;
-  onSetLogo: (projectId: string, logoPath: string) => void;
+  onSetLogo: (projectId: string, logoPath: string | null) => void;
   onDelete: (projectId: string) => void;
   onPinWorkspace: (projectId: string, workspaceId: string) => void;
   onUnpinWorkspace: (projectId: string, workspaceId: string) => void;
@@ -238,18 +238,22 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   useEffect(() => {
     let cancelled = false;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasLogoLoadError(false);
     if (!project.logoPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLogoUrl(null);
       return () => {
         cancelled = true;
       };
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLogoUrl(null);
 
     // If it's a remote URL, use it directly
     if (isRemoteLogoSource(project.logoPath)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLogoUrl(project.logoPath);
       return () => {
         cancelled = true;
@@ -693,7 +697,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
               variant="ghost"
               className="cursor-pointer mr-auto text-muted-foreground hover:text-foreground"
               onClick={() => {
-                onSetLogo(project.id, "");
+                onSetLogo(project.id, null);
                 setShowLogoDialog(false);
                 setShowLogoBrowser(false);
                 setLogoInput("");

@@ -1202,7 +1202,7 @@ export const wsProjectApi = {
     guid: string;
     name?: string;
     borderColor?: string;
-    logoPath?: string;
+    logoPath?: string | null;
     sidebarOrder?: number;
   }): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("project_update", {

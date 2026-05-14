@@ -314,7 +314,7 @@ export function KanbanWorkspaceCard({
     <div className={cn(
       "w-full rounded-md bg-background p-3 text-left shadow-xs",
       isIssueOnly
-        ? "border border-blue-500/30"
+        ? "border border-border/50"
         : workspace.isPinned
           ? "border border-border"
           : showUnpinnedBorder

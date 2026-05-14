@@ -14,7 +14,7 @@ interface LayoutSettingsState {
   workspaceSidebarTimeTwoColumn: boolean;
   workspaceSidebarStatusTwoColumn: boolean;
   loaded: boolean;
-  loadSettings: () => Promise<void>;
+  loadSettings: (force?: boolean) => Promise<void>;
   setProjectFilesSide: (value: ProjectFilesSide) => Promise<void>;
   setWorkspaceSidebarTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarTwoColumnShowPinned: (value: boolean) => Promise<void>;
@@ -32,8 +32,8 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
   workspaceSidebarStatusTwoColumn: false,
   loaded: false,
 
-  loadSettings: async () => {
-    if (get().loaded) return;
+  loadSettings: async (force = false) => {
+    if (!force && get().loaded) return;
     try {
       const settings = await useFunctionSettingsStore.getState().load();
       const layout = settings.layout as {
@@ -64,7 +64,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
     try {
       await functionSettingsApi.update('layout', 'project_files_side', value);
     } catch {
-      await get().loadSettings();
+      await get().loadSettings(true);
     }
   },
 
@@ -73,7 +73,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_two_column', value);
     } catch {
-      await get().loadSettings();
+      await get().loadSettings(true);
     }
   },
 
@@ -82,7 +82,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_two_column_show_pinned', value);
     } catch {
-      await get().loadSettings();
+      await get().loadSettings(true);
     }
   },
 
@@ -91,7 +91,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_second_column_kanban', value);
     } catch {
-      await get().loadSettings();
+      await get().loadSettings(true);
     }
   },
 
@@ -100,7 +100,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_time_two_column', value);
     } catch {
-      await get().loadSettings();
+      await get().loadSettings(true);
     }
   },
 
@@ -109,7 +109,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_status_two_column', value);
     } catch {
-      await get().loadSettings();
+      await get().loadSettings(true);
     }
   },
 }));

@@ -547,6 +547,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             const overProjectIndex = projects.findIndex((i) => i.id === over.id);
 
             if (activeProjectIndex !== -1 && overProjectIndex !== -1) {
+                // Disable project reordering when workspace filters are active
+                if (activeKanbanFilterCount > 0) {
+                    return;
+                }
                 const newProjects = arrayMove(projects, activeProjectIndex, overProjectIndex);
                 await reorderProjects(newProjects);
                 return;
@@ -557,8 +561,49 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 const overWorkspaceIndex = project.workspaces.findIndex((w) => w.id === over.id);
 
                 if (activeWorkspaceIndex !== -1 && overWorkspaceIndex !== -1) {
-                    const newWorkspaces = arrayMove(project.workspaces, activeWorkspaceIndex, overWorkspaceIndex);
-                    await reorderWorkspaces(project.id, newWorkspaces);
+                    // Check if this project is currently filtered
+                    const isFiltered = activeKanbanFilterCount > 0;
+                    
+                    if (isFiltered) {
+                        // Get the visible workspace IDs for this project from the filtered data
+                        const visibleWorkspaceIds = new Set(
+                            filteredFlattenedWorkspaces
+                                .filter((entry) => entry.projectId === project.id)
+                                .map((entry) => entry.workspace.id)
+                        );
+                        
+                        // Get the filtered list of workspaces (only visible ones) in their full-array order
+                        const visibleWorkspacesInOrder = project.workspaces.filter((w) => visibleWorkspaceIds.has(w.id));
+                        
+                        // Find indices in the filtered list
+                        const activeFilteredIndex = visibleWorkspacesInOrder.findIndex((w) => w.id === active.id);
+                        const overFilteredIndex = visibleWorkspacesInOrder.findIndex((w) => w.id === over.id);
+                        
+                        if (activeFilteredIndex === -1 || overFilteredIndex === -1) {
+                            // Should not happen, but safety check
+                            return;
+                        }
+                        
+                        // Use arrayMove on the filtered list to get the new order
+                        const reorderedVisibleWorkspaces = arrayMove(visibleWorkspacesInOrder, activeFilteredIndex, overFilteredIndex);
+                        
+                        // Rebuild the full array: keep hidden workspaces in place, replace visible ones with new order
+                        const newWorkspaces = project.workspaces.map((workspace) => {
+                            if (visibleWorkspaceIds.has(workspace.id)) {
+                                // This is a visible workspace, replace with the next one from the reordered list
+                                const nextWorkspace = reorderedVisibleWorkspaces.shift();
+                                return nextWorkspace ?? workspace;
+                            }
+                            // This is a hidden workspace, keep it as is
+                            return workspace;
+                        });
+                        
+                        await reorderWorkspaces(project.id, newWorkspaces);
+                    } else {
+                        // Not filtered, use the original logic
+                        const newWorkspaces = arrayMove(project.workspaces, activeWorkspaceIndex, overWorkspaceIndex);
+                        await reorderWorkspaces(project.id, newWorkspaces);
+                    }
                     return;
                 }
             }
@@ -653,7 +698,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         await updateProject(projectId, { borderColor: color });
     };
 
-    const handleSetLogo = async (projectId: string, logoPath: string) => {
+    const handleSetLogo = async (projectId: string, logoPath: string | null) => {
         await updateProject(projectId, { logoPath });
     };
 
@@ -1157,7 +1202,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 onDragEnd={handleDragEnd}
                 modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
             >
-                <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={projectModeProjects.map((project) => project.id)} strategy={verticalListSortingStrategy}>
                     {projectModeProjects.map(project => (
                         <SortableProject
                             key={project.id}

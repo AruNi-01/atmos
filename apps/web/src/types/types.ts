@@ -58,7 +58,7 @@ export interface Project {
   mainFilePath: string;
   sidebarOrder: number;
   borderColor?: string;
-  logoPath?: string;
+  logoPath: string | null;
   targetBranch?: string;
 }
 
