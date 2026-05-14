@@ -2052,7 +2052,10 @@ impl WsMessageService {
             }
         }
 
-        let next_setup_step = Self::build_workspace_setup_plan(
+        // Build once here and pass into the background setup task so it cannot diverge
+        // from a second `build_workspace_setup_plan` read of `.atmos/scripts/atmos.json`
+        // (which would otherwise leave the client stuck: `start_step` not found → silent return).
+        let workspace_setup_plan = Self::build_workspace_setup_plan(
             &self.project_service,
             &req.project_guid,
             req.initial_requirement.as_deref(),
@@ -2060,13 +2063,16 @@ impl WsMessageService {
             workspace.github_pr.is_some(),
             req.auto_extract_todos,
         )
-        .await
-        .and_then(|plan| {
-            plan.steps
-                .into_iter()
-                .find(|step| *step != WorkspaceSetupStep::CreateWorktree)
-        })
-        .or(Some(WorkspaceSetupStep::Ready));
+        .await;
+        let next_setup_step = workspace_setup_plan
+            .as_ref()
+            .and_then(|plan| {
+                plan.steps
+                    .iter()
+                    .copied()
+                    .find(|step| *step != WorkspaceSetupStep::CreateWorktree)
+            })
+            .or(Some(WorkspaceSetupStep::Ready));
 
         // Spawn the remaining setup steps in background after the worktree is ready.
         if let Some(manager) = self.ws_manager.get().cloned() {
@@ -2079,6 +2085,7 @@ impl WsMessageService {
             let github_issue = workspace.github_issue.clone();
             let has_github_pr = workspace.github_pr.is_some();
             let auto_extract_todos = req.auto_extract_todos;
+            let cached_workspace_setup_plan = workspace_setup_plan.clone();
 
             let workspace_service = self.workspace_service.clone();
             tokio::spawn(async move {
@@ -2095,6 +2102,7 @@ impl WsMessageService {
                     has_github_pr,
                     auto_extract_todos,
                     next_setup_step,
+                    cached_workspace_setup_plan,
                 )
                 .await;
             });
@@ -2521,6 +2529,7 @@ impl WsMessageService {
                     false,
                     req.auto_extract_todos,
                     Some(failed_step),
+                    None,
                 )
                 .await;
             });
@@ -2565,6 +2574,7 @@ impl WsMessageService {
                     has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::Ready),
+                    None,
                 )
                 .await;
             });
@@ -2641,6 +2651,7 @@ impl WsMessageService {
                     has_github_pr,
                     auto_extract_todos,
                     Some(start_step),
+                    None,
                 )
                 .await;
             });
@@ -2689,6 +2700,7 @@ impl WsMessageService {
                     has_github_pr,
                     auto_extract_todos,
                     Some(WorkspaceSetupStep::RunSetupScript),
+                    None,
                 )
                 .await;
             });
@@ -2810,48 +2822,84 @@ impl WsMessageService {
         has_github_pr: bool,
         auto_extract_todos: bool,
         start_step: Option<WorkspaceSetupStep>,
+        cached_plan: Option<WorkspaceSetupPlan>,
     ) {
-        let Some(plan) = Self::build_workspace_setup_plan(
-            &project_service,
-            &project_guid,
-            initial_requirement.as_deref(),
-            github_issue.as_ref(),
-            has_github_pr,
-            auto_extract_todos,
-        )
-        .await
-        else {
-            tracing::error!(
-                "[execute_setup_state_machine] Failed to build setup plan for workspace {}",
-                workspace_id
-            );
-            let message = WsMessage::notification(
-                WsEvent::WorkspaceSetupProgress,
-                json!(WorkspaceSetupProgressNotification {
-                    workspace_id: workspace_id.clone(),
-                    status: "error".to_string(),
-                    step_key: Some("create_worktree".to_string()),
-                    failed_step_key: Some("create_worktree".to_string()),
-                    step_title: "Workspace Setup Failed".to_string(),
-                    output: Some(
-                        "\r\n\x1b[31mFailed to initialize workspace setup: could not load project configuration.\x1b[0m\r\n"
-                            .to_string()
-                    ),
-                    replace_output: true,
-                    requires_confirmation: false,
-                    success: false,
-                    countdown: None,
-                    setup_context: None,
-                }),
-            );
-            let _ = manager.broadcast(&message).await;
-            return;
+        let plan = if let Some(p) = cached_plan {
+            p
+        } else {
+            let Some(plan) = Self::build_workspace_setup_plan(
+                &project_service,
+                &project_guid,
+                initial_requirement.as_deref(),
+                github_issue.as_ref(),
+                has_github_pr,
+                auto_extract_todos,
+            )
+            .await
+            else {
+                tracing::error!(
+                    "[execute_setup_state_machine] Failed to build setup plan for workspace {}",
+                    workspace_id
+                );
+                let message = WsMessage::notification(
+                    WsEvent::WorkspaceSetupProgress,
+                    json!(WorkspaceSetupProgressNotification {
+                        workspace_id: workspace_id.clone(),
+                        status: "error".to_string(),
+                        step_key: Some("create_worktree".to_string()),
+                        failed_step_key: Some("create_worktree".to_string()),
+                        step_title: "Workspace Setup Failed".to_string(),
+                        output: Some(
+                            "\r\n\x1b[31mFailed to initialize workspace setup: could not load project configuration.\x1b[0m\r\n"
+                                .to_string()
+                        ),
+                        replace_output: true,
+                        requires_confirmation: false,
+                        success: false,
+                        countdown: None,
+                        setup_context: None,
+                    }),
+                );
+                let _ = manager.broadcast(&message).await;
+                return;
+            };
+            plan
         };
 
         let start_index = match start_step {
             Some(step) => match plan.steps.iter().position(|candidate| *candidate == step) {
                 Some(index) => index,
-                None => return,
+                None => {
+                    tracing::error!(
+                        workspace_id = %workspace_id,
+                        start_step = ?step,
+                        plan_steps = ?plan.steps,
+                        "setup start step not found in plan; notifying client instead of silent return"
+                    );
+                    Self::send_workspace_setup_progress(
+                        &manager,
+                        &conn_id,
+                        WorkspaceSetupProgressNotification {
+                            workspace_id: workspace_id.clone(),
+                            status: "error".to_string(),
+                            step_key: Some(step.key().to_string()),
+                            failed_step_key: Some(step.key().to_string()),
+                            step_title: "Workspace Setup Failed".to_string(),
+                            output: Some(format!(
+                                "\r\n\x1b[31mSetup plan changed while initializing (missing step `{}` in {:?}). Try creating the workspace again.\x1b[0m\r\n",
+                                step.key(),
+                                plan.steps
+                            )),
+                            replace_output: true,
+                            requires_confirmation: false,
+                            success: false,
+                            countdown: None,
+                            setup_context: Some(plan.context.clone()),
+                        },
+                    )
+                    .await;
+                    return;
+                }
             },
             None => 0,
         };
