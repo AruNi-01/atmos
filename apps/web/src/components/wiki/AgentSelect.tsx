@@ -16,7 +16,7 @@ export const AGENT_OPTIONS = [
   { id: "codex", label: "Codex", cmd: "codex", params: "--dangerously-bypass-approvals-and-sandbox" },
   { id: "gemini", label: "Gemini", cmd: "gemini", params: "--yolo" },
   { id: "devin", label: "Devin", cmd: "devin", params: "--permission-mode bypass --" },
-  { id: "amp", label: "Amp", cmd: "amp", params: "" },
+  { id: "amp", label: "Amp", cmd: "amp", params: "--dangerously-allow-all", useEcho: true },
   { id: "droid", label: "Droid", cmd: "droid", params: "" },
   { id: "opencode", label: "OpenCode", cmd: "opencode", params: "--prompt" },
   { id: "kimi", label: "Kimi", cmd: "kimi", params: "" },
@@ -36,6 +36,21 @@ export function buildCommand(
   if (!agent) return "";
 
   const quoted = shellQuote(prompt);
+
+  // Special handling for amp: use echo to pipe prompt
+  if ("useEcho" in agent && agent.useEcho) {
+    const params = agent.params ? ` ${agent.params}` : "";
+    
+    // If prompt is empty, run command directly without echo
+    if (prompt.trim() === '') {
+      return `${agent.cmd}${params}`;
+    }
+    
+    // If prompt is not empty, use echo to pipe
+    return `echo ${quoted} | ${agent.cmd}${params}`;
+  }
+
+  // Standard handling for other agents
   const parts: string[] = [agent.cmd];
 
   if (agent.params) {
