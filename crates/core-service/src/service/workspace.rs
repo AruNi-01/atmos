@@ -716,18 +716,27 @@ impl WorkspaceService {
                 // missing some agent tooling that the user can re-create manually.
                 let repo_path_owned = repo_path.to_path_buf();
                 let created_path_owned = created_path.clone();
-                let report = tokio::task::spawn_blocking(move || {
+                match tokio::task::spawn_blocking(move || {
                     crate::service::workspace_gitignore_dirs::compensate(&repo_path_owned, &created_path_owned)
                 })
                 .await
-                .map_err(|e| ServiceError::Internal(format!("Failed to execute gitignore compensation: {}", e)))?;
-                tracing::info!(
-                    "[ensure_worktree_ready] gitignore_dirs compensation: applied={}, skipped={}, failed={}, disabled={}",
-                    report.applied,
-                    report.skipped,
-                    report.failed,
-                    report.skipped_disabled
-                );
+                {
+                    Ok(report) => {
+                        tracing::info!(
+                            "[ensure_worktree_ready] gitignore_dirs compensation: applied={}, skipped={}, failed={}, disabled={}",
+                            report.applied,
+                            report.skipped,
+                            report.failed,
+                            report.skipped_disabled
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "[ensure_worktree_ready] gitignore_dirs compensation failed (best-effort, continuing): {}",
+                            e
+                        );
+                    }
+                }
 
                 Ok(())
             }

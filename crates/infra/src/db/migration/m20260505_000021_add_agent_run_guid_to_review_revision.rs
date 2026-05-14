@@ -40,36 +40,11 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        // Drop agent_run_guid column from review_revision table if it exists
-        if manager
-            .has_column("review_revision", "agent_run_guid")
-            .await?
-        {
-            manager
-                .alter_table(
-                    Table::alter()
-                        .table(ReviewRevision::Table)
-                        .drop_column(ReviewRevision::AgentRunGuid)
-                        .to_owned(),
-                )
-                .await?;
-        }
-
-        // Drop agent_run_guid column from review_message table if it exists
-        if manager
-            .has_column("review_message", "agent_run_guid")
-            .await?
-        {
-            manager
-                .alter_table(
-                    Table::alter()
-                        .table(ReviewMessage::Table)
-                        .drop_column(ReviewMessage::AgentRunGuid)
-                        .to_owned(),
-                )
-                .await?;
-        }
-
+        let _ = manager;
+        // This migration conditionally adds columns based on has_column checks.
+        // Rolling back cannot safely determine which columns were actually created
+        // by this migration vs. pre-existing columns, so we use a no-op rollback
+        // to avoid destructive drops.
         Ok(())
     }
 }
