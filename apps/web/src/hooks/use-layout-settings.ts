@@ -35,6 +35,9 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
   loadSettings: async (force = false) => {
     if (!force && get().loaded) return;
     try {
+      if (force) {
+        useFunctionSettingsStore.getState().invalidate();
+      }
       const settings = await useFunctionSettingsStore.getState().load();
       const layout = settings.layout as {
         project_files_side?: string;
