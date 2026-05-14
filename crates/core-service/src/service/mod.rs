@@ -13,4 +13,5 @@ pub mod terminal;
 pub mod terminal_overview;
 pub mod test;
 pub mod workspace;
+pub mod workspace_gitignore_dirs;
 pub mod ws_message;

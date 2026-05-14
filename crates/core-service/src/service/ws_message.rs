@@ -992,6 +992,13 @@ impl WsMessageService {
                 self.handle_function_settings_update(parse_request(request.data)?)
                     .await
             }
+            WsAction::WorkspaceGitignoreDirsGet => {
+                self.handle_workspace_gitignore_dirs_get().await
+            }
+            WsAction::WorkspaceGitignoreDirsUpdate => {
+                self.handle_workspace_gitignore_dirs_update(parse_request(request.data)?)
+                    .await
+            }
             WsAction::LlmProvidersGet => self.handle_llm_providers_get().await,
             WsAction::LlmProvidersUpdate => {
                 self.handle_llm_providers_update(parse_request(request.data)?)
@@ -4652,6 +4659,23 @@ set -x
             ServiceError::Validation(format!("Failed to write function_settings.json: {}", e))
         })?;
 
+        Ok(json!({ "ok": true }))
+    }
+
+    // ===== Workspace GitIgnore Dirs Handlers =====
+
+    async fn handle_workspace_gitignore_dirs_get(&self) -> Result<Value> {
+        let config = crate::service::workspace_gitignore_dirs::load_config();
+        serde_json::to_value(config)
+            .map_err(|e| ServiceError::Validation(format!("Serialize config: {}", e)))
+    }
+
+    async fn handle_workspace_gitignore_dirs_update(&self, req: Value) -> Result<Value> {
+        let config: crate::service::workspace_gitignore_dirs::GitIgnoreDirsConfig =
+            serde_json::from_value(req).map_err(|e| {
+                ServiceError::Validation(format!("Invalid gitignore_dirs config: {}", e))
+            })?;
+        crate::service::workspace_gitignore_dirs::save_config(&config)?;
         Ok(json!({ "ok": true }))
     }
 

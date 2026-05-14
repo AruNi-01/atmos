@@ -2207,6 +2207,37 @@ export const functionSettingsApi = {
   },
 };
 
+// ===== Workspace GitIgnore Dirs =====
+
+export type GitIgnoreDirStrategy = "symlink" | "copy" | "off";
+
+export interface GitIgnoreDirEntry {
+  /** Stable identifier (built-in agent key, or user-generated id for customs). */
+  id: string;
+  /** Path relative to the project root, e.g. ".claude" or "skills". */
+  path: string;
+  strategy: GitIgnoreDirStrategy;
+  /** True for Atmos-shipped defaults; UI must hide the delete affordance. */
+  builtin: boolean;
+}
+
+export interface GitIgnoreDirsConfig {
+  enabled: boolean;
+  entries: GitIgnoreDirEntry[];
+}
+
+export const workspaceGitignoreDirsApi = {
+  get: async (): Promise<GitIgnoreDirsConfig> => {
+    return wsRequest<GitIgnoreDirsConfig>("workspace_gitignore_dirs_get");
+  },
+  update: async (config: GitIgnoreDirsConfig): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>(
+      "workspace_gitignore_dirs_update",
+      config as unknown as Record<string, unknown>,
+    );
+  },
+};
+
 export const llmProvidersApi = {
   get: async (): Promise<LlmProvidersFile> => {
     return wsRequest<LlmProvidersFile>("llm_providers_get");

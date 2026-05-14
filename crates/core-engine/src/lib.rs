@@ -11,9 +11,12 @@ pub mod tmux;
 
 pub use app::AppEngine;
 pub use error::EngineError;
-pub use fs::{FileTreeItem, FsEngine, FsEntry, GitValidationResult};
+pub use fs::{
+    compensate_path, CompensateStrategy, FileTreeItem, FsEngine, FsEntry, GitValidationResult,
+};
 pub use git::{
-    ChangedFileInfo, ChangedFilesInfo, CommitInfo, FileDiffInfo, GitEngine, GitStatus, WorktreeInfo,
+    list_ignored_paths, ChangedFileInfo, ChangedFilesInfo, CommitInfo, FileDiffInfo, GitEngine,
+    GitStatus, WorktreeInfo,
 };
 pub use github::GithubEngine;
 pub use search::{search_content, SearchMatch, SearchResult};

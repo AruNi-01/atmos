@@ -704,6 +704,22 @@ impl WorkspaceService {
                     )));
                 }
 
+                // Compensate gitignored directories (skills/, .claude/, .agents/, etc.)
+                // that `git worktree add` skipped. Best-effort: failures here do NOT
+                // fail workspace creation — the worktree is still usable, just may be
+                // missing some agent tooling that the user can re-create manually.
+                let report = crate::service::workspace_gitignore_dirs::compensate(
+                    repo_path,
+                    &created_path,
+                );
+                tracing::info!(
+                    "[ensure_worktree_ready] gitignore_dirs compensation: applied={}, skipped={}, failed={}, disabled={}",
+                    report.applied,
+                    report.skipped,
+                    report.failed,
+                    report.skipped_disabled
+                );
+
                 Ok(())
             }
             Err(e) => {

@@ -71,6 +71,7 @@ import {
   UserCog,
   Webhook,
   GitBranch,
+  FolderSymlink,
   Archive,
   X,
   MoreHorizontal,
@@ -108,6 +109,8 @@ import {
 } from '@/hooks/use-updater';
 import { useTerminalLinkSettings, type TerminalFileLinkOpenMode } from '@/hooks/use-terminal-link-settings';
 import { useWorkspaceSettings } from '@/hooks/use-workspace-settings';
+import { useWorkspaceGitignoreDirs } from '@/hooks/use-workspace-gitignore-dirs';
+import type { GitIgnoreDirStrategy } from '@/api/ws-api';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { QUICK_OPEN_APP_MAP, QUICK_OPEN_APP_OPTIONS, QuickOpenAppIcon } from '@/components/layout/quick-open-apps';
 import { useTheme } from 'next-themes';
@@ -887,6 +890,210 @@ function EditorSettingsSection() {
   );
 }
 
+const STRATEGY_OPTIONS: ReadonlyArray<{ value: GitIgnoreDirStrategy; label: string }> = [
+  { value: 'symlink', label: 'Symlink' },
+  { value: 'copy', label: 'Copy' },
+  { value: 'off', label: 'Off' },
+];
+
+function GitignoreDirsCard() {
+  const {
+    enabled,
+    entries,
+    loaded,
+    load,
+    setEnabled,
+    setStrategy,
+    addCustom,
+    removeCustom,
+    updateCustomPath,
+  } = useWorkspaceGitignoreDirs();
+
+  const [expanded, setExpanded] = React.useState(true);
+  const [newPath, setNewPath] = React.useState('');
+  const [editingPaths, setEditingPaths] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleAdd = React.useCallback(() => {
+    if (!newPath.trim()) return;
+    addCustom(newPath);
+    setNewPath('');
+  }, [newPath, addCustom]);
+
+  const builtins = entries.filter((e) => e.builtin);
+  const customs = entries.filter((e) => !e.builtin);
+
+  return (
+    <Collapsible
+      open={expanded}
+      onOpenChange={setExpanded}
+      className="overflow-hidden rounded-2xl border border-border"
+    >
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+          <div className="flex items-start gap-3">
+            <span className="relative mt-0.5 size-5 shrink-0">
+              <FolderSymlink className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">GitIgnore Directories</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                When a workspace is created via <code className="font-mono text-xs">git worktree add</code>, files
+                matched by <code className="font-mono text-xs">.gitignore</code> are not carried over. Atmos can
+                compensate by symlinking or copying these paths from the project root into each new workspace.
+              </p>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <div className="shrink-0 pt-1">
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+      </div>
+
+      <CollapsibleContent>
+        <div className="border-t border-border px-4">
+          {/* Built-in entries */}
+          <div className="px-2 py-3">
+            <p className="px-1 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Built-in defaults
+            </p>
+            {!loaded ? (
+              <div className="px-1 py-3 text-xs text-muted-foreground">Loading…</div>
+            ) : (
+              <div className="rounded-md border border-border">
+                {builtins.map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    className={`grid grid-cols-[minmax(0,1fr)_140px] items-center gap-4 px-3 py-2 ${
+                      idx < builtins.length - 1 ? 'border-b border-border' : ''
+                    }`}
+                  >
+                    <code className="truncate font-mono text-xs text-foreground">{entry.path}</code>
+                    <Select
+                      value={entry.strategy}
+                      onValueChange={(v) => setStrategy(entry.id, v as GitIgnoreDirStrategy)}
+                      disabled={!enabled}
+                    >
+                      <SelectTrigger className="h-8 w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STRATEGY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Custom entries */}
+          <div className="px-2 py-3 last:border-b-0">
+            <p className="px-1 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Custom directories
+            </p>
+            {customs.length > 0 && (
+              <div className="mb-3 rounded-md border border-border">
+                {customs.map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    className={`grid grid-cols-[minmax(0,1fr)_140px_32px] items-center gap-4 px-3 py-2 ${
+                      idx < customs.length - 1 ? 'border-b border-border' : ''
+                    }`}
+                  >
+                    <Input
+                      value={editingPaths[entry.id] ?? entry.path}
+                      onChange={(e) =>
+                        setEditingPaths((prev) => ({ ...prev, [entry.id]: e.target.value }))
+                      }
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        if (next && next !== entry.path) {
+                          updateCustomPath(entry.id, next);
+                        }
+                        setEditingPaths((prev) => {
+                          if (!(entry.id in prev)) return prev;
+                          const cleared = { ...prev };
+                          delete cleared[entry.id];
+                          return cleared;
+                        });
+                      }}
+                      className="h-8 font-mono text-xs"
+                      disabled={!enabled}
+                    />
+                    <Select
+                      value={entry.strategy}
+                      onValueChange={(v) => setStrategy(entry.id, v as GitIgnoreDirStrategy)}
+                      disabled={!enabled}
+                    >
+                      <SelectTrigger className="h-8 w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STRATEGY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeCustom(entry.id)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add custom row */}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newPath}
+                onChange={(e) => setNewPath(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAdd();
+                  }
+                }}
+                placeholder="e.g. .my-secrets or custom-prompts"
+                className="h-8 font-mono text-xs"
+                disabled={!enabled}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAdd}
+                disabled={!enabled || !newPath.trim()}
+                className="h-8 shrink-0"
+              >
+                <Plus className="size-3.5" />
+                Add
+              </Button>
+            </div>
+            <p className="mt-2 px-1 text-xs text-muted-foreground">
+              Path is relative to the project root. <code className="font-mono">..</code> and absolute paths are rejected.
+            </p>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function WorkspaceSettingsSection() {
   const {
     closePrOnDelete,
@@ -1007,6 +1214,8 @@ function WorkspaceSettingsSection() {
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      <GitignoreDirsCard />
 
       <Collapsible
         open={expanded}
