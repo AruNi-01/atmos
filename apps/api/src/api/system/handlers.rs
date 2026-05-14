@@ -1023,6 +1023,7 @@ fn mime_type_for_ext(ext: &str) -> &'static str {
         "gif" => "image/gif",
         "svg" => "image/svg+xml",
         "webp" => "image/webp",
+        "avif" => "image/avif",
         "bmp" => "image/bmp",
         "ico" => "image/x-icon",
         "tiff" | "tif" => "image/tiff",

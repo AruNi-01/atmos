@@ -297,6 +297,7 @@ function mapProjectModel(model: ProjectModel, workspaces: Workspace[] = []): Pro
     mainFilePath: model.main_file_path,
     sidebarOrder: model.sidebar_order,
     borderColor: model.border_color ?? undefined,
+    logoPath: model.logo_path,
     targetBranch: model.target_branch ?? undefined,
   };
 }
@@ -462,6 +463,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         guid: id, 
         name: data.name,
         borderColor: data.borderColor,
+        logoPath: data.logoPath,
         sidebarOrder: data.sidebarOrder,
       });
       

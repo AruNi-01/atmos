@@ -74,6 +74,7 @@ impl<'a> ProjectRepo<'a> {
             main_file_path: Set(main_file_path),
             sidebar_order: Set(sidebar_order),
             border_color: Set(border_color),
+            logo_path: Set(None),
             is_open: Set(true),
             target_branch: Set(target_branch),
             terminal_layout: Set(None),
@@ -101,6 +102,27 @@ impl<'a> ProjectRepo<'a> {
     pub async fn update_color(&self, guid: &str, color: Option<String>) -> Result<()> {
         let result = project::Entity::update_many()
             .col_expr(project::Column::BorderColor, Expr::value(color))
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
+            .filter(project::Column::Guid.eq(guid))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(crate::error::InfraError::Custom("Project not found".into()));
+        }
+        Ok(())
+    }
+
+    /// 更新项目 logo 路径
+    pub async fn update_logo_path(&self, guid: &str, logo_path: Option<String>) -> Result<()> {
+        let result = project::Entity::update_many()
+            .col_expr(project::Column::LogoPath, Expr::value(logo_path))
+            .col_expr(
+                project::Column::UpdatedAt,
+                Expr::value(chrono::Utc::now().naive_utc()),
+            )
             .filter(project::Column::Guid.eq(guid))
             .exec(self.db)
             .await?;

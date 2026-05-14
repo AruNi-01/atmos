@@ -1835,6 +1835,11 @@ impl WsMessageService {
                 .update_color(req.guid.clone(), Some(color))
                 .await?;
         }
+        if let Some(logo_path) = req.logo_path {
+            self.project_service
+                .update_logo_path(req.guid.clone(), logo_path)
+                .await?;
+        }
         // TODO: Add name and sidebar_order update support in ProjectService
         Ok(json!({ "success": true }))
     }

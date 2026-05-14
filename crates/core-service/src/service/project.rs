@@ -146,6 +146,11 @@ impl ProjectService {
         Ok(repo.update_color(&guid, color).await?)
     }
 
+    pub async fn update_logo_path(&self, guid: String, logo_path: Option<String>) -> Result<()> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.update_logo_path(&guid, logo_path).await?)
+    }
+
     pub async fn update_target_branch(
         &self,
         guid: String,
