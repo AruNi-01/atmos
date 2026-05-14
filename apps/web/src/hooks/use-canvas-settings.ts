@@ -32,6 +32,7 @@ export function normalizeCanvasMaxRenderedTerminals(value: number | null | undef
 }
 
 let maxRenderedTerminalsRequestId = 0;
+let lastPersistedMaxRenderedTerminals = DEFAULT_CANVAS_MAX_RENDERED_TERMINALS;
 
 export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
   autoSaveInterval: DEFAULT_CANVAS_AUTO_SAVE_INTERVAL,
@@ -46,11 +47,13 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
 
     try {
       const settings = await useFunctionSettingsStore.getState().load();
+      const maxRenderedTerminals = normalizeCanvasMaxRenderedTerminals(
+        settings.canvas?.max_rendered_terminals,
+      );
+      lastPersistedMaxRenderedTerminals = maxRenderedTerminals;
       set({
         autoSaveInterval: settings.canvas?.auto_save_interval ?? DEFAULT_CANVAS_AUTO_SAVE_INTERVAL,
-        maxRenderedTerminals: normalizeCanvasMaxRenderedTerminals(
-          settings.canvas?.max_rendered_terminals,
-        ),
+        maxRenderedTerminals,
         loaded: true,
         loading: false,
       });
@@ -82,7 +85,6 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
 
   setMaxRenderedTerminals: async (maxRenderedTerminals) => {
     const normalizedMaxRenderedTerminals = normalizeCanvasMaxRenderedTerminals(maxRenderedTerminals);
-    const previous = get().maxRenderedTerminals;
     const requestId = ++maxRenderedTerminalsRequestId;
     set({ maxRenderedTerminals: normalizedMaxRenderedTerminals });
 
@@ -92,9 +94,10 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
         'max_rendered_terminals',
         normalizedMaxRenderedTerminals,
       );
+      lastPersistedMaxRenderedTerminals = normalizedMaxRenderedTerminals;
     } catch {
       if (maxRenderedTerminalsRequestId === requestId) {
-        set({ maxRenderedTerminals: previous });
+        set({ maxRenderedTerminals: lastPersistedMaxRenderedTerminals });
       }
       toastManager.add({
         title: 'Settings Sync Failed',

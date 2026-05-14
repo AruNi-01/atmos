@@ -140,8 +140,9 @@ export function normalizeCanvasTerminalShapePropsInDocument(
 
   for (const [recordId, record] of Object.entries(store)) {
     if (isCanvasTerminalShapeRecord(record)) {
-      const normalizedLastAttachedAt = normalizeLastAttachedAt(record.props.lastAttachedAt);
-      if (record.props.lastAttachedAt !== normalizedLastAttachedAt) {
+      const currentLastAttachedAt = (record.props as { lastAttachedAt?: unknown }).lastAttachedAt;
+      const normalizedLastAttachedAt = normalizeLastAttachedAt(currentLastAttachedAt);
+      if (currentLastAttachedAt !== normalizedLastAttachedAt) {
         changed = true;
         nextStore[recordId] = {
           ...record,
@@ -190,8 +191,17 @@ export function isCanvasTerminalShapeRecord(
     return false;
   }
 
-  const candidate = value as { typeName?: string; type?: string };
-  return candidate.typeName === "shape" && candidate.type === CANVAS_TERMINAL_SHAPE_TYPE;
+  const candidate = value as { typeName?: string; type?: string; props?: unknown };
+  if (candidate.typeName !== "shape" || candidate.type !== CANVAS_TERMINAL_SHAPE_TYPE) {
+    return false;
+  }
+
+  // Ensure props exists and is an object
+  if (!candidate.props || typeof candidate.props !== "object") {
+    return false;
+  }
+
+  return true;
 }
 
 function isPageRecord(value: unknown): value is TLPage {
