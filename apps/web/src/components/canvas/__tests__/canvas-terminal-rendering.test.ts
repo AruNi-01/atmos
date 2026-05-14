@@ -43,6 +43,7 @@ describe("canvas terminal rendering helpers", () => {
       createShape("shape:oldest", 10),
       createShape("shape:newest", 30),
       createShape("shape:middle", 20),
+      createShape("shape:invalid", Number.NaN),
       createShape("shape:never", null),
     ];
 

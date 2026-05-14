@@ -127,6 +127,46 @@ export function createCanvasTerminalShapeProps(
   };
 }
 
+function normalizeLastAttachedAt(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function normalizeCanvasTerminalShapePropsInDocument(
+  document: TLEditorSnapshot["document"],
+): TLEditorSnapshot["document"] {
+  const store = document.store as Record<string, unknown>;
+  let changed = false;
+  const nextStore: Record<string, unknown> = {};
+
+  for (const [recordId, record] of Object.entries(store)) {
+    if (isCanvasTerminalShapeRecord(record)) {
+      const normalizedLastAttachedAt = normalizeLastAttachedAt(record.props.lastAttachedAt);
+      if (record.props.lastAttachedAt !== normalizedLastAttachedAt) {
+        changed = true;
+        nextStore[recordId] = {
+          ...record,
+          props: {
+            ...record.props,
+            lastAttachedAt: normalizedLastAttachedAt,
+          },
+        } satisfies CanvasTerminalShape;
+        continue;
+      }
+    }
+
+    nextStore[recordId] = record;
+  }
+
+  if (!changed) {
+    return document;
+  }
+
+  return {
+    ...document,
+    store: nextStore as TLEditorSnapshot["document"]["store"],
+  };
+}
+
 function createEmptySnapshot(): TLEditorSnapshot {
   const store = createTLStore({
     shapeUtils: [...defaultShapeUtils, CanvasTerminalShapeSchemaUtil],

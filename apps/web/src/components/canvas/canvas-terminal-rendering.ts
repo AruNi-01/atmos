@@ -7,7 +7,9 @@ export type CanvasTerminalRenderShape = Pick<CanvasTerminalShape, "id"> & {
 };
 
 function getSortableTimestamp(lastAttachedAt: TerminalRenderTimestamp) {
-  return typeof lastAttachedAt === "number" ? lastAttachedAt : Number.NEGATIVE_INFINITY;
+  return typeof lastAttachedAt === "number" && Number.isFinite(lastAttachedAt)
+    ? lastAttachedAt
+    : Number.NEGATIVE_INFINITY;
 }
 
 function compareByAttachTimeDesc(
@@ -31,7 +33,10 @@ export function getRestoredRenderedShapeIds(
   }
 
   return shapes
-    .filter((shape) => typeof shape.props.lastAttachedAt === "number")
+    .filter(
+      (shape): shape is CanvasTerminalRenderShape & { props: { lastAttachedAt: number } } =>
+        typeof shape.props.lastAttachedAt === "number" && Number.isFinite(shape.props.lastAttachedAt),
+    )
     .sort(compareByAttachTimeDesc)
     .slice(0, maxRenderedTerminals)
     .map((shape) => shape.id);

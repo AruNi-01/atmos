@@ -20,6 +20,19 @@ export const DEFAULT_CANVAS_MAX_RENDERED_TERMINALS = 10;
 export const MIN_CANVAS_MAX_RENDERED_TERMINALS = 1;
 export const MAX_CANVAS_MAX_RENDERED_TERMINALS = 50;
 
+export function normalizeCanvasMaxRenderedTerminals(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_CANVAS_MAX_RENDERED_TERMINALS;
+  }
+
+  return Math.min(
+    MAX_CANVAS_MAX_RENDERED_TERMINALS,
+    Math.max(MIN_CANVAS_MAX_RENDERED_TERMINALS, Math.trunc(value)),
+  );
+}
+
+let maxRenderedTerminalsRequestId = 0;
+
 export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
   autoSaveInterval: DEFAULT_CANVAS_AUTO_SAVE_INTERVAL,
   maxRenderedTerminals: DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
@@ -35,8 +48,9 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
       const settings = await useFunctionSettingsStore.getState().load();
       set({
         autoSaveInterval: settings.canvas?.auto_save_interval ?? DEFAULT_CANVAS_AUTO_SAVE_INTERVAL,
-        maxRenderedTerminals:
-          settings.canvas?.max_rendered_terminals ?? DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
+        maxRenderedTerminals: normalizeCanvasMaxRenderedTerminals(
+          settings.canvas?.max_rendered_terminals,
+        ),
         loaded: true,
         loading: false,
       });
@@ -67,13 +81,21 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
   },
 
   setMaxRenderedTerminals: async (maxRenderedTerminals) => {
+    const normalizedMaxRenderedTerminals = normalizeCanvasMaxRenderedTerminals(maxRenderedTerminals);
     const previous = get().maxRenderedTerminals;
-    set({ maxRenderedTerminals });
+    const requestId = ++maxRenderedTerminalsRequestId;
+    set({ maxRenderedTerminals: normalizedMaxRenderedTerminals });
 
     try {
-      await functionSettingsApi.update('canvas', 'max_rendered_terminals', maxRenderedTerminals);
+      await functionSettingsApi.update(
+        'canvas',
+        'max_rendered_terminals',
+        normalizedMaxRenderedTerminals,
+      );
     } catch {
-      set({ maxRenderedTerminals: previous });
+      if (maxRenderedTerminalsRequestId === requestId) {
+        set({ maxRenderedTerminals: previous });
+      }
       toastManager.add({
         title: 'Settings Sync Failed',
         description: 'Failed to update the canvas rendered terminal limit.',

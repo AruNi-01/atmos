@@ -81,7 +81,7 @@ import {
   promoteRenderedShapeId,
   trimRenderedShapeIds,
 } from "./canvas-terminal-rendering";
-import { ATMOS_TLDRAW_THEMES } from "./tldraw-theme";
+import { createAtmosTldrawThemes } from "./tldraw-theme";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
@@ -365,10 +365,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       "--canvas-card-panel-bg": themeColors.background,
       "--canvas-card-border": isFocused ? themeColors.selectionStroke : themeColors.noteBorder,
       "--canvas-card-text": themeColors.text,
-      "--canvas-card-muted":
-        colorMode === "dark" ? "rgba(248, 248, 248, 0.68)" : "rgba(36, 41, 47, 0.68)",
-      "--canvas-card-hover-bg":
-        colorMode === "dark" ? "rgba(255, 255, 255, 0.06)" : "rgba(36, 41, 47, 0.05)",
+      "--canvas-card-muted": `var(--muted-foreground, ${themeColors.text})`,
+      "--canvas-card-hover-bg": `var(--accent, ${themeColors.background})`,
       "--canvas-card-shadow": isFocused
         ? `0 0 0 1px ${themeColors.selectionStroke}, 0 0 0 6px ${themeColors.selectionFill}, 0 18px 40px rgba(0, 0, 0, 0.24)`
         : colorMode === "dark"
@@ -406,31 +404,30 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const activateTerminal = React.useCallback(() => {
     setActiveShapeId(shape.id);
     editor.select(shape.id as TLShapeId);
-    if (!isRendered) {
-      const attachedAt = Date.now();
-      const nextRenderedShapeIds = promoteRenderedShapeId(
-        getCanvasTerminalShapes(editor),
-        renderedShapeIds,
-        shape.id,
-        attachedAt,
-        maxRenderedTerminals,
-      );
+    const attachedAt = Date.now();
+    const nextRenderedShapeIds = promoteRenderedShapeId(
+      getCanvasTerminalShapes(editor),
+      renderedShapeIds,
+      shape.id,
+      attachedAt,
+      maxRenderedTerminals,
+    );
+    if (!areShapeIdListsEqual(nextRenderedShapeIds, renderedShapeIds)) {
       setRenderedShapeIds(nextRenderedShapeIds);
-      editor.updateShape({
-        id: shape.id,
-        type: CANVAS_TERMINAL_SHAPE_TYPE,
-        props: {
-          lastAttachedAt: attachedAt,
-        },
-      });
     }
+    editor.updateShape({
+      id: shape.id,
+      type: CANVAS_TERMINAL_SHAPE_TYPE,
+      props: {
+        lastAttachedAt: attachedAt,
+      },
+    });
     requestAnimationFrame(() => {
       focusTerminal();
     });
   }, [
     editor,
     focusTerminal,
-    isRendered,
     maxRenderedTerminals,
     renderedShapeIds,
     setActiveShapeId,
@@ -642,6 +639,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
     loaded: canvasSettingsLoaded,
     loadSettings: loadCanvasSettings,
   } = useCanvasSettings();
+  const { resolvedTheme } = useTheme();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const [overview, setOverview] = React.useState<TerminalOverviewResponse | null>(null);
   const [isOverviewLoading, setIsOverviewLoading] = React.useState(false);
@@ -663,6 +661,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   const spawnIndexRef = React.useRef(0);
   const sharePanelRef = React.useRef<React.ReactNode>(null);
   const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil], []);
+  const tldrawThemes = React.useMemo(() => createAtmosTldrawThemes(), [resolvedTheme]);
   const tldrawComponents = React.useMemo<TLComponents>(
     () => ({
       SharePanel: () => <>{sharePanelRef.current}</>,
@@ -931,7 +930,8 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
     }
 
     const boardKey = board?.guid ?? "default";
-    if (hydratedRenderedBoardKeyRef.current === boardKey) {
+    const hydrationKey = `${boardKey}:${maxRenderedTerminals}`;
+    if (hydratedRenderedBoardKeyRef.current === hydrationKey) {
       return;
     }
 
@@ -939,7 +939,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
       getCanvasTerminalShapes(editor),
       maxRenderedTerminals,
     );
-    hydratedRenderedBoardKeyRef.current = boardKey;
+    hydratedRenderedBoardKeyRef.current = hydrationKey;
     setRenderedShapeIds(restoredShapeIds);
   }, [board?.guid, canvasSettingsLoaded, editorReady, maxRenderedTerminals, setRenderedShapeIds]);
 
@@ -1378,7 +1378,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
           key={board?.guid || "canvas"}
           licenseKey={TLDRAW_LICENSE_KEY}
           snapshot={initialSnapshot ?? undefined}
-          themes={ATMOS_TLDRAW_THEMES}
+          themes={tldrawThemes}
           shapeUtils={shapeUtils}
           components={tldrawComponents}
           onMount={(nextEditor) => {
