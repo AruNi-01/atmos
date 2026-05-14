@@ -1,0 +1,24 @@
+apps/web/src/components/terminal/types.ts
+  s_350ae2edc84263::t_92ea8533537816 66-67
+apps/web/src/components/layout/CenterStage.tsx
+  s_350ae2edc84263::t_95815527aea1e7 1102-1108
+apps/web/src/components/terminal/terminal-title.tsx
+  s_350ae2edc84263::t_06ba9790b25e1f 22
+  s_350ae2edc84263::t_de35217934b73c 62-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "d6f72ba937832b1ccba0cc3485903d142272406a",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
