@@ -49,6 +49,8 @@ export function PanelLayout({
     setToggleRightSidebar,
   } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
+  const isDividerDraggingRef = useRef(false);
+  const pendingLeftSidebarSizeRef = useRef<number | null>(null);
   const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
   const [isWelcomeClosing, setIsWelcomeClosing] = useState(false);
   const showOverlay = newWorkspace || isWelcomeClosing;
@@ -148,6 +150,32 @@ export function PanelLayout({
     return () => setToggleRightSidebar(null);
   }, [isRightCollapsed, setToggleRightSidebar, showRightSidebar]);
 
+  const handleDividerDragging = useCallback(
+    (dragging: boolean) => {
+      isDividerDraggingRef.current = dragging;
+      setIsDragging(dragging);
+      if (!dragging) {
+        const pending = pendingLeftSidebarSizeRef.current;
+        if (pending != null) {
+          pendingLeftSidebarSizeRef.current = null;
+          setLeftSidebarSize(pending);
+        }
+      }
+    },
+    [setLeftSidebarSize],
+  );
+
+  const handleLeftPanelResize = useCallback(
+    (size: number) => {
+      if (isDividerDraggingRef.current) {
+        pendingLeftSidebarSizeRef.current = size;
+        return;
+      }
+      setLeftSidebarSize(size);
+    },
+    [setLeftSidebarSize],
+  );
+
   const leftPanelNode = (
     <Panel
       id="root-left-sidebar"
@@ -158,7 +186,7 @@ export function PanelLayout({
       minSize={10}
       maxSize={50}
       collapsedSize={0}
-      onResize={(size) => setLeftSidebarSize(size)}
+      onResize={handleLeftPanelResize}
       onCollapse={() => {
         setIsLeftCollapsed(true);
         setLeftSidebarSize(0);
@@ -205,7 +233,7 @@ export function PanelLayout({
         {leftPanelNode}
 
         <ResizeHandle
-          onDragging={setIsDragging}
+          onDragging={handleDividerDragging}
           className={shouldHideLeftDivider ? "bg-transparent hover:bg-transparent" : undefined}
         />
 
@@ -223,7 +251,7 @@ export function PanelLayout({
         {showRightSidebar ? (
           <>
             <ResizeHandle
-              onDragging={setIsDragging}
+              onDragging={handleDividerDragging}
             />
 
             {/* Right Sidebar */}

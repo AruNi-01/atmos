@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { DragStartEvent } from '@workspace/ui';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import type { DragStartEvent, ImperativePanelHandle } from '@workspace/ui';
 import { useHotkeys } from "react-hotkeys-hook";
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
@@ -231,6 +231,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const previousExpandedLeftSidebarSizeRef = useRef<number | null>(null);
     const syncedCollapsedLeftSidebarSizeRef = useRef<number | null>(null);
     const previousTwoColumnPrimaryCollapsedRef = useRef(isTwoColumnPrimaryCollapsed);
+    const isTwoColumnDividerDraggingRef = useRef(false);
+    const pendingTwoColumnPrimarySizeRef = useRef<number | null>(null);
+    const twoColumnPrimaryPanelRef = useRef<ImperativePanelHandle>(null);
 
     const fileTreeProjectId = useFileTreeStore((s) => s.projectId);
     const fileTreeWorkspaceId = useFileTreeStore((s) => s.workspaceId);
@@ -992,12 +995,43 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const clampOuterLeftSidebarSize = useCallback((size: number) => Math.min(50, Math.max(10, size)), []);
 
     const toggleTwoColumnPrimaryPanel = useCallback(() => {
-        setIsTwoColumnPrimaryCollapsed((prev) => !prev);
+        const panel = twoColumnPrimaryPanelRef.current;
+        if (!panel) return;
+        if (panel.isCollapsed()) {
+            panel.expand();
+        } else {
+            panel.collapse();
+        }
     }, []);
 
+    const handleTwoColumnDividerDragging = useCallback((dragging: boolean) => {
+        isTwoColumnDividerDraggingRef.current = dragging;
+        if (!dragging) {
+            const pending = pendingTwoColumnPrimarySizeRef.current;
+            pendingTwoColumnPrimarySizeRef.current = null;
+            if (pending != null && pending > 12) {
+                setTwoColumnPrimarySizes((prev) => {
+                    if (prev[twoColumnLayoutKey] === pending) {
+                        return prev;
+                    }
+                    return {
+                        ...prev,
+                        [twoColumnLayoutKey]: pending,
+                    };
+                });
+            }
+        }
+    }, [twoColumnLayoutKey]);
+
     const handleTwoColumnPrimaryResize = useCallback((size: number) => {
-        if (size <= 12) {
-            setIsTwoColumnPrimaryCollapsed(true);
+        // Collapsed primary reports ~0; collapsible snap handles collapse — do not persist 0 as the expanded default.
+        if (size < 1) {
+            pendingTwoColumnPrimarySizeRef.current = null;
+            return;
+        }
+
+        if (isTwoColumnDividerDraggingRef.current) {
+            pendingTwoColumnPrimarySizeRef.current = size;
             return;
         }
 
@@ -1012,6 +1046,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             };
         });
     }, [twoColumnLayoutKey]);
+
+    useLayoutEffect(() => {
+        if (!isTwoColumnSidebar) return;
+        const id = requestAnimationFrame(() => {
+            const panel = twoColumnPrimaryPanelRef.current;
+            if (!panel) return;
+            const collapsed = panel.isCollapsed();
+            setIsTwoColumnPrimaryCollapsed((prev) => (prev === collapsed ? prev : collapsed));
+        });
+        return () => cancelAnimationFrame(id);
+    }, [isTwoColumnSidebar, twoColumnLayoutKey]);
 
     useEffect(() => {
         if (!isTwoColumnSidebar || isLeftCollapsed || leftSidebarSize <= 0) {
@@ -1688,58 +1733,51 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const twoColumnSidebarContent = isTwoColumnSidebar ? (
         <div className="flex h-full min-h-0 flex-col">
-            <motion.div
-                key={isTwoColumnPrimaryCollapsed ? "two-column-collapsed" : "two-column-expanded"}
-                initial={{ x: isTwoColumnPrimaryCollapsed ? 10 : -10 }}
-                animate={{ x: 0 }}
-                transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                className="flex-1 min-h-0 min-w-0"
-            >
-                {isTwoColumnPrimaryCollapsed ? (
-                    <div className="flex h-full min-h-0 min-w-0 flex-col">
-                        {isProjectTwoColumn ? projectTwoColumnRightContent : groupedTwoColumnRightContent}
-                    </div>
-                ) : (
-                    <PanelGroup
-                        autoSaveId={isProjectTwoColumn ? "left-sidebar-project-two-column" : `left-sidebar-group-two-column-${groupingMode}`}
-                        direction="horizontal"
-                        storage={storage}
-                        className="flex-1"
+            <div className="flex flex-1 min-h-0 min-w-0">
+                <PanelGroup
+                    autoSaveId={isProjectTwoColumn ? "left-sidebar-project-two-column" : `left-sidebar-group-two-column-${groupingMode}`}
+                    direction="horizontal"
+                    storage={storage}
+                    className="flex-1"
+                >
+                    <Panel
+                        ref={twoColumnPrimaryPanelRef}
+                        id={isProjectTwoColumn ? "left-sidebar-two-column-primary-project" : `left-sidebar-two-column-primary-${groupingMode}`}
+                        order={1}
+                        collapsible
+                        collapsedSize={0}
+                        defaultSize={currentTwoColumnPrimarySize}
+                        minSize={14}
+                        maxSize={76}
+                        className="min-w-0 overflow-hidden"
+                        onCollapse={() => setIsTwoColumnPrimaryCollapsed(true)}
+                        onExpand={() => setIsTwoColumnPrimaryCollapsed(false)}
+                        onResize={handleTwoColumnPrimaryResize}
                     >
-                        <Panel
-                            id={isProjectTwoColumn ? "left-sidebar-two-column-primary-project" : `left-sidebar-two-column-primary-${groupingMode}`}
-                            order={1}
-                            defaultSize={currentTwoColumnPrimarySize}
-                            minSize={0}
-                            maxSize={76}
-                            className="min-w-0 overflow-hidden"
-                            onResize={handleTwoColumnPrimaryResize}
-                        >
-                            <div className="flex h-full min-h-0 flex-col">
-                                {pinnedWorkspaceSection ? (
-                                    <div className="pt-1.5">
-                                        {pinnedWorkspaceSection}
-                                    </div>
-                                ) : null}
-                                <div className="flex-1 min-h-0 overflow-hidden">
-                                    {isProjectTwoColumn ? projectTwoColumnLeftContent : groupedTwoColumnLeftContent}
+                        <div className="flex h-full min-h-0 flex-col">
+                            {pinnedWorkspaceSection ? (
+                                <div className="pt-1.5">
+                                    {pinnedWorkspaceSection}
                                 </div>
+                            ) : null}
+                            <div className="flex-1 min-h-0 overflow-hidden">
+                                {isProjectTwoColumn ? projectTwoColumnLeftContent : groupedTwoColumnLeftContent}
                             </div>
-                        </Panel>
-                        <SidebarColumnResizeHandle />
-                        <Panel
-                            id={isProjectTwoColumn ? "left-sidebar-two-column-secondary-project" : `left-sidebar-two-column-secondary-${groupingMode}`}
-                            order={2}
-                            defaultSize={100 - currentTwoColumnPrimarySize}
-                            minSize={24}
-                            maxSize={100}
-                            className="min-w-0"
-                        >
-                            {isProjectTwoColumn ? projectTwoColumnRightContent : groupedTwoColumnRightContent}
-                        </Panel>
-                    </PanelGroup>
-                )}
-            </motion.div>
+                        </div>
+                    </Panel>
+                    <SidebarColumnResizeHandle onDragging={handleTwoColumnDividerDragging} />
+                    <Panel
+                        id={isProjectTwoColumn ? "left-sidebar-two-column-secondary-project" : `left-sidebar-two-column-secondary-${groupingMode}`}
+                        order={2}
+                        defaultSize={100 - currentTwoColumnPrimarySize}
+                        minSize={24}
+                        maxSize={100}
+                        className="min-w-0"
+                    >
+                        {isProjectTwoColumn ? projectTwoColumnRightContent : groupedTwoColumnRightContent}
+                    </Panel>
+                </PanelGroup>
+            </div>
         </div>
     ) : null;
 
@@ -2189,9 +2227,10 @@ function TwoColumnSidebarToggleButton({
     );
 }
 
-function SidebarColumnResizeHandle() {
+function SidebarColumnResizeHandle({ onDragging }: { onDragging?: (dragging: boolean) => void }) {
     return (
         <PanelResizeHandle
+            onDragging={onDragging}
             className={cn(
                 "relative flex h-full self-stretch w-px items-center justify-center bg-sidebar-border/70 transition-colors duration-200 hover:bg-sidebar-border group touch-none",
                 "before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2",
