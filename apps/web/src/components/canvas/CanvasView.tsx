@@ -17,7 +17,6 @@ import {
   type TLShapeId,
 } from "tldraw";
 import "tldraw/tldraw.css";
-import "./tldraw-theme.css";
 import {
   Button,
   ScrollArea,
@@ -76,6 +75,7 @@ import {
   dispatchCanvasTerminalPinStateChange,
   type CanvasTerminalShape,
 } from "./canvas-terminal-shape";
+import { ATMOS_TLDRAW_THEMES } from "./tldraw-theme";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
@@ -288,6 +288,16 @@ function CanvasTerminalCard({ shape }: { shape: CanvasTerminalShape }) {
   );
 }
 
+type CanvasCardThemeStyle = React.CSSProperties & {
+  "--canvas-card-bg": string;
+  "--canvas-card-panel-bg": string;
+  "--canvas-card-border": string;
+  "--canvas-card-text": string;
+  "--canvas-card-muted": string;
+  "--canvas-card-hover-bg": string;
+  "--canvas-card-shadow": string;
+};
+
 function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const [sessionId] = React.useState(() => crypto.randomUUID());
   const [dynamicTitle, setDynamicTitle] = React.useState<string | undefined>(undefined);
@@ -302,16 +312,47 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     () => editor.getSelectedShapeIds().includes(shape.id as TLShapeId),
     [editor, shape.id],
   );
+  const colorMode = useValue("canvas-card-color-mode", () => editor.getColorMode(), [editor]);
+  const themeColors = useValue(
+    "canvas-card-theme-colors",
+    () => editor.getCurrentTheme().colors[editor.getColorMode()],
+    [editor],
+  );
   const isActive = activeShapeId === shape.id;
   const { displayTitle, toolbarAgent } = React.useMemo(
-    () =>
-      getTerminalDisplayMeta({
+    () => {
+      const shapeAgent = configuredAgents.find(
+        (agent) => agent.label.trim().toLowerCase() === shape.props.terminalName.trim().toLowerCase(),
+      );
+
+      return getTerminalDisplayMeta({
         baseTitle: shape.props.terminalName,
         dynamicTitle,
         configuredAgents,
-      }),
+        agent: shapeAgent,
+      });
+    },
     [dynamicTitle, shape.props.terminalName, configuredAgents],
   );
+  const cardThemeStyle = React.useMemo<CanvasCardThemeStyle>(() => {
+    const isFocused = isActive || isSelected;
+
+    return {
+      "--canvas-card-bg": themeColors.solid,
+      "--canvas-card-panel-bg": themeColors.background,
+      "--canvas-card-border": isFocused ? themeColors.selectionStroke : themeColors.noteBorder,
+      "--canvas-card-text": themeColors.text,
+      "--canvas-card-muted":
+        colorMode === "dark" ? "rgba(248, 248, 248, 0.68)" : "rgba(36, 41, 47, 0.68)",
+      "--canvas-card-hover-bg":
+        colorMode === "dark" ? "rgba(255, 255, 255, 0.06)" : "rgba(36, 41, 47, 0.05)",
+      "--canvas-card-shadow": isFocused
+        ? `0 0 0 1px ${themeColors.selectionStroke}, 0 0 0 6px ${themeColors.selectionFill}, 0 18px 40px rgba(0, 0, 0, 0.24)`
+        : colorMode === "dark"
+          ? "0 14px 36px rgba(0, 0, 0, 0.42)"
+          : "0 12px 30px rgba(15, 23, 42, 0.14)",
+    };
+  }, [colorMode, isActive, isSelected, themeColors]);
 
   const markAttached = React.useCallback(() => {
     if (!shape.props.isNewTerminal) {
@@ -412,9 +453,12 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[20px] border border-border bg-background shadow-lg">
+    <div
+      className="flex h-full flex-col overflow-hidden rounded-[20px] border bg-[var(--canvas-card-bg)] text-[var(--canvas-card-text)]"
+      style={{ ...cardThemeStyle, boxShadow: "var(--canvas-card-shadow)" }}
+    >
       <div
-        className="flex items-center justify-between gap-3 border-b border-border px-4 py-3"
+        className="flex items-center justify-between gap-3 border-b border-[var(--canvas-card-border)] bg-[var(--canvas-card-panel-bg)] px-4 py-3"
         onPointerDown={() => {
           activateTerminal();
         }}
@@ -423,9 +467,9 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
           <TerminalTitleWithAgent
             displayTitle={displayTitle}
             toolbarAgent={toolbarAgent}
-            className="text-sm font-semibold text-foreground"
+            className="text-sm font-semibold text-[var(--canvas-card-text)]"
           />
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
+          <span className="text-xs whitespace-nowrap text-[var(--canvas-card-muted)]">
             ({shape.props.projectName} · {shape.props.workspaceName})
           </span>
         </div>
@@ -435,7 +479,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               type="button"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={handleUnpin}
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--canvas-card-border)] px-2 text-[11px] text-[var(--canvas-card-muted)] transition-colors hover:bg-[var(--canvas-card-hover-bg)] hover:text-[var(--canvas-card-text)]"
             >
               Unpin
               <PinOff className="size-3" />
@@ -445,7 +489,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleRevealSource}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-[var(--canvas-card-border)] px-2 text-[11px] text-[var(--canvas-card-muted)] transition-colors hover:bg-[var(--canvas-card-hover-bg)] hover:text-[var(--canvas-card-text)]"
           >
             Source
             <ArrowUpRight className="size-3" />
@@ -454,7 +498,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       </div>
       <div
         ref={terminalHostRef}
-        className="min-h-0 flex-1 bg-background"
+        className="min-h-0 flex-1 bg-[var(--canvas-card-bg)]"
         style={{ overscrollBehavior: "contain" }}
         onPointerDown={markTerminalInteractionHandled}
         onPointerMove={stopCanvasInteractionWhileActive}
@@ -487,14 +531,16 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <SquareTerminal className="size-8 text-muted-foreground/60" />
+            <SquareTerminal className="size-8 text-[var(--canvas-card-muted)]" />
             <div className="space-y-1">
-              <div className="text-sm font-medium text-foreground">
+              <div className="text-sm font-medium text-[var(--canvas-card-text)]">
                 {isSelected
                   ? "Activate this card to open the live terminal"
                   : "Select this card to activate the live terminal"}
               </div>
-              <div className="text-xs text-muted-foreground">{shape.props.localPath || "Attached tmux window"}</div>
+              <div className="text-xs text-[var(--canvas-card-muted)]">
+                {shape.props.localPath || "Attached tmux window"}
+              </div>
             </div>
           </div>
         )}
@@ -592,14 +638,12 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
       ...visibleBuiltInAgents.map((agent) => {
         const custom = agentCustomSettings[agent.id];
         const cmd = custom?.cmd?.trim() || agent.cmd;
-        const flags = custom?.flags?.trim() || agent.params || "";
-        const parts = [cmd];
-        if (flags) parts.push(flags);
         return {
           id: agent.id,
           label: agent.label,
           command: cmd,
           iconType: "built-in",
+          pipeCommand: "useEcho" in agent && agent.useEcho ? cmd : undefined,
         } satisfies TerminalPaneAgent;
       }),
       ...visibleCustomAgents.map((agent) => ({
@@ -1195,6 +1239,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
           key={board?.guid || "canvas"}
           licenseKey={TLDRAW_LICENSE_KEY}
           snapshot={initialSnapshot ?? undefined}
+          themes={ATMOS_TLDRAW_THEMES}
           shapeUtils={shapeUtils}
           components={tldrawComponents}
           onMount={(nextEditor) => {
