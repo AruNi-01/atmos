@@ -17,8 +17,17 @@ use crate::models::{
     ProviderError, ProviderKind, ProviderStatus, RowTone, SubscriptionSummary, UsageSummary,
 };
 use crate::providers::{
-    amp, antigravity, claude, codex, // commandcode disabled due to API data consistency issues
-    cursor, factory, mimo, minimax, opencode, zai, zed,
+    amp,
+    antigravity,
+    claude,
+    codex, // commandcode disabled due to API data consistency issues
+    cursor,
+    factory,
+    mimo,
+    minimax,
+    opencode,
+    zai,
+    zed,
 };
 use crate::support::{
     expand_home, load_amp_browser_cookie_source, load_factory_browser_cookie_source,

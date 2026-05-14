@@ -22,7 +22,7 @@ interface State {
   setStrategy: (id: string, strategy: GitIgnoreDirStrategy) => Promise<void>;
   addCustom: (path: string) => Promise<void>;
   removeCustom: (id: string) => Promise<void>;
-  updateCustomPath: (id: string, path: string) => Promise<void>;
+  updateCustomPath: (id: string, path: string) => Promise<boolean>;
 }
 
 const persist = async (
@@ -40,6 +40,20 @@ const persist = async (
     });
     return false;
   }
+};
+
+const normalizeRelativePath = (path: string): string =>
+  path.trim().replace(/^\/+|\/+$/g, '');
+
+const hasParentTraversal = (path: string): boolean =>
+  path.split('/').some((part) => part === '..');
+
+const toastInvalidPath = (): void => {
+  toastManager.add({
+    title: 'Invalid Path',
+    description: 'Path cannot escape the project root (no `..` allowed).',
+    type: 'error',
+  });
 };
 
 export const useWorkspaceGitignoreDirs = create<State>((set, get) => ({
@@ -91,14 +105,10 @@ export const useWorkspaceGitignoreDirs = create<State>((set, get) => ({
   },
 
   addCustom: async (path) => {
-    const trimmed = path.trim().replace(/^\/+|\/+$/g, '');
+    const trimmed = normalizeRelativePath(path);
     if (!trimmed) return;
-    if (trimmed.startsWith('..') || trimmed.includes('/../') || trimmed === '..') {
-      toastManager.add({
-        title: 'Invalid Path',
-        description: 'Path cannot escape the project root (no `..` allowed).',
-        type: 'error',
-      });
+    if (hasParentTraversal(trimmed)) {
+      toastInvalidPath();
       return;
     }
     const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -132,17 +142,25 @@ export const useWorkspaceGitignoreDirs = create<State>((set, get) => ({
   },
 
   updateCustomPath: async (id, path) => {
-    const trimmed = path.trim().replace(/^\/+|\/+$/g, '');
-    if (!trimmed) return;
+    const trimmed = normalizeRelativePath(path);
+    if (!trimmed) return false;
+    if (hasParentTraversal(trimmed)) {
+      toastInvalidPath();
+      return false;
+    }
     const prev = get().entries;
     const target = prev.find((e) => e.id === id);
-    if (!target || target.builtin) return;
+    if (!target || target.builtin) return false;
     const next = prev.map((e) => (e.id === id ? { ...e, path: trimmed } : e));
     set({ entries: next });
     const ok = await persist(
       { enabled: get().enabled, entries: next },
       'Failed to update directory path.',
     );
-    if (!ok) set({ entries: prev });
+    if (!ok) {
+      set({ entries: prev });
+      return false;
+    }
+    return true;
   },
 }));

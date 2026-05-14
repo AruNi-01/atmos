@@ -244,13 +244,8 @@ impl SkillScanner {
             status: ScanStatus::Enabled,
         };
         Self::parse_skill_dir(
-            path,
-            /* agent */ "atmos",
-            /* scope */ "system",
-            /* project_id */ None,
-            /* project_name */ None,
-            meta,
-            mode,
+            path, /* agent */ "atmos", /* scope */ "system", /* project_id */ None,
+            /* project_name */ None, meta, mode,
         )
     }
 
@@ -1341,7 +1336,6 @@ fn create_symlink(target: &Path, link: &Path, _target_is_dir: bool) -> Result<()
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{ScanMode, SkillScanner};
@@ -1351,7 +1345,9 @@ mod tests {
         fs::create_dir_all(skill_dir).unwrap();
         fs::write(
             skill_dir.join("SKILL.md"),
-            format!("---\nname: {name}\nversion: \"0.1.0\"\ndescription: \"Test\"\n---\n\n# {name}\n"),
+            format!(
+                "---\nname: {name}\nversion: \"0.1.0\"\ndescription: \"Test\"\n---\n\n# {name}\n"
+            ),
         )
         .unwrap();
     }
@@ -1512,10 +1508,7 @@ mod tests {
     fn scan_lazy_mode_drops_non_main_file_content() {
         let tmp = tempfile::tempdir().expect("create tempdir");
         let fake_home = tmp.path();
-        let base = fake_home
-            .join(".atmos")
-            .join("skills")
-            .join(".system");
+        let base = fake_home.join(".atmos").join("skills").join(".system");
         let skill_dir = base.join("test-skill");
         let refs_dir = skill_dir.join("references");
         fs::create_dir_all(&refs_dir).unwrap();

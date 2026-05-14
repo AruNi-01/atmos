@@ -1004,9 +1004,7 @@ impl GitEngine {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| {
-                EngineError::Git(format!("Failed to spawn git apply --cached ({})", e))
-            })?;
+            .map_err(|e| EngineError::Git(format!("Failed to spawn git apply --cached ({})", e)))?;
 
         if let Some(mut stdin) = child.stdin.take() {
             stdin

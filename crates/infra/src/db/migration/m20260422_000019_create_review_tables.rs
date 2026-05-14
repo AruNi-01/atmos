@@ -683,11 +683,7 @@ impl MigrationTrait for Migration {
                             .string()
                             .null(),
                     )
-                    .col(
-                        ColumnDef::new(ReviewAgentRun::RunKind)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ReviewAgentRun::RunKind).string().not_null())
                     .col(
                         ColumnDef::new(ReviewAgentRun::ExecutionMode)
                             .string()
@@ -695,10 +691,22 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(ReviewAgentRun::Status).string().not_null())
                     .col(ColumnDef::new(ReviewAgentRun::SkillId).string().null())
-                    .col(ColumnDef::new(ReviewAgentRun::PromptRelPath).string().null())
-                    .col(ColumnDef::new(ReviewAgentRun::ResultRelPath).string().null())
+                    .col(
+                        ColumnDef::new(ReviewAgentRun::PromptRelPath)
+                            .string()
+                            .null(),
+                    )
+                    .col(
+                        ColumnDef::new(ReviewAgentRun::ResultRelPath)
+                            .string()
+                            .null(),
+                    )
                     .col(ColumnDef::new(ReviewAgentRun::PatchRelPath).string().null())
-                    .col(ColumnDef::new(ReviewAgentRun::SummaryRelPath).string().null())
+                    .col(
+                        ColumnDef::new(ReviewAgentRun::SummaryRelPath)
+                            .string()
+                            .null(),
+                    )
                     .col(
                         ColumnDef::new(ReviewAgentRun::AgentSessionRef)
                             .string()
@@ -713,7 +721,11 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ReviewAgentRun::FailureReason).text().null())
                     .col(ColumnDef::new(ReviewAgentRun::CreatedBy).string().null())
                     .col(ColumnDef::new(ReviewAgentRun::StartedAt).date_time().null())
-                    .col(ColumnDef::new(ReviewAgentRun::FinishedAt).date_time().null())
+                    .col(
+                        ColumnDef::new(ReviewAgentRun::FinishedAt)
+                            .date_time()
+                            .null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk-review_agent_run-session")

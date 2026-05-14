@@ -2231,10 +2231,7 @@ export const workspaceGitignoreDirsApi = {
     return wsRequest<GitIgnoreDirsConfig>("workspace_gitignore_dirs_get");
   },
   update: async (config: GitIgnoreDirsConfig): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>(
-      "workspace_gitignore_dirs_update",
-      config as unknown as Record<string, unknown>,
-    );
+    return wsRequest<{ ok: boolean }>("workspace_gitignore_dirs_update", config);
   },
 };
 

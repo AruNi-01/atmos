@@ -246,7 +246,10 @@ impl GithubEngine {
         direction: &str,
         search: Option<&str>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
-        match self.list_issues_via_gh(owner, repo, state, limit, search).await {
+        match self
+            .list_issues_via_gh(owner, repo, state, limit, search)
+            .await
+        {
             Ok(issues) => Ok(issues),
             Err(gh_error) => {
                 tracing::warn!(
@@ -257,7 +260,8 @@ impl GithubEngine {
                     "gh issue list failed, falling back to GitHub API: {}",
                     gh_error
                 );
-                self.list_issues_via_api(owner, repo, state, limit, sort, direction, search).await
+                self.list_issues_via_api(owner, repo, state, limit, sort, direction, search)
+                    .await
             }
         }
         .map(|mut issues| {
@@ -348,13 +352,22 @@ impl GithubEngine {
         direction: &str,
         search: Option<&str>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
-        let mut url = reqwest::Url::parse(&format!("https://api.github.com/repos/{owner}/{repo}/issues"))
-            .map_err(|e| EngineError::Processing(format!("Invalid GitHub API URL: {e}")))?;
+        let mut url = reqwest::Url::parse(&format!(
+            "https://api.github.com/repos/{owner}/{repo}/issues"
+        ))
+        .map_err(|e| EngineError::Processing(format!("Invalid GitHub API URL: {e}")))?;
         {
             let mut pairs = url.query_pairs_mut();
             pairs.append_pair("state", state);
             pairs.append_pair("per_page", &limit.to_string());
-            pairs.append_pair("sort", if sort == "updated" { "updated" } else { "created" });
+            pairs.append_pair(
+                "sort",
+                if sort == "updated" {
+                    "updated"
+                } else {
+                    "created"
+                },
+            );
             pairs.append_pair("direction", if direction == "asc" { "asc" } else { "desc" });
         }
         let endpoint = url.to_string();
@@ -365,7 +378,12 @@ impl GithubEngine {
             issues.retain(|issue| {
                 issue.title.to_lowercase().contains(&query)
                     || issue.number.to_string().contains(&query)
-                    || issue.body.as_deref().unwrap_or_default().to_lowercase().contains(&query)
+                    || issue
+                        .body
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_lowercase()
+                        .contains(&query)
             });
         }
         Ok(issues)
@@ -521,8 +539,16 @@ fn parse_issue_value(
 
 fn sort_issues(issues: &mut [GithubIssue], sort: &str, direction: &str) {
     issues.sort_by(|a, b| {
-        let left = if sort == "updated" { &a.updated_at } else { &a.created_at };
-        let right = if sort == "updated" { &b.updated_at } else { &b.created_at };
+        let left = if sort == "updated" {
+            &a.updated_at
+        } else {
+            &a.created_at
+        };
+        let right = if sort == "updated" {
+            &b.updated_at
+        } else {
+            &b.created_at
+        };
         if direction == "asc" {
             left.cmp(right)
         } else {

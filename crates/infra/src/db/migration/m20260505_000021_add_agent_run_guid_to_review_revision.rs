@@ -7,7 +7,10 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Add agent_run_guid column to review_revision table if it doesn't exist
-        if !manager.has_column("review_revision", "agent_run_guid").await? {
+        if !manager
+            .has_column("review_revision", "agent_run_guid")
+            .await?
+        {
             manager
                 .alter_table(
                     Table::alter()
@@ -19,7 +22,10 @@ impl MigrationTrait for Migration {
         }
 
         // Add agent_run_guid column to review_message table if it doesn't exist
-        if !manager.has_column("review_message", "agent_run_guid").await? {
+        if !manager
+            .has_column("review_message", "agent_run_guid")
+            .await?
+        {
             manager
                 .alter_table(
                     Table::alter()

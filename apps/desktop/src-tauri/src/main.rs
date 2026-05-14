@@ -247,13 +247,8 @@ fn main() {
                 // so that AppKit does not intercept Cmd+W before the WebView.
                 // Cmd+W handling (closing terminal panes, etc.) is done in JS.
                 // The red window button still fires CloseRequested → hide window.
-                let close_item = MenuItem::with_id(
-                    app,
-                    "close_window",
-                    "Close",
-                    true,
-                    None::<&str>,
-                )?;
+                let close_item =
+                    MenuItem::with_id(app, "close_window", "Close", true, None::<&str>)?;
                 let window_menu = SubmenuBuilder::new(app, "Window")
                     .minimize()
                     .item(&close_item)
@@ -268,13 +263,7 @@ fn main() {
                 // entirely in JS (see `Header.tsx`); these menu items remain
                 // click-only affordances in the menu bar.
                 let navigation_menu = SubmenuBuilder::new(app, "Navigation")
-                    .item(&MenuItem::with_id(
-                        app,
-                        "back",
-                        "Back",
-                        true,
-                        None::<&str>,
-                    )?)
+                    .item(&MenuItem::with_id(app, "back", "Back", true, None::<&str>)?)
                     .item(&MenuItem::with_id(
                         app,
                         "forward",

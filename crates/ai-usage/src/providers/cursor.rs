@@ -7,12 +7,12 @@ use std::path::{Path, PathBuf};
 use crate::constants::{CURSOR_PLAN_INFO_URL, CURSOR_USAGE_SERVICE_URL, CURSOR_USAGE_SUMMARY_URL};
 use crate::models::{DetailRow, DetailSection, ProviderError, RowTone};
 use crate::runtime::LiveFetchResult;
+use crate::support::browser::load_cursor_session_token;
 use crate::support::{
     build_percent_usage_summary, expand_home, format_reset_relative_text, format_usd,
     normalize_fraction_percent, parse_i64_string, round_metric, run_command, run_sqlite_query,
     unix_now,
 };
-use crate::support::browser::load_cursor_session_token;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -142,8 +142,12 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
     // Try REST API first (accurate individual usage, works for both personal and team)
     if let Ok(Some(session)) = load_cursor_session_token() {
         let team_id = extract_cookie_value(&session.cookie_header, "team_id");
-        if let Ok(summary) = request_cursor_usage_summary(client, &session.cookie_header, team_id.as_deref()).await {
-            let plan_info = request_cursor_plan_info(client, &auth.access_token).await.ok();
+        if let Ok(summary) =
+            request_cursor_usage_summary(client, &session.cookie_header, team_id.as_deref()).await
+        {
+            let plan_info = request_cursor_plan_info(client, &auth.access_token)
+                .await
+                .ok();
             return build_result_from_summary(client, &auth, summary, plan_info).await;
         }
     }
@@ -190,8 +194,15 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
     let bonus_percent = plan.and_then(|p| p.api_percent_used);
 
     // 团队 on-demand（spendLimitUsage.pooled，cents → USD）
-    let (team_used, team_limit) = usage.spend_limit_usage.as_ref()
-        .map(|s| (s.pooled_used.map(cents_to_usd), s.pooled_limit.map(cents_to_usd)))
+    let (team_used, team_limit) = usage
+        .spend_limit_usage
+        .as_ref()
+        .map(|s| {
+            (
+                s.pooled_used.map(cents_to_usd),
+                s.pooled_limit.map(cents_to_usd),
+            )
+        })
         .unwrap_or((None, None));
     let team_percent = match (team_used, team_limit) {
         (Some(used), Some(limit)) if limit > 0.0 => Some(round_metric((used / limit) * 100.0)),
@@ -199,7 +210,9 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
     };
 
     // 个人 on-demand（team 账户下 individualLimit/Remaining，cents → USD）
-    let (on_demand_used, on_demand_limit) = usage.spend_limit_usage.as_ref()
+    let (on_demand_used, on_demand_limit) = usage
+        .spend_limit_usage
+        .as_ref()
         .map(|value| {
             let is_team = value.limit_type.as_deref() == Some("team");
             let individual_used = value.individual_used.or_else(|| {
@@ -208,8 +221,11 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
                     _ => None,
                 }
             });
-            let used = if is_team { individual_used.map(cents_to_usd) }
-                       else { individual_used.or(value.pooled_used).map(cents_to_usd) };
+            let used = if is_team {
+                individual_used.map(cents_to_usd)
+            } else {
+                individual_used.or(value.pooled_used).map(cents_to_usd)
+            };
             let limit = value.individual_limit.map(cents_to_usd);
             (used, limit)
         })
@@ -238,7 +254,9 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
             .filter(|&p| p > 0.0)
             .map(|p| round_metric(bu / (p / 100.0)));
         let value = match (bonus_percent, bonus_limit) {
-            (Some(p), Some(limit)) => format!("{p:.1}% used · {} / {}", format_usd(bu), format_usd(limit)),
+            (Some(p), Some(limit)) => {
+                format!("{p:.1}% used · {} / {}", format_usd(bu), format_usd(limit))
+            }
             (Some(p), None) => format!("{p:.1}% used · {} used", format_usd(bu)),
             _ => format!("{} used", format_usd(bu)),
         };
@@ -258,7 +276,9 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
         usage_rows.push(DetailRow {
             label: "On-Demand".to_string(),
             value: match on_demand_limit {
-                Some(limit) if limit > 0.0 => format!("{} / {}", format_usd(used), format_usd(limit)),
+                Some(limit) if limit > 0.0 => {
+                    format!("{} / {}", format_usd(used), format_usd(limit))
+                }
                 _ => format!("{} used", format_usd(used)),
             },
             tone: RowTone::Default,
@@ -284,7 +304,9 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
     }
 
     // usage_summary drives the top-level percent indicator — use totalPercentUsed
-    let summary_percent = plan.and_then(|p| p.total_percent_used).map(normalize_fraction_percent)
+    let summary_percent = plan
+        .and_then(|p| p.total_percent_used)
+        .map(normalize_fraction_percent)
         .or(included_percent);
 
     Ok(LiveFetchResult {
@@ -307,9 +329,14 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
                         },
                     ],
                 },
-                DetailSection { title: "Usage".to_string(), rows: usage_rows },
+                DetailSection {
+                    title: "Usage".to_string(),
+                    rows: usage_rows,
+                },
             ];
-            if let Some(s) = team_section { sections.push(s); }
+            if let Some(s) = team_section {
+                sections.push(s);
+            }
             sections
         },
         warnings: vec![],
@@ -337,7 +364,10 @@ async fn build_result_from_summary(
                 .and_then(parse_cursor_timestamp)
         });
 
-    let plan = summary.individual_usage.as_ref().and_then(|u| u.plan.as_ref());
+    let plan = summary
+        .individual_usage
+        .as_ref()
+        .and_then(|u| u.plan.as_ref());
 
     // plan.used = includedSpend (cents), plan.limit = included limit (cents)
     let included_used = plan.and_then(|p| p.used).map(cents_to_usd);
@@ -347,7 +377,9 @@ async fn build_result_from_summary(
         _ => None,
     };
 
-    let bonus_used = plan.and_then(|p| p.breakdown.as_ref()?.bonus).map(cents_to_usd);
+    let bonus_used = plan
+        .and_then(|p| p.breakdown.as_ref()?.bonus)
+        .map(cents_to_usd);
     let bonus_api_percent = plan.and_then(|p| p.api_percent_used);
     let summary_percent = plan.and_then(|p| p.total_percent_used);
 
@@ -363,9 +395,16 @@ async fn build_result_from_summary(
         .or_else(|| auth.membership_type.clone())
         .map(format_cursor_plan_label);
 
-    let individual_on_demand = summary.individual_usage.as_ref().and_then(|u| u.on_demand.as_ref());
-    let od_used = individual_on_demand.and_then(|od| od.used).map(cents_to_usd);
-    let od_limit = individual_on_demand.and_then(|od| od.limit).map(cents_to_usd);
+    let individual_on_demand = summary
+        .individual_usage
+        .as_ref()
+        .and_then(|u| u.on_demand.as_ref());
+    let od_used = individual_on_demand
+        .and_then(|od| od.used)
+        .map(cents_to_usd);
+    let od_limit = individual_on_demand
+        .and_then(|od| od.limit)
+        .map(cents_to_usd);
     let od_percent = match (od_used, od_limit) {
         (Some(used), Some(limit)) if limit > 0.0 => Some(round_metric((used / limit) * 100.0)),
         _ => None,
@@ -384,7 +423,9 @@ async fn build_result_from_summary(
             .filter(|&p| p > 0.0)
             .map(|p| round_metric(bu / (p / 100.0)));
         let value = match (bonus_api_percent, bonus_limit) {
-            (Some(p), Some(limit)) => format!("{p:.1}% used · {} / {}", format_usd(bu), format_usd(limit)),
+            (Some(p), Some(limit)) => {
+                format!("{p:.1}% used · {} / {}", format_usd(bu), format_usd(limit))
+            }
             (Some(p), None) => format!("{p:.1}% used · {} used", format_usd(bu)),
             _ => format!("{} used", format_usd(bu)),
         };
@@ -396,8 +437,12 @@ async fn build_result_from_summary(
     }
     if od_limit.is_some() {
         let value = match (od_percent, od_used, od_limit) {
-            (Some(p), Some(used), Some(limit)) => format_percent_window(p, Some(used), Some(limit), reset_at),
-            (None, Some(used), Some(limit)) => format!("{} / {}", format_usd(used), format_usd(limit)),
+            (Some(p), Some(used), Some(limit)) => {
+                format_percent_window(p, Some(used), Some(limit), reset_at)
+            }
+            (None, Some(used), Some(limit)) => {
+                format!("{} / {}", format_usd(used), format_usd(limit))
+            }
             _ => String::new(),
         };
         if !value.is_empty() {
@@ -410,19 +455,27 @@ async fn build_result_from_summary(
     }
 
     // Team section (separate from Usage so it doesn't appear in footer carousel)
-    let team_section = summary.team_usage.as_ref().and_then(|t| t.on_demand.as_ref()).and_then(|od| {
-        let used = od.used.map(cents_to_usd)?;
-        let limit = od.limit.map(cents_to_usd)?;
-        let percent = if limit > 0.0 { round_metric((used / limit) * 100.0) } else { return None; };
-        Some(DetailSection {
-            title: "Team".to_string(),
-            rows: vec![DetailRow {
-                label: "On-Demand".to_string(),
-                value: format_percent_window(percent, Some(used), Some(limit), reset_at),
-                tone: RowTone::Default,
-            }],
-        })
-    });
+    let team_section = summary
+        .team_usage
+        .as_ref()
+        .and_then(|t| t.on_demand.as_ref())
+        .and_then(|od| {
+            let used = od.used.map(cents_to_usd)?;
+            let limit = od.limit.map(cents_to_usd)?;
+            let percent = if limit > 0.0 {
+                round_metric((used / limit) * 100.0)
+            } else {
+                return None;
+            };
+            Some(DetailSection {
+                title: "Team".to_string(),
+                rows: vec![DetailRow {
+                    label: "On-Demand".to_string(),
+                    value: format_percent_window(percent, Some(used), Some(limit), reset_at),
+                    tone: RowTone::Default,
+                }],
+            })
+        });
 
     if usage_rows.is_empty() {
         return Err(ProviderError::Fetch(
@@ -432,7 +485,9 @@ async fn build_result_from_summary(
 
     Ok(LiveFetchResult {
         plan_label: plan_label.clone(),
-        usage_summary: Some(build_percent_usage_summary(summary_percent.or(included_percent))),
+        usage_summary: Some(build_percent_usage_summary(
+            summary_percent.or(included_percent),
+        )),
         detail_sections: {
             let mut sections = vec![
                 DetailSection {
@@ -450,9 +505,14 @@ async fn build_result_from_summary(
                         },
                     ],
                 },
-                DetailSection { title: "Usage".to_string(), rows: usage_rows },
+                DetailSection {
+                    title: "Usage".to_string(),
+                    rows: usage_rows,
+                },
             ];
-            if let Some(s) = team_section { sections.push(s); }
+            if let Some(s) = team_section {
+                sections.push(s);
+            }
             sections
         },
         warnings: vec![],
@@ -462,7 +522,6 @@ async fn build_result_from_summary(
         last_updated_at: Some(unix_now()),
     })
 }
-
 
 async fn request_cursor_usage_summary(
     client: &Client,
@@ -481,7 +540,10 @@ async fn request_cursor_usage_summary(
         .map_err(|e| format!("Cursor usage-summary request failed: {e}"))?;
 
     if !response.status().is_success() {
-        return Err(format!("Cursor usage-summary returned {}", response.status()));
+        return Err(format!(
+            "Cursor usage-summary returned {}",
+            response.status()
+        ));
     }
 
     response
@@ -671,7 +733,9 @@ fn format_percent_window(
     if let Some(used) = used {
         value.push_str(" · ");
         match limit {
-            Some(limit) if limit > 0.0 => value.push_str(&format!("{} / {}", format_usd(used), format_usd(limit))),
+            Some(limit) if limit > 0.0 => {
+                value.push_str(&format!("{} / {}", format_usd(used), format_usd(limit)))
+            }
             _ => value.push_str(&format!("{} used", format_usd(used))),
         }
     }

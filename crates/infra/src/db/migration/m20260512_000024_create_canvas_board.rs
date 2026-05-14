@@ -33,21 +33,9 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(
-                        ColumnDef::new(CanvasBoard::Slug)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(CanvasBoard::Name)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(CanvasBoard::DocumentJson)
-                            .text()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(CanvasBoard::Slug).string().not_null())
+                    .col(ColumnDef::new(CanvasBoard::Name).string().not_null())
+                    .col(ColumnDef::new(CanvasBoard::DocumentJson).text().not_null())
                     .to_owned(),
             )
             .await?;

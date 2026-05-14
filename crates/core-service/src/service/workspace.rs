@@ -124,9 +124,15 @@ impl WorkspaceService {
         }
     }
 
-    pub async fn list_by_project(&self, project_guid: String, include_issue_only: bool) -> Result<Vec<WorkspaceDto>> {
+    pub async fn list_by_project(
+        &self,
+        project_guid: String,
+        include_issue_only: bool,
+    ) -> Result<Vec<WorkspaceDto>> {
         let repo = WorkspaceRepo::new(&self.db);
-        let models = repo.list_by_project(&project_guid, include_issue_only).await?;
+        let models = repo
+            .list_by_project(&project_guid, include_issue_only)
+            .await?;
         let workspace_guids: Vec<String> = models.iter().map(|model| model.guid.clone()).collect();
         let mut labels_by_workspace = repo
             .list_labels_by_workspace_guids(&workspace_guids)
@@ -708,10 +714,8 @@ impl WorkspaceService {
                 // that `git worktree add` skipped. Best-effort: failures here do NOT
                 // fail workspace creation — the worktree is still usable, just may be
                 // missing some agent tooling that the user can re-create manually.
-                let report = crate::service::workspace_gitignore_dirs::compensate(
-                    repo_path,
-                    &created_path,
-                );
+                let report =
+                    crate::service::workspace_gitignore_dirs::compensate(repo_path, &created_path);
                 tracing::info!(
                     "[ensure_worktree_ready] gitignore_dirs compensation: applied={}, skipped={}, failed={}, disabled={}",
                     report.applied,
@@ -1162,7 +1166,12 @@ impl WorkspaceService {
             .collect())
     }
 
-    pub async fn create_label(&self, name: String, color: String, source: String) -> Result<WorkspaceLabelDto> {
+    pub async fn create_label(
+        &self,
+        name: String,
+        color: String,
+        source: String,
+    ) -> Result<WorkspaceLabelDto> {
         let name = name.trim().to_string();
         if name.is_empty() {
             return Err(ServiceError::Validation(

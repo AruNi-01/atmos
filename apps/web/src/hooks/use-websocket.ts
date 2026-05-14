@@ -134,6 +134,8 @@ export type WsAction =
   // Function settings
   | "function_settings_get"
   | "function_settings_update"
+  | "workspace_gitignore_dirs_get"
+  | "workspace_gitignore_dirs_update"
   | "llm_providers_get"
   | "llm_providers_update"
   | "llm_provider_test"

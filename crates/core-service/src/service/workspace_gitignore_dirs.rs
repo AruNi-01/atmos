@@ -24,6 +24,7 @@ use crate::error::{Result, ServiceError};
 use core_engine::{compensate_path, list_ignored_paths, CompensateStrategy};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// Top-level key inside `function_settings.json`.
@@ -146,10 +147,52 @@ fn builtin_entries() -> Vec<GitIgnoreDirEntry> {
 }
 
 fn function_settings_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".atmos")
-        .join("function_settings.json")
+    let home = dirs::home_dir().unwrap_or_else(|| {
+        tracing::warn!(
+            "[gitignore_dirs] Unable to determine home directory; falling back to current working directory for function_settings.json"
+        );
+        PathBuf::from(".")
+    });
+
+    home.join(".atmos").join("function_settings.json")
+}
+
+fn merge_entries(stored_entries: Vec<GitIgnoreDirEntry>) -> Vec<GitIgnoreDirEntry> {
+    let mut seen_ids = HashSet::new();
+    let mut entries = Vec::with_capacity(stored_entries.len() + BUILTIN_GITIGNORE_DIRS.len());
+
+    for mut entry in stored_entries {
+        if !seen_ids.insert(entry.id.clone()) {
+            tracing::warn!(
+                "[gitignore_dirs] Dropping duplicate stored entry with id `{}`",
+                entry.id
+            );
+            continue;
+        }
+
+        if let Some((_, builtin_path)) = BUILTIN_GITIGNORE_DIRS
+            .iter()
+            .find(|(builtin_id, _)| *builtin_id == entry.id)
+        {
+            entry.path = (*builtin_path).to_string();
+            entry.builtin = true;
+        }
+
+        entries.push(entry);
+    }
+
+    for (id, path) in BUILTIN_GITIGNORE_DIRS {
+        if seen_ids.insert((*id).to_string()) {
+            entries.push(GitIgnoreDirEntry {
+                id: (*id).to_string(),
+                path: (*path).to_string(),
+                strategy: Strategy::Symlink,
+                builtin: true,
+            });
+        }
+    }
+
+    entries
 }
 
 /// Load the config, merging persisted state with built-in defaults so that:
@@ -181,19 +224,9 @@ pub fn load_config() -> GitIgnoreDirsConfig {
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
-    // Merge: keep stored entries first (preserves user strategy choices and ordering),
-    // then append any built-ins that are missing from storage.
-    let mut entries = stored_entries.clone();
-    for (id, path) in BUILTIN_GITIGNORE_DIRS {
-        if !entries.iter().any(|e| e.id == *id && e.builtin) {
-            entries.push(GitIgnoreDirEntry {
-                id: (*id).to_string(),
-                path: (*path).to_string(),
-                strategy: Strategy::Symlink,
-                builtin: true,
-            });
-        }
-    }
+    // Merge by stable id so built-in path renames migrate in place, while user
+    // strategy overrides and ordering remain intact.
+    let entries = merge_entries(stored_entries);
 
     GitIgnoreDirsConfig { enabled, entries }
 }
@@ -231,15 +264,13 @@ pub fn save_config(config: &GitIgnoreDirsConfig) -> Result<()> {
     );
 
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            ServiceError::Validation(format!("Create ~/.atmos: {}", e))
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| ServiceError::Validation(format!("Create ~/.atmos: {}", e)))?;
     }
     let pretty = serde_json::to_string_pretty(&root)
         .map_err(|e| ServiceError::Validation(format!("Serialize settings: {}", e)))?;
-    std::fs::write(&path, pretty).map_err(|e| {
-        ServiceError::Validation(format!("Write function_settings.json: {}", e))
-    })?;
+    std::fs::write(&path, pretty)
+        .map_err(|e| ServiceError::Validation(format!("Write function_settings.json: {}", e)))?;
 
     Ok(())
 }
@@ -264,7 +295,11 @@ pub fn compensate(source_root: &Path, target_root: &Path) -> CompensationReport 
 
         // Disallow paths that escape the project root (no `..`, no absolute paths).
         let rel = Path::new(&entry.path);
-        if rel.is_absolute() || rel.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+        if rel.is_absolute()
+            || rel
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
             tracing::warn!(
                 "[gitignore_dirs] Skipping unsafe path: {} (absolute or parent traversal)",
                 entry.path
