@@ -34,6 +34,7 @@ export type CanvasTerminalShapeProps = {
   isNewTerminal: boolean;
   isPinned: boolean;
   pinKey: string;
+  lastAttachedAt: number | null;
 };
 
 declare module "tldraw" {
@@ -60,6 +61,7 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
     isNewTerminal: T.boolean,
     isPinned: T.boolean,
     pinKey: T.string,
+    lastAttachedAt: T.nullable(T.number),
   };
 
   override canEdit() {
@@ -84,6 +86,7 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
       isNewTerminal: true,
       isPinned: false,
       pinKey: "",
+      lastAttachedAt: null,
     };
   }
 
@@ -108,9 +111,10 @@ export function buildCanvasTerminalPinKey(
 }
 
 export function createCanvasTerminalShapeProps(
-  props: Omit<CanvasTerminalShapeProps, "w" | "h" | "isPinned" | "pinKey"> & {
+  props: Omit<CanvasTerminalShapeProps, "w" | "h" | "isPinned" | "pinKey" | "lastAttachedAt"> & {
     isPinned?: boolean;
     pinKey?: string;
+    lastAttachedAt?: number | null;
   },
 ): CanvasTerminalShapeProps {
   return {
@@ -119,6 +123,7 @@ export function createCanvasTerminalShapeProps(
     ...props,
     isPinned: props.isPinned ?? false,
     pinKey: props.pinKey ?? "",
+    lastAttachedAt: props.lastAttachedAt ?? null,
   };
 }
 
@@ -136,7 +141,7 @@ function createEmptySnapshot(): TLEditorSnapshot {
   };
 }
 
-function isCanvasTerminalShapeRecord(
+export function isCanvasTerminalShapeRecord(
   value: unknown,
 ): value is CanvasTerminalShape & {
   typeName: "shape";

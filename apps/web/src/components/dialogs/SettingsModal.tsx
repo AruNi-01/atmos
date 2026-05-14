@@ -136,7 +136,11 @@ import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
 import { useEditorSettings } from '@/hooks/use-editor-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
-import { useCanvasSettings } from '@/hooks/use-canvas-settings';
+import {
+  MAX_CANVAS_MAX_RENDERED_TERMINALS,
+  MIN_CANVAS_MAX_RENDERED_TERMINALS,
+  useCanvasSettings,
+} from '@/hooks/use-canvas-settings';
 import { FlaskIcon, type FlaskIconHandle } from '@/components/ui/flask-icon';
 
 interface ShortcutEntry {
@@ -633,8 +637,12 @@ function LayoutSettingsSection() {
 }
 
 function CanvasSettingsSection() {
-  const { autoSaveInterval, loadSettings, setAutoSaveInterval } = useCanvasSettings();
+  const { autoSaveInterval, maxRenderedTerminals, loadSettings, setAutoSaveInterval, setMaxRenderedTerminals } =
+    useCanvasSettings();
   const [localInterval, setLocalInterval] = React.useState(autoSaveInterval.toString());
+  const [localMaxRenderedTerminals, setLocalMaxRenderedTerminals] = React.useState(
+    maxRenderedTerminals.toString(),
+  );
 
   React.useEffect(() => {
     loadSettings();
@@ -644,12 +652,28 @@ function CanvasSettingsSection() {
     setLocalInterval(autoSaveInterval.toString());
   }, [autoSaveInterval]);
 
+  React.useEffect(() => {
+    setLocalMaxRenderedTerminals(maxRenderedTerminals.toString());
+  }, [maxRenderedTerminals]);
+
   const handleIntervalChange = async (value: string) => {
     const num = parseInt(value, 10);
     if (isNaN(num) || num < 1) return;
 
     setLocalInterval(value);
     await setAutoSaveInterval(num);
+  };
+
+  const handleMaxRenderedTerminalsChange = async (value: string) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) return;
+
+    const clamped = Math.min(
+      MAX_CANVAS_MAX_RENDERED_TERMINALS,
+      Math.max(MIN_CANVAS_MAX_RENDERED_TERMINALS, num),
+    );
+    setLocalMaxRenderedTerminals(clamped.toString());
+    await setMaxRenderedTerminals(clamped);
   };
 
   return (
@@ -679,6 +703,38 @@ function CanvasSettingsSection() {
                 className="w-24"
               />
               <span className="text-sm text-muted-foreground">seconds</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+          <div>
+            <p className="text-base font-medium text-foreground">
+              Max rendered terminals per canvas page
+            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Keep up to this many canvas terminals live at once. When the limit is exceeded, the
+              oldest attached live terminal stops rendering until it is activated again.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={MIN_CANVAS_MAX_RENDERED_TERMINALS}
+                max={MAX_CANVAS_MAX_RENDERED_TERMINALS}
+                value={localMaxRenderedTerminals}
+                onChange={(e) => setLocalMaxRenderedTerminals(e.target.value)}
+                onBlur={(e) => void handleMaxRenderedTerminalsChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void handleMaxRenderedTerminalsChange(localMaxRenderedTerminals);
+                  }
+                }}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">terminals</span>
             </div>
           </div>
         </div>

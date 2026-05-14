@@ -2107,6 +2107,7 @@ export interface FunctionSettings {
   };
   canvas?: {
     auto_save_interval?: number;
+    max_rendered_terminals?: number;
   };
   workspace_kanban_view?: {
     state?: unknown;
