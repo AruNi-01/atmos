@@ -265,6 +265,7 @@ interface ProjectStore {
     data: { name: string; color: string },
   ) => Promise<WorkspaceLabel>;
   deleteWorkspaceLabel: (labelId: string) => Promise<void>;
+  restoreWorkspaceLabel: (labelId: string) => Promise<void>;
   updateWorkspaceLabels: (
     projectId: string,
     workspaceId: string,

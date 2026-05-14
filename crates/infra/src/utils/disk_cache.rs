@@ -258,7 +258,11 @@ mod tests {
 
         // The .tmp sibling must not linger after a successful rename.
         let tmp_path = cache.file_path("skills", "list").with_extension("json.tmp");
-        assert!(!tmp_path.exists(), "leftover tmp file at {}", tmp_path.display());
+        assert!(
+            !tmp_path.exists(),
+            "leftover tmp file at {}",
+            tmp_path.display()
+        );
     }
 
     #[test]
@@ -266,7 +270,14 @@ mod tests {
         let (_tmp, cache) = cache();
         cache.remove("skills", "list").unwrap(); // no entry — ok
         cache
-            .put("skills", "list", &SamplePayload { id: "a".into(), count: 1 })
+            .put(
+                "skills",
+                "list",
+                &SamplePayload {
+                    id: "a".into(),
+                    count: 1,
+                },
+            )
             .unwrap();
         cache.remove("skills", "list").unwrap();
         assert!(cache
@@ -279,30 +290,42 @@ mod tests {
     fn remove_feature_clears_all_keys_under_feature() {
         let (_tmp, cache) = cache();
         cache
-            .put("skills", "a", &SamplePayload { id: "a".into(), count: 1 })
+            .put(
+                "skills",
+                "a",
+                &SamplePayload {
+                    id: "a".into(),
+                    count: 1,
+                },
+            )
             .unwrap();
         cache
-            .put("skills", "b", &SamplePayload { id: "b".into(), count: 2 })
+            .put(
+                "skills",
+                "b",
+                &SamplePayload {
+                    id: "b".into(),
+                    count: 2,
+                },
+            )
             .unwrap();
         // A sibling feature must be untouched.
         cache
-            .put("review", "x", &SamplePayload { id: "x".into(), count: 99 })
+            .put(
+                "review",
+                "x",
+                &SamplePayload {
+                    id: "x".into(),
+                    count: 99,
+                },
+            )
             .unwrap();
 
         cache.remove_feature("skills").unwrap();
 
-        assert!(cache
-            .get::<SamplePayload>("skills", "a")
-            .unwrap()
-            .is_none());
-        assert!(cache
-            .get::<SamplePayload>("skills", "b")
-            .unwrap()
-            .is_none());
-        assert!(cache
-            .get::<SamplePayload>("review", "x")
-            .unwrap()
-            .is_some());
+        assert!(cache.get::<SamplePayload>("skills", "a").unwrap().is_none());
+        assert!(cache.get::<SamplePayload>("skills", "b").unwrap().is_none());
+        assert!(cache.get::<SamplePayload>("review", "x").unwrap().is_some());
     }
 
     #[test]
@@ -336,7 +359,14 @@ mod tests {
         let (_tmp, cache) = cache();
         // Write a SamplePayload, read as an unrelated type.
         cache
-            .put("skills", "list", &SamplePayload { id: "a".into(), count: 1 })
+            .put(
+                "skills",
+                "list",
+                &SamplePayload {
+                    id: "a".into(),
+                    count: 1,
+                },
+            )
             .unwrap();
         #[derive(Deserialize)]
         struct OtherShape {

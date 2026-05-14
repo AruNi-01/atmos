@@ -9,38 +9,38 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use crate::{CanvasService, SaveCanvasBoardReq};
 use agent::{AgentId, CustomAgent};
 use ai_usage::UsageService;
 use async_trait::async_trait;
 use core_engine::{FsEngine, GitEngine};
-use crate::{CanvasService, SaveCanvasBoardReq};
 #[allow(unused_imports)]
 use infra::{
     AgentBehaviourSettingsUpdateRequest, AgentConfigGetRequest, AgentConfigSetRequest,
     AgentInstallRequest, AgentRegistryInstallRequest, AgentRegistryListRequest,
-    AgentRegistryRemoveRequest, AppOpenRequest, CanvasBoardResponse, CanvasUpdateDefaultBoardRequest,
-    CodeAgentCustomUpdateRequest,
-    CustomAgentAddRequest, CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest,
-    FsDeletePathRequest, FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest,
-    FsReadFileRequest, FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest,
-    FsValidateGitPathRequest, FsWriteFileRequest, FunctionSettingsUpdateRequest,
-    GitChangedFilesRequest, GitCommitRequest, GitDiscardUnstagedRequest,
-    GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest, GitPatchChunkRequest,
+    AgentRegistryRemoveRequest, AppOpenRequest, CanvasBoardResponse,
+    CanvasUpdateDefaultBoardRequest, CodeAgentCustomUpdateRequest, CustomAgentAddRequest,
+    CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest,
+    FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest,
+    FsRenamePathRequest, FsSearchContentRequest, FsSearchDirsRequest, FsValidateGitPathRequest,
+    FsWriteFileRequest, FunctionSettingsUpdateRequest, GitChangedFilesRequest, GitCommitRequest,
+    GitDiscardUnstagedRequest, GitDiscardUntrackedRequest, GitFetchRequest, GitFileDiffRequest,
     GitGenerateCommitMessageRequest, GitGetCommitCountRequest, GitGetHeadCommitRequest,
-    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPullRequest, GitPushRequest,
-    GitRenameBranchRequest, GitStageRequest, GitSyncRequest, GitUnstageRequest,
-    GithubActionsDetailRequest, GithubActionsListRequest, GithubActionsRerunRequest,
-    GithubCiOpenBrowserRequest, GithubCiStatusRequest, GithubIssueGetRequest,
-    GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload, GithubPrCloseRequest,
-    GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest, GithubPrDraftRequest,
-    GithubPrGetRequest, GithubPrListRepoRequest, GithubPrListRequest, GithubPrMergeRequest,
-    GithubPrOpenBrowserRequest, GithubPrPayload, GithubPrReadyRequest, GithubPrReopenRequest,
-    GithubPrTimelinePageRequest, GithubPrFilesRequest, LlmProviderTestRequest, LlmProvidersUpdateRequest,
-    LocalModelCustomAddRequest, LocalModelCustomDeleteRequest, LocalModelDeleteRequest,
-    LocalModelDeleteRuntimeRequest, LocalModelDownloadRequest, LocalModelResolveHfUrlRequest,
-    LocalModelStartRequest, ProjectCheckCanDeleteRequest, ProjectCreateRequest,
-    ProjectDeleteProgressNotification, ProjectDeleteRequest, ProjectUpdateOrderRequest,
-    ProjectUpdateRequest, ProjectUpdateTargetBranchRequest, ReviewAgentRunArtifactGetRequest,
+    GitGetStatusRequest, GitListBranchesRequest, GitLogRequest, GitPatchChunkRequest,
+    GitPullRequest, GitPushRequest, GitRenameBranchRequest, GitStageRequest, GitSyncRequest,
+    GitUnstageRequest, GithubActionsDetailRequest, GithubActionsListRequest,
+    GithubActionsRerunRequest, GithubCiOpenBrowserRequest, GithubCiStatusRequest,
+    GithubIssueGetRequest, GithubIssueLabelPayload, GithubIssueListRequest, GithubIssuePayload,
+    GithubPrCloseRequest, GithubPrCommentRequest, GithubPrCreateRequest, GithubPrDetailRequest,
+    GithubPrDraftRequest, GithubPrFilesRequest, GithubPrGetRequest, GithubPrListRepoRequest,
+    GithubPrListRequest, GithubPrMergeRequest, GithubPrOpenBrowserRequest, GithubPrPayload,
+    GithubPrReadyRequest, GithubPrReopenRequest, GithubPrTimelinePageRequest,
+    LlmProviderTestRequest, LlmProvidersUpdateRequest, LocalModelCustomAddRequest,
+    LocalModelCustomDeleteRequest, LocalModelDeleteRequest, LocalModelDeleteRuntimeRequest,
+    LocalModelDownloadRequest, LocalModelResolveHfUrlRequest, LocalModelStartRequest,
+    ProjectCheckCanDeleteRequest, ProjectCreateRequest, ProjectDeleteProgressNotification,
+    ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
+    ProjectUpdateTargetBranchRequest, ReviewAgentRunArtifactGetRequest,
     ReviewAgentRunCreateRequest, ReviewAgentRunFinalizeRequest, ReviewAgentRunListRequest,
     ReviewAgentRunSetStatusRequest, ReviewCommentCreateRequest, ReviewCommentListRequest,
     ReviewCommentUpdateStatusRequest, ReviewFileContentGetRequest, ReviewFileListRequest,
@@ -49,15 +49,15 @@ use infra::{
     ReviewSessionCloseRequest, ReviewSessionCreateRequest, ReviewSessionGetRequest,
     ReviewSessionListRequest, ReviewSessionRenameRequest, ScriptGetRequest, ScriptSaveRequest,
     SkillsDeleteRequest, SkillsGetRequest, SkillsListRequest, SkillsSetEnabledRequest,
-    SyncSingleSystemSkillRequest,
-    UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest, UsageAutoRefreshRequest,
-    UsageDeleteProviderApiKeyRequest, UsageOverviewRequest, UsageProviderFooterCarouselRequest,
-    UsageProviderManualSetupRequest, UsageProviderSwitchRequest, WorkspaceArchiveRequest,
-    WorkspaceConfirmTodosRequest, WorkspaceCreateRequest, WorkspaceDeleteProgressNotification,
-    WorkspaceDeleteRequest, WorkspaceImportGithubIssuesRequest, WorkspaceLabelCreateRequest,
-    WorkspaceLabelDeleteRequest, WorkspaceLabelListRequest, WorkspaceLabelRestoreRequest,
-    WorkspaceLabelUpdateRequest, WorkspaceListRequest, WorkspaceMarkVisitedRequest,
-    WorkspacePinRequest, WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
+    SyncSingleSystemSkillRequest, UsageAddProviderApiKeyRequest, UsageAllProvidersSwitchRequest,
+    UsageAutoRefreshRequest, UsageDeleteProviderApiKeyRequest, UsageOverviewRequest,
+    UsageProviderFooterCarouselRequest, UsageProviderManualSetupRequest,
+    UsageProviderSwitchRequest, WorkspaceArchiveRequest, WorkspaceConfirmTodosRequest,
+    WorkspaceCreateRequest, WorkspaceDeleteProgressNotification, WorkspaceDeleteRequest,
+    WorkspaceImportGithubIssuesRequest, WorkspaceLabelCreateRequest, WorkspaceLabelDeleteRequest,
+    WorkspaceLabelListRequest, WorkspaceLabelRestoreRequest, WorkspaceLabelUpdateRequest,
+    WorkspaceListRequest, WorkspaceMarkVisitedRequest, WorkspacePinRequest,
+    WorkspaceRetrySetupRequest, WorkspaceSetupContextNotification,
     WorkspaceSetupProgressNotification, WorkspaceSkipSetupScriptRequest,
     WorkspaceSkipSetupStepRequest, WorkspaceUnarchiveRequest, WorkspaceUnpinRequest,
     WorkspaceUpdateBranchRequest, WorkspaceUpdateLabelsRequest, WorkspaceUpdateNameRequest,
@@ -518,7 +518,8 @@ impl WsMessageService {
             // Canvas
             WsAction::CanvasGetDefaultBoard => self.handle_canvas_get_default_board().await,
             WsAction::CanvasUpdateDefaultBoard => {
-                self.handle_canvas_update_default_board(parse_request(request.data)?).await
+                self.handle_canvas_update_default_board(parse_request(request.data)?)
+                    .await
             }
 
             // Git
@@ -542,8 +543,12 @@ impl WsMessageService {
                 self.handle_git_changed_files(parse_request(request.data)?)
             }
             WsAction::GitFileDiff => self.handle_git_file_diff(parse_request(request.data)?),
-            WsAction::GitStagePatchChunk => self.handle_git_stage_patch_chunk(parse_request(request.data)?),
-            WsAction::GitRestorePatchChunk => self.handle_git_restore_patch_chunk(parse_request(request.data)?),
+            WsAction::GitStagePatchChunk => {
+                self.handle_git_stage_patch_chunk(parse_request(request.data)?)
+            }
+            WsAction::GitRestorePatchChunk => {
+                self.handle_git_restore_patch_chunk(parse_request(request.data)?)
+            }
             WsAction::GitGenerateCommitMessage => {
                 self.handle_git_generate_commit_message(conn_id, parse_request(request.data)?)
                     .await
@@ -992,6 +997,11 @@ impl WsMessageService {
                 self.handle_function_settings_update(parse_request(request.data)?)
                     .await
             }
+            WsAction::WorkspaceGitignoreDirsGet => self.handle_workspace_gitignore_dirs_get().await,
+            WsAction::WorkspaceGitignoreDirsUpdate => {
+                self.handle_workspace_gitignore_dirs_update(parse_request(request.data)?)
+                    .await
+            }
             WsAction::LlmProvidersGet => self.handle_llm_providers_get().await,
             WsAction::LlmProvidersUpdate => {
                 self.handle_llm_providers_update(parse_request(request.data)?)
@@ -1294,7 +1304,10 @@ impl WsMessageService {
         }))
     }
 
-    async fn handle_canvas_update_default_board(&self, req: CanvasUpdateDefaultBoardRequest) -> Result<Value> {
+    async fn handle_canvas_update_default_board(
+        &self,
+        req: CanvasUpdateDefaultBoardRequest,
+    ) -> Result<Value> {
         let board = self
             .canvas_service
             .save_default_board(SaveCanvasBoardReq {
@@ -3418,7 +3431,9 @@ set -x
                         tokio::spawn(async move {
                             match run_scan(project_paths_bg).await {
                                 Ok(fresh) => {
-                                    if let Err(e) = cache_bg.put(FEATURE, CACHE_KEY, &strip_for_cache(&fresh)) {
+                                    if let Err(e) =
+                                        cache_bg.put(FEATURE, CACHE_KEY, &strip_for_cache(&fresh))
+                                    {
                                         tracing::warn!(
                                             error = %e,
                                             "background disk_cache put failed"
@@ -4660,6 +4675,23 @@ set -x
         Ok(json!({ "ok": true }))
     }
 
+    // ===== Workspace GitIgnore Dirs Handlers =====
+
+    async fn handle_workspace_gitignore_dirs_get(&self) -> Result<Value> {
+        let config = crate::service::workspace_gitignore_dirs::load_config();
+        serde_json::to_value(config)
+            .map_err(|e| ServiceError::Validation(format!("Serialize config: {}", e)))
+    }
+
+    async fn handle_workspace_gitignore_dirs_update(&self, req: Value) -> Result<Value> {
+        let config: crate::service::workspace_gitignore_dirs::GitIgnoreDirsConfig =
+            serde_json::from_value(req).map_err(|e| {
+                ServiceError::Validation(format!("Invalid gitignore_dirs config: {}", e))
+            })?;
+        crate::service::workspace_gitignore_dirs::save_config(&config)?;
+        Ok(json!({ "ok": true }))
+    }
+
     // ===== Code Agent Custom Settings Handlers =====
 
     async fn handle_code_agent_custom_get(&self) -> Result<Value> {
@@ -4765,11 +4797,19 @@ set -x
         // Normalize inputs: trim whitespace and treat empty strings as None
         let workspace_guid = workspace_guid.and_then(|s| {
             let trimmed = s.trim();
-            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
         });
         let project_guid = project_guid.and_then(|s| {
             let trimmed = s.trim();
-            if trimmed.is_empty() { None } else { Some(trimmed.to_string()) }
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
         });
 
         match (workspace_guid, project_guid) {
@@ -5515,12 +5555,12 @@ set -x
             .delete_model(&req.model_id)
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        
+
         // Also delete the corresponding provider
         if let Err(e) = delete_local_managed_provider(&req.model_id) {
             tracing::warn!("[LocalModel] failed to delete provider config: {e}");
         }
-        
+
         if let Some(ref mgr) = self.ws_manager.get() {
             let state_json = serde_json::to_value(&manager.state()).unwrap_or(json!(null));
             let notification = infra::WsMessage::notification(

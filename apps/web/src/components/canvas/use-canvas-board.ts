@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TLEditorSnapshot } from "tldraw";
 import { canvasApi, type CanvasBoardResponse } from "@/api/rest-api";
+import { normalizeCanvasTerminalShapePropsInDocument } from "./canvas-terminal-shape";
 
 const CANVAS_SCHEMA = "canvas.v1";
 const CANVAS_BOARD_SLUG = "default";
@@ -40,7 +41,7 @@ export function createCanvasSnapshot(
   }
 
   return {
-    document,
+    document: normalizeCanvasTerminalShapePropsInDocument(document),
     session: session ?? createDefaultCanvasSession(),
   };
 }

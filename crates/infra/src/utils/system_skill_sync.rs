@@ -767,7 +767,9 @@ Body
         // Target layout: pre-populate a user-created custom skill AND an older install of
         // the built-in skill so we can verify the built-in is replaced but the user skill
         // (and an unrelated sibling in a different subtree) survives.
-        let built_in_target = system_dir.join("code_review_skills").join("fullstack-reviewer");
+        let built_in_target = system_dir
+            .join("code_review_skills")
+            .join("fullstack-reviewer");
         fs::create_dir_all(&built_in_target).unwrap();
         fs::write(
             built_in_target.join("SKILL.md"),
@@ -791,12 +793,8 @@ Body
         fs::write(unrelated.join("SKILL.md"), "---\nversion: \"1.0.0\"\n---\n").unwrap();
 
         // Act: sync the built-in skill from the fake source root.
-        let ok = super::sync_skill_from_root(
-            "fullstack-reviewer",
-            &system_dir,
-            &source_root,
-            "test",
-        );
+        let ok =
+            super::sync_skill_from_root("fullstack-reviewer", &system_dir, &source_root, "test");
         assert!(ok, "sync should succeed against the fake source");
 
         // The built-in was replaced with the source version.
@@ -807,7 +805,10 @@ Body
         );
 
         // The user's custom skill directory and its files are untouched.
-        assert!(user_skill.exists(), "user custom skill directory was removed");
+        assert!(
+            user_skill.exists(),
+            "user custom skill directory was removed"
+        );
         assert_eq!(fs::read_to_string(&user_md).unwrap(), "user content\n");
         assert_eq!(fs::read_to_string(&user_ref).unwrap(), "user references\n");
 

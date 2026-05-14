@@ -833,8 +833,7 @@ mod tests {
 
     #[test]
     fn resolve_context_uses_project_when_workspace_missing() {
-        let (context_type, context_guid) =
-            AgentSessionService::resolve_context(None, Some("pj-1"));
+        let (context_type, context_guid) = AgentSessionService::resolve_context(None, Some("pj-1"));
         assert_eq!(context_type, "project");
         assert_eq!(context_guid.as_deref(), Some("pj-1"));
     }

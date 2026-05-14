@@ -882,15 +882,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                     <button
                       className={cn(
                         "terminal-mosaic-btn transition-opacity",
-                        "opacity-0 group-hover/toolbar:opacity-100",
-                        isPanePinned && "bg-accent text-primary cursor-not-allowed",
+                        isPanePinned ? "opacity-100 bg-accent text-foreground cursor-not-allowed" : "opacity-0 group-hover/toolbar:opacity-100",
                       )}
                       onClick={() => void pinPaneToCanvas(id)}
                       title={isPanePinned ? "Already pinned to Canvas" : "Pin to Canvas (⌘⇧P)"}
                       disabled={isPanePinned}
                       aria-pressed={isPanePinned}
                     >
-                      <Pin size={12} />
+                      <Pin size={12} className={cn(!isPanePinned && "rotate-45")} />
                     </button>
                   <div className="flex items-center gap-0.5">
                     {actions.split && (

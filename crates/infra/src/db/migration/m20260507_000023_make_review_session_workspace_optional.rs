@@ -13,7 +13,8 @@ impl MigrationTrait for Migration {
 
         if backend == sea_orm::DatabaseBackend::Sqlite {
             // Disable foreign keys to prevent cascade deletion of dependent records
-            db.execute_unprepared(r#"PRAGMA foreign_keys = OFF"#).await?;
+            db.execute_unprepared(r#"PRAGMA foreign_keys = OFF"#)
+                .await?;
 
             db.execute_unprepared(
                 r#"
@@ -52,7 +53,8 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-            db.execute_unprepared(r#"DROP TABLE "review_session""#).await?;
+            db.execute_unprepared(r#"DROP TABLE "review_session""#)
+                .await?;
             db.execute_unprepared(r#"ALTER TABLE "review_session_new" RENAME TO "review_session""#)
                 .await?;
 
@@ -133,7 +135,8 @@ impl MigrationTrait for Migration {
 
         if backend == sea_orm::DatabaseBackend::Sqlite {
             // Disable foreign keys to prevent cascade deletion of dependent records
-            db.execute_unprepared(r#"PRAGMA foreign_keys = OFF"#).await?;
+            db.execute_unprepared(r#"PRAGMA foreign_keys = OFF"#)
+                .await?;
 
             db.execute_unprepared(
                 r#"
@@ -173,7 +176,8 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-            db.execute_unprepared(r#"DROP TABLE "review_session""#).await?;
+            db.execute_unprepared(r#"DROP TABLE "review_session""#)
+                .await?;
             db.execute_unprepared(r#"ALTER TABLE "review_session_old" RENAME TO "review_session""#)
                 .await?;
 
@@ -181,10 +185,8 @@ impl MigrationTrait for Migration {
             db.execute_unprepared(r#"PRAGMA foreign_keys = ON"#).await?;
         } else {
             // Prune NULL rows before making the column NOT NULL
-            db.execute_unprepared(
-                r#"DELETE FROM "review_session" WHERE "workspace_guid" IS NULL"#,
-            )
-            .await?;
+            db.execute_unprepared(r#"DELETE FROM "review_session" WHERE "workspace_guid" IS NULL"#)
+                .await?;
             db.execute_unprepared(
                 r#"ALTER TABLE "review_session" ALTER COLUMN "workspace_guid" SET NOT NULL"#,
             )

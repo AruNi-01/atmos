@@ -79,9 +79,12 @@ fn validate_canvas_document(document_json: &str) -> Result<()> {
     let parsed: Value = serde_json::from_str(document_json)
         .map_err(|e| ServiceError::Validation(format!("Invalid canvas JSON: {e}")))?;
 
-    let schema = parsed.get("schema").and_then(Value::as_str).ok_or_else(|| {
-        ServiceError::Validation("Canvas document is missing `schema`".to_string())
-    })?;
+    let schema = parsed
+        .get("schema")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            ServiceError::Validation("Canvas document is missing `schema`".to_string())
+        })?;
     if schema != CANVAS_SCHEMA_V1 {
         return Err(ServiceError::Validation(format!(
             "Unsupported canvas schema `{schema}`"
