@@ -63,6 +63,8 @@ export interface TerminalPaneAgent {
   label: string;
   command: string;
   iconType: "built-in" | "custom";
+  /** For agents that use pipe commands (e.g., echo 'prompt' | amp), this stores the actual agent command after the pipe */
+  pipeCommand?: string;
 }
 
 export interface TerminalPaneProps {

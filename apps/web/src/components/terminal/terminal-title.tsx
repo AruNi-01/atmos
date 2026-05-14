@@ -19,6 +19,7 @@ const RUNTIME_WRAPPER_COMMANDS = new Set([
   "go",
   "cargo",
   "deno",
+  "env",
 ]);
 
 function normalizeAgentCommand(value: string): string {
@@ -58,6 +59,30 @@ export function resolveAgentForTitle(
   if (!title || isPathLikeTitle(title)) return undefined;
   const normalizedTitle = normalizeAgentCommand(title);
   if (!normalizedTitle) return undefined;
+
+  // Special handling for echo and pipe commands
+  // If title is "echo", check if any agent has a pipeCommand that matches
+  if (normalizedTitle === "echo") {
+    return agents.find((agent) => agent.pipeCommand);
+  }
+
+  // If title contains a pipe, try to match the command after the pipe
+  if (title.includes("|")) {
+    const afterPipe = title.split("|").slice(1).join("|").trim();
+    const normalizedAfterPipe = normalizeAgentCommand(afterPipe);
+    if (normalizedAfterPipe) {
+      return agents.find((agent) => {
+        const normalizedCommand = normalizeAgentCommand(agent.command);
+        const normalizedPipeCommand = agent.pipeCommand ? normalizeAgentCommand(agent.pipeCommand) : "";
+        return (
+          (normalizedCommand !== "" && normalizedAfterPipe.includes(normalizedCommand)) ||
+          (normalizedPipeCommand !== "" && normalizedAfterPipe.includes(normalizedPipeCommand))
+        );
+      });
+    }
+  }
+
+  // Standard matching for non-pipe commands
   return agents.find((agent) => {
     const normalizedCommand = normalizeAgentCommand(agent.command);
     return normalizedCommand !== "" && normalizedTitle.includes(normalizedCommand);

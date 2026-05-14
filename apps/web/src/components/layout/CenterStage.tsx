@@ -1099,7 +1099,13 @@ const CenterStage: React.FC = () => {
         void grid.createAndRunTerminal({
           label: builtIn.label,
           command,
-          agent: { id: builtIn.id, label: builtIn.label, command: cmd, iconType: "built-in" },
+          agent: {
+            id: builtIn.id,
+            label: builtIn.label,
+            command: cmd,
+            iconType: "built-in",
+            pipeCommand: "useEcho" in builtIn && builtIn.useEcho ? cmd : undefined,
+          },
         });
       });
       return;
