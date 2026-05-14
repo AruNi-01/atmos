@@ -53,6 +53,7 @@ import {
   Building2,
   Check,
   ChevronDown,
+  Columns2,
   CircleCheck,
   CircleMinus,
   CircleX,
@@ -71,6 +72,7 @@ import {
   UserCog,
   Webhook,
   GitBranch,
+  FolderSymlink,
   Archive,
   X,
   MoreHorizontal,
@@ -108,7 +110,10 @@ import {
 } from '@/hooks/use-updater';
 import { useTerminalLinkSettings, type TerminalFileLinkOpenMode } from '@/hooks/use-terminal-link-settings';
 import { useWorkspaceSettings } from '@/hooks/use-workspace-settings';
+import { useWorkspaceGitignoreDirs } from '@/hooks/use-workspace-gitignore-dirs';
+import type { GitIgnoreDirStrategy } from '@/api/ws-api';
 import { useProjectStore } from '@/hooks/use-project-store';
+import type { WorkspaceLabel } from '@/types/types';
 import { QUICK_OPEN_APP_MAP, QUICK_OPEN_APP_OPTIONS, QuickOpenAppIcon } from '@/components/layout/quick-open-apps';
 import { useTheme } from 'next-themes';
 import {
@@ -136,8 +141,15 @@ import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
 import { useEditorSettings } from '@/hooks/use-editor-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
-import { useCanvasSettings } from '@/hooks/use-canvas-settings';
+import {
+  MAX_CANVAS_MAX_RENDERED_TERMINALS,
+  MIN_CANVAS_MAX_RENDERED_TERMINALS,
+  useCanvasSettings,
+} from '@/hooks/use-canvas-settings';
 import { FlaskIcon, type FlaskIconHandle } from '@/components/ui/flask-icon';
+
+type ProjectStoreState = ReturnType<typeof useProjectStore.getState>;
+type ProjectStoreWorkspaceLabel = ProjectStoreState['workspaceLabels'][number];
 
 interface ShortcutEntry {
   keys: string[];
@@ -582,7 +594,24 @@ const TEST_NOTIFICATION_PAYLOAD = {
 };
 
 function LayoutSettingsSection() {
-  const { projectFilesSide, loadSettings, setProjectFilesSide } = useLayoutSettings();
+  const {
+    projectFilesSide,
+    workspaceSidebarTwoColumn,
+    workspaceSidebarTwoColumnShowPinned,
+    workspaceSidebarSecondColumnKanban,
+    workspaceSidebarTimeTwoColumn,
+    workspaceSidebarStatusTwoColumn,
+    loadSettings,
+    setProjectFilesSide,
+    setWorkspaceSidebarTwoColumn,
+    setWorkspaceSidebarTwoColumnShowPinned,
+    setWorkspaceSidebarSecondColumnKanban,
+    setWorkspaceSidebarTimeTwoColumn,
+    setWorkspaceSidebarStatusTwoColumn,
+  } = useLayoutSettings();
+  const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(true);
+  const isAnyTwoColumnEnabled =
+    workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn;
 
   React.useEffect(() => {
     loadSettings();
@@ -628,13 +657,131 @@ function LayoutSettingsSection() {
           </div>
         </div>
       </div>
+      <Collapsible
+        open={workspaceSidebarLayoutExpanded}
+        onOpenChange={setWorkspaceSidebarLayoutExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex items-start gap-3">
+              <span className="relative mt-0.5 size-5 shrink-0">
+                <Columns2 className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium text-foreground">Workspace Sidebar Two-Column Layout</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Configure the optional two-column workspace browser for Project, By Time, and By Status sidebar modes.
+                </p>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <div className="pt-1 text-xs text-muted-foreground">
+            {workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn
+              ? 'Enabled'
+              : 'Disabled'}
+          </div>
+        </div>
+
+        <CollapsibleContent>
+          <div className="border-t border-border px-4">
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">Project sidebar two-column layout</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Show projects in the first column and open each project&apos;s workspaces in a resizable second column.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">Show pinned workspaces in second column</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    When the Project two-column layout is on, also show the selected project&apos;s pinned workspaces at the top of the second column while keeping the global pinned section in the left column.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarTwoColumnShowPinned}
+                    disabled={!workspaceSidebarTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarTwoColumnShowPinned(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">Second column uses Kanban cards</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    When any two-column sidebar layout is enabled, render second-column workspaces with the same card style and Properties visibility as the Kanban view.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarSecondColumnKanban}
+                    disabled={!isAnyTwoColumnEnabled}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarSecondColumnKanban(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">By Time group uses second column</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    In the sidebar&apos;s By Time mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarTimeTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarTimeTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-2 py-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">By Status group uses second column</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    In the sidebar&apos;s By Status mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarStatusTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarStatusTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
 
 function CanvasSettingsSection() {
-  const { autoSaveInterval, loadSettings, setAutoSaveInterval } = useCanvasSettings();
+  const { autoSaveInterval, maxRenderedTerminals, loadSettings, setAutoSaveInterval, setMaxRenderedTerminals } =
+    useCanvasSettings();
   const [localInterval, setLocalInterval] = React.useState(autoSaveInterval.toString());
+  const [localMaxRenderedTerminals, setLocalMaxRenderedTerminals] = React.useState(
+    maxRenderedTerminals.toString(),
+  );
 
   React.useEffect(() => {
     loadSettings();
@@ -644,12 +791,28 @@ function CanvasSettingsSection() {
     setLocalInterval(autoSaveInterval.toString());
   }, [autoSaveInterval]);
 
+  React.useEffect(() => {
+    setLocalMaxRenderedTerminals(maxRenderedTerminals.toString());
+  }, [maxRenderedTerminals]);
+
   const handleIntervalChange = async (value: string) => {
     const num = parseInt(value, 10);
     if (isNaN(num) || num < 1) return;
 
     setLocalInterval(value);
     await setAutoSaveInterval(num);
+  };
+
+  const handleMaxRenderedTerminalsChange = async (value: string) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) return;
+
+    const clamped = Math.min(
+      MAX_CANVAS_MAX_RENDERED_TERMINALS,
+      Math.max(MIN_CANVAS_MAX_RENDERED_TERMINALS, num),
+    );
+    setLocalMaxRenderedTerminals(clamped.toString());
+    await setMaxRenderedTerminals(clamped);
   };
 
   return (
@@ -679,6 +842,38 @@ function CanvasSettingsSection() {
                 className="w-24"
               />
               <span className="text-sm text-muted-foreground">seconds</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+          <div>
+            <p className="text-base font-medium text-foreground">
+              Max rendered terminals per canvas page
+            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Keep up to this many canvas terminals live at once. When the limit is exceeded, the
+              oldest attached live terminal stops rendering until it is activated again.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={MIN_CANVAS_MAX_RENDERED_TERMINALS}
+                max={MAX_CANVAS_MAX_RENDERED_TERMINALS}
+                value={localMaxRenderedTerminals}
+                onChange={(e) => setLocalMaxRenderedTerminals(e.target.value)}
+                onBlur={(e) => void handleMaxRenderedTerminalsChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void handleMaxRenderedTerminalsChange(localMaxRenderedTerminals);
+                  }
+                }}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">terminals</span>
             </div>
           </div>
         </div>
@@ -887,6 +1082,210 @@ function EditorSettingsSection() {
   );
 }
 
+const STRATEGY_OPTIONS: ReadonlyArray<{ value: GitIgnoreDirStrategy; label: string }> = [
+  { value: 'symlink', label: 'Symlink' },
+  { value: 'copy', label: 'Copy' },
+  { value: 'off', label: 'Off' },
+];
+
+function GitignoreDirsCard() {
+  const {
+    enabled,
+    entries,
+    loaded,
+    load,
+    setEnabled,
+    setStrategy,
+    addCustom,
+    removeCustom,
+    updateCustomPath,
+  } = useWorkspaceGitignoreDirs();
+
+  const [expanded, setExpanded] = React.useState(true);
+  const [newPath, setNewPath] = React.useState('');
+  const [editingPaths, setEditingPaths] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleAdd = React.useCallback(() => {
+    if (!newPath.trim()) return;
+    addCustom(newPath);
+    setNewPath('');
+  }, [newPath, addCustom]);
+
+  const builtins = entries.filter((e) => e.builtin);
+  const customs = entries.filter((e) => !e.builtin);
+
+  return (
+    <Collapsible
+      open={expanded}
+      onOpenChange={setExpanded}
+      className="overflow-hidden rounded-2xl border border-border"
+    >
+      <div className="flex items-start justify-between gap-4 px-6 py-5">
+        <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+          <div className="flex items-start gap-3">
+            <span className="relative mt-0.5 size-5 shrink-0">
+              <FolderSymlink className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+              <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">GitIgnore Directories</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                When a workspace is created via <code className="font-mono text-xs">git worktree add</code>, files
+                matched by <code className="font-mono text-xs">.gitignore</code> are not carried over. Atmos can
+                compensate by symlinking or copying these paths from the project root into each new workspace.
+              </p>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <div className="shrink-0 pt-1">
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+      </div>
+
+      <CollapsibleContent>
+        <div className="border-t border-border px-4">
+          {/* Built-in entries */}
+          <div className="px-2 py-3">
+            <p className="px-1 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Built-in defaults
+            </p>
+            {!loaded ? (
+              <div className="px-1 py-3 text-xs text-muted-foreground">Loading…</div>
+            ) : (
+              <div className="rounded-md border border-border">
+                {builtins.map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    className={`grid grid-cols-[minmax(0,1fr)_140px] items-center gap-4 px-3 py-2 ${
+                      idx < builtins.length - 1 ? 'border-b border-border' : ''
+                    }`}
+                  >
+                    <code className="truncate font-mono text-xs text-foreground">{entry.path}</code>
+                    <Select
+                      value={entry.strategy}
+                      onValueChange={(v) => setStrategy(entry.id, v as GitIgnoreDirStrategy)}
+                      disabled={!enabled}
+                    >
+                      <SelectTrigger className="h-8 w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STRATEGY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Custom entries */}
+          <div className="px-2 py-3 last:border-b-0">
+            <p className="px-1 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Custom directories
+            </p>
+            {customs.length > 0 && (
+              <div className="mb-3 rounded-md border border-border">
+                {customs.map((entry, idx) => (
+                  <div
+                    key={entry.id}
+                    className={`grid grid-cols-[minmax(0,1fr)_140px_32px] items-center gap-4 px-3 py-2 ${
+                      idx < customs.length - 1 ? 'border-b border-border' : ''
+                    }`}
+                  >
+                    <Input
+                      value={editingPaths[entry.id] ?? entry.path}
+                      onChange={(e) =>
+                        setEditingPaths((prev) => ({ ...prev, [entry.id]: e.target.value }))
+                      }
+                      onBlur={(e) => {
+                        const next = e.target.value.trim();
+                        if (next && next !== entry.path) {
+                          updateCustomPath(entry.id, next);
+                        }
+                        setEditingPaths((prev) => {
+                          if (!(entry.id in prev)) return prev;
+                          const cleared = { ...prev };
+                          delete cleared[entry.id];
+                          return cleared;
+                        });
+                      }}
+                      className="h-8 font-mono text-xs"
+                      disabled={!enabled}
+                    />
+                    <Select
+                      value={entry.strategy}
+                      onValueChange={(v) => setStrategy(entry.id, v as GitIgnoreDirStrategy)}
+                      disabled={!enabled}
+                    >
+                      <SelectTrigger className="h-8 w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STRATEGY_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeCustom(entry.id)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add custom row */}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newPath}
+                onChange={(e) => setNewPath(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAdd();
+                  }
+                }}
+                placeholder="e.g. .my-secrets or custom-prompts"
+                className="h-8 font-mono text-xs"
+                disabled={!enabled}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAdd}
+                disabled={!enabled || !newPath.trim()}
+                className="h-8 shrink-0"
+              >
+                <Plus className="size-3.5" />
+                Add
+              </Button>
+            </div>
+            <p className="mt-2 px-1 text-xs text-muted-foreground">
+              Path is relative to the project root. <code className="font-mono">..</code> and absolute paths are rejected.
+            </p>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function WorkspaceSettingsSection() {
   const {
     closePrOnDelete,
@@ -1007,6 +1406,8 @@ function WorkspaceSettingsSection() {
           </div>
         </CollapsibleContent>
       </Collapsible>
+
+      <GitignoreDirsCard />
 
       <Collapsible
         open={expanded}
@@ -1160,7 +1561,7 @@ function WorkspaceSettingsSection() {
 
 function LabelSettingsSection() {
   const { workspaceLabels, updateWorkspaceLabel, createWorkspaceLabel, deleteWorkspaceLabel, fetchWorkspaceLabels, restoreWorkspaceLabel } = useProjectStore(
-    useShallow((s: any) => ({
+    useShallow((s: ProjectStoreState) => ({
       workspaceLabels: s.workspaceLabels,
       updateWorkspaceLabel: s.updateWorkspaceLabel,
       createWorkspaceLabel: s.createWorkspaceLabel,
@@ -1204,15 +1605,15 @@ function LabelSettingsSection() {
 
     if (filterQuery.trim()) {
       const query = filterQuery.toLowerCase().trim();
-      labels = labels.filter((l: any) => l.name.toLowerCase().includes(query));
+      labels = labels.filter((label) => label.name.toLowerCase().includes(query));
     }
 
     if (selectedSources.size > 0) {
-      labels = labels.filter((l: any) => selectedSources.has(l.source || 'manual'));
+      labels = labels.filter((label) => selectedSources.has(label.source || 'manual'));
     }
 
     if (sortField) {
-      labels.sort((a: any, b: any) => {
+      labels.sort((a: ProjectStoreWorkspaceLabel, b: ProjectStoreWorkspaceLabel) => {
         let comparison = 0;
         if (sortField === 'name') {
           comparison = a.name.localeCompare(b.name);
@@ -1241,7 +1642,7 @@ function LabelSettingsSection() {
     if (selectedLabels.size === filteredAndSortedLabels.length) {
       setSelectedLabels(new Set());
     } else {
-      setSelectedLabels(new Set(filteredAndSortedLabels.map((l: any) => l.id)));
+      setSelectedLabels(new Set(filteredAndSortedLabels.map((label) => label.id)));
     }
   };
 
@@ -1269,13 +1670,22 @@ function LabelSettingsSection() {
     if (!trimmedName) return;
 
     // Check for duplicate name when creating
-    if (isCreatingNew && workspaceLabels.some((l: any) => l.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (
+      isCreatingNew &&
+      workspaceLabels.some((label) => label.name.toLowerCase() === trimmedName.toLowerCase())
+    ) {
       toastManager.add({ title: 'A label with this name already exists', type: 'error' });
       return;
     }
 
     // Check for duplicate name when editing (excluding the current label)
-    if (!isCreatingNew && editingLabel && workspaceLabels.some((l: any) => l.id !== editingLabel && l.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (
+      !isCreatingNew &&
+      editingLabel &&
+      workspaceLabels.some(
+        (label) => label.id !== editingLabel && label.name.toLowerCase() === trimmedName.toLowerCase(),
+      )
+    ) {
       toastManager.add({ title: 'A label with this name already exists', type: 'error' });
       return;
     }
@@ -1494,7 +1904,7 @@ function LabelSettingsSection() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAndSortedLabels.map((label: any) => (
+                  filteredAndSortedLabels.map((label: ProjectStoreWorkspaceLabel) => (
                   <TableRow
                     key={label.id}
                     data-state={selectedLabels.has(label.id) ? 'selected' : undefined}

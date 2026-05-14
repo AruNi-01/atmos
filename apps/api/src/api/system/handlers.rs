@@ -68,10 +68,7 @@ pub struct GhCliStatusResponse {
 
 /// GET /api/system/gh-cli-status
 pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusResponse>>> {
-    let installed = Command::new("gh")
-        .arg("--version")
-        .output()
-        .is_ok();
+    let installed = Command::new("gh").arg("--version").output().is_ok();
 
     let (authenticated, username) = if installed {
         // Try to get auth status using JSON format
@@ -101,7 +98,8 @@ pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusRespon
                                     accounts.iter().find_map(|account| {
                                         account.as_object().and_then(|acc| {
                                             let state = acc.get("state").and_then(|s| s.as_str());
-                                            let active = acc.get("active").and_then(|a| a.as_bool());
+                                            let active =
+                                                acc.get("active").and_then(|a| a.as_bool());
                                             // Consider authenticated if state is "success" and active is true
                                             if state == Some("success") && active == Some(true) {
                                                 Some(true)
@@ -116,8 +114,7 @@ pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusRespon
                         .unwrap_or(false);
 
                     let user = if is_authenticated {
-                        json
-                            .as_object()
+                        json.as_object()
                             .and_then(|obj| obj.get("hosts"))
                             .and_then(|hosts| hosts.as_object())
                             .and_then(|hosts_obj| {
@@ -126,10 +123,14 @@ pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusRespon
                                     host_accounts.as_array().and_then(|accounts| {
                                         accounts.iter().find_map(|account| {
                                             account.as_object().and_then(|acc| {
-                                                let state = acc.get("state").and_then(|s| s.as_str());
-                                                let active = acc.get("active").and_then(|a| a.as_bool());
-                                                let login = acc.get("login").and_then(|l| l.as_str());
-                                                if state == Some("success") && active == Some(true) {
+                                                let state =
+                                                    acc.get("state").and_then(|s| s.as_str());
+                                                let active =
+                                                    acc.get("active").and_then(|a| a.as_bool());
+                                                let login =
+                                                    acc.get("login").and_then(|l| l.as_str());
+                                                if state == Some("success") && active == Some(true)
+                                                {
                                                     login.map(|s| s.to_string())
                                                 } else {
                                                     None
@@ -143,32 +144,35 @@ pub async fn get_gh_cli_status() -> ApiResult<Json<ApiResponse<GhCliStatusRespon
                         None
                     };
 
-                    info!("JSON parsed - authenticated: {:?}, username: {:?}", is_authenticated, user);
+                    info!(
+                        "JSON parsed - authenticated: {:?}, username: {:?}",
+                        is_authenticated, user
+                    );
                     (is_authenticated, user)
                 } else {
                     // Fallback to text parsing if JSON fails
                     info!("JSON parsing failed, falling back to text parsing");
                     let combined = format!("{}{}", stdout, stderr);
-                    let is_authenticated = combined.contains("Logged in") ||
-                                           combined.contains("GitHub.com") ||
-                                           !combined.contains("not logged in");
+                    let is_authenticated = combined.contains("Logged in")
+                        || combined.contains("GitHub.com")
+                        || !combined.contains("not logged in");
                     (is_authenticated, None)
                 }
             }
             Err(_) => {
                 // If JSON command fails, try basic check
-                match Command::new("gh")
-                    .args(["auth", "status"])
-                    .output()
-                {
+                match Command::new("gh").args(["auth", "status"]).output() {
                     Ok(output) => {
                         let stdout = String::from_utf8_lossy(&output.stdout);
                         let stderr = String::from_utf8_lossy(&output.stderr);
                         let combined = format!("{}{}", stdout, stderr);
-                        let is_authenticated = combined.contains("Logged in") ||
-                                               combined.contains("GitHub.com") ||
-                                               !combined.contains("not logged in");
-                        info!("Fallback text parsing - authenticated: {}", is_authenticated);
+                        let is_authenticated = combined.contains("Logged in")
+                            || combined.contains("GitHub.com")
+                            || !combined.contains("not logged in");
+                        info!(
+                            "Fallback text parsing - authenticated: {}",
+                            is_authenticated
+                        );
                         (is_authenticated, None)
                     }
                     Err(_) => (false, None),
@@ -267,23 +271,28 @@ pub struct CliInstallResponse {
 /// POST /api/system/cli-install
 ///
 /// Download and install the latest Atmos CLI from GitHub releases.
-pub async fn install_cli(Json(payload): Json<InstallCliRequest>) -> ApiResult<Json<ApiResponse<CliInstallResponse>>> {
+pub async fn install_cli(
+    Json(payload): Json<InstallCliRequest>,
+) -> ApiResult<Json<ApiResponse<CliInstallResponse>>> {
     let cli_path = infra::utils::atmos_cli::installed_cli_path()
         .ok_or_else(|| ApiError::InternalError("Cannot determine CLI install path".to_string()))?;
 
     // Ensure the bin directory exists
     if let Some(bin_dir) = cli_path.parent() {
-        std::fs::create_dir_all(bin_dir)
-            .map_err(|e| ApiError::InternalError(format!("Failed to create bin directory: {}", e)))?;
+        std::fs::create_dir_all(bin_dir).map_err(|e| {
+            ApiError::InternalError(format!("Failed to create bin directory: {}", e))
+        })?;
     }
 
     // Fetch the latest CLI release with assets
-    let release = fetch_latest_cli_release_with_assets().await
+    let release = fetch_latest_cli_release_with_assets()
+        .await
         .map_err(|e| ApiError::InternalError(format!("Failed to fetch CLI release: {}", e)))?;
 
     // Determine the correct asset for the current platform
-    let asset_url = get_platform_asset_url(&release.assets)
-        .ok_or_else(|| ApiError::InternalError("No compatible CLI asset found for this platform".to_string()))?;
+    let asset_url = get_platform_asset_url(&release.assets).ok_or_else(|| {
+        ApiError::InternalError("No compatible CLI asset found for this platform".to_string())
+    })?;
 
     info!("Downloading CLI from: {}", asset_url);
 
@@ -294,16 +303,21 @@ pub async fn install_cli(Json(payload): Json<InstallCliRequest>) -> ApiResult<Js
         .build()
         .map_err(|e| ApiError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
 
-    let response = client.get(&asset_url)
+    let response = client
+        .get(&asset_url)
         .send()
         .await
         .map_err(|e| ApiError::InternalError(format!("Failed to download CLI: {}", e)))?;
 
     if !response.status().is_success() {
-        return Err(ApiError::InternalError(format!("Failed to download CLI: HTTP {}", response.status())));
+        return Err(ApiError::InternalError(format!(
+            "Failed to download CLI: HTTP {}",
+            response.status()
+        )));
     }
 
-    let bytes = response.bytes()
+    let bytes = response
+        .bytes()
         .await
         .map_err(|e| ApiError::InternalError(format!("Failed to read CLI bytes: {}", e)))?;
 
@@ -321,8 +335,9 @@ pub async fn install_cli(Json(payload): Json<InstallCliRequest>) -> ApiResult<Js
             .map_err(|e| ApiError::InternalError(format!("Failed to stat temp file: {}", e)))?;
         let mut permissions = metadata.permissions();
         permissions.set_mode(0o755);
-        std::fs::set_permissions(&temp_path, permissions)
-            .map_err(|e| ApiError::InternalError(format!("Failed to set executable permissions: {}", e)))?;
+        std::fs::set_permissions(&temp_path, permissions).map_err(|e| {
+            ApiError::InternalError(format!("Failed to set executable permissions: {}", e))
+        })?;
     }
 
     // Replace the old CLI with the new one
@@ -333,12 +348,15 @@ pub async fn install_cli(Json(payload): Json<InstallCliRequest>) -> ApiResult<Js
     // Verify the new version
     let new_version = read_cli_version(&cli_path);
 
-    info!("Successfully installed Atmos CLI version: {:?}", new_version);
+    info!(
+        "Successfully installed Atmos CLI version: {:?}",
+        new_version
+    );
 
     // Modify shell config if requested
     let mut path_modified = false;
     let mut path_modified_file = None::<String>;
-    
+
     if payload.modify_path {
         if let Some(bin_dir) = cli_path.parent() {
             let result = modify_shell_config(bin_dir);
@@ -390,24 +408,33 @@ async fn fetch_latest_cli_release_with_assets() -> Result<GithubRelease, String>
 
 fn get_platform_asset_url(assets: &[GithubAsset]) -> Option<String> {
     let (os, arch) = detect_platform();
-    
+
     // Common asset name patterns
     let patterns = match (os.as_str(), arch.as_str()) {
         ("darwin", "aarch64") => vec![
-            "aarch64-apple-darwin", "arm64-apple-darwin", "darwin-arm64", "macos-arm64",
+            "aarch64-apple-darwin",
+            "arm64-apple-darwin",
+            "darwin-arm64",
+            "macos-arm64",
         ],
         ("darwin", "x86_64") => vec![
-            "x86_64-apple-darwin", "darwin-amd64", "macos-amd64", "macos-x86_64",
+            "x86_64-apple-darwin",
+            "darwin-amd64",
+            "macos-amd64",
+            "macos-x86_64",
         ],
         ("linux", "aarch64") => vec![
-            "aarch64-unknown-linux", "arm64-unknown-linux", "linux-arm64",
+            "aarch64-unknown-linux",
+            "arm64-unknown-linux",
+            "linux-arm64",
         ],
         ("linux", "x86_64") => vec![
-            "x86_64-unknown-linux", "amd64-unknown-linux", "linux-amd64", "linux-x86_64",
+            "x86_64-unknown-linux",
+            "amd64-unknown-linux",
+            "linux-amd64",
+            "linux-x86_64",
         ],
-        ("windows", "x86_64") => vec![
-            "x86_64-pc-windows", "windows-amd64", "windows-x86_64",
-        ],
+        ("windows", "x86_64") => vec!["x86_64-pc-windows", "windows-amd64", "windows-x86_64"],
         _ => return None,
     };
 
@@ -996,6 +1023,7 @@ fn mime_type_for_ext(ext: &str) -> &'static str {
         "gif" => "image/gif",
         "svg" => "image/svg+xml",
         "webp" => "image/webp",
+        "avif" => "image/avif",
         "bmp" => "image/bmp",
         "ico" => "image/x-icon",
         "tiff" | "tif" => "image/tiff",
@@ -1303,10 +1331,13 @@ fn modify_shell_config(bin_dir: &std::path::Path) -> ShellConfigResult {
             // Try to write to the file
             if let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(config_file) {
                 use std::io::Write;
-                if writeln!(file, "\n# Atmos CLI").is_ok() 
-                    && writeln!(file, "{}", path_command).is_ok() 
+                if writeln!(file, "\n# Atmos CLI").is_ok()
+                    && writeln!(file, "{}", path_command).is_ok()
                 {
-                    info!("Successfully added Atmos CLI to PATH in {}", config_file.display());
+                    info!(
+                        "Successfully added Atmos CLI to PATH in {}",
+                        config_file.display()
+                    );
                     return ShellConfigResult {
                         modified: true,
                         config_file: Some(config_file.display().to_string()),
@@ -1317,7 +1348,10 @@ fn modify_shell_config(bin_dir: &std::path::Path) -> ShellConfigResult {
     }
 
     // No writable config file found
-    warn!("No writable shell config file found. Tried: {:?}", config_files);
+    warn!(
+        "No writable shell config file found. Tried: {:?}",
+        config_files
+    );
     ShellConfigResult {
         modified: false,
         config_file: None,
@@ -1330,9 +1364,7 @@ fn get_shell_config_files(home: &std::path::Path, shell_name: &str) -> Vec<std::
         .unwrap_or_else(|_| home.join(".config"));
 
     match shell_name {
-        "fish" => vec![
-            home.join(".config/fish/config.fish"),
-        ],
+        "fish" => vec![home.join(".config/fish/config.fish")],
         "zsh" => vec![
             std::env::var("ZDOTDIR")
                 .map(|path| std::path::PathBuf::from(path).join(".zshrc"))

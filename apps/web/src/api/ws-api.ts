@@ -108,6 +108,7 @@ export interface ProjectModel {
   main_file_path: string;
   sidebar_order: number;
   border_color: string | null;
+  logo_path: string | null;
   target_branch: string | null;
   created_at: string;
   updated_at: string;
@@ -1201,12 +1202,14 @@ export const wsProjectApi = {
     guid: string;
     name?: string;
     borderColor?: string;
+    logoPath?: string | null;
     sidebarOrder?: number;
   }): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("project_update", {
       guid: data.guid,
       name: data.name,
       border_color: data.borderColor,
+      logo_path: data.logoPath,
       sidebar_order: data.sidebarOrder,
     });
   },
@@ -2107,6 +2110,7 @@ export interface FunctionSettings {
   };
   canvas?: {
     auto_save_interval?: number;
+    max_rendered_terminals?: number;
   };
   workspace_kanban_view?: {
     state?: unknown;
@@ -2204,6 +2208,34 @@ export const functionSettingsApi = {
       key,
       value,
     });
+  },
+};
+
+// ===== Workspace GitIgnore Dirs =====
+
+export type GitIgnoreDirStrategy = "symlink" | "copy" | "off";
+
+export interface GitIgnoreDirEntry {
+  /** Stable identifier (built-in agent key, or user-generated id for customs). */
+  id: string;
+  /** Path relative to the project root, e.g. ".claude" or "skills". */
+  path: string;
+  strategy: GitIgnoreDirStrategy;
+  /** True for Atmos-shipped defaults; UI must hide the delete affordance. */
+  builtin: boolean;
+}
+
+export interface GitIgnoreDirsConfig {
+  enabled: boolean;
+  entries: GitIgnoreDirEntry[];
+}
+
+export const workspaceGitignoreDirsApi = {
+  get: async (): Promise<GitIgnoreDirsConfig> => {
+    return wsRequest<GitIgnoreDirsConfig>("workspace_gitignore_dirs_get");
+  },
+  update: async (config: GitIgnoreDirsConfig): Promise<{ ok: boolean }> => {
+    return wsRequest<{ ok: boolean }>("workspace_gitignore_dirs_update", config);
   },
 };
 

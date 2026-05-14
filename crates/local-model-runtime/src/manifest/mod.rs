@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::debug;
 
-use crate::error::Result;
 use crate::config::local_model_runtime_dir;
+use crate::error::Result;
 pub use types::{BinaryEntry, ModelEntry, ModelManifest};
 
 /// Default URL of the official Atmos model manifest from GitHub Releases.
@@ -62,11 +62,13 @@ fn save_cached_manifest(manifest: &ModelManifest) -> Result<()> {
         cached_at: chrono::Utc::now().timestamp(),
     };
 
-    let cached_json = serde_json::to_string_pretty(&cached)
-        .map_err(|e| crate::error::LocalModelError::Runtime(format!("Failed to serialize cache: {}", e)))?;
+    let cached_json = serde_json::to_string_pretty(&cached).map_err(|e| {
+        crate::error::LocalModelError::Runtime(format!("Failed to serialize cache: {}", e))
+    })?;
 
-    std::fs::write(&cache_path, cached_json)
-        .map_err(|e| crate::error::LocalModelError::Runtime(format!("Failed to write cache: {}", e)))?;
+    std::fs::write(&cache_path, cached_json).map_err(|e| {
+        crate::error::LocalModelError::Runtime(format!("Failed to write cache: {}", e))
+    })?;
 
     debug!("Saved manifest to cache");
     Ok(())

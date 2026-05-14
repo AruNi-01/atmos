@@ -7,7 +7,10 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Add agent_run_guid column to review_revision table if it doesn't exist
-        if !manager.has_column("review_revision", "agent_run_guid").await? {
+        if !manager
+            .has_column("review_revision", "agent_run_guid")
+            .await?
+        {
             manager
                 .alter_table(
                     Table::alter()
@@ -19,7 +22,10 @@ impl MigrationTrait for Migration {
         }
 
         // Add agent_run_guid column to review_message table if it doesn't exist
-        if !manager.has_column("review_message", "agent_run_guid").await? {
+        if !manager
+            .has_column("review_message", "agent_run_guid")
+            .await?
+        {
             manager
                 .alter_table(
                     Table::alter()
@@ -34,24 +40,11 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(ReviewRevision::Table)
-                    .drop_column(ReviewRevision::AgentRunGuid)
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .alter_table(
-                Table::alter()
-                    .table(ReviewMessage::Table)
-                    .drop_column(ReviewMessage::AgentRunGuid)
-                    .to_owned(),
-            )
-            .await?;
-
+        let _ = manager;
+        // This migration conditionally adds columns based on has_column checks.
+        // Rolling back cannot safely determine which columns were actually created
+        // by this migration vs. pre-existing columns, so we use a no-op rollback
+        // to avoid destructive drops.
         Ok(())
     }
 }

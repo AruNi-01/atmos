@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use tracing::{info, warn};
 
@@ -120,10 +120,10 @@ pub fn ensure_atmos_cli_on_startup() -> Result<Option<PathBuf>, String> {
     }
 
     prepend_bin_dir_to_process_path(&bin_dir)?;
-    
+
     // Automatically add to shell config if not already present
     ensure_cli_in_shell_config(&bin_dir);
-    
+
     Ok(installed.is_file().then_some(installed))
 }
 
@@ -160,16 +160,22 @@ fn ensure_cli_in_shell_config(bin_dir: &Path) {
 
             // Try to write to the file
             if let Ok(mut file) = std::fs::OpenOptions::new().append(true).open(config_file) {
-                if writeln!(file, "\n# Atmos CLI").is_ok() 
-                    && writeln!(file, "{}", path_command).is_ok() 
+                if writeln!(file, "\n# Atmos CLI").is_ok()
+                    && writeln!(file, "{}", path_command).is_ok()
                 {
-                    info!("Successfully added Atmos CLI to PATH in {}", config_file.display());
+                    info!(
+                        "Successfully added Atmos CLI to PATH in {}",
+                        config_file.display()
+                    );
                     return;
                 } else {
                     warn!("Failed to write to config file {}", config_file.display());
                 }
             } else {
-                warn!("Failed to open config file {} for writing", config_file.display());
+                warn!(
+                    "Failed to open config file {} for writing",
+                    config_file.display()
+                );
             }
         }
     }
@@ -181,23 +187,38 @@ fn ensure_cli_in_shell_config(bin_dir: &Path) {
                 let _ = std::fs::create_dir_all(parent);
             }
             if let Ok(mut file) = std::fs::File::create(&default_config) {
-                if writeln!(file, "# Atmos CLI").is_ok() 
-                    && writeln!(file, "{}", path_command).is_ok() 
+                if writeln!(file, "# Atmos CLI").is_ok()
+                    && writeln!(file, "{}", path_command).is_ok()
                 {
-                    info!("Created {} and added Atmos CLI to PATH", default_config.display());
+                    info!(
+                        "Created {} and added Atmos CLI to PATH",
+                        default_config.display()
+                    );
                     return;
                 } else {
-                    warn!("Failed to write to default config file {}", default_config.display());
+                    warn!(
+                        "Failed to write to default config file {}",
+                        default_config.display()
+                    );
                 }
             } else {
-                warn!("Failed to create default config file {}", default_config.display());
+                warn!(
+                    "Failed to create default config file {}",
+                    default_config.display()
+                );
             }
         } else {
-            info!("Default config file {} already exists, skipping creation", default_config.display());
+            info!(
+                "Default config file {} already exists, skipping creation",
+                default_config.display()
+            );
         }
     }
 
-    warn!("No writable shell config file found. Tried: {:?}", config_files);
+    warn!(
+        "No writable shell config file found. Tried: {:?}",
+        config_files
+    );
 }
 
 fn get_shell_config_files(home: &Path, shell_name: &str) -> Vec<PathBuf> {
@@ -206,9 +227,7 @@ fn get_shell_config_files(home: &Path, shell_name: &str) -> Vec<PathBuf> {
         .unwrap_or_else(|_| home.join(".config"));
 
     match shell_name {
-        "fish" => vec![
-            home.join(".config/fish/config.fish"),
-        ],
+        "fish" => vec![home.join(".config/fish/config.fish")],
         "zsh" => vec![
             std::env::var("ZDOTDIR")
                 .map(|path| PathBuf::from(path).join(".zshrc"))

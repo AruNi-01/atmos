@@ -34,6 +34,7 @@ export type CanvasTerminalShapeProps = {
   isNewTerminal: boolean;
   isPinned: boolean;
   pinKey: string;
+  lastAttachedAt: number | null;
 };
 
 declare module "tldraw" {
@@ -60,6 +61,7 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
     isNewTerminal: T.boolean,
     isPinned: T.boolean,
     pinKey: T.string,
+    lastAttachedAt: T.nullable(T.number),
   };
 
   override canEdit() {
@@ -84,6 +86,7 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
       isNewTerminal: true,
       isPinned: false,
       pinKey: "",
+      lastAttachedAt: null,
     };
   }
 
@@ -108,9 +111,10 @@ export function buildCanvasTerminalPinKey(
 }
 
 export function createCanvasTerminalShapeProps(
-  props: Omit<CanvasTerminalShapeProps, "w" | "h" | "isPinned" | "pinKey"> & {
+  props: Omit<CanvasTerminalShapeProps, "w" | "h" | "isPinned" | "pinKey" | "lastAttachedAt"> & {
     isPinned?: boolean;
     pinKey?: string;
+    lastAttachedAt?: number | null;
   },
 ): CanvasTerminalShapeProps {
   return {
@@ -119,6 +123,48 @@ export function createCanvasTerminalShapeProps(
     ...props,
     isPinned: props.isPinned ?? false,
     pinKey: props.pinKey ?? "",
+    lastAttachedAt: props.lastAttachedAt ?? null,
+  };
+}
+
+function normalizeLastAttachedAt(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function normalizeCanvasTerminalShapePropsInDocument(
+  document: TLEditorSnapshot["document"],
+): TLEditorSnapshot["document"] {
+  const store = document.store as Record<string, unknown>;
+  let changed = false;
+  const nextStore: Record<string, unknown> = {};
+
+  for (const [recordId, record] of Object.entries(store)) {
+    if (isCanvasTerminalShapeRecord(record)) {
+      const currentLastAttachedAt = (record.props as { lastAttachedAt?: unknown }).lastAttachedAt;
+      const normalizedLastAttachedAt = normalizeLastAttachedAt(currentLastAttachedAt);
+      if (currentLastAttachedAt !== normalizedLastAttachedAt) {
+        changed = true;
+        nextStore[recordId] = {
+          ...record,
+          props: {
+            ...record.props,
+            lastAttachedAt: normalizedLastAttachedAt,
+          },
+        } satisfies CanvasTerminalShape;
+        continue;
+      }
+    }
+
+    nextStore[recordId] = record;
+  }
+
+  if (!changed) {
+    return document;
+  }
+
+  return {
+    ...document,
+    store: nextStore as TLEditorSnapshot["document"]["store"],
   };
 }
 
@@ -136,7 +182,7 @@ function createEmptySnapshot(): TLEditorSnapshot {
   };
 }
 
-function isCanvasTerminalShapeRecord(
+export function isCanvasTerminalShapeRecord(
   value: unknown,
 ): value is CanvasTerminalShape & {
   typeName: "shape";
@@ -145,8 +191,17 @@ function isCanvasTerminalShapeRecord(
     return false;
   }
 
-  const candidate = value as { typeName?: string; type?: string };
-  return candidate.typeName === "shape" && candidate.type === CANVAS_TERMINAL_SHAPE_TYPE;
+  const candidate = value as { typeName?: string; type?: string; props?: unknown };
+  if (candidate.typeName !== "shape" || candidate.type !== CANVAS_TERMINAL_SHAPE_TYPE) {
+    return false;
+  }
+
+  // Ensure props exists and is an object
+  if (!candidate.props || typeof candidate.props !== "object") {
+    return false;
+  }
+
+  return true;
 }
 
 function isPageRecord(value: unknown): value is TLPage {

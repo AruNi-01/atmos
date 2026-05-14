@@ -275,15 +275,27 @@ async fn install_hook(
 ) -> impl IntoResponse {
     let port = state.api_port.load(std::sync::atomic::Ordering::SeqCst);
     match core_engine::agent_hooks::install_hook(&tool, port) {
-        Some(status) => (StatusCode::OK, Json(serde_json::to_value(status).unwrap_or_default())),
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "unknown tool" }))),
+        Some(status) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(status).unwrap_or_default()),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "unknown tool" })),
+        ),
     }
 }
 
 async fn uninstall_hook(Path(tool): Path<String>) -> impl IntoResponse {
     match core_engine::agent_hooks::uninstall_hook(&tool) {
-        Some(status) => (StatusCode::OK, Json(serde_json::to_value(status).unwrap_or_default())),
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "unknown tool" }))),
+        Some(status) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(status).unwrap_or_default()),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "unknown tool" })),
+        ),
     }
 }
 

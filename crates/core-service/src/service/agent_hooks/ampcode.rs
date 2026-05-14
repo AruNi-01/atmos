@@ -12,7 +12,10 @@ pub(super) fn handle_event(service: &AgentHooksService, payload: &Value, ctx: &A
     let session_id = service.resolve_session_id(payload, AgentToolType::Ampcode, ctx);
     let project_path = AgentHooksService::extract_cwd(payload).map(String::from);
 
-    debug!("ampcode hook event: {} session_id={}", hook_event, session_id);
+    debug!(
+        "ampcode hook event: {} session_id={}",
+        hook_event, session_id
+    );
 
     match hook_event {
         // Session init → Idle baseline

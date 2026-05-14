@@ -146,6 +146,11 @@ impl ProjectService {
         Ok(repo.update_color(&guid, color).await?)
     }
 
+    pub async fn update_logo_path(&self, guid: String, logo_path: Option<String>) -> Result<()> {
+        let repo = ProjectRepo::new(&self.db);
+        Ok(repo.update_logo_path(&guid, logo_path).await?)
+    }
+
     pub async fn update_target_branch(
         &self,
         guid: String,
@@ -171,7 +176,10 @@ impl ProjectService {
         Ok(repo.find_by_guid(&guid).await?)
     }
 
-    pub async fn existing_non_deleted_project_guids(&self, candidates: &[String]) -> Result<HashSet<String>> {
+    pub async fn existing_non_deleted_project_guids(
+        &self,
+        candidates: &[String],
+    ) -> Result<HashSet<String>> {
         let repo = ProjectRepo::new(&self.db);
         Ok(repo.existing_non_deleted_guids(candidates).await?)
     }

@@ -6,6 +6,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
   ImperativePanelHandle,
+  ImperativePanelGroupHandle,
 } from "@workspace/ui";
 import { cn } from "@/lib/utils";
 import { useAppStorage } from "@atmos/shared";
@@ -30,20 +31,24 @@ export function PanelLayout({
 }: PanelLayoutProps) {
   const storage = useAppStorage();
   const { currentView } = useContextParams();
+  const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
   const showRightSidebar = currentView === "project" || currentView === "workspace";
   const {
     isLeftCollapsed,
     isRightCollapsed,
+    leftSidebarSize,
+    requestedLeftSidebarSize,
     setIsLeftCollapsed,
     setIsRightCollapsed,
+    setLeftSidebarSize,
+    setRequestedLeftSidebarSize,
     setShowRightSidebar,
     setToggleLeftSidebar,
     setToggleRightSidebar,
   } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
-  const [leftPanelSize, setLeftPanelSize] = useState(20);
   const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
   const [isWelcomeClosing, setIsWelcomeClosing] = useState(false);
   const showOverlay = newWorkspace || isWelcomeClosing;
@@ -92,6 +97,46 @@ export function PanelLayout({
   }, [isLeftCollapsed, setToggleLeftSidebar]);
 
   React.useEffect(() => {
+    if (requestedLeftSidebarSize == null) {
+      return;
+    }
+
+    const group = panelGroupRef.current;
+    const layout = group?.getLayout();
+    const clampedSize = Math.min(50, Math.max(10, requestedLeftSidebarSize));
+
+    if (!group || !layout || layout.length < 2) {
+      return;
+    }
+
+    if (Math.abs(clampedSize - leftSidebarSize) < 0.5) {
+      setRequestedLeftSidebarSize(null);
+      return;
+    }
+
+    if (layout.length === 2 || !showRightSidebar) {
+      group.setLayout([clampedSize, 100 - clampedSize]);
+      setRequestedLeftSidebarSize(null);
+      return;
+    }
+
+    const [, center, right] = layout;
+    const remaining = 100 - clampedSize;
+    const centerRightTotal = center + right;
+    const centerRatio = centerRightTotal > 0 ? center / centerRightTotal : 0.75;
+    const nextCenter = remaining * centerRatio;
+    const nextRight = remaining - nextCenter;
+
+    group.setLayout([clampedSize, nextCenter, nextRight]);
+    setRequestedLeftSidebarSize(null);
+  }, [
+    leftSidebarSize,
+    requestedLeftSidebarSize,
+    setRequestedLeftSidebarSize,
+    showRightSidebar,
+  ]);
+
+  React.useEffect(() => {
     setToggleRightSidebar(() => {
       if (!showRightSidebar) return;
       if (isRightCollapsed) {
@@ -111,12 +156,12 @@ export function PanelLayout({
       collapsible
       defaultSize={20}
       minSize={10}
-      maxSize={30}
+      maxSize={50}
       collapsedSize={0}
-      onResize={(size) => setLeftPanelSize(size)}
+      onResize={(size) => setLeftSidebarSize(size)}
       onCollapse={() => {
         setIsLeftCollapsed(true);
-        setLeftPanelSize(0);
+        setLeftSidebarSize(0);
       }}
       onExpand={() => setIsLeftCollapsed(false)}
       className={cn(
@@ -150,6 +195,7 @@ export function PanelLayout({
   return (
     <div className="relative flex-1 flex min-h-0 overflow-hidden">
       <PanelGroup
+        ref={panelGroupRef}
         autoSaveId="root-sidebar-layout"
         direction="horizontal"
         storage={storage}
@@ -219,7 +265,7 @@ export function PanelLayout({
                 : "translate-y-full",
           )}
           style={{
-            left: `${leftPanelSize}%`,
+            left: `${leftSidebarSize}%`,
           }}
         >
           <WelcomePage
