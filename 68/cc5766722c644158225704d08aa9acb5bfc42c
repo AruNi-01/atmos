@@ -1,0 +1,21 @@
+apps/web/src/components/wiki/AgentSelect.tsx
+  s_350ae2edc84263::t_2997467d981b00 19
+  s_350ae2edc84263::t_e430fe8fe36905 43-49
+  s_350ae2edc84263::t_3d346900dbf95e 39-42,50-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "68cc5766722c644158225704d08aa9acb5bfc42c",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
