@@ -139,8 +139,15 @@ import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
 import { useEditorSettings } from '@/hooks/use-editor-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
-import { useCanvasSettings } from '@/hooks/use-canvas-settings';
+import {
+  MAX_CANVAS_MAX_RENDERED_TERMINALS,
+  MIN_CANVAS_MAX_RENDERED_TERMINALS,
+  useCanvasSettings,
+} from '@/hooks/use-canvas-settings';
 import { FlaskIcon, type FlaskIconHandle } from '@/components/ui/flask-icon';
+
+type ProjectStoreState = ReturnType<typeof useProjectStore.getState>;
+type ProjectStoreWorkspaceLabel = ProjectStoreState['workspaceLabels'][number];
 
 interface ShortcutEntry {
   keys: string[];
@@ -636,8 +643,12 @@ function LayoutSettingsSection() {
 }
 
 function CanvasSettingsSection() {
-  const { autoSaveInterval, loadSettings, setAutoSaveInterval } = useCanvasSettings();
+  const { autoSaveInterval, maxRenderedTerminals, loadSettings, setAutoSaveInterval, setMaxRenderedTerminals } =
+    useCanvasSettings();
   const [localInterval, setLocalInterval] = React.useState(autoSaveInterval.toString());
+  const [localMaxRenderedTerminals, setLocalMaxRenderedTerminals] = React.useState(
+    maxRenderedTerminals.toString(),
+  );
 
   React.useEffect(() => {
     loadSettings();
@@ -647,12 +658,28 @@ function CanvasSettingsSection() {
     setLocalInterval(autoSaveInterval.toString());
   }, [autoSaveInterval]);
 
+  React.useEffect(() => {
+    setLocalMaxRenderedTerminals(maxRenderedTerminals.toString());
+  }, [maxRenderedTerminals]);
+
   const handleIntervalChange = async (value: string) => {
     const num = parseInt(value, 10);
     if (isNaN(num) || num < 1) return;
 
     setLocalInterval(value);
     await setAutoSaveInterval(num);
+  };
+
+  const handleMaxRenderedTerminalsChange = async (value: string) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) return;
+
+    const clamped = Math.min(
+      MAX_CANVAS_MAX_RENDERED_TERMINALS,
+      Math.max(MIN_CANVAS_MAX_RENDERED_TERMINALS, num),
+    );
+    setLocalMaxRenderedTerminals(clamped.toString());
+    await setMaxRenderedTerminals(clamped);
   };
 
   return (
@@ -682,6 +709,38 @@ function CanvasSettingsSection() {
                 className="w-24"
               />
               <span className="text-sm text-muted-foreground">seconds</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+          <div>
+            <p className="text-base font-medium text-foreground">
+              Max rendered terminals per canvas page
+            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Keep up to this many canvas terminals live at once. When the limit is exceeded, the
+              oldest attached live terminal stops rendering until it is activated again.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={MIN_CANVAS_MAX_RENDERED_TERMINALS}
+                max={MAX_CANVAS_MAX_RENDERED_TERMINALS}
+                value={localMaxRenderedTerminals}
+                onChange={(e) => setLocalMaxRenderedTerminals(e.target.value)}
+                onBlur={(e) => void handleMaxRenderedTerminalsChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void handleMaxRenderedTerminalsChange(localMaxRenderedTerminals);
+                  }
+                }}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">terminals</span>
             </div>
           </div>
         </div>
@@ -1369,7 +1428,7 @@ function WorkspaceSettingsSection() {
 
 function LabelSettingsSection() {
   const { workspaceLabels, updateWorkspaceLabel, createWorkspaceLabel, deleteWorkspaceLabel, fetchWorkspaceLabels, restoreWorkspaceLabel } = useProjectStore(
-    useShallow((s: any) => ({
+    useShallow((s: ProjectStoreState) => ({
       workspaceLabels: s.workspaceLabels,
       updateWorkspaceLabel: s.updateWorkspaceLabel,
       createWorkspaceLabel: s.createWorkspaceLabel,
@@ -1413,15 +1472,15 @@ function LabelSettingsSection() {
 
     if (filterQuery.trim()) {
       const query = filterQuery.toLowerCase().trim();
-      labels = labels.filter((l: any) => l.name.toLowerCase().includes(query));
+      labels = labels.filter((label) => label.name.toLowerCase().includes(query));
     }
 
     if (selectedSources.size > 0) {
-      labels = labels.filter((l: any) => selectedSources.has(l.source || 'manual'));
+      labels = labels.filter((label) => selectedSources.has(label.source || 'manual'));
     }
 
     if (sortField) {
-      labels.sort((a: any, b: any) => {
+      labels.sort((a: ProjectStoreWorkspaceLabel, b: ProjectStoreWorkspaceLabel) => {
         let comparison = 0;
         if (sortField === 'name') {
           comparison = a.name.localeCompare(b.name);
@@ -1450,7 +1509,7 @@ function LabelSettingsSection() {
     if (selectedLabels.size === filteredAndSortedLabels.length) {
       setSelectedLabels(new Set());
     } else {
-      setSelectedLabels(new Set(filteredAndSortedLabels.map((l: any) => l.id)));
+      setSelectedLabels(new Set(filteredAndSortedLabels.map((label) => label.id)));
     }
   };
 
@@ -1478,13 +1537,22 @@ function LabelSettingsSection() {
     if (!trimmedName) return;
 
     // Check for duplicate name when creating
-    if (isCreatingNew && workspaceLabels.some((l: any) => l.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (
+      isCreatingNew &&
+      workspaceLabels.some((label) => label.name.toLowerCase() === trimmedName.toLowerCase())
+    ) {
       toastManager.add({ title: 'A label with this name already exists', type: 'error' });
       return;
     }
 
     // Check for duplicate name when editing (excluding the current label)
-    if (!isCreatingNew && editingLabel && workspaceLabels.some((l: any) => l.id !== editingLabel && l.name.toLowerCase() === trimmedName.toLowerCase())) {
+    if (
+      !isCreatingNew &&
+      editingLabel &&
+      workspaceLabels.some(
+        (label) => label.id !== editingLabel && label.name.toLowerCase() === trimmedName.toLowerCase(),
+      )
+    ) {
       toastManager.add({ title: 'A label with this name already exists', type: 'error' });
       return;
     }
@@ -1703,7 +1771,7 @@ function LabelSettingsSection() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAndSortedLabels.map((label: any) => (
+                  filteredAndSortedLabels.map((label: ProjectStoreWorkspaceLabel) => (
                   <TableRow
                     key={label.id}
                     data-state={selectedLabels.has(label.id) ? 'selected' : undefined}

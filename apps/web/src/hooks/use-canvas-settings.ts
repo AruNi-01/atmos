@@ -7,14 +7,36 @@ import { toastManager } from '@workspace/ui';
 
 interface CanvasSettingsState {
   autoSaveInterval: number; // in seconds
+  maxRenderedTerminals: number;
   loaded: boolean;
   loading: boolean;
   loadSettings: () => Promise<void>;
   setAutoSaveInterval: (interval: number) => Promise<void>;
+  setMaxRenderedTerminals: (count: number) => Promise<void>;
 }
 
+export const DEFAULT_CANVAS_AUTO_SAVE_INTERVAL = 1;
+export const DEFAULT_CANVAS_MAX_RENDERED_TERMINALS = 10;
+export const MIN_CANVAS_MAX_RENDERED_TERMINALS = 1;
+export const MAX_CANVAS_MAX_RENDERED_TERMINALS = 50;
+
+export function normalizeCanvasMaxRenderedTerminals(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_CANVAS_MAX_RENDERED_TERMINALS;
+  }
+
+  return Math.min(
+    MAX_CANVAS_MAX_RENDERED_TERMINALS,
+    Math.max(MIN_CANVAS_MAX_RENDERED_TERMINALS, Math.trunc(value)),
+  );
+}
+
+let maxRenderedTerminalsRequestId = 0;
+let lastPersistedMaxRenderedTerminals = DEFAULT_CANVAS_MAX_RENDERED_TERMINALS;
+
 export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
-  autoSaveInterval: 1, // default 1 second
+  autoSaveInterval: DEFAULT_CANVAS_AUTO_SAVE_INTERVAL,
+  maxRenderedTerminals: DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
   loaded: false,
   loading: false,
 
@@ -25,8 +47,13 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
 
     try {
       const settings = await useFunctionSettingsStore.getState().load();
+      const maxRenderedTerminals = normalizeCanvasMaxRenderedTerminals(
+        settings.canvas?.max_rendered_terminals,
+      );
+      lastPersistedMaxRenderedTerminals = maxRenderedTerminals;
       set({
-        autoSaveInterval: settings.canvas?.auto_save_interval ?? 1,
+        autoSaveInterval: settings.canvas?.auto_save_interval ?? DEFAULT_CANVAS_AUTO_SAVE_INTERVAL,
+        maxRenderedTerminals,
         loaded: true,
         loading: false,
       });
@@ -51,6 +78,32 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
       toastManager.add({
         title: 'Settings Sync Failed',
         description: 'Failed to update the canvas auto-save interval.',
+        type: 'error',
+      });
+    }
+  },
+
+  setMaxRenderedTerminals: async (maxRenderedTerminals) => {
+    const normalizedMaxRenderedTerminals = normalizeCanvasMaxRenderedTerminals(maxRenderedTerminals);
+    const requestId = ++maxRenderedTerminalsRequestId;
+    set({ maxRenderedTerminals: normalizedMaxRenderedTerminals });
+
+    try {
+      await functionSettingsApi.update(
+        'canvas',
+        'max_rendered_terminals',
+        normalizedMaxRenderedTerminals,
+      );
+      if (maxRenderedTerminalsRequestId === requestId) {
+        lastPersistedMaxRenderedTerminals = normalizedMaxRenderedTerminals;
+      }
+    } catch {
+      if (maxRenderedTerminalsRequestId === requestId) {
+        set({ maxRenderedTerminals: lastPersistedMaxRenderedTerminals });
+      }
+      toastManager.add({
+        title: 'Settings Sync Failed',
+        description: 'Failed to update the canvas rendered terminal limit.',
         type: 'error',
       });
     }
