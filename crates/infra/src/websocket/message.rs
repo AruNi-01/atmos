@@ -1006,6 +1006,7 @@ pub struct ProjectUpdateRequest {
     pub guid: String,
     pub name: Option<String>,
     pub border_color: Option<String>,
+    pub logo_path: Option<String>,
     pub sidebar_order: Option<i32>,
 }
 

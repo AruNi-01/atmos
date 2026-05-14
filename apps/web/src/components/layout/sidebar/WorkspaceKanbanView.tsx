@@ -27,7 +27,6 @@ import {
   Switch,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
   cn,
   MouseSensor,
@@ -160,9 +159,9 @@ const KANBAN_CARD_PROPERTY_KEYS = [
 type KanbanSortBy = (typeof KANBAN_SORT_BY_VALUES)[number];
 type KanbanSortOrder = (typeof KANBAN_SORT_ORDER_VALUES)[number];
 type KanbanCardPropertyKey = (typeof KANBAN_CARD_PROPERTY_KEYS)[number];
-type KanbanCardProperties = Record<KanbanCardPropertyKey, boolean>;
+export type KanbanCardProperties = Record<KanbanCardPropertyKey, boolean>;
 
-const DEFAULT_KANBAN_CARD_PROPERTIES: KanbanCardProperties = {
+export const DEFAULT_KANBAN_CARD_PROPERTIES: KanbanCardProperties = {
   project: true,
   priority: true,
   status: true,
@@ -227,11 +226,26 @@ interface WorkspaceKanbanViewProps {
   trigger: React.ReactNode;
 }
 
-function KanbanWorkspaceCard({
+export function resolveKanbanCardProperties(raw: unknown): KanbanCardProperties {
+  const state = (raw && typeof raw === "object") ? raw as Partial<WorkspaceKanbanViewSavedState> : {};
+  const properties =
+    state.properties && typeof state.properties === "object"
+      ? (state.properties as Partial<KanbanCardProperties>)
+      : {};
+
+  return KANBAN_CARD_PROPERTY_KEYS.reduce<KanbanCardProperties>((acc, key) => {
+    const rawValue = properties[key];
+    acc[key] = typeof rawValue === "boolean" ? rawValue : DEFAULT_KANBAN_CARD_PROPERTIES[key];
+    return acc;
+  }, { ...DEFAULT_KANBAN_CARD_PROPERTIES });
+}
+
+export function KanbanWorkspaceCard({
   workspace,
   projectId,
   projectName,
   cardProperties,
+  showUnpinnedBorder = false,
   onEnterWorkspace,
   availableLabels,
   onUpdateWorkflowStatus,
@@ -248,6 +262,7 @@ function KanbanWorkspaceCard({
   projectId: string;
   projectName: string;
   cardProperties: KanbanCardProperties;
+  showUnpinnedBorder?: boolean;
   onEnterWorkspace: (projectId: string, workspaceId: string) => void;
   availableLabels: WorkspaceLabel[];
   onUpdateWorkflowStatus: (
@@ -298,8 +313,13 @@ function KanbanWorkspaceCard({
   return (
     <div className={cn(
       "w-full rounded-md bg-background p-3 text-left shadow-xs",
-      workspace.isPinned ? "border border-border" : "",
-      isIssueOnly ? "border border-blue-500/30" : "",
+      isIssueOnly
+        ? "border border-blue-500/30"
+        : workspace.isPinned
+          ? "border border-border"
+          : showUnpinnedBorder
+            ? "border border-border/50"
+            : "",
     )}>
       {cardProperties.project || cardProperties.priority || cardProperties.status ? (
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -741,11 +761,6 @@ export function WorkspaceKanbanView({
         state.filters && typeof state.filters === "object"
           ? (state.filters as Partial<WorkspaceKanbanViewSavedState["filters"]>)
           : {};
-      const properties =
-        state.properties && typeof state.properties === "object"
-          ? (state.properties as Partial<KanbanCardProperties>)
-          : {};
-
       const loadedSortBy = KANBAN_SORT_BY_VALUES.includes(state.sort_by as KanbanSortBy) ? state.sort_by as KanbanSortBy : "last_visit";
       const loadedSortOrder = KANBAN_SORT_ORDER_VALUES.includes(state.sort_order as KanbanSortOrder) ? state.sort_order as KanbanSortOrder : "desc";
       const loadedStatuses = Array.isArray(filters.statuses)
@@ -765,11 +780,7 @@ export function WorkspaceKanbanView({
         : [];
       const loadedShowIssueOnly = typeof state.show_issue_only === 'boolean' ? state.show_issue_only : false;
 
-      const nextCardProperties = KANBAN_CARD_PROPERTY_KEYS.reduce<KanbanCardProperties>((acc, key) => {
-        const rawValue = properties[key];
-        acc[key] = typeof rawValue === "boolean" ? rawValue : DEFAULT_KANBAN_CARD_PROPERTIES[key];
-        return acc;
-      }, { ...DEFAULT_KANBAN_CARD_PROPERTIES });
+      const nextCardProperties = resolveKanbanCardProperties(state);
 
       setSortBy(loadedSortBy);
       setSortOrder(loadedSortOrder);

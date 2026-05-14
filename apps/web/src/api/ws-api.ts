@@ -108,6 +108,7 @@ export interface ProjectModel {
   main_file_path: string;
   sidebar_order: number;
   border_color: string | null;
+  logo_path: string | null;
   target_branch: string | null;
   created_at: string;
   updated_at: string;
@@ -1201,12 +1202,14 @@ export const wsProjectApi = {
     guid: string;
     name?: string;
     borderColor?: string;
+    logoPath?: string;
     sidebarOrder?: number;
   }): Promise<{ success: boolean }> => {
     return wsRequest<{ success: boolean }>("project_update", {
       guid: data.guid,
       name: data.name,
       border_color: data.borderColor,
+      logo_path: data.logoPath,
       sidebar_order: data.sidebarOrder,
     });
   },

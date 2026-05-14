@@ -53,6 +53,7 @@ import {
   Building2,
   Check,
   ChevronDown,
+  Columns2,
   CircleCheck,
   CircleMinus,
   CircleX,
@@ -582,7 +583,24 @@ const TEST_NOTIFICATION_PAYLOAD = {
 };
 
 function LayoutSettingsSection() {
-  const { projectFilesSide, loadSettings, setProjectFilesSide } = useLayoutSettings();
+  const {
+    projectFilesSide,
+    workspaceSidebarTwoColumn,
+    workspaceSidebarTwoColumnShowPinned,
+    workspaceSidebarSecondColumnKanban,
+    workspaceSidebarTimeTwoColumn,
+    workspaceSidebarStatusTwoColumn,
+    loadSettings,
+    setProjectFilesSide,
+    setWorkspaceSidebarTwoColumn,
+    setWorkspaceSidebarTwoColumnShowPinned,
+    setWorkspaceSidebarSecondColumnKanban,
+    setWorkspaceSidebarTimeTwoColumn,
+    setWorkspaceSidebarStatusTwoColumn,
+  } = useLayoutSettings();
+  const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(true);
+  const isAnyTwoColumnEnabled =
+    workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn;
 
   React.useEffect(() => {
     loadSettings();
@@ -628,6 +646,120 @@ function LayoutSettingsSection() {
           </div>
         </div>
       </div>
+      <Collapsible
+        open={workspaceSidebarLayoutExpanded}
+        onOpenChange={setWorkspaceSidebarLayoutExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex items-start gap-3">
+              <span className="relative mt-0.5 size-5 shrink-0">
+                <Columns2 className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium text-foreground">Workspace Sidebar Two-Column Layout</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Configure the optional two-column workspace browser for Project, By Time, and By Status sidebar modes.
+                </p>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <div className="pt-1 text-xs text-muted-foreground">
+            {workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn
+              ? 'Enabled'
+              : 'Disabled'}
+          </div>
+        </div>
+
+        <CollapsibleContent>
+          <div className="border-t border-border px-4">
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">Project sidebar two-column layout</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Show projects in the first column and open each project&apos;s workspaces in a resizable second column.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">Show pinned workspaces in second column</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    When the Project two-column layout is on, also show the selected project&apos;s pinned workspaces at the top of the second column while keeping the global pinned section in the left column.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarTwoColumnShowPinned}
+                    disabled={!workspaceSidebarTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarTwoColumnShowPinned(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">Second column uses Kanban cards</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    When any two-column sidebar layout is enabled, render second-column workspaces with the same card style and Properties visibility as the Kanban view.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarSecondColumnKanban}
+                    disabled={!isAnyTwoColumnEnabled}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarSecondColumnKanban(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">By Time group uses second column</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    In the sidebar&apos;s By Time mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarTimeTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarTimeTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-2 py-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-base font-medium text-foreground">By Status group uses second column</p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    In the sidebar&apos;s By Status mode, clicking a group opens its workspaces in a second resizable column instead of expanding inline.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={workspaceSidebarStatusTwoColumn}
+                    onCheckedChange={(checked) => void setWorkspaceSidebarStatusTwoColumn(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

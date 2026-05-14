@@ -29,28 +29,45 @@ import {
   TooltipProvider,
   SortableContext,
   verticalListSortingStrategy,
+  toastManager,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Button,
+  Input,
+  Label,
 } from "@workspace/ui";
 import type { Project, WorkspaceLabel, WorkspacePriority } from "@/types/types";
 import { PROJECT_COLOR_PRESETS } from "@/types/types";
 import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
+import { ImageIcon } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import type { WorkspaceWorkflowStatus } from "@/types/types";
+import { FileBrowser } from "@/components/dialogs/FileBrowser";
+import { getRuntimeApiConfig, httpBase } from "@/lib/desktop-runtime";
 
 export interface ProjectItemProps {
   project: Project;
   isExpanded: boolean;
+  hideWorkspaceList?: boolean;
+  disableRowClick?: boolean;
   isDragging?: boolean;
   isPlaceholder?: boolean;
   isAnyProjectDragging?: boolean;
   attributes?: DraggableAttributes;
   listeners?: DraggableSyntheticListeners;
   onToggle: (id: string) => void;
+  onProjectRowClick?: (projectId: string) => void;
   onAddWorkspace: (projectId: string) => void;
   onQuickAddWorkspace: (projectId: string) => void;
   onSetColor: (projectId: string, color?: string) => void;
+  onSetLogo: (projectId: string, logoPath: string) => void;
   onDelete: (projectId: string) => void;
   onPinWorkspace: (projectId: string, workspaceId: string) => void;
   onUnpinWorkspace: (projectId: string, workspaceId: string) => void;
@@ -81,6 +98,7 @@ export interface ProjectItemProps {
   onConfigureScripts: (projectId: string) => void;
   onSelectMain: (projectId: string) => void;
   isActiveProject: boolean;
+  isSelected?: boolean;
 }
 
 const parseColorToRgb = (colorStr: string | undefined): { r: number; g: number; b: number; a: number } => {
@@ -109,19 +127,45 @@ const getVerticalLineStyle = (colorStr: string): React.CSSProperties => {
 };
 
 const PROJECT_MENU_CLOSE_DELAY_MS = 120;
+const PROJECT_LOGO_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "svg",
+  "webp",
+  "avif",
+  "bmp",
+  "ico",
+  "tiff",
+  "tif",
+]);
+
+function isSupportedProjectLogoPath(path: string): boolean {
+  const extension = path.split(".").pop()?.toLowerCase();
+  return !!extension && PROJECT_LOGO_EXTENSIONS.has(extension);
+}
+
+function isRemoteLogoSource(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
 
 export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   project,
   isExpanded,
+  hideWorkspaceList = false,
+  disableRowClick = false,
   isDragging,
   isPlaceholder,
   isAnyProjectDragging,
   attributes,
   listeners,
   onToggle,
+  onProjectRowClick,
   onAddWorkspace,
   onQuickAddWorkspace,
   onSetColor,
+  onSetLogo,
   onDelete,
   onPinWorkspace,
   onUnpinWorkspace,
@@ -137,6 +181,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   onConfigureScripts,
   onSelectMain,
   isActiveProject,
+  isSelected = false,
 }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -146,10 +191,15 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     s.getAgentStateForContextId(project.id)
   );
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showLogoDialog, setShowLogoDialog] = useState(false);
+  const [showLogoBrowser, setShowLogoBrowser] = useState(false);
+  const [logoInput, setLogoInput] = useState("");
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false);
   const projectMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [hasLogoLoadError, setHasLogoLoadError] = useState(false);
   const [customColor, setCustomColor] = useState<{ r: number; g: number; b: number; a: number }>({
     r: 239, g: 68, b: 68, a: 1,
   });
@@ -186,10 +236,76 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
   }, [project.borderColor]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    setHasLogoLoadError(false);
+    if (!project.logoPath) {
+      setLogoUrl(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setLogoUrl(null);
+    void getRuntimeApiConfig()
+      .then((config) => {
+        if (cancelled) {
+          return;
+        }
+        const params = new URLSearchParams({ path: project.logoPath! });
+        if (config.token) {
+          params.set("token", config.token);
+        }
+        setLogoUrl(`${httpBase(config)}/api/system/file?${params.toString()}`);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setLogoUrl(null);
+        setHasLogoLoadError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project.logoPath]);
+
+  useEffect(() => {
     return () => {
       cancelProjectMenuClose();
     };
   }, [cancelProjectMenuClose]);
+
+  const handleOpenLogoDialog = useCallback(() => {
+    setLogoInput(project.logoPath ?? "");
+    setShowLogoDialog(true);
+  }, [project.logoPath]);
+
+  const handleSaveLogo = useCallback(() => {
+    const value = logoInput.trim();
+    if (!value) {
+      toastManager.add({
+        title: "Logo is required",
+        description: "Choose a local image file or enter a remote URL.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (!isRemoteLogoSource(value) && !isSupportedProjectLogoPath(value)) {
+      toastManager.add({
+        title: "Unsupported logo file",
+        description: "Please choose an image file such as PNG, JPG, SVG, or WebP.",
+        type: "error",
+      });
+      return;
+    }
+
+    onSetLogo(project.id, value);
+    setShowLogoDialog(false);
+    setShowLogoBrowser(false);
+  }, [logoInput, onSetLogo, project.id]);
 
   return (
     <div
@@ -203,21 +319,43 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
         className={cn(
             "flex items-center px-2 py-1.5 hover:bg-sidebar-accent/50 rounded-sm mx-2 transition-all duration-300 relative",
             isDragging && "bg-sidebar-accent shadow-2xl scale-[1.02]",
-            isActiveProject && "bg-sidebar-accent/70"
+            (isActiveProject || isSelected) && "bg-sidebar-accent/70"
           )}
       >
         <div
           {...attributes}
           {...listeners}
-          className="flex items-center flex-1 min-w-0 cursor-pointer select-none pr-8"
-          onClick={() => onToggle(project.id)}
+          className={cn(
+            "flex items-center flex-1 min-w-0 select-none pr-8",
+            disableRowClick ? "cursor-default" : "cursor-pointer",
+          )}
+          onClick={() => {
+            if (disableRowClick) {
+              return;
+            }
+            if (onProjectRowClick) {
+              onProjectRowClick(project.id);
+              return;
+            }
+            onToggle(project.id);
+          }}
         >
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <div
               className="size-6 flex items-center justify-center bg-sidebar rounded-md border border-sidebar-border text-[10px] font-bold text-muted-foreground shrink-0 transition-colors hover:bg-sidebar-accent relative"
               style={{ borderLeft: project.borderColor ? `2px solid ${project.borderColor}` : undefined }}
             >
-              <span className="group-hover/project:hidden transition-all duration-200">{initialLetter}</span>
+              {logoUrl && !hasLogoLoadError ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt=""
+                  className="size-full rounded-[inherit] object-cover group-hover/project:hidden"
+                  onError={() => setHasLogoLoadError(true)}
+                />
+              ) : (
+                <span className="group-hover/project:hidden transition-all duration-200">{initialLetter}</span>
+              )}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -406,6 +544,13 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
                       </div>
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
+                  <DropdownMenuItem
+                    onClick={handleOpenLogoDialog}
+                    className="cursor-pointer"
+                  >
+                    <ImageIcon className="size-4 mr-2" />
+                    <span>Set Logo</span>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onConfigureScripts(project.id)} className="cursor-pointer">
                     <FileCode className="size-4 mr-2" />
@@ -429,7 +574,11 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
       <div
         className={cn(
           "grid transition-[grid-template-rows] duration-300 ease-out",
-          isExpanded && !isDragging && !isAnyProjectDragging ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          hideWorkspaceList
+            ? "grid-rows-[0fr]"
+            : isExpanded && !isDragging && !isAnyProjectDragging
+              ? "grid-rows-[1fr]"
+              : "grid-rows-[0fr]"
         )}
       >
         <div className={cn(
@@ -482,6 +631,101 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
           </div>
         </div>
       </div>
+      <Dialog
+        open={showLogoDialog}
+        onOpenChange={(open) => {
+          setShowLogoDialog(open);
+          if (!open) {
+            setShowLogoBrowser(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Set Logo</DialogTitle>
+            <DialogDescription>
+              Choose a local image file or paste a remote image URL. The app only distinguishes between local and remote sources.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor={`project-logo-source-${project.id}`}>Logo Source</Label>
+              <Input
+                id={`project-logo-source-${project.id}`}
+                value={logoInput}
+                onChange={(e) => setLogoInput(e.target.value)}
+                placeholder="https://example.com/logo.png or /path/to/logo.png"
+              />
+              <p className="text-xs text-muted-foreground">
+                Detected as {logoInput.trim() ? (isRemoteLogoSource(logoInput.trim()) ? "remote URL" : "local file path") : "unknown"}.
+              </p>
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">Local file</p>
+                <p className="text-xs text-muted-foreground">
+                  Pick any local image file and save its absolute path.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="cursor-pointer shrink-0"
+                onClick={() => setShowLogoBrowser(true)}
+              >
+                Browse...
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              className="cursor-pointer mr-auto text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                onSetLogo(project.id, "");
+                setShowLogoDialog(false);
+                setShowLogoBrowser(false);
+                setLogoInput("");
+              }}
+            >
+              Remove Logo
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => {
+                setShowLogoDialog(false);
+                setShowLogoBrowser(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" className="cursor-pointer" onClick={handleSaveLogo}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <FileBrowser
+        open={showLogoBrowser}
+        onOpenChange={setShowLogoBrowser}
+        onSelect={(path) => {
+          if (!isSupportedProjectLogoPath(path)) {
+            toastManager.add({
+              title: "Unsupported logo file",
+              description: "Please choose an image file such as PNG, JPG, SVG, or WebP.",
+              type: "error",
+            });
+            return;
+          }
+          setLogoInput(path);
+        }}
+        title="Select Logo Image"
+        selectLabel="Use File"
+        dirsOnly={false}
+      />
     </div>
   );
 });

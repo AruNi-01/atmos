@@ -415,7 +415,7 @@ export function FileBrowser({
           <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
             Cancel
           </Button>
-          {!isSearchMode && (
+          {dirsOnly && !isSearchMode && (
             <Button
               variant="secondary"
               onClick={handleSelectCurrentDir}

@@ -15,6 +15,7 @@ pub struct Model {
     pub main_file_path: String,
     pub sidebar_order: i32,
     pub border_color: Option<String>,
+    pub logo_path: Option<String>,
     pub is_open: bool,
     /// Target branch for merge/PR operations
     /// If None, uses the repository's default branch
