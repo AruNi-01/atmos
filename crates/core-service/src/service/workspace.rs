@@ -714,8 +714,13 @@ impl WorkspaceService {
                 // that `git worktree add` skipped. Best-effort: failures here do NOT
                 // fail workspace creation — the worktree is still usable, just may be
                 // missing some agent tooling that the user can re-create manually.
-                let report =
-                    crate::service::workspace_gitignore_dirs::compensate(repo_path, &created_path);
+                let repo_path_owned = repo_path.to_path_buf();
+                let created_path_owned = created_path.clone();
+                let report = tokio::task::spawn_blocking(move || {
+                    crate::service::workspace_gitignore_dirs::compensate(&repo_path_owned, &created_path_owned)
+                })
+                .await
+                .map_err(|e| ServiceError::Internal(format!("Failed to execute gitignore compensation: {}", e)))?;
                 tracing::info!(
                     "[ensure_worktree_ready] gitignore_dirs compensation: applied={}, skipped={}, failed={}, disabled={}",
                     report.applied,
