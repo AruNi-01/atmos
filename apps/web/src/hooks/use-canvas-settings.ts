@@ -94,7 +94,9 @@ export const useCanvasSettings = create<CanvasSettingsState>((set, get) => ({
         'max_rendered_terminals',
         normalizedMaxRenderedTerminals,
       );
-      lastPersistedMaxRenderedTerminals = normalizedMaxRenderedTerminals;
+      if (maxRenderedTerminalsRequestId === requestId) {
+        lastPersistedMaxRenderedTerminals = normalizedMaxRenderedTerminals;
+      }
     } catch {
       if (maxRenderedTerminalsRequestId === requestId) {
         set({ maxRenderedTerminals: lastPersistedMaxRenderedTerminals });
