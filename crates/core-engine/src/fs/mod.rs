@@ -721,3 +721,140 @@ pub struct GitValidationResult {
     pub default_branch: Option<String>,
     pub error: Option<String>,
 }
+
+/// Strategy for compensating a path from a source location into a target
+/// location (e.g. populating a freshly-created git worktree with files that
+/// `git worktree add` skipped because they were `.gitignore`d).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompensateStrategy {
+    /// Create a symlink at `target` pointing to `source` (absolute path).
+    Symlink,
+    /// Recursively copy the contents of `source` into `target`.
+    Copy,
+}
+
+/// Materialize `source` at `target` using `strategy`.
+///
+/// Semantics (intentionally simple — caller is responsible for deciding
+/// WHICH paths need compensating):
+///
+/// - If `source` does not exist → no-op.
+/// - If `target` already exists (or is a symlink) → no-op (never overwrite).
+/// - Otherwise create the parent directory if needed, then either symlink
+///   `target` to the canonicalized `source` (Symlink) or recursively copy
+///   the entire tree (Copy).
+pub fn compensate_path(source: &Path, target: &Path, strategy: CompensateStrategy) -> Result<()> {
+    if !source.exists() {
+        return Ok(());
+    }
+    if target.exists() || target.is_symlink() {
+        return Ok(());
+    }
+
+    if let Some(parent) = target.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| {
+                EngineError::FileSystem(format!("Create parent for {:?}: {}", target, e))
+            })?;
+        }
+    }
+
+    let canonical_source = fs::canonicalize(source)
+        .map_err(|e| EngineError::FileSystem(format!("Canonicalize {:?}: {}", source, e)))?;
+
+    match strategy {
+        CompensateStrategy::Symlink => create_symlink(&canonical_source, target),
+        CompensateStrategy::Copy => copy_recursive(&canonical_source, target),
+    }
+}
+
+#[cfg(unix)]
+fn create_symlink(source: &Path, target: &Path) -> Result<()> {
+    std::os::unix::fs::symlink(source, target).map_err(|e| {
+        EngineError::FileSystem(format!("Symlink {:?} -> {:?}: {}", target, source, e))
+    })
+}
+
+#[cfg(windows)]
+fn create_symlink(source: &Path, target: &Path) -> Result<()> {
+    let result = if source.is_dir() {
+        std::os::windows::fs::symlink_dir(source, target)
+    } else {
+        std::os::windows::fs::symlink_file(source, target)
+    };
+    result.map_err(|e| {
+        EngineError::FileSystem(format!(
+            "Symlink {:?} -> {:?}: {} (Windows symlinks may require Developer Mode or admin privileges)",
+            target, source, e
+        ))
+    })
+}
+
+fn copy_recursive(source: &Path, target: &Path) -> Result<()> {
+    let metadata = fs::symlink_metadata(source)
+        .map_err(|e| EngineError::FileSystem(format!("Stat {:?}: {}", source, e)))?;
+    let file_type = metadata.file_type();
+
+    if file_type.is_symlink() {
+        copy_symlink(source, target)
+    } else if file_type.is_dir() {
+        fs::create_dir_all(target)
+            .map_err(|e| EngineError::FileSystem(format!("Mkdir {:?}: {}", target, e)))?;
+        for entry in fs::read_dir(source)
+            .map_err(|e| EngineError::FileSystem(format!("Read {:?}: {}", source, e)))?
+        {
+            let entry = entry.map_err(|e| {
+                EngineError::FileSystem(format!("Read entry in {:?}: {}", source, e))
+            })?;
+            let from = entry.path();
+            let to = target.join(entry.file_name());
+            copy_recursive(&from, &to)?;
+        }
+        Ok(())
+    } else {
+        fs::copy(source, target).map(|_| ()).map_err(|e| {
+            EngineError::FileSystem(format!("Copy {:?} -> {:?}: {}", source, target, e))
+        })
+    }
+}
+
+#[cfg(unix)]
+fn copy_symlink(source: &Path, target: &Path) -> Result<()> {
+    let link_target = fs::read_link(source)
+        .map_err(|e| EngineError::FileSystem(format!("Read symlink {:?}: {}", source, e)))?;
+    std::os::unix::fs::symlink(&link_target, target).map_err(|e| {
+        EngineError::FileSystem(format!("Symlink {:?} -> {:?}: {}", target, link_target, e))
+    })
+}
+
+#[cfg(windows)]
+fn copy_symlink(source: &Path, target: &Path) -> Result<()> {
+    let link_target = fs::read_link(source)
+        .map_err(|e| EngineError::FileSystem(format!("Read symlink {:?}: {}", source, e)))?;
+    let resolved_target = if link_target.is_absolute() {
+        link_target.clone()
+    } else {
+        source
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(&link_target)
+    };
+    let target_metadata = fs::metadata(&resolved_target).map_err(|e| {
+        EngineError::FileSystem(format!(
+            "Stat symlink target {:?} from {:?}: {}",
+            resolved_target, source, e
+        ))
+    })?;
+    let result = if target_metadata.is_dir() {
+        std::os::windows::fs::symlink_dir(&link_target, target)
+    } else {
+        std::os::windows::fs::symlink_file(&link_target, target)
+    };
+
+    result.map_err(|e| {
+        EngineError::FileSystem(format!(
+            "Symlink {:?} -> {:?}: {} (Windows symlinks may require Developer Mode or admin privileges)",
+            target, link_target, e
+        ))
+    })
+}

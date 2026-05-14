@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use clap::{Args, Subcommand};
 use core_service::service::review::{
-    AddReviewMessageInput, CreateReviewAgentRunInput, CreateReviewCommentByFilePathInput, SetReviewAgentRunStatusInput,
-    UpdateReviewCommentStatusInput,
+    AddReviewMessageInput, CreateReviewAgentRunInput, CreateReviewCommentByFilePathInput,
+    SetReviewAgentRunStatusInput, UpdateReviewCommentStatusInput,
 };
 use core_service::ReviewService;
 use serde_json::Value;

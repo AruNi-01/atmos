@@ -4,8 +4,8 @@ use sea_orm::*;
 
 use crate::db::entities::base::BaseFields;
 use crate::db::entities::{
-    review_agent_run, review_comment, review_file_identity, review_file_snapshot, review_file_state,
-    review_message, review_revision, review_session,
+    review_agent_run, review_comment, review_file_identity, review_file_snapshot,
+    review_file_state, review_message, review_revision, review_session,
 };
 use crate::db::repo::base::BaseRepo;
 use crate::error::{InfraError, Result};
@@ -263,9 +263,7 @@ impl<'a> ReviewRepo<'a> {
                 Expr::value(Some(title.to_string())),
             );
         }
-        let result = update
-            .exec(self.db)
-            .await?;
+        let result = update.exec(self.db).await?;
         if result.rows_affected == 0 {
             return Err(InfraError::Custom("Review revision not found".into()));
         }
@@ -831,7 +829,10 @@ impl<'a> ReviewRepo<'a> {
         Ok(())
     }
 
-    pub async fn find_agent_run_by_guid(&self, guid: &str) -> Result<Option<review_agent_run::Model>> {
+    pub async fn find_agent_run_by_guid(
+        &self,
+        guid: &str,
+    ) -> Result<Option<review_agent_run::Model>> {
         Ok(review_agent_run::Entity::find_by_id(guid.to_string())
             .filter(review_agent_run::Column::IsDeleted.eq(false))
             .one(self.db)
@@ -897,10 +898,16 @@ impl<'a> ReviewRepo<'a> {
             );
         }
         if let Some(value) = started_at {
-            update = update.col_expr(review_agent_run::Column::StartedAt, Expr::value(Some(value)));
+            update = update.col_expr(
+                review_agent_run::Column::StartedAt,
+                Expr::value(Some(value)),
+            );
         }
         if let Some(value) = finished_at {
-            update = update.col_expr(review_agent_run::Column::FinishedAt, Expr::value(Some(value)));
+            update = update.col_expr(
+                review_agent_run::Column::FinishedAt,
+                Expr::value(Some(value)),
+            );
         }
         if let Some(value) = failure_reason {
             update = update.col_expr(
@@ -946,10 +953,16 @@ impl<'a> ReviewRepo<'a> {
                 Expr::value(Some(summary_rel_path)),
             );
         if let Some(value) = started_at {
-            update = update.col_expr(review_agent_run::Column::StartedAt, Expr::value(Some(value)));
+            update = update.col_expr(
+                review_agent_run::Column::StartedAt,
+                Expr::value(Some(value)),
+            );
         }
         if let Some(value) = finished_at {
-            update = update.col_expr(review_agent_run::Column::FinishedAt, Expr::value(Some(value)));
+            update = update.col_expr(
+                review_agent_run::Column::FinishedAt,
+                Expr::value(Some(value)),
+            );
         }
 
         let result = update

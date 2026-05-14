@@ -25,7 +25,11 @@ impl<'a> WorkspaceRepo<'a> {
     }
 
     /// 根据项目 GUID 查询所有工作区（过滤已归档，按置顶优先、pin_order ASC、pinned_at DESC、created_at DESC 排序）
-    pub async fn list_by_project(&self, project_guid: &str, include_issue_only: bool) -> Result<Vec<workspace::Model>> {
+    pub async fn list_by_project(
+        &self,
+        project_guid: &str,
+        include_issue_only: bool,
+    ) -> Result<Vec<workspace::Model>> {
         let mut query = workspace::Entity::find()
             .filter(workspace::Column::ProjectGuid.eq(project_guid))
             .filter(workspace::Column::IsDeleted.eq(false))

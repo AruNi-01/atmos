@@ -138,9 +138,7 @@ fn installed_code_review_skill_path(skill_id: &str) -> String {
                     .to_string()
             })
         })
-        .unwrap_or_else(|_| {
-            format!("~/.atmos/skills/.system/code_review_skills/{skill_id}")
-        })
+        .unwrap_or_else(|_| format!("~/.atmos/skills/.system/code_review_skills/{skill_id}"))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -794,7 +792,10 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         let (source_kind, title) = match run.run_kind.as_str() {
-            "review" => ("agent_review", format!("Review Checkpoint {}", revisions_before.len())),
+            "review" => (
+                "agent_review",
+                format!("Review Checkpoint {}", revisions_before.len()),
+            ),
             "fix" => ("agent_fix", format!("Fix Run {}", revisions_before.len())),
             _ => ("agent_run", format!("Agent Run {}", revisions_before.len())),
         };
@@ -1348,27 +1349,27 @@ impl ReviewService {
                 comment.revision_guid, session.current_revision_guid
             )));
         }
-        let effective_agent_run_guid = if input.agent_run_guid.is_none() && input.author_type != "user"
-        {
-            let active_runs = review_repo
-                .list_agent_runs_by_session(&comment.session_guid)
-                .await
-                .map_err(ServiceError::Infra)?
-                .into_iter()
-                .filter(|run| {
-                    let matches_revision = run.base_revision_guid == comment.revision_guid
-                        || run.result_revision_guid.as_deref() == Some(&comment.revision_guid);
-                    matches_revision && (run.status == "pending" || run.status == "running")
-                })
-                .collect::<Vec<_>>();
-            if active_runs.len() == 1 {
-                Some(active_runs[0].guid.clone())
+        let effective_agent_run_guid =
+            if input.agent_run_guid.is_none() && input.author_type != "user" {
+                let active_runs = review_repo
+                    .list_agent_runs_by_session(&comment.session_guid)
+                    .await
+                    .map_err(ServiceError::Infra)?
+                    .into_iter()
+                    .filter(|run| {
+                        let matches_revision = run.base_revision_guid == comment.revision_guid
+                            || run.result_revision_guid.as_deref() == Some(&comment.revision_guid);
+                        matches_revision && (run.status == "pending" || run.status == "running")
+                    })
+                    .collect::<Vec<_>>();
+                if active_runs.len() == 1 {
+                    Some(active_runs[0].guid.clone())
+                } else {
+                    None
+                }
             } else {
-                None
-            }
-        } else {
-            input.agent_run_guid.clone()
-        };
+                input.agent_run_guid.clone()
+            };
 
         if let Some(run_guid) = effective_agent_run_guid.as_deref() {
             if let Some(run) = review_repo
@@ -1594,7 +1595,10 @@ impl ReviewService {
         }
     }
 
-    pub async fn mark_agent_run_running(&self, run_guid: String) -> Result<review_agent_run::Model> {
+    pub async fn mark_agent_run_running(
+        &self,
+        run_guid: String,
+    ) -> Result<review_agent_run::Model> {
         let review_repo = ReviewRepo::new(&self.db);
         let run = review_repo
             .find_agent_run_by_guid(&run_guid)
@@ -1640,7 +1644,9 @@ impl ReviewService {
             .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review agent run {} not found", run.guid)))
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
+            })
     }
 
     pub async fn mark_agent_run_failed(
@@ -1687,7 +1693,9 @@ impl ReviewService {
             .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review agent run {} not found", run.guid)))
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
+            })
     }
 
     pub async fn create_agent_run(
@@ -1696,16 +1704,18 @@ impl ReviewService {
     ) -> Result<ReviewAgentRunCreatedDto> {
         // Validate run_kind
         if !VALID_RUN_KINDS.contains(&input.run_kind.as_str()) {
-            return Err(ServiceError::Validation(
-                format!("Invalid run_kind: {}. Must be one of: {:?}", input.run_kind, VALID_RUN_KINDS)
-            ));
+            return Err(ServiceError::Validation(format!(
+                "Invalid run_kind: {}. Must be one of: {:?}",
+                input.run_kind, VALID_RUN_KINDS
+            )));
         }
-        
+
         // Validate execution_mode
         if !VALID_EXECUTION_MODES.contains(&input.execution_mode.as_str()) {
-            return Err(ServiceError::Validation(
-                format!("Invalid execution_mode: {}. Must be one of: {:?}", input.execution_mode, VALID_EXECUTION_MODES)
-            ));
+            return Err(ServiceError::Validation(format!(
+                "Invalid execution_mode: {}. Must be one of: {:?}",
+                input.execution_mode, VALID_EXECUTION_MODES
+            )));
         }
         if input.run_kind == "review"
             && input
@@ -1719,7 +1729,7 @@ impl ReviewService {
                 "Review agent runs require skill_id".to_string(),
             ));
         }
-        
+
         let review_repo = ReviewRepo::new(&self.db);
         let session = review_repo
             .find_session_by_guid(&input.session_guid)
@@ -1769,7 +1779,7 @@ impl ReviewService {
                 }
             })
             .collect();
-        
+
         // Only fix runs require selected comments
         if input.run_kind == "fix" && selected_base_comment_guids.is_empty() {
             return Err(ServiceError::Validation(
@@ -1801,10 +1811,15 @@ impl ReviewService {
             .ok_or_else(|| {
                 ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
             })?;
-        
+
         // Dispatch prompt rendering based on run_kind
         let prompt = match input.run_kind.as_str() {
-            "review" => self.render_review_prompt(&session_for_prompt, &run, &base_revision, &base_comments)?,
+            "review" => self.render_review_prompt(
+                &session_for_prompt,
+                &run,
+                &base_revision,
+                &base_comments,
+            )?,
             "fix" => {
                 let selected_comments: Vec<ReviewCommentDto> = self
                     .list_comments(session.guid.clone(), Some(revision.model.guid.clone()))
@@ -1816,14 +1831,19 @@ impl ReviewService {
                             .parent_comment_guid
                             .as_ref()
                             .map(|parent_guid| selected_base_comment_guids.contains(parent_guid))
-                            .unwrap_or_else(|| selected_base_comment_guids.contains(&comment.model.guid))
+                            .unwrap_or_else(|| {
+                                selected_base_comment_guids.contains(&comment.model.guid)
+                            })
                     })
                     .collect();
                 self.render_fix_prompt(&session_for_prompt, &run, &selected_comments)?
             }
-            _ => return Err(ServiceError::Validation(
-                format!("Invalid run_kind: {}", input.run_kind)
-            )),
+            _ => {
+                return Err(ServiceError::Validation(format!(
+                    "Invalid run_kind: {}",
+                    input.run_kind
+                )))
+            }
         };
         let prompt_abs_path = run_root_abs_path(&session.guid, &run.guid)
             .map_err(ServiceError::Infra)?
@@ -1871,7 +1891,10 @@ impl ReviewService {
         })
     }
 
-    pub async fn list_agent_runs(&self, session_guid: String) -> Result<Vec<review_agent_run::Model>> {
+    pub async fn list_agent_runs(
+        &self,
+        session_guid: String,
+    ) -> Result<Vec<review_agent_run::Model>> {
         ReviewRepo::new(&self.db)
             .list_agent_runs_by_session(&session_guid)
             .await
@@ -2042,7 +2065,9 @@ impl ReviewService {
             .find_agent_run_by_guid(&run.guid)
             .await
             .map_err(ServiceError::Infra)?
-            .ok_or_else(|| ServiceError::NotFound(format!("Review agent run {} not found", run.guid)))
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!("Review agent run {} not found", run.guid))
+            })
     }
 
     pub async fn finalize_agent_run(
@@ -2187,7 +2212,10 @@ impl ReviewService {
                     .await
                     .map_err(ServiceError::Infra)?
                     .ok_or_else(|| {
-                        ServiceError::NotFound(format!("Review revision {} not found", revision.guid))
+                        ServiceError::NotFound(format!(
+                            "Review revision {} not found",
+                            revision.guid
+                        ))
                     })?;
                 return Ok(ReviewAgentRunFinalizedDto {
                     run: updated_run,
@@ -2509,7 +2537,7 @@ impl ReviewService {
                 "fix" => ("Fix Result".to_string(), "agent_fix".to_string()),
                 _ => ("Agent Run Result".to_string(), "agent_run".to_string()),
             };
-            
+
             review_repo
                 .update_revision_title_and_source_kind(
                     &revision.guid,
@@ -2658,7 +2686,7 @@ impl ReviewService {
             xml_escape(&base_revision.guid),
             xml_escape(&base_revision.title.as_deref().unwrap_or("Untitled"))
         ));
-        
+
         // Include existing comments in the prompt
         if !all_comments.is_empty() {
             output.push_str("  <existing_comments>\n");
@@ -2683,7 +2711,7 @@ impl ReviewService {
             }
             output.push_str("  </existing_comments>\n");
         }
-        
+
         output.push_str("</review-agent-run>\n\n");
         output.push_str("This is an Atmos Agent Review run. Analyze the code in the specified revision and identify issues, bugs, or improvements.\n");
         if let Some(skill_id) = &run.skill_id {
@@ -2700,21 +2728,38 @@ impl ReviewService {
 
         // Generate report output path
         let repo_path = &session.repo_path;
-        let context_id = session.workspace_guid.as_deref().unwrap_or(&session.project_guid);
+        let context_id = session
+            .workspace_guid
+            .as_deref()
+            .unwrap_or(&session.project_guid);
         let project_name = std::path::Path::new(repo_path)
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("project");
-        let safe_project_name = project_name.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
+        let safe_project_name =
+            project_name.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
         let branch_name = session.base_ref.as_deref().unwrap_or("unknown");
-        let safe_branch_name = branch_name.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
+        let safe_branch_name =
+            branch_name.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
         let now = chrono::Utc::now();
-        let timestamp = format!("{}{:02}{:02}-{:02}{:02}{:02}",
-            now.year(), now.month(), now.day(),
-            now.hour(), now.minute(), now.second());
-        let report_filename = format!("{}_{}_{}_code_review.md", safe_project_name, safe_branch_name, timestamp);
-        let report_path = format!("{}/.atmos/reviews/{}/{}", repo_path, context_id, report_filename);
-        
+        let timestamp = format!(
+            "{}{:02}{:02}-{:02}{:02}{:02}",
+            now.year(),
+            now.month(),
+            now.day(),
+            now.hour(),
+            now.minute(),
+            now.second()
+        );
+        let report_filename = format!(
+            "{}_{}_{}_code_review.md",
+            safe_project_name, safe_branch_name, timestamp
+        );
+        let report_path = format!(
+            "{}/.atmos/reviews/{}/{}",
+            repo_path, context_id, report_filename
+        );
+
         output.push_str(&format!(
             "If the review skill writes a report to a Markdown file, write it to: {}\n",
             report_path
@@ -3015,10 +3060,11 @@ mod tests {
         );
 
         // Clone it so we have a proper remote
-        run_cmd_assert_success(
-            &mut std::process::Command::new("git")
-                .args(["clone", bare.path().to_str().unwrap(), work.path().to_str().unwrap()]),
-        );
+        run_cmd_assert_success(&mut std::process::Command::new("git").args([
+            "clone",
+            bare.path().to_str().unwrap(),
+            work.path().to_str().unwrap(),
+        ]));
         run_cmd_assert_success(
             &mut std::process::Command::new("git")
                 .args(["config", "user.email", "test@test.com"])
@@ -3049,7 +3095,13 @@ mod tests {
 
         let repo_path = work.path().to_string_lossy().to_string();
         let project = ProjectRepo::new(&db)
-            .create("test-project".into(), repo_path, 0, None, Some("main".into()))
+            .create(
+                "test-project".into(),
+                repo_path,
+                0,
+                None,
+                Some("main".into()),
+            )
             .await
             .unwrap();
 
@@ -3124,7 +3176,11 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(sessions.len(), 1, "should return exactly one project-scoped session");
+        assert_eq!(
+            sessions.len(),
+            1,
+            "should return exactly one project-scoped session"
+        );
         assert_eq!(sessions[0].guid, project_session.guid);
         assert!(sessions[0].workspace_guid.is_none());
     }

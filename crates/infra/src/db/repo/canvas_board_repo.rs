@@ -63,9 +63,9 @@ impl<'a> CanvasBoardRepo<'a> {
             .exec(self.db)
             .await?;
 
-        self.get_by_slug("default")
-            .await?
-            .ok_or_else(|| InfraError::Custom("Failed to load canvas board after upsert".to_string()))
+        self.get_by_slug("default").await?.ok_or_else(|| {
+            InfraError::Custom("Failed to load canvas board after upsert".to_string())
+        })
     }
 
     #[allow(dead_code)]

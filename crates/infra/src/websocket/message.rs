@@ -453,6 +453,10 @@ pub enum WsAction {
     FunctionSettingsGet,
     /// Update a field in ~/.atmos/function_settings.json
     FunctionSettingsUpdate,
+    /// Read the merged GitIgnore-dirs compensation config (built-ins + user customs)
+    WorkspaceGitignoreDirsGet,
+    /// Overwrite the GitIgnore-dirs compensation config
+    WorkspaceGitignoreDirsUpdate,
     /// Read ~/.atmos/llm/providers.json
     LlmProvidersGet,
     /// Overwrite ~/.atmos/llm/providers.json

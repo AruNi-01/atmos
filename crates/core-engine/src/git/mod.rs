@@ -8,6 +8,49 @@ use serde::Serialize;
 
 use crate::error::{EngineError, Result};
 
+/// Enumerate paths under `subpath` (relative to `repo_path`) that git
+/// considers ignored AND that currently exist in the working tree.
+///
+/// Internally runs:
+///   `git ls-files --others --ignored --exclude-standard --directory -z -- <subpath>`
+///
+/// - `--others --ignored --exclude-standard`: list untracked-and-ignored files
+/// - `--directory`: collapse an entirely-ignored directory into a single entry
+///   (e.g. returns `.claude/` rather than every file inside it)
+/// - `-z`: NUL-terminated output for safe parsing of unusual filenames
+///
+/// Returned paths are repo-root-relative (matching git's output verbatim, with
+/// any trailing `/` preserved so callers can distinguish dir entries if they
+/// care). On any failure (git missing, not a git repo, etc.) returns an empty
+/// vec — callers should treat "no ignored paths" as "nothing to compensate".
+pub fn list_ignored_paths(repo_path: &Path, subpath: &Path) -> Vec<String> {
+    let subpath_str = subpath.to_string_lossy();
+    let output = Command::new("git")
+        .current_dir(repo_path)
+        .args([
+            "ls-files",
+            "--others",
+            "--ignored",
+            "--exclude-standard",
+            "--directory",
+            "-z",
+            "--",
+            subpath_str.as_ref(),
+        ])
+        .output();
+
+    let Ok(out) = output else { return Vec::new() };
+    if !out.status.success() {
+        return Vec::new();
+    }
+
+    out.stdout
+        .split(|b| *b == 0)
+        .filter(|chunk| !chunk.is_empty())
+        .map(|chunk| String::from_utf8_lossy(chunk).into_owned())
+        .collect()
+}
+
 /// Run a git command in the given repo directory and return stdout on success.
 fn run_git(repo_path: &Path, args: &[&str]) -> Result<String> {
     let output = Command::new("git")
@@ -961,9 +1004,7 @@ impl GitEngine {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| {
-                EngineError::Git(format!("Failed to spawn git apply --cached ({})", e))
-            })?;
+            .map_err(|e| EngineError::Git(format!("Failed to spawn git apply --cached ({})", e)))?;
 
         if let Some(mut stdin) = child.stdin.take() {
             stdin

@@ -294,14 +294,32 @@ mod tests {
         let manager = SchemaManager::new(&db);
 
         // Apply all migrations up to and including 000022
-        m20260117_000001_create_test_message_table::Migration.up(&manager).await?;
-        m20260118_000002_create_project_tables::Migration.up(&manager).await?;
-        m20260422_000019_create_review_tables::Migration.up(&manager).await?;
+        m20260117_000001_create_test_message_table::Migration
+            .up(&manager)
+            .await?;
+        m20260118_000002_create_project_tables::Migration
+            .up(&manager)
+            .await?;
+        m20260422_000019_create_review_tables::Migration
+            .up(&manager)
+            .await?;
 
         // Old index should exist, new ones should not
-        assert!(manager.has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX).await?);
-        assert!(!manager.has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX).await?);
-        assert!(!manager.has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX).await?);
+        assert!(
+            manager
+                .has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX)
+                .await?
+        );
+        assert!(
+            !manager
+                .has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX)
+                .await?
+        );
+        assert!(
+            !manager
+                .has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX)
+                .await?
+        );
 
         // Apply the new migration
         m20260507_000023_make_review_session_workspace_optional::Migration
@@ -309,9 +327,21 @@ mod tests {
             .await?;
 
         // New indexes should exist, old one should be gone
-        assert!(!manager.has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX).await?);
-        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX).await?);
-        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX).await?);
+        assert!(
+            !manager
+                .has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX)
+                .await?
+        );
+        assert!(
+            manager
+                .has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX)
+                .await?
+        );
+        assert!(
+            manager
+                .has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX)
+                .await?
+        );
 
         Ok(())
     }
@@ -321,9 +351,15 @@ mod tests {
         let db = Database::connect("sqlite::memory:").await?;
         let manager = SchemaManager::new(&db);
 
-        m20260117_000001_create_test_message_table::Migration.up(&manager).await?;
-        m20260118_000002_create_project_tables::Migration.up(&manager).await?;
-        m20260422_000019_create_review_tables::Migration.up(&manager).await?;
+        m20260117_000001_create_test_message_table::Migration
+            .up(&manager)
+            .await?;
+        m20260118_000002_create_project_tables::Migration
+            .up(&manager)
+            .await?;
+        m20260422_000019_create_review_tables::Migration
+            .up(&manager)
+            .await?;
 
         // Seed a row with workspace_guid set
         db.execute(Statement::from_string(
@@ -373,8 +409,16 @@ mod tests {
             .up(&manager)
             .await?;
 
-        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX).await?);
-        assert!(manager.has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX).await?);
+        assert!(
+            manager
+                .has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX)
+                .await?
+        );
+        assert!(
+            manager
+                .has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX)
+                .await?
+        );
 
         Ok(())
     }

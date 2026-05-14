@@ -23,7 +23,7 @@ pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value
 pub fn get_version_info(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let version = app.package_info().version.to_string();
     let version_type = updater::detect_version_type(&version);
-    
+
     Ok(json!({
         "version": version,
         "version_type": version_type.to_string(),
