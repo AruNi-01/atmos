@@ -1,0 +1,200 @@
+apps/web/src/components/canvas/CanvasOverlay.tsx
+  s_da1e11bae94c6b::t_0d272e2535dd67 96
+  s_6bf4f6d12bbbd2::t_26d9a79bab6f60 5,15-16,87-95,97-99,105,107-109,111-113
+  s_afbe5c421c0c7d::t_2265e267558fb2 100,104,110
+  s_acca56d38b54cd::t_6493c75a7bd4ed 101-103,106
+apps/web/src/components/canvas/CanvasView.tsx
+  s_9b071f0ab3f9ec::t_5fcf347d4e1cc0 1376-1382,1407-1408,1410
+  s_c3544ac53b2814::t_ede0e4449fe093 599-604
+  s_ac818601068f00::t_ad83a0ef391900 1383-1405
+  s_c4237d9a587404::t_ba9d3f7fa6d9c3 1446
+  s_1bbe1505ba32ad::t_8b9970018d3fed 1442
+  s_d8e730d4923c26::t_1edba85e695191 1116-1127,1178,1189
+  s_0e8d6762a8a034::t_5f398de10a9470 1354,1363-1366,1413-1431
+  s_964f88d6cf66df::t_d1fb31d64d219b 23
+  s_91c4430557fa04::t_cc41d2eee618ef 624-627,629
+  s_d7fae619c41dbb::t_e6b9d33c974486 1134-1135,1138,1144,1146-1156,1158-1173
+  s_511cc244e76fe8::t_5bcc5178de5b69 1432-1441,1443-1444
+  s_837e0a294a11f0::t_1f1568e0ac5ab5 605-611
+  s_18b7e3330fe9c6::t_11cbf4295497f6 39
+  s_2bfbad2fdba86f::t_ce57311507fe78 1455
+  s_a8892eabf808f9::t_b70772bf4cb8f2 1130-1133,1136-1137,1139-1143,1145,1157
+  s_fd47bcf426e501::t_13266494b0cbd6 35
+  s_5936244afa3f43::t_1c9fcf42795043 569
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "8df401be1d6a08ddbd9781b3828a4d79c8b34542",
+  "prompts": {},
+  "sessions": {
+    "s_0e8d6762a8a034": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtsczfwoVPb5CG0u3Ls",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_18b7e3330fe9c6": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtrEQiCT9nvggxp7BWN",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_1bbe1505ba32ad": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuhtVneG1uUSMfWxdFN",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_2bfbad2fdba86f": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtfYPVnchVNWhUsGTaI",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_511cc244e76fe8": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuHXeWBI1tCIrkAJpm9",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_5936244afa3f43": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtrkBiMFgQkKG8pLtaC",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_6bf4f6d12bbbd2": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtqWo1ovPrscFu1JD93",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_837e0a294a11f0": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuPIlctd3CNTiN0MqpL",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_91c4430557fa04": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033Gts5qV7OTSAYYcXKzJd",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_964f88d6cf66df": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuYKHg1KCwleMLTMpCN",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9b071f0ab3f9ec": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GugGcJ3zbaxQgeVevRu",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a8892eabf808f9": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuPWwbY22dqJ4MHPbrU",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ac818601068f00": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuYU3oJlPWfeQ1xfREK",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_acca56d38b54cd": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuNHwUAYbW2X0ZSxUyi",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_afbe5c421c0c7d": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuLWZxoxstnPhGqnOzQ",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c3544ac53b2814": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtruEDheoyxYnA7ysWN",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_c4237d9a587404": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuSXU2CF8I8egXtszQX",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d7fae619c41dbb": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuS4WwCAq3UWWB5HXZp",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_d8e730d4923c26": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtsFL5N8LKIeeigLznh",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_da1e11bae94c6b": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuMRmySnArw3zPMev27",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_fd47bcf426e501": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuP8ADpG0cjzcYhTh9c",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
