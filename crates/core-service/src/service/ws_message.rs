@@ -1134,16 +1134,18 @@ impl WsMessageService {
                 "exists": false,
                 "content": null,
                 "size": 0,
+                "is_symlink": false,
             }));
         }
 
-        let (content, size) = self.fs_engine.read_file(&path)?;
+        let (content, size, is_symlink) = self.fs_engine.read_file(&path)?;
 
         Ok(json!({
             "path": path.to_string_lossy(),
             "exists": true,
             "content": content,
             "size": size,
+            "is_symlink": is_symlink,
         }))
     }
 
@@ -1918,7 +1920,7 @@ impl WsMessageService {
                 std::path::Path::new(&project.main_file_path).join(".atmos/scripts/atmos.json");
 
             if scripts_path.exists() {
-                let (content, _) = self.fs_engine.read_file(&scripts_path)?;
+                let (content, _, _) = self.fs_engine.read_file(&scripts_path)?;
                 let json: Value = serde_json::from_str(&content).unwrap_or(json!({}));
                 Ok(json)
             } else {

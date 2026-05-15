@@ -15,6 +15,7 @@ export interface OpenFile {
   content: string;
   originalContent: string;
   language: string;
+  isSymlink: boolean;
   isDirty: boolean;
   isLoading: boolean;
   isPreview: boolean; // Preview mode: italic text, replaced on next single-click
@@ -430,6 +431,7 @@ export const useEditorStore = create<EditorStore>()(
           content: '',
           originalContent: '',
           language: getLanguageFromPath(path),
+          isSymlink: false,
           isDirty: false,
           isLoading: true,
           isPreview,
@@ -593,7 +595,13 @@ export const useEditorStore = create<EditorStore>()(
                   ...ws,
                   openFiles: ws.openFiles.map(f =>
                     f.path === path
-                      ? { ...f, content: response.content as string, originalContent: response.content as string, isLoading: false }
+                      ? {
+                          ...f,
+                          content: response.content as string,
+                          originalContent: response.content as string,
+                          isSymlink: response.is_symlink,
+                          isLoading: false,
+                        }
                       : f
                   )
                 }

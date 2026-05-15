@@ -61,7 +61,7 @@ impl AcpToolHandler for AgentToolHandler {
         }
         self.fs_engine
             .read_file(path)
-            .map(|(content, _)| content)
+            .map(|(content, _, _)| content)
             .map_err(|e| e.to_string())
     }
 

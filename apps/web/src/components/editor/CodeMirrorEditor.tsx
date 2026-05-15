@@ -161,10 +161,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
 
   const editorGitDiffSource = useMemo(
     () =>
-      projectRoot && relativePath
+      !file.isSymlink && projectRoot && relativePath
         ? { repoPath: projectRoot, fileRelativePath: relativePath }
         : null,
-    [projectRoot, relativePath],
+    [file.isSymlink, projectRoot, relativePath],
   );
 
   // Get the full path for a breadcrumb part at a given index

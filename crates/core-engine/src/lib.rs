@@ -16,7 +16,7 @@ pub use fs::{
 };
 pub use git::{
     list_ignored_paths, ChangedFileInfo, ChangedFilesInfo, CommitInfo, FileDiffInfo, GitEngine,
-    GitStatus, WorktreeInfo,
+    GitStatus, WorktreeInfo, sync_worktree_local_excludes,
 };
 pub use github::GithubEngine;
 pub use search::{search_content, SearchMatch, SearchResult};

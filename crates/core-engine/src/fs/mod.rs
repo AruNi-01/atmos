@@ -238,7 +238,7 @@ impl FsEngine {
     }
 
     /// Read file content
-    pub fn read_file(&self, path: &Path) -> Result<(String, u64)> {
+    pub fn read_file(&self, path: &Path) -> Result<(String, u64, bool)> {
         if !path.exists() {
             return Err(EngineError::FileSystem(format!(
                 "File does not exist: {}",
@@ -255,9 +255,13 @@ impl FsEngine {
 
         let metadata = fs::metadata(path)
             .map_err(|e| EngineError::FileSystem(format!("Failed to get file metadata: {}", e)))?;
+        let symlink_metadata = fs::symlink_metadata(path).map_err(|e| {
+            EngineError::FileSystem(format!("Failed to get symlink metadata: {}", e))
+        })?;
+        let is_symlink = symlink_metadata.file_type().is_symlink();
 
         match fs::read_to_string(path) {
-            Ok(content) => Ok((content, metadata.len())),
+            Ok(content) => Ok((content, metadata.len(), is_symlink)),
             Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
                 let bytes = fs::read(path).map_err(|e| {
                     EngineError::FileSystem(format!(
@@ -271,6 +275,7 @@ impl FsEngine {
                 Ok((
                     format!("data:application/octet-stream;base64,{}", encoded),
                     metadata.len(),
+                    is_symlink,
                 ))
             }
             Err(e) => Err(EngineError::FileSystem(format!(
@@ -858,3 +863,4 @@ fn copy_symlink(source: &Path, target: &Path) -> Result<()> {
         ))
     })
 }
+

@@ -36,6 +36,7 @@ export interface FsReadFileResponse {
   exists: boolean;
   content: string | null;
   size: number;
+  is_symlink: boolean;
 }
 
 export interface FsWriteFileResponse {
