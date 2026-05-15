@@ -1,0 +1,19 @@
+apps/web/src/lib/nuqs/searchParams.ts
+  s_350ae2edc84263::t_608be0eb365150 95-97,113-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "4a670c809a68d0f899391d0680f7708eb73c325d",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
