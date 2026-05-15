@@ -1,0 +1,21 @@
+crates/infra/src/websocket/mod.rs
+  s_24f6def97388ac::t_1099fada7335cd 61-65
+crates/infra/src/websocket/message.rs
+  s_24f6def97388ac::t_c3933062810086 517-518,587-590
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e2959372b2f0688f321f5e506ea057ba62a25c8e",
+  "prompts": {},
+  "sessions": {
+    "s_24f6def97388ac": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "39fe5b25-ec36-4703-8d55-057d37738cfe",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
