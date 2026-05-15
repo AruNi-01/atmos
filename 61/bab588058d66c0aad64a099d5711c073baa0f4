@@ -1,0 +1,19 @@
+packages/ui/src/index.ts
+  s_350ae2edc84263::t_2be91ef51c2fde 86-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "61bab588058d66c0aad64a099d5711c073baa0f4",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
