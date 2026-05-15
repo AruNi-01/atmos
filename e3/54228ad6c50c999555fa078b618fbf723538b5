@@ -1,0 +1,20 @@
+crates/core-service/src/service/workspace_gitignore_dirs.rs
+  s_350ae2edc84263::t_647ce6e97b28d8 4,7
+  s_350ae2edc84263::t_9249a2c1ae619f 43-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "e354228ad6c50c999555fa078b618fbf723538b5",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
