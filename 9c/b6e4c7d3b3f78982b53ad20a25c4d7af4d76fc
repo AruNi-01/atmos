@@ -1,0 +1,22 @@
+crates/core-service/src/service/ws_message.rs
+  s_24f6def97388ac::t_19e814857356f2 58,184-188
+  s_24f6def97388ac::t_294bdec598a17d 2190-2195
+  s_24f6def97388ac::t_0010bc84ae5431 8
+  s_24f6def97388ac::t_3424c7f5599a2f 200-304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "9cb6e4c7d3b3f78982b53ad20a25c4d7af4d76fc",
+  "prompts": {},
+  "sessions": {
+    "s_24f6def97388ac": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "39fe5b25-ec36-4703-8d55-057d37738cfe",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
