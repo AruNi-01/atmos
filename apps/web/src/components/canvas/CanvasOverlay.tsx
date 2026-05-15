@@ -2,8 +2,7 @@
 
 import React from "react";
 import { useQueryState } from "nuqs";
-import { Button } from "@workspace/ui";
-import { Minimize2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { centerStageParams } from "@/lib/nuqs/searchParams";
 import { CanvasView } from "./CanvasView";
 
@@ -13,7 +12,8 @@ import { CanvasView } from "./CanvasView";
  * Lives at the top of the app layout (next to <WorkspaceCreationOverlay/>) so it
  * covers the entire app — including sidebars and header — when the `canvas=true`
  * query param is active. Open with the Canvas item in Management Center;
- * collapse via the close button injected into tldraw's SharePanel.
+ * collapse via the chevron-down "pull tab" rendered at the top-center (mirrors
+ * the New Workspace welcome overlay's collapse affordance).
  */
 export function CanvasOverlay() {
   const [canvas, setCanvas] = useQueryState("canvas", centerStageParams.canvas);
@@ -75,21 +75,6 @@ export function CanvasOverlay() {
   const isOpen = animState === "visible";
   const isClosing = animState === "closing";
 
-  // Collapse button is rendered inside tldraw's SharePanel slot via `trailingActions`
-  // so it lines up with the canvas-level Import / Refresh / Save-status controls.
-  const collapseButton = (
-    <Button
-      variant="outline"
-      size="icon"
-      onClick={handleClose}
-      className="size-9 rounded-xl bg-background/95 shadow-sm"
-      title="Collapse canvas"
-      aria-label="Collapse canvas"
-    >
-      <Minimize2 className="size-4" />
-    </Button>
-  );
-
   return (
     <div
       role="dialog"
@@ -99,7 +84,33 @@ export function CanvasOverlay() {
         isOpen ? "translate-y-0" : isClosing ? "translate-y-full" : "translate-y-full"
       }`}
     >
-      <CanvasView trailingActions={collapseButton} />
+      <CanvasView />
+      {/*
+        Top-center "pull-down" collapse affordance — mirrors the New Workspace
+        welcome overlay's bouncing chevron so users get a consistent gesture
+        for dismissing full-screen overlays. Sits above tldraw's UI (z-[160]).
+      */}
+      <button
+        type="button"
+        onClick={handleClose}
+        className="group absolute left-1/2 top-0 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+        aria-label="Collapse canvas"
+        title="Collapse canvas"
+      >
+        {/*
+          Hugs the top edge with a hair of breathing room (`-mt-0.5` lets the
+          chevron sit just below the screen edge instead of flush against it).
+          The bounce-down animation only plays on hover.
+        */}
+        <ChevronDown
+          className="-mt-0.5 h-5 w-9 group-hover:animate-[bounce-down_1.6s_ease-in-out_infinite]"
+          strokeWidth={1.2}
+        />
+        <ChevronDown
+          className="-mt-2.5 h-5 w-9 group-hover:animate-[bounce-down_1.6s_ease-in-out_0.15s_infinite]"
+          strokeWidth={1.2}
+        />
+      </button>
     </div>
   );
 }

@@ -20,6 +20,7 @@ import "tldraw/tldraw.css";
 import {
   Button,
   ScrollArea,
+  SlidingNumber,
   toastManager,
   Dialog,
   DialogContent,
@@ -31,9 +32,11 @@ import {
 } from "@workspace/ui";
 import {
   AlertTriangle,
+  ChevronsRight,
   Frame,
   Loader2,
   LoaderCircle,
+  Palette,
   RotateCw,
   SquareTerminal,
   ArrowUpRight,
@@ -117,15 +120,6 @@ type ContextPaneState = {
   panes: ImportablePaneItem[];
   error: string | null;
 };
-
-interface CanvasViewProps {
-  /**
-   * Optional render slot for trailing buttons inside tldraw's `SharePanel` —
-   * used by `CanvasOverlay` to inject the "collapse overlay" control next to
-   * the canvas-level Import / Refresh / Saved-status controls.
-   */
-  trailingActions?: React.ReactNode;
-}
 
 const CanvasAgentContext = React.createContext<TerminalPaneAgent[]>([]);
 
@@ -572,7 +566,7 @@ function CanvasThemeBridge() {
   return null;
 }
 
-export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
+export const CanvasView: React.FC = () => {
   const { board, document, isLoading, isSaving, error, loadBoard } = useCanvasBoard();
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [isManualSaving, setIsManualSaving] = React.useState(false);
@@ -602,6 +596,19 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
   const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
   const [agentSettingsLoading, setAgentSettingsLoading] = React.useState(false);
+  /**
+   * When `false`, tldraw's built-in StylePanel is force-hidden via
+   * `StylePanel: () => null`. When `true`, we omit the override so tldraw owns
+   * visibility (it auto-hides on no-selection / certain tools, etc.).
+   */
+  const [isStylePanelEnabled, setIsStylePanelEnabled] = React.useState(false);
+  /**
+   * Master collapse for the entire injected SharePanel toolbar — when true we
+   * hide every action (Create Frame / Import / Refresh / Save / Style toggle)
+   * and only keep the lone collapse-toggle button so the canvas surface stays
+   * unobstructed.
+   */
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(false);
   const documentSaveInFlightRef = React.useRef(false);
   const sessionSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSessionRef = React.useRef<CanvasTldrawSession | null>(null);
@@ -614,8 +621,12 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   const tldrawComponents = React.useMemo<TLComponents>(
     () => ({
       SharePanel: () => <>{sharePanelRef.current}</>,
+      // Force-hide tldraw's built-in StylePanel until the user toggles it on
+      // from our SharePanel. When enabled, we omit the override entirely so
+      // tldraw uses its default component (which knows when to auto-hide).
+      ...(isStylePanelEnabled ? {} : { StylePanel: () => null }),
     }),
-    [],
+    [isStylePanelEnabled],
   );
 
   const workspaceItems = React.useMemo(() => getWorkspaceImportItems(projects), [projects]);
@@ -1102,13 +1113,69 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
    * in a ref and exposing a stable wrapper component to tldraw — the wrapper
    * simply re-evaluates the ref's value when rendered.
    */
+  /**
+   * Apple-style "liquid glass" surface for our injected toolbar buttons.
+   *
+   * Why not solid `bg-background/95`? When a user drags a white-filled shape
+   * underneath the toolbar, an opaque-ish white button vanishes. Instead we
+   * use a translucent base with `backdrop-blur` + `backdrop-saturate` so the
+   * button always picks up a softened, contrasted version of whatever sits
+   * behind it, and a faint border keeps the silhouette readable on any color.
+   */
+  const glassButtonClass =
+    "border-border/40 bg-background/30 backdrop-blur-xl backdrop-saturate-150 shadow-sm hover:bg-background/60";
+
   const sharePanelContent = (
     <div className="pointer-events-auto flex items-center gap-2 p-2">
+      {/*
+        Master collapse — hides every other action button (Create Frame /
+        Import / Refresh / Save / Style) so users can reclaim the canvas.
+        Stays mounted in both states so it can serve as the "expand again"
+        affordance. Uses the ghost variant so it reads as a chrome control
+        rather than a glass action button.
+      */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setIsToolbarCollapsed((prev) => !prev)}
+        aria-pressed={isToolbarCollapsed}
+        aria-label={isToolbarCollapsed ? "Expand canvas toolbar" : "Collapse canvas toolbar"}
+        title={isToolbarCollapsed ? "Expand toolbar" : "Collapse toolbar"}
+        className="size-9 rounded-xl text-muted-foreground hover:text-foreground"
+      >
+        {/*
+          Rotate the chevron 180° between states so the icon morphs smoothly
+          instead of swapping abruptly — pairs with the toolbar's slide
+          animation below.
+        */}
+        <ChevronsRight
+          className={cn(
+            "size-4 transition-transform duration-300 ease-out",
+            isToolbarCollapsed && "rotate-180",
+          )}
+        />
+      </Button>
+      {/*
+        Animated container for the rest of the toolbar. We toggle `max-w` +
+        `opacity` + `ml` together so the buttons appear to slide in from /
+        out to the collapse handle, instead of popping in/out.
+        `overflow-hidden` clips the content while it transitions; the
+        generous `max-w` upper-bound covers any realistic toolbar width.
+      */}
+      <div
+        aria-hidden={isToolbarCollapsed}
+        className={cn(
+          "flex items-center gap-2 overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-out",
+          isToolbarCollapsed
+            ? "pointer-events-none ml-0 max-w-0 opacity-0"
+            : "ml-0 max-w-[1000px] opacity-100",
+        )}
+      >
       <Button
         variant="outline"
         size="sm"
         onClick={handleCreateFrame}
-        className="rounded-xl bg-background/95 shadow-sm"
+        className={cn("rounded-xl", glassButtonClass)}
         title="Create an empty frame"
       >
         <Frame className="mr-1 size-4" />
@@ -1119,7 +1186,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
           <Button
             variant="outline"
             size="icon"
-            className="size-9 rounded-xl bg-background/95 shadow-sm"
+            className={cn("size-9 rounded-xl", glassButtonClass)}
             title="Import terminal — Click to import from saved layouts or active tmux sessions"
           >
             <Plus className="size-4" />
@@ -1284,7 +1351,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
         size="icon"
         onClick={() => void loadOverview()}
         disabled={isOverviewLoading}
-        className="size-9 rounded-xl bg-background/95 shadow-sm"
+        className={cn("size-9 rounded-xl", glassButtonClass)}
         title="Refresh active sessions"
       >
         {isOverviewLoading ? <LoaderCircle className="size-4 animate-spin" /> : <RotateCw className="size-4" />}
@@ -1293,7 +1360,10 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
         variant="outline"
         onClick={() => void handleManualSave()}
         disabled={isManualSaving || documentSaveInFlightRef.current}
-        className="group rounded-xl bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground w-[140px]"
+        className={cn(
+          "group w-[140px] rounded-xl px-3 py-2 text-xs text-muted-foreground hover:text-foreground",
+          glassButtonClass,
+        )}
       >
         {isManualSaving || isSaving ? (
           <span className="flex items-center gap-2">
@@ -1303,15 +1373,77 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
         ) : error ? (
           "Save failed"
         ) : (
-          <>
-            <span className="group-hover:hidden">
-              Saved{lastSavedAt ? ` · ${lastSavedAt.toLocaleTimeString()}` : board?.updated_at ? ` · ${new Date(board.updated_at).toLocaleTimeString()}` : ""}
+          /*
+            Two stacked labels — "Saved · HH:MM:SS" and "Save" — cross-fade
+            with a vertical slide on hover. Both share an absolute layer so
+            the wrapper holds a stable height while they animate.
+          */
+          <span className="relative flex h-4 w-full items-center justify-center overflow-hidden">
+            <span className="absolute inset-0 flex items-center justify-center gap-1 transition-all duration-200 ease-out group-hover:-translate-y-2 group-hover:opacity-0">
+              <span>Saved</span>
+              {(() => {
+                const savedDate =
+                  lastSavedAt ??
+                  (board?.updated_at ? new Date(board.updated_at) : null);
+                if (!savedDate) return null;
+                return (
+                  <>
+                    <span>·</span>
+                    {/*
+                      Animated time using SlidingNumber — each digit slides
+                      between values when the timestamp updates after a save.
+                    */}
+                    <span className="flex items-center tabular-nums">
+                      <SlidingNumber value={savedDate.getHours()} padStart />
+                      <span>:</span>
+                      <SlidingNumber value={savedDate.getMinutes()} padStart />
+                      <span>:</span>
+                      <SlidingNumber value={savedDate.getSeconds()} padStart />
+                    </span>
+                  </>
+                );
+              })()}
             </span>
-            <span className="hidden group-hover:block">Save</span>
-          </>
+            <span className="absolute inset-0 flex translate-y-2 items-center justify-center opacity-0 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+              Save
+            </span>
+          </span>
         )}
       </Button>
-      {trailingActions}
+      {/*
+        StylePanel toggle (sits where the old "collapse" minimize button was).
+        OFF: tldraw's StylePanel is fully suppressed via `StylePanel: () => null`.
+        ON:  we hand control back to tldraw, which still hides the panel for
+             tools/selections that don't expose styles — that's intentional.
+      */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setIsStylePanelEnabled((prev) => !prev)}
+        aria-pressed={isStylePanelEnabled}
+        className={cn(
+          "size-9 rounded-xl",
+          glassButtonClass,
+          isStylePanelEnabled && "bg-background/70 text-foreground hover:bg-background/80",
+        )}
+        title={isStylePanelEnabled ? "Hide style panel" : "Show style panel"}
+        aria-label={isStylePanelEnabled ? "Hide style panel" : "Show style panel"}
+      >
+        {/*
+          When toggled on, paint the four circles inside the Lucide Palette
+          icon as rainbow swatches so the active state is unmistakable. Lucide's
+          Palette ships as 1 <path> + 4 <circle> dots; targeting them with
+          child selectors lets us colorize without swapping the icon.
+        */}
+        <Palette
+          className={cn(
+            "size-4 transition-colors",
+            isStylePanelEnabled &&
+              "text-blue-400 [&>circle:nth-of-type(1)]:fill-rose-500 [&>circle:nth-of-type(1)]:stroke-rose-500 [&>circle:nth-of-type(2)]:fill-amber-400 [&>circle:nth-of-type(2)]:stroke-amber-400 [&>circle:nth-of-type(3)]:fill-emerald-500 [&>circle:nth-of-type(3)]:stroke-emerald-500 [&>circle:nth-of-type(4)]:fill-sky-500 [&>circle:nth-of-type(4)]:stroke-sky-500",
+          )}
+        />
+      </Button>
+      </div>
     </div>
   );
 
@@ -1320,7 +1452,7 @@ export const CanvasView: React.FC<CanvasViewProps> = ({ trailingActions }) => {
   return (
     <div className={cn(
       "tldraw-wrapper relative h-full w-full overflow-hidden bg-background",
-      needsTrafficLightsPadding && "pt-[52px]"
+      needsTrafficLightsPadding && "pt-[28px]"
     )}>
       <CanvasAgentContext.Provider value={configuredAgents}>
         <Tldraw
