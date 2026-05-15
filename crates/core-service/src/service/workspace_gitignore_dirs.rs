@@ -21,7 +21,9 @@
 //! (`.env`, custom prompt dirs, etc.).
 
 use crate::error::{Result, ServiceError};
-use core_engine::{compensate_path, list_ignored_paths, CompensateStrategy};
+use core_engine::{
+    compensate_path, list_ignored_paths, sync_worktree_local_excludes, CompensateStrategy,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -279,6 +281,7 @@ pub fn save_config(config: &GitIgnoreDirsConfig) -> Result<()> {
 pub fn compensate(source_root: &Path, target_root: &Path) -> CompensationReport {
     let mut report = CompensationReport::default();
     let config = load_config();
+    let mut symlink_excludes: HashSet<String> = HashSet::new();
     if !config.enabled {
         report.skipped_disabled = true;
         return report;
@@ -345,7 +348,12 @@ pub fn compensate(source_root: &Path, target_root: &Path) -> CompensationReport 
             let child_target = target_root.join(relative);
 
             match compensate_path(&child_source, &child_target, strategy) {
-                Ok(()) => entry_applied += 1,
+                Ok(()) => {
+                    entry_applied += 1;
+                    if matches!(entry.strategy, Strategy::Symlink) {
+                        symlink_excludes.insert(relative.to_string());
+                    }
+                }
                 Err(e) => {
                     tracing::warn!(
                         "[gitignore_dirs] Failed to compensate `{}`: {}",
@@ -369,6 +377,16 @@ pub fn compensate(source_root: &Path, target_root: &Path) -> CompensationReport 
             entry_applied,
             entry_failed
         );
+    }
+
+    let mut exclude_paths: Vec<String> = symlink_excludes.into_iter().collect();
+    exclude_paths.sort();
+    if let Err(e) = sync_worktree_local_excludes(target_root, &exclude_paths) {
+        tracing::warn!(
+            "[gitignore_dirs] Failed to sync worktree-local exclude block: {}",
+            e
+        );
+        report.failed += 1;
     }
 
     report

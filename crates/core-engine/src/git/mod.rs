@@ -122,6 +122,109 @@ fn is_unmerged_porcelain_status(status: &str) -> bool {
     matches!(status, "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")
 }
 
+const ATMOS_EXCLUDE_BLOCK_START: &str = "# atmos:gitignore-dirs-sync start";
+const ATMOS_EXCLUDE_BLOCK_END: &str = "# atmos:gitignore-dirs-sync end";
+
+fn strip_atmos_exclude_block(contents: &str) -> String {
+    let mut result = Vec::new();
+    let mut in_block = false;
+
+    for line in contents.lines() {
+        if line == ATMOS_EXCLUDE_BLOCK_START {
+            in_block = true;
+            continue;
+        }
+        if line == ATMOS_EXCLUDE_BLOCK_END {
+            in_block = false;
+            continue;
+        }
+        if !in_block {
+            result.push(line);
+        }
+    }
+
+    result.join("\n").trim().to_string()
+}
+
+fn resolve_git_path(repo_path: &Path, git_path: &str) -> Result<PathBuf> {
+    let stdout = run_git(repo_path, &["rev-parse", "--git-path", git_path])?;
+    let resolved = stdout.trim();
+    if resolved.is_empty() {
+        return Err(EngineError::Git(format!(
+            "git rev-parse --git-path {} returned an empty path",
+            git_path
+        )));
+    }
+
+    let path = PathBuf::from(resolved);
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Ok(repo_path.join(path))
+    }
+}
+
+/// Sync an Atmos-managed block inside the current worktree's `info/exclude`.
+///
+/// This is intentionally worktree-local: callers should pass the linked worktree path, not the
+/// main project repo root, so each workspace can ignore its own compensated symlink targets.
+pub fn sync_worktree_local_excludes(repo_path: &Path, managed_paths: &[String]) -> Result<()> {
+    let exclude_path = resolve_git_path(repo_path, "info/exclude")?;
+
+    let mut normalized_paths: Vec<String> = managed_paths
+        .iter()
+        .map(|path| path.trim().trim_end_matches('/').to_string())
+        .filter(|path| !path.is_empty())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    normalized_paths.sort();
+
+    let existing = std::fs::read_to_string(&exclude_path).unwrap_or_default();
+    let mut next = strip_atmos_exclude_block(&existing);
+
+    if !normalized_paths.is_empty() {
+        let block = format!(
+            "{start}\n{paths}\n{end}",
+            start = ATMOS_EXCLUDE_BLOCK_START,
+            paths = normalized_paths.join("\n"),
+            end = ATMOS_EXCLUDE_BLOCK_END,
+        );
+
+        if next.is_empty() {
+            next = block;
+        } else {
+            next = format!("{next}\n\n{block}");
+        }
+    }
+
+    if let Some(parent) = exclude_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            EngineError::Git(format!(
+                "Failed to create parent directory for {}: {}",
+                exclude_path.display(),
+                e
+            ))
+        })?;
+    }
+
+    let final_contents = if next.is_empty() {
+        String::new()
+    } else {
+        format!("{next}\n")
+    };
+
+    std::fs::write(&exclude_path, final_contents).map_err(|e| {
+        EngineError::Git(format!(
+            "Failed to write worktree exclude file {}: {}",
+            exclude_path.display(),
+            e
+        ))
+    })?;
+
+    Ok(())
+}
+
 /// Git engine for repository operations
 pub struct GitEngine;
 
@@ -916,6 +1019,26 @@ impl GitEngine {
         }
     }
 
+    /// Read the worktree content the same way Git would materialize the blob.
+    ///
+    /// For regular files we return the file bytes as UTF-8 text. For symlinks, Git stores the
+    /// link target path in the blob rather than the target file's content, so we must read the
+    /// symlink target itself instead of following the link.
+    fn read_worktree_blob_content(repo_path: &Path, file_path: &str) -> String {
+        let full_path = repo_path.join(file_path);
+        let Ok(metadata) = std::fs::symlink_metadata(&full_path) else {
+            return String::new();
+        };
+
+        if metadata.file_type().is_symlink() {
+            return std::fs::read_link(&full_path)
+                .map(|target| target.to_string_lossy().into_owned())
+                .unwrap_or_default();
+        }
+
+        std::fs::read_to_string(&full_path).unwrap_or_default()
+    }
+
     /// Get file diff content (old vs new)
     ///
     /// When `against_index` is true, `old_content` is read from the Git index (`git show :path`)
@@ -979,8 +1102,7 @@ impl GitEngine {
         let new_content = if status == "D" {
             String::new()
         } else {
-            let full_path = repo_path.join(file_path);
-            std::fs::read_to_string(&full_path).unwrap_or_default()
+            Self::read_worktree_blob_content(repo_path, file_path)
         };
 
         Ok(FileDiffInfo {
@@ -1526,7 +1648,7 @@ fn parse_worktree_list(output: &str) -> Vec<WorktreeInfo> {
 
 #[cfg(test)]
 mod tests {
-    use super::GitEngine;
+    use super::{sync_worktree_local_excludes, GitEngine};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::process::Command;
@@ -1902,6 +2024,69 @@ mod tests {
 
         let wt = fs::read_to_string(repo_path.join("a.txt")).expect("read worktree");
         assert!(!wt.contains("three"));
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_diff_reads_symlink_target_instead_of_following_link() {
+        use std::os::unix::fs::symlink;
+
+        let root = unique_temp_dir("symlink-diff");
+        let repo_path = root.join("repo");
+        fs::create_dir_all(&repo_path).expect("repo dir");
+        git(&repo_path, &["init"]);
+        configure_repo(&repo_path);
+        git(&repo_path, &["branch", "-m", "main"]);
+
+        write_file(&repo_path.join("AGENTS.md"), "actual target file contents\n");
+        symlink("AGENTS.md", repo_path.join("CLAUDE.md")).expect("symlink should be created");
+        git(&repo_path, &["add", "AGENTS.md", "CLAUDE.md"]);
+        git(&repo_path, &["commit", "-m", "add symlink"]);
+
+        let diff = GitEngine::new()
+            .get_file_diff(&repo_path, "CLAUDE.md", None, true)
+            .expect("file diff should be available");
+
+        assert_eq!(diff.old_content, "AGENTS.md");
+        assert_eq!(diff.new_content, "AGENTS.md");
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn worktree_local_exclude_hides_compensated_symlink_directory() {
+        use std::os::unix::fs::symlink;
+
+        let root = unique_temp_dir("worktree-exclude-symlink-dir");
+        let repo_path = root.join("repo");
+        let external_agent_dir = root.join("external-agent");
+        fs::create_dir_all(&repo_path).expect("repo dir");
+        fs::create_dir_all(&external_agent_dir).expect("external ignored dir");
+        fs::write(external_agent_dir.join("config.json"), "{}\n").expect("ignored file content");
+
+        git(&repo_path, &["init"]);
+        configure_repo(&repo_path);
+        git(&repo_path, &["branch", "-m", "main"]);
+        write_file(&repo_path.join(".gitignore"), ".agent/\n");
+        write_file(&repo_path.join("README.md"), "hello\n");
+        git(&repo_path, &["add", ".gitignore", "README.md"]);
+        git(&repo_path, &["commit", "-m", "init"]);
+
+        symlink(&external_agent_dir, repo_path.join(".agent")).expect("symlink should be created");
+        let before = git_output(&repo_path, &["status", "--porcelain", "-uall"]);
+        assert_eq!(before.trim(), "?? .agent");
+
+        sync_worktree_local_excludes(&repo_path, &[String::from(".agent")])
+            .expect("exclude sync should succeed");
+
+        let after = git_output(&repo_path, &["status", "--porcelain", "-uall"]);
+        assert!(
+            after.trim().is_empty(),
+            "symlink dir should be ignored after worktree-local exclude, got: {after}"
+        );
 
         fs::remove_dir_all(root).expect("temp repo should be removed");
     }
