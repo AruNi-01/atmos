@@ -32,7 +32,7 @@ export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
   minimap: false,
   breadcrumbs: true,
   lineHighlight: true,
-  gitIntegration: false,
+  gitIntegration: true,
   loaded: false,
   loading: false,
 
@@ -50,7 +50,7 @@ export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
         minimap: settings.editor?.minimap ?? false,
         breadcrumbs: settings.editor?.breadcrumbs ?? true,
         lineHighlight: settings.editor?.line_highlight ?? true,
-        gitIntegration: settings.editor?.git_integration ?? false,
+        gitIntegration: settings.editor?.git_integration ?? true,
         loaded: true,
         loading: false,
       });
