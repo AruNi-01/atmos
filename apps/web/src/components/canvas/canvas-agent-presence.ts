@@ -2,7 +2,7 @@
 
 /**
  * APP-015 Canvas Agent Presence — TLInstancePresence-backed registry of
- * "virtual" terminal agents driving the Canvas.
+ * virtual agents driving the Canvas.
  *
  * Implementation contract (TECH.md §9):
  *
@@ -185,7 +185,7 @@ export class CanvasAgentPresenceStore {
     const next: CanvasAgentPresence = {
       actor_id: actor.actor_id,
       user_id: agentUserIdFor(actor.actor_id),
-      name: actor.name ?? existing?.name ?? "Terminal Agent",
+      name: actor.name ?? existing?.name ?? "Agent",
       color: actor.color ?? existing?.color ?? DEFAULT_COLOR,
       last_command: command,
       last_seen_at: Date.now(),
