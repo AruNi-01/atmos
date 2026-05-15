@@ -24,19 +24,22 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Manage code review sessions, comments, and agent runs.
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
     },
+    /// Start, stop, and inspect the local Atmos API runtime.
     Local {
         #[command(subcommand)]
         command: LocalCommand,
     },
-    /// APP-015: Drive the open Atmos Canvas from a terminal agent.
+    /// Drive the open Atmos Canvas from an agent.
     Canvas {
         #[command(subcommand)]
         command: CanvasCommand,
     },
+    /// Check for or install CLI updates.
     Update(UpdateArgs),
 }
 

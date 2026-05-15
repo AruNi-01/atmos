@@ -22,8 +22,11 @@ pub async fn execute(command: LocalCommand) -> Result<Value, String> {
 
 #[derive(Debug, Subcommand)]
 pub enum LocalCommand {
+    /// Start the local API runtime.
     Start(StartArgs),
+    /// Stop the local API runtime.
     Stop(StopArgs),
+    /// Show whether the local API runtime is running.
     Status(StatusArgs),
 }
 

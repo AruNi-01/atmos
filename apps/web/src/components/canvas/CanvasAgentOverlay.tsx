@@ -240,7 +240,7 @@ export function CanvasAgentBridgeControls({
       </Button>
       {activeCount > 0 && (
         <div
-          title={`${activeCount} active terminal agent${activeCount === 1 ? "" : "s"}`}
+          title={`${activeCount} active agent${activeCount === 1 ? "" : "s"}`}
           className="flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
         >
           <Sparkles className="size-3" />

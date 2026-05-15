@@ -1,7 +1,7 @@
 ---
 name: atmos-canvas-agent
 version: "1.0.0"
-description: 'Drive the open Atmos Canvas from a terminal agent via the `atmos canvas` CLI. Use whenever the user asks the agent to sketch, draw, lay out, label, or otherwise manipulate the Atmos Canvas surface (sticky notes, frames, geo shapes, arrows, freehand strokes, layout grids, viewport changes) and the Canvas overlay is open in the browser. Operates intent-level commands (no raw tldraw store JSON, no driver primitives). Reuses the existing `atmos` CLI authentication — no separate Canvas API key.'
+description: 'Drive the open Atmos Canvas from an agent via the `atmos canvas` CLI. Use whenever the user asks the agent to sketch, draw, lay out, label, or otherwise manipulate the Atmos Canvas surface (sticky notes, frames, geo shapes, arrows, freehand strokes, layout grids, viewport changes) and the Canvas overlay is open in the browser. Operates intent-level commands (no raw tldraw store JSON, no driver primitives). Reuses the existing `atmos` CLI authentication — no separate Canvas API key.'
 license: MIT
 ---
 
@@ -63,7 +63,7 @@ Exit code is `0` on success and non-zero on failure.
 | `--api-token <token>` | Bearer token (else `ATMOS_API_TOKEN` env). Loopback API usually does not require a token. |
 | `--client-id <uuid>` | Target a specific Canvas tab when multiple are registered. Use the id printed by `status`. |
 | `--actor-id <id>` | Stable id for Agent presence within a run (used by Follow Agent). |
-| `--actor-name <name>` | Display name for the Agent presence (default `Terminal Agent`). |
+| `--actor-name <name>` | Display name for the Agent presence (default `Agent`). |
 | `--actor-color <css>` | CSS color for Agent presence indicator. |
 | `--timeout-ms <ms>` | Client-side HTTP deadline. Default 45000. |
 
@@ -190,7 +190,7 @@ When you pass `--actor-id <id>` (and optionally `--actor-name` /
 
 Best practice for sustained sessions: **always** pass `--actor-id` so the
 user gets a stable presence to follow across many commands instead of a
-new "Terminal Agent" actor per invocation. The presence record auto-evicts
+new "Agent" actor per invocation. The presence record auto-evicts
 after 60 s of inactivity.
 
 ---

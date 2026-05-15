@@ -235,16 +235,27 @@ fn read_optional_body_input(
 
 #[derive(Debug, Subcommand)]
 pub enum ReviewCommand {
+    /// List review sessions for a workspace or project.
     SessionList(SessionListArgs),
+    /// Show one review session by id.
     SessionShow(SessionShowArgs),
+    /// List comments in a review session.
     CommentList(CommentListArgs),
+    /// Fetch file context around a review comment.
     CommentContext(CommentContextArgs),
+    /// Post a reply to a review comment.
     ReplyComment(ReplyCommentArgs),
+    /// Update the status of a review comment.
     UpdateCommentStatus(UpdateCommentStatusArgs),
+    /// Create a new review comment.
     CreateComment(CreateCommentArgs),
+    /// Start a review agent run.
     CreateAgentRun(CreateAgentRunArgs),
+    /// Summarize a review agent run.
     SummarizeRun(SummarizeRunArgs),
+    /// Finalize a review agent run.
     FinalizeRun(FinalizeRunArgs),
+    /// Set the status of a review session.
     SetStatus(SetStatusArgs),
 }
 

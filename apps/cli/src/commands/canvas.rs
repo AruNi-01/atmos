@@ -1,4 +1,4 @@
-//! APP-015 `atmos canvas …` subcommands.
+//! `atmos canvas …` subcommands.
 //!
 //! Every verb (except `skill-dir`) talks to a running `apps/api` over HTTP at
 //! `POST /api/canvas/agent/invoke`. The API server then relays the call into
@@ -646,8 +646,8 @@ async fn invoke(global: GlobalArgs, command: &str, args: Value) -> Result<Value,
             let snippet = snippet.trim();
             let preview: String = if snippet.is_empty() {
                 "<empty body>".into()
-            } else if snippet.len() > 512 {
-                format!("{}…", &snippet[..512])
+            } else if snippet.chars().count() > 512 {
+                format!("{}…", snippet.chars().take(512).collect::<String>())
             } else {
                 snippet.to_string()
             };
