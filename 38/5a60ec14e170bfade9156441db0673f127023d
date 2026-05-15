@@ -1,0 +1,24 @@
+crates/core-service/src/service/workspace_gitignore_dirs.rs
+  s_24f6def97388ac::t_ff5d14d64072d5 24-26,284,351-356,382-389
+crates/core-engine/src/git/mod.rs
+  s_24f6def97388ac::t_554384bde31e63 125-227
+  s_24f6def97388ac::t_1725065f34e7eb 2052
+  s_24f6def97388ac::t_9acedfeacf7673 1022-1041,1105,2030-2051,2053
+  s_24f6def97388ac::t_eaee640c0fdeab 1651,2054-2089
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "385a60ec14e170bfade9156441db0673f127023d",
+  "prompts": {},
+  "sessions": {
+    "s_24f6def97388ac": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "39fe5b25-ec36-4703-8d55-057d37738cfe",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
