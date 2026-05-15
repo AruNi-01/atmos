@@ -12,7 +12,6 @@ import {
   Plus,
   Folder,
   Layers,
-  Frame,
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -79,6 +78,7 @@ import {
   Group,
   PanelLeftClose,
   PanelLeftOpen,
+  Presentation,
   SquareKanban,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -262,7 +262,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                 { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
                 { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
                 { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
-                { id: 'canvas', label: 'Canvas', icon: Frame, kind: 'canvas' as const },
+                { id: 'canvas', label: 'Canvas', icon: Presentation, kind: 'canvas' as const },
                 { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' as const },
                 { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' as const },
             ];

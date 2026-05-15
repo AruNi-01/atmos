@@ -1,4 +1,5 @@
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useCallback, useImperativeHandle } from "react";
+import { Presentation } from "lucide-react";
 import type { AnimatedIconHandle, AnimatedIconProps } from "./types";
 import { motion, useAnimate } from "motion/react";
 
@@ -9,16 +10,31 @@ const CanvasIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
   ) => {
     const [scope, animate] = useAnimate();
 
-    const start = async () => {
-      animate(".pencil", { x: 3, y: -3, rotate: -15 }, { duration: 0.3, ease: "easeInOut" });
-      animate(".line-1", { strokeWidth: 3 }, { duration: 0.2, ease: "easeInOut" });
-      animate(".line-2", { strokeWidth: 3 }, { duration: 0.2, ease: "easeInOut", delay: 0.1 });
-    };
+    const start = useCallback(async () => {
+      animate(
+        ".presentation-icon",
+        { y: [-0.2, -0.8, 0] },
+        { duration: 0.28, ease: "easeInOut" },
+      );
+      animate(
+        ".presentation-center-square",
+        { opacity: 1, scale: 1 },
+        { duration: 0.18, ease: "easeOut", delay: 0.04 },
+      );
+    }, [animate]);
 
-    const stop = async () => {
-      animate(".pencil", { x: 0, y: 0, rotate: 0 }, { duration: 0.2, ease: "easeInOut" });
-      animate(".line-1, .line-2", { strokeWidth: 2 }, { duration: 0.2, ease: "easeInOut" });
-    };
+    const stop = useCallback(async () => {
+      animate(
+        ".presentation-icon",
+        { y: 0 },
+        { duration: 0.2, ease: "easeInOut" },
+      );
+      animate(
+        ".presentation-center-square",
+        { opacity: 0, scale: 0.7 },
+        { duration: 0.14, ease: "easeInOut" },
+      );
+    }, [animate]);
 
     useImperativeHandle(ref, () => {
       return {
@@ -28,33 +44,31 @@ const CanvasIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     });
 
     return (
-      <motion.svg
+      <motion.span
         ref={scope}
         onHoverStart={start}
         onHoverEnd={stop}
-        xmlns="http://www.w3.org/2000/svg"
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        color={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={`cursor-pointer ${className}`}
-        initial={{ x: 0, y: 0 }}
+        className={`inline-flex items-center justify-center ${className}`}
       >
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <motion.line className="line-1" initial={{ strokeWidth: 2 }} x1="7" y1="7" x2="17" y2="7" />
-        <motion.line className="line-2" initial={{ strokeWidth: 2 }} x1="7" y1="12" x2="13" y2="12" />
-        <motion.g className="pencil" initial={{ x: 0, y: 0, rotate: 0 }}>
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-          <path d="m15 3 3 3" />
-          <path d="m18 6-5 5" />
-          <path d="m13 11-2 2" />
-        </motion.g>
-      </motion.svg>
+        <motion.span
+          className="presentation-icon relative inline-flex items-center justify-center"
+          style={{ width: size, height: size, color }}
+        >
+          <Presentation size="100%" strokeWidth={strokeWidth} color="currentColor" />
+          <span
+            className="absolute left-1/2 top-[39%] -translate-x-1/2 -translate-y-1/2"
+            style={{
+              width: "19.5%",
+              height: "19.5%",
+            }}
+          >
+            <motion.span
+              className="presentation-center-square block size-full rounded-[1px] bg-current"
+              initial={{ opacity: 0, scale: 0.7 }}
+            />
+          </span>
+        </motion.span>
+      </motion.span>
     );
   },
 );

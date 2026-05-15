@@ -51,6 +51,7 @@ export function PanelLayout({
   const [isDragging, setIsDragging] = useState(false);
   const isDividerDraggingRef = useRef(false);
   const pendingLeftSidebarSizeRef = useRef<number | null>(null);
+  const [liveLeftSidebarSize, setLiveLeftSidebarSize] = useState(leftSidebarSize);
   const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
   const [isWelcomeClosing, setIsWelcomeClosing] = useState(false);
   const showOverlay = newWorkspace || isWelcomeClosing;
@@ -139,6 +140,14 @@ export function PanelLayout({
   ]);
 
   React.useEffect(() => {
+    if (isDividerDraggingRef.current) {
+      return;
+    }
+
+    setLiveLeftSidebarSize(leftSidebarSize);
+  }, [leftSidebarSize]);
+
+  React.useEffect(() => {
     setToggleRightSidebar(() => {
       if (!showRightSidebar) return;
       if (isRightCollapsed) {
@@ -167,6 +176,7 @@ export function PanelLayout({
 
   const handleLeftPanelResize = useCallback(
     (size: number) => {
+      setLiveLeftSidebarSize(size);
       if (isDividerDraggingRef.current) {
         pendingLeftSidebarSizeRef.current = size;
         return;
@@ -189,6 +199,7 @@ export function PanelLayout({
       onResize={handleLeftPanelResize}
       onCollapse={() => {
         setIsLeftCollapsed(true);
+        setLiveLeftSidebarSize(0);
         setLeftSidebarSize(0);
       }}
       onExpand={() => setIsLeftCollapsed(false)}
@@ -234,6 +245,7 @@ export function PanelLayout({
 
         <ResizeHandle
           onDragging={handleDividerDragging}
+          hitAreaMargins={{ fine: 2, coarse: 4 }}
           className={shouldHideLeftDivider ? "bg-transparent hover:bg-transparent" : undefined}
         />
 
@@ -293,7 +305,7 @@ export function PanelLayout({
                 : "translate-y-full",
           )}
           style={{
-            left: `${leftSidebarSize}%`,
+            left: `${liveLeftSidebarSize}%`,
           }}
         >
           <WelcomePage
@@ -313,19 +325,23 @@ export function PanelLayout({
 interface ResizeHandleProps {
   onDragging: (isDragging: boolean) => void;
   className?: string;
+  hitAreaMargins?: {
+    fine: number;
+    coarse: number;
+  };
 }
 
 function ResizeHandle({
   onDragging,
   className,
+  hitAreaMargins,
 }: ResizeHandleProps) {
   return (
     <PanelResizeHandle
       onDragging={onDragging}
+      hitAreaMargins={hitAreaMargins}
       className={cn(
         "relative flex w-px items-center justify-center bg-border transition-colors duration-200 hover:bg-border/80 group touch-none",
-        // Narrow grab strip (was -left-1/-right-1 each side → easy to hit when near the divider)
-        "before:absolute before:inset-y-0 before:left-1/2 before:z-10 before:w-1 before:-translate-x-1/2",
         className
       )}
     />
