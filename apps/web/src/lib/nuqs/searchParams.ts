@@ -92,6 +92,9 @@ export const tokenUsageParams = {
 
 export type SettingsModalTab =
   | "about"
+  | "layout"
+  | "editor"
+  | "canvas"
   | "terminal"
   | "code-agent"
   | "workspace"
@@ -100,16 +103,16 @@ export type SettingsModalTab =
   | "ai"
   | "notify"
   | "remote-access"
-  | "layout"
   | "shortcuts"
-  | "editor"
-  | "canvas"
   | "experiments";
 
 export const settingsModalParams = {
   settingsModal: parseAsBoolean.withDefault(false),
   activeSettingTab: parseAsStringEnum<SettingsModalTab>([
     "about",
+    "layout",
+    "editor",
+    "canvas",
     "terminal",
     "code-agent",
     "workspace",
@@ -118,10 +121,7 @@ export const settingsModalParams = {
     "ai",
     "notify",
     "remote-access",
-    "layout",
     "shortcuts",
-    "editor",
-    "canvas",
     "experiments",
   ]).withDefault("layout"),
 };
