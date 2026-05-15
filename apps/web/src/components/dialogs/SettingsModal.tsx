@@ -49,6 +49,7 @@ import {
   MotionSidebarProvider,
 } from '@workspace/ui';
 import {
+  AlertTriangle,
   Bot,
   Building2,
   Check,
@@ -1132,7 +1133,7 @@ function GitignoreDirsCard() {
               <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-medium text-foreground">GitIgnore Directories</p>
+              <p className="text-base font-medium text-foreground">GitIgnore Directories Sync</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 When a workspace is created via <code className="font-mono text-xs">git worktree add</code>, files
                 matched by <code className="font-mono text-xs">.gitignore</code> are not carried over. Atmos can
@@ -1150,7 +1151,7 @@ function GitignoreDirsCard() {
         <div className="border-t border-border px-4">
           {/* Built-in entries */}
           <div className="px-2 py-3">
-            <p className="px-1 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="px-1 pb-2 text-xs font-medium text-muted-foreground">
               Built-in defaults
             </p>
             {!loaded ? (
@@ -1189,8 +1190,8 @@ function GitignoreDirsCard() {
 
           {/* Custom entries */}
           <div className="px-2 py-3 last:border-b-0">
-            <p className="px-1 pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Custom directories
+            <p className="px-1 pb-2 text-xs font-medium text-muted-foreground">
+              Custom directories <span className="font-normal normal-case not-italic text-muted-foreground/70">(Path is relative to the project root. <code className="font-mono text-[10px]">..</code> and absolute paths are rejected.)</span>
             </p>
             {customs.length > 0 && (
               <div className="mb-3 rounded-md border border-border">
@@ -1276,8 +1277,11 @@ function GitignoreDirsCard() {
                 Add
               </Button>
             </div>
-            <p className="mt-2 px-1 text-xs text-muted-foreground">
-              Path is relative to the project root. <code className="font-mono">..</code> and absolute paths are rejected.
+            <p className="mt-2 px-1 text-xs text-warning">
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle className="size-3" />
+                Warning: Symlinks to build artifacts may have inconsistent states across worktrees, potentially causing incorrect binaries.
+              </span>
             </p>
           </div>
         </div>
