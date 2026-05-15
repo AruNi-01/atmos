@@ -83,6 +83,8 @@ export type { SlidingNumberProps } from "./components/ui/sliding-number";
 export {
   Sidebar as MotionSidebar,
   SidebarContent as MotionSidebarContent,
+  SidebarGroup as MotionSidebarGroup,
+  SidebarGroupLabel as MotionSidebarGroupLabel,
   SidebarHeader as MotionSidebarHeader,
   SidebarMenu as MotionSidebarMenu,
   SidebarMenuButton as MotionSidebarMenuButton,
