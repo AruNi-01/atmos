@@ -1,0 +1,29 @@
+apps/web/src/components/layout/TokenUsageDialog.tsx
+  s_6ffab688d94fbf::t_2ee1d9f1745698 523-524
+apps/web/src/components/layout/sidebar/WorkspaceKanbanView.tsx
+  s_5a019ee910751c::t_46ddad0d19f08c 1095-1096
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "7e5a72c6e02de112287b1cd422e522980fc847c4",
+  "prompts": {},
+  "sessions": {
+    "s_5a019ee910751c": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtfvktjTlhvwupUowzy",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_6ffab688d94fbf": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GtfiZKb2vfPum75lNRn",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
