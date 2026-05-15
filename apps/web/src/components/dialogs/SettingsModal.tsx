@@ -1314,10 +1314,7 @@ function GitignoreDirsCard() {
               </Button>
             </div>
             <p className="mt-2 px-1 text-xs text-warning">
-              <span className="inline-flex items-center gap-1">
-                <AlertTriangle className="size-3" />
-                Warning: Symlinks to build artifacts may have inconsistent states across worktrees, potentially causing incorrect binaries.
-              </span>
+              Warning: Symlinks to build artifacts may have inconsistent states across worktrees, potentially causing incorrect binaries. Large files or directories are also not recommended for sync because they can be slow to copy and expensive to keep consistent.
             </p>
           </div>
         </div>
