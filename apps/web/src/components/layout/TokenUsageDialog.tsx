@@ -520,7 +520,8 @@ export function TokenUsageDialog({
         showCloseButton={false}
         className={cn(
           "top-1/2 left-1/2 h-[100dvh] w-[100vw] max-w-[100vw] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-none border-0 p-0 sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] sm:rounded-[28px] sm:border sm:border-border/70",
-          needsTrafficLightsPadding && "pt-[52px]"
+          needsTrafficLightsPadding &&
+            "top-[32px] h-[calc(100dvh-32px)] translate-y-0 sm:top-[32px] sm:h-[calc(100dvh-3rem)]"
         )}
       >
         <DialogHeader className="sr-only">
