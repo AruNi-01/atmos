@@ -179,6 +179,19 @@ describe("CanvasAgentPresenceStore", () => {
     expect(store.getSnapshot()).toHaveLength(0);
   });
 
+  it("getSnapshot returns a stable reference until the store mutates", () => {
+    // `useSyncExternalStore` uses Object.is on snapshots — returning a fresh
+    // array per call would cause infinite re-renders.
+    const store = new CanvasAgentPresenceStore();
+    store.touch({ actor_id: "agent-1" }, "noop");
+    const a = store.getSnapshot();
+    const b = store.getSnapshot();
+    expect(b).toBe(a);
+    store.touch({ actor_id: "agent-2" }, "noop");
+    const c = store.getSnapshot();
+    expect(c).not.toBe(a);
+  });
+
   it("setEditor(null) tears down records and cancels active follow", () => {
     const editor = makeFakeEditor();
     const store = new CanvasAgentPresenceStore();

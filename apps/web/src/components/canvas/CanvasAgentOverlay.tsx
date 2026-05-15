@@ -97,26 +97,30 @@ function AgentBadge({
   onToggleFollow: () => void;
   onJump: () => void;
 }) {
-  // Re-render on camera tick by reading viewport/screen bounds inside render
-  // (tldraw notifies React via its store).
-  const screenPos = React.useMemo(() => {
+  // The overlay container is `absolute inset-0` inside <Tldraw>, so child
+  // `left/top` are interpreted in tldraw's container-local frame. tldraw's
+  // `pageToScreen` returns *document-space* coords (it adds the editor's
+  // `screenBounds.{x,y}`), which would over-shift the badge by the editor
+  // container's offset within the page. Use `pageToViewport` instead — it
+  // converts page coords directly into the editor's container-local frame.
+  const containerPos = React.useMemo(() => {
     if (!agent.last_bounds) return null;
     const { x, y } = agent.last_bounds;
     try {
-      const point = editor.pageToScreen({ x, y });
+      const point = editor.pageToViewport({ x, y });
       return point;
     } catch {
       return null;
     }
   }, [agent.last_bounds, editor]);
 
-  if (!screenPos) {
+  if (!containerPos) {
     return null;
   }
 
   return (
     <div
-      style={{ left: screenPos.x, top: screenPos.y - 28 }}
+      style={{ left: containerPos.x, top: containerPos.y - 28 }}
       className={cn(
         "pointer-events-auto absolute flex items-center gap-1 rounded-full px-2 py-0.5",
         "border border-border bg-background/95 shadow-md backdrop-blur",
@@ -136,6 +140,7 @@ function AgentBadge({
       <button
         type="button"
         title="Jump to agent (zoomToUser)"
+        aria-label="Jump to agent"
         onClick={onJump}
         className={cn(
           "ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-muted-foreground",
@@ -147,6 +152,7 @@ function AgentBadge({
       <button
         type="button"
         title={isFollowed ? "Stop following agent" : "Follow agent"}
+        aria-label={isFollowed ? "Stop following agent" : "Follow agent"}
         onClick={onToggleFollow}
         className={cn(
           "inline-flex size-5 items-center justify-center rounded-full text-muted-foreground",
@@ -219,7 +225,7 @@ export function CanvasAgentBridgeControls({
         <Bot
           className={cn(
             "size-3.5 transition-colors",
-            bridge.acceptsCommands ? "text-emerald-500" : "text-muted-foreground",
+            bridge.acceptsCommands ? "text-foreground" : "text-muted-foreground",
           )}
         />
       </Button>

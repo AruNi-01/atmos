@@ -631,10 +631,34 @@ async fn invoke(global: GlobalArgs, command: &str, args: Value) -> Result<Value,
         .map_err(|err| format!("invoke request failed: {}", err))?;
 
     let status = resp.status();
-    let body: InvokeResponse = resp
-        .json()
+    let raw = resp
+        .bytes()
         .await
-        .map_err(|err| format!("failed to parse invoke response: {}", err))?;
+        .map_err(|err| format!("invoke request failed reading body: {}", err))?;
+
+    // Try the structured envelope first; on parse failure, surface the raw
+    // HTTP status + body so the user can diagnose proxy/auth/HTML-error pages
+    // instead of seeing a misleading "failed to parse" message.
+    let body: InvokeResponse = match serde_json::from_slice(&raw) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            let snippet = String::from_utf8_lossy(&raw);
+            let snippet = snippet.trim();
+            let preview: String = if snippet.is_empty() {
+                "<empty body>".into()
+            } else if snippet.len() > 512 {
+                format!("{}…", &snippet[..512])
+            } else {
+                snippet.to_string()
+            };
+            return Err(format!(
+                "invoke returned non-JSON response (HTTP {}): {} (parse error: {})",
+                status.as_u16(),
+                preview,
+                err
+            ));
+        }
+    };
 
     if body.ok {
         Ok(json!({

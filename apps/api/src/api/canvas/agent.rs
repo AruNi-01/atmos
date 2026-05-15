@@ -174,7 +174,7 @@ pub async fn invoke(
                 &request_id,
                 StatusCode::NOT_FOUND,
                 CanvasAgentInvokeError::new(
-                    "CANVAS_BRIDGE_OFFLINE",
+                    "CANVAS_CLIENT_NOT_FOUND",
                     "No registered Canvas tab matches the supplied client_id.",
                     true,
                 ),
@@ -197,7 +197,20 @@ pub async fn invoke(
     };
 
     let timeout = core_service::CanvasAgentRelay::clamp_timeout(timeout_ms);
-    let rx = relay.begin_pending(&request_id);
+    let rx = match relay.begin_pending(&request_id, &conn_id) {
+        Ok(rx) => rx,
+        Err(_) => {
+            return error_resp(
+                &request_id,
+                StatusCode::CONFLICT,
+                CanvasAgentInvokeError::new(
+                    "VALIDATION_ARG",
+                    "request_id is already in flight; mint a fresh id and retry",
+                    false,
+                ),
+            );
+        }
+    };
 
     let dispatch_payload = json!({
         "request_id": request_id,

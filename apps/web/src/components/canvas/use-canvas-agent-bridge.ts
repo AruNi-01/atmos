@@ -120,9 +120,17 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     };
   }, [clientId, acceptsCommands, isConnected]);
 
+  // Track current connection state so the unmount-only cleanup below can
+  // skip the unregister call when the socket isn't open — otherwise calling
+  // `unregister` would trigger `wsRequest`'s auto-reconnect during teardown.
+  const isConnectedRef = React.useRef(isConnected);
+  React.useEffect(() => {
+    isConnectedRef.current = isConnected;
+  }, [isConnected]);
+
   React.useEffect(() => {
     return () => {
-      // Best-effort cleanup; ignore if socket is already closed.
+      if (!isConnectedRef.current) return;
       canvasAgentBridgeWsApi.unregister(clientId).catch(() => {});
     };
   }, [clientId]);

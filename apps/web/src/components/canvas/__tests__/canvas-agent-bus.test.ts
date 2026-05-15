@@ -180,6 +180,21 @@ describe("CanvasAgentBus", () => {
     if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
   });
 
+  it("delete rejects truthy non-boolean confirm values", async () => {
+    // confirm must be the literal `true` — strings/numbers/etc. that happen
+    // to be truthy should not authorise a destructive delete.
+    const { bus, editor } = busFromEditor();
+    editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { w: 100, h: 100 } });
+    for (const value of ["yes", "true", 1, {}]) {
+      const res = await bus.handleDispatch(
+        call("delete", { ids: ["a"], confirm: value }),
+      );
+      expect(res.success).toBe(false);
+      if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
+      expect(editor.shapes.has("a")).toBe(true);
+    }
+  });
+
   it("delete with confirm removes the shape", async () => {
     const { bus, editor } = busFromEditor();
     editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { w: 100, h: 100 } });
@@ -210,6 +225,60 @@ describe("CanvasAgentBus", () => {
     const shape = editor.shapes.get("a");
     expect(shape?.x).toBe(33);
     expect(shape?.props.color).toBe("red");
+  });
+
+  it("update_shape rejects non-finite x/y", async () => {
+    // `Number("abc")` silently produces NaN — `requireNumber` must catch it
+    // before it lands in `updateShapes`.
+    const { bus, editor } = busFromEditor();
+    editor.createShape({ id: "a", type: "note", x: 10, y: 10, props: { w: 100, h: 100 } });
+    for (const value of ["abc", NaN, Infinity, -Infinity]) {
+      const res = await bus.handleDispatch(
+        call("update_shape", { id: "a", patch: { x: value } }),
+      );
+      expect(res.success).toBe(false);
+      if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
+      expect(editor.shapes.get("a")?.x).toBe(10);
+    }
+  });
+
+  it("get_state rejects a registered-but-non-current page", async () => {
+    // Existing pages other than the current one cause `getCurrentPage*` reads
+    // to disagree with the requested page — guard with VALIDATION_ARG so the
+    // caller can't act on an inconsistent snapshot.
+    const editor = makeFakeEditor();
+    editor.getPages = () => [
+      { id: "page:main", name: "Main" },
+      { id: "page:other", name: "Other" },
+    ];
+    const bus = new CanvasAgentBus({
+      isBridgeAccepting: true,
+      log: mock(() => {}),
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bus.setEditor(editor as any);
+    const res = await bus.handleDispatch(
+      call("get_state", { page_id: "page:other" }),
+    );
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
+  });
+
+  it("viewport with center_ids zooms to the requested shapes' union bounds", async () => {
+    const { bus, editor } = busFromEditor();
+    const seen: Array<{ x: number; y: number; w: number; h: number }> = [];
+    // Spy on zoomToBounds so we can assert the bus computes the union.
+    editor.zoomToBounds = (bounds: unknown) => {
+      const b = bounds as Record<string, number>;
+      seen.push({ x: b.x, y: b.y, w: b.w, h: b.h });
+    };
+    editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { w: 100, h: 100 } });
+    editor.createShape({ id: "b", type: "note", x: 200, y: 50, props: { w: 100, h: 100 } });
+    const res = await bus.handleDispatch(
+      call("viewport", { center_ids: ["a", "b"], zoom: 1.5 }),
+    );
+    expect(res.success).toBe(true);
+    expect(seen).toEqual([{ x: 0, y: 0, w: 300, h: 150 }]);
   });
 
   it("move shifts shape by dx/dy", async () => {

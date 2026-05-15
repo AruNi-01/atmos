@@ -10,7 +10,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
-use crate::service::canvas_agent_relay::{CanvasAgentDispatchOutcome, CanvasAgentRelay};
+use crate::service::canvas_agent_relay::{
+    CanvasAgentDispatchOutcome, CanvasAgentRelay, CompleteDispatchResult,
+};
 use crate::{CanvasService, SaveCanvasBoardReq};
 use agent::{AgentId, CustomAgent};
 use ai_usage::UsageService;
@@ -654,7 +656,7 @@ impl WsMessageService {
                 self.handle_canvas_bridge_unregister(conn_id, parse_request(request.data)?)
             }
             WsAction::CanvasAgentDispatchResult => {
-                self.handle_canvas_agent_dispatch_result(parse_request(request.data)?)
+                self.handle_canvas_agent_dispatch_result(conn_id, parse_request(request.data)?)
             }
 
             // Git
@@ -1493,6 +1495,7 @@ impl WsMessageService {
 
     fn handle_canvas_agent_dispatch_result(
         &self,
+        conn_id: &str,
         req: CanvasAgentDispatchResultRequest,
     ) -> Result<Value> {
         let outcome = CanvasAgentDispatchOutcome {
@@ -1502,14 +1505,32 @@ impl WsMessageService {
             recoverable: req.recoverable,
             data: req.data,
         };
-        let completed = self
+        let result = self
             .canvas_agent_relay
-            .complete_dispatch(&req.request_id, outcome);
-        Ok(json!({
-            "ok": true,
-            "completed": completed,
-            "request_id": req.request_id,
-        }))
+            .complete_dispatch(&req.request_id, conn_id, outcome);
+        match result {
+            CompleteDispatchResult::Completed => Ok(json!({
+                "ok": true,
+                "completed": true,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::Unknown => Ok(json!({
+                "ok": true,
+                "completed": false,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::ConnMismatch => {
+                tracing::warn!(
+                    "canvas_agent: rejected dispatch_result for {} from foreign conn {}",
+                    req.request_id,
+                    conn_id
+                );
+                Err(ServiceError::Validation(format!(
+                    "canvas_agent: request_id {} is owned by another connection",
+                    req.request_id
+                )))
+            }
+        }
     }
 
     fn handle_app_open(&self, req: AppOpenRequest) -> Result<Value> {

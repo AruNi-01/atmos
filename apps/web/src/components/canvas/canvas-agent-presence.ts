@@ -63,6 +63,12 @@ export class CanvasAgentPresenceStore {
   private listeners = new Set<() => void>();
   private gcTimer: ReturnType<typeof setInterval> | null = null;
   private editor: Editor | null = null;
+  // `useSyncExternalStore` uses Object.is to detect snapshot changes — return
+  // a freshly-allocated array on every call and React will loop forever.
+  // Cache the sorted view and invalidate it inside `emit()` (every mutation
+  // goes through `emit()`).
+  private cachedSnapshot: readonly CanvasAgentPresence[] = Object.freeze([]);
+  private snapshotDirty = true;
 
   start() {
     if (this.gcTimer) return;
@@ -111,9 +117,15 @@ export class CanvasAgentPresenceStore {
   };
 
   getSnapshot = (): readonly CanvasAgentPresence[] => {
-    return Array.from(this.agents.values()).sort(
-      (a, b) => b.last_seen_at - a.last_seen_at,
-    );
+    if (this.snapshotDirty) {
+      this.cachedSnapshot = Object.freeze(
+        Array.from(this.agents.values()).sort(
+          (a, b) => b.last_seen_at - a.last_seen_at,
+        ),
+      );
+      this.snapshotDirty = false;
+    }
+    return this.cachedSnapshot;
   };
 
   getFollowedActor = (): string | null => {
@@ -321,6 +333,7 @@ export class CanvasAgentPresenceStore {
   }
 
   private emit() {
+    this.snapshotDirty = true;
     for (const listener of this.listeners) listener();
   }
 }

@@ -141,24 +141,24 @@ export class CanvasAgentBus {
       }
     }
 
-    // `status` and `get_state` are always available — diagnostics must work
-    // even while the bridge is disabled.
-    if (command === "status") {
-      return ok(this.runStatus(editor));
-    }
-    if (command === "get_state" || command === "get-state") {
-      return ok(this.runGetState(editor, input.args ?? {}));
-    }
-
-    if (!this.bridgeAccepting) {
-      return fail(
-        "BRIDGE_DISABLED",
-        "User has disabled 'Allow terminal/CLI control' for this Canvas tab.",
-        true,
-      );
-    }
-
     try {
+      // `status` and `get_state` are always available — diagnostics must work
+      // even while the bridge is disabled.
+      if (command === "status") {
+        return ok(this.runStatus(editor));
+      }
+      if (command === "get_state" || command === "get-state") {
+        return ok(this.runGetState(editor, input.args ?? {}));
+      }
+
+      if (!this.bridgeAccepting) {
+        return fail(
+          "BRIDGE_DISABLED",
+          "User has disabled 'Allow terminal/CLI control' for this Canvas tab.",
+          true,
+        );
+      }
+
       switch (command) {
         case "create_note":
         case "create-note":
@@ -232,7 +232,8 @@ export class CanvasAgentBus {
 
   private runGetState(editor: Editor, args: Record<string, unknown>) {
     const requestedPage = optionalString(args.page_id);
-    const pageId = (requestedPage ?? editor.getCurrentPageId()) as ReturnType<
+    const currentPageId = editor.getCurrentPageId();
+    const pageId = (requestedPage ?? currentPageId) as ReturnType<
       Editor["getCurrentPageId"]
     >;
     if (requestedPage && !editor.getPages().some((p) => p.id === pageId)) {
@@ -240,6 +241,18 @@ export class CanvasAgentBus {
         "STALE_SHAPE_ID",
         `Page ${requestedPage} does not exist`,
         true,
+      );
+    }
+    // The downstream reads (`getCurrentPageShapes` / `getCamera` /
+    // `getViewportPageBounds` / `getSelectedShapeIds`) always operate on the
+    // active page. Returning them under a different `page_id` would produce
+    // an internally inconsistent snapshot, so reject non-current pages until
+    // per-page reads are wired up.
+    if (requestedPage && pageId !== currentPageId) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        `get_state for a non-current page is not supported yet (requested ${requestedPage}, current ${currentPageId})`,
+        false,
       );
     }
     const shapes = (editor.getCurrentPageShapesSorted?.() ??
@@ -421,7 +434,9 @@ export class CanvasAgentBus {
 
   private runDelete(editor: Editor, args: Record<string, unknown>) {
     const ids = requireIds(args.ids);
-    if (!args.confirm) {
+    // Must be the literal boolean `true` — a truthy check would let
+    // accidental string/number values silently authorise destructive deletes.
+    if (args.confirm !== true) {
       throw new CanvasAgentError(
         "VALIDATION_ARG",
         "delete requires { confirm: true }",
@@ -556,7 +571,9 @@ export class CanvasAgentBus {
         );
       }
       if (key === "x" || key === "y") {
-        (next as Record<string, unknown>)[key] = Number(value);
+        // Validate via the shared finite-number helper instead of `Number()`
+        // which would happily pass NaN/Infinity into `updateShapes`.
+        (next as Record<string, unknown>)[key] = requireNumber(value, key);
       } else {
         propsPatch[key] = value;
       }
@@ -575,11 +592,17 @@ export class CanvasAgentBus {
     if (Array.isArray(centerIds) && centerIds.length) {
       const ids = centerIds.map((v) => String(v));
       this.requireExistingShapes(editor, ids);
-      editor.zoomToBounds(
-        editor.getSelectionPageBounds() ?? editor.getViewportPageBounds(),
-        { targetZoom: optionalNumber(args.zoom) ?? undefined, animation: { duration: 200 } },
-      );
-      editor.zoomToFit({ animation: { duration: 200 } });
+      // Compute the union of the requested shapes' page bounds so the camera
+      // actually frames *those* shapes — the previous implementation used
+      // `getSelectionPageBounds()` (which ignores the requested ids) and then
+      // immediately overrode it with `zoomToFit`, defeating the request.
+      const bounds = unionShapePageBounds(editor, ids);
+      if (bounds) {
+        editor.zoomToBounds(bounds, {
+          targetZoom: optionalNumber(args.zoom) ?? undefined,
+          animation: { duration: 200 },
+        });
+      }
     } else {
       const zoom = optionalNumber(args.zoom);
       const panX = optionalNumber(args.pan_x);
@@ -719,6 +742,28 @@ function requireIds(value: unknown): string[] {
     }
     return id;
   });
+}
+
+function unionShapePageBounds(
+  editor: Editor,
+  ids: readonly string[],
+): { x: number; y: number; w: number; h: number } | null {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let any = false;
+  for (const id of ids) {
+    const b = editor.getShapePageBounds(id as TLShapeId);
+    if (!b) continue;
+    any = true;
+    if (b.minX < minX) minX = b.minX;
+    if (b.minY < minY) minY = b.minY;
+    if (b.maxX > maxX) maxX = b.maxX;
+    if (b.maxY > maxY) maxY = b.maxY;
+  }
+  if (!any) return null;
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
 function readNumberProp(props: Record<string, unknown>, key: string): number | undefined {

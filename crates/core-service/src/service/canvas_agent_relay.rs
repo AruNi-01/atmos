@@ -80,11 +80,52 @@ pub enum ResolveTarget {
     NotAccepting { client_id: String },
 }
 
+/// Returned by [`CanvasAgentRelay::begin_pending`] when a waiter already
+/// exists for the same `request_id`. The handler should surface this back to
+/// the caller (typically as a 409) rather than silently overwriting.
+#[derive(Debug, Clone)]
+pub struct DuplicateRequestError {
+    pub request_id: String,
+}
+
+impl std::fmt::Display for DuplicateRequestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "duplicate canvas-agent request_id '{}' already in flight",
+            self.request_id
+        )
+    }
+}
+
+impl std::error::Error for DuplicateRequestError {}
+
+/// Outcome of [`CanvasAgentRelay::complete_dispatch`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompleteDispatchResult {
+    /// Pending waiter found and signalled.
+    Completed,
+    /// No waiter — the result arrived after timeout or was a duplicate.
+    Unknown,
+    /// A waiter exists for `request_id` but it belongs to a different
+    /// `conn_id`. The result was rejected; the original waiter is preserved.
+    ConnMismatch,
+}
+
+struct PendingEntry {
+    /// Connection that received the dispatch. Only this connection is allowed
+    /// to complete the request — without this guard, another (possibly
+    /// hostile or simply stale) tab could uplink a `dispatch_result` with the
+    /// matching `request_id` and feed an arbitrary payload back to the CLI.
+    conn_id: String,
+    tx: oneshot::Sender<CanvasAgentDispatchOutcome>,
+}
+
 /// Shared, sendable handle to the relay.
 #[derive(Default)]
 pub struct CanvasAgentRelay {
     bridge: Mutex<Vec<BridgeEntry>>,
-    pending: Mutex<HashMap<String, oneshot::Sender<CanvasAgentDispatchOutcome>>>,
+    pending: Mutex<HashMap<String, PendingEntry>>,
 }
 
 impl CanvasAgentRelay {
@@ -106,8 +147,12 @@ impl CanvasAgentRelay {
         let conn_id = conn_id.into();
         let client_id = client_id.into();
         let mut bridge = self.bridge.lock().unwrap();
-        // Replace any pre-existing entry on the same conn_id + client_id pair.
-        bridge.retain(|entry| !(entry.conn_id == conn_id && entry.client_id == client_id));
+        // `client_id` is globally unique within the registry: drop any prior
+        // entry with the same `client_id` regardless of the (possibly stale)
+        // `conn_id` it was associated with. Otherwise a browser reconnect on
+        // a new WS conn would leave a ghost entry that `resolve_target` could
+        // pick first and dispatch to a dead connection.
+        bridge.retain(|entry| entry.client_id != client_id);
         bridge.push(BridgeEntry {
             conn_id,
             client_id,
@@ -217,14 +262,30 @@ impl CanvasAgentRelay {
     /// Register a pending dispatch and return the receiver the HTTP handler
     /// must await.
     ///
-    /// If a waiter already exists for `request_id` it is replaced (and the
-    /// previous waiter never resolves — its caller will time out).
-    pub fn begin_pending(&self, request_id: impl Into<String>) -> oneshot::Receiver<CanvasAgentDispatchOutcome> {
-        let (tx, rx) = oneshot::channel();
+    /// Duplicate `request_id`s are rejected: silently overwriting would drop
+    /// the original waiter and let two concurrent CLI invocations race for the
+    /// same browser response. Callers should treat this as a client bug and
+    /// surface it back to the caller (CLIs mint a fresh UUID per invoke, so a
+    /// duplicate almost certainly means a retry against an in-flight request).
+    pub fn begin_pending(
+        &self,
+        request_id: impl Into<String>,
+        conn_id: impl Into<String>,
+    ) -> Result<oneshot::Receiver<CanvasAgentDispatchOutcome>, DuplicateRequestError> {
         let request_id = request_id.into();
         let mut pending = self.pending.lock().unwrap();
-        pending.insert(request_id, tx);
-        rx
+        if pending.contains_key(&request_id) {
+            return Err(DuplicateRequestError { request_id });
+        }
+        let (tx, rx) = oneshot::channel();
+        pending.insert(
+            request_id,
+            PendingEntry {
+                conn_id: conn_id.into(),
+                tx,
+            },
+        );
+        Ok(rx)
     }
 
     /// Drop a pending waiter without firing it (called from the HTTP handler
@@ -236,17 +297,29 @@ impl CanvasAgentRelay {
 
     /// Browser uplink: complete a pending waiter.
     ///
-    /// Returns `true` when a waiter was found, `false` when the result arrived
-    /// after timeout / was a duplicate.
-    pub fn complete_dispatch(&self, request_id: &str, outcome: CanvasAgentDispatchOutcome) -> bool {
+    /// `conn_id` is the WS connection that delivered the result; it must
+    /// match the connection that originally received the dispatch, otherwise
+    /// the call is rejected (returns [`CompleteDispatchResult::ConnMismatch`])
+    /// without disturbing the pending waiter. This prevents one tab from
+    /// completing another tab's request.
+    pub fn complete_dispatch(
+        &self,
+        request_id: &str,
+        conn_id: &str,
+        outcome: CanvasAgentDispatchOutcome,
+    ) -> CompleteDispatchResult {
         let mut pending = self.pending.lock().unwrap();
-        if let Some(tx) = pending.remove(request_id) {
-            // The receiver may have already been dropped (CLI timed out
-            // before browser answered). Ignore the SendError in that case.
-            let _ = tx.send(outcome);
-            true
-        } else {
-            false
+        match pending.get(request_id) {
+            Some(entry) if entry.conn_id != conn_id => CompleteDispatchResult::ConnMismatch,
+            Some(_) => {
+                // Safe because we just checked the key exists.
+                let entry = pending.remove(request_id).unwrap();
+                // The receiver may have already been dropped (CLI timed out
+                // before browser answered). Ignore the SendError in that case.
+                let _ = entry.tx.send(outcome);
+                CompleteDispatchResult::Completed
+            }
+            None => CompleteDispatchResult::Unknown,
         }
     }
 
@@ -335,26 +408,33 @@ mod tests {
     #[tokio::test]
     async fn pending_round_trip_completes() {
         let relay = CanvasAgentRelay::new();
-        let rx = relay.begin_pending("req-1");
-        assert!(relay.complete_dispatch(
-            "req-1",
-            CanvasAgentDispatchOutcome {
-                success: true,
-                error_code: None,
-                error_message: None,
-                recoverable: None,
-                data: serde_json::Value::Null,
-            },
-        ));
+        let rx = relay
+            .begin_pending("req-1", "conn-1")
+            .expect("first begin_pending");
+        assert_eq!(
+            relay.complete_dispatch(
+                "req-1",
+                "conn-1",
+                CanvasAgentDispatchOutcome {
+                    success: true,
+                    error_code: None,
+                    error_message: None,
+                    recoverable: None,
+                    data: serde_json::Value::Null,
+                },
+            ),
+            CompleteDispatchResult::Completed
+        );
         let outcome = rx.await.expect("oneshot must succeed");
         assert!(outcome.success);
     }
 
     #[test]
-    fn complete_dispatch_without_pending_returns_false() {
+    fn complete_dispatch_without_pending_returns_unknown() {
         let relay = CanvasAgentRelay::new();
         let res = relay.complete_dispatch(
             "missing",
+            "conn-x",
             CanvasAgentDispatchOutcome {
                 success: true,
                 error_code: None,
@@ -363,7 +443,45 @@ mod tests {
                 data: serde_json::Value::Null,
             },
         );
-        assert!(!res);
+        assert_eq!(res, CompleteDispatchResult::Unknown);
+    }
+
+    #[tokio::test]
+    async fn complete_dispatch_rejects_mismatched_conn_id() {
+        let relay = CanvasAgentRelay::new();
+        let rx = relay
+            .begin_pending("req-cross", "conn-owner")
+            .expect("begin_pending");
+        let res = relay.complete_dispatch(
+            "req-cross",
+            "conn-attacker",
+            CanvasAgentDispatchOutcome {
+                success: true,
+                error_code: None,
+                error_message: None,
+                recoverable: None,
+                data: serde_json::json!({"poison": true}),
+            },
+        );
+        assert_eq!(res, CompleteDispatchResult::ConnMismatch);
+        // Original waiter must still be live and resolvable by the right conn.
+        assert_eq!(
+            relay.complete_dispatch(
+                "req-cross",
+                "conn-owner",
+                CanvasAgentDispatchOutcome {
+                    success: true,
+                    error_code: None,
+                    error_message: None,
+                    recoverable: None,
+                    data: serde_json::Value::Null,
+                },
+            ),
+            CompleteDispatchResult::Completed
+        );
+        let outcome = rx.await.expect("oneshot");
+        assert!(outcome.success);
+        assert_eq!(outcome.data, serde_json::Value::Null);
     }
 
     #[test]
@@ -380,6 +498,34 @@ mod tests {
             CanvasAgentRelay::clamp_timeout(Some(MAX_RELAY_TIMEOUT_MS * 10)),
             Duration::from_millis(MAX_RELAY_TIMEOUT_MS)
         );
+    }
+
+    #[test]
+    fn register_dedupes_by_client_id_across_conn_ids() {
+        // A browser tab that reconnects gets a new conn_id but the same
+        // client_id; resolve_target(Some(client_id)) must route to the live
+        // connection, never the stale one.
+        let relay = CanvasAgentRelay::new();
+        relay.register("conn-old", "client-a", None, true, vec![]);
+        relay.register("conn-new", "client-a", None, true, vec![]);
+        let status = relay.status();
+        assert_eq!(status.bridge_registered_count, 1);
+        match relay.resolve_target(Some("client-a")) {
+            ResolveTarget::Single { conn_id, .. } => assert_eq!(conn_id, "conn-new"),
+            other => panic!("expected Single on live conn, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn begin_pending_rejects_duplicate_request_id() {
+        let relay = CanvasAgentRelay::new();
+        let _rx = relay
+            .begin_pending("req-x", "conn-1")
+            .expect("first call must succeed");
+        let err = relay
+            .begin_pending("req-x", "conn-1")
+            .expect_err("duplicate must be rejected");
+        assert_eq!(err.request_id, "req-x");
     }
 
     #[test]
