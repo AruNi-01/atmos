@@ -1,0 +1,21 @@
+apps/web/src/components/providers/websocket-provider.tsx
+  s_24f6def97388ac::t_756dafb1ca4879 9-13,68,72
+apps/web/src/hooks/use-project-store.ts
+  s_24f6def97388ac::t_fd20f9b520a248 1363-1392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "cde9d133c960ecbb2538aafc69e821e8ef61a9b9",
+  "prompts": {},
+  "sessions": {
+    "s_24f6def97388ac": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "39fe5b25-ec36-4703-8d55-057d37738cfe",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
