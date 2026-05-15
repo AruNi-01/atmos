@@ -1,0 +1,19 @@
+apps/web/src/components/welcome/WelcomePage.tsx
+  s_350ae2edc84263::t_253b8a4c11e25d 1854
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "7857080813eafc42acc5adf3f10fe93209c7931b",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
