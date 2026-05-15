@@ -1,0 +1,19 @@
+specs/README.md
+  s_624ee8af271b1c::t_81f57603fd818f 77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "b36cbe23aec4168e8afa1a5a69d11c01e1454f6c",
+  "prompts": {},
+  "sessions": {
+    "s_624ee8af271b1c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "718ce704-0b8c-443c-9354-7e061f6180a3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
