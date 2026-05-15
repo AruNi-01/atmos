@@ -1,0 +1,20 @@
+apps/web/src/hooks/use-editor-settings.ts
+  s_350ae2edc84263::t_00d8b929c7e68f 53
+  s_350ae2edc84263::t_5925811dbb2b50 35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "b00dd1d26560b1072756743ee52ca3392e11634e",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
