@@ -1,0 +1,25 @@
+apps/web/src/components/dialogs/SettingsModal.tsx
+  s_350ae2edc84263::t_334a430f55609c 52
+  s_350ae2edc84263::t_fbfdaca999c680 1194
+  s_350ae2edc84263::t_05e0235575c45e 1281-1284
+  s_350ae2edc84263::t_d0d76a88a6078f 1193
+  s_350ae2edc84263::t_aabd48945ac1b4 1154
+  s_350ae2edc84263::t_e852b7ed0c7946 1280
+  s_350ae2edc84263::t_e4389b92f80c21 1136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "13505e4867252c8da7a47e8fdecdcf80160dcd1c",
+  "prompts": {},
+  "sessions": {
+    "s_350ae2edc84263": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
