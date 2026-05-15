@@ -153,6 +153,48 @@ Adjusts the camera without keyboard/pointer synthesis. Read-only operation that 
 
 ---
 
+## Persistence model (what the agent persists vs. ephemeral)
+
+Atmos Canvas already persists its document server-side via the existing
+APP-014 save path (`getSnapshot(editor.store).document` → `canvasWsApi
+.updateDefaultBoard`). Agent commands mutate the **same live tldraw
+`Editor`** (`createShape` / `updateShapes` / `deleteShapes`), so:
+
+- ✅ Every accepted **create / update / delete / layout / move** writes
+  through `editor.store` and is picked up by the next autosave tick.
+- ✅ Manual save (`Cmd/Ctrl+S`) immediately flushes whatever the agent
+  just produced.
+- ⚠️ tldraw's built-in **`persistenceKey`** IndexedDB sync is intentionally
+  not used — Atmos persists the canvas server-side per workspace, not
+  per browser. Agents should not rely on the document still being on
+  disk after the tab closes; the server is the source of truth.
+- ⚠️ The Agent presence record itself is **ephemeral** (presence scope,
+  not document scope). It exists only while the Canvas tab is open and
+  is not saved with the board, by design.
+
+---
+
+## Follow Agent (M20)
+
+When you pass `--actor-id <id>` (and optionally `--actor-name` /
+`--actor-color`), each accepted command writes a virtual
+`TLInstancePresence` record into the target tab's `editor.store` with
+`userId = "agent:<actor-id>"`. The user can then:
+
+- **Follow Agent** — Canvas calls `editor.startFollowingUser("agent:<id>")`.
+  The follower viewport pans/zooms to whatever bounds the agent most
+  recently touched. Manual pan/zoom cancels following (tldraw default).
+- **Jump to Agent** — Canvas calls `editor.zoomToUser("agent:<id>")` so
+  the user lands on the agent's last command bounds without entering
+  follow mode.
+
+Best practice for sustained sessions: **always** pass `--actor-id` so the
+user gets a stable presence to follow across many commands instead of a
+new "Terminal Agent" actor per invocation. The presence record auto-evicts
+after 60 s of inactivity.
+
+---
+
 ## Recommended diagnostic workflow
 
 ```bash

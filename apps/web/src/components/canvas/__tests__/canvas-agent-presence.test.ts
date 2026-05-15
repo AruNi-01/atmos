@@ -1,12 +1,32 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 
-import { CanvasAgentPresenceStore } from "../canvas-agent-presence";
+import { agentUserIdFor, CanvasAgentPresenceStore } from "../canvas-agent-presence";
 
+/**
+ * Minimal fake editor that satisfies the methods the presence store touches.
+ * We expose `_records` as a Map so tests can assert that the right
+ * TLInstancePresence records were written into the store.
+ *
+ * Note: we cannot easily exercise the real `InstancePresenceRecordType.create`
+ * shape here because tldraw refuses to construct it without a real schema. The
+ * tests therefore wrap `editor.store.put` and just verify the high-level
+ * intent (write happens, remove happens, follow APIs get called with the
+ * right user id). End-to-end correctness of the record body is exercised in
+ * the integrated browser tests (TEST.md → Follow Agent scenario).
+ */
 function makeFakeEditor() {
   const shapes = new Map<string, { id: string; w: number; h: number; x: number; y: number }>();
+  const records = new Map<string, unknown>();
+  const calls = {
+    startFollowingUser: mock((userId: string) => userId),
+    stopFollowingUser: mock(() => undefined),
+    zoomToUser: mock((userId: string) => userId),
+  };
+  let followingUserId: string | null = null;
   return {
-    shapes,
+    _records: records,
+    _calls: calls,
     addShape(id: string, x: number, y: number, w: number, h: number) {
       shapes.set(id, { id, x, y, w, h });
     },
@@ -24,6 +44,37 @@ function makeFakeEditor() {
       };
     },
     getCamera: () => ({ x: 0, y: 0, z: 1 }),
+    getCurrentPageId: () => "page:main",
+    getViewportScreenBounds: () => ({ x: 0, y: 0, w: 1000, h: 800 }),
+    getViewportPageBounds: () => ({
+      minX: -500,
+      minY: -400,
+      maxX: 500,
+      maxY: 400,
+      width: 1000,
+      height: 800,
+      center: { x: 0, y: 0 },
+    }),
+    getInstanceState: () => ({ followingUserId }),
+    startFollowingUser: (userId: string) => {
+      followingUserId = userId;
+      calls.startFollowingUser(userId);
+    },
+    stopFollowingUser: () => {
+      followingUserId = null;
+      calls.stopFollowingUser();
+    },
+    zoomToUser: (userId: string) => {
+      calls.zoomToUser(userId);
+    },
+    store: {
+      put: (rs: Array<{ id: string }>) => {
+        for (const r of rs) records.set(r.id, r);
+      },
+      remove: (ids: string[]) => {
+        for (const id of ids) records.delete(id);
+      },
+    },
   };
 }
 
@@ -35,6 +86,11 @@ describe("CanvasAgentPresenceStore", () => {
     expect(snapshot).toHaveLength(1);
     expect(snapshot[0].name).toBe("Codex");
     expect(snapshot[0].last_command).toBe("create_note");
+    expect(snapshot[0].user_id).toBe("agent:agent-1");
+  });
+
+  it("agentUserIdFor produces the documented 'agent:<id>' user id", () => {
+    expect(agentUserIdFor("codex-42")).toBe("agent:codex-42");
   });
 
   it("recordResult computes aggregate bounds across multiple shapes", () => {
@@ -53,15 +109,66 @@ describe("CanvasAgentPresenceStore", () => {
     expect(presence.last_shape_ids).toEqual(["a", "b"]);
   });
 
-  it("setFollowedActor emits and is readable", () => {
+  it("touch + setEditor writes a TLInstancePresence record into editor.store", () => {
+    const editor = makeFakeEditor();
     const store = new CanvasAgentPresenceStore();
-    let calls = 0;
-    store.subscribe(() => calls++);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.setEditor(editor as any);
+    store.touch({ actor_id: "agent-1", name: "Codex" }, "create_note");
+    expect(editor._records.size).toBeGreaterThanOrEqual(1);
+    const stored = Array.from(editor._records.values())[0] as { userId: string };
+    expect(stored.userId).toBe("agent:agent-1");
+  });
+
+  it("setFollowedActor delegates to editor.startFollowingUser / stopFollowingUser", () => {
+    const editor = makeFakeEditor();
+    const store = new CanvasAgentPresenceStore();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.setEditor(editor as any);
+    store.touch({ actor_id: "agent-1" }, "create_note");
     store.setFollowedActor("agent-1");
+    expect(editor._calls.startFollowingUser).toHaveBeenCalledWith("agent:agent-1");
     expect(store.getFollowedActor()).toBe("agent-1");
     store.setFollowedActor(null);
+    expect(editor._calls.stopFollowingUser).toHaveBeenCalled();
     expect(store.getFollowedActor()).toBeNull();
-    expect(calls).toBe(2);
+  });
+
+  it("jumpToActor delegates to editor.zoomToUser", () => {
+    const editor = makeFakeEditor();
+    const store = new CanvasAgentPresenceStore();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.setEditor(editor as any);
+    store.touch({ actor_id: "agent-7" }, "layout_row");
+    store.jumpToActor("agent-7");
+    expect(editor._calls.zoomToUser).toHaveBeenCalledWith("agent:agent-7");
+  });
+
+  it("setFollowedActor refuses unknown actor ids", () => {
+    const editor = makeFakeEditor();
+    const store = new CanvasAgentPresenceStore();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.setEditor(editor as any);
+    store.setFollowedActor("ghost");
+    expect(editor._calls.startFollowingUser).not.toHaveBeenCalled();
+  });
+
+  it("evictStale removes expired presence + clears the editor record", () => {
+    const editor = makeFakeEditor();
+    const store = new CanvasAgentPresenceStore();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.setEditor(editor as any);
+    store.touch({ actor_id: "agent-1" }, "create_note");
+    expect(editor._records.size).toBeGreaterThan(0);
+    // Reach into the agent map and back-date the last_seen_at past the TTL.
+    const internal = (store as unknown as {
+      agents: Map<string, { last_seen_at: number }>;
+    }).agents;
+    const entry = internal.get("agent-1");
+    if (entry) entry.last_seen_at = Date.now() - 5 * 60_000;
+    store.evictStale();
+    expect(store.getSnapshot()).toHaveLength(0);
+    expect(editor._records.size).toBe(0);
   });
 
   it("clear removes all agents and emits", () => {
@@ -70,5 +177,17 @@ describe("CanvasAgentPresenceStore", () => {
     expect(store.getSnapshot()).toHaveLength(1);
     store.clear();
     expect(store.getSnapshot()).toHaveLength(0);
+  });
+
+  it("setEditor(null) tears down records and cancels active follow", () => {
+    const editor = makeFakeEditor();
+    const store = new CanvasAgentPresenceStore();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    store.setEditor(editor as any);
+    store.touch({ actor_id: "agent-1" }, "create_note");
+    store.setFollowedActor("agent-1");
+    store.setEditor(null);
+    expect(editor._records.size).toBe(0);
+    expect(editor._calls.stopFollowingUser).toHaveBeenCalled();
   });
 });

@@ -84,7 +84,11 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
 
   React.useEffect(() => {
     bus.setEditor(editor);
-  }, [bus, editor]);
+    presence.setEditor(editor);
+    return () => {
+      presence.setEditor(null);
+    };
+  }, [bus, presence, editor]);
 
   React.useEffect(() => {
     presence.start();

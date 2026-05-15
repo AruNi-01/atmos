@@ -1,8 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { useEditor, type TLShapeId } from "tldraw";
-import { Bot, ChevronsRight, Copy, Eye, EyeOff, Network, Sparkles } from "lucide-react";
+import { useEditor, useValue } from "tldraw";
+import {
+  Bot,
+  ChevronsRight,
+  Copy,
+  Crosshair,
+  Eye,
+  EyeOff,
+  Network,
+  Sparkles,
+} from "lucide-react";
 import { Button, cn, toastManager } from "@workspace/ui";
 
 import type { CanvasAgentBridgeState } from "./use-canvas-agent-bridge";
@@ -24,7 +33,10 @@ Always run \`atmos canvas status\` first to confirm the bridge is online.`;
 /**
  * Mounted inside <Tldraw> so it can use `useEditor()` to translate the
  * agent's last-known page-space bounds into screen coordinates for the
- * floating Agent badge.
+ * floating Agent badge. Following itself is delegated to tldraw — the
+ * presence store writes a `TLInstancePresence` record into `editor.store`
+ * and the overlay calls `editor.startFollowingUser` / `zoomToUser` per the
+ * tldraw User Following docs.
  */
 export function CanvasAgentOverlay({
   bridge,
@@ -33,34 +45,18 @@ export function CanvasAgentOverlay({
 }) {
   const editor = useEditor();
   const agents = useSyncPresence(bridge.presence);
-  const followedId = useSyncFollowed(bridge.presence);
-
-  // Auto-pan to followed agent's most recent activity bounds. We do this in a
-  // tldraw `react` listener so it follows camera transforms; using
-  // `setTimeout` keeps it cooperative with user input.
-  React.useEffect(() => {
-    if (!followedId) return;
-    const agent = agents.find((a) => a.actor_id === followedId);
-    if (!agent?.last_bounds) return;
-    const { x, y, w, h } = agent.last_bounds;
-    if (w <= 0 || h <= 0) return;
-    const timer = setTimeout(() => {
-      try {
-        const ids = agent.last_shape_ids.filter((id) =>
-          editor.getShape(id as TLShapeId),
-        );
-        if (ids.length) {
-          editor.select(...(ids as TLShapeId[]));
-          editor.zoomToSelection({ animation: { duration: 200 } });
-        } else {
-          editor.centerOnPoint({ x: x + w / 2, y: y + h / 2 }, { animation: { duration: 200 } });
-        }
-      } catch (err) {
-        console.debug("[canvas-agent] follow agent failed", err);
-      }
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [editor, followedId, agents]);
+  // Read the followed user id directly from the editor so manual pan/zoom
+  // (which tldraw uses to silently stop following) updates the UI without an
+  // explicit notification path.
+  const followingUserId = useValue(
+    "canvas-agent.followingUserId",
+    () => editor.getInstanceState().followingUserId,
+    [editor],
+  );
+  const followedId =
+    followingUserId && followingUserId.startsWith("agent:")
+      ? followingUserId.slice("agent:".length)
+      : null;
 
   if (!agents.length && !bridge.acceptsCommands) {
     return null;
@@ -79,6 +75,9 @@ export function CanvasAgentOverlay({
               followedId === agent.actor_id ? null : agent.actor_id,
             );
           }}
+          onJump={() => {
+            bridge.presence.jumpToActor(agent.actor_id);
+          }}
         />
       ))}
     </div>
@@ -90,11 +89,13 @@ function AgentBadge({
   editor,
   isFollowed,
   onToggleFollow,
+  onJump,
 }: {
   agent: ReturnType<CanvasAgentPresenceStore["getSnapshot"]>[number];
   editor: ReturnType<typeof useEditor>;
   isFollowed: boolean;
   onToggleFollow: () => void;
+  onJump: () => void;
 }) {
   // Re-render on camera tick by reading viewport/screen bounds inside render
   // (tldraw notifies React via its store).
@@ -134,10 +135,21 @@ function AgentBadge({
       </span>
       <button
         type="button"
+        title="Jump to agent (zoomToUser)"
+        onClick={onJump}
+        className={cn(
+          "ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-muted-foreground",
+          "hover:bg-foreground/10 hover:text-foreground",
+        )}
+      >
+        <Crosshair className="size-3" />
+      </button>
+      <button
+        type="button"
         title={isFollowed ? "Stop following agent" : "Follow agent"}
         onClick={onToggleFollow}
         className={cn(
-          "ml-0.5 inline-flex size-5 items-center justify-center rounded-full text-muted-foreground",
+          "inline-flex size-5 items-center justify-center rounded-full text-muted-foreground",
           "hover:bg-foreground/10 hover:text-foreground",
           isFollowed && "text-foreground",
         )}
@@ -238,14 +250,6 @@ function useSyncPresence(presence: CanvasAgentPresenceStore) {
     presence.subscribe,
     presence.getSnapshot,
     presence.getSnapshot,
-  );
-}
-
-function useSyncFollowed(presence: CanvasAgentPresenceStore) {
-  return React.useSyncExternalStore(
-    presence.subscribe,
-    presence.getFollowedActor,
-    presence.getFollowedActor,
   );
 }
 
