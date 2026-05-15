@@ -6,7 +6,11 @@ import { useAgentHooksStore } from '@/hooks/use-agent-hooks-store';
 import { useAgentNotifications } from '@/hooks/use-agent-notifications';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
-import { subscribeToWorkspaceSetupProgress, subscribeToWorkspaceDeleteProgress } from '@/hooks/use-project-store';
+import {
+  subscribeToWorkspaceDeleteProgress,
+  subscribeToWorkspaceGitignoreSyncFailed,
+  subscribeToWorkspaceSetupProgress,
+} from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
   children: ReactNode;
@@ -61,9 +65,11 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   useEffect(() => {
     const unsubscribeSetup = subscribeToWorkspaceSetupProgress();
     const unsubscribeDelete = subscribeToWorkspaceDeleteProgress();
+    const unsubscribeGitignore = subscribeToWorkspaceGitignoreSyncFailed();
     return () => {
       unsubscribeSetup();
       unsubscribeDelete();
+      unsubscribeGitignore();
     };
   }, []);
 

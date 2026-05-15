@@ -1360,3 +1360,33 @@ export function subscribeToWorkspaceDeleteProgress(): () => void {
     }
   });
 }
+
+interface WorkspaceGitignoreSyncFailedPayload {
+  workspace_id: string;
+  message: string;
+}
+
+function isWorkspaceGitignoreSyncFailedPayload(
+  data: unknown,
+): data is WorkspaceGitignoreSyncFailedPayload {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'workspace_id' in data &&
+    'message' in data
+  );
+}
+
+export function subscribeToWorkspaceGitignoreSyncFailed(): () => void {
+  return useWebSocketStore
+    .getState()
+    .onEvent('workspace_gitignore_sync_failed', (data: unknown) => {
+      if (!isWorkspaceGitignoreSyncFailedPayload(data)) return;
+
+      toastManager.add({
+        title: 'GitIgnore Sync Failed',
+        description: data.message,
+        type: 'error',
+      });
+    });
+}
