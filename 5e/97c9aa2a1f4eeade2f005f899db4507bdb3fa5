@@ -1,0 +1,31 @@
+apps/web/src/components/layout/LeftSidebar.tsx
+  s_9c2484f97cfc8b::t_6267d68d63ef93 81,265
+packages/ui/src/components/icons/canvas-icon.tsx
+  s_9c2484f97cfc8b::t_9fcadf61f43f16 1-2,13-24,26-37,47,51,53-71
+apps/web/src/components/layout/PanelLayout.tsx
+  s_fa23b621424ed0::t_b58fc4f17ad516 54,142-149,179,202,248,308,328-331,337,342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "5e97c9aa2a1f4eeade2f005f899db4507bdb3fa5",
+  "prompts": {},
+  "sessions": {
+    "s_9c2484f97cfc8b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "c043d178-504a-4f6c-a99f-aa284d352b46",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_fa23b621424ed0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "751dc7e0-831e-4b7f-a63b-c7836ee0ce4c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
