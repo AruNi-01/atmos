@@ -22,7 +22,7 @@
 
 use crate::error::{Result, ServiceError};
 use core_engine::{
-    compensate_path, list_ignored_paths, sync_worktree_local_excludes, CompensateStrategy,
+    compensate_path, list_ignored_paths_for_many, sync_worktree_local_excludes, CompensateStrategy,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -287,13 +287,13 @@ pub fn compensate(source_root: &Path, target_root: &Path) -> CompensationReport 
         return report;
     }
 
+    let mut eligible_entries: Vec<(&GitIgnoreDirEntry, PathBuf)> = Vec::new();
     for entry in &config.entries {
-        let Some(strategy) = entry.strategy.to_engine() else {
+        let Some(_) = entry.strategy.to_engine() else {
             report.skipped += 1;
             continue;
         };
 
-        // Disallow paths that escape the project root (no `..`, no absolute paths).
         let rel = Path::new(&entry.path);
         if rel.is_absolute()
             || rel
@@ -309,24 +309,39 @@ pub fn compensate(source_root: &Path, target_root: &Path) -> CompensationReport 
         }
 
         if !source_root.join(rel).exists() {
-            // Source dir doesn't exist in the original repo — nothing to compensate.
             report.skipped += 1;
             continue;
         }
 
-        // Ask git for the exact set of paths under this entry that are
-        // currently ignored AND present in the source repo. This is the
-        // only thing we will compensate — anything else is either tracked
-        // (already synced by `git worktree add`) or untracked-not-ignored
-        // (user WIP / branch differences, out of scope for this feature).
-        //
-        // For an entirely-ignored top-level dir like `.claude`, git returns
-        // a single entry `.claude/`. For partial cases like
-        // `agents/skills/*` + `!agents/skills/keep-*`, git returns just the
-        // ignored children (e.g. `agents/skills/cache/`). Either way: zero
-        // filesystem walking on our side.
-        let ignored_paths = list_ignored_paths(source_root, rel);
-        if ignored_paths.is_empty() {
+        eligible_entries.push((entry, rel.to_path_buf()));
+    }
+
+    let ignored_paths = list_ignored_paths_for_many(
+        source_root,
+        &eligible_entries
+            .iter()
+            .map(|(_, rel)| rel.clone())
+            .collect::<Vec<_>>(),
+    );
+
+    for (entry, _rel) in eligible_entries {
+        let Some(strategy) = entry.strategy.to_engine() else {
+            continue;
+        };
+
+        let matched_paths: Vec<&String> = ignored_paths
+            .iter()
+            .filter(|raw| {
+                let relative = raw.trim_end_matches('/');
+                let entry_prefix = entry.path.as_str();
+                relative == entry_prefix
+                    || relative
+                        .strip_prefix(entry_prefix)
+                        .is_some_and(|suffix| suffix.starts_with('/'))
+            })
+            .collect();
+
+        if matched_paths.is_empty() {
             tracing::debug!(
                 "[gitignore_dirs] Nothing ignored under `{}` — skipping",
                 entry.path
@@ -337,7 +352,7 @@ pub fn compensate(source_root: &Path, target_root: &Path) -> CompensationReport 
 
         let mut entry_applied = 0usize;
         let mut entry_failed = 0usize;
-        for raw in ignored_paths {
+        for raw in matched_paths {
             // git ls-files returns paths relative to the repo root; trailing
             // `/` marks a directory entry — strip it for path joins.
             let relative = raw.trim_end_matches('/');
