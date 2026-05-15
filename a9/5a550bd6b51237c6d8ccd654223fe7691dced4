@@ -1,0 +1,39 @@
+packages/ui/src/components/ui/sliding-number.tsx
+  s_74c52aa5cdd601::t_fee5787373e0e4 1-123
+packages/ui/src/index.ts
+  s_9261bf20d0a259::t_999eeec3d9b1aa 81-82
+packages/ui/package.json
+  s_2a8b651b17212d::t_49507cd58bf656 57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "a95a550bd6b51237c6d8ccd654223fe7691dced4",
+  "prompts": {},
+  "sessions": {
+    "s_2a8b651b17212d": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuXEf3kWx1AHqczlikW",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_74c52aa5cdd601": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuXP3Ir8f8rvpeKmJP3",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9261bf20d0a259": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033GuXpKga06XAMm0ToY2r",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
