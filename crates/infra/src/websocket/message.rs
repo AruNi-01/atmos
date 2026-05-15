@@ -514,6 +514,8 @@ pub enum WsAction {
 pub enum WsEvent {
     /// 工作区安装/初始化进度
     WorkspaceSetupProgress,
+    /// GitIgnore compensation failed after workspace creation
+    WorkspaceGitignoreSyncFailed,
     /// AI usage overview changed and should be refreshed on all clients
     UsageOverviewUpdated,
     /// Local token usage overview changed and should be refreshed on all clients
@@ -580,6 +582,12 @@ pub struct WorkspaceSetupProgressNotification {
     pub countdown: Option<u32>,
     #[serde(default)]
     pub setup_context: Option<WorkspaceSetupContextNotification>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceGitignoreSyncFailedNotification {
+    pub workspace_id: String,
+    pub message: String,
 }
 
 /// 工作区删除进度通知数据
