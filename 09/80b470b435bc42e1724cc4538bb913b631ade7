@@ -1,0 +1,33 @@
+apps/web/src/components/editor/CodeMirrorEditor.tsx
+  s_24f6def97388ac::t_5e6285d2469ee7 164,167
+crates/core-service/src/service/agent_session.rs
+  s_24f6def97388ac::t_d3513dde748581 64
+crates/core-service/src/service/ws_message.rs
+  s_24f6def97388ac::t_9fd4fa2f28ab55 1137
+  s_24f6def97388ac::t_6b0cf205bf201e 1141,1148,1923
+crates/core-engine/src/fs/mod.rs
+  s_24f6def97388ac::t_2c1cf2341ebc61 241,258-261,264,278
+  s_24f6def97388ac::t_8e5b7b6353b60a 866
+crates/core-engine/src/lib.rs
+  s_24f6def97388ac::t_b279670388c1e9 19
+apps/web/src/api/ws-api.ts
+  s_24f6def97388ac::t_1f34838caef632 39
+apps/web/src/hooks/use-editor-store.ts
+  s_24f6def97388ac::t_6d394597f0ed72 18,434,598-604
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "0980b470b435bc42e1724cc4538bb913b631ade7",
+  "prompts": {},
+  "sessions": {
+    "s_24f6def97388ac": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "39fe5b25-ec36-4703-8d55-057d37738cfe",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
