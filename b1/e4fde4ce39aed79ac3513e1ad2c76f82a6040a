@@ -1,0 +1,20 @@
+crates/core-service/src/service/workspace_gitignore_dirs.rs
+  s_24f6def97388ac::t_0c4bd652348bf2 292,327
+  s_24f6def97388ac::t_0c1d09e3f1b09f 25,290,316-326,328-344,355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "b1e4fde4ce39aed79ac3513e1ad2c76f82a6040a",
+  "prompts": {},
+  "sessions": {
+    "s_24f6def97388ac": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "39fe5b25-ec36-4703-8d55-057d37738cfe",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
