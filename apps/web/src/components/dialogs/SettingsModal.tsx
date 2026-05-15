@@ -42,6 +42,8 @@ import {
   TableRow,
   MotionSidebar,
   MotionSidebarContent,
+  MotionSidebarGroup,
+  MotionSidebarGroupLabel,
   MotionSidebarHeader,
   MotionSidebarMenu,
   MotionSidebarMenuButton,
@@ -199,6 +201,39 @@ interface SettingsModalProps {
   activeSectionOverride?: SettingsSectionId | null;
 }
 
+const SETTINGS_GROUPS = [
+  {
+    id: 'interface',
+    label: 'Interface',
+    description: 'Layout, editor, canvas, and keyboard preferences',
+    items: ['layout', 'editor', 'canvas', 'terminal'] as const,
+  },
+  {
+    id: 'ai-agents',
+    label: 'AI & Agents',
+    description: 'AI providers and code agent configurations',
+    items: ['ai', 'code-agent'] as const,
+  },
+  {
+    id: 'system-integration',
+    label: 'System & Integration',
+    description: 'Integrations, remote access, and notifications',
+    items: ['integrations', 'remote-access', 'notify'] as const,
+  },
+  {
+    id: 'workspace-projects',
+    label: 'Workspace & Projects',
+    description: 'Workspace management and labels',
+    items: ['workspace', 'labels'] as const,
+  },
+  {
+    id: 'more',
+    label: 'More',
+    description: 'Shortcuts, experiments, and about',
+    items: ['shortcuts', 'experiments', 'about'] as const,
+  },
+] as const;
+
 const SETTINGS_SECTIONS = [
   {
     id: 'layout',
@@ -273,6 +308,7 @@ const SETTINGS_SECTIONS = [
 ] as const;
 
 type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]['id'];
+type SettingsGroupId = (typeof SETTINGS_GROUPS)[number]['id'];
 
 const TERMINAL_LINK_MODE_OPTIONS = [
   {
@@ -3623,43 +3659,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </MotionSidebarHeader>
 
                 <MotionSidebarContent className="overflow-y-auto p-3">
-                  <MotionSidebarMenu>
-                    {SETTINGS_SECTIONS.map((section) => {
-                      const isActive = resolvedActiveSection === section.id;
-                      const iconRef = sectionIconRefs.current[section.id];
+                  {SETTINGS_GROUPS.map((group) => (
+                    <MotionSidebarGroup key={group.id}>
+                      <MotionSidebarGroupLabel>{group.label}</MotionSidebarGroupLabel>
+                      <MotionSidebarMenu>
+                        {group.items.map((itemId) => {
+                          const section = SETTINGS_SECTIONS.find(s => s.id === itemId);
+                          if (!section) return null;
 
-                      return (
-                        <MotionSidebarMenuItem key={section.id}>
-                          <MotionSidebarMenuButton
-                            type="button"
-                            isActive={isActive}
-                            onClick={() => void setActiveSection(section.id)}
-                            className="h-10 gap-3 rounded-lg px-3 text-left"
-                            onMouseEnter={() => iconRef.current?.startAnimation?.()}
-                            onMouseLeave={() => iconRef.current?.stopAnimation?.()}
-                          >
-                            {section.id === 'layout' && <LayoutDashboardIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'code-agent' && <BotIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'workspace' && <FolderKanbanIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'labels' && <TagIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'integrations' && <BlocksIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'notify' && <BellIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'about' && <InfoCircleIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'terminal' && <TerminalIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'ai' && <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'remote-access' && <WorldIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'shortcuts' && <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'editor' && <CodeXmlIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'canvas' && <CanvasIcon ref={iconRef} className="shrink-0" size={16} />}
-                            {section.id === 'experiments' && (
-                              <FlaskIcon ref={iconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />
-                            )}
-                            <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
-                          </MotionSidebarMenuButton>
-                        </MotionSidebarMenuItem>
-                      );
-                    })}
-                  </MotionSidebarMenu>
+                          const isActive = resolvedActiveSection === section.id;
+                          const itemIconRef = sectionIconRefs.current[section.id];
+
+                          return (
+                            <MotionSidebarMenuItem key={itemId}>
+                              <MotionSidebarMenuButton
+                                type="button"
+                                isActive={isActive}
+                                onClick={() => void setActiveSection(section.id)}
+                                className="h-9 gap-3 rounded-lg px-3 text-left"
+                                onMouseEnter={() => itemIconRef.current?.startAnimation?.()}
+                                onMouseLeave={() => itemIconRef.current?.stopAnimation?.()}
+                              >
+                                {itemId === 'layout' && <LayoutDashboardIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'editor' && <CodeXmlIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'canvas' && <CanvasIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'terminal' && <TerminalIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'code-agent' && <BotIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'workspace' && <FolderKanbanIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'labels' && <TagIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'integrations' && <BlocksIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'ai' && <BrainCircuitIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'notify' && <BellIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'remote-access' && <WorldIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'shortcuts' && <KeyboardIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'experiments' && (
+                                  <FlaskIcon ref={itemIconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />
+                                )}
+                                {itemId === 'about' && <InfoCircleIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                <span className="min-w-0 truncate text-sm font-medium">{section.label}</span>
+                              </MotionSidebarMenuButton>
+                            </MotionSidebarMenuItem>
+                          );
+                        })}
+                      </MotionSidebarMenu>
+                    </MotionSidebarGroup>
+                  ))}
                 </MotionSidebarContent>
               </MotionSidebar>
             </MotionSidebarProvider>
