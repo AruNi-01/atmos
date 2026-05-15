@@ -1851,7 +1851,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                           key={`hint-${visiblePlaceholder}`}
                           className="welcome-placeholder-hint min-w-0 flex-1 truncate text-muted-foreground/45"
                         >
-                          (@ mention context, or paste img directly)
+                          (@ mention , / command, or paste img directly)
                         </span>
                       </span>
                     }
