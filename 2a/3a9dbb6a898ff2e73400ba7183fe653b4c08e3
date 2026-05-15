@@ -1,0 +1,24 @@
+crates/core-engine/src/lib.rs
+  s_24f6def97388ac::t_42f1b71e7b072f 18-19
+crates/core-engine/src/git/mod.rs
+  s_24f6def97388ac::t_e444afa26b93f1 2138
+  s_24f6def97388ac::t_396aee22a61d99 11,14-15,21-40,43,58-60
+  s_24f6def97388ac::t_7e970906542711 158-159,163,177-179,181
+  s_24f6def97388ac::t_d1e584eb4ceaeb 2102-2137,2139-2143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "2a3a9dbb6a898ff2e73400ba7183fe653b4c08e3",
+  "prompts": {},
+  "sessions": {
+    "s_24f6def97388ac": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "39fe5b25-ec36-4703-8d55-057d37738cfe",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
