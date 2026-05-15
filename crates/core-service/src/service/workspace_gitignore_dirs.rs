@@ -1,10 +1,10 @@
 //! GitIgnore directory compensation for newly-created workspaces.
 //!
 //! When a workspace is created via `git worktree add`, files matched by the
-//! repository's `.gitignore` (typical examples: `.claude/`, `.agents/`, `skills/`,
+//! repository's `.gitignore` (typical examples: `.claude/`, `.agents/`,
 //! `.cursor/`, `.env`, locally-generated config) are NOT carried into the new
 //! worktree. For workflows that depend on those files (especially agent
-//! skills/commands directories), this leaves the worktree functionally broken.
+//! tool directories), this leaves the worktree functionally broken.
 //!
 //! This module:
 //!   1. Stores a user-editable list of "directories or files to compensate"
@@ -39,12 +39,9 @@ const SETTINGS_SUB_KEY: &str = "gitignore_dirs";
 /// Tuple is `(stable_id, relative_path)`. `stable_id` is what we persist so
 /// renaming the relative path later won't desync user choices.
 const BUILTIN_GITIGNORE_DIRS: &[(&str, &str)] = &[
-    // Project-level skills/agents
-    ("project-skills", "skills"),
-    ("project-agents", "agents"),
     // Per-agent tool dirs (parent dirs cover skills/commands/agents/etc.)
-    ("amp", ".agents"),
-    ("antigravity", ".agent"),
+    ("dot-agents", ".agents"),
+    ("dot-agent", ".agent"),
     ("augment", ".augment"),
     ("claude", ".claude"),
     ("cline", ".cline"),
