@@ -54,6 +54,7 @@
     "radix-ui": "^1.4.3",
     "react-day-picker": "^9.14.0",
     "react-resizable-panels": "2.1.7",
+    "react-use-measure": "^2.1.7",
     "streamdown": "^2.5.0",
     "tailwind-merge": "^3.4.0",
     "three": "^0.184.0",

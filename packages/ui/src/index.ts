@@ -78,6 +78,8 @@ export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
 export { AnimatedNumber } from "./components/ui/animated-number";
 export type { AnimatedNumberProps } from "./components/ui/animated-number";
+export { SlidingNumber } from "./components/ui/sliding-number";
+export type { SlidingNumberProps } from "./components/ui/sliding-number";
 export {
   Sidebar as MotionSidebar,
   SidebarContent as MotionSidebarContent,
