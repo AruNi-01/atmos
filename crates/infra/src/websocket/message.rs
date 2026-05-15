@@ -167,6 +167,12 @@ pub enum WsAction {
     CanvasGetDefaultBoard,
     /// 更新默认 canvas board
     CanvasUpdateDefaultBoard,
+    /// Register this browser tab as a terminal-agent bridge target (APP-015)
+    CanvasBridgeRegister,
+    /// Unregister this browser tab from the terminal-agent bridge (APP-015)
+    CanvasBridgeUnregister,
+    /// Browser uplink for a previously dispatched canvas-agent command (APP-015)
+    CanvasAgentDispatchResult,
 
     // ===== Git 操作 =====
     /// 获取 Git 状态（未提交/未推送的更改）
@@ -546,6 +552,8 @@ pub enum WsEvent {
     ReviewAgentRunUpdated,
     /// Local model state changed (download progress, started, stopped, error)
     LocalModelStateChanged,
+    /// Server → browser: terminal-agent command dispatch (APP-015)
+    CanvasAgentDispatch,
 }
 
 // ===== 消息通知数据结构 =====
@@ -827,6 +835,55 @@ pub struct CanvasBoardResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CanvasUpdateDefaultBoardRequest {
     pub document_json: String,
+}
+
+// ===== APP-015: Canvas terminal-agent bridge =====
+
+/// Register a browser tab as terminal-agent bridge target.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasBridgeRegisterRequest {
+    /// Stable id for this browser tab session (UUID v4 minted client-side).
+    pub client_id: String,
+    /// Optional short label (e.g. window title) for status output.
+    #[serde(default)]
+    pub label: Option<String>,
+    /// Whether this tab will accept mutating commands.
+    #[serde(default = "default_accepts_commands")]
+    pub accepts_commands: bool,
+    /// Protocol capabilities advertised by the tab (forward-compatibility).
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+}
+
+fn default_accepts_commands() -> bool {
+    true
+}
+
+/// Unregister a browser tab from the bridge registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasBridgeUnregisterRequest {
+    pub client_id: String,
+}
+
+/// Browser uplink completing an `canvas_agent_dispatch` round-trip.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanvasAgentDispatchResultRequest {
+    /// Request id minted by the original CLI invoke.
+    pub request_id: String,
+    /// `true` when the command ran cleanly in the editor.
+    pub success: bool,
+    /// Stable error code (e.g. `STALE_SHAPE_ID`, `EDITOR_NOT_READY`, `VALIDATION_ARG`).
+    #[serde(default)]
+    pub error_code: Option<String>,
+    /// Human-readable error message (English).
+    #[serde(default)]
+    pub error_message: Option<String>,
+    /// Whether the agent can recover via `get-state` + retry.
+    #[serde(default)]
+    pub recoverable: Option<bool>,
+    /// Command result payload (e.g. created shape ids, get-state snapshot).
+    #[serde(default)]
+    pub data: Value,
 }
 
 /// 验证 Git 路径响应

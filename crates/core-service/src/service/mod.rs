@@ -2,6 +2,7 @@ pub mod agent;
 pub mod agent_hooks;
 pub mod agent_session;
 pub mod canvas;
+pub mod canvas_agent_relay;
 pub mod git_commit_message;
 pub mod message_push;
 pub mod notification;

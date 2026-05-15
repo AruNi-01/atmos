@@ -27,6 +27,10 @@ export type WsAction =
   // Canvas 操作
   | "canvas_get_default_board"
   | "canvas_update_default_board"
+  // Canvas terminal-agent bridge (APP-015)
+  | "canvas_bridge_register"
+  | "canvas_bridge_unregister"
+  | "canvas_agent_dispatch_result"
   // Git 操作
   | "git_get_status"
   | "git_get_head_commit"

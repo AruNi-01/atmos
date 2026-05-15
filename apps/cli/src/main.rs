@@ -3,6 +3,7 @@ mod commands;
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
+use commands::canvas::{execute as execute_canvas, CanvasCommand};
 use commands::local::{execute as execute_local, LocalCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
@@ -31,6 +32,11 @@ enum Commands {
         #[command(subcommand)]
         command: LocalCommand,
     },
+    /// APP-015: Drive the open Atmos Canvas from a terminal agent.
+    Canvas {
+        #[command(subcommand)]
+        command: CanvasCommand,
+    },
     Update(UpdateArgs),
 }
 
@@ -49,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             execute_review(review_service, command).await
         }
         Commands::Local { command } => execute_local(command).await,
+        Commands::Canvas { command } => execute_canvas(command).await,
         Commands::Update(args) => execute_update(args).await,
     }
     .map_err(std::io::Error::other)?;

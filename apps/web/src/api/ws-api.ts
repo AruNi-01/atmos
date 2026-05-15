@@ -940,6 +940,36 @@ export const canvasWsApi = {
   },
 };
 
+// ===== Canvas terminal-agent bridge (APP-015) =====
+
+export interface CanvasBridgeRegisterPayload {
+  client_id: string;
+  label?: string;
+  accepts_commands?: boolean;
+  capabilities?: string[];
+}
+
+export interface CanvasAgentDispatchResultPayload {
+  request_id: string;
+  success: boolean;
+  error_code?: string;
+  error_message?: string;
+  recoverable?: boolean;
+  data?: unknown;
+}
+
+export const canvasAgentBridgeWsApi = {
+  register: (payload: CanvasBridgeRegisterPayload) =>
+    wsRequest<unknown>("canvas_bridge_register", payload),
+  unregister: (clientId: string) =>
+    wsRequest<unknown>("canvas_bridge_unregister", { client_id: clientId }),
+  postResult: (payload: CanvasAgentDispatchResultPayload) =>
+    wsRequest<unknown>("canvas_agent_dispatch_result", {
+      ...payload,
+      data: payload.data ?? null,
+    }),
+};
+
 // ===== Git API =====
 
 export const gitApi = {
