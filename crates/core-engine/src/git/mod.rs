@@ -8,35 +8,39 @@ use serde::Serialize;
 
 use crate::error::{EngineError, Result};
 
-/// Enumerate paths under `subpath` (relative to `repo_path`) that git
+/// Enumerate paths under `subpaths` (each relative to `repo_path`) that git
 /// considers ignored AND that currently exist in the working tree.
 ///
-/// Internally runs:
-///   `git ls-files --others --ignored --exclude-standard --directory -z -- <subpath>`
-///
-/// - `--others --ignored --exclude-standard`: list untracked-and-ignored files
-/// - `--directory`: collapse an entirely-ignored directory into a single entry
-///   (e.g. returns `.claude/` rather than every file inside it)
-/// - `-z`: NUL-terminated output for safe parsing of unusual filenames
+/// Internally runs a single batched command:
+///   `git ls-files --others --ignored --exclude-standard --directory -z -- <subpath>...`
 ///
 /// Returned paths are repo-root-relative (matching git's output verbatim, with
 /// any trailing `/` preserved so callers can distinguish dir entries if they
 /// care). On any failure (git missing, not a git repo, etc.) returns an empty
 /// vec — callers should treat "no ignored paths" as "nothing to compensate".
-pub fn list_ignored_paths(repo_path: &Path, subpath: &Path) -> Vec<String> {
-    let subpath_str = subpath.to_string_lossy();
+pub fn list_ignored_paths_for_many(repo_path: &Path, subpaths: &[PathBuf]) -> Vec<String> {
+    if subpaths.is_empty() {
+        return Vec::new();
+    }
+
+    let subpath_args: Vec<String> = subpaths
+        .iter()
+        .map(|subpath| subpath.to_string_lossy().into_owned())
+        .collect();
+    let subpath_refs: Vec<&str> = subpath_args.iter().map(String::as_str).collect();
+    let mut args = vec![
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--directory",
+        "-z",
+        "--",
+    ];
+    args.extend(subpath_refs);
     let output = Command::new("git")
         .current_dir(repo_path)
-        .args([
-            "ls-files",
-            "--others",
-            "--ignored",
-            "--exclude-standard",
-            "--directory",
-            "-z",
-            "--",
-            subpath_str.as_ref(),
-        ])
+        .args(args)
         .output();
 
     let Ok(out) = output else { return Vec::new() };
@@ -49,6 +53,11 @@ pub fn list_ignored_paths(repo_path: &Path, subpath: &Path) -> Vec<String> {
         .filter(|chunk| !chunk.is_empty())
         .map(|chunk| String::from_utf8_lossy(chunk).into_owned())
         .collect()
+}
+
+/// Convenience wrapper for a single subpath.
+pub fn list_ignored_paths(repo_path: &Path, subpath: &Path) -> Vec<String> {
+    list_ignored_paths_for_many(repo_path, &[subpath.to_path_buf()])
 }
 
 /// Run a git command in the given repo directory and return stdout on success.
@@ -146,13 +155,12 @@ fn strip_atmos_exclude_block(contents: &str) -> String {
     result.join("\n").trim().to_string()
 }
 
-fn resolve_git_path(repo_path: &Path, git_path: &str) -> Result<PathBuf> {
-    let stdout = run_git(repo_path, &["rev-parse", "--git-path", git_path])?;
+fn resolve_git_dir(repo_path: &Path) -> Result<PathBuf> {
+    let stdout = run_git(repo_path, &["rev-parse", "--git-dir"])?;
     let resolved = stdout.trim();
     if resolved.is_empty() {
         return Err(EngineError::Git(format!(
-            "git rev-parse --git-path {} returned an empty path",
-            git_path
+            "git rev-parse --git-dir returned an empty path"
         )));
     }
 
@@ -166,10 +174,11 @@ fn resolve_git_path(repo_path: &Path, git_path: &str) -> Result<PathBuf> {
 
 /// Sync an Atmos-managed block inside the current worktree's `info/exclude`.
 ///
-/// This is intentionally worktree-local: callers should pass the linked worktree path, not the
-/// main project repo root, so each workspace can ignore its own compensated symlink targets.
+/// This is intentionally worktree-local: callers should pass the linked worktree path. For linked
+/// worktrees, `rev-parse --git-path info/exclude` resolves to the common git dir, so we must
+/// derive the private exclude file from `rev-parse --git-dir` instead.
 pub fn sync_worktree_local_excludes(repo_path: &Path, managed_paths: &[String]) -> Result<()> {
-    let exclude_path = resolve_git_path(repo_path, "info/exclude")?;
+    let exclude_path = resolve_git_dir(repo_path)?.join("info").join("exclude");
 
     let mut normalized_paths: Vec<String> = managed_paths
         .iter()
@@ -2086,6 +2095,48 @@ mod tests {
         assert!(
             after.trim().is_empty(),
             "symlink dir should be ignored after worktree-local exclude, got: {after}"
+        );
+
+        fs::remove_dir_all(root).expect("temp repo should be removed");
+    }
+
+    #[test]
+    fn worktree_local_exclude_uses_private_gitdir_not_common_dir() {
+        let root = unique_temp_dir("worktree-private-exclude");
+        let repo_path = root.join("repo");
+        let worktree_path = root.join("linked-worktree");
+        fs::create_dir_all(&repo_path).expect("repo dir");
+
+        git(&repo_path, &["init"]);
+        configure_repo(&repo_path);
+        git(&repo_path, &["branch", "-m", "main"]);
+        write_file(&repo_path.join("README.md"), "hello\n");
+        git(&repo_path, &["add", "README.md"]);
+        git(&repo_path, &["commit", "-m", "init"]);
+        git(
+            &repo_path,
+            &[
+                "worktree",
+                "add",
+                worktree_path.to_str().expect("valid worktree path"),
+            ],
+        );
+
+        sync_worktree_local_excludes(&worktree_path, &[String::from(".agent")])
+            .expect("exclude sync should succeed");
+
+        let private_exclude =
+            repo_path.join(".git").join("worktrees").join("linked-worktree").join("info").join("exclude");
+        let common_exclude = repo_path.join(".git").join("info").join("exclude");
+
+        let private_contents =
+            fs::read_to_string(&private_exclude).expect("private worktree exclude should exist");
+        assert!(private_contents.contains(".agent"));
+
+        let common_contents = fs::read_to_string(&common_exclude).unwrap_or_default();
+        assert!(
+            !common_contents.contains(super::ATMOS_EXCLUDE_BLOCK_START),
+            "common exclude should not receive Atmos worktree-local block"
         );
 
         fs::remove_dir_all(root).expect("temp repo should be removed");
