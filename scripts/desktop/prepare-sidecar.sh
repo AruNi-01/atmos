@@ -37,6 +37,4 @@ else
   echo "⚠️ Warning: $WEB_OUT not found, created empty $SIDECAR_WEBOUT for dev mode"
 fi
 
-# shellcheck source=scripts/desktop/layout-runtime-bundle.sh
-source "$ROOT_DIR/scripts/desktop/layout-runtime-bundle.sh"
-layout_runtime_bundle "$ROOT_DIR" "$TARGET_TRIPLE" "$BIN_EXT"
+node "$ROOT_DIR/scripts/desktop/layout-runtime-bundle.mjs" "$ROOT_DIR" "$TARGET_TRIPLE" "$BIN_EXT"
