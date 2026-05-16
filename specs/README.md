@@ -18,7 +18,7 @@ specs/
 │   │   ├── TECH.md                 # Technical Design
 │   │   └── TEST.md                 # Test Plan
 │   ├── APP-002_.../
-│   ├── APP-016_multi-server-relay-cloudflare-do/
+│   ├── APP-016_atmos-computer/
 │   └── ...
 │
 ├── Landing/                        # Marketing landing (apps/landing)
@@ -75,7 +75,7 @@ All four files are always present. Missing content stays as a **template placeho
 | **APP-012** | Remote Access | `TECH.md` |
 | **APP-013** | Project-Level Review Session | `BRAINSTORM.md` |
 | **APP-014** | Canvas | `PRD.md` |
-| **APP-016** | 多 Server 与 Cloudflare Relay（DO） | `BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md` |
+| **APP-016** | Atmos Computer（Cloudflare Relay + DO） | `specs/APP/APP-016_atmos-computer/`（`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`） |
 
 ### Landing
 
