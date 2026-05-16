@@ -20,7 +20,7 @@ jobs:
   sync-install-scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Configure AWS CLI for R2
         env:
@@ -59,7 +59,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'desktop-v'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check if release is stable
         if: github.event_name == 'release'
@@ -139,7 +139,7 @@ jobs:
       (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'local-web-runtime-v'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check if release is stable
         if: github.event_name == 'release'
