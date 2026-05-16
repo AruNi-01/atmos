@@ -109,14 +109,6 @@ interface ApiResponse<T> {
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   const { apiBase, bearer } = await resolveHttpFetchTarget();
-  if (
-    typeof window !== 'undefined' &&
-    '__TAURI_INTERNALS__' in window &&
-    !bearer &&
-    useAtmosComputerStore.getState().connectionMode !== 'relay'
-  ) {
-    throw new Error('Desktop API token is missing in Tauri runtime');
-  }
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
@@ -150,14 +142,6 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 
 async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T> {
   const { apiBase, bearer } = await resolveHttpFetchTarget();
-  if (
-    typeof window !== 'undefined' &&
-    '__TAURI_INTERNALS__' in window &&
-    !bearer &&
-    useAtmosComputerStore.getState().connectionMode !== 'relay'
-  ) {
-    throw new Error('Desktop API token is missing in Tauri runtime');
-  }
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
