@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -21,7 +22,9 @@ import type {
   WorkspaceWorkflowStatus,
 } from "@/types/types";
 import {
+  SIDEBAR_GROUPING_OPTIONS,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
+  type SidebarGroupingMode,
 } from "@/components/layout/sidebar/workspace-status";
 import {
   WORKSPACE_PRIORITY_OPTIONS,
@@ -83,6 +86,10 @@ type WorkspaceKanbanFilterMenuProps = {
   align?: "start" | "end" | "center";
   side?: "top" | "right" | "bottom" | "left";
   showLabel?: boolean;
+  /** Sidebar list view only — hidden in expanded Kanban dialog */
+  showGrouping?: boolean;
+  groupingMode?: SidebarGroupingMode;
+  onGroupingModeChange?: (mode: SidebarGroupingMode) => void;
 };
 
 export function WorkspaceKanbanFilterMenu({
@@ -94,6 +101,9 @@ export function WorkspaceKanbanFilterMenu({
   align = "start",
   side,
   showLabel = triggerVariant === "button",
+  showGrouping = false,
+  groupingMode = "project",
+  onGroupingModeChange,
 }: WorkspaceKanbanFilterMenuProps) {
   const [labelFilterQuery, setLabelFilterQuery] = React.useState("");
   const [projectFilterQuery, setProjectFilterQuery] = React.useState("");
@@ -175,6 +185,32 @@ export function WorkspaceKanbanFilterMenu({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} side={side} className="w-64 p-1">
+        {showGrouping && onGroupingModeChange ? (
+          <>
+            <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+              Group By
+            </DropdownMenuLabel>
+            {SIDEBAR_GROUPING_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  onGroupingModeChange(option.value);
+                }}
+                className="cursor-pointer"
+              >
+                <option.icon className="size-4 text-muted-foreground" />
+                <span>{option.label}</span>
+                {groupingMode === option.value ? <Check className="ml-auto size-4" /> : null}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator className="mx-2" />
+            <DropdownMenuLabel className="px-2 py-1 text-xs font-medium text-muted-foreground">
+              Filter
+            </DropdownMenuLabel>
+          </>
+        ) : null}
+
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Folder className="size-4" />
