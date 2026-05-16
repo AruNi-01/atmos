@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand};
+use commands::computer::{execute as execute_computer, ComputerCommand};
 use commands::local::{execute as execute_local, LocalCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
@@ -39,6 +40,11 @@ enum Commands {
         #[command(subcommand)]
         command: CanvasCommand,
     },
+    /// Register this machine on the relay and run it as a remote Computer (APP-016).
+    Computer {
+        #[command(subcommand)]
+        command: ComputerCommand,
+    },
     /// Check for or install CLI updates.
     Update(UpdateArgs),
 }
@@ -58,6 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             execute_review(review_service, command).await
         }
         Commands::Local { command } => execute_local(command).await,
+        Commands::Computer { command } => execute_computer(command).await,
         Commands::Canvas { command } => execute_canvas(command).await,
         Commands::Update(args) => execute_update(args).await,
     }

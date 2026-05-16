@@ -4,8 +4,12 @@
 //! CLI tools and the Next.js dev server can find the same host/port/token the
 //! browser runtime uses.
 
+mod register;
 mod server_identity;
 
+pub use register::{
+    default_control_plane_url, normalize_control_plane_url, register_computer,
+};
 pub use server_identity::{
     read_server_identity, relay_identity_path, resolve_server_identity_path,
     server_identity_env_path_override, write_server_identity, ServerIdentity,

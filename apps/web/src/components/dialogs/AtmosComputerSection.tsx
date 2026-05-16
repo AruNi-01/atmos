@@ -412,10 +412,11 @@ export function AtmosComputerSection() {
             {registerCommandShown}
           </pre>
           <p className="text-xs text-muted-foreground">
-            Or:{' '}
-            <span className="font-mono">
-              ATMOS_REGISTER_TOKEN=… ATMOS_CONTROL_PLANE_URL=… just dev-api
-            </span>
+            VPS / headless:{' '}
+            <span className="font-mono">atmos computer start --token …</span>
+            {' · '}
+            Already running API locally:{' '}
+            <span className="font-mono">atmos computer register --token …</span> then restart API
           </p>
           <Button variant="secondary" size="sm" onClick={() => void copyRegisterCommand()}>
             <Copy className="mr-2 size-4" />

@@ -75,10 +75,10 @@ pub(crate) struct LocalRuntimeState {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct LocalRuntimeStatus {
-    installed: bool,
-    running: bool,
-    healthy: bool,
+pub(crate) struct LocalRuntimeStatus {
+    pub(crate) installed: bool,
+    pub(crate) running: bool,
+    pub(crate) healthy: bool,
     pid: Option<u32>,
     host: String,
     port: u16,
@@ -311,6 +311,10 @@ async fn stop_runtime_process(force: bool) -> Result<bool, String> {
         "Process {} did not exit in time",
         runtime_process.pid
     ))
+}
+
+pub(crate) async fn local_runtime_status() -> Result<LocalRuntimeStatus, String> {
+    collect_status(None).await
 }
 
 async fn collect_status(
