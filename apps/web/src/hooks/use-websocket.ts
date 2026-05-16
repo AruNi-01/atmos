@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
+import { useAtmosComputerStore } from "@/lib/atmos-computer-store";
 import { buildWsUrl, buildWsUrlSync } from "@/lib/ws-url";
 import { debugLog } from "@/lib/desktop-logger";
 
@@ -333,7 +334,16 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
 
     try {
       const clientType = isTauriRuntime() ? "desktop" : "web";
-      const runtimeUrl = await buildWsUrl("/ws", { client_type: clientType });
+      const computer = useAtmosComputerStore.getState();
+      let runtimeUrl: string;
+      const relayUrl = computer.relayWebSocketUrl?.trim();
+      if (computer.connectionMode === "relay" && relayUrl) {
+        runtimeUrl = relayUrl.includes("client_type=")
+          ? relayUrl
+          : `${relayUrl}${relayUrl.includes("?") ? "&" : "?"}client_type=${encodeURIComponent(clientType)}`;
+      } else {
+        runtimeUrl = await buildWsUrl("/ws", { client_type: clientType });
+      }
 
       // Re-check after async gap — another connect() may have won the race.
       if (get().connectionState !== "connecting") return;

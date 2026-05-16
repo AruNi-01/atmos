@@ -260,14 +260,17 @@ dependencies = [
  "dirs 5.0.1",
  "dotenvy",
  "futures-util",
+ "http",
  "infra",
  "reqwest 0.12.28",
+ "runtime-manifest",
  "sea-orm-migration",
  "serde",
  "serde_json",
  "sha2",
  "token-usage",
  "tokio",
+ "tokio-tungstenite 0.24.0",
  "tokio-util",
  "tower",
  "tower-http",
@@ -5197,6 +5200,17 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "runtime-manifest"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dirs 5.0.1",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

@@ -3,6 +3,7 @@ mod app_state;
 mod config;
 mod error;
 mod middleware;
+mod relay;
 
 use std::sync::Arc;
 
@@ -311,6 +312,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start heartbeat monitor
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
     info!("WebSocket service started with heartbeat (timeout: 30s)");
+
+    if std::env::var("ATMOS_RELAY_DISABLE").unwrap_or_default() != "1" {
+        if let Err(err) = relay::try_consume_register_token().await {
+            warn!(target: "atmos_relay", error = %err, "register token consumption failed");
+        }
+
+        match runtime_manifest::read_server_identity() {
+            Ok(Some(identity)) => {
+                let st = app_state.clone();
+                tokio::spawn(async move {
+                    if let Err(err) = relay::run(st, identity).await {
+                        warn!(target: "atmos_relay", error = %err, "relay task exited");
+                    }
+                });
+            }
+            Ok(None) => {
+                debug!(target: "atmos_relay", "relay disabled — no relay identity (~/.atmos/relay_identity.json)");
+            }
+            Err(err) => warn!(
+                target: "atmos_relay",
+                error = %err,
+                "relay server identity unreadable",
+            ),
+        }
+    }
 
     let token = server_config.local_api_token.clone();
     let token_for_destructive = server_config.local_api_token.clone();

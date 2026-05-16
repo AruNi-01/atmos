@@ -14,6 +14,7 @@ agent = { path = "../../crates/agent" }
 infra = { path = "../../crates/infra" }
 core-engine = { path = "../../crates/core-engine" }
 core-service = { path = "../../crates/core-service" }
+runtime-manifest = { path = "../../crates/runtime-manifest" }
 token-usage = { path = "../../crates/token-usage" }
 
 axum = { version = "0.8", features = ["ws", "multipart"] }
@@ -33,3 +34,5 @@ dirs = "5.0"
 clap = { workspace = true }
 sha2 = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+http = "1"

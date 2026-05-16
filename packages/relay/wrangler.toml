@@ -1,0 +1,29 @@
+# Atmos relay + minimal control plane on Cloudflare (`packages/relay`).
+# After first deploy: bind a real D1 id (run `pnpm db:create`) and paste below.
+#
+#   wrangler d1 execute atmos-computer-cp --file=./migrations/0001_init.sql
+#
+# Optional `account_id`: Cloudflare dashboard → any Workers overview → Account ID in the sidebar.
+# Wrangler usually infers the account from `wrangler login` or from a single-account API token; set
+# `account_id` here (or env CLOUDFLARE_ACCOUNT_ID in CI) only if you have multiple accounts or deploy fails to resolve one.
+
+name = "atmos-computer-relay"
+main = "src/index.ts"
+compatibility_date = "2025-06-03"
+
+# Production hostname: atmos.land zone on Cloudflare. Redeploy after DNS/custom domain changes.
+routes = [{ pattern = "relay.atmos.land", custom_domain = true }]
+
+[durable_objects]
+bindings = [
+  { name = "SERVER_HUB", class_name = "ServerHub" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ServerHub"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "atmos-computer-cp"
+database_id = "dbccabb2-618e-4c50-aaa6-5501aae12482"

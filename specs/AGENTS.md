@@ -92,6 +92,17 @@ Then:
 - **Be minimal**: don't add sections you won't fill. It's better to delete template scaffolding than leave it empty forever.
 - **No secrets**: never paste tokens, keys, or customer data into a spec.
 
+### Diagrams (PRD vs TECH)
+
+Prefer **Mermaid** fenced blocks in the Markdown file so GitHub / editors render them; use `specs/<ZONE>/<SPEC>/assets/` only when you need exported PNG/SVG from external tools.
+
+| File | Include diagrams when they clarify… | Typical diagram types |
+|------|-------------------------------------|------------------------|
+| **`PRD.md`** | **Product behavior** — how users or operators move through the feature | **Business process** flows (activities / swimlanes), **state** diagrams for user-visible lifecycles (e.g. enrollment, pairing), decision flows for scope-critical branches |
+| **`TECH.md`** | **Engineering design** — structure, protocols, and data | **Architecture** (components, deployment boundaries), **flowcharts** for pipelines or control logic, **sequence diagrams** for APIs / WS / cross-service calls, **ER diagrams** (or equivalent relational schema sketches) **whenever persistence / migrations matter** |
+
+`BRAINSTORM.md` may use informal sketches optionally; `TEST.md` may reference TECH diagrams instead of duplicating them.
+
 ---
 
 ## 7. Relationship to Other Docs
@@ -114,4 +125,6 @@ When something in `specs/` ships and stabilizes, migrate the enduring parts into
 - [ ] `README.md` **Current Specs** table updated.
 - [ ] Links to related code / specs are relative and valid.
 - [ ] No secrets, customer data, or internal URLs.
-- [ ] PRD states scope *and* non-scope; TECH lists risks; TEST lists acceptance criteria.
+- [ ] PRD states scope *and* non-scope; includes **diagrams as needed** (business flows, user-visible states — see §6 Diagrams).
+- [ ] TECH lists risks; includes **diagrams as needed** (architecture, flows, sequences, persistence ER/schema — see §6 Diagrams).
+- [ ] TEST lists acceptance criteria.

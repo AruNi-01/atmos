@@ -1,0 +1,13 @@
+[package]
+name = "runtime-manifest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+dirs = "5"
+
+[dev-dependencies]
+tempfile = "3"

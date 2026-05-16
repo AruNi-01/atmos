@@ -1,0 +1,32 @@
+name: Deploy relay
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "packages/relay/**"
+      - ".github/workflows/deploy-relay.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-relay-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Deploy Worker
+        working-directory: packages/relay
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Optional: set repo secret CLOUDFLARE_ACCOUNT_ID if the token spans multiple accounts
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler deploy

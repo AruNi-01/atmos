@@ -103,6 +103,7 @@ export type SettingsModalTab =
   | "ai"
   | "notify"
   | "remote-access"
+  | "atmos-computer"
   | "shortcuts"
   | "experiments";
 
@@ -121,6 +122,7 @@ export const settingsModalParams = {
     "ai",
     "notify",
     "remote-access",
+    "atmos-computer",
     "shortcuts",
     "experiments",
   ]).withDefault("layout"),

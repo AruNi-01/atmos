@@ -19,11 +19,11 @@
 
 - **Given** 用户已在 Control Plane 登录  
 - **When** 用户申请配对码并在 **Computer**（其 Server）上执行注册  
-- **Then** Control Plane 返回 `server_id` 与 `server_secret`；**Computer** 本地写入 `server.json`；用户 **Computer** 列表中出现新条目  
+- **Then** Control Plane 返回 `server_id` 与 `server_secret`；**Computer** 本地写入 `relay_identity.json`；用户 **Computer** 列表中出现新条目
 
 ### S2：Computer 上 Server 出站连接 Relay
 
-- **Given** 有效 `server.json` 与网络可达 Relay  
+- **Given** 有效 `relay_identity.json` 与网络可达 Relay
 - **When** **Computer** 上 Server 进程启动出站客户端  
 - **Then** DO 进入 `READY`（或等价）；Control Plane/诊断接口显示该 **Computer** **在线**  
 
@@ -55,7 +55,7 @@
 
 - **Given** 用户在 Web/Desktop 中 **当前所选 Computer = 本机 loopback**（或未启用 Relay 的等价场景）  
 - **When** 用户在 Web 打开 Canvas 并开启 bridge，且在终端执行 `atmos canvas status`，且 **CLI 上下文与 UI 为同一 Computer**  
-- **Then** 在无需手抄 `ATMOS_API_URL` 的前提下（依赖 `boot_data` / `state.json` / 共享上下文等，以实现为准），`bridge` 状态与 UI **一致**  
+- **Then** 在无需手抄 `ATMOS_API_URL` 的前提下（依赖 `runtime_manifest` / `state.json` / 共享上下文等，以实现为准），`bridge` 状态与 UI **一致**  
 - **And** 若将 UI 切换到 **另一台 Computer**，同一终端在未改 CLI 上下文时不应再假装仍代表原 **Computer**（应报错、提示切换上下文或显式 `--api-url`，具体 UX 在实现时定稿）
 
 ### S8：Replay（M2）

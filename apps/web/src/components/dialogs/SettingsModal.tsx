@@ -139,6 +139,7 @@ import {
   sendBrowserNotification,
   showDesktopNotification,
 } from '@/lib/notifications';
+import { AtmosComputerSection } from '@/components/dialogs/AtmosComputerSection';
 import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
@@ -218,7 +219,7 @@ const SETTINGS_GROUPS = [
     id: 'system-integration',
     label: 'System & Integration',
     description: 'Integrations, remote access, and notifications',
-    items: ['integrations', 'remote-access', 'notify'] as const,
+    items: ['integrations', 'remote-access', 'atmos-computer', 'notify'] as const,
   },
   {
     id: 'workspace-projects',
@@ -289,6 +290,11 @@ const SETTINGS_SECTIONS = [
     id: 'remote-access',
     label: 'Remote Access',
     description: 'Tunnel gateway and remote browser access',
+  },
+  {
+    id: 'atmos-computer',
+    label: 'Atmos Computer',
+    description: 'Cloud relay pairing and remote WebSocket path (APP-016)',
   },
   {
     id: 'shortcuts',
@@ -3688,6 +3694,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {itemId === 'ai' && <BrainCircuitIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'notify' && <BellIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'remote-access' && <WorldIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'atmos-computer' && <Route className="size-4 shrink-0" />}
                                 {itemId === 'shortcuts' && <KeyboardIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'experiments' && (
                                   <FlaskIcon ref={itemIconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />
@@ -4731,6 +4738,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                 ) : resolvedActiveSection === 'remote-access' ? (
                   <RemoteAccessSection />
+                ) : resolvedActiveSection === 'atmos-computer' ? (
+                  <AtmosComputerSection />
                 ) : resolvedActiveSection === 'shortcuts' ? (
                   <div className="space-y-8">
                     <ShortcutGroup

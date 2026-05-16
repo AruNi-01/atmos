@@ -1,0 +1,17 @@
+{
+  "name": "@atmos/relay",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Atmos Computer control plane + Cloudflare Relay",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create atmos-computer-cp",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250525.0",
+    "typescript": "^5",
+    "wrangler": "^4"
+  }
+}

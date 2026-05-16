@@ -6,7 +6,7 @@
 
 ### 1.1 现状痛点
 
-- **开发期**：Web（Next）与 API（Axum）双进程、双端口；CLI 与浏览器要对齐「同一台 **Computer** 上的 API」，依赖环境变量或本机 `boot_data.json` 等发现机制，心智负担仍在。
+- **开发期**：Web（Next）与 API（Axum）双进程、双端口；CLI 与浏览器要对齐「同一台 **Computer** 上的 API」，依赖环境变量或本机 `runtime_manifest.json` 等发现机制，心智负担仍在。
 - **产品愿景**：用户有多台 **Atmos Computer**——本地笔记本、**云端 VPS/虚拟机**、办公室工作站——希望 **Web / Desktop UI 选定一台 Computer**，在该环境中开发；**CLI** 与 UI **共用当前所选 Computer**；常在一台 **Computer** 的终端里跑命令时，与 UI 所见为 **同一台 Computer**。
 - **网络约束**：不希望把「多 **Computer** / 多入口」与「入站 NAT 穿透 / 自建隧道」强绑定；倾向 **Server 仅出站**、云端提供 **Relay**，由 Relay 做路由与（可选）回放。
 
@@ -44,7 +44,7 @@
 ## 4. 与现有仓库能力的关系
 
 - **现有 WS 协议**（终端、Canvas bridge、业务消息）：理想情况下 **body 不在 Relay 解析**，仅路由 **信封** → 降低耦合，保留未来 E2EE 空间。
-- **`boot_data.json`（APP-016 实施时可调整）**：描述 **某一 Computer 上 Server 进程在本机的 loopback 监听**（端口、本地 token），当 **Web/Desktop/CLI 的当前上下文 = 该 Computer** 时，可作为 **该上下文的** API 基址发现来源；**不是**「凡 CLI 必读本机」的全局规则。
+- **`runtime_manifest.json`**：描述 **某一 Computer 上 Server 进程在本机的 loopback 监听**（端口、本地 token），当 **Web/Desktop/CLI 的当前上下文 = 该 Computer** 时，可作为 **该上下文的** API 基址发现来源；**不是**「凡 CLI 必读本机」的全局规则。
 - **CLI `review` 与 API 锚点**：当前仓库里 `atmos review` 通过 **本机 SQLite**（`~/.atmos/db/atmos.db`）直连 `ReviewService`，与浏览器连 **远端/另一套 API** 时会产生 **静默分叉**；本 spec 与 PRD **M1-7** 要求改为 **仅经 `apps/api`**，与「**Computer** 上 **Server** 为计算与状态宿主」叙事一致。
 - **Desktop 侧车 API**：仍是「本机一台 **Computer**」的一种形态；连 Relay 时与远程 **Computer** **同一套出站客户端逻辑**。
 
