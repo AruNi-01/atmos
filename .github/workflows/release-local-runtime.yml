@@ -296,10 +296,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [resolve-release-config, build-runtime]
     steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
       - name: Publish GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+          PRERELEASE: ${{ needs.resolve-release-config.outputs.prerelease }}
         run: |
           set -euo pipefail
-          gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          ARGS=(--draft=false --latest=false)
+          if [ "$PRERELEASE" = "true" ]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release edit "$RELEASE_TAG" "${ARGS[@]}"
