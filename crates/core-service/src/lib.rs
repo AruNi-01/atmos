@@ -8,6 +8,11 @@ pub use service::agent::AgentService;
 pub use service::agent_hooks::AgentHooksService;
 pub use service::agent_session::{AgentSessionService, LazySessionSpec};
 pub use service::canvas::{CanvasBoardDto, CanvasService, SaveCanvasBoardReq};
+pub use service::canvas_agent_relay::{
+    CanvasAgentDispatchOutcome, CanvasAgentRelay, CanvasBridgeClientSummary, CanvasBridgeStatus,
+    CompleteDispatchResult, DuplicateRequestError, ResolveTarget, DEFAULT_RELAY_TIMEOUT_MS,
+    MAX_RELAY_TIMEOUT_MS,
+};
 pub use service::message_push::MessagePushService;
 pub use service::notification::NotificationService;
 pub use service::project::ProjectService;

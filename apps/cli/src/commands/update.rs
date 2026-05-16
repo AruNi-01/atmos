@@ -18,6 +18,7 @@ const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Args)]
 pub struct UpdateArgs {
+    /// Check for updates without installing.
     #[arg(long, default_value_t = false)]
     pub check: bool,
 }

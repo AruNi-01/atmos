@@ -3,6 +3,7 @@ mod commands;
 use std::sync::Arc;
 
 use clap::{Parser, Subcommand};
+use commands::canvas::{execute as execute_canvas, CanvasCommand};
 use commands::local::{execute as execute_local, LocalCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
@@ -23,14 +24,22 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Manage code review sessions, comments, and agent runs.
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
     },
+    /// Start, stop, and inspect the local Atmos API runtime.
     Local {
         #[command(subcommand)]
         command: LocalCommand,
     },
+    /// Drive the open Atmos Canvas from an agent.
+    Canvas {
+        #[command(subcommand)]
+        command: CanvasCommand,
+    },
+    /// Check for or install CLI updates.
     Update(UpdateArgs),
 }
 
@@ -49,6 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             execute_review(review_service, command).await
         }
         Commands::Local { command } => execute_local(command).await,
+        Commands::Canvas { command } => execute_canvas(command).await,
         Commands::Update(args) => execute_update(args).await,
     }
     .map_err(std::io::Error::other)?;

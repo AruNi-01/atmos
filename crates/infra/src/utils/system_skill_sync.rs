@@ -37,6 +37,8 @@ const ALL_SYSTEM_SKILL_NAMES: &[&str] = &[
     "git-commit",
     // Review workflow skills
     "atmos-review-fix",
+    // Canvas terminal-agent integration (APP-015)
+    "atmos-canvas-agent",
 ];
 
 #[derive(Clone, Debug, Deserialize)]
@@ -169,6 +171,7 @@ fn repo_skill_root(skill_name: &str) -> Option<&'static str> {
         "typescript-react-reviewer" => Some("skills/code_review_skills/typescript-react-reviewer"),
         "git-commit" => Some("skills/git-commit"),
         "atmos-review-fix" => Some("skills/atmos-review-fix"),
+        "atmos-canvas-agent" => Some("skills/atmos-canvas-agent"),
         _ => None,
     }
 }

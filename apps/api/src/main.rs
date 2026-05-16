@@ -14,9 +14,9 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentHooksService, AgentService, AgentSessionService, CanvasService, MessagePushService,
-    NotificationService, ProjectService, ReviewService, TerminalService, TestService,
-    WorkspaceService, WsMessageService,
+    AgentHooksService, AgentService, AgentSessionService, CanvasAgentRelay, CanvasService,
+    MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
+    TestService, WorkspaceService, WsMessageService,
 };
 use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
 use sea_orm_migration::MigratorTrait;
@@ -217,6 +217,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&db),
     ));
 
+    // APP-015: in-memory bridge registry + pending-dispatch waiters for the
+    // Canvas terminal-agent relay. Shared between WsMessageService (browser
+    // uplink) and the HTTP invoke handler (CLI ingress).
+    let canvas_agent_relay = Arc::new(CanvasAgentRelay::new());
+
     // WsMessageService handles all WebSocket-based operations
     let ws_message_service = Arc::new(WsMessageService::new(
         Arc::clone(&project_service),
@@ -227,6 +232,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&review_service),
         Arc::clone(&usage_service),
         Arc::clone(&canvas_service),
+        Arc::clone(&canvas_agent_relay),
     ));
 
     // CRITICAL: Clean up stale tmux client sessions from previous crashes/hot-reloads.
@@ -271,6 +277,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             token_usage_service: Arc::clone(&token_usage_service),
             agent_hooks_service: Arc::clone(&agent_hooks_service),
             notification_service: Arc::clone(&notification_service),
+            canvas_agent_relay: Arc::clone(&canvas_agent_relay),
         },
         ws_config,
         server_config.port,

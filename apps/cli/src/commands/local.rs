@@ -22,8 +22,11 @@ pub async fn execute(command: LocalCommand) -> Result<Value, String> {
 
 #[derive(Debug, Subcommand)]
 pub enum LocalCommand {
+    /// Start the local API runtime.
     Start(StartArgs),
+    /// Stop the local API runtime.
     Stop(StopArgs),
+    /// Show whether the local API runtime is running.
     Status(StatusArgs),
 }
 
@@ -57,18 +60,18 @@ struct RuntimeLayout {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct LocalRuntimeState {
-    pid: u32,
-    host: String,
-    port: u16,
-    url: String,
-    runtime_dir: String,
-    api_bin_path: String,
-    cli_bin_path: String,
-    web_dir: String,
-    log_path: String,
-    version: Option<String>,
-    started_at: String,
+pub(crate) struct LocalRuntimeState {
+    pub(crate) pid: u32,
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) url: String,
+    pub(crate) runtime_dir: String,
+    pub(crate) api_bin_path: String,
+    pub(crate) cli_bin_path: String,
+    pub(crate) web_dir: String,
+    pub(crate) log_path: String,
+    pub(crate) version: Option<String>,
+    pub(crate) started_at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -655,7 +658,7 @@ fn local_log_path() -> Result<PathBuf, String> {
     Ok(local_state_dir()?.join("logs").join("api.log"))
 }
 
-fn read_state_file() -> Result<Option<LocalRuntimeState>, String> {
+pub(crate) fn read_state_file() -> Result<Option<LocalRuntimeState>, String> {
     let path = local_state_file()?;
     if !path.is_file() {
         return Ok(None);

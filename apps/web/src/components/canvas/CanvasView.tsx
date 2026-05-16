@@ -101,6 +101,8 @@ import {
   trimRenderedShapeIds,
 } from "./canvas-terminal-rendering";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/hooks/use-terminal-store";
+import { useCanvasAgentBridge } from "./use-canvas-agent-bridge";
+import { CanvasAgentBridgeControls, CanvasAgentOverlay } from "./CanvasAgentOverlay";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
@@ -1001,6 +1003,12 @@ export const CanvasView: React.FC = () => {
   const [overviewError, setOverviewError] = React.useState<string | null>(null);
   const editorRef = React.useRef<Editor | null>(null);
   const [editorReady, setEditorReady] = React.useState(false);
+  // APP-015: Canvas terminal-agent bridge. The hook returns a stable state
+  // object whose internal bus/presence references survive every CanvasView
+  // re-render, so it is safe to call before `editorReady` and pass the
+  // editor in via `setEditor` below.
+  const [agentBridgeEditor, setAgentBridgeEditor] = React.useState<Editor | null>(null);
+  const canvasAgentBridge = useCanvasAgentBridge(agentBridgeEditor);
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
   const [selectedContextKey, setSelectedContextKey] = React.useState<string | null>(null);
   const [contextPaneState, setContextPaneState] = React.useState<Record<string, ContextPaneState>>({});
@@ -1783,6 +1791,10 @@ export const CanvasView: React.FC = () => {
               </ScrollArea>
             </DialogContent>
           </Dialog>
+            <CanvasAgentBridgeControls
+              bridge={canvasAgentBridge}
+              iconButtonClass={sharePanelIconButtonClass}
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -1897,9 +1909,11 @@ export const CanvasView: React.FC = () => {
             onMount={(nextEditor) => {
               editorRef.current = nextEditor;
               setEditorReady(true);
+              setAgentBridgeEditor(nextEditor);
             }}
           >
             <CanvasThemeBridge />
+            <CanvasAgentOverlay bridge={canvasAgentBridge} />
           </Tldraw>
         </CanvasTopLeftToolbarContext.Provider>
       </CanvasAgentContext.Provider>

@@ -10,6 +10,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use crate::service::canvas_agent_relay::{
+    CanvasAgentDispatchOutcome, CanvasAgentRelay, CompleteDispatchResult,
+};
 use crate::{CanvasService, SaveCanvasBoardReq};
 use agent::{AgentId, CustomAgent};
 use ai_usage::UsageService;
@@ -19,7 +22,8 @@ use core_engine::{FsEngine, GitEngine};
 use infra::{
     AgentBehaviourSettingsUpdateRequest, AgentConfigGetRequest, AgentConfigSetRequest,
     AgentInstallRequest, AgentRegistryInstallRequest, AgentRegistryListRequest,
-    AgentRegistryRemoveRequest, AppOpenRequest, CanvasBoardResponse,
+    AgentRegistryRemoveRequest, AppOpenRequest, CanvasAgentDispatchResultRequest,
+    CanvasBoardResponse, CanvasBridgeRegisterRequest, CanvasBridgeUnregisterRequest,
     CanvasUpdateDefaultBoardRequest, CodeAgentCustomUpdateRequest, CustomAgentAddRequest,
     CustomAgentRemoveRequest, CustomAgentSetJsonRequest, FsCreateDirRequest, FsDeletePathRequest,
     FsDuplicatePathRequest, FsListDirRequest, FsListProjectFilesRequest, FsReadFileRequest,
@@ -108,6 +112,7 @@ pub struct WsMessageService {
     review_service: Arc<ReviewService>,
     usage_service: Arc<UsageService>,
     canvas_service: Arc<CanvasService>,
+    canvas_agent_relay: Arc<CanvasAgentRelay>,
     ws_manager: OnceCell<Arc<infra::WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
 }
@@ -563,6 +568,7 @@ impl WsMessageService {
         review_service: Arc<ReviewService>,
         usage_service: Arc<UsageService>,
         canvas_service: Arc<CanvasService>,
+        canvas_agent_relay: Arc<CanvasAgentRelay>,
     ) -> Self {
         Self {
             fs_engine: FsEngine::new(),
@@ -577,9 +583,16 @@ impl WsMessageService {
             review_service,
             usage_service,
             canvas_service,
+            canvas_agent_relay,
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
         }
+    }
+
+    /// Expose the bridge relay so HTTP handlers can resolve targets and
+    /// register pending waiters without re-implementing the routing rules.
+    pub fn canvas_agent_relay(&self) -> Arc<CanvasAgentRelay> {
+        Arc::clone(&self.canvas_agent_relay)
     }
 
     pub fn set_ws_manager(&self, manager: Arc<infra::WsManager>) -> Result<()> {
@@ -635,6 +648,15 @@ impl WsMessageService {
             WsAction::CanvasUpdateDefaultBoard => {
                 self.handle_canvas_update_default_board(parse_request(request.data)?)
                     .await
+            }
+            WsAction::CanvasBridgeRegister => {
+                self.handle_canvas_bridge_register(conn_id, parse_request(request.data)?)
+            }
+            WsAction::CanvasBridgeUnregister => {
+                self.handle_canvas_bridge_unregister(conn_id, parse_request(request.data)?)
+            }
+            WsAction::CanvasAgentDispatchResult => {
+                self.handle_canvas_agent_dispatch_result(conn_id, parse_request(request.data)?)
             }
 
             // Git
@@ -1438,6 +1460,77 @@ impl WsMessageService {
             document_json: board.document_json,
             updated_at: board.updated_at,
         }))
+    }
+
+    // ===== APP-015: Canvas terminal-agent bridge =====
+
+    fn handle_canvas_bridge_register(
+        &self,
+        conn_id: &str,
+        req: CanvasBridgeRegisterRequest,
+    ) -> Result<Value> {
+        self.canvas_agent_relay.register(
+            conn_id,
+            req.client_id.clone(),
+            req.label,
+            req.accepts_commands,
+            req.capabilities,
+        );
+        Ok(json!({
+            "ok": true,
+            "client_id": req.client_id,
+            "conn_id": conn_id,
+        }))
+    }
+
+    fn handle_canvas_bridge_unregister(
+        &self,
+        conn_id: &str,
+        req: CanvasBridgeUnregisterRequest,
+    ) -> Result<Value> {
+        self.canvas_agent_relay
+            .unregister(conn_id, &req.client_id);
+        Ok(json!({ "ok": true, "client_id": req.client_id }))
+    }
+
+    fn handle_canvas_agent_dispatch_result(
+        &self,
+        conn_id: &str,
+        req: CanvasAgentDispatchResultRequest,
+    ) -> Result<Value> {
+        let outcome = CanvasAgentDispatchOutcome {
+            success: req.success,
+            error_code: req.error_code,
+            error_message: req.error_message,
+            recoverable: req.recoverable,
+            data: req.data,
+        };
+        let result = self
+            .canvas_agent_relay
+            .complete_dispatch(&req.request_id, conn_id, outcome);
+        match result {
+            CompleteDispatchResult::Completed => Ok(json!({
+                "ok": true,
+                "completed": true,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::Unknown => Ok(json!({
+                "ok": true,
+                "completed": false,
+                "request_id": req.request_id,
+            })),
+            CompleteDispatchResult::ConnMismatch => {
+                tracing::warn!(
+                    "canvas_agent: rejected dispatch_result for {} from foreign conn {}",
+                    req.request_id,
+                    conn_id
+                );
+                Err(ServiceError::Validation(format!(
+                    "canvas_agent: request_id {} is owned by another connection",
+                    req.request_id
+                )))
+            }
+        }
     }
 
     fn handle_app_open(&self, req: AppOpenRequest) -> Result<Value> {
@@ -6042,6 +6135,8 @@ impl WsMessageHandler for WsMessageService {
 
     async fn on_disconnect(&self, conn_id: &str) {
         tracing::info!("[WsMessageService] Client disconnected: {}", conn_id);
+        // APP-015: drop any canvas-bridge registrations associated with this conn
+        self.canvas_agent_relay.unregister_conn(conn_id);
     }
 }
 
