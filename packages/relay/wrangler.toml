@@ -21,7 +21,7 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_classes = ["ServerHub"]
+new_sqlite_classes = ["ServerHub"]
 
 [[d1_databases]]
 binding = "DB"
