@@ -1,14 +1,18 @@
 //! Outbound Cloudflare relay link (APP-016). Multiplexes browser sessions into one WSS.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use runtime_manager::ServerIdentity;
 use futures_util::{SinkExt, StreamExt};
-use http;
+use tokio::sync::oneshot;
+use http::header::{self, HeaderValue};
+use http::StatusCode;
 use infra::ClientType;
 use serde::Deserialize;
 use tokio::sync::{mpsc, RwLock};
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 use tracing::{error, info, warn};
@@ -35,29 +39,85 @@ struct Session {
     _push_abort: tokio::task::JoinHandle<()>,
 }
 
-pub async fn run(state: AppState, identity: ServerIdentity) -> Result<(), String> {
+/// Shared flags updated by the outbound relay task for status APIs.
+#[derive(Clone)]
+pub struct RelayLifecycle {
+    upstream_connected: Arc<AtomicBool>,
+    last_error: Arc<tokio::sync::Mutex<Option<String>>>,
+}
+
+impl RelayLifecycle {
+    pub fn new(
+        upstream_connected: Arc<AtomicBool>,
+        last_error: Arc<tokio::sync::Mutex<Option<String>>>,
+    ) -> Self {
+        Self {
+            upstream_connected,
+            last_error,
+        }
+    }
+
+    fn set_connected(&self) {
+        self.upstream_connected.store(true, Ordering::SeqCst);
+    }
+
+    fn set_failed(&self, message: impl Into<String>) {
+        self.upstream_connected.store(false, Ordering::SeqCst);
+        if let Ok(mut guard) = self.last_error.try_lock() {
+            *guard = Some(message.into());
+        }
+    }
+
+    fn clear_connected(&self) {
+        self.upstream_connected.store(false, Ordering::SeqCst);
+    }
+}
+
+pub async fn run(
+    state: AppState,
+    identity: ServerIdentity,
+    mut shutdown: oneshot::Receiver<()>,
+    lifecycle: RelayLifecycle,
+) -> Result<(), String> {
     let mut url = reqwest::Url::parse(&identity.relay_ws_url)
         .map_err(|e| format!("relay_ws_url parse: {e}"))?;
 
     url.query_pairs_mut()
         .append_pair("server_id", &identity.server_id);
 
-    let uri: http::Uri = url
-        .as_str()
-        .parse()
-        .map_err(|e| format!("relay_ws_uri parse: {e}"))?;
+    let ws_url = url.as_str();
+    let mut req = ws_url
+        .into_client_request()
+        .map_err(|e| format!("relay client request: {e}"))?;
+    req.headers_mut().insert(
+        header::AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {}", identity.server_secret))
+            .map_err(|e| format!("authorization header: {e}"))?,
+    );
 
-    let req = http::Request::builder()
-        .method("GET")
-        .uri(uri)
-        .header(
-            http::header::AUTHORIZATION,
-            format!("Bearer {}", identity.server_secret),
-        )
-        .body(())
-        .map_err(|e| format!("relay request build: {e}"))?;
+    let (ws, response) = match tokio::select! {
+        _ = &mut shutdown => return Ok(()),
+        res = connect_async(req) => res,
+    } {
+        Ok(pair) => pair,
+        Err(e) => {
+            let msg = format!("WebSocket connect failed: {e}");
+            lifecycle.set_failed(&msg);
+            return Err(msg);
+        }
+    };
 
-    let (ws, response) = connect_async(req).await.map_err(|e| e.to_string())?;
+    // WebSocket upgrade succeeds with 101 Switching Protocols (not 2xx).
+    if response.status() != StatusCode::SWITCHING_PROTOCOLS {
+        let msg = format!(
+            "Relay rejected connection (HTTP {})",
+            response.status().as_u16()
+        );
+        lifecycle.set_failed(&msg);
+        return Err(msg);
+    }
+
+    lifecycle.set_connected();
     info!(
         target: "atmos_relay",
         status = %response.status(),
@@ -80,7 +140,13 @@ pub async fn run(state: AppState, identity: ServerIdentity) -> Result<(), String
     let sessions: Arc<RwLock<HashMap<String, Session>>> = Arc::new(RwLock::new(HashMap::new()));
 
     loop {
-        let next = stream.next().await;
+        let next = tokio::select! {
+            _ = &mut shutdown => {
+                info!(target: "atmos_relay", "relay shutdown requested");
+                break;
+            }
+            msg = stream.next() => msg,
+        };
         match next {
             Some(Ok(Message::Text(t))) => {
                 let env: RelayEnvelope = match serde_json::from_str(&t) {
@@ -173,6 +239,7 @@ pub async fn run(state: AppState, identity: ServerIdentity) -> Result<(), String
         state.ws_service.unregister(&s.conn_id).await;
     }
 
+    lifecycle.clear_connected();
     Ok(())
 }
 

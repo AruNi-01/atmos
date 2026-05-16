@@ -2,13 +2,18 @@ use crate::logging::{self, LogLevel};
 use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
 use crate::updater;
-use runtime_manager::clear_client_session;
+use runtime_manager::{clear_client_session, local_computer_display_name_opt};
 use serde_json::json;
 use std::time::Duration;
 
 #[tauri::command]
 pub fn clear_client_session_cmd() -> Result<(), String> {
     clear_client_session()
+}
+
+#[tauri::command]
+pub fn get_local_computer_display_name() -> Result<Option<String>, String> {
+    Ok(local_computer_display_name_opt())
 }
 
 #[tauri::command]

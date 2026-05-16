@@ -3,6 +3,7 @@
 mod http_gateway;
 mod ingest;
 mod register;
+mod supervisor;
 
-pub use ingest::run;
 pub use register::try_consume_register_token;
+pub use supervisor::RelaySupervisor;

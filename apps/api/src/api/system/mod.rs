@@ -1,3 +1,4 @@
+mod computer;
 mod diagnostics;
 mod handlers;
 mod skills;
@@ -52,6 +53,10 @@ pub fn routes() -> Router<AppState> {
             "/client-session",
             get(handlers::get_client_session).put(handlers::put_client_session),
         )
+        .route("/computer", get(computer::get_computer_status))
+        .route("/computer/register", post(computer::register_local_computer))
+        .route("/computer/unregister", post(computer::unregister_local_computer))
+        .route("/computer/relay-sync", post(computer::sync_relay_connection))
 }
 
 /// Destructive system routes that require loopback or token authentication.

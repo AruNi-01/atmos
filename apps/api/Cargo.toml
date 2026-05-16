@@ -34,6 +34,7 @@ dirs = "5.0"
 clap = { workspace = true }
 sha2 = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
 http = "1"
 base64 = "0.22"

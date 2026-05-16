@@ -93,6 +93,7 @@ import { BotIcon } from '@workspace/ui/components/icons/bot-icon';
 import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon';
 import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
 import WorldIcon from '@workspace/ui/components/icons/world-icon';
+import ComputerIcon from '@workspace/ui/components/icons/computer-icon';
 import { FolderKanbanIcon } from '@workspace/ui/components/icons/folder-kanban-icon';
 import { TagIcon } from '@workspace/ui/components/icons/tag-icon';
 import KeyboardIcon from '@workspace/ui/components/icons/keyboard-icon';
@@ -294,7 +295,7 @@ const SETTINGS_SECTIONS = [
   {
     id: 'atmos-computer',
     label: 'Atmos Computer',
-    description: 'Cloud relay pairing and remote WebSocket path (APP-016)',
+    description: 'Connect to your computers from anywhere',
   },
   {
     id: 'shortcuts',
@@ -3694,7 +3695,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {itemId === 'ai' && <BrainCircuitIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'notify' && <BellIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'remote-access' && <WorldIcon ref={itemIconRef} className="shrink-0" size={16} />}
-                                {itemId === 'atmos-computer' && <Route className="size-4 shrink-0" />}
+                                {itemId === 'atmos-computer' && (
+                                  <ComputerIcon ref={itemIconRef} className="shrink-0" size={16} />
+                                )}
                                 {itemId === 'shortcuts' && <KeyboardIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'experiments' && (
                                   <FlaskIcon ref={itemIconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />

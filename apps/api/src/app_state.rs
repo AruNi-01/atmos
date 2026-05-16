@@ -8,6 +8,8 @@ use core_service::{
 use infra::{WsService, WsServiceConfig};
 use token_usage::TokenUsageService;
 
+use crate::relay::RelaySupervisor;
+
 pub struct AppServices {
     pub test_service: Arc<TestService>,
     pub project_service: Arc<ProjectService>,
@@ -41,6 +43,7 @@ pub struct AppState {
     pub review_service: Arc<ReviewService>,
     pub ws_service: Arc<WsService>,
     pub api_port: std::sync::atomic::AtomicU16,
+    pub relay_supervisor: RelaySupervisor,
 }
 
 impl Clone for AppState {
@@ -61,6 +64,7 @@ impl Clone for AppState {
             review_service: Arc::clone(&self.review_service),
             ws_service: Arc::clone(&self.ws_service),
             api_port: std::sync::atomic::AtomicU16::new(self.api_port()),
+            relay_supervisor: self.relay_supervisor.clone(),
         }
     }
 }
@@ -90,6 +94,7 @@ impl AppState {
             review_service: services.review_service,
             ws_service: Arc::new(ws_service),
             api_port: std::sync::atomic::AtomicU16::new(default_port),
+            relay_supervisor: RelaySupervisor::new(),
         }
     }
 

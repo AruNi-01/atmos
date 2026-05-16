@@ -66,6 +66,12 @@ async fn register(args: RegisterArgs) -> Result<Value, String> {
 
     let path = resolve_server_identity_path();
     let local = runtime_manager::supervisor::runtime_status().await.ok();
+    let api_running = local.as_ref().map(|s| s.running).unwrap_or(false);
+    let relay_synced = if api_running {
+        sync_relay_to_running_api().await
+    } else {
+        false
+    };
 
     Ok(json!({
         "ok": true,
@@ -75,8 +81,9 @@ async fn register(args: RegisterArgs) -> Result<Value, String> {
         "control_plane_url": identity.control_plane_url,
         "relay_ws_url": identity.relay_ws_url,
         "identity_path": path.display().to_string(),
-        "local_api_running": local.as_ref().map(|s| s.running).unwrap_or(false),
-        "hint": relay_restart_hint(local.as_ref().map(|s| s.running).unwrap_or(false)),
+        "local_api_running": api_running,
+        "relay_connected": relay_synced,
+        "hint": relay_register_hint(api_running, relay_synced),
     }))
 }
 
@@ -141,10 +148,17 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
         EnsureOutcome::Started(s) => ("started", s),
     };
 
+    let relay_synced = if register_result.is_some() {
+        sync_relay_to_running_api().await
+    } else {
+        false
+    };
+
     Ok(json!({
         "ok": true,
         "action": action,
         "register": register_result,
+        "relay_connected": relay_synced,
         "control_plane_url": normalize_control_plane_url(&resolve_control_plane(args.control_plane.as_deref())),
         "runtime": status,
         "hint": "Keep this host online. On another device: Settings → access token → Connect via relay.",
@@ -196,17 +210,42 @@ fn resolve_display_name(cli: Option<String>) -> String {
 }
 
 fn default_display_name() -> String {
-    std::env::var("HOSTNAME")
-        .or_else(|_| std::env::var("COMPUTERNAME"))
-        .ok()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "Atmos Computer".to_string())
+    runtime_manager::local_computer_display_name()
 }
 
-fn relay_restart_hint(local_api_running: bool) -> &'static str {
-    if local_api_running {
-        "Relay identity saved. Restart the API (`atmos runtime ensure --force-restart`) to open the relay connection."
+async fn sync_relay_to_running_api() -> bool {
+    let base = match runtime_manager::resolve_api_base_url(None) {
+        Ok(url) => url,
+        Err(_) => return false,
+    };
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+    let url = format!("{}/api/system/computer/relay-sync", base.trim_end_matches('/'));
+    let res = match client.post(&url).json(&serde_json::json!({})).send().await {
+        Ok(r) => r,
+        Err(_) => return false,
+    };
+    if !res.status().is_success() {
+        return false;
+    }
+    res.json::<serde_json::Value>()
+        .await
+        .ok()
+        .and_then(|v| v.get("data")?.get("relay_connected")?.as_bool())
+        .unwrap_or(false)
+}
+
+fn relay_register_hint(api_running: bool, relay_connected: bool) -> &'static str {
+    if api_running && relay_connected {
+        "Registered and connected to the cloud relay."
+    } else if api_running {
+        "Registered. If remote access stays offline, run: atmos computer relay-sync (or toggle remote access in Settings)."
     } else {
-        "Relay identity saved. Run `atmos computer start` or `atmos runtime ensure` to launch the API with relay."
+        "Relay identity saved. Run `atmos computer start` or `atmos runtime ensure` to launch the API."
     }
 }

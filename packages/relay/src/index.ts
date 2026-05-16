@@ -370,6 +370,35 @@ async function handleApi(
       return json({ computers });
     }
 
+    const patchMatch = path.match(/^\/v1\/computers\/([^/]+)$/);
+    if (patchMatch && request.method === "PATCH") {
+      if (!tenant) {
+        return json({ error: "unauthorized" }, 401);
+      }
+
+      const serverId = patchMatch[1]!;
+      const body = (await request.json().catch(() => null)) as {
+        display_name?: string;
+      } | null;
+      const displayName = body?.display_name?.trim();
+      if (!displayName) {
+        return json({ error: "display_name_required" }, 400);
+      }
+
+      const updated = await env.DB.prepare(
+        `UPDATE computers SET display_name = ?
+         WHERE server_id = ? AND tenant_id = ? AND revoked = 0`,
+      )
+        .bind(displayName, serverId, tenant)
+        .run();
+
+      if (!updated.meta.changes) {
+        return json({ error: "computer_not_found" }, 404);
+      }
+
+      return json({ ok: true, server_id: serverId, display_name: displayName });
+    }
+
     const revokeMatch = path.match(/^\/v1\/computers\/([^/]+)\/revoke$/);
     if (revokeMatch && request.method === "POST") {
       if (!tenant) {

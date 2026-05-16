@@ -70,8 +70,22 @@ const devHeadersConfig = !isStaticExportTarget
     }
   : {};
 
+const devApiPort = process.env.NEXT_PUBLIC_API_PORT || "30303";
+
 const nextConfig: NextConfig = {
   output: isStaticExportTarget ? "export" : undefined,
+  async rewrites() {
+    // Browser dev (e.g. :3030): proxy REST to loopback API so POST preflight stays same-origin.
+    if (!isStaticExportTarget && isDev) {
+      return [
+        {
+          source: "/api/:path*",
+          destination: `http://127.0.0.1:${devApiPort}/api/:path*`,
+        },
+      ];
+    }
+    return [];
+  },
   // Generate en/index.html instead of en.html so static file servers
   // can resolve /en/ correctly (ServeDir append_index_html).
   trailingSlash: isStaticExportTarget,

@@ -32,6 +32,10 @@ interface AtmosComputerStore {
   relayClientToken: string | null;
   registerCommandShown: string | null;
   registerTokenExpiresAt: number | null;
+  /** Friendly name for this browser's machine (pre-register + UI). */
+  localComputerDisplayName: string;
+  /** Cached `server_id` from local API after register. */
+  localServerId: string | null;
   setConnectionMode: (m: AtmosComputerConnectionMode) => void;
   setControlPlaneUrl: (url: string) => void;
   setAccessToken: (s: string) => void;
@@ -42,17 +46,33 @@ interface AtmosComputerStore {
   setRelayClientToken: (token: string | null) => void;
   setRegisterCommandShown: (cmd: string | null) => void;
   setRegisterTokenExpiresAt: (ts: number | null) => void;
+  setLocalComputerDisplayName: (name: string) => void;
+  setLocalServerId: (id: string | null) => void;
   resetRelaySession: () => void;
 }
 
 const envCp =
   typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ATMOS_CP_URL ?? '' : '';
 
+/** Production relay; override via `NEXT_PUBLIC_ATMOS_CP_URL` at build time only. */
+export const DEFAULT_CONTROL_PLANE_URL = 'https://relay.atmos.land';
+
+export function resolveControlPlaneUrl(raw?: string | null): string {
+  const trimmed = (raw ?? '').trim();
+  if (trimmed) {
+    return normalizedControlPlaneOrigin(trimmed);
+  }
+  if (envCp.trim()) {
+    return normalizedControlPlaneOrigin(envCp);
+  }
+  return DEFAULT_CONTROL_PLANE_URL;
+}
+
 export const useAtmosComputerStore = create(
   persist<AtmosComputerStore>(
     set => ({
       connectionMode: 'local',
-      controlPlaneUrl: envCp,
+      controlPlaneUrl: envCp || DEFAULT_CONTROL_PLANE_URL,
       accessToken: '',
       computers: [],
       selectedServerId: null,
@@ -61,6 +81,8 @@ export const useAtmosComputerStore = create(
       relayClientToken: null,
       registerCommandShown: null,
       registerTokenExpiresAt: null,
+      localComputerDisplayName: '',
+      localServerId: null,
 
       setConnectionMode: connectionMode => set({ connectionMode }),
       setControlPlaneUrl: controlPlaneUrl => set({ controlPlaneUrl }),
@@ -73,6 +95,9 @@ export const useAtmosComputerStore = create(
       setRegisterCommandShown: registerCommandShown => set({ registerCommandShown }),
       setRegisterTokenExpiresAt: registerTokenExpiresAt =>
         set({ registerTokenExpiresAt }),
+      setLocalComputerDisplayName: localComputerDisplayName =>
+        set({ localComputerDisplayName }),
+      setLocalServerId: localServerId => set({ localServerId }),
 
       resetRelaySession: () =>
         set({
@@ -86,7 +111,7 @@ export const useAtmosComputerStore = create(
     }),
     {
       name: 'atmos-computer',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         const state = { ...(persisted as object) } as Record<string, unknown>;
         if (version < 2) {
@@ -101,6 +126,10 @@ export const useAtmosComputerStore = create(
         if (version < 4) {
           state.relayGatewayHttpBase = null;
           state.relayClientToken = null;
+        }
+        if (version < 5) {
+          state.localComputerDisplayName = '';
+          state.localServerId = null;
         }
         return state as unknown as AtmosComputerStore;
       },

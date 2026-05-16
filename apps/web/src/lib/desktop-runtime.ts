@@ -11,6 +11,18 @@ export type ApiConfig = {
 };
 
 let cachedConfig: ApiConfig | null = null;
+let cachedHttpConfig: ApiConfig | null = null;
+
+const loopbackApiPort = (): number =>
+  parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
+
+function loopbackApiConfig(token?: string): ApiConfig {
+  return {
+    host: '127.0.0.1',
+    port: loopbackApiPort(),
+    token,
+  };
+}
 
 export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -75,11 +87,55 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
     return cachedConfig;
   }
 
-  cachedConfig = {
-    host: '127.0.0.1',
-    port: parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10),
-    token: process.env.NEXT_PUBLIC_API_TOKEN || undefined,
-  };
-  debugLog(`getRuntimeApiConfig: dev-mode port=${cachedConfig.port}`);
+  cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+  debugLog(`getRuntimeApiConfig: dev loopback port=${cachedConfig.port}`);
   return cachedConfig;
+}
+
+/**
+ * HTTP fetch target. In browser dev, same-origin `/api` is proxied to loopback (see next.config rewrites).
+ * WebSocket and PTY still use {@link getRuntimeApiConfig} (direct loopback port).
+ */
+export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
+  if (cachedHttpConfig) {
+    return cachedHttpConfig;
+  }
+
+  if (isTauriRuntime()) {
+    cachedHttpConfig = await getRuntimeApiConfig();
+    return cachedHttpConfig;
+  }
+
+  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
+    const protocol = window.location.protocol.replace(':', '');
+    const host = window.location.hostname;
+    const defaultPort = protocol === 'https' ? '443' : '80';
+    const port = parseInt(window.location.port || defaultPort, 10);
+    cachedHttpConfig = { host, port, protocol };
+    return cachedHttpConfig;
+  }
+
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    const protocol = window.location.protocol.replace(':', '');
+    const defaultPort = protocol === 'https' ? '443' : '80';
+    const port = parseInt(window.location.port || defaultPort, 10);
+    cachedHttpConfig = {
+      host: window.location.hostname,
+      port,
+      protocol,
+      token: process.env.NEXT_PUBLIC_API_TOKEN || undefined,
+    };
+    debugLog(
+      `getRuntimeHttpConfig: dev proxy ${protocol}://${cachedHttpConfig.host}:${port}/api → 127.0.0.1:${loopbackApiPort()}`,
+    );
+    return cachedHttpConfig;
+  }
+
+  cachedHttpConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+  return cachedHttpConfig;
+}
+
+/** Loopback / dev-proxied HTTP base (never the relay gateway). */
+export async function getLoopbackHttpBase(): Promise<string> {
+  return httpBase(await getRuntimeHttpConfig());
 }

@@ -46,6 +46,16 @@ pub fn read_server_identity() -> Result<Option<ServerIdentity>, String> {
     Ok(Some(parsed))
 }
 
+pub fn clear_server_identity() -> Result<bool, String> {
+    let path = resolve_server_identity_path();
+    if !path.is_file() {
+        return Ok(false);
+    }
+    fs::remove_file(&path)
+        .map_err(|err| format!("Failed to remove {}: {}", path.display(), err))?;
+    Ok(true)
+}
+
 pub fn write_server_identity(data: &ServerIdentity) -> Result<PathBuf, String> {
     let path = relay_identity_path()?;
     let dir = path

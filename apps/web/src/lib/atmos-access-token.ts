@@ -2,7 +2,7 @@
  * User access token helpers (APP-016) — possession = tenant, no account login.
  */
 
-import { normalizedControlPlaneOrigin } from '@/lib/atmos-computer-store';
+import { resolveControlPlaneUrl } from '@/lib/atmos-computer-store';
 
 export function generateAccessToken(): string {
   const raw = crypto.getRandomValues(new Uint8Array(32));
@@ -18,10 +18,7 @@ export async function registerAccessTokenOnRelay(
   controlPlaneUrl: string,
   accessToken: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const base = normalizedControlPlaneOrigin(controlPlaneUrl);
-  if (!base) {
-    return { ok: false, error: 'control_plane_url_required' };
-  }
+  const base = resolveControlPlaneUrl(controlPlaneUrl);
 
   try {
     const res = await fetch(`${base}/v1/tenants`, {
@@ -48,10 +45,7 @@ export async function cpFetchWithAccessToken(
   path: string,
   init?: RequestInit,
 ): Promise<Response> {
-  const base = normalizedControlPlaneOrigin(controlPlaneUrl);
-  if (!base) {
-    throw new Error('control_plane_url_required');
-  }
+  const base = resolveControlPlaneUrl(controlPlaneUrl);
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
   return fetch(url, {
     ...init,

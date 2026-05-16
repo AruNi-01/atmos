@@ -159,8 +159,20 @@ fn read_idle_session_timeout_mins() -> u64 {
         .unwrap_or(DEFAULT)
 }
 
+/// rustls 0.23+ requires an explicit process-wide provider before TLS (relay WSS, reqwest, etc.).
+fn install_rustls_crypto_provider() {
+    use rustls::crypto::CryptoProvider;
+    if CryptoProvider::get_default().is_none() {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .expect("failed to install rustls ring CryptoProvider");
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    install_rustls_crypto_provider();
+
     let cli = Cli::parse();
     dotenvy::from_filename("apps/api/.env").ok();
     dotenvy::dotenv().ok();
@@ -319,23 +331,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             warn!(target: "atmos_relay", error = %err, "register token consumption failed");
         }
 
-        match runtime_manager::read_server_identity() {
-            Ok(Some(identity)) => {
-                let st = app_state.clone();
-                tokio::spawn(async move {
-                    if let Err(err) = relay::run(st, identity).await {
-                        warn!(target: "atmos_relay", error = %err, "relay task exited");
-                    }
-                });
-            }
-            Ok(None) => {
-                debug!(target: "atmos_relay", "relay disabled — no relay identity (~/.atmos/relay_identity.json)");
-            }
-            Err(err) => warn!(
+        if let Err(err) = app_state
+            .relay_supervisor
+            .start_if_identity_on_disk(app_state.clone())
+            .await
+        {
+            warn!(
                 target: "atmos_relay",
                 error = %err,
-                "relay server identity unreadable",
-            ),
+                "relay supervisor could not start from disk identity",
+            );
         }
     }
 

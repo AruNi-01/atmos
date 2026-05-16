@@ -1,6 +1,11 @@
 'use client';
 import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
-import { getRuntimeApiConfig, httpBase, wsBase } from '@/lib/desktop-runtime';
+import {
+  getLoopbackHttpBase,
+  getRuntimeApiConfig,
+  httpBase,
+  wsBase,
+} from '@/lib/desktop-runtime';
 
 /**
  * REST API client for endpoints that need to be called before WebSocket connection
@@ -21,8 +26,9 @@ async function resolveHttpFetchTarget(): Promise<{ apiBase: string; bearer?: str
       bearer: computer.relayClientToken ?? undefined,
     };
   }
+  const apiBase = await getLoopbackHttpBase();
   const cfg = await getRuntimeApiConfig();
-  return { apiBase: httpBase(cfg), bearer: cfg.token };
+  return { apiBase, bearer: cfg.token };
 }
 
 export const getRuntimeHttpBase = async (): Promise<string> => {
