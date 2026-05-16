@@ -279,6 +279,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent_hooks_service: Arc::clone(&agent_hooks_service),
             notification_service: Arc::clone(&notification_service),
             canvas_agent_relay: Arc::clone(&canvas_agent_relay),
+            review_service: Arc::clone(&review_service),
         },
         ws_config,
         server_config.port,

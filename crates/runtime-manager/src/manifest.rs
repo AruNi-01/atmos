@@ -122,7 +122,7 @@ pub fn remove_runtime_manifest() -> Result<(), String> {
     Ok(())
 }
 
-/// Precedence: explicit → `ATMOS_API_URL` → `runtime_manifest.json` → legacy `local/state.json`.
+/// Precedence: explicit → `ATMOS_API_URL` → `local/state.json` (relay hint) → `runtime_manifest.json`.
 pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
     if let Some(url) = explicit.filter(|value| !value.trim().is_empty()) {
         return Ok(url.trim().to_string());
@@ -132,39 +132,42 @@ pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
             return Ok(env_url.trim().to_string());
         }
     }
+    if let Some(state) = crate::client_state::read_client_state()? {
+        if let Some(url) = state.url.as_ref().filter(|value| !value.trim().is_empty()) {
+            return Ok(url.trim().to_string());
+        }
+        if state.connection_mode.as_deref() == Some("relay") {
+            return Err(
+                "Atmos client is on relay but gateway URL is missing — reconnect via Settings → Atmos Computer, or pass --api-url."
+                    .into(),
+            );
+        }
+    }
     if let Some(manifest) = read_runtime_manifest()? {
         return Ok(manifest.api.url);
     }
-    if let Ok(url) = read_legacy_local_state_url() {
-        return Ok(url);
-    }
     Err(
-        "API URL not found — pass --api-url, set ATMOS_API_URL, or run `atmos runtime ensure`."
+        "No API URL — start the local API (`atmos runtime ensure`), open Web/Desktop, or pass --api-url."
             .into(),
     )
 }
 
-fn read_legacy_local_state_url() -> Result<String, String> {
-    let path = legacy_local_state_path();
-    if !path.is_file() {
-        return Err("legacy local state missing".into());
+/// Bearer token for non-loopback / hardened API.
+pub fn resolve_api_bearer_token(explicit: Option<&str>) -> Option<String> {
+    if let Some(token) = explicit.filter(|t| !t.is_empty()) {
+        return Some(token.to_string());
     }
-    let raw = fs::read_to_string(&path)
-        .map_err(|err| format!("Failed to read {}: {}", path.display(), err))?;
-    let value: serde_json::Value = serde_json::from_str(&raw)
-        .map_err(|err| format!("Failed to parse {}: {}", path.display(), err))?;
-    value
-        .get("url")
-        .and_then(|url| url.as_str())
-        .map(|url| url.to_string())
-        .ok_or_else(|| format!("{} is missing a url field", path.display()))
-}
-
-fn legacy_local_state_path() -> PathBuf {
-    atmos_home_dir()
-        .unwrap_or_else(|_| PathBuf::from(".atmos"))
-        .join("local")
-        .join("state.json")
+    for key in ["ATMOS_API_TOKEN", "ATMOS_LOCAL_TOKEN"] {
+        if let Ok(token) = std::env::var(key) {
+            if !token.trim().is_empty() {
+                return Some(token);
+            }
+        }
+    }
+    crate::client_state::read_client_state()
+        .ok()
+        .flatten()
+        .and_then(|s| s.token.filter(|t| !t.is_empty()))
 }
 
 fn http_base_url(host: &str, port: u16) -> String {
@@ -236,5 +239,23 @@ mod tests {
     fn bind_all_interfaces_maps_to_loopback_in_manifest() {
         let m = RuntimeManifest::new("0.0.0.0", 30303, None, "api");
         assert_eq!(m.api.host, "127.0.0.1");
+    }
+
+    #[test]
+    fn resolve_api_base_url_uses_relay_gateway_from_client_state() {
+        let guard = EnvGuard::new();
+        let tmp = TempDir::new().unwrap();
+        guard.set_home(tmp.path());
+
+        crate::client_state::write_client_state(&crate::client_state::ClientState {
+            url: Some("https://relay.example/v1/computers/sid/proxy".into()),
+            token: Some("client-token".into()),
+            connection_mode: Some("relay".into()),
+            server_id: Some("sid".into()),
+        })
+        .unwrap();
+
+        let url = resolve_api_base_url(None).unwrap();
+        assert_eq!(url, "https://relay.example/v1/computers/sid/proxy");
     }
 }

@@ -117,7 +117,8 @@ All JSON. CORS `*` for dev.
 | POST | `/v1/computers/register` | _(register_token only)_ | Body `{ register_token, display_name? }` |
 | GET | `/v1/computers` | Bearer user token | Lists **your** computers only |
 | POST | `/v1/computers/:id/revoke` | Bearer user token | Revokes |
-| POST | `/v1/computers/:id/client_sessions` | Bearer user token | `{ client_token, expires_at, ws_url }` |
+| POST | `/v1/computers/:id/client_sessions` | Bearer user token | `{ client_token, expires_at, ws_url, gateway_url }` |
+| * | `/v1/computers/:id/proxy/*` | Bearer `client_token` or user access token | HTTP gateway to remote `apps/api` (requires Server outbound WS) |
 
 `tenant_id` in D1 = `sha256(user_access_token)` (hex). Possession of the token = identity; no account login.
 

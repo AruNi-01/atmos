@@ -18,6 +18,7 @@
 crates/runtime-manager/src/
 ├── lib.rs           # Re-exports
 ├── manifest.rs      # ~/.atmos/runtime_manifest.json
+├── client_state.rs  # ~/.atmos/local/state.json (relay hint from Web/Desktop)
 ├── identity.rs      # ~/.atmos/relay_identity.json
 ├── register.rs      # POST control plane /v1/computers/register
 └── supervisor.rs    # ensure / stop / status (feature supervisor)
@@ -32,6 +33,11 @@ crates/runtime-manager/src/
 - Written by **`apps/api`** on bind (`source: "api"`) or **`supervisor`** after `ensure` (`source: "runtime-manager"`).
 - Fields: `api.host`, `api.port`, `api.url`, `api.ws_url`, optional `pid`, `started_at`, `source`.
 - **No token** — loopback discovery only. Optional API hardening via `ATMOS_LOCAL_TOKEN` env (not in manifest).
+
+### `local/state.json` (client session hint)
+
+- **Local UI**: Web/Desktop **clears** this file; CLI uses `runtime_manifest.json`.
+- **Relay UI**: client writes `{ connection_mode: "relay", server_id }` so CLI does not silently hit loopback.
 
 ### `relay_identity.json`
 

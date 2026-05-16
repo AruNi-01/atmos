@@ -7,7 +7,7 @@ license: MIT
 
 # Atmos Canvas Agent Skill
 
-This skill teaches code agents running inside an Atmos terminal **when** and **how** to drive the Atmos Canvas via the `atmos canvas` CLI. All commands talk to a running `apps/api` over authenticated HTTP, which then relays into the live tldraw `Editor` in the browser tab where the user has Canvas open. No new API keys are required.
+This skill teaches code agents running inside an Atmos terminal **when** and **how** to drive the Atmos Canvas via the `atmos canvas` CLI. Commands go through the same Atmos server as the open Web/Desktop session and relay into the live tldraw `Editor` in the browser tab where the user has Canvas open.
 
 > **Skill location**: `~/.atmos/skills/.system/atmos-canvas-agent/SKILL.md` (synced by Atmos on API startup).
 
@@ -34,9 +34,9 @@ Do **not** use this skill for:
 
 ## Prerequisites the agent must check
 
-1. **Canvas overlay is open** in a browser/desktop tab connected to the same `apps/api`.
-2. **"Allow terminal/CLI control"** is enabled on the Canvas (bridge toggle in Canvas chrome). Mutating commands fail with `BRIDGE_DISABLED` otherwise. `status` works regardless.
-3. The agent has access to `atmos canvas …` — i.e. the `atmos` CLI is installed and authenticated to the same `apps/api`.
+1. **Atmos Web or Desktop is open** (same session the user is working in).
+2. **Canvas overlay is open** with **"Allow terminal/CLI control"** enabled (bridge toggle). Mutating commands fail with `BRIDGE_DISABLED` otherwise; `status` works without the bridge.
+3. **`atmos` CLI** is available in the terminal.
 
 When uncertain, run `atmos canvas status` first.
 
@@ -59,13 +59,11 @@ Exit code is `0` on success and non-zero on failure.
 
 | Flag | Meaning |
 |------|---------|
-| `--api-url <url>` | Base URL of `apps/api` (else `ATMOS_API_URL` env, else `~/.atmos/local/state.json`). |
-| `--api-token <token>` | Bearer token (else `ATMOS_API_TOKEN` env). Loopback API usually does not require a token. |
-| `--client-id <uuid>` | Target a specific Canvas tab when multiple are registered. Use the id printed by `status`. |
-| `--actor-id <id>` | Stable id for Agent presence within a run (used by Follow Agent). |
-| `--actor-name <name>` | Display name for the Agent presence (default `Agent`). |
-| `--actor-color <css>` | CSS color for Agent presence indicator. |
-| `--timeout-ms <ms>` | Client-side HTTP deadline. Default 45000. |
+| `--client-id <uuid>` | Target a specific Canvas tab when multiple are registered (from `status`). |
+| `--actor-id <id>` | Stable Agent presence id (Follow Agent). |
+| `--actor-name <name>` | Agent presence display name. |
+| `--actor-color <css>` | Agent presence color. |
+| `--timeout-ms <ms>` | HTTP deadline (default 45000). |
 
 ### Diagnostics & read
 
@@ -133,7 +131,7 @@ Adjusts the camera without keyboard/pointer synthesis. Read-only operation that 
 | `EDITOR_NOT_READY` | Editor not mounted in the target tab. | Retry shortly. |
 | `STALE_SHAPE_ID` | Referenced shape id does not exist. | Re-run `get-state` and retry with the current ids. |
 | `VALIDATION_ARG` | Bad CLI args (out-of-range, unknown patch key, etc.). | Fix args. |
-| `PERMISSION_DENIED` | Auth failure to `apps/api`. | Configure `--api-token` / `ATMOS_API_TOKEN`. |
+| `PERMISSION_DENIED` | Cannot reach the Atmos API. | Ask the user to confirm Atmos is open and connected. |
 | `UNSUPPORTED_COMMAND` | Browser does not recognize the command (version skew). | Upgrade Atmos. |
 | `RELAY_TIMEOUT` | Browser never answered within deadline. | Retry, or raise `--timeout-ms`. |
 
@@ -244,7 +242,6 @@ atmos canvas update-shape --id "$ID" --patch '{"color":"red"}'
 
 ## Anti-patterns
 
-- ❌ Do **not** try to overwrite the canvas document JSON directly via any other API.
-- ❌ Do **not** invent commands or pass arbitrary tldraw store records.
-- ❌ Do **not** rely on the agent's own LLM provider — `atmos canvas` reuses the existing CLI authentication; there is no Canvas-specific API key.
-- ❌ Do **not** swallow stderr — the CLI returns recoverable error codes that the agent should react to.
+- Do not edit canvas document JSON directly — use `atmos canvas` verbs only.
+- Do not invent commands or pass raw tldraw store payloads.
+- Do not ignore structured errors in stdout — read `error.code` and recover or ask the user.

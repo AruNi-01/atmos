@@ -20,6 +20,10 @@ import {
   registerAccessTokenOnRelay,
 } from '@/lib/atmos-access-token';
 import { useAtmosComputerStore, type ComputerRow } from '@/lib/atmos-computer-store';
+import {
+  syncClientSessionLocal,
+  syncClientSessionRelay,
+} from '@/lib/sync-client-session';
 
 function formatExpiresAt(epochSec: number): string {
   return new Date(epochSec * 1000).toLocaleString();
@@ -41,6 +45,8 @@ export function AtmosComputerSection() {
     setComputers,
     setSelectedServerId,
     setRelayWebSocketUrl,
+    setRelayGatewayHttpBase,
+    setRelayClientToken,
     setRegisterCommandShown,
     setRegisterTokenExpiresAt,
     resetRelaySession,
@@ -228,9 +234,11 @@ export function AtmosComputerSection() {
       );
       const data = (await res.json().catch(() => null)) as {
         ws_url?: string;
+        gateway_url?: string;
+        client_token?: string;
         error?: string;
       } | null;
-      if (!res.ok || !data?.ws_url) {
+      if (!res.ok || !data?.ws_url || !data?.gateway_url || !data?.client_token) {
         toastManager.add({
           title: 'Client session failed',
           description: data?.error ?? JSON.stringify(data ?? res.status),
@@ -239,7 +247,14 @@ export function AtmosComputerSection() {
         return;
       }
       setRelayWebSocketUrl(data.ws_url);
+      setRelayGatewayHttpBase(data.gateway_url);
+      setRelayClientToken(data.client_token);
       setConnectionMode('relay');
+      void syncClientSessionRelay(
+        selectedServerId,
+        data.gateway_url,
+        data.client_token,
+      ).catch(() => undefined);
       toastManager.add({
         title: 'Relay session ready',
         description: 'Reconnecting main WebSocket…',
@@ -314,6 +329,9 @@ export function AtmosComputerSection() {
           checked={connectionMode === 'relay'}
           onCheckedChange={checked => {
             setConnectionMode(checked ? 'relay' : 'local');
+            if (!checked) {
+              void syncClientSessionLocal().catch(() => undefined);
+            }
             reconnectWs();
           }}
         />
@@ -472,6 +490,7 @@ export function AtmosComputerSection() {
           onClick={() => {
             resetRelaySession();
             setConnectionMode('local');
+            void syncClientSessionLocal().catch(() => undefined);
             reconnectWs();
           }}
         >

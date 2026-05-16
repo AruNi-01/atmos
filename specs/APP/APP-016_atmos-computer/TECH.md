@@ -251,14 +251,17 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 
 - 描述 **本机监听** `host` / `port` / `url` / `ws_url`、可选 `pid`、`started_at`、`source`（**不含** auth token）。
 - 当 **Web/Desktop/CLI 的当前上下文 = 运行于本机的该 Computer（其 Server）** 时，与本地工具共用，用于发现 **loopback API**；**不**作为「CLI 永远连本机」的全局规则，也**不**作为跨公网发现源。
-- 解析优先级（CLI `canvas` 等）：`--api-url` → `ATMOS_API_URL` → manifest → 旧版 `~/.atmos/local/state.json`。
+- CLI 解析（`canvas` / `review` 等）：`--api-url` → `ATMOS_API_URL` → `~/.atmos/local/state.json`（**仅 relay 提示**）→ `runtime_manifest.json`。
 
-### 2.3 客户端侧缓存（非权威）
+**`~/.atmos/local/state.json`（客户端可选写入）**
 
-**`~/.atmos/contexts.json`（Desktop；Web dev 可由 Next 代理）**
+- **本地模式**：文件应**不存在**（或仅含历史字段）；CLI 以 manifest 为准，与 UI 同源。
+- **Relay 模式**：Web/Desktop 写入 `connection_mode: relay` + `server_id`，提示 CLI「当前 UI 不在本机 loopback」；待 HTTP gateway 落地后再扩展 `url` / `token`。
+- 复用 legacy 路径，**不**新增 `cli-target.json` / `contexts.json` 等含糊文件名。
 
-- 缓存「最近使用的 **Computer** 列表」、展示名、`last_connected_at`。
-- **权威列表**仍以 Control Plane 拉取为准；本地文件离线降级展示。
+### 2.3 Computer 列表缓存（Nice to Have · 未实现）
+
+若 Desktop 需要离线展示最近连过的 Computer，可用明确命名如 `~/.atmos/computers-cache.json`（**禁止**使用 `contexts` 这种泛称）。权威列表仍以 Control Plane 为准；浏览器侧亦可继续用 `localStorage`（`atmos-computer` store）。
 
 ### 2.4 注册与连接（定稿架构 · 上线前）
 

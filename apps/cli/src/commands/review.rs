@@ -1,16 +1,13 @@
 use std::fs;
 use std::io::{self, Read};
-use std::sync::Arc;
 
 use clap::{Args, Subcommand};
-use core_service::service::review::{
-    AddReviewMessageInput, CreateReviewAgentRunInput, CreateReviewCommentByFilePathInput,
-    SetReviewAgentRunStatusInput, UpdateReviewCommentStatusInput,
-};
-use core_service::ReviewService;
-use serde_json::Value;
+use reqwest::Method;
+use serde_json::{json, Value};
 
-pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Result<Value, String> {
+use crate::api_client::{request_json, ApiClientArgs};
+
+pub async fn execute(api: ApiClientArgs, command: ReviewCommand) -> Result<Value, String> {
     match command {
         ReviewCommand::SessionList(args) => {
             let SessionListArgs {
@@ -18,41 +15,62 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 project,
                 include_archived,
             } = args;
-            match (workspace, project) {
-                (Some(workspace_guid), None) => service
-                    .list_sessions_by_workspace(workspace_guid, include_archived)
-                    .await
-                    .map(serde_json::to_value)
-                    .map_err(|error| error.to_string())?
-                    .map_err(|error| error.to_string()),
-                (None, Some(project_guid)) => service
-                    .list_sessions_by_project(project_guid, include_archived)
-                    .await
-                    .map(serde_json::to_value)
-                    .map_err(|error| error.to_string())?
-                    .map_err(|error| error.to_string()),
-                (Some(_), Some(_)) => Err("Pass only one of --workspace or --project".to_string()),
-                (None, None) => Err("Pass exactly one of --workspace or --project".to_string()),
+            let mut query = Vec::new();
+            if let Some(w) = workspace {
+                query.push(("workspace_guid", w));
             }
+            if let Some(p) = project {
+                query.push(("project_guid", p));
+            }
+            if include_archived {
+                query.push(("include_archived", "true".to_string()));
+            }
+            request_json(
+                &api,
+                Method::GET,
+                "/api/review/sessions",
+                Some(&query),
+                None,
+            )
+            .await
         }
-        ReviewCommand::SessionShow(args) => service
-            .get_session(args.session)
+        ReviewCommand::SessionShow(args) => {
+            request_json(
+                &api,
+                Method::GET,
+                &format!("/api/review/sessions/{}", args.session),
+                None,
+                None,
+            )
             .await
-            .map(serde_json::to_value)
-            .map_err(|error| error.to_string())?
-            .map_err(|error| error.to_string()),
-        ReviewCommand::CommentList(args) => service
-            .list_comments(args.session, args.revision)
+        }
+        ReviewCommand::CommentList(args) => {
+            let mut query = vec![("session_guid", args.session)];
+            if let Some(revision) = args.revision {
+                query.push(("revision_guid", revision));
+            }
+            request_json(
+                &api,
+                Method::GET,
+                "/api/review/comments",
+                Some(&query),
+                None,
+            )
             .await
-            .map(serde_json::to_value)
-            .map_err(|error| error.to_string())?
-            .map_err(|error| error.to_string()),
-        ReviewCommand::CommentContext(args) => service
-            .get_comment_context(args.comment)
+        }
+        ReviewCommand::CommentContext(args) => {
+            request_json(
+                &api,
+                Method::GET,
+                &format!(
+                    "/api/review/comments/{}/context",
+                    args.comment
+                ),
+                None,
+                None,
+            )
             .await
-            .map(serde_json::to_value)
-            .map_err(|error| error.to_string())?
-            .map_err(|error| error.to_string()),
+        }
         ReviewCommand::ReplyComment(args) => {
             let body = read_required_body_input(
                 "reply body",
@@ -60,18 +78,19 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 args.body_file.as_deref(),
                 args.body_stdin,
             )?;
-            service
-                .create_message(AddReviewMessageInput {
-                    comment_guid: args.comment,
-                    author_type: args.author,
-                    kind: args.kind,
-                    body,
-                    agent_run_guid: args.run,
-                })
-                .await
-                .map(serde_json::to_value)
-                .map_err(|error| error.to_string())?
-                .map_err(|error| error.to_string())
+            request_json(
+                &api,
+                Method::POST,
+                &format!("/api/review/comments/{}/messages", args.comment),
+                None,
+                Some(json!({
+                    "body": body,
+                    "author_type": args.author,
+                    "kind": args.kind,
+                    "agent_run_guid": args.run,
+                })),
+            )
+            .await
         }
         ReviewCommand::CreateComment(args) => {
             let body = read_required_body_input(
@@ -80,54 +99,54 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 args.body_file.as_deref(),
                 args.body_stdin,
             )?;
-            service
-                .create_comment_by_file_path(CreateReviewCommentByFilePathInput {
-                    session_guid: args.session,
-                    revision_guid: args.revision,
-                    file_path: args.file,
-                    side: args.side,
-                    start_line: args.start_line,
-                    end_line: args.end_line,
-                    body,
-                    title: args.title,
-                    author_type: args.author,
-                    agent_run_guid: args.run,
-                })
-                .await
-                .map(serde_json::to_value)
-                .map_err(|error| error.to_string())?
-                .map_err(|error| error.to_string())
+            request_json(
+                &api,
+                Method::POST,
+                "/api/review/comments",
+                None,
+                Some(json!({
+                    "session_guid": args.session,
+                    "revision_guid": args.revision,
+                    "file_path": args.file,
+                    "side": args.side,
+                    "start_line": args.start_line,
+                    "end_line": args.end_line,
+                    "body": body,
+                    "title": args.title,
+                    "author_type": args.author,
+                    "agent_run_guid": args.run,
+                })),
+            )
+            .await
         }
         ReviewCommand::UpdateCommentStatus(args) => {
-            let comment_guid = args.comment.clone();
-            let status = args.status.clone();
-            service
-                .update_comment_status(UpdateReviewCommentStatusInput {
-                    comment_guid,
-                    status: status.clone(),
-                })
-                .await
-                .map_err(|error| error.to_string())?;
-            Ok(serde_json::json!({
-                "ok": true,
-                "comment_guid": args.comment,
-                "status": status,
-            }))
-        }
-        ReviewCommand::CreateAgentRun(args) => service
-            .create_agent_run(CreateReviewAgentRunInput {
-                session_guid: args.session,
-                base_revision_guid: args.base_revision,
-                run_kind: args.run_kind,
-                execution_mode: args.execution_mode,
-                skill_id: args.skill_id,
-                selected_comment_guids: args.comment,
-                created_by: args.created_by,
-            })
+            request_json(
+                &api,
+                Method::PATCH,
+                &format!("/api/review/comments/{}", args.comment),
+                None,
+                Some(json!({ "status": args.status })),
+            )
             .await
-            .map(serde_json::to_value)
-            .map_err(|error| error.to_string())?
-            .map_err(|error| error.to_string()),
+        }
+        ReviewCommand::CreateAgentRun(args) => {
+            request_json(
+                &api,
+                Method::POST,
+                "/api/review/agent-runs",
+                None,
+                Some(json!({
+                    "session_guid": args.session,
+                    "base_revision_guid": args.base_revision,
+                    "run_kind": args.run_kind,
+                    "execution_mode": args.execution_mode,
+                    "skill_id": args.skill_id,
+                    "selected_comment_guids": args.comment,
+                    "created_by": args.created_by,
+                })),
+            )
+            .await
+        }
         ReviewCommand::SummarizeRun(args) => {
             let body = read_required_body_input(
                 "run summary",
@@ -135,31 +154,33 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 args.body_file.as_deref(),
                 args.body_stdin,
             )?;
-            service
-                .write_run_summary(args.run, body)
-                .await
-                .map(serde_json::to_value)
-                .map_err(|error| error.to_string())?
-                .map_err(|error| error.to_string())
+            request_json(
+                &api,
+                Method::POST,
+                &format!("/api/review/agent-runs/{}/summary", args.run),
+                None,
+                Some(json!({ "body": body })),
+            )
+            .await
         }
         ReviewCommand::FinalizeRun(args) => {
-            if let Some(summary) = read_optional_body_input(
+            let summary = read_optional_body_input(
                 "run summary",
                 args.summary.as_deref(),
                 args.summary_file.as_deref(),
                 args.summary_stdin,
-            )? {
-                service
-                    .write_run_summary(args.run.clone(), summary)
-                    .await
-                    .map_err(|error| error.to_string())?;
-            }
-            service
-                .finalize_agent_run(args.run, args.title)
-                .await
-                .map(serde_json::to_value)
-                .map_err(|error| error.to_string())?
-                .map_err(|error| error.to_string())
+            )?;
+            request_json(
+                &api,
+                Method::POST,
+                &format!("/api/review/agent-runs/{}/finalize", args.run),
+                None,
+                Some(json!({
+                    "title": args.title,
+                    "summary": summary,
+                })),
+            )
+            .await
         }
         ReviewCommand::SetStatus(args) => {
             let summary = read_optional_body_input(
@@ -168,18 +189,19 @@ pub async fn execute(service: Arc<ReviewService>, command: ReviewCommand) -> Res
                 args.summary_file.as_deref(),
                 args.summary_stdin,
             )?;
-            service
-                .set_agent_run_status(SetReviewAgentRunStatusInput {
-                    run_guid: args.run,
-                    status: args.status,
-                    message: args.message,
-                    title: args.title,
-                    summary,
-                })
-                .await
-                .map(serde_json::to_value)
-                .map_err(|error| error.to_string())?
-                .map_err(|error| error.to_string())
+            request_json(
+                &api,
+                Method::POST,
+                &format!("/api/review/agent-runs/{}/status", args.run),
+                None,
+                Some(json!({
+                    "status": args.status,
+                    "message": args.message,
+                    "title": args.title,
+                    "summary": summary,
+                })),
+            )
+            .await
         }
     }
 }
@@ -261,7 +283,7 @@ pub enum ReviewCommand {
 
 #[derive(Debug, Args)]
 #[command(
-    after_help = "Pass exactly one of --workspace <workspace_guid> or --project <project_guid>."
+    after_help = "Pass exactly one of --workspace <workspace_guid> or --project <project_guid>.\n\nTargets the Atmos API (see --api-url, ATMOS_API_URL, ~/.atmos/runtime_manifest.json)."
 )]
 pub struct SessionListArgs {
     #[arg(long, group = "target")]

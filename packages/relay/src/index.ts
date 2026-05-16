@@ -1,5 +1,11 @@
-/** APP-016: Worker — control-plane REST + WebSocket handshake to ServerHub DO. */
+/** APP-016: Worker — control-plane REST + WebSocket + HTTP gateway to ServerHub DO. */
 
+import {
+  collectForwardHeaders,
+  gatewayBaseUrl,
+  matchGatewayPath,
+  validateGatewayAccess,
+} from "./http-gateway";
 import { ServerHub } from "./server-hub";
 
 export interface Env {
@@ -47,6 +53,13 @@ export default {
       return withCorsWs(res);
     }
 
+    const gateway = matchGatewayPath(path);
+    if (gateway) {
+      return withCors(
+        await handleHttpGatewayProxy(request, env, url, gateway),
+      );
+    }
+
     return withCors(await handleApi(request, env, url));
   },
 };
@@ -66,10 +79,13 @@ function normalizedPath(pathname: string): string {
 function withCors(res: Response): Response {
   const h = new Headers(res.headers);
   h.set("Access-Control-Allow-Origin", "*");
-  h.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  h.set(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  );
   h.set(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization",
+    "Content-Type, Authorization, X-Request-Id",
   );
   return new Response(res.body, { status: res.status, headers: h });
 }
@@ -423,11 +439,13 @@ async function handleApi(
       )}&token=${encodeURIComponent(clientToken)}&client_type=${encodeURIComponent(
         clientKind,
       )}`;
+      const gatewayUrl = gatewayBaseUrl(cp, serverId);
 
       return json({
         client_token: clientToken,
         expires_at: expiresAt,
         ws_url: wsUrl,
+        gateway_url: gatewayUrl,
       });
     }
   } catch (e) {
@@ -435,6 +453,64 @@ async function handleApi(
   }
 
   return json({ error: "not_found", path }, 404);
+}
+
+async function handleHttpGatewayProxy(
+  request: Request,
+  env: Env,
+  url: URL,
+  route: { serverId: string; upstreamPath: string },
+): Promise<Response> {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204 });
+  }
+
+  const allowed = await validateGatewayAccess(
+    request,
+    env,
+    route.serverId,
+    secretHash,
+    tenantFromRequest,
+  );
+  if (!allowed) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
+  const upstreamPath = route.upstreamPath + url.search;
+  const id = env.SERVER_HUB.idFromName(route.serverId);
+  const stub = env.SERVER_HUB.get(id);
+
+  let bodyB64: string | null = null;
+  if (
+    request.method !== "GET" &&
+    request.method !== "HEAD" &&
+    request.body
+  ) {
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    let binary = "";
+    for (const b of bytes) {
+      binary += String.fromCharCode(b);
+    }
+    bodyB64 = btoa(binary);
+  }
+
+  const descriptor = {
+    method: request.method,
+    path: upstreamPath,
+    headers: collectForwardHeaders(request),
+    body_b64: bodyB64,
+  };
+
+  const forward = new Request("https://do.internal/gateway", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Relay-Http-Gateway": "1",
+    },
+    body: JSON.stringify(descriptor),
+  });
+
+  return stub.fetch(forward);
 }
 
 async function handleServerWebSocket(

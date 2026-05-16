@@ -1,4 +1,5 @@
 'use client';
+import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
 import { getRuntimeApiConfig, httpBase, wsBase } from '@/lib/desktop-runtime';
 
 /**
@@ -12,9 +13,21 @@ export const getAgentWsBase = async (): Promise<string> => {
   return wsBase(cfg);
 };
 
-export const getRuntimeHttpBase = async (): Promise<string> => {
+async function resolveHttpFetchTarget(): Promise<{ apiBase: string; bearer?: string }> {
+  const computer = useAtmosComputerStore.getState();
+  if (computer.connectionMode === 'relay' && computer.relayGatewayHttpBase) {
+    return {
+      apiBase: computer.relayGatewayHttpBase.replace(/\/$/, ''),
+      bearer: computer.relayClientToken ?? undefined,
+    };
+  }
   const cfg = await getRuntimeApiConfig();
-  return httpBase(cfg);
+  return { apiBase: httpBase(cfg), bearer: cfg.token };
+}
+
+export const getRuntimeHttpBase = async (): Promise<string> => {
+  const { apiBase } = await resolveHttpFetchTarget();
+  return apiBase;
 };
 
 // ===== Types =====
@@ -95,16 +108,20 @@ interface ApiResponse<T> {
 }
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const cfg = await getRuntimeApiConfig();
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && !cfg.token) {
+  const { apiBase, bearer } = await resolveHttpFetchTarget();
+  if (
+    typeof window !== 'undefined' &&
+    '__TAURI_INTERNALS__' in window &&
+    !bearer &&
+    useAtmosComputerStore.getState().connectionMode !== 'relay'
+  ) {
     throw new Error('Desktop API token is missing in Tauri runtime');
   }
-  const apiBase = httpBase(cfg);
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       ...options?.headers,
     },
   });
@@ -132,15 +149,20 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const cfg = await getRuntimeApiConfig();
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && !cfg.token) {
+  const { apiBase, bearer } = await resolveHttpFetchTarget();
+  if (
+    typeof window !== 'undefined' &&
+    '__TAURI_INTERNALS__' in window &&
+    !bearer &&
+    useAtmosComputerStore.getState().connectionMode !== 'relay'
+  ) {
     throw new Error('Desktop API token is missing in Tauri runtime');
   }
-  const response = await fetch(`${httpBase(cfg)}${path}`, {
+  const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       ...options?.headers,
     },
   });

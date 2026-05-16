@@ -24,7 +24,7 @@ apps/cli/
 │       ├── local.rs       # alias → runtime (legacy JSON shape)
 │       ├── computer.rs    # relay register + ensure API (APP-016)
 │       ├── canvas.rs      # HTTP → /api/canvas/agent/invoke
-│       ├── review.rs      # (migrating) HTTP client to API
+│       ├── review.rs      # HTTP → /api/review/*
 │       └── update.rs
 └── Cargo.toml             # runtime-manager (supervisor + client)
 ```
@@ -39,15 +39,17 @@ apps/cli/
 | `atmos local` | Back-compat wrapper around `runtime` |
 | `atmos computer` | Register on control plane (`register_token`) + `ensure` API on this host |
 | `atmos canvas` | Agent canvas control — resolves API URL via `resolve_api_base_url()` |
-| `atmos review` | Should use same API base as canvas (not `DbConnection` to `~/.atmos/db`) |
+| `atmos review` | HTTP client to `/api/review/*` (same API base resolution as canvas) |
 
 ### API URL resolution (`runtime-manager`)
 
-1. `--api-url` / `ATMOS_API_URL`
-2. `~/.atmos/runtime_manifest.json`
-3. Legacy `~/.atmos/local/state.json`
+Global on every command: `atmos --api-url … canvas status` (also per-subcommand).
 
-Remote Computer / relay HTTP gateway: explicit URL or future shared context (APP-016 §8).
+1. `--api-url` / `ATMOS_API_URL` (explicit override)
+2. `~/.atmos/local/state.json` (only when UI is on **relay** — records that fact)
+3. `~/.atmos/runtime_manifest.json` (normal **local** path — API writes this on start)
+
+Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → client state file.
 
 ---
 
@@ -55,7 +57,7 @@ Remote Computer / relay HTTP gateway: explicit URL or future shared context (APP
 
 - Subcommands return `serde_json::Value` printed from `main`.
 - **Supervisor** spawns installed layout under `~/.atmos/runtime/current` (or dev paths) — same binary Desktop uses when bundled.
-- Do not embed `core-service` DB access for user-facing review data.
+- Do not embed `core-service` / `infra` — all review/canvas state goes through the API.
 
 ---
 

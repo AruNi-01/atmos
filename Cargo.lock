@@ -254,6 +254,7 @@ dependencies = [
  "agent",
  "ai-usage",
  "axum",
+ "base64 0.22.1",
  "clap",
  "core-engine",
  "core-service",
@@ -485,9 +486,7 @@ version = "0.1.2"
 dependencies = [
  "chrono",
  "clap",
- "core-service",
  "dirs 5.0.1",
- "infra",
  "reqwest 0.12.28",
  "runtime-manager",
  "serde",

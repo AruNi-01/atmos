@@ -48,6 +48,10 @@ pub fn routes() -> Router<AppState> {
         .route("/ws-connections", get(handlers::list_ws_connections))
         .route("/file", get(handlers::serve_file))
         .route("/debug-log", post(handlers::ingest_frontend_debug_log))
+        .route(
+            "/client-state",
+            get(handlers::get_client_state).put(handlers::put_client_state),
+        )
 }
 
 /// Destructive system routes that require loopback or token authentication.

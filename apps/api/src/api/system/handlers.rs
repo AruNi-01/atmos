@@ -18,6 +18,9 @@ use tracing::{info, warn};
 use crate::api::dto::ApiResponse;
 use crate::error::ApiError;
 use crate::{app_state::AppState, error::ApiResult};
+use runtime_manager::{
+    clear_client_state, read_client_state, write_client_state, ClientState,
+};
 
 use super::diagnostics;
 use super::skills;
@@ -1133,6 +1136,57 @@ pub async fn ingest_frontend_debug_log(
         logger.log(&entry.cat, &msg, extra);
     }
     StatusCode::NO_CONTENT
+}
+
+#[derive(serde::Deserialize)]
+pub struct PutClientStatePayload {
+    #[serde(default)]
+    pub clear: bool,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default)]
+    pub connection_mode: Option<String>,
+    #[serde(default)]
+    pub server_id: Option<String>,
+}
+
+/// PUT /api/system/client-state — update `~/.atmos/local/state.json` (relay hint or clear).
+pub async fn put_client_state(
+    Json(payload): Json<PutClientStatePayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    if payload.clear {
+        clear_client_state().map_err(ApiError::BadRequest)?;
+        return Ok(Json(ApiResponse::success(json!({
+            "ok": true,
+            "action": "cleared",
+            "path": runtime_manager::client_state_path().display().to_string(),
+        }))));
+    }
+    let state = ClientState {
+        url: payload.url,
+        token: payload.token,
+        connection_mode: payload.connection_mode,
+        server_id: payload.server_id,
+    };
+    let path = write_client_state(&state).map_err(ApiError::BadRequest)?;
+    Ok(Json(ApiResponse::success(json!({
+        "ok": true,
+        "action": "written",
+        "path": path.display().to_string(),
+        "state": state,
+    }))))
+}
+
+/// GET /api/system/client-state
+pub async fn get_client_state() -> ApiResult<Json<ApiResponse<Value>>> {
+    let path = runtime_manager::client_state_path();
+    let state = read_client_state().map_err(ApiError::BadRequest)?;
+    Ok(Json(ApiResponse::success(json!({
+        "path": path.display().to_string(),
+        "state": state,
+    }))))
 }
 
 #[derive(Debug)]

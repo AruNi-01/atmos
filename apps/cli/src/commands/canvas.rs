@@ -6,79 +6,84 @@
 //! has explicitly opted in to terminal control.
 
 use std::path::PathBuf;
-use std::time::Duration;
 
 use clap::{Args, Subcommand};
 use reqwest::header::AUTHORIZATION;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use runtime_manager::resolve_api_base_url;
+use crate::api_client::{
+    auth_hint_for_status, build_url, http_client, resolve_token, ApiClientArgs, DEFAULT_TIMEOUT_MS,
+};
 
-const DEFAULT_TIMEOUT_MS: u64 = 45_000;
+const CANVAS_DEFAULT_TIMEOUT_MS: u64 = DEFAULT_TIMEOUT_MS;
 
-pub async fn execute(command: CanvasCommand) -> Result<Value, String> {
+pub async fn execute(
+    api: ApiClientArgs,
+    canvas: CanvasOpts,
+    command: CanvasCommand,
+) -> Result<Value, String> {
     match command {
-        CanvasCommand::SkillDir(args) | CanvasCommand::SkillPath(args) => skill_dir(args),
-        CanvasCommand::Status(args) => status(args).await,
+        CanvasCommand::SkillDir | CanvasCommand::SkillPath => skill_dir(),
+        CanvasCommand::Status => status(&api).await,
         CanvasCommand::GetState(args) => {
             let body = args.body();
-            invoke(args.global, "get_state", body).await
+            invoke(&api, &canvas, "get_state", body).await
         }
         CanvasCommand::CreateNote(args) => {
             let body = args.body();
-            invoke(args.global, "create_note", body).await
+            invoke(&api, &canvas, "create_note", body).await
         }
         CanvasCommand::CreateFrame(args) => {
             let body = args.body();
-            invoke(args.global, "create_frame", body).await
+            invoke(&api, &canvas, "create_frame", body).await
         }
         CanvasCommand::CreateGeo(args) => {
             let body = args.body()?;
-            invoke(args.global, "create_geo", body).await
+            invoke(&api, &canvas, "create_geo", body).await
         }
         CanvasCommand::CreateArrow(args) => {
             let body = args.body();
-            invoke(args.global, "create_arrow", body).await
+            invoke(&api, &canvas, "create_arrow", body).await
         }
         CanvasCommand::CreateDraw(args) => {
             let body = args.body()?;
-            invoke(args.global, "create_draw", body).await
+            invoke(&api, &canvas, "create_draw", body).await
         }
         CanvasCommand::Select(args) => {
             let body = args.body();
-            invoke(args.global, "select", body).await
+            invoke(&api, &canvas, "select", body).await
         }
-        CanvasCommand::ClearSelection(args) => {
-            invoke(args.global, "clear_selection", json!({})).await
+        CanvasCommand::ClearSelection => {
+            invoke(&api, &canvas, "clear_selection", json!({})).await
         }
         CanvasCommand::Move(args) => {
             let body = args.body();
-            invoke(args.global, "move", body).await
+            invoke(&api, &canvas, "move", body).await
         }
         CanvasCommand::Delete(args) => {
             let body = args.body()?;
-            invoke(args.global, "delete", body).await
+            invoke(&api, &canvas, "delete", body).await
         }
         CanvasCommand::LayoutRow(args) => {
             let body = args.body();
-            invoke(args.global, "layout_row", body).await
+            invoke(&api, &canvas, "layout_row", body).await
         }
         CanvasCommand::LayoutColumn(args) => {
             let body = args.body();
-            invoke(args.global, "layout_column", body).await
+            invoke(&api, &canvas, "layout_column", body).await
         }
         CanvasCommand::LayoutGrid(args) => {
             let body = args.body();
-            invoke(args.global, "layout_grid", body).await
+            invoke(&api, &canvas, "layout_grid", body).await
         }
         CanvasCommand::UpdateShape(args) => {
             let body = args.body()?;
-            invoke(args.global, "update_shape", body).await
+            invoke(&api, &canvas, "update_shape", body).await
         }
         CanvasCommand::Viewport(args) => {
             let body = args.body();
-            invoke(args.global, "viewport", body).await
+            invoke(&api, &canvas, "viewport", body).await
         }
     }
 }
@@ -86,11 +91,11 @@ pub async fn execute(command: CanvasCommand) -> Result<Value, String> {
 #[derive(Debug, Subcommand)]
 pub enum CanvasCommand {
     /// Print the on-disk path to the bundled canvas-agent skill.
-    SkillDir(SkillDirArgs),
+    SkillDir,
     /// Alias of `skill-dir`.
-    SkillPath(SkillDirArgs),
+    SkillPath,
     /// Diagnostics: who's registered, who's accepting commands, etc.
-    Status(StatusArgs),
+    Status,
     /// Read-only inventory of the live canvas surface.
     GetState(GetStateArgs),
     /// Create a sticky note.
@@ -106,7 +111,7 @@ pub enum CanvasCommand {
     /// Select one or more shapes by id.
     Select(SelectArgs),
     /// Clear the current selection.
-    ClearSelection(ClearSelectionArgs),
+    ClearSelection,
     /// Translate one or more shapes by (dx, dy).
     Move(MoveArgs),
     /// Delete shapes (requires --confirm).
@@ -124,13 +129,7 @@ pub enum CanvasCommand {
 }
 
 #[derive(Debug, Args, Clone)]
-pub struct GlobalArgs {
-    /// Override the API base URL. Falls back to ATMOS_API_URL env / ~/.atmos/local/state.json.
-    #[arg(long, global = true)]
-    pub api_url: Option<String>,
-    /// Override the bearer token. Falls back to ATMOS_API_TOKEN env.
-    #[arg(long, global = true)]
-    pub api_token: Option<String>,
+pub struct CanvasOpts {
     /// Pin the dispatch to a specific browser tab id (returned by `status`).
     #[arg(long, global = true)]
     pub client_id: Option<String>,
@@ -143,20 +142,11 @@ pub struct GlobalArgs {
     /// CSS color for the Agent presence indicator.
     #[arg(long, global = true)]
     pub actor_color: Option<String>,
-    /// Client-side HTTP deadline (ms). Default 45000.
-    #[arg(long, global = true)]
-    pub timeout_ms: Option<u64>,
 }
 
 // ===== Diagnostics =====
 
-#[derive(Debug, Args)]
-pub struct SkillDirArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
-}
-
-fn skill_dir(_args: SkillDirArgs) -> Result<Value, String> {
+fn skill_dir() -> Result<Value, String> {
     let home = dirs::home_dir().ok_or_else(|| "Cannot determine home directory".to_string())?;
     let dir: PathBuf = home
         .join(".atmos")
@@ -179,30 +169,30 @@ fn skill_dir(_args: SkillDirArgs) -> Result<Value, String> {
     }))
 }
 
-#[derive(Debug, Args)]
-pub struct StatusArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
-}
-
-async fn status(args: StatusArgs) -> Result<Value, String> {
-    let endpoint = build_url(&args.global, "/api/canvas/agent/status")?;
-    let client = http_client(&args.global)?;
+async fn status(api: &ApiClientArgs) -> Result<Value, String> {
+    let endpoint = build_url(api, "/api/canvas/agent/status")?;
+    let client = http_client(api)?;
     let mut req = client.get(&endpoint);
-    if let Some(token) = resolve_token(&args.global) {
+    if let Some(token) = resolve_token(api) {
         req = req.header(AUTHORIZATION, format!("Bearer {}", token));
     }
     let resp = req
         .send()
         .await
-        .map_err(|err| format!("status request failed: {}", err))?;
-    let status = resp.status();
+        .map_err(|err| format!("status request failed ({endpoint}): {err}"))?;
+    let status_code = resp.status();
     let value = resp
         .json::<Value>()
         .await
-        .map_err(|err| format!("failed to parse status response: {}", err))?;
-    if !status.is_success() {
-        return Err(format!("status returned HTTP {}: {}", status, value));
+        .map_err(|err| format!("failed to parse status response from {endpoint}: {err}"))?;
+    if !status_code.is_success() {
+        if let Some(hint) = auth_hint_for_status(status_code) {
+            return Err(hint.to_string());
+        }
+        return Err(format!(
+            "status returned HTTP {}: {}",
+            status_code, value
+        ));
     }
     Ok(value)
 }
@@ -211,8 +201,6 @@ async fn status(args: StatusArgs) -> Result<Value, String> {
 
 #[derive(Debug, Args)]
 pub struct GetStateArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub page_id: Option<String>,
 }
@@ -229,8 +217,6 @@ impl GetStateArgs {
 
 #[derive(Debug, Args)]
 pub struct CreateNoteArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub text: String,
     #[arg(long)]
@@ -259,8 +245,6 @@ impl CreateNoteArgs {
 
 #[derive(Debug, Args)]
 pub struct CreateFrameArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub title: Option<String>,
     #[arg(long)]
@@ -285,8 +269,6 @@ impl CreateFrameArgs {
 
 #[derive(Debug, Args)]
 pub struct CreateGeoArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long, default_value = "rectangle")]
     pub kind: String,
     #[arg(long, default_value_t = 200.0)]
@@ -322,8 +304,6 @@ impl CreateGeoArgs {
 
 #[derive(Debug, Args)]
 pub struct CreateArrowArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub x1: f64,
     #[arg(long)]
@@ -357,8 +337,6 @@ impl CreateArrowArgs {
 
 #[derive(Debug, Args)]
 pub struct CreateDrawArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     /// Inline JSON array of [x, y] pairs, e.g. `[[0,0],[100,0],[100,100]]`.
     #[arg(long, conflicts_with = "points_file")]
     pub points: Option<String>,
@@ -394,8 +372,6 @@ impl CreateDrawArgs {
 
 #[derive(Debug, Args)]
 pub struct SelectArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     /// Comma-separated shape ids.
     #[arg(long)]
     pub ids: String,
@@ -408,15 +384,7 @@ impl SelectArgs {
 }
 
 #[derive(Debug, Args)]
-pub struct ClearSelectionArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
-}
-
-#[derive(Debug, Args)]
 pub struct MoveArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub ids: String,
     #[arg(long)]
@@ -433,8 +401,6 @@ impl MoveArgs {
 
 #[derive(Debug, Args)]
 pub struct DeleteArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub ids: String,
     /// Required: passes `confirm: true` to the server.
@@ -455,8 +421,6 @@ impl DeleteArgs {
 
 #[derive(Debug, Args)]
 pub struct LayoutRowArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub ids: String,
     #[arg(long, default_value_t = 24.0)]
@@ -475,8 +439,6 @@ impl LayoutRowArgs {
 
 #[derive(Debug, Args)]
 pub struct LayoutColumnArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub ids: String,
     #[arg(long, default_value_t = 24.0)]
@@ -495,8 +457,6 @@ impl LayoutColumnArgs {
 
 #[derive(Debug, Args)]
 pub struct LayoutGridArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub ids: String,
     #[arg(long)]
@@ -520,8 +480,6 @@ impl LayoutGridArgs {
 
 #[derive(Debug, Args)]
 pub struct UpdateShapeArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub id: String,
     /// JSON object. Allow-listed keys only (color, fill, text, size, font, geo, w, h, x, y).
@@ -542,8 +500,6 @@ impl UpdateShapeArgs {
 
 #[derive(Debug, Args)]
 pub struct ViewportArgs {
-    #[command(flatten)]
-    pub global: GlobalArgs,
     #[arg(long)]
     pub zoom: Option<f64>,
     #[arg(long)]
@@ -609,20 +565,25 @@ struct InvokeError {
     recoverable: bool,
 }
 
-async fn invoke(global: GlobalArgs, command: &str, args: Value) -> Result<Value, String> {
-    let endpoint = build_url(&global, "/api/canvas/agent/invoke")?;
-    let client = http_client(&global)?;
+async fn invoke(
+    api: &ApiClientArgs,
+    canvas: &CanvasOpts,
+    command: &str,
+    args: Value,
+) -> Result<Value, String> {
+    let endpoint = build_url(api, "/api/canvas/agent/invoke")?;
+    let client = http_client(api)?;
     let request_id = new_request_id();
     let payload = InvokePayload {
         request_id: request_id.clone(),
         command,
         args,
-        client_id: global.client_id.clone(),
-        actor: build_actor(&global),
-        timeout_ms: global.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS),
+        client_id: canvas.client_id.clone(),
+        actor: build_actor(canvas),
+        timeout_ms: api.timeout_ms.unwrap_or(CANVAS_DEFAULT_TIMEOUT_MS),
     };
     let mut req = client.post(&endpoint).json(&payload);
-    if let Some(token) = resolve_token(&global) {
+    if let Some(token) = resolve_token(api) {
         req = req.header(AUTHORIZATION, format!("Bearer {}", token));
     }
     let resp = req
@@ -679,56 +640,13 @@ async fn invoke(global: GlobalArgs, command: &str, args: Value) -> Result<Value,
     }
 }
 
-fn build_actor(global: &GlobalArgs) -> Option<Actor> {
-    let actor_id = global.actor_id.clone()?;
+fn build_actor(canvas: &CanvasOpts) -> Option<Actor> {
+    let actor_id = canvas.actor_id.clone()?;
     Some(Actor {
         actor_id,
-        name: global.actor_name.clone(),
-        color: global.actor_color.clone(),
+        name: canvas.actor_name.clone(),
+        color: canvas.actor_color.clone(),
     })
-}
-
-fn build_url(global: &GlobalArgs, path: &str) -> Result<String, String> {
-    let base = resolve_base_url(global)?;
-    let trimmed = base.trim_end_matches('/');
-    Ok(format!("{}{}", trimmed, path))
-}
-
-fn resolve_base_url(global: &GlobalArgs) -> Result<String, String> {
-    if let Some(explicit) = &global.api_url {
-        return Ok(explicit.clone());
-    }
-    if let Ok(env_url) = std::env::var("ATMOS_API_URL") {
-        if !env_url.trim().is_empty() {
-            return Ok(env_url);
-        }
-    }
-    resolve_api_base_url(None)
-}
-
-fn resolve_token(global: &GlobalArgs) -> Option<String> {
-    if let Some(token) = &global.api_token {
-        if !token.is_empty() {
-            return Some(token.clone());
-        }
-    }
-    std::env::var("ATMOS_API_TOKEN").ok().filter(|v| !v.is_empty())
-}
-
-fn http_client(global: &GlobalArgs) -> Result<reqwest::Client, String> {
-    let timeout = Duration::from_millis(
-        global
-            .timeout_ms
-            .unwrap_or(DEFAULT_TIMEOUT_MS)
-            // Give the HTTP client some headroom over the relay timeout so
-            // the server-side timeout (which yields a structured error) wins
-            // before the local socket bails.
-            .saturating_add(5_000),
-    );
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .build()
-        .map_err(|err| format!("failed to build http client: {}", err))
 }
 
 fn split_ids(raw: &str) -> Vec<String> {

@@ -15,14 +15,18 @@ use tracing::{error, info, warn};
 
 use crate::api::ws::handlers::push_latest_messages;
 use crate::app_state::AppState;
+use crate::relay::http_gateway;
 
 #[derive(Debug, Deserialize)]
 struct RelayEnvelope {
     v: u32,
+    #[serde(default)]
+    stream: Option<String>,
     kind: String,
     from: Option<String>,
     #[allow(dead_code)]
     to: Option<String>,
+    request_id: Option<String>,
     body: Option<String>,
 }
 
@@ -90,7 +94,30 @@ pub async fn run(state: AppState, identity: ServerIdentity) -> Result<(), String
                         continue;
                     }
                 };
-                if env.v != 1 || env.kind != "frame" {
+                if env.v != 1 {
+                    continue;
+                }
+
+                if env.stream.as_deref() == Some("http") && env.kind == "request" {
+                    let Some(request_id) = env.request_id.clone() else {
+                        continue;
+                    };
+                    let body = env.body.unwrap_or_default();
+                    let response_body =
+                        http_gateway::handle_http_envelope(&body).await.unwrap_or_default();
+                    let outbound = serde_json::json!({
+                        "v": 1_u32,
+                        "stream": "http",
+                        "kind": "response",
+                        "request_id": request_id,
+                        "body": response_body,
+                    })
+                    .to_string();
+                    let _ = out_tx.send(outbound);
+                    continue;
+                }
+
+                if env.kind != "frame" {
                     continue;
                 }
                 let Some(from) = env.from.clone() else { continue };

@@ -3,6 +3,7 @@
 //! - **`client`**: `runtime_manifest.json`, `relay_identity.json`, control-plane registration.
 //! - **`supervisor`**: install layout, ensure/stop/status for `~/.atmos/runtime/current/bin/api`.
 
+mod client_state;
 mod identity;
 mod manifest;
 mod register;
@@ -15,10 +16,13 @@ pub use identity::{
     server_identity_env_path_override, write_server_identity, ServerIdentity,
     RELAY_IDENTITY_FILE_NAME,
 };
+pub use client_state::{
+    clear_client_state, client_state_path, read_client_state, write_client_state, ClientState,
+};
 pub use manifest::{
     atmos_home_dir, read_runtime_manifest, remove_runtime_manifest, resolve_api_base_url,
-    runtime_manifest_path, write_runtime_manifest, ApiEndpoint, RuntimeManifest,
-    RUNTIME_MANIFEST_FILE_NAME, RUNTIME_MANIFEST_VERSION,
+    resolve_api_bearer_token, runtime_manifest_path, write_runtime_manifest, ApiEndpoint,
+    RuntimeManifest, RUNTIME_MANIFEST_FILE_NAME, RUNTIME_MANIFEST_VERSION,
 };
 pub use register::{
     default_control_plane_url, normalize_control_plane_url, register_computer,

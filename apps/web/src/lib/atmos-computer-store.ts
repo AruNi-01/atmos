@@ -26,6 +26,10 @@ interface AtmosComputerStore {
   selectedServerId: string | null;
   /** Fully qualified client WebSocket URL from `client_sessions`. */
   relayWebSocketUrl: string | null;
+  /** HTTP gateway base, e.g. https://relay…/v1/computers/{id}/proxy */
+  relayGatewayHttpBase: string | null;
+  /** Short-lived token for relay WS + HTTP gateway (not the user access token). */
+  relayClientToken: string | null;
   registerCommandShown: string | null;
   registerTokenExpiresAt: number | null;
   setConnectionMode: (m: AtmosComputerConnectionMode) => void;
@@ -34,6 +38,8 @@ interface AtmosComputerStore {
   setComputers: (rows: ComputerRow[]) => void;
   setSelectedServerId: (id: string | null) => void;
   setRelayWebSocketUrl: (url: string | null) => void;
+  setRelayGatewayHttpBase: (url: string | null) => void;
+  setRelayClientToken: (token: string | null) => void;
   setRegisterCommandShown: (cmd: string | null) => void;
   setRegisterTokenExpiresAt: (ts: number | null) => void;
   resetRelaySession: () => void;
@@ -51,6 +57,8 @@ export const useAtmosComputerStore = create(
       computers: [],
       selectedServerId: null,
       relayWebSocketUrl: null,
+      relayGatewayHttpBase: null,
+      relayClientToken: null,
       registerCommandShown: null,
       registerTokenExpiresAt: null,
 
@@ -60,6 +68,8 @@ export const useAtmosComputerStore = create(
       setComputers: computers => set({ computers }),
       setSelectedServerId: selectedServerId => set({ selectedServerId }),
       setRelayWebSocketUrl: relayWebSocketUrl => set({ relayWebSocketUrl }),
+      setRelayGatewayHttpBase: relayGatewayHttpBase => set({ relayGatewayHttpBase }),
+      setRelayClientToken: relayClientToken => set({ relayClientToken }),
       setRegisterCommandShown: registerCommandShown => set({ registerCommandShown }),
       setRegisterTokenExpiresAt: registerTokenExpiresAt =>
         set({ registerTokenExpiresAt }),
@@ -67,6 +77,8 @@ export const useAtmosComputerStore = create(
       resetRelaySession: () =>
         set({
           relayWebSocketUrl: null,
+          relayGatewayHttpBase: null,
+          relayClientToken: null,
           registerCommandShown: null,
           registerTokenExpiresAt: null,
           selectedServerId: null,
@@ -74,7 +86,7 @@ export const useAtmosComputerStore = create(
     }),
     {
       name: 'atmos-computer',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         const state = { ...(persisted as object) } as Record<string, unknown>;
         if (version < 2) {
@@ -85,6 +97,10 @@ export const useAtmosComputerStore = create(
             state.accessToken = state.bearerSecret;
           }
           delete state.bearerSecret;
+        }
+        if (version < 4) {
+          state.relayGatewayHttpBase = null;
+          state.relayClientToken = null;
         }
         return state as unknown as AtmosComputerStore;
       },

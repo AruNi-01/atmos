@@ -33,7 +33,7 @@ packages/relay/
 | **Access Token** (Bearer) | User (Settings) | Control plane: issue register tokens, list computers, client sessions |
 | `register_token` | One-time to VPS/CLI | `POST /v1/computers/register` only |
 | `server_secret` | `~/.atmos/relay_identity.json` on Server | Outbound `GET /ws/server` |
-| `client_token` | Browser/Desktop memory | Inbound `GET /ws/client` |
+| `client_token` | Browser/Desktop memory + `local/state.json` | Inbound `GET /ws/client` + `GET/POST …/v1/computers/:id/proxy/*` HTTP gateway |
 
 `tenant_id = sha256(access_token)`. No global `CONTROL_PLANE_KEY` for end users.
 
