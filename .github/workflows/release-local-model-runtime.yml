@@ -199,7 +199,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Download checksums artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: checksums-*
           merge-multiple: false
