@@ -19,18 +19,27 @@ export async function registerAccessTokenOnRelay(
   accessToken: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const base = normalizedControlPlaneOrigin(controlPlaneUrl);
-  const res = await fetch(`${base}/v1/tenants`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: accessToken.trim() }),
-  });
-
-  if (res.status === 201 || res.status === 409) {
-    return { ok: true };
+  if (!base) {
+    return { ok: false, error: 'control_plane_url_required' };
   }
 
-  const data = (await res.json().catch(() => null)) as { error?: string } | null;
-  return { ok: false, error: data?.error ?? `HTTP ${res.status}` };
+  try {
+    const res = await fetch(`${base}/v1/tenants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: accessToken.trim() }),
+    });
+
+    if (res.status === 201 || res.status === 409) {
+      return { ok: true };
+    }
+
+    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    return { ok: false, error: data?.error ?? `HTTP ${res.status}` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
 }
 
 export async function cpFetchWithAccessToken(
@@ -40,6 +49,9 @@ export async function cpFetchWithAccessToken(
   init?: RequestInit,
 ): Promise<Response> {
   const base = normalizedControlPlaneOrigin(controlPlaneUrl);
+  if (!base) {
+    throw new Error('control_plane_url_required');
+  }
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
   return fetch(url, {
     ...init,

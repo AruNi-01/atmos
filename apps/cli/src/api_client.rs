@@ -38,11 +38,7 @@ pub fn build_url(args: &ApiClientArgs, path: &str) -> Result<String, String> {
 }
 
 pub fn http_client(args: &ApiClientArgs) -> Result<reqwest::Client, String> {
-    let timeout = Duration::from_millis(
-        args.timeout_ms
-            .unwrap_or(DEFAULT_TIMEOUT_MS)
-            .saturating_add(5_000),
-    );
+    let timeout = Duration::from_millis(args.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS));
     reqwest::Client::builder()
         .timeout(timeout)
         .build()

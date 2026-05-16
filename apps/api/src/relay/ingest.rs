@@ -103,17 +103,20 @@ pub async fn run(state: AppState, identity: ServerIdentity) -> Result<(), String
                         continue;
                     };
                     let body = env.body.unwrap_or_default();
-                    let response_body =
-                        http_gateway::handle_http_envelope(&body).await.unwrap_or_default();
-                    let outbound = serde_json::json!({
-                        "v": 1_u32,
-                        "stream": "http",
-                        "kind": "response",
-                        "request_id": request_id,
-                        "body": response_body,
-                    })
-                    .to_string();
-                    let _ = out_tx.send(outbound);
+                    let relay_out = out_tx.clone();
+                    tokio::spawn(async move {
+                        let response_body =
+                            http_gateway::handle_http_envelope(&body).await.unwrap_or_default();
+                        let outbound = serde_json::json!({
+                            "v": 1_u32,
+                            "stream": "http",
+                            "kind": "response",
+                            "request_id": request_id,
+                            "body": response_body,
+                        })
+                        .to_string();
+                        let _ = relay_out.send(outbound);
+                    });
                     continue;
                 }
 

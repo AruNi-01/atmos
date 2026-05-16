@@ -252,36 +252,38 @@ export class ServerHub extends DurableObject<RelayEnv> {
     if (!pending) {
       return;
     }
-    this.pendingHttp.delete(requestId);
 
-    let parsed: HttpRelayResponseBody;
     try {
-      parsed = JSON.parse(payload) as HttpRelayResponseBody;
+      const parsed = JSON.parse(payload) as HttpRelayResponseBody;
+      if (typeof parsed.status !== "number") {
+        throw new Error("invalid_http_response");
+      }
+
+      const headers = new Headers();
+      for (const [k, v] of parsed.headers ?? []) {
+        headers.set(k, v);
+      }
+
+      let body: Uint8Array | null = null;
+      if (parsed.body_b64) {
+        const binary = atob(parsed.body_b64);
+        body = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          body[i] = binary.charCodeAt(i);
+        }
+      }
+
+      pending.resolve(
+        new Response(body, {
+          status: parsed.status,
+          headers,
+        }),
+      );
     } catch {
       pending.reject(new Error("invalid_http_response"));
-      return;
+    } finally {
+      this.pendingHttp.delete(requestId);
     }
-
-    const headers = new Headers();
-    for (const [k, v] of parsed.headers ?? []) {
-      headers.set(k, v);
-    }
-
-    let body: Uint8Array | null = null;
-    if (parsed.body_b64) {
-      const binary = atob(parsed.body_b64);
-      body = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        body[i] = binary.charCodeAt(i);
-      }
-    }
-
-    pending.resolve(
-      new Response(body, {
-        status: parsed.status,
-        headers,
-      }),
-    );
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {

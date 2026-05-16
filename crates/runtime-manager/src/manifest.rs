@@ -132,14 +132,20 @@ pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
             return Ok(env_url.trim().to_string());
         }
     }
-    if let Some(session) = crate::client_session::read_client_session()? {
-        if session.api_base_url.trim().is_empty() {
-            return Err(
-                "client-session.json is missing api_base_url — reconnect via Settings → Atmos Computer, or pass --api-url."
-                    .into(),
-            );
+    match crate::client_session::read_client_session() {
+        Ok(Some(session)) => {
+            if session.api_base_url.trim().is_empty() {
+                return Err(
+                    "client-session.json is missing api_base_url — reconnect via Settings → Atmos Computer, or pass --api-url."
+                        .into(),
+                );
+            }
+            return Ok(session.api_base_url.trim().to_string());
         }
-        return Ok(session.api_base_url.trim().to_string());
+        Ok(None) => {}
+        Err(_) => {
+            // Unreadable or corrupt session file — fall back to runtime manifest.
+        }
     }
     if let Some(manifest) = read_runtime_manifest()? {
         return Ok(manifest.api.url);
@@ -238,6 +244,25 @@ mod tests {
     fn bind_all_interfaces_maps_to_loopback_in_manifest() {
         let m = RuntimeManifest::new("0.0.0.0", 30303, None, "api");
         assert_eq!(m.api.host, "127.0.0.1");
+    }
+
+    #[test]
+    fn resolve_api_base_url_falls_back_when_client_session_unreadable() {
+        let guard = EnvGuard::new();
+        let tmp = TempDir::new().unwrap();
+        guard.set_home(tmp.path());
+
+        crate::client_session::write_client_session(
+            &crate::client_session::ClientSession::new("sid", "https://ignored", "tok"),
+        )
+        .unwrap();
+        let session_path = crate::client_session::client_session_path();
+        fs::write(&session_path, "{ not json").unwrap();
+
+        write_runtime_manifest(&RuntimeManifest::new("127.0.0.1", 30303, None, "api")).unwrap();
+
+        let url = resolve_api_base_url(None).unwrap();
+        assert_eq!(url, "http://127.0.0.1:30303");
     }
 
     #[test]

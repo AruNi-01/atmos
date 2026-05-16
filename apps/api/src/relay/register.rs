@@ -8,10 +8,6 @@ pub async fn try_consume_register_token() -> Result<Option<ServerIdentity>, Stri
         _ => return Ok(None),
     };
 
-    unsafe {
-        std::env::remove_var("ATMOS_REGISTER_TOKEN");
-    }
-
     let cp = std::env::var("ATMOS_CONTROL_PLANE_URL")
         .ok()
         .filter(|s| !s.trim().is_empty())

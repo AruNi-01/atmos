@@ -59,11 +59,13 @@ Exit code is `0` on success and non-zero on failure.
 
 | Flag | Meaning |
 |------|---------|
+| `--api-url <url>` | Override Atmos API base (else env / client-session / runtime manifest). |
+| `--api-token <token>` | Bearer token for the API (else env vars or relay `gateway_token` in client-session). |
 | `--client-id <uuid>` | Target a specific Canvas tab when multiple are registered (from `status`). |
 | `--actor-id <id>` | Stable Agent presence id (Follow Agent). |
 | `--actor-name <name>` | Agent presence display name. |
 | `--actor-color <css>` | Agent presence color. |
-| `--timeout-ms <ms>` | HTTP deadline (default 45000). |
+| `--timeout-ms <ms>` | HTTP deadline in milliseconds (default 45000). |
 
 ### Diagnostics & read
 
@@ -131,7 +133,7 @@ Adjusts the camera without keyboard/pointer synthesis. Read-only operation that 
 | `EDITOR_NOT_READY` | Editor not mounted in the target tab. | Retry shortly. |
 | `STALE_SHAPE_ID` | Referenced shape id does not exist. | Re-run `get-state` and retry with the current ids. |
 | `VALIDATION_ARG` | Bad CLI args (out-of-range, unknown patch key, etc.). | Fix args. |
-| `PERMISSION_DENIED` | Cannot reach the Atmos API. | Ask the user to confirm Atmos is open and connected. |
+| `PERMISSION_DENIED` | API rejected the request (often HTTP 401 — missing or wrong token). | Set `--api-token`, `ATMOS_API_TOKEN`, or `ATMOS_LOCAL_TOKEN`; on relay, ensure Settings synced `client-session.json`. |
 | `UNSUPPORTED_COMMAND` | Browser does not recognize the command (version skew). | Upgrade Atmos. |
 | `RELAY_TIMEOUT` | Browser never answered within deadline. | Retry, or raise `--timeout-ms`. |
 

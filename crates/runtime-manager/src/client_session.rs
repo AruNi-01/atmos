@@ -79,7 +79,22 @@ pub fn write_client_session(session: &ClientSession) -> Result<PathBuf, String> 
         .map_err(|err| format!("Failed to serialize client session: {}", err))?;
     fs::write(&path, format!("{payload}\n"))
         .map_err(|err| format!("Failed to write {}: {}", path.display(), err))?;
+    restrict_session_file_permissions(&path)?;
     Ok(path)
+}
+
+#[cfg(unix)]
+fn restrict_session_file_permissions(path: &std::path::Path) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let perms = std::fs::Permissions::from_mode(0o600);
+    fs::set_permissions(path, perms)
+        .map_err(|err| format!("Failed to chmod {}: {}", path.display(), err))
+}
+
+#[cfg(not(unix))]
+fn restrict_session_file_permissions(_path: &std::path::Path) -> Result<(), String> {
+    Ok(())
 }
 
 pub fn clear_client_session() -> Result<(), String> {

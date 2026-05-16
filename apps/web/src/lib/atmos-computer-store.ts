@@ -110,5 +110,8 @@ export const useAtmosComputerStore = create(
 
 export function normalizedControlPlaneOrigin(raw: string): string {
   const t = raw.trim().replace(/\/+$/, '');
+  if (!t) {
+    return '';
+  }
   return t.startsWith('http') ? t : `https://${t}`;
 }

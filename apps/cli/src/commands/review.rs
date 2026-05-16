@@ -15,6 +15,17 @@ pub async fn execute(api: ApiClientArgs, command: ReviewCommand) -> Result<Value
                 project,
                 include_archived,
             } = args;
+            let has_workspace = workspace
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty());
+            let has_project = project
+                .as_ref()
+                .is_some_and(|value| !value.trim().is_empty());
+            if has_workspace == has_project {
+                return Err(
+                    "session-list requires exactly one of --workspace or --project".into(),
+                );
+            }
             let mut query = Vec::new();
             if let Some(w) = workspace {
                 query.push(("workspace_guid", w));
@@ -282,6 +293,7 @@ pub enum ReviewCommand {
 }
 
 #[derive(Debug, Args)]
+#[group(id = "target", required = true)]
 #[command(
     after_help = "Pass exactly one of --workspace <workspace_guid> or --project <project_guid>.\n\nTargets the Atmos API (see --api-url, ATMOS_API_URL, ~/.atmos/runtime_manifest.json)."
 )]
