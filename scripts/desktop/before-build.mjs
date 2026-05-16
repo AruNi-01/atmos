@@ -176,3 +176,6 @@ if (existsSync(systemSkills)) {
 } else {
   console.warn(`Warning: ${systemSkills} not found, skipping bundled system skills copy`);
 }
+
+const layoutScript = join(rootDir, "scripts/desktop/layout-runtime-bundle.sh");
+run("bash", ["-c", `source "${layoutScript}" && layout_runtime_bundle "${rootDir}" "${targetTriple}" "${binExt}"`]);

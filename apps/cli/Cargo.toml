@@ -14,4 +14,4 @@ sysinfo = "0.30"
 tokio = { workspace = true }
 core-service = { path = "../../crates/core-service" }
 infra = { path = "../../crates/infra" }
-runtime-manifest = { path = "../../crates/runtime-manifest" }
+runtime-manager = { path = "../../crates/runtime-manager", features = ["supervisor"] }

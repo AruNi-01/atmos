@@ -192,10 +192,30 @@ stateDiagram-v2
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/api` WS 层           | **不变语义**：对「已认证的本地 client」的处理逻辑复用；新增「来自 Relay 的虚拟 client」注入点（见 §6）。                                                                                                                                                                                  |
 | `apps/web` `useWebSocket` | **连接 URL 与握手参数**变化；消息编解码尽量不变。                                                                                                                                                                                                                       |
-| `apps/desktop`            | 同上；侧车 **Computer** 上的 Server 可写 `runtime_manifest.json`，供 **上下文选中该本机 Computer** 时与 CLI 共用 loopback API 发现。                                                                                                                                          |
-| `apps/cli`                | CLI 为 **client**：`canvas` / `review` 等 **HTTP 能力**的 **API 基址 = 当前所选 Atmos Computer**（与 Web/Desktop 同源，见 §8）；**不得**将「永远连本机 loopback」写死为全局默认。**Review** 不得以 CLI 内 `infra::DbConnection` + `ReviewService` 为数据平面（见 §8.2）。可选：经 Relay 的 **gateway**（分期）。 |
-| `crates/runtime-manifest` | **Computer** 上 Atmos Server 的 **本机自描述**；**不**承担跨互联网发现职责。                                                                                                                                                                                            |
+| `apps/desktop`            | 启动时 **`runtime-manager::supervisor::ensure_running`**（与 CLI / `npx @atmos/local-web-runtime` 共用同一 API 进程）；**不再**使用 Tauri sidecar + 每实例 `ATMOS_LOCAL_TOKEN`。退出 Desktop **不**终止共享 API。 |
+| `apps/cli`                | CLI 为 **client**：`canvas` / `review` 等 **HTTP 能力**的 **API 基址 = 当前所选 Atmos Computer**（与 Web/Desktop 同源，见 §8）；`atmos runtime ensure|stop|status` 管理本机 API；`atmos local` 为兼容别名。**Review** 不得以 CLI 内 `infra::DbConnection` + `ReviewService` 为数据平面（见 §8.2）。 |
+| `crates/runtime-manager`  | **本机 Runtime 库**：`runtime_manifest.json`（仅 host/port/ws_url，**无 token**）、`relay_identity.json`、控制面 `register_computer`；feature `supervisor` 供 CLI/Desktop 拉起 `~/.atmos/runtime/current` 或打包布局中的 `bin/api`。 |
 
+
+### 1.4 统一本机 Runtime（M1 已实现）
+
+**目标**：Desktop、CLI、`local-web-runtime` 安装物、日常 `cargo run -p api` **同一类产品**——一个本机 **Atmos Server**（`apps/api`），多种入口；避免长期维护两套 sidecar / 双 token 模型。
+
+| 能力 | 落点 |
+|------|------|
+| 发现 | `~/.atmos/runtime_manifest.json`，由 API 在 bind 后写入（`source: "api"`）或 supervisor 在 `ensure` 后写入（`source: "runtime-manager"`） |
+| 拉起/健康检查 | `runtime-manager` feature `supervisor`：`apps/cli`（`atmos runtime`）、`apps/desktop`（`runtime.rs`） |
+| Relay 注册 | `register_computer` → `relay_identity.json`；`atmos computer register|start`、API `ATMOS_REGISTER_TOKEN` 一次性消费 |
+| 本机 HTTP 鉴权 | **默认无 manifest token**；loopback 上 `require_local_token` 仅在设置 `ATMOS_LOCAL_TOKEN` 时生效（可选加固，非默认路径） |
+
+**Desktop 打包布局**（`prepare-sidecar.sh` / `layout-runtime-bundle.sh`）：
+
+```text
+apps/desktop/src-tauri/binaries/runtime/current/
+  bin/api, bin/atmos, web/, system-skills/
+```
+
+Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar.sh`（见 `scripts/desktop/README.md`）。
 
 ---
 
@@ -211,7 +231,7 @@ stateDiagram-v2
 | `register_token`    | 高熵、**单次**、短时效（§2.4）；仅用于 `POST /v1/computers/register`，**不得**长期存放在 Server。 |
 | `client_token`      | 高熵、短时效；由控制面签发；浏览器/Desktop 连 Relay 时使用（§2.4、§3.3）。 |
 | `client_session_id` | Relay 为每条 Client WS 分配；用于信封路由与审计。 |
-| `tenant_id`         | 控制面租户键；**上线前**由 `CONTROL_PLANE_KEY` 派生（单部署单租户）。**M2+** 映射为 `user_id` / `workspace_id`（见 §2.4.6）。 |
+| `tenant_id`         | 控制面租户键；**M1 实现**为 `sha256(user_access_token)`（用户在 Settings 创建 **Access Token**）。**M2+** 映射为 `user_id` / `workspace_id`（见 §2.4.6）。 |
 
 
 ### 2.2 本机文件（Computer / Server 侧）
@@ -229,8 +249,9 @@ stateDiagram-v2
 
 **`~/.atmos/runtime_manifest.json`**
 
-- 描述 **本机监听** `host/port`、可选 `local_token`、`pid`。
+- 描述 **本机监听** `host` / `port` / `url` / `ws_url`、可选 `pid`、`started_at`、`source`（**不含** auth token）。
 - 当 **Web/Desktop/CLI 的当前上下文 = 运行于本机的该 Computer（其 Server）** 时，与本地工具共用，用于发现 **loopback API**；**不**作为「CLI 永远连本机」的全局规则，也**不**作为跨公网发现源。
+- 解析优先级（CLI `canvas` 等）：`--api-url` → `ATMOS_API_URL` → manifest → 旧版 `~/.atmos/local/state.json`。
 
 ### 2.3 客户端侧缓存（非权威）
 
@@ -258,7 +279,8 @@ stateDiagram-v2
 
 | 凭据 | 谁持有 | 用途 | 寿命 |
 |------|--------|------|------|
-| **`CONTROL_PLANE_KEY`** | Wrangler secret；Web Settings（运维） | 签发 `register_token`、列 Computer、吊销、`client_session` | 长期；轮换需运维 |
+| **Access Token**（Bearer） | 用户在 Web Settings 创建；`tenant_id = sha256(token)` | 签发 `register_token`、列 Computer、吊销、`client_session` | 用户可轮换/吊销 |
+| **`CONTROL_PLANE_KEY`**（已废弃） | — | 原单租户运维密钥模型 | 由 Access Token 替代 |
 | **`register_token`** | 一次性交给 VPS（env/CLI） | 仅 `POST /v1/computers/register` | 建议 **15 分钟**、**单次** |
 | **`server_secret`** | 仅该 Server 本机 `relay_identity.json` | Relay 出站 `GET /ws/server` | 长期；可随吊销失效 |
 | **`client_token`** | 浏览器/Desktop 内存 | Relay `GET /ws/client` | 建议 **24h** 或可配置更短 |
@@ -494,7 +516,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 ### 6.2 与现有 `ConnectInfo` / 鉴权中间件的关系
 
-- **本地 loopback**：保持现有 `require_local_token` 行为。
+- **本地 loopback**：`require_local_token` **仅当** 配置了 `ATMOS_LOCAL_TOKEN`（或等价）时强制；统一 runtime 默认 **不设** manifest token，与 Desktop/CLI 零配置发现一致。
 - **Relay 注入路径**：需新增 **可信内部路径**（例如仅接受来自本机 `relay_ingest` 任务队列的帧），**禁止**未经鉴权的外网直连接替。
 
 ### 6.3 与 Canvas Agent Relay 的关系
@@ -539,7 +561,7 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 
 - **原则**：凡涉及 **与 UI 同一份业务状态** 的 CLI 能力（含 `**atmos review`**），**一律经 `apps/api`** 发起请求；CLI 是 **client**，不承载第二套持久化入口。
 - **与仓库传输偏好一致**：Review 以 **HTTP（REST 或 RPC 形状）** 暴露为宜（与现有「bootstrap / 一次性操作用 REST」例外一致）；若后续某条 review 流必须流式，再在 **已连上当前 Computer 上 Server 的 WS** 上扩展消息，而不是让 CLI 直连 DB。
-- **鉴权**：与 Web/Desktop 调用同一 API 的凭证模型（如 Bearer / session cookie 的 CLI 等价物）；loopback 下可继续依赖 **local token**（与现有 `require_local_token` 对齐），但 **数据仍由 API 读写**，而非 CLI 打开 `~/.atmos/db/atmos.db`。
+- **鉴权**：与 Web/Desktop 调用同一 API 的凭证模型（如 Bearer / session cookie 的 CLI 等价物）；loopback 下默认 **无** manifest token；可选 `ATMOS_LOCAL_TOKEN` 加固。数据 **仍由 API 读写**，而非 CLI 打开 `~/.atmos/db/atmos.db`。
 
 ### 8.2 `atmos review` 重构要点（相对现状）
 
@@ -555,7 +577,8 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 
 ### 8.3 例外（仍允许本机、不经业务 API）
 
-- `**atmos local**`：管理本机 API 进程与 `state.json` / 安装物，属于 **宿主运维**，不要求走 review/canvas 类业务 API。
+- `**atmos runtime**` / `**atmos local**`（别名）：管理本机 API 进程与 `runtime_manifest.json` / 安装物，属于 **宿主运维**，不要求走 review/canvas 类业务 API。
+- `**atmos computer**`：在 **Computer** 上注册 Relay 身份并 `ensure` 本机 API（VPS 或本机）。
 - **CLI 自检/更新**：如 `atmos update` 访问 GitHub 等，与 Atmos Server 数据平面无关。
 
 ---

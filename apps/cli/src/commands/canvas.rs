@@ -13,7 +13,7 @@ use reqwest::header::AUTHORIZATION;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use super::local::read_state_file;
+use runtime_manager::resolve_api_base_url;
 
 const DEFAULT_TIMEOUT_MS: u64 = 45_000;
 
@@ -703,13 +703,7 @@ fn resolve_base_url(global: &GlobalArgs) -> Result<String, String> {
             return Ok(env_url);
         }
     }
-    if let Ok(Some(state)) = read_state_file() {
-        return Ok(state.url);
-    }
-    Err(
-        "API URL not provided — pass --api-url, set ATMOS_API_URL, or start `atmos local start`."
-            .into(),
-    )
+    resolve_api_base_url(None)
 }
 
 fn resolve_token(global: &GlobalArgs) -> Option<String> {

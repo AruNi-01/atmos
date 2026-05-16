@@ -1,7 +1,13 @@
 [package]
-name = "runtime-manifest"
+name = "runtime-manager"
 version = "0.1.0"
 edition = "2021"
+description = "Local Atmos runtime discovery (manifest), relay identity, and process supervisor"
+
+[features]
+default = ["client"]
+client = []
+supervisor = ["dep:sysinfo"]
 
 [dependencies]
 serde = { workspace = true }
@@ -10,6 +16,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 dirs = "5"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 tokio = { workspace = true }
+sysinfo = { version = "0.30", optional = true }
 
 [dev-dependencies]
 tempfile = "3"

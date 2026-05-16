@@ -13,7 +13,9 @@ on:
     paths:
       - "apps/desktop/**"
       - "apps/api/**"
+      - "apps/cli/**"
       - "crates/**"
+      - "scripts/desktop/**"
       - "Cargo.toml"
       - "Cargo.lock"
       - "bun.lock"
@@ -86,13 +88,16 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build API sidecar
-        run: cargo build --release --bin api --target x86_64-unknown-linux-gnu
+      - name: Build runtime binaries (api + atmos)
+        run: cargo build --release --bin api --bin atmos --target x86_64-unknown-linux-gnu
 
-      - name: Prepare sidecar binary
+      - name: Layout desktop runtime bundle
+        shell: bash
         run: |
-          mkdir -p apps/desktop/src-tauri/binaries
-          cp target/x86_64-unknown-linux-gnu/release/api apps/desktop/src-tauri/binaries/atmos-sidecar-x86_64-unknown-linux-gnu
+          set -euo pipefail
+          mkdir -p apps/desktop/src-tauri/binaries/web-out
+          source scripts/desktop/layout-runtime-bundle.sh
+          layout_runtime_bundle "$PWD" "x86_64-unknown-linux-gnu" ""
 
       - name: Build Tauri app (no bundle)
         working-directory: apps/desktop
@@ -265,16 +270,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build API sidecar
-        run: cargo build --release --bin api --target ${{ matrix.target }}
+      - name: Build runtime binaries (api + atmos)
+        run: cargo build --release --bin api --bin atmos --target ${{ matrix.target }}
 
-      - name: Prepare sidecar binary
+      - name: Layout desktop runtime bundle
         shell: bash
         run: |
+          set -euo pipefail
           EXT=""
           if [ "${{ matrix.platform }}" = "windows-latest" ]; then EXT=".exe"; fi
-          mkdir -p apps/desktop/src-tauri/binaries
-          cp target/${{ matrix.target }}/release/api${EXT} apps/desktop/src-tauri/binaries/atmos-sidecar-${{ matrix.target }}${EXT}
+          mkdir -p apps/desktop/src-tauri/binaries/web-out
+          source scripts/desktop/layout-runtime-bundle.sh
+          layout_runtime_bundle "$PWD" "${{ matrix.target }}" "$EXT"
 
       - name: Export updater signing env
         shell: bash

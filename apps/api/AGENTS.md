@@ -1,12 +1,12 @@
 # Web API Server - AGENTS.md
 
-> **🌐 API Entry Point**: Axum server exposing `core-service` logic via HTTP and WebSocket.
+> **🌐 API Entry Point**: Axum **Atmos Server** — exposes `core-service` via HTTP/WebSocket on loopback (and static web when `ATMOS_STATIC_DIR` is set).
 
 ---
 
 ## Build And Test
 
-- **Dev**: `just dev-api` or `just dev-api-watch` (with hot reload)
+- **Dev**: `just dev-api` or `just dev-api-watch` (writes `~/.atmos/runtime_manifest.json` on bind)
 - **Build**: `just build-api`
 - **Test**: `just test-api` or `cargo test -p api`
 - **Lint**: `cargo clippy -p api`
@@ -18,52 +18,79 @@
 ```
 apps/api/
 ├── src/
-│   ├── main.rs              # App startup
+│   ├── main.rs              # Startup, manifest, relay spawn
 │   ├── app_state.rs         # DI container (AppState)
-│   ├── error.rs             # Error types
+│   ├── error.rs
+│   ├── relay/               # APP-016 outbound relay + register
+│   │   ├── mod.rs
+│   │   ├── ingest.rs        # Relay → WsManager injection
+│   │   └── register.rs      # ATMOS_REGISTER_TOKEN one-shot
 │   ├── api/                 # Handlers & DTOs
-│   │   ├── dto.rs           # Shared API models
+│   │   ├── dto.rs
 │   │   ├── ws/              # WebSocket handlers
-│   │   │   ├── handlers.rs
-│   │   │   ├── terminal_handler.rs
-│   │   │   └── agent_handler.rs
-│   │   ├── workspace/       # Workspace routes
-│   │   ├── agent/           # Agent routes
-│   │   ├── project/         # Project routes
-│   │   ├── system/          # System routes (diagnostics, skills)
-│   │   ├── token_usage/     # Token usage routes
-│   │   └── test/            # Test routes
-│   ├── middleware/          # JWT, Auth, Logging
-│   └── config/              # Env var loading
-└── README.md
+│   │   ├── workspace/
+│   │   ├── agent/
+│   │   ├── project/
+│   │   ├── system/
+│   │   ├── token_usage/
+│   │   └── test/
+│   ├── middleware/          # Loopback token (optional), destructive routes
+│   └── config/
+└── Cargo.toml               # runtime-manager (client feature)
 ```
+
+---
+
+## Local runtime integration
+
+On successful `TcpListener::bind`:
+
+1. **`runtime_manager::write_runtime_manifest`** — loopback URL for Desktop/CLI (`source: "api"`).
+2. On shutdown — **`remove_runtime_manifest`** (graceful exit).
+3. If `relay_identity.json` exists and `ATMOS_RELAY_DISABLE != 1` — spawn **`relay::run`** (outbound WSS to `packages/relay`).
+4. If `ATMOS_REGISTER_TOKEN` set at startup — **`relay::try_consume_register_token`** then clear env.
+
+**Auth**: `require_local_token` applies only when `ATMOS_LOCAL_TOKEN` is configured. Default dev/Desktop path is **open loopback**.
 
 ---
 
 ## Coding Conventions
 
 ### Request Handling
-- Handlers should be thin — extract data from requests and call `core-service`
-- Use `dto.rs` for defining the JSON interface
 
-### DTO Conventions
-- Use `BaseReq`, `BasePageReq` for consistency
-- Implement `From` traits to convert between DTOs and Core Service types
+- Handlers stay thin — call `core-service`.
+- DTOs in `api/dto.rs`; use `BaseReq` / `BasePageReq` where applicable.
 
-### WebSocket Bridge
-- The `ws.rs` handler in `terminal` module bridges `infra::websocket` to Axum sockets
+### WebSocket
+
+- Primary transport for interactive features (see root **Transport Rules**).
+- `relay/ingest` must treat relay peers like local WS clients for routing (`conn_id`, events).
+
+### REST
+
+- Exception paths: bootstrap, settings persistence, review/canvas agent invoke, diagnostics.
+- Do not duplicate WS-capable flows as new REST APIs without justification.
 
 ---
 
 ## Safety Rails
 
 ### NEVER
-- Implement complex business logic here — delegate to `crates/core-service`
-- Access database directly — use repositories from `infra`
-- Add new REST endpoints by default — check if WebSocket should be used instead (see root AGENTS.md Transport Rules)
+
+- Implement business logic here — use `crates/core-service`.
+- Access DB outside `infra` repositories.
+- Add parallel REST for flows that should extend WS messages.
 
 ### ALWAYS
-- Use `AppState` to access services
-- Keep handlers focused on request/response concerns
-- Update `dto.rs` when changing API contracts
 
+- Use `AppState` for services.
+- Keep DTOs in sync with `apps/web/src/types/api.ts` (or app-local types).
+- When changing relay protocol, update `packages/relay` and APP-016 TECH.
+
+---
+
+## Related
+
+- [crates/runtime-manager/AGENTS.md](../../crates/runtime-manager/AGENTS.md)
+- [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md)
+- [apps/cli/AGENTS.md](../cli/AGENTS.md)

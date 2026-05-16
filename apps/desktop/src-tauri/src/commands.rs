@@ -14,8 +14,8 @@ pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value
         .ok_or_else(|| "API not ready".to_string())?;
 
     Ok(json!({
+        "host": "127.0.0.1",
         "port": port,
-        "token": state.api_token,
     }))
 }
 

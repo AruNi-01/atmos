@@ -14,7 +14,7 @@ agent = { path = "../../crates/agent" }
 infra = { path = "../../crates/infra" }
 core-engine = { path = "../../crates/core-engine" }
 core-service = { path = "../../crates/core-service" }
-runtime-manifest = { path = "../../crates/runtime-manifest" }
+runtime-manager = { path = "../../crates/runtime-manager", default-features = true, features = ["client"] }
 token-usage = { path = "../../crates/token-usage" }
 
 axum = { version = "0.8", features = ["ws", "multipart"] }

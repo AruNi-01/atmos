@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use crate::{write_server_identity, ServerIdentity};
+use crate::identity::{write_server_identity, ServerIdentity};
 
 const DEFAULT_CONTROL_PLANE_URL: &str = "https://relay.atmos.land";
 
@@ -12,6 +12,7 @@ struct RegisterResponse {
     server_secret: String,
     relay_ws_url: String,
     control_plane_url: String,
+    #[allow(dead_code)]
     display_name: Option<String>,
 }
 

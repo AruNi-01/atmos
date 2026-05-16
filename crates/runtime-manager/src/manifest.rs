@@ -1,25 +1,18 @@
-//! Canonical local API discovery written to `~/.atmos/runtime_manifest.json`.
-//!
-//! Any `apps/api` process that binds a listen socket should refresh this file so
-//! CLI tools and the Next.js dev server can find the same host/port/token the
-//! browser runtime uses.
+//! `~/.atmos/runtime_manifest.json` — loopback API discovery (no auth token).
 
-mod register;
-mod server_identity;
-
-pub use register::{
-    default_control_plane_url, normalize_control_plane_url, register_computer,
-};
-pub use server_identity::{
-    read_server_identity, relay_identity_path, resolve_server_identity_path,
-    server_identity_env_path_override, write_server_identity, ServerIdentity,
-    RELAY_IDENTITY_FILE_NAME,
-};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+
+pub fn atmos_home_dir() -> Result<PathBuf, String> {
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+        .ok_or_else(|| "Cannot determine home directory".to_string())?;
+    Ok(home.join(".atmos"))
+}
 
 pub const RUNTIME_MANIFEST_VERSION: u32 = 1;
 pub const RUNTIME_MANIFEST_FILE_NAME: &str = "runtime_manifest.json";
@@ -28,8 +21,6 @@ pub const RUNTIME_MANIFEST_FILE_NAME: &str = "runtime_manifest.json";
 pub struct RuntimeManifest {
     pub version: u32,
     pub api: ApiEndpoint,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pid: Option<u32>,
     pub started_at: String,
@@ -48,22 +39,21 @@ impl RuntimeManifest {
     pub fn new(
         host: impl Into<String>,
         port: u16,
-        token: Option<String>,
         pid: Option<u32>,
         source: impl Into<String>,
     ) -> Self {
         let host = host.into();
-        let url = http_base_url(&host, port);
-        let ws_url = ws_base_url(&host, port);
+        let client_host = client_loopback_host(&host);
+        let url = http_base_url(&client_host, port);
+        let ws_url = ws_base_url(&client_host, port);
         Self {
             version: RUNTIME_MANIFEST_VERSION,
             api: ApiEndpoint {
-                host,
+                host: client_host,
                 port,
                 url,
                 ws_url,
             },
-            token,
             pid,
             started_at: Utc::now().to_rfc3339(),
             source: source.into(),
@@ -71,12 +61,13 @@ impl RuntimeManifest {
     }
 }
 
-pub fn atmos_home_dir() -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .or_else(dirs::home_dir)
-        .ok_or_else(|| "Cannot determine home directory".to_string())?;
-    Ok(home.join(".atmos"))
+/// Host clients should use to reach the API (normalize `0.0.0.0` bind address).
+fn client_loopback_host(bind_host: &str) -> String {
+    if bind_host == "0.0.0.0" || bind_host == "::" {
+        "127.0.0.1".to_string()
+    } else {
+        bind_host.to_string()
+    }
 }
 
 pub fn runtime_manifest_path() -> Result<PathBuf, String> {
@@ -122,10 +113,16 @@ pub fn write_runtime_manifest(data: &RuntimeManifest) -> Result<PathBuf, String>
     Ok(path)
 }
 
-/// Resolve the API base URL for native clients (CLI, scripts).
-///
-/// Precedence: explicit flag → `ATMOS_API_URL` → `runtime_manifest.json` →
-/// `~/.atmos/local/state.json` (from `atmos local start`).
+pub fn remove_runtime_manifest() -> Result<(), String> {
+    let path = runtime_manifest_path()?;
+    if path.is_file() {
+        fs::remove_file(&path)
+            .map_err(|err| format!("Failed to remove {}: {}", path.display(), err))?;
+    }
+    Ok(())
+}
+
+/// Precedence: explicit → `ATMOS_API_URL` → `runtime_manifest.json` → legacy `local/state.json`.
 pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
     if let Some(url) = explicit.filter(|value| !value.trim().is_empty()) {
         return Ok(url.trim().to_string());
@@ -142,26 +139,9 @@ pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
         return Ok(url);
     }
     Err(
-        "API URL not found — pass --api-url, set ATMOS_API_URL, start `just dev-api` / Desktop, or run `atmos local start`."
+        "API URL not found — pass --api-url, set ATMOS_API_URL, or run `atmos runtime ensure`."
             .into(),
     )
-}
-
-pub fn resolve_api_token(explicit: Option<&str>) -> Option<String> {
-    if let Some(token) = explicit.filter(|value| !value.is_empty()) {
-        return Some(token.to_string());
-    }
-    if let Ok(env_token) = std::env::var("ATMOS_API_TOKEN") {
-        if !env_token.trim().is_empty() {
-            return Some(env_token);
-        }
-    }
-    if let Ok(Some(manifest)) = read_runtime_manifest() {
-        if let Some(token) = manifest.token.filter(|value| !value.is_empty()) {
-            return Some(token);
-        }
-    }
-    None
 }
 
 fn read_legacy_local_state_url() -> Result<String, String> {
@@ -241,11 +221,9 @@ mod tests {
     fn round_trips_runtime_manifest() {
         let guard = EnvGuard::new();
         let tmp = TempDir::new().unwrap();
-        let home = tmp.path().join("home");
-        guard.set_home(&home);
+        guard.set_home(tmp.path());
 
-        let data =
-            RuntimeManifest::new("127.0.0.1", 30303, Some("secret".into()), Some(42), "api");
+        let data = RuntimeManifest::new("127.0.0.1", 30303, Some(42), "api");
         write_runtime_manifest(&data).unwrap();
 
         let loaded = read_runtime_manifest()
@@ -255,23 +233,8 @@ mod tests {
     }
 
     #[test]
-    fn resolve_prefers_env_over_manifest_file() {
-        let guard = EnvGuard::new();
-        let tmp = TempDir::new().unwrap();
-        let home = tmp.path().join("home");
-        guard.set_home(&home);
-
-        write_runtime_manifest(&RuntimeManifest::new(
-            "127.0.0.1",
-            30303,
-            None,
-            None,
-            "api",
-        ))
-        .unwrap();
-        unsafe { std::env::set_var("ATMOS_API_URL", "http://example.test:9") };
-
-        let url = resolve_api_base_url(None).unwrap();
-        assert_eq!(url, "http://example.test:9");
+    fn bind_all_interfaces_maps_to_loopback_in_manifest() {
+        let m = RuntimeManifest::new("0.0.0.0", 30303, None, "api");
+        assert_eq!(m.api.host, "127.0.0.1");
     }
 }

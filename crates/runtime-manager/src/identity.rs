@@ -1,11 +1,11 @@
-//! Relay pairing credentials persisted after control-plane registration.
+//! `~/.atmos/relay_identity.json` — outbound relay credentials for this Computer.
 
 use std::fs;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::atmos_home_dir;
+use crate::manifest::atmos_home_dir;
 
 pub const RELAY_IDENTITY_FILE_NAME: &str = "relay_identity.json";
 
@@ -13,7 +13,6 @@ pub const RELAY_IDENTITY_FILE_NAME: &str = "relay_identity.json";
 pub struct ServerIdentity {
     pub server_id: String,
     pub server_secret: String,
-    /// WebSocket endpoint for outbound relay (typically `…/ws/server`).
     pub relay_ws_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_plane_url: Option<String>,

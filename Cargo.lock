@@ -263,7 +263,7 @@ dependencies = [
  "http",
  "infra",
  "reqwest 0.12.28",
- "runtime-manifest",
+ "runtime-manager",
  "sea-orm-migration",
  "serde",
  "serde_json",
@@ -489,7 +489,7 @@ dependencies = [
  "dirs 5.0.1",
  "infra",
  "reqwest 0.12.28",
- "runtime-manifest",
+ "runtime-manager",
  "serde",
  "serde_json",
  "sysinfo",
@@ -503,10 +503,10 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "keyring",
- "libc",
  "objc2-app-kit",
  "remote-access",
  "reqwest 0.12.28",
+ "runtime-manager",
  "serde",
  "serde_json",
  "tauri",
@@ -518,7 +518,6 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-updater",
  "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -5204,7 +5203,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "runtime-manifest"
+name = "runtime-manager"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -5212,6 +5211,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sysinfo",
  "tempfile",
  "tokio",
 ]

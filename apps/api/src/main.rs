@@ -318,7 +318,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             warn!(target: "atmos_relay", error = %err, "register token consumption failed");
         }
 
-        match runtime_manifest::read_server_identity() {
+        match runtime_manager::read_server_identity() {
             Ok(Some(identity)) => {
                 let st = app_state.clone();
                 tokio::spawn(async move {
@@ -404,6 +404,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let actual_addr = listener.local_addr()?;
     info!("Server listening on http://{}", actual_addr);
     println!("ATMOS_READY port={}", actual_addr.port());
+
+    let manifest = runtime_manager::RuntimeManifest::new(
+        &server_config.host,
+        actual_addr.port(),
+        Some(std::process::id()),
+        "api",
+    );
+    match runtime_manager::write_runtime_manifest(&manifest) {
+        Ok(path) => info!(
+            target: "atmos_runtime",
+            path = %path.display(),
+            url = %manifest.api.url,
+            "wrote runtime manifest"
+        ),
+        Err(err) => warn!(
+            target: "atmos_runtime",
+            error = %err,
+            "failed to write runtime manifest"
+        ),
+    }
     spawn_non_critical_startup_tasks(
         agent_service_for_startup,
         project_service_for_startup,
@@ -424,6 +444,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Graceful shutdown: clean up all terminal sessions and PTY resources
     info!("Shutdown signal received, cleaning up terminal sessions...");
+    if let Err(err) = runtime_manager::remove_runtime_manifest() {
+        warn!(target: "atmos_runtime", error = %err, "failed to remove runtime manifest");
+    }
     terminal_service_shutdown.shutdown().await;
     info!("Server shutdown complete");
 

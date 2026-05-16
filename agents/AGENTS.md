@@ -14,7 +14,7 @@ This directory contains cross-cutting references and guidelines that apply acros
 |------|--------------|
 | `references/keyboard-shortcuts.md` | When implementing keyboard shortcuts, global hotkeys, or overlay focus management |
 | `references/debug-logging.md` | When adding debug logging or instrumenting lifecycle flows |
-| `references/compact-instructions.md` When compressing context or creating coding handoff summaries |
+| `references/compact-instructions.md` | When compressing context or creating coding handoff summaries |
 
 ## Directory Structure
 
@@ -26,6 +26,15 @@ agents/
     ├── debug-logging.md        # Debug logging infrastructure
     └── compact-instructions.md # Context compression and handoff summaries
 ```
+
+## Architecture pointers (not loaded by default)
+
+For **local runtime**, **Desktop/CLI ensure**, or **Atmos Computer / relay**, read the area `AGENTS.md` instead of adding duplicate docs here:
+
+- [../AGENTS.md](../AGENTS.md) — unified runtime overview
+- [../crates/runtime-manager/AGENTS.md](../crates/runtime-manager/AGENTS.md)
+- [../packages/relay/AGENTS.md](../packages/relay/AGENTS.md)
+- [../specs/APP/APP-016_atmos-computer/TECH.md](../specs/APP/APP-016_atmos-computer/TECH.md)
 
 ## Adding New References
 

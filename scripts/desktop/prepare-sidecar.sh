@@ -11,6 +11,7 @@ if [[ "$TARGET_TRIPLE" == *"windows"* ]]; then
 fi
 
 cargo build --release --bin api --target "$TARGET_TRIPLE"
+cargo build --release --bin atmos --target "$TARGET_TRIPLE"
 
 mkdir -p apps/desktop/src-tauri/binaries
 cp "target/$TARGET_TRIPLE/release/api$BIN_EXT" \
@@ -35,3 +36,7 @@ else
   mkdir -p "$SIDECAR_WEBOUT"
   echo "⚠️ Warning: $WEB_OUT not found, created empty $SIDECAR_WEBOUT for dev mode"
 fi
+
+# shellcheck source=scripts/desktop/layout-runtime-bundle.sh
+source "$ROOT_DIR/scripts/desktop/layout-runtime-bundle.sh"
+layout_runtime_bundle "$ROOT_DIR" "$TARGET_TRIPLE" "$BIN_EXT"

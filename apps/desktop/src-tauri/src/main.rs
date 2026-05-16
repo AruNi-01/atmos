@@ -2,11 +2,10 @@ mod commands;
 mod logging;
 mod preview_bridge;
 mod remote_access;
+mod runtime;
 mod state;
 mod updater;
 
-use std::collections::VecDeque;
-use std::ffi::CStr;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,68 +14,19 @@ use std::time::{Duration, Instant};
 use tauri::menu::{IconMenuItem, MenuBuilder, NativeIcon, SubmenuBuilder};
 use tauri::utils::config::Color;
 use tauri::{Listener, Manager, PhysicalPosition, PhysicalSize, Position, Size};
-use tauri_plugin_shell::ShellExt;
 use tokio::sync::Notify;
 use tokio::time::{sleep, timeout};
 
 use state::{AppState, PersistedWindowState};
 
-const STARTUP_OUTPUT_BUFFER_LIMIT: usize = 20;
 const MIN_SPLASH_DURATION: Duration = Duration::from_secs(3);
 const THEME_READY_TIMEOUT: Duration = Duration::from_secs(5);
 const WINDOW_STATE_FILE: &str = "window-state.json";
 const SPLASH_BACKGROUND_COLOR: Color = Color(6, 7, 11, 255);
-struct StartupDiagnostics {
-    stdout: VecDeque<String>,
-    stderr: VecDeque<String>,
-    log_path: PathBuf,
-}
 
 struct StartupFailure {
     root_cause: String,
     log_path: PathBuf,
-}
-
-impl StartupDiagnostics {
-    fn new(log_path: PathBuf) -> Self {
-        Self {
-            stdout: VecDeque::with_capacity(STARTUP_OUTPUT_BUFFER_LIMIT),
-            stderr: VecDeque::with_capacity(STARTUP_OUTPUT_BUFFER_LIMIT),
-            log_path,
-        }
-    }
-
-    fn record_stdout(&mut self, line: &str) {
-        push_bounded_line(&mut self.stdout, line);
-        logging::append_log(&self.log_path, &format!("stdout: {line}"));
-    }
-
-    fn record_stderr(&mut self, line: &str) {
-        push_bounded_line(&mut self.stderr, line);
-        logging::append_log(&self.log_path, &format!("stderr: {line}"));
-    }
-
-    fn record_internal(&mut self, line: &str) {
-        push_bounded_line(&mut self.stderr, line);
-        logging::append_log(&self.log_path, line);
-    }
-
-    fn startup_error(&self, summary: impl Into<String>) -> StartupFailure {
-        let summary = clean_error_text(&summary.into());
-        let root_cause = self
-            .stderr
-            .iter()
-            .rev()
-            .map(|line| clean_error_text(line))
-            .find(|line| is_meaningful_error_line(line))
-            .filter(|line| !line.is_empty())
-            .unwrap_or(summary);
-
-        StartupFailure {
-            root_cause,
-            log_path: self.log_path.clone(),
-        }
-    }
 }
 
 fn main() {
@@ -90,7 +40,6 @@ fn main() {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
-            let api_token = uuid::Uuid::new_v4().to_string();
             let window_state_path = app
                 .path()
                 .app_config_dir()
@@ -108,9 +57,7 @@ fn main() {
                 .join("state.json");
             app.manage(AppState {
                 api_port: Mutex::new(None),
-                api_token: api_token.clone(),
                 desktop_log_level: logging::compiled_log_level(),
-                sidecar_child: Mutex::new(None),
                 preview_bridge: Mutex::new(None),
                 window_state_path,
                 splash_close_allowed: AtomicBool::new(false),
@@ -152,20 +99,27 @@ fn main() {
                     .filter(|p| p.join("index.html").is_file());
                 let has_static = static_dir.is_some();
 
-                if let Err(err) = spawn_and_wait_sidecar(&app_handle, api_token, static_dir).await {
-                    eprintln!("Failed to start sidecar: {}", err.root_cause);
-                    show_startup_error(&app_handle, &err);
-                    return;
-                }
-
-                let port = {
-                    let state = app_handle.state::<AppState>();
-                    let x = *state.api_port.lock().unwrap();
-                    x
+                let port = match runtime::ensure_desktop_runtime(&app_handle).await {
+                    Ok(port) => {
+                        let state = app_handle.state::<AppState>();
+                        *state.api_port.lock().unwrap() = Some(port);
+                        Some(port)
+                    }
+                    Err(err) => {
+                        eprintln!("Failed to start local runtime: {}", err.root_cause);
+                        show_startup_error(
+                            &app_handle,
+                            &StartupFailure {
+                                root_cause: err.root_cause,
+                                log_path: err.log_path,
+                            },
+                        );
+                        return;
+                    }
                 };
 
                 // Asynchronously restore any tunnel providers that were running
-                // when the app was last closed, now that the sidecar API is ready.
+                // when the app was last closed, now that the local API is ready.
                 if let Some(p) = port {
                     let recover_handle = app_handle.clone();
                     let target_base_url = format!("http://127.0.0.1:{p}");
@@ -405,17 +359,9 @@ fn main() {
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| match event {
-        // Sidecar cleanup on ALL exit paths:
-        // Cmd+Q, dock "Quit", system shutdown, etc.
+        // Do not stop the shared local API on quit — other clients may still use it.
         tauri::RunEvent::Exit => {
             let _ = preview_bridge::close_preview_window(&app_handle);
-            let child = {
-                let state = app_handle.state::<AppState>();
-                state.sidecar_child.lock().ok().and_then(|mut g| g.take())
-            };
-            if let Some(child) = child {
-                let _ = child.kill();
-            }
         }
         // macOS: clicking the dock icon when the window is hidden should re-show it.
         #[cfg(target_os = "macos")]
@@ -537,380 +483,6 @@ fn window_state_path<R: tauri::Runtime>(app_handle: &tauri::AppHandle<R>) -> Pat
     app_handle.state::<AppState>().window_state_path.clone()
 }
 
-fn is_utf8_locale(value: &str) -> bool {
-    let upper = value.to_ascii_uppercase();
-    upper.contains("UTF-8") || upper.contains("UTF8")
-}
-
-fn default_utf8_locale() -> String {
-    #[cfg(target_os = "macos")]
-    {
-        "en_US.UTF-8".to_string()
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        "C.UTF-8".to_string()
-    }
-}
-
-fn resolve_utf8_locale() -> String {
-    std::env::var("LC_CTYPE")
-        .ok()
-        .filter(|v| is_utf8_locale(v))
-        .or_else(|| std::env::var("LANG").ok().filter(|v| is_utf8_locale(v)))
-        .unwrap_or_else(default_utf8_locale)
-}
-
-#[cfg(unix)]
-fn detect_login_shell_from_system() -> Option<String> {
-    let uid = unsafe { libc::geteuid() };
-    let mut pwd = std::mem::MaybeUninit::<libc::passwd>::uninit();
-    let mut result = std::ptr::null_mut();
-    let mut buf = vec![0u8; 4096];
-
-    loop {
-        let rc = unsafe {
-            libc::getpwuid_r(
-                uid,
-                pwd.as_mut_ptr(),
-                buf.as_mut_ptr().cast(),
-                buf.len(),
-                &mut result,
-            )
-        };
-
-        if rc == 0 {
-            if result.is_null() {
-                return None;
-            }
-
-            let pwd = unsafe { pwd.assume_init() };
-            if pwd.pw_shell.is_null() {
-                return None;
-            }
-
-            let shell = unsafe { CStr::from_ptr(pwd.pw_shell) }
-                .to_string_lossy()
-                .trim()
-                .to_string();
-
-            return (!shell.is_empty()).then_some(shell);
-        }
-
-        if rc == libc::ERANGE {
-            buf.resize(buf.len() * 2, 0);
-            continue;
-        }
-
-        return None;
-    }
-}
-
-#[cfg(not(unix))]
-fn detect_login_shell_from_system() -> Option<String> {
-    None
-}
-
-fn resolve_shell_for_sidecar() -> String {
-    std::env::var("SHELL")
-        .ok()
-        .filter(|v| !v.trim().is_empty())
-        .or_else(detect_login_shell_from_system)
-        .unwrap_or_else(|| {
-            #[cfg(target_os = "macos")]
-            {
-                for candidate in ["/bin/zsh", "/bin/bash", "/bin/sh"] {
-                    if std::path::Path::new(candidate).exists() {
-                        return candidate.to_string();
-                    }
-                }
-            }
-
-            "/bin/sh".to_string()
-        })
-}
-
-async fn spawn_and_wait_sidecar(
-    app_handle: &tauri::AppHandle,
-    api_token: String,
-    static_dir: Option<PathBuf>,
-) -> Result<(), StartupFailure> {
-    let sidecar_log_path = logging::app_log_path(app_handle, "sidecar-api.log");
-    let mut diagnostics = StartupDiagnostics::new(sidecar_log_path.clone());
-
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| PathBuf::from(".atmos-desktop"));
-    let data_dir_str = data_dir
-        .to_str()
-        .ok_or_else(|| StartupFailure {
-            root_cause: "Invalid app data directory".to_string(),
-            log_path: sidecar_log_path.clone(),
-        })?
-        .to_string();
-
-    let port = std::env::var("ATMOS_PORT").unwrap_or_else(|_| "30303".into());
-
-    // macOS .app bundles launched from Finder don't inherit the shell's PATH.
-    // Homebrew installs (tmux, git, etc.) live in /opt/homebrew/bin (Apple Silicon)
-    // or /usr/local/bin (Intel). Augment PATH so the sidecar can find them.
-    let path = {
-        let current = std::env::var("PATH").unwrap_or_default();
-        let extra = ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"];
-        let mut parts: Vec<&str> = extra.to_vec();
-        for p in current.split(':') {
-            if !parts.contains(&p) {
-                parts.push(p);
-            }
-        }
-        parts.join(":")
-    };
-    // Finder-launched apps may miss LANG/LC_CTYPE; force UTF-8 so tmux/shell
-    // keep Nerd Font glyphs instead of ASCII fallbacks.
-    let utf8_locale = resolve_utf8_locale();
-    // Finder-launched apps may also miss SHELL; recover the user's login shell
-    // from the account record before falling back to a generic shell.
-    let shell = resolve_shell_for_sidecar();
-
-    let mut sidecar_cmd = app_handle
-        .shell()
-        .sidecar("atmos-sidecar")
-        .map_err(|e| StartupFailure {
-            root_cause: clean_error_text(&e.to_string()),
-            log_path: sidecar_log_path.clone(),
-        })?
-        .env("PATH", &path)
-        .env("ATMOS_PORT", &port)
-        .env("ATMOS_LOCAL_TOKEN", &api_token)
-        .env("LANG", &utf8_locale)
-        .env("LC_CTYPE", &utf8_locale)
-        .env("SHELL", &shell)
-        .env("ATMOS_DATA_DIR", data_dir_str);
-
-    if let Some(dir) = static_dir {
-        if let Some(dir_str) = dir.to_str() {
-            sidecar_cmd = sidecar_cmd.env("ATMOS_STATIC_DIR", dir_str);
-        }
-    }
-
-    if let Ok(resource_dir) = app_handle.path().resource_dir() {
-        let bundled_skills_dir = resource_dir.join("system-skills");
-        if bundled_skills_dir.is_dir() {
-            if let Some(dir_str) = bundled_skills_dir.to_str() {
-                sidecar_cmd = sidecar_cmd.env("ATMOS_SYSTEM_SKILLS_DIR", dir_str);
-            }
-        }
-
-        let cli_bin_name = if cfg!(windows) { "atmos.exe" } else { "atmos" };
-        let bundled_cli_bin = resource_dir.join("atmos-cli").join(cli_bin_name);
-        if bundled_cli_bin.is_file() {
-            if let Some(path_str) = bundled_cli_bin.to_str() {
-                sidecar_cmd = sidecar_cmd.env("ATMOS_CLI_BIN", path_str);
-            }
-        }
-    }
-
-    let (mut rx, child) = sidecar_cmd.spawn().map_err(|e| StartupFailure {
-        root_cause: clean_error_text(&e.to_string()),
-        log_path: sidecar_log_path.clone(),
-    })?;
-
-    {
-        let app_state = app_handle.state::<AppState>();
-        let mut guard = app_state.sidecar_child.lock().map_err(|_| StartupFailure {
-            root_cause: "State lock poisoned".to_string(),
-            log_path: sidecar_log_path.clone(),
-        })?;
-        *guard = Some(child);
-    }
-
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
-    loop {
-        let now = tokio::time::Instant::now();
-        if now >= deadline {
-            terminate_sidecar(app_handle);
-            return Err(diagnostics.startup_error("API startup timeout (no ready signal received)"));
-        }
-
-        let remaining = deadline - now;
-        let event = tokio::time::timeout(remaining, rx.recv())
-            .await
-            .map_err(|_| {
-                terminate_sidecar(app_handle);
-                diagnostics.startup_error("API startup timeout while waiting for sidecar output")
-            })?;
-
-        let Some(event) = event else {
-            terminate_sidecar(app_handle);
-            return Err(diagnostics.startup_error("API sidecar exited before ready signal"));
-        };
-
-        match event {
-            tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
-                if let Some(text) = normalized_output(&line) {
-                    eprintln!("[sidecar stdout] {}", text);
-                    diagnostics.record_stdout(&text);
-                    if let Some(port) = parse_ready_port(&text) {
-                        {
-                            let app_state = app_handle.state::<AppState>();
-                            let mut guard =
-                                app_state.api_port.lock().map_err(|_| StartupFailure {
-                                    root_cause: "State lock poisoned".to_string(),
-                                    log_path: sidecar_log_path.clone(),
-                                })?;
-                            *guard = Some(port);
-                        }
-                        wait_for_api(port).await.map_err(|error| {
-                            terminate_sidecar(app_handle);
-                            diagnostics.startup_error(error)
-                        })?;
-                        logging::append_log(
-                            &sidecar_log_path,
-                            &format!("healthz OK port={port}, continuing to monitor"),
-                        );
-                        tokio::spawn(async move {
-                            while let Some(ev) = rx.recv().await {
-                                match ev {
-                                    tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
-                                        if let Some(text) = normalized_output(&line) {
-                                            eprintln!("[sidecar stdout] {}", text);
-                                            logging::append_log(
-                                                &sidecar_log_path,
-                                                &format!("stdout: {text}"),
-                                            );
-                                        }
-                                    }
-                                    tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
-                                        if let Some(text) = normalized_output(&line) {
-                                            eprintln!("[sidecar stderr] {}", text);
-                                            logging::append_log(
-                                                &sidecar_log_path,
-                                                &format!("stderr: {text}"),
-                                            );
-                                        }
-                                    }
-                                    tauri_plugin_shell::process::CommandEvent::Error(error) => {
-                                        let text = format!("sidecar monitor error: {error}");
-                                        eprintln!("[sidecar error] {}", text);
-                                        logging::append_log(&sidecar_log_path, &text);
-                                    }
-                                    tauri_plugin_shell::process::CommandEvent::Terminated(
-                                        payload,
-                                    ) => {
-                                        let msg = format!(
-                                            "TERMINATED code={:?} signal={:?}",
-                                            payload.code, payload.signal
-                                        );
-                                        eprintln!("[sidecar] {}", msg);
-                                        logging::append_log(&sidecar_log_path, &msg);
-                                        break;
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        });
-                        return Ok(());
-                    }
-                }
-            }
-            tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
-                if let Some(text) = normalized_output(&line) {
-                    eprintln!("[sidecar stderr] {}", text);
-                    diagnostics.record_stderr(&text);
-                }
-            }
-            tauri_plugin_shell::process::CommandEvent::Error(error) => {
-                let text = format!("API sidecar process error: {error}");
-                eprintln!("[sidecar error] {}", text);
-                diagnostics.record_internal(&text);
-                terminate_sidecar(app_handle);
-                return Err(diagnostics.startup_error(text));
-            }
-            tauri_plugin_shell::process::CommandEvent::Terminated(payload) => {
-                let msg = format!(
-                    "API sidecar terminated early (exit code: {:?}, signal: {:?})",
-                    payload.code, payload.signal
-                );
-                diagnostics.record_internal(&msg);
-                terminate_sidecar(app_handle);
-                return Err(diagnostics.startup_error(msg));
-            }
-            _ => {}
-        }
-    }
-}
-
-fn parse_ready_port(line: &str) -> Option<u16> {
-    line.trim()
-        .strip_prefix("ATMOS_READY port=")?
-        .parse::<u16>()
-        .ok()
-}
-
-fn push_bounded_line(lines: &mut VecDeque<String>, line: &str) {
-    if lines.len() == STARTUP_OUTPUT_BUFFER_LIMIT {
-        lines.pop_front();
-    }
-    lines.push_back(line.to_string());
-}
-
-fn normalized_output(raw: &[u8]) -> Option<String> {
-    let line = String::from_utf8_lossy(raw);
-    let cleaned = strip_ansi_sequences(&line);
-    let trimmed = cleaned.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
-
-fn strip_ansi_sequences(value: &str) -> String {
-    let mut cleaned = String::with_capacity(value.len());
-    let mut chars = value.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        if ch == '\u{1b}' {
-            if chars.peek() == Some(&'[') {
-                let _ = chars.next();
-                while let Some(next) = chars.next() {
-                    if ('@'..='~').contains(&next) {
-                        break;
-                    }
-                }
-                continue;
-            }
-        }
-
-        cleaned.push(ch);
-    }
-
-    cleaned
-}
-
-fn clean_error_text(value: &str) -> String {
-    let mut text = strip_ansi_sequences(value).trim().to_string();
-
-    if let Some(rest) = text.strip_prefix("Error:") {
-        text = rest.trim().to_string();
-    }
-
-    if text.starts_with('"') && text.ends_with('"') && text.len() > 1 {
-        text = text[1..text.len() - 1].to_string();
-    }
-
-    text
-}
-
-fn is_meaningful_error_line(value: &str) -> bool {
-    let trimmed = value.trim();
-    !trimmed.is_empty()
-        && !trimmed.starts_with("API sidecar terminated early")
-        && !trimmed.starts_with("API sidecar process error:")
-        && !trimmed.starts_with("TERMINATED code=")
-}
-
 fn percent_encode_for_url_component(value: &str) -> String {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut encoded = String::with_capacity(value.len());
@@ -959,36 +531,5 @@ fn show_startup_error(app_handle: &tauri::AppHandle, failure: &StartupFailure) {
         }
         let _ = main.show();
         let _ = main.set_focus();
-    }
-}
-
-fn terminate_sidecar(app_handle: &tauri::AppHandle) {
-    let child = {
-        let state = app_handle.state::<AppState>();
-        state
-            .sidecar_child
-            .lock()
-            .ok()
-            .and_then(|mut guard| guard.take())
-    };
-
-    if let Some(child) = child {
-        let _ = child.kill();
-    }
-}
-
-async fn wait_for_api(port: u16) -> Result<(), String> {
-    let url = format!("http://127.0.0.1:{port}/healthz");
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
-    loop {
-        if let Ok(resp) = reqwest::get(&url).await {
-            if resp.status().is_success() {
-                return Ok(());
-            }
-        }
-        if tokio::time::Instant::now() > deadline {
-            return Err("API health check timeout".to_string());
-        }
-        tokio::time::sleep(Duration::from_millis(400)).await;
     }
 }

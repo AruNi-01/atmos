@@ -116,6 +116,8 @@ Prefer **Mermaid** fenced blocks in the Markdown file so GitHub / editors render
 
 When something in `specs/` ships and stabilizes, migrate the enduring parts into `docs/`. Do not duplicate.
 
+**After implementing APP specs**, align code-area guides with reality — e.g. [APP-016](../APP/APP-016_atmos-computer/TECH.md) → [crates/runtime-manager/AGENTS.md](../crates/runtime-manager/AGENTS.md), [packages/relay/AGENTS.md](../packages/relay/AGENTS.md), [apps/api/AGENTS.md](../apps/api/AGENTS.md).
+
 ---
 
 ## 8. Review Checklist (before merging a new spec)

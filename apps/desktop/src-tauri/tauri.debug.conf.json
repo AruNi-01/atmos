@@ -61,9 +61,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/atmos-sidecar"
-    ]
+    "resources": {
+      "binaries/runtime/current": "runtime/current",
+      "binaries/web-out": "web-out",
+      "binaries/system-skills": "system-skills",
+      "binaries/atmos-cli": "atmos-cli"
+    }
   },
   "plugins": {
     "updater": {

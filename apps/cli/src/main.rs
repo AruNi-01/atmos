@@ -6,6 +6,7 @@ use clap::{Parser, Subcommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand};
 use commands::computer::{execute as execute_computer, ComputerCommand};
 use commands::local::{execute as execute_local, LocalCommand};
+use commands::runtime::{execute as execute_runtime, RuntimeCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
 use core_service::ReviewService;
@@ -34,6 +35,11 @@ enum Commands {
     Local {
         #[command(subcommand)]
         command: LocalCommand,
+    },
+    /// Ensure / stop / status for the local API (`runtime_manifest.json`).
+    Runtime {
+        #[command(subcommand)]
+        command: RuntimeCommand,
     },
     /// Drive the open Atmos Canvas from an agent.
     Canvas {
@@ -64,6 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             execute_review(review_service, command).await
         }
         Commands::Local { command } => execute_local(command).await,
+        Commands::Runtime { command } => execute_runtime(command).await,
         Commands::Computer { command } => execute_computer(command).await,
         Commands::Canvas { command } => execute_canvas(command).await,
         Commands::Update(args) => execute_update(args).await,

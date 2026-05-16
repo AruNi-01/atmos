@@ -1,13 +1,11 @@
 //! APP-016 — register this host as an Atmos Computer and run API with relay.
 
 use clap::{Args, Subcommand};
-use runtime_manifest::{
+use runtime_manager::{
     normalize_control_plane_url, read_server_identity, register_computer,
-    resolve_server_identity_path,
+    resolve_server_identity_path, supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_HOST, DEFAULT_PORT},
 };
 use serde_json::{json, Value};
-
-use super::local::{local_runtime_status, LocalCommand, StartArgs};
 
 const DEFAULT_CONTROL_PLANE: &str = "https://relay.atmos.land";
 
@@ -21,43 +19,35 @@ pub async fn execute(command: ComputerCommand) -> Result<Value, String> {
 
 #[derive(Debug, Subcommand)]
 pub enum ComputerCommand {
-    /// Register this machine on the relay (writes `~/.atmos/relay_identity.json`).
     Register(RegisterArgs),
-    /// Show relay registration and whether the local API is running.
     Status,
-    /// Register (when `--token` is set) and start the local API (relay connects on boot).
     Start(ComputerStartArgs),
 }
 
 #[derive(Debug, Args)]
 pub struct RegisterArgs {
-    /// One-time token from Atmos Settings → Add computer (or `ATMOS_REGISTER_TOKEN`).
     #[arg(long)]
     pub token: Option<String>,
-    /// Control plane HTTPS origin (or `ATMOS_CONTROL_PLANE_URL`).
     #[arg(long)]
     pub control_plane: Option<String>,
-    /// Friendly name in the computer list (or `ATMOS_COMPUTER_DISPLAY_NAME`; default: hostname).
     #[arg(long)]
     pub display_name: Option<String>,
 }
 
 #[derive(Debug, Args)]
 pub struct ComputerStartArgs {
-    /// Register before start (same as `atmos computer register`; or `ATMOS_REGISTER_TOKEN`).
     #[arg(long)]
     pub token: Option<String>,
     #[arg(long)]
     pub control_plane: Option<String>,
     #[arg(long)]
     pub display_name: Option<String>,
-    #[arg(long, default_value_t = 30303)]
+    #[arg(long, default_value_t = DEFAULT_PORT)]
     pub port: u16,
-    #[arg(long, default_value = "127.0.0.1")]
+    #[arg(long, default_value = DEFAULT_HOST)]
     pub host: String,
     #[arg(long, default_value_t = false)]
     pub force_restart: bool,
-    /// Bind API on all interfaces (useful on VPS; still use relay for remote clients).
     #[arg(long, default_value_t = false)]
     pub lan: bool,
 }
@@ -75,7 +65,7 @@ async fn register(args: RegisterArgs) -> Result<Value, String> {
     .await?;
 
     let path = resolve_server_identity_path();
-    let local = local_runtime_status().await.ok();
+    let local = runtime_manager::supervisor::runtime_status().await.ok();
 
     Ok(json!({
         "ok": true,
@@ -93,7 +83,7 @@ async fn register(args: RegisterArgs) -> Result<Value, String> {
 async fn status() -> Result<Value, String> {
     let path = resolve_server_identity_path();
     let identity = read_server_identity()?;
-    let local = local_runtime_status().await?;
+    let local = runtime_manager::supervisor::runtime_status().await?;
 
     Ok(json!({
         "ok": true,
@@ -102,9 +92,9 @@ async fn status() -> Result<Value, String> {
         "identity": identity,
         "local_api": local,
         "hint": match (&identity, local.running) {
-            (None, _) => "Not registered. In Atmos Settings create a register token, then run: atmos computer register --token <token>",
-            (Some(_), false) => "Registered. Start API with: atmos computer start (keeps machine online for remote relay access)",
-            (Some(_), true) => "Registered and local API is running. Connect from another device via Settings → Connect via relay",
+            (None, _) => "Not registered. Create a register token in Settings, then: atmos computer register --token <token>",
+            (Some(_), false) => "Registered. Run: atmos computer start --token … (or atmos runtime ensure)",
+            (Some(_), true) => "Registered and API is running. Connect from another device via Settings → Connect via relay",
         },
     }))
 }
@@ -135,25 +125,29 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
     let host = if args.lan {
         "0.0.0.0".to_string()
     } else {
-        args.host.clone()
+        args.host
     };
 
-    let start_out = super::local::execute(LocalCommand::Start(StartArgs {
+    let outcome = runtime_manager::supervisor::ensure_running(EnsureOptions {
+        host,
         port: args.port,
-        host: host.clone(),
         force_restart: args.force_restart,
-    }))
+        extra_env: Vec::new(),
+    })
     .await?;
+
+    let (action, status) = match outcome {
+        EnsureOutcome::AlreadyRunning(s) => ("already_running", s),
+        EnsureOutcome::Started(s) => ("started", s),
+    };
 
     Ok(json!({
         "ok": true,
-        "action": "started",
+        "action": action,
         "register": register_result,
         "control_plane_url": normalize_control_plane_url(&resolve_control_plane(args.control_plane.as_deref())),
-        "listen_host": host,
-        "port": args.port,
-        "start": start_out,
-        "hint": "Keep this process host online. On another device: Settings → your access token → Connect via relay to this computer.",
+        "runtime": status,
+        "hint": "Keep this host online. On another device: Settings → access token → Connect via relay.",
     }))
 }
 
@@ -166,7 +160,7 @@ fn resolve_register_token(cli: Option<&str>) -> Result<String, String> {
         .filter(|s| !s.trim().is_empty())
         .map(|s| s.trim().to_string())
         .ok_or_else(|| {
-            "Missing register token. Pass --token or set ATMOS_REGISTER_TOKEN (from Atmos Settings → Add computer).".into()
+            "Missing register token. Pass --token or set ATMOS_REGISTER_TOKEN.".into()
         })
 }
 
@@ -211,8 +205,8 @@ fn default_display_name() -> String {
 
 fn relay_restart_hint(local_api_running: bool) -> &'static str {
     if local_api_running {
-        "Relay identity saved. Restart the running Atmos API (atmos local stop && atmos computer start) so it opens the relay connection."
+        "Relay identity saved. Restart the API (`atmos runtime ensure --force-restart`) to open the relay connection."
     } else {
-        "Relay identity saved. Run `atmos computer start` to launch the API with relay, or restart your existing API process."
+        "Relay identity saved. Run `atmos computer start` or `atmos runtime ensure` to launch the API with relay."
     }
 }

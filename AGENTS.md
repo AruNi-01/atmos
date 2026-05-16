@@ -11,6 +11,7 @@
 | Task | Go To |
 |------|-------|
 | **Cross-Cutting References** (Shortcuts, Debug, etc.) | [agents/AGENTS.md](agents/AGENTS.md) |
+| **Rust crates index** (layer map) | [crates/AGENTS.md](crates/AGENTS.md) |
 | **Backend: Infrastructure** (DB, WS, Redis) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
 | **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
 | **Backend: Business Logic** (Auth, Project, Workspace) | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md) |
@@ -18,10 +19,13 @@
 | **Backend: AI Usage Tracking** | [crates/ai-usage/AGENTS.md](crates/ai-usage/AGENTS.md) |
 | **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
 | **Backend: LLM Integration** | [crates/llm/AGENTS.md](crates/llm/AGENTS.md) |
+| **Local runtime** (manifest, supervisor, relay identity) | [crates/runtime-manager/AGENTS.md](crates/runtime-manager/AGENTS.md) |
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
+| **Desktop** (Tauri + shared local API) | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
-| **CLI Tool**: (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
+| **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
+| **Relay control plane** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
 | **Write a Spec** (Brainstorm / PRD / TECH / TEST) | [specs/AGENTS.md](specs/AGENTS.md) |
 
 ---
@@ -34,14 +38,15 @@ atmos/
 │   ├── AGENTS.md              # Reference index and usage guide
 │   └── references/            # Detailed references (shortcuts, debug, etc.)
 │
-├── crates/                    # 🦀 Rust Packages
+├── crates/                    # 🦀 Rust Packages (see crates/AGENTS.md)
 │   ├── infra/                 # L1: Infrastructure (DB, WebSocket, Jobs)
 │   ├── core-engine/           # L2: Tech Capabilities (PTY, Git, FS)
 │   ├── core-service/          # L3: Business Rules
 │   ├── agent/                 # Agent Integration (ACP Client)
 │   ├── ai-usage/              # AI Usage Tracking
 │   ├── token-usage/           # Token Usage Tracking
-│   └── llm/                   # LLM Integration
+│   ├── llm/                   # LLM Integration
+│   └── runtime-manager/       # Local runtime manifest, supervisor, relay registration
 │
 ├── apps/                      # 🚀 Applications
 │   ├── api/                   # Rust/Axum API Entry
@@ -55,7 +60,8 @@ atmos/
 │   ├── ui/                    # @workspace/ui (shadcn/ui)
 │   ├── shared/                # @atmos/shared (Hooks/Utils)
 │   ├── config/                # @atmos/config (TS Config)
-│   └── i18n/                  # @workspace/i18n (Translations)
+│   ├── i18n/                  # @workspace/i18n (Translations)
+│   └── relay/                 # Atmos Computer control plane + Relay (Workers / D1)
 │
 ├── docs/                      # 📖 Deep Design & Architecture
 └── specs/                     # 📋 Specs (Brainstorm / PRD / TECH / TEST)
@@ -94,6 +100,23 @@ Full conventions (zones, naming, the 4-file rule, review checklist) live in [spe
 
 ---
 
+## 🖥 Unified local runtime (Atmos Server on loopback)
+
+One **`apps/api` process** per machine is the default **Atmos Server**. Desktop, CLI, and `npx @atmos/local-web-runtime` are **entry points**, not separate API products.
+
+| Piece | Location |
+|-------|----------|
+| Discovery | `~/.atmos/runtime_manifest.json` — `host` / `port` / `url` / `ws_url` (**no auth token**) |
+| Relay credentials | `~/.atmos/relay_identity.json` — after `atmos computer register` or `ATMOS_REGISTER_TOKEN` |
+| Process supervisor | `crates/runtime-manager` feature `supervisor` — `atmos runtime ensure`, Desktop `runtime.rs` |
+| API self-describe | `apps/api` writes manifest on bind; optional `relay/` outbound WS when identity exists |
+
+**Loopback auth**: `ATMOS_LOCAL_TOKEN` is optional hardening only — not written to the manifest and not required for Desktop/Web dev.
+
+**Atmos Computer (remote)**: Spec [APP-016](specs/APP/APP-016_atmos-computer/TECH.md); Worker code in `packages/relay`; user **Access Token** (Bearer) on the control plane.
+
+---
+
 ## 🎨 Component Conventions
 
 - **UI Components**: Use `@workspace/ui/components/ui/*` for atomic parts
@@ -126,8 +149,9 @@ Guidelines for implementing keyboard shortcuts, global hotkeys, and overlay focu
 ```bash
 just                    # List all available commands
 bun install             # Install frontend dependencies
-just dev-api            # Start API server
+just dev-api            # Start API server (writes runtime_manifest.json)
 just dev-web            # Start web app
+just dev-desktop        # Desktop (runs prepare-sidecar + Tauri)
 just test               # Run all tests
 just lint               # Run all linters
 ```

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use runtime_manifest::ServerIdentity;
+use runtime_manager::ServerIdentity;
 use futures_util::{SinkExt, StreamExt};
 use http;
 use infra::ClientType;
