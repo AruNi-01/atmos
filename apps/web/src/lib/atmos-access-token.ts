@@ -2,8 +2,9 @@
  * User access token helpers (APP-016) — possession = tenant, no account login.
  */
 
-import { isTauriRuntime } from '@/lib/desktop-runtime';
+import { proxyControlPlaneRequest } from '@/lib/atmos-computer-local';
 import { resolveControlPlaneUrl } from '@/lib/atmos-computer-store';
+import { isTauriRuntime } from '@/lib/desktop-runtime';
 
 export function generateAccessToken(): string {
   const raw = crypto.getRandomValues(new Uint8Array(32));
@@ -14,45 +15,12 @@ export function generateAccessToken(): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-interface RelayHttpResult {
-  status: number;
-  body: string;
-}
-
 function formatFetchError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   if (message === 'Load failed' || message.includes('Failed to fetch')) {
     return 'Cannot reach the control plane (relay.atmos.land). Check your network connection.';
   }
   return message;
-}
-
-async function relayHttpViaTauri(
-  controlPlaneUrl: string,
-  method: string,
-  path: string,
-  accessToken?: string,
-  body?: string,
-): Promise<RelayHttpResult> {
-  const invoke = (
-    window as {
-      __TAURI_INTERNALS__?: {
-        invoke?: <T>(cmd: string, args: Record<string, unknown>) => Promise<T>;
-      };
-    }
-  ).__TAURI_INTERNALS__?.invoke;
-  if (!invoke) {
-    throw new Error('Desktop runtime is not ready');
-  }
-  return invoke<RelayHttpResult>('relay_http_request', {
-    req: {
-      control_plane_url: controlPlaneUrl,
-      method,
-      path,
-      access_token: accessToken?.trim() || null,
-      body: body ?? null,
-    },
-  });
 }
 
 /** Register token hash on the control plane (idempotent on 409). */
@@ -63,24 +31,30 @@ export async function registerAccessTokenOnRelay(
   const base = resolveControlPlaneUrl(controlPlaneUrl);
   const payload = JSON.stringify({ token: accessToken.trim() });
 
-  if (isTauriRuntime()) {
-    try {
-      const res = await relayHttpViaTauri(base, 'POST', '/v1/tenants', undefined, payload);
-      if (res.status === 201 || res.status === 409) {
+  try {
+    const proxied = await proxyControlPlaneRequest(base, 'POST', '/v1/tenants', {
+      body: payload,
+    });
+    if (proxied) {
+      if (proxied.status === 201 || proxied.status === 409) {
         return { ok: true };
       }
       try {
-        const data = JSON.parse(res.body) as { error?: string };
-        return { ok: false, error: data.error ?? `HTTP ${res.status}` };
+        const data = JSON.parse(proxied.body) as { error?: string };
+        return { ok: false, error: data.error ?? `HTTP ${proxied.status}` };
       } catch {
-        return { ok: false, error: `HTTP ${res.status}` };
+        return { ok: false, error: `HTTP ${proxied.status}` };
       }
-    } catch (err) {
-      return { ok: false, error: formatFetchError(err) };
     }
-  }
 
-  try {
+    if (isTauriRuntime()) {
+      return {
+        ok: false,
+        error:
+          'Cannot reach Atmos Server. Restart the app so the local API can proxy control-plane requests.',
+      };
+    }
+
     const res = await fetch(`${base}/v1/tenants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -114,18 +88,21 @@ export async function cpFetchWithAccessToken(
         ? JSON.stringify(init.body)
         : undefined;
 
-  if (isTauriRuntime()) {
-    const res = await relayHttpViaTauri(
-      base,
-      method,
-      normalizedPath,
-      accessToken,
-      body,
-    );
-    return new Response(res.body, {
-      status: res.status,
+  const proxied = await proxyControlPlaneRequest(base, method, normalizedPath, {
+    accessToken,
+    body,
+  });
+  if (proxied) {
+    return new Response(proxied.body, {
+      status: proxied.status,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  if (isTauriRuntime()) {
+    throw new Error(
+      'Cannot reach Atmos Server. Restart the app so the local API can proxy control-plane requests.',
+    );
   }
 
   const url = `${base}${normalizedPath}`;

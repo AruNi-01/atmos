@@ -1,5 +1,7 @@
 //! Local Atmos Computer status and relay registration (APP-016).
 
+use std::time::Duration;
+
 use axum::extract::State;
 use axum::Json;
 use runtime_manager::{
@@ -188,6 +190,81 @@ pub async fn put_computer_client_settings(
         "action": "written",
         "path": written.display().to_string(),
         "control_plane_url": resolved_control_plane_url(&settings),
+    }))))
+}
+
+#[derive(Deserialize)]
+pub struct ControlPlaneProxyPayload {
+    #[serde(default)]
+    pub control_plane_url: Option<String>,
+    pub method: String,
+    pub path: String,
+    #[serde(default)]
+    pub access_token: Option<String>,
+    #[serde(default)]
+    pub body: Option<String>,
+}
+
+/// POST /api/system/computer/control-plane — proxy HTTPS to the relay control plane (loopback only).
+pub async fn proxy_control_plane(
+    Json(payload): Json<ControlPlaneProxyPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let base = payload
+        .control_plane_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(normalize_control_plane_url)
+        .unwrap_or_else(|| default_control_plane_url().to_string());
+
+    let path = if payload.path.starts_with('/') {
+        payload.path.clone()
+    } else {
+        format!("/{}", payload.path)
+    };
+    let url = format!("{base}{path}");
+
+    let method = payload
+        .method
+        .parse::<reqwest::Method>()
+        .map_err(|_| ApiError::BadRequest(format!("Invalid HTTP method: {}", payload.method)))?;
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(45))
+        .build()
+        .map_err(|e| ApiError::BadRequest(format!("Failed to build HTTP client: {e}")))?;
+
+    let mut builder = client
+        .request(method, &url)
+        .header("Content-Type", "application/json");
+
+    if let Some(token) = payload
+        .access_token
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        builder = builder.header("Authorization", format!("Bearer {token}"));
+    }
+    if let Some(body) = payload.body.filter(|s| !s.is_empty()) {
+        builder = builder.body(body);
+    }
+
+    let res = builder.send().await.map_err(|e| {
+        ApiError::BadRequest(format!(
+            "Cannot reach control plane at {base} ({e}). Check network and firewall settings."
+        ))
+    })?;
+
+    let status = res.status().as_u16();
+    let body = res
+        .text()
+        .await
+        .map_err(|e| ApiError::BadRequest(format!("Failed to read control plane response: {e}")))?;
+
+    Ok(Json(ApiResponse::success(json!({
+        "status": status,
+        "body": body,
     }))))
 }
 

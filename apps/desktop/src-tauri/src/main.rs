@@ -332,7 +332,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::get_api_config,
             commands::get_local_computer_display_name,
-            commands::relay_http_request,
             commands::clear_client_session_cmd,
             commands::get_version_info,
             commands::write_log,

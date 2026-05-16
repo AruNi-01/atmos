@@ -176,3 +176,35 @@ export async function syncRelayConnection(): Promise<RelaySyncResult> {
     body: '{}',
   });
 }
+
+export interface ControlPlaneProxyResult {
+  status: number;
+  body: string;
+}
+
+/**
+ * Proxy control-plane HTTPS via loopback Atmos Server (Desktop + local browser).
+ * Returns null when the local API is unreachable — caller may fall back to direct fetch.
+ */
+export async function proxyControlPlaneRequest(
+  controlPlaneUrl: string,
+  method: string,
+  path: string,
+  opts?: { accessToken?: string; body?: string },
+): Promise<ControlPlaneProxyResult | null> {
+  try {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return await localFetch<ControlPlaneProxyResult>('/api/system/computer/control-plane', {
+      method: 'POST',
+      body: JSON.stringify({
+        control_plane_url: controlPlaneUrl.replace(/\/+$/, ''),
+        method: method.toUpperCase(),
+        path: normalizedPath,
+        access_token: opts?.accessToken?.trim() || null,
+        body: opts?.body ?? null,
+      }),
+    });
+  } catch {
+    return null;
+  }
+}
