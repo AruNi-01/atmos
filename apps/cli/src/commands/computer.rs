@@ -3,7 +3,8 @@
 use clap::{Args, Subcommand};
 use runtime_manager::{
     normalize_control_plane_url, read_server_identity, register_computer,
-    resolve_server_identity_path, supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_HOST, DEFAULT_PORT},
+    resolve_server_identity_path,
+    supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_HOST, DEFAULT_PORT},
 };
 use serde_json::{json, Value};
 
@@ -57,12 +58,8 @@ async fn register(args: RegisterArgs) -> Result<Value, String> {
     let control_plane = resolve_control_plane(args.control_plane.as_deref());
     let display_name = resolve_display_name(args.display_name);
 
-    let identity = register_computer(
-        &control_plane,
-        &register_token,
-        Some(display_name.as_str()),
-    )
-    .await?;
+    let identity =
+        register_computer(&control_plane, &register_token, Some(display_name.as_str())).await?;
 
     let path = resolve_server_identity_path();
     let local = runtime_manager::supervisor::runtime_status().await.ok();
@@ -112,12 +109,8 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
     if let Some(token) = optional_register_token(args.token.as_deref())? {
         let control_plane = resolve_control_plane(args.control_plane.as_deref());
         let display_name = resolve_display_name(args.display_name);
-        let identity = register_computer(
-            &control_plane,
-            &token,
-            Some(display_name.as_str()),
-        )
-        .await?;
+        let identity =
+            register_computer(&control_plane, &token, Some(display_name.as_str())).await?;
         register_result = Some(json!({
             "server_id": identity.server_id,
             "display_name": display_name,
@@ -173,9 +166,7 @@ fn resolve_register_token(cli: Option<&str>) -> Result<String, String> {
         .ok()
         .filter(|s| !s.trim().is_empty())
         .map(|s| s.trim().to_string())
-        .ok_or_else(|| {
-            "Missing register token. Pass --token or set ATMOS_REGISTER_TOKEN.".into()
-        })
+        .ok_or_else(|| "Missing register token. Pass --token or set ATMOS_REGISTER_TOKEN.".into())
 }
 
 fn optional_register_token(cli: Option<&str>) -> Result<Option<String>, String> {
@@ -225,7 +216,10 @@ async fn sync_relay_to_running_api() -> bool {
         Ok(c) => c,
         Err(_) => return false,
     };
-    let url = format!("{}/api/system/computer/relay-sync", base.trim_end_matches('/'));
+    let url = format!(
+        "{}/api/system/computer/relay-sync",
+        base.trim_end_matches('/')
+    );
     let res = match client.post(&url).json(&serde_json::json!({})).send().await {
         Ok(r) => r,
         Err(_) => return false,

@@ -11,7 +11,10 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/sessions", get(handlers::list_sessions))
         .route("/sessions/{session_guid}", get(handlers::get_session))
-        .route("/comments", get(handlers::list_comments).post(handlers::create_comment))
+        .route(
+            "/comments",
+            get(handlers::list_comments).post(handlers::create_comment),
+        )
         .route(
             "/comments/{comment_guid}/context",
             get(handlers::get_comment_context),

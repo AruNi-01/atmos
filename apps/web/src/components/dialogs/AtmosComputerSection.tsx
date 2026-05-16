@@ -387,6 +387,20 @@ export function AtmosComputerSection() {
     if (!(await ensureAccessTokenReady(accessToken))) {
       return;
     }
+    const isLocalMachine = serverId === (localStatus?.server_id ?? localServerId);
+    if (isLocalMachine) {
+      setBusy(`connect-${serverId}`);
+      try {
+        resetRelaySession();
+        setConnectionMode('local');
+        void syncClientSessionLocal().catch(() => undefined);
+        reconnectWs();
+        toastManager.add({ title: 'Using this computer locally', type: 'success' });
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
     setBusy(`connect-${serverId}`);
     try {
       const res = await cpFetchWithAccessToken(

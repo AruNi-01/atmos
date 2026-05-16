@@ -54,9 +54,6 @@ pub fn routes() -> Router<AppState> {
             get(handlers::get_client_session).put(handlers::put_client_session),
         )
         .route("/computer", get(computer::get_computer_status))
-        .route("/computer/register", post(computer::register_local_computer))
-        .route("/computer/unregister", post(computer::unregister_local_computer))
-        .route("/computer/relay-sync", post(computer::sync_relay_connection))
 }
 
 /// Destructive system routes that require loopback or token authentication.
@@ -67,5 +64,17 @@ pub fn destructive_routes() -> Router<AppState> {
         .route(
             "/kill-orphaned-processes",
             post(handlers::kill_orphaned_processes),
+        )
+        .route(
+            "/computer/register",
+            post(computer::register_local_computer),
+        )
+        .route(
+            "/computer/unregister",
+            post(computer::unregister_local_computer),
+        )
+        .route(
+            "/computer/relay-sync",
+            post(computer::sync_relay_connection),
         )
 }

@@ -34,7 +34,12 @@ pub fn resolve_token(args: &ApiClientArgs) -> Option<String> {
 pub fn build_url(args: &ApiClientArgs, path: &str) -> Result<String, String> {
     let base = resolve_base_url(args)?;
     let trimmed = base.trim_end_matches('/');
-    Ok(format!("{}{}", trimmed, path))
+    let normalized_path = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{path}")
+    };
+    Ok(format!("{trimmed}{normalized_path}"))
 }
 
 pub fn http_client(args: &ApiClientArgs) -> Result<reqwest::Client, String> {

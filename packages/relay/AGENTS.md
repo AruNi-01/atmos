@@ -46,7 +46,7 @@ packages/relay/
 | `apps/api/src/relay/` | Outbound WSS + inject frames into local `WsManager` |
 | `crates/runtime-manager` | `register_computer()` HTTP client |
 | `apps/web` | Settings → Atmos Computer; access token + connect via relay |
-| `apps/cli` | `atmos computer register|start|status` |
+| `apps/cli` | `atmos computer register\|start\|status` |
 
 Default control plane URL: `https://relay.atmos.land` (`ATMOS_CONTROL_PLANE_URL` override).
 

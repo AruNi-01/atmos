@@ -54,9 +54,7 @@ pub async fn execute(
             let body = args.body();
             invoke(&api, &canvas, "select", body).await
         }
-        CanvasCommand::ClearSelection => {
-            invoke(&api, &canvas, "clear_selection", json!({})).await
-        }
+        CanvasCommand::ClearSelection => invoke(&api, &canvas, "clear_selection", json!({})).await,
         CanvasCommand::Move(args) => {
             let body = args.body();
             invoke(&api, &canvas, "move", body).await
@@ -189,10 +187,7 @@ async fn status(api: &ApiClientArgs) -> Result<Value, String> {
         if let Some(hint) = auth_hint_for_status(status_code) {
             return Err(hint.to_string());
         }
-        return Err(format!(
-            "status returned HTTP {}: {}",
-            status_code, value
-        ));
+        return Err(format!("status returned HTTP {}: {}", status_code, value));
     }
     Ok(value)
 }
@@ -412,7 +407,7 @@ impl DeleteArgs {
     fn body(&self) -> Result<Value, String> {
         if !self.confirm {
             return Err(
-                "delete is destructive — re-run with --confirm to acknowledge.".to_string()
+                "delete is destructive — re-run with --confirm to acknowledge.".to_string(),
             );
         }
         Ok(json!({ "ids": split_ids(&self.ids), "confirm": true }))

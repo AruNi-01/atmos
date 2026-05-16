@@ -5,11 +5,10 @@
 # Usage: layout-runtime-bundle.sh <rootDir> <targetTriple> [binExt]
 #   or:  source this file and call layout_runtime_bundle ...
 
-set -euo pipefail
-
 ROOT_DIR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 layout_runtime_bundle() {
+  set -euo pipefail
   node "$ROOT_DIR_SCRIPT/scripts/desktop/layout-runtime-bundle.mjs" "$@"
 }
 

@@ -17,12 +17,7 @@ pub async fn try_consume_register_token() -> Result<Option<ServerIdentity>, Stri
         .ok()
         .filter(|s| !s.trim().is_empty());
 
-    let identity = register_computer(
-        &cp,
-        &token,
-        display_name.as_deref(),
-    )
-    .await?;
+    let identity = register_computer(&cp, &token, display_name.as_deref()).await?;
 
     tracing::info!(
         target: "atmos_relay",

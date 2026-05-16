@@ -57,7 +57,7 @@ pub fn clear_server_identity() -> Result<bool, String> {
 }
 
 pub fn write_server_identity(data: &ServerIdentity) -> Result<PathBuf, String> {
-    let path = relay_identity_path()?;
+    let path = resolve_server_identity_path();
     let dir = path
         .parent()
         .ok_or_else(|| format!("identity path has no parent: {}", path.display()))?;
@@ -69,7 +69,32 @@ pub fn write_server_identity(data: &ServerIdentity) -> Result<PathBuf, String> {
             RELAY_IDENTITY_FILE_NAME, err
         )
     })?;
-    fs::write(&path, format!("{payload}\n"))
-        .map_err(|err| format!("Failed to write {}: {}", path.display(), err))?;
+    write_identity_file_restricted(&path, &format!("{payload}\n"))?;
     Ok(path)
+}
+
+fn write_identity_file_restricted(path: &std::path::Path, contents: &str) -> Result<(), String> {
+    use std::io::Write;
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .map_err(|err| format!("Failed to write {}: {}", path.display(), err))?;
+        file.write_all(contents.as_bytes())
+            .map_err(|err| format!("Failed to write {}: {}", path.display(), err))?;
+        return Ok(());
+    }
+
+    #[cfg(not(unix))]
+    {
+        fs::write(path, contents)
+            .map_err(|err| format!("Failed to write {}: {}", path.display(), err))?;
+        Ok(())
+    }
 }

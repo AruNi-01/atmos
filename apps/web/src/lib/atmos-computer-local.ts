@@ -23,6 +23,13 @@ export interface LocalComputerStatus {
 
 const DEFAULT_CONTROL_PLANE = 'https://relay.atmos.land';
 
+interface ApiEnvelope<T> {
+  success?: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+}
+
 function stripLocalSuffix(hostname: string | null | undefined): string | null {
   if (!hostname?.trim()) {
     return null;
@@ -74,9 +81,9 @@ async function localFetch<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const raw = await res.text();
-  let json: { success?: boolean; data?: T; message?: string; error?: string } | null = null;
+  let json: ApiEnvelope<T> | null = null;
   try {
-    json = JSON.parse(raw) as typeof json;
+    json = JSON.parse(raw) as ApiEnvelope<T>;
   } catch {
     if (raw.trimStart().startsWith('<!') || res.status === 405) {
       throw new Error(

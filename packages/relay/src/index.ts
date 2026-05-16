@@ -478,7 +478,8 @@ async function handleApi(
       });
     }
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    console.error("control plane request failed", e);
+    return json({ error: "internal_server_error" }, 500);
   }
 
   return json({ error: "not_found", path }, 404);

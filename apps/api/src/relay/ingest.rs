@@ -4,13 +4,13 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use runtime_manager::ServerIdentity;
 use futures_util::{SinkExt, StreamExt};
-use tokio::sync::oneshot;
 use http::header::{self, HeaderValue};
 use http::StatusCode;
 use infra::ClientType;
+use runtime_manager::ServerIdentity;
 use serde::Deserialize;
+use tokio::sync::oneshot;
 use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::Message;
@@ -171,8 +171,17 @@ pub async fn run(
                     let body = env.body.unwrap_or_default();
                     let relay_out = out_tx.clone();
                     tokio::spawn(async move {
-                        let response_body =
-                            http_gateway::handle_http_envelope(&body).await.unwrap_or_default();
+                        let response_body = match http_gateway::handle_http_envelope(&body).await {
+                            Some(body) => body,
+                            None => {
+                                warn!(
+                                    target: "atmos_relay",
+                                    request_id = %request_id,
+                                    "http gateway handler returned no response"
+                                );
+                                http_gateway::encode_error_response(500, "gateway_internal_error")
+                            }
+                        };
                         let outbound = serde_json::json!({
                             "v": 1_u32,
                             "stream": "http",
@@ -189,7 +198,9 @@ pub async fn run(
                 if env.kind != "frame" {
                     continue;
                 }
-                let Some(from) = env.from.clone() else { continue };
+                let Some(from) = env.from.clone() else {
+                    continue;
+                };
                 let Some(rest) = from.strip_prefix("client:") else {
                     continue;
                 };
@@ -197,8 +208,7 @@ pub async fn run(
 
                 let body = env.body.unwrap_or_default();
 
-                let conn_id =
-                    ensure_session(&state, &sessions, sid.clone(), &out_tx).await?;
+                let conn_id = ensure_session(&state, &sessions, sid.clone(), &out_tx).await?;
 
                 if let Some(reply) = state.ws_service.handle_message(&conn_id, &body).await {
                     let outbound = serde_json::json!( {

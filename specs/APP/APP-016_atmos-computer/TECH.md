@@ -288,7 +288,7 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 | **`server_secret`** | 仅该 Server 本机 `relay_identity.json` | Relay 出站 `GET /ws/server` | 长期；可随吊销失效 |
 | **`client_token`** | 浏览器/Desktop 内存 | Relay `GET /ws/client` | 建议 **24h** 或可配置更短 |
 
-`tenant_id`：上线前 = `sha256(CONTROL_PLANE_KEY)` 的定长十六进制（单部署单租户）。同一密钥下的 Computer / token 同属一个 `tenant_id`。
+`tenant_id`：M1 = `sha256(access_token)` 的定长十六进制（每用户 Access Token 一个租户）。**禁止**用 `CONTROL_PLANE_KEY` 计算用户 `tenant_id`；该密钥仅用于系统/运维管理面（若仍配置）。
 
 #### 2.4.3 端到端流程
 
@@ -299,7 +299,7 @@ sequenceDiagram
   participant S as Atmos Server
   participant R as Relay DO
 
-  UI->>CP: POST /v1/register_tokens<br/>Bearer CONTROL_PLANE_KEY
+  UI->>CP: POST /v1/register_tokens<br/>Bearer Access Token
   CP-->>UI: register_token, expires_at
   Note over UI,S: 复制命令 / 二维码（仅含 token + cp URL）
   S->>CP: POST /v1/computers/register<br/>{ register_token }
@@ -321,11 +321,11 @@ sequenceDiagram
 
 | 方法 | 路径 | 鉴权 | 请求体 | 响应（要点） |
 |------|------|------|--------|----------------|
-| `POST` | `/v1/register_tokens` | Bearer **`CONTROL_PLANE_KEY`** | `{}` 或 `{ "display_name_hint": "..." }` | `{ "register_token", "expires_at", "register_command" }` |
+| `POST` | `/v1/register_tokens` | Bearer **Access Token** | `{}` 或 `{ "display_name_hint": "..." }` | `{ "register_token", "expires_at", "register_command" }` |
 | `POST` | `/v1/computers/register` | **无**（凭 token） | `{ "register_token", "display_name"?: string }` | `{ "server_id", "server_secret", "relay_ws_url", "control_plane_url", "display_name" }` |
-| `GET` | `/v1/computers` | Bearer CP key | — | `{ "computers": [{ server_id, display_name, revoked, created_at, online? }] }` |
-| `POST` | `/v1/computers/{server_id}/revoke` | Bearer CP key | `{}` | `{ "ok": true }`；Relay 断开该 hub |
-| `POST` | `/v1/computers/{server_id}/client_sessions` | Bearer CP key | `{ "client_kind"?: "web" \| "desktop" \| "cli" }` | `{ "client_token", "expires_at", "ws_url" }` |
+| `GET` | `/v1/computers` | Bearer **Access Token** | — | `{ "computers": [{ server_id, display_name, revoked, created_at, online? }] }` |
+| `POST` | `/v1/computers/{server_id}/revoke` | Bearer **Access Token** | `{}` | `{ "ok": true }`；Relay 断开该 hub |
+| `POST` | `/v1/computers/{server_id}/client_sessions` | Bearer **Access Token** | `{ "client_kind"?: "web" \| "desktop" \| "cli" }` | `{ "client_token", "expires_at", "ws_url" }` |
 
 `register_command` 示例（供 UI 展示）：
 

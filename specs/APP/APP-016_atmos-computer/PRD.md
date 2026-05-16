@@ -40,7 +40,7 @@
 | ID | 需求 |
 |----|------|
 | **M1-1** | 定义并文档化 **Atmos Computer 身份**（`server_id`）与 **客户端身份**（`client_id` / 会话 id），在用户切换 **Computer** 时，**Web / Desktop / CLI** 状态与连接目标一致；其中 **CLI 的 `apps/api` HTTP 基址**须绑定 **当前所选 Computer**，与 UI 同源（解析与降级见 TECH §8）。 |
-| **M1-2** | **控制面**：`register_token` 注册 Server、`GET /v1/computers` 列表、`client_sessions` 连 Relay、吊销；**无** 8 位配对码。管理端持 **`CONTROL_PLANE_KEY`**（非用户登录，见 `TECH.md` §2.4）。 |
+| **M1-2** | **控制面**：`register_token` 注册 Server、`GET /v1/computers` 列表、`client_sessions` 连 Relay、吊销；**无** 8 位配对码。用户持 **Access Token**（Bearer）；`tenant_id = sha256(access_token)`；用于签发 `register_token`、列 Computer、建 `client_session`、吊销（见 `TECH.md` §2.4）。`CONTROL_PLANE_KEY` 仅保留给系统/运维管理，**不**作为终端用户鉴权。 |
 | **M1-3** | **Relay 数据面**：**Computer** 上的 Atmos **Server** 进程启动后建立 **出站 WSS** 至 Relay；客户端经 Relay **订阅指定 `server_id`**；双向帧可送达。 |
 | **M1-4** | **信封路由**：Relay 仅根据信封字段路由，**不依赖**解析 Atmos 现有 WS 业务 JSON 结构（与 TECH 一致）。 |
 | **M1-5** | **Desktop / Web** 至少一端完成「**Computer** 列表 + 切换 + 经 Relay 建连」的端到端体验（另一端可为后续迭代，但需在 TECH 标明）。 |

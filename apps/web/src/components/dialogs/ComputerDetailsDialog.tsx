@@ -10,9 +10,9 @@ import {
   Skeleton,
 } from '@workspace/ui';
 import { systemApi, type TerminalOverviewResponse } from '@/api/rest-api';
+import { fetchRelayTerminalOverview } from '@/api/relay';
 import type { ComputerRow } from '@/lib/atmos-computer-store';
 import { fetchLocalComputerStatus } from '@/lib/atmos-computer-local';
-import { getRuntimeApiConfig, httpBase } from '@/lib/desktop-runtime';
 import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
 
 function formatTime(epochSec: number | null | undefined): string {
@@ -70,25 +70,12 @@ export function ComputerDetailsDialog({
           relayClientToken &&
           selectedServerId === computer.server_id
         ) {
-          const cfg = await getRuntimeApiConfig();
-          const base = httpBase(cfg);
-          const token =
-            typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
-          const headers: Record<string, string> = {
-            Authorization: `Bearer ${relayClientToken}`,
-          };
-          if (token) {
-            headers['X-Atmos-Local-Token'] = token;
-          }
-          const res = await fetch(
-            `${relayGatewayHttpBase.replace(/\/$/, '')}/api/system/terminal-overview`,
-            { headers },
+          const data = await fetchRelayTerminalOverview(
+            relayGatewayHttpBase,
+            relayClientToken,
           );
-          const json = (await res.json().catch(() => null)) as {
-            data?: TerminalOverviewResponse;
-          } | null;
-          if (!cancelled && res.ok && json?.data) {
-            setOverview(json.data);
+          if (!cancelled) {
+            setOverview(data);
           }
         }
       } catch (e) {

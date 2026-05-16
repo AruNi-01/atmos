@@ -84,10 +84,7 @@ pub async fn register_local_computer(
     let control_plane_url = identity.control_plane_url.clone();
     let relay_ws_url = identity.relay_ws_url.clone();
 
-    state
-        .relay_supervisor
-        .start(state.clone(), identity)
-        .await;
+    state.relay_supervisor.start(state.clone(), identity).await;
 
     let (relay_connected, relay_last_error) = state
         .relay_supervisor

@@ -174,7 +174,17 @@ pub async fn handle_http_envelope(body: &str) -> Option<String> {
         body_b64,
     };
 
-    serde_json::to_string(&payload).ok()
+    match serde_json::to_string(&payload) {
+        Ok(s) => Some(s),
+        Err(e) => {
+            warn!(target: "atmos_relay", error = %e, "http gateway response encode failed");
+            Some(error_response(500, "response_encode_error"))
+        }
+    }
+}
+
+pub(crate) fn encode_error_response(status: u16, code: &str) -> String {
+    error_response(status, code)
 }
 
 fn relay_gateway_local_token() -> Option<String> {
@@ -191,10 +201,7 @@ fn relay_gateway_local_token() -> Option<String> {
 fn error_response(status: u16, code: &str) -> String {
     let payload = HttpRelayResponseBody {
         status,
-        headers: vec![(
-            "content-type".to_string(),
-            "application/json".to_string(),
-        )],
+        headers: vec![("content-type".to_string(), "application/json".to_string())],
         body_b64: Some(B64.encode(format!(r#"{{"error":"{code}"}}"#))),
     };
     serde_json::to_string(&payload).unwrap_or_else(|_| "{}".into())

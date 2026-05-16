@@ -47,12 +47,11 @@ export async function cpFetchWithAccessToken(
 ): Promise<Response> {
   const base = resolveControlPlaneUrl(controlPlaneUrl);
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  headers.set('Authorization', `Bearer ${accessToken.trim()}`);
   return fetch(url, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken.trim()}`,
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
 }

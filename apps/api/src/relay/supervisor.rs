@@ -96,6 +96,7 @@ impl RelaySupervisor {
     /// Read `relay_identity.json`, connect, and wait briefly for upstream WSS.
     pub async fn sync_from_disk(&self, state: AppState) -> (bool, Option<String>) {
         if std::env::var("ATMOS_RELAY_DISABLE").unwrap_or_default() == "1" {
+            self.stop().await;
             let msg = "Relay is disabled (ATMOS_RELAY_DISABLE=1).".to_string();
             *self.last_error.lock().await = Some(msg.clone());
             return (false, Some(msg));
@@ -104,11 +105,13 @@ impl RelaySupervisor {
         let identity = match read_server_identity() {
             Ok(Some(id)) => id,
             Ok(None) => {
+                self.stop().await;
                 let msg = "This machine is not registered to remote.".to_string();
                 *self.last_error.lock().await = Some(msg.clone());
                 return (false, Some(msg));
             }
             Err(e) => {
+                self.stop().await;
                 let msg = format!("Could not read relay identity: {e}");
                 *self.last_error.lock().await = Some(msg.clone());
                 return (false, Some(msg));

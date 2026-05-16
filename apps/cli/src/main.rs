@@ -1,13 +1,13 @@
 mod api_client;
 mod commands;
 
-use clap::{Parser, Subcommand};
 use api_client::ApiClientArgs;
+use clap::{Parser, Subcommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
 use commands::computer::{execute as execute_computer, ComputerCommand};
 use commands::local::{execute as execute_local, LocalCommand};
-use commands::runtime::{execute as execute_runtime, RuntimeCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
+use commands::runtime::{execute as execute_runtime, RuntimeCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
 
 #[derive(Debug, Parser)]

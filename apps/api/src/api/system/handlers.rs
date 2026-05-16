@@ -1196,6 +1196,12 @@ pub async fn put_client_session(
 pub async fn get_client_session() -> ApiResult<Json<ApiResponse<Value>>> {
     let path = runtime_manager::client_session_path();
     let session = read_client_session().map_err(ApiError::BadRequest)?;
+    let Some(session) = session else {
+        return Err(ApiError::NotFound(format!(
+            "No client session file at {}",
+            path.display()
+        )));
+    };
     Ok(Json(ApiResponse::success(json!({
         "path": path.display().to_string(),
         "session": session,

@@ -724,11 +724,14 @@ export const agentApi = {
       formData.append('files', new File([blob], name, { type: file.mediaType || blob.type }));
     }
 
-    const cfg = await getRuntimeApiConfig();
-    const apiBase = httpBase(cfg);
+    const { apiBase, bearer } = await resolveHttpFetchTarget();
+    const headers = new Headers();
+    if (bearer) {
+      headers.set('Authorization', `Bearer ${bearer}`);
+    }
     const res = await fetch(`${apiBase}/api/agent/upload-attachments`, {
       method: 'POST',
-      headers: cfg.token ? { Authorization: `Bearer ${cfg.token}` } : undefined,
+      headers,
       body: formData,
     });
 
