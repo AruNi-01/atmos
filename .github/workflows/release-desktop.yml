@@ -96,8 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p apps/desktop/src-tauri/binaries/web-out
-          source scripts/desktop/layout-runtime-bundle.sh
-          layout_runtime_bundle "$PWD" "x86_64-unknown-linux-gnu" ""
+          node scripts/desktop/layout-runtime-bundle.mjs "$PWD" "x86_64-unknown-linux-gnu" ""
 
       - name: Build Tauri app (no bundle)
         working-directory: apps/desktop
@@ -280,8 +279,7 @@ jobs:
           EXT=""
           if [ "${{ matrix.platform }}" = "windows-latest" ]; then EXT=".exe"; fi
           mkdir -p apps/desktop/src-tauri/binaries/web-out
-          source scripts/desktop/layout-runtime-bundle.sh
-          layout_runtime_bundle "$PWD" "${{ matrix.target }}" "$EXT"
+          node scripts/desktop/layout-runtime-bundle.mjs "$PWD" "${{ matrix.target }}" "$EXT"
 
       - name: Export updater signing env
         shell: bash
