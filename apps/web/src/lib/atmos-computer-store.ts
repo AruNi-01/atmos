@@ -19,7 +19,7 @@ export interface ComputerRow {
   online?: boolean;
 }
 
-interface AtmosComputerStore {
+interface AtmosComputerData {
   connectionMode: AtmosComputerConnectionMode;
   /** HTTPS origin of Workers control plane, e.g. https://relay.atmos.land */
   controlPlaneUrl: string;
@@ -39,6 +39,15 @@ interface AtmosComputerStore {
   localComputerDisplayName: string;
   /** Cached `server_id` from local API after register. */
   localServerId: string | null;
+}
+
+/** Fields written to localStorage — token + CP URL live on disk via loopback API. */
+type AtmosComputerPersisted = Omit<
+  AtmosComputerData,
+  'accessToken' | 'controlPlaneUrl'
+>;
+
+interface AtmosComputerStore extends AtmosComputerData {
   setConnectionMode: (m: AtmosComputerConnectionMode) => void;
   setControlPlaneUrl: (url: string) => void;
   setAccessToken: (s: string) => void;
@@ -72,7 +81,7 @@ export function resolveControlPlaneUrl(raw?: string | null): string {
 }
 
 export const useAtmosComputerStore = create(
-  persist<AtmosComputerStore>(
+  persist<AtmosComputerStore, [], [], AtmosComputerPersisted>(
     set => ({
       connectionMode: 'local',
       controlPlaneUrl: envCp || DEFAULT_CONTROL_PLANE_URL,
@@ -115,14 +124,18 @@ export const useAtmosComputerStore = create(
     {
       name: 'atmos-computer',
       version: 6,
-      partialize: state => {
-        const {
-          accessToken: _accessToken,
-          controlPlaneUrl: _controlPlaneUrl,
-          ...rest
-        } = state;
-        return rest;
-      },
+      partialize: (state): AtmosComputerPersisted => ({
+        connectionMode: state.connectionMode,
+        computers: state.computers,
+        selectedServerId: state.selectedServerId,
+        relayWebSocketUrl: state.relayWebSocketUrl,
+        relayGatewayHttpBase: state.relayGatewayHttpBase,
+        relayClientToken: state.relayClientToken,
+        registerCommandShown: state.registerCommandShown,
+        registerTokenExpiresAt: state.registerTokenExpiresAt,
+        localComputerDisplayName: state.localComputerDisplayName,
+        localServerId: state.localServerId,
+      }),
       migrate: (persisted, version) => {
         const state = { ...(persisted as object) } as Record<string, unknown>;
         if (version < 2) {
@@ -142,7 +155,7 @@ export const useAtmosComputerStore = create(
           state.localComputerDisplayName = '';
           state.localServerId = null;
         }
-        return state as unknown as AtmosComputerStore;
+        return state as unknown as AtmosComputerPersisted;
       },
     },
   ),
