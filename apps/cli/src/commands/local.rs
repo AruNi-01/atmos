@@ -17,6 +17,7 @@ pub async fn execute(command: LocalCommand) -> Result<Value, String> {
                 port: args.port,
                 force_restart: args.force_restart,
                 extra_env: Vec::new(),
+                daemon: false,
             })
             .await?
             {

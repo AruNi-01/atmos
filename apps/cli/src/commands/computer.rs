@@ -51,6 +51,9 @@ pub struct ComputerStartArgs {
     pub force_restart: bool,
     #[arg(long, default_value_t = false)]
     pub lan: bool,
+    /// Start API in the background (detached) and exit after a short readiness check.
+    #[arg(long, default_value_t = false)]
+    pub daemon: bool,
 }
 
 async fn register(args: RegisterArgs) -> Result<Value, String> {
@@ -133,6 +136,7 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
         port: args.port,
         force_restart: args.force_restart,
         extra_env: Vec::new(),
+        daemon: args.daemon,
     })
     .await?;
 
@@ -141,10 +145,16 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
         EnsureOutcome::Started(s) => ("started", s),
     };
 
-    let relay_synced = if register_result.is_some() {
+    let relay_synced = if register_result.is_some() && !args.daemon {
         sync_relay_to_running_api().await
     } else {
         false
+    };
+
+    let hint = if args.daemon {
+        "API is running in the background. Relay connects on startup; check with: atmos computer status"
+    } else {
+        "Keep this host online. On another device: Settings → access token → Connect via relay."
     };
 
     Ok(json!({
@@ -152,9 +162,10 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
         "action": action,
         "register": register_result,
         "relay_connected": relay_synced,
+        "daemon": args.daemon,
         "control_plane_url": normalize_control_plane_url(&resolve_control_plane(args.control_plane.as_deref())),
         "runtime": status,
-        "hint": "Keep this host online. On another device: Settings → access token → Connect via relay.",
+        "hint": hint,
     }))
 }
 

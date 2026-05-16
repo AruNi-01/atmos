@@ -49,6 +49,8 @@ pub struct EnsureOptions {
     pub force_restart: bool,
     /// Extra env vars passed to the API process (e.g. `ATMOS_DATA_DIR` for Desktop).
     pub extra_env: Vec<(String, String)>,
+    /// Spawn API detached and return after a short health wait (VPS / headless).
+    pub daemon: bool,
 }
 
 impl EnsureOptions {
@@ -58,6 +60,7 @@ impl EnsureOptions {
             port,
             force_restart: false,
             extra_env: Vec::new(),
+            daemon: false,
         }
     }
 }
@@ -111,7 +114,8 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
         &log_path,
         &options.extra_env,
     )?;
-    wait_for_health(&options.host, options.port, 20, Some(launched_pid)).await?;
+    let health_attempts = if options.daemon { 6 } else { 20 };
+    wait_for_health(&options.host, options.port, health_attempts, Some(launched_pid)).await?;
     let pid = resolve_api_process_id(&layout.api_bin_path, options.port).unwrap_or(launched_pid);
 
     let manifest = RuntimeManifest::new(&options.host, options.port, Some(pid), "runtime-manager");

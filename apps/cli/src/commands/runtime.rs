@@ -33,6 +33,8 @@ pub struct EnsureArgs {
     /// Bind API on all interfaces (`0.0.0.0`); manifest still points clients to loopback.
     #[arg(long, default_value_t = false)]
     pub lan: bool,
+    #[arg(long, default_value_t = false)]
+    pub daemon: bool,
 }
 
 #[derive(Debug, Args)]
@@ -52,6 +54,7 @@ async fn ensure(args: EnsureArgs) -> Result<Value, String> {
         port: args.port,
         force_restart: args.force_restart,
         extra_env: Vec::new(),
+        daemon: args.daemon,
     })
     .await?
     {

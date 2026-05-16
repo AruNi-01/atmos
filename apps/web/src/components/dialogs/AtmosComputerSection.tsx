@@ -37,6 +37,7 @@ import {
   syncClientSessionRelay,
 } from '@/lib/sync-client-session';
 import { ComputerDetailsDialog } from '@/components/dialogs/ComputerDetailsDialog';
+import { VpsRemoteSetupBlock } from '@/components/dialogs/VpsRemoteSetupBlock';
 
 function SettingsBlock({
   title,
@@ -567,6 +568,18 @@ export function AtmosComputerSection() {
             </Button>
           </div>
         ) : null}
+      </SettingsBlock>
+
+      <SettingsBlock
+        title="Remote server"
+        description="Register a Linux VPS or another machine to your account."
+      >
+        <VpsRemoteSetupBlock
+          hasAccessToken={hasKey}
+          controlPlaneUrl={controlPlaneUrl}
+          accessToken={accessToken}
+          busy={busy !== null}
+        />
       </SettingsBlock>
 
       <SettingsBlock

@@ -55,6 +55,7 @@ pub async fn ensure_desktop_runtime(
         port,
         force_restart: false,
         extra_env,
+        daemon: false,
     })
     .await
     .map_err(|e| desktop_failure(&log_path, e))?;
