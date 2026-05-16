@@ -45,11 +45,13 @@ async function relayHttpViaTauri(
     throw new Error('Desktop runtime is not ready');
   }
   return invoke<RelayHttpResult>('relay_http_request', {
-    controlPlaneUrl,
-    method,
-    path,
-    accessToken: accessToken ?? null,
-    body: body ?? null,
+    req: {
+      control_plane_url: controlPlaneUrl,
+      method,
+      path,
+      access_token: accessToken?.trim() || null,
+      body: body ?? null,
+    },
   });
 }
 
