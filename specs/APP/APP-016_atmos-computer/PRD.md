@@ -45,7 +45,7 @@
 | **M1-4** | **信封路由**：Relay 仅根据信封字段路由，**不依赖**解析 Atmos 现有 WS 业务 JSON 结构（与 TECH 一致）。 |
 | **M1-5** | **Desktop / Web** 至少一端完成「**Computer** 列表 + 切换 + 经 Relay 建连」的端到端体验（另一端可为后续迭代，但需在 TECH 标明）。 |
 | **M1-6** | **安全基线**：`register_token` / `client_token` / `server_secret` 高熵+短效；`register` 限速；Relay WS 强制鉴权。见 `TECH.md` §2.4、§3。 |
-| **M1-7** | **CLI Review 与 API 对齐**：`atmos review` **重构为 HTTP 客户端**（**API 基址与 `canvas` 同源**：随 **当前所选 Atmos Computer** 解析；`--api-url` / `ATMOS_API_URL` / `state.json` / 本机 `runtime_manifest` 等优先级与适用场景以 TECH §8 为准）；**禁止**在 CLI 内嵌 `DbConnection` + `ReviewService` 直连 `~/.atmos/db` 作为 review 数据平面。**API 为唯一事实来源**：鉴权、迁移版本、审计与业务校验与 UI 同路径。 |
+| **M1-7** | **CLI Review 与 API 对齐**：`atmos review` **重构为 HTTP 客户端**（**API 基址与 `canvas` 同源**：随 **当前所选 Atmos Computer** 解析；`--api-url` / `ATMOS_API_URL` / `client-session.json` / 本机 `runtime_manifest` 等优先级与适用场景以 TECH §8 为准）；**禁止**在 CLI 内嵌 `DbConnection` + `ReviewService` 直连 `~/.atmos/db` 作为 review 数据平面。**API 为唯一事实来源**：鉴权、迁移版本、审计与业务校验与 UI 同路径。 |
 
 ### 4.2 Should Have（M2 及以后）
 

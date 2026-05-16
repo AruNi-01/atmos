@@ -122,7 +122,7 @@ pub fn remove_runtime_manifest() -> Result<(), String> {
     Ok(())
 }
 
-/// Precedence: explicit → `ATMOS_API_URL` → `local/state.json` (relay hint) → `runtime_manifest.json`.
+/// Precedence: explicit → `ATMOS_API_URL` → `client-session.json` → `runtime_manifest.json`.
 pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
     if let Some(url) = explicit.filter(|value| !value.trim().is_empty()) {
         return Ok(url.trim().to_string());
@@ -132,16 +132,14 @@ pub fn resolve_api_base_url(explicit: Option<&str>) -> Result<String, String> {
             return Ok(env_url.trim().to_string());
         }
     }
-    if let Some(state) = crate::client_state::read_client_state()? {
-        if let Some(url) = state.url.as_ref().filter(|value| !value.trim().is_empty()) {
-            return Ok(url.trim().to_string());
-        }
-        if state.connection_mode.as_deref() == Some("relay") {
+    if let Some(session) = crate::client_session::read_client_session()? {
+        if session.api_base_url.trim().is_empty() {
             return Err(
-                "Atmos client is on relay but gateway URL is missing — reconnect via Settings → Atmos Computer, or pass --api-url."
+                "client-session.json is missing api_base_url — reconnect via Settings → Atmos Computer, or pass --api-url."
                     .into(),
             );
         }
+        return Ok(session.api_base_url.trim().to_string());
     }
     if let Some(manifest) = read_runtime_manifest()? {
         return Ok(manifest.api.url);
@@ -164,10 +162,11 @@ pub fn resolve_api_bearer_token(explicit: Option<&str>) -> Option<String> {
             }
         }
     }
-    crate::client_state::read_client_state()
+    crate::client_session::read_client_session()
         .ok()
         .flatten()
-        .and_then(|s| s.token.filter(|t| !t.is_empty()))
+        .map(|s| s.gateway_token)
+        .filter(|t| !t.is_empty())
 }
 
 fn http_base_url(host: &str, port: u16) -> String {
@@ -242,17 +241,16 @@ mod tests {
     }
 
     #[test]
-    fn resolve_api_base_url_uses_relay_gateway_from_client_state() {
+    fn resolve_api_base_url_uses_relay_gateway_from_client_session() {
         let guard = EnvGuard::new();
         let tmp = TempDir::new().unwrap();
         guard.set_home(tmp.path());
 
-        crate::client_state::write_client_state(&crate::client_state::ClientState {
-            url: Some("https://relay.example/v1/computers/sid/proxy".into()),
-            token: Some("client-token".into()),
-            connection_mode: Some("relay".into()),
-            server_id: Some("sid".into()),
-        })
+        crate::client_session::write_client_session(&crate::client_session::ClientSession::new(
+            "sid",
+            "https://relay.example/v1/computers/sid/proxy",
+            "client-token",
+        ))
         .unwrap();
 
         let url = resolve_api_base_url(None).unwrap();

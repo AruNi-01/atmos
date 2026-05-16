@@ -251,13 +251,13 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 
 - 描述 **本机监听** `host` / `port` / `url` / `ws_url`、可选 `pid`、`started_at`、`source`（**不含** auth token）。
 - 当 **Web/Desktop/CLI 的当前上下文 = 运行于本机的该 Computer（其 Server）** 时，与本地工具共用，用于发现 **loopback API**；**不**作为「CLI 永远连本机」的全局规则，也**不**作为跨公网发现源。
-- CLI 解析（`canvas` / `review` 等）：`--api-url` → `ATMOS_API_URL` → `~/.atmos/local/state.json`（**仅 relay 提示**）→ `runtime_manifest.json`。
+- CLI 解析（`canvas` / `review` 等）：`--api-url` → `ATMOS_API_URL` → `~/.atmos/client-session.json`（**仅 relay**）→ `runtime_manifest.json`。
 
-**`~/.atmos/local/state.json`（客户端可选写入）**
+**`~/.atmos/client-session.json`（客户端写入；relay 时存在）**
 
-- **本地模式**：文件应**不存在**（或仅含历史字段）；CLI 以 manifest 为准，与 UI 同源。
-- **Relay 模式**：Web/Desktop 写入 `connection_mode: relay` + `server_id`，提示 CLI「当前 UI 不在本机 loopback」；待 HTTP gateway 落地后再扩展 `url` / `token`。
-- 复用 legacy 路径，**不**新增 `cli-target.json` / `contexts.json` 等含糊文件名。
+- **本地模式**：文件**不存在**；CLI 以 `runtime_manifest.json` 为准。
+- **Relay 模式**：Web/Desktop 写入 `{ version, server_id, api_base_url, gateway_token }`（HTTP gateway 基址 + `client_token`）。
+- 与 `runtime_manifest.json` 分离：manifest = **本机 Server 监听事实**；client-session = **UI 当前选中的 Computer**（避免笔记本上 manifest 与 relay 目标冲突）。
 
 ### 2.3 Computer 列表缓存（Nice to Have · 未实现）
 
@@ -554,7 +554,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 | 上下文                                                                               | 默认行为（API 基址）                                                                                                                                                                                   |
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **当前所选 Computer = 本机进程**（常见：日常开发、SSH 到某台 **Computer**（VPS）且 UI 也指向该 **Computer**） | 可读 `runtime_manifest.json` / `state.json` 等得到 **该 Computer 上 Server 的** `http://127.0.0.1:<port>` 或等价 loopback；**零 `ATMOS_API_URL`** 的前提是「上下文已指向这台机器上的 **Computer**」，而非「CLI 进程所在机器一定是 API 宿主」。 |
+| **当前所选 Computer = 本机进程**（常见：日常开发、SSH 到某台 **Computer**（VPS）且 UI 也指向该 **Computer**） | 可读 `runtime_manifest.json` 等得到 **该 Computer 上 Server 的** `http://127.0.0.1:<port>` 或等价 loopback；**零 `ATMOS_API_URL`** 的前提是「上下文已指向这台机器上的 **Computer**」，而非「CLI 进程所在机器一定是 API 宿主」。 |
 | **当前所选 Computer = 远程**（笔记本终端 + UI 已切到云端）                                          | 使用上下文中的 **远程 API 基址**；M1 可允许 `**ATMOS_API_URL` / `--api-url` 显式覆盖** 作为过渡；M2+ 目标为 **Relay HTTP gateway**、`atmos context use <server_id>` 等写入共享上下文，使 CLI 与 UI **免手抄 URL**（与 §9 里程碑一致）。           |
 
 

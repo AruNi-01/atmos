@@ -2,13 +2,13 @@ use crate::logging::{self, LogLevel};
 use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
 use crate::updater;
-use runtime_manager::clear_client_state;
+use runtime_manager::clear_client_session;
 use serde_json::json;
 use std::time::Duration;
 
 #[tauri::command]
-pub fn clear_client_state_cmd() -> Result<(), String> {
-    clear_client_state()
+pub fn clear_client_session_cmd() -> Result<(), String> {
+    clear_client_session()
 }
 
 #[tauri::command]

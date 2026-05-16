@@ -12,10 +12,10 @@ pub const DEFAULT_TIMEOUT_MS: u64 = 45_000;
 
 #[derive(Debug, Args, Clone)]
 pub struct ApiClientArgs {
-    /// Override the API base URL (`ATMOS_API_URL` / runtime manifest / client state).
+    /// Override the API base URL (`ATMOS_API_URL` / client-session / runtime manifest).
     #[arg(long, global = true)]
     pub api_url: Option<String>,
-    /// Bearer token (`ATMOS_API_TOKEN`, `ATMOS_LOCAL_TOKEN`, or client state).
+    /// Bearer token (`ATMOS_API_TOKEN`, `ATMOS_LOCAL_TOKEN`, or client-session gateway_token).
     #[arg(long, global = true)]
     pub api_token: Option<String>,
     /// HTTP deadline in milliseconds. Default 45000.

@@ -1,14 +1,14 @@
 /**
  * Align CLI discovery with the active Web/Desktop session.
  *
- * Local mode: clear `~/.atmos/local/state.json` so CLI uses `runtime_manifest.json`.
- * Relay mode: write relay hint into `local/state.json` (same legacy path).
+ * Local mode: remove `~/.atmos/client-session.json` so CLI uses `runtime_manifest.json`.
+ * Relay mode: write `client-session.json` with gateway URL + token for the selected Computer.
  */
 
 import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
 import { getRuntimeApiConfig, httpBase, isTauriRuntime } from '@/lib/desktop-runtime';
 
-async function putClientState(
+async function putClientSession(
   body: Record<string, unknown>,
   apiBase: string,
 ): Promise<void> {
@@ -18,7 +18,7 @@ async function putClientState(
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/system/client-state`, {
+  const res = await fetch(`${apiBase.replace(/\/$/, '')}/api/system/client-session`, {
     method: 'PUT',
     headers,
     body: JSON.stringify(body),
@@ -29,7 +29,7 @@ async function putClientState(
   }
 }
 
-/** Local session: CLI should read runtime_manifest, not a stale relay hint. */
+/** Local session: CLI should read runtime_manifest, not a stale relay session file. */
 export async function syncClientSessionLocal(): Promise<void> {
   if (isTauriRuntime()) {
     const internals = (
@@ -39,7 +39,7 @@ export async function syncClientSessionLocal(): Promise<void> {
     ).__TAURI_INTERNALS__;
     if (internals?.invoke) {
       try {
-        await internals.invoke('clear_client_state_cmd');
+        await internals.invoke('clear_client_session_cmd');
       } catch (e) {
         console.warn('[sync-client-session] desktop clear failed', e);
       }
@@ -48,24 +48,23 @@ export async function syncClientSessionLocal(): Promise<void> {
   }
 
   const cfg = await getRuntimeApiConfig();
-  await putClientState({ clear: true }, httpBase(cfg));
+  await putClientSession({ clear: true }, httpBase(cfg));
 }
 
 export async function syncClientSessionRelay(
   serverId: string,
-  gatewayUrl: string,
-  clientToken: string,
+  apiBaseUrl: string,
+  gatewayToken: string,
 ): Promise<void> {
   const cfg = await getRuntimeApiConfig();
-  const apiBase = httpBase(cfg);
-  await putClientState(
+  const loopbackBase = httpBase(cfg);
+  await putClientSession(
     {
-      connection_mode: 'relay',
       server_id: serverId,
-      url: gatewayUrl,
-      token: clientToken,
+      api_base_url: apiBaseUrl,
+      gateway_token: gatewayToken,
     },
-    apiBase,
+    loopbackBase,
   );
 }
 

@@ -49,8 +49,8 @@ pub fn routes() -> Router<AppState> {
         .route("/file", get(handlers::serve_file))
         .route("/debug-log", post(handlers::ingest_frontend_debug_log))
         .route(
-            "/client-state",
-            get(handlers::get_client_state).put(handlers::put_client_state),
+            "/client-session",
+            get(handlers::get_client_session).put(handlers::put_client_session),
         )
 }
 

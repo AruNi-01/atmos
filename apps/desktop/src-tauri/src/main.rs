@@ -331,7 +331,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_api_config,
-            commands::clear_client_state_cmd,
+            commands::clear_client_session_cmd,
             commands::get_version_info,
             commands::write_log,
             commands::open_in_external_editor,

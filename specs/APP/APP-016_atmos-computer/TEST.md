@@ -55,7 +55,7 @@
 
 - **Given** 用户在 Web/Desktop 中 **当前所选 Computer = 本机 loopback**（或未启用 Relay 的等价场景）  
 - **When** 用户在 Web 打开 Canvas 并开启 bridge，且在终端执行 `atmos canvas status`，且 **CLI 上下文与 UI 为同一 Computer**  
-- **Then** 在无需手抄 `ATMOS_API_URL` 的前提下（依赖 `runtime_manifest` / `state.json` / 共享上下文等，以实现为准），`bridge` 状态与 UI **一致**  
+- **Then** 在无需手抄 `ATMOS_API_URL` 的前提下（依赖 `runtime_manifest` / `client-session.json` / 共享上下文等，以实现为准），`bridge` 状态与 UI **一致**  
 - **And** 若将 UI 切换到 **另一台 Computer**，同一终端在未改 CLI 上下文时不应再假装仍代表原 **Computer**（应报错、提示切换上下文或显式 `--api-url`，具体 UX 在实现时定稿）
 
 ### S8：Replay（M2）
