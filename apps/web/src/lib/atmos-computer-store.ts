@@ -1,5 +1,8 @@
 /**
- * APP-016 — persisted Atmos Computer / relay connectivity (browser only).
+ * APP-016 — Atmos Computer UI state.
+ *
+ * Access Token + control plane URL are stored in `~/.atmos/computer-client.json`
+ * (via loopback API). This store keeps relay session fields and UI preferences.
  */
 
 import { create } from 'zustand';
@@ -111,7 +114,15 @@ export const useAtmosComputerStore = create(
     }),
     {
       name: 'atmos-computer',
-      version: 5,
+      version: 6,
+      partialize: state => {
+        const {
+          accessToken: _accessToken,
+          controlPlaneUrl: _controlPlaneUrl,
+          ...rest
+        } = state;
+        return rest;
+      },
       migrate: (persisted, version) => {
         const state = { ...(persisted as object) } as Record<string, unknown>;
         if (version < 2) {

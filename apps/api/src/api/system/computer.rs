@@ -3,8 +3,11 @@
 use axum::extract::State;
 use axum::Json;
 use runtime_manager::{
-    clear_server_identity, default_control_plane_url, local_computer_display_name,
-    local_computer_display_name_opt, read_server_identity, register_computer,
+    clear_computer_client_settings, clear_server_identity, computer_client_settings_path,
+    default_control_plane_url, local_computer_display_name, local_computer_display_name_opt,
+    normalize_control_plane_url, read_computer_client_settings, read_server_identity,
+    register_computer, resolved_control_plane_url, write_computer_client_settings,
+    ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -113,6 +116,78 @@ pub async fn sync_relay_connection(
         "ok": true,
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
+    }))))
+}
+
+/// GET /api/system/computer-client-settings — user Access Token from `~/.atmos/computer-client.json`.
+pub async fn get_computer_client_settings() -> ApiResult<Json<ApiResponse<Value>>> {
+    let path = computer_client_settings_path();
+    let settings = read_computer_client_settings().map_err(ApiError::BadRequest)?;
+    let Some(settings) = settings else {
+        return Ok(Json(ApiResponse::success(json!({
+            "path": path.display().to_string(),
+            "configured": false,
+            "access_token": "",
+            "control_plane_url": default_control_plane_url(),
+        }))));
+    };
+    Ok(Json(ApiResponse::success(json!({
+        "path": path.display().to_string(),
+        "configured": !settings.access_token.trim().is_empty(),
+        "access_token": settings.access_token,
+        "control_plane_url": resolved_control_plane_url(&settings),
+    }))))
+}
+
+#[derive(Deserialize)]
+pub struct PutComputerClientSettingsPayload {
+    #[serde(default)]
+    pub clear: bool,
+    #[serde(default)]
+    pub access_token: Option<String>,
+    #[serde(default)]
+    pub control_plane_url: Option<String>,
+}
+
+/// PUT /api/system/computer-client-settings — write or clear `~/.atmos/computer-client.json`.
+pub async fn put_computer_client_settings(
+    Json(payload): Json<PutComputerClientSettingsPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let path = computer_client_settings_path();
+    if payload.clear {
+        let removed = clear_computer_client_settings().map_err(ApiError::BadRequest)?;
+        return Ok(Json(ApiResponse::success(json!({
+            "ok": true,
+            "action": if removed { "cleared" } else { "absent" },
+            "path": path.display().to_string(),
+        }))));
+    }
+
+    let access_token = payload
+        .access_token
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| ApiError::BadRequest("access_token is required".into()))?;
+
+    let control_plane_url = payload
+        .control_plane_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(normalize_control_plane_url);
+
+    let settings = ComputerClientSettings {
+        version: COMPUTER_CLIENT_SETTINGS_VERSION,
+        access_token: access_token.to_string(),
+        control_plane_url,
+    };
+    let written = write_computer_client_settings(&settings).map_err(ApiError::BadRequest)?;
+    Ok(Json(ApiResponse::success(json!({
+        "ok": true,
+        "action": "written",
+        "path": written.display().to_string(),
+        "control_plane_url": resolved_control_plane_url(&settings),
     }))))
 }
 

@@ -53,6 +53,11 @@ pub fn routes() -> Router<AppState> {
             "/client-session",
             get(handlers::get_client_session).put(handlers::put_client_session),
         )
+        .route(
+            "/computer-client-settings",
+            get(computer::get_computer_client_settings)
+                .put(computer::put_computer_client_settings),
+        )
         .route("/computer", get(computer::get_computer_status))
 }
 

@@ -33,6 +33,10 @@ import {
 } from '@/lib/atmos-computer-local';
 import { useAtmosComputerStore, type ComputerRow } from '@/lib/atmos-computer-store';
 import {
+  ensureComputerClientSettingsHydrated,
+  saveComputerClientSettingsToDisk,
+} from '@/lib/sync-computer-client-settings';
+import {
   syncClientSessionLocal,
   syncClientSessionRelay,
 } from '@/lib/sync-client-session';
@@ -195,6 +199,12 @@ export function AtmosComputerSection() {
   }, [tokenDraft]);
 
   useEffect(() => {
+    void ensureComputerClientSettingsHydrated().then(() => {
+      setTokenDraft(useAtmosComputerStore.getState().accessToken);
+    });
+  }, []);
+
+  useEffect(() => {
     void refreshLocalStatus();
   }, [refreshLocalStatus]);
 
@@ -251,7 +261,17 @@ export function AtmosComputerSection() {
         return;
       }
       setAccessToken(token);
-      toastManager.add({ title: 'Token saved', type: 'success' });
+      const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
+      if (!persisted) {
+        toastManager.add({
+          title: 'Token saved locally',
+          description:
+            'Could not write ~/.atmos/computer-client.json — ensure Atmos Server is running.',
+          type: 'warning',
+        });
+      } else {
+        toastManager.add({ title: 'Token saved', type: 'success' });
+      }
       await refreshComputerList();
     } finally {
       setBusy(null);
@@ -268,10 +288,13 @@ export function AtmosComputerSection() {
       setTokenDraft(token);
       setAccessToken(token);
       setTokenReveal(token);
+      const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
       toastManager.add({
         title: 'Token created',
-        description: 'Copy it now — it will not be shown again.',
-        type: 'success',
+        description: persisted
+          ? 'Saved to ~/.atmos/computer-client.json. Copy it now — it will not be shown again.'
+          : 'Copy it now — could not write ~/.atmos/computer-client.json (start Atmos Server).',
+        type: persisted ? 'success' : 'warning',
       });
       await refreshComputerList();
     } finally {
@@ -490,7 +513,7 @@ export function AtmosComputerSection() {
     <div className="space-y-4">
       <SettingsBlock
         title="Token"
-        description="One token per browser. Used to register machines and list your computers."
+        description="Stored in ~/.atmos/computer-client.json on this machine — shared by Desktop and the browser when using the same Atmos Server."
         headerAction={
           <Button
             size="sm"

@@ -4,6 +4,7 @@
 //! - **`supervisor`**: install layout, ensure/stop/status for `~/.atmos/runtime/current/bin/api`.
 
 mod client_session;
+mod computer_client_settings;
 mod computer_name;
 mod identity;
 mod manifest;
@@ -20,6 +21,11 @@ pub use identity::{
 pub use client_session::{
     clear_client_session, client_session_path, read_client_session, write_client_session,
     ClientSession, CLIENT_SESSION_FILE_NAME, CLIENT_SESSION_VERSION,
+};
+pub use computer_client_settings::{
+    clear_computer_client_settings, computer_client_settings_path, read_computer_client_settings,
+    resolved_control_plane_url, write_computer_client_settings, ComputerClientSettings,
+    COMPUTER_CLIENT_SETTINGS_FILE_NAME, COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 pub use manifest::{
     atmos_home_dir, read_runtime_manifest, remove_runtime_manifest, resolve_api_base_url,

@@ -48,7 +48,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* wss://127.0.0.1:* wss://localhost:*; connect-src 'self' http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:* wss://127.0.0.1:* wss://localhost:* https://relay.atmos.land wss://relay.atmos.land https://*.atmos.land wss://*.atmos.land https://github.com; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; font-src 'self' data:"
     }
   },
   "bundle": {

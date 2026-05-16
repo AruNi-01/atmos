@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
 import { useAtmosComputerStore } from "@/lib/atmos-computer-store";
 import { syncClientSessionFromStore } from "@/lib/sync-client-session";
+import { ensureComputerClientSettingsHydrated } from "@/lib/sync-computer-client-settings";
 import { buildWsUrl, buildWsUrlSync } from "@/lib/ws-url";
 import { debugLog } from "@/lib/desktop-logger";
 
@@ -334,6 +335,7 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     set({ connectionState: "connecting" });
 
     try {
+      await ensureComputerClientSettingsHydrated();
       const clientType = isTauriRuntime() ? "desktop" : "web";
       const computer = useAtmosComputerStore.getState();
       let runtimeUrl: string;

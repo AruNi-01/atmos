@@ -9,7 +9,11 @@
       "http://127.0.0.1:*",
       "http://localhost:*",
       "https://127.0.0.1:*",
-      "https://localhost:*"
+      "https://localhost:*",
+      "https://relay.atmos.land",
+      "https://*.atmos.land",
+      "wss://relay.atmos.land",
+      "wss://*.atmos.land"
     ]
   },
   "permissions": [
