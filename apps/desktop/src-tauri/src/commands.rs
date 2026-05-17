@@ -4,6 +4,7 @@ use crate::state::AppState;
 use crate::updater;
 use runtime_manager::{clear_client_session, local_computer_display_name_opt};
 use serde_json::json;
+use std::time::Duration;
 
 #[tauri::command]
 pub fn clear_client_session_cmd() -> Result<(), String> {
