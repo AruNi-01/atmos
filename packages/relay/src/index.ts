@@ -282,6 +282,7 @@ async function handleApi(
       const body = (await request.json().catch(() => null)) as {
         register_token?: string;
         display_name?: string;
+        registration_meta?: Record<string, unknown> | null;
       } | null;
 
       const registerToken = body?.register_token?.trim();
@@ -319,9 +320,14 @@ async function handleApi(
         body?.display_name?.trim() ||
         `Computer ${serverId.slice(0, 8)}`;
 
+      const registrationMetaJson =
+        body?.registration_meta != null && typeof body.registration_meta === "object"
+          ? JSON.stringify(body.registration_meta)
+          : null;
+
       await env.DB.prepare(
-        `INSERT INTO computers(server_id, tenant_id, secret_hash, revoked, display_name, created_at, last_seen_at)
-         VALUES (?, ?, ?, 0, ?, ?, NULL)`,
+        `INSERT INTO computers(server_id, tenant_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta)
+         VALUES (?, ?, ?, 0, ?, ?, NULL, ?, ?)`,
       )
         .bind(
           serverId,
@@ -329,6 +335,8 @@ async function handleApi(
           await secretHash(serverSecret),
           displayName,
           now,
+          now,
+          registrationMetaJson,
         )
         .run();
 
@@ -341,6 +349,7 @@ async function handleApi(
         relay_ws_url: relayWs,
         control_plane_url: cp,
         display_name: displayName,
+        registration_meta: parseRegistrationMeta(registrationMetaJson),
       });
     }
 
@@ -350,7 +359,7 @@ async function handleApi(
       }
 
       const { results } = await env.DB.prepare(
-        `SELECT server_id, display_name, revoked, created_at, last_seen_at
+        `SELECT server_id, display_name, revoked, created_at, last_seen_at, registration_meta
          FROM computers WHERE tenant_id = ? ORDER BY created_at DESC`,
       )
         .bind(tenant)
@@ -360,10 +369,16 @@ async function handleApi(
           revoked: number;
           created_at: number;
           last_seen_at: number | null;
+          registration_meta: string | null;
         }>();
 
       const computers = (results ?? []).map((c) => ({
-        ...c,
+        server_id: c.server_id,
+        display_name: c.display_name,
+        revoked: c.revoked,
+        created_at: c.created_at,
+        last_seen_at: c.last_seen_at,
+        registration_meta: parseRegistrationMeta(c.registration_meta),
         online: c.last_seen_at != null,
       }));
 
@@ -385,11 +400,12 @@ async function handleApi(
         return json({ error: "display_name_required" }, 400);
       }
 
+      const now = Math.floor(Date.now() / 1000);
       const updated = await env.DB.prepare(
-        `UPDATE computers SET display_name = ?
+        `UPDATE computers SET display_name = ?, updated_at = ?
          WHERE server_id = ? AND tenant_id = ? AND revoked = 0`,
       )
-        .bind(displayName, serverId, tenant)
+        .bind(displayName, now, serverId, tenant)
         .run();
 
       if (!updated.meta.changes) {
@@ -406,11 +422,12 @@ async function handleApi(
       }
 
       const serverId = revokeMatch[1]!;
+      const now = Math.floor(Date.now() / 1000);
 
       await env.DB.prepare(
-        "UPDATE computers SET revoked = 1 WHERE server_id = ? AND tenant_id = ?",
+        "UPDATE computers SET revoked = 1, updated_at = ? WHERE server_id = ? AND tenant_id = ?",
       )
-        .bind(serverId, tenant)
+        .bind(now, serverId, tenant)
         .run();
 
       await env.DB.prepare(
@@ -453,6 +470,12 @@ async function handleApi(
         "DELETE FROM client_sessions WHERE server_id = ? AND tenant_id = ?",
       )
         .bind(serverId, tenant)
+        .run();
+
+      await env.DB.prepare(
+        "UPDATE computers SET updated_at = ? WHERE server_id = ? AND tenant_id = ?",
+      )
+        .bind(now, serverId, tenant)
         .run();
 
       await env.DB.prepare(
@@ -577,15 +600,15 @@ async function handleServerWebSocket(
 
   const now = Math.floor(Date.now() / 1000);
   await env.DB.prepare(
-    "UPDATE computers SET last_seen_at = ? WHERE server_id = ?",
+    "UPDATE computers SET last_seen_at = ?, updated_at = ? WHERE server_id = ?",
   )
-    .bind(now, serverId)
+    .bind(now, now, serverId)
     .run();
 
   const id = env.SERVER_HUB.idFromName(serverId);
   const stub = env.SERVER_HUB.get(id);
   const forward = new Request(
-    `${url.origin}/internal?role=server`,
+    `${url.origin}/internal?role=server&server_id=${encodeURIComponent(serverId)}`,
     request,
   );
   return stub.fetch(forward);
@@ -639,4 +662,21 @@ async function handleClientWebSocket(
   inner.searchParams.set("sid", sid);
   const forward = new Request(inner.toString(), request);
   return stub.fetch(forward);
+}
+
+function parseRegistrationMeta(
+  raw: string | null,
+): Record<string, unknown> | null {
+  if (!raw?.trim()) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }

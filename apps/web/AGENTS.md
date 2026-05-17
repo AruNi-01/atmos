@@ -61,7 +61,7 @@ Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host
 
 - **Settings** → `AtmosComputerSection.tsx`, `atmos-access-token.ts`
 - User-created **Access Token** (Bearer) for control plane — not a shared CP key.
-- Register token flow for VPS: copy CLI / env `ATMOS_REGISTER_TOKEN`.
+- Register token flow for remote computers: copy CLI / env `ATMOS_REGISTER_TOKEN`.
 
 Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer/)
 

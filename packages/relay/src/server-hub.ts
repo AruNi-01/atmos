@@ -2,8 +2,9 @@
 
 import { DurableObject } from "cloudflare:workers";
 
-export interface RelayEnv {
+export interface ServerHubEnv {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
+  DB: D1Database;
 }
 
 interface RelayEnvelope {
@@ -30,7 +31,7 @@ interface HttpRelayResponseBody {
 }
 
 export type PeerMeta =
-  | { role: "server" }
+  | { role: "server"; server_id: string }
   | { role: "client"; sid: string };
 
 type PendingHttp = {
@@ -40,13 +41,25 @@ type PendingHttp = {
 
 const HTTP_GATEWAY_TIMEOUT_MS = 60_000;
 
-export class ServerHub extends DurableObject<RelayEnv> {
+export class ServerHub extends DurableObject<ServerHubEnv> {
   private serverSock: WebSocket | null = null;
   private readonly browsers = new Map<string, WebSocket>();
   private readonly pendingHttp = new Map<string, PendingHttp>();
 
-  constructor(ctx: DurableObjectState, env: RelayEnv) {
+  constructor(ctx: DurableObjectState, env: ServerHubEnv) {
     super(ctx, env);
+  }
+
+  private async clearServerPresence(serverId: string): Promise<void> {
+    try {
+      await this.env.DB.prepare(
+        "UPDATE computers SET last_seen_at = NULL WHERE server_id = ?",
+      )
+        .bind(serverId)
+        .run();
+    } catch {
+      /* ignore */
+    }
   }
 
   private parseMeta(ws: WebSocket): PeerMeta | null {
@@ -55,9 +68,10 @@ export class ServerHub extends DurableObject<RelayEnv> {
       if (
         raw &&
         typeof raw === "object" &&
-        (raw as PeerMeta).role === "server"
+        (raw as PeerMeta).role === "server" &&
+        typeof (raw as { server_id?: string }).server_id === "string"
       ) {
-        return { role: "server" };
+        return { role: "server", server_id: (raw as { server_id: string }).server_id };
       }
       if (
         raw &&
@@ -115,6 +129,11 @@ export class ServerHub extends DurableObject<RelayEnv> {
     const workerSide = pair[1]!;
 
     if (role === "server") {
+      const serverId = url.searchParams.get("server_id")?.trim();
+      if (!serverId) {
+        return new Response("Missing server_id", { status: 400 });
+      }
+
       if (this.serverSock) {
         try {
           this.serverSock.close(4000, "replaced-server");
@@ -123,15 +142,19 @@ export class ServerHub extends DurableObject<RelayEnv> {
         }
       }
 
-      workerSide.serializeAttachment({ role: "server" } satisfies PeerMeta);
+      workerSide.serializeAttachment({ role: "server", server_id: serverId } satisfies PeerMeta);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this.ctx as any).acceptWebSocket(workerSide);
 
       this.serverSock = workerSide;
 
       workerSide.addEventListener?.("close", () => {
+        const meta = this.parseMeta(workerSide);
         if (this.serverSock === workerSide) {
           this.serverSock = null;
+        }
+        if (meta?.role === "server") {
+          void this.clearServerPresence(meta.server_id);
         }
         this.broadcastServerOffline();
       });
@@ -353,6 +376,7 @@ export class ServerHub extends DurableObject<RelayEnv> {
     const meta = this.parseMeta(ws);
     if (meta?.role === "server" && this.serverSock === ws) {
       this.serverSock = null;
+      void this.clearServerPresence(meta.server_id);
       this.broadcastServerOffline();
     }
     if (meta?.role === "client") {

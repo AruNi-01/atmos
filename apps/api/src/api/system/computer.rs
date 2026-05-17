@@ -7,9 +7,9 @@ use axum::Json;
 use runtime_manager::{
     clear_computer_client_settings, clear_server_identity, computer_client_settings_path,
     default_control_plane_url, local_computer_display_name, local_computer_display_name_opt,
-    normalize_control_plane_url, read_computer_client_settings, read_server_identity,
-    register_computer, resolved_control_plane_url, write_computer_client_settings,
-    ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
+    normalize_control_plane_url, read_computer_client_settings, read_runtime_manifest,
+    read_server_identity, register_computer, resolved_control_plane_url,
+    write_computer_client_settings, ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -56,11 +56,48 @@ pub async fn get_computer_status(
     Ok(Json(ApiResponse::success(body)))
 }
 
+/// GET /api/system/runtime-info — Atmos API + local runtime manifest + relay presence.
+pub async fn get_runtime_info(
+    State(state): State<AppState>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let manifest = read_runtime_manifest().ok().flatten();
+    let identity = read_server_identity().ok().flatten();
+    let relay_connected = state.relay_supervisor.is_upstream_connected().await;
+
+    let manifest_json = manifest.as_ref().map(|m| {
+        json!({
+            "source": m.source,
+            "started_at": m.started_at,
+            "api_url": m.api.url,
+            "api_port": m.api.port,
+            "ws_url": m.api.ws_url,
+            "pid": m.pid,
+        })
+    });
+
+    Ok(Json(ApiResponse::success(json!({
+        "api_version": env!("CARGO_PKG_VERSION"),
+        "runtime_manifest": manifest_json,
+        "registration_meta": identity.as_ref().and_then(|i| i.registration_meta.clone()),
+        "relay": {
+            "registered": identity.is_some(),
+            "server_id": identity.as_ref().map(|i| i.server_id.clone()),
+            "control_plane_url": identity
+                .as_ref()
+                .and_then(|i| i.control_plane_url.clone())
+                .unwrap_or_else(|| default_control_plane_url().to_string()),
+            "connected": relay_connected,
+        },
+    }))))
+}
+
 #[derive(Deserialize)]
 pub struct RegisterComputerPayload {
     pub register_token: String,
     #[serde(default)]
     pub display_name: Option<String>,
+    #[serde(default)]
+    pub registration_meta: Option<Value>,
 }
 
 /// POST /api/system/computer/register — register this Server with the control plane.
@@ -81,9 +118,14 @@ pub async fn register_local_computer(
         .map(str::to_string)
         .unwrap_or_else(local_computer_display_name);
 
-    let identity = register_computer(default_control_plane_url(), token, Some(&display_name))
-        .await
-        .map_err(ApiError::BadRequest)?;
+    let identity = register_computer(
+        default_control_plane_url(),
+        token,
+        Some(&display_name),
+        payload.registration_meta,
+    )
+    .await
+    .map_err(ApiError::BadRequest)?;
 
     let server_id = identity.server_id.clone();
     let control_plane_url = identity.control_plane_url.clone();

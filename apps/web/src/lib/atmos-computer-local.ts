@@ -145,6 +145,7 @@ export async function fetchLocalComputerStatus(): Promise<LocalComputerStatus> {
 export async function registerLocalComputer(
   registerToken: string,
   displayName: string,
+  registrationMeta?: Record<string, unknown>,
 ): Promise<{
   server_id: string;
   display_name: string;
@@ -156,6 +157,7 @@ export async function registerLocalComputer(
     body: JSON.stringify({
       register_token: registerToken,
       display_name: displayName,
+      ...(registrationMeta ? { registration_meta: registrationMeta } : {}),
     }),
   });
 }

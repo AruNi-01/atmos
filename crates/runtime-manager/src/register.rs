@@ -1,6 +1,7 @@
 //! Register this host as an Atmos Computer on the relay control plane.
 
 use serde::Deserialize;
+use serde_json::Value;
 
 use crate::identity::{write_server_identity, ServerIdentity};
 
@@ -14,6 +15,8 @@ struct RegisterResponse {
     control_plane_url: String,
     #[allow(dead_code)]
     display_name: Option<String>,
+    #[serde(default)]
+    registration_meta: Option<Value>,
 }
 
 pub fn normalize_control_plane_url(raw: &str) -> String {
@@ -32,6 +35,7 @@ pub async fn register_computer(
     control_plane_url: &str,
     register_token: &str,
     display_name: Option<&str>,
+    registration_meta: Option<Value>,
 ) -> Result<ServerIdentity, String> {
     let token = register_token.trim();
     if token.is_empty() {
@@ -42,6 +46,9 @@ pub async fn register_computer(
     let mut body = serde_json::json!({ "register_token": token });
     if let Some(name) = display_name.filter(|s| !s.trim().is_empty()) {
         body["display_name"] = serde_json::Value::String(name.trim().to_string());
+    }
+    if let Some(meta) = registration_meta {
+        body["registration_meta"] = meta;
     }
 
     let url = format!("{cp}/v1/computers/register");
@@ -71,6 +78,7 @@ pub async fn register_computer(
         server_secret: parsed.server_secret,
         relay_ws_url: parsed.relay_ws_url,
         control_plane_url: Some(parsed.control_plane_url),
+        registration_meta: parsed.registration_meta,
     };
 
     write_server_identity(&identity)?;

@@ -10,6 +10,7 @@ export interface ComputerRow {
   created_at: number;
   last_seen_at?: number | null;
   online?: boolean;
+  registration_meta?: Record<string, unknown> | null;
 }
 
 export interface ConnectionUiPrefs {

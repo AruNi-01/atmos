@@ -1,21 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Badge,
   Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Input,
   toastManager,
   Switch,
   cn,
 } from '@workspace/ui';
-import ComputerIcon from '@workspace/ui/components/icons/computer-icon';
 import {
   Check,
+  ChevronDown,
+  Computer,
   Copy,
   KeyRound,
+  Laptop,
   LoaderCircle,
+  Plus,
   RotateCw,
+  Server,
   Trash2,
 } from 'lucide-react';
 import { useWebSocketStore } from '@/hooks/use-websocket';
@@ -31,6 +38,7 @@ import {
   unregisterLocalComputer,
   type LocalComputerStatus,
 } from '@/lib/atmos-computer-local';
+import { buildRegistrationMeta } from '@/lib/registration-meta';
 import { useAtmosComputerStore, type ComputerRow } from '@/lib/atmos-computer-store';
 import {
   ensureComputerClientSettingsHydrated,
@@ -41,17 +49,19 @@ import {
   syncClientSessionRelay,
 } from '@/lib/sync-client-session';
 import { ComputerDetailsDialog } from '@/components/dialogs/ComputerDetailsDialog';
-import { VpsRemoteSetupBlock } from '@/components/dialogs/VpsRemoteSetupBlock';
+import { RemoteComputerSetupBlock } from '@/components/dialogs/RemoteComputerSetupBlock';
 
 function SettingsBlock({
   title,
   description,
+  icon,
   headerAction,
   headerEnd,
   children,
 }: {
   title: string;
   description?: string;
+  icon: ReactNode;
   headerAction?: ReactNode;
   headerEnd?: ReactNode;
   children: ReactNode;
@@ -59,20 +69,33 @@ function SettingsBlock({
   return (
     <section className="overflow-hidden rounded-2xl border border-border">
       <div className="border-b border-border/60 px-6 py-5">
-        <div
-          className={cn(
-            headerEnd && 'flex items-center justify-between gap-4',
-          )}
-        >
-          <div className={cn(headerAction && 'flex flex-wrap items-center gap-2')}>
-            <h3 className="text-base font-medium text-foreground">{title}</h3>
-            {headerAction}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-1 gap-3">
+            <span
+              className={cn(
+                'flex w-5 shrink-0 items-center justify-center [&_svg]:size-5',
+                headerAction ? 'h-8' : 'h-6',
+              )}
+            >
+              {icon}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div
+                className={cn(
+                  'flex flex-wrap items-center gap-2',
+                  headerAction ? 'min-h-8' : 'min-h-6',
+                )}
+              >
+                <h3 className="text-base font-medium leading-6 text-foreground">{title}</h3>
+                {headerAction}
+              </div>
+              {description ? (
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
+              ) : null}
+            </div>
           </div>
-          {headerEnd ? <div className="shrink-0">{headerEnd}</div> : null}
+          {headerEnd ? <div className="shrink-0 pt-0.5">{headerEnd}</div> : null}
         </div>
-        {description ? (
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-        ) : null}
       </div>
       <div className="space-y-4 px-6 py-5">{children}</div>
     </section>
@@ -107,6 +130,8 @@ export function AtmosComputerSection() {
   const [localStatus, setLocalStatus] = useState<LocalComputerStatus | null>(null);
   const [detailsComputer, setDetailsComputer] = useState<ComputerRow | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [remoteComputerExpanded, setRemoteComputerExpanded] = useState(false);
+  const relayAutoSyncAttemptedRef = useRef(false);
 
   const hasKey = accessToken.trim().length >= 32;
   const activeComputers = computers.filter(c => !c.revoked);
@@ -165,8 +190,8 @@ export function AtmosComputerSection() {
       await refreshComputerList();
       if (sync.relay_connected) {
         toastManager.add({
-          title: 'Relay connected',
-          description: 'This computer is online for remote access.',
+          title: 'Remote connection restored',
+          description: 'This computer is available for remote access.',
           type: 'success',
         });
       } else {
@@ -174,13 +199,13 @@ export function AtmosComputerSection() {
           title: 'Could not connect relay',
           description:
             sync.relay_last_error ??
-            'Keep Atmos Server running and try again.',
+            'Ensure Atmos is running on this computer, then try again.',
           type: 'error',
         });
       }
     } catch (err) {
       const description =
-        err instanceof Error ? err.message : 'Check that Atmos Server is running.';
+        err instanceof Error ? err.message : 'Ensure Atmos is running on this computer.';
       setLocalStatus(prev =>
         prev ? { ...prev, relay_connected: false, relay_last_error: description } : prev,
       );
@@ -218,11 +243,57 @@ export function AtmosComputerSection() {
     }
   }, [hasKey, refreshComputerList]);
 
+  /** After API restart, relay may still be connecting; sync once instead of showing a false offline state. */
+  useEffect(() => {
+    if (!hasKey) {
+      relayAutoSyncAttemptedRef.current = false;
+      return;
+    }
+    const serverId = localStatus?.server_id ?? localServerId;
+    const registered =
+      Boolean(localStatus?.registered && serverId) ||
+      Boolean(localServerId && serverId === localServerId);
+    if (!registered) {
+      relayAutoSyncAttemptedRef.current = false;
+      return;
+    }
+    if (localStatus?.relay_connected || relayAutoSyncAttemptedRef.current) {
+      return;
+    }
+    relayAutoSyncAttemptedRef.current = true;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const sync = await syncRelayConnection();
+        if (cancelled) {
+          return;
+        }
+        const knownId = useAtmosComputerStore.getState().localServerId;
+        const status = await loadLocalComputerStatus(knownId);
+        if (status) {
+          setLocalStatus({
+            ...status,
+            relay_connected: sync.relay_connected,
+            relay_last_error: sync.relay_last_error ?? null,
+          });
+        }
+        await refreshComputerList();
+      } catch {
+        /* keep banner + Reconnect; user can retry manually */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasKey, localStatus, localServerId, refreshComputerList]);
+
   async function ensureAccessTokenReady(token: string): Promise<boolean> {
     if (token.trim().length < 32) {
       toastManager.add({
-        title: 'Token is too short',
-        description: 'Generate a new token or paste your saved one.',
+        title: 'Access key is too short',
+        description: 'Generate a new key or paste your saved one.',
         type: 'error',
       });
       return false;
@@ -230,7 +301,7 @@ export function AtmosComputerSection() {
     const reg = await registerAccessTokenOnRelay(controlPlaneUrl, token);
     if (!reg.ok) {
       toastManager.add({
-        title: 'Could not save token',
+        title: 'Could not save access key',
         description: reg.error ?? 'Try again.',
         type: 'error',
       });
@@ -268,13 +339,13 @@ export function AtmosComputerSection() {
       const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
       if (!persisted) {
         toastManager.add({
-          title: 'Token saved locally',
+          title: 'Saved for this session',
           description:
-            'Could not write ~/.atmos/computer-client.json — ensure Atmos Server is running.',
+            'Could not save on this computer. Ensure Atmos is running locally.',
           type: 'warning',
         });
       } else {
-        toastManager.add({ title: 'Token saved', type: 'success' });
+        toastManager.add({ title: 'Access key saved', type: 'success' });
       }
       await refreshComputerList();
     } finally {
@@ -294,10 +365,10 @@ export function AtmosComputerSection() {
       setTokenReveal(token);
       const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
       toastManager.add({
-        title: 'Token created',
+        title: 'Access key created',
         description: persisted
-          ? 'Saved to ~/.atmos/computer-client.json. Copy it now — it will not be shown again.'
-          : 'Copy it now — could not write ~/.atmos/computer-client.json (start Atmos Server).',
+          ? 'Saved on this computer. Copy it now — it will not be shown again.'
+          : 'Copy it now — could not save on this computer. Ensure Atmos is running locally.',
         type: persisted ? 'success' : 'warning',
       });
       await refreshComputerList();
@@ -309,8 +380,8 @@ export function AtmosComputerSection() {
   async function onRemoteToggle(enabled: boolean) {
     if (!hasKey) {
       toastManager.add({
-        title: 'Save a token first',
-        description: 'You need a token before registering this computer.',
+        title: 'Save your access key first',
+        description: 'Add and save an access key before enabling remote access.',
         type: 'error',
       });
       return;
@@ -341,7 +412,11 @@ export function AtmosComputerSection() {
           return;
         }
 
-        const reg = await registerLocalComputer(tokenData.register_token, displayName);
+        const reg = await registerLocalComputer(
+          tokenData.register_token,
+          displayName,
+          await buildRegistrationMeta(),
+        );
         setLocalServerId(reg.server_id);
         setLocalStatus(prev => ({
           hostname: prev?.hostname ?? localStatus?.hostname ?? null,
@@ -357,16 +432,16 @@ export function AtmosComputerSection() {
         }));
         if (reg.relay_connected) {
           toastManager.add({
-            title: 'Registered to remote',
-            description: 'Relay connected — other browsers can reach this Mac.',
+            title: 'Remote access enabled',
+            description: 'This computer is available for remote connection.',
             type: 'success',
           });
         } else {
           toastManager.add({
-            title: 'Registered, relay not connected',
+            title: 'Registered, not yet online',
             description:
               reg.relay_last_error ??
-              'Use Reconnect below after checking network and API logs.',
+              'Use Reconnect below after checking your network connection.',
             type: 'error',
           });
         }
@@ -393,14 +468,14 @@ export function AtmosComputerSection() {
         reconnectWs();
       }
       toastManager.add({
-        title: 'Unregistered from remote',
+        title: 'Remote access disabled',
         type: 'success',
       });
       await refreshLocalStatus();
       await refreshComputerList();
     } catch (err) {
       const description =
-        err instanceof Error ? err.message : 'Check that Atmos Server is running and try again.';
+        err instanceof Error ? err.message : 'Ensure Atmos is running on this computer, then try again.';
       toastManager.add({
         title: enabled ? 'Could not register to remote' : 'Could not unregister',
         description,
@@ -502,12 +577,17 @@ export function AtmosComputerSection() {
   }
 
   const currentServerId = localStatus?.server_id ?? localServerId;
+  const currentComputerRow = currentServerId
+    ? activeComputers.find(c => c.server_id === currentServerId)
+    : undefined;
   const isLocalRegistered = Boolean(
     localStatus?.registered && currentServerId,
   ) || Boolean(localServerId && currentServerId === localServerId);
-  const isRelayConnected = Boolean(localStatus?.relay_connected);
+  /** Local API is authoritative; control-plane `online` is a fallback while relay is reconnecting. */
+  const isCurrentRelayReachable =
+    Boolean(localStatus?.relay_connected) || Boolean(currentComputerRow?.online);
   const relayLastError = localStatus?.relay_last_error?.trim() || null;
-  const showRelayReconnect = isLocalRegistered && !isRelayConnected;
+  const showRelayReconnect = isLocalRegistered && !isCurrentRelayReachable;
   const currentDeviceName =
     localStatus?.computer_name?.trim() ||
     localStatus?.hostname?.replace(/\.local$/i, '') ||
@@ -516,8 +596,9 @@ export function AtmosComputerSection() {
   return (
     <div className="space-y-4">
       <SettingsBlock
-        title="Token"
-        description="Stored in ~/.atmos/computer-client.json on this machine — shared by Desktop and the browser when using the same Atmos Server."
+        title="Access Key"
+        icon={<KeyRound className="size-5" />}
+        description="Your access key registers new Computers (via registration codes) and lists all Computers on your account."
         headerAction={
           <Button
             size="sm"
@@ -528,7 +609,7 @@ export function AtmosComputerSection() {
             {busy === 'token-generate' ? (
               <LoaderCircle className="mr-2 size-4 animate-spin" />
             ) : (
-              <KeyRound className="mr-2 size-4" />
+              <Plus className="mr-2 size-4" />
             )}
             Generate
           </Button>
@@ -541,7 +622,7 @@ export function AtmosComputerSection() {
               autoComplete="off"
               value={tokenDraft}
               onChange={e => setTokenDraft(e.target.value)}
-              placeholder="Paste your token or generate a new one"
+              placeholder="Paste your access key or generate a new one"
               className="pr-10"
             />
             <Button
@@ -551,8 +632,8 @@ export function AtmosComputerSection() {
               className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
               disabled={busy !== null || !tokenDraft.trim()}
               onClick={() => void onCopyToken()}
-              title={tokenCopied ? 'Copied' : 'Copy token'}
-              aria-label={tokenCopied ? 'Copied' : 'Copy token'}
+              title={tokenCopied ? 'Copied' : 'Copy access key'}
+              aria-label={tokenCopied ? 'Copied' : 'Copy access key'}
             >
               {tokenCopied ? (
                 <Check className="size-4 text-emerald-500" />
@@ -577,7 +658,7 @@ export function AtmosComputerSection() {
         </div>
         {tokenReveal ? (
           <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
-            <p className="text-sm font-medium">Copy your token now</p>
+            <p className="text-sm font-medium">Copy your access key now</p>
             <pre className="overflow-x-auto break-all rounded-lg bg-background/60 px-3 py-2 font-mono text-xs">
               {tokenReveal}
             </pre>
@@ -597,25 +678,47 @@ export function AtmosComputerSection() {
         ) : null}
       </SettingsBlock>
 
-      <SettingsBlock
-        title="Remote server"
-        description="Register a Linux VPS or another machine to your account."
+      <Collapsible
+        open={remoteComputerExpanded}
+        onOpenChange={setRemoteComputerExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
       >
-        <VpsRemoteSetupBlock
-          hasAccessToken={hasKey}
-          controlPlaneUrl={controlPlaneUrl}
-          accessToken={accessToken}
-          busy={busy !== null}
-        />
-      </SettingsBlock>
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex gap-3">
+              <span className="relative flex h-6 w-5 shrink-0 items-center justify-center">
+                <Server className="absolute size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                <ChevronDown className="absolute size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium leading-6 text-foreground">Register Computer</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Register another computer on your network or in the cloud.
+                </p>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+        </div>
+
+        <CollapsibleContent>
+          <div className="border-t border-border px-6 py-5">
+            <RemoteComputerSetupBlock
+              active={remoteComputerExpanded}
+              hasAccessToken={hasKey}
+              controlPlaneUrl={controlPlaneUrl}
+              accessToken={accessToken}
+              busy={busy !== null}
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <SettingsBlock
-        title="Current computer"
-        description="This device running Atmos. Register to remote so other browsers can find it."
+        title="This Computer"
+        icon={<Laptop className="size-5" />}
+        description="Register to remote so other computers can connect to this computer."
       >
-        <div className="flex items-start gap-3">
-          <ComputerIcon size={20} className="mt-0.5 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1 space-y-3">
+        <div className="min-w-0 space-y-3">
             <div className="space-y-2">
               <p className="text-base font-semibold tracking-tight text-foreground">
                 {currentDeviceName}
@@ -624,13 +727,13 @@ export function AtmosComputerSection() {
 
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border/80 bg-muted/15 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-foreground">Register to remote</p>
+                <p className="text-sm font-medium text-foreground">Register to Remote</p>
                 <p className="text-xs text-muted-foreground">
                   {isLocalRegistered
-                    ? isRelayConnected
-                      ? 'Relay connected — other browsers can reach this Mac.'
-                      : 'Registered — still connecting so other devices can reach this Mac.'
-                    : 'Not registered — only local use on this device.'}
+                    ? isCurrentRelayReachable
+                      ? 'Online in the remote registration center.'
+                      : 'Connecting to the remote registration center…'
+                    : 'Not registered to remote — local use only on this computer.'}
                 </p>
               </div>
               <Switch
@@ -642,7 +745,7 @@ export function AtmosComputerSection() {
             {showRelayReconnect ? (
               <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">Not online for remote access</p>
+                  <p className="text-sm font-medium text-foreground">Offline in remote registration center</p>
                   <Button
                     type="button"
                     size="sm"
@@ -662,21 +765,21 @@ export function AtmosComputerSection() {
                   <p className="text-xs leading-5 text-destructive">{relayLastError}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Other devices cannot reach this Mac yet. Click Reconnect.
+                    Other computers cannot connect yet. Tap Reconnect to try again.
                   </p>
                 )}
               </div>
             ) : null}
             {!hasKey ? (
-              <p className="text-xs text-muted-foreground">Save a token above to register to remote.</p>
+              <p className="text-xs text-muted-foreground">Save an access key above to use Register to Remote.</p>
             ) : null}
-          </div>
         </div>
       </SettingsBlock>
 
       <SettingsBlock
-        title="My computers"
-        description="All machines linked to your token."
+        title="My Computers"
+        icon={<Computer className="size-5" />}
+        description="Computers linked to your account."
         headerEnd={
           <Button
             variant="ghost"
@@ -690,20 +793,19 @@ export function AtmosComputerSection() {
         }
       >
         {!hasKey ? (
-          <p className="text-sm text-muted-foreground">Save a token to see your computers.</p>
+          <p className="text-sm text-muted-foreground">Save an access key to see your computers.</p>
         ) : activeComputers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No computers yet. Register to remote on this device, or register another machine
-            with the same token.
+            No computers yet. Enable remote access on this computer, or add another remote computer
+            with the same access key.
           </p>
         ) : (
           <ul className="divide-y divide-border rounded-xl border border-border">
             {activeComputers.map(c => {
               const isCurrent = c.server_id === currentServerId;
               const isConnected = connectedServerId === c.server_id;
-              /** Cloud "online" = server has opened outbound relay WS; for this Mac prefer live local status. */
               const relayReachable = isCurrent
-                ? isRelayConnected || Boolean(c.online)
+                ? isCurrentRelayReachable
                 : Boolean(c.online);
               const name = (c.display_name ?? 'Computer').slice(0, 64);
               return (

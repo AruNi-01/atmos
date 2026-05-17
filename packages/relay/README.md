@@ -51,13 +51,19 @@ The ID is not a password; it only selects which account receives the deploy.
 
    Put the returned `database_id` into `wrangler.toml` (replace `REPLACE_WITH_D1_ID`).
 
-2. Run migration:
+2. Run migrations (in order):
 
    ```bash
    npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0001_init.sql
+   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0002_computers_updated_at.sql
+   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0003_computers_registration_meta.sql
    ```
 
+   Or: `npx wrangler d1 migrations apply atmos-computer-cp --remote`
+
    For local dev, omit `--remote` or follow `wrangler d1` docs for the local DB file.
+
+   Manual retention SQL (expired tokens, stale computers): [scripts/relay/d1-maintenance.sql](../../scripts/relay/d1-maintenance.sql)
 
 No Worker-wide admin secret is required. Each C-end user registers their own **access token** via `POST /v1/tenants` (see HTTP API). Operator maintenance uses the D1 dashboard directly.
 
@@ -74,6 +80,10 @@ bunx wrangler dev
 From `packages/relay`, after **Authenticate Wrangler**, **D1 id** in `wrangler.toml`, and **remote migration**:
 
 ```bash
+scripts/relay/deploy.sh
+# or (from packages/relay)
+bun run deploy:relay
+# or
 bunx wrangler deploy
 ```
 

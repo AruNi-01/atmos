@@ -258,6 +258,30 @@ export interface PtyDeviceDetail {
   processes: PtyDeviceProcess[];
 }
 
+export interface RegistrationMetaResponse {
+  via: string;
+  version?: string;
+}
+
+export interface RuntimeInfoResponse {
+  api_version: string;
+  registration_meta?: RegistrationMetaResponse | Record<string, unknown> | null;
+  runtime_manifest: {
+    source: string;
+    started_at: string;
+    api_url: string;
+    api_port: number;
+    ws_url: string;
+    pid?: number | null;
+  } | null;
+  relay: {
+    registered: boolean;
+    server_id: string | null;
+    control_plane_url: string | null;
+    connected: boolean;
+  };
+}
+
 export interface TerminalOverviewResponse {
   active_sessions: ActiveSessionInfo[];
   active_session_count: number;
@@ -461,6 +485,10 @@ export const systemApi = {
    */
   getTerminalOverview: async (): Promise<TerminalOverviewResponse> => {
     return fetchApi<TerminalOverviewResponse>('/api/system/terminal-overview');
+  },
+
+  getRuntimeInfo: async (): Promise<RuntimeInfoResponse> => {
+    return fetchApi<RuntimeInfoResponse>('/api/system/runtime-info');
   },
 
   /**

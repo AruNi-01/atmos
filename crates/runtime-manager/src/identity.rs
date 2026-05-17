@@ -4,6 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::manifest::atmos_home_dir;
 
@@ -16,6 +17,9 @@ pub struct ServerIdentity {
     pub relay_ws_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_plane_url: Option<String>,
+    /// How this Computer was registered (client channel + optional client version).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registration_meta: Option<Value>,
 }
 
 pub fn relay_identity_path() -> Result<PathBuf, String> {

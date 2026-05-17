@@ -59,6 +59,7 @@ pub fn routes() -> Router<AppState> {
                 .put(computer::put_computer_client_settings),
         )
         .route("/computer", get(computer::get_computer_status))
+        .route("/runtime-info", get(computer::get_runtime_info))
 }
 
 /// Destructive system routes that require loopback or token authentication.

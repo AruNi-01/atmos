@@ -9,6 +9,7 @@ mod computer_name;
 mod identity;
 mod manifest;
 mod register;
+mod registration_meta;
 
 #[cfg(feature = "supervisor")]
 pub mod supervisor;
@@ -36,3 +37,4 @@ pub use computer_name::{local_computer_display_name, local_computer_display_name
 pub use register::{
     default_control_plane_url, normalize_control_plane_url, register_computer,
 };
+pub use registration_meta::RegistrationMeta;

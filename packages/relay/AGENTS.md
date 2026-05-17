@@ -8,7 +8,9 @@
 
 - **Dev**: `cd packages/relay && bunx wrangler dev`
 - **Deploy**: `bunx wrangler deploy` (see [README.md](README.md), `.github/workflows/deploy-relay.yml`)
-- **D1 migrate**: `bunx wrangler d1 migrations apply atmos-relay --remote`
+- **D1 migrate**: `bunx wrangler d1 migrations apply atmos-computer-cp --remote` (see `migrations/`)
+- **Deploy script**: `scripts/relay/deploy.sh` (or `bun run deploy:relay` from `packages/relay`)
+- **D1 manual cleanup**: `scripts/relay/d1-maintenance.sql` (run via D1 console or `wrangler d1 execute`)
 
 ---
 

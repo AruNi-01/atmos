@@ -18,7 +18,7 @@ export function generateAccessToken(): string {
 function formatFetchError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   if (message === 'Load failed' || message.includes('Failed to fetch')) {
-    return 'Cannot reach the control plane (relay.atmos.land). Check your network connection.';
+    return 'Cannot reach Atmos cloud. Check your network connection.';
   }
   return message;
 }
@@ -51,7 +51,7 @@ export async function registerAccessTokenOnRelay(
       return {
         ok: false,
         error:
-          'Cannot reach Atmos Server. Restart the app so the local API can proxy control-plane requests.',
+          'Cannot connect locally. Restart Atmos and try again.',
       };
     }
 
@@ -100,9 +100,7 @@ export async function cpFetchWithAccessToken(
   }
 
   if (isTauriRuntime()) {
-    throw new Error(
-      'Cannot reach Atmos Server. Restart the app so the local API can proxy control-plane requests.',
-    );
+    throw new Error('Cannot connect locally. Restart Atmos and try again.');
   }
 
   const url = `${base}${normalizedPath}`;
