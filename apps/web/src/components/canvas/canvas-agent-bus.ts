@@ -13,10 +13,14 @@
 
 import {
   createShapeId,
+  toRichText,
   type Editor,
   type TLShapeId,
   type TLShapePartial,
 } from "tldraw";
+
+/** tldraw v5 note sticky default width (page units); used to map CLI `--w` → `scale`. */
+const NOTE_BASE_WIDTH = 200;
 
 export interface CanvasAgentActor {
   actor_id: string;
@@ -274,15 +278,20 @@ export class CanvasAgentBus {
         h: viewport.height,
       },
       selection,
-      shapes: shapes.map((s) => ({
-        id: s.id,
-        type: s.type,
-        x: s.x,
-        y: s.y,
-        rotation: s.rotation,
-        props: shallowFilterProps(s.props as Record<string, unknown>),
-        parent_id: s.parentId,
-      })),
+      shapes: shapes.map((s) => {
+        const props = shallowFilterProps(s.props as Record<string, unknown>);
+        const textPreview = plainTextFromShapeProps(props);
+        return {
+          id: s.id,
+          type: s.type,
+          x: s.x,
+          y: s.y,
+          rotation: s.rotation,
+          props,
+          ...(textPreview ? { text_preview: textPreview } : {}),
+          parent_id: s.parentId,
+        };
+      }),
     };
   }
 
@@ -292,12 +301,15 @@ export class CanvasAgentBus {
     const text = requireString(args.text, "text");
     const x = numberOr(args.x, computeSpawnX(editor));
     const y = numberOr(args.y, computeSpawnY(editor));
-    const w = positiveNumberOr(args.w, 200);
-    const h = positiveNumberOr(args.h, 200);
+    const w = positiveNumberOr(args.w, NOTE_BASE_WIDTH);
     const color = optionalString(args.color);
     const id = createShapeId();
-    const props: Record<string, unknown> = { text, w, h };
+    // tldraw v5 notes use `richText`, not legacy `text`; they have no w/h props.
+    const props: Record<string, unknown> = { richText: toRichText(text) };
     if (color) props.color = color;
+    if (w !== NOTE_BASE_WIDTH) {
+      props.scale = w / NOTE_BASE_WIDTH;
+    }
     editor.createShape({ id, type: "note", x, y, props });
     return { id, type: "note" };
   }
@@ -324,7 +336,7 @@ export class CanvasAgentBus {
     const id = createShapeId();
     const props: Record<string, unknown> = { geo: kind, w, h };
     const text = optionalString(args.text);
-    if (text) props.text = text;
+    if (text) props.richText = toRichText(text);
     const color = optionalString(args.color);
     if (color) props.color = color;
     const fill = optionalString(args.fill);
@@ -346,7 +358,7 @@ export class CanvasAgentBus {
       end: { x: x2 - x1, y: y2 - y1 },
     };
     const text = optionalString(args.text);
-    if (text) props.text = text;
+    if (text) props.richText = toRichText(text);
     const color = optionalString(args.color);
     if (color) props.color = color;
     const size = optionalString(args.size);
@@ -574,6 +586,16 @@ export class CanvasAgentBus {
         // Validate via the shared finite-number helper instead of `Number()`
         // which would happily pass NaN/Infinity into `updateShapes`.
         (next as Record<string, unknown>)[key] = requireNumber(value, key);
+      } else if (key === "text") {
+        // CLI/skill expose plain `text`; tldraw v5 stores labels as `richText`.
+        if (typeof value !== "string") {
+          throw new CanvasAgentError(
+            "VALIDATION_ARG",
+            "text must be a string",
+            false,
+          );
+        }
+        propsPatch.richText = toRichText(value);
       } else {
         propsPatch[key] = value;
       }
@@ -769,6 +791,34 @@ function unionShapePageBounds(
 function readNumberProp(props: Record<string, unknown>, key: string): number | undefined {
   const v = props?.[key];
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+function plainTextFromShapeProps(props: Record<string, unknown>): string | undefined {
+  const rich = props.richText;
+  if (rich && typeof rich === "object" && !Array.isArray(rich)) {
+    const content = (rich as { content?: unknown }).content;
+    if (Array.isArray(content)) {
+      const lines = content.map((block) => {
+        if (!block || typeof block !== "object") return "";
+        const nodes = (block as { content?: unknown }).content;
+        if (!Array.isArray(nodes)) return "";
+        return nodes
+          .map((node) =>
+            node && typeof node === "object" && "text" in node
+              ? String((node as { text: unknown }).text)
+              : "",
+          )
+          .join("");
+      });
+      const joined = lines.join("\n").trim();
+      if (joined) return joined.slice(0, 500);
+    }
+  }
+  const legacy = props.text;
+  if (typeof legacy === "string" && legacy.trim()) {
+    return legacy.trim().slice(0, 500);
+  }
+  return undefined;
 }
 
 function shallowFilterProps(props: Record<string, unknown>): Record<string, unknown> {

@@ -132,6 +132,10 @@ describe("CanvasAgentBus", () => {
     if (res.success) {
       const data = res.data as { id: string; type: string };
       expect(data.type).toBe("note");
+      const shape = editor.shapes.get(data.id);
+      expect(shape?.props.richText).toBeDefined();
+      expect(shape?.props.text).toBeUndefined();
+      expect((shape?.props as { w?: number }).w).toBeUndefined();
     }
   });
 
@@ -225,6 +229,32 @@ describe("CanvasAgentBus", () => {
     const shape = editor.shapes.get("a");
     expect(shape?.x).toBe(33);
     expect(shape?.props.color).toBe("red");
+  });
+
+  it("update_shape maps plain text patch to richText", async () => {
+    const { bus, editor } = busFromEditor();
+    editor.createShape({ id: "a", type: "geo", x: 0, y: 0, props: { w: 100, h: 100 } });
+    const res = await bus.handleDispatch(
+      call("update_shape", { id: "a", patch: { text: "API layer" } }),
+    );
+    expect(res.success).toBe(true);
+    const shape = editor.shapes.get("a");
+    expect(shape?.props.richText).toBeDefined();
+    expect(shape?.props.text).toBeUndefined();
+  });
+
+  it("create_geo stores label text as richText", async () => {
+    const { editor, bus } = busFromEditor();
+    const res = await bus.handleDispatch(
+      call("create_geo", { kind: "rectangle", text: "infra", x: 0, y: 0 }),
+    );
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const data = res.data as { id: string };
+      const shape = editor.shapes.get(data.id);
+      expect(shape?.props.richText).toBeDefined();
+      expect(shape?.props.text).toBeUndefined();
+    }
   });
 
   it("update_shape rejects non-finite x/y", async () => {
