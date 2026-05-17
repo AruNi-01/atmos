@@ -172,19 +172,22 @@ fn generate_random_suffix(length: usize) -> String {
         .collect()
 }
 
-/// Generate a unique workspace name using Pokemon names
+fn scoped_workspace_name(project_scope: &str, handle: &str) -> String {
+    format!("{}/{}", project_scope.trim_end_matches('/'), handle)
+}
+
+/// Generate a unique workspace handle (Pokemon name) scoped under `project_scope`.
 ///
-/// Strategy:
-/// 1. Try random Pokemon names with prefix (e.g., "atmos/pikachu")
-/// 2. Try Pokemon names with version suffix (e.g., "atmos/pikachu-v2")
-/// 3. Try combinations of two Pokemon names (e.g., "atmos/pikachu-charizard")
-/// 4. Fallback to Pokemon name with random suffix (e.g., "atmos/pikachu-a3f9")
-pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> String {
+/// Callers combine this with `project_scope` to form the stored workspace name
+/// (e.g. scope `atmos` + handle `pikachu` → `atmos/pikachu`).
+pub fn generate_workspace_handle(project_scope: &str, existing_names: &[String]) -> String {
     let normalize = |name: &str| name.to_lowercase();
     let existing_set: std::collections::HashSet<String> =
         existing_names.iter().map(|n| normalize(n)).collect();
 
-    let is_available = |name: &str| !existing_set.contains(&normalize(name));
+    let is_available = |handle: &str| {
+        !existing_set.contains(&normalize(&scoped_workspace_name(project_scope, handle)))
+    };
 
     let mut rng = rand::thread_rng();
 
@@ -193,18 +196,17 @@ pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> Strin
     shuffled_pokemon.shuffle(&mut rng);
 
     for pokemon in &shuffled_pokemon {
-        let candidate = format!("{}/{}", prefix, pokemon);
-        if is_available(&candidate) {
-            return candidate;
+        if is_available(pokemon) {
+            return (*pokemon).to_string();
         }
     }
 
     // Strategy 2: Try Pokemon names with version suffix (v2-v9)
     for pokemon in &shuffled_pokemon {
         for v in 2..=9 {
-            let candidate = format!("{}/{}-v{}", prefix, pokemon, v);
-            if is_available(&candidate) {
-                return candidate;
+            let handle = format!("{pokemon}-v{v}");
+            if is_available(&handle) {
+                return handle;
             }
         }
     }
@@ -214,9 +216,9 @@ pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> Strin
         let pokemon1 = get_random_pokemon();
         let pokemon2 = get_random_pokemon();
         if pokemon1 != pokemon2 {
-            let candidate = format!("{}/{}-{}", prefix, pokemon1, pokemon2);
-            if is_available(&candidate) {
-                return candidate;
+            let handle = format!("{pokemon1}-{pokemon2}");
+            if is_available(&handle) {
+                return handle;
             }
         }
     }
@@ -224,7 +226,13 @@ pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> Strin
     // Strategy 4: Fallback - Pokemon name with random suffix
     let base_pokemon = get_random_pokemon();
     let suffix = generate_random_suffix(4);
-    format!("{}/{}-{}", prefix, base_pokemon, suffix)
+    format!("{base_pokemon}-{suffix}")
+}
+
+/// Generate a unique workspace name using Pokemon names (legacy `prefix/handle` shape).
+pub fn generate_workspace_name(existing_names: &[String], prefix: &str) -> String {
+    let handle = generate_workspace_handle(prefix, existing_names);
+    scoped_workspace_name(prefix, &handle)
 }
 
 /// Extract repository prefix from project name
@@ -249,6 +257,26 @@ mod tests {
         assert_eq!(extract_repo_prefix("owner/repo"), "owner");
         assert_eq!(extract_repo_prefix("myproject"), "myproject");
         assert_eq!(extract_repo_prefix("org/team/project"), "org");
+    }
+
+    #[test]
+    fn test_generate_workspace_handle_no_conflicts() {
+        let existing: Vec<String> = vec![];
+        let handle = generate_workspace_handle("atmos", &existing);
+        assert!(POKEMON_NAMES.contains(&handle.as_str()));
+
+        let scoped = generate_workspace_name(&existing, "atmos");
+        assert!(scoped.starts_with("atmos/"));
+        let pokemon_part = &scoped["atmos/".len()..];
+        assert!(POKEMON_NAMES.contains(&pokemon_part));
+    }
+
+    #[test]
+    fn test_generate_workspace_handle_avoids_scoped_conflicts() {
+        let existing = vec!["atmos/pikachu".to_string()];
+        let handle = generate_workspace_handle("atmos", &existing);
+        assert_ne!(handle, "pikachu");
+        assert!(!existing.contains(&scoped_workspace_name("atmos", &handle)));
     }
 
     #[test]

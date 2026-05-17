@@ -328,6 +328,12 @@ impl WorkspaceService {
         }
 
         let existing_vec: Vec<String> = existing_names.iter().cloned().collect();
+        let project_scope = Self::sanitize_workspace_handle(&project.name);
+        let project_scope = if project_scope.is_empty() {
+            "project".to_string()
+        } else {
+            project_scope
+        };
         let requested_display_name = display_name
             .as_deref()
             .map(str::trim)
@@ -349,14 +355,7 @@ impl WorkspaceService {
         } else if let Some(display_name) = requested_display_name.as_deref() {
             Self::sanitize_workspace_handle(display_name)
         } else {
-            let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
-            workspace_name_generator::generate_workspace_name(&existing_vec, &prefix)
-        };
-        let project_scope = Self::sanitize_workspace_handle(&project.name);
-        let project_scope = if project_scope.is_empty() {
-            "project".to_string()
-        } else {
-            project_scope
+            workspace_name_generator::generate_workspace_handle(&project_scope, &existing_vec)
         };
 
         let user_visible_generation = !requested_branch.is_empty()
@@ -409,9 +408,10 @@ impl WorkspaceService {
                 }
 
                 attempt += 1;
-                let prefix = workspace_name_generator::extract_repo_prefix(&project.name);
-                let generated =
-                    workspace_name_generator::generate_workspace_name(&existing_vec, &prefix);
+                let generated = workspace_name_generator::generate_workspace_handle(
+                    &project_scope,
+                    &existing_vec,
+                );
                 final_name = Self::with_project_scope(&project_scope, generated.as_str());
             }
 
