@@ -11,7 +11,7 @@
     },
     "apps/desktop": {
       "name": "desktop",
-      "version": "1.1.0-rc.9",
+      "version": "1.2.0-beta.1",
       "devDependencies": {
         "@tauri-apps/cli": "^2.0.0",
       },
@@ -217,7 +217,7 @@
     },
     "packages/local-installer": {
       "name": "@atmos/local-web-runtime",
-      "version": "0.1.0",
+      "version": "0.2.0-beta.1",
       "bin": {
         "atmos-local": "./bin/atmos-local.mjs",
       },
