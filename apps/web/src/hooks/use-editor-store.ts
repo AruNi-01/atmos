@@ -1,8 +1,13 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import { useEffect } from 'react';
+import { getActiveInstanceId } from '@/hooks/use-connection-store';
+import { restoreEditorFromInstancePrefs } from '@/lib/restore-editor-from-prefs';
+import {
+  partializeEditorState,
+  scheduleEditorUiSave,
+} from '@/lib/editor-ui-persistence';
 import { fsApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { detectCodeLanguage } from '@/lib/code-language';
@@ -220,9 +225,7 @@ function touchOpenFile(
   };
 }
 
-export const useEditorStore = create<EditorStore>()(
-  persist(
-    (set, get) => ({
+export const useEditorStore = create<EditorStore>()((set, get) => ({
       workspaceStates: {},
       navigationTargets: {},
       fileTreeRevealTarget: null,
@@ -790,47 +793,19 @@ export const useEditorStore = create<EditorStore>()(
         if (!id) return false;
         return get().workspaceStates[id]?.openFiles.some(f => f.isDirty) || false;
       },
-    }),
-    {
-      name: 'atmos-editor-storage',
-      storage: createJSONStorage(() => sessionStorage),
+}));
 
-      partialize: (state) => ({
-        // Strip content/originalContent to avoid bloating sessionStorage (~5MB limit)
-        workspaceStates: Object.fromEntries(
-          Object.entries(state.workspaceStates).map(([wsId, ws]) => [
-            wsId,
-            {
-              ...ws,
-              openFiles: ws.openFiles.map(f => ({
-                ...f,
-                content: '',
-                originalContent: '',
-                isLoading: true,
-                isDirty: false,
-                lastOpenedAt: f.lastOpenedAt ?? 0,
-                lastFocusedAt: f.lastFocusedAt ?? 0,
-              })),
-            },
-          ])
-        ),
-        currentWorkspaceId: state.currentWorkspaceId,
-        currentProjectPath: state.currentProjectPath,
-      }),
-
-      onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        // Reload file content from backend for all restored tabs
-        const { workspaceStates } = state;
-        for (const [wsId, ws] of Object.entries(workspaceStates)) {
-          for (const file of ws.openFiles) {
-            useEditorStore.getState().reloadFileContent(file.path, wsId);
-          }
-        }
-      },
-    }
-  )
-);
+useEditorStore.subscribe((state, prev) => {
+  if (
+    state.workspaceStates === prev.workspaceStates &&
+    state.currentWorkspaceId === prev.currentWorkspaceId &&
+    state.currentProjectPath === prev.currentProjectPath
+  ) {
+    return;
+  }
+  const instanceId = getActiveInstanceId();
+  scheduleEditorUiSave(instanceId, partializeEditorState(state));
+});
 
 /**
  * Hook to wait for store hydration before rendering persisted data
@@ -839,10 +814,7 @@ export function useEditorStoreHydration() {
   const isReady = useEditorStore((state) => state._hasHydrated);
 
   useEffect(() => {
-    // Mark as hydrated after first client render
-    // This ensures SSR and first client render match (both empty)
-    // Then the persisted data is restored and triggers a re-render
-    useEditorStore.getState().setHasHydrated(true);
+    restoreEditorFromInstancePrefs();
   }, []);
 
   return isReady;

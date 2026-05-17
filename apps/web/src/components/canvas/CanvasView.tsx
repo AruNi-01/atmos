@@ -86,7 +86,7 @@ import {
   type CanvasTldrawDocument,
   type CanvasTldrawSession,
 } from "./use-canvas-board";
-import { readStoredCanvasSession, writeStoredCanvasSession } from "./canvas-session-storage";
+import { readCanvasSession, writeCanvasSession } from "@/hooks/use-ui-pref-hooks";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
@@ -1077,7 +1077,7 @@ export const CanvasView: React.FC = () => {
 
   const workspaceItems = React.useMemo(() => getWorkspaceImportItems(projects), [projects]);
   const initialSnapshot = React.useMemo(
-    () => createCanvasSnapshot(document?.tldrawDocument ?? null, readStoredCanvasSession(board?.guid)),
+    () => createCanvasSnapshot(document?.tldrawDocument ?? null, readCanvasSession(board?.guid)),
     [board?.guid, document?.tldrawDocument],
   );
   const attachableSessions = React.useMemo(
@@ -1174,7 +1174,7 @@ export const CanvasView: React.FC = () => {
   }, [loadCanvasSettings]);
 
   React.useEffect(() => {
-    pendingSessionRef.current = readStoredCanvasSession(board?.guid);
+    pendingSessionRef.current = readCanvasSession(board?.guid);
     if (board?.updated_at && !lastSavedAt) {
       setLastSavedAt(new Date(board.updated_at));
     }
@@ -1276,7 +1276,7 @@ export const CanvasView: React.FC = () => {
       sessionSaveTimeoutRef.current = setTimeout(() => {
         sessionSaveTimeoutRef.current = null;
         if (sessionDirtyRef.current && pendingSessionRef.current) {
-          writeStoredCanvasSession(pendingSessionRef.current, board?.guid);
+          writeCanvasSession(pendingSessionRef.current, board?.guid);
           sessionDirtyRef.current = false;
         }
       }, SESSION_SAVE_DEBOUNCE_MS);

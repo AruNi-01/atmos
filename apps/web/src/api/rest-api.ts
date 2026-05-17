@@ -1,5 +1,11 @@
 'use client';
-import { getRuntimeApiConfig, httpBase, wsBase } from '@/lib/desktop-runtime';
+import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
+import {
+  getLoopbackHttpBase,
+  getRuntimeApiConfig,
+  httpBase,
+  wsBase,
+} from '@/lib/desktop-runtime';
 
 /**
  * REST API client for endpoints that need to be called before WebSocket connection
@@ -12,9 +18,22 @@ export const getAgentWsBase = async (): Promise<string> => {
   return wsBase(cfg);
 };
 
-export const getRuntimeHttpBase = async (): Promise<string> => {
+async function resolveHttpFetchTarget(): Promise<{ apiBase: string; bearer?: string }> {
+  const computer = useAtmosComputerStore.getState();
+  if (computer.connectionMode === 'relay' && computer.relayGatewayHttpBase) {
+    return {
+      apiBase: computer.relayGatewayHttpBase.replace(/\/$/, ''),
+      bearer: computer.relayClientToken ?? undefined,
+    };
+  }
+  const apiBase = await getLoopbackHttpBase();
   const cfg = await getRuntimeApiConfig();
-  return httpBase(cfg);
+  return { apiBase, bearer: cfg.token };
+}
+
+export const getRuntimeHttpBase = async (): Promise<string> => {
+  const { apiBase } = await resolveHttpFetchTarget();
+  return apiBase;
 };
 
 // ===== Types =====
@@ -95,16 +114,12 @@ interface ApiResponse<T> {
 }
 
 async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const cfg = await getRuntimeApiConfig();
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && !cfg.token) {
-    throw new Error('Desktop API token is missing in Tauri runtime');
-  }
-  const apiBase = httpBase(cfg);
+  const { apiBase, bearer } = await resolveHttpFetchTarget();
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       ...options?.headers,
     },
   });
@@ -132,15 +147,12 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 async function fetchHooksApi<T>(path: string, options?: RequestInit): Promise<T> {
-  const cfg = await getRuntimeApiConfig();
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && !cfg.token) {
-    throw new Error('Desktop API token is missing in Tauri runtime');
-  }
-  const response = await fetch(`${httpBase(cfg)}${path}`, {
+  const { apiBase, bearer } = await resolveHttpFetchTarget();
+  const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(cfg.token ? { Authorization: `Bearer ${cfg.token}` } : {}),
+      ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       ...options?.headers,
     },
   });
@@ -244,6 +256,30 @@ export interface PtyDeviceDetail {
   device: string;
   process_count: number;
   processes: PtyDeviceProcess[];
+}
+
+export interface RegistrationMetaResponse {
+  via: string;
+  version?: string;
+}
+
+export interface RuntimeInfoResponse {
+  api_version: string;
+  registration_meta?: RegistrationMetaResponse | Record<string, unknown> | null;
+  runtime_manifest: {
+    source: string;
+    started_at: string;
+    api_url: string;
+    api_port: number;
+    ws_url: string;
+    pid?: number | null;
+  } | null;
+  relay: {
+    registered: boolean;
+    server_id: string | null;
+    control_plane_url: string | null;
+    connected: boolean;
+  };
 }
 
 export interface TerminalOverviewResponse {
@@ -449,6 +485,10 @@ export const systemApi = {
    */
   getTerminalOverview: async (): Promise<TerminalOverviewResponse> => {
     return fetchApi<TerminalOverviewResponse>('/api/system/terminal-overview');
+  },
+
+  getRuntimeInfo: async (): Promise<RuntimeInfoResponse> => {
+    return fetchApi<RuntimeInfoResponse>('/api/system/runtime-info');
   },
 
   /**
@@ -712,11 +752,14 @@ export const agentApi = {
       formData.append('files', new File([blob], name, { type: file.mediaType || blob.type }));
     }
 
-    const cfg = await getRuntimeApiConfig();
-    const apiBase = httpBase(cfg);
+    const { apiBase, bearer } = await resolveHttpFetchTarget();
+    const headers = new Headers();
+    if (bearer) {
+      headers.set('Authorization', `Bearer ${bearer}`);
+    }
     const res = await fetch(`${apiBase}/api/agent/upload-attachments`, {
       method: 'POST',
-      headers: cfg.token ? { Authorization: `Bearer ${cfg.token}` } : undefined,
+      headers,
       body: formData,
     });
 

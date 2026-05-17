@@ -32,7 +32,7 @@ interface QuickOpenProps {
   path?: string | null;
 }
 
-const STORAGE_KEY = 'atmos_quick_open_last_used';
+import { readQuickOpenLastUsed, writeQuickOpenLastUsed } from '@/hooks/use-ui-pref-hooks';
 
 export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const [lastUsedApp, setLastUsedApp] = useState<QuickOpenAppName>('Finder');
@@ -42,7 +42,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = readQuickOpenLastUsed();
     if (saved && Object.prototype.hasOwnProperty.call(QUICK_OPEN_APP_MAP, saved)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLastUsedApp(saved as QuickOpenAppName);
@@ -66,7 +66,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
 
   const handleOpenApp = React.useCallback(async (appName: QuickOpenAppName) => {
     // Save to local storage
-    localStorage.setItem(STORAGE_KEY, appName);
+    writeQuickOpenLastUsed(appName);
     setLastUsedApp(appName);
 
     const path = getWorktreePath();

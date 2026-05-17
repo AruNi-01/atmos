@@ -1,16 +1,14 @@
 # Web Application - AGENTS.md
 
-> **💻 Main Workspace**: Primary Next.js web application for ATMOS.
+> **💻 Main Workspace**: Next.js app — talks to **Atmos Server** over loopback (dev), same-origin (Desktop production), or **Relay WSS** (remote Computer).
 
 ---
 
 ## Build And Test
 
-- **Dev**: `just dev-web` or `bun dev`
-- **Build**: `bun build`
-- **Test**: `bun test` (if applicable)
-- **Lint**: `bun lint`
-- **Typecheck**: `bun typecheck`
+- **Dev**: `just dev-web` (API usually on `30303` via `just dev-api`)
+- **Build**: `bun build` — Desktop export uses `BUILD_TARGET=desktop` in `before-build.mjs`
+- **Test / lint / typecheck**: `bun test`, `bun lint`, `bun typecheck`
 
 ---
 
@@ -19,67 +17,81 @@
 ```
 apps/web/
 ├── src/
-│   ├── app/
-│   │   └── [locale]/
-│   │       ├── (app)/       # Main app routes
-│   │       │   ├── terminals/
-│   │       │   ├── workspace/
-│   │       │   ├── agents/
-│   │       │   ├── workspaces/
-│   │       │   ├── project/
-│   │       │   └── skills/
-│   │       ├── api/         # API routes
-│   │       └── layout.tsx
+│   ├── app/[locale]/...
+│   ├── api/                 # Next API routes (dev/bootstrap only where needed)
 │   ├── components/
-│   │   ├── layout/          # Layout components (sidebar, etc.)
-│   │   ├── workspace/       # Workspace-specific components
-│   │   ├── code-block/      # Code display components
-│   │   ├── markdown/        # Markdown rendering
-│   │   └── ui/              # Generic UI components (from @workspace/ui)
-│   ├── types/               # TypeScript definitions
-│   └── utils/               # Shared utilities
-├── public/                  # Static assets
+│   ├── hooks/
+│   │   └── use-websocket.ts # WS URL + relay mode
+│   └── lib/
+│       ├── desktop-runtime.ts      # Tauri / same-origin API discovery
+│       ├── atmos-computer-store.ts # Access token, relay client sessions (APP-016)
+│       ├── ws-url.ts
+│       └── ...
 └── package.json
 ```
 
 ---
 
+## API & transport
+
+### Resolving the Server
+
+| Runtime | Mechanism |
+|---------|-----------|
+| **Browser dev** | `NEXT_PUBLIC_API_PORT` (default `30303`) via `desktop-runtime.ts` |
+| **Tauri Desktop** | `get_api_config` invoke → `{ host, port }` — **no token** by default |
+| **Desktop prod** | Same-origin `window.location` when served from API static export |
+| **Relay mode** | Control plane `client_token` + `relay_ws_url` (Settings → Atmos Computer) |
+
+Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host guesses in features.
+
+### WebSocket-first
+
+- Interactive flows: `use-websocket.ts`, agent/session streams.
+- Extend WS protocol before adding REST (see root AGENTS.md).
+
+### REST
+
+- `src/api/rest-api.ts` — bootstrap, uploads, canvas invoke paths that are already REST.
+- Optional `Authorization` only when `cfg.token` is set (Tauri legacy / explicit env).
+
+---
+
+## APP-016 (Atmos Computer) UI
+
+- **Settings** → `AtmosComputerSection.tsx`, `atmos-access-token.ts`
+- User-created **Access Token** (Bearer) for control plane — not a shared CP key.
+- Register token flow for remote computers: copy CLI / env `ATMOS_REGISTER_TOKEN`.
+
+Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer/)
+
+---
+
 ## Coding Conventions
 
-### API Client & Types
-- All API interaction logic lives in `src/api/`
-- Use `src/types/api.ts` to define backend response shapes — these should strictly match Rust DTOs in `apps/api/src/api/dto.rs`
-- Use centralized `client.ts` for all network requests to ensure consistent error handling
-
-### Component Organization
-- Generic UI components — consume from `@workspace/ui`
-- Business-specific components (`ProjectList`, `WorkspaceTerminal`) — live in `src/components/`
-- Loading icons — use `RotateCw` for static refresh/action icons; use `LoaderCircle` with `animate-spin` only for actively loading/spinning states.
-
-### State Management
-- Prefer server components and `fetch` for data fetching
-- Use `hooks/` for client-side state logic
-
-### Theme Adaptation (Light/Dark)
-- **Semantic Colors**: ALWAYS use semantic CSS variables (`bg-background`, `text-muted-foreground`, `border-border`) instead of hardcoded colors (`bg-zinc-900`, `text-white`)
-- **Standard Variables**:
-  - Backgrounds: `bg-background`, `bg-sidebar`, `bg-muted`, `bg-accent`
-  - Text: `text-foreground`, `text-muted-foreground`, `text-sidebar-foreground`
-  - Borders: `border-border`, `border-sidebar-border`
-- **Testing**: Verify all UI changes in **both** Light and Dark modes
-- **Components**: For active/inactive states, use patterns that work in both modes (e.g., `data-[state=active]:bg-sidebar-accent`)
+- API types ↔ `apps/api/src/api/dto.rs`
+- UI atoms from `@workspace/ui`; semantic theme tokens (`bg-background`, etc.)
+- Dialog-specific rules: [src/components/dialogs/AGENTS.md](src/components/dialogs/AGENTS.md)
 
 ---
 
 ## Safety Rails
 
 ### NEVER
-- Use `fetch()` or `axios()` directly inside feature components — use the `src/api/` layer
-- Use hardcoded Tailwind colors like `bg-zinc-900` or `text-gray-500` for layout components
-- Commit UI changes without testing in both Light and Dark modes
+
+- `fetch()` inside feature components — use `src/api/` or shared clients.
+- Hardcode `ATMOS_LOCAL_TOKEN` in web bundle for default dev.
+- Add REST duplicates for WS-first features.
 
 ### ALWAYS
-- Keep API types in sync with backend DTOs
-- Check your UI changes in Light Mode before committing
-- Use semantic CSS variables for theming
 
+- Test light/dark for UI changes.
+- Keep Desktop and browser dev paths working through `desktop-runtime.ts`.
+
+---
+
+## Related
+
+- [apps/desktop/AGENTS.md](../desktop/AGENTS.md)
+- [apps/api/AGENTS.md](../api/AGENTS.md)
+- [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md)

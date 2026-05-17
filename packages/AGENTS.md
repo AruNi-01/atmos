@@ -1,42 +1,52 @@
 # Packages Directory - AGENTS.md
 
-> **📦 Shared Capabilities**: Common UI, logic, and configurations.
+> **📦 Shared JS/TS** (and edge Workers): UI, i18n, config — plus **Relay** for Atmos Computer.
 
 ---
 
-## 📁 Shared Packages
+## 📁 Shared packages
 
-| Package | Purpose | Namespace |
-|---------|---------|-----------|
-| **ui** | Component Library | `@workspace/ui` |
-| **shared** | Utils & Hooks | `@atmos/shared` |
-| **config** | TS/Lint configs | `@workspace/config` |
-| **i18n** | Translations | `@workspace/i18n` |
+| Package | Purpose | Namespace | AGENTS |
+|---------|---------|-----------|--------|
+| **ui** | Component library | `@workspace/ui` | [ui/AGENTS.md](ui/AGENTS.md) |
+| **shared** | Utils & hooks | `@atmos/shared` | [shared/AGENTS.md](shared/AGENTS.md) |
+| **config** | TS/Lint configs | `@workspace/config` | [config/AGENTS.md](config/AGENTS.md) |
+| **i18n** | Translations | `@workspace/i18n` | [i18n/AGENTS.md](i18n/AGENTS.md) |
+| **relay** | Control plane + Relay Worker (APP-016) | `@atmos/relay` (private) | [relay/AGENTS.md](relay/AGENTS.md) |
 
 ---
 
 ## Build And Test
 
-- **Install**: `bun install` (from root)
-- **Typecheck**: `bun run --filter <package> typecheck`
-- **UI Dev**: `bun run --filter ui typecheck` + `ui:add` for adding components
+```bash
+bun install
+bun run --filter <package> test    # where defined
+cd packages/relay && bunx wrangler dev
+```
+
+---
+
+## API clients live in apps
+
+`@workspace/ui` and other packages stay **free of `apps/api` clients**. Each app owns `src/api/` (e.g. `apps/web/src/api/`). Types should track `apps/api` DTOs.
 
 ---
 
 ## Safety Rails
 
 ### NEVER
-- Add API calls to `@workspace/ui` — must remain pure UI
-- Put API clients in packages — they live in individual apps (e.g., `apps/web/src/api/`)
-- Create circular dependencies between packages
+
+- API calls in `@workspace/ui`.
+- Business rules in `packages/relay` beyond routing/auth/presence.
 
 ### ALWAYS
-- Depend on packages via `workspace:*` protocol
-- Keep packages focused on their specific purpose
+
+- `workspace:*` for monorepo deps.
+- Deploy relay only after D1 migrations ([relay/README.md](relay/README.md)).
 
 ---
 
-## Architecture Note
+## Related
 
-**Decentralized API Clients**: API clients and type definitions are co-located within individual applications. This allows apps to evolve their data requirements independently while maintaining a clear link to backend DTOs.
-
+- [relay/AGENTS.md](relay/AGENTS.md)
+- [../apps/web/AGENTS.md](../apps/web/AGENTS.md)

@@ -26,7 +26,7 @@ import {
 } from "@/components/diff/review/utils";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 
-const REVIEW_FILE_VIEW_MODE_STORAGE_KEY = "atmos:right-sidebar:review-file-view-mode";
+import { useSidebarUiPrefs } from "@/hooks/use-ui-pref-hooks";
 
 const ReviewView: React.FC = () => {
   const { effectiveContextId } = useContextParams();
@@ -91,21 +91,16 @@ const ReviewView: React.FC = () => {
   }, [comments]);
 
   const [filesOpen, setFilesOpen] = useState(true);
-  const [fileViewMode, setFileViewMode] = useState<"list" | "tree">(() => {
-    if (typeof window === "undefined") return "list";
-    const stored = window.localStorage.getItem(REVIEW_FILE_VIEW_MODE_STORAGE_KEY);
-    return stored === "tree" ? "tree" : "list";
-  });
+  const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
+  const fileViewMode = sidebarUi.reviewFileViewMode;
+  const setFileViewMode = (mode: "list" | "tree") =>
+    setSidebarUi({ reviewFileViewMode: mode });
   const [commentsOpen, setCommentsOpen] = useState(true);
   const [commentGroupsOpen, setCommentGroupsOpen] = useState<Record<string, boolean>>({});
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const summaryRunGuid = latestSummaryRun?.guid ?? null;
   const hasLoadedSummary = artifactPreview?.kind === "summary" && artifactPreview?.runGuid === summaryRunGuid;
-
-  useEffect(() => {
-    window.localStorage.setItem(REVIEW_FILE_VIEW_MODE_STORAGE_KEY, fileViewMode);
-  }, [fileViewMode]);
 
   useEffect(() => {
     if (summaryRunGuid && !hasLoadedSummary && !artifactLoading) {
@@ -180,7 +175,7 @@ const ReviewView: React.FC = () => {
           title={fileViewMode === "tree" ? "Show as list" : "Show as tree"}
           aria-label={fileViewMode === "tree" ? "Show review files as list" : "Show review files as tree"}
           onClick={() =>
-            setFileViewMode((mode) => (mode === "tree" ? "list" : "tree"))
+            setFileViewMode(fileViewMode === "tree" ? "list" : "tree")
           }
           className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
         >

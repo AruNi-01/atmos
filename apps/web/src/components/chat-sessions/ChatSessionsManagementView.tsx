@@ -23,6 +23,7 @@ import { useQueryState } from "nuqs";
 import { chatSessionsParams } from "@/lib/nuqs/searchParams";
 import { agentChatParams } from "@/lib/nuqs/searchParams";
 import { formatLocalDateTime, formatRelativeTime, parseUTCDate } from '@atmos/shared';
+import { writeAgentLastSession } from '@/hooks/use-ui-pref-hooks';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -265,15 +266,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
         ? `project:${session.context_guid}:${session.mode}`
         : `temp:${session.mode}`;
     
-    // Save to localStorage so AgentChatPanel can resume this session
-    const map = (() => {
-      try {
-        const raw = localStorage.getItem('atmos.agent.last_session_by_context');
-        return raw ? JSON.parse(raw) : {};
-      } catch { return {}; }
-    })();
-    map[contextKey] = session.guid;
-    localStorage.setItem('atmos.agent.last_session_by_context', JSON.stringify(map));
+    writeAgentLastSession(contextKey, session.guid);
     
     // Set chat=true in URL to open the panel
     const currentParams = new URLSearchParams(window.location.search);

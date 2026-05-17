@@ -97,7 +97,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     tracing::info!("WebSocket connection closed: {}", conn_id);
 }
 
-async fn push_latest_messages(
+pub(crate) async fn push_latest_messages(
     message_push_service: Arc<core_service::MessagePushService>,
     mut updates: watch::Receiver<u64>,
     conn_id: String,

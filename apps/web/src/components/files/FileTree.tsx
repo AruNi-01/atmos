@@ -46,7 +46,7 @@ import {
   type QuickOpenAppName,
 } from '@/components/layout/quick-open-apps';
 
-const QUICK_OPEN_STORAGE_KEY = 'atmos_quick_open_last_used';
+import { readQuickOpenLastUsed } from '@/hooks/use-ui-pref-hooks';
 
 interface FileTreeItem {
   id: string;
@@ -882,7 +882,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               <DropdownMenuItem
                 onClick={async () => {
                   try {
-                    const saved = localStorage.getItem(QUICK_OPEN_STORAGE_KEY);
+                    const saved = readQuickOpenLastUsed();
                     const appName =
                       saved && Object.prototype.hasOwnProperty.call(QUICK_OPEN_APP_MAP, saved)
                         ? (saved as QuickOpenAppName)

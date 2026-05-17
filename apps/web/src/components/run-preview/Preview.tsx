@@ -45,6 +45,7 @@ import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useSidebarLayout } from "@/components/layout/SidebarLayoutContext";
 import { invokeDesktopPreviewBridge } from "@/lib/desktop-preview-bridge";
 import { isTauriRuntime } from "@/lib/desktop-runtime";
+import { readExtVersionCheckTs, writeExtVersionCheckTs } from "@/hooks/use-ui-pref-hooks";
 import { previewToolbarParams, type PreviewViewMode } from "@/lib/nuqs/searchParams";
 import { SelectionPopover } from "@/components/selection/SelectionPopover";
 import { formatPreviewSelectionForAI, type SelectionInfo } from "@/lib/format-selection-for-ai";
@@ -1690,10 +1691,10 @@ export const Preview: React.FC<PreviewProps> = ({
     if (!installedVersion) return;
 
     try {
-      const lastCheck = Number(localStorage.getItem('atmos-ext-version-check-ts') || '0');
+      const lastCheck = readExtVersionCheckTs();
       if (Date.now() - lastCheck < 86_400_000) return;
 
-      localStorage.setItem('atmos-ext-version-check-ts', String(Date.now()));
+      writeExtVersionCheckTs(Date.now());
       const latestVersion = await fetchExtensionVersion();
       setExtensionUpdateAvailable(latestVersion !== installedVersion);
     } catch {

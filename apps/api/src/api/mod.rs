@@ -3,6 +3,7 @@ pub mod canvas;
 pub mod dto;
 pub mod hooks;
 pub mod project;
+pub mod review;
 pub mod system;
 pub mod test;
 pub mod token_usage;
@@ -18,6 +19,7 @@ pub fn routes() -> Router<AppState> {
         .nest("/api/test", test::routes())
         .nest("/api/project", project::routes())
         .nest("/api/canvas", canvas::routes())
+        .nest("/api/review", review::routes())
         .nest("/api/workspace", workspace::routes())
         .nest("/api/system", system::routes())
         .nest("/api/agent", agent::routes())

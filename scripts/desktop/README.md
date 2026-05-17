@@ -5,7 +5,8 @@ This directory contains local scripts for building the Atmos desktop app on deve
 ## Scripts
 
 - `build-local-macos.sh`: Main local build entry for macOS.
-- `prepare-sidecar.sh`: Builds API sidecar and copies static web output into Tauri binaries.
+- `prepare-sidecar.sh`: Builds `api` + `atmos`, copies static web output, and lays out the **unified local runtime** bundle.
+- `layout-runtime-bundle.sh`: Creates `apps/desktop/src-tauri/binaries/runtime/current/` (`bin/api`, `bin/atmos`, `web/`, `system-skills/`).
 - `before-build.mjs`: Node-based prebuild script used by Tauri `beforeBuildCommand`.
 
 ## Prerequisites
@@ -71,11 +72,18 @@ apps/desktop/src-tauri/target/release/bundle
 
 The script also creates a zip next to the `.app` bundle using `ditto`. Prefer sharing that zip or the generated `.dmg`. Do not send the raw `.app` bundle through chat tools or ad-hoc archive tools because macOS bundle metadata and signatures are easy to break in transit.
 
-Sidecar binary and static web assets are prepared under:
+Runtime bundle and legacy sidecar artifacts are prepared under:
 
 ```text
-apps/desktop/src-tauri/binaries
+apps/desktop/src-tauri/binaries/
+  runtime/current/     # unified layout consumed by Desktop + runtime-manager
+  atmos-sidecar-*      # legacy filename (optional; layout copies from target/release/api)
+  web-out/
+  system-skills/
+  atmos-cli/
 ```
+
+These paths are **gitignored** except `.gitkeep` stubs — run `prepare-sidecar.sh` after clone.
 
 ## Related commands
 
@@ -98,14 +106,8 @@ These commands already call `scripts/desktop/prepare-sidecar.sh`.
   `rustup target add aarch64-apple-darwin` or
   `rustup target add x86_64-apple-darwin`
 
-- Tauri build fails due to macOS signing/notarization  
-  For local self-use builds, run without signing setup. Distribution to others may require valid Apple signing and notarization.
+- Tauri build: `resource path binaries/runtime/current doesn't exist`  
+  Run `bash scripts/desktop/prepare-sidecar.sh` (or `layout-runtime-bundle.sh` after `cargo build --bin api --bin atmos`).
 
-- Recipients see “The app is damaged and can’t be opened”  
-  This usually means one of two things:
-  1. the app was not properly signed/notarized for distribution, or
-  2. the `.app` bundle was repackaged/modified after signing.
-  Use the generated `.dmg` or `ditto` zip, not the raw `.app`.
-
-- Recipients can open only after using Privacy & Security  
-  Ad-hoc signing helps local builds behave better, especially on Apple Silicon, but it is not a substitute for Developer ID signing + notarization. For a build that opens normally on other Macs, configure Tauri's Apple signing/notarization environment variables such as `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID`, or the App Store Connect API key variables documented by Tauri.
+- `bundled runtime layout missing` at Desktop startup  
+  Same as above — `binaries/runtime/current/bin/api` must exist before `tauri dev` / `tauri build`.

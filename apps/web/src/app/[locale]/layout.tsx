@@ -31,15 +31,15 @@ const THEME_INIT_SCRIPT = `
   try {
     let storedTheme = null;
     try {
-      storedTheme = window.localStorage.getItem("theme");
+      storedTheme = window.localStorage.getItem("atmos:v1:global:theme");
     } catch {}
 
     const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const theme = storedTheme === "light" || storedTheme === "dark"
       ? storedTheme
-      : systemDark
-        ? "dark"
-        : "light";
+      : storedTheme === "system"
+        ? (systemDark ? "dark" : "light")
+        : "dark";
 
     root.classList.remove("light", "dark");
     root.classList.add(theme);
@@ -98,9 +98,10 @@ export default async function LocaleLayout({ children, params }: Props) {
         <NuqsAdapter>
           <ThemeProvider
             attribute="class"
-            defaultTheme="system"
+            defaultTheme="dark"
             enableSystem
             disableTransitionOnChange
+            storageKey="atmos:v1:global:theme"
           >
             <ThemeReadyBridge />
             <DesktopExternalUrlBridge />

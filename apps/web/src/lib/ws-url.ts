@@ -15,9 +15,15 @@ export async function buildWsUrl(
       ? "wss:"
       : "ws:";
 
-  const base = isTauriRuntime()
-    ? `ws://${cfg.host}:${cfg.port}`
-    : `${protocol}//${cfg.host}:${cfg.port}`;
+  // Browser dev: WS must hit the API port directly (Next dev server does not proxy upgrades).
+  const base =
+    !isTauriRuntime() &&
+    typeof window !== "undefined" &&
+    process.env.NODE_ENV === "development"
+      ? `${protocol}//127.0.0.1:${cfg.port}`
+      : isTauriRuntime()
+        ? `ws://${cfg.host}:${cfg.port}`
+        : `${protocol}//${cfg.host}:${cfg.port}`;
 
   const url = new URL(path, base);
 

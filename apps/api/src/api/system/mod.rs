@@ -1,3 +1,4 @@
+mod computer;
 mod diagnostics;
 mod handlers;
 mod skills;
@@ -48,6 +49,17 @@ pub fn routes() -> Router<AppState> {
         .route("/ws-connections", get(handlers::list_ws_connections))
         .route("/file", get(handlers::serve_file))
         .route("/debug-log", post(handlers::ingest_frontend_debug_log))
+        .route(
+            "/client-session",
+            get(handlers::get_client_session).put(handlers::put_client_session),
+        )
+        .route(
+            "/computer-client-settings",
+            get(computer::get_computer_client_settings)
+                .put(computer::put_computer_client_settings),
+        )
+        .route("/computer", get(computer::get_computer_status))
+        .route("/runtime-info", get(computer::get_runtime_info))
 }
 
 /// Destructive system routes that require loopback or token authentication.
@@ -58,5 +70,21 @@ pub fn destructive_routes() -> Router<AppState> {
         .route(
             "/kill-orphaned-processes",
             post(handlers::kill_orphaned_processes),
+        )
+        .route(
+            "/computer/register",
+            post(computer::register_local_computer),
+        )
+        .route(
+            "/computer/unregister",
+            post(computer::unregister_local_computer),
+        )
+        .route(
+            "/computer/relay-sync",
+            post(computer::sync_relay_connection),
+        )
+        .route(
+            "/computer/control-plane",
+            post(computer::proxy_control_plane),
         )
 }

@@ -102,11 +102,7 @@ pub async fn invoke(
         return error_resp(
             "",
             StatusCode::BAD_REQUEST,
-            CanvasAgentInvokeError::new(
-                "VALIDATION_ARG",
-                "request_id must not be empty",
-                false,
-            ),
+            CanvasAgentInvokeError::new("VALIDATION_ARG", "request_id must not be empty", false),
         );
     }
 
@@ -114,11 +110,7 @@ pub async fn invoke(
         return error_resp(
             &request_id,
             StatusCode::BAD_REQUEST,
-            CanvasAgentInvokeError::new(
-                "VALIDATION_ARG",
-                "command must not be empty",
-                false,
-            ),
+            CanvasAgentInvokeError::new("VALIDATION_ARG", "command must not be empty", false),
         );
     }
 
@@ -299,9 +291,7 @@ pub async fn invoke(
 
 /// Out-of-band status endpoint. Works without a registered tab — agents call
 /// this to figure out *why* a follow-up call would fail.
-pub async fn status(
-    State(state): State<AppState>,
-) -> Json<Value> {
+pub async fn status(State(state): State<AppState>) -> Json<Value> {
     let snapshot = state.canvas_agent_relay.status();
     Json(json!({
         "ok": true,

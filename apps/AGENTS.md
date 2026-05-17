@@ -1,50 +1,75 @@
 # Applications Directory - AGENTS.md
 
-> **🚀 Application Entry Points**: User-facing applications.
+> **🚀 Application entry points**: Thin shells around `crates/*` and shared packages. One **Atmos Server** (`apps/api`) per machine; apps differ by **how they launch and connect** to it.
 
 ---
 
-## 📁 Application List
+## Architecture snapshot
 
-| App | Tech Stack | Documentation |
-|-----|------------|---------------|
-| **api** | Rust (Axum) | [api/AGENTS.md](api/AGENTS.md) |
-| **web** | Next.js 16 | [web/AGENTS.md](web/AGENTS.md) |
-| **desktop** | Tauri 2.0 | [desktop/AGENTS.md](desktop/AGENTS.md) |
-| **cli** | Rust (clap) | [cli/AGENTS.md](cli/AGENTS.md) |
-| **docs** | Next.js + Fumadocs | [docs/AGENTS.md](docs/AGENTS.md) |
-| **landing** | Next.js 16 | [landing/AGENTS.md](landing/AGENTS.md) |
+```
+                    ┌─────────────────────────────────────┐
+                    │  packages/relay (control + WSS)      │
+                    └──────────────▲──────────────────────┘
+                                   │ outbound / client WSS
+┌──────────┐  ensure/connect  ┌──┴──────────┐  manifest/WS
+│ desktop  │ ────────────────►│  apps/api   │◄──────────── web
+│ cli      │                  │ Atmos Server │
+└──────────┘                  └──────▲───────┘
+       │                             │
+       └──── runtime-manager ────────┘
+```
 
 ---
 
-## 🛠 Standard Flow for New Apps
+## 📁 Application list
 
-1. **Init**: Create Next.js project
-2. **Link UI**: Add `@workspace/ui` to dependencies
-3. **Config**: Map paths in `tsconfig.json`
+| App | Role | AGENTS.md |
+|-----|------|-----------|
+| **api** | Atmos Server (HTTP/WS, relay ingest, manifest) | [api/AGENTS.md](api/AGENTS.md) |
+| **web** | Next.js UI (loopback / relay) | [web/AGENTS.md](web/AGENTS.md) |
+| **desktop** | Tauri shell; `runtime-manager` ensure shared API | [desktop/AGENTS.md](desktop/AGENTS.md) |
+| **cli** | `atmos runtime`, `computer`, `canvas`, … | [cli/AGENTS.md](cli/AGENTS.md) |
+| **docs** | Fumadocs site | [docs/AGENTS.md](docs/AGENTS.md) |
+| **landing** | Marketing | [landing/AGENTS.md](landing/AGENTS.md) |
+
+---
+
+## Typical dev flows
+
+```bash
+bun install
+
+# Web + API (two terminals or just dev-web + dev-api)
+just dev-api          # loopback API + runtime_manifest.json
+just dev-web          # localhost:3030 → API :30303
+
+# Desktop (prepares binaries/runtime/current first)
+just dev-desktop
+
+# CLI
+just dev-cli
+atmos runtime ensure
+atmos computer status
+```
 
 ---
 
 ## Safety Rails
 
 ### NEVER
-- Put business logic in apps — Backend logic goes in `crates/core-service`, frontend shared logic in `packages/shared`
+
+- Put business logic in apps — use `crates/core-service` (backend) or `packages/shared` (shared TS).
+- Run a second ad-hoc API stack for Desktop only — use unified runtime.
 
 ### ALWAYS
-- Consume dependencies via `workspace:*` protocol
-- Keep apps thin — they are consumers, not libraries
+
+- `workspace:*` for internal packages.
+- Read the app-specific `AGENTS.md` before editing that app.
 
 ---
 
-## Commands
+## Related
 
-```bash
-bun install             # Install all app dependencies
-just dev-web            # Start web app
-just dev-api            # Start API server
-just dev-desktop        # Start desktop app
-just dev-landing        # Start landing page
-just dev-docs           # Start docs site
-just test               # Run all tests
-just lint               # Run all linters
-```
+- Root: [../AGENTS.md](../AGENTS.md)
+- [../crates/runtime-manager/AGENTS.md](../crates/runtime-manager/AGENTS.md)
+- [../packages/relay/AGENTS.md](../packages/relay/AGENTS.md)

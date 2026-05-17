@@ -11,6 +11,8 @@ import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialo
 import { wsScriptApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import type { TerminalRef } from "@/components/terminal/Terminal";
+import { getActiveInstanceId } from '@/hooks/use-connection-store';
+import { useUiPrefStore } from '@/hooks/use-ui-pref-store';
 
 type RunTerminalTab = {
   id: string;
@@ -18,7 +20,6 @@ type RunTerminalTab = {
 };
 
 const RUN_TAB_ID = "1";
-const RUN_TERMINAL_STORAGE_PREFIX = "atmos:run-terminal-tabs:";
 const DEFAULT_RUN_TABS: RunTerminalTab[] = [{ id: RUN_TAB_ID, name: "Run" }];
 
 function createSessionNonce(): string {
@@ -26,10 +27,6 @@ function createSessionNonce(): string {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function getRunTerminalStorageKey(contextId: string): string {
-  return `${RUN_TERMINAL_STORAGE_PREFIX}${contextId}`;
 }
 
 function getRunTerminalWindowName(tabId: string): string {
@@ -56,27 +53,28 @@ function normalizeStoredTabs(value: unknown): RunTerminalTab[] {
 
 function loadStoredTabs(contextId: string): RunTerminalTab[] {
   if (typeof window === "undefined") return DEFAULT_RUN_TABS;
-
-  try {
-    const raw = window.localStorage.getItem(getRunTerminalStorageKey(contextId));
-    if (!raw) return DEFAULT_RUN_TABS;
-    return normalizeStoredTabs(JSON.parse(raw));
-  } catch {
-    return DEFAULT_RUN_TABS;
-  }
+  const instanceId = getActiveInstanceId();
+  const all = useUiPrefStore.getState().readSlice(instanceId, 'runPreview', {
+    byContext: {} as Record<string, RunTerminalTab[]>,
+  });
+  return normalizeStoredTabs(all.byContext[contextId]);
 }
 
 function saveStoredTabs(contextId: string, tabs: RunTerminalTab[]) {
   if (typeof window === "undefined") return;
-
-  try {
-    window.localStorage.setItem(
-      getRunTerminalStorageKey(contextId),
-      JSON.stringify(normalizeStoredTabs(tabs)),
-    );
-  } catch {
-    // localStorage may be unavailable in restricted browser modes.
-  }
+  const instanceId = getActiveInstanceId();
+  const normalized = normalizeStoredTabs(tabs);
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'runPreview',
+    prev => ({
+      byContext: {
+        ...(prev as { byContext: Record<string, RunTerminalTab[]> }).byContext,
+        [contextId]: normalized,
+      },
+    }),
+    { byContext: {} },
+  );
 }
 
 interface RunScriptProps {

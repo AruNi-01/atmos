@@ -20,15 +20,15 @@
 
 | 角色 | 场景 |
 |------|------|
-| **日常开发者** | 本地启动 **Atmos Computer**（本机 **Atmos Server**）；Desktop/Web 默认选中「本机 **Computer**」；CLI **与 UI 共用当前所选 Computer 的 API 基址**（选中本机时常可用 `boot_data` 零配置，见 TECH §8），而非与 UI 脱钩的「永远连 127.0.0.1」。 |
+| **日常开发者** | 本地启动 **Atmos Computer**（本机 **Atmos Server**）；Desktop/Web 默认选中「本机 **Computer**」；CLI **与 UI 共用当前所选 Computer 的 API 基址**（选中本机时常可用 `runtime_manifest` 零配置，见 TECH §8），而非与 UI 脱钩的「永远连 127.0.0.1」。 |
 | **多环境用户** | 笔记本上开 Web，选择「云端 **Computer** / VPS #3」；在该环境的终端里跑 agent；Canvas 与终端状态均来自该 **Computer**。 |
 | **团队（后续）** | 共享某台团队 **Computer** 的访问权限；审计谁在何时连到哪台 **Computer**（分期）。 |
 
 ## 3. 用户故事（Must 优先）
 
 1. 作为用户，我希望在 **Desktop/Web 中看到我已添加的 Atmos Computer 列表**，并能 **切换当前 Computer**，以便明确「我现在操作的是哪台机器」。
-2. 作为用户，我希望通过 **简短配对流程**（如配对码）把一台新的 **Computer** 加入我的账号，而无需手动抄写长 token 与 URL 组合。
-3. 作为用户，我希望 **`atmos` CLI 默认使用与 Web/Desktop 相同的「当前所选 Atmos Computer」的 `apps/api` 基址**（含 `canvas`、`review` 等 HTTP 能力），**无需**依赖手抄 `ATMOS_API_URL` 才能与 UI 对齐；当我选中本机 **Computer** 时可用本机发现（如 `boot_data`）自动落到 loopback，当我选中云端 **Computer** 时 CLI 也应对准该 **Computer**（经 Relay gateway 等，分期见 TECH），避免「UI 看 A、终端改 B」。
+2. 作为用户，我希望通过 **一次性注册命令**（Web 生成高熵 `register_token`，在 VPS 上执行即可）把一台新的 **Computer** 加入列表，而无需在 Server 上配置控制面主密钥或公网 IP。
+3. 作为用户，我希望 **`atmos` CLI 默认使用与 Web/Desktop 相同的「当前所选 Atmos Computer」的 `apps/api` 基址**（含 `canvas`、`review` 等 HTTP 能力），**无需**依赖手抄 `ATMOS_API_URL` 才能与 UI 对齐；当我选中本机 **Computer** 时可用本机发现（如 `runtime_manifest`）自动落到 loopback，当我选中云端 **Computer** 时 CLI 也应对准该 **Computer**（经 Relay gateway 等，分期见 TECH），避免「UI 看 A、终端改 B」。
 4. 作为用户，我希望在 **网络闪断后** 客户端能 **自动恢复** 与当前 **Computer** 的会话，并 **尽量不丢失** 进行中的操作上下文（依赖 Relay 的 replay 能力，分期目标需可验收）。
 5. 作为用户，我希望 **Relay 不知道我的业务消息明文语义**（至少 M1 以「不解析业务 body」为产品承诺），以降低对云端的信任假设（技术约束见 TECH）。
 6. 作为用户，我希望 **`atmos review` 仅通过当前所选 Atmos Computer 上的 `apps/api` 执行业务读写**（与 Web/Desktop 同源），**不以 CLI 进程内直连数据库为数据平面**；**API（及 API 背后的持久化）为唯一事实来源**，避免「浏览器看一套数据、终端里 `review` 改另一套」的静默分叉。
@@ -40,12 +40,12 @@
 | ID | 需求 |
 |----|------|
 | **M1-1** | 定义并文档化 **Atmos Computer 身份**（`server_id`）与 **客户端身份**（`client_id` / 会话 id），在用户切换 **Computer** 时，**Web / Desktop / CLI** 状态与连接目标一致；其中 **CLI 的 `apps/api` HTTP 基址**须绑定 **当前所选 Computer**，与 UI 同源（解析与降级见 TECH §8）。 |
-| **M1-2** | **控制面**：用户可创建/查看/吊销已配对 **Computer**（最小 CRUD）；配对码有过期时间。 |
+| **M1-2** | **控制面**：`register_token` 注册 Server、`GET /v1/computers` 列表、`client_sessions` 连 Relay、吊销；**无** 8 位配对码。用户持 **Access Token**（Bearer）；`tenant_id = sha256(access_token)`；用于签发 `register_token`、列 Computer、建 `client_session`、吊销（见 `TECH.md` §2.4）。`CONTROL_PLANE_KEY` 仅保留给系统/运维管理，**不**作为终端用户鉴权。 |
 | **M1-3** | **Relay 数据面**：**Computer** 上的 Atmos **Server** 进程启动后建立 **出站 WSS** 至 Relay；客户端经 Relay **订阅指定 `server_id`**；双向帧可送达。 |
 | **M1-4** | **信封路由**：Relay 仅根据信封字段路由，**不依赖**解析 Atmos 现有 WS 业务 JSON 结构（与 TECH 一致）。 |
 | **M1-5** | **Desktop / Web** 至少一端完成「**Computer** 列表 + 切换 + 经 Relay 建连」的端到端体验（另一端可为后续迭代，但需在 TECH 标明）。 |
-| **M1-6** | **安全基线**：非 loopback 路径上 **强制鉴权**（令牌或等价机制）；配对流程防重放、限时、可审计（最小实现）。 |
-| **M1-7** | **CLI Review 与 API 对齐**：`atmos review` **重构为 HTTP 客户端**（**API 基址与 `canvas` 同源**：随 **当前所选 Atmos Computer** 解析；`--api-url` / `ATMOS_API_URL` / `state.json` / 本机 `boot_data` 等优先级与适用场景以 TECH §8 为准）；**禁止**在 CLI 内嵌 `DbConnection` + `ReviewService` 直连 `~/.atmos/db` 作为 review 数据平面。**API 为唯一事实来源**：鉴权、迁移版本、审计与业务校验与 UI 同路径。 |
+| **M1-6** | **安全基线**：`register_token` / `client_token` / `server_secret` 高熵+短效；`register` 限速；Relay WS 强制鉴权。见 `TECH.md` §2.4、§3。 |
+| **M1-7** | **CLI Review 与 API 对齐**：`atmos review` **重构为 HTTP 客户端**（**API 基址与 `canvas` 同源**：随 **当前所选 Atmos Computer** 解析；`--api-url` / `ATMOS_API_URL` / `client-session.json` / 本机 `runtime_manifest` 等优先级与适用场景以 TECH §8 为准）；**禁止**在 CLI 内嵌 `DbConnection` + `ReviewService` 直连 `~/.atmos/db` 作为 review 数据平面。**API 为唯一事实来源**：鉴权、迁移版本、审计与业务校验与 UI 同路径。 |
 
 ### 4.2 Should Have（M2 及以后）
 

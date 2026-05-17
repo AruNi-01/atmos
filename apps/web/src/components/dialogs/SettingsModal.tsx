@@ -93,6 +93,7 @@ import { BotIcon } from '@workspace/ui/components/icons/bot-icon';
 import BrainCircuitIcon from '@workspace/ui/components/icons/brain-circuit-icon';
 import { BellIcon } from '@workspace/ui/components/icons/bell-icon';
 import WorldIcon from '@workspace/ui/components/icons/world-icon';
+import ComputerIcon from '@workspace/ui/components/icons/computer-icon';
 import { FolderKanbanIcon } from '@workspace/ui/components/icons/folder-kanban-icon';
 import { TagIcon } from '@workspace/ui/components/icons/tag-icon';
 import KeyboardIcon from '@workspace/ui/components/icons/keyboard-icon';
@@ -139,6 +140,7 @@ import {
   sendBrowserNotification,
   showDesktopNotification,
 } from '@/lib/notifications';
+import { AtmosComputerSection } from '@/components/dialogs/AtmosComputerSection';
 import { RemoteAccessSection } from '@/components/dialogs/RemoteAccessSection';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { LabelEditorContent } from '@/components/layout/sidebar/workspace-metadata-controls';
@@ -218,7 +220,7 @@ const SETTINGS_GROUPS = [
     id: 'system-integration',
     label: 'System & Integration',
     description: 'Integrations, remote access, and notifications',
-    items: ['integrations', 'remote-access', 'notify'] as const,
+    items: ['integrations', 'remote-access', 'atmos-computer', 'notify'] as const,
   },
   {
     id: 'workspace-projects',
@@ -289,6 +291,11 @@ const SETTINGS_SECTIONS = [
     id: 'remote-access',
     label: 'Remote Access',
     description: 'Tunnel gateway and remote browser access',
+  },
+  {
+    id: 'atmos-computer',
+    label: 'Atmos Computer',
+    description: 'Connect to your computers from anywhere',
   },
   {
     id: 'shortcuts',
@@ -3688,6 +3695,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {itemId === 'ai' && <BrainCircuitIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'notify' && <BellIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'remote-access' && <WorldIcon ref={itemIconRef} className="shrink-0" size={16} />}
+                                {itemId === 'atmos-computer' && (
+                                  <ComputerIcon ref={itemIconRef} className="shrink-0" size={16} />
+                                )}
                                 {itemId === 'shortcuts' && <KeyboardIcon ref={itemIconRef} className="shrink-0" size={16} />}
                                 {itemId === 'experiments' && (
                                   <FlaskIcon ref={itemIconRef as React.Ref<FlaskIconHandle>} className="shrink-0" size={16} />
@@ -4731,6 +4741,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                 ) : resolvedActiveSection === 'remote-access' ? (
                   <RemoteAccessSection />
+                ) : resolvedActiveSection === 'atmos-computer' ? (
+                  <AtmosComputerSection />
                 ) : resolvedActiveSection === 'shortcuts' ? (
                   <div className="space-y-8">
                     <ShortcutGroup

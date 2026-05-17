@@ -1,5 +1,7 @@
 # 问题定义
-Issue #26 需要解决的不是“桌面端能不能启动 web 服务”这一单点问题，因为当前 Tauri + sidecar 架构已经具备本地服务启动与前端静态资源服务能力；真正需要定义的是：如何把 Atmos 的本地运行实例以尽量少配置、尽量自动化、同时安全可控的方式开放给远程访问。
+> **2026-05 更新**：Desktop 已改为与 CLI 共用的 **`runtime-manager` 本机 API**（见 APP-016 §1.4），不再使用 per-launch Tauri sidecar + `ATMOS_LOCAL_TOKEN`。下文 “sidecar” 在涉及 Desktop 启动时指 **本机 `apps/api` 进程**（loopback），而非独立 sidecar 二进制。
+
+Issue #26 需要解决的不是“桌面端能不能启动 web 服务”这一单点问题，因为当前 Tauri + 统一本机 runtime 已经具备本地服务启动与前端静态资源服务能力；真正需要定义的是：如何把 Atmos 的本地运行实例以尽量少配置、尽量自动化、同时安全可控的方式开放给远程访问。
 这个能力不应被定义为“桌面端专属功能”。更准确的抽象是：浏览器是默认访问端，桌面端只是其中一种 host/control surface。也就是说，用户最终可以直接通过浏览器访问远程入口，而桌面应用负责在本机启动、管理和关闭该入口。
 ## 当前状态
 当前桌面端通过 `apps/desktop/src-tauri/src/main.rs` 拉起 API sidecar，前端通过 `get_api_config` 从原生层获取本地端口和 token，再经 HTTP/WebSocket 访问本地服务。sidecar 已支持 `/healthz` 健康检查，并可直接服务静态前端资源，因此“本地可运行的应用实例”已经成立。

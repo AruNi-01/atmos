@@ -137,7 +137,7 @@ function resolveRuntimeVersion(input) {
   return `${baseVersion}+${sha}`;
 }
 
-function buildStaticWebExport() {
+function buildStaticWebExport(runtimeVersion) {
   const webApiDir = join(rootDir, "apps/web/src/app/api");
   const backupDir = join(rootDir, "apps/web/src/app/_api_local_runtime_backup");
   const devLock = join(rootDir, "apps/web/.next/dev/lock");
@@ -155,6 +155,8 @@ function buildStaticWebExport() {
       env: {
         ...process.env,
         BUILD_TARGET: "local-web",
+        NEXT_PUBLIC_BUILD_TARGET: "local-web",
+        NEXT_PUBLIC_APP_VERSION: runtimeVersion,
         NEXT_PUBLIC_TLDRAW_LICENSE_KEY: process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ?? loadWebEnvVar("NEXT_PUBLIC_TLDRAW_LICENSE_KEY"),
         ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
       },
@@ -189,7 +191,7 @@ const cliVersion = readCliVersion();
 const binExt = targetTriple.includes("windows") ? ".exe" : "";
 
 try {
-  buildStaticWebExport();
+  buildStaticWebExport(runtimeVersion);
 } catch (error) {
   console.error(error.message ?? error);
   process.exit(error?.exitCode ?? 1);

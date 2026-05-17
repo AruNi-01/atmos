@@ -75,7 +75,6 @@ import {
   ChevronRight,
   Command,
   FolderPlus,
-  Group,
   PanelLeftClose,
   PanelLeftOpen,
   Presentation,
@@ -101,7 +100,6 @@ import {
   type FlattenedWorkspaceEntry,
 } from '@/components/layout/sidebar/workspace-grouping';
 import {
-  SIDEBAR_GROUPING_OPTIONS,
   WORKSPACE_WORKFLOW_STATUS_OPTIONS,
   getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
@@ -203,7 +201,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
     const [newWorkspace, setNewWorkspace] = useQueryState("newWorkspace", centerStageParams.newWorkspace);
     const [canvasOpen, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
-    const [, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
+    const [isKanbanExpanded, setIsKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
     const [expandedProjects, setExpandedProjects] = useState<string[]>([]);
     const [collapsedWorkspaceGroups, setCollapsedWorkspaceGroups] = useState<Record<string, boolean>>({});
     const [groupingMode, setGroupingMode] = useState<SidebarGroupingMode>('project');
@@ -2047,8 +2045,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                     </Tabs>
                 </div>
                 {(activeTab === 'projects' || filesOnRight) && (
-                    <div className="relative shrink-0 bg-transparent">
+                    <div className="relative shrink-0 border-t border-sidebar-border bg-transparent">
                         <div className="relative flex items-center justify-between gap-1 px-1.5 py-0.5">
+                            <div className="flex items-center gap-0">
+                                <button
+                                    type="button"
+                                    title="Add Project"
+                                    onClick={handleAddProject}
+                                    className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
+                                >
+                                    <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
+                                        <FolderPlus className="size-3.5" />
+                                    </span>
+                                </button>
+                            </div>
                             <div className="flex items-center gap-0">
                                 <WorkspaceKanbanFilterMenu
                                     projects={projects}
@@ -2056,60 +2066,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                                     filters={kanbanFilters}
                                     onFiltersChange={setKanbanFilters}
                                     triggerVariant="icon"
-                                    align="start"
+                                    align="end"
                                     side="top"
+                                    showGrouping={!isKanbanExpanded}
+                                    groupingMode={groupingMode}
+                                    onGroupingModeChange={setGroupingMode}
                                 />
-                                {(() => {
-                                    const currentGroupingOption = SIDEBAR_GROUPING_OPTIONS.find((option) => option.value === groupingMode)
-                                        ?? SIDEBAR_GROUPING_OPTIONS[0];
-
-                                    return (
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <button
-                                                    type="button"
-                                                    className="group inline-flex h-8 items-center gap-0.5 rounded-lg bg-transparent px-1 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-                                                >
-                                                    <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                                                        <Group className="size-3.5" />
-                                                    </span>
-                                                    <span>
-                                                        {currentGroupingOption.label}
-                                                    </span>
-                                                </button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-40">
-                                                {SIDEBAR_GROUPING_OPTIONS.map((option) => (
-                                                    <DropdownMenuItem
-                                                        key={option.value}
-                                                        className={cn(
-                                                            "cursor-pointer",
-                                                            groupingMode === option.value && "bg-accent text-accent-foreground",
-                                                        )}
-                                                        onClick={() => setGroupingMode(option.value)}
-                                                    >
-                                                        <option.icon className="size-4 text-muted-foreground" />
-                                                        <span>{option.label}</span>
-                                                    </DropdownMenuItem>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    );
-                                })()}
-                            </div>
-                            <div className="flex items-center gap-0">
-                                {(
-                                    <button
-                                        type="button"
-                                        title="Add Project"
-                                        onClick={handleAddProject}
-                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-                                    >
-                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                                            <FolderPlus className="size-3.5" />
-                                        </span>
-                                    </button>
-                                )}
                                 <WorkspaceKanbanView
                                 projects={projects}
                                 availableLabels={workspaceLabels}

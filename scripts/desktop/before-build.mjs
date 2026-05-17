@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { layoutRuntimeBundle } from "./layout-runtime-bundle.mjs";
 
 const rootDir = resolve(import.meta.dirname, "../..");
 const cliCargoToml = join(rootDir, "apps/cli/Cargo.toml");
@@ -176,3 +177,5 @@ if (existsSync(systemSkills)) {
 } else {
   console.warn(`Warning: ${systemSkills} not found, skipping bundled system skills copy`);
 }
+
+layoutRuntimeBundle(rootDir, targetTriple, binExt);

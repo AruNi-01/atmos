@@ -3,6 +3,7 @@ mod app_state;
 mod config;
 mod error;
 mod middleware;
+mod relay;
 
 use std::sync::Arc;
 
@@ -158,8 +159,20 @@ fn read_idle_session_timeout_mins() -> u64 {
         .unwrap_or(DEFAULT)
 }
 
+/// rustls 0.23+ requires an explicit process-wide provider before TLS (relay WSS, reqwest, etc.).
+fn install_rustls_crypto_provider() {
+    use rustls::crypto::CryptoProvider;
+    if CryptoProvider::get_default().is_none() {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .expect("failed to install rustls ring CryptoProvider");
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    install_rustls_crypto_provider();
+
     let cli = Cli::parse();
     dotenvy::from_filename("apps/api/.env").ok();
     dotenvy::dotenv().ok();
@@ -278,6 +291,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent_hooks_service: Arc::clone(&agent_hooks_service),
             notification_service: Arc::clone(&notification_service),
             canvas_agent_relay: Arc::clone(&canvas_agent_relay),
+            review_service: Arc::clone(&review_service),
         },
         ws_config,
         server_config.port,
@@ -311,6 +325,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Start heartbeat monitor
     let _heartbeat_task = app_state.ws_service.start_heartbeat();
     info!("WebSocket service started with heartbeat (timeout: 30s)");
+
+    if std::env::var("ATMOS_RELAY_DISABLE").unwrap_or_default() != "1" {
+        if let Err(err) = relay::try_consume_register_token().await {
+            warn!(target: "atmos_relay", error = %err, "register token consumption failed");
+        }
+
+        if let Err(err) = app_state
+            .relay_supervisor
+            .start_if_identity_on_disk(app_state.clone())
+            .await
+        {
+            warn!(
+                target: "atmos_relay",
+                error = %err,
+                "relay supervisor could not start from disk identity",
+            );
+        }
+    }
 
     let token = server_config.local_api_token.clone();
     let token_for_destructive = server_config.local_api_token.clone();
@@ -378,6 +410,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let actual_addr = listener.local_addr()?;
     info!("Server listening on http://{}", actual_addr);
     println!("ATMOS_READY port={}", actual_addr.port());
+
+    let manifest = runtime_manager::RuntimeManifest::new(
+        &server_config.host,
+        actual_addr.port(),
+        Some(std::process::id()),
+        "api",
+    );
+    match runtime_manager::write_runtime_manifest(&manifest) {
+        Ok(path) => info!(
+            target: "atmos_runtime",
+            path = %path.display(),
+            url = %manifest.api.url,
+            "wrote runtime manifest"
+        ),
+        Err(err) => warn!(
+            target: "atmos_runtime",
+            error = %err,
+            "failed to write runtime manifest"
+        ),
+    }
     spawn_non_critical_startup_tasks(
         agent_service_for_startup,
         project_service_for_startup,
@@ -398,6 +450,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Graceful shutdown: clean up all terminal sessions and PTY resources
     info!("Shutdown signal received, cleaning up terminal sessions...");
+    if let Err(err) = runtime_manager::remove_runtime_manifest() {
+        warn!(target: "atmos_runtime", error = %err, "failed to remove runtime manifest");
+    }
     terminal_service_shutdown.shutdown().await;
     info!("Server shutdown complete");
 

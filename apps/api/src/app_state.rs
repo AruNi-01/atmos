@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, CanvasAgentRelay, CanvasService,
-    MessagePushService, NotificationService, ProjectService, TerminalService, TestService,
-    WorkspaceService, WsMessageService,
+    MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
+    TestService, WorkspaceService, WsMessageService,
 };
 use infra::{WsService, WsServiceConfig};
 use token_usage::TokenUsageService;
+
+use crate::relay::RelaySupervisor;
 
 pub struct AppServices {
     pub test_service: Arc<TestService>,
@@ -22,6 +24,7 @@ pub struct AppServices {
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
+    pub review_service: Arc<ReviewService>,
 }
 
 pub struct AppState {
@@ -37,8 +40,10 @@ pub struct AppState {
     pub agent_hooks_service: Arc<AgentHooksService>,
     pub notification_service: Arc<NotificationService>,
     pub canvas_agent_relay: Arc<CanvasAgentRelay>,
+    pub review_service: Arc<ReviewService>,
     pub ws_service: Arc<WsService>,
     pub api_port: std::sync::atomic::AtomicU16,
+    pub relay_supervisor: RelaySupervisor,
 }
 
 impl Clone for AppState {
@@ -56,8 +61,10 @@ impl Clone for AppState {
             agent_hooks_service: Arc::clone(&self.agent_hooks_service),
             notification_service: Arc::clone(&self.notification_service),
             canvas_agent_relay: Arc::clone(&self.canvas_agent_relay),
+            review_service: Arc::clone(&self.review_service),
             ws_service: Arc::clone(&self.ws_service),
             api_port: std::sync::atomic::AtomicU16::new(self.api_port()),
+            relay_supervisor: self.relay_supervisor.clone(),
         }
     }
 }
@@ -84,8 +91,10 @@ impl AppState {
             agent_hooks_service: services.agent_hooks_service,
             notification_service: services.notification_service,
             canvas_agent_relay: services.canvas_agent_relay,
+            review_service: services.review_service,
             ws_service: Arc::new(ws_service),
             api_port: std::sync::atomic::AtomicU16::new(default_port),
+            relay_supervisor: RelaySupervisor::new(),
         }
     }
 

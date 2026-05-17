@@ -88,6 +88,13 @@ import type { FixedTab } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useProjectStore } from "@/hooks/use-project-store";
+import {
+  readCenterStageLastTab,
+  readCenterStageTabGroupOrder,
+  setCenterStageLastTab,
+  writeCenterStageTabGroupOrder,
+  type CenterStageUiPrefs,
+} from "@/hooks/use-ui-pref-hooks";
 import { WorkspaceSetupProgressView } from "@/components/workspace/WorkspaceSetupProgress";
 import { isWorkspaceSetupBlocking } from "@/utils/workspace-setup";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
@@ -169,8 +176,6 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
 }
 
 const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
-const LAST_ACTIVE_TAB_STORAGE_KEY = "atmos-last-active-tab-by-context";
-const TAB_GROUP_ORDER_STORAGE_KEY = "atmos-center-tab-group-order-by-context";
 type TabGroupItem = {
   id: string;
   label: string;
@@ -178,45 +183,7 @@ type TabGroupItem = {
   kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "review-diff" | "conflict";
   file?: OpenFile;
 };
-type TabGroupOrderByContext = Record<string, Record<string, string[]>>;
-
-function readTabGroupOrderStorage(): TabGroupOrderByContext {
-  if (typeof window === "undefined") return {};
-
-  try {
-    const raw = window.sessionStorage.getItem(TAB_GROUP_ORDER_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    if (!parsed || typeof parsed !== "object") return {};
-
-    return Object.fromEntries(
-      Object.entries(parsed as Record<string, unknown>).map(([contextId, groups]) => [
-        contextId,
-        groups && typeof groups === "object"
-          ? Object.fromEntries(
-              Object.entries(groups as Record<string, unknown>).map(([groupKey, savedOrder]) => [
-                groupKey,
-                Array.isArray(savedOrder)
-                  ? savedOrder.filter((item): item is string => typeof item === "string")
-                  : [],
-              ])
-            )
-          : {},
-      ])
-    ) as TabGroupOrderByContext;
-  } catch {
-    return {};
-  }
-}
-
-function writeTabGroupOrderStorage(orderByContext: TabGroupOrderByContext) {
-  if (typeof window === "undefined") return;
-
-  try {
-    window.sessionStorage.setItem(TAB_GROUP_ORDER_STORAGE_KEY, JSON.stringify(orderByContext));
-  } catch {
-    // Ignore storage quota/privacy failures; ordering still works for this render.
-  }
-}
+type TabGroupOrderByContext = CenterStageUiPrefs["tabGroupOrderByContext"];
 
 function applySavedTabGroupOrder(group: { key: string; label: string; tabs: TabGroupItem[] }, savedOrder?: string[]) {
   const normalizedSavedOrder = Array.isArray(savedOrder)
@@ -418,7 +385,7 @@ const CenterStage: React.FC = () => {
   } | null>(null);
   const [tabGroupPopoverOpen, setTabGroupPopoverOpen] = React.useState(false);
   const [tabGroupOrderByContext, setTabGroupOrderByContext] =
-    React.useState<TabGroupOrderByContext>(() => readTabGroupOrderStorage());
+    React.useState<TabGroupOrderByContext>(() => readCenterStageTabGroupOrder());
   const tabGroupDndSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -807,38 +774,24 @@ const CenterStage: React.FC = () => {
 
   React.useEffect(() => {
     if (!effectiveContextId || !activeValue) return;
-    try {
-      const raw = sessionStorage.getItem(LAST_ACTIVE_TAB_STORAGE_KEY);
-      const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
-      map[effectiveContextId] = activeValue;
-      sessionStorage.setItem(LAST_ACTIVE_TAB_STORAGE_KEY, JSON.stringify(map));
-    } catch {
-      // ignore storage errors
-    }
+    setCenterStageLastTab(effectiveContextId, activeValue);
   }, [effectiveContextId, activeValue]);
 
   React.useEffect(() => {
     if (!effectiveContextId || activeFilePath) return;
-    try {
-      const raw = sessionStorage.getItem(LAST_ACTIVE_TAB_STORAGE_KEY);
-      if (!raw) return;
-      const map = JSON.parse(raw) as Record<string, string>;
-      const last = map[effectiveContextId];
-      if (!last || last === activeValue) return;
-      if (FIXED_TABS.has(last as string)) {
-        setFixedTab(last as FixedTab);
-        return;
-      }
-      if (isTerminalCenterTabValue(last) && visibleTerminalTabs.some((tab) => tab.id === last)) {
-        setUrlParams({ tab: last, wikiPage: null });
-        return;
-      }
-      const exists = openFiles.some((f) => f.path === last);
-      if (exists) {
-        setActiveFile(last, effectiveContextId);
-      }
-    } catch {
-      // ignore storage errors
+    const last = readCenterStageLastTab(effectiveContextId);
+    if (!last || last === activeValue) return;
+    if (FIXED_TABS.has(last)) {
+      setFixedTab(last as FixedTab);
+      return;
+    }
+    if (isTerminalCenterTabValue(last) && visibleTerminalTabs.some((tab) => tab.id === last)) {
+      setUrlParams({ tab: last, wikiPage: null });
+      return;
+    }
+    const exists = openFiles.some((f) => f.path === last);
+    if (exists) {
+      setActiveFile(last, effectiveContextId);
     }
   }, [effectiveContextId, activeFilePath, activeValue, openFiles, setActiveFile, setFixedTab, setUrlParams, visibleTerminalTabs]);
 
@@ -1529,7 +1482,7 @@ const CenterStage: React.FC = () => {
           [activeGroupKey]: nextOrder,
         },
       };
-      writeTabGroupOrderStorage(next);
+      writeCenterStageTabGroupOrder(next);
       return next;
     });
   }, [effectiveContextId, orderedGroupedTabItems]);

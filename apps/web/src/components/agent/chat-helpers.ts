@@ -24,7 +24,11 @@ export type AgentActivity =
   | { busy: false }
   | { busy: true; label: string };
 
-export const DEFAULT_AGENT_STORAGE_KEY = "atmos.agent.default_registry_id";
+export {
+  readDefaultAgentRegistryId,
+  writeDefaultAgentRegistryId,
+  writeAgentLastSession,
+} from '@/hooks/use-ui-pref-hooks';
 
 export function getToolIcon(tool: string): React.ReactNode {
   switch ((tool || "").toLowerCase()) {
@@ -151,24 +155,6 @@ export function getSessionContextKey(
   if (workspaceId) return `workspace:${workspaceId}:${mode}`;
   if (projectId) return `project:${projectId}:${mode}`;
   return `temp:${mode}`;
-}
-
-export function readDefaultAgentRegistryId(): string | null {
-  try {
-    const raw = localStorage.getItem(DEFAULT_AGENT_STORAGE_KEY);
-    return raw && raw.trim() ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
-export function writeDefaultAgentRegistryId(registryId: string): void {
-  try {
-    if (!registryId) return;
-    localStorage.setItem(DEFAULT_AGENT_STORAGE_KEY, registryId);
-  } catch {
-    // Ignore storage failure
-  }
 }
 
 export function sanitizeConversationFilename(value: string): string {
