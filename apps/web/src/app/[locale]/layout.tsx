@@ -31,7 +31,7 @@ const THEME_INIT_SCRIPT = `
   try {
     let storedTheme = null;
     try {
-      storedTheme = window.localStorage.getItem("theme");
+      storedTheme = window.localStorage.getItem("atmos:v1:global:theme");
     } catch {}
 
     const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -101,6 +101,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
+            storageKey="atmos:v1:global:theme"
           >
             <ThemeReadyBridge />
             <DesktopExternalUrlBridge />

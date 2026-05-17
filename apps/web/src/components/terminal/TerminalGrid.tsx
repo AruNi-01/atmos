@@ -59,7 +59,7 @@ import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { canvasApi } from "@/api/rest-api";
 import { createCanvasSnapshot, createDefaultCanvasSession, createDefaultDocument, parseBoardDocument } from "@/components/canvas/use-canvas-board";
-import { readStoredCanvasSession } from "@/components/canvas/canvas-session-storage";
+import { readCanvasSession } from "@/hooks/use-ui-pref-hooks";
 import {
   buildCanvasTerminalPinKey,
   CANVAS_TERMINAL_PIN_STATE_EVENT,
@@ -931,7 +931,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       const result = pinCanvasTerminalShapeInSnapshot(
         createCanvasSnapshot(
           document.tldrawDocument,
-          readStoredCanvasSession(board.guid) ?? createDefaultCanvasSession(),
+          readCanvasSession(board.guid) ?? createDefaultCanvasSession(),
         ),
         createCanvasTerminalShapeProps({
           contextScope,

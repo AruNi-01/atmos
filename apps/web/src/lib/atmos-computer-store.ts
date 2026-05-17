@@ -1,51 +1,37 @@
 /**
  * APP-016 — Atmos Computer UI state.
  *
- * Access Token + control plane URL are stored in `~/.atmos/computer-client.json`
- * (via loopback API). This store keeps relay session fields and UI preferences.
+ * Access Token + control plane URL: `~/.atmos/computer-client.json` (loopback API).
+ * Local connection prefs: browser `atmos:v1:inst:local:connection`.
+ * Relay session fields: memory only.
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { LOCAL_INSTANCE_ID } from '@/lib/connection-instance';
+import {
+  readConnectionUiPrefs,
+  writeConnectionUiPrefs,
+} from '@/lib/connection-ui-prefs';
 
 export type AtmosComputerConnectionMode = 'local' | 'relay';
 
-export interface ComputerRow {
-  server_id: string;
-  display_name: string | null;
-  revoked: number;
-  created_at: number;
-  last_seen_at?: number | null;
-  online?: boolean;
-}
+export type { ComputerRow } from '@/lib/connection-ui-prefs';
+import type { ComputerRow } from '@/lib/connection-ui-prefs';
 
 interface AtmosComputerData {
   connectionMode: AtmosComputerConnectionMode;
-  /** HTTPS origin of Workers control plane, e.g. https://relay.atmos.land */
   controlPlaneUrl: string;
-  /** User-owned access token (Bearer); never sent to VPS. */
   accessToken: string;
   computers: ComputerRow[];
   selectedServerId: string | null;
-  /** Fully qualified client WebSocket URL from `client_sessions`. */
   relayWebSocketUrl: string | null;
-  /** HTTP gateway base, e.g. https://relay…/v1/computers/{id}/proxy */
   relayGatewayHttpBase: string | null;
-  /** Short-lived token for relay WS + HTTP gateway (not the user access token). */
   relayClientToken: string | null;
   registerCommandShown: string | null;
   registerTokenExpiresAt: number | null;
-  /** Friendly name for this browser's machine (pre-register + UI). */
   localComputerDisplayName: string;
-  /** Cached `server_id` from local API after register. */
   localServerId: string | null;
 }
-
-/** Fields written to localStorage — token + CP URL live on disk via loopback API. */
-type AtmosComputerPersisted = Omit<
-  AtmosComputerData,
-  'accessToken' | 'controlPlaneUrl'
->;
 
 interface AtmosComputerStore extends AtmosComputerData {
   setConnectionMode: (m: AtmosComputerConnectionMode) => void;
@@ -61,12 +47,12 @@ interface AtmosComputerStore extends AtmosComputerData {
   setLocalComputerDisplayName: (name: string) => void;
   setLocalServerId: (id: string | null) => void;
   resetRelaySession: () => void;
+  hydrateLocalConnectionPrefs: () => void;
 }
 
 const envCp =
   typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ATMOS_CP_URL ?? '' : '';
 
-/** Production relay; override via `NEXT_PUBLIC_ATMOS_CP_URL` at build time only. */
 export const DEFAULT_CONTROL_PLANE_URL = 'https://relay.atmos.land';
 
 export function resolveControlPlaneUrl(raw?: string | null): string {
@@ -80,86 +66,119 @@ export function resolveControlPlaneUrl(raw?: string | null): string {
   return DEFAULT_CONTROL_PLANE_URL;
 }
 
-export const useAtmosComputerStore = create(
-  persist<AtmosComputerStore, [], [], AtmosComputerPersisted>(
-    set => ({
-      connectionMode: 'local',
-      controlPlaneUrl: envCp || DEFAULT_CONTROL_PLANE_URL,
-      accessToken: '',
+function loadLocalConnectionPrefs(): Pick<
+  AtmosComputerData,
+  'computers' | 'selectedServerId' | 'localComputerDisplayName' | 'localServerId'
+> {
+  if (typeof window === 'undefined') {
+    return {
       computers: [],
       selectedServerId: null,
+      localComputerDisplayName: '',
+      localServerId: null,
+    };
+  }
+  const p = readConnectionUiPrefs(LOCAL_INSTANCE_ID);
+  return {
+    computers: p.computersCache,
+    selectedServerId: p.selectedServerId,
+    localComputerDisplayName: p.localComputerDisplayName,
+    localServerId: p.localServerId,
+  };
+}
+
+function persistLocalConnectionPrefs(
+  patch: Partial<{
+    computers: ComputerRow[];
+    selectedServerId: string | null;
+    localComputerDisplayName: string;
+    localServerId: string | null;
+  }>,
+): void {
+  const current = readConnectionUiPrefs(LOCAL_INSTANCE_ID);
+  writeConnectionUiPrefs(
+    {
+      computersCache: patch.computers ?? current.computersCache,
+      selectedServerId:
+        patch.selectedServerId !== undefined
+          ? patch.selectedServerId
+          : current.selectedServerId,
+      localComputerDisplayName:
+        patch.localComputerDisplayName ?? current.localComputerDisplayName,
+      localServerId:
+        patch.localServerId !== undefined ? patch.localServerId : current.localServerId,
+    },
+    LOCAL_INSTANCE_ID,
+  );
+}
+
+const localPrefs = loadLocalConnectionPrefs();
+
+export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
+  connectionMode: 'local',
+  controlPlaneUrl: envCp || DEFAULT_CONTROL_PLANE_URL,
+  accessToken: '',
+  computers: localPrefs.computers,
+  selectedServerId: localPrefs.selectedServerId,
+  relayWebSocketUrl: null,
+  relayGatewayHttpBase: null,
+  relayClientToken: null,
+  registerCommandShown: null,
+  registerTokenExpiresAt: null,
+  localComputerDisplayName: localPrefs.localComputerDisplayName,
+  localServerId: localPrefs.localServerId,
+
+  hydrateLocalConnectionPrefs: () => {
+    const p = loadLocalConnectionPrefs();
+    set({
+      computers: p.computers,
+      selectedServerId: p.selectedServerId,
+      localComputerDisplayName: p.localComputerDisplayName,
+      localServerId: p.localServerId,
+    });
+  },
+
+  setConnectionMode: connectionMode => set({ connectionMode }),
+  setControlPlaneUrl: controlPlaneUrl => set({ controlPlaneUrl }),
+  setAccessToken: accessToken => set({ accessToken }),
+
+  setComputers: computers => {
+    set({ computers });
+    persistLocalConnectionPrefs({ computers });
+  },
+
+  setSelectedServerId: selectedServerId => {
+    set({ selectedServerId });
+    persistLocalConnectionPrefs({ selectedServerId });
+  },
+
+  setRelayWebSocketUrl: relayWebSocketUrl => set({ relayWebSocketUrl }),
+  setRelayGatewayHttpBase: relayGatewayHttpBase => set({ relayGatewayHttpBase }),
+  setRelayClientToken: relayClientToken => set({ relayClientToken }),
+  setRegisterCommandShown: registerCommandShown => set({ registerCommandShown }),
+  setRegisterTokenExpiresAt: registerTokenExpiresAt => set({ registerTokenExpiresAt }),
+
+  setLocalComputerDisplayName: localComputerDisplayName => {
+    set({ localComputerDisplayName });
+    persistLocalConnectionPrefs({ localComputerDisplayName });
+  },
+
+  setLocalServerId: localServerId => {
+    set({ localServerId });
+    persistLocalConnectionPrefs({ localServerId });
+  },
+
+  resetRelaySession: () => {
+    set({
       relayWebSocketUrl: null,
       relayGatewayHttpBase: null,
       relayClientToken: null,
       registerCommandShown: null,
       registerTokenExpiresAt: null,
-      localComputerDisplayName: '',
-      localServerId: null,
-
-      setConnectionMode: connectionMode => set({ connectionMode }),
-      setControlPlaneUrl: controlPlaneUrl => set({ controlPlaneUrl }),
-      setAccessToken: accessToken => set({ accessToken }),
-      setComputers: computers => set({ computers }),
-      setSelectedServerId: selectedServerId => set({ selectedServerId }),
-      setRelayWebSocketUrl: relayWebSocketUrl => set({ relayWebSocketUrl }),
-      setRelayGatewayHttpBase: relayGatewayHttpBase => set({ relayGatewayHttpBase }),
-      setRelayClientToken: relayClientToken => set({ relayClientToken }),
-      setRegisterCommandShown: registerCommandShown => set({ registerCommandShown }),
-      setRegisterTokenExpiresAt: registerTokenExpiresAt =>
-        set({ registerTokenExpiresAt }),
-      setLocalComputerDisplayName: localComputerDisplayName =>
-        set({ localComputerDisplayName }),
-      setLocalServerId: localServerId => set({ localServerId }),
-
-      resetRelaySession: () =>
-        set({
-          relayWebSocketUrl: null,
-          relayGatewayHttpBase: null,
-          relayClientToken: null,
-          registerCommandShown: null,
-          registerTokenExpiresAt: null,
-          selectedServerId: null,
-        }),
-    }),
-    {
-      name: 'atmos-computer',
-      version: 6,
-      partialize: (state): AtmosComputerPersisted => ({
-        connectionMode: state.connectionMode,
-        computers: state.computers,
-        selectedServerId: state.selectedServerId,
-        relayWebSocketUrl: state.relayWebSocketUrl,
-        relayGatewayHttpBase: state.relayGatewayHttpBase,
-        relayClientToken: state.relayClientToken,
-        registerCommandShown: state.registerCommandShown,
-        registerTokenExpiresAt: state.registerTokenExpiresAt,
-        localComputerDisplayName: state.localComputerDisplayName,
-        localServerId: state.localServerId,
-      }),
-      migrate: (persisted, version) => {
-        const state = { ...(persisted as object) } as Record<string, unknown>;
-        if (version < 2) {
-          delete state.pairingCodeShown;
-        }
-        if (version < 3) {
-          if (typeof state.bearerSecret === 'string' && !state.accessToken) {
-            state.accessToken = state.bearerSecret;
-          }
-          delete state.bearerSecret;
-        }
-        if (version < 4) {
-          state.relayGatewayHttpBase = null;
-          state.relayClientToken = null;
-        }
-        if (version < 5) {
-          state.localComputerDisplayName = '';
-          state.localServerId = null;
-        }
-        return state as unknown as AtmosComputerPersisted;
-      },
-    },
-  ),
-);
+    });
+    get().setSelectedServerId(null);
+  },
+}));
 
 export function normalizedControlPlaneOrigin(raw: string): string {
   const t = raw.trim().replace(/\/+$/, '');

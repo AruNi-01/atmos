@@ -70,7 +70,7 @@ import { useWebSocketStore } from "@/hooks/use-websocket";
 const STALE_MS = 3 * 60 * 1000;
 const ALL_PROVIDER_ID = "all";
 const ALL_PROVIDER_SWITCH_ID = "__all_providers_switch__";
-const PROVIDER_ORDER_STORAGE_KEY = "usage-popover-provider-order";
+import { useUsageProviderOrder } from "@/hooks/use-ui-pref-hooks";
 const AUTO_REFRESH_OPTIONS = [
   { value: "1", label: "1min", shortLabel: "1m" },
   { value: "5", label: "5min", shortLabel: "5m" },
@@ -1260,7 +1260,7 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     canScrollLeft: false,
     canScrollRight: false,
   });
-  const [providerOrder, setProviderOrder] = useState<string[]>([]);
+  const [providerOrder, setProviderOrder] = useUsageProviderOrder();
   const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -1432,20 +1432,6 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(PROVIDER_ORDER_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
-        setProviderOrder(parsed);
-      }
-    } catch {
-      // ignore invalid persisted data
-    }
-  }, []);
-
-  useEffect(() => {
     const ids = (overview?.providers ?? []).map((provider) => provider.id);
     if (ids.length === 0) return;
 
@@ -1459,12 +1445,6 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
       return next;
     });
   }, [overview?.providers]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (providerOrder.length === 0) return;
-    window.localStorage.setItem(PROVIDER_ORDER_STORAGE_KEY, JSON.stringify(providerOrder));
-  }, [providerOrder]);
 
   const handleProviderSwitchDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;

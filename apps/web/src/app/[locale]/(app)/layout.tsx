@@ -12,7 +12,7 @@ import { DocumentTitle } from "@/components/layout/DocumentTitle";
 import { SidebarLayoutProvider } from "@/components/layout/SidebarLayoutContext";
 import { WorkspaceCreationOverlay } from "@/components/layout/WorkspaceCreationOverlay";
 import { CanvasOverlay } from "@/components/canvas/CanvasOverlay";
-import { AtmosComputerSettingsHydrator } from "@/components/AtmosComputerSettingsHydrator";
+import { ConnectionBootstrapper } from "@/components/ConnectionBootstrapper";
 
 type Props = {
   children: React.ReactNode;
@@ -47,7 +47,7 @@ export default async function AppLayout({ children, params }: Props) {
         }
       >
         <SidebarLayoutProvider>
-          <AtmosComputerSettingsHydrator />
+          <ConnectionBootstrapper />
           <Header />
 
           <PanelLayout

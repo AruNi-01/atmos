@@ -66,6 +66,7 @@ import { TaskListPanel } from '@/components/workspace/TaskListPanel';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { UsagePopover } from '@/components/layout/UsagePopover';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
+import { writeQuickOpenLastUsed } from '@/hooks/use-ui-pref-hooks';
 
 
 
@@ -648,7 +649,7 @@ export function GlobalSearch() {
           icon: icon,
           action: async () => {
             // Save to local storage to sync with QuickOpen button
-            localStorage.setItem('atmos_quick_open_last_used', appName);
+            writeQuickOpenLastUsed(appName);
 
             try {
               await appApi.openWith(appName, currentEffectivePath);

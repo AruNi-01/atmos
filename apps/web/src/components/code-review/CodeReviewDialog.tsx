@@ -66,29 +66,9 @@ export const CODE_REVIEW_SKILLS: CodeReviewSkill[] = [
   },
 ];
 
-const SKILL_STORAGE_KEY = "atmos.code_review.default_skill_id";
-const AGENT_STORAGE_KEY = "atmos.code_review.default_agent_id";
+import { useAgentUiPrefs, useCodeReviewDefaults } from "@/hooks/use-ui-pref-hooks";
 
 // ===== 工具函数 =====
-
-function readStoredSkillId(skillsList: CodeReviewSkill[]): CodeReviewSkillId {
-  if (typeof window === "undefined") return "fullstack-reviewer";
-  const stored = localStorage.getItem(SKILL_STORAGE_KEY);
-  if (stored && skillsList.some((s) => s.id === stored)) {
-    return stored as CodeReviewSkillId;
-  }
-  return "fullstack-reviewer";
-}
-
-function readStoredAgentId(): AgentId {
-  if (typeof window === "undefined") return "claude";
-  const stored = localStorage.getItem(AGENT_STORAGE_KEY);
-  if (stored) return stored as AgentId;
-  // Also check wiki's default agent key for consistency
-  const wikiDefault = localStorage.getItem("atmos.agent.default_registry_id");
-  if (wikiDefault) return wikiDefault as AgentId;
-  return "claude";
-}
 
 /**
  * Returns the single code review skill ID.
@@ -157,8 +137,23 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
 }) => {
   const [skillsList, setSkillsList] = useState<CodeReviewSkill[]>(CODE_REVIEW_SKILLS);
   const [loadingSkillsList, setLoadingSkillsList] = useState(false);
-  const [skillId, setSkillId] = useState<CodeReviewSkillId>(readStoredSkillId(CODE_REVIEW_SKILLS));
-  const [agentId, setAgentId] = useState<AgentId>(readStoredAgentId);
+  const [codeReviewDefaults, setCodeReviewDefaults] = useCodeReviewDefaults();
+  const [agentPrefs] = useAgentUiPrefs();
+  const resolveStoredSkillId = (skills: CodeReviewSkill[]): CodeReviewSkillId => {
+    const stored = codeReviewDefaults.defaultSkillId;
+    if (stored && skills.some(s => s.id === stored)) {
+      return stored as CodeReviewSkillId;
+    }
+    return "fullstack-reviewer";
+  };
+  const resolveStoredAgentId = (): AgentId => {
+    const stored = codeReviewDefaults.defaultAgentId ?? agentPrefs.defaultRegistryId;
+    return (stored as AgentId) || "claude";
+  };
+  const [skillId, setSkillId] = useState<CodeReviewSkillId>(() =>
+    resolveStoredSkillId(CODE_REVIEW_SKILLS),
+  );
+  const [agentId, setAgentId] = useState<AgentId>(() => resolveStoredAgentId());
   const [acpAgentId, setAcpAgentId] = useState<string>("");
   const [executionMode, setExecutionMode] = useState<"acp" | "cli">("acp");
   const [installedAcpAgents, setInstalledAcpAgents] = useState<RegistryAgent[]>([]);
@@ -242,23 +237,21 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
   // Auto-infer skill from changed files when dialog opens
   useEffect(() => {
     if (!open || changedFilePaths.length === 0) return;
-    const stored = localStorage.getItem(SKILL_STORAGE_KEY);
-    // Only auto-infer if user hasn't explicitly saved a preference
-    if (!stored) {
+    if (!codeReviewDefaults.defaultSkillId) {
       setSkillId(inferSkillFromFiles(changedFilePaths));
     }
-  }, [open, changedFilePaths]);
+  }, [open, changedFilePaths, codeReviewDefaults.defaultSkillId]);
 
   const handleSkillChange = useCallback((value: string) => {
     const id = value as CodeReviewSkillId;
     setSkillId(id);
-    localStorage.setItem(SKILL_STORAGE_KEY, id);
-  }, []);
+    setCodeReviewDefaults({ defaultSkillId: id });
+  }, [setCodeReviewDefaults]);
 
   const handleAgentChange = useCallback((value: AgentId) => {
     setAgentId(value);
-    localStorage.setItem(AGENT_STORAGE_KEY, value);
-  }, []);
+    setCodeReviewDefaults({ defaultAgentId: value });
+  }, [setCodeReviewDefaults]);
 
   const createReviewAgentRun = useCallback(
     async (mode: "copy_prompt" | "agent_chat") => {

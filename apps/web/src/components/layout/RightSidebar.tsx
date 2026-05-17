@@ -61,6 +61,7 @@ import { ReviewContextProvider } from "@/components/diff/review/ReviewContextPro
 import type { ReviewTarget } from "@/api/ws-api";
 import { ReviewActions } from "@/components/diff/review/ReviewActions";
 import { RefreshableTabsTab } from "@/components/ui/RefreshableTabsTab";
+import { useSidebarUiPrefs } from "@/hooks/use-ui-pref-hooks";
 
 const AgentChatPanel = dynamic(
   () => import("@/components/agent/AgentChatPanel").then((m) => m.AgentChatPanel),
@@ -76,9 +77,6 @@ const RunPreviewPanel = dynamic(
 const ReviewView = dynamic(() => import("@/components/diff/ReviewView"), {
   ssr: false,
 });
-
-const CHANGES_FILE_VIEW_MODE_STORAGE_KEY =
-  "atmos:right-sidebar:changes-file-view-mode";
 
 const BASE_TABS: Array<{
   value: RightSidebarTab;
@@ -189,15 +187,10 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const [changesSubTab, setChangesSubTab] = useState<"changes" | "commits">(
     "changes",
   );
-  const [changesFileViewMode, setChangesFileViewMode] = useState<
-    "list" | "tree"
-  >(() => {
-    if (typeof window === "undefined") return "list";
-    const stored = window.localStorage.getItem(
-      CHANGES_FILE_VIEW_MODE_STORAGE_KEY,
-    );
-    return stored === "tree" ? "tree" : "list";
-  });
+  const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
+  const changesFileViewMode = sidebarUi.changesFileViewMode;
+  const setChangesFileViewMode = (mode: "list" | "tree") =>
+    setSidebarUi({ changesFileViewMode: mode });
   const [prSubTab, setPRSubTab] = useState<"open" | "closed">("open");
   const [hasVisitedCommits, setHasVisitedCommits] = useState(false);
   const [refreshCommitsPanel, setRefreshCommitsPanel] = useState<
@@ -212,13 +205,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   });
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      CHANGES_FILE_VIEW_MODE_STORAGE_KEY,
-      changesFileViewMode,
-    );
-  }, [changesFileViewMode]);
 
   useEffect(() => {
     if (isSettingUp) {
@@ -416,8 +402,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                             onClick={(event) => {
                               event.preventDefault();
                               event.stopPropagation();
-                              setChangesFileViewMode((mode) =>
-                                mode === "tree" ? "list" : "tree",
+                              setChangesFileViewMode(
+                                changesFileViewMode === "tree" ? "list" : "tree",
                               );
                             }}
                             onKeyDown={(event) => {
@@ -425,8 +411,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
                                 return;
                               event.preventDefault();
                               event.stopPropagation();
-                              setChangesFileViewMode((mode) =>
-                                mode === "tree" ? "list" : "tree",
+                              setChangesFileViewMode(
+                                changesFileViewMode === "tree" ? "list" : "tree",
                               );
                             }}
                             className="flex h-full w-8 cursor-pointer items-center justify-center border-l border-sidebar-border/60 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"

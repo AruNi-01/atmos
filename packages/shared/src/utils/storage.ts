@@ -5,7 +5,7 @@ export interface AppStorage {
 }
 
 class WebStorage implements AppStorage {
-  private prefix = "vibe:";
+  private prefix = "atmos:v1:global:panel:";
 
   getItem(key: string): string | null {
     if (typeof window === "undefined") return null;

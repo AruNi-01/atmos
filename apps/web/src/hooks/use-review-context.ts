@@ -21,8 +21,8 @@ import {
   isOpenReviewCommentStatus,
   sortReviewSessions,
   sortComments,
-  REVIEW_AGENT_STORAGE_KEY,
 } from "@/components/diff/review/utils";
+import { useReviewDefaultAgentId } from "@/hooks/use-ui-pref-hooks";
 
 export type RunArtifactKind = "prompt" | "patch" | "summary";
 
@@ -38,13 +38,8 @@ interface UseReviewContextArgs {
   fileSnapshotGuid?: string | null;
 }
 
-function readStoredAgentId(): AgentId {
-  if (typeof window === "undefined") return "codex";
-  const stored = window.localStorage.getItem(REVIEW_AGENT_STORAGE_KEY);
-  return stored ? (stored as AgentId) : "codex";
-}
-
 export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseReviewContextArgs) {
+  const [storedReviewAgentId, setStoredReviewAgentId] = useReviewDefaultAgentId();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
   const setPendingAgentChatMode = useDialogStore(
@@ -67,16 +62,16 @@ export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseRevi
     parseAsString.withOptions({ history: "replace" }),
   );
   const [comments, setComments] = useState<ReviewCommentDto[]>([]);
-  const [terminalAgentId, setTerminalAgentIdState] = useState<AgentId>(readStoredAgentId);
+  const terminalAgentId = (storedReviewAgentId ?? "codex") as AgentId;
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactPreview, setArtifactPreview] = useState<ArtifactPreview | null>(null);
 
-  const setTerminalAgentId = useCallback((value: AgentId) => {
-    setTerminalAgentIdState(value);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(REVIEW_AGENT_STORAGE_KEY, value);
-    }
-  }, []);
+  const setTerminalAgentId = useCallback(
+    (value: AgentId) => {
+      setStoredReviewAgentId(value);
+    },
+    [setStoredReviewAgentId],
+  );
 
   const loadSessions = useCallback(async () => {
     if (!target) {

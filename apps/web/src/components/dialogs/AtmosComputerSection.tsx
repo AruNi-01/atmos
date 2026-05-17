@@ -115,7 +115,11 @@ export function AtmosComputerSection() {
 
   const reconnectWs = () => {
     useWebSocketStore.getState().disconnect();
-    void useWebSocketStore.getState().connect();
+    void (async () => {
+      const { onConnectionTargetChanged } = await import('@/components/ConnectionBootstrapper');
+      await onConnectionTargetChanged();
+      await useWebSocketStore.getState().connect();
+    })();
   };
 
   const refreshLocalStatus = useCallback(async () => {

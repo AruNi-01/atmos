@@ -4,47 +4,47 @@ import * as React from "react";
 import type { Editor } from "tldraw";
 
 import { canvasAgentBridgeWsApi } from "@/api/ws-api";
+import { getActiveInstanceId } from "@/hooks/use-connection-store";
+import { useUiPrefStore } from "@/hooks/use-ui-pref-store";
 import { useWebSocketStore } from "@/hooks/use-websocket";
 import { CanvasAgentBus, type CanvasAgentDispatchInput } from "./canvas-agent-bus";
 import { CanvasAgentPresenceStore } from "./canvas-agent-presence";
 
-const CLIENT_ID_STORAGE_KEY = "atmos.canvas.agent.clientId";
-const ACCEPT_STORAGE_KEY = "atmos.canvas.agent.acceptsCommands";
+const DEFAULT_CANVAS_PREFS = {
+  sessionByBoard: {} as Record<string, unknown>,
+  agentClientId: null as string | null,
+  acceptsCommands: false,
+};
+
 const DISPATCH_EVENT = "canvas_agent_dispatch";
 
 function loadOrCreateClientId(): string {
   if (typeof window === "undefined") return "ssr-client";
-  try {
-    const existing = window.localStorage.getItem(CLIENT_ID_STORAGE_KEY);
-    if (existing) return existing;
-  } catch {
-    // ignore quota / private mode errors
+  const instanceId = getActiveInstanceId();
+  const prefs = useUiPrefStore.getState().readSlice(instanceId, "canvas", DEFAULT_CANVAS_PREFS);
+  if (prefs.agentClientId) {
+    return prefs.agentClientId;
   }
   const generated =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `client-${Math.random().toString(36).slice(2, 10)}`;
-  try {
-    window.localStorage.setItem(CLIENT_ID_STORAGE_KEY, generated);
-  } catch {
-    // ignore
-  }
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    "canvas",
+    prev => ({ ...prev, agentClientId: generated }),
+    DEFAULT_CANVAS_PREFS,
+  );
   return generated;
 }
 
 function loadAcceptsCommands(): boolean {
   if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(ACCEPT_STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
+  const instanceId = getActiveInstanceId();
+  return useUiPrefStore.getState().readSlice(instanceId, "canvas", DEFAULT_CANVAS_PREFS)
+    .acceptsCommands;
 }
 
-/**
- * Bus factory pulled out of the render body so React state/refs are not read
- * during render.
- */
 function createBus(presence: CanvasAgentPresenceStore): CanvasAgentBus {
   return new CanvasAgentBus({
     onActorActivity: (actor) => {
@@ -74,7 +74,6 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     CanvasAgentBridgeState["recentCommand"]
   >(null);
 
-  // Lazy-init singletons via useState initializers (run once).
   const [presence] = React.useState(() => new CanvasAgentPresenceStore());
   const [bus] = React.useState(() => createBus(presence));
 
@@ -95,8 +94,6 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     return () => presence.stop();
   }, [presence]);
 
-  // Register / refresh / unregister bridge entry whenever the relevant inputs
-  // change. We re-send the registration after reconnects too.
   React.useEffect(() => {
     if (!isConnected) return;
     let cancelled = false;
@@ -120,9 +117,6 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     };
   }, [clientId, acceptsCommands, isConnected]);
 
-  // Track current connection state so the unmount-only cleanup below can
-  // skip the unregister call when the socket isn't open — otherwise calling
-  // `unregister` would trigger `wsRequest`'s auto-reconnect during teardown.
   const isConnectedRef = React.useRef(isConnected);
   React.useEffect(() => {
     isConnectedRef.current = isConnected;
@@ -193,11 +187,13 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
 
   const setAcceptsCommands = React.useCallback((value: boolean) => {
     setAcceptsCommandsState(value);
-    try {
-      window.localStorage.setItem(ACCEPT_STORAGE_KEY, value ? "true" : "false");
-    } catch {
-      // ignore
-    }
+    const instanceId = getActiveInstanceId();
+    useUiPrefStore.getState().patchSlice(
+      instanceId,
+      "canvas",
+      prev => ({ ...prev, acceptsCommands: value }),
+      DEFAULT_CANVAS_PREFS,
+    );
   }, []);
 
   return {
