@@ -1,24 +1,10 @@
-<h1 align="center" style="border-bottom: none; padding-bottom: 0;">ATMOS</h1>
-<p align="center" style="font-size: 1.25em; color: #666; margin-top: 8px;">Atmosphere for Agentic Builders</p>
+# ATMOS
 
-<p align="center">
-  <a href="https://github.com/AruNi-01/atmos/actions/workflows/release-desktop.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/AruNi-01/atmos/release-desktop.yml?branch=main&label=desktop%20release" alt="Desktop release workflow" />
-  </a>
-  <a href="https://github.com/AruNi-01/atmos/releases/latest">
-    <img src="https://img.shields.io/github/v/release/AruNi-01/atmos?display_name=tag&label=version" alt="Latest version" />
-  </a>
-  <a href="https://github.com/AruNi-01/atmos/stargazers">
-    <img src="https://img.shields.io/github/stars/AruNi-01/atmos?label=stars" alt="GitHub stars" />
-  </a>
-  <a href="https://github.com/AruNi-01/atmos/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/AruNi-01/atmos?label=license" alt="License" />
-  </a>
-</p>
+Atmosphere for Agentic Builders
 
-<p align="center">简体中文 | <a href="./README.md">English</a></p>
+简体中文 | [English](./README.md)
 
-![Atmos 截图](./apps/landing/src/assets/img/atmos_preview.png)
+Atmos 截图
 
 ## 功能亮点
 
@@ -33,6 +19,11 @@
 - **Agent 状态通知** — 基于钩子的状态监控，支持原生通知与自托管推送服务。
 - **跨平台与远程访问** — Web 与桌面应用，移动端（规划中），集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel）。
 - **Kanban 视图** - 在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。
+- **Canvas** — 跨项目的无限画布：把任意工作区/项目的终端会话固定为卡片，在同一张持久化画板上排布；Code Agent 可操作画布，画示意图、便签与布局，无需离开 Agent 工作流。
+- **Atmos Computer** — 将 VPS 或任意机器注册到 Atmos Register Center，随后在 Desktop、Web 中一键切换并连接，在该 Computer 上使用终端、工作区与 Canvas 等，无论设备部署在何处，都可使用你的 Atmos 运行环境。
+- **Review Workflow** — 在 Atmos 内置 Diff 界面中审查改动、在指定行留下行内评论，再交给 Code Agent 按评论修复。
+- **Agent 状态追踪** — 通过 Agent Hooks 将运行中、空闲、等待授权、完成等状态实时同步到全站 UI；状态变化时推送通知，支持系统原生提醒，以及自托管推送（ntfy、Gotify 或自定义 Webhook）。
+- **轻量级本地模型** — 一键启动 llama server，运行 Hugging Face 上的小参数模型，用于会话标题生成、工作区 TODO 抽取、Git 提交说明等轻量任务，无需为小事而配置云端 API。
 
 ## 开始使用
 

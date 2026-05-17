@@ -1,24 +1,10 @@
-<h1 align="center" style="border-bottom: none; padding-bottom: 0;">ATMOS</h1>
-<p align="center" style="font-size: 1.25em; color: #666; margin-top: 8px;">Atmosphere for Agentic Builders</p>
+# ATMOS
 
-<p align="center">
-  <a href="https://github.com/AruNi-01/atmos/actions/workflows/release-desktop.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/AruNi-01/atmos/release-desktop.yml?branch=main&label=desktop%20release" alt="Desktop release workflow" />
-  </a>
-  <a href="https://github.com/AruNi-01/atmos/releases/latest">
-    <img src="https://img.shields.io/github/v/release/AruNi-01/atmos?display_name=tag&label=version" alt="Latest version" />
-  </a>
-  <a href="https://github.com/AruNi-01/atmos/stargazers">
-    <img src="https://img.shields.io/github/stars/AruNi-01/atmos?label=stars" alt="GitHub stars" />
-  </a>
-  <a href="https://github.com/AruNi-01/atmos/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/AruNi-01/atmos?label=license" alt="License" />
-  </a>
-</p>
+Atmosphere for Agentic Builders
 
-<p align="center"><a href="./README.zh-CN.md">简体中文</a> | English</p>
+[简体中文](./README.zh-CN.md) | English
 
-![Atmos screenshot](./apps/landing/src/assets/img/atmos_preview.png)
+Atmos screenshot
 
 ## Features
 
@@ -33,6 +19,11 @@
 - **Agent Status Notifications** — Hook-based status monitoring with native notifications and self-hosted push server support.
 - **Cross-Platform & Remote Access** — Web and desktop apps, mobile app (planned), integrated tunneling (Ngrok/Tailscale/Cloudflare Tunnel).
 - **Kanban View** - Quickly manage Workspace status, priority, labels and other information in Kanban view.
+- **Canvas** — A cross-project infinite canvas: pin terminal cards from any workspace or project onto one persistent board, and let Code Agents drive the canvas diagrams, notes, and layout without leaving your agent workflow.
+- **Atmos Computer** — Register your VPS or any machine to the Atmos Register Center, then connect from Desktop, Web, and run terminals, workspaces, and Canvas on that computer—your Atmos environment, wherever the machine lives.
+- **Review Workflow** — Review changes in Atmos's built-in diff UI, leave inline comments on specific lines, then hand off to your Code Agent to apply fixes.
+- **Agent Status Tracking** — Real-time agent lifecycle sync via hooks (running, idle, waiting for permission, done) across the UI, with notifications on state changes—native alerts plus self-hosted push (ntfy, Gotify, or a custom webhook).
+- **Lightweight Local Models** — One-click run llama-server for small Hugging Face models on your machine—ideal for light tasks such as session titles, workspace TODO extraction, and Git commit message generation without config a cloud API.
 
 ## Get Started
 
@@ -55,9 +46,10 @@ curl -fsSL https://install.atmos.land/install-desktop.sh | bash
 This installer is for **macOS only** (Intel & Apple Silicon). It downloads and extracts the app to `/Applications`.
 
 For **Linux/Windows**, download the installer directly from GitHub Releases:
-https://github.com/AruNi-01/atmos/releases
+[https://github.com/AruNi-01/atmos/releases](https://github.com/AruNi-01/atmos/releases)
 
 Options:
+
 - `--version <tag>` - Install a specific release tag
 - `--archive <path>` - Install from a local .app.tar.gz archive
 - `--github-source` - Use GitHub Releases instead of custom domain
@@ -71,6 +63,7 @@ curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 ```
 
 Options:
+
 - `--version <tag>` - Install a specific release tag
 - `--install-dir <path>` - Custom install directory (default: `~/.atmos`)
 - `--port <port>` - Port for local runtime (default: `30303`)
@@ -91,11 +84,13 @@ bunx @atmos/local-web-runtime
 ### Quick Use
 
 #### Desktop App
+
 1. Install Atmos via Homebrew or install script.
 2. Launch the desktop app and create or open a workspace.
 3. Connect your project, open a terminal, and work with agents in the same place.
 
 #### Local Web Runtime
+
 1. Install via install script or npm/bun package.
 2. The runtime will start automatically (or run `~/.atmos/bin/atmos local start`).
 3. Open your browser to the displayed URL (default: `http://127.0.0.1:30303`).
