@@ -155,6 +155,18 @@ fn strip_atmos_exclude_block(contents: &str) -> String {
     result.join("\n").trim().to_string()
 }
 
+fn ensure_worktree_config_enabled(repo_path: &Path) -> Result<()> {
+    let enabled = try_run_git(repo_path, &["config", "--get", "extensions.worktreeConfig"])?
+        .as_deref()
+        .map(|value| value.trim() == "true")
+        .unwrap_or(false);
+    if enabled {
+        return Ok(());
+    }
+    run_git(repo_path, &["config", "extensions.worktreeConfig", "true"])?;
+    Ok(())
+}
+
 fn resolve_git_dir(repo_path: &Path) -> Result<PathBuf> {
     let stdout = run_git(repo_path, &["rev-parse", "--git-dir"])?;
     let resolved = stdout.trim();
@@ -174,9 +186,12 @@ fn resolve_git_dir(repo_path: &Path) -> Result<PathBuf> {
 
 /// Sync an Atmos-managed block inside the current worktree's `info/exclude`.
 ///
-/// This is intentionally worktree-local: callers should pass the linked worktree path. For linked
-/// worktrees, `rev-parse --git-path info/exclude` resolves to the common git dir, so we must
-/// derive the private exclude file from `rev-parse --git-dir` instead.
+/// Callers must pass the linked worktree checkout path (not the main repo root).
+///
+/// For linked worktrees, Git still resolves `rev-parse --git-path info/exclude` to the *common*
+/// repository exclude file, so patterns written only to the private worktree gitdir are ignored by
+/// `git status`. We therefore store the block under the private gitdir and point this worktree at
+/// it via `core.excludesFile` in `config.worktree`.
 pub fn sync_worktree_local_excludes(repo_path: &Path, managed_paths: &[String]) -> Result<()> {
     let exclude_path = resolve_git_dir(repo_path)?.join("info").join("exclude");
 
@@ -230,6 +245,23 @@ pub fn sync_worktree_local_excludes(repo_path: &Path, managed_paths: &[String]) 
             e
         ))
     })?;
+
+    if normalized_paths.is_empty() {
+        let _ = try_run_git(repo_path, &["config", "--worktree", "--unset", "core.excludesFile"])?;
+    } else {
+        ensure_worktree_config_enabled(repo_path)?;
+        let exclude_for_git = std::fs::canonicalize(&exclude_path).unwrap_or(exclude_path);
+        let exclude_str = exclude_for_git.to_string_lossy();
+        run_git(
+            repo_path,
+            &[
+                "config",
+                "--worktree",
+                "core.excludesFile",
+                exclude_str.as_ref(),
+            ],
+        )?;
+    }
 
     Ok(())
 }
@@ -2100,18 +2132,24 @@ mod tests {
         fs::remove_dir_all(root).expect("temp repo should be removed");
     }
 
+    #[cfg(unix)]
     #[test]
     fn worktree_local_exclude_uses_private_gitdir_not_common_dir() {
+        use std::os::unix::fs::symlink;
+
         let root = unique_temp_dir("worktree-private-exclude");
         let repo_path = root.join("repo");
         let worktree_path = root.join("linked-worktree");
+        let external_agent_dir = root.join("external-agent");
         fs::create_dir_all(&repo_path).expect("repo dir");
+        fs::create_dir_all(&external_agent_dir).expect("external ignored dir");
 
         git(&repo_path, &["init"]);
         configure_repo(&repo_path);
         git(&repo_path, &["branch", "-m", "main"]);
+        write_file(&repo_path.join(".gitignore"), ".agent/\n");
         write_file(&repo_path.join("README.md"), "hello\n");
-        git(&repo_path, &["add", "README.md"]);
+        git(&repo_path, &["add", ".gitignore", "README.md"]);
         git(&repo_path, &["commit", "-m", "init"]);
         git(
             &repo_path,
@@ -2122,11 +2160,21 @@ mod tests {
             ],
         );
 
+        symlink(
+            &external_agent_dir,
+            worktree_path.join(".agent"),
+        )
+        .expect("compensated symlink should be created");
+
         sync_worktree_local_excludes(&worktree_path, &[String::from(".agent")])
             .expect("exclude sync should succeed");
 
-        let private_exclude =
-            repo_path.join(".git").join("worktrees").join("linked-worktree").join("info").join("exclude");
+        let private_exclude = repo_path
+            .join(".git")
+            .join("worktrees")
+            .join("linked-worktree")
+            .join("info")
+            .join("exclude");
         let common_exclude = repo_path.join(".git").join("info").join("exclude");
 
         let private_contents =
@@ -2137,6 +2185,27 @@ mod tests {
         assert!(
             !common_contents.contains(super::ATMOS_EXCLUDE_BLOCK_START),
             "common exclude should not receive Atmos worktree-local block"
+        );
+
+        let excludes_file = git_output(
+            &worktree_path,
+            &["config", "--show-origin", "--get", "core.excludesFile"],
+        );
+        assert!(
+            excludes_file.contains("worktrees/linked-worktree"),
+            "worktree should use private exclude via core.excludesFile, got: {excludes_file}"
+        );
+
+        let ignored = git_output(&worktree_path, &["check-ignore", "-v", ".agent"]);
+        assert!(
+            ignored.contains(".agent"),
+            "linked worktree should ignore compensated symlink, got: {ignored}"
+        );
+
+        let status = git_output(&worktree_path, &["status", "--porcelain", "-uall"]);
+        assert!(
+            status.trim().is_empty(),
+            "compensated symlink should be hidden from status, got: {status}"
         );
 
         fs::remove_dir_all(root).expect("temp repo should be removed");
