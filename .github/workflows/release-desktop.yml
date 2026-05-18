@@ -108,6 +108,9 @@ jobs:
     name: Resolve release config
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # Explicit write permission: repo default can be read-only; tauri-action expects job-level contents:write.
+    permissions:
+      contents: write
     outputs:
       create_release: ${{ steps.resolve.outputs.create_release }}
       release_tag: ${{ steps.resolve.outputs.release_tag }}
@@ -225,10 +228,35 @@ jobs:
           BUILD_MATRIX="$(matrix_for_platform "$PLATFORM")"
           echo "build_matrix=$BUILD_MATRIX" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure draft GitHub release exists
+        if: steps.resolve.outputs.create_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.resolve.outputs.release_tag }}"
+          PRERELEASE="${{ steps.resolve.outputs.prerelease }}"
+          VERSION="${TAG#desktop-v}"
+
+          if gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "✅ Release already exists for ${TAG}"
+            exit 0
+          fi
+
+          ARGS=(--repo "${GITHUB_REPOSITORY}" --draft --title "Atmos Desktop ${VERSION}" --notes "Draft — full notes are applied in the publish step.")
+          if [ "$PRERELEASE" = "true" ]; then
+            ARGS+=(--prerelease)
+          fi
+          gh release create "$TAG" "${ARGS[@]}"
+          echo "✅ Created draft release for ${TAG}"
+
   build-and-release:
     name: Build desktop (${{ matrix.target }})
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: resolve-release-config
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.resolve-release-config.outputs.build_matrix) }}
