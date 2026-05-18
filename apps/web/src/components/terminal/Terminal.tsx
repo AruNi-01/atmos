@@ -73,6 +73,21 @@ class SafeClipboardProvider implements IClipboardProvider {
   }
 }
 
+/** CSI-u Shift+Enter for Kitty-style TUIs (Desktop WKWebView). */
+const SHIFT_ENTER_CSI_U = "\x1b[13;2u";
+
+/** Bracketed paste wrapper — tmux control mode does not forward ?2004h to xterm.js. */
+function wrapBracketedPaste(text: string): string {
+  const normalised = text.replace(/\r?\n/g, "\r");
+  return `\x1b[200~${normalised}\x1b[201~`;
+}
+
+/** xterm.js sends \\r for Enter regardless of Shift; pick a sequence the TUI understands. */
+function shiftEnterInput(): string {
+  // Web: CSI-u is often treated as submit/blank; LF is the usual multiline newline.
+  return isTauriRuntime() ? SHIFT_ENTER_CSI_U : "\n";
+}
+
 import "@xterm/xterm/css/xterm.css";
 
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "./theme";
@@ -341,7 +356,7 @@ const Terminal = ({
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modifierKeyPressedRef = useRef(false);
   const pointerModifierPressedRef = useRef(false);
-  const tauriPasteCleanupRef = useRef<(() => void) | null>(null);
+  const terminalInputCleanupRef = useRef<(() => void) | null>(null);
   const handleTerminalLinkRef = useRef<(event: MouseEvent, resolved: ResolvedTerminalLink) => Promise<void>>(async () => {});
   const handleResolvedLinkRef = useRef<(event: MouseEvent, rawText: string) => Promise<void>>(async () => {});
   const [showScrollDown, setShowScrollDown] = useState(false);
@@ -629,12 +644,7 @@ const Terminal = ({
         try {
           const text = await navigator.clipboard.readText();
           if (!text) return;
-          // Convert newlines to \r (same as xterm.js prepareTextForTerminal)
-          const normalised = text.replace(/\r?\n/g, "\r");
-          // Wrap in bracketed paste markers so the TUI app treats
-          // the content as a literal paste, not typed keystrokes.
-          const wrapped = `\x1b[200~${normalised}\x1b[201~`;
-          terminal.input(wrapped, false);
+          terminal.input(wrapBracketedPaste(text), false);
         } catch {
           // Clipboard read failed — ignore
         }
@@ -1058,26 +1068,18 @@ const Terminal = ({
     // Open terminal in container
     terminal.open(containerRef.current);
 
-    // ── Tauri WKWebView workarounds ──────────────────────────────────
-    // In Tauri's WKWebView, the native macOS Edit menu processes paste via
-    // the AppKit responder chain, firing the DOM paste event before xterm.js
-    // has bracketed paste mode enabled.  tmux control mode does not forward
-    // the TUI app's `\x1b[?2004h` to xterm.js, so xterm.js never wraps
-    // pasted text in bracketed paste markers — newlines are sent as raw \r,
-    // which the TUI interprets as Enter.
-    //
-    // Fix: intercept paste and keydown at the *document capture phase*
-    // (before xterm.js sees them), handle bracketed paste wrapping and
-    // Shift+Enter CSI u encoding ourselves.
-    if (isTauriRuntime()) {
+    // ── Paste + Shift+Enter (tmux control mode) ───────────────────────
+    // tmux control mode does not forward `\x1b[?2004h` to xterm.js, so xterm
+    // never bracket-wraps paste — newlines become raw \r (Enter). Intercept at
+    // document capture before xterm.js. Shift+Enter also maps to \r in xterm;
+    // Web uses LF, Desktop WKWebView uses CSI-u (see shiftEnterInput).
+    {
       const doc = containerRef.current?.ownerDocument ?? document;
       let isHandlingPaste = false;
 
-      const handleTauriPaste = (e: ClipboardEvent) => {
-        // Prevent recursive handling of synthetic paste events
-        if (isHandlingPaste) return;
+      const handlePaste = (e: ClipboardEvent) => {
+        if (isHandlingPaste || readOnlyRef.current) return;
 
-        // Only intercept pastes targeting elements inside this terminal
         const target = e.target as Node;
         if (!containerRef.current?.contains(target)) return;
 
@@ -1087,47 +1089,34 @@ const Terminal = ({
 
         navigator.clipboard.readText().then((text) => {
           if (!text) return;
-          // Convert newlines to \r (same as xterm.js prepareTextForTerminal)
-          const normalised = text.replace(/\r?\n/g, "\r");
-          // Always wrap in bracketed paste markers so the TUI app treats
-          // the content as a literal paste, not typed keystrokes.
-          const wrapped = `\x1b[200~${normalised}\x1b[201~`;
-          terminal.input(wrapped, false);
+          terminal.input(wrapBracketedPaste(text), false);
         }).catch(() => {
-          // Clipboard read failed — fall back to letting xterm.js handle it.
-          // Re-dispatch a synthetic paste event so xterm.js picks it up.
           const dt = new DataTransfer();
           const synthetic = new ClipboardEvent("paste", {
             bubbles: true,
             clipboardData: dt,
           });
-          // Use the element-level target so xterm.js's listener catches it
           (e.target as HTMLElement)?.dispatchEvent(synthetic);
         }).finally(() => {
           isHandlingPaste = false;
         });
       };
 
-      const handleTauriKeyDown = (e: KeyboardEvent) => {
-        if (e.shiftKey && e.key === "Enter") {
-          const target = e.target as Node;
-          if (!containerRef.current?.contains(target)) return;
-          // Send CSI u Shift+Enter sequence directly — xterm.js always
-          // sends \r for Enter regardless of Shift, so we must intercept
-          // before xterm.js's _keyDown handler runs.
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          terminal.input("\x1b[13;2u", false);
-        }
+      const handleShiftEnter = (e: KeyboardEvent) => {
+        if (!e.shiftKey || e.key !== "Enter" || readOnlyRef.current) return;
+        const target = e.target as Node;
+        if (!containerRef.current?.contains(target)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        terminal.input(shiftEnterInput(), false);
       };
 
-      doc.addEventListener("paste", handleTauriPaste, true);
-      doc.addEventListener("keydown", handleTauriKeyDown, true);
+      doc.addEventListener("paste", handlePaste, true);
+      doc.addEventListener("keydown", handleShiftEnter, true);
 
-      // Store cleanup refs so the useEffect cleanup can remove them
-      tauriPasteCleanupRef.current = () => {
-        doc.removeEventListener("paste", handleTauriPaste, true);
-        doc.removeEventListener("keydown", handleTauriKeyDown, true);
+      terminalInputCleanupRef.current = () => {
+        doc.removeEventListener("paste", handlePaste, true);
+        doc.removeEventListener("keydown", handleShiftEnter, true);
       };
     }
 
@@ -1340,8 +1329,8 @@ const Terminal = ({
 
     return () => {
       cancelled = true;
-      tauriPasteCleanupRef.current?.();
-      tauriPasteCleanupRef.current = null;
+      terminalInputCleanupRef.current?.();
+      terminalInputCleanupRef.current = null;
       if (visibilityPollTimer) clearTimeout(visibilityPollTimer);
       disconnect();
       resizeObserverRef.current?.disconnect();
