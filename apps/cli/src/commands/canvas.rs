@@ -131,15 +131,6 @@ pub struct CanvasOpts {
     /// Pin the dispatch to a specific browser tab id (returned by `status`).
     #[arg(long, global = true)]
     pub client_id: Option<String>,
-    /// Stable id for the Agent presence within the run.
-    #[arg(long, global = true)]
-    pub actor_id: Option<String>,
-    /// Display name for the Agent presence.
-    #[arg(long, global = true)]
-    pub actor_name: Option<String>,
-    /// CSS color for the Agent presence indicator.
-    #[arg(long, global = true)]
-    pub actor_color: Option<String>,
 }
 
 // ===== Diagnostics =====
@@ -528,18 +519,7 @@ struct InvokePayload<'a> {
     args: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     client_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    actor: Option<Actor>,
     timeout_ms: u64,
-}
-
-#[derive(Debug, Serialize)]
-struct Actor {
-    actor_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    color: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -574,7 +554,6 @@ async fn invoke(
         command,
         args,
         client_id: canvas.client_id.clone(),
-        actor: build_actor(canvas),
         timeout_ms: api.timeout_ms.unwrap_or(CANVAS_DEFAULT_TIMEOUT_MS),
     };
     let mut req = client.post(&endpoint).json(&payload);
@@ -633,15 +612,6 @@ async fn invoke(
             err.code, err.message, err.recoverable, body.request_id
         ))
     }
-}
-
-fn build_actor(canvas: &CanvasOpts) -> Option<Actor> {
-    let actor_id = canvas.actor_id.clone()?;
-    Some(Actor {
-        actor_id,
-        name: canvas.actor_name.clone(),
-        color: canvas.actor_color.clone(),
-    })
 }
 
 fn split_ids(raw: &str) -> Vec<String> {

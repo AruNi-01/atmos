@@ -1,44 +1,23 @@
 ---
 name: atmos-canvas-agent
 version: "1.0.0"
-description: 'Drive the open Atmos Canvas from an agent via the `atmos canvas` CLI. Use whenever the user asks the agent to sketch, draw, lay out, label, or otherwise manipulate the Atmos Canvas surface (sticky notes, frames, geo shapes, arrows, freehand strokes, layout grids, viewport changes) and the Canvas overlay is open in the browser. Operates intent-level commands (no raw tldraw store JSON, no driver primitives). Reuses the existing `atmos` CLI authentication — no separate Canvas API key.'
+description: 'Drive the user''s open Atmos Canvas (tldraw whiteboard) via the `atmos canvas` CLI. Use whenever the user asks to sketch, draw, diagram, lay out, arrange, label, move, resize, recolor, or delete anything on the canvas — including architecture/flow diagrams, sticky notes, frames, geo shapes, arrows, grids of cards, or viewport changes.'
 license: MIT
 ---
 
 # Atmos Canvas Agent Skill
 
-This skill teaches code agents running inside an Atmos terminal **when** and **how** to drive the Atmos Canvas via the `atmos canvas` CLI. Commands go through the same Atmos server as the open Web/Desktop session and relay into the live tldraw `Editor` in the browser tab where the user has Canvas open.
-
-> **Skill location**: `~/.atmos/skills/.system/atmos-canvas-agent/SKILL.md` (synced by Atmos on API startup).
-
----
-
-## When to use this skill
-
-Use **only** when the user asks the agent to manipulate the Atmos Canvas. Examples:
-
-- "Sketch the architecture on the canvas."
-- "Put a 3×2 grid of feature cards on the canvas with these titles."
-- "Add a frame called 'Backlog' on the canvas."
-- "Draw an arrow from the API box to the DB box."
-- "Style that sticky red and move it to (200, 200)."
-- "Zoom out to show the whole diagram."
-
-Do **not** use this skill for:
-
-- Generic git, terminal, or filesystem work.
-- Pin-to-canvas terminal cards (M1 does not include `add-terminal`).
-- Anything when Canvas is **not** open in the browser — the CLI will fail fast.
+This skill teaches agent that can run the `atmos` CLI **how** to drive the Atmos Canvas.
 
 ---
 
 ## Prerequisites the agent must check
 
-1. **Atmos Web or Desktop is open** (same session the user is working in).
-2. **Canvas overlay is open** with **"Allow terminal/CLI control"** enabled (bridge toggle). Mutating commands fail with `BRIDGE_DISABLED` otherwise; `status` works without the bridge.
-3. **`atmos` CLI** is available in the terminal.
+Always probe in this order (cheaper checks first):
 
-When uncertain, run `atmos canvas status` first.
+1. **`atmos` CLI** is on `PATH` (`atmos --version`).
+2. **A live Canvas tab is registered** — run `atmos canvas status`. This works even without the bridge enabled and is the single source of truth for "is the user on canvas right now" and "which `client_id`s exist".
+3. **Bridge is enabled** in that tab — Bot button (top-right of canvas) → popover → **Enable bridge** switch ON. Mutating commands fail with `BRIDGE_DISABLED` until this is on; `status` and `skill-dir` do not need it.
 
 ---
 
@@ -62,17 +41,40 @@ Exit code is `0` on success and non-zero on failure.
 | `--api-url <url>` | Override Atmos API base (else env / client-session / runtime manifest). |
 | `--api-token <token>` | Bearer token for the API (else env vars or relay `gateway_token` in client-session). |
 | `--client-id <uuid>` | Target a specific Canvas tab when multiple are registered (from `status`). |
-| `--actor-id <id>` | Stable Agent presence id (Follow Agent). |
-| `--actor-name <name>` | Agent presence display name. |
-| `--actor-color <css>` | Agent presence color. |
 | `--timeout-ms <ms>` | HTTP deadline in milliseconds (default 45000). |
 
 ### Diagnostics & read
 
 | Verb | Args | Notes |
 |------|------|-------|
-| `status` | — | Reports bridge enabled/disabled, registered tabs, ambiguity. Works even when no bridge is connected — use this first if uncertain. |
-| `get-state` | `--page-id <id>` (optional) | Returns `canvas_agent_state.v1`: page, viewport, selection, shape inventory. Includes terminal card fields. Requires bridge enabled. |
+| `status` | — | Reports bridge enabled/disabled, registered tabs, ambiguity. Works even when no bridge is connected — use this first if uncertain. The `clients[].client_id` values feed `--client-id`. |
+| `get-state` | `--page-id <id>` (optional) | Returns `canvas_agent_state.v1`: page, camera, viewport, selection, shape inventory. Requires bridge enabled. |
+
+`get-state` response shape (everything under `data`):
+
+```json
+{
+  "schema": "canvas_agent_state.v1",
+  "page_id": "page:abc",
+  "camera":   { "x": 0,   "y": 0,   "z": 1 },
+  "viewport": { "x": 0,   "y": 0,   "w": 1280, "h": 720 },
+  "selection": ["shape:abc"],
+  "shapes": [
+    {
+      "id": "shape:abc",
+      "type": "note",
+      "x": 80, "y": 80, "rotation": 0,
+      "props": { "color": "yellow", "scale": 1 },
+      "text_preview": "API",
+      "parent_id": "page:abc"
+    }
+  ]
+}
+```
+
+- `camera.z` is zoom factor; `viewport` is page-space rect of what's currently visible.
+- `props` is shallow-filtered (only commonly useful keys); `text_preview` is the plain-text rendering of any `richText` prop.
+- Shape ids are stable across the session — cache them after a `create-*` call rather than re-querying.
 
 ### Discoverability
 
@@ -86,11 +88,15 @@ Exit code is `0` on success and non-zero on failure.
 |------|---------------|---------------|
 | `create-note` | `--text <text>` | `--x --y --w --h --color` |
 | `create-frame` | `--w --h` | `--title --x --y --color` |
-| `create-geo` | `--kind <rectangle\|ellipse\|triangle\|diamond\|...>` `--w --h` | `--x --y --text --color --fill --size` |
+| `create-geo` | `--kind <kind>` `--w --h` | `--x --y --text --color --fill --size` |
 | `create-arrow` | `--x1 --y1 --x2 --y2` | `--color --size --text` |
 | `create-draw` | `--points '[[x,y],…]'` or `--points-file path` | `--color --size --closed` |
 
-> M1 documents **only** `create-note` for plain text diagrams — there is no separate `create-text` in M1.
+Valid `--kind` values (pass straight through to tldraw, unknown values render as the default `rectangle`): `rectangle`, `ellipse`, `triangle`, `diamond`, `rhombus`, `rhombus-2`, `pentagon`, `hexagon`, `octagon`, `star`, `oval`, `trapezoid`, `cloud`, `heart`, `x-box`, `check-box`, `arrow-right`, `arrow-left`, `arrow-up`, `arrow-down`.
+
+> For plain-text labels use `create-note`. There is no separate `create-text` verb.
+
+**Every `create-*` response includes the new shape id** in `data`, e.g. `{ "ok": true, "data": { "id": "shape:abc…", "type": "note" } }`. Cache that id for follow-up `select` / `move` / `update-shape` / arrow endpoints — do not re-run `get-state` just to discover it.
 
 ### Selection & transform
 
@@ -109,6 +115,12 @@ Exit code is `0` on success and non-zero on failure.
 | `layout-column` | `--ids <id,…> [--gap 24] [--x <pin>]` |
 | `layout-grid` | `--ids <id,…> --cols <n> --rows <n> [--gap 24]` — max **24×24**, max **256** ids. |
 
+- `--gap` is in page-space units (defaults to `24`).
+- `layout-row` keeps the **first** shape in `--ids` anchored at its current `(x, y)` and chains the rest to its right, each at `prev.x + prev.w + gap`.
+  - `--y <pin>`: force every shape's `y` to this absolute page-y (horizontal alignment). Omit to let each keep its own `y`.
+- `layout-column` is the same but vertical, with `--x <pin>` for vertical alignment.
+- `layout-grid` lays the ids row-major into a `cols × rows` block using each shape's own width/height as the cell size (uneven sizes ⇒ uneven rows).
+
 ### Update existing shape
 
 `update-shape --id <id> --patch '<json>'`
@@ -123,13 +135,40 @@ Adjusts the camera without keyboard/pointer synthesis. Read-only operation that 
 
 ---
 
+## Argument value conventions
+
+tldraw uses **named tokens**, not free-form CSS / hex. Pass the raw token string; the bus forwards it to tldraw without validation, so wrong values silently render with the default style.
+
+- `--color` (every create-* + `update-shape`): `black`, `grey`, `light-violet`, `violet`, `blue`, `light-blue`, `yellow`, `orange`, `green`, `light-green`, `light-red`, `red`, `white`. **Hex / rgb / named CSS colours do not work.**
+- `--fill` (`create-geo`, `update-shape`): `none`, `semi`, `solid`, `pattern`, `fill`, `lined-fill`.
+- `--size` (`create-geo` / `create-arrow` / `create-draw` / `update-shape`): `s`, `m`, `l`, `xl`.
+- `--font` (`update-shape` only): `draw`, `sans`, `serif`, `mono`.
+
+---
+
+## Idempotency
+
+Important when retrying after `RELAY_TIMEOUT` or `EDITOR_NOT_READY`:
+
+| Verb | Idempotent? | Retry safety |
+|------|-------------|--------------|
+| `create-*` | ❌ no | Each retry creates a **new** shape. Before retrying, run `get-state` and check whether the previous attempt actually landed (look for a shape at the requested `(x, y)` / text). |
+| `move` | ❌ no | `--dx` / `--dy` are **additive deltas** — retrying doubles the movement. Compute the absolute target and `update-shape --patch '{"x":…,"y":…}'` instead if you need idempotency. |
+| `update-shape` | ✅ yes | Same patch applied twice produces the same state. |
+| `layout-row` / `layout-column` / `layout-grid` | ✅ yes | Given the same ids + gap, positions converge. |
+| `select` / `clear-selection` / `viewport` | ✅ yes | Pure state assignment. |
+| `delete` | ✅ yes (after first success) | Re-deleting an already-deleted id surfaces `STALE_SHAPE_ID`, not a duplicate-delete error. |
+| `status` / `get-state` / `skill-dir` | ✅ yes | Read-only. |
+
+---
+
 ## Error codes (machine-friendly)
 
 | Code | Meaning | Recovery |
 |------|---------|----------|
 | `CANVAS_BRIDGE_OFFLINE` | No Canvas tab registered. | Ask the user to open Atmos Canvas. |
 | `CANVAS_CLIENT_AMBIGUOUS` | Multiple registered tabs. | Re-run with `--client-id <id>` from the `status` output. |
-| `BRIDGE_DISABLED` | Canvas open but the user has not toggled bridge on. | Ask the user to enable "Allow terminal/CLI control" on Canvas. |
+| `BRIDGE_DISABLED` | Canvas open but the user has not toggled bridge on. | Ask the user to open the Canvas Bot popover and turn on **Enable bridge**. |
 | `EDITOR_NOT_READY` | Editor not mounted in the target tab. | Retry shortly. |
 | `STALE_SHAPE_ID` | Referenced shape id does not exist. | Re-run `get-state` and retry with the current ids. |
 | `VALIDATION_ARG` | Bad CLI args (out-of-range, unknown patch key, etc.). | Fix args. |
@@ -168,30 +207,6 @@ APP-014 save path (`getSnapshot(editor.store).document` → `canvasWsApi
   not used — Atmos persists the canvas server-side per workspace, not
   per browser. Agents should not rely on the document still being on
   disk after the tab closes; the server is the source of truth.
-- ⚠️ The Agent presence record itself is **ephemeral** (presence scope,
-  not document scope). It exists only while the Canvas tab is open and
-  is not saved with the board, by design.
-
----
-
-## Follow Agent (M20)
-
-When you pass `--actor-id <id>` (and optionally `--actor-name` /
-`--actor-color`), each accepted command writes a virtual
-`TLInstancePresence` record into the target tab's `editor.store` with
-`userId = "agent:<actor-id>"`. The user can then:
-
-- **Follow Agent** — Canvas calls `editor.startFollowingUser("agent:<id>")`.
-  The follower viewport pans/zooms to whatever bounds the agent most
-  recently touched. Manual pan/zoom cancels following (tldraw default).
-- **Jump to Agent** — Canvas calls `editor.zoomToUser("agent:<id>")` so
-  the user lands on the agent's last command bounds without entering
-  follow mode.
-
-Best practice for sustained sessions: **always** pass `--actor-id` so the
-user gets a stable presence to follow across many commands instead of a
-new "Agent" actor per invocation. The presence record auto-evicts
-after 60 s of inactivity.
 
 ---
 
@@ -211,7 +226,7 @@ atmos canvas create-note  --text "DB"  --x 480 --y 80
 atmos canvas create-arrow --x1 200 --y1 110 --x2 470 --y2 110
 ```
 
-Always re-run `get-state` after layout-heavy mutations before referencing fresh shape ids.
+Re-run `get-state` only when you need to learn about shapes you did **not** just create (e.g. before bulk `select` / `layout-*` / `update-shape` over user-authored content). For shapes the agent just created, reuse the ids returned by each `create-*` response.
 
 ---
 
@@ -244,6 +259,11 @@ atmos canvas update-shape --id "$ID" --patch '{"color":"red"}'
 
 ## Anti-patterns
 
-- Do not edit canvas document JSON directly — use `atmos canvas` verbs only.
-- Do not invent commands or pass raw tldraw store payloads.
-- Do not ignore structured errors in stdout — read `error.code` and recover or ask the user.
+- ❌ Do not edit canvas document JSON directly — use `atmos canvas` verbs only.
+- ❌ Do not invent commands or pass raw tldraw store payloads.
+- ❌ Do not ignore structured errors in stdout — read `error.code` and recover or ask the user.
+- ❌ Do not pass CSS / hex colours (`#ff0000`, `crimson`, `rgb(...)`) — only the named tokens listed in *Argument value conventions* render correctly; anything else falls back to default.
+- ❌ Do not call `update-shape` with multiple ids — `--id` is **singular**. Loop the verb once per shape, or use `layout-*` / `move` for bulk transforms.
+- ❌ Do not re-run `get-state` to discover the id of a shape you just created — every `create-*` response already returns `data.id`. Cache and reuse it.
+- ❌ Do not retry a failed `create-*` blindly after `RELAY_TIMEOUT` — the previous attempt may have actually landed (see *Idempotency*). Run `get-state` first and check.
+- ❌ Do not retry `move` blindly either — `--dx` / `--dy` are additive; a double-fire doubles the displacement.

@@ -8,7 +8,7 @@ import { getActiveInstanceId } from "@/hooks/use-connection-store";
 import { useUiPrefStore } from "@/hooks/use-ui-pref-store";
 import { useWebSocketStore } from "@/hooks/use-websocket";
 import { CanvasAgentBus, type CanvasAgentDispatchInput } from "./canvas-agent-bus";
-import { CanvasAgentPresenceStore } from "./canvas-agent-presence";
+import { CanvasAgentActivityStore } from "./canvas-agent-activity";
 
 const DEFAULT_CANVAS_PREFS = {
   sessionByBoard: {} as Record<string, unknown>,
@@ -45,21 +45,12 @@ function loadAcceptsCommands(): boolean {
     .acceptsCommands;
 }
 
-function createBus(presence: CanvasAgentPresenceStore): CanvasAgentBus {
-  return new CanvasAgentBus({
-    onActorActivity: (actor) => {
-      presence.touch(actor, "(executing)");
-    },
-  });
-}
-
 export interface CanvasAgentBridgeState {
   clientId: string;
   acceptsCommands: boolean;
   isConnected: boolean;
-  recentCommand: { command: string; actor_id?: string; ok: boolean } | null;
   setAcceptsCommands: (value: boolean) => void;
-  presence: CanvasAgentPresenceStore;
+  activity: CanvasAgentActivityStore;
 }
 
 export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeState {
@@ -70,12 +61,9 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
   const [acceptsCommands, setAcceptsCommandsState] = React.useState(() =>
     loadAcceptsCommands(),
   );
-  const [recentCommand, setRecentCommand] = React.useState<
-    CanvasAgentBridgeState["recentCommand"]
-  >(null);
 
-  const [presence] = React.useState(() => new CanvasAgentPresenceStore());
-  const [bus] = React.useState(() => createBus(presence));
+  const [activity] = React.useState(() => new CanvasAgentActivityStore());
+  const [bus] = React.useState(() => new CanvasAgentBus({}));
 
   React.useEffect(() => {
     bus.setBridgeAccepting(acceptsCommands);
@@ -83,16 +71,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
 
   React.useEffect(() => {
     bus.setEditor(editor);
-    presence.setEditor(editor);
-    return () => {
-      presence.setEditor(null);
-    };
-  }, [bus, presence, editor]);
-
-  React.useEffect(() => {
-    presence.start();
-    return () => presence.stop();
-  }, [presence]);
+  }, [bus, editor]);
 
   React.useEffect(() => {
     if (!isConnected) return;
@@ -152,8 +131,8 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
             createdShapeIds = data.ids.filter((v): v is string => typeof v === "string");
           }
         }
-        if (payload.actor?.actor_id && editor) {
-          presence.recordResult(payload.actor.actor_id, editor, createdShapeIds);
+        if (result.success) {
+          activity.record(payload.command, editor, createdShapeIds);
         }
         try {
           await canvasAgentBridgeWsApi.postResult({
@@ -170,11 +149,6 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
             err,
           );
         }
-        setRecentCommand({
-          command: payload.command,
-          actor_id: payload.actor?.actor_id,
-          ok: result.success,
-        });
         if (Date.now() - start > 1_000) {
           console.debug(
             `[canvas-agent] ${payload.command} took ${Date.now() - start}ms`,
@@ -183,7 +157,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
       })();
     });
     return unsubscribe;
-  }, [bus, clientId, editor, isConnected, onEvent, presence]);
+  }, [activity, bus, clientId, editor, isConnected, onEvent]);
 
   const setAcceptsCommands = React.useCallback((value: boolean) => {
     setAcceptsCommandsState(value);
@@ -200,8 +174,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     clientId,
     acceptsCommands,
     isConnected,
-    recentCommand,
     setAcceptsCommands,
-    presence,
+    activity,
   };
 }

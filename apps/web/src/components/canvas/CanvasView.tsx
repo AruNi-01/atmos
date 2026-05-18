@@ -6,7 +6,6 @@ import { useHotkeys } from "react-hotkeys-hook";
 import {
   DefaultToolbar,
   DefaultToolbarContent,
-  DefaultSpinner,
   HTMLContainer,
   PORTRAIT_BREAKPOINT,
   Tldraw,
@@ -29,15 +28,8 @@ import {
 import "tldraw/tldraw.css";
 import {
   Button,
-  ScrollArea,
   SlidingNumber,
   toastManager,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   cn,
 } from "@workspace/ui";
 import {
@@ -51,28 +43,15 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Palette,
-  RotateCw,
   SquareTerminal,
   ArrowUpRight,
-  Plus,
   PinOff,
 } from "lucide-react";
-import {
-  projectLayoutApi,
-  systemApi,
-  workspaceLayoutApi,
-  type ActiveSessionInfo,
-  type TerminalOverviewResponse,
-  type TmuxWindow,
-} from "@/api/rest-api";
 import { useCanvasSettings } from "@/hooks/use-canvas-settings";
 import { useDesktopTrafficLightsPadding } from "@/hooks/use-desktop-traffic-lights-padding";
 import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
-import { useProjectStore } from "@/hooks/use-project-store";
 import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
-import type { Project } from "@/types/types";
-import { parseTerminalLayoutDocument } from "@/lib/terminal-layout-document";
 import { Terminal } from "@/components/terminal/Terminal";
 import { TerminalTitleWithAgent } from "@/components/terminal/terminal-title";
 import type { TerminalPaneAgent } from "@/components/terminal/types";
@@ -90,7 +69,6 @@ import { readCanvasSession, writeCanvasSession } from "@/hooks/use-ui-pref-hooks
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
-  createCanvasTerminalShapeProps,
   dispatchCanvasTerminalPinStateChange,
   isCanvasTerminalShapeRecord,
   type CanvasTerminalShape,
@@ -107,36 +85,6 @@ import { CanvasAgentBridgeControls, CanvasAgentOverlay } from "./CanvasAgentOver
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
 
-type WorkspaceImportItem = {
-  scope: "project" | "workspace";
-  contextId: string;
-  projectName: string;
-  workspaceName: string;
-  localPath: string;
-  key: string;
-};
-
-type ImportablePaneItem = {
-  key: string;
-  contextKey: string;
-  scope: "project" | "workspace";
-  contextId: string;
-  projectName: string;
-  workspaceName: string;
-  localPath: string;
-  terminalTabId: string;
-  terminalTabTitle: string;
-  paneId: string;
-  terminalName: string;
-  tmuxWindowName: string;
-};
-
-type ContextPaneState = {
-  status: "idle" | "loading" | "loaded" | "error";
-  panes: ImportablePaneItem[];
-  error: string | null;
-};
-
 const CanvasAgentContext = React.createContext<TerminalPaneAgent[]>([]);
 const CanvasTopLeftToolbarContext = React.createContext<{
   isCollapsed: boolean;
@@ -152,115 +100,12 @@ class CanvasTerminalShapeUtil extends CanvasTerminalShapeSchemaUtil {
   }
 }
 
-function getWorkspaceImportItems(projects: Project[]): WorkspaceImportItem[] {
-  return projects.flatMap((project) => {
-    const items: WorkspaceImportItem[] = [
-      {
-        key: `${project.id}:main`,
-        scope: "project",
-        contextId: project.id,
-        projectName: project.name,
-        workspaceName: "Main",
-        localPath: project.mainFilePath,
-      },
-    ];
-
-    for (const workspace of project.workspaces) {
-      if (workspace.isArchived) continue;
-      items.push({
-        key: workspace.id,
-        scope: "workspace",
-        contextId: workspace.id,
-        projectName: project.name,
-        workspaceName: workspace.displayName || workspace.name,
-        localPath: workspace.localPath,
-      });
-    }
-
-    return items;
-  });
-}
-
 function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoardDocument {
   return {
     schema: "canvas.v1",
     boardSlug: "default",
     tldrawDocument: document,
   };
-}
-
-function getImportablePaneItems(
-  context: WorkspaceImportItem,
-  layout: string | null,
-  windows: TmuxWindow[],
-): ImportablePaneItem[] {
-  const parsed = parseTerminalLayoutDocument(layout);
-  if (!parsed) {
-    return [];
-  }
-
-  const existingWindowNames = new Set(windows.map((window) => window.name));
-  const panes: ImportablePaneItem[] = [];
-
-  for (const tab of parsed.layout.tabs) {
-    for (const [paneId, pane] of Object.entries(tab.panes)) {
-      const legacyTitle = (pane as { title?: string }).title;
-      const tmuxWindowName = pane.tmuxWindowName || pane.label || legacyTitle || "";
-      if (!tmuxWindowName || !existingWindowNames.has(tmuxWindowName)) {
-        continue;
-      }
-
-      panes.push({
-        key: `${context.key}:${tab.id}:${paneId}`,
-        contextKey: context.key,
-        scope: context.scope,
-        contextId: context.contextId,
-        projectName: pane.projectName || context.projectName,
-        workspaceName: pane.workspaceName || context.workspaceName,
-        localPath: context.localPath,
-        terminalTabId: tab.id,
-        terminalTabTitle: tab.title,
-        paneId,
-        terminalName: pane.label || legacyTitle || tmuxWindowName,
-        tmuxWindowName,
-      });
-    }
-  }
-
-  return panes;
-}
-
-function createImportedPaneProps(item: ImportablePaneItem): CanvasTerminalShape["props"] {
-  return createCanvasTerminalShapeProps({
-    contextScope: item.scope,
-    workspaceId: item.contextId,
-    projectName: item.projectName,
-    workspaceName: item.workspaceName,
-    localPath: item.localPath,
-    terminalName: item.terminalName,
-    tmuxWindowName: item.tmuxWindowName,
-    sourceTerminalTabId: item.terminalTabId,
-    isNewTerminal: false,
-  });
-}
-
-function createSessionTerminalProps(session: ActiveSessionInfo): CanvasTerminalShape["props"] | null {
-  const tmuxWindowName = session.tmux_window_name || session.terminal_name || "";
-  if (!tmuxWindowName) {
-    return null;
-  }
-
-  return createCanvasTerminalShapeProps({
-    contextScope: session.context_scope,
-    workspaceId: session.workspace_id,
-    projectName: session.project_name || "Workspace",
-    workspaceName: session.workspace_name || "Main",
-    localPath: session.cwd || "",
-    terminalName: tmuxWindowName,
-    tmuxWindowName,
-    sourceTerminalTabId: FIXED_TERMINAL_TAB_VALUE,
-    isNewTerminal: false,
-  });
 }
 
 function getCanvasTerminalShapes(editor: Editor) {
@@ -983,9 +828,6 @@ export const CanvasView: React.FC = () => {
   const { board, document, isLoading, isSaving, error, loadBoard } = useCanvasBoard();
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [isManualSaving, setIsManualSaving] = React.useState(false);
-  const projects = useProjectStore((state) => state.projects);
-  const isProjectsLoading = useProjectStore((state) => state.isLoading);
-  const fetchProjects = useProjectStore((state) => state.fetchProjects);
   const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
   const activeShapeId = useCanvasRuntime((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntime((state) => state.renderedShapeIds);
@@ -998,9 +840,6 @@ export const CanvasView: React.FC = () => {
     loadSettings: loadCanvasSettings,
   } = useCanvasSettings();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
-  const [overview, setOverview] = React.useState<TerminalOverviewResponse | null>(null);
-  const [isOverviewLoading, setIsOverviewLoading] = React.useState(false);
-  const [overviewError, setOverviewError] = React.useState<string | null>(null);
   const editorRef = React.useRef<Editor | null>(null);
   const [editorReady, setEditorReady] = React.useState(false);
   // APP-015: Canvas terminal-agent bridge. The hook returns a stable state
@@ -1009,9 +848,6 @@ export const CanvasView: React.FC = () => {
   // editor in via `setEditor` below.
   const [agentBridgeEditor, setAgentBridgeEditor] = React.useState<Editor | null>(null);
   const canvasAgentBridge = useCanvasAgentBridge(agentBridgeEditor);
-  const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
-  const [selectedContextKey, setSelectedContextKey] = React.useState<string | null>(null);
-  const [contextPaneState, setContextPaneState] = React.useState<Record<string, ContextPaneState>>({});
   const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
   const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
   const [agentSettingsLoading, setAgentSettingsLoading] = React.useState(false);
@@ -1029,9 +865,8 @@ export const CanvasView: React.FC = () => {
   const [isTopLeftToolbarCollapsed, setIsTopLeftToolbarCollapsed] = React.useState(false);
   /**
    * Master collapse for the entire injected SharePanel toolbar — when true we
-   * hide every action (Create Frame / Import / Refresh / Save / Style toggle)
-   * and only keep the lone collapse-toggle button so the canvas surface stays
-   * unobstructed.
+   * hide every action (Create Frame / Save / Style toggle) and only keep the
+   * lone collapse-toggle button so the canvas surface stays unobstructed.
    */
   const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(false);
   const documentSaveInFlightRef = React.useRef(false);
@@ -1075,18 +910,9 @@ export const CanvasView: React.FC = () => {
     [SharePanelSlot, isStylePanelEnabled],
   );
 
-  const workspaceItems = React.useMemo(() => getWorkspaceImportItems(projects), [projects]);
   const initialSnapshot = React.useMemo(
     () => createCanvasSnapshot(document?.tldrawDocument ?? null, readCanvasSession(board?.guid)),
     [board?.guid, document?.tldrawDocument],
-  );
-  const attachableSessions = React.useMemo(
-    () =>
-      (overview?.active_sessions ?? []).filter(
-        (session) =>
-          session.session_type === "tmux" && (session.terminal_name || session.tmux_window_index != null),
-      ),
-    [overview],
   );
 
   const visibleBuiltInAgents = React.useMemo(
@@ -1119,29 +945,6 @@ export const CanvasView: React.FC = () => {
     ],
     [visibleBuiltInAgents, visibleCustomAgents, agentCustomSettings],
   );
-
-  const loadOverview = React.useCallback(async () => {
-    setIsOverviewLoading(true);
-    setOverviewError(null);
-    try {
-      const nextOverview = await systemApi.getTerminalOverview();
-      setOverview(nextOverview);
-    } catch (err) {
-      setOverviewError(err instanceof Error ? err.message : "Failed to load active terminal sessions");
-    } finally {
-      setIsOverviewLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (!projects.length && !isProjectsLoading) {
-      void fetchProjects();
-    }
-  }, [fetchProjects, isProjectsLoading, projects.length]);
-
-  React.useEffect(() => {
-    void loadOverview();
-  }, [loadOverview]);
 
   // Load agent custom settings and custom agents
   React.useEffect(() => {
@@ -1263,7 +1066,6 @@ export const CanvasView: React.FC = () => {
   React.useEffect(() => {
     resetRuntime();
     hydratedRenderedBoardKeyRef.current = null;
-    setSelectedContextKey(null);
   }, [board?.guid, resetRuntime]);
 
   const scheduleSessionSave = React.useCallback(
@@ -1380,120 +1182,10 @@ export const CanvasView: React.FC = () => {
     setRenderedShapeIds,
   ]);
 
-  const placeTerminalShape = React.useCallback(
-    (props: CanvasTerminalShape["props"]) => {
-      const editor = editorRef.current;
-      if (!editor) {
-        return;
-      }
-
-      spawnIndexRef.current += 1;
-      const offset = (spawnIndexRef.current - 1) % 8;
-      const viewportCenter = editor.getViewportPageBounds().center;
-      const attachedAt = Date.now();
-      const shapeProps: CanvasTerminalShape["props"] = {
-        ...props,
-        lastAttachedAt: attachedAt,
-      };
-
-      const shapeId = `shape:${crypto.randomUUID()}` as TLShapeId;
-
-      editor.createShape({
-        id: shapeId,
-        type: CANVAS_TERMINAL_SHAPE_TYPE,
-        x: viewportCenter.x - props.w / 2 + offset * 44,
-        y: viewportCenter.y - props.h / 2 + offset * 44,
-        props: shapeProps,
-      });
-      editor.select(shapeId);
-      setActiveShapeId(shapeId);
-      setRenderedShapeIds(
-        promoteRenderedShapeId(
-          getCanvasTerminalShapes(editor),
-          useCanvasRuntime.getState().renderedShapeIds,
-          shapeId,
-          attachedAt,
-          maxRenderedTerminals,
-        ),
-      );
-
-      const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
-      scheduleSessionSave(snapshot.session);
-    },
-    [maxRenderedTerminals, scheduleSessionSave, setActiveShapeId, setRenderedShapeIds],
-  );
-
-  const loadContextPanes = React.useCallback(async (item: WorkspaceImportItem) => {
-    setContextPaneState((current) => ({
-      ...current,
-      [item.key]: {
-        status: "loading",
-        panes: current[item.key]?.panes ?? [],
-        error: null,
-      },
-    }));
-
-    try {
-      const layoutApi = item.scope === "project" ? projectLayoutApi : workspaceLayoutApi;
-      const [layoutResponse, tmuxResponse] = await Promise.all([
-        layoutApi.getLayout(item.contextId),
-        systemApi.listTmuxWindows(item.contextId),
-      ]);
-      const panes = getImportablePaneItems(item, layoutResponse.layout, tmuxResponse.windows);
-      setContextPaneState((current) => ({
-        ...current,
-        [item.key]: {
-          status: "loaded",
-          panes,
-          error: null,
-        },
-      }));
-    } catch (err) {
-      setContextPaneState((current) => ({
-        ...current,
-        [item.key]: {
-          status: "error",
-          panes: [],
-          error: err instanceof Error ? err.message : "Failed to load saved panes",
-        },
-      }));
-    }
-  }, []);
-
-  const handleToggleContext = React.useCallback(
-    (item: WorkspaceImportItem) => {
-      setSelectedContextKey((current) => (current === item.key ? null : item.key));
-      const currentState = contextPaneState[item.key];
-      if (!currentState || currentState.status === "idle") {
-        void loadContextPanes(item);
-      }
-    },
-    [contextPaneState, loadContextPanes],
-  );
-
-  const handleImportSavedPane = React.useCallback(
-    (item: ImportablePaneItem) => {
-      placeTerminalShape(createImportedPaneProps(item));
-    },
-    [placeTerminalShape],
-  );
-
-  const handleImportSession = React.useCallback(
-    (session: ActiveSessionInfo) => {
-      const props = createSessionTerminalProps(session);
-      if (!props) {
-        toastManager.add({
-          title: "Canvas",
-          description: "This session cannot be attached to the canvas yet",
-          type: "error",
-        });
-        return;
-      }
-
-      placeTerminalShape(props);
-    },
-    [placeTerminalShape],
-  );
+  // Note: a previous `placeTerminalShape` callback was removed together with
+  // the Import Terminal modal. Pinning a terminal onto the canvas now flows
+  // through `canvasApi.updateDefaultBoard` in `TerminalGrid.tsx`, which builds
+  // the snapshot on the API side and reloads the canvas.
 
   const handleCreateFrame = React.useCallback(() => {
     const editor = editorRef.current;
@@ -1626,185 +1318,23 @@ export const CanvasView: React.FC = () => {
               <Frame className="size-3.5" />
               <span className="text-xs font-medium">Frame</span>
             </Button>
-            <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={sharePanelIconButtonClass}
-                  title="Import terminal — Click to import from saved layouts or active tmux sessions"
-                >
-                  <Plus className="size-3.5" />
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="w-full sm:max-w-3xl max-h-[90vh] z-[2147483647] overflow-hidden">
-              <DialogHeader>
-                <DialogTitle>Import Terminal</DialogTitle>
-                <DialogDescription>
-                  Import terminals from saved project/workspace layouts or attach active tmux sessions to the
-                  canvas.
-                </DialogDescription>
-              </DialogHeader>
-              <ScrollArea className="max-h-[calc(90vh-10rem)]">
-                <div className="space-y-6 p-6">
-                  <section className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <SquareTerminal className="size-4" />
-                      Import saved terminal panes
-                    </div>
-                    {selectedContextKey ? (
-                      <div className="space-y-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedContextKey(null)}
-                          className="mb-2"
-                        >
-                          ← Back to projects/workspaces
-                        </Button>
-                        {contextPaneState[selectedContextKey]?.status === "loading" ? (
-                          <div className="flex items-center justify-center rounded-lg border border-dashed border-border px-3 py-4">
-                            <DefaultSpinner />
-                          </div>
-                        ) : contextPaneState[selectedContextKey]?.status === "error" ? (
-                          <div className="rounded-lg border border-dashed border-warning/30 bg-warning/5 px-3 py-3 text-sm text-warning">
-                            {contextPaneState[selectedContextKey]?.error}
-                          </div>
-                        ) : contextPaneState[selectedContextKey]?.panes.length ? (
-                          contextPaneState[selectedContextKey]?.panes.map((pane) => (
-                            <button
-                              key={pane.key}
-                              type="button"
-                              onClick={() => {
-                                handleImportSavedPane(pane);
-                                setIsImportModalOpen(false);
-                              }}
-                              className="w-full rounded-lg border border-border bg-background px-3 py-3 text-left transition-colors hover:bg-accent"
-                            >
-                              <div className="truncate text-sm font-medium text-foreground">{pane.terminalName}</div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {pane.tmuxWindowName}
-                                {pane.terminalTabTitle && pane.terminalTabTitle !== "Term"
-                                  ? ` · ${pane.terminalTabTitle}`
-                                  : ""}
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
-                            No saved attachable panes in this context yet.
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {(() => {
-                          const groupedByProject: Record<string, WorkspaceImportItem[]> = {};
-                          workspaceItems.forEach((item) => {
-                            if (!groupedByProject[item.projectName]) {
-                              groupedByProject[item.projectName] = [];
-                            }
-                            groupedByProject[item.projectName].push(item);
-                          });
-
-                          return Object.entries(groupedByProject).map(([projectName, items]) => (
-                            <div key={projectName} className="space-y-2">
-                              <div className="flex items-center gap-2 px-2">
-                                <div className="h-px flex-1 bg-border" />
-                                <span className="text-xs font-semibold text-muted-foreground">{projectName}</span>
-                                <div className="h-px flex-1 bg-border" />
-                              </div>
-                              <div className="grid gap-2 pl-2">
-                                {items.map((item) => (
-                                  <button
-                                    key={item.key}
-                                    type="button"
-                                    onClick={() => handleToggleContext(item)}
-                                    className="w-full rounded-lg border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-accent"
-                                  >
-                                    <div className="truncate text-sm font-medium text-foreground">
-                                      {item.workspaceName}
-                                    </div>
-                                    {item.localPath && (
-                                      <div className="truncate text-xs text-muted-foreground">{item.localPath}</div>
-                                    )}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ));
-                        })()}
-                        {!workspaceItems.length && (
-                          <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                            No projects or workspaces loaded yet.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </section>
-
-                  <section className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <RotateCw className="size-4" />
-                      Attach active tmux sessions
-                    </div>
-                    {overviewError ? (
-                      <div className="rounded-xl border border-dashed border-warning/30 bg-warning/5 px-3 py-4 text-sm text-warning">
-                        {overviewError}
-                      </div>
-                    ) : isOverviewLoading && !overview ? (
-                      <div className="flex items-center justify-center rounded-xl border border-dashed border-border px-3 py-6">
-                        <DefaultSpinner />
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {attachableSessions.map((session) => (
-                          <button
-                            key={session.session_id}
-                            type="button"
-                            onClick={() => {
-                              handleImportSession(session);
-                              setIsImportModalOpen(false);
-                            }}
-                            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:bg-accent"
-                          >
-                            <div className="truncate text-sm font-medium text-foreground">
-                              {session.terminal_name || `Window ${session.tmux_window_index}`}
-                            </div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              {(session.project_name || "Workspace") + " · " + (session.workspace_name || "Main")}
-                            </div>
-                            {session.cwd && (
-                              <div className="truncate pt-1 text-[11px] text-muted-foreground">{session.cwd}</div>
-                            )}
-                          </button>
-                        ))}
-                        {!attachableSessions.length && (
-                          <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                            No attachable tmux sessions are active right now.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </section>
-                </div>
-              </ScrollArea>
-            </DialogContent>
-          </Dialog>
+            {/*
+              Import-terminal modal & "Refresh active sessions" button were
+              removed: picking a terminal from a context-less list was hard
+              to reason about (you can't tell what each terminal is doing
+              from its name alone). The pin-to-canvas flow on the Terminal
+              tab itself remains the supported way to bring a pane onto the
+              canvas, since at pin time the user can see the live pane.
+            */}
             <CanvasAgentBridgeControls
               bridge={canvasAgentBridge}
               iconButtonClass={sharePanelIconButtonClass}
+              onJump={() => {
+                const editor = editorRef.current;
+                if (!editor) return;
+                canvasAgentBridge.activity.jumpToLast(editor);
+              }}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => void loadOverview()}
-              disabled={isOverviewLoading}
-              className={sharePanelIconButtonClass}
-              title="Refresh active sessions"
-            >
-              {isOverviewLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}
-            </Button>
             <Button
               variant="ghost"
               onClick={() => void handleManualSave()}

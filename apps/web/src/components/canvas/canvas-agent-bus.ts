@@ -22,18 +22,11 @@ import {
 /** tldraw v5 note sticky default width (page units); used to map CLI `--w` → `scale`. */
 const NOTE_BASE_WIDTH = 200;
 
-export interface CanvasAgentActor {
-  actor_id: string;
-  name?: string | null;
-  color?: string | null;
-}
-
 export interface CanvasAgentDispatchInput {
   request_id: string;
   client_id?: string;
   command: string;
   args?: Record<string, unknown> | null;
-  actor?: CanvasAgentActor | null;
   deadline_ms?: number;
 }
 
@@ -90,13 +83,6 @@ export interface CanvasAgentBusOptions {
    */
   isBridgeAccepting?: boolean;
   /**
-   * Presence sink — used by `canvas-agent-presence` to display the agent
-   * cursor + camera and to keep Follow Agent in sync. The bus calls this
-   * before/after every command so the presence record is "fresh" while the
-   * agent is active.
-   */
-  onActorActivity?: (actor: CanvasAgentActor, editor: Editor) => void;
-  /**
    * Optional logger — defaults to console.debug. Tests can pass `noop`.
    */
   log?: (message: string, payload?: unknown) => void;
@@ -135,14 +121,6 @@ export class CanvasAgentBus {
     const command = (input.command ?? "").trim();
     if (!command) {
       return fail("VALIDATION_ARG", "command must be provided", false);
-    }
-
-    if (input.actor && this.options.onActorActivity) {
-      try {
-        this.options.onActorActivity(input.actor, editor);
-      } catch (err) {
-        this.log("canvas-agent: actor activity hook failed", err);
-      }
     }
 
     try {
