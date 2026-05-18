@@ -1,0 +1,19 @@
+.github/workflows/deploy-web-app-pages.yml
+  s_754aab5ccc81a0::t_66faaddbccaade 28-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "9dceb1c51c9a024ad45121e74925603535b68d12",
+  "prompts": {},
+  "sessions": {
+    "s_754aab5ccc81a0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e7e6531c-5449-484b-afd1-2d525de87553",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
