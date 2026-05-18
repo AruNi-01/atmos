@@ -67,12 +67,9 @@ import {
   BookOpen,
   LoaderCircle,
   RotateCw,
-  Star,
-  Bot,
   FileCheckCorner,
 } from "lucide-react";
 import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
-import { AgentIcon } from "@/components/agent/AgentIcon";
 import { AGENT_STATE, useAgentHooksStore } from "@/hooks/use-agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/components/agent/AgentHookStatusIndicator";
 import { codeAgentCustomApi, type CodeAgentCustomEntry, functionSettingsApi } from "@/api/ws-api";
@@ -392,10 +389,8 @@ const CenterStage: React.FC = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Agent dropdown state
-  const [agentDropdownTabId, setAgentDropdownTabId] = React.useState<string | null>(null);
   const [defaultAgentId, setDefaultAgentId] = React.useState<string>("claude");
-  const agentDropdownTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [termTabPlusHoveredTabId, setTermTabPlusHoveredTabId] = React.useState<string | null>(null);
 
   // Code Review tab state
   const codeReviewTerminalGridRef = React.useRef<TerminalGridHandle>(null);
@@ -1109,84 +1104,12 @@ const CenterStage: React.FC = () => {
     };
   }, [handleRunReviewInTerminal]);
 
-  const handleAddAgent = (agentId: string, targetTerminalTabId: string = FIXED_TERMINAL_TAB_VALUE) => {
-    if (!effectiveContextId) return;
-
-    if (activeFilePath) {
-      setActiveFile(null, effectiveContextId);
-    }
-
-    if (targetTerminalTabId !== activeValue) {
-      setActiveTerminalTab(effectiveContextId, targetTerminalTabId);
-      setUrlParams({ tab: targetTerminalTabId, wikiPage: null });
-    }
-
-    const builtIn = AGENT_OPTIONS.find((a) => a.id === agentId);
-    if (builtIn) {
-      const custom = agentCustomSettings[agentId];
-      const cmd = custom?.cmd?.trim() || builtIn.cmd;
-      const flags = custom?.flags?.trim() || builtIn.params || "";
-      const command = flags ? `${cmd} ${flags}` : cmd;
-      runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
-        void grid.createAndRunTerminal({
-          label: builtIn.label,
-          command,
-          agent: {
-            id: builtIn.id,
-            label: builtIn.label,
-            command: cmd,
-            iconType: "built-in",
-            pipeCommand: "useEcho" in builtIn && builtIn.useEcho ? cmd : undefined,
-          },
-        });
-      });
-      return;
-    }
-
-    const customAgent = customAgents.find((a) => a.id === agentId);
-    if (customAgent) {
-      const cmd = customAgent.cmd.trim();
-      const flags = customAgent.flags?.trim() || "";
-      const command = flags ? `${cmd} ${flags}` : cmd;
-      runWhenTerminalGridReady(targetTerminalTabId, (grid) => {
-        void grid.createAndRunTerminal({
-          label: customAgent.label,
-          command,
-          agent: { id: customAgent.id, label: customAgent.label, command: cmd, iconType: "custom" },
-        });
-      });
-    }
-  };
-
-  const handleSetDefaultAgent = (agentId: string) => {
-    setDefaultAgentId(agentId);
-    functionSettingsApi.update("agent_cli", "center_fix_terminal_default_agent", agentId).catch(() => {});
-  };
-
-  const handleAgentDropdownEnter = () => {
-    if (agentDropdownTimeoutRef.current) {
-      clearTimeout(agentDropdownTimeoutRef.current);
-    }
-  };
-
-  const handleAgentDropdownOpen = (tabId: string) => {
-    handleAgentDropdownEnter();
-    setAgentDropdownTabId(tabId);
-  };
-
-  const handleAgentDropdownLeave = () => {
-    agentDropdownTimeoutRef.current = setTimeout(() => {
-      setAgentDropdownTabId(null);
-    }, 150);
-  };
-
   const handleCreateTerminalCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return;
     const nextTab = createTerminalTab(effectiveContextId);
     setActiveTerminalTab(effectiveContextId, nextTab.id);
     setUrlParams({ tab: nextTab.id, wikiPage: null });
     setActiveFile(null, effectiveContextId);
-    setAgentDropdownTabId(null);
     runWhenTerminalGridReady(nextTab.id, (grid) => grid.focusActivePane());
   }, [effectiveContextId, createTerminalTab, runWhenTerminalGridReady, setActiveFile, setActiveTerminalTab, setUrlParams]);
 
@@ -1682,17 +1605,45 @@ const CenterStage: React.FC = () => {
                 value="terminal"
                 className="group/terminal relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
               >
-                <span className="relative size-3.5 shrink-0">
+                <span className="relative flex size-4 shrink-0 items-center justify-center">
                   <TerminalIcon
                     className={cn(
-                      "size-3.5 absolute inset-0 transition-all duration-200",
+                      "size-3.5 transition-all duration-200",
                       activeValue === FIXED_TERMINAL_TAB_VALUE
-                        ? agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE
-                          ? "opacity-0 scale-50 rotate-[-20deg]"
-                          : "group-hover/terminal:opacity-0 group-hover/terminal:scale-50 group-hover/terminal:rotate-[-20deg]"
-                        : ""
+                        ? "group-hover/terminal:opacity-0 group-hover/terminal:scale-50 group-hover/terminal:rotate-[-20deg]"
+                        : "",
                     )}
                   />
+                  {activeValue === FIXED_TERMINAL_TAB_VALUE && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label="New Terminal Tab"
+                      className={cn(
+                        "absolute inset-0 -m-1 flex items-center justify-center rounded-md p-1 text-muted-foreground transition-all",
+                        "opacity-0 scale-50 rotate-60 pointer-events-none",
+                        "group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto",
+                        "hover:bg-muted-foreground/20 hover:text-foreground",
+                      )}
+                      onPointerEnter={() => setTermTabPlusHoveredTabId(FIXED_TERMINAL_TAB_VALUE)}
+                      onPointerLeave={() => setTermTabPlusHoveredTabId(null)}
+                      onFocus={() => setTermTabPlusHoveredTabId(FIXED_TERMINAL_TAB_VALUE)}
+                      onBlur={() => setTermTabPlusHoveredTabId(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCreateTerminalCenterTab();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleCreateTerminalCenterTab();
+                        }
+                      }}
+                    >
+                      <Plus className="size-3.5" />
+                    </span>
+                  )}
                 </span>
                 <span className="text-[13px] font-medium whitespace-nowrap">Term</span>
                 {effectiveContextId && (
@@ -1702,104 +1653,21 @@ const CenterStage: React.FC = () => {
                   />
                 )}
 
-                <DropdownMenu
-                  open={agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE}
-                  onOpenChange={(open) => {
-                    if (!open) {
-                      setAgentDropdownTabId(null);
-                    } else {
-                      handleAgentDropdownOpen(FIXED_TERMINAL_TAB_VALUE);
-                    }
-                  }}
-                  modal={false}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      className={cn(
-                        "absolute top-1/2 -translate-y-1/2 size-5 flex items-center justify-center rounded-sm hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-all",
-                        activeValue === FIXED_TERMINAL_TAB_VALUE
-                          ? agentDropdownTabId === FIXED_TERMINAL_TAB_VALUE
-                            ? "opacity-100 scale-100 rotate-0 pointer-events-auto"
-                            : "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
-                          : "hidden"
-                      )}
-                      style={{ left: "12px" }}
-                      onMouseEnter={() => handleAgentDropdownOpen(FIXED_TERMINAL_TAB_VALUE)}
-                      onMouseLeave={handleAgentDropdownLeave}
-                    >
-                      <Plus className="size-4" />
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="w-64"
-                    onMouseEnter={handleAgentDropdownEnter}
-                    onMouseLeave={handleAgentDropdownLeave}
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <DropdownMenuItem onClick={handleCreateTerminalCenterTab} className="flex items-center">
-                      <TerminalIcon className="size-4" />
-                      <span className="flex-1">New Terminal Tab</span>
-                      <ShortcutHint digit="T" />
-                    </DropdownMenuItem>
-                    {(visibleBuiltInAgents.length > 0 || visibleCustomAgents.length > 0) && (
-                      <DropdownMenuSeparator />
-                    )}
-                    {visibleBuiltInAgents.map((opt) => (
-                      <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.id, FIXED_TERMINAL_TAB_VALUE); setAgentDropdownTabId(null); }}>
-                        <AgentIcon registryId={opt.id} name={opt.label} size={16} />
-                        <span className="flex-1">{opt.label}</span>
-                        <button
-                          className={cn(
-                            "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
-                            defaultAgentId === opt.id
-                              ? "opacity-100"
-                              : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSetDefaultAgent(opt.id);
-                          }}
-                        >
-                          <Star className={cn("size-3.5", defaultAgentId === opt.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
-                        </button>
-                      </DropdownMenuItem>
-                    ))}
-                    {visibleCustomAgents.length > 0 && (
-                      <>
-                        <DropdownMenuSeparator />
-                        {visibleCustomAgents.map((agent) => (
-                          <DropdownMenuItem key={agent.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(agent.id, FIXED_TERMINAL_TAB_VALUE); setAgentDropdownTabId(null); }}>
-                            <Bot className="size-4 text-muted-foreground" />
-                            <span className="flex-1">{agent.label}</span>
-                            <button
-                              className={cn(
-                                "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
-                                defaultAgentId === agent.id
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSetDefaultAgent(agent.id);
-                              }}
-                            >
-                              <Star className={cn("size-3.5", defaultAgentId === agent.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
-                            </button>
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </TabsTab>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               <div className="flex items-center gap-2">
-                <span>Term</span>
-                <ShortcutHint digit={1} />
+                {termTabPlusHoveredTabId === FIXED_TERMINAL_TAB_VALUE ? (
+                  <>
+                    <span>New Terminal Tab</span>
+                    <ShortcutHint digit="T" />
+                  </>
+                ) : (
+                  <>
+                    <span>Term</span>
+                    <ShortcutHint digit={1} />
+                  </>
+                )}
               </div>
             </TooltipContent>
           </Tooltip>
@@ -1817,112 +1685,48 @@ const CenterStage: React.FC = () => {
                       value={tab.id}
                       className="group/term-tab relative !h-full pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none !border-0"
                     >
-                      <span className="relative size-3.5 shrink-0">
+                      <span className="relative flex size-4 shrink-0 items-center justify-center">
                         <TerminalIcon
                           className={cn(
-                            "size-3.5 absolute inset-0 transition-all duration-200",
-                            agentDropdownTabId === tab.id
-                              ? "opacity-0 scale-50 rotate-[-20deg]"
-                              : activeValue === tab.id
-                                ? "group-hover/term-tab:opacity-0 group-hover/term-tab:scale-50 group-hover/term-tab:rotate-[-20deg]"
-                                : ""
+                            "size-3.5 transition-all duration-200",
+                            activeValue === tab.id
+                              ? "group-hover/term-tab:opacity-0 group-hover/term-tab:scale-50 group-hover/term-tab:rotate-[-20deg]"
+                              : "",
                           )}
                         />
+                        {activeValue === tab.id && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label="New Terminal Tab"
+                            className={cn(
+                              "absolute inset-0 -m-1 flex items-center justify-center rounded-md p-1 text-muted-foreground transition-all",
+                              "opacity-0 scale-50 rotate-60 pointer-events-none",
+                              "group-hover/term-tab:opacity-100 group-hover/term-tab:scale-100 group-hover/term-tab:rotate-0 group-hover/term-tab:pointer-events-auto",
+                              "hover:bg-muted-foreground/20 hover:text-foreground",
+                            )}
+                            onPointerEnter={() => setTermTabPlusHoveredTabId(tab.id)}
+                            onPointerLeave={() => setTermTabPlusHoveredTabId(null)}
+                            onFocus={() => setTermTabPlusHoveredTabId(tab.id)}
+                            onBlur={() => setTermTabPlusHoveredTabId(null)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateTerminalCenterTab();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleCreateTerminalCenterTab();
+                              }
+                            }}
+                          >
+                            <Plus className="size-3.5" />
+                          </span>
+                        )}
                       </span>
                       <span className="text-[13px] font-medium whitespace-nowrap">{tab.title}</span>
                       {effectiveContextId && <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.id} />}
-                      <DropdownMenu
-                        open={agentDropdownTabId === tab.id}
-                        onOpenChange={(open) => {
-                          if (!open) {
-                            setAgentDropdownTabId(null);
-                          } else {
-                            handleAgentDropdownOpen(tab.id);
-                          }
-                        }}
-                        modal={false}
-                      >
-                        <DropdownMenuTrigger asChild>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            className={cn(
-                              "absolute left-3 top-1/2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded-sm text-muted-foreground transition-all hover:bg-muted-foreground/20 hover:text-foreground",
-                              agentDropdownTabId === tab.id
-                                ? "opacity-100 scale-100 rotate-0"
-                                : activeValue === tab.id
-                                  ? "opacity-0 scale-50 rotate-60 pointer-events-none group-hover/term-tab:opacity-100 group-hover/term-tab:scale-100 group-hover/term-tab:rotate-0 group-hover/term-tab:pointer-events-auto"
-                                  : "opacity-0 scale-50 rotate-60 pointer-events-none"
-                            )}
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseEnter={() => handleAgentDropdownOpen(tab.id)}
-                            onMouseLeave={handleAgentDropdownLeave}
-                          >
-                            <Plus className="size-4" />
-                          </div>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="start"
-                          className="w-64"
-                          onMouseEnter={() => handleAgentDropdownOpen(tab.id)}
-                          onMouseLeave={handleAgentDropdownLeave}
-                          onCloseAutoFocus={(e) => e.preventDefault()}
-                        >
-                          <DropdownMenuItem onClick={handleCreateTerminalCenterTab} className="flex items-center">
-                            <TerminalIcon className="size-4" />
-                            <span className="flex-1">New Terminal Tab</span>
-                            <ShortcutHint digit="T" />
-                          </DropdownMenuItem>
-                          {(visibleBuiltInAgents.length > 0 || visibleCustomAgents.length > 0) && (
-                            <DropdownMenuSeparator />
-                          )}
-                          {visibleBuiltInAgents.map((opt) => (
-                            <DropdownMenuItem key={opt.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(opt.id, tab.id); setAgentDropdownTabId(null); }}>
-                              <AgentIcon registryId={opt.id} name={opt.label} size={16} />
-                              <span className="flex-1">{opt.label}</span>
-                              <button
-                                className={cn(
-                                  "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
-                                  defaultAgentId === opt.id
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
-                                )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSetDefaultAgent(opt.id);
-                                }}
-                              >
-                                <Star className={cn("size-3.5", defaultAgentId === opt.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
-                              </button>
-                            </DropdownMenuItem>
-                          ))}
-                          {visibleCustomAgents.length > 0 && (
-                            <>
-                              <DropdownMenuSeparator />
-                              {visibleCustomAgents.map((agent) => (
-                                <DropdownMenuItem key={agent.id} className="group/agent-item flex items-center" onClick={() => { handleAddAgent(agent.id, tab.id); setAgentDropdownTabId(null); }}>
-                                  <Bot className="size-4 text-muted-foreground" />
-                                  <span className="flex-1">{agent.label}</span>
-                                  <button
-                                    className={cn(
-                                      "size-5 flex items-center justify-center rounded-sm shrink-0 transition-opacity",
-                                      defaultAgentId === agent.id
-                                        ? "opacity-100"
-                                        : "opacity-0 group-hover/agent-item:opacity-100 hover:bg-muted-foreground/20"
-                                    )}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleSetDefaultAgent(agent.id);
-                                    }}
-                                  >
-                                    <Star className={cn("size-3.5", defaultAgentId === agent.id ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground")} />
-                                  </button>
-                                </DropdownMenuItem>
-                              ))}
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                       <div
                         className={cn(
                           "absolute right-0 top-1/2 z-10 flex h-full -translate-y-1/2 items-center rounded-r-sm bg-linear-to-l from-muted/25 to-transparent pl-2.5 pr-1.5 backdrop-blur-[4px] transition-opacity duration-200",
@@ -1947,8 +1751,17 @@ const CenterStage: React.FC = () => {
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     <div className="flex items-center gap-2">
-                      <span>{tab.title}</span>
-                      {hasShortcut ? <ShortcutHint digit={shortcutDigit} /> : null}
+                      {termTabPlusHoveredTabId === tab.id ? (
+                        <>
+                          <span>New Terminal Tab</span>
+                          <ShortcutHint digit="T" />
+                        </>
+                      ) : (
+                        <>
+                          <span>{tab.title}</span>
+                          {hasShortcut ? <ShortcutHint digit={shortcutDigit} /> : null}
+                        </>
+                      )}
                     </div>
                   </TooltipContent>
                 </Tooltip>

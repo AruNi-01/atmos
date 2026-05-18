@@ -42,6 +42,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   cn,
   toastManager,
@@ -52,6 +55,7 @@ import { getTerminalDisplayMeta, isPathLikeTitle, resolveAgentForTitle, Terminal
 import { useTerminalToolbarTitle } from "./use-terminal-toolbar-title";
 import { systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/hooks/use-terminal-store";
+import { useTerminalSplitPrefs } from "@/hooks/use-terminal-split-prefs";
 import { useProjectStore } from "@/hooks/use-project-store";
 import type { Project } from "@/types/types";
 import { AgentIcon } from "@/components/agent/AgentIcon";
@@ -186,7 +190,7 @@ type WorkspaceMosaicPaneWindowProps = {
   quickOpenAgents: NonNullable<TerminalGridProps["quickOpenAgents"]>;
   splitMenuKey: string | null;
   setSplitMenuKey: React.Dispatch<React.SetStateAction<string | null>>;
-  splitTerminal: (id: string, direction: "row" | "column", agent?: TerminalPaneAgent) => string | null | undefined;
+  onSplitPane: (id: string, direction: "row" | "column") => void;
   splitAndRunAgent: (id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => void;
   handleSplitMenuEnter: (key: string) => void;
   handleSplitMenuLeave: () => void;
@@ -221,7 +225,7 @@ function TerminalMosaicWorkspacePaneWindow(props: WorkspaceMosaicPaneWindowProps
     quickOpenAgents,
     splitMenuKey,
     setSplitMenuKey,
-    splitTerminal,
+    onSplitPane,
     splitAndRunAgent,
     handleSplitMenuEnter,
     handleSplitMenuLeave,
@@ -312,7 +316,7 @@ function TerminalMosaicWorkspacePaneWindow(props: WorkspaceMosaicPaneWindowProps
                           <button
                             type="button"
                             className="terminal-mosaic-btn"
-                            onClick={() => splitTerminal(id, "row")}
+                            onClick={() => onSplitPane(id, "row")}
                             onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
                             onMouseLeave={handleSplitMenuLeave}
                             title="Split Horizontal (⌘D)"
@@ -349,7 +353,7 @@ function TerminalMosaicWorkspacePaneWindow(props: WorkspaceMosaicPaneWindowProps
                           <button
                             type="button"
                             className="terminal-mosaic-btn"
-                            onClick={() => splitTerminal(id, "column")}
+                            onClick={() => onSplitPane(id, "column")}
                             onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
                             onMouseLeave={handleSplitMenuLeave}
                             title="Split Vertical (⌘⇧D)"
@@ -471,12 +475,14 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
   // to call sendText directly or queue a pending command for onSessionReady.
   const readyPanesRef = React.useRef<Set<string>>(new Set());
   const [splitMenuKey, setSplitMenuKey] = React.useState<string | null>(null);
+  const [contextSplitSubmenu, setContextSplitSubmenu] = React.useState<"row" | "column" | null>(null);
   const [isPaneDragging, setIsPaneDragging] = React.useState(false);
   const [activePaneId, setActivePaneId] = React.useState<string | null>(null);
   const [closeConfirmPaneId, setCloseConfirmPaneId] = React.useState<string | null>(null);
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number } | null>(null);
   const [pinnedPaneKeys, setPinnedPaneKeys] = React.useState<Set<string>>(() => new Set());
   const splitMenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contextSplitSubmenuTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isProjectWiki = scope === "project-wiki";
   const isCodeReview = scope === "code-review";
@@ -488,6 +494,15 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     () => quickOpenAgents.map(({ agent }) => agent),
     [quickOpenAgents],
   );
+
+  const hydrateTerminalSplitPrefs = useTerminalSplitPrefs((state) => state.hydrate);
+  const useLastSplitAgentOnSplit = useTerminalSplitPrefs((state) => state.useLastSplitAgentOnSplit);
+  const lastSplitAgentId = useTerminalSplitPrefs((state) => state.lastSplitAgentId);
+  const rememberLastSplitAgent = useTerminalSplitPrefs((state) => state.rememberLastSplitAgent);
+
+  React.useEffect(() => {
+    hydrateTerminalSplitPrefs();
+  }, [hydrateTerminalSplitPrefs]);
 
   const {
     getPanes,
@@ -995,11 +1010,39 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     return newPaneId;
   }, [workspaceId, isCodeReview, isProjectWiki, splitCodeReviewTerminal, splitProjectWikiTerminal, splitTerminalInStore, terminalTabId]);
 
-  const splitFocusedTerminal = useCallback((direction: "row" | "column") => {
-    const paneId = getFocusedPaneId();
-    if (!paneId) return;
-    splitTerminal(paneId, direction);
-  }, [getFocusedPaneId, splitTerminal]);
+  const splitAndRunAgentWithRemember = useCallback(
+    (id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
+      rememberLastSplitAgent(agent.id);
+      const newPaneId = splitTerminal(id, direction, agent);
+      if (!newPaneId) return;
+      pendingCommandsRef.current.set(newPaneId, command.trim() + "\r");
+      setSplitMenuKey(null);
+    },
+    [rememberLastSplitAgent, splitTerminal],
+  );
+
+  const performSplit = useCallback(
+    (id: string, direction: "row" | "column") => {
+      if (useLastSplitAgentOnSplit && lastSplitAgentId) {
+        const match = quickOpenAgents.find(({ agent }) => agent.id === lastSplitAgentId);
+        if (match) {
+          splitAndRunAgentWithRemember(id, direction, match.command, match.agent);
+          return;
+        }
+      }
+      splitTerminal(id, direction);
+    },
+    [lastSplitAgentId, quickOpenAgents, splitAndRunAgentWithRemember, splitTerminal, useLastSplitAgentOnSplit],
+  );
+
+  const splitFocusedTerminal = useCallback(
+    (direction: "row" | "column") => {
+      const paneId = getFocusedPaneId();
+      if (!paneId) return;
+      performSplit(paneId, direction);
+    },
+    [getFocusedPaneId, performSplit],
+  );
 
   const onToggleMaximize = useCallback((id: string) => {
     if (isCodeReview || isProjectWiki) {
@@ -1084,13 +1127,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     };
   }, [focusPaneByOffset, getFocusedPaneId, onNewTerminalTab, onToggleMaximize, pinPaneToCanvas, requestCloseTerminal, splitFocusedTerminal]);
 
-  const splitAndRunAgent = useCallback((id: string, direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
-    const newPaneId = splitTerminal(id, direction, agent);
-    if (!newPaneId) return;
-    pendingCommandsRef.current.set(newPaneId, command.trim() + "\r");
-    setSplitMenuKey(null);
-  }, [splitTerminal]);
-
   const handleSplitMenuEnter = useCallback((key: string) => {
     if (splitMenuTimeoutRef.current) {
       clearTimeout(splitMenuTimeoutRef.current);
@@ -1104,12 +1140,38 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }, 120);
   }, []);
 
+  const handleContextSplitSubmenuEnter = useCallback((key: "row" | "column") => {
+    if (quickOpenAgents.length === 0) return;
+    if (contextSplitSubmenuTimeoutRef.current) {
+      clearTimeout(contextSplitSubmenuTimeoutRef.current);
+    }
+    setContextSplitSubmenu(key);
+  }, [quickOpenAgents.length]);
+
+  const handleContextSplitSubmenuLeave = useCallback(() => {
+    contextSplitSubmenuTimeoutRef.current = setTimeout(() => {
+      setContextSplitSubmenu(null);
+    }, 120);
+  }, []);
+
+  const handleContextSplitWithAgent = useCallback(
+    (direction: "row" | "column", command: string, agent: TerminalPaneAgent) => {
+      setContextMenu(null);
+      setContextSplitSubmenu(null);
+      const focusedPaneId = getFocusedPaneId();
+      if (!focusedPaneId) return;
+      splitAndRunAgentWithRemember(focusedPaneId, direction, command, agent);
+    },
+    [getFocusedPaneId, splitAndRunAgentWithRemember],
+  );
+
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
     // Only show context menu when right-clicking inside the terminal mosaic container
     // but not on toolbar buttons or other interactive elements
     const target = event.target as HTMLElement;
     if (target.closest("button") || target.closest(".terminal-mosaic-toolbar")) return;
     event.preventDefault();
+    setContextSplitSubmenu(null);
     setContextMenu({ x: event.clientX, y: event.clientY });
   }, []);
 
@@ -1153,6 +1215,75 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     }
   }, [getFocusedPaneId, onNewTerminalTab, onToggleMaximize, pinPaneToCanvas, requestCloseTerminal, splitFocusedTerminal, focusPaneByOffset]);
 
+  const renderContextSplitMenuItem = useCallback(
+    (
+      direction: "row" | "column",
+      label: string,
+      icon: React.ReactNode,
+      shortcut: string,
+      action: "split-horizontal" | "split-vertical",
+    ) => {
+      if (quickOpenAgents.length === 0) {
+        return (
+          <DropdownMenuItem
+            key={action}
+            onClick={() => handleContextMenuAction(action)}
+            className="cursor-pointer"
+          >
+            {icon}
+            <span>{label}</span>
+            <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        );
+      }
+
+      return (
+        <DropdownMenuSub key={action} open={contextSplitSubmenu === direction}>
+          <DropdownMenuSubTrigger
+            className="cursor-pointer"
+            onPointerEnter={() => handleContextSplitSubmenuEnter(direction)}
+            onClick={(event) => {
+              event.preventDefault();
+              handleContextMenuAction(action);
+            }}
+          >
+            {icon}
+            <span>{label}</span>
+            <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent
+            className="w-56"
+            onPointerEnter={() => handleContextSplitSubmenuEnter(direction)}
+            onPointerLeave={handleContextSplitSubmenuLeave}
+          >
+            {quickOpenAgents.map(({ agent, command }) => (
+              <DropdownMenuItem
+                key={`${action}-${agent.id}`}
+                className="cursor-pointer"
+                onClick={() => handleContextSplitWithAgent(direction, command, agent)}
+              >
+                {agent.iconType === "built-in" ? (
+                  <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                ) : (
+                  <Bot className="size-4 text-muted-foreground" />
+                )}
+                <span>{agent.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      );
+    },
+    [
+      contextSplitSubmenu,
+      handleContextMenuAction,
+      handleContextSplitSubmenuEnter,
+      handleContextSplitSubmenuLeave,
+      handleContextSplitWithAgent,
+      quickOpenAgents,
+    ],
+  );
+
   const focusedPane = effectiveActivePaneId ? panes[effectiveActivePaneId] : null;
   const focusedPanePinKey = focusedPane?.tmuxWindowName
     ? buildCanvasTerminalPinKey(isProjectContext ? "project" : "workspace", workspaceId, focusedPane.tmuxWindowName)
@@ -1183,8 +1314,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           quickOpenAgents={quickOpenAgents}
           splitMenuKey={splitMenuKey}
           setSplitMenuKey={setSplitMenuKey}
-          splitTerminal={splitTerminal}
-          splitAndRunAgent={splitAndRunAgent}
+          onSplitPane={performSplit}
+          splitAndRunAgent={splitAndRunAgentWithRemember}
           handleSplitMenuEnter={handleSplitMenuEnter}
           handleSplitMenuLeave={handleSplitMenuLeave}
           pinPaneToCanvas={pinPaneToCanvas}
@@ -1264,7 +1395,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                           <DropdownMenuTrigger asChild>
                             <button
                               className="terminal-mosaic-btn"
-                              onClick={() => splitTerminal(id, "row")}
+                              onClick={() => performSplit(id, "row")}
                               onMouseEnter={() => handleSplitMenuEnter(`${id}:row`)}
                               onMouseLeave={handleSplitMenuLeave}
                               title="Split Horizontal (⌘D)"
@@ -1280,7 +1411,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onCloseAutoFocus={(e) => e.preventDefault()}
                             >
                               {quickOpenAgents.map(({ agent, command }) => (
-                                <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgent(id, "row", command, agent)}>
+                                <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgentWithRemember(id, "row", command, agent)}>
                                   {agent.iconType === "built-in" ? (
                                     <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                   ) : (
@@ -1300,7 +1431,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                           <DropdownMenuTrigger asChild>
                             <button
                               className="terminal-mosaic-btn"
-                              onClick={() => splitTerminal(id, "column")}
+                              onClick={() => performSplit(id, "column")}
                               onMouseEnter={() => handleSplitMenuEnter(`${id}:column`)}
                               onMouseLeave={handleSplitMenuLeave}
                               title="Split Vertical (⌘⇧D)"
@@ -1316,7 +1447,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onCloseAutoFocus={(e) => e.preventDefault()}
                             >
                               {quickOpenAgents.map(({ agent, command }) => (
-                                <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgent(id, "column", command, agent)}>
+                                <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgentWithRemember(id, "column", command, agent)}>
                                   {agent.iconType === "built-in" ? (
                                     <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                   ) : (
@@ -1419,8 +1550,8 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     );
   }, [
     panes,
-    splitTerminal,
-    splitAndRunAgent,
+    performSplit,
+    splitAndRunAgentWithRemember,
     requestCloseTerminal,
     workspaceInfo,
     maximizedId,
@@ -1446,6 +1577,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     isProjectContext,
     pinnedPaneKeys,
     pinPaneToCanvas,
+    performSplit,
   ]);
 
   // Wait for workspace to be ready before rendering any Terminal components
@@ -1554,7 +1686,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     <DropdownMenu
       open={!!contextMenu}
       onOpenChange={(open) => {
-        if (!open) setContextMenu(null);
+        if (!open) {
+          setContextMenu(null);
+          setContextSplitSubmenu(null);
+        }
       }}
     >
       <DropdownMenuTrigger asChild>
@@ -1601,16 +1736,20 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           <DropdownMenuShortcut>⌘]</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleContextMenuAction("split-horizontal")} className="cursor-pointer">
-          <Columns className="size-4 mr-2 text-muted-foreground" />
-          <span>Split Horizontal</span>
-          <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleContextMenuAction("split-vertical")} className="cursor-pointer">
-          <Rows className="size-4 mr-2 text-muted-foreground" />
-          <span>Split Vertical</span>
-          <DropdownMenuShortcut>⌘⇧D</DropdownMenuShortcut>
-        </DropdownMenuItem>
+        {renderContextSplitMenuItem(
+          "row",
+          "Split Horizontal",
+          <Columns className="size-4 mr-2 text-muted-foreground" />,
+          "⌘D",
+          "split-horizontal",
+        )}
+        {renderContextSplitMenuItem(
+          "column",
+          "Split Vertical",
+          <Rows className="size-4 mr-2 text-muted-foreground" />,
+          "⌘⇧D",
+          "split-vertical",
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleContextMenuAction("maximize")} className="cursor-pointer">
           {maximizedId ? (

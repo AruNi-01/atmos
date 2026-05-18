@@ -113,6 +113,7 @@ import {
   type UpdateStatus,
 } from '@/hooks/use-updater';
 import { useTerminalLinkSettings, type TerminalFileLinkOpenMode } from '@/hooks/use-terminal-link-settings';
+import { useTerminalSplitPrefs } from '@/hooks/use-terminal-split-prefs';
 import { useWorkspaceSettings } from '@/hooks/use-workspace-settings';
 import { useWorkspaceGitignoreDirs } from '@/hooks/use-workspace-gitignore-dirs';
 import type { GitIgnoreDirStrategy } from '@/api/ws-api';
@@ -2887,6 +2888,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setFileLinkOpenMode,
     setFileLinkOpenApp,
   } = useTerminalLinkSettings();
+  const {
+    useLastSplitAgentOnSplit,
+    lastSplitAgentId,
+    hydrate: hydrateTerminalSplitPrefs,
+    setUseLastSplitAgentOnSplit,
+  } = useTerminalSplitPrefs();
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -2897,7 +2904,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
     void loadTerminalLinkSettings();
-  }, [loadTerminalLinkSettings]);
+    hydrateTerminalSplitPrefs();
+  }, [hydrateTerminalSplitPrefs, loadTerminalLinkSettings]);
 
   // Load agent custom settings when modal opens
   const loadAgentSettings = React.useCallback(async () => {
@@ -3893,6 +3901,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+                      <div>
+                        <p className="text-base font-medium text-foreground">Default split agent</p>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          When enabled, plain split (toolbar click, ⌘D, or context menu) reuses the last agent you
+                          picked from a split submenu. Hover split to choose a different agent.
+                        </p>
+                        {lastSplitAgentId ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Last split agent:{' '}
+                            <span className="font-medium text-foreground">{lastSplitAgentId}</span>
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <Switch
+                          checked={useLastSplitAgentOnSplit}
+                          onCheckedChange={setUseLastSplitAgentOnSplit}
+                        />
                       </div>
                     </div>
                   </div>
