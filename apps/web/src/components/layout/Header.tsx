@@ -74,6 +74,7 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { SkillsModal } from '@/components/skills';
 import { LocalModelDownloadProgress } from '@/components/layout/LocalModelDownloadProgress';
 import { useAgentChatLayout } from '@/hooks/use-agent-chat-layout';
+import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 import { useFocusRestore } from '@/hooks/use-focus-restore';
 import { useDesktopWebLauncher } from '@/hooks/use-desktop-web-launcher';
 import { useRemoteAccess, type RemoteAccessStatus } from '@/hooks/use-remote-access';
@@ -332,6 +333,11 @@ const Header: React.FC = () => {
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
   const { layout, updateLayout, loadLayout } = useAgentChatLayout();
   useEffect(() => { loadLayout(); }, [loadLayout]);
+  const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+  useEffect(() => {
+    void loadExperimentSettings();
+  }, [loadExperimentSettings]);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [desktopWebPopoverOpen, setDesktopWebPopoverOpen] = useState(false);
   const [isTokenUsageOpen, setIsTokenUsageOpen] = useQueryState("tokenUsage", tokenUsageParams.tokenUsage);
@@ -1361,45 +1367,47 @@ const Header: React.FC = () => {
 
                 <MenuSeparator />
 
-                <MenuSubmenu>
-                  <MenuSubmenuTrigger>
-                    <span className="flex items-center gap-2">
-                      <Bot className="size-4 text-foreground/90" />
-                      <span>ACP Agent</span>
-                    </span>
-                  </MenuSubmenuTrigger>
-                  <MenuSubmenuPanel className="w-64">
-                    <MenuItem
-                      closeOnClick
-                      onClick={() => {
-                        setAgentChatOpen(true);
-                        setIsActionMenuOpen(false);
-                      }}
-                    >
-                      Open Agent Chat
-                    </MenuItem>
+                {managementAgentsEnabled ? (
+                  <MenuSubmenu>
+                    <MenuSubmenuTrigger>
+                      <span className="flex items-center gap-2">
+                        <Bot className="size-4 text-foreground/90" />
+                        <span>ACP Agent</span>
+                      </span>
+                    </MenuSubmenuTrigger>
+                    <MenuSubmenuPanel className="w-64">
+                      <MenuItem
+                        closeOnClick
+                        onClick={() => {
+                          setAgentChatOpen(true);
+                          setIsActionMenuOpen(false);
+                        }}
+                      >
+                        Open Agent Chat
+                      </MenuItem>
 
-                    <MenuItem closeOnClick={false}>
-                      <div className="flex w-full items-center gap-2">
-                        <span className="min-w-14 text-sm text-foreground">Opacity</span>
-                        <input
-                          type="range"
-                          min={20}
-                          max={100}
-                          value={layout.opacity}
-                          onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
-                          aria-label="Agent chat panel opacity"
-                          onClick={(event) => event.stopPropagation()}
-                          onPointerDown={(event) => event.stopPropagation()}
-                          className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/18 accent-foreground/35"
-                        />
-                        <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
-                          {layout.opacity}%
-                        </span>
-                      </div>
-                    </MenuItem>
-                  </MenuSubmenuPanel>
-                </MenuSubmenu>
+                      <MenuItem closeOnClick={false}>
+                        <div className="flex w-full items-center gap-2">
+                          <span className="min-w-14 text-sm text-foreground">Opacity</span>
+                          <input
+                            type="range"
+                            min={20}
+                            max={100}
+                            value={layout.opacity}
+                            onChange={(e) => updateLayout({ opacity: Number(e.target.value) })}
+                            aria-label="Agent chat panel opacity"
+                            onClick={(event) => event.stopPropagation()}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-foreground/18 accent-foreground/35"
+                          />
+                          <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
+                            {layout.opacity}%
+                          </span>
+                        </div>
+                      </MenuItem>
+                    </MenuSubmenuPanel>
+                  </MenuSubmenu>
+                ) : null}
 
                 <MenuItem
                   closeOnClick
