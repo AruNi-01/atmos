@@ -80,7 +80,7 @@ import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
 import type { ReviewTarget } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/components/terminal/TerminalGrid";
 import type { TerminalPaneAgent } from "@/components/terminal/types";
-import WelcomePage from "@/components/welcome/WelcomePage";
+import { HostedWelcomeGate } from "@/components/welcome/HostedWelcomeGate";
 import { useQueryStates } from "nuqs";
 import { centerStageParams } from "@/lib/nuqs/searchParams";
 import { useReviewTerminalRunnerStore } from "@/hooks/use-review-terminal-runner";
@@ -109,6 +109,7 @@ import {
   CODE_REVIEW_WINDOW_NAME,
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_TAB_VALUE_PREFIX,
+  findWorkspacePaneIdsByTmuxWindowName,
   useTerminalStore,
 } from "@/hooks/use-terminal-store";
 import { CodeReviewDialog } from "@/components/code-review";
@@ -959,6 +960,23 @@ const CenterStage: React.FC = () => {
     attempt(attemptsLeft);
   }, []);
 
+  // Try to focus pane by tmux window name across all terminal tabs
+  const focusPaneByTmuxAcrossAllTabs = React.useCallback((tmuxWindowName: string) => {
+    // Try fixed terminal grid first
+    if (terminalGridRef.current?.focusPaneByTmuxWindowName(tmuxWindowName)) {
+      return true;
+    }
+    // Try all other terminal tabs
+    for (const tab of visibleTerminalTabs) {
+      if (tab.id === FIXED_TERMINAL_TAB_VALUE) continue;
+      const grid = terminalGridRefs.current[tab.id];
+      if (grid?.focusPaneByTmuxWindowName(tmuxWindowName)) {
+        return true;
+      }
+    }
+    return false;
+  }, [visibleTerminalTabs]);
+
   React.useEffect(() => {
     const tmux = terminalTmux?.trim();
     if (!effectiveContextId || !tmux) return;
@@ -970,14 +988,33 @@ const CenterStage: React.FC = () => {
       setActiveFile(null, effectiveContextId);
     }
 
-    const tabForGrid = isTerminalCenterTabValue(resolvedTab) ? resolvedTab : FIXED_TERMINAL_TAB_VALUE;
+    // Resolve which terminal tab actually owns the pane. Deep links (e.g. from
+    // the footer agent status) may arrive without a `tab` param, or with a
+    // stale one — without this switch we'd stay on whatever tab is active
+    // (usually the Fixed term on a fresh workspace load) and silently focus
+    // the pane inside a hidden grid.
+    const owningTab = findWorkspacePaneIdsByTmuxWindowName(
+      useTerminalStore.getState(),
+      effectiveContextId,
+      tmux,
+    )?.terminalTabId;
+
+    if (owningTab && owningTab !== resolvedTab) {
+      setUrlParams({ tab: owningTab });
+      // Wait for the next effect run (URL flip → tab mount) before focusing.
+      return;
+    }
+
+    const tabForGrid = owningTab
+      ?? (isTerminalCenterTabValue(resolvedTab) ? resolvedTab : FIXED_TERMINAL_TAB_VALUE);
 
     let cancelled = false;
     runWhenTerminalGridReady(
       tabForGrid,
       (grid) => {
         if (cancelled) return;
-        if (!grid.focusPaneByTmuxWindowName(tmux)) return;
+        // Try to focus pane across all tabs (not just the current tab)
+        if (!focusPaneByTmuxAcrossAllTabs(tmux)) return;
         setUrlParams({ terminalTmux: null });
       },
       40,
@@ -990,6 +1027,7 @@ const CenterStage: React.FC = () => {
     activeFilePath,
     currentView,
     effectiveContextId,
+    focusPaneByTmuxAcrossAllTabs,
     isSetupBlocking,
     isTerminalWorkspaceReady,
     resolvedTab,
@@ -1533,7 +1571,7 @@ const CenterStage: React.FC = () => {
     }
     return (
       <main className="h-full overflow-hidden">
-        <WelcomePage
+        <HostedWelcomeGate
           onAddProject={() => setCreateProjectOpen(true)}
           onConnectAgent={() => {
             router.push('/agents');

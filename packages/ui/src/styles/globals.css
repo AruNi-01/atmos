@@ -183,6 +183,21 @@
   }
 }
 
+@keyframes canvas-agent-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
 @keyframes bounce-down {
   0%, 100% {
     transform: translateY(0);

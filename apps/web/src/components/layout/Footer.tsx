@@ -25,12 +25,17 @@ import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/components/agent/AgentHookStatusIndicator';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/hooks/use-project-store';
+import {
+  findWorkspacePaneIdsByTmuxWindowName,
+  useTerminalStore,
+} from '@/hooks/use-terminal-store';
 import { X } from 'lucide-react';
 import { ProviderGlyph } from '@/components/layout/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/components/layout/NappingBotIcon';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
+import { useAppRouter } from '@/hooks/use-app-router';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -127,7 +132,7 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
   );
 }
 
-function SessionRow({ session }: { session: AgentHookSession }) {
+function SessionRow({ session, onNavigate }: { session: AgentHookSession; onNavigate: () => void }) {
   const [hovered, setHovered] = React.useState(false);
   const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
   const removeSession = useAgentHooksStore((s) => s.removeSession);
@@ -144,9 +149,10 @@ function SessionRow({ session }: { session: AgentHookSession }) {
 
   return (
     <div
-      className="flex items-center justify-between gap-2 px-1 py-0.5 rounded-sm hover:bg-accent/50"
+      className="flex items-center justify-between gap-2 px-1 py-0.5 rounded-sm hover:bg-accent/50 cursor-pointer"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onNavigate}
     >
       <div className="flex items-center gap-1.5 min-w-0">
         <AgentHookStatusIndicator state={session.state} variant="compact" />
@@ -182,14 +188,33 @@ function useContextDisplayNameResolver() {
 
 function useContextNameResolver() {
   const projects = useProjectStore((s) => s.projects);
-  return useCallback((contextId: string | null | undefined): { projectName: string; workspaceName: string | null } => {
-    if (!contextId) return { projectName: "", workspaceName: null };
-    for (const project of projects) {
-      if (project.id === contextId) return { projectName: project.name, workspaceName: null };
-      const ws = project.workspaces.find((w) => w.id === contextId);
-      if (ws) return { projectName: project.name, workspaceName: ws.displayName || ws.name || ws.branch };
+  return useCallback((contextId: string | null | undefined): {
+    projectName: string;
+    workspaceName: string | null;
+    workspaceDisplayName: string | null;
+  } => {
+    if (!contextId) {
+      return { projectName: "", workspaceName: null, workspaceDisplayName: null };
     }
-    return { projectName: contextId.slice(0, 8), workspaceName: null };
+    for (const project of projects) {
+      if (project.id === contextId) {
+        return { projectName: project.name, workspaceName: null, workspaceDisplayName: null };
+      }
+      const ws = project.workspaces.find((w) => w.id === contextId);
+      if (ws) {
+        const workspaceName = ws.name || ws.branch;
+        const workspaceDisplayName = ws.displayName?.trim() || null;
+        return {
+          projectName: project.name,
+          workspaceName,
+          workspaceDisplayName:
+            workspaceDisplayName && workspaceDisplayName !== workspaceName
+              ? workspaceDisplayName
+              : null,
+        };
+      }
+    }
+    return { projectName: contextId.slice(0, 8), workspaceName: null, workspaceDisplayName: null };
   }, [projects]);
 }
 
@@ -210,11 +235,57 @@ function useSessionTicker(sessions: AgentHookSession[], intervalMs = 3000) {
 function AgentStatusPopoverContent() {
   const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
+  const router = useAppRouter();
+  const projects = useProjectStore((s) => s.projects);
 
   const sessions = useMemo(() => Array.from(sessionsMap.values()), [sessionsMap]);
   const grouped = useMemo(() => groupSessionsByContext(sessions), [sessions]);
   const hasIdleSessions = sessions.some(s => s.state === AGENT_STATE.IDLE);
   const resolveContextDisplayName = useContextDisplayNameResolver();
+  const resolveContextName = useContextNameResolver();
+
+  const navigateToSessionPane = useCallback((session: AgentHookSession) => {
+    const contextId = session.context_id;
+    const paneId = session.pane_id;
+
+    if (!contextId || !paneId) return;
+
+    // Parse tmuxWindowName from pane_id (format: "{workspaceId}:{windowName}")
+    const tmuxWindowName = paneId.split(':').slice(1).join(':');
+    if (!tmuxWindowName) return;
+
+    // Determine if context is a project or workspace
+    let basePath = "/workspace";
+    for (const project of projects) {
+      if (project.id === contextId) {
+        basePath = "/project";
+        break;
+      }
+      const ws = project.workspaces.find((w) => w.id === contextId);
+      if (ws) {
+        basePath = "/workspace";
+        break;
+      }
+    }
+
+    // Resolve which terminal tab actually owns the pane so we switch to the
+    // right tab (e.g. "term-1") instead of staying on whatever tab is active
+    // (e.g. the Fixed terminal). Without this, CenterStage's focus helper
+    // would silently focus the pane inside a hidden tab.
+    const hit = findWorkspacePaneIdsByTmuxWindowName(
+      useTerminalStore.getState(),
+      contextId,
+      tmuxWindowName,
+    );
+
+    const params = new URLSearchParams();
+    params.set("id", contextId);
+    if (hit?.terminalTabId) {
+      params.set("tab", hit.terminalTabId);
+    }
+    params.set("terminalTmux", tmuxWindowName);
+    router.push(`${basePath}?${params.toString()}`);
+  }, [router, projects]);
 
   if (sessions.length === 0) {
     return (
@@ -246,13 +317,20 @@ function AgentStatusPopoverContent() {
       <div className="space-y-2">
         {Array.from(grouped.entries()).map(([contextKey, pathSessions]) => {
           const displayName = resolveContextDisplayName(contextKey);
+          const { projectName, workspaceName, workspaceDisplayName } = resolveContextName(contextKey);
+          const contextLabel = projectName
+            ? [projectName, workspaceDisplayName ?? workspaceName].filter(Boolean).join(" / ")
+            : displayName;
           return (
             <div key={contextKey} className="space-y-0.5">
-              <div className="text-[10px] font-medium text-muted-foreground px-1 truncate" title={contextKey}>
-                {displayName}
+              <div
+                className="px-1 text-[10px] font-medium text-muted-foreground truncate"
+                title={contextKey}
+              >
+                {contextLabel}
               </div>
               {pathSessions.map((session) => (
-                <SessionRow key={session.session_id} session={session} />
+                <SessionRow key={session.session_id} session={session} onNavigate={() => navigateToSessionPane(session)} />
               ))}
             </div>
           );
@@ -583,14 +661,16 @@ const Footer: React.FC = () => {
                     className="flex items-center gap-0 animate-in fade-in slide-in-from-bottom-1 duration-200"
                   >
                     {(() => {
-                      const { projectName, workspaceName } = resolveContextName(tickerSession.context_id);
+                      const { projectName, workspaceName, workspaceDisplayName } =
+                        resolveContextName(tickerSession.context_id);
+                      const workspaceTickerLabel = workspaceDisplayName ?? workspaceName;
                       return projectName ? (
                         <span className="font-medium whitespace-nowrap text-foreground">
                           {projectName}
-                          {workspaceName && (
+                          {workspaceTickerLabel && (
                             <>
                               <span className="text-muted-foreground mx-0.5">-</span>
-                              <span>{workspaceName}</span>
+                              <span>{workspaceTickerLabel}</span>
                             </>
                           )}
                         </span>

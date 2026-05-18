@@ -7,7 +7,7 @@
 ## Build And Test
 
 - **Dev**: `just dev-web` (API usually on `30303` via `just dev-api`)
-- **Build**: `bun build` — Desktop export uses `BUILD_TARGET=desktop` in `before-build.mjs`
+- **Build**: `bun build` — static export targets include Desktop (`BUILD_TARGET=desktop`) and Cloudflare Pages (`bun run build:pages`)
 - **Test / lint / typecheck**: `bun test`, `bun lint`, `bun typecheck`
 
 ---

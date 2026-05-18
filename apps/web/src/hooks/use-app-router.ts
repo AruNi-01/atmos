@@ -10,7 +10,7 @@ import { useCallback, useMemo } from "react";
 
 /**
  * Locale-aware router that auto-prefixes navigation paths with the current
- * locale segment (e.g. `/en/`). Required for static-export (desktop) builds
+ * locale segment (e.g. `/en/`). Required for static-export builds
  * where no middleware runs to handle locale resolution.
  *
  * Safe to use in web (SSR) mode too — the prefix is idempotent.
@@ -38,8 +38,13 @@ export function useAppRouter() {
         nextPathname = `/${locale}${nextPathname.startsWith("/") ? nextPathname : `/${nextPathname}`}`;
       }
 
+      const isStaticExportBuild =
+        process.env.BUILD_TARGET === "desktop" ||
+        process.env.BUILD_TARGET === "local-web" ||
+        process.env.BUILD_TARGET === "pages";
+
       if (
-        process.env.BUILD_TARGET === "desktop" &&
+        isStaticExportBuild &&
         nextPathname !== `/${locale}` &&
         nextPathname !== `/${locale}/` &&
         !nextPathname.endsWith("/")

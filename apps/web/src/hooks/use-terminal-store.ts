@@ -227,9 +227,15 @@ function getWorkspaceTerminalTabs(state: Pick<TerminalStore, "workspaceTerminalT
   return state.workspaceTerminalTabs[workspaceId] || [createFixedTerminalTab()];
 }
 
-/** Locate a pane in the main workspace terminal grid by its tmux window name (any tab). */
+/**
+ * Locate a pane in the main workspace terminal grid by its tmux window name (any tab).
+ *
+ * Checks hydrated panes first; falls back to the persisted layout so deep
+ * links (e.g. the footer agent-status jump) can resolve the owning tab even
+ * before the workspace's non-active tabs have been mounted/hydrated.
+ */
 export function findWorkspacePaneIdsByTmuxWindowName(
-  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes">,
+  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes" | "persistedTerminalLayouts">,
   workspaceId: string,
   tmuxWindowName: string,
 ): { paneId: string; terminalTabId: string } | null {
@@ -244,6 +250,20 @@ export function findWorkspacePaneIdsByTmuxWindowName(
       }
     }
   }
+
+  const persistedTabs = state.persistedTerminalLayouts[workspaceId]?.tabs;
+  if (persistedTabs) {
+    for (const tab of persistedTabs) {
+      for (const [paneId, pane] of Object.entries(tab.panes ?? {})) {
+        const legacyTitle = (pane as unknown as { title?: string }).title;
+        const windowName = pane.tmuxWindowName || pane.label || legacyTitle;
+        if (windowName === tmuxWindowName) {
+          return { paneId, terminalTabId: tab.id };
+        }
+      }
+    }
+  }
+
   return null;
 }
 
@@ -262,7 +282,7 @@ export function getWorkspacePaneFieldsByPaneId(
 
 /** Read transient title + agent for a tmux-attached pane (same fields the mosaic uses). */
 export function getWorkspacePaneLiveFieldsByTmuxWindow(
-  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes">,
+  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes" | "persistedTerminalLayouts">,
   workspaceId: string,
   tmuxWindowName: string,
 ): { dynamicTitle?: string; agent?: TerminalPaneAgent } {

@@ -245,13 +245,7 @@ export interface WsNotification {
   };
 }
 
-export type WsMessage =
-  | WsRequest
-  | WsResponse
-  | WsError
-  | WsNotification
-  | { type: "ping" }
-  | { type: "pong" };
+export type WsMessage = WsRequest | WsResponse | WsError | WsNotification;
 
 // ===== WebSocket 状态管理 =====
 
@@ -276,13 +270,18 @@ interface WebSocketStore {
 
   // 配置
   url: string;
-  heartbeatInterval: number;
   reconnectInterval: number;
   requestTimeout: number;
   maxReconnectAttempts: number;
 
   // 内部状态
-  heartbeatTimer: ReturnType<typeof setInterval> | null;
+  // No app-level heartbeat timer:
+  //   - Local (loopback) WS never silently stalls; TCP keepalive is enough.
+  //   - Relay WS: the daemon side drives WS-protocol PINGs on its own
+  //     outbound link; the browser link uses CF + browser/edge keepalive
+  //     plus client-side auto-reconnect on drop.
+  //   Sending app-level "ping" frames would wake the relay Durable Object
+  //   on every tick and burn billable CPU for zero functional value.
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   reconnectAttempts: number;
 
@@ -297,8 +296,6 @@ interface WebSocketStore {
   onEvent: (event: string, callback: (data: unknown) => void) => () => void;
 
   // 内部方法
-  _startHeartbeat: () => void;
-  _stopHeartbeat: () => void;
   _handleMessage: (event: MessageEvent) => void;
   _scheduleReconnect: () => void;
 }
@@ -314,13 +311,11 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
 
   // 配置
   url: getWsUrl(),
-  heartbeatInterval: 15000,
   reconnectInterval: 1000,
   requestTimeout: 30000,
   maxReconnectAttempts: 10,
 
   // 内部状态
-  heartbeatTimer: null,
   reconnectTimer: null,
   reconnectAttempts: 0,
 
@@ -383,7 +378,6 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           clearTimeout(reconnectTimer);
         }
         set({ connectionState: "connected", socket: ws, reconnectAttempts: 0, reconnectTimer: null });
-        get()._startHeartbeat();
         void syncClientSessionFromStore().catch(() => undefined);
       };
 
@@ -399,7 +393,6 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
           "wasClean:",
           event.wasClean,
         );
-        get()._stopHeartbeat();
 
         const { pendingRequests } = get();
         pendingRequests.forEach((pending) => {
@@ -433,12 +426,8 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
 
   // 断开连接
   disconnect: () => {
-    const { socket, heartbeatTimer, reconnectTimer, pendingRequests } = get();
+    const { socket, reconnectTimer, pendingRequests } = get();
 
-    // 清理定时器
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer);
-    }
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
     }
@@ -457,7 +446,6 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     set({
       socket: null,
       connectionState: "disconnected",
-      heartbeatTimer: null,
       reconnectTimer: null,
       pendingRequests: new Map(),
     });
@@ -533,47 +521,12 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     };
   },
 
-  _startHeartbeat: () => {
-    // Stop any previous heartbeat to avoid stacking multiple intervals.
-    const prev = get().heartbeatTimer;
-    if (prev) clearInterval(prev);
-
-    const { heartbeatInterval } = get();
-    const timer = setInterval(() => {
-      // Read socket from store each tick — NOT a stale closure capture.
-      const ws = get().socket;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send("ping");
-      }
-    }, heartbeatInterval);
-
-    set({ heartbeatTimer: timer });
-  },
-
-  _stopHeartbeat: () => {
-    const { heartbeatTimer } = get();
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer);
-      set({ heartbeatTimer: null });
-    }
-  },
-
   // 处理消息
   _handleMessage: (event: MessageEvent) => {
     const { pendingRequests } = get();
 
     try {
-      // 处理简单的 pong 响应
-      if (event.data === "pong") {
-        return;
-      }
-
       const message = JSON.parse(event.data) as WsMessage;
-
-      // 处理 pong
-      if (message.type === "pong") {
-        return;
-      }
 
       // 处理响应
       if (message.type === "response") {

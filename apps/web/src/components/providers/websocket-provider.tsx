@@ -6,6 +6,8 @@ import { useAgentHooksStore } from '@/hooks/use-agent-hooks-store';
 import { useAgentNotifications } from '@/hooks/use-agent-notifications';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
+import { useHostedConnectionStore } from '@/hooks/use-hosted-connection-store';
+import { isHostedAtmosOrigin } from '@/lib/desktop-runtime';
 import {
   subscribeToWorkspaceDeleteProgress,
   subscribeToWorkspaceGitignoreSyncFailed,
@@ -26,8 +28,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   const connect = useWebSocketStore(s => s.connect);
   const disconnect = useWebSocketStore(s => s.disconnect);
   const connectionState = useWebSocketStore(s => s.connectionState);
+  const hostedBootstrapState = useHostedConnectionStore(s => s.bootstrapState);
+  const shouldConnect =
+    !isHostedAtmosOrigin() || hostedBootstrapState === 'connected';
 
   useEffect(() => {
+    if (!shouldConnect) {
+      disconnect();
+      return;
+    }
+
     // 应用启动时建立连接
     connect();
 
@@ -36,7 +46,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       if (document.visibilityState === 'visible') {
         // 页面变为可见时，检查并重新连接
         const state = useWebSocketStore.getState();
-        if (state.connectionState === 'disconnected') {
+        if (shouldConnect && state.connectionState === 'disconnected') {
           connect();
         }
       }
@@ -45,7 +55,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // 网络状态变化时的处理
     const handleOnline = () => {
       const state = useWebSocketStore.getState();
-      if (state.connectionState === 'disconnected') {
+      if (shouldConnect && state.connectionState === 'disconnected') {
         connect();
       }
     };
@@ -60,7 +70,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       // 注意：不在这里调用 disconnect()，因为这可能只是组件重新渲染
       // 真正的断开连接应该在用户明确登出或关闭页面时
     };
-  }, [connect]);
+  }, [connect, disconnect, shouldConnect]);
 
   useEffect(() => {
     const unsubscribeSetup = subscribeToWorkspaceSetupProgress();

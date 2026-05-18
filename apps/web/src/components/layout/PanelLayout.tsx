@@ -16,7 +16,7 @@ import { useSidebarLayout } from "@/components/layout/SidebarLayoutContext";
 import { useDialogStore } from "@/hooks/use-dialog-store";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { centerStageParams } from "@/lib/nuqs/searchParams";
-import WelcomePage from "@/components/welcome/WelcomePage";
+import { HostedWelcomeGate } from "@/components/welcome/HostedWelcomeGate";
 
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;
@@ -308,7 +308,7 @@ export function PanelLayout({
             left: `${liveLeftSidebarSize}%`,
           }}
         >
-          <WelcomePage
+          <HostedWelcomeGate
             onAddProject={() => setCreateProjectOpen(true)}
             onConnectAgent={() => {
               void setNewWorkspace(false);
