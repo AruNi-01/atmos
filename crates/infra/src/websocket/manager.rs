@@ -179,14 +179,6 @@ impl WsManager {
         connections.get(id).map(|conn| conn.sender().clone())
     }
 
-    /// Update the last active time for a connection
-    pub async fn touch_connection(&self, id: &str) {
-        let mut connections = self.connections.write().await;
-        if let Some(conn) = connections.get_mut(id) {
-            conn.touch();
-        }
-    }
-
     /// Return a snapshot of all active connections.
     pub async fn list_connections(&self) -> Vec<ConnectionInfo> {
         let connections = self.connections.read().await;
@@ -197,16 +189,6 @@ impl WsManager {
                 client_type: conn.client_type.as_str().to_string(),
                 connected_seconds: conn.last_active().elapsed().as_secs(),
             })
-            .collect()
-    }
-
-    /// Get list of expired connection IDs
-    pub async fn get_expired_connections(&self, timeout_secs: u64) -> Vec<String> {
-        let connections = self.connections.read().await;
-        connections
-            .iter()
-            .filter(|(_, conn)| conn.is_expired(timeout_secs))
-            .map(|(id, _)| id.clone())
             .collect()
     }
 }

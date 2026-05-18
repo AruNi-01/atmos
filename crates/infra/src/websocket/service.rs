@@ -1,51 +1,28 @@
-//! WebSocket service - unified WebSocket management for all apps.
+//! WebSocket service - unified WebSocket transport for all apps.
 //!
-//! This service encapsulates:
-//! - Connection management (WsManager)
-//! - Heartbeat detection (auto cleanup expired connections)
-//! - Message processing (ping/pong only, business logic is delegated via trait)
-//!
-//! Business logic is NOT handled here. Upper layers (core-service) implement
-//! WsMessageHandler trait and handle business messages themselves.
+//! `WsService` is purely a transport: connection lifecycle + framing +
+//! delegating text payloads to a `WsMessageHandler`. It does **not** do
+//! application-level ping/pong, and there is no heartbeat monitor — both
+//! are intentionally absent so that relay-mode traffic (browser → CF
+//! Durable Object → daemon) stays free under Cloudflare's WS Hibernation
+//! billing. Liveness comes from:
+//!   * Browser ↔ apps/api (loopback) — TCP never stalls on `127.0.0.1`.
+//!   * Daemon ↔ Cloudflare relay — protocol PINGs from `apps/api/src/relay/ingest.rs`.
+//!   * Browser ↔ Cloudflare relay — relies on the browser/edge TCP layer;
+//!     the client reconnects on drop.
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::warn;
 
 use super::connection::ClientType;
-use super::handler::{process_text_message, HandleResult, WsMessageHandler};
-use super::heartbeat::HeartbeatMonitor;
+use super::handler::WsMessageHandler;
 use super::manager::WsManager;
 
-/// Configuration for WebSocket service
-#[derive(Clone)]
-pub struct WsServiceConfig {
-    /// Heartbeat check interval in seconds
-    pub heartbeat_interval_secs: u64,
-    /// Connection timeout in seconds (no activity)
-    pub connection_timeout_secs: u64,
-}
-
-impl Default for WsServiceConfig {
-    fn default() -> Self {
-        Self {
-            heartbeat_interval_secs: 10,
-            connection_timeout_secs: 30,
-        }
-    }
-}
-
-/// WebSocket service - the main entry point for WebSocket management
-///
-/// This service handles:
-/// - Connection lifecycle (register/unregister)
-/// - Heartbeat monitoring (auto cleanup expired connections)
-/// - Control messages (ping/pong)
-/// - Business messages (via WsMessageHandler dependency injection)
+/// WebSocket service - the main entry point for WebSocket management.
 pub struct WsService {
     manager: Arc<WsManager>,
     message_handler: Option<Arc<dyn WsMessageHandler>>,
-    config: WsServiceConfig,
 }
 
 impl WsService {
@@ -53,44 +30,24 @@ impl WsService {
         Self {
             manager: Arc::new(WsManager::new()),
             message_handler: None,
-            config: WsServiceConfig::default(),
         }
     }
 
-    pub fn with_config(config: WsServiceConfig) -> Self {
-        Self {
-            manager: Arc::new(WsManager::new()),
-            message_handler: None,
-            config,
-        }
-    }
-
-    /// Inject a message handler for business logic
+    /// Inject a message handler for business logic.
     pub fn with_message_handler(mut self, handler: Arc<dyn WsMessageHandler>) -> Self {
         self.message_handler = Some(handler);
         self
     }
 
-    /// Get the underlying manager (for direct access if needed)
+    /// Get the underlying manager (for direct access if needed).
     pub fn manager(&self) -> Arc<WsManager> {
         Arc::clone(&self.manager)
     }
 
-    /// Start the heartbeat monitor (delegates to `HeartbeatMonitor`).
-    pub fn start_heartbeat(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
-        let monitor = Arc::new(HeartbeatMonitor::with_config(
-            Arc::clone(&self.manager),
-            self.config.heartbeat_interval_secs,
-            self.config.connection_timeout_secs,
-        ));
-        monitor.start()
-    }
-
-    /// Register a new connection
+    /// Register a new connection.
     pub async fn register(&self, client_type: ClientType, sender: mpsc::Sender<String>) -> String {
         let conn_id = self.manager.register_connection(client_type, sender).await;
 
-        // Notify handler about new connection
         if let Some(handler) = &self.message_handler {
             handler.on_connect(&conn_id).await;
         }
@@ -98,9 +55,8 @@ impl WsService {
         conn_id
     }
 
-    /// Unregister a connection
+    /// Unregister a connection.
     pub async fn unregister(&self, conn_id: &str) {
-        // Notify handler before disconnection
         if let Some(handler) = &self.message_handler {
             handler.on_disconnect(conn_id).await;
         }
@@ -108,40 +64,17 @@ impl WsService {
         self.manager.unregister_connection(conn_id).await;
     }
 
-    /// Process an incoming text message (unified entry point)
-    ///
-    /// This handles both control messages (ping/pong) and business messages.
-    /// Business messages are delegated to the injected WsMessageHandler.
-    ///
-    /// Returns:
-    /// - `Some(response)` if there's a response to send back
-    /// - `None` if no response is needed
+    /// Process an incoming text payload by delegating to the injected handler.
     pub async fn handle_message(&self, conn_id: &str, text: &str) -> Option<String> {
-        // Update last active time
-        self.manager.touch_connection(conn_id).await;
-
-        // Process control messages (ping/pong)
-        match process_text_message(text, conn_id) {
-            HandleResult::Reply(response) => Some(response),
-            HandleResult::Close => None,
-            HandleResult::None => {
-                // Delegate to business message handler
-                if let Some(handler) = &self.message_handler {
-                    handler.handle_message(conn_id, text).await
-                } else {
-                    warn!("No message handler configured, ignoring business message");
-                    None
-                }
-            }
+        if let Some(handler) = &self.message_handler {
+            handler.handle_message(conn_id, text).await
+        } else {
+            warn!("No message handler configured, ignoring business message");
+            None
         }
     }
 
-    /// Check if a message is a control message (ping/pong)
-    pub fn is_control_message(&self, text: &str) -> bool {
-        super::handler::is_control_message(text)
-    }
-
-    /// Send a message to a specific connection
+    /// Send a message to a specific connection.
     pub async fn send_to(&self, conn_id: &str, message: &str) -> Result<(), String> {
         self.manager
             .send_raw(conn_id, message.to_string())
@@ -149,7 +82,7 @@ impl WsService {
             .map_err(|e| e.to_string())
     }
 
-    /// Broadcast a message to all connections
+    /// Broadcast a message to all connections.
     pub async fn broadcast(&self, message: &str) -> Result<(), String> {
         self.manager
             .broadcast_raw(message.to_string())
@@ -157,7 +90,7 @@ impl WsService {
             .map_err(|e| e.to_string())
     }
 
-    /// Broadcast a message to all connections except one
+    /// Broadcast a message to all connections except one.
     pub async fn broadcast_except(&self, exclude_id: &str, message: &str) -> Result<(), String> {
         self.manager
             .broadcast_except_raw(exclude_id, message.to_string())
@@ -165,7 +98,7 @@ impl WsService {
             .map_err(|e| e.to_string())
     }
 
-    /// Get connection count
+    /// Get connection count.
     pub async fn connection_count(&self) -> usize {
         self.manager.connection_count().await
     }
