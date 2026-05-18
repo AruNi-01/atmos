@@ -1,0 +1,71 @@
+scripts/pages/README.md
+  s_754aab5ccc81a0::t_402541daddcc19 1-65,85-95
+  s_754aab5ccc81a0::t_64e9b0be4200e7 66-71,79-84
+  s_754aab5ccc81a0::t_c35667ae909706 72-78
+apps/web/src/hooks/use-hosted-connection-store.ts
+  s_754aab5ccc81a0::t_41ac26c0b1e22b 1-90
+apps/web/package.json
+  s_754aab5ccc81a0::t_e2b3ece85bb92a 10-11
+apps/web/src/components/welcome/HostedWelcomeGate.tsx
+  s_754aab5ccc81a0::t_4a170ad82c336b 51,53-61
+  s_754aab5ccc81a0::t_48381ec5f1f2eb 1-2,4-50,52,62-127,160-308,313-442,444-458
+  s_754aab5ccc81a0::t_c2a1f7d879f785 153-159
+  s_754aab5ccc81a0::t_683a6f5176c60d 3,128-152
+  s_754aab5ccc81a0::t_410fec3f9e2b65 309-312,443
+.agents/skills/atmos-web-app-deploy/SKILL.md
+  s_754aab5ccc81a0::t_03704edb2ce031 3,7,10,14,23,25-26,28,30,32,34-36,38,40,42-45,47,49-50,52-54,56,68-69,73,76-77
+  s_754aab5ccc81a0::t_cb69e3657b65b4 1-2,4-6,8-9,11-13,15-22,24,27,29,31,33,37,39,41,46,48,51,55,57-67,70-72,74-75,78-87
+apps/web/src/lib/hosted-connection-actions.ts
+  s_754aab5ccc81a0::t_d6398c56c585f6 1-50
+.gitignore
+  s_754aab5ccc81a0::t_a3ef28f43da14c 131-132
+apps/web/src/components/ConnectionBootstrapper.tsx
+  s_754aab5ccc81a0::t_1f5eece5310a92 8-18,40-41,44-94
+  s_6b4b46858df97f::t_f2b43176510729 7,22-29,95-97
+apps/web/src/lib/hosted-connection.ts
+  s_754aab5ccc81a0::t_402c918454d8ec 1-158
+scripts/pages/deploy-pages-web.mjs
+  s_754aab5ccc81a0::t_c586e64f023657 1-120
+.github/workflows/deploy-web-app-pages.yml
+  s_754aab5ccc81a0::t_8ed2ff92374027 1-5,8-38,40,42
+  s_754aab5ccc81a0::t_1b58599371ae8c 6-7,39,41
+package.json
+  s_754aab5ccc81a0::t_2b6e238de21173 17-18
+apps/web/src/lib/hydrate-relay-session.ts
+  s_6b4b46858df97f::t_6a8764006c6e11 1-71,74-84,86-119
+  s_6b4b46858df97f::t_3eae6580f72b40 72-73,85
+apps/web/src/lib/desktop-runtime.ts
+  s_754aab5ccc81a0::t_6b9eb9a62a46cb 15-17,22,24,30-36,41-50,64-67,103-108,130-133,143-144
+apps/web/wrangler.jsonc
+  s_754aab5ccc81a0::t_be8fa1c21e1241 1-4
+scripts/pages/build-pages-web.mjs
+  s_754aab5ccc81a0::t_2906a61b0521bf 1-119
+apps/web/next.config.ts
+  s_754aab5ccc81a0::t_c87beeb0c9d76c 53-54
+  s_754aab5ccc81a0::t_0be4a785f430a3 55
+  s_754aab5ccc81a0::t_a5581f8b72f491 75-88,110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "69adb6acf6825511ee3c1cf321c3d21b60f3fed3",
+  "prompts": {},
+  "sessions": {
+    "s_6b4b46858df97f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "115bf244-def0-4453-bd08-018be228ef71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_754aab5ccc81a0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e7e6531c-5449-484b-afd1-2d525de87553",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
