@@ -12,20 +12,40 @@ export type ApiConfig = {
 
 let cachedConfig: ApiConfig | null = null;
 let cachedHttpConfig: ApiConfig | null = null;
+let hostedRuntimeOverride: ApiConfig | null = null;
+
+export const HOSTED_ATMOS_APP_HOST = 'app.atmos.land';
 
 const loopbackApiPort = (): number =>
   parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
 
-function loopbackApiConfig(token?: string): ApiConfig {
+export function loopbackApiConfig(token?: string, host = '127.0.0.1'): ApiConfig {
   return {
-    host: '127.0.0.1',
+    host,
     port: loopbackApiPort(),
     token,
   };
 }
 
+export function getHostedLoopbackCandidates(token?: string): ApiConfig[] {
+  return [
+    loopbackApiConfig(token, '127.0.0.1'),
+    loopbackApiConfig(token, 'localhost'),
+  ];
+}
+
 export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+export function isHostedAtmosOrigin(): boolean {
+  return typeof window !== 'undefined' && window.location.hostname === HOSTED_ATMOS_APP_HOST;
+}
+
+export function setHostedRuntimeApiOverride(cfg: ApiConfig | null): void {
+  hostedRuntimeOverride = cfg;
+  cachedConfig = cfg;
+  cachedHttpConfig = cfg;
 }
 
 /** Build an HTTP base URL from the resolved config. */
@@ -41,6 +61,10 @@ export function wsBase(cfg: ApiConfig): string {
 }
 
 export async function getRuntimeApiConfig(): Promise<ApiConfig> {
+  if (hostedRuntimeOverride) {
+    return hostedRuntimeOverride;
+  }
+
   if (cachedConfig) {
     debugLog(`getRuntimeApiConfig: cache hit ${cachedConfig.host}:${cachedConfig.port}`);
     return cachedConfig;
@@ -76,6 +100,12 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
   }
 
   // Not Tauri — running in a regular browser.
+  if (isHostedAtmosOrigin()) {
+    cachedConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
+    debugLog(`getRuntimeApiConfig: hosted loopback ${cachedConfig.host}:${cachedConfig.port}`);
+    return cachedConfig;
+  }
+
   // Production static/runtime: same-origin API (no token on loopback).
   if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'development') {
     const protocol = window.location.protocol.replace(':', '');
@@ -97,12 +127,21 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
  * WebSocket and PTY still use {@link getRuntimeApiConfig} (direct loopback port).
  */
 export async function getRuntimeHttpConfig(): Promise<ApiConfig> {
+  if (hostedRuntimeOverride) {
+    return hostedRuntimeOverride;
+  }
+
   if (cachedHttpConfig) {
     return cachedHttpConfig;
   }
 
   if (isTauriRuntime()) {
     cachedHttpConfig = await getRuntimeApiConfig();
+    return cachedHttpConfig;
+  }
+
+  if (isHostedAtmosOrigin()) {
+    cachedHttpConfig = loopbackApiConfig(process.env.NEXT_PUBLIC_API_TOKEN || undefined);
     return cachedHttpConfig;
   }
 
