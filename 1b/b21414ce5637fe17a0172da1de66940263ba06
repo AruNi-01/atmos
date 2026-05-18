@@ -1,0 +1,23 @@
+crates/infra/src/websocket/handler.rs
+  s_6b4b46858df97f::t_f2b43176510729 1,3-8,12,14-15,18,21-22,25-26,29,32
+crates/infra/src/websocket/mod.rs
+  s_6b4b46858df97f::t_f2b43176510729 11,70
+crates/infra/src/websocket/service.rs
+  s_6b4b46858df97f::t_f2b43176510729 1,3-12,19,22,36,42,47,58,67,69-73,77,85,93,101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "1bb21414ce5637fe17a0172da1de66940263ba06",
+  "prompts": {},
+  "sessions": {
+    "s_6b4b46858df97f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "115bf244-def0-4453-bd08-018be228ef71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
