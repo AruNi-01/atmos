@@ -1,0 +1,67 @@
+apps/web/src/components/layout/HostedAppShellGate.tsx
+  s_754aab5ccc81a0::t_41102995dacc8a 10,14-38,51,55,66,91-94
+  s_754aab5ccc81a0::t_e135420389810c 50,56-63,65
+  s_754aab5ccc81a0::t_c0d77e1dc1f31c 5,64
+  s_754aab5ccc81a0::t_4e702a1288fc4e 1-4,6-9,11-13,39-49,52-54,67-90,95
+apps/web/src/components/layout/AppShellLoading.tsx
+  s_754aab5ccc81a0::t_41bc6e0ba1bf86 1-28
+apps/landing/src/components/blocks/ready-download.tsx
+  s_754aab5ccc81a0::t_6d30e392625d2c 137-139,141-143
+  s_754aab5ccc81a0::t_7d6e268fddeade 19,140
+  s_754aab5ccc81a0::t_d73ebf0cc0beb3 44,165
+  s_754aab5ccc81a0::t_5b95f9aa2c8998 5,26,91,149-150
+apps/web/src/app/[locale]/(app)/layout.tsx
+  s_754aab5ccc81a0::t_37b92869764440 10,52,72
+  s_754aab5ccc81a0::t_f5044c13f30d8d 53,55-59,61,63,65,67,69,71
+apps/web/src/components/welcome/HostedWelcomeGate.tsx
+  s_754aab5ccc81a0::t_9b96c1afe0d7e9 246-247
+  s_754aab5ccc81a0::t_0dec8a9dcb99a5 250-252,259,276-278,355-357
+  s_754aab5ccc81a0::t_694f1eb21d98ae 243,258,263
+  s_754aab5ccc81a0::t_3592a3ea472b43 23
+  s_754aab5ccc81a0::t_12b5f7124975a6 38,97,336,342
+  s_754aab5ccc81a0::t_e619828c3dcea0 98
+  s_754aab5ccc81a0::t_bdc7559fea8e79 12,248
+  s_754aab5ccc81a0::t_fe07a599d582f4 241-242
+  s_754aab5ccc81a0::t_b259918e0ac394 266,270
+  s_754aab5ccc81a0::t_963de3c3c11c22 11,265,279,281-302,305-335,337-341,343-350,352,358-370,372-388,390-416,418-448,450-458,460-471
+  s_754aab5ccc81a0::t_4ca98cdb51805b 253
+apps/web/src/components/layout/HostedLandingLoading.tsx
+  s_754aab5ccc81a0::t_ac80626e63cec4 1-3,5-14,16,20,26-28,30-31,33-47
+  s_754aab5ccc81a0::t_1bd4a077cdc391 4,15
+  s_754aab5ccc81a0::t_93df0149877d40 21-25,32
+  s_754aab5ccc81a0::t_27150763bb2754 17-19
+  s_754aab5ccc81a0::t_45e8f83cf00056 29
+apps/web/src/components/providers/tmux-check-provider.tsx
+  s_754aab5ccc81a0::t_0df84ff3b0b1c7 6-7,18-20,23-24,28
+apps/web/src/app/[locale]/(app)/loading.tsx
+  s_754aab5ccc81a0::t_dce8e23bbdb9f9 1,3-4
+apps/web/src/lib/desktop-runtime.ts
+  s_754aab5ccc81a0::t_ed0a803f62eff1 18-19,44-47
+apps/web/.env.example
+  s_754aab5ccc81a0::t_73d067aa03e81b 10-12
+apps/web/src/components/ui/AtmosWordmark.tsx
+  s_754aab5ccc81a0::t_32419cbcb27f2a 5,13,22,25-26,74-79,81-82,84-87,89-96
+  s_754aab5ccc81a0::t_a52972a2aec758 14,23,80,83
+install-local-web-runtime.sh
+  s_754aab5ccc81a0::t_318bac6f5e72cb 308-309
+apps/web/src/hooks/use-tmux-check.ts
+  s_754aab5ccc81a0::t_98052ad0682e04 4,8,14-17,22-25,30-37,40,46,48,53,56
+README.md
+  s_754aab5ccc81a0::t_469f041c1975e1 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "34edfa9099552382183a575e6a04dae34c35c11a",
+  "prompts": {},
+  "sessions": {
+    "s_754aab5ccc81a0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e7e6531c-5449-484b-afd1-2d525de87553",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
