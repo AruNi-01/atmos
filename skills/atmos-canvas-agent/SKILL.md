@@ -1,6 +1,6 @@
 ---
 name: atmos-canvas-agent
-version: "1.0.0"
+version: "1.0.1"
 description: 'Drive the user''s open Atmos Canvas (tldraw whiteboard) via the `atmos canvas` CLI. Use whenever the user asks to sketch, draw, diagram, lay out, arrange, label, move, resize, recolor, or delete anything on the canvas — including architecture/flow diagrams, sticky notes, frames, geo shapes, arrows, grids of cards, or viewport changes.'
 license: MIT
 ---
