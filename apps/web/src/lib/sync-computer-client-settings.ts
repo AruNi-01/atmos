@@ -7,7 +7,7 @@ import {
   resolveControlPlaneUrl,
   useAtmosComputerStore,
 } from '@/lib/atmos-computer-store';
-import { getLoopbackHttpBase } from '@/lib/desktop-runtime';
+import { getLoopbackHttpBase, isHostedAtmosOrigin } from '@/lib/desktop-runtime';
 
 export interface ComputerClientSettingsDisk {
   path: string;
@@ -31,13 +31,24 @@ async function loopbackBase(): Promise<string | null> {
 }
 
 export async function loadComputerClientSettingsFromDisk(): Promise<ComputerClientSettingsDisk | null> {
+  // Hosted web (app.atmos.land) cannot read ~/.atmos via loopback from the browser.
+  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+    return null;
+  }
+
   const base = await loopbackBase();
   if (!base) {
     return null;
   }
-  const res = await fetch(`${base}/api/system/computer-client-settings`, {
-    headers: apiTokenHeader(),
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/system/computer-client-settings`, {
+      headers: apiTokenHeader(),
+    });
+  } catch {
+    return null;
+  }
   if (!res.ok) {
     return null;
   }
@@ -55,6 +66,10 @@ export async function saveComputerClientSettingsToDisk(
   accessToken: string,
   controlPlaneUrl: string,
 ): Promise<boolean> {
+  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+    return false;
+  }
+
   const base = await loopbackBase();
   if (!base) {
     console.warn('[computer-client-settings] no loopback API — token not written to disk');
@@ -80,6 +95,10 @@ export async function saveComputerClientSettingsToDisk(
 }
 
 export async function clearComputerClientSettingsOnDisk(): Promise<void> {
+  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+    return;
+  }
+
   const base = await loopbackBase();
   if (!base) {
     return;

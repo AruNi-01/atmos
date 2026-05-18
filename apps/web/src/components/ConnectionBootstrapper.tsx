@@ -40,7 +40,6 @@ export function ConnectionBootstrapper() {
       const hosted = isHostedAtmosOrigin();
       useHostedConnectionStore.getState().initialize(hosted);
       useAtmosComputerStore.getState().hydrateLocalConnectionPrefs();
-      await ensureComputerClientSettingsHydrated();
 
       if (hosted) {
         const hostedStore = useHostedConnectionStore.getState();
@@ -48,49 +47,55 @@ export function ConnectionBootstrapper() {
         const preferredTarget = readHostedConnectionPreference();
 
         try {
-          const local = await detectHostedLocalServer();
-          hostedStore.setLocalAvailable(local.config, local.status);
-          if (preferredTarget === 'local') {
-            await activateHostedLocalConnection(local.config);
-            hostedStore.setConnected('local');
-            return;
+          try {
+            const local = await detectHostedLocalServer();
+            hostedStore.setLocalAvailable(local.config, local.status);
+            if (preferredTarget === 'local') {
+              await activateHostedLocalConnection(local.config);
+              hostedStore.setConnected('local');
+              return;
+            }
+          } catch (err) {
+            hostedStore.setLocalUnavailable(
+              err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
+            );
+          }
+
+          const {
+            accessToken,
+            controlPlaneUrl,
+            selectedServerId,
+          } = useAtmosComputerStore.getState();
+
+          if (
+            preferredTarget === 'relay' &&
+            accessToken.trim().length >= 32 &&
+            selectedServerId?.trim()
+          ) {
+            try {
+              const session = await createHostedRemoteSession(
+                controlPlaneUrl,
+                accessToken,
+                selectedServerId,
+              );
+              await activateHostedRemoteConnection(selectedServerId, session);
+              hostedStore.setConnected('relay');
+              return;
+            } catch (err) {
+              hostedStore.setRemoteError(
+                err instanceof Error ? err.message : 'Could not reconnect remote computer.',
+              );
+            }
           }
         } catch (err) {
-          hostedStore.setLocalUnavailable(
-            err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
-          );
-        }
-
-        const {
-          accessToken,
-          controlPlaneUrl,
-          selectedServerId,
-        } = useAtmosComputerStore.getState();
-
-        if (
-          preferredTarget === 'relay' &&
-          accessToken.trim().length >= 32 &&
-          selectedServerId?.trim()
-        ) {
-          try {
-            const session = await createHostedRemoteSession(
-              controlPlaneUrl,
-              accessToken,
-              selectedServerId,
-            );
-            await activateHostedRemoteConnection(selectedServerId, session);
-            hostedStore.setConnected('relay');
-            return;
-          } catch (err) {
-            hostedStore.setRemoteError(
-              err instanceof Error ? err.message : 'Could not reconnect remote computer.',
-            );
-          }
+          console.warn('[ConnectionBootstrapper] hosted bootstrap failed:', err);
         }
 
         hostedStore.setOnboarding();
         return;
       }
+
+      await ensureComputerClientSettingsHydrated();
 
       await hydrateRelaySessionFromDisk({
         clientType: isTauriRuntime() ? 'desktop' : 'web',

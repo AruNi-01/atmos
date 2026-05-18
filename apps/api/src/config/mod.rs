@@ -44,6 +44,7 @@ impl ServerConfig {
             _ => CorsOriginConfig::List(vec![
                 "http://localhost:3030".to_string(),
                 "http://127.0.0.1:3030".to_string(),
+                "https://app.atmos.land".to_string(),
                 "tauri://localhost".to_string(),
                 "https://tauri.localhost".to_string(),
             ]),
