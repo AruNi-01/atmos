@@ -92,7 +92,7 @@ bunx @atmos/local-web-runtime
 #### Local Web Runtime
 
 1. Install via install script or npm/bun package.
-2. The runtime will start automatically (or run `~/.atmos/bin/atmos local start`).
+2. The runtime will start automatically (or run `~/.atmos/bin/atmos runtime ensure`).
 3. Open your browser to the displayed URL (default: `http://127.0.0.1:30303`).
 4. Create a workspace and start working with agents.
 

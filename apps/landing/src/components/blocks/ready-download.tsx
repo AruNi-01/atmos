@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 
-import { ArrowRightIcon, ChevronDownIcon, CheckIcon, CopyIcon, TerminalIcon, ChevronRightIcon } from 'lucide-react'
+import { ArrowRightIcon, ChevronDownIcon, CheckIcon, CopyIcon, TerminalIcon } from 'lucide-react'
 import Link from 'next/link'
 
 import {
@@ -16,12 +16,14 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/ui/tabs'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { TextShimmer } from '@workspace/ui/components/ui/text-shimmer'
+import { GithubIcon } from '@workspace/ui/components/icons/github-icon'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
 import { Button } from '@workspace/ui/components/ui/button'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { OsIcon } from '@/components/os-icon'
 
 const RELEASES_URL = 'https://github.com/AruNi-01/atmos/releases'
+const APP_URL = 'https://app.atmos.land'
 
 type DownloadLinks = {
   macAppleSilicon: string
@@ -39,8 +41,7 @@ const createDefaultDownloadLinks = (): DownloadLinks => ({
 
 const ReadyDownload = () => {
   const [copied, setCopied] = useState('')
-  const [desktopTab, setDesktopTab] = useState('homebrew')
-  const [localWebExpanded, setLocalWebExpanded] = useState(false)
+  const [desktopTab, setDesktopTab] = useState('bash')
   const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(createDefaultDownloadLinks)
 
   useEffect(() => {
@@ -87,7 +88,7 @@ const ReadyDownload = () => {
           </h2>
 
           <p className='text-muted-foreground max-w-2xl text-xl'>
-            Choose your installation method: Desktop app or Local Web Runtime. Download Atmos and transform the way you build software.
+            Choose how you want to get started: download the Desktop app or open Atmos directly in your browser.
           </p>
 
           <div className='flex flex-col items-center gap-4 pt-4 sm:flex-row'>
@@ -133,13 +134,20 @@ const ReadyDownload = () => {
                       Linux (AppImage)
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={RELEASES_URL} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
+                      <GithubIcon size={16} className='text-current' />
+                      View GitHub Releases
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             <Button size='lg' variant='ghost' className='h-14 px-8 text-base' asChild>
-              <Link href='https://github.com/AruNi-01/atmos/releases' target='_blank' rel='noopener noreferrer' className='group'>
-                View GitHub
+              <Link href={APP_URL} target='_blank' rel='noopener noreferrer' className='group'>
+                Open in Browser
                 <ArrowRightIcon className='ml-2 size-4 transition-transform group-hover:translate-x-1' />
               </Link>
             </Button>
@@ -153,8 +161,8 @@ const ReadyDownload = () => {
                 <h3 className='text-sm font-medium text-muted-foreground'>Desktop App</h3>
                 <Tabs value={desktopTab} onValueChange={setDesktopTab} className='w-fit'>
                   <TabsList className='grid w-fit grid-cols-2'>
-                    <TabsTrigger value='homebrew'>Homebrew</TabsTrigger>
                     <TabsTrigger value='bash'>Bash</TabsTrigger>
+                    <TabsTrigger value='homebrew'>Homebrew</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -192,38 +200,6 @@ const ReadyDownload = () => {
               )}
             </div>
 
-            {/* Local Web Runtime Installation */}
-            <div className='space-y-3 text-left'>
-              <div
-                className='flex items-center gap-2 cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground transition-colors'
-                onClick={() => setLocalWebExpanded(!localWebExpanded)}
-              >
-                <ChevronRightIcon className={`size-4 transition-transform duration-200 ${localWebExpanded ? 'rotate-90' : ''}`} />
-                <span className='flex items-center gap-2'>
-                  Local Web Runtime
-                  <span className='text-xs text-muted-foreground'>(Experience it quickly in the browser, Recommended to download the desktop app.)</span>
-                </span>
-              </div>
-              <div
-                className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  localWebExpanded ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0'
-                }`}
-              >
-                <div className='inline-flex items-center overflow-hidden rounded-md border bg-muted/30 pl-4 pr-1 py-1 font-mono text-sm text-foreground shadow-sm relative group w-full'>
-                  <TerminalIcon className='size-4 opacity-60 select-none absolute left-4 top-1/2 -translate-y-1/2' />
-                  <TextShimmer as='code' className='pl-7 overflow-x-auto whitespace-nowrap mr-2 py-1.5 flex-1 text-left'>curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash</TextShimmer>
-                  <Button
-                    variant='ghost'
-                    size='icon'
-                    className='shrink-0 transition-opacity'
-                    onClick={() => copyToClipboard('curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash')}
-                    aria-label='Copy command'
-                  >
-                    {copied === 'curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
         </MotionPreset>
         </div>

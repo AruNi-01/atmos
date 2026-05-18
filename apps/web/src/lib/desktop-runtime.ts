@@ -15,6 +15,8 @@ let cachedHttpConfig: ApiConfig | null = null;
 let hostedRuntimeOverride: ApiConfig | null = null;
 
 export const HOSTED_ATMOS_APP_HOST = 'app.atmos.land';
+const forceHostedOnboarding =
+  process.env.NEXT_PUBLIC_FORCE_HOSTED_ONBOARDING === '1';
 
 const loopbackApiPort = (): number =>
   parseInt(process.env.NEXT_PUBLIC_API_PORT || '30303', 10);
@@ -39,7 +41,10 @@ export function isTauriRuntime(): boolean {
 }
 
 export function isHostedAtmosOrigin(): boolean {
-  return typeof window !== 'undefined' && window.location.hostname === HOSTED_ATMOS_APP_HOST;
+  return (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === HOSTED_ATMOS_APP_HOST || forceHostedOnboarding)
+  );
 }
 
 export function setHostedRuntimeApiOverride(cfg: ApiConfig | null): void {

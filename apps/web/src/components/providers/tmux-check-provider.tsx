@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useTmuxCheck } from "@/hooks/use-tmux-check";
 import { TmuxInstallDialog } from "@/components/dialogs/TmuxInstallDialog";
+import { useHostedConnectionStore } from "@/hooks/use-hosted-connection-store";
+import { isHostedAtmosOrigin } from "@/lib/desktop-runtime";
 
 interface TmuxCheckProviderProps {
   children: React.ReactNode;
@@ -13,14 +15,17 @@ interface TmuxCheckProviderProps {
  * User can dismiss via "Continue Without tmux" (won't show again until refresh).
  */
 export function TmuxCheckProvider({ children }: TmuxCheckProviderProps) {
-  const { isLoading, isInstalled, refetch } = useTmuxCheck();
+  const hostedBootstrapState = useHostedConnectionStore((s) => s.bootstrapState);
+  const shouldCheckTmux = !isHostedAtmosOrigin() || hostedBootstrapState === "connected";
+  const { isLoading, isInstalled, refetch } = useTmuxCheck({ enabled: shouldCheckTmux });
   const [userDismissed, setUserDismissed] = useState(false);
 
-  const showDialog = !isLoading && !isInstalled && !userDismissed;
+  const showDialog =
+    shouldCheckTmux && !isLoading && isInstalled === false && !userDismissed;
 
   // Reset dismissed state when tmux becomes installed (e.g. user installed and retried)
   useEffect(() => {
-    if (isInstalled) {
+    if (isInstalled === true) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUserDismissed(false);
     }

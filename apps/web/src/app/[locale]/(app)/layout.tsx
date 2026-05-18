@@ -7,6 +7,7 @@ import RightSidebar from "@/components/layout/RightSidebar";
 import GlobalSearch from "@/components/layout/GlobalSearch";
 import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import Footer from "@/components/layout/Footer";
+import { HostedBootstrapBoundary } from "@/components/layout/HostedAppShellGate";
 import { PanelLayout } from "@/components/layout/PanelLayout";
 import { DocumentTitle } from "@/components/layout/DocumentTitle";
 import { SidebarLayoutProvider } from "@/components/layout/SidebarLayoutContext";
@@ -48,25 +49,27 @@ export default async function AppLayout({ children, params }: Props) {
       >
         <SidebarLayoutProvider>
           <ConnectionBootstrapper />
-          <Header />
+          <HostedBootstrapBoundary>
+            <Header />
 
-          <PanelLayout
-            leftSidebar={<LeftSidebar />}
-            centerStage={<CenterStage />}
-            rightSidebar={<RightSidebar />}
-          />
+            <PanelLayout
+              leftSidebar={<LeftSidebar />}
+              centerStage={<CenterStage />}
+              rightSidebar={<RightSidebar />}
+            />
 
-          <Footer />
+            <Footer />
 
-          <GlobalSearch />
+            <GlobalSearch />
 
-          <AgentChatPanel />
+            <AgentChatPanel />
 
-          <DocumentTitle />
+            <DocumentTitle />
 
-          <WorkspaceCreationOverlay />
+            <WorkspaceCreationOverlay />
 
-          <CanvasOverlay />
+            <CanvasOverlay />
+          </HostedBootstrapBoundary>
         </SidebarLayoutProvider>
       </Suspense>
 

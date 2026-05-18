@@ -305,5 +305,5 @@ if [[ "${ACTUAL_URL:-}" != "" ]]; then
 else
   echo "Local app URL: http://127.0.0.1:${PORT}"
 fi
-echo "Start later with: ${INSTALL_ROOT}/bin/atmos local start"
-echo "Stop with: ${INSTALL_ROOT}/bin/atmos local stop"
+echo "Start later with: ${INSTALL_ROOT}/bin/atmos runtime ensure"
+echo "Stop with: ${INSTALL_ROOT}/bin/atmos runtime stop"

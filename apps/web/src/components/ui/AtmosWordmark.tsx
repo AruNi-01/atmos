@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { GeistPixelSquare } from 'geist/font/pixel';
-import { cn } from '@workspace/ui';
+import { cn, TextShimmer } from '@workspace/ui';
 import LogoSvg from '@workspace/ui/components/logo-svg';
 
 interface AtmosWordmarkProps {
@@ -10,6 +10,8 @@ interface AtmosWordmarkProps {
   logoClassName?: string;
   letterClassName?: string;
   sloganClassName?: string;
+  sloganShimmer?: boolean;
+  sloganShimmerStyle?: React.CSSProperties;
 }
 
 export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
@@ -17,7 +19,11 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
   logoClassName,
   letterClassName,
   sloganClassName,
+  sloganShimmer = false,
+  sloganShimmerStyle,
 }) => {
+  const sloganText = 'Atmosphere for Agentic Builders';
+
   return (
     <div className={cn('flex flex-col items-center', className)}>
       <div
@@ -65,14 +71,29 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
           s
         </span>
       </div>
+      {sloganShimmer ? (
+        <TextShimmer
+          as="p"
+          duration={2.8}
+          spread={2.2}
+          className={cn(
+            'pt-6 text-center text-[1.375rem] font-medium tracking-wide',
+            sloganClassName
+          )}
+          style={sloganShimmerStyle}
+        >
+          {sloganText}
+        </TextShimmer>
+      ) : (
         <p
-        className={cn(
-          'pt-6 text-center text-[1.375rem] font-medium tracking-wide text-muted-foreground',
-          sloganClassName
-        )}
-      >
-        Atmosphere for Agentic Builders
-      </p>
+          className={cn(
+            'pt-6 text-center text-[1.375rem] font-medium tracking-wide text-muted-foreground',
+            sloganClassName
+          )}
+        >
+          {sloganText}
+        </p>
+      )}
     </div>
   );
 };
