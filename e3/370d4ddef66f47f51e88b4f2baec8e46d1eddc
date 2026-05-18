@@ -1,0 +1,40 @@
+apps/api/Cargo.toml
+  s_6b4b46858df97f::t_f2b43176510729 22
+packages/relay/src/server-hub.ts
+  s_6b4b46858df97f::t_f2b43176510729 1-15,58-62,64-67,72-120,161,200-201,203,210,212-216,227,237,246-247,372-373,413-414,426-434,436-443
+apps/api/src/relay/ingest.rs
+  s_6b4b46858df97f::t_f2b43176510729 2-7,12,24-25,31-35,88-100,104,106-114,120-136,139,146,152-153,155-159,172-174,178-198,206,208,210,257,275-281,293,296-313,321,323,325,327,338,345,369
+packages/relay/src/index.ts
+  s_6b4b46858df97f::t_f2b43176510729 601-604
+apps/api/src/relay/supervisor.rs
+  s_6b4b46858df97f::t_f2b43176510729 2-8,15,17,21-25,28,43,61,63,66-68,84-85,91-94,97-144,146-149,153,193-195,220-225
+apps/api/src/main.rs
+  s_6b4b46858df97f::t_f2b43176510729 28,332-334
+  s_754aab5ccc81a0::t_26c870697fe3f7 13-19,178-183,383
+apps/api/src/app_state.rs
+  s_6b4b46858df97f::t_f2b43176510729 8,73-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "e3370d4ddef66f47f51e88b4f2baec8e46d1eddc",
+  "prompts": {},
+  "sessions": {
+    "s_6b4b46858df97f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "115bf244-def0-4453-bd08-018be228ef71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_754aab5ccc81a0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e7e6531c-5449-484b-afd1-2d525de87553",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
