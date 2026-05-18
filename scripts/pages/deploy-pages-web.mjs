@@ -12,10 +12,10 @@ function fail(message) {
   process.exit(1);
 }
 
-function run(command, args) {
+function run(command, args, cwd = rootDir) {
   const result = spawnSync(command, args, {
     stdio: "inherit",
-    cwd: rootDir,
+    cwd,
     env: process.env,
     shell: process.platform === "win32",
   });
@@ -93,8 +93,6 @@ const args = [
   "pages",
   "deploy",
   outputDir,
-  "--config",
-  wranglerConfigPath,
 ];
 
 if (options.branch) {
@@ -117,4 +115,4 @@ if (options.skipCaching) {
   args.push("--skip-caching");
 }
 
-run("bunx", args);
+run("bunx", args, webDir);
