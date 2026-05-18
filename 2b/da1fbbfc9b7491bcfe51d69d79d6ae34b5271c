@@ -1,0 +1,200 @@
+apps/web/src/components/canvas/CanvasAgentOverlay.tsx
+  s_546028decbd38c::t_3e48c2805dc8d9 22
+  s_b96f39018e5b46::t_e3c8e654765852 172-176
+  s_a729e40ce00816::t_bdf3bd5f3c2567 306-307,309-316,337
+  s_f10246d99b0f02::t_44f5b663911894 20
+  s_a729e40ce00816::t_c4f3e34882239a 398-400,403,405-408,410-415,418
+  s_a729e40ce00816::t_226fff998bab01 136,147-154,156-157,159-161,164,166-167,169-170
+  s_a729e40ce00816::t_fc858d87ca5c0a 120-134,181
+  s_a729e40ce00816::t_dac720566fbb6c 4
+  s_a729e40ce00816::t_7935808869e97f 7-14,17,24-27,30-37,45-46,48,54,61-62,65,101,106,108-110,112-119,137-146,165,168,171,177-180,182-195,197-198,200-201,205,207-209,212-214,232,248-257,260-265,267-268,271-272,274-280,283-289,292-305,308,317-336,338-339,342-345,347-348,354-380,384-397,401-402,404,409,416-417
+  s_e9921092b54a83::t_1716021f157cbf 273
+  s_a729e40ce00816::t_92afd2a9544077 55,68-85,87-92,96-97,102-105
+  s_5c456ae6e1b47e::t_e484f720c6c85a 258-259
+  s_36bcca808e5143::t_1a596006279d65 5,216-224,229,281-282
+  s_36bcca808e5143::t_cacd2bf9d19739 269-270,290-291
+skills/atmos-canvas-agent/SKILL.md
+  s_9c10a52f52f9a5::t_ecd829c9e023db 16,18-20
+  s_aa983c51f45d4c::t_31805386ee43b7 262-269
+  s_b22f202c39f113::t_4970d0b8497cb4 118-123
+  s_ae80894e2cbd3c::t_3cc28b68a2d48a 142-143
+  s_b67c49b900ed8b::t_cf6c09a154b0e4 171
+  s_9bb9ad13b094bd::t_ebb4fc9694cfaf 229
+  s_a23eedc26910a7::t_9d6661aecefd83 50-77
+  s_29db2e1b9b8bcb::t_3f9a08685723bc 138-141,144-164
+  s_754aab5ccc81a0::t_97ee6d1b855e24 4,10
+  s_7cda48c8ae8ae4::t_8002dcc244a19e 91,96-99
+  s_e67fa673c1a17a::t_53f7552940b4a7 95
+apps/web/src/components/canvas/CanvasView.tsx
+  s_9a741060db306b::t_fc2bdbf46482b4 1185-1188
+  s_9a741060db306b::t_605d3fc3ce3852 1321-1328
+  s_a729e40ce00816::t_4955bf5b2d7b96 1332-1336
+  s_9a741060db306b::t_5bf279191d201c 868-869
+apps/web/src/components/canvas/__tests__/canvas-agent-activity.test.ts
+  s_a729e40ce00816::t_965347629fa3f3 14,33
+  s_a729e40ce00816::t_153339221c57aa 1-13,15-32,34-140
+apps/web/src/components/canvas/canvas-agent-activity.ts
+  s_a729e40ce00816::t_316276cb2b04df 1-119
+apps/web/src/components/canvas/use-canvas-agent-bridge.ts
+  s_a729e40ce00816::t_7f6b6b670aca9c 11,53,65-66,74,134-135,160,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "2bda1fbbfc9b7491bcfe51d69d79d6ae34b5271c",
+  "prompts": {},
+  "sessions": {
+    "s_29db2e1b9b8bcb": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IlpHDsnbApAIHVmpYVN",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_36bcca808e5143": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d5d12198-576e-41f8-8556-c1657391b3c9",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_546028decbd38c": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IkzC9frbvJsc4GM6Xyi",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_5c456ae6e1b47e": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033Il2a2mNiKC2fS3ptX9O",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_754aab5ccc81a0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e7e6531c-5449-484b-afd1-2d525de87553",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_7cda48c8ae8ae4": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IlodehG0srDndsf10AI",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9a741060db306b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "83771ddc-b6b8-402f-bb3d-44f031651a87",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9bb9ad13b094bd": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IlqPQMtHUrMXNURCKCu",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9c10a52f52f9a5": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IloOkIAZowIaSYY9Nd9",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a23eedc26910a7": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033Ilpdj14w9MOeoOALB2s",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a729e40ce00816": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6f2b01e7-cc25-4569-8fda-597f4bb9fb73",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_aa983c51f45d4c": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033Ilq7k6lIDVXm8wNun8f",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ae80894e2cbd3c": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033Ilu6YL8Dq6StTyaZHoC",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_b22f202c39f113": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IlowYPI6cKuVzj3fc9E",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_b67c49b900ed8b": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IlFMyX9CFbJPLJpDzk7",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_b96f39018e5b46": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IkumdLmpJE8Kc8OMm2H",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e67fa673c1a17a": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033IluIkaY0suBTjc0lSrP",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e9921092b54a83": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033Il2iuxX55IE8KJQ7zzr",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_f10246d99b0f02": {
+      "agent_id": {
+        "tool": "amp",
+        "id": "TU-033Il2Tjt1CISFzxJkDahF",
+        "model": "unknown"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
