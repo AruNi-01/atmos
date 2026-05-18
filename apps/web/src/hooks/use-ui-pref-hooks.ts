@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import type { CanvasTldrawSession } from '@/components/canvas/use-canvas-board';
+import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
+import {
+  instanceIdFromRelaySelection,
+  type ConnectionInstanceId,
+} from '@/lib/connection-instance';
 import { useConnectionStore } from '@/hooks/use-connection-store';
 import { useUiPrefStore, type UiPrefSlice } from '@/hooks/use-ui-pref-store';
 
@@ -261,9 +266,15 @@ const DEFAULT_CANVAS_PREFS: CanvasUiPrefs = {
   acceptsCommands: false,
 };
 
+/** Canvas session prefs follow the relay/local computer target, not a stale instance id. */
+export function resolveCanvasPrefsInstanceId(): ConnectionInstanceId {
+  const computer = useAtmosComputerStore.getState();
+  return instanceIdFromRelaySelection(computer.connectionMode, computer.selectedServerId);
+}
+
 export function readCanvasSession(boardGuid?: string | null): CanvasTldrawSession | null {
   const key = boardGuid ?? 'default';
-  const instanceId = useConnectionStore.getState().activeInstanceId;
+  const instanceId = resolveCanvasPrefsInstanceId();
   const prefs = useUiPrefStore.getState().readSlice(instanceId, 'canvas', DEFAULT_CANVAS_PREFS);
   return prefs.sessionByBoard[key] ?? null;
 }
@@ -273,7 +284,7 @@ export function writeCanvasSession(
   boardGuid?: string | null,
 ): void {
   const key = boardGuid ?? 'default';
-  const instanceId = useConnectionStore.getState().activeInstanceId;
+  const instanceId = resolveCanvasPrefsInstanceId();
   useUiPrefStore.getState().patchSlice(
     instanceId,
     'canvas',

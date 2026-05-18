@@ -4,7 +4,7 @@ import * as React from "react";
 import type { Editor } from "tldraw";
 
 import { canvasAgentBridgeWsApi } from "@/api/ws-api";
-import { getActiveInstanceId } from "@/hooks/use-connection-store";
+import { resolveCanvasPrefsInstanceId } from "@/hooks/use-ui-pref-hooks";
 import { useUiPrefStore } from "@/hooks/use-ui-pref-store";
 import { useWebSocketStore } from "@/hooks/use-websocket";
 import { CanvasAgentBus, type CanvasAgentDispatchInput } from "./canvas-agent-bus";
@@ -20,7 +20,7 @@ const DISPATCH_EVENT = "canvas_agent_dispatch";
 
 function loadOrCreateClientId(): string {
   if (typeof window === "undefined") return "ssr-client";
-  const instanceId = getActiveInstanceId();
+  const instanceId = resolveCanvasPrefsInstanceId();
   const prefs = useUiPrefStore.getState().readSlice(instanceId, "canvas", DEFAULT_CANVAS_PREFS);
   if (prefs.agentClientId) {
     return prefs.agentClientId;
@@ -40,7 +40,7 @@ function loadOrCreateClientId(): string {
 
 function loadAcceptsCommands(): boolean {
   if (typeof window === "undefined") return false;
-  const instanceId = getActiveInstanceId();
+  const instanceId = resolveCanvasPrefsInstanceId();
   return useUiPrefStore.getState().readSlice(instanceId, "canvas", DEFAULT_CANVAS_PREFS)
     .acceptsCommands;
 }
@@ -161,7 +161,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
 
   const setAcceptsCommands = React.useCallback((value: boolean) => {
     setAcceptsCommandsState(value);
-    const instanceId = getActiveInstanceId();
+    const instanceId = resolveCanvasPrefsInstanceId();
     useUiPrefStore.getState().patchSlice(
       instanceId,
       "canvas",

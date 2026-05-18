@@ -66,6 +66,11 @@ import {
   type CanvasTldrawSession,
 } from "./use-canvas-board";
 import { readCanvasSession, writeCanvasSession } from "@/hooks/use-ui-pref-hooks";
+import { useConnectionStore } from "@/hooks/use-connection-store";
+import {
+  readCanvasChromePrefs,
+  patchCanvasChromePrefs,
+} from "@/lib/canvas-chrome-prefs";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
@@ -412,22 +417,29 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
 /**
  * Bridges next-themes' Atmos theme into tldraw's user preferences.
  *
- * - Atmos is the source of truth: whenever `theme` changes the tldraw
- *   colorScheme is updated to match.
+ * - Atmos is the source of truth when the app theme *changes*; we do not
+ *   overwrite tldraw's restored localStorage prefs on editor mount.
  * - Users can still pick a different theme from tldraw's own menu; that
- *   choice persists (tldraw writes it to localStorage) until Atmos theme
- *   changes again.
+ *   choice persists (tldraw writes it to `TLDRAW_USER_DATA_v3`) until Atmos
+ *   theme changes again.
  */
 function CanvasThemeBridge() {
   const editor = useEditor();
   const { theme } = useTheme();
+  const prevThemeRef = React.useRef<string | undefined>(undefined);
 
   React.useEffect(() => {
     if (!editor || !theme) return;
+
+    const prevTheme = prevThemeRef.current;
+    prevThemeRef.current = theme;
+
+    // Let tldraw restore user prefs from localStorage on first mount.
+    if (prevTheme === undefined) return;
+    if (prevTheme === theme) return;
+
     const colorScheme: "light" | "dark" | "system" =
       theme === "dark" ? "dark" : theme === "light" ? "light" : "system";
-    const current = editor.user.getUserPreferences().colorScheme;
-    if (current === colorScheme) return;
     editor.user.updateUserPreferences({ colorScheme });
   }, [editor, theme]);
 
@@ -825,7 +837,9 @@ function CanvasAnimatedToolbarGroup({
 }
 
 export const CanvasView: React.FC = () => {
+  const canvasChromePrefs = React.useMemo(() => readCanvasChromePrefs(), []);
   const { board, document, isLoading, isSaving, error, loadBoard } = useCanvasBoard();
+  const activeInstanceId = useConnectionStore((state) => state.activeInstanceId);
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [isManualSaving, setIsManualSaving] = React.useState(false);
   const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
@@ -856,19 +870,33 @@ export const CanvasView: React.FC = () => {
    * `StylePanel: () => null`. When `true`, we omit the override so tldraw owns
    * visibility (it auto-hides on no-selection / certain tools, etc.).
    */
-  const [isStylePanelEnabled, setIsStylePanelEnabled] = React.useState(false);
+  const [isStylePanelEnabled, setIsStylePanelEnabled] = React.useState(
+    () => canvasChromePrefs.isStylePanelEnabled,
+  );
   /**
    * Controls the built-in tldraw toolbar cluster in the top-left corner
    * (main menu, page menu, undo / redo / overflow actions). When collapsed we
    * hide the default cluster and leave only an expand button in its place.
    */
-  const [isTopLeftToolbarCollapsed, setIsTopLeftToolbarCollapsed] = React.useState(false);
+  const [isTopLeftToolbarCollapsed, setIsTopLeftToolbarCollapsed] = React.useState(
+    () => canvasChromePrefs.isTopLeftToolbarCollapsed,
+  );
   /**
    * Master collapse for the entire injected SharePanel toolbar — when true we
    * hide every action (Create Frame / Save / Style toggle) and only keep the
    * lone collapse-toggle button so the canvas surface stays unobstructed.
    */
-  const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(false);
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(
+    () => canvasChromePrefs.isToolbarCollapsed,
+  );
+
+  React.useEffect(() => {
+    patchCanvasChromePrefs({
+      isStylePanelEnabled,
+      isTopLeftToolbarCollapsed,
+      isToolbarCollapsed,
+    });
+  }, [isStylePanelEnabled, isTopLeftToolbarCollapsed, isToolbarCollapsed]);
   const documentSaveInFlightRef = React.useRef(false);
   const sessionSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSessionRef = React.useRef<CanvasTldrawSession | null>(null);
@@ -912,7 +940,7 @@ export const CanvasView: React.FC = () => {
 
   const initialSnapshot = React.useMemo(
     () => createCanvasSnapshot(document?.tldrawDocument ?? null, readCanvasSession(board?.guid)),
-    [board?.guid, document?.tldrawDocument],
+    [activeInstanceId, board?.guid, document?.tldrawDocument],
   );
 
   const visibleBuiltInAgents = React.useMemo(
@@ -1431,7 +1459,7 @@ export const CanvasView: React.FC = () => {
       <CanvasAgentContext.Provider value={configuredAgents}>
         <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
           <Tldraw
-            key={board?.guid || "canvas"}
+            key={`${board?.guid || "canvas"}:${activeInstanceId}`}
             licenseKey={TLDRAW_LICENSE_KEY}
             snapshot={initialSnapshot ?? undefined}
             shapeUtils={shapeUtils}
