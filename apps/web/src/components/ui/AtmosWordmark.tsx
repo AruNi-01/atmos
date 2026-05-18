@@ -12,6 +12,8 @@ interface AtmosWordmarkProps {
   sloganClassName?: string;
   sloganShimmer?: boolean;
   sloganShimmerStyle?: React.CSSProperties;
+  /** `spread` fills the row; `compact` keeps letters grouped for hero/loading. */
+  layout?: 'spread' | 'compact';
 }
 
 export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
@@ -21,6 +23,7 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
   sloganClassName,
   sloganShimmer = false,
   sloganShimmerStyle,
+  layout = 'spread',
 }) => {
   const sloganText = 'Atmosphere for Agentic Builders';
 
@@ -28,8 +31,11 @@ export const AtmosWordmark: React.FC<AtmosWordmarkProps> = ({
     <div className={cn('flex flex-col items-center', className)}>
       <div
         className={cn(
-          'group flex w-full max-w-3xl items-center justify-between cursor-default select-none',
-          GeistPixelSquare.className
+          'group flex w-full max-w-3xl cursor-default select-none items-center',
+          layout === 'compact'
+            ? 'justify-center gap-3 sm:gap-4 md:gap-5'
+            : 'justify-between',
+          GeistPixelSquare.className,
         )}
       >
         <span

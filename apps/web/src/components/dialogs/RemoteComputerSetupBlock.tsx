@@ -51,7 +51,7 @@ function CommandBlock({
       <p className="text-xs text-muted-foreground">{description}</p>
       <pre
         className={cn(
-          'overflow-x-auto rounded-xl border border-border bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed text-foreground',
+          'overflow-x-auto rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-xs leading-relaxed text-foreground',
           disabled && 'opacity-50',
         )}
       >
@@ -231,7 +231,7 @@ export function RemoteComputerSetupBlock({
   );
 
   return (
-    <div className="space-y-4 rounded-xl border border-dashed border-border/80 bg-muted/10 px-4 py-4">
+    <div className="space-y-4 rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-4">
       <CommandBlock
         step={1}
         title="Install CLI + API"

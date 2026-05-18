@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import {
   Badge,
   Button,
@@ -9,7 +8,6 @@ import {
   CardContent,
   Input,
   ScrollArea,
-  TextShimmer,
   Tabs,
   TabsContent,
   TabsList,
@@ -17,7 +15,9 @@ import {
   toastManager,
 } from '@workspace/ui';
 import {
+  Check,
   CheckCircle2,
+  Copy,
   KeyRound,
   Laptop,
   Link2,
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import WelcomePage from '@/components/welcome/WelcomePage';
 import { AtmosWordmark } from '@/components/ui/AtmosWordmark';
+import { HostedSloganShimmer } from '@/components/ui/HostedSloganShimmer';
 import { RemoteComputerSetupBlock } from '@/components/dialogs/RemoteComputerSetupBlock';
 import { useHostedConnectionStore } from '@/hooks/use-hosted-connection-store';
 import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
@@ -64,38 +65,58 @@ export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
   const hosted = isHostedAtmosOrigin();
   const showOnboarding = hosted && bootstrapState !== 'connected';
 
+  if (showOnboarding) {
+    return (
+      <div className="size-full animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <HostedConnectionOnboarding />
+      </div>
+    );
+  }
+
   return (
-    <AnimatePresence initial={false} mode="wait">
-      {showOnboarding ? (
-        <motion.div
-          key="hosted-onboarding"
-          initial={{ opacity: 0, y: 12, scale: 0.985 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -10, scale: 0.985 }}
-          transition={{ duration: 0.24, ease: 'easeOut' }}
-          className="size-full"
-        >
-          <HostedConnectionOnboarding />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="welcome-page"
-          initial={{ opacity: 0, y: 10, scale: 0.99 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -8, scale: 0.992 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="size-full"
-        >
-          <WelcomePage {...props} />
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className="size-full animate-in fade-in slide-in-from-bottom-1 duration-200">
+      <WelcomePage {...props} />
+    </div>
+  );
+}
+
+function HostedLocalCommandField({
+  command,
+  copied,
+  onCopy,
+}: {
+  command: string;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="relative">
+      <pre className="overflow-x-auto rounded-md border border-border/70 bg-muted/30 py-2 pl-3 pr-11 font-mono text-xs leading-relaxed text-foreground">
+        {command}
+      </pre>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
+        onClick={onCopy}
+        title={copied ? 'Copied' : 'Copy command'}
+        aria-label={copied ? 'Copied' : 'Copy command'}
+      >
+        {copied ? (
+          <Check className="size-4 text-emerald-500" />
+        ) : (
+          <Copy className="size-4" />
+        )}
+      </Button>
+    </div>
   );
 }
 
 function HostedConnectionOnboarding() {
   const localInstallCommand = `curl -fsSL ${REMOTE_COMPUTER_INSTALL_SCRIPT_URL} | bash`;
-  const localStartCommand = '~/.atmos/bin/atmos runtime ensure';
+  /** Installer appends ~/.atmos/bin to the default shell rc (see install-local-web-runtime.sh). */
+  const localStartCommand = 'atmos runtime ensure';
   const {
     localProbeState,
     localApiConfig,
@@ -120,6 +141,8 @@ function HostedConnectionOnboarding() {
   const [tokenDraft, setTokenDraft] = useState(accessToken);
   const [listRefreshing, setListRefreshing] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [copiedInstall, setCopiedInstall] = useState(false);
+  const [copiedStart, setCopiedStart] = useState(false);
 
   const activeComputers = useMemo(() => computers.filter(row => !row.revoked), [computers]);
   const hasKey = tokenDraft.trim().length >= 32;
@@ -189,6 +212,21 @@ function HostedConnectionOnboarding() {
     }
   };
 
+  const copyLocalCommand = async (text: string, which: 'install' | 'start') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (which === 'install') {
+        setCopiedInstall(true);
+        window.setTimeout(() => setCopiedInstall(false), 2000);
+      } else {
+        setCopiedStart(true);
+        window.setTimeout(() => setCopiedStart(false), 2000);
+      }
+    } catch {
+      toastManager.add({ title: 'Copy failed', type: 'error' });
+    }
+  };
+
   const onConnectLocal = async () => {
     if (!localApiConfig) {
       return;
@@ -247,27 +285,25 @@ function HostedConnectionOnboarding() {
             logoClassName="size-24 sm:size-28 lg:size-32"
             sloganClassName="hidden"
           />
-          <TextShimmer className="pt-5 text-center text-lg font-semibold tracking-wide sm:text-xl lg:text-2xl">
-            Atmosphere for Agentic Builders
-          </TextShimmer>
+          <HostedSloganShimmer />
           <p className="mt-8 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-10 sm:text-lg">
             Connect a local Atmos Server or pick a remote computer to enter your workspace.
           </p>
         </div>
 
-        <Card className="mx-auto flex h-[min(42rem,calc(100dvh-14rem))] w-full max-w-3xl min-h-0 min-w-0 overflow-hidden rounded-[2rem] border border-border/70 bg-background/95 shadow-[0_28px_90px_rgba(0,0,0,0.2)] backdrop-blur-md">
+        <Card className="mx-auto flex h-[min(42rem,calc(100dvh-14rem))] w-full max-w-3xl min-h-0 min-w-0 overflow-hidden rounded-xl border border-border/70 bg-background/95 shadow-[0_28px_90px_rgba(0,0,0,0.2)] backdrop-blur-md">
           <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit] p-5 sm:p-7">
             <Tabs
               value={activeTab}
               onValueChange={value => setActiveTab(value as 'local' | 'remote')}
               className="flex min-h-0 flex-1 flex-col space-y-7 overflow-hidden"
             >
-              <TabsList className="grid h-12 w-full shrink-0 grid-cols-2 rounded-2xl border border-border/70 bg-muted/30 p-1">
-                <TabsTrigger value="local" className="gap-2 rounded-xl text-sm">
+              <TabsList className="grid h-12 w-full shrink-0 grid-cols-2 rounded-lg border border-border/70 bg-muted/30 p-1">
+                <TabsTrigger value="local" className="gap-2 rounded-md text-sm">
                   <Laptop className="size-4" />
                   Local Server
                 </TabsTrigger>
-                <TabsTrigger value="remote" className="gap-2 rounded-xl text-sm">
+                <TabsTrigger value="remote" className="gap-2 rounded-md text-sm">
                   <Server className="size-4" />
                   Remote Computer
                 </TabsTrigger>
@@ -276,7 +312,7 @@ function HostedConnectionOnboarding() {
               <TabsContent value="local" className="mt-0 min-h-0 flex-1 overflow-hidden rounded-[inherit]">
                 <ScrollArea className="flex-1 min-h-0 rounded-[inherit]" scrollbarGutter>
                   <div className="min-h-full space-y-4 pe-2 pb-4">
-                    <section className="rounded-2xl border border-border/70 bg-muted/15 p-5">
+                    <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
                       <div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -299,11 +335,16 @@ function HostedConnectionOnboarding() {
                             We first check whether Atmos Local Runtime is available on this device.
                             If it is already running, you can connect to it directly here.
                           </p>
+                          {localProbeState === 'unavailable' && localError ? (
+                            <p className="mt-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
+                              {localError}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
 
                       {localProbeState === 'available' ? (
-                        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-foreground">{localComputerName}</p>
                             <p className="mt-1 text-sm text-muted-foreground">
@@ -323,7 +364,7 @@ function HostedConnectionOnboarding() {
                           </Button>
                         </div>
                       ) : (
-                        <div className="mt-5 space-y-4 rounded-2xl border border-border/70 bg-background/70 p-4">
+                        <div className="mt-5 space-y-4 rounded-lg border border-border/70 bg-background/70 p-4">
                           <div>
                             <p className="text-sm font-medium text-foreground">Install and start Atmos locally</p>
                             <p className="mt-1 text-sm text-muted-foreground">
@@ -332,19 +373,20 @@ function HostedConnectionOnboarding() {
                             </p>
                           </div>
                           <div className="space-y-3">
-                            <pre className="overflow-x-auto rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs text-foreground">
-{localInstallCommand}
-                            </pre>
-                            <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground/80">
+                            <HostedLocalCommandField
+                              command={localInstallCommand}
+                              copied={copiedInstall}
+                              onCopy={() => void copyLocalCommand(localInstallCommand, 'install')}
+                            />
+                            <p className="text-xs text-muted-foreground">
                               Already installed? Run this:
                             </p>
-                            <pre className="overflow-x-auto rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs text-foreground">
-{localStartCommand}
-                            </pre>
+                            <HostedLocalCommandField
+                              command={localStartCommand}
+                              copied={copiedStart}
+                              onCopy={() => void copyLocalCommand(localStartCommand, 'start')}
+                            />
                           </div>
-                          {localError ? (
-                            <p className="text-xs leading-5 text-muted-foreground">{localError}</p>
-                          ) : null}
                         </div>
                       )}
                     </section>
@@ -355,9 +397,9 @@ function HostedConnectionOnboarding() {
               <TabsContent value="remote" className="mt-0 min-h-0 flex-1 overflow-hidden rounded-[inherit]">
                 <ScrollArea className="flex-1 min-h-0 rounded-[inherit]" scrollbarGutter>
                   <div className="min-h-full space-y-4 pe-2 pb-4">
-                    <section className="rounded-2xl border border-border/70 bg-muted/15 p-5">
+                    <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5 rounded-lg border border-border/70 bg-background/70 p-2">
+                        <div className="mt-0.5 rounded-md border border-border/70 bg-background/70 p-2">
                           <KeyRound className="size-4 text-foreground" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -392,7 +434,7 @@ function HostedConnectionOnboarding() {
                       ) : null}
                     </section>
 
-                    <section className="rounded-2xl border border-border/70 bg-background/70 p-5">
+                    <section className="rounded-xl border border-border/70 bg-background/70 p-5">
                       <div className="mb-4 flex items-center justify-between gap-3">
                         <div>
                           <h3 className="text-base font-medium text-foreground">Available Computers</h3>
@@ -422,7 +464,7 @@ function HostedConnectionOnboarding() {
                             return (
                               <div
                                 key={computer.server_id}
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3"
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3"
                               >
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
@@ -452,7 +494,7 @@ function HostedConnectionOnboarding() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="rounded-2xl border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
+                          <div className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
                             {hasKey
                               ? 'No computers found for this access key yet.'
                               : 'Save an access key first, then refresh to load your computers.'}

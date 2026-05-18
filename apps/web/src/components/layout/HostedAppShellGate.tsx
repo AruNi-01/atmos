@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { HostedLandingLoading } from "@/components/layout/HostedLandingLoading";
 import { HostedWelcomeGate } from "@/components/welcome/HostedWelcomeGate";
 import { useHostedConnectionStore } from "@/hooks/use-hosted-connection-store";
@@ -50,43 +49,37 @@ export function HostedBootstrapBoundary({
   const hosted = isHostedAtmosOrigin();
   const phase = resolveHostedBootstrapPhase(mounted, hosted, bootstrapState);
 
+  // Plain div + CSS enter fade only — do not wrap TextShimmer in motion/AnimatePresence
+  // (see Footer ticker comment: nested motion interrupts backgroundPosition shimmer).
+  if (phase === "loading") {
+    return (
+      <div
+        key="hosted-shell-loading"
+        className="flex min-h-0 flex-1 animate-in bg-background fade-in duration-200"
+      >
+        <HostedLandingLoading />
+      </div>
+    );
+  }
+
+  if (phase === "onboarding") {
+    return (
+      <div
+        key="hosted-shell-onboarding"
+        className="flex min-h-0 flex-1 animate-in bg-background fade-in slide-in-from-bottom-2 duration-200"
+      >
+        <HostedWelcomeGate />
+      </div>
+    );
+  }
+
   return (
-    <AnimatePresence initial={false} mode="wait">
-      {phase === "loading" ? (
-        <motion.div
-          key="hosted-shell-loading"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
-          className="flex min-h-0 flex-1 bg-background"
-        >
-          <HostedLandingLoading />
-        </motion.div>
-      ) : phase === "onboarding" ? (
-        <motion.div
-          key="hosted-shell-onboarding"
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.22, ease: "easeOut" }}
-          className="flex min-h-0 flex-1 bg-background"
-        >
-          <HostedWelcomeGate />
-        </motion.div>
-      ) : (
-        <motion.div
-          key="app-shell"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div
+      key="app-shell"
+      className="flex min-h-0 flex-1 animate-in flex-col fade-in slide-in-from-bottom-1 duration-200"
+    >
+      {children}
+    </div>
   );
 }
 
