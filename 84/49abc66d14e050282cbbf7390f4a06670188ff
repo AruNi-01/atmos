@@ -1,0 +1,74 @@
+apps/web/src/components/layout/PanelLayout.tsx
+  s_754aab5ccc81a0::t_bb580ae7a6530d 19,311
+apps/web/src/components/layout/CenterStage.tsx
+  s_9a741060db306b::t_278b4f26e6bf1c 991-1009
+  s_9a741060db306b::t_f1b5c9ecd4da4b 112
+  s_754aab5ccc81a0::t_172784a709834f 83,1574
+apps/web/src/components/layout/Footer.tsx
+  s_1d1c0f3870b6f7::t_9f8aec9416830e 191-198,200-202,204-215,217,245,320-321,323,326,328-329,664-666,670,673
+  s_9a741060db306b::t_be5fb7c646e42e 271-280,283-285
+  s_6b4b46858df97f::t_f2b43176510729 38,135,152,155,238-239,246-270,281-282,286-288,333
+  s_1d1c0f3870b6f7::t_9767b1378f2a29 322,327,330
+  s_9a741060db306b::t_cf79d1682080a5 28-31
+packages/ui/src/styles/globals.css
+  s_a729e40ce00816::t_54834522f39970 186-200
+apps/web/AGENTS.md
+  s_754aab5ccc81a0::t_22d0501f6a0385 10
+apps/web/src/hooks/use-terminal-store.ts
+  s_9a741060db306b::t_46d6097ca4d2b4 285
+  s_9a741060db306b::t_fdbff1fd308573 230-236,238,253-266
+apps/web/src/hooks/use-websocket.ts
+  s_6b4b46858df97f::t_f2b43176510729 248,278-284,429
+apps/web/src/components/providers/websocket-provider.tsx
+  s_754aab5ccc81a0::t_23b0632675d097 9-10,31-33,36-40,49,58,73
+apps/web/src/hooks/use-app-router.ts
+  s_754aab5ccc81a0::t_f22119e9a18db0 13,41-45,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "8449abc66d14e050282cbbf7390f4a06670188ff",
+  "prompts": {},
+  "sessions": {
+    "s_1d1c0f3870b6f7": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "d862d27a-5805-47ec-90e1-140c5f3d0213",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_6b4b46858df97f": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "115bf244-def0-4453-bd08-018be228ef71",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_754aab5ccc81a0": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "e7e6531c-5449-484b-afd1-2d525de87553",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9a741060db306b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "83771ddc-b6b8-402f-bb3d-44f031651a87",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a729e40ce00816": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6f2b01e7-cc25-4569-8fda-597f4bb9fb73",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
