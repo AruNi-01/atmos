@@ -30,7 +30,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if bunx wrangler pages project list | rg "app-atmos-land" >/dev/null 2>&1; then
+          OUTPUT=$(bunx wrangler pages project list 2>/dev/null)
+          if echo "$OUTPUT" | grep -q "app-atmos-land"; then
             echo "Pages project app-atmos-land already exists."
           else
             bunx wrangler pages project create app-atmos-land --production-branch main
