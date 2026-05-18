@@ -10,7 +10,13 @@ use std::sync::Arc;
 use crate::middleware::{require_local_token, require_loopback_or_token};
 use ai_usage::UsageService;
 use app_state::{AppServices, AppState};
-use axum::{http::StatusCode, middleware::from_fn, routing::get, Router};
+use axum::{
+    http::{header::HeaderName, HeaderValue, StatusCode},
+    middleware::{from_fn, map_response},
+    response::Response,
+    routing::get,
+    Router,
+};
 use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
@@ -19,7 +25,7 @@ use core_service::{
     MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
     TestService, WorkspaceService, WsMessageService,
 };
-use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage, WsServiceConfig};
+use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage};
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
 use token_usage::TokenUsageService;
@@ -169,6 +175,14 @@ fn install_rustls_crypto_provider() {
     }
 }
 
+async fn add_private_network_header(mut response: Response) -> Response {
+    response.headers_mut().insert(
+        HeaderName::from_static("access-control-allow-private-network"),
+        HeaderValue::from_static("true"),
+    );
+    response
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     install_rustls_crypto_provider();
@@ -260,12 +274,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     info!("Terminal service initialized");
 
-    // Configure WebSocket service
-    let ws_config = WsServiceConfig {
-        heartbeat_interval_secs: 10,
-        connection_timeout_secs: 30,
-    };
-
     let mut server_config = ServerConfig::from_env();
     if let Some(port) = cli.port {
         server_config.port = port;
@@ -293,7 +301,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             canvas_agent_relay: Arc::clone(&canvas_agent_relay),
             review_service: Arc::clone(&review_service),
         },
-        ws_config,
         server_config.port,
     );
 
@@ -322,9 +329,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "token usage",
     );
 
-    // Start heartbeat monitor
-    let _heartbeat_task = app_state.ws_service.start_heartbeat();
-    info!("WebSocket service started with heartbeat (timeout: 30s)");
+    // No app-level heartbeat monitor: WebSocket protocol-level PING/PONG handles
+    // liveness for daemon ↔ relay (see `relay/ingest.rs`); local browser ↔ apps/api
+    // runs over loopback which never silently stalls.
 
     if std::env::var("ATMOS_RELAY_DISABLE").unwrap_or_default() != "1" {
         if let Err(err) = relay::try_consume_register_token().await {
@@ -373,6 +380,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .merge(protected)
         .with_state(app_state)
         .layer(TraceLayer::new_for_http())
+        .layer(map_response(add_private_network_header))
         .layer(cors);
 
     if let Ok(static_dir) = std::env::var("ATMOS_STATIC_DIR") {

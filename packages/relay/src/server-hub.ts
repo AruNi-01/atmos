@@ -1,4 +1,18 @@
-/** APP-016: routes browser ↔ upstream within one durable object hub. */
+/**
+ * APP-016 — ServerHub Durable Object: routes browser ↔ daemon traffic.
+ *
+ * Stateless across hibernation: instead of keeping `serverSock` / `browsers`
+ * in instance fields (which evaporate on eviction), every lookup goes through
+ * `ctx.getWebSockets(tag)`. WebSocket Hibernation guarantees those references
+ * are restored verbatim when the DO is woken back up — so a relay flow that
+ * was idle for hours still resumes without a "server_offline" false positive.
+ *
+ * Cost: Cloudflare's WS Hibernation API does not bill duration while every
+ * peer is idle, and pings/pongs handled by the runtime (via
+ * `setWebSocketAutoResponse`) never wake the DO. The only billed events are
+ * actual app-level frames (HTTP gateway requests, browser sends, daemon
+ * sends), which is what we want.
+ */
 
 import { DurableObject } from "cloudflare:workers";
 
@@ -41,13 +55,69 @@ type PendingHttp = {
 
 const HTTP_GATEWAY_TIMEOUT_MS = 60_000;
 
+/** Hibernation tags — pick by role / sid in `ctx.getWebSockets`. */
+const TAG_SERVER = "server";
+const TAG_CLIENT_ALL = "client";
+const tagForClient = (sid: string) => `client:${sid}`;
+
 export class ServerHub extends DurableObject<ServerHubEnv> {
-  private serverSock: WebSocket | null = null;
-  private readonly browsers = new Map<string, WebSocket>();
+  /** In-flight HTTP gateway requests waiting on a daemon response.
+   * Per-invocation only — the CF runtime keeps the DO alive while any
+   * `fetch` handler holds an outstanding promise, so we don't need to
+   * persist this. */
   private readonly pendingHttp = new Map<string, PendingHttp>();
 
   constructor(ctx: DurableObjectState, env: ServerHubEnv) {
     super(ctx, env);
+
+    // Defense in depth: if a stale browser tab still sends app-level "ping"
+    // text frames (we have removed it from the current client, but cached
+    // bundles may persist), the edge auto-replies "pong" without ever
+    // waking this DO. Zero billing impact.
+    try {
+      ctx.setWebSocketAutoResponse(
+        new WebSocketRequestResponsePair("ping", "pong"),
+      );
+    } catch {
+      // Older runtimes / tests without setWebSocketAutoResponse — non-fatal.
+    }
+  }
+
+  private getServerSocket(): WebSocket | null {
+    const sockets = this.ctx.getWebSockets(TAG_SERVER);
+    for (const ws of sockets) {
+      if (ws.readyState === WebSocket.OPEN) {
+        return ws;
+      }
+    }
+    return null;
+  }
+
+  private getClientSocket(sid: string): WebSocket | null {
+    const sockets = this.ctx.getWebSockets(tagForClient(sid));
+    for (const ws of sockets) {
+      if (ws.readyState === WebSocket.OPEN) {
+        return ws;
+      }
+    }
+    return null;
+  }
+
+  private getAllClientSockets(): WebSocket[] {
+    return this.ctx.getWebSockets(TAG_CLIENT_ALL);
+  }
+
+  private async markServerSeen(serverId: string): Promise<void> {
+    const now = Math.floor(Date.now() / 1000);
+    try {
+      await this.env.DB.prepare(
+        "UPDATE computers SET last_seen_at = ?, updated_at = ? WHERE server_id = ?",
+      )
+        .bind(now, now, serverId)
+        .run();
+    } catch {
+      /* ignore */
+    }
   }
 
   private async clearServerPresence(serverId: string): Promise<void> {
@@ -88,7 +158,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
   }
 
   private broadcastServerOffline() {
-    for (const [, cw] of this.browsers) {
+    for (const cw of this.getAllClientSockets()) {
       try {
         cw.send(
           JSON.stringify({
@@ -102,13 +172,6 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     }
     for (const [id, pending] of this.pendingHttp) {
       pending.reject(new Error("server_offline"));
-      this.pendingHttp.delete(id);
-    }
-  }
-
-  private rejectAllPendingHttp(reason: string) {
-    for (const [id, pending] of this.pendingHttp) {
-      pending.reject(new Error(reason));
       this.pendingHttp.delete(id);
     }
   }
@@ -134,30 +197,23 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         return new Response("Missing server_id", { status: 400 });
       }
 
-      if (this.serverSock) {
+      const existing = this.getServerSocket();
+      if (existing) {
         try {
-          this.serverSock.close(4000, "replaced-server");
+          existing.close(4000, "replaced-server");
         } catch {
           /* noop */
         }
       }
 
       workerSide.serializeAttachment({ role: "server", server_id: serverId } satisfies PeerMeta);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (this.ctx as any).acceptWebSocket(workerSide);
+      this.ctx.acceptWebSocket(workerSide, [TAG_SERVER]);
 
-      this.serverSock = workerSide;
-
-      workerSide.addEventListener?.("close", () => {
-        const meta = this.parseMeta(workerSide);
-        if (this.serverSock === workerSide) {
-          this.serverSock = null;
-        }
-        if (meta?.role === "server") {
-          void this.clearServerPresence(meta.server_id);
-        }
-        this.broadcastServerOffline();
-      });
+      // Bump presence here — *after* the new socket is accepted — so the
+      // replacement order (set new) → (close fires for old, which then
+      // checks "is any server still up?" and finds the new one) cannot
+      // accidentally clear last_seen_at right after we just set it.
+      await this.markServerSeen(serverId);
 
       return new Response(null, { status: 101, webSocket: clientSide });
     }
@@ -168,7 +224,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         return new Response("Missing sid", { status: 400 });
       }
 
-      const existing = this.browsers.get(sid);
+      const existing = this.getClientSocket(sid);
       if (existing) {
         try {
           existing.close(4000, "replaced-client");
@@ -178,14 +234,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       }
 
       workerSide.serializeAttachment({ role: "client", sid } satisfies PeerMeta);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (this.ctx as any).acceptWebSocket(workerSide);
-
-      this.browsers.set(sid, workerSide);
-
-      workerSide.addEventListener?.("close", () => {
-        this.browsers.delete(sid);
-      });
+      this.ctx.acceptWebSocket(workerSide, [TAG_CLIENT_ALL, tagForClient(sid)]);
 
       return new Response(null, { status: 101, webSocket: clientSide });
     }
@@ -194,8 +243,8 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
   }
 
   private async handleHttpGateway(request: Request): Promise<Response> {
-    const up = this.serverSock;
-    if (!up || up.readyState !== WebSocket.OPEN) {
+    const up = this.getServerSocket();
+    if (!up) {
       return new Response(JSON.stringify({ error: "server_offline" }), {
         status: 503,
         headers: { "Content-Type": "application/json" },
@@ -320,8 +369,8 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
       typeof message === "string" ? message : new TextDecoder().decode(message);
 
     if (meta.role === "client") {
-      const up = this.serverSock;
-      if (!up || up.readyState !== WebSocket.OPEN) {
+      const up = this.getServerSocket();
+      if (!up) {
         try {
           ws.send(
             JSON.stringify({
@@ -361,8 +410,8 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         }
         if (env.kind === "frame" && env.to?.startsWith("client:")) {
           const sid = env.to.slice("client:".length);
-          const target = this.browsers.get(sid);
-          if (target && target.readyState === WebSocket.OPEN && env.body !== undefined) {
+          const target = this.getClientSocket(sid);
+          if (target && env.body !== undefined) {
             target.send(env.body);
           }
         }
@@ -374,13 +423,23 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
 
   async webSocketClose(ws: WebSocket) {
     const meta = this.parseMeta(ws);
-    if (meta?.role === "server" && this.serverSock === ws) {
-      this.serverSock = null;
-      void this.clearServerPresence(meta.server_id);
-      this.broadcastServerOffline();
+    if (meta?.role === "server") {
+      // The closing socket is already gone from getWebSockets(). Only clear
+      // presence if there is no *other* server WS still alive (which would
+      // be the case when the daemon got replaced by a reconnect — we want
+      // the new socket's presence to stick, not get clobbered by this close).
+      if (!this.getServerSocket()) {
+        await this.clearServerPresence(meta.server_id);
+        this.broadcastServerOffline();
+      }
     }
-    if (meta?.role === "client") {
-      this.browsers.delete(meta.sid);
-    }
+    // For client roles we don't need to do anything — getClientSocket walks
+    // the live tag list each time, so a closed socket is simply absent.
+  }
+
+  async webSocketError(ws: WebSocket, _error: unknown) {
+    // Treat errors the same as a close — the runtime will then evict the
+    // socket and subsequent tag lookups will skip it.
+    await this.webSocketClose(ws);
   }
 }

@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "atmos-desktop"
-version = "1.2.0-beta.1"
+version = "1.2.0-beta.2"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
@@ -7326,6 +7326,7 @@ dependencies = [
  "futures-core",
  "futures-io",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]

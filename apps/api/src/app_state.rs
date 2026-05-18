@@ -5,7 +5,7 @@ use core_service::{
     MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
     TestService, WorkspaceService, WsMessageService,
 };
-use infra::{WsService, WsServiceConfig};
+use infra::WsService;
 use token_usage::TokenUsageService;
 
 use crate::relay::RelaySupervisor;
@@ -70,13 +70,8 @@ impl Clone for AppState {
 }
 
 impl AppState {
-    pub fn new(
-        services: AppServices,
-        ws_service_config: WsServiceConfig,
-        default_port: u16,
-    ) -> Self {
-        let ws_service = WsService::with_config(ws_service_config)
-            .with_message_handler(services.ws_message_service);
+    pub fn new(services: AppServices, default_port: u16) -> Self {
+        let ws_service = WsService::new().with_message_handler(services.ws_message_service);
 
         Self {
             test_service: services.test_service,

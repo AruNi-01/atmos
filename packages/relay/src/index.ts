@@ -598,12 +598,10 @@ async function handleServerWebSocket(
     return json({ error: "bad_server_credentials" }, 403);
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  await env.DB.prepare(
-    "UPDATE computers SET last_seen_at = ?, updated_at = ? WHERE server_id = ?",
-  )
-    .bind(now, now, serverId)
-    .run();
+  // `last_seen_at` is bumped inside the DO (after acceptWebSocket) — see
+  // `ServerHub.markServerSeen`. Doing the write here too would race with
+  // the close-handler from a prior server WS being replaced and could end
+  // up wiping presence right after we restored it.
 
   const id = env.SERVER_HUB.idFromName(serverId);
   const stub = env.SERVER_HUB.get(id);

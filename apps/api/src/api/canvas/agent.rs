@@ -44,18 +44,6 @@ pub struct CanvasAgentInvokePayload {
     /// [`core_service::DEFAULT_RELAY_TIMEOUT_MS`] / `MAX_RELAY_TIMEOUT_MS`.
     #[serde(default)]
     pub timeout_ms: Option<u64>,
-    /// Agent presence metadata (M20: Follow Agent).
-    #[serde(default)]
-    pub actor: Option<AgentActor>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentActor {
-    pub actor_id: String,
-    #[serde(default)]
-    pub name: Option<String>,
-    #[serde(default)]
-    pub color: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -95,7 +83,6 @@ pub async fn invoke(
         args,
         client_id,
         timeout_ms,
-        actor,
     } = payload;
 
     if request_id.trim().is_empty() {
@@ -209,7 +196,6 @@ pub async fn invoke(
         "client_id": resolved_client_id,
         "command": command,
         "args": args,
-        "actor": actor,
         "deadline_ms": timeout.as_millis() as u64,
     });
 
