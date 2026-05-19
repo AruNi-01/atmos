@@ -20,6 +20,25 @@
 
 import type { Editor, TLShapeId } from "tldraw";
 
+import {
+  AGENT_VIEW_PADDING,
+  boundsFromBox,
+  type CanvasAgentBounds,
+  unionBounds,
+} from "./canvas-agent-view-bounds";
+
+export interface CanvasAgentViewState {
+  /** Dashed "agent view" frame in page space (union of viewport + touched shapes). */
+  viewBounds: CanvasAgentBounds | null;
+  /** True while a `canvas_agent_dispatch` is in flight. */
+  inflight: boolean;
+}
+
+const EMPTY_VIEW_STATE: CanvasAgentViewState = {
+  viewBounds: null,
+  inflight: false,
+};
+
 export interface CanvasAgentActivity {
   /** The dispatched command verb, e.g. `create-note`. */
   command: string;
@@ -33,7 +52,12 @@ export interface CanvasAgentActivity {
 
 export class CanvasAgentActivityStore {
   private last: CanvasAgentActivity | null = null;
+  private viewBounds: CanvasAgentBounds | null = null;
+  private inflightDepth = 0;
+  private inflight = false;
   private listeners = new Set<() => void>();
+  /** Stable reference between mutations — required by `useSyncExternalStore`. */
+  private cachedViewState: CanvasAgentViewState = EMPTY_VIEW_STATE;
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
@@ -44,12 +68,72 @@ export class CanvasAgentActivityStore {
 
   getSnapshot = (): CanvasAgentActivity | null => this.last;
 
+  getViewState = (): CanvasAgentViewState => this.cachedViewState;
+
+  /** Called when a dispatch starts — seed view from current viewport. */
+  beginWork(editor: Editor | null, command?: string) {
+    this.inflightDepth += 1;
+    this.inflight = true;
+    const normalized = command?.trim().toLowerCase().replace(/_/g, "-");
+    if (editor && normalized !== "set-agent-view") {
+      try {
+        const vp = editor.getViewportPageBounds();
+        this.viewBounds = unionBounds(this.viewBounds, boundsFromBox(vp), AGENT_VIEW_PADDING);
+      } catch {
+        // Editor may be disposing.
+      }
+    }
+    this.emit();
+  }
+
+  endWork() {
+    if (this.inflightDepth <= 0) return;
+    this.inflightDepth -= 1;
+    this.inflight = this.inflightDepth > 0;
+    this.emit();
+  }
+
+  /**
+   * Set the dashed agent-view frame explicitly (`set-agent-view` command).
+   * When `replace` is true, previous inferred bounds are discarded.
+   */
+  setAgentView(bounds: CanvasAgentBounds, replace = true) {
+    this.viewBounds = replace
+      ? bounds
+      : unionBounds(this.viewBounds, bounds, 0);
+    this.emit();
+  }
+
+  /** After `viewport` or explicit camera moves, align the frame to what the user sees. */
+  syncViewToViewport(editor: Editor) {
+    try {
+      const vp = editor.getViewportPageBounds();
+      this.viewBounds = unionBounds(this.viewBounds, boundsFromBox(vp), AGENT_VIEW_PADDING);
+      this.emit();
+    } catch {
+      // ignore
+    }
+  }
+
+  private expandView(editor: Editor | null, shapeIds: string[]) {
+    if (!editor) return;
+    const shapeBounds = shapeIds.length ? unionShapePageBounds(editor, shapeIds) : null;
+    if (shapeBounds) {
+      this.viewBounds = unionBounds(this.viewBounds, shapeBounds, AGENT_VIEW_PADDING);
+    }
+  }
+
   /**
    * Record a successful dispatch. `shapeIds` may be empty (read-only verbs
    * like `status` / `get_state`). `editor` is only used to compute bounds;
    * pass `null` if the editor is not mounted.
    */
   record(command: string, editor: Editor | null, shapeIds: string[]) {
+    this.expandView(editor, shapeIds);
+    const normalized = command.trim().toLowerCase().replace(/_/g, "-");
+    if (normalized === "viewport" && editor) {
+      this.syncViewToViewport(editor);
+    }
     this.last = {
       command,
       shapeIds: [...shapeIds],
@@ -60,9 +144,21 @@ export class CanvasAgentActivityStore {
   }
 
   clear() {
-    if (this.last === null) return;
-    this.last = null;
-    this.emit();
+    let changed = false;
+    if (this.last !== null) {
+      this.last = null;
+      changed = true;
+    }
+    if (this.viewBounds !== null) {
+      this.viewBounds = null;
+      changed = true;
+    }
+    if (this.inflightDepth > 0 || this.inflight) {
+      this.inflightDepth = 0;
+      this.inflight = false;
+      changed = true;
+    }
+    if (changed) this.emit();
   }
 
   /**
@@ -86,7 +182,16 @@ export class CanvasAgentActivityStore {
     }
   }
 
+  private rebuildViewSnapshot() {
+    const bounds = this.viewBounds;
+    this.cachedViewState = {
+      viewBounds: bounds ? { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h } : null,
+      inflight: this.inflight,
+    };
+  }
+
   private emit() {
+    this.rebuildViewSnapshot();
     for (const listener of this.listeners) listener();
   }
 }

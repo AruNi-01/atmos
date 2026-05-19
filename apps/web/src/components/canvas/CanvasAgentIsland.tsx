@@ -14,11 +14,7 @@ import {
   Type,
   type LucideIcon,
 } from "lucide-react";
-import {
-  cn,
-  DotmSquare12,
-  TextShimmer,
-} from "@workspace/ui";
+import { cn, DotmSquare12 } from "@workspace/ui";
 
 import type { CanvasAgentFeedStore } from "./canvas-agent-feed";
 import type {
@@ -31,18 +27,13 @@ import {
   type SummarizedFeedRow,
 } from "./canvas-agent-feed-summarize";
 import type { CanvasAgentFeedKind } from "./canvas-agent-feed-labels";
+import { CANVAS_AGENT_FEED_STALE_MS } from "./canvas-agent-feed";
+import type { CanvasAgentViewState } from "./canvas-agent-activity";
 import type { CanvasAgentBridgeState } from "./use-canvas-agent-bridge";
 
 const PANEL_TRANSITION = {
   duration: 0.24,
   ease: [0.22, 1, 0.36, 1] as const,
-};
-
-const ISLAND_LAYOUT_TRANSITION = {
-  layout: {
-    duration: 0.28,
-    ease: [0.22, 1, 0.36, 1] as const,
-  },
 };
 
 const GLASS_SHELL = cn(
@@ -91,13 +82,23 @@ function formatRowLabel(row: SummarizedFeedRow): string {
 
 export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }) {
   const snapshot = useFeedSnapshot(bridge.feed);
+  const viewState = useAgentViewState(bridge.activity);
   const [expanded, setExpanded] = React.useState(false);
   const islandRef = React.useRef<HTMLDivElement>(null);
   const current = React.useMemo(
-    () => pickCurrentEntry(snapshot),
-    [snapshot],
+    () => pickCurrentEntry(snapshot, viewState.inflight),
+    [snapshot, viewState.inflight],
   );
   const reducedMotion = usePrefersReducedMotion();
+
+  React.useEffect(() => {
+    const tick = () => {
+      bridge.feed.expireStaleActive(CANVAS_AGENT_FEED_STALE_MS);
+    };
+    tick();
+    const id = window.setInterval(tick, 4_000);
+    return () => window.clearInterval(id);
+  }, [bridge.feed]);
 
   useDismissOnOutsidePress(islandRef, expanded, () => setExpanded(false));
 
@@ -105,20 +106,21 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
     return null;
   }
 
-  const isWorking = current.status === "active";
+  const isWorking =
+    viewState.inflight || current.status === "active";
 
   return (
     <div
       ref={islandRef}
-      className="pointer-events-none absolute bottom-4 right-4 z-[60] flex max-w-[min(100%,22rem)] flex-col-reverse items-end gap-2"
+      className="pointer-events-none absolute bottom-4 right-4 z-[60] flex max-w-[min(100%,22rem)] flex-col items-end gap-2"
     >
       <AnimatePresence>
         {expanded ? (
           <motion.div
             key="canvas-agent-island-panel"
-            initial={{ opacity: 0, y: 10, scale: 0.97 }}
+            initial={{ opacity: 0, y: 8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
             transition={PANEL_TRANSITION}
             className="pointer-events-auto w-[min(100vw-2rem,20rem)]"
           >
@@ -127,18 +129,13 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
         ) : null}
       </AnimatePresence>
 
-      <motion.button
+      <button
         type="button"
-        layout="size"
-        layoutDependency={current.label}
-        transition={
-          reducedMotion ? { layout: { duration: 0 } } : ISLAND_LAYOUT_TRANSITION
-        }
         aria-expanded={expanded}
         aria-label={isWorking ? "Agent working on canvas" : "Canvas agent activity"}
         onClick={() => setExpanded(v => !v)}
         className={cn(
-          "pointer-events-auto flex h-8 max-w-[min(100%,20rem)] items-center gap-2 overflow-hidden rounded-full py-0 pl-2.5 pr-3",
+          "pointer-events-auto flex h-8 max-w-[min(100%,20rem)] items-center gap-2 rounded-full py-0 pl-2.5 pr-3",
           "transition-[transform,box-shadow] duration-200 ease-out",
           "hover:scale-[1.02] active:scale-[0.98]",
           GLASS_SHELL,
@@ -147,14 +144,15 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
         <DotmSquare12
           size={16}
           dotSize={2.5}
-          className="size-4 shrink-0 text-foreground/90"
+          animated={isWorking && !reducedMotion}
+          className="size-4 shrink-0"
         />
         <IslandStatusLabel
-          labelKey={current.requestId}
+          labelKey={`${current.requestId}:${isWorking ? "work" : "idle"}`}
           label={current.label}
           isWorking={isWorking}
         />
-      </motion.button>
+      </button>
     </div>
   );
 }
@@ -252,11 +250,14 @@ function IslandStatusLabel({
       aria-atomic
     >
       {isWorking ? (
-        <TextShimmer as="span" duration={1.8}>
+        <span
+          className="canvas-agent-island-shimmer whitespace-nowrap"
+          style={{ animationDuration: "1.8s" }}
+        >
           {label}
-        </TextShimmer>
+        </span>
       ) : (
-        <span className="text-foreground/90">{label}</span>
+        <span className="whitespace-nowrap opacity-90">{label}</span>
       )}
     </span>
   );
@@ -299,19 +300,35 @@ function useDismissOnOutsidePress(
   }, [enabled, onDismiss, rootRef]);
 }
 
-function pickCurrentEntry(snapshot: CanvasAgentFeedSnapshot): CanvasAgentFeedEntry | null {
-  if (snapshot.activeEntryId) {
+function pickCurrentEntry(
+  snapshot: CanvasAgentFeedSnapshot,
+  inflight: boolean,
+): CanvasAgentFeedEntry | null {
+  if (inflight && snapshot.activeEntryId) {
     for (const batch of snapshot.batches) {
       for (const entry of batch.entries) {
-        if (entry.requestId === snapshot.activeEntryId) return entry;
+        if (entry.requestId === snapshot.activeEntryId && entry.status === "active") {
+          return entry;
+        }
       }
     }
   }
-  const lastBatch = snapshot.batches.at(-1);
-  return lastBatch?.entries.at(-1) ?? null;
+  for (let b = snapshot.batches.length - 1; b >= 0; b -= 1) {
+    const batch = snapshot.batches[b];
+    if (!batch) continue;
+    for (let e = batch.entries.length - 1; e >= 0; e -= 1) {
+      const entry = batch.entries[e];
+      if (entry) return entry;
+    }
+  }
+  return null;
 }
 
 function useFeedSnapshot(store: CanvasAgentFeedStore) {
   return React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+}
+
+function useAgentViewState(store: CanvasAgentBridgeState["activity"]): CanvasAgentViewState {
+  return React.useSyncExternalStore(store.subscribe, store.getViewState, store.getViewState);
 }
 

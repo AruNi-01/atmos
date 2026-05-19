@@ -1,6 +1,12 @@
 import { toRichText, type Editor, type TLShape, type TLShapePartial } from "tldraw";
 
 import { CanvasAgentError } from "./canvas-agent-errors";
+import {
+  applyOptionalColor,
+  applyOptionalFill,
+  applyOptionalSize,
+  sanitizeTldrawColor,
+} from "./canvas-agent-tldraw-style";
 
 /** tldraw v5 note sticky default width (page units); maps CLI `--w` → `scale`. */
 export const NOTE_BASE_WIDTH = 200;
@@ -85,6 +91,19 @@ export function planUpdateShapePartial(
 
     if (key === "geo" && shape.type === "geo") {
       propsPatch.geo = value;
+      continue;
+    }
+
+    if (key === "color" && typeof value === "string") {
+      propsPatch.color = sanitizeTldrawColor(value, "color").value;
+      continue;
+    }
+    if (key === "fill" && typeof value === "string") {
+      applyOptionalFill(propsPatch, value);
+      continue;
+    }
+    if (key === "size" && typeof value === "string") {
+      applyOptionalSize(propsPatch, value);
       continue;
     }
 

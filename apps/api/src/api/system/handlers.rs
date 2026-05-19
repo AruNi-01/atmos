@@ -663,6 +663,65 @@ pub async fn list_tmux_windows(
     }))))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TmuxCaptureQuery {
+    pub tmux_window_name: String,
+    #[serde(default = "default_tmux_capture_max_lines")]
+    pub max_lines: i32,
+    /// Lines already read from the bottom (0 = newest page). For pagination, pass `next_skip_lines` from the prior response.
+    #[serde(default)]
+    pub skip_lines: i32,
+    pub project_name: Option<String>,
+    pub workspace_name: Option<String>,
+}
+
+fn default_tmux_capture_max_lines() -> i32 {
+    300
+}
+
+/// GET /api/system/tmux-capture/:workspace_id — read-only tmux pane text for canvas copy / agent context.
+pub async fn capture_tmux_window(
+    State(state): State<AppState>,
+    axum::extract::Path(workspace_id): axum::extract::Path<String>,
+    Query(query): Query<TmuxCaptureQuery>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    if !state.terminal_service.is_tmux_available() {
+        return Err(ApiError::BadRequest("tmux is not available".into()));
+    }
+
+    if resolve_session_name(&state, &workspace_id).await.is_none() {
+        return Err(ApiError::NotFound(
+            "Could not resolve workspace to tmux session".into(),
+        ));
+    }
+
+    let page = state
+        .terminal_service
+        .capture_window_snapshot_page(
+            &workspace_id,
+            &query.tmux_window_name,
+            query.project_name.as_deref(),
+            query.workspace_name.as_deref(),
+            query.skip_lines,
+            query.max_lines,
+        )
+        .map_err(ApiError::from)?;
+
+    let snapshot = page.snapshot;
+
+    Ok(Json(ApiResponse::success(json!({
+        "tmux_window_name": query.tmux_window_name,
+        "data": snapshot.data,
+        "rows": snapshot.rows,
+        "cols": snapshot.cols,
+        "alternate": snapshot.alternate,
+        "skip_lines": page.skip_from_bottom,
+        "lines_returned": page.lines_returned,
+        "has_more_older": page.has_more_older,
+        "next_skip_lines": page.next_skip_from_bottom,
+    }))))
+}
+
 /// GET /api/system/terminal-overview
 pub async fn get_terminal_overview(
     State(state): State<AppState>,

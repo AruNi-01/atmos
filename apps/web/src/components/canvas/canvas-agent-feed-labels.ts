@@ -66,8 +66,11 @@ export function describeCanvasAgentCommand(
 ): CanvasAgentCommandDescriptor {
   const verb = normalizeCommand(command);
 
-  if (verb === "get-state" || verb === "status") {
+  if (verb === "get-state" || verb === "status" || verb === "lint") {
     return { kind: "read", label: "Reading canvas" };
+  }
+  if (verb === "extract-text") {
+    return { kind: "read", label: "Extracting shape text" };
   }
 
   if (verb === "create-note") {
@@ -118,8 +121,24 @@ export function describeCanvasAgentCommand(
     return { kind: "move", label: "Moving shapes" };
   }
 
-  if (verb === "layout-row" || verb === "layout-column" || verb === "layout-grid") {
+  if (
+    verb === "layout-row" ||
+    verb === "layout-column" ||
+    verb === "layout-grid" ||
+    verb === "align" ||
+    verb === "stack" ||
+    verb === "distribute" ||
+    verb === "place"
+  ) {
     return { kind: "layout", label: "Arranging layout" };
+  }
+
+  if (verb === "apply") {
+    return { kind: "edit", label: "Applying canvas commands" };
+  }
+
+  if (verb === "set-agent-view") {
+    return { kind: "navigate", label: "Setting agent view" };
   }
 
   if (verb === "viewport") {

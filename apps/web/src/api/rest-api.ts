@@ -480,6 +480,44 @@ export const systemApi = {
     return fetchApi<{ windows: TmuxWindow[] }>(`/api/system/tmux-windows/${workspaceId}`);
   },
 
+  captureTmuxWindow: async (
+    workspaceId: string,
+    params: {
+      tmux_window_name: string;
+      max_lines?: number;
+      /** Lines already read from the bottom (0 = newest page). */
+      skip_lines?: number;
+      project_name?: string;
+      workspace_name?: string;
+    },
+  ): Promise<{
+    tmux_window_name: string;
+    data: string;
+    rows: number;
+    cols: number;
+    alternate?: boolean;
+    skip_lines?: number;
+    lines_returned?: number;
+    has_more_older?: boolean;
+    next_skip_lines?: number | null;
+  }> => {
+    const search = new URLSearchParams();
+    search.set("tmux_window_name", params.tmux_window_name);
+    if (params.max_lines != null) {
+      search.set("max_lines", String(params.max_lines));
+    }
+    if (params.skip_lines != null && params.skip_lines > 0) {
+      search.set("skip_lines", String(params.skip_lines));
+    }
+    if (params.project_name) {
+      search.set("project_name", params.project_name);
+    }
+    if (params.workspace_name) {
+      search.set("workspace_name", params.workspace_name);
+    }
+    return fetchApi(`/api/system/tmux-capture/${workspaceId}?${search.toString()}`);
+  },
+
   /**
    * Get comprehensive terminal overview for Terminal Manager
    */

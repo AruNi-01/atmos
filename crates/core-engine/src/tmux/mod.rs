@@ -81,6 +81,16 @@ pub struct TmuxPaneSnapshot {
     pub alternate: bool,
 }
 
+/// One page of tmux scrollback for canvas `extract-text` pagination.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TmuxPaneCapturePage {
+    pub snapshot: TmuxPaneSnapshot,
+    pub skip_from_bottom: i32,
+    pub lines_returned: u32,
+    pub has_more_older: bool,
+    pub next_skip_from_bottom: Option<i32>,
+}
+
 /// Tmux version information
 #[derive(Debug, Clone, Serialize)]
 pub struct TmuxVersion {
@@ -782,33 +792,72 @@ impl TmuxEngine {
         lines: Option<i32>,
         alternate: bool,
     ) -> Result<String> {
+        if alternate {
+            return self.capture_pane_segment(session_name, window_index, 0, lines.unwrap_or(1), true);
+        }
+        if let Some(take) = lines {
+            return self.capture_pane_segment(session_name, window_index, 0, take, false);
+        }
+
         let target = format!("{}:{}.0", session_name, window_index);
-        let start_line = if alternate {
-            // Even when #{alternate_on}=1, capture the pane's current visible
-            // screen without `capture-pane -a`. In tmux 3.6, `-a` can return a
-            // stale alternate buffer for modern TUIs after a control-mode attach,
-            // while the default capture returns the actual client-visible grid.
-            "0".to_string()
+        let mut args = vec![
+            "capture-pane",
+            "-t",
+            &target,
+            "-p",
+            "-e",
+            "-N",
+            "-S",
+            "-",
+            "-E",
+            "-",
+        ];
+        let mut content = self.run_tmux_raw(&args)?;
+        if content.ends_with('\n') {
+            content.pop();
+        }
+        Ok(content)
+    }
+
+    /// Capture a slice of scrollback counting from the bottom of the pane history.
+    ///
+    /// `skip_from_bottom` — lines already consumed (0 = newest page).
+    /// `take` — max lines to read older than the skip boundary.
+    pub fn capture_pane_segment(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        skip_from_bottom: i32,
+        take: i32,
+        alternate: bool,
+    ) -> Result<String> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let take = take.max(1);
+        let skip = skip_from_bottom.max(0);
+
+        let (start_line, end_line) = if alternate {
+            ("0".to_string(), "-".to_string())
+        } else if skip == 0 {
+            (format!("-{}", take), "-".to_string())
         } else {
-            lines
-                .map(|l| format!("-{}", l))
-                .unwrap_or_else(|| "-".to_string())
+            (
+                format!("-{}", skip.saturating_add(take)),
+                format!("-{}", skip.saturating_add(1)),
+            )
         };
 
         let mut args = vec![
             "capture-pane".to_string(),
             "-t".to_string(),
             target,
-            "-p".to_string(), // print to stdout
-            "-e".to_string(), // include ANSI escape sequences
-            "-N".to_string(), // preserve trailing spaces/background cells
-        ];
-        args.extend([
+            "-p".to_string(),
+            "-e".to_string(),
+            "-N".to_string(),
             "-S".to_string(),
             start_line,
             "-E".to_string(),
-            "-".to_string(),
-        ]);
+            end_line,
+        ];
         let arg_refs = args.iter().map(String::as_str).collect::<Vec<_>>();
 
         let mut content = self.run_tmux_raw(&arg_refs)?;
@@ -817,6 +866,82 @@ impl TmuxEngine {
         }
 
         Ok(content)
+    }
+
+    /// Scrollback depth for a pane (lines retained by tmux).
+    pub fn get_pane_history_size(&self, session_name: &str, window_index: u32) -> Result<u32> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let raw = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            "#{history_size}",
+        ])?;
+        Ok(raw.trim().parse::<u32>().unwrap_or(0))
+    }
+
+    /// Paginated pane capture with scrollback cursor metadata.
+    pub fn capture_pane_page(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        skip_from_bottom: i32,
+        take_lines: i32,
+    ) -> Result<TmuxPaneCapturePage> {
+        let target = format!("{}:{}.0", session_name, window_index);
+        let metadata = self.run_tmux(&[
+            "display-message",
+            "-t",
+            &target,
+            "-p",
+            "#{cursor_x}|#{cursor_y}|#{pane_width}|#{pane_height}|#{alternate_on}",
+        ])?;
+        let parts = metadata.split('|').collect::<Vec<_>>();
+        let parse_part = |idx: usize| -> u32 {
+            parts
+                .get(idx)
+                .and_then(|value| value.parse::<u32>().ok())
+                .unwrap_or(0)
+        };
+        let rows = parse_part(3);
+        let alternate = parts.get(4).is_some_and(|value| value.trim() == "1");
+        let take = take_lines.max(1);
+        let skip = skip_from_bottom.max(0);
+
+        let data = if alternate {
+            self.capture_pane_segment(session_name, window_index, 0, rows.max(1) as i32, true)?
+        } else {
+            self.capture_pane_segment(session_name, window_index, skip, take, false)?
+        };
+
+        let lines_returned = if data.is_empty() {
+            0
+        } else {
+            data.matches('\n').count() as u32 + 1
+        };
+
+        let history_size = self.get_pane_history_size(session_name, window_index).unwrap_or(0);
+        let consumed = skip.saturating_add(lines_returned as i32);
+        let has_more_older = !alternate
+            && lines_returned > 0
+            && lines_returned >= take as u32
+            && (history_size == 0 || consumed < history_size as i32);
+
+        Ok(TmuxPaneCapturePage {
+            snapshot: TmuxPaneSnapshot {
+                data,
+                cursor_x: parse_part(0),
+                cursor_y: parse_part(1),
+                cols: parse_part(2),
+                rows,
+                alternate,
+            },
+            skip_from_bottom: skip,
+            lines_returned,
+            has_more_older,
+            next_skip_from_bottom: if has_more_older { Some(consumed) } else { None },
+        })
     }
 
     /// Capture pane content and cursor metadata for initial hydration.

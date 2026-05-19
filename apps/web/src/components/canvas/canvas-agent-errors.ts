@@ -24,7 +24,12 @@ export function formatUnknownError(err: unknown): string {
 }
 
 export function isTldrawValidationError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  if (err.name === "ValidationError") return true;
-  return /Unexpected property|ValidationError|At shape\(/.test(err.message);
+  if (err instanceof Error) {
+    if (err.name === "ValidationError") return true;
+    if (/ValidationError|At shape\(/.test(err.message)) return true;
+  }
+  if (typeof err === "string") {
+    return /ValidationError|At shape\(/.test(err);
+  }
+  return false;
 }

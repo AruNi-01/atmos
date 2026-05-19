@@ -254,17 +254,42 @@ export function useRunPreviewTabs(contextId: string): [RunTerminalTab[], (tabs: 
 
 // --- Canvas ---
 
+export interface CanvasLastPinnedTerminal {
+  pinKey: string;
+  shapeId: string;
+  pinnedAt: number;
+}
+
 export interface CanvasUiPrefs {
   sessionByBoard: Record<string, CanvasTldrawSession>;
+  /** Last terminal pinned onto each board — used to auto-focus on Canvas open. */
+  lastPinnedByBoard: Record<string, CanvasLastPinnedTerminal>;
   agentClientId: string | null;
   acceptsCommands: boolean;
 }
 
 const DEFAULT_CANVAS_PREFS: CanvasUiPrefs = {
   sessionByBoard: {},
+  lastPinnedByBoard: {},
   agentClientId: null,
   acceptsCommands: false,
 };
+
+/** Merge persisted canvas prefs with defaults (older saves omit new fields). */
+function normalizeCanvasPrefs(raw: Partial<CanvasUiPrefs> | null | undefined): CanvasUiPrefs {
+  return {
+    ...DEFAULT_CANVAS_PREFS,
+    ...raw,
+    sessionByBoard: raw?.sessionByBoard ?? DEFAULT_CANVAS_PREFS.sessionByBoard,
+    lastPinnedByBoard: raw?.lastPinnedByBoard ?? DEFAULT_CANVAS_PREFS.lastPinnedByBoard,
+  };
+}
+
+function readCanvasPrefs(): CanvasUiPrefs {
+  const instanceId = resolveCanvasPrefsInstanceId();
+  const raw = useUiPrefStore.getState().readSlice(instanceId, "canvas", DEFAULT_CANVAS_PREFS);
+  return normalizeCanvasPrefs(raw);
+}
 
 /** Canvas session prefs follow the relay/local computer target, not a stale instance id. */
 export function resolveCanvasPrefsInstanceId(): ConnectionInstanceId {
@@ -274,9 +299,80 @@ export function resolveCanvasPrefsInstanceId(): ConnectionInstanceId {
 
 export function readCanvasSession(boardGuid?: string | null): CanvasTldrawSession | null {
   const key = boardGuid ?? 'default';
+  return readCanvasPrefs().sessionByBoard[key] ?? null;
+}
+
+export function readLastPinnedTerminal(
+  boardGuid?: string | null,
+): CanvasLastPinnedTerminal | null {
+  const key = boardGuid ?? "default";
+  return readCanvasPrefs().lastPinnedByBoard[key] ?? null;
+}
+
+/** Read pending auto-focus pin once, then remove it from storage. */
+export function consumeLastPinnedTerminal(
+  boardGuid?: string | null,
+): CanvasLastPinnedTerminal | null {
+  const key = boardGuid ?? "default";
   const instanceId = resolveCanvasPrefsInstanceId();
-  const prefs = useUiPrefStore.getState().readSlice(instanceId, 'canvas', DEFAULT_CANVAS_PREFS);
-  return prefs.sessionByBoard[key] ?? null;
+  let consumed: CanvasLastPinnedTerminal | null = null;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    "canvas",
+    (prev) => {
+      const base = normalizeCanvasPrefs(prev);
+      const current = base.lastPinnedByBoard[key];
+      if (!current) return base;
+      consumed = current;
+      const nextBoard = { ...base.lastPinnedByBoard };
+      delete nextBoard[key];
+      return { ...base, lastPinnedByBoard: nextBoard };
+    },
+    DEFAULT_CANVAS_PREFS,
+  );
+  return consumed;
+}
+
+export function writeLastPinnedTerminal(
+  entry: CanvasLastPinnedTerminal,
+  boardGuid?: string | null,
+): void {
+  const key = boardGuid ?? "default";
+  const instanceId = resolveCanvasPrefsInstanceId();
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    "canvas",
+    (prev) => {
+      const base = normalizeCanvasPrefs(prev);
+      return {
+        ...base,
+        lastPinnedByBoard: { ...base.lastPinnedByBoard, [key]: entry },
+      };
+    },
+    DEFAULT_CANVAS_PREFS,
+  );
+}
+
+export function clearLastPinnedTerminal(
+  boardGuid?: string | null,
+  pinKey?: string,
+): void {
+  const key = boardGuid ?? "default";
+  const instanceId = resolveCanvasPrefsInstanceId();
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    "canvas",
+    (prev) => {
+      const base = normalizeCanvasPrefs(prev);
+      const current = base.lastPinnedByBoard[key];
+      if (!current) return base;
+      if (pinKey && current.pinKey !== pinKey) return base;
+      const next = { ...base.lastPinnedByBoard };
+      delete next[key];
+      return { ...base, lastPinnedByBoard: next };
+    },
+    DEFAULT_CANVAS_PREFS,
+  );
 }
 
 export function writeCanvasSession(
@@ -288,10 +384,13 @@ export function writeCanvasSession(
   useUiPrefStore.getState().patchSlice(
     instanceId,
     'canvas',
-    prev => ({
-      ...prev,
-      sessionByBoard: { ...prev.sessionByBoard, [key]: session },
-    }),
+    (prev) => {
+      const base = normalizeCanvasPrefs(prev);
+      return {
+        ...base,
+        sessionByBoard: { ...base.sessionByBoard, [key]: session },
+      };
+    },
     DEFAULT_CANVAS_PREFS,
   );
 }

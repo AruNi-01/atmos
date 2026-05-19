@@ -45,6 +45,40 @@ Rules:
 - **Do not split a spec across directories.** Large `TECH.md` sections can use inline headings or sibling assets (e.g. `assets/`), not sub-specs.
 - Cross-spec dependencies: link with relative paths, don't copy content.
 
+### 3.1 Optional: `IMPROVEMENT.md` (operational log)
+
+Some specs—especially long-lived integrations—benefit from a **fifth sibling file** that is **not** part of the planning quartet:
+
+| File | Purpose |
+|------|---------|
+| `IMPROVEMENT.md` | **After ship**: incidents, parity gaps, mitigations, results, follow-ups |
+
+**When to add**
+
+- The feature is in production and you are iterating on **quality, crashes, or agent ergonomics** without changing the original PRD scope.
+- You need a durable place to record “what broke → why → what we shipped → what’s left” (e.g. canvas agent vs [tldraw Agent starter kit](https://tldraw.dev/starter-kits/agent)).
+
+**When not to add**
+
+- The work is still in **BRAINSTORM / PRD / TECH** phase—use those files instead.
+- The note is a one-line fix with no lesson worth keeping—use the git commit message only.
+
+**Conventions**
+
+- Lives **only** inside an existing spec directory: `specs/<ZONE>/<ZONE>-NNN_<title>/IMPROVEMENT.md`.
+- Entries use ids **`IMP-NNN`** (per-file, monotonic), with status `open` | `mitigated` | `closed` | `wont-fix`.
+- Keep an **index table** at the top; append new entries at the bottom (or in a dated section)—do not rewrite history.
+- Link to `TECH.md` / `PRD.md` for baseline design; **do not duplicate** architecture already frozen there.
+- If agent-facing behavior changes, note the **Skill / CLI version** in the entry (e.g. `skills/atmos-canvas-agent/SKILL.md`).
+
+**Agent workflow**
+
+1. Before changing canvas-agent (or similar) behavior, read `IMPROVEMENT.md` for the spec if it exists.
+2. After shipping a fix, add or update an `IMP-NNN` entry (problem → root cause → solution → result → follow-ups).
+3. Update related `TEST.md` acceptance only when the fix changes the formal definition of done.
+
+**Reference implementation**: [APP-015 `IMPROVEMENT.md`](./APP/APP-015_canvas-terminal-agent-integration/IMPROVEMENT.md).
+
 ---
 
 ## 4. Lifecycle
@@ -52,6 +86,8 @@ Rules:
 ```
 BRAINSTORM  →  PRD  →  TECH  →  implement  →  TEST
    (open)     (what)   (how)     (code)     (verify)
+                                    │
+                                    └──► IMPROVEMENT.md (ongoing, post-ship)
 ```
 
 Recommended flow:
@@ -61,6 +97,7 @@ Recommended flow:
 3. Write `TECH.md` once scope is stable. Reference the PRD rather than restating it.
 4. Write `TEST.md` alongside `TECH.md`; finalize acceptance before shipping.
 5. After ship, prune obsolete sections but keep the spec; it is a historical record.
+6. For production learnings and iterative fixes, append to `IMPROVEMENT.md` when the spec has one (see §3.1).
 
 ---
 
@@ -124,6 +161,7 @@ When something in `specs/` ships and stabilizes, migrate the enduring parts into
 
 - [ ] Correct zone and next available `NNN`.
 - [ ] All four files present, titled, and non-duplicating the template.
+- [ ] If the spec uses `IMPROVEMENT.md`, index table and entry template are present (§3.1).
 - [ ] `README.md` **Current Specs** table updated.
 - [ ] Links to related code / specs are relative and valid.
 - [ ] No secrets, customer data, or internal URLs.

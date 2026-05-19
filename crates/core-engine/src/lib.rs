@@ -22,5 +22,6 @@ pub use github::GithubEngine;
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
 pub use tmux::{
-    TmuxEngine, TmuxInstallPlan, TmuxPaneSnapshot, TmuxSessionInfo, TmuxVersion, TmuxWindowInfo,
+    TmuxEngine, TmuxInstallPlan, TmuxPaneCapturePage, TmuxPaneSnapshot, TmuxSessionInfo,
+    TmuxVersion, TmuxWindowInfo,
 };

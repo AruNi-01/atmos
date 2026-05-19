@@ -7,14 +7,17 @@ import {
   createShapeId,
   defaultBindingUtils,
   defaultShapeUtils,
+  type Editor,
   type TLEditorSnapshot,
   type TLPage,
   type TLPageId,
   type TLShape,
 } from "tldraw";
-import type { IndexKey } from "@tldraw/utils";
+import { getIndexAbove, getIndexBetween, sortByIndex, type IndexKey } from "@tldraw/utils";
 import type { TerminalContextScope } from "@/api/rest-api";
 import type { TerminalPaneAgent } from "@/components/terminal/types";
+
+import { findCanvasTerminalPlacement } from "./canvas-terminal-placement";
 
 export const CANVAS_TERMINAL_SHAPE_TYPE = "canvas-terminal" as const;
 export const CANVAS_TERMINAL_PIN_STATE_EVENT = "canvas-terminal-pin-state-change";
@@ -150,11 +153,95 @@ function normalizeLastAttachedAt(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-export function normalizeCanvasTerminalShapePropsInDocument(
+function isValidIndexKey(index: unknown): index is IndexKey {
+  if (typeof index !== "string" || !index.length) return false;
+  try {
+    const above = getIndexAbove(index as IndexKey);
+    getIndexBetween(index as IndexKey, above);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** tldraw v5 uses fractional index keys (`a1`, `a2`, …) — not `a${shapeCount}`. */
+function getTopShapeIndexOnPage(
+  snapshot: TLEditorSnapshot,
+  pageId: TLPageId,
+): IndexKey | null {
+  const store = snapshot.document.store as Record<string, unknown>;
+  const onPage: { index: IndexKey }[] = [];
+
+  for (const record of Object.values(store)) {
+    if (!record || typeof record !== "object") continue;
+    if ((record as { typeName?: string }).typeName !== "shape") continue;
+    if ((record as { parentId?: string }).parentId !== pageId) continue;
+    const index = (record as { index?: string }).index;
+    if (isValidIndexKey(index)) {
+      onPage.push({ index });
+    }
+  }
+
+  if (onPage.length === 0) return null;
+  onPage.sort(sortByIndex);
+  return onPage[onPage.length - 1]!.index;
+}
+
+function getNextShapeIndex(snapshot: TLEditorSnapshot, pageId: TLPageId): IndexKey {
+  const top = getTopShapeIndexOnPage(snapshot, pageId);
+  return getIndexAbove(top);
+}
+
+/** Fix legacy pins that used `a40`-style invalid indices (crashes tldraw on load). */
+export function repairInvalidShapeIndicesInDocument(
   document: TLEditorSnapshot["document"],
 ): TLEditorSnapshot["document"] {
   const store = document.store as Record<string, unknown>;
+  const byPage = new Map<
+    string,
+    Array<{ recordId: string; record: { index?: string; parentId?: string } }>
+  >();
+
+  for (const [recordId, record] of Object.entries(store)) {
+    if (!record || typeof record !== "object") continue;
+    if ((record as { typeName?: string }).typeName !== "shape") continue;
+    const shape = record as { index?: string; parentId?: string };
+    if (!shape.parentId) continue;
+    if (isValidIndexKey(shape.index)) continue;
+    const list = byPage.get(shape.parentId) ?? [];
+    list.push({ recordId, record: shape });
+    byPage.set(shape.parentId, list);
+  }
+
+  if (byPage.size === 0) return document;
+
+  const nextStore = { ...store };
   let changed = false;
+
+  for (const [pageId, invalidShapes] of byPage) {
+    let top: IndexKey | null = getTopShapeIndexOnPage(
+      { document: { ...document, store: nextStore }, session: { version: 0 } } as TLEditorSnapshot,
+      pageId as TLPageId,
+    );
+    for (const { recordId } of invalidShapes) {
+      top = getIndexAbove(top);
+      const existing = nextStore[recordId];
+      if (!existing || typeof existing !== "object") continue;
+      nextStore[recordId] = { ...existing, index: top };
+      changed = true;
+    }
+  }
+
+  if (!changed) return document;
+  return { ...document, store: nextStore as TLEditorSnapshot["document"]["store"] };
+}
+
+export function normalizeCanvasTerminalShapePropsInDocument(
+  document: TLEditorSnapshot["document"],
+): TLEditorSnapshot["document"] {
+  let doc = repairInvalidShapeIndicesInDocument(document);
+  const store = doc.store as Record<string, unknown>;
+  let changed = doc !== document;
   const nextStore: Record<string, unknown> = {};
 
   for (const [recordId, record] of Object.entries(store)) {
@@ -187,11 +274,11 @@ export function normalizeCanvasTerminalShapePropsInDocument(
   }
 
   if (!changed) {
-    return document;
+    return doc;
   }
 
   return {
-    ...document,
+    ...doc,
     store: nextStore as TLEditorSnapshot["document"]["store"],
   };
 }
@@ -232,6 +319,10 @@ export function isCanvasTerminalShapeRecord(
   return true;
 }
 
+export function getCanvasTerminalShapes(editor: Editor): CanvasTerminalShape[] {
+  return editor.getCurrentPageShapes().filter(isCanvasTerminalShapeRecord);
+}
+
 function isPageRecord(value: unknown): value is TLPage {
   if (!value || typeof value !== "object") {
     return false;
@@ -260,13 +351,6 @@ function ensurePage(snapshot: TLEditorSnapshot) {
   return pageId;
 }
 
-function getNextShapeIndex(snapshot: TLEditorSnapshot) {
-  const shapeCount = Object.values(snapshot.document.store).filter(
-    (record) => Boolean(record) && typeof record === "object" && (record as { typeName?: string }).typeName === "shape",
-  ).length;
-  return `a${shapeCount + 1}` as IndexKey;
-}
-
 export function pinCanvasTerminalShapeInSnapshot(
   snapshot: TLEditorSnapshot | null,
   props: CanvasTerminalShapeProps,
@@ -290,16 +374,19 @@ export function pinCanvasTerminalShapeInSnapshot(
 
   const pageId = ensurePage(nextSnapshot);
   const shapeId = createShapeId();
-  const offset = Object.values(store).filter(isCanvasTerminalShapeRecord).length % 8;
+  const { x, y } = findCanvasTerminalPlacement(nextSnapshot, pageId, {
+    w: props.w,
+    h: props.h,
+  });
 
   store[shapeId] = {
     id: shapeId,
     typeName: "shape",
     type: CANVAS_TERMINAL_SHAPE_TYPE,
-    x: 120 + offset * 44,
-    y: 120 + offset * 44,
+    x,
+    y,
     rotation: 0,
-    index: getNextShapeIndex(nextSnapshot),
+    index: getNextShapeIndex(nextSnapshot, pageId),
     parentId: pageId,
     isLocked: false,
     opacity: 1,

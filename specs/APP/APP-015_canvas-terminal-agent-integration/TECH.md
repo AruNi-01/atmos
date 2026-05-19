@@ -1,6 +1,6 @@
 # TECH · APP-015: Canvas Terminal Agent Integration
 
-> Technical Design · HOW. Implements [PRD.md](./PRD.md). **Distinct from [APP-004](../APP-004_local-agent-integration-acp/TECH.md)** (ACP) and complementary to [APP-014 Canvas](../APP-014_canvas/TECH.md) (board + overlay baseline).
+> Technical Design · HOW. Implements [PRD.md](./PRD.md). **Distinct from [APP-004](../APP-004_local-agent-integration-acp/TECH.md)** (ACP) and complementary to [APP-014 Canvas](../APP-014_canvas/TECH.md) (board + overlay baseline). Post-ship incidents and layout-quality iterations: [IMPROVEMENT.md](./IMPROVEMENT.md).
 
 ---
 

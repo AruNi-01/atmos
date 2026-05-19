@@ -72,6 +72,7 @@ import {
   getPinnedCanvasTerminalPinKeys,
   pinCanvasTerminalShapeInSnapshot,
 } from "@/components/canvas/canvas-terminal-shape";
+import { rememberLastPinnedTerminal } from "@/components/canvas/canvas-terminal-focus";
 
 import "react-mosaic-component/react-mosaic-component.css";
 import "./terminal-grid.css";
@@ -979,6 +980,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           tldrawDocument: result.snapshot.document,
         }),
       );
+      rememberLastPinnedTerminal(board.guid, pinKey, result.shapeId);
       dispatchCanvasTerminalPinStateChange(pinKey, true);
 
       toastManager.add({

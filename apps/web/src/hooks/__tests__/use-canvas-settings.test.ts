@@ -4,9 +4,13 @@ import { toastManager } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
 import {
   DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
+  DEFAULT_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
   MAX_CANVAS_MAX_RENDERED_TERMINALS,
+  MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
   MIN_CANVAS_MAX_RENDERED_TERMINALS,
+  MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
   normalizeCanvasMaxRenderedTerminals,
+  normalizeCanvasTerminalContextMaxLines,
   useCanvasSettings,
 } from "../use-canvas-settings";
 
@@ -19,6 +23,7 @@ afterEach(() => {
   useCanvasSettings.setState({
     autoSaveInterval: 1,
     maxRenderedTerminals: DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
+    terminalContextMaxLines: DEFAULT_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
     loaded: false,
     loading: false,
   });
@@ -33,6 +38,17 @@ describe("normalizeCanvasMaxRenderedTerminals", () => {
     expect(normalizeCanvasMaxRenderedTerminals(0)).toBe(MIN_CANVAS_MAX_RENDERED_TERMINALS);
     expect(normalizeCanvasMaxRenderedTerminals(999)).toBe(MAX_CANVAS_MAX_RENDERED_TERMINALS);
     expect(normalizeCanvasMaxRenderedTerminals(4.8)).toBe(4);
+  });
+});
+
+describe("normalizeCanvasTerminalContextMaxLines", () => {
+  it("falls back for non-finite values and clamps finite values into bounds", () => {
+    expect(normalizeCanvasTerminalContextMaxLines(Number.NaN)).toBe(
+      DEFAULT_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
+    );
+    expect(normalizeCanvasTerminalContextMaxLines(10)).toBe(MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES);
+    expect(normalizeCanvasTerminalContextMaxLines(9999)).toBe(MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES);
+    expect(normalizeCanvasTerminalContextMaxLines(300)).toBe(300);
   });
 });
 

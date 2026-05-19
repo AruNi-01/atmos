@@ -19,9 +19,46 @@ import {
   type TLShapePartial,
 } from "tldraw";
 
+import {
+  createArrowShapeWithBindings,
+  resolveArrowEndpoints,
+} from "./canvas-agent-arrow-bindings";
+import { getShapePageBoundsBox } from "./canvas-agent-bounds";
+import {
+  AGENT_VIEW_PADDING,
+  expandBounds,
+  type CanvasAgentBounds,
+} from "./canvas-agent-view-bounds";
 import { CanvasAgentError, type CanvasAgentErrorCode } from "./canvas-agent-errors";
+import { computeCanvasLints } from "./canvas-agent-lint";
+import {
+  CANVAS_SHAPE_COPY_MAX_CHARS,
+  textContentForExtract,
+  textPreviewForGetState,
+  truncateText,
+} from "./canvas-shape-text";
+import {
+  CANVAS_TERMINAL_SHAPE_TYPE,
+  type CanvasTerminalShape,
+} from "./canvas-terminal-shape";
+import { extractCanvasTerminalText } from "./canvas-terminal-copy";
+import {
+  layoutColumnByBounds,
+  layoutGridByBounds,
+  layoutRowByBounds,
+  parseAlignMode,
+  parseDistributeDirection,
+  parsePlaceAlign,
+  parsePlaceSide,
+  parseStackDirection,
+  runAlign as alignShapesCommand,
+  runDistribute as distributeShapesCommand,
+  runPlace as placeShapeCommand,
+  runStack as stackShapesCommand,
+} from "./canvas-agent-layout";
 import { mutateEditor } from "./canvas-agent-mutate";
 import { NOTE_BASE_WIDTH, planUpdateShapePartial } from "./canvas-agent-shape-patch";
+import { applyOptionalColor, applyOptionalFill, applyOptionalSize } from "./canvas-agent-tldraw-style";
 import { validateShapeUpdate } from "./canvas-agent-validate";
 
 export interface CanvasAgentDispatchInput {
@@ -51,6 +88,10 @@ export type { CanvasAgentErrorCode };
 
 const MAX_LAYOUT_GRID = 24;
 const MAX_LAYOUT_IDS = 256;
+const MAX_APPLY_STEPS = 32;
+const SPAWN_GRID_COLS = 4;
+const SPAWN_CELL_W = 120;
+const SPAWN_CELL_H = 80;
 
 export interface CanvasAgentBusOptions {
   /**
@@ -69,6 +110,8 @@ export interface CanvasAgentBusOptions {
 export class CanvasAgentBus {
   private editor: Editor | null = null;
   private bridgeAccepting: boolean;
+  /** Stagger default spawn positions when x/y are omitted. */
+  private spawnSlot = 0;
 
   constructor(private readonly options: CanvasAgentBusOptions) {
     this.bridgeAccepting = options.isBridgeAccepting ?? false;
@@ -102,13 +145,19 @@ export class CanvasAgentBus {
     }
 
     try {
-      // `status` and `get_state` are always available — diagnostics must work
-      // even while the bridge is disabled.
+      // `status`, `get_state`, and `extract_text` are always available — diagnostics
+      // and on-demand shape reads must work even while the bridge is disabled.
       if (command === "status") {
         return ok(this.runStatus(editor));
       }
       if (command === "get_state" || command === "get-state") {
         return ok(this.runGetState(editor, input.args ?? {}));
+      }
+      if (command === "extract_text" || command === "extract-text") {
+        return ok(await this.runExtractText(editor, input.args ?? {}));
+      }
+      if (command === "lint") {
+        return ok(this.runLint(editor));
       }
 
       if (!this.bridgeAccepting) {
@@ -119,45 +168,80 @@ export class CanvasAgentBus {
         );
       }
 
+      if (command === "apply") {
+        return this.runApply(editor, input.args ?? {});
+      }
+
+      return this.runMutatingCommand(editor, command, input.args ?? {});
+    } catch (err) {
+      if (err instanceof CanvasAgentError) {
+        return fail(err.code, err.message, err.recoverable);
+      }
+      this.log("canvas-agent: handler threw", err);
+      return fail(
+        "INTERNAL_ERROR",
+        err instanceof Error ? err.message : String(err),
+        true,
+      );
+    }
+  }
+
+  private runMutatingCommand(
+    editor: Editor,
+    command: string,
+    args: Record<string, unknown>,
+  ): CanvasAgentResult {
+    try {
       switch (command) {
         case "create_note":
         case "create-note":
-          return ok(this.runCreateNote(editor, input.args ?? {}));
+          return ok(this.runCreateNote(editor, args));
         case "create_frame":
         case "create-frame":
-          return ok(this.runCreateFrame(editor, input.args ?? {}));
+          return ok(this.runCreateFrame(editor, args));
         case "create_geo":
         case "create-geo":
-          return ok(this.runCreateGeo(editor, input.args ?? {}));
+          return ok(this.runCreateGeo(editor, args));
         case "create_arrow":
         case "create-arrow":
-          return ok(this.runCreateArrow(editor, input.args ?? {}));
+          return ok(this.runCreateArrow(editor, args));
         case "create_draw":
         case "create-draw":
-          return ok(this.runCreateDraw(editor, input.args ?? {}));
+          return ok(this.runCreateDraw(editor, args));
         case "select":
-          return ok(this.runSelect(editor, input.args ?? {}));
+          return ok(this.runSelect(editor, args));
         case "clear_selection":
         case "clear-selection":
           return ok(this.runClearSelection(editor));
         case "move":
-          return ok(this.runMove(editor, input.args ?? {}));
+          return ok(this.runMove(editor, args));
         case "delete":
-          return ok(this.runDelete(editor, input.args ?? {}));
+          return ok(this.runDelete(editor, args));
         case "layout_row":
         case "layout-row":
-          return ok(this.runLayoutRow(editor, input.args ?? {}));
+          return ok(this.runLayoutRow(editor, args));
         case "layout_column":
         case "layout-column":
-          return ok(this.runLayoutColumn(editor, input.args ?? {}));
+          return ok(this.runLayoutColumn(editor, args));
         case "layout_grid":
         case "layout-grid":
-          return ok(this.runLayoutGrid(editor, input.args ?? {}));
+          return ok(this.runLayoutGrid(editor, args));
+        case "align":
+          return ok(this.runAlign(editor, args));
+        case "stack":
+          return ok(this.runStack(editor, args));
+        case "distribute":
+          return ok(this.runDistribute(editor, args));
+        case "place":
+          return ok(this.runPlace(editor, args));
         case "update_shape":
         case "update-shape":
-          return ok(this.runUpdateShape(editor, input.args ?? {}));
+          return ok(this.runUpdateShape(editor, args));
         case "viewport":
-          return ok(this.runViewport(editor, input.args ?? {}));
+          return ok(this.runViewport(editor, args));
+        case "set_agent_view":
+        case "set-agent-view":
+          return ok(this.runSetAgentView(editor, args));
         default:
           return fail(
             "UNSUPPORTED_COMMAND",
@@ -176,6 +260,83 @@ export class CanvasAgentBus {
         true,
       );
     }
+  }
+
+  private runApply(
+    editor: Editor,
+    args: Record<string, unknown>,
+  ): CanvasAgentResult {
+    const steps = args.commands ?? args.actions;
+    if (!Array.isArray(steps) || steps.length === 0) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "apply requires a non-empty commands array",
+        false,
+      );
+    }
+    if (steps.length > MAX_APPLY_STEPS) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        `apply accepts at most ${MAX_APPLY_STEPS} commands per request`,
+        false,
+      );
+    }
+
+    const results: Array<{
+      command: string;
+      success: boolean;
+      data?: unknown;
+      error_code?: string;
+      error_message?: string;
+    }> = [];
+
+    for (const step of steps) {
+      if (!step || typeof step !== "object") {
+        throw new CanvasAgentError(
+          "VALIDATION_ARG",
+          "each apply step must be an object with command and args",
+          false,
+        );
+      }
+      const record = step as Record<string, unknown>;
+      const subCommand = String(record.command ?? "").trim();
+      if (!subCommand) {
+        throw new CanvasAgentError(
+          "VALIDATION_ARG",
+          "each apply step must include command",
+          false,
+        );
+      }
+      if (subCommand === "apply") {
+        throw new CanvasAgentError(
+          "VALIDATION_ARG",
+          "nested apply is not supported",
+          false,
+        );
+      }
+      const subArgs =
+        record.args && typeof record.args === "object" && !Array.isArray(record.args)
+          ? (record.args as Record<string, unknown>)
+          : {};
+      const res = this.runMutatingCommand(editor, subCommand, subArgs);
+      if (res.success) {
+        results.push({ command: subCommand, success: true, data: res.data });
+      } else {
+        results.push({
+          command: subCommand,
+          success: false,
+          error_code: res.error_code,
+          error_message: res.error_message,
+        });
+        return ok({
+          results,
+          failed_at: results.length - 1,
+          partial: true,
+        });
+      }
+    }
+
+    return ok({ results, partial: false });
   }
 
   // ===== read =====
@@ -236,7 +397,8 @@ export class CanvasAgentBus {
       selection,
       shapes: shapes.map((s) => {
         const props = shallowFilterProps(s.props as Record<string, unknown>);
-        const textPreview = plainTextFromShapeProps(props);
+        const textPreview = textPreviewForGetState(s);
+        const bounds = getShapePageBoundsBox(editor, s.id);
         return {
           id: s.id,
           type: s.type,
@@ -244,10 +406,85 @@ export class CanvasAgentBus {
           y: s.y,
           rotation: s.rotation,
           props,
+          ...(bounds
+            ? {
+                bounds: {
+                  min_x: bounds.minX,
+                  min_y: bounds.minY,
+                  w: bounds.width,
+                  h: bounds.height,
+                },
+              }
+            : {}),
           ...(textPreview ? { text_preview: textPreview } : {}),
           parent_id: s.parentId,
         };
       }),
+      lints: computeCanvasLints(editor),
+    };
+  }
+
+  private runLint(editor: Editor) {
+    return { lints: computeCanvasLints(editor) };
+  }
+
+  /** Read text content for specific shapes on demand (includes tmux capture for terminals). */
+  private async runExtractText(editor: Editor, args: Record<string, unknown>) {
+    const ids = resolveExtractTextShapeIds(editor, args);
+    this.requireExistingShapes(editor, ids);
+
+    const shapes = [];
+    for (const id of ids) {
+      const shape = editor.getShape(id as TLShapeId);
+      if (!shape) {
+        shapes.push({ id, error: "not_found" as const });
+        continue;
+      }
+
+      const olderOffset = parseOlderOffset(args.older_offset ?? args.skip_lines);
+
+      let raw: string | undefined;
+      let terminalPage: Record<string, unknown> | undefined;
+      if (shape.type === CANVAS_TERMINAL_SHAPE_TYPE) {
+        const captured = await extractCanvasTerminalText(shape as CanvasTerminalShape, {
+          skipFromBottom: olderOffset,
+        });
+        raw = captured.text;
+        terminalPage = {
+          skip_lines: captured.page.skip_lines,
+          lines_returned: captured.page.lines_returned,
+          has_more_older: captured.page.has_more_older,
+          next_older_offset: captured.page.next_skip_lines,
+        };
+      } else {
+        raw = await textContentForExtract(editor, shape, {
+          terminalSkipFromBottom: olderOffset,
+        });
+      }
+
+      if (!raw?.trim()) {
+        shapes.push({
+          id: shape.id,
+          type: shape.type,
+          content: null,
+          ...(terminalPage ? { terminal_page: terminalPage } : {}),
+        });
+        continue;
+      }
+
+      const { text, truncated } = truncateText(raw, CANVAS_SHAPE_COPY_MAX_CHARS);
+      shapes.push({
+        id: shape.id,
+        type: shape.type,
+        content: text,
+        ...(truncated ? { truncated: true } : {}),
+        ...(terminalPage ? { terminal_page: terminalPage } : {}),
+      });
+    }
+
+    return {
+      schema: "canvas_extract_text.v1",
+      shapes,
     };
   }
 
@@ -255,14 +492,22 @@ export class CanvasAgentBus {
 
   private runCreateNote(editor: Editor, args: Record<string, unknown>) {
     const text = requireString(args.text, "text");
-    const x = numberOr(args.x, computeSpawnX(editor));
-    const y = numberOr(args.y, computeSpawnY(editor));
+    if (args.h !== undefined && args.h !== null) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "create_note does not support --h (notes auto-size). Use create-geo for fixed-height boxes.",
+        false,
+      );
+    }
+    const spawn = this.resolveSpawn(editor, args.x, args.y);
+    const x = spawn.x;
+    const y = spawn.y;
     const w = positiveNumberOr(args.w, NOTE_BASE_WIDTH);
     const color = optionalString(args.color);
     const id = createShapeId();
     // tldraw v5 notes use `richText`, not legacy `text`; they have no w/h props.
     const props: Record<string, unknown> = { richText: toRichText(text) };
-    if (color) props.color = color;
+    applyOptionalColor(props, color);
     if (w !== NOTE_BASE_WIDTH) {
       props.scale = w / NOTE_BASE_WIDTH;
     }
@@ -273,8 +518,9 @@ export class CanvasAgentBus {
   private runCreateFrame(editor: Editor, args: Record<string, unknown>) {
     const w = positiveNumberOr(args.w, 640);
     const h = positiveNumberOr(args.h, 440);
-    const x = numberOr(args.x, computeSpawnX(editor));
-    const y = numberOr(args.y, computeSpawnY(editor));
+    const spawn = this.resolveSpawn(editor, args.x, args.y);
+    const x = spawn.x;
+    const y = spawn.y;
     const name = optionalString(args.title) ?? optionalString(args.name);
     const id = createShapeId();
     const props: Record<string, unknown> = { w, h };
@@ -285,41 +531,67 @@ export class CanvasAgentBus {
 
   private runCreateGeo(editor: Editor, args: Record<string, unknown>) {
     const kind = optionalString(args.kind) ?? "rectangle";
-    const x = numberOr(args.x, computeSpawnX(editor));
-    const y = numberOr(args.y, computeSpawnY(editor));
+    const spawn = this.resolveSpawn(editor, args.x, args.y);
+    const x = spawn.x;
+    const y = spawn.y;
     const w = positiveNumberOr(args.w, 200);
     const h = positiveNumberOr(args.h, 200);
     const id = createShapeId();
     const props: Record<string, unknown> = { geo: kind, w, h };
     const text = optionalString(args.text);
     if (text) props.richText = toRichText(text);
-    const color = optionalString(args.color);
-    if (color) props.color = color;
-    const fill = optionalString(args.fill);
-    if (fill) props.fill = fill;
-    const size = optionalString(args.size);
-    if (size) props.size = size;
+    applyOptionalColor(props, optionalString(args.color));
+    applyOptionalFill(props, optionalString(args.fill));
+    applyOptionalSize(props, optionalString(args.size));
     mutateEditor(editor, () => editor.createShape({ id, type: "geo", x, y, props }));
     return { id, type: "geo" };
   }
 
   private runCreateArrow(editor: Editor, args: Record<string, unknown>) {
-    const x1 = requireNumber(args.x1, "x1");
-    const y1 = requireNumber(args.y1, "y1");
-    const x2 = requireNumber(args.x2, "x2");
-    const y2 = requireNumber(args.y2, "y2");
-    const id = createShapeId();
-    const props: Record<string, unknown> = {
-      start: { x: 0, y: 0 },
-      end: { x: x2 - x1, y: y2 - y1 },
-    };
+    const fromRaw = optionalString(args.from_id) ?? optionalString(args.fromId);
+    const toRaw = optionalString(args.to_id) ?? optionalString(args.toId);
+    const fromId = fromRaw ? (fromRaw as TLShapeId) : undefined;
+    const toId = toRaw ? (toRaw as TLShapeId) : undefined;
+    if (fromId) this.requireExistingShapes(editor, [fromId]);
+    if (toId) this.requireExistingShapes(editor, [toId]);
+
+    let endpoints: ReturnType<typeof resolveArrowEndpoints>;
+    try {
+      endpoints = resolveArrowEndpoints(editor, {
+        x1: optionalNumber(args.x1),
+        y1: optionalNumber(args.y1),
+        x2: optionalNumber(args.x2),
+        y2: optionalNumber(args.y2),
+        fromId,
+        toId,
+      });
+    } catch {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "create_arrow requires x1,y1,x2,y2 and/or --from-id / --to-id with resolvable shapes",
+        false,
+      );
+    }
+
+    const props: Record<string, unknown> = {};
     const text = optionalString(args.text);
     if (text) props.richText = toRichText(text);
-    const color = optionalString(args.color);
-    if (color) props.color = color;
-    const size = optionalString(args.size);
-    if (size) props.size = size;
-    mutateEditor(editor, () => editor.createShape({ id, type: "arrow", x: x1, y: y1, props }));
+    applyOptionalColor(props, optionalString(args.color));
+    applyOptionalSize(props, optionalString(args.size));
+
+    const id = createShapeId();
+    mutateEditor(editor, () =>
+      createArrowShapeWithBindings(editor, {
+        id,
+        x1: endpoints.x1,
+        y1: endpoints.y1,
+        x2: endpoints.x2,
+        y2: endpoints.y2,
+        fromId: endpoints.fromId,
+        toId: endpoints.toId,
+        props,
+      }),
+    );
     return { id, type: "arrow" };
   }
 
@@ -357,10 +629,8 @@ export class CanvasAgentBus {
       isComplete: true,
       isClosed: Boolean(args.closed),
     };
-    const color = optionalString(args.color);
-    if (color) props.color = color;
-    const size = optionalString(args.size);
-    if (size) props.size = size;
+    applyOptionalColor(props, optionalString(args.color));
+    applyOptionalSize(props, optionalString(args.size));
     mutateEditor(editor, () =>
       editor.createShape({
         id,
@@ -425,19 +695,7 @@ export class CanvasAgentBus {
     const gap = nonNegativeNumberOr(args.gap, 24);
     const shapes = this.requireExistingShapes(editor, ids);
     const yPin = optionalNumber(args.y);
-    let cursor = shapes[0]?.x ?? 0;
-    const patch: TLShapePartial[] = shapes.map((shape, idx) => {
-      const w = readNumberProp(shape.props as Record<string, unknown>, "w") ?? 200;
-      const x = idx === 0 ? shape.x : cursor;
-      cursor = x + w + gap;
-      return {
-        id: shape.id,
-        type: shape.type,
-        x,
-        y: yPin ?? shape.y,
-      };
-    });
-    mutateEditor(editor, () => editor.updateShapes(patch));
+    mutateEditor(editor, () => layoutRowByBounds(editor, shapes, gap, yPin));
     return { laid_out: ids };
   }
 
@@ -446,20 +704,76 @@ export class CanvasAgentBus {
     const gap = nonNegativeNumberOr(args.gap, 24);
     const shapes = this.requireExistingShapes(editor, ids);
     const xPin = optionalNumber(args.x);
-    let cursor = shapes[0]?.y ?? 0;
-    const patch: TLShapePartial[] = shapes.map((shape, idx) => {
-      const h = readNumberProp(shape.props as Record<string, unknown>, "h") ?? 200;
-      const y = idx === 0 ? shape.y : cursor;
-      cursor = y + h + gap;
-      return {
-        id: shape.id,
-        type: shape.type,
-        x: xPin ?? shape.x,
-        y,
-      };
-    });
-    mutateEditor(editor, () => editor.updateShapes(patch));
+    mutateEditor(editor, () => layoutColumnByBounds(editor, shapes, gap, xPin));
     return { laid_out: ids };
+  }
+
+  private runAlign(editor: Editor, args: Record<string, unknown>) {
+    const ids = requireIds(args.ids);
+    const alignment = parseAlignMode(args.alignment);
+    const shapes = this.requireExistingShapes(editor, ids);
+    if (shapes.length < 2) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "align requires at least two shape ids",
+        false,
+      );
+    }
+    mutateEditor(editor, () => alignShapesCommand(editor, shapes, alignment));
+    return { aligned: ids, alignment };
+  }
+
+  private runStack(editor: Editor, args: Record<string, unknown>) {
+    const ids = requireIds(args.ids);
+    const direction = parseStackDirection(args.direction);
+    const gap = nonNegativeNumberOr(args.gap, 24);
+    const shapes = this.requireExistingShapes(editor, ids);
+    if (shapes.length < 2) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "stack requires at least two shape ids",
+        false,
+      );
+    }
+    mutateEditor(editor, () => stackShapesCommand(editor, shapes, direction, gap));
+    return { stacked: ids, direction, gap };
+  }
+
+  private runDistribute(editor: Editor, args: Record<string, unknown>) {
+    const ids = requireIds(args.ids);
+    const direction = parseDistributeDirection(args.direction);
+    const shapes = this.requireExistingShapes(editor, ids);
+    if (shapes.length < 3) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "distribute requires at least three shape ids",
+        false,
+      );
+    }
+    mutateEditor(editor, () => distributeShapesCommand(editor, shapes, direction));
+    return { distributed: ids, direction };
+  }
+
+  private runPlace(editor: Editor, args: Record<string, unknown>) {
+    const id = requireString(args.id, "id");
+    const referenceId =
+      optionalString(args.reference_id) ?? optionalString(args.referenceId);
+    if (!referenceId) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "place requires reference_id",
+        false,
+      );
+    }
+    const side = parsePlaceSide(args.side);
+    const align = parsePlaceAlign(args.align);
+    const sideOffset = nonNegativeNumberOr(args.side_offset ?? args.sideOffset, 0);
+    const alignOffset = numberOr(args.align_offset ?? args.alignOffset, 0);
+    const [shape, reference] = this.requireExistingShapes(editor, [id, referenceId]);
+    mutateEditor(editor, () =>
+      placeShapeCommand(editor, shape, reference, side, align, sideOffset, alignOffset),
+    );
+    return { id, reference_id: referenceId, side, align };
   }
 
   private runLayoutGrid(editor: Editor, args: Record<string, unknown>) {
@@ -489,31 +803,7 @@ export class CanvasAgentBus {
     }
     const gap = nonNegativeNumberOr(args.gap, 24);
     const shapes = this.requireExistingShapes(editor, ids);
-    const colWidth =
-      Math.max(
-        ...shapes.map(
-          (s) => readNumberProp(s.props as Record<string, unknown>, "w") ?? 200,
-        ),
-      ) + gap;
-    const rowHeight =
-      Math.max(
-        ...shapes.map(
-          (s) => readNumberProp(s.props as Record<string, unknown>, "h") ?? 200,
-        ),
-      ) + gap;
-    const baseX = shapes[0]?.x ?? 0;
-    const baseY = shapes[0]?.y ?? 0;
-    const patch: TLShapePartial[] = shapes.map((shape, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      return {
-        id: shape.id,
-        type: shape.type,
-        x: baseX + col * colWidth,
-        y: baseY + row * rowHeight,
-      };
-    });
-    mutateEditor(editor, () => editor.updateShapes(patch));
+    mutateEditor(editor, () => layoutGridByBounds(editor, shapes, cols, rows, gap));
     return { laid_out: ids, rows, cols };
   }
 
@@ -537,6 +827,59 @@ export class CanvasAgentBus {
   }
 
   // ===== viewport =====
+
+  private runSetAgentView(editor: Editor, args: Record<string, unknown>) {
+    const padding = nonNegativeNumberOr(args.padding, AGENT_VIEW_PADDING);
+    const shouldZoom = args.zoom === true;
+    const x = optionalNumber(args.x);
+    const y = optionalNumber(args.y);
+    const w = optionalNumber(args.w);
+    const h = optionalNumber(args.h);
+    const hasBox =
+      x !== undefined && y !== undefined && w !== undefined && h !== undefined;
+
+    let view: CanvasAgentBounds;
+
+    if (hasBox) {
+      if (!(w! > 0) || !(h! > 0)) {
+        throw new CanvasAgentError(
+          "VALIDATION_ARG",
+          "w and h must be positive when setting agent view",
+          false,
+        );
+      }
+      view = expandBounds({ x: x!, y: y!, w: w!, h: h! }, padding);
+    } else {
+      const centerIds = args.center_ids;
+      if (!Array.isArray(centerIds) || centerIds.length === 0) {
+        throw new CanvasAgentError(
+          "VALIDATION_ARG",
+          "set_agent_view requires x,y,w,h or center_ids",
+          false,
+        );
+      }
+      const ids = centerIds.map((v) => String(v));
+      this.requireExistingShapes(editor, ids);
+      const union = unionShapePageBounds(editor, ids);
+      if (!union) {
+        throw new CanvasAgentError(
+          "VALIDATION_ARG",
+          "center_ids shapes have no measurable bounds",
+          true,
+        );
+      }
+      view = expandBounds(union, padding);
+    }
+
+    if (shouldZoom) {
+      editor.zoomToBounds(
+        { x: view.x, y: view.y, w: view.w, h: view.h },
+        { animation: { duration: 200 } },
+      );
+    }
+
+    return { view };
+  }
 
   private runViewport(editor: Editor, args: Record<string, unknown>) {
     const centerIds = args.center_ids;
@@ -570,6 +913,28 @@ export class CanvasAgentBus {
   }
 
   // ===== helpers =====
+
+  private resolveSpawn(
+    editor: Editor,
+    xArg: unknown,
+    yArg: unknown,
+  ): { x: number; y: number } {
+    if (xArg !== undefined && xArg !== null && yArg !== undefined && yArg !== null) {
+      return { x: requireNumber(xArg, "x"), y: requireNumber(yArg, "y") };
+    }
+    if (
+      (xArg !== undefined && xArg !== null) ||
+      (yArg !== undefined && yArg !== null)
+    ) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "provide both x and y, or omit both for auto placement",
+        false,
+      );
+    }
+    const slot = this.spawnSlot++;
+    return { x: computeSpawnX(editor, slot), y: computeSpawnY(editor, slot) };
+  }
 
   private requireExistingShapes(editor: Editor, ids: readonly string[]) {
     const shapes = ids.map((id) => {
@@ -664,6 +1029,39 @@ function requirePositiveInt(value: unknown, label: string): number {
   return n;
 }
 
+function parseOlderOffset(value: unknown): number {
+  if (value === undefined || value === null || value === "") {
+    return 0;
+  }
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+    throw new CanvasAgentError(
+      "VALIDATION_ARG",
+      "older_offset must be a non-negative integer (use next_older_offset from the prior extract-text response)",
+      false,
+    );
+  }
+  return n;
+}
+
+function resolveExtractTextShapeIds(
+  editor: Editor,
+  args: Record<string, unknown>,
+): string[] {
+  if (args.ids !== undefined && args.ids !== null) {
+    return requireIds(args.ids);
+  }
+  const selected = editor.getSelectedShapeIds();
+  if (selected.length === 0) {
+    throw new CanvasAgentError(
+      "VALIDATION_ARG",
+      "extract_text requires --ids or a non-empty canvas selection",
+      false,
+    );
+  }
+  return selected as string[];
+}
+
 function requireIds(value: unknown): string[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new CanvasAgentError(
@@ -707,39 +1105,6 @@ function unionShapePageBounds(
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-function readNumberProp(props: Record<string, unknown>, key: string): number | undefined {
-  const v = props?.[key];
-  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
-}
-
-function plainTextFromShapeProps(props: Record<string, unknown>): string | undefined {
-  const rich = props.richText;
-  if (rich && typeof rich === "object" && !Array.isArray(rich)) {
-    const content = (rich as { content?: unknown }).content;
-    if (Array.isArray(content)) {
-      const lines = content.map((block) => {
-        if (!block || typeof block !== "object") return "";
-        const nodes = (block as { content?: unknown }).content;
-        if (!Array.isArray(nodes)) return "";
-        return nodes
-          .map((node) =>
-            node && typeof node === "object" && "text" in node
-              ? String((node as { text: unknown }).text)
-              : "",
-          )
-          .join("");
-      });
-      const joined = lines.join("\n").trim();
-      if (joined) return joined.slice(0, 500);
-    }
-  }
-  const legacy = props.text;
-  if (typeof legacy === "string" && legacy.trim()) {
-    return legacy.trim().slice(0, 500);
-  }
-  return undefined;
-}
-
 function shallowFilterProps(props: Record<string, unknown>): Record<string, unknown> {
   // Limit props serialization to keep get-state payloads compact; only
   // include scalar/plain-object fields the agent is likely to act on.
@@ -758,10 +1123,18 @@ function shallowFilterProps(props: Record<string, unknown>): Record<string, unkn
   return out;
 }
 
-function computeSpawnX(editor: Editor): number {
-  return editor.getViewportPageBounds().center.x - 100;
+function nextSpawnOffset(slot: number): { dx: number; dy: number } {
+  const col = slot % SPAWN_GRID_COLS;
+  const row = Math.floor(slot / SPAWN_GRID_COLS);
+  return { dx: col * SPAWN_CELL_W, dy: row * SPAWN_CELL_H };
 }
 
-function computeSpawnY(editor: Editor): number {
-  return editor.getViewportPageBounds().center.y - 100;
+function computeSpawnX(editor: Editor, slot: number): number {
+  const center = editor.getViewportPageBounds().center;
+  return center.x - 100 + nextSpawnOffset(slot).dx;
+}
+
+function computeSpawnY(editor: Editor, slot: number): number {
+  const center = editor.getViewportPageBounds().center;
+  return center.y - 100 + nextSpawnOffset(slot).dy;
 }

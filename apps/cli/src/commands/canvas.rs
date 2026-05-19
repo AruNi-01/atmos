@@ -30,6 +30,10 @@ pub async fn execute(
             let body = args.body();
             invoke(&api, &canvas, "get_state", body).await
         }
+        CanvasCommand::ExtractText(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "extract_text", body).await
+        }
         CanvasCommand::CreateNote(args) => {
             let body = args.body();
             invoke(&api, &canvas, "create_note", body).await
@@ -43,7 +47,7 @@ pub async fn execute(
             invoke(&api, &canvas, "create_geo", body).await
         }
         CanvasCommand::CreateArrow(args) => {
-            let body = args.body();
+            let body = args.body()?;
             invoke(&api, &canvas, "create_arrow", body).await
         }
         CanvasCommand::CreateDraw(args) => {
@@ -83,6 +87,31 @@ pub async fn execute(
             let body = args.body();
             invoke(&api, &canvas, "viewport", body).await
         }
+        CanvasCommand::Align(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "align", body).await
+        }
+        CanvasCommand::Stack(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "stack", body).await
+        }
+        CanvasCommand::Distribute(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "distribute", body).await
+        }
+        CanvasCommand::Place(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "place", body).await
+        }
+        CanvasCommand::Lint => invoke(&api, &canvas, "lint", json!({})).await,
+        CanvasCommand::Apply(args) => {
+            let body = args.body()?;
+            invoke(&api, &canvas, "apply", body).await
+        }
+        CanvasCommand::SetAgentView(args) => {
+            let body = args.body()?;
+            invoke(&api, &canvas, "set_agent_view", body).await
+        }
     }
 }
 
@@ -96,6 +125,8 @@ pub enum CanvasCommand {
     Status,
     /// Read-only inventory of the live canvas surface.
     GetState(GetStateArgs),
+    /// Read text from one or more shapes on demand (notes, geo, terminals via tmux capture, …).
+    ExtractText(ExtractTextArgs),
     /// Create a sticky note.
     CreateNote(CreateNoteArgs),
     /// Create an empty (or titled) frame.
@@ -124,6 +155,20 @@ pub enum CanvasCommand {
     UpdateShape(UpdateShapeArgs),
     /// Adjust the camera (zoom, pan, center on ids).
     Viewport(ViewportArgs),
+    /// Align shapes using tldraw's native align (top, bottom, left, right, center-*).
+    Align(AlignArgs),
+    /// Stack shapes horizontally or vertically with even gap.
+    Stack(StackArgs),
+    /// Distribute shapes with even spacing (needs ≥3 ids).
+    Distribute(DistributeArgs),
+    /// Place one shape relative to another (page-bounds math).
+    Place(PlaceArgs),
+    /// Report overlap / unbound-arrow lints on the current page.
+    Lint,
+    /// Run up to 32 mutating commands in one request (stops on first failure).
+    Apply(ApplyArgs),
+    /// Set the dashed agent-view frame (explicit page-space rect or shape union).
+    SetAgentView(SetAgentViewArgs),
 }
 
 #[derive(Debug, Args, Clone)]
@@ -291,13 +336,17 @@ impl CreateGeoArgs {
 #[derive(Debug, Args)]
 pub struct CreateArrowArgs {
     #[arg(long)]
-    pub x1: f64,
+    pub x1: Option<f64>,
     #[arg(long)]
-    pub y1: f64,
+    pub y1: Option<f64>,
     #[arg(long)]
-    pub x2: f64,
+    pub x2: Option<f64>,
     #[arg(long)]
-    pub y2: f64,
+    pub y2: Option<f64>,
+    #[arg(long)]
+    pub from_id: Option<String>,
+    #[arg(long)]
+    pub to_id: Option<String>,
     #[arg(long)]
     pub color: Option<String>,
     #[arg(long)]
@@ -307,17 +356,25 @@ pub struct CreateArrowArgs {
 }
 
 impl CreateArrowArgs {
-    fn body(&self) -> Value {
-        let mut body = json!({
-            "x1": self.x1,
-            "y1": self.y1,
-            "x2": self.x2,
-            "y2": self.y2,
-        });
+    fn body(&self) -> Result<Value, String> {
+        let has_coords = self.x1.is_some() || self.y1.is_some() || self.x2.is_some() || self.y2.is_some();
+        let has_bindings = self.from_id.is_some() || self.to_id.is_some();
+        if !has_coords && !has_bindings {
+            return Err(
+                "create-arrow requires coordinates (x1,y1,x2,y2) and/or --from-id / --to-id".into(),
+            );
+        }
+        let mut body = json!({});
+        merge_optional(&mut body, "x1", self.x1);
+        merge_optional(&mut body, "y1", self.y1);
+        merge_optional(&mut body, "x2", self.x2);
+        merge_optional(&mut body, "y2", self.y2);
+        merge_optional_str(&mut body, "from_id", &self.from_id);
+        merge_optional_str(&mut body, "to_id", &self.to_id);
         merge_optional_str(&mut body, "color", &self.color);
         merge_optional_str(&mut body, "size", &self.size);
         merge_optional_str(&mut body, "text", &self.text);
-        body
+        Ok(body)
     }
 }
 
@@ -353,6 +410,32 @@ impl CreateDrawArgs {
         merge_optional_str(&mut body, "color", &self.color);
         merge_optional_str(&mut body, "size", &self.size);
         Ok(body)
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ExtractTextArgs {
+    /// Comma-separated shape ids. When omitted, uses the current canvas selection.
+    #[arg(long)]
+    pub ids: Option<String>,
+    /// For terminal shapes: lines already read from the bottom (0 = newest page).
+    /// Pass the `next_older_offset` from the prior `extract-text` response to read older scrollback.
+    #[arg(long)]
+    pub older_offset: Option<i32>,
+}
+
+impl ExtractTextArgs {
+    fn body(&self) -> Value {
+        let mut body = match &self.ids {
+            Some(raw) => json!({ "ids": split_ids(raw) }),
+            None => json!({}),
+        };
+        if let Some(offset) = self.older_offset.filter(|n| *n > 0) {
+            if let Some(obj) = body.as_object_mut() {
+                obj.insert("older_offset".into(), json!(offset));
+            }
+        }
+        body
     }
 }
 
@@ -507,6 +590,166 @@ impl ViewportArgs {
             body["center_ids"] = json!(split_ids(ids));
         }
         body
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct AlignArgs {
+    #[arg(long)]
+    pub ids: String,
+    #[arg(long)]
+    pub alignment: String,
+}
+
+impl AlignArgs {
+    fn body(&self) -> Value {
+        json!({
+            "ids": split_ids(&self.ids),
+            "alignment": self.alignment,
+        })
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct StackArgs {
+    #[arg(long)]
+    pub ids: String,
+    #[arg(long)]
+    pub direction: String,
+    #[arg(long, default_value_t = 24.0)]
+    pub gap: f64,
+}
+
+impl StackArgs {
+    fn body(&self) -> Value {
+        json!({
+            "ids": split_ids(&self.ids),
+            "direction": self.direction,
+            "gap": self.gap,
+        })
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct DistributeArgs {
+    #[arg(long)]
+    pub ids: String,
+    #[arg(long)]
+    pub direction: String,
+}
+
+impl DistributeArgs {
+    fn body(&self) -> Value {
+        json!({
+            "ids": split_ids(&self.ids),
+            "direction": self.direction,
+        })
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct PlaceArgs {
+    #[arg(long)]
+    pub id: String,
+    #[arg(long)]
+    pub reference_id: String,
+    #[arg(long)]
+    pub side: String,
+    #[arg(long, default_value = "center")]
+    pub align: String,
+    #[arg(long, default_value_t = 0.0)]
+    pub side_offset: f64,
+    #[arg(long, default_value_t = 0.0)]
+    pub align_offset: f64,
+}
+
+impl PlaceArgs {
+    fn body(&self) -> Value {
+        json!({
+            "id": self.id,
+            "reference_id": self.reference_id,
+            "side": self.side,
+            "align": self.align,
+            "side_offset": self.side_offset,
+            "align_offset": self.align_offset,
+        })
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ApplyArgs {
+    /// Inline JSON array: `[{"command":"create_geo","args":{…}}, …]`
+    #[arg(long, conflicts_with = "commands_file")]
+    pub commands: Option<String>,
+    #[arg(long)]
+    pub commands_file: Option<PathBuf>,
+}
+
+#[derive(Debug, Args)]
+pub struct SetAgentViewArgs {
+    #[arg(long)]
+    pub x: Option<f64>,
+    #[arg(long)]
+    pub y: Option<f64>,
+    #[arg(long)]
+    pub w: Option<f64>,
+    #[arg(long)]
+    pub h: Option<f64>,
+    /// Comma-separated shape ids — frame is the union of their page bounds.
+    #[arg(long)]
+    pub center_ids: Option<String>,
+    #[arg(long, default_value_t = 48.0)]
+    pub padding: f64,
+    /// Also move the user camera to frame the agent view.
+    #[arg(long, default_value_t = false)]
+    pub zoom: bool,
+}
+
+impl SetAgentViewArgs {
+    fn body(&self) -> Result<Value, String> {
+        let has_box = self.x.is_some() || self.y.is_some() || self.w.is_some() || self.h.is_some();
+        if has_box {
+            let x = self.x.ok_or("set-agent-view --x is required with y,w,h")?;
+            let y = self.y.ok_or("set-agent-view --y is required with x,w,h")?;
+            let w = self.w.ok_or("set-agent-view --w is required with x,y,h")?;
+            let h = self.h.ok_or("set-agent-view --h is required with x,y,w")?;
+            let mut body = json!({ "x": x, "y": y, "w": w, "h": h, "padding": self.padding });
+            if self.zoom {
+                body["zoom"] = json!(true);
+            }
+            return Ok(body);
+        }
+        let center_ids = self
+            .center_ids
+            .as_ref()
+            .ok_or("set-agent-view requires --x --y --w --h or --center-ids")?;
+        let mut body = json!({
+            "center_ids": split_ids(center_ids),
+            "padding": self.padding,
+        });
+        if self.zoom {
+            body["zoom"] = json!(true);
+        }
+        Ok(body)
+    }
+}
+
+impl ApplyArgs {
+    fn body(&self) -> Result<Value, String> {
+        let raw = if let Some(inline) = &self.commands {
+            inline.clone()
+        } else if let Some(path) = &self.commands_file {
+            std::fs::read_to_string(path)
+                .map_err(|err| format!("failed to read {}: {}", path.display(), err))?
+        } else {
+            return Err("apply requires --commands or --commands-file".into());
+        };
+        let parsed: Value = serde_json::from_str(&raw)
+            .map_err(|err| format!("commands must be valid JSON: {}", err))?;
+        if !parsed.is_array() {
+            return Err("commands must be a JSON array".into());
+        }
+        Ok(json!({ "commands": parsed }))
     }
 }
 

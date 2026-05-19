@@ -183,6 +183,29 @@
   }
 }
 
+@keyframes canvas-terminal-focus-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  45% {
+    opacity: 0.35;
+    transform: scale(1.01);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
 @keyframes canvas-agent-ring {
   0% {
     opacity: 0;
@@ -196,6 +219,69 @@
     opacity: 0;
     transform: scale(1.02);
   }
+}
+
+/* Terminal agent "working area" frame (tldraw starter kit AreaHighlight parity) */
+.canvas-agent-view-highlight {
+  pointer-events: none;
+}
+
+.canvas-agent-view-highlight line {
+  stroke: var(--color-foreground, #0f172a);
+  stroke-opacity: 0.55;
+  stroke-dasharray: calc(4px * var(--tl-scale, 1));
+  stroke-linecap: round;
+  stroke-width: calc(1px * var(--tl-scale, 1));
+}
+
+.canvas-agent-view-highlight--active line {
+  animation: canvas-agent-view-dash 100s linear infinite;
+}
+
+@keyframes canvas-agent-view-dash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+@keyframes canvas-agent-island-shimmer {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+.canvas-agent-island-shimmer {
+  display: inline-block;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--foreground) 40%, transparent) 0%,
+    var(--foreground) 50%,
+    color-mix(in oklab, var(--foreground) 40%, transparent) 100%
+  );
+  animation: canvas-agent-island-shimmer linear infinite;
+}
+
+.canvas-agent-view-highlight-label {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--color-background, #fff);
+  background-color: color-mix(in oklab, var(--color-foreground, #0f172a) 82%, transparent);
+  border-radius: 0 0 6px 0;
+  transform: scale(var(--tl-scale, 1));
+  transform-origin: top left;
 }
 
 @keyframes bounce-down {

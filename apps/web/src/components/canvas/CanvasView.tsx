@@ -52,7 +52,7 @@ import { useDesktopTrafficLightsPadding } from "@/hooks/use-desktop-traffic-ligh
 import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { useFunctionSettingsStore } from "@/hooks/use-function-settings-store";
-import { Terminal } from "@/components/terminal/Terminal";
+import { Terminal, type TerminalRef } from "@/components/terminal/Terminal";
 import { TerminalTitleWithAgent } from "@/components/terminal/terminal-title";
 import type { TerminalPaneAgent } from "@/components/terminal/types";
 import { useTerminalToolbarTitle } from "@/components/terminal/use-terminal-toolbar-title";
@@ -65,14 +65,19 @@ import {
   type CanvasTldrawDocument,
   type CanvasTldrawSession,
 } from "./use-canvas-board";
-import { readCanvasSession, writeCanvasSession } from "@/hooks/use-ui-pref-hooks";
+import {
+  clearLastPinnedTerminal,
+  readCanvasSession,
+  consumeLastPinnedTerminal,
+  writeCanvasSession,
+} from "@/hooks/use-ui-pref-hooks";
 import { useConnectionStore } from "@/hooks/use-connection-store";
 import { useCanvasChromePrefs } from "@/hooks/use-canvas-chrome-prefs";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
   dispatchCanvasTerminalPinStateChange,
-  isCanvasTerminalShapeRecord,
+  getCanvasTerminalShapes,
   type CanvasTerminalShape,
 } from "./canvas-terminal-shape";
 import {
@@ -83,7 +88,19 @@ import {
 import { FIXED_TERMINAL_TAB_VALUE } from "@/hooks/use-terminal-store";
 import { useCanvasAgentBridge } from "./use-canvas-agent-bridge";
 import { CanvasAgentBridgeControls, CanvasAgentOverlay } from "./CanvasAgentOverlay";
+import { CanvasAgentOnCanvas } from "./CanvasAgentOnCanvas";
 import { CanvasAgentIsland } from "./CanvasAgentIsland";
+import { CanvasTerminalFocusPulse } from "./CanvasTerminalFocusPulse";
+import { CanvasShapeCopyOverlay } from "./CanvasShapeCopyOverlay";
+import {
+  CanvasTerminalRefProvider,
+  registerCanvasTerminalRef,
+  useCanvasTerminalRefs,
+} from "./canvas-terminal-ref-context";
+import {
+  findPinnedTerminalShape,
+  focusCanvasTerminalShape,
+} from "./canvas-terminal-focus";
 import { CanvasAgentCrashBoundary } from "./CanvasAgentCrashBoundary";
 import { CanvasAgentCrashProvider } from "./canvas-agent-crash-context";
 
@@ -113,10 +130,6 @@ function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoar
   };
 }
 
-function getCanvasTerminalShapes(editor: Editor) {
-  return editor.getCurrentPageShapes().filter(isCanvasTerminalShapeRecord) as CanvasTerminalShape[];
-}
-
 function areShapeIdListsEqual(left: string[], right: string[]) {
   if (left.length !== right.length) {
     return false;
@@ -142,10 +155,12 @@ function CanvasTerminalCard({ shape }: { shape: CanvasTerminalShape }) {
 
 function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const [sessionId] = React.useState(() => crypto.randomUUID());
+  const { board } = useCanvasBoard();
   const { workspaceId, tmuxWindowName, contextScope } = shape.props;
   const editor = useEditor();
   const router = useAppRouter();
   const terminalHostRef = React.useRef<HTMLDivElement | null>(null);
+  const terminalRefs = useCanvasTerminalRefs();
   const activeShapeId = useCanvasRuntime((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntime((state) => state.renderedShapeIds);
   const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
@@ -300,18 +315,26 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     ],
   );
 
+  const bindTerminalRef = React.useCallback(
+    (api: TerminalRef | null) => {
+      registerCanvasTerminalRef(terminalRefs, shape.id, api);
+    },
+    [terminalRefs, shape.id],
+  );
+
   const handleUnpin = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       event.stopPropagation();
       editor.deleteShapes([shape.id as TLShapeId]);
       dispatchCanvasTerminalPinStateChange(shape.props.pinKey, false);
+      clearLastPinnedTerminal(board?.guid, shape.props.pinKey);
       removeRenderedShapeId(shape.id);
       if (activeShapeId === shape.id) {
         setActiveShapeId(null);
       }
     },
-    [activeShapeId, editor, removeRenderedShapeId, setActiveShapeId, shape.id, shape.props.pinKey],
+    [activeShapeId, board?.guid, editor, removeRenderedShapeId, setActiveShapeId, shape.id, shape.props.pinKey],
   );
 
   return (
@@ -338,26 +361,28 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
             ({shape.props.projectName} · {shape.props.workspaceName})
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {shape.props.isPinned && (
             <button
               type="button"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={handleUnpin}
-              className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Unpin from canvas"
+              title="Unpin"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
-              Unpin
-              <PinOff className="size-3" />
+              <PinOff className="size-3.5" />
             </button>
           )}
           <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleRevealSource}
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Open source terminal"
+            title="Source"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
-            Source
-            <ArrowUpRight className="size-3" />
+            <ArrowUpRight className="size-3.5" />
           </button>
         </div>
       </div>
@@ -374,6 +399,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       >
         {isRendered ? (
           <Terminal
+            ref={bindTerminalRef}
             sessionId={sessionId}
             workspaceId={shape.props.workspaceId}
             tmuxWindowName={shape.props.tmuxWindowName}
@@ -600,9 +626,10 @@ function CanvasToolbarIconFrame({
 }
 
 function CanvasBottomToolbarPeek() {
-  const [isDocked, setIsDocked] = React.useState(false);
-  const [isOpen, setIsOpen] = React.useState(true);
-  const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(true);
+  const { isBottomToolbarDocked, setIsBottomToolbarDocked } = useCanvasChromePrefs();
+  const [isDocked, setIsDocked] = React.useState(isBottomToolbarDocked);
+  const [isOpen, setIsOpen] = React.useState(!isBottomToolbarDocked);
+  const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(!isBottomToolbarDocked);
   const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const openFrameRef = React.useRef<number | null>(null);
 
@@ -657,10 +684,17 @@ function CanvasBottomToolbarPeek() {
     }, 220);
   }, [cancelClose, isDocked]);
 
+  React.useEffect(() => {
+    setIsDocked(isBottomToolbarDocked);
+    setIsOpen(!isBottomToolbarDocked);
+    setShouldRenderToolbar(!isBottomToolbarDocked);
+  }, [isBottomToolbarDocked]);
+
   const handleToggleDocked = React.useCallback(() => {
     cancelClose();
     setIsDocked((prev) => {
       const next = !prev;
+      setIsBottomToolbarDocked(next);
       if (next) {
         setIsOpen(false);
         closeTimeoutRef.current = setTimeout(() => {
@@ -673,7 +707,7 @@ function CanvasBottomToolbarPeek() {
       }
       return next;
     });
-  }, [cancelClose, scheduleOpenAfterMount]);
+  }, [cancelClose, scheduleOpenAfterMount, setIsBottomToolbarDocked]);
 
   React.useEffect(() => {
     return () => {
@@ -853,6 +887,7 @@ export const CanvasView: React.FC = () => {
   const activeShapeId = useCanvasRuntime((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntime((state) => state.renderedShapeIds);
   const setRenderedShapeIds = useCanvasRuntime((state) => state.setRenderedShapeIds);
+  const setFocusPulseShapeId = useCanvasRuntime((state) => state.setFocusPulseShapeId);
   const resetRuntime = useCanvasRuntime((state) => state.reset);
   const {
     autoSaveInterval,
@@ -896,6 +931,8 @@ export const CanvasView: React.FC = () => {
   const hydratedRenderedBoardKeyRef = React.useRef<string | null>(null);
   const spawnIndexRef = React.useRef(0);
   const sharePanelRef = React.useRef<React.ReactNode>(null);
+  const canvasAgentBridgeRef = React.useRef(canvasAgentBridge);
+  canvasAgentBridgeRef.current = canvasAgentBridge;
   const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil], []);
   const topLeftToolbarContextValue = React.useMemo(
     () => ({
@@ -916,17 +953,24 @@ export const CanvasView: React.FC = () => {
    * subtree stable across CanvasView re-renders.
    */
   const SharePanelSlot = React.useCallback(() => <>{sharePanelRef.current}</>, []);
+  const AgentOnCanvasSlot = React.useCallback(
+    () => <CanvasAgentOnCanvas bridge={canvasAgentBridgeRef.current} />,
+    [],
+  );
+  const ShapeCopySlot = React.useCallback(() => <CanvasShapeCopyOverlay />, []);
   const tldrawComponents = React.useMemo<TLComponents>(
     () => ({
       MenuPanel: CanvasMenuPanel,
       Toolbar: CanvasBottomToolbarPeek,
       SharePanel: SharePanelSlot,
+      OnTheCanvas: AgentOnCanvasSlot,
+      InFrontOfTheCanvas: ShapeCopySlot,
       // Force-hide tldraw's built-in StylePanel until the user toggles it on
       // from our SharePanel. When enabled, we omit the override entirely so
       // tldraw uses its default component (which knows when to auto-hide).
       ...(isStylePanelEnabled ? {} : { StylePanel: NullStylePanelSlot }),
     }),
-    [SharePanelSlot, isStylePanelEnabled],
+    [AgentOnCanvasSlot, ShapeCopySlot, SharePanelSlot, isStylePanelEnabled],
   );
 
   const initialSnapshot = React.useMemo(
@@ -1169,6 +1213,49 @@ export const CanvasView: React.FC = () => {
     hydratedRenderedBoardKeyRef.current = hydrationKey;
     setRenderedShapeIds(restoredShapeIds);
   }, [board?.guid, canvasSettingsLoaded, editorReady, maxRenderedTerminals, setRenderedShapeIds]);
+
+  React.useEffect(() => {
+    if (!editorReady || !canvasSettingsLoaded) {
+      return;
+    }
+
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const lastPinned = consumeLastPinnedTerminal(board?.guid);
+    if (!lastPinned) {
+      return;
+    }
+
+    const shape = findPinnedTerminalShape(editor, lastPinned);
+    if (!shape) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      focusCanvasTerminalShape(editor, shape, {
+        maxRenderedTerminals,
+        setActiveShapeId,
+        setRenderedShapeIds,
+        renderedShapeIds: useCanvasRuntime.getState().renderedShapeIds,
+        setFocusPulseShapeId,
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [
+    board?.guid,
+    canvasSettingsLoaded,
+    editorReady,
+    maxRenderedTerminals,
+    setActiveShapeId,
+    setFocusPulseShapeId,
+    setRenderedShapeIds,
+  ]);
 
   React.useEffect(() => {
     if (!editorReady) {
@@ -1449,6 +1536,7 @@ export const CanvasView: React.FC = () => {
     )}>
       <CanvasAgentContext.Provider value={configuredAgents}>
         <CanvasAgentCrashProvider value={canvasCrashRecovery}>
+          <CanvasTerminalRefProvider>
           <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
             <CanvasAgentCrashBoundary className="h-full w-full">
               <Tldraw
@@ -1465,10 +1553,12 @@ export const CanvasView: React.FC = () => {
               >
                 <CanvasThemeBridge />
                 <CanvasAgentOverlay bridge={canvasAgentBridge} />
+                <CanvasTerminalFocusPulse />
               </Tldraw>
             </CanvasAgentCrashBoundary>
           </CanvasTopLeftToolbarContext.Provider>
           <CanvasAgentIsland bridge={canvasAgentBridge} />
+          </CanvasTerminalRefProvider>
         </CanvasAgentCrashProvider>
       </CanvasAgentContext.Provider>
     </div>

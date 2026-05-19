@@ -13,7 +13,7 @@ use core_engine::tmux::control::{
     encode_refresh_client_report_command, encode_send_keys_hex_commands, parse_control_line_bytes,
     ControlModeEvent, TmuxPassthroughUnwrapper,
 };
-use core_engine::{TmuxEngine, TmuxPaneSnapshot};
+use core_engine::{TmuxEngine, TmuxPaneCapturePage, TmuxPaneSnapshot};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -1047,6 +1047,61 @@ impl TerminalService {
         }
 
         snapshot
+    }
+
+    /// Capture visible tmux pane text for a workspace window (read-only, no PTY attach).
+    pub fn capture_window_snapshot(
+        &self,
+        workspace_id: &str,
+        tmux_window_name: &str,
+        project_name: Option<&str>,
+        workspace_name: Option<&str>,
+        max_lines: i32,
+    ) -> Result<TmuxPaneSnapshot> {
+        self.capture_window_snapshot_page(
+            workspace_id,
+            tmux_window_name,
+            project_name,
+            workspace_name,
+            0,
+            max_lines,
+        )
+        .map(|page| page.snapshot)
+    }
+
+    /// Paginated read of tmux scrollback for canvas extract-text (newest page: skip=0).
+    pub fn capture_window_snapshot_page(
+        &self,
+        workspace_id: &str,
+        tmux_window_name: &str,
+        project_name: Option<&str>,
+        workspace_name: Option<&str>,
+        skip_from_bottom: i32,
+        take_lines: i32,
+    ) -> Result<TmuxPaneCapturePage> {
+        let tmux_session = if let (Some(proj), Some(ws)) = (project_name, workspace_name) {
+            self.tmux_engine.get_session_name_from_names(proj, ws)
+        } else {
+            self.tmux_engine.get_session_name(workspace_id)
+        };
+
+        let window_index = self
+            .tmux_engine
+            .find_window_index_by_name(&tmux_session, tmux_window_name)
+            .map_err(|e| ServiceError::Processing(format!("Failed to resolve tmux window: {}", e)))?
+            .ok_or_else(|| {
+                ServiceError::NotFound(format!(
+                    "Tmux window with name '{}' not found",
+                    tmux_window_name
+                ))
+            })?;
+
+        let take = take_lines.clamp(1, 10_000);
+        let skip = skip_from_bottom.max(0);
+
+        self.tmux_engine
+            .capture_pane_page(&tmux_session, window_index, skip, take)
+            .map_err(|e| ServiceError::Processing(format!("Failed to capture tmux pane: {}", e)))
     }
 
     /// Send input data to a terminal session

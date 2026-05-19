@@ -19,6 +19,9 @@ export const CANVAS_AGENT_FEED_BATCH_GAP_MS = 2_500;
 /** Raw dispatch records kept in memory (summarized UI shows up to 100 rows). */
 const MAX_ENTRIES = 150;
 
+/** Active entries older than this are auto-closed (stale dispatch / missed complete). */
+export const CANVAS_AGENT_FEED_STALE_MS = 45_000;
+
 export type CanvasAgentFeedEntryStatus = "active" | "done" | "error";
 
 export interface CanvasAgentFeedEntry {
@@ -63,6 +66,21 @@ export class CanvasAgentFeedStore {
   getSnapshot = (): CanvasAgentFeedSnapshot => this.cachedSnapshot;
 
   begin(requestId: string, command: string, args?: Record<string, unknown> | null) {
+    this.expireStaleActive(CANVAS_AGENT_FEED_STALE_MS);
+
+    const existing = this.findEntry(requestId);
+    if (existing) {
+      const { kind, label } = describeCanvasAgentCommand(command, args);
+      existing.command = command;
+      existing.kind = kind;
+      existing.label = label;
+      existing.status = "active";
+      existing.startedAt = Date.now();
+      existing.completedAt = null;
+      this.emit();
+      return;
+    }
+
     const { kind, label } = describeCanvasAgentCommand(command, args);
     const now = Date.now();
     const entry: CanvasAgentFeedEntry = {
@@ -97,11 +115,42 @@ export class CanvasAgentFeedStore {
   }
 
   complete(requestId: string, success: boolean) {
-    const entry = this.findEntry(requestId);
-    if (!entry) return;
-    entry.status = success ? "done" : "error";
-    entry.completedAt = Date.now();
-    this.emit();
+    let touched = false;
+    for (const batch of this.batches) {
+      for (const entry of batch.entries) {
+        if (entry.requestId === requestId && entry.status === "active") {
+          entry.status = success ? "done" : "error";
+          entry.completedAt = Date.now();
+          touched = true;
+        }
+      }
+    }
+    if (touched) {
+      this.expireStaleActive(CANVAS_AGENT_FEED_STALE_MS);
+      this.emit();
+    }
+  }
+
+  /** Idempotent complete — safe to call from `finally` after each dispatch. */
+  finalizeRequest(requestId: string, success: boolean) {
+    this.complete(requestId, success);
+    this.expireStaleActive(CANVAS_AGENT_FEED_STALE_MS);
+  }
+
+  /** Close orphaned `active` rows (missed complete, duplicate WS, tab race). */
+  expireStaleActive(maxAgeMs: number) {
+    const now = Date.now();
+    let touched = false;
+    for (const batch of this.batches) {
+      for (const entry of batch.entries) {
+        if (entry.status === "active" && now - entry.startedAt > maxAgeMs) {
+          entry.status = "error";
+          entry.completedAt = now;
+          touched = true;
+        }
+      }
+    }
+    if (touched) this.emit();
   }
 
   clear() {

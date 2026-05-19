@@ -264,6 +264,8 @@ export interface TerminalRef {
   paste: () => Promise<void>;
   /** Destroy the terminal session (kills tmux window) */
   destroy: () => void;
+  /** Last N lines of the xterm buffer, optionally skipping lines already read from the bottom. */
+  getScreenText: (maxLines: number, skipFromBottom?: number) => string;
 }
 
 // ── Dynamic title helpers ──────────────────────────────────────────────
@@ -653,6 +655,22 @@ const Terminal = ({
         // Send destroy message to kill tmux window before disconnecting
         sendDestroy();
         disconnect();
+      },
+      getScreenText: (maxLines: number, skipFromBottom = 0) => {
+        const terminal = terminalRef.current;
+        if (!terminal || maxLines <= 0) {
+          return "";
+        }
+        const buf = terminal.buffer.active;
+        const total = buf.length;
+        const skip = Math.max(0, skipFromBottom);
+        const end = Math.max(0, total - skip);
+        const start = Math.max(0, end - maxLines);
+        const lines: string[] = [];
+        for (let i = start; i < end; i += 1) {
+          lines.push(buf.getLine(i)?.translateToString(true) ?? "");
+        }
+        return lines.join("\n");
       },
     }),
     [sendDestroy, disconnect, sendInput]

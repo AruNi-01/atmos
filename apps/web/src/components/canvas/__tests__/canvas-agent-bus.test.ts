@@ -103,6 +103,9 @@ function makeFakeEditor() {
         validateRecord: () => {},
       },
     },
+    alignShapes: () => {},
+    stackShapes: () => {},
+    distributeShapes: () => {},
   };
 }
 
@@ -262,6 +265,22 @@ describe("CanvasAgentBus", () => {
     expect(shape?.props.text).toBeUndefined();
   });
 
+  it("create_geo normalizes light-orange to orange", async () => {
+    const { bus, editor } = busFromEditor();
+    const res = await bus.handleDispatch(
+      call("create_geo", {
+        kind: "rectangle",
+        w: 120,
+        h: 80,
+        color: "light-orange",
+        fill: "semi",
+      }),
+    );
+    expect(res.success).toBe(true);
+    const shape = [...editor.shapes.values()].find((s) => s.type === "geo");
+    expect(shape?.props.color).toBe("orange");
+  });
+
   it("create_geo stores label text as richText", async () => {
     const { editor, bus } = busFromEditor();
     const res = await bus.handleDispatch(
@@ -348,6 +367,45 @@ describe("CanvasAgentBus", () => {
     );
     expect(res.success).toBe(false);
     if (!res.success) expect(res.error_code).toBe("STALE_SHAPE_ID");
+  });
+
+  it("set_agent_view sets explicit bounds", async () => {
+    const { bus } = busFromEditor();
+    const res = await bus.handleDispatch(
+      call("set_agent_view", { x: 0, y: 0, w: 400, h: 300, padding: 8 }),
+    );
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const data = res.data as { view: { x: number; w: number } };
+      expect(data.view.x).toBe(-8);
+      expect(data.view.w).toBe(416);
+    }
+  });
+
+  it("apply runs multiple create steps", async () => {
+    const { bus, editor } = busFromEditor();
+    const res = await bus.handleDispatch({
+      request_id: "req-apply",
+      command: "apply",
+      args: {
+        commands: [
+          { command: "create_note", args: { text: "a", x: 0, y: 0 } },
+          { command: "create_note", args: { text: "b", x: 0, y: 0 } },
+        ],
+      },
+    });
+    expect(res.success).toBe(true);
+    expect(editor.shapes.size).toBe(2);
+  });
+
+  it("align requires at least two ids", async () => {
+    const { bus, editor } = busFromEditor();
+    editor.createShape({ id: "a", type: "geo", x: 0, y: 0, props: { w: 100, h: 100 } });
+    const res = await bus.handleDispatch(
+      call("align", { ids: ["a"], alignment: "left" }),
+    );
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
   });
 
   it("unknown command yields UNSUPPORTED_COMMAND", async () => {

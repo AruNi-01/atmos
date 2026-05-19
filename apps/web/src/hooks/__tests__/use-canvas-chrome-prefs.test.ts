@@ -19,6 +19,7 @@ describe("canvas chrome prefs storage", () => {
       isStylePanelEnabled: true,
       isTopLeftToolbarCollapsed: true,
       isToolbarCollapsed: false,
+      isBottomToolbarDocked: true,
     });
     const raw = localStorage.getItem(STORAGE_KEY);
     expect(raw).toBeTruthy();
@@ -26,6 +27,7 @@ describe("canvas chrome prefs storage", () => {
       isStylePanelEnabled: true,
       isTopLeftToolbarCollapsed: true,
       isToolbarCollapsed: false,
+      isBottomToolbarDocked: true,
     });
   });
 

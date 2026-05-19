@@ -5,13 +5,17 @@ const CANVAS_CHROME_PREFS_KEY = globalKey('canvasChrome');
 export type CanvasChromePrefs = {
   isStylePanelEnabled: boolean;
   isTopLeftToolbarCollapsed: boolean;
+  /** Top-right share panel action strip */
   isToolbarCollapsed: boolean;
+  /** Bottom-center tldraw shape toolbar (docked = collapsed to peek bar) */
+  isBottomToolbarDocked: boolean;
 };
 
 export const DEFAULT_CANVAS_CHROME_PREFS: CanvasChromePrefs = {
   isStylePanelEnabled: false,
   isTopLeftToolbarCollapsed: false,
   isToolbarCollapsed: false,
+  isBottomToolbarDocked: false,
 };
 
 export function readCanvasChromePrefs(): CanvasChromePrefs {
@@ -20,6 +24,7 @@ export function readCanvasChromePrefs(): CanvasChromePrefs {
     isStylePanelEnabled: raw.isStylePanelEnabled === true,
     isTopLeftToolbarCollapsed: raw.isTopLeftToolbarCollapsed === true,
     isToolbarCollapsed: raw.isToolbarCollapsed === true,
+    isBottomToolbarDocked: raw.isBottomToolbarDocked === true,
   };
 }
 

@@ -149,7 +149,9 @@ import { useEditorSettings } from '@/hooks/use-editor-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 import {
   MAX_CANVAS_MAX_RENDERED_TERMINALS,
+  MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
   MIN_CANVAS_MAX_RENDERED_TERMINALS,
+  MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
   useCanvasSettings,
 } from '@/hooks/use-canvas-settings';
 import { FlaskIcon, type FlaskIconHandle } from '@/components/ui/flask-icon';
@@ -821,11 +823,21 @@ function LayoutSettingsSection() {
 }
 
 function CanvasSettingsSection() {
-  const { autoSaveInterval, maxRenderedTerminals, loadSettings, setAutoSaveInterval, setMaxRenderedTerminals } =
-    useCanvasSettings();
+  const {
+    autoSaveInterval,
+    maxRenderedTerminals,
+    terminalContextMaxLines,
+    loadSettings,
+    setAutoSaveInterval,
+    setMaxRenderedTerminals,
+    setTerminalContextMaxLines,
+  } = useCanvasSettings();
   const [localInterval, setLocalInterval] = React.useState(autoSaveInterval.toString());
   const [localMaxRenderedTerminals, setLocalMaxRenderedTerminals] = React.useState(
     maxRenderedTerminals.toString(),
+  );
+  const [localTerminalContextMaxLines, setLocalTerminalContextMaxLines] = React.useState(
+    terminalContextMaxLines.toString(),
   );
 
   React.useEffect(() => {
@@ -839,6 +851,10 @@ function CanvasSettingsSection() {
   React.useEffect(() => {
     setLocalMaxRenderedTerminals(maxRenderedTerminals.toString());
   }, [maxRenderedTerminals]);
+
+  React.useEffect(() => {
+    setLocalTerminalContextMaxLines(terminalContextMaxLines.toString());
+  }, [terminalContextMaxLines]);
 
   const handleIntervalChange = async (value: string) => {
     const num = parseInt(value, 10);
@@ -858,6 +874,18 @@ function CanvasSettingsSection() {
     );
     setLocalMaxRenderedTerminals(clamped.toString());
     await setMaxRenderedTerminals(clamped);
+  };
+
+  const handleTerminalContextMaxLinesChange = async (value: string) => {
+    const num = parseInt(value, 10);
+    if (isNaN(num)) return;
+
+    const clamped = Math.min(
+      MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
+      Math.max(MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES, num),
+    );
+    setLocalTerminalContextMaxLines(clamped.toString());
+    await setTerminalContextMaxLines(clamped);
   };
 
   return (
@@ -919,6 +947,36 @@ function CanvasSettingsSection() {
                 className="w-24"
               />
               <span className="text-sm text-muted-foreground">terminals</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-5">
+          <div>
+            <p className="text-base font-medium text-foreground">Terminal context lines</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              When copying a canvas terminal or running <code className="text-xs">extract-text</code>,
+              capture up to this many lines from the tmux pane (or live xterm buffer when active).
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES}
+                max={MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES}
+                value={localTerminalContextMaxLines}
+                onChange={(e) => setLocalTerminalContextMaxLines(e.target.value)}
+                onBlur={(e) => void handleTerminalContextMaxLinesChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    void handleTerminalContextMaxLinesChange(localTerminalContextMaxLines);
+                  }
+                }}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">lines</span>
             </div>
           </div>
         </div>

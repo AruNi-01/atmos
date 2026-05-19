@@ -10,6 +10,10 @@ import { useWebSocketStore } from "@/hooks/use-websocket";
 import { CanvasAgentBus, type CanvasAgentDispatchInput } from "./canvas-agent-bus";
 import { CanvasAgentActivityStore } from "./canvas-agent-activity";
 import { CanvasAgentFeedStore } from "./canvas-agent-feed";
+import {
+  shapeIdsFromAgentResult,
+  type CanvasAgentBounds,
+} from "./canvas-agent-view-bounds";
 
 const DEFAULT_CANVAS_PREFS = {
   sessionByBoard: {} as Record<string, unknown>,
@@ -131,31 +135,41 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
       void (async () => {
         const start = Date.now();
         inflightRequestIdRef.current = payload.request_id;
+        activity.beginWork(editor, payload.command);
         feed.begin(payload.request_id, payload.command, payload.args ?? null);
-        let result;
+        let result:
+          | Awaited<ReturnType<CanvasAgentBus["handleDispatch"]>>
+          | undefined;
+        let success = false;
         try {
-          result = await bus.handleDispatch(payload);
-        } catch (err) {
-          result = {
-            success: false as const,
-            error_code: "INTERNAL_ERROR" as const,
-            error_message: err instanceof Error ? err.message : String(err),
-            recoverable: true,
-          };
-        }
-        let createdShapeIds: string[] = [];
-        if (result.success && result.data && typeof result.data === "object") {
-          const data = result.data as Record<string, unknown>;
-          if (typeof data.id === "string") {
-            createdShapeIds = [data.id];
-          } else if (Array.isArray(data.ids)) {
-            createdShapeIds = data.ids.filter((v): v is string => typeof v === "string");
+          try {
+            result = await bus.handleDispatch(payload);
+          } catch (err) {
+            result = {
+              success: false as const,
+              error_code: "INTERNAL_ERROR" as const,
+              error_message: err instanceof Error ? err.message : String(err),
+              recoverable: true,
+            };
           }
+          success = result.success;
+          const touchedShapeIds =
+            success && result.data ? shapeIdsFromAgentResult(result.data) : [];
+          const normalized = payload.command.trim().toLowerCase().replace(/_/g, "-");
+          if (success && normalized === "set-agent-view" && result.data) {
+            const view = (result.data as { view?: CanvasAgentBounds }).view;
+            if (view) {
+              activity.setAgentView(view, true);
+            }
+          } else if (success) {
+            activity.record(payload.command, editor, touchedShapeIds);
+          }
+        } finally {
+          activity.endWork();
+          feed.finalizeRequest(payload.request_id, success);
         }
-        feed.complete(payload.request_id, result.success);
-        if (result.success) {
-          activity.record(payload.command, editor, createdShapeIds);
-        }
+        if (!result) return;
+
         try {
           await canvasAgentBridgeWsApi.postResult({
             request_id: payload.request_id,
@@ -188,7 +202,8 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     async (message: string) => {
       const requestId = inflightRequestIdRef.current;
       if (!requestId) return;
-      feed.complete(requestId, false);
+      activity.endWork();
+      feed.finalizeRequest(requestId, false);
       try {
         if (isConnectedRef.current) {
           await canvasAgentBridgeWsApi.postResult({

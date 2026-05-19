@@ -86,6 +86,30 @@ describe("CanvasAgentActivityStore", () => {
     expect(listener.mock.calls.length).toBe(3);
   });
 
+  it("getViewState() returns a stable reference until the store mutates", () => {
+    const store = new CanvasAgentActivityStore();
+    const a = store.getViewState();
+    const b = store.getViewState();
+    expect(a).toBe(b);
+    store.beginWork(null);
+    const c = store.getViewState();
+    expect(c).not.toBe(a);
+    expect(c.inflight).toBe(true);
+    const d = store.getViewState();
+    expect(c).toBe(d);
+    store.endWork();
+    const e = store.getViewState();
+    expect(e.inflight).toBe(false);
+
+    store.beginWork(null);
+    store.beginWork(null);
+    expect(store.getViewState().inflight).toBe(true);
+    store.endWork();
+    expect(store.getViewState().inflight).toBe(true);
+    store.endWork();
+    expect(store.getViewState().inflight).toBe(false);
+  });
+
   it("clear() is a no-op when already empty", () => {
     const store = new CanvasAgentActivityStore();
     const listener = mock(() => undefined);

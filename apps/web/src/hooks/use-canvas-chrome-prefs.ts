@@ -41,10 +41,13 @@ export function useCanvasChromePrefs() {
     setIsTopLeftToolbarCollapsed: (value: boolean) =>
       patch({ isTopLeftToolbarCollapsed: value }),
     setIsToolbarCollapsed: (value: boolean) => patch({ isToolbarCollapsed: value }),
+    setIsBottomToolbarDocked: (value: boolean) => patch({ isBottomToolbarDocked: value }),
     toggleIsStylePanelEnabled: () =>
       patch({ isStylePanelEnabled: !prefs.isStylePanelEnabled }),
     toggleIsTopLeftToolbarCollapsed: () =>
       patch({ isTopLeftToolbarCollapsed: !prefs.isTopLeftToolbarCollapsed }),
     toggleIsToolbarCollapsed: () => patch({ isToolbarCollapsed: !prefs.isToolbarCollapsed }),
+    toggleIsBottomToolbarDocked: () =>
+      patch({ isBottomToolbarDocked: !prefs.isBottomToolbarDocked }),
   };
 }

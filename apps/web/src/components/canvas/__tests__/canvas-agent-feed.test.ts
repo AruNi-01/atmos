@@ -70,4 +70,20 @@ describe("CanvasAgentFeedStore", () => {
     store.complete("r1", false);
     expect(store.getCurrentEntry()?.status).toBe("error");
   });
+
+  it("finalizeRequest clears active status in finally", () => {
+    const store = new CanvasAgentFeedStore();
+    store.begin("r1", "create-note");
+    store.finalizeRequest("r1", true);
+    expect(store.getSnapshot().activeEntryId).toBeNull();
+    expect(store.getCurrentEntry()?.status).toBe("done");
+  });
+
+  it("dedupes begin with the same request_id", () => {
+    const store = new CanvasAgentFeedStore();
+    store.begin("r1", "create-note");
+    store.begin("r1", "create-note");
+    const { batches } = store.getSnapshot();
+    expect(batches[0]?.entries).toHaveLength(1);
+  });
 });
