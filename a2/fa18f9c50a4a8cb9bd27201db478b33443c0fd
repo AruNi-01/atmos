@@ -1,0 +1,21 @@
+apps/web/src/hooks/use-canvas-chrome-prefs.ts
+  s_e5c2d0cab9600a::t_2e2bf0472200de 1-50
+apps/web/src/hooks/__tests__/use-canvas-chrome-prefs.test.ts
+  s_e5c2d0cab9600a::t_dbb39cbfd5ffba 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "a2fa18f9c50a4a8cb9bd27201db478b33443c0fd",
+  "prompts": {},
+  "sessions": {
+    "s_e5c2d0cab9600a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "b7d72a35-ea6b-407d-89fe-259b468a6908",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
