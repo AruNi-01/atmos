@@ -97,6 +97,12 @@ function makeFakeEditor() {
     setCamera: () => {},
     zoomToBounds: () => {},
     zoomToFit: () => {},
+    getShapeUtil: () => ({}),
+    store: {
+      schema: {
+        validateRecord: () => {},
+      },
+    },
   };
 }
 
@@ -207,6 +213,19 @@ describe("CanvasAgentBus", () => {
     );
     expect(res.success).toBe(true);
     expect(editor.shapes.has("a")).toBe(false);
+  });
+
+  it("update_shape rejects h on note shapes", async () => {
+    const { bus, editor } = busFromEditor();
+    editor.createShape({ id: "a", type: "note", x: 0, y: 0, props: { scale: 1 } });
+    const res = await bus.handleDispatch(
+      call("update_shape", { id: "a", patch: { h: 120 } }),
+    );
+    expect(res.success).toBe(false);
+    if (!res.success) {
+      expect(res.error_code).toBe("VALIDATION_ARG");
+      expect(res.error_message).toContain("props.h");
+    }
   });
 
   it("update_shape rejects disallowed patch keys", async () => {

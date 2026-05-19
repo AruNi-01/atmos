@@ -19,8 +19,10 @@ import {
   type TLShapePartial,
 } from "tldraw";
 
-/** tldraw v5 note sticky default width (page units); used to map CLI `--w` → `scale`. */
-const NOTE_BASE_WIDTH = 200;
+import { CanvasAgentError, type CanvasAgentErrorCode } from "./canvas-agent-errors";
+import { mutateEditor } from "./canvas-agent-mutate";
+import { NOTE_BASE_WIDTH, planUpdateShapePartial } from "./canvas-agent-shape-patch";
+import { validateShapeUpdate } from "./canvas-agent-validate";
 
 export interface CanvasAgentDispatchInput {
   request_id: string;
@@ -45,34 +47,10 @@ export interface CanvasAgentFailure {
 
 export type CanvasAgentResult = CanvasAgentSuccess | CanvasAgentFailure;
 
-export type CanvasAgentErrorCode =
-  | "BRIDGE_DISABLED"
-  | "EDITOR_NOT_READY"
-  | "STALE_SHAPE_ID"
-  | "VALIDATION_ARG"
-  | "UNSUPPORTED_COMMAND"
-  | "INTERNAL_ERROR";
+export type { CanvasAgentErrorCode };
 
 const MAX_LAYOUT_GRID = 24;
 const MAX_LAYOUT_IDS = 256;
-
-/**
- * Allow-listed keys for `update-shape --patch`. We intentionally do NOT
- * forward arbitrary props blobs because tldraw's record validator would
- * happily accept (and silently misinterpret) wholesale prop overwrites.
- */
-const UPDATE_SHAPE_ALLOWED_KEYS = new Set([
-  "color",
-  "fill",
-  "text",
-  "size",
-  "font",
-  "geo",
-  "w",
-  "h",
-  "x",
-  "y",
-]);
 
 export interface CanvasAgentBusOptions {
   /**
@@ -288,7 +266,7 @@ export class CanvasAgentBus {
     if (w !== NOTE_BASE_WIDTH) {
       props.scale = w / NOTE_BASE_WIDTH;
     }
-    editor.createShape({ id, type: "note", x, y, props });
+    mutateEditor(editor, () => editor.createShape({ id, type: "note", x, y, props }));
     return { id, type: "note" };
   }
 
@@ -301,7 +279,7 @@ export class CanvasAgentBus {
     const id = createShapeId();
     const props: Record<string, unknown> = { w, h };
     if (name) props.name = name;
-    editor.createShape({ id, type: "frame", x, y, props });
+    mutateEditor(editor, () => editor.createShape({ id, type: "frame", x, y, props }));
     return { id, type: "frame" };
   }
 
@@ -321,7 +299,7 @@ export class CanvasAgentBus {
     if (fill) props.fill = fill;
     const size = optionalString(args.size);
     if (size) props.size = size;
-    editor.createShape({ id, type: "geo", x, y, props });
+    mutateEditor(editor, () => editor.createShape({ id, type: "geo", x, y, props }));
     return { id, type: "geo" };
   }
 
@@ -341,7 +319,7 @@ export class CanvasAgentBus {
     if (color) props.color = color;
     const size = optionalString(args.size);
     if (size) props.size = size;
-    editor.createShape({ id, type: "arrow", x: x1, y: y1, props });
+    mutateEditor(editor, () => editor.createShape({ id, type: "arrow", x: x1, y: y1, props }));
     return { id, type: "arrow" };
   }
 
@@ -383,13 +361,15 @@ export class CanvasAgentBus {
     if (color) props.color = color;
     const size = optionalString(args.size);
     if (size) props.size = size;
-    editor.createShape({
-      id,
-      type: "draw",
-      x: Number(points[0]?.[0] ?? 0),
-      y: Number(points[0]?.[1] ?? 0),
-      props,
-    });
+    mutateEditor(editor, () =>
+      editor.createShape({
+        id,
+        type: "draw",
+        x: Number(points[0]?.[0] ?? 0),
+        y: Number(points[0]?.[1] ?? 0),
+        props,
+      }),
+    );
     return { id, type: "draw" };
   }
 
@@ -418,7 +398,7 @@ export class CanvasAgentBus {
       x: shape.x + dx,
       y: shape.y + dy,
     }));
-    editor.updateShapes(patch);
+    mutateEditor(editor, () => editor.updateShapes(patch));
     return { moved: ids, dx, dy };
   }
 
@@ -434,7 +414,7 @@ export class CanvasAgentBus {
       );
     }
     this.requireExistingShapes(editor, ids);
-    editor.deleteShapes(ids as TLShapeId[]);
+    mutateEditor(editor, () => editor.deleteShapes(ids as TLShapeId[]));
     return { deleted: ids };
   }
 
@@ -457,7 +437,7 @@ export class CanvasAgentBus {
         y: yPin ?? shape.y,
       };
     });
-    editor.updateShapes(patch);
+    mutateEditor(editor, () => editor.updateShapes(patch));
     return { laid_out: ids };
   }
 
@@ -478,7 +458,7 @@ export class CanvasAgentBus {
         y,
       };
     });
-    editor.updateShapes(patch);
+    mutateEditor(editor, () => editor.updateShapes(patch));
     return { laid_out: ids };
   }
 
@@ -533,7 +513,7 @@ export class CanvasAgentBus {
         y: baseY + row * rowHeight,
       };
     });
-    editor.updateShapes(patch);
+    mutateEditor(editor, () => editor.updateShapes(patch));
     return { laid_out: ids, rows, cols };
   }
 
@@ -550,38 +530,9 @@ export class CanvasAgentBus {
       );
     }
     const shape = this.requireExistingShapes(editor, [id])[0];
-    const next: TLShapePartial = { id: shape.id, type: shape.type };
-    const propsPatch: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
-      if (!UPDATE_SHAPE_ALLOWED_KEYS.has(key)) {
-        throw new CanvasAgentError(
-          "VALIDATION_ARG",
-          `update_shape patch key '${key}' is not allowed`,
-          false,
-        );
-      }
-      if (key === "x" || key === "y") {
-        // Validate via the shared finite-number helper instead of `Number()`
-        // which would happily pass NaN/Infinity into `updateShapes`.
-        (next as Record<string, unknown>)[key] = requireNumber(value, key);
-      } else if (key === "text") {
-        // CLI/skill expose plain `text`; tldraw v5 stores labels as `richText`.
-        if (typeof value !== "string") {
-          throw new CanvasAgentError(
-            "VALIDATION_ARG",
-            "text must be a string",
-            false,
-          );
-        }
-        propsPatch.richText = toRichText(value);
-      } else {
-        propsPatch[key] = value;
-      }
-    }
-    if (Object.keys(propsPatch).length) {
-      next.props = propsPatch as TLShapePartial["props"];
-    }
-    editor.updateShapes([next]);
+    const partial = planUpdateShapePartial(shape, patch as Record<string, unknown>);
+    validateShapeUpdate(editor, shape, partial);
+    mutateEditor(editor, () => editor.updateShapes([partial]));
     return { id };
   }
 
@@ -641,16 +592,6 @@ export class CanvasAgentBus {
     } else {
       console.debug(message, payload);
     }
-  }
-}
-
-class CanvasAgentError extends Error {
-  constructor(
-    readonly code: CanvasAgentErrorCode,
-    message: string,
-    readonly recoverable: boolean,
-  ) {
-    super(message);
   }
 }
 
