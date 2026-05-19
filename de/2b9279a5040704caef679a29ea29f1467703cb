@@ -1,0 +1,37 @@
+apps/web/src/components/canvas/canvas-agent-feed-summarize.ts
+  s_e5c2d0cab9600a::t_449ba1c7acc494 1-41
+apps/web/src/components/canvas/canvas-agent-feed-labels.ts
+  s_e5c2d0cab9600a::t_9820339e46ae06 1-24,49-50,63-70,73,78-87,95-96,101-106,112-137
+  s_e5c2d0cab9600a::t_cf14d1ced6899b 51-53,56-62,74-77,91-94,97-100,107-111
+  s_e5c2d0cab9600a::t_ad62cfd841432a 25-48,54-55,71-72,88-90
+apps/web/src/components/canvas/canvas-agent-feed.ts
+  s_e5c2d0cab9600a::t_a6a0250af9102e 162-175,177
+  s_e5c2d0cab9600a::t_2f053173e562f1 45-49,53-54,63
+  s_e5c2d0cab9600a::t_e370d4cd0133e4 19-20
+  s_e5c2d0cab9600a::t_4be054cc102c64 1-18,21-44,50-52,55-62,64-161,176,178-180
+apps/web/src/components/canvas/__tests__/canvas-agent-feed.test.ts
+  s_e5c2d0cab9600a::t_6906ff06a38a4d 13,19-20,22,25-26,28-31
+  s_e5c2d0cab9600a::t_79b445c124b290 55-66
+  s_e5c2d0cab9600a::t_8c67f6e12e2bd2 4
+  s_e5c2d0cab9600a::t_f4f08c7e1fc743 1-3,5-12,14-16,18,33-54,68,72-73
+  s_e5c2d0cab9600a::t_1436660deea95a 17,21,23-24,27,32
+  s_e5c2d0cab9600a::t_9971d33fe46a1b 67,69-71
+apps/web/src/components/canvas/__tests__/canvas-agent-feed-summarize.test.ts
+  s_e5c2d0cab9600a::t_a21cdc84f213c6 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "de2b9279a5040704caef679a29ea29f1467703cb",
+  "prompts": {},
+  "sessions": {
+    "s_e5c2d0cab9600a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "b7d72a35-ea6b-407d-89fe-259b468a6908",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
