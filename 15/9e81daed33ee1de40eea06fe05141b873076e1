@@ -1,7 +1,44 @@
+apps/web/src/components/canvas/canvas-agent-mutate.ts
+  s_e5c2d0cab9600a::t_ced3f69d1ba854 1-23
+apps/web/src/components/canvas/canvas-agent-shape-patch.ts
+  s_e5c2d0cab9600a::t_9a34b3f0d8cba5 1-101,103-109,111-114,117
+  s_e5c2d0cab9600a::t_bb871e4e955826 102,110,115-116
+apps/web/src/components/canvas/canvas-agent-errors.ts
+  s_e5c2d0cab9600a::t_d6fa98ca2b8132 1-30
+apps/web/src/components/canvas/canvas-agent-validate.ts
+  s_e5c2d0cab9600a::t_87dd91fd5b0917 1-16,21,23-34
+  s_e5c2d0cab9600a::t_9d939bf1cbe7be 17-20,22
+apps/web/src/components/canvas/__tests__/canvas-agent-bus.test.ts
+  s_e5c2d0cab9600a::t_0896edcc0da2f7 100-105
+  s_e5c2d0cab9600a::t_8d4d939f0a9848 218-230
+apps/web/src/components/canvas/canvas-agent-bus.ts
+  s_e5c2d0cab9600a::t_f35308484b853e 22-25
+  s_e5c2d0cab9600a::t_00fba840a55010 50
+  s_e5c2d0cab9600a::t_f2c6980e95ec97 269
+  s_e5c2d0cab9600a::t_174d6ceb081df4 282
+  s_e5c2d0cab9600a::t_46fbe55f7f9a3a 302
+  s_e5c2d0cab9600a::t_29bd1aca7bdd9b 322
+  s_e5c2d0cab9600a::t_6fd7ad12c5987f 364-372
+  s_e5c2d0cab9600a::t_33ed5d4d568e0d 401
+  s_e5c2d0cab9600a::t_e051dab123dede 417
+  s_e5c2d0cab9600a::t_852a410c638d50 440
+  s_e5c2d0cab9600a::t_e56267022cf125 461
+  s_e5c2d0cab9600a::t_35bda7c0d8f384 516
+  s_e5c2d0cab9600a::t_103b0825287127 533-535
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.4.9",
   "base_commit_sha": "159e81daed33ee1de40eea06fe05141b873076e1",
-  "prompts": {}
+  "prompts": {},
+  "sessions": {
+    "s_e5c2d0cab9600a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "b7d72a35-ea6b-407d-89fe-259b468a6908",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
 }
