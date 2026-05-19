@@ -53,7 +53,8 @@ export function CanvasAgentViewHighlight({
   const show =
     bridge.acceptsCommands &&
     pageBounds !== null &&
-    (viewState.inflight || recentlyActive);
+    viewState.session !== "idle" &&
+    (viewState.session === "active" || viewState.inflight || recentlyActive);
 
   if (!show || !pageBounds) {
     return null;

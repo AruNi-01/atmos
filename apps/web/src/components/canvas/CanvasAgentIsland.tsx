@@ -28,7 +28,10 @@ import {
 } from "./canvas-agent-feed-summarize";
 import type { CanvasAgentFeedKind } from "./canvas-agent-feed-labels";
 import { CANVAS_AGENT_FEED_STALE_MS } from "./canvas-agent-feed";
-import type { CanvasAgentViewState } from "./canvas-agent-activity";
+import {
+  type CanvasAgentViewState,
+  resolveCanvasAgentIslandWorking,
+} from "./canvas-agent-activity";
 import type { CanvasAgentBridgeState } from "./use-canvas-agent-bridge";
 
 const PANEL_TRANSITION = {
@@ -44,6 +47,16 @@ const GLASS_SHELL = cn(
 );
 
 const MAX_HISTORY_ROWS = 100;
+
+/**
+ * Window during which the island stays in "working" mode (animated icon +
+ * shimmering text) after the last successful agent dispatch. Uses the same
+ * "refresh-on-activity" pattern as the top-right Agent menu green dot
+ * (`CanvasAgentOverlay.ACTIVE_WINDOW_MS = 30s`), but with a shorter 15s
+ * window — the island sits closer to the action and a tighter window feels
+ * less stale once the agent goes quiet.
+ */
+const ISLAND_ACTIVE_WINDOW_MS = 15_000;
 
 function kindIcon(kind: CanvasAgentFeedKind): LucideIcon {
   switch (kind) {
@@ -91,6 +104,21 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
   );
   const reducedMotion = usePrefersReducedMotion();
 
+  // Match the top-right Agent menu green dot: stay in "working" mode whenever
+  // the agent is mid-dispatch OR has finished a dispatch within
+  // ISLAND_ACTIVE_WINDOW_MS. Individual fast canvas commands resolve in a
+  // microtask (React batches begin+end into one render so a per-dispatch
+  // `inflight` toggle would never paint), but `activity.at` is bumped on every
+  // successful dispatch, so an active agent burst keeps refreshing the window
+  // and the icon ripple + shimmer keep running until the agent goes quiet.
+  const lastActivityAt = useAgentLastActivityAt(bridge.activity);
+  const recentlyActive = useTimeWindow(lastActivityAt, ISLAND_ACTIVE_WINDOW_MS);
+  const isWorking = resolveCanvasAgentIslandWorking(
+    viewState,
+    recentlyActive,
+    current?.status === "active",
+  );
+
   React.useEffect(() => {
     const tick = () => {
       bridge.feed.expireStaleActive(CANVAS_AGENT_FEED_STALE_MS);
@@ -105,9 +133,6 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
   if (!bridge.acceptsCommands || snapshot.batches.length === 0 || !current) {
     return null;
   }
-
-  const isWorking =
-    viewState.inflight || current.status === "active";
 
   return (
     <div
@@ -261,6 +286,41 @@ function IslandStatusLabel({
       )}
     </span>
   );
+}
+
+/** Timestamp (`Date.now()`) of the most recent successful agent dispatch. */
+function useAgentLastActivityAt(
+  store: CanvasAgentBridgeState["activity"],
+): number | null {
+  return React.useSyncExternalStore(
+    store.subscribe,
+    () => store.getSnapshot()?.at ?? null,
+    () => store.getSnapshot()?.at ?? null,
+  );
+}
+
+/**
+ * Returns `true` for `windowMs` after `at`, mirroring the green-dot logic in
+ * `CanvasAgentOverlay`. Re-arms whenever `at` updates so an active agent burst
+ * keeps the window open.
+ */
+function useTimeWindow(at: number | null, windowMs: number): boolean {
+  const [active, setActive] = React.useState(false);
+  React.useEffect(() => {
+    if (at === null) {
+      setActive(false);
+      return;
+    }
+    const remaining = at + windowMs - Date.now();
+    if (remaining <= 0) {
+      setActive(false);
+      return;
+    }
+    setActive(true);
+    const id = window.setTimeout(() => setActive(false), remaining);
+    return () => window.clearTimeout(id);
+  }, [at, windowMs]);
+  return active;
 }
 
 function usePrefersReducedMotion(): boolean {

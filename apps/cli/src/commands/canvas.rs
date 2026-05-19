@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueEnum};
 use reqwest::header::AUTHORIZATION;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -112,6 +112,10 @@ pub async fn execute(
             let body = args.body()?;
             invoke(&api, &canvas, "set_agent_view", body).await
         }
+        CanvasCommand::SetStatus(args) => {
+            let body = args.body();
+            invoke(&api, &canvas, "set_status", body).await
+        }
     }
 }
 
@@ -169,6 +173,10 @@ pub enum CanvasCommand {
     Apply(ApplyArgs),
     /// Set the dashed agent-view frame (explicit page-space rect or shape union).
     SetAgentView(SetAgentViewArgs),
+    /// Tell the UI whether the agent is still actively driving the canvas.
+    /// Send `--status idle` as the very last command of every canvas turn so
+    /// the top-right green dot and bottom-right island stop immediately.
+    SetStatus(SetStatusArgs),
 }
 
 #[derive(Debug, Args, Clone)]
@@ -731,6 +739,38 @@ impl SetAgentViewArgs {
             body["zoom"] = json!(true);
         }
         Ok(body)
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+#[clap(rename_all = "kebab-case")]
+pub enum CanvasSessionStatus {
+    /// Agent is still actively driving the canvas (keep the UI indicators on).
+    Active,
+    /// Agent has finished the current turn (turn the indicators off).
+    Idle,
+}
+
+impl CanvasSessionStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Idle => "idle",
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct SetStatusArgs {
+    /// `idle` to mark the agent done (default), or `active` to manually keep
+    /// the indicators lit across a silent span.
+    #[arg(long, value_enum, default_value_t = CanvasSessionStatus::Idle)]
+    pub status: CanvasSessionStatus,
+}
+
+impl SetStatusArgs {
+    fn body(&self) -> Value {
+        json!({ "status": self.status.as_str() })
     }
 }
 

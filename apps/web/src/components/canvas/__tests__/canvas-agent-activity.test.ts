@@ -1,7 +1,11 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it, mock } from "bun:test";
 
-import { CanvasAgentActivityStore } from "../canvas-agent-activity";
+import {
+  CanvasAgentActivityStore,
+  resolveCanvasAgentIndicatorActive,
+  resolveCanvasAgentIslandWorking,
+} from "../canvas-agent-activity";
 
 /**
  * Hand-rolled editor stub covering just the surface CanvasAgentActivityStore
@@ -160,5 +164,35 @@ describe("CanvasAgentActivityStore", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     store.jumpToLast(editor as any);
     expect(editor._calls.zoomToBounds).not.toHaveBeenCalled();
+  });
+
+  it("setStatus(idle) clears inflight and pins session idle", () => {
+    const store = new CanvasAgentActivityStore();
+    store.beginWork(null);
+    store.setStatus("idle");
+    expect(store.getViewState().inflight).toBe(false);
+    expect(store.getViewState().session).toBe("idle");
+    expect(
+      resolveCanvasAgentIndicatorActive(store.getViewState(), true),
+    ).toBe(false);
+  });
+
+  it("setStatus(active) pins session active even without recent activity", () => {
+    const store = new CanvasAgentActivityStore();
+    store.setStatus("active");
+    expect(store.getViewState().session).toBe("active");
+    expect(
+      resolveCanvasAgentIndicatorActive(store.getViewState(), false),
+    ).toBe(true);
+    expect(
+      resolveCanvasAgentIslandWorking(store.getViewState(), false, false),
+    ).toBe(true);
+  });
+
+  it("beginWork() clears an explicit idle session", () => {
+    const store = new CanvasAgentActivityStore();
+    store.setStatus("idle");
+    store.beginWork(null);
+    expect(store.getViewState().session).toBe(null);
   });
 });

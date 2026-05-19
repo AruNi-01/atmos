@@ -28,7 +28,7 @@ apps/desktop/src-tauri/binaries/runtime/current/
 
 - Discovery: `~/.atmos/runtime_manifest.json` (written by the API; **no auth token** in the manifest).
 - Data dir: `ATMOS_DATA_DIR` → Tauri app data directory.
-- **Quit does not stop the API** — the same process may be used by `atmos runtime ensure` or another Desktop session.
+- **Quit also stops the API daemon** — `RunEvent::Exit` in `src-tauri/src/main.rs` calls `runtime_manager::supervisor::stop_running(false)`. Desktop owns the runtime lifecycle for end users; closing the app should not leave a loopback API listening in the background. CLI / local-web-runtime can independently re-`ensure` it later.
 
 `get_api_config` returns `{ host: "127.0.0.1", port }` only. Web reads it via `apps/web/src/lib/desktop-runtime.ts`.
 

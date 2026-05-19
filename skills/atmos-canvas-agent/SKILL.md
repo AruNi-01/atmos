@@ -1,6 +1,6 @@
 ---
 name: atmos-canvas-agent
-version: "1.1.0"
+version: "1.2.1"
 description: 'Drive the user''s open Atmos Canvas (tldraw whiteboard) via the `atmos canvas` CLI. Use whenever the user asks to sketch, draw, diagram, lay out, arrange, label, move, resize, recolor, or delete anything on the canvas — including architecture/flow diagrams, sticky notes, frames, geo shapes, arrows, grids of cards, or viewport changes.'
 license: MIT
 ---
@@ -36,7 +36,11 @@ For multi-shape diagrams (feature grids, architecture maps, slide-like layouts):
    - `layout-grid` / `layout-row` / `layout-column` — uses **page bounds**, not raw `props.w/h`.
    - `place` — put shape B beside shape A (`--side top|bottom|left|right`, `--align start|center|end`).
 6. **Arrows last** — `create-arrow --from-id … --to-id …` so bindings survive moves.
-7. **`lint` or `get-state`** — fix `lints` (overlaps, unbound arrows) before finishing.
+7. **`lint` anytime** — run after layout batches or risky edits to catch overlaps /
+   unbound arrows; fix issues and **keep working**. Do **not** send `set-status idle`
+   right after `lint` — you will call `lint` many times per turn.
+8. **`set-status --status idle`** — once, only when you are completely done with **all**
+   canvas commands for this turn (no more mutating/layout/lint planned).
 
 Use **`apply`** to batch up to 32 mutating steps in one HTTP round-trip when building many shapes.
 
@@ -58,7 +62,7 @@ CLI form: `atmos canvas <verb> [--flags…]`
 | `status` | — | Registered tabs + bridge state. |
 | `get-state` | `--page-id` (optional) | `canvas_agent_state.v1` + per-shape `bounds` + `lints` (no terminal pane text). |
 | `extract-text` | `--ids` (optional), `--older-offset` (terminals) | On-demand text for any shape (notes, geo, **terminals via tmux capture**, …). Uses selection when `--ids` omitted. |
-| `lint` | — | Overlap + unbound-arrow report only. |
+| `lint` | — | Overlap + unbound-arrow report only. Safe to call repeatedly mid-turn. |
 
 **Do not expect shape text in `get-state`.** When you need content, call `extract-text --ids <id>` (comma-separated) or select shapes and run `extract-text` with no args. Terminal shapes return metadata plus a tmux pane snapshot; line count is capped by the user’s Canvas setting **Terminal context lines** (default 300).
 
@@ -134,6 +138,24 @@ atmos canvas set-agent-view --x 0 --y 0 --w 900 --h 520 --padding 32
 atmos canvas set-agent-view --center-ids "$TITLE_ID,$CARD1,$CARD2" --zoom
 ```
 
+### Session status
+
+| Verb | Args |
+|------|------|
+| `set-status` | `--status idle\|active` (default `idle`) |
+
+Send **`set-status --status idle` exactly once** at the end of the turn — after
+you have finished every canvas command (including any final `lint` / `get-state`
+you choose to run). Never pair `idle` with an intermediate `lint`.
+
+Use `--status active` only when you are waiting on the user and have no further
+canvas commands until they reply; follow with `idle` when you resume or finish.
+
+```bash
+# … create, layout, lint (as needed), more edits …
+atmos canvas set-status --status idle
+```
+
 ### Batch
 
 | Verb | Args |
@@ -186,6 +208,8 @@ atmos canvas apply --commands '[
 atmos canvas layout-grid --ids "$IDS" --cols 3 --rows 2 --gap 24
 atmos canvas align --ids "$IDS" --alignment center-horizontal
 atmos canvas lint
+# … fix any lints, then when the whole turn is done:
+atmos canvas set-status --status idle
 ```
 
 ---
@@ -207,7 +231,8 @@ atmos canvas lint
 - ❌ `create-note` for fixed-size labeled boxes (use `create-geo`).
 - ❌ `create-note --h` (rejected).
 - ❌ Free-floating arrows in diagrams (use `--from-id` / `--to-id`).
-- ❌ Ignoring `lints` / overlaps at the end.
+- ❌ Ignoring `lints` / overlaps when `lint` reports them.
+- ❌ `set-status --status idle` immediately after `lint` (lint is mid-turn; `idle` is turn-end only).
 - ❌ CSS / hex colors.
 - ❌ Retrying `create-*` or `move` blindly after `RELAY_TIMEOUT`.
 

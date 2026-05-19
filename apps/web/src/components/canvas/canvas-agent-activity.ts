@@ -27,17 +27,46 @@ import {
   unionBounds,
 } from "./canvas-agent-view-bounds";
 
+export type CanvasAgentSessionStatus = "active" | "idle";
+
 export interface CanvasAgentViewState {
   /** Dashed "agent view" frame in page space (union of viewport + touched shapes). */
   viewBounds: CanvasAgentBounds | null;
   /** True while a `canvas_agent_dispatch` is in flight. */
   inflight: boolean;
+  /**
+   * Explicit session from `set-status`. `null` means infer from recent
+   * dispatch timestamps (fallback when the agent omits `set-status`).
+   */
+  session: CanvasAgentSessionStatus | null;
 }
 
 const EMPTY_VIEW_STATE: CanvasAgentViewState = {
   viewBounds: null,
   inflight: false,
+  session: null,
 };
+
+/** Whether the top-right bridge control should show the active (green) state. */
+export function resolveCanvasAgentIndicatorActive(
+  viewState: CanvasAgentViewState,
+  recentlyActive: boolean,
+): boolean {
+  if (viewState.session === "idle") return false;
+  if (viewState.session === "active" || viewState.inflight) return true;
+  return recentlyActive;
+}
+
+/** Whether the bottom-right island should show the working animation. */
+export function resolveCanvasAgentIslandWorking(
+  viewState: CanvasAgentViewState,
+  recentlyActive: boolean,
+  feedEntryActive: boolean,
+): boolean {
+  if (viewState.session === "idle") return false;
+  if (viewState.session === "active") return true;
+  return viewState.inflight || feedEntryActive || recentlyActive;
+}
 
 export interface CanvasAgentActivity {
   /** The dispatched command verb, e.g. `create-note`. */
@@ -55,6 +84,8 @@ export class CanvasAgentActivityStore {
   private viewBounds: CanvasAgentBounds | null = null;
   private inflightDepth = 0;
   private inflight = false;
+  /** Set by `set-status`; cleared when a new dispatch begins. */
+  private session: CanvasAgentSessionStatus | null = null;
   private listeners = new Set<() => void>();
   /** Stable reference between mutations — required by `useSyncExternalStore`. */
   private cachedViewState: CanvasAgentViewState = EMPTY_VIEW_STATE;
@@ -70,8 +101,31 @@ export class CanvasAgentActivityStore {
 
   getViewState = (): CanvasAgentViewState => this.cachedViewState;
 
+  /**
+   * Session signal from `atmos canvas set-status`. `idle` stops UI indicators
+   * immediately; `active` keeps them on until the next `idle` or dispatch.
+   */
+  setStatus(status: CanvasAgentSessionStatus) {
+    this.session = status;
+    if (status === "idle") {
+      this.inflightDepth = 0;
+      this.inflight = false;
+    } else if (this.last) {
+      this.last = { ...this.last, at: Date.now() };
+    } else {
+      this.last = {
+        command: "set-status",
+        shapeIds: [],
+        bounds: null,
+        at: Date.now(),
+      };
+    }
+    this.emit();
+  }
+
   /** Called when a dispatch starts — seed view from current viewport. */
   beginWork(editor: Editor | null, command?: string) {
+    this.session = null;
     this.inflightDepth += 1;
     this.inflight = true;
     const normalized = command?.trim().toLowerCase().replace(/_/g, "-");
@@ -158,6 +212,10 @@ export class CanvasAgentActivityStore {
       this.inflight = false;
       changed = true;
     }
+    if (this.session !== null) {
+      this.session = null;
+      changed = true;
+    }
     if (changed) this.emit();
   }
 
@@ -187,6 +245,7 @@ export class CanvasAgentActivityStore {
     this.cachedViewState = {
       viewBounds: bounds ? { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h } : null,
       inflight: this.inflight,
+      session: this.session,
     };
   }
 

@@ -159,6 +159,9 @@ export class CanvasAgentBus {
       if (command === "lint") {
         return ok(this.runLint(editor));
       }
+      if (command === "set_status" || command === "set-status") {
+        return ok(this.runSetStatus(input.args ?? {}));
+      }
 
       if (!this.bridgeAccepting) {
         return fail(
@@ -426,6 +429,26 @@ export class CanvasAgentBus {
 
   private runLint(editor: Editor) {
     return { lints: computeCanvasLints(editor) };
+  }
+
+  private runSetStatus(args: Record<string, unknown>) {
+    const raw = optionalString(args.status);
+    if (!raw) {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        "set_status requires status: \"idle\" or \"active\"",
+        false,
+      );
+    }
+    const status = raw.trim().toLowerCase();
+    if (status !== "idle" && status !== "active") {
+      throw new CanvasAgentError(
+        "VALIDATION_ARG",
+        'status must be "idle" or "active"',
+        false,
+      );
+    }
+    return { status };
   }
 
   /** Read text content for specific shapes on demand (includes tmux capture for terminals). */

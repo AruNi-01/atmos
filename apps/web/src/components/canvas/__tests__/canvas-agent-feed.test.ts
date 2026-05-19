@@ -31,6 +31,16 @@ describe("describeCanvasAgentCommand", () => {
     });
     expect(d.label).toBe("Creating rectangle and writing");
   });
+
+  it("maps set-status instead of the generic fallback", () => {
+    expect(describeCanvasAgentCommand("set_status", { status: "idle" }).label).toBe(
+      "Finished on canvas",
+    );
+    expect(describeCanvasAgentCommand("set-status", { status: "active" }).label).toBe(
+      "Canvas session active",
+    );
+    expect(describeCanvasAgentCommand("unknown-verb").label).toBe("Working on canvas");
+  });
 });
 
 describe("CanvasAgentFeedStore", () => {

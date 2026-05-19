@@ -361,9 +361,30 @@ fn main() {
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| match event {
-        // Do not stop the shared local API on quit — other clients may still use it.
+        // On quit, also tear down the shared local API daemon. This is an
+        // explicit product decision: Desktop owns the runtime lifecycle for
+        // end users, so closing the app should not leave a background process
+        // listening on the loopback port.
         tauri::RunEvent::Exit => {
             let _ = preview_bridge::close_preview_window(&app_handle);
+            match tauri::async_runtime::block_on(
+                runtime_manager::supervisor::stop_running(false),
+            ) {
+                Ok(stopped) => {
+                    let log_path = logging::app_log_path(&app_handle, "runtime-api.log");
+                    logging::append_log(
+                        &log_path,
+                        &format!("runtime stop on exit: stopped={stopped}"),
+                    );
+                }
+                Err(err) => {
+                    let log_path = logging::app_log_path(&app_handle, "runtime-api.log");
+                    logging::append_log(
+                        &log_path,
+                        &format!("runtime stop on exit failed: {err}"),
+                    );
+                }
+            }
         }
         // macOS: clicking the dock icon when the window is hidden should re-show it.
         #[cfg(target_os = "macos")]

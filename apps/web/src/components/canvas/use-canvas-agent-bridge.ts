@@ -161,6 +161,11 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
             if (view) {
               activity.setAgentView(view, true);
             }
+          } else if (success && normalized === "set-status") {
+            const status = (result.data as { status?: string }).status;
+            if (status === "idle" || status === "active") {
+              activity.setStatus(status);
+            }
           } else if (success) {
             activity.record(payload.command, editor, touchedShapeIds);
           }

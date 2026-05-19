@@ -14,7 +14,12 @@ import {
 } from "@workspace/ui";
 
 import type { CanvasAgentBridgeState } from "./use-canvas-agent-bridge";
-import type { CanvasAgentActivity, CanvasAgentActivityStore } from "./canvas-agent-activity";
+import {
+  type CanvasAgentActivity,
+  type CanvasAgentActivityStore,
+  type CanvasAgentViewState,
+  resolveCanvasAgentIndicatorActive,
+} from "./canvas-agent-activity";
 
 const SKILL_PATH = "~/.atmos/skills/.system/atmos-canvas-agent/SKILL.md";
 const AGENT_INSTRUCTION_BLURB = `You can drive my open Atmos Canvas via \`atmos canvas\`.
@@ -135,7 +140,9 @@ export function CanvasAgentBridgeControls({
 }) {
   const [open, setOpen] = React.useState(false);
   const activity = useActivity(bridge.activity);
-  const isActive = useTimeWindow(activity?.at ?? null, ACTIVE_WINDOW_MS);
+  const viewState = useAgentViewState(bridge.activity);
+  const recentlyActive = useTimeWindow(activity?.at ?? null, ACTIVE_WINDOW_MS);
+  const isActive = resolveCanvasAgentIndicatorActive(viewState, recentlyActive);
 
   const status: "off" | "idle" | "active" = !bridge.acceptsCommands
     ? "off"
@@ -392,6 +399,10 @@ function formatRelativeTime(at: number): string {
 
 function useActivity(store: CanvasAgentActivityStore): CanvasAgentActivity | null {
   return React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+}
+
+function useAgentViewState(store: CanvasAgentActivityStore): CanvasAgentViewState {
+  return React.useSyncExternalStore(store.subscribe, store.getViewState, store.getViewState);
 }
 
 /**

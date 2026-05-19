@@ -131,6 +131,22 @@ describe("CanvasAgentBus", () => {
     expect(res.success).toBe(true);
   });
 
+  it("set_status works without an accepting bridge", async () => {
+    const { bus } = busFromEditor({ acceptsCommands: false });
+    const res = await bus.handleDispatch(call("set_status", { status: "idle" }));
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.data).toEqual({ status: "idle" });
+    }
+  });
+
+  it("set_status rejects unknown status values", async () => {
+    const { bus } = busFromEditor();
+    const res = await bus.handleDispatch(call("set_status", { status: "busy" }));
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error_code).toBe("VALIDATION_ARG");
+  });
+
   it("create_note creates a shape and reports its id", async () => {
     const { editor, bus } = busFromEditor();
     const res = await bus.handleDispatch(

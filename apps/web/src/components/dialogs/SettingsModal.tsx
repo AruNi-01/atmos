@@ -2896,6 +2896,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const installInFlightRef = React.useRef(false);
   const [status, setStatus] = useState<UpdateStatus>({ stage: 'idle' });
   const [isCheckingCliVersion, setIsCheckingCliVersion] = useState(false);
+  const [isCheckingDesktopUpdate, setIsCheckingDesktopUpdate] = useState(false);
   const [isInstallingCli, setIsInstallingCli] = useState(false);
   const [cliVersionInfo, setCliVersionInfo] = useState<{
     current: string | null;
@@ -3370,6 +3371,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleCheckForUpdate = async () => {
+    if (isCheckingDesktopUpdate) {
+      return;
+    }
+
+    setIsCheckingDesktopUpdate(true);
     let latestStage = 'idle';
     let latestErrorMessage: string | undefined;
     const toastId = toastManager.add({
@@ -3379,65 +3385,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       timeout: 0,
     });
 
-    const info = await checkForUpdate((nextStatus) => {
-      latestStage = nextStatus.stage;
-      latestErrorMessage = nextStatus.stage === 'error' ? nextStatus.message : undefined;
-      setStatus(nextStatus);
-    });
-
-    if (latestStage === 'error') {
-      toastManager.update(toastId, {
-        title: 'Update check failed',
-        description: latestErrorMessage ?? 'Unable to check for updates.',
-        type: 'error',
-        timeout: 6000,
+    try {
+      const info = await checkForUpdate((nextStatus) => {
+        latestStage = nextStatus.stage;
+        latestErrorMessage = nextStatus.stage === 'error' ? nextStatus.message : undefined;
+        setStatus(nextStatus);
       });
-      return;
-    }
 
-    if (latestStage === 'available' && info) {
-      toastManager.update(toastId, {
-        title: `Version ${info.version} is available`,
-        description: (
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              A newer desktop version is ready to install.
-            </p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <a
-                  href={getUpdateReleaseNotesUrl(info)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+      if (latestStage === 'error') {
+        toastManager.update(toastId, {
+          title: 'Update check failed',
+          description: latestErrorMessage ?? 'Unable to check for updates.',
+          type: 'error',
+          timeout: 6000,
+        });
+        return;
+      }
+
+      if (latestStage === 'available' && info) {
+        toastManager.update(toastId, {
+          title: `Version ${info.version} is available`,
+          description: (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                A newer desktop version is ready to install.
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <a
+                    href={getUpdateReleaseNotesUrl(info)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="mr-1.5 size-3.5" />
+                    What&apos;s New
+                  </a>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    void handleInstallUpdate(toastId);
+                  }}
                 >
-                  <ExternalLink className="mr-1.5 size-3.5" />
-                  What&apos;s New
-                </a>
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  void handleInstallUpdate(toastId);
-                }}
-              >
-                <Download className="mr-1.5 size-3.5" />
-                Install
-              </Button>
+                  <Download className="mr-1.5 size-3.5" />
+                  Install
+                </Button>
+              </div>
             </div>
-          </div>
-        ),
-        type: 'info',
-        timeout: 0,
-      });
-      return;
-    }
+          ),
+          type: 'info',
+          timeout: 0,
+        });
+        return;
+      }
 
-    toastManager.update(toastId, {
-      title: 'Already up to date',
-      description: 'You are already on the latest available version.',
-      type: 'success',
-      timeout: 4000,
-    });
+      toastManager.update(toastId, {
+        title: 'Already up to date',
+        description: 'You are already on the latest available version.',
+        type: 'success',
+        timeout: 4000,
+      });
+    } finally {
+      setIsCheckingDesktopUpdate(false);
+    }
   };
 
   const handleCheckCliVersion = async () => {
@@ -3879,10 +3889,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <Button
                               variant="outline"
                               onClick={handleCheckForUpdate}
-                              disabled={isChecking || isDownloading || isInstalling}
+                              disabled={
+                                isCheckingDesktopUpdate || isChecking || isDownloading || isInstalling
+                              }
                               className="cursor-pointer"
                             >
-                              <RotateCcw className="mr-2 size-4" />
+                              {isCheckingDesktopUpdate ? (
+                                <LoaderCircle className="mr-2 size-4 animate-spin-reverse" />
+                              ) : (
+                                <RotateCcw className="mr-2 size-4" />
+                              )}
                               Check for Updates
                             </Button>
                           </div>

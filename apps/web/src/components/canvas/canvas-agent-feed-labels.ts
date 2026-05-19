@@ -152,5 +152,15 @@ export function describeCanvasAgentCommand(
     };
   }
 
+  if (verb === "set-status") {
+    const raw = args?.status;
+    const status =
+      typeof raw === "string" ? raw.trim().toLowerCase() : "idle";
+    if (status === "active") {
+      return { kind: "read", label: "Canvas session active" };
+    }
+    return { kind: "read", label: "Finished on canvas" };
+  }
+
   return { kind: "edit", label: "Working on canvas" };
 }
