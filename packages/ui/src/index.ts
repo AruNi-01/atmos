@@ -73,6 +73,8 @@ export * from "./components/ui/flow-button";
 export * from "./components/ui/border-beam";
 export { ShineBorder } from "./components/ui/shine-border";
 export { TextShimmer } from "./components/ui/text-shimmer";
+export { DotmSquare12 } from "./components/ui/dotm-square-12";
+export type { DotmSquare12Props } from "./components/ui/dotm-square-12";
 export { TextShimmerWave } from "./components/ui/text-shimmer-wave";
 export { TextScramble } from "./components/ui/text-scramble";
 export { TextMorph } from "./components/ui/text-morph";
