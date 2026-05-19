@@ -6,11 +6,11 @@ import type { TLShapeId } from "tldraw";
 import type { TerminalRef } from "@/components/terminal/Terminal";
 
 const CanvasTerminalRefContext = React.createContext<
-  React.MutableRefObject<Map<string, TerminalRef>> | null
+  React.MutableRefObject<Map<TLShapeId, TerminalRef>> | null
 >(null);
 
 export function CanvasTerminalRefProvider({ children }: { children: React.ReactNode }) {
-  const refs = React.useRef(new Map<string, TerminalRef>());
+  const refs = React.useRef(new Map<TLShapeId, TerminalRef>());
   return (
     <CanvasTerminalRefContext.Provider value={refs}>{children}</CanvasTerminalRefContext.Provider>
   );
@@ -21,7 +21,7 @@ export function useCanvasTerminalRefs() {
 }
 
 export function registerCanvasTerminalRef(
-  map: React.MutableRefObject<Map<string, TerminalRef>> | null,
+  map: React.MutableRefObject<Map<TLShapeId, TerminalRef>> | null,
   shapeId: TLShapeId,
   ref: TerminalRef | null,
 ) {
