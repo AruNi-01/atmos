@@ -1,0 +1,32 @@
+packages/ui/src/components/ui/dotm-square-12.tsx
+  s_e5c2d0cab9600a::t_692759cfe31fc1 1-4,8-70
+  s_e5c2d0cab9600a::t_61e310a8529983 5-7
+packages/ui/components.json
+  s_e5c2d0cab9600a::t_692759cfe31fc1 27-28
+packages/ui/src/components/dotmatrix-loader.css
+  s_e5c2d0cab9600a::t_692759cfe31fc1 1-1121
+packages/ui/src/lib/dotmatrix-core.tsx
+  s_e5c2d0cab9600a::t_692759cfe31fc1 1-4,7-958
+  s_e5c2d0cab9600a::t_ac63cdccfa3650 5-6
+packages/ui/src/lib/dotmatrix-hooks.ts
+  s_e5c2d0cab9600a::t_692759cfe31fc1 1-4,6-224
+  s_e5c2d0cab9600a::t_246a58da680d0e 5
+packages/ui/src/index.ts
+  s_e5c2d0cab9600a::t_7c196dcf16b8a6 76-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "6dfe35e86291f8377282c5a1ec6624ba1ef24986",
+  "prompts": {},
+  "sessions": {
+    "s_e5c2d0cab9600a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "b7d72a35-ea6b-407d-89fe-259b468a6908",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
