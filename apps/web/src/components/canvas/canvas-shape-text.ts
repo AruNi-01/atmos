@@ -86,7 +86,7 @@ export function textPreviewForGetState(shape: TLShape): string | undefined {
 }
 
 export type ShapeTextForCopyOptions = {
-  terminalRefs?: Map<TLShapeId, TerminalRef | null>;
+  terminalRefs?: Map<TLShapeId, TerminalRef>;
   terminalSkipFromBottom?: number;
 };
 
