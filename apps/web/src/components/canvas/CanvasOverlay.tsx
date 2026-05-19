@@ -4,6 +4,7 @@ import React from "react";
 import { useQueryState } from "nuqs";
 import { ChevronDown } from "lucide-react";
 import { centerStageParams } from "@/lib/nuqs/searchParams";
+import { useDesktopTrafficLightsPadding } from "@/hooks/use-desktop-traffic-lights-padding";
 import { CanvasView } from "./CanvasView";
 
 /**
@@ -18,6 +19,9 @@ import { CanvasView } from "./CanvasView";
 export function CanvasOverlay() {
   const [canvas, setCanvas] = useQueryState("canvas", centerStageParams.canvas);
   const [animState, setAnimState] = React.useState<"idle" | "entering" | "visible" | "closing">("idle");
+  // macOS desktop (non-fullscreen) reserves ~32px at the top for the window
+  // traffic-lights; nudge the collapse pull-tab below them so it stays clickable.
+  const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   /** Previous committed value of `canvas` from nuqs (starts false so `?canvas=true` on first paint opens correctly). */
   const prevCanvasOpenRef = React.useRef(false);
   const previousFocusRef = React.useRef<Element | null>(null);
@@ -94,6 +98,7 @@ export function CanvasOverlay() {
         type="button"
         onClick={handleClose}
         className="group absolute left-1/2 top-0 z-[160] flex -translate-x-1/2 cursor-pointer flex-col items-center gap-0 px-6 pb-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground"
+        style={needsTrafficLightsPadding ? { top: 32 } : undefined}
         aria-label="Collapse canvas"
         title="Collapse canvas"
       >

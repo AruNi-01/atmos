@@ -115,6 +115,12 @@ const CanvasTopLeftToolbarContext = React.createContext<{
   isCollapsed: false,
   toggle: () => {},
 });
+/**
+ * Carries the macOS traffic-lights offset (32px in non-fullscreen Tauri) down
+ * to the in-tldraw top menu zone so the left-top menu can shift below the
+ * window controls without pushing the entire canvas down.
+ */
+const CanvasTopChromePaddingContext = React.createContext<number>(0);
 
 class CanvasTerminalShapeUtil extends CanvasTerminalShapeSchemaUtil {
   component(shape: CanvasTerminalShape) {
@@ -532,6 +538,7 @@ function CanvasCollapsibleMenuPanel({
 
 function CanvasMenuPanel() {
   const { isCollapsed } = React.useContext(CanvasTopLeftToolbarContext);
+  const topChromePadding = React.useContext(CanvasTopChromePaddingContext);
   const breakpoint = useBreakpoint();
   const ref = React.useRef<HTMLDivElement | null>(null);
   usePassThroughWheelEvents(ref);
@@ -552,7 +559,11 @@ function CanvasMenuPanel() {
   }
 
   return (
-    <div ref={ref} className="tlui-menu-zone pointer-events-auto">
+    <div
+      ref={ref}
+      className="tlui-menu-zone pointer-events-auto"
+      style={topChromePadding ? { marginTop: topChromePadding } : undefined}
+    >
       <TldrawUiToolbar label="Canvas menu" className="tlui-buttons__horizontal">
         <CanvasCollapsibleMenuPanel isCollapsed={isCollapsed}>
           <TldrawUiRow>
@@ -1384,7 +1395,10 @@ export const CanvasView: React.FC = () => {
   );
 
   const sharePanelContent = (
-    <div className="pointer-events-auto">
+    <div
+      className="pointer-events-auto"
+      style={needsTrafficLightsPadding ? { marginTop: 32 } : undefined}
+    >
       <div className={cn("flex items-center px-0.5 py-1", sharePanelSurfaceClass)}>
         {/*
           Master collapse — hides every other action button (Create Frame /
@@ -1530,13 +1544,11 @@ export const CanvasView: React.FC = () => {
   sharePanelRef.current = sharePanelContent;
 
   return (
-    <div className={cn(
-      "tldraw-wrapper relative h-full w-full overflow-hidden bg-background",
-      needsTrafficLightsPadding && "pt-[28px]"
-    )}>
+    <div className="tldraw-wrapper relative h-full w-full overflow-hidden bg-background">
       <CanvasAgentContext.Provider value={configuredAgents}>
         <CanvasAgentCrashProvider value={canvasCrashRecovery}>
           <CanvasTerminalRefProvider>
+          <CanvasTopChromePaddingContext.Provider value={needsTrafficLightsPadding ? 32 : 0}>
           <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
             <CanvasAgentCrashBoundary className="h-full w-full">
               <Tldraw
@@ -1557,6 +1569,7 @@ export const CanvasView: React.FC = () => {
               </Tldraw>
             </CanvasAgentCrashBoundary>
           </CanvasTopLeftToolbarContext.Provider>
+          </CanvasTopChromePaddingContext.Provider>
           <CanvasAgentIsland bridge={canvasAgentBridge} />
           </CanvasTerminalRefProvider>
         </CanvasAgentCrashProvider>
