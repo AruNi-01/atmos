@@ -1,0 +1,335 @@
+apps/web/src/components/canvas/canvas-terminal-placement.ts
+  s_e5c2d0cab9600a::t_ed760ac7d9d279 1-11,16-61,89-114,116-134,197-199,202-208,224,227,229-231,241-244,252,254-255,261,264
+  s_e5c2d0cab9600a::t_d715132a04b9ba 12-15,62-88,135-196,200-201,225-226,228,232-240,245-251,253,256-260,262-263
+  s_e5c2d0cab9600a::t_6dde57e0786716 209-223
+apps/web/src/hooks/use-ui-pref-hooks.ts
+  s_e5c2d0cab9600a::t_d68a0171db8a4b 278-293,302,309,345-351,366-370,372,387-393
+  s_e5c2d0cab9600a::t_fb34b0bfe7c685 257-262,265-266,273
+  s_e5c2d0cab9600a::t_4ecadb7daa7a2c 312-335
+  s_e5c2d0cab9600a::t_7f0be6c5877626 305-308,310-311,336-340,342-344,352-365,371,373-375
+apps/web/src/components/terminal/TerminalGrid.tsx
+  s_e5c2d0cab9600a::t_664c2d50747e35 75
+  s_e5c2d0cab9600a::t_01ac0c97474495 983
+apps/web/src/components/canvas/CanvasAgentIsland.tsx
+  s_e5c2d0cab9600a::t_3d1ae823628c06 303-307,310-312,316-324
+  s_e5c2d0cab9600a::t_6062e6b996f2d6 17
+  s_e5c2d0cab9600a::t_e40d9713cf1938 89-90,94-101
+  s_e5c2d0cab9600a::t_147d6961fa9e85 30
+  s_e5c2d0cab9600a::t_9819b4f8026a28 115
+  s_e5c2d0cab9600a::t_8fec100f919c48 121,123
+  s_e5c2d0cab9600a::t_64e2a3be330121 331-334
+  s_e5c2d0cab9600a::t_6bcabf1549ba24 132,147,151,155
+  s_e5c2d0cab9600a::t_f0d2fe35f847ac 31
+  s_e5c2d0cab9600a::t_2d8535f1d0b7d3 85
+  s_e5c2d0cab9600a::t_ccb7fe2d67939c 109-110
+  s_e5c2d0cab9600a::t_8e0aaf14b16a60 138,148
+  s_e5c2d0cab9600a::t_046fa0726dbf62 253-256,258,260
+apps/web/src/hooks/use-canvas-chrome-prefs.ts
+  s_e5c2d0cab9600a::t_a092e2bfe3e0eb 44,50-51
+specs/AGENTS.md
+  s_e5c2d0cab9600a::t_b90923b65879b1 164
+  s_e5c2d0cab9600a::t_c8e5f11541cde3 48-81,89-90
+  s_e5c2d0cab9600a::t_c0c0a145ee0404 100
+crates/core-service/src/service/terminal.rs
+  s_e5c2d0cab9600a::t_4b3dc99cef730c 16
+  s_e5c2d0cab9600a::t_ac50f91cb2f7e3 1052-1060,1105-1106
+  s_e5c2d0cab9600a::t_eb2c36c32faeb8 1102-1104
+  s_e5c2d0cab9600a::t_3cce216de27704 1061-1101
+apps/web/src/components/canvas/__tests__/canvas-agent-tldraw-style.test.ts
+  s_e5c2d0cab9600a::t_a4819bd1d86f9a 1-17
+apps/web/src/components/canvas/use-canvas-agent-bridge.ts
+  s_e5c2d0cab9600a::t_3263cbb3fcf9a5 206
+  s_e5c2d0cab9600a::t_9c7f8452f767a7 138,140-143,155,157-164,169
+  s_e5c2d0cab9600a::t_23fb94bfc26197 145-153,156,165-168
+  s_e5c2d0cab9600a::t_7c210db480196a 13-16
+  s_e5c2d0cab9600a::t_c4ebe86c56e931 171-172
+  s_e5c2d0cab9600a::t_24d9c446913948 205
+apps/web/src/components/canvas/canvas-agent-arrow-bindings.ts
+  s_e5c2d0cab9600a::t_d4173bf1b5f7ad 1-207
+apps/web/src/components/canvas/canvas-agent-tldraw-style.ts
+  s_e5c2d0cab9600a::t_e4d53bfed9869b 1-118
+apps/web/src/components/canvas/canvas-agent-activity.ts
+  s_e5c2d0cab9600a::t_1e1db960723b7b 185-192,194
+  s_e5c2d0cab9600a::t_07c4907e5ab964 55,57,72-73,76,79-89,93-95,107-125,132-136,147-155,158-161
+  s_e5c2d0cab9600a::t_2af73aacffa3e8 56
+  s_e5c2d0cab9600a::t_0de23242a17463 59-60
+  s_e5c2d0cab9600a::t_fcb8c7e32dc96c 74,77-78
+  s_e5c2d0cab9600a::t_f5a8c8a3eeab66 75
+  s_e5c2d0cab9600a::t_b5934238a5324c 37-41
+  s_e5c2d0cab9600a::t_e497955430a233 71
+  s_e5c2d0cab9600a::t_7b2ad347bdda51 90-92
+  s_e5c2d0cab9600a::t_1511df19c9b744 96-106
+  s_e5c2d0cab9600a::t_66dd90daccb484 156-157
+  s_e5c2d0cab9600a::t_5d4a36bccbae38 23-36
+apps/web/src/components/canvas/CanvasTerminalFocusPulse.tsx
+  s_e5c2d0cab9600a::t_6bb0c993286711 57-58,71
+  s_e5c2d0cab9600a::t_b8b00c33efa38b 3
+  s_e5c2d0cab9600a::t_8284518c138610 1-2,4-56,59-70,72-73
+apps/api/src/api/system/handlers.rs
+  s_e5c2d0cab9600a::t_cd1b8eb9f148fa 679
+  s_e5c2d0cab9600a::t_6d021bd805a10e 666-670,674-678,680-691,697,699,702-704,706-709,712-717,722-724
+  s_e5c2d0cab9600a::t_783ccc1e22525b 692-696,701
+  s_e5c2d0cab9600a::t_434992e4351a0d 671-673
+  s_e5c2d0cab9600a::t_c6cfdc8f2f3541 698,700,705,710-711,718-721
+apps/web/src/components/canvas/canvas-terminal-ref-context.tsx
+  s_e5c2d0cab9600a::t_85221a3dc7d3d2 1-34
+apps/cli/src/commands/canvas.rs
+  s_e5c2d0cab9600a::t_c011606c8c4bcf 421-424,429,432-436,438
+  s_e5c2d0cab9600a::t_80d80d432b67ea 90-110
+  s_e5c2d0cab9600a::t_87fab80e065355 596-687,737-755
+  s_e5c2d0cab9600a::t_e95d8fc2f326b0 339-341,343,345,347-349,359-373,377
+  s_e5c2d0cab9600a::t_3d25745d7785ad 33,35
+  s_e5c2d0cab9600a::t_f120622f7c13eb 50
+  s_e5c2d0cab9600a::t_f5d1691e9614a1 688-736
+  s_e5c2d0cab9600a::t_3105dfe356aa7d 128-129
+  s_e5c2d0cab9600a::t_c1dba8340d6aee 34,36
+  s_e5c2d0cab9600a::t_3692a4e3a37407 170-171
+  s_e5c2d0cab9600a::t_693c750a6fbc73 417,427
+  s_e5c2d0cab9600a::t_d81b69230dfdb0 111-114
+  s_e5c2d0cab9600a::t_701130c210274c 158-169
+  s_e5c2d0cab9600a::t_4a018b962e7985 418-420,425-426,428,430-431,437,439-441
+skills/atmos-canvas-agent/SKILL.md
+  s_e5c2d0cab9600a::t_f735ffb02757ca 3,10,19-27,29-41,58,61,78,80-82,84,86,88-94,96,99,105,107-108,110,114-120,122,137,139-141,143,145-151,153,155,157-158,162,164,166-169,173,176-188,193,195-200,202,204,206-212,216,218-224
+  s_e5c2d0cab9600a::t_65a3aa83e9ced0 124,126-128,130,132-135
+  s_e5c2d0cab9600a::t_1dfa98e87dba28 97
+  s_e5c2d0cab9600a::t_424ca2d59b0df0 60
+  s_e5c2d0cab9600a::t_6a9e4e60bde0a0 28
+  s_e5c2d0cab9600a::t_a2b13cab79f775 65,68-72,76
+  s_e5c2d0cab9600a::t_3690737ce5c8f3 63
+  s_e5c2d0cab9600a::t_e47222158fc2c0 98
+  s_e5c2d0cab9600a::t_a4b573843e8f9d 59
+apps/web/src/components/canvas/__tests__/canvas-agent-view-bounds.test.ts
+  s_e5c2d0cab9600a::t_08d5904d1fd719 1-19
+apps/web/src/hooks/use-canvas-settings.ts
+  s_e5c2d0cab9600a::t_9d9beb4a875b47 82-84,86,90
+  s_e5c2d0cab9600a::t_bf6aa952b25f28 11-12,18,23,26-27
+  s_e5c2d0cab9600a::t_0327bced3701c2 145-170
+  s_e5c2d0cab9600a::t_42c1920e7c2906 40-59,62-63,68
+apps/web/src/hooks/__tests__/use-canvas-settings.test.ts
+  s_e5c2d0cab9600a::t_cd2f2a5a3457d2 7,9,11,13
+  s_e5c2d0cab9600a::t_fb278f8b31ca11 26
+  s_e5c2d0cab9600a::t_3bcfe67b62ee8c 44-54
+apps/web/src/components/canvas/__tests__/canvas-agent-activity.test.ts
+  s_e5c2d0cab9600a::t_3032b395f1c34b 103-110
+  s_e5c2d0cab9600a::t_e33debb6aed5ae 89-102,111-112
+apps/web/src/components/canvas/CanvasAgentOnCanvas.tsx
+  s_e5c2d0cab9600a::t_5f20c356d039af 1-19
+apps/web/src/components/canvas/CanvasShapeCopyOverlay.tsx
+  s_e5c2d0cab9600a::t_79e9b0092f037d 112-114
+  s_e5c2d0cab9600a::t_6deb4fd0d5aa66 145-146
+  s_e5c2d0cab9600a::t_c86a702a46c7b7 73-74,76-87,89,94
+  s_e5c2d0cab9600a::t_264d300248e655 1-5,14-19,21,23,35-50,61-70,75,88,90-93,95-105,115-144,182-183
+  s_e5c2d0cab9600a::t_ede8fae8eff2a9 51-60,147-181
+  s_e5c2d0cab9600a::t_1555b5b7271415 6-13
+  s_e5c2d0cab9600a::t_29cd749ae6f72f 20,22,71-72,106-111
+  s_e5c2d0cab9600a::t_84249a2ac32b4b 24-32,34
+  s_e5c2d0cab9600a::t_a68d820579e2a1 33
+apps/web/src/components/canvas/canvas-agent-view-bounds.ts
+  s_e5c2d0cab9600a::t_8e51c0aadfe905 1-72
+apps/web/src/components/canvas/canvas-terminal-focus.ts
+  s_e5c2d0cab9600a::t_1f41b6ae2eb6fa 76
+  s_e5c2d0cab9600a::t_0c1c47995ace80 1-75,77-88
+apps/web/src/components/canvas/canvas-agent-lint.ts
+  s_e5c2d0cab9600a::t_b5b8b4cedfd55f 1-68
+apps/web/src/components/canvas/CanvasView.tsx
+  s_e5c2d0cab9600a::t_3074ef50640a0f 71
+  s_e5c2d0cab9600a::t_3185dd46bd9943 890
+  s_e5c2d0cab9600a::t_2faace2c3123c3 1561
+  s_e5c2d0cab9600a::t_03a192ea5e405b 402
+  s_e5c2d0cab9600a::t_6eb5c7891b2e16 370-372,374
+  s_e5c2d0cab9600a::t_f14b467a1363cd 91
+  s_e5c2d0cab9600a::t_7a57e34824604e 94-99
+  s_e5c2d0cab9600a::t_447e292caac793 318-324
+  s_e5c2d0cab9600a::t_0c2c23fe81e5eb 331
+  s_e5c2d0cab9600a::t_f95c2fdea5d5c7 68-70,72-73
+  s_e5c2d0cab9600a::t_cc6b6e6f74a0e2 337
+  s_e5c2d0cab9600a::t_421e0bedf54155 629-632
+  s_e5c2d0cab9600a::t_0dd65d7d9e6a0d 687-692,697,710
+  s_e5c2d0cab9600a::t_75b012feecbaa6 934-935
+  s_e5c2d0cab9600a::t_0f0741540665e7 956-959,966
+  s_e5c2d0cab9600a::t_280be3a2cae833 158
+  s_e5c2d0cab9600a::t_a0af47a0f78a58 1539
+  s_e5c2d0cab9600a::t_48194d1e3bec79 80
+  s_e5c2d0cab9600a::t_64076ad792d063 381-383,385
+  s_e5c2d0cab9600a::t_43406e48f0de50 55
+  s_e5c2d0cab9600a::t_6583e0702714ac 364
+  s_e5c2d0cab9600a::t_731b8f9ada1d33 1218-1226,1228-1259
+  s_e5c2d0cab9600a::t_0e7231e7820dc2 1556
+  s_e5c2d0cab9600a::t_0f1a8ef1ae7f72 1227
+  s_e5c2d0cab9600a::t_7d50967a534b95 163
+  s_e5c2d0cab9600a::t_64d09c8c059ee9 973
+  s_e5c2d0cab9600a::t_2c15c1765fce54 960,967
+  s_e5c2d0cab9600a::t_db41550adeb249 93,100-103
+apps/web/src/components/canvas/canvas-agent-errors.ts
+  s_e5c2d0cab9600a::t_96e7c48fc99c68 27-34
+apps/web/src/components/canvas/__tests__/canvas-terminal-pin.test.ts
+  s_e5c2d0cab9600a::t_ba1020a35dfb96 3
+  s_e5c2d0cab9600a::t_ae799c4069b208 114
+  s_e5c2d0cab9600a::t_a7d9cdc036d3cb 12-31
+  s_e5c2d0cab9600a::t_d579988ad2eba9 77
+apps/web/src/components/canvas/use-canvas-runtime.ts
+  s_e5c2d0cab9600a::t_e98ed7608a2c6c 9,12,20,23,28
+crates/core-engine/src/lib.rs
+  s_e5c2d0cab9600a::t_23312f56bbbfeb 25-26
+apps/web/src/components/canvas/canvas-agent-shape-patch.ts
+  s_e5c2d0cab9600a::t_2e6c2df856bf6a 4-9
+  s_e5c2d0cab9600a::t_65baa6a3cbc1ca 97-109
+specs/APP/APP-015_canvas-terminal-agent-integration/IMPROVEMENT.md
+  s_e5c2d0cab9600a::t_c219fff8eb5d20 267-299,301-304
+  s_e5c2d0cab9600a::t_d946f66c98e48e 14
+  s_e5c2d0cab9600a::t_b5457afdd3eeb6 300
+  s_e5c2d0cab9600a::t_5baf302fbc1182 1-13,15-59,61-266,305-319
+  s_e5c2d0cab9600a::t_e7f26a4112da44 60
+apps/web/src/components/canvas/__tests__/canvas-agent-bus.test.ts
+  s_e5c2d0cab9600a::t_0fd06d0b4738e0 106-108
+  s_e5c2d0cab9600a::t_dac986321357bc 372-384
+  s_e5c2d0cab9600a::t_cf7a9b103c6e2e 385-410
+  s_e5c2d0cab9600a::t_262d9d06899619 268-283
+apps/web/src/components/canvas/canvas-agent-feed.ts
+  s_e5c2d0cab9600a::t_6281cc5c30905e 69-83
+  s_e5c2d0cab9600a::t_b704f5f381c1cf 22-24
+  s_e5c2d0cab9600a::t_3f78a46ad3276a 118-153
+apps/web/src/hooks/__tests__/use-canvas-chrome-prefs.test.ts
+  s_e5c2d0cab9600a::t_26c402429b7903 22,30
+apps/web/src/components/canvas/canvas-agent-bounds.ts
+  s_e5c2d0cab9600a::t_f5b2174149c1d9 1-69
+apps/web/src/components/canvas/CanvasAgentViewHighlight.tsx
+  s_e5c2d0cab9600a::t_c8b1cb0086f76d 1-3,11,13,20-29,31-32,34-42,53-54,56-57,59-63,66-96,99-120,127-130,133-134,152
+  s_e5c2d0cab9600a::t_95e1974dd280c4 14,16,18-19
+  s_e5c2d0cab9600a::t_3c2fe850f99d6c 121
+  s_e5c2d0cab9600a::t_26fa8aadc5bf1d 4-10,15,17
+  s_e5c2d0cab9600a::t_c7ac4265ee0b2b 30,33,43-46,48-52,55,58,64
+  s_e5c2d0cab9600a::t_de4f3c3f831c72 126
+  s_e5c2d0cab9600a::t_92b9782378d629 122-124
+  s_e5c2d0cab9600a::t_d20d5253a89ee9 12,65,97-98,125,131-132,135-151
+  s_e5c2d0cab9600a::t_dc9ec52a4f14d4 47
+crates/core-engine/src/tmux/mod.rs
+  s_e5c2d0cab9600a::t_ad054e5659fe66 84-93
+  s_e5c2d0cab9600a::t_eb0e9f1d0bdf38 798-799,801,803-819
+  s_e5c2d0cab9600a::t_d1b4cab8477ef9 795-797,800,820-841,843-846,853-855,859-860,871-881
+  s_e5c2d0cab9600a::t_6d5ad6b60692fc 884-946
+apps/web/src/components/canvas/__tests__/canvas-terminal-placement.test.ts
+  s_e5c2d0cab9600a::t_39be6aa0e3eb55 61,66-69,71-72,75-76,80,85-88
+  s_e5c2d0cab9600a::t_a724bfd268ec82 1-60,62-65,70,73-74,77-79,81-84,89-98
+apps/web/src/components/canvas/canvas-agent-layout.ts
+  s_e5c2d0cab9600a::t_d6a99697462cd8 1-253
+apps/web/src/lib/canvas-chrome-prefs.ts
+  s_e5c2d0cab9600a::t_8a1ff5c4664ce6 8,10-11,18
+  s_e5c2d0cab9600a::t_a59aea6b09d7b5 27
+apps/web/src/components/canvas/canvas-shape-text.ts
+  s_e5c2d0cab9600a::t_e1743243ed3ed8 1,7-8,15-16,88-100,111-112,129-138,143,162-166,172,174,181-182,184-186,188-260,265
+  s_e5c2d0cab9600a::t_330acee5355476 139-142,144-161
+  s_e5c2d0cab9600a::t_cb7eb94da11a55 2-6,9-14,17-69,103-110,113-128,167-171,173,175,177,179-180,183,187,261-264,266-274
+  s_e5c2d0cab9600a::t_917ff6b1386dbf 70-87,101-102
+apps/api/src/api/system/mod.rs
+  s_e5c2d0cab9600a::t_18ac9faba071a3 24-26
+apps/web/src/components/canvas/canvas-terminal-copy.ts
+  s_e5c2d0cab9600a::t_e1036f09babb74 1-2,4-12,25-27,35,48-51,54-57,68-74,101-106,108-115
+  s_e5c2d0cab9600a::t_7b819a457c3c3c 3
+  s_e5c2d0cab9600a::t_d0c203c18cd216 13-24,28-29,31-34,36-47,53,58-67,78-79,82,84,86,89-97,107
+  s_e5c2d0cab9600a::t_b452c576b7c8f0 75-77,80-81,83,85,87-88,98-100
+  s_e5c2d0cab9600a::t_747164579c7349 30,52
+apps/web/src/components/terminal/Terminal.tsx
+  s_e5c2d0cab9600a::t_0faa2ff660409d 267-268
+  s_e5c2d0cab9600a::t_d7873a7bc40298 660-665,669,671-674
+  s_e5c2d0cab9600a::t_221537b834520e 659,666-668,670
+apps/web/src/api/rest-api.ts
+  s_e5c2d0cab9600a::t_d8d34aef1022c9 483-487,490-498,503-507,511-520
+  s_e5c2d0cab9600a::t_c5173816f6148d 488-489,499-502,508-510
+apps/web/src/components/dialogs/SettingsModal.tsx
+  s_e5c2d0cab9600a::t_b1f85439985ac3 826-834,839-840
+  s_e5c2d0cab9600a::t_aababa694c533f 980-983
+  s_e5c2d0cab9600a::t_06325b32959522 954-979
+  s_e5c2d0cab9600a::t_758d412bb3e3f4 879-890
+  s_e5c2d0cab9600a::t_3eb300c67eb36c 152,154
+  s_e5c2d0cab9600a::t_7942672b11f693 855-858
+apps/web/src/components/canvas/canvas-agent-feed-labels.ts
+  s_e5c2d0cab9600a::t_15b0f2c42343c9 124-132,136-137
+  s_e5c2d0cab9600a::t_beeb4e1057b56a 140-143
+  s_e5c2d0cab9600a::t_290ed92fb0f796 74
+  s_e5c2d0cab9600a::t_a1d12288ca8694 69
+  s_e5c2d0cab9600a::t_2916c81c76626f 72-73
+apps/web/src/components/canvas/__tests__/canvas-shape-text.test.ts
+  s_e5c2d0cab9600a::t_726117a2a2d559 1-9,11-91
+apps/web/src/components/canvas/canvas-agent-bus.ts
+  s_e5c2d0cab9600a::t_9f1c1ce800da13 510
+  s_e5c2d0cab9600a::t_8fad9861a3ed81 521-523
+  s_e5c2d0cab9600a::t_cd9efdad0f6807 551-576,581-594
+  s_e5c2d0cab9600a::t_361522f42d3475 722
+  s_e5c2d0cab9600a::t_e05f61bc7938f1 400
+  s_e5c2d0cab9600a::t_fe209bde8fea16 753
+  s_e5c2d0cab9600a::t_7ab459196c66ee 434-435,438-439,442-443,448,463-465,467-469,473-475,477-480,484-485,487
+  s_e5c2d0cab9600a::t_853e7563024275 806
+  s_e5c2d0cab9600a::t_c6e6e7c2472201 148
+  s_e5c2d0cab9600a::t_18f76951531c47 534-536
+  s_e5c2d0cab9600a::t_e5ab987d406c0c 831-883
+  s_e5c2d0cab9600a::t_9ec15fbc969fbe 1126-1134,1137-1139
+  s_e5c2d0cab9600a::t_48ecece41a350f 27-31
+  s_e5c2d0cab9600a::t_3185ae20dc7155 632-633
+  s_e5c2d0cab9600a::t_349dd05dc3f7b9 158
+  s_e5c2d0cab9600a::t_504318168bf7d3 54-57
+  s_e5c2d0cab9600a::t_b1dd43bc88923c 198,201,204,207,210,212,217,219,222,225
+  s_e5c2d0cab9600a::t_dd10cf4d43bb45 1048-1057,1059-1064
+  s_e5c2d0cab9600a::t_7841a6758e7a81 460-462
+  s_e5c2d0cab9600a::t_57870ce26b2e4c 91-94
+  s_e5c2d0cab9600a::t_8f4a5704356605 917-938
+  s_e5c2d0cab9600a::t_e72e4f67c21c45 579-580
+  s_e5c2d0cab9600a::t_4252a30de1a51c 401,409-418,423-428
+  s_e5c2d0cab9600a::t_acc652dc032508 1032-1046
+  s_e5c2d0cab9600a::t_2b782a9c879be2 431-433,436-437,440-441,446,459,466,471-472,476,482-483,486
+  s_e5c2d0cab9600a::t_d1375e6e1d945c 149
+  s_e5c2d0cab9600a::t_d64915b692f873 156-157
+  s_e5c2d0cab9600a::t_34f0ea00289305 738
+  s_e5c2d0cab9600a::t_fbd4691b8c0389 61
+  s_e5c2d0cab9600a::t_6695c2c66c67d8 698,707,711-721,723-737,739-752,754-759,768-773,775-776
+  s_e5c2d0cab9600a::t_880ff46c5b9a4a 265
+  s_e5c2d0cab9600a::t_e1d91d470ae794 444-445,447,449-458,470,481
+  s_e5c2d0cab9600a::t_2fb31a8f621b48 1047,1058
+  s_e5c2d0cab9600a::t_fb31ffe64c8776 760-767,774
+  s_e5c2d0cab9600a::t_964e4ce7b0759d 543-545
+  s_e5c2d0cab9600a::t_0b499e3a02987a 228-236,239,241,266-267,269-339
+  s_e5c2d0cab9600a::t_4d64978dc23e41 40-43
+  s_e5c2d0cab9600a::t_cb3fe9d5a02f8a 22-26,33-34,46-53,58
+  s_e5c2d0cab9600a::t_076d22213910fa 36,44
+  s_e5c2d0cab9600a::t_73ab64743c9e46 502-504
+  s_e5c2d0cab9600a::t_339df93d301d0a 39,45
+  s_e5c2d0cab9600a::t_6716956082d5f3 35,37-38
+  s_e5c2d0cab9600a::t_80bbfc9da201bc 113-114
+  s_e5c2d0cab9600a::t_612a6628f29a78 495-501
+  s_e5c2d0cab9600a::t_32cc0270c71fa2 159-161,171-194
+  s_e5c2d0cab9600a::t_e42a1acd18713d 242-244
+  s_e5c2d0cab9600a::t_8e9ed77e93d323 268
+packages/ui/src/styles/globals.css
+  s_e5c2d0cab9600a::t_848bea5eb63c9c 186-208
+  s_e5c2d0cab9600a::t_d11b8084148524 224-246,272-286
+  s_e5c2d0cab9600a::t_0ee90def4b3efd 247-271
+apps/web/src/components/canvas/canvas-terminal-shape.ts
+  s_e5c2d0cab9600a::t_fa6ca832d88898 16
+  s_e5c2d0cab9600a::t_5483840ad97e88 377-380,386-387
+  s_e5c2d0cab9600a::t_79098e20925508 322-325
+  s_e5c2d0cab9600a::t_07928e603364d6 159-160
+  s_e5c2d0cab9600a::t_8bcbc20a192d59 156-158,161-196,200-218,220-244
+  s_e5c2d0cab9600a::t_b9a81982c3d682 10
+  s_e5c2d0cab9600a::t_563c8534385921 277,281
+  s_e5c2d0cab9600a::t_20d99763a64bb1 389
+specs/APP/APP-015_canvas-terminal-agent-integration/TECH.md
+  s_e5c2d0cab9600a::t_2d04a18ebd200b 3
+apps/web/src/components/canvas/__tests__/canvas-agent-feed.test.ts
+  s_e5c2d0cab9600a::t_4e5f4a2054dc67 73-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "937c8382c3836cd22445be97df88b946dc9f9f48",
+  "prompts": {},
+  "sessions": {
+    "s_e5c2d0cab9600a": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "b7d72a35-ea6b-407d-89fe-259b468a6908",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
