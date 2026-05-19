@@ -67,10 +67,7 @@ import {
 } from "./use-canvas-board";
 import { readCanvasSession, writeCanvasSession } from "@/hooks/use-ui-pref-hooks";
 import { useConnectionStore } from "@/hooks/use-connection-store";
-import {
-  readCanvasChromePrefs,
-  patchCanvasChromePrefs,
-} from "@/lib/canvas-chrome-prefs";
+import { useCanvasChromePrefs } from "@/hooks/use-canvas-chrome-prefs";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
@@ -86,6 +83,9 @@ import {
 import { FIXED_TERMINAL_TAB_VALUE } from "@/hooks/use-terminal-store";
 import { useCanvasAgentBridge } from "./use-canvas-agent-bridge";
 import { CanvasAgentBridgeControls, CanvasAgentOverlay } from "./CanvasAgentOverlay";
+import { CanvasAgentIsland } from "./CanvasAgentIsland";
+import { CanvasAgentCrashBoundary } from "./CanvasAgentCrashBoundary";
+import { CanvasAgentCrashProvider } from "./canvas-agent-crash-context";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
@@ -837,7 +837,14 @@ function CanvasAnimatedToolbarGroup({
 }
 
 export const CanvasView: React.FC = () => {
-  const canvasChromePrefs = React.useMemo(() => readCanvasChromePrefs(), []);
+  const {
+    isStylePanelEnabled,
+    isTopLeftToolbarCollapsed,
+    isToolbarCollapsed,
+    toggleIsStylePanelEnabled,
+    toggleIsTopLeftToolbarCollapsed,
+    toggleIsToolbarCollapsed,
+  } = useCanvasChromePrefs();
   const { board, document, isLoading, isSaving, error, loadBoard } = useCanvasBoard();
   const activeInstanceId = useConnectionStore((state) => state.activeInstanceId);
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
@@ -862,6 +869,17 @@ export const CanvasView: React.FC = () => {
   // editor in via `setEditor` below.
   const [agentBridgeEditor, setAgentBridgeEditor] = React.useState<Editor | null>(null);
   const canvasAgentBridge = useCanvasAgentBridge(agentBridgeEditor);
+  const [tldrawRemountKey, setTldrawRemountKey] = React.useState(0);
+  const canvasCrashRecovery = React.useMemo(
+    () => ({
+      bumpRemount: () => setTldrawRemountKey(k => k + 1),
+      failInflight: (message: string) => canvasAgentBridge.failInflight(message),
+      reloadBoard: async () => {
+        await loadBoard();
+      },
+    }),
+    [canvasAgentBridge, loadBoard],
+  );
   const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
   const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
   const [agentSettingsLoading, setAgentSettingsLoading] = React.useState(false);
@@ -870,33 +888,6 @@ export const CanvasView: React.FC = () => {
    * `StylePanel: () => null`. When `true`, we omit the override so tldraw owns
    * visibility (it auto-hides on no-selection / certain tools, etc.).
    */
-  const [isStylePanelEnabled, setIsStylePanelEnabled] = React.useState(
-    () => canvasChromePrefs.isStylePanelEnabled,
-  );
-  /**
-   * Controls the built-in tldraw toolbar cluster in the top-left corner
-   * (main menu, page menu, undo / redo / overflow actions). When collapsed we
-   * hide the default cluster and leave only an expand button in its place.
-   */
-  const [isTopLeftToolbarCollapsed, setIsTopLeftToolbarCollapsed] = React.useState(
-    () => canvasChromePrefs.isTopLeftToolbarCollapsed,
-  );
-  /**
-   * Master collapse for the entire injected SharePanel toolbar — when true we
-   * hide every action (Create Frame / Save / Style toggle) and only keep the
-   * lone collapse-toggle button so the canvas surface stays unobstructed.
-   */
-  const [isToolbarCollapsed, setIsToolbarCollapsed] = React.useState(
-    () => canvasChromePrefs.isToolbarCollapsed,
-  );
-
-  React.useEffect(() => {
-    patchCanvasChromePrefs({
-      isStylePanelEnabled,
-      isTopLeftToolbarCollapsed,
-      isToolbarCollapsed,
-    });
-  }, [isStylePanelEnabled, isTopLeftToolbarCollapsed, isToolbarCollapsed]);
   const documentSaveInFlightRef = React.useRef(false);
   const sessionSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSessionRef = React.useRef<CanvasTldrawSession | null>(null);
@@ -909,9 +900,9 @@ export const CanvasView: React.FC = () => {
   const topLeftToolbarContextValue = React.useMemo(
     () => ({
       isCollapsed: isTopLeftToolbarCollapsed,
-      toggle: () => setIsTopLeftToolbarCollapsed((prev) => !prev),
+      toggle: toggleIsTopLeftToolbarCollapsed,
     }),
-    [isTopLeftToolbarCollapsed],
+    [isTopLeftToolbarCollapsed, toggleIsTopLeftToolbarCollapsed],
   );
   /**
    * Stable component identity for tldraw's SharePanel slot. tldraw re-renders
@@ -1318,7 +1309,7 @@ export const CanvasView: React.FC = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setIsToolbarCollapsed((prev) => !prev)}
+          onClick={toggleIsToolbarCollapsed}
           aria-pressed={isToolbarCollapsed}
           aria-label={isToolbarCollapsed ? "Expand canvas toolbar" : "Collapse canvas toolbar"}
           title={isToolbarCollapsed ? "Expand toolbar" : "Collapse toolbar"}
@@ -1426,7 +1417,7 @@ export const CanvasView: React.FC = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsStylePanelEnabled((prev) => !prev)}
+              onClick={toggleIsStylePanelEnabled}
               aria-pressed={isStylePanelEnabled}
               className={cn(
                 sharePanelIconButtonClass,
@@ -1457,23 +1448,28 @@ export const CanvasView: React.FC = () => {
       needsTrafficLightsPadding && "pt-[28px]"
     )}>
       <CanvasAgentContext.Provider value={configuredAgents}>
-        <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
-          <Tldraw
-            key={`${board?.guid || "canvas"}:${activeInstanceId}`}
-            licenseKey={TLDRAW_LICENSE_KEY}
-            snapshot={initialSnapshot ?? undefined}
-            shapeUtils={shapeUtils}
-            components={tldrawComponents}
-            onMount={(nextEditor) => {
-              editorRef.current = nextEditor;
-              setEditorReady(true);
-              setAgentBridgeEditor(nextEditor);
-            }}
-          >
-            <CanvasThemeBridge />
-            <CanvasAgentOverlay bridge={canvasAgentBridge} />
-          </Tldraw>
-        </CanvasTopLeftToolbarContext.Provider>
+        <CanvasAgentCrashProvider value={canvasCrashRecovery}>
+          <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
+            <CanvasAgentCrashBoundary className="h-full w-full">
+              <Tldraw
+                key={`${board?.guid || "canvas"}:${activeInstanceId}:${tldrawRemountKey}`}
+                licenseKey={TLDRAW_LICENSE_KEY}
+                snapshot={initialSnapshot ?? undefined}
+                shapeUtils={shapeUtils}
+                components={tldrawComponents}
+                onMount={(nextEditor) => {
+                  editorRef.current = nextEditor;
+                  setEditorReady(true);
+                  setAgentBridgeEditor(nextEditor);
+                }}
+              >
+                <CanvasThemeBridge />
+                <CanvasAgentOverlay bridge={canvasAgentBridge} />
+              </Tldraw>
+            </CanvasAgentCrashBoundary>
+          </CanvasTopLeftToolbarContext.Provider>
+          <CanvasAgentIsland bridge={canvasAgentBridge} />
+        </CanvasAgentCrashProvider>
       </CanvasAgentContext.Provider>
     </div>
   );

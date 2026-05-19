@@ -9,6 +9,7 @@ import { useUiPrefStore } from "@/hooks/use-ui-pref-store";
 import { useWebSocketStore } from "@/hooks/use-websocket";
 import { CanvasAgentBus, type CanvasAgentDispatchInput } from "./canvas-agent-bus";
 import { CanvasAgentActivityStore } from "./canvas-agent-activity";
+import { CanvasAgentFeedStore } from "./canvas-agent-feed";
 
 const DEFAULT_CANVAS_PREFS = {
   sessionByBoard: {} as Record<string, unknown>,
@@ -51,6 +52,9 @@ export interface CanvasAgentBridgeState {
   isConnected: boolean;
   setAcceptsCommands: (value: boolean) => void;
   activity: CanvasAgentActivityStore;
+  feed: CanvasAgentFeedStore;
+  /** Fail the in-flight CLI dispatch (e.g. after canvas crash recovery). */
+  failInflight: (message: string) => Promise<void>;
 }
 
 export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeState {
@@ -63,11 +67,16 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
   );
 
   const [activity] = React.useState(() => new CanvasAgentActivityStore());
+  const [feed] = React.useState(() => new CanvasAgentFeedStore());
   const [bus] = React.useState(() => new CanvasAgentBus({}));
+  const inflightRequestIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     bus.setBridgeAccepting(acceptsCommands);
-  }, [bus, acceptsCommands]);
+    if (!acceptsCommands) {
+      feed.clear();
+    }
+  }, [bus, acceptsCommands, feed]);
 
   React.useEffect(() => {
     bus.setEditor(editor);
@@ -121,7 +130,19 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
 
       void (async () => {
         const start = Date.now();
-        const result = await bus.handleDispatch(payload);
+        inflightRequestIdRef.current = payload.request_id;
+        feed.begin(payload.request_id, payload.command, payload.args ?? null);
+        let result;
+        try {
+          result = await bus.handleDispatch(payload);
+        } catch (err) {
+          result = {
+            success: false as const,
+            error_code: "INTERNAL_ERROR" as const,
+            error_message: err instanceof Error ? err.message : String(err),
+            recoverable: true,
+          };
+        }
         let createdShapeIds: string[] = [];
         if (result.success && result.data && typeof result.data === "object") {
           const data = result.data as Record<string, unknown>;
@@ -131,6 +152,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
             createdShapeIds = data.ids.filter((v): v is string => typeof v === "string");
           }
         }
+        feed.complete(payload.request_id, result.success);
         if (result.success) {
           activity.record(payload.command, editor, createdShapeIds);
         }
@@ -154,10 +176,38 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
             `[canvas-agent] ${payload.command} took ${Date.now() - start}ms`,
           );
         }
+        if (inflightRequestIdRef.current === payload.request_id) {
+          inflightRequestIdRef.current = null;
+        }
       })();
     });
     return unsubscribe;
-  }, [activity, bus, clientId, editor, isConnected, onEvent]);
+  }, [activity, bus, clientId, editor, feed, isConnected, onEvent]);
+
+  const failInflight = React.useCallback(
+    async (message: string) => {
+      const requestId = inflightRequestIdRef.current;
+      if (!requestId) return;
+      feed.complete(requestId, false);
+      try {
+        if (isConnectedRef.current) {
+          await canvasAgentBridgeWsApi.postResult({
+            request_id: requestId,
+            success: false,
+            error_code: "INTERNAL_ERROR",
+            error_message: message,
+            recoverable: true,
+            data: null,
+          });
+        }
+      } catch (err) {
+        console.warn("[canvas-agent] failed to post crash recovery result", err);
+      } finally {
+        inflightRequestIdRef.current = null;
+      }
+    },
+    [feed],
+  );
 
   const setAcceptsCommands = React.useCallback((value: boolean) => {
     setAcceptsCommandsState(value);
@@ -176,5 +226,7 @@ export function useCanvasAgentBridge(editor: Editor | null): CanvasAgentBridgeSt
     isConnected,
     setAcceptsCommands,
     activity,
+    feed,
+    failInflight,
   };
 }
