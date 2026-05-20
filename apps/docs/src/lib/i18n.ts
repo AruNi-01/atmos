@@ -3,7 +3,7 @@ import { defineI18n } from 'fumadocs-core/i18n';
 export const i18n = defineI18n({
   defaultLanguage: 'en',
   languages: ['en', 'zh'],
-  hideLocale: 'default-locale', // /docs -> English, /zh/docs -> Chinese
+  hideLocale: 'default-locale', // / -> English, /zh -> Chinese
 });
 
 export const localeNames: Record<string, string> = {

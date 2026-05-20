@@ -483,7 +483,7 @@ dependencies = [
 
 [[package]]
 name = "atmos"
-version = "0.2.0-beta.4"
+version = "0.2.0-beta.5"
 dependencies = [
  "chrono",
  "clap",
@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "atmos-desktop"
-version = "1.2.0-beta.5"
+version = "1.2.0-beta.6"
 dependencies = [
  "chrono",
  "dirs 5.0.1",

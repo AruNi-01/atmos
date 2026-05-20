@@ -1,0 +1,39 @@
+---
+title: 介绍
+description: Atmos 是什么，以及文档如何组织。
+icon: BookOpen
+---
+
+# 介绍
+
+**Atmos - Atmosphere for Agentic Builders**
+
+Atmos 是面向 Agent 时代的开发环境：多工作区隔离、持久化终端、集成 Git 工作流、Canvas、全局 Agent 聊天等。可在本机通过 **Desktop** 或 **Local Web Runtime** 使用。
+
+## 功能亮点
+
+- **多工作区开发** — 基于 Git worktree 的环境隔离，实现多环境下的 Agent 并行执行。
+- **Tmux 持久化会话** — 容错式终端管理，会话中断后可无缝恢复。
+- **内置轻量级编辑器** — 文件预览与行内编辑，随时随地切换回原始人 coding 模式。
+- **集成 Git 工作流** — Diff 视图、提交辅助、代码审查与 GitHub PR 管理一体化。
+- **技能管理系统** — 一键启用/禁用或删除 Agent 技能，灵活控制能力集合。
+- **全局 Agent 聊天面板** — 任意位置发起非终端 Chat 对话，基于 ACP 复用你的 Code Agent CLI。
+- **全局搜索/操作控制面板** — 键盘驱动的工作流，快速搜索与执行 Atmos 功能。
+- **用量分析看板** — AI 编码订阅额度跟踪、各 Agent Token 消耗与费用预估。
+- **Agent 状态通知** — 基于钩子的状态监控，支持原生通知与自托管推送服务。
+- **跨平台与 Remote Access** — 桌面与浏览器本地使用；**Remote Access**（仅桌面）通过 Tailscale / Cloudflare Tunnel / ngrok 用 **Public URL** 分享**本机** Atmos，与 Atmos Computer 无关。
+- **Atmos Computer** — 经 **Atmos Relay** 连接**远程**服务器上的 Atmos，客户端无需隧道软件。
+- **Kanban 视图** - 在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。
+- **Canvas** — 跨项目的无限画布：把任意工作区/项目的终端会话固定为卡片，在同一张持久化画板上排布；Code Agent 可操作画布，画示意图、便签与布局，无需离开 Agent 工作流。
+- **Review Workflow** — 在 Atmos 内置 Diff 界面中审查改动、在指定行留下行内评论，再交给 Code Agent 按评论修复。
+- **Agent 状态追踪** — 通过 Agent Hooks 将运行中、空闲、等待授权、完成等状态实时同步到全站 UI；状态变化时推送通知，支持系统原生提醒，以及自托管推送（ntfy、Gotify 或自定义 Webhook）。
+- **轻量级本地模型** — 一键启动 llama server，运行 Hugging Face 上的小参数模型，用于会话标题生成、工作区 TODO 抽取、Git 提交说明等轻量任务，无需为小事而配置云端 API。
+
+## 文档结构
+
+| 章节 | 内容 |
+|------|------|
+| [快速开始](/zh/getting-started) | 安装桌面版，或在浏览器中打开 Atmos |
+| [功能](/zh/features/multi-workspace) | 全部产品能力 — 工作区、Agent、Canvas、Git 等 |
+| [工作流](/zh/workflows/project-and-workspace-manager) | 项目与工作区、构建、审查、Canvas、远程构建 |
+| [CLI](/zh/cli) | `atmos` 命令参考 |

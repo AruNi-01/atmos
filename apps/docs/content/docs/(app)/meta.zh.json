@@ -1,0 +1,16 @@
+{
+  "title": "Atmos App",
+  "description": "桌面与 Web 指南",
+  "icon": "AppWindow",
+  "root": true,
+  "pages": [
+    "introduction",
+    "getting-started",
+    "---功能---",
+    "...features",
+    "---工作流---",
+    "...workflows",
+    "---帮助与参考---",
+    "...reference"
+  ]
+}

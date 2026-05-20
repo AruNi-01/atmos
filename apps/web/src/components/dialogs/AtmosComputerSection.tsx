@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Computer,
   Copy,
+  FlaskConical,
   KeyRound,
   Laptop,
   LoaderCircle,
@@ -595,6 +596,16 @@ export function AtmosComputerSection() {
 
   return (
     <div className="space-y-4">
+      <div className="overflow-hidden rounded-2xl border border-amber-500/35 bg-amber-500/10">
+        <div className="flex items-start gap-3 px-6 py-5">
+          <FlaskConical className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
+            Atmos Computer is still in active development, you may encounter bugs or incomplete
+            behavior.
+          </p>
+        </div>
+      </div>
+
       <SettingsBlock
         title="Access Key"
         icon={<KeyRound className="size-5" />}

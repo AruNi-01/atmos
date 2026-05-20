@@ -1,0 +1,41 @@
+---
+title: Troubleshooting
+description: Common issues and fixes.
+---
+
+Start with the simple checks below. They solve most setup and connection issues.
+
+## Atmos will not open
+
+1. Restart the app.
+2. If you manage Atmos from the CLI, make sure the runtime is running:
+
+```bash
+atmos runtime ensure
+```
+
+3. Open Desktop again, or open [app.atmos.land](https://app.atmos.land) in your browser.
+
+## Terminal is not responding
+
+1. Stop the current command if it is stuck.
+2. Open a new terminal in the same workspace.
+3. Run a small command such as `pwd` to confirm the shell works.
+
+## A remote computer is offline
+
+On that machine, run:
+
+```bash
+atmos runtime status
+```
+
+If it is stopped, run:
+
+```bash
+atmos runtime ensure
+```
+
+## Agent output looks wrong
+
+Check that you opened the right workspace and project folder. Then rerun the agent with a smaller, more specific request.

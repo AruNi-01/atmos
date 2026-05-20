@@ -11,26 +11,26 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "fumadocs-core": "16.4.7",
-    "fumadocs-mdx": "14.2.5",
-    "fumadocs-ui": "16.4.7",
+    "@workspace/ui": "workspace:*",
+    "fumadocs-core": "16.8.12",
+    "fumadocs-mdx": "15.0.7",
+    "fumadocs-ui": "16.8.12",
     "lucide-react": "^0.562.0",
     "next": "16.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "tailwind-merge": "^3.4.0",
-    "@workspace/ui": "workspace:*"
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
+    "@tailwindcss/postcss": "^4.3.0",
     "@types/mdx": "^2.0.13",
     "@types/node": "^25.0.5",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
+    "eslint": "^9.39.2",
     "eslint-config-next": "16.2.0",
-    "eslint": "^9.39.2"
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.3"
   }
 }

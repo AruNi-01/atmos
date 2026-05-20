@@ -1,0 +1,31 @@
+---
+title: Multi-Workspace Development
+description: Run parallel tasks with Git worktree isolation—one workspace per branch or experiment.
+---
+
+Multi-workspace development lets you keep several coding tasks alive at once without mixing terminals, agents, or file context. Each workspace is a focused environment tied to a project folder or Git worktree.
+
+## Why it matters
+
+- Run agents on different branches in parallel.
+- Isolate experiments from your main working tree.
+- Switch tasks without closing terminals or losing session state.
+- Match one workspace to one goal, such as `fix-login` or `docs-refresh`.
+
+## How it works
+
+Atmos uses **Git worktree isolation** so multiple workspaces can point at the same repository on different branches. Each workspace keeps its own terminal, editor view, Git diff, and agent history.
+
+## Get started
+
+1. Open Atmos and choose **New Workspace**.
+2. Pick a project folder or repository.
+3. Select or create the branch or worktree for this task.
+4. Name the workspace after the work you are doing.
+5. Open the terminal or agent panel and start.
+
+## Tips
+
+- Prefer one workspace per task; archive or close when shipped.
+- Use short, searchable names so Kanban and search stay useful.
+- For large efforts, split planning, implementation, and review across workspaces.

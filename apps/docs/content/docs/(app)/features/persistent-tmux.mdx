@@ -1,0 +1,30 @@
+---
+title: Persistent Tmux Sessions
+description: Fault-tolerant terminals backed by tmux—sessions survive interruptions and app restarts.
+---
+
+Persistent tmux sessions keep your terminal work attached to a workspace even when the UI reloads, the network blips, or you step away. Long-running servers, installs, and agent commands can continue in the background.
+
+## Why it matters
+
+- Dev servers and test runs do not die when you switch views.
+- Agent-driven commands stay in a stable shell context.
+- Recover quickly after closing and reopening Atmos.
+- Run multiple shells in one workspace without losing place.
+
+## How it works
+
+Atmos manages terminals through **tmux**. Each workspace terminal maps to a tmux session so panes and scrollback persist across interruptions.
+
+## Get started
+
+1. Open a workspace.
+2. Open the **Terminal** panel.
+3. Run your usual dev, test, or agent commands.
+4. Switch to the editor, Canvas, or another workspace—come back to the same session.
+
+## Tips
+
+- Name sessions when you keep more than one terminal open.
+- If output looks stuck, stop the process in that pane and rerun from the same workspace.
+- Pair with [Multi-Workspace Development](/features/multi-workspace) when agents work on parallel branches.

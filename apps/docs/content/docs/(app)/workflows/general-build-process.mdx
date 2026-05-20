@@ -1,0 +1,85 @@
+---
+title: General Build Process
+description: The standard loop from workspace creation through agent build, review, run, and ship.
+---
+
+In Atmos, **building** means turning an idea into running, reviewed code inside a workspace—not only compiling binaries. The default loop ties together workspaces, setup scripts, Code Agents, review, run/preview, and cleanup.
+
+## Overview
+
+A typical build cycle:
+
+```text
+Create workspace → Setup script → Code Agent in terminal
+  → Review (optional) → Manual edits (optional)
+  → Run script + browser preview → Test → PR → Archive + Purge
+```
+
+## 1. Open or create a workspace
+
+Follow [Project & Workspace Manager](/workflows/project-and-workspace-manager):
+
+- **Quick New Workspace** for speed.
+- **New Workspace Composer** (`⌘N`) when you have prompts, GitHub links, or images.
+- **Kanban** when triaging many tasks.
+
+Wait for **Workspace Setup Progress** to finish (worktree, optional issue/PR spec, TODO extraction, setup script).
+
+## 2. Run the setup script
+
+If the project defines a **Setup Script**, it runs automatically during creation. Typical jobs:
+
+- Install dependencies (`npm install`, `cargo build`, etc.).
+- Copy `.env.example` or sync secrets.
+- Generate local config.
+
+Steps shown in the UI include **Create Workspace**, **Run Setup Script**, and **Ready**. You can proceed when blocking steps complete.
+
+Configure scripts under project **⋯** → **Workspace Scripts**.
+
+## 3. Build with a Code Agent in the terminal
+
+1. Open the workspace **Terminal** tab (tmux-backed, persistent).
+2. Start your **Code Agent CLI** (Cursor agent, Claude Code, etc.) in that shell.
+3. Or use the **global Agent chat panel** (ACP) for non-terminal tasks—still scoped to this workspace.
+
+Give the agent a clear goal, files, and constraints. Let it iterate with tools while you watch output in the same pane.
+
+## 4. Review code (optional)
+
+Before you trust the diff:
+
+1. Open the right sidebar **Review** tab.
+2. Create a **Review Session** (snapshot of current code).
+3. Comment on diffs or run **Agent Review** with a review skill.
+4. Use **Fix** to send open comments back to the Code Agent.
+
+See [Code Review in Atmos](/workflows/code-review-in-atmos) for the full loop.
+
+## 5. Manual adjustments (optional)
+
+Use the **built-in editor** for small fixes, or your primary IDE for large refactors. Re-run tests in the terminal after edits.
+
+## 6. Run and preview
+
+1. Configure a **Run Script** on the project if you have not already.
+2. In the workspace, open the right sidebar **Run / Preview** tab.
+3. Click **Run** (or `⌘R`) to execute the run script in the terminal.
+4. When the app prints a URL, Atmos detects it and opens the **built-in browser preview** for live debugging.
+
+If no run script exists, you will see **No Run Script Configured** with a shortcut to **Workspace Scripts**.
+
+## 7. Test, ship, and clean up
+
+1. Run project tests in the terminal (unit, e2e, lint—whatever your repo uses).
+2. Commit or open a PR from your normal Git flow (Atmos Git view helps inspect diffs first).
+3. **Archive** the workspace when the task is done (sidebar or Kanban **Archive**).
+4. If configured, the **Purge Script** removes heavy artifacts (dependencies cache, build output) so worktrees do not fill the disk.
+
+**Archive Behavior** in **Settings** → **Workspace** controls confirmations and whether tmux sessions are killed on archive.
+
+## Related
+
+- [Code Review in Atmos](/workflows/code-review-in-atmos)
+- [Build in Canvas](/workflows/build-in-canvas) — multi-workspace visual layout
+- [Remote Build](/workflows/remote-build) — run the same loop on a VPS

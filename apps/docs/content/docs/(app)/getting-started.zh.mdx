@@ -1,0 +1,49 @@
+---
+title: 快速开始
+description: 安装 Atmos 并打开第一个工作区。
+icon: Rocket
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+选择一种方式运行 Atmos：
+
+## 桌面应用
+
+### macOS 使用 Homebrew
+
+```bash
+brew install --cask AruNi-01/tap/atmos
+```
+
+### macOS 使用安装脚本
+
+```bash
+curl -fsSL https://install.atmos.land/install-desktop.sh | bash
+```
+
+安装脚本适用于 macOS。Windows 和 Linux 用户可以从 [GitHub Releases](https://github.com/AruNi-01/atmos/releases) 下载最新安装包。
+
+## 在浏览器中打开
+
+如果想直接在浏览器中使用 Atmos，可以从 Web app 开始。
+
+<Cards>
+  <Card href="https://app.atmos.land" title="在浏览器中打开 Atmos">
+    从 app.atmos.land 打开 Atmos。
+  </Card>
+</Cards>
+
+## 第一个工作区
+
+1. 打开桌面应用或在浏览器中打开 Atmos。
+2. 创建或打开工作区并连接项目。
+3. 打开终端，开始使用 Code Agent。
+
+## 从源码运行（贡献者）
+
+```bash
+bun install && cargo fetch
+just dev-api   # 终端 1
+just dev-web   # 终端 2
+```

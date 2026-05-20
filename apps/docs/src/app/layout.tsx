@@ -1,24 +1,21 @@
 import './global.css';
-import { Inter } from 'next/font/google';
-
 import type { Metadata } from 'next';
 
-const inter = Inter({
-  subsets: ['latin'],
-});
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001');
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-  ),
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'Atmos Docs',
+    template: '%s · Atmos Docs',
+  },
+  description:
+    'Documentation for Atmos — desktop app, web workspace, CLI, and Atmos Computer.',
+  applicationName: 'Atmos',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return (
-    <html className={inter.className} suppressHydrationWarning>
-      <body className="flex flex-col min-h-screen">
-        {children}
-      </body>
-    </html>
-  );
+  return children;
 }

@@ -1,5 +1,10 @@
-import { RootProvider } from 'fumadocs-ui/provider/next';
+import { DocsRootProvider } from '@/components/docs-root-provider';
 import { i18n } from '@/lib/i18n';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+});
 
 export default async function LangLayout({
   children,
@@ -11,17 +16,21 @@ export default async function LangLayout({
   const { lang } = await params;
 
   return (
-    <RootProvider
-      i18n={{
-        locale: lang,
-        locales: i18n.languages.map((l) => ({
-          locale: l,
-          name: l === 'zh' ? '中文' : 'English',
-        })),
-      }}
-    >
-      {children}
-    </RootProvider>
+    <html lang={lang} className={inter.className} suppressHydrationWarning>
+      <body className="flex min-h-screen flex-col">
+        <DocsRootProvider
+          i18n={{
+            locale: lang,
+            locales: i18n.languages.map((l) => ({
+              locale: l,
+              name: l === 'zh' ? '中文' : 'English',
+            })),
+          }}
+        >
+          {children}
+        </DocsRootProvider>
+      </body>
+    </html>
   );
 }
 

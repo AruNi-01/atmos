@@ -1,0 +1,49 @@
+---
+title: Getting started
+description: Install Atmos and open your first workspace.
+icon: Rocket
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+Choose how you run Atmos:
+
+## Desktop app
+
+### macOS with Homebrew
+
+```bash
+brew install --cask AruNi-01/tap/atmos
+```
+
+### macOS install script
+
+```bash
+curl -fsSL https://install.atmos.land/install-desktop.sh | bash
+```
+
+The install script is for macOS. For Windows and Linux, download the latest installer from [GitHub Releases](https://github.com/AruNi-01/atmos/releases).
+
+## Open in browser
+
+Use the hosted web app when you want to open Atmos directly in a browser.
+
+<Cards>
+  <Card href="https://app.atmos.land" title="Open Atmos in Browser">
+    Start from the web app at app.atmos.land.
+  </Card>
+</Cards>
+
+## First workspace
+
+1. Launch Desktop or open Atmos in your browser.
+2. Create or open a workspace and connect your project.
+3. Open a terminal and start working with your Code Agent.
+
+## From source (contributors)
+
+```bash
+bun install && cargo fetch
+just dev-api   # terminal 1
+just dev-web   # terminal 2
+```

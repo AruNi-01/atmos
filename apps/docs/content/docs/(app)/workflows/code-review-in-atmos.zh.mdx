@@ -1,0 +1,55 @@
+---
+title: 在 Atmos 中审查代码
+description: Review Session、行内 diff 评论、Agent 修复循环与审查技能——推送前在本地完成。
+---
+
+**Review Workflow** 用 **Review Session** 冻结代码快照，在推送前于本地完成 diff 评论与 Agent 修复，而不只依赖远程 PR 讨论。
+
+## 概述
+
+| GitHub PR 审查 | Atmos Review |
+|----------------|--------------|
+| 远程 PR 评论 | 本地 **Review Session** 快照 |
+| 常在 push 之后 | **push 之前** |
+| 外部 UI | 内置 diff + **Review** 侧栏 |
+| 人工修 | **Fix** + **Agent Review** |
+
+每次会话可有多个修订版本（`v1`、`v2`…）。
+
+## 1. 开始 Review Session
+
+1. 打开有改动的工作区。
+2. 右侧 **Review** → **New Review Session**。
+3. 基于当前代码创建快照。
+
+## 2. 两种审查方式
+
+### 2.1 人工 diff + Agent 修复
+
+1. **Changed Files** 打开文件 → 中央 **Review** 分组 diff。
+2. 行号旁 **+** → **Add review comment**。
+3. 选择 Agent → **Fix** 处理 open 评论。
+4. 新版本修订（`v2`…）；标记文件 **Reviewed**。
+
+### 2.2 Agent Review（技能）
+
+1. **Fix** 菜单 → **Agent Review**。
+2. **Code Agent Review** 选择 **Review Skill**、ACP 或 CLI 或 **Code Review** 终端。
+3. Agent 留行内评论与 **Review Report**；报告可 **Open session** 回到 Review。
+
+## 3. 测试变更
+
+每轮修复后重读 diff、跑测试、关闭或 dismiss 评论。查看侧栏 **Summary**（若有）。
+
+## 4. 提交或创建 PR
+
+确认快照无误后 commit / push / 开 PR。Review Session 是本地质量门禁，不替代远程 PR 流程。
+
+## 会话管理
+
+切换修订、**Activate** / **Close** / **Archive** / **Rename**、刷新列表。
+
+## 相关
+
+- [Review 工作流](/zh/features/review-workflow)
+- [通用构建流程](/zh/workflows/general-build-process)
