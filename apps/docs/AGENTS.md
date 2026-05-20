@@ -63,7 +63,7 @@ apps/docs/
 - Folder `meta.json` lists `pages` order; root `meta.json` lists sections (`...folder`) — omit root-tab folders (e.g. `cli`) from root `pages`
 - Layout tabs: `(app)/meta.json` and `cli/meta.json` both use `"root": true`; icons/titles overridden in docs layout shell via `tabs.transform` (see [Fumadocs layout tabs](https://www.fumadocs.dev/docs/ui/layouts/docs#layout-tabs))
 - Features sidebar: `(app)/features/` — one page per README feature (`multi-workspace`, `persistent-tmux`, …)
-- Workflows sidebar: `(app)/workflows/` — guided flows (`project-and-workspace-manager`, `general-build-process`, …); replaces former `atmos-computer/` nav (content in `remote-build.md`)
+- Workflows sidebar: `(app)/workflows/` — guided flows (`project-and-workspace-manager`, `general-build-process`, …); replaces former `atmos-computer/` nav (content in `remote-build.mdx`)
 - Separator labels in root meta: `"---Section title---"`
 
 ---

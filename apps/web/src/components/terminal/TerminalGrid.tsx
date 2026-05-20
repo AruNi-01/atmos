@@ -333,7 +333,7 @@ function TerminalMosaicWorkspacePaneWindow(props: WorkspaceMosaicPaneWindowProps
                             onCloseAutoFocus={(e) => e.preventDefault()}
                           >
                             {quickOpenAgents.map(({ agent, command }) => (
-                              <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgent(id, "row", command, agent)}>
+                              <DropdownMenuItem key={`row-${agent.id}`} onSelect={() => splitAndRunAgent(id, "row", command, agent)}>
                                 {agent.iconType === "built-in" ? (
                                   <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                 ) : (
@@ -370,7 +370,7 @@ function TerminalMosaicWorkspacePaneWindow(props: WorkspaceMosaicPaneWindowProps
                             onCloseAutoFocus={(e) => e.preventDefault()}
                           >
                             {quickOpenAgents.map(({ agent, command }) => (
-                              <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgent(id, "column", command, agent)}>
+                              <DropdownMenuItem key={`column-${agent.id}`} onSelect={() => splitAndRunAgent(id, "column", command, agent)}>
                                 {agent.iconType === "built-in" ? (
                                   <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                 ) : (
@@ -1418,7 +1418,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onCloseAutoFocus={(e) => e.preventDefault()}
                             >
                               {quickOpenAgents.map(({ agent, command }) => (
-                                <DropdownMenuItem key={`row-${agent.id}`} onClick={() => splitAndRunAgentWithRemember(id, "row", command, agent)}>
+                                <DropdownMenuItem key={`row-${agent.id}`} onSelect={() => splitAndRunAgentWithRemember(id, "row", command, agent)}>
                                   {agent.iconType === "built-in" ? (
                                     <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                   ) : (
@@ -1454,7 +1454,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
                               onCloseAutoFocus={(e) => e.preventDefault()}
                             >
                               {quickOpenAgents.map(({ agent, command }) => (
-                                <DropdownMenuItem key={`column-${agent.id}`} onClick={() => splitAndRunAgentWithRemember(id, "column", command, agent)}>
+                                <DropdownMenuItem key={`column-${agent.id}`} onSelect={() => splitAndRunAgentWithRemember(id, "column", command, agent)}>
                                   {agent.iconType === "built-in" ? (
                                     <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                                   ) : (

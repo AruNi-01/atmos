@@ -14,6 +14,9 @@ export function SearchTrigger({
   hideIfDisabled,
   size = 'icon-sm',
   color = 'ghost',
+  className,
+  onClick,
+  disabled,
   ...props
 }: SearchTriggerProps) {
   const { setOpenSearch, enabled } = useSearchContext();
@@ -22,16 +25,20 @@ export function SearchTrigger({
   return (
     <button
       type="button"
+      disabled={disabled}
+      {...props}
       className={cn(
         buttonVariants({
           size,
           color,
         }),
-        props.className,
+        className,
       )}
       data-search=""
-      aria-label="Open Search"
-      onClick={() => {
+      aria-label={props['aria-label'] ?? 'Open Search'}
+      onClick={(e) => {
+        onClick?.(e);
+        if (e.defaultPrevented || disabled) return;
         setOpenSearch(true);
       }}
     >
@@ -44,7 +51,13 @@ export interface FullSearchTriggerProps extends ComponentProps<'button'> {
   hideIfDisabled?: boolean;
 }
 
-export function FullSearchTrigger({ hideIfDisabled, ...props }: FullSearchTriggerProps) {
+export function FullSearchTrigger({
+  hideIfDisabled,
+  className,
+  onClick,
+  disabled,
+  ...props
+}: FullSearchTriggerProps) {
   const { enabled, hotKey, setOpenSearch } = useSearchContext();
   const { text } = useI18n();
   if (hideIfDisabled && !enabled) return null;
@@ -52,13 +65,16 @@ export function FullSearchTrigger({ hideIfDisabled, ...props }: FullSearchTrigge
   return (
     <button
       type="button"
+      disabled={disabled}
       data-search-full=""
       {...props}
       className={cn(
         'inline-flex items-center gap-2 rounded-lg border bg-fd-secondary/50 p-1.5 ps-2 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground',
-        props.className,
+        className,
       )}
-      onClick={() => {
+      onClick={(e) => {
+        onClick?.(e);
+        if (e.defaultPrevented || disabled) return;
         setOpenSearch(true);
       }}
     >

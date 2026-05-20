@@ -153,8 +153,8 @@ export function SidebarContent({
   if (allowedMode !== true && allowedMode !== mode) return;
 
   function shouldIgnoreHover(e: PointerEvent): boolean {
-    const element = ref.current;
-    if (!element) return true;
+    const element = e.currentTarget;
+    if (!(element instanceof HTMLElement)) return true;
 
     return !collapsed || e.pointerType === 'touch' || element.getAnimations().length > 0;
   }

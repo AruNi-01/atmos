@@ -23,9 +23,9 @@ export default async function Page(props: {
   const loaded = await page.data.load();
   const MDX = loaded.body;
   const gitConfig = {
-    user: 'username',
-    repo: 'repo',
-    branch: 'main',
+    user: process.env.NEXT_PUBLIC_GIT_USER ?? 'AruNi-01',
+    repo: process.env.NEXT_PUBLIC_GIT_REPO ?? 'atmos',
+    branch: process.env.NEXT_PUBLIC_GIT_BRANCH ?? 'main',
   };
 
   return (

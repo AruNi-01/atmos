@@ -705,9 +705,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
     const activeKanbanFilterCount = getActiveWorkspaceKanbanFilterCount(kanbanFilters);
-    const filteredFlattenedWorkspaces = useMemo(
-        () => filterWorkspaceKanbanEntries(flattenedWorkspaces, kanbanFilters),
-        [flattenedWorkspaces, kanbanFilters],
+    const filteredFlattenedWorkspaces = filterWorkspaceKanbanEntries(
+        flattenedWorkspaces,
+        kanbanFilters,
     );
     const projectModeProjects = useMemo(() => {
         if (activeKanbanFilterCount === 0) return projects;
