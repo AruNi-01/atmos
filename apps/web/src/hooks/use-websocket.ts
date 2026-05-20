@@ -6,6 +6,8 @@ import { isTauriRuntime } from "@/lib/desktop-runtime";
 import { useAtmosComputerStore } from "@/lib/atmos-computer-store";
 import { syncClientSessionFromStore } from "@/lib/sync-client-session";
 import { ensureComputerClientSettingsHydrated } from "@/lib/sync-computer-client-settings";
+import { ensureLocalAppConnectionBootstrap } from "@/lib/app-connection-bootstrap";
+import { isHostedAtmosOrigin } from "@/lib/desktop-runtime";
 import { useConnectionStore } from "@/hooks/use-connection-store";
 import { buildWsUrl, buildWsUrlSync } from "@/lib/ws-url";
 import { debugLog } from "@/lib/desktop-logger";
@@ -331,7 +333,11 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
     set({ connectionState: "connecting" });
 
     try {
-      await ensureComputerClientSettingsHydrated();
+      if (isHostedAtmosOrigin()) {
+        await ensureComputerClientSettingsHydrated();
+      } else {
+        await ensureLocalAppConnectionBootstrap();
+      }
       useConnectionStore.getState().syncActiveInstanceFromComputer();
       const clientType = isTauriRuntime() ? "desktop" : "web";
       const computer = useAtmosComputerStore.getState();

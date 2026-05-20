@@ -12,6 +12,7 @@ import {
   subscribeToWorkspaceDeleteProgress,
   subscribeToWorkspaceGitignoreSyncFailed,
   subscribeToWorkspaceSetupProgress,
+  useProjectStore,
 } from '@/hooks/use-project-store';
 
 interface WebSocketProviderProps {
@@ -91,6 +92,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       useAgentHooksStore.getState().init();
       useLayoutSettings.getState().loadSettings();
       void useExperimentSettings.getState().loadSettings();
+      const { projects, isLoading } = useProjectStore.getState();
+      if (projects.length === 0 && !isLoading) {
+        void useProjectStore.getState().fetchProjects();
+      }
     }
   }, [connectionState]);
 

@@ -447,6 +447,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const router = useAppRouter();
   const selectedProjectIdFromLauncher = useDialogStore((s) => s.selectedProjectId);
   const projects = useProjectStore((s) => s.projects);
+  const isInitialProjectsLoading = useProjectStore(
+    (s) => s.isLoading && s.projects.length === 0,
+  );
   const addWorkspace = useProjectStore((s) => s.addWorkspace);
   const workspaceLabels = useProjectStore((s) => s.workspaceLabels);
   const createWorkspaceLabel = useProjectStore((s) => s.createWorkspaceLabel);
@@ -1952,7 +1955,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
                                 : "border-border/60 bg-background/40 text-foreground/90",
                             )}
                           >
-                            {projects.length === 0 ? (
+                            {isInitialProjectsLoading ? (
+                              <span className="truncate font-medium text-muted-foreground">
+                                Loading projects…
+                              </span>
+                            ) : projects.length === 0 ? (
                               <>
                                 <Plus className="size-3.5 shrink-0" />
                                 <span className="truncate font-medium">Add a project first</span>
@@ -3052,7 +3059,11 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             </div>
           </div>
 
-          {projects.length === 0 ? (
+          {isInitialProjectsLoading ? (
+            <div className="mt-5 rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+              Loading your projects and workspaces…
+            </div>
+          ) : projects.length === 0 ? (
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
               <span>Add a project before creating a workspace from the welcome composer.</span>
               <Button type="button" variant="outline" className="rounded-md" onClick={onAddProject}>

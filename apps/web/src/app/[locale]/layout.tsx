@@ -9,6 +9,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ThemeReadyBridge } from "@/components/providers/theme-ready-bridge";
 import { WebSocketProvider } from "@/components/providers/websocket-provider";
+import { SplashPrefetchBootstrap } from "@/components/SplashPrefetchBootstrap";
 import { TmuxCheckProvider } from "@/components/providers/tmux-check-provider";
 import { DesktopExternalUrlBridge } from "@/components/providers/desktop-external-url-bridge";
 import UpdateNotification from "@/components/layout/UpdateNotification";
@@ -108,6 +109,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             <UpdateNotification />
             <NextIntlClientProvider messages={messages}>
               <WebSocketProvider>
+                <SplashPrefetchBootstrap />
                 <TmuxCheckProvider>
                   <ToastProvider position="bottom-right">
                     <AnchoredToastProvider>

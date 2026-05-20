@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { ensureComputerClientSettingsHydrated } from '@/lib/sync-computer-client-settings';
-import { bootstrapActiveInstance } from '@/hooks/use-connection-store';
+import { ensureLocalAppConnectionBootstrap } from '@/lib/app-connection-bootstrap';
 import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
-import { hydrateRelaySessionFromDisk } from '@/lib/hydrate-relay-session';
-import { isHostedAtmosOrigin, isTauriRuntime } from '@/lib/desktop-runtime';
+import { isHostedAtmosOrigin } from '@/lib/desktop-runtime';
 import { useHostedConnectionStore } from '@/hooks/use-hosted-connection-store';
 import {
   createHostedRemoteSession,
@@ -95,12 +93,7 @@ export function ConnectionBootstrapper() {
         return;
       }
 
-      await ensureComputerClientSettingsHydrated();
-
-      await hydrateRelaySessionFromDisk({
-        clientType: isTauriRuntime() ? 'desktop' : 'web',
-      });
-      await bootstrapActiveInstance();
+      await ensureLocalAppConnectionBootstrap();
     })();
   }, []);
 

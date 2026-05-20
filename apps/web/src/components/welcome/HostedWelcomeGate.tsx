@@ -43,6 +43,8 @@ import {
 } from '@/lib/hosted-connection-actions';
 import { isHostedAtmosOrigin } from '@/lib/desktop-runtime';
 import { saveComputerClientSettingsToDisk } from '@/lib/sync-computer-client-settings';
+import { AppShellLoading } from '@/components/layout/AppShellLoading';
+import { useInitialProjectsLoading } from '@/hooks/use-initial-projects-loading';
 
 type HostedWelcomeGateProps = {
   onAddProject?: () => void;
@@ -54,12 +56,13 @@ type HostedWelcomeGateProps = {
 export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
   const [mounted, setMounted] = useState(false);
   const bootstrapState = useHostedConnectionStore(s => s.bootstrapState);
+  const isInitialProjectsLoading = useInitialProjectsLoading();
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
-    return <div className="size-full bg-background" />;
+  if (!mounted || isInitialProjectsLoading) {
+    return <AppShellLoading />;
   }
 
   const hosted = isHostedAtmosOrigin();

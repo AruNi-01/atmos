@@ -117,6 +117,8 @@ import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store'
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
 import { useFileTreeStore } from '@/hooks/use-file-tree-store';
+import { useInitialProjectsLoading } from '@/hooks/use-initial-projects-loading';
+import { ProjectsSidebarLoading } from '@/components/layout/ProjectsSidebarLoading';
 
 interface LeftSidebarProps {
     projects?: Project[];
@@ -239,6 +241,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const isLoadingFiles = useFileTreeStore((s) => s.isLoading);
     const fetchFileTree = useFileTreeStore((s) => s.fetch);
     const showHiddenFiles = useFileTreeStore((s) => s.showHidden);
+    const isInitialProjectsLoading = useInitialProjectsLoading();
 
     const managementTerminalsEnabled = useExperimentSettings((s) => s.managementTerminalsEnabled);
     const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
@@ -1781,7 +1784,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         </div>
     ) : null;
 
-    const projectTabContent = isTwoColumnSidebar
+    const projectTabContent = isInitialProjectsLoading ? (
+        <ProjectsSidebarLoading />
+    ) : isTwoColumnSidebar
         ? twoColumnSidebarContent
         : groupingMode === 'project'
             ? projectModeOneColumnContent
