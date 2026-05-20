@@ -1,0 +1,76 @@
+---
+title: 远程构建
+description: 通过 Atmos Computer 与 Atmos Relay 在远程服务器构建——客户端无需隧道。
+---
+
+**远程构建**指 Atmos **应用**在一台设备上，而**项目、终端、Agent 与数据**在另一台 **Atmos Computer** 上。全程走 **Atmos Relay**，不走 Ngrok/Tailscale/Cloudflare。
+
+## 与 Remote Access 无关
+
+| 功能 | 设置 | 作用 |
+|------|------|------|
+| **Atmos Computer**（本文） | **Atmos Computer** | UI 经 Relay 连**远程**服务器；服务器**出站**连 Atmos |
+| **Remote Access** | **Remote Access**（仅桌面） | 用隧道暴露**本机**，浏览器打开 **Public URL** |
+
+- VPS 上构建 → 只用 **Atmos Computer**。
+- 分享**笔记本上的** Atmos → 只用 **Remote Access**（[说明](/zh/features/cross-platform-remote-access)）。
+
+**Connect** 远程 Computer 时，笔记本**不必**安装隧道。
+
+## 概述
+
+### 数据在哪
+
+**Connect** 后，工作区、分支、终端、Agent 历史都在**该 Computer**；你的设备只是客户端。在本机可选用 **Use locally** 回到本机 Atmos。
+
+### Relay（通俗理解）
+
+1. 远程机器与 **Atmos Relay** 保持连接。
+2. 你点 **Connect** → 获得短期会话。
+3. 聊天、终端、文件等操作经 Relay 到远程服务器。
+
+默认服务为 **relay.atmos.land**（团队可能使用自定义 Atmos 云地址）。
+
+## 步骤 1 — Access Key
+
+**Settings → Atmos Computer → Access Key** → **Generate** → **Save** → **Copy**（妥善保管，等同密码）。
+
+## 步骤 2 — 注册 Computer
+
+### 本机
+
+1. 本机 **Atmos Server** 已运行。
+2. **This Computer** 开启注册（文案可能是「注册到远程」——指 **Relay**，不是 **Remote Access**）。
+3. **My Computers** 显示 **Online**；断开可用 **Reconnect**。
+
+### 远程 VPS
+
+1. 在管理设备上保存 Access Key。
+2. 远程安装 Atmos（[快速开始](/zh/getting-started)）。
+3. **Register Computer** 生成**注册码**（短时、单次）。
+4. 在远程主机按界面提示执行 `atmos computer start` 等命令。
+
+也可在远程启动服务时传入一次性注册令牌，成功后删除。
+
+## 步骤 3 — 连接
+
+**My Computers** → **Online** → **Connect**。在本机物理位置用 **Use locally**。
+
+## 步骤 4 — 远程构建
+
+与本地相同：[项目与工作区](/zh/workflows/project-and-workspace-manager)、[通用构建](/zh/workflows/general-build-process)、[审查](/zh/workflows/code-review-in-atmos)、[Canvas](/zh/workflows/build-in-canvas)。
+
+## 安全说明
+
+| 主题 | 说明 |
+|------|------|
+| **加密** | 传输使用常规 TLS，但当前**无**仅你方可读的端到端加密。 |
+| **Access Key** | 持有者可管理并连接你的 Computer，请妥善保管。 |
+| **注册码** | 短时单次有效。 |
+| **会话** | 连接会话约一天，过期后重新 Connect。 |
+| **撤销** | 在 **My Computers** 移除或撤销以切断访问。 |
+
+## 相关
+
+- [Atmos Computer](/zh/features/atmos-computer)
+- [跨平台与 Remote Access](/zh/features/cross-platform-remote-access)

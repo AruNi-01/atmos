@@ -1,0 +1,21 @@
+{
+  "title": "功能",
+  "pages": [
+    "multi-workspace",
+    "persistent-tmux",
+    "built-in-editor",
+    "integrated-git-workflow",
+    "skill-management",
+    "agent-chat-panel",
+    "global-search-command-palette",
+    "usage-analytics-dashboard",
+    "agent-status-notifications",
+    "cross-platform-remote-access",
+    "kanban-view",
+    "canvas",
+    "atmos-computer",
+    "review-workflow",
+    "agent-status-tracking",
+    "lightweight-local-models"
+  ]
+}

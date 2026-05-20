@@ -1672,6 +1672,7 @@ const CenterStage: React.FC = () => {
             </TooltipContent>
           </Tooltip>
 
+          <div ref={scrollableTabsRef} className="flex min-w-0 flex-1 overflow-x-auto no-scrollbar">
           {visibleTerminalTabs
             .filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE)
             .map((tab, index) => {
@@ -1768,7 +1769,6 @@ const CenterStage: React.FC = () => {
               );
             })}
 
-          <div ref={scrollableTabsRef} className="flex min-w-0 flex-1 overflow-x-auto no-scrollbar">
           {/* Project Wiki Tab - shown when wiki gen runs or tmux window exists */}
           {effectiveContextId && projectWikiTabVisible && (
             <Tooltip>

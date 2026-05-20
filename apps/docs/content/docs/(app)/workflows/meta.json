@@ -1,0 +1,10 @@
+{
+  "title": "Workflows",
+  "pages": [
+    "project-and-workspace-manager",
+    "general-build-process",
+    "code-review-in-atmos",
+    "build-in-canvas",
+    "remote-build"
+  ]
+}

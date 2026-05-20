@@ -1,0 +1,56 @@
+---
+title: 在 Canvas 中构建
+description: 把 Canvas 当作跨工作区可视化工作台——固定终端、Frame 与 Agent 绘图。
+---
+
+**Canvas** 不仅是白板，更是**跨工作区工作台**：固定任意工作区的实时终端，用 Page/Frame 组织，并让 Code Agent 画架构图、流程图与便签。
+
+## 概述
+
+| 无 Canvas | 有 Canvas |
+|-----------|-----------|
+| 频繁切换工作区 | 多块终端卡片同屏 |
+| 上下文易丢 | **Pin to Canvas** 保持可见 |
+| 图在外部工具 | **Canvas Agent Bridge** 驱动画板 |
+
+左侧 **Management Center** → **Canvas**，或 `⌘⇧H` 全屏 overlay（tldraw）。
+
+## 核心能力
+
+- **Pin 终端** — 任意工作区 tmux 面板为卡片。
+- **Page** — 多页（默认 **Page 1**）。
+- **Frame** — 工具栏 **Frame** 创建分组（640×440）。
+- **Agent** — **Enable bridge** 后 `atmos canvas` 操作图形。
+- **复制图形给 Agent** — 选中形状作为上下文。
+
+## 1. Pin 到 Canvas
+
+1. 工作区 **Terminal** 聚焦有会话的 pane。
+2. **Pin to Canvas**（`⌘⇧P`）。
+3. 打开 **Canvas** 查看卡片；**Source** 回终端，**Unpin** 移除。
+
+可对多个工作区重复，并行观察多个 Agent。
+
+## 2. Page 与 Frame
+
+- 终端 pin 在当前 tldraw **Page**。
+- **Frame** 在视口中心创建，用于分组卡片与示意图。
+
+## 3. 并行 Code Agent
+
+典型：固定分支 A/B 的 Agent 终端 + 便签记录目标；需要完整 UI 时用 **Source** 回工作区。
+
+## 4. Agent 在 Canvas 上工作
+
+1. **Canvas Agent Bridge** → **Enable bridge**。
+2. 从弹层复制 Agent 说明（内置 Canvas Agent 技能）。
+3. 观察 **Canvas agent activity** 与 **Jump** 到最近改动。
+
+## 保存
+
+**Save** 与自动保存持久化画板与镜头。
+
+## 相关
+
+- [Canvas](/zh/features/canvas)
+- [通用构建流程](/zh/workflows/general-build-process)

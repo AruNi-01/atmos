@@ -1,0 +1,7 @@
+{
+  "title": "Atmos CLI",
+  "description": "命令行参考",
+  "icon": "Terminal",
+  "root": true,
+  "pages": ["index", "runtime", "computer", "canvas", "review", "local", "update"]
+}

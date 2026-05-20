@@ -26,7 +26,7 @@
 ```
 apps/docs/
 ├── content/
-│   └── docs/                # Documentation pages (MDX)
+│   └── docs/                # User-facing docs (MDX) — see Content IA below
 ├── src/
 │   ├── app/
 │   │   ├── [lang]/          # Localized routes
@@ -42,9 +42,29 @@ apps/docs/
 
 ## Coding Conventions
 
-### Content Structure
-- File structure in `content/docs` maps directly to URL structure
-- Use `meta.json` files to define navigation order and titles
+### Content structure (IA)
+
+`content/docs/` maps to `/...` (no `/docs` prefix). Top-level sidebar is driven by root `meta.json`. `/` redirects to `/introduction`. Top pages: `introduction`, `getting-started` (with `icon` in frontmatter).
+
+| Section | Audience | Source of truth |
+|---------|----------|-----------------|
+| `introduction.mdx`, `getting-started.mdx` | Overview & install | Root `README.md` |
+| `features/` | Feature how-tos (README Features) | README features + product UI |
+| `workflows/` | End-user workflows (project/workspace, build, review, canvas, remote) | README + `apps/web` UI |
+| `cli/` | `atmos` subcommands — **layout tab** (`meta.json` → `"root": true`) | `apps/cli` |
+| `reference/` | Shortcuts, troubleshooting | `agents/references/`, troubleshooting |
+
+**Repo `docs/`** (monorepo root) stays **internal** (ADRs, deep architecture, release runbooks). When a topic stabilizes for end users, **migrate** a simplified version into `apps/docs/content/docs/` — do not duplicate crate-level detail.
+
+**i18n**: English is default (`index.mdx`). Add `page.zh.mdx` beside each page for 中文 (`/zh/...`).
+
+### Conventions
+- One topic per MDX file; use `{/* TODO */}` until the page is written (HTML `<!-- -->` breaks MDX)
+- Folder `meta.json` lists `pages` order; root `meta.json` lists sections (`...folder`) — omit root-tab folders (e.g. `cli`) from root `pages`
+- Layout tabs: `(app)/meta.json` and `cli/meta.json` both use `"root": true`; icons/titles overridden in docs layout shell via `tabs.transform` (see [Fumadocs layout tabs](https://www.fumadocs.dev/docs/ui/layouts/docs#layout-tabs))
+- Features sidebar: `(app)/features/` — one page per README feature (`multi-workspace`, `persistent-tmux`, …)
+- Workflows sidebar: `(app)/workflows/` — guided flows (`project-and-workspace-manager`, `general-build-process`, …); replaces former `atmos-computer/` nav (content in `remote-build.md`)
+- Separator labels in root meta: `"---Section title---"`
 
 ---
 

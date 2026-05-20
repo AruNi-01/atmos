@@ -1,0 +1,32 @@
+---
+title: Review Workflow
+description: Review diffs in Atmos, comment on lines, and hand fixes to your Code Agent.
+---
+
+The review workflow slows you down on purpose—read each change, leave inline comments, and ask your agent to address them before commit or pull request.
+
+## Why it matters
+
+- Catch agent mistakes before they merge.
+- Document review notes on exact lines.
+- Close the loop without copying comments elsewhere.
+- Keep human judgment in the loop for risky changes.
+
+## Review flow
+
+1. Open the workspace with pending changes.
+2. Open the Git or review view and read the diff.
+3. Leave comments on lines that need work.
+4. Ask your Code Agent to apply fixes from those comments.
+5. Re-run checks and re-review until clean.
+
+## What to look for
+
+- Does the change solve the original task?
+- Missing tests, docs, or edge cases?
+- Can the diff be smaller or clearer?
+
+## Tips
+
+- Run project tests after agent fixups.
+- Use with [Integrated Git Workflow](/features/integrated-git-workflow) for commit and PR steps.

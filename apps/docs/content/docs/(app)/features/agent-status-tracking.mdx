@@ -1,0 +1,29 @@
+---
+title: Agent Status Tracking
+description: Real-time lifecycle sync—running, idle, waiting for permission, done—across the UI.
+---
+
+Agent status tracking keeps the whole UI aligned with what your agents are doing. Hooks report lifecycle changes so sidebars, workspaces, and badges stay current without polling the terminal.
+
+## Why it matters
+
+- See which agent is running or blocked on approval.
+- Know when a session went idle or finished.
+- Coordinate multiple agents without guessing state.
+- Trigger [notifications](/features/agent-status-notifications) only on meaningful transitions.
+
+## States you will see
+
+- **Running** — agent is executing tools or commands.
+- **Idle** — connected but waiting for input.
+- **Waiting for permission** — needs your approval to continue.
+- **Done** — task finished or stopped.
+
+## How it works
+
+Agents emit status through **hooks**; Atmos propagates updates to workspace chrome, Kanban, and related views in near real time.
+
+## Tips
+
+- When status sticks on “waiting,” check the terminal or chat for the approval prompt.
+- Combine tracking with notifications if you step away during long runs.

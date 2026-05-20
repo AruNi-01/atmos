@@ -1,0 +1,11 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .s { stroke: black; }
+    @media (prefers-color-scheme: dark) {
+      .s { stroke: white; }
+    }
+  </style>
+  <circle cx="16" cy="16" r="7" class="s" stroke-width="2.5" />
+  <circle cx="16" cy="16" r="11" class="s" stroke-width="1.5" opacity="0.6" />
+  <circle cx="16" cy="16" r="15" class="s" stroke-width="0.5" opacity="0.3" stroke-dasharray="4 4" />
+</svg>

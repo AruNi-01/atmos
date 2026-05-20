@@ -1,0 +1,85 @@
+---
+title: Code Review in Atmos
+description: Review sessions, inline diff comments, agent fix loops, and review skills—before you push.
+---
+
+Atmos **Review Workflow** keeps review on your machine in **sessions** with frozen snapshots. You can comment on diffs, run review skills, and hand fixes to your Code Agent **before** pushing to GitHub—unlike waiting for a remote PR review thread alone.
+
+## Overview
+
+| Traditional GitHub PR review | Atmos Review |
+|------------------------------|--------------|
+| Comments on remote PR | Local **Review Session** snapshots |
+| Often after push | **Before push** to remote |
+| External UI | Built-in diff + sidebar **Review** tab |
+| Manual fix loop | **Fix** + **Agent Review** with skills |
+
+Each **Review Session** is isolated: revisions (`v1`, `v2`, …) track snapshot history as agents apply fixes.
+
+## 1. Start a review session
+
+1. Open the workspace with changes to review.
+2. Open the right sidebar → **Review** tab.
+3. Click **New Review Session** (or **New Session** in the session picker).
+4. Atmos captures a snapshot of the current code; the session appears with a default title (e.g. `Review_MM.DD-HH:mm`).
+
+The session list supports **Active**, **Closed**, and **Archived** sessions.
+
+## 2. Review in two ways
+
+Both paths support multiple rounds of human + agent **review / fix**.
+
+### 2.1 Human diff review + agent fix
+
+1. Under **Changed Files**, open a file → preview diff tab in the center (**Review** tab group).
+2. Hover a line in the gutter → **Add review comment** (`+`).
+3. Write the note and submit (`⌘/Ctrl+Enter`).
+4. Comments appear inline and under **Comments** in the sidebar.
+5. In the actions bar, choose an agent and click **Fix** to send **open** comments to the Code Agent.
+6. When the agent finishes, a new revision may appear (`v2`, `v3`); the UI can auto-follow the latest revision.
+7. Mark files **Reviewed** in the list or diff toolbar as you go.
+
+**Fix** menu also offers **Copy Prompt** and **Mark failed** when needed.
+
+### 2.2 Agent review with skills
+
+1. In the **Review** tab, open the **Fix** menu chevron → **Agent Review**.
+2. In **Code Agent Review**, pick a **Review Skill** (e.g. built-in reviewers or your custom skills).
+3. Choose **ACP Agent Panel** or **Code Agent CLI**, or **Terminal** mode for an isolated **Code Review** terminal tab.
+4. Start the run—the agent leaves inline comments and may write a **Review Report** (markdown with **Atmos Review Report** metadata).
+5. Open the report and use **Open session** to jump back to the Review tab.
+
+## 3. Test changes
+
+After each fix round:
+
+1. Re-read the diff for the current revision.
+2. Run tests in the workspace terminal.
+3. Confirm open comments are resolved or dismissed.
+
+Use **Summary** in the Review sidebar for agent-generated markdown artifacts when present.
+
+## 4. Commit or open a PR
+
+When the snapshot looks good:
+
+1. Commit from the Git view or terminal.
+2. Push and open a pull request on GitHub as usual.
+
+Review sessions are for **local quality gates**; they do not replace your remote PR process.
+
+## Session management
+
+From the session dropdown:
+
+- Switch **v1**, **v2**, … revisions.
+- **Activate Session**, **Close Session**, **Archive Session**, **Rename**.
+- Refresh to reload sessions and comments.
+
+**Code Review** center-stage tab (separate from Review Session diffs) appears when a code-review agent runs in the dedicated **Code Review** tmux scope.
+
+## Related
+
+- [Review Workflow](/features/review-workflow) — feature summary
+- [General Build Process](/workflows/general-build-process) — where review fits in the build loop
+- [Integrated Git Workflow](/features/integrated-git-workflow)

@@ -1,0 +1,63 @@
+---
+title: 通用构建流程
+description: 从创建工作区到 Agent 构建、审查、运行预览与交付的标准闭环。
+---
+
+在 Atmos 中，**构建**指在工作区内把想法变成可运行、已审查的代码，而不只是编译。
+
+## 概述
+
+```text
+创建工作区 → Setup 脚本 → 终端 Code Agent
+  → Review（可选）→ 手动改代码（可选）
+  → Run 脚本 + 内置浏览器预览 → 测试 → PR → 归档 + Purge
+```
+
+## 1. 打开或创建工作区
+
+见 [项目与工作区管理](/zh/workflows/project-and-workspace-manager)。等待 **Workspace Setup Progress** 完成。
+
+## 2. 运行 Setup Script
+
+在 **Workspace Scripts** 中配置；创建时自动执行：装依赖、复制环境变量等。UI 显示 **Create Workspace**、**Run Setup Script**、**Ready**。
+
+## 3. 在终端用 Code Agent 构建
+
+1. 打开工作区 **Terminal**（tmux 持久化）。
+2. 启动 **Code Agent CLI**，或使用全局 **Agent 聊天面板**（ACP）。
+3. 给出明确目标与约束，在终端观察输出。
+
+## 4. 审查代码（可选）
+
+1. 右侧 **Review** → **New Review Session**。
+2. 行内评论或 **Agent Review**。
+3. **Fix** 将 open 评论交给 Agent。
+
+详见 [在 Atmos 中审查代码](/zh/workflows/code-review-in-atmos)。
+
+## 5. 手动调整（可选）
+
+内置编辑器做小改；大改用主 IDE。改后重新跑测试。
+
+## 6. 运行与预览
+
+1. 配置 **Run Script**。
+2. 右侧 **Run / Preview** → **Run**（`⌘R`）。
+3. 检测到 URL 后在内置浏览器预览中调试。
+
+无 Run Script 时会提示 **No Run Script Configured** 并跳转配置。
+
+## 7. 测试、交付与清理
+
+1. 在终端跑测试/lint。
+2. 提交或开 PR。
+3. **Archive** 工作区。
+4. **Purge Script** 清理依赖与构建产物。
+
+**Settings** → **Workspace** → **Archive Behavior** 可配置确认与是否结束 tmux。
+
+## 相关
+
+- [在 Atmos 中审查代码](/zh/workflows/code-review-in-atmos)
+- [在 Canvas 中构建](/zh/workflows/build-in-canvas)
+- [远程构建](/zh/workflows/remote-build)

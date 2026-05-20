@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
-import { FileDiff } from '@pierre/diffs/react';
+import { FileDiff, Virtualizer } from '@pierre/diffs/react';
 import type {
   DiffLineAnnotation,
   FileContents,
@@ -44,6 +44,20 @@ interface InlineCommentDraft {
   beforeContext: string[];
   afterContext: string[];
   diffSide: 'old' | 'new';
+}
+
+const DIFF_VIRTUALIZER_SCROLL_CLASS = 'diff-virtualizer-scroll';
+
+function getDiffScrollRoot(container: HTMLElement | null): HTMLElement | null {
+  if (!container) return null;
+  const virtualizerRoot = container.querySelector<HTMLElement>(
+    `.${DIFF_VIRTUALIZER_SCROLL_CLASS}`,
+  );
+  if (virtualizerRoot) return virtualizerRoot;
+
+  const shadowRoot = container.querySelector('diffs-container')?.shadowRoot;
+  const codePanel = shadowRoot?.querySelector<HTMLElement>('[data-code]');
+  return codePanel ?? container;
 }
 
 const SCROLLBAR_CSS = `
@@ -573,18 +587,18 @@ export const DiffViewer = ({
     };
 
     const scrollTargetIntoContainer = (target: HTMLElement) => {
-      const container = containerRef.current;
-      if (!container) return;
+      const scrollRoot = getDiffScrollRoot(containerRef.current);
+      if (!scrollRoot) return;
 
-      const containerRect = container.getBoundingClientRect();
+      const containerRect = scrollRoot.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const currentTop = container.scrollTop;
+      const currentTop = scrollRoot.scrollTop;
       const offsetWithinContainer =
         targetRect.top - containerRect.top + currentTop;
       const centeredTop =
-        offsetWithinContainer - container.clientHeight / 2 + targetRect.height / 2;
+        offsetWithinContainer - scrollRoot.clientHeight / 2 + targetRect.height / 2;
 
-      container.scrollTo({
+      scrollRoot.scrollTo({
         top: Math.max(0, centeredTop),
         behavior: 'smooth',
       });
@@ -1232,8 +1246,7 @@ export const DiffViewer = ({
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div
           ref={containerRef}
-          className="diff-viewer-container min-h-0 h-full w-full overflow-auto bg-background relative"
-          style={{ height: '100%', scrollbarGutter: 'stable' }}
+          className="diff-viewer-container min-h-0 h-full w-full overflow-hidden bg-background relative"
         >
           <SelectionPopover
             isVisible={isPopoverVisible}
@@ -1250,15 +1263,20 @@ export const DiffViewer = ({
             className="grid transition-[grid-template-rows] duration-300 ease-in-out"
             style={{ gridTemplateRows: fileCollapsed ? '0fr' : '1fr' }}
           >
-            <div className="overflow-hidden">
-              <FileDiff
-                fileDiff={workingDiff}
-                options={diffOptions}
-                lineAnnotations={lineAnnotations}
-                renderAnnotation={renderAnnotation}
-                renderGutterUtility={renderGutterUtility}
-                style={{ minHeight: '100%', width: '100%' }}
-              />
+            <div className="min-h-0 h-full overflow-hidden">
+              <Virtualizer
+                className={`${DIFF_VIRTUALIZER_SCROLL_CLASS} h-full min-h-0 overflow-auto`}
+                style={{ scrollbarGutter: 'stable' }}
+              >
+                <FileDiff
+                  fileDiff={workingDiff}
+                  options={diffOptions}
+                  lineAnnotations={lineAnnotations}
+                  renderAnnotation={renderAnnotation}
+                  renderGutterUtility={renderGutterUtility}
+                  style={{ minHeight: '100%', width: '100%' }}
+                />
+              </Virtualizer>
             </div>
           </div>
         </div>

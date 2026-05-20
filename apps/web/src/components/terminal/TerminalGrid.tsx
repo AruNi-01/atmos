@@ -1244,10 +1244,6 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
           <DropdownMenuSubTrigger
             className="cursor-pointer"
             onPointerEnter={() => handleContextSplitSubmenuEnter(direction)}
-            onClick={(event) => {
-              event.preventDefault();
-              handleContextMenuAction(action);
-            }}
           >
             {icon}
             <span>{label}</span>
@@ -1258,11 +1254,20 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
             onPointerEnter={() => handleContextSplitSubmenuEnter(direction)}
             onPointerLeave={handleContextSplitSubmenuLeave}
           >
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onSelect={() => handleContextMenuAction(action)}
+            >
+              {icon}
+              <span>{label}</span>
+              <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {quickOpenAgents.map(({ agent, command }) => (
               <DropdownMenuItem
                 key={`${action}-${agent.id}`}
                 className="cursor-pointer"
-                onClick={() => handleContextSplitWithAgent(direction, command, agent)}
+                onSelect={() => handleContextSplitWithAgent(direction, command, agent)}
               >
                 {agent.iconType === "built-in" ? (
                   <AgentIcon registryId={agent.id} name={agent.label} size={16} />

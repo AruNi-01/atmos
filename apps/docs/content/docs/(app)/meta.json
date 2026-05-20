@@ -1,0 +1,16 @@
+{
+  "title": "Atmos App",
+  "description": "Desktop and web app basics",
+  "icon": "AppWindow",
+  "root": true,
+  "pages": [
+    "introduction",
+    "getting-started",
+    "---Features---",
+    "...features",
+    "---Workflows---",
+    "...workflows",
+    "---Help & reference---",
+    "...reference"
+  ]
+}

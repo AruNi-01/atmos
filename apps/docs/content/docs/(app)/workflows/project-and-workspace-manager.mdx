@@ -1,0 +1,122 @@
+---
+title: Project & Workspace Manager
+description: Create and manage projects and workspaces—the foundation of every Atmos workflow.
+---
+
+Projects and workspaces are how Atmos organizes real work. A **project** is a Git repository on disk. A **workspace** is an isolated task environment—usually a **Git worktree**—with its own branch, terminal, editor, agents, and review history.
+
+## Overview
+
+### What is a workspace?
+
+A workspace is a single unit of work: a feature, bug fix, experiment, or review. Everything you do in Atmos—terminals, Code Agents, diffs, Kanban cards—hangs off a workspace.
+
+### Why Git worktree isolation?
+
+Worktrees let multiple workspaces share one repository on **different branches** without clobbering each other. That enables:
+
+- Parallel Code Agents on separate branches.
+- Clear separation between tasks.
+- Fast context switches without re-cloning.
+
+## Core capabilities
+
+| Capability | What it does |
+|------------|----------------|
+| **Import Project** | Add a Git repo to Atmos as a project |
+| **Create workspace** | New worktree + setup pipeline for a task |
+| **Quick New Workspace** | One-click workspace with auto-generated name/branch |
+| **Kanban** | Status, priority, labels across workspaces |
+| **Workspace scripts** | Setup, run, and purge automation per project |
+| **GitIgnore Dirs Sync** | Copy or symlink ignored paths (e.g. `agents/`) into worktrees |
+
+## 1. Add a project
+
+1. In the left sidebar footer, click **Add Project** (folder icon), or use **Add Project** from Global Search / the New Workspace composer.
+2. In **Import Project**, pick **Project Path** (type or **Browse…** → **Select Project Directory**).
+3. Confirm Git detection, set **Project Name**, then **Import Project**.
+
+The project appears in the sidebar with its workspaces underneath.
+
+## 2. Configure workspace scripts
+
+Per-project scripts run at key lifecycle moments. Open the project **⋯** menu → **Workspace Scripts**.
+
+| Script | When it runs |
+|--------|----------------|
+| **Setup Script** | After a new workspace is created (dependencies, env files, etc.) |
+| **Run Script** | One-click start for dev servers (Run / Preview tab, `⌘R`) |
+| **Purge Script** | Cleanup when removing or archiving a workspace |
+
+The dialog lists environment values you can use in scripts (project path, workspace name, and workspace folder).
+
+Click **Save Scripts** when done.
+
+## 3. GitIgnore Directories Sync
+
+Some teams keep agent assets under Git-ignored paths (`agents/`, custom prompts, plugins). Enable sync so new worktrees still see them.
+
+1. Open **Settings** → **Workspace** → **GitIgnore Directories Sync**.
+2. Turn on the master switch.
+3. For each path, choose **Symlink**, **Copy**, or **Off** (built-in defaults + custom paths).
+4. Add custom directories if needed (e.g. `.my-secrets`).
+
+Failed syncs surface as **GitIgnore Sync Failed** toasts when a workspace is created.
+
+## 4. Create a workspace
+
+### 4.1 Quick New Workspace (sidebar)
+
+1. On a project row, click **Quick New Workspace** (⚡).
+2. Atmos creates a workspace with an auto-generated name/branch, default status **In Progress**, and runs the setup pipeline.
+3. You land in the workspace when setup finishes.
+
+Best for: fast spikes with no GitHub link or custom branch name.
+
+### 4.2 New Workspace Composer
+
+1. Open **New Workspace** from the Management Center (`⌘N`), the project menu, or Global Search.
+2. The **New Workspace** overlay covers the center and right panels (sidebar stays visible).
+3. In **PromptComposer**:
+   - Type a goal, use `@issue#`, `@pr#`, `@file:`, `/skill:` chips, or paste images.
+   - Set **Priority**, **Status**, **Labels**, and pick a project.
+4. **Advanced** (`⋯`): set **Name**, **Base branch**, **Current workspace branch**, or link a **GitHub Issue** / **GitHub PR**.
+5. Press **Create Workspace** (`⌘⇧↵`) — creates the workspace, runs setup, opens it, and can queue the initial agent prompt.
+
+Best for: agent-first tasks with rich context up front.
+
+### 4.3 Create New Workspace dialog (Kanban & issues)
+
+1. From **Kanban**, click **+** on a column or **Build workspace from issue** on an **Issue Only** card.
+2. In **Create New Workspace** (or **Build Workspace from Issue**):
+   - Choose project, name, branches.
+   - Optionally link GitHub issue/PR, enable **Auto-extract TODOs with LLM**.
+3. **Create Workspace** runs the same setup pipeline as the composer.
+
+### 4.4 Kanban: Issue Only workspaces
+
+1. Open **Kanban** (sidebar icon or `⌘⇧K` for expanded board).
+2. Click **Import GitHub Issues**, select a repo, load issues, then **Import N Issue(s)**.
+3. Issues appear as **GitHub Issue Only Workspace** cards—tracked on the board **without** a worktree yet.
+4. When ready, use **Build workspace from issue** to create the real workspace and start building.
+
+## 5. Manage workspaces with Kanban
+
+**Columns** follow workflow status: **Backlog**, **To Do**, **In Progress**, **In Review**, **Blocked**, **Completed**, **Canceled**.
+
+**Toolbar:**
+
+- Filter by status, priority, labels, project.
+- Group **By Project**, **By Status**, or **By Time**.
+- Sort by **Last Visit**, **Create Time**, or **Priority**.
+- Toggle **Show Issue Only** / **Hide Issue Only**.
+
+**Actions on cards:** drag to change status, **Pin**, **Archive**, **Delete**, or open the workspace.
+
+Use Kanban to answer: *What should I work on next?*
+
+## Related
+
+- [General Build Process](/workflows/general-build-process) — after a workspace exists.
+- [Multi-Workspace Development](/features/multi-workspace) — feature overview.
+- [Kanban View](/features/kanban-view) — board-centric tips.

@@ -1763,7 +1763,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                             </div>
                         </div>
                     </Panel>
-                    <SidebarColumnResizeHandle onDragging={handleTwoColumnDividerDragging} />
+                    {!isTwoColumnPrimaryCollapsed ? (
+                        <SidebarColumnResizeHandle onDragging={handleTwoColumnDividerDragging} />
+                    ) : null}
                     <Panel
                         id={isProjectTwoColumn ? "left-sidebar-two-column-secondary-project" : `left-sidebar-two-column-secondary-${groupingMode}`}
                         order={2}
