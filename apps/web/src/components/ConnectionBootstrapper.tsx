@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { bootstrapActiveInstance } from '@/hooks/use-connection-store';
 import { ensureLocalAppConnectionBootstrap } from '@/lib/app-connection-bootstrap';
 import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
 import { isHostedAtmosOrigin } from '@/lib/desktop-runtime';
