@@ -71,7 +71,8 @@ import {
   consumeLastPinnedTerminal,
   writeCanvasSession,
 } from "@/hooks/use-ui-pref-hooks";
-import { useConnectionStore } from "@/hooks/use-connection-store";
+import { useAtmosComputerStore } from "@/lib/atmos-computer-store";
+import { instanceIdFromRelaySelection } from "@/lib/connection-instance";
 import { useCanvasChromePrefs } from "@/hooks/use-canvas-chrome-prefs";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
@@ -103,6 +104,15 @@ import {
 } from "./canvas-terminal-focus";
 import { CanvasAgentCrashBoundary } from "./CanvasAgentCrashBoundary";
 import { CanvasAgentCrashProvider } from "./canvas-agent-crash-context";
+import { ensureLocalAppConnectionBootstrap } from "@/lib/app-connection-bootstrap";
+import { isHostedAtmosOrigin } from "@/lib/desktop-runtime";
+import {
+  fitCanvasEditorToPageContent,
+  hasTrustedSessionViewport,
+  loadCanvasSessionIntoEditor,
+  recoverCanvasViewportIfNeeded,
+  sanitizeCanvasSessionForPersist,
+} from "./canvas-viewport";
 
 const SESSION_SAVE_DEBOUNCE_MS = 400;
 const TLDRAW_LICENSE_KEY = process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY;
@@ -891,7 +901,12 @@ export const CanvasView: React.FC = () => {
     toggleIsToolbarCollapsed,
   } = useCanvasChromePrefs();
   const { board, document, isLoading, isSaving, error, loadBoard } = useCanvasBoard();
-  const activeInstanceId = useConnectionStore((state) => state.activeInstanceId);
+  const canvasPrefsInstanceId = useAtmosComputerStore((state) =>
+    instanceIdFromRelaySelection(state.connectionMode, state.selectedServerId),
+  );
+  const [connectionBootstrapReady, setConnectionBootstrapReady] = React.useState(
+    () => typeof window === "undefined" || isHostedAtmosOrigin(),
+  );
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [isManualSaving, setIsManualSaving] = React.useState(false);
   const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
@@ -940,6 +955,8 @@ export const CanvasView: React.FC = () => {
   const sessionDirtyRef = React.useRef(false);
   const autoSaveIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const hydratedRenderedBoardKeyRef = React.useRef<string | null>(null);
+  const initialViewportFitDoneRef = React.useRef(false);
+  const prevCanvasPrefsInstanceRef = React.useRef(canvasPrefsInstanceId);
   const spawnIndexRef = React.useRef(0);
   const sharePanelRef = React.useRef<React.ReactNode>(null);
   const canvasAgentBridgeRef = React.useRef(canvasAgentBridge);
@@ -984,10 +1001,25 @@ export const CanvasView: React.FC = () => {
     [AgentOnCanvasSlot, ShapeCopySlot, SharePanelSlot, isStylePanelEnabled],
   );
 
-  const initialSnapshot = React.useMemo(
-    () => createCanvasSnapshot(document?.tldrawDocument ?? null, readCanvasSession(board?.guid)),
-    [activeInstanceId, board?.guid, document?.tldrawDocument],
-  );
+  const initialSnapshot = React.useMemo(() => {
+    if (!connectionBootstrapReady || !document?.tldrawDocument) {
+      return null;
+    }
+    return createCanvasSnapshot(
+      document.tldrawDocument,
+      readCanvasSession(board?.guid),
+    );
+  }, [board?.guid, connectionBootstrapReady, document?.tldrawDocument]);
+
+  React.useEffect(() => {
+    if (isHostedAtmosOrigin()) {
+      setConnectionBootstrapReady(true);
+      return;
+    }
+    void ensureLocalAppConnectionBootstrap().then(() => {
+      setConnectionBootstrapReady(true);
+    });
+  }, []);
 
   const visibleBuiltInAgents = React.useMemo(
     () => AGENT_OPTIONS.filter((agent) => (agentCustomSettings[agent.id]?.enabled ?? true)),
@@ -1140,7 +1172,13 @@ export const CanvasView: React.FC = () => {
   React.useEffect(() => {
     resetRuntime();
     hydratedRenderedBoardKeyRef.current = null;
+    initialViewportFitDoneRef.current = false;
   }, [board?.guid, resetRuntime]);
+
+  React.useEffect(() => {
+    initialViewportFitDoneRef.current = false;
+    setEditorReady(false);
+  }, [tldrawRemountKey]);
 
   const scheduleSessionSave = React.useCallback(
     (nextSession: CanvasTldrawSession) => {
@@ -1152,7 +1190,10 @@ export const CanvasView: React.FC = () => {
       sessionSaveTimeoutRef.current = setTimeout(() => {
         sessionSaveTimeoutRef.current = null;
         if (sessionDirtyRef.current && pendingSessionRef.current) {
-          writeCanvasSession(pendingSessionRef.current, board?.guid);
+          writeCanvasSession(
+            sanitizeCanvasSessionForPersist(pendingSessionRef.current),
+            board?.guid,
+          );
           sessionDirtyRef.current = false;
         }
       }, SESSION_SAVE_DEBOUNCE_MS);
@@ -1165,41 +1206,73 @@ export const CanvasView: React.FC = () => {
     const editor = editorRef.current;
     if (!editor) return;
 
-    const cleanupSelection = editor.store.listen(() => {
-      const runtime = useCanvasRuntime.getState();
-      const shapes = getCanvasTerminalShapes(editor);
-      const shapeIds = new Set(shapes.map((shape) => shape.id));
-      const nextRenderedShapeIds = runtime.renderedShapeIds.filter((shapeId) => shapeIds.has(shapeId));
-      if (!areShapeIdListsEqual(nextRenderedShapeIds, runtime.renderedShapeIds)) {
-        runtime.setRenderedShapeIds(nextRenderedShapeIds);
-      }
-      if (runtime.activeShapeId && !shapeIds.has(runtime.activeShapeId)) {
-        runtime.setActiveShapeId(null);
-      }
+    const cleanupDocument = editor.store.listen(
+      () => {
+        const runtime = useCanvasRuntime.getState();
+        const shapes = getCanvasTerminalShapes(editor);
+        const shapeIds = new Set(shapes.map((shape) => shape.id));
+        const nextRenderedShapeIds = runtime.renderedShapeIds.filter((shapeId) =>
+          shapeIds.has(shapeId),
+        );
+        if (!areShapeIdListsEqual(nextRenderedShapeIds, runtime.renderedShapeIds)) {
+          runtime.setRenderedShapeIds(nextRenderedShapeIds);
+        }
+        if (runtime.activeShapeId && !shapeIds.has(runtime.activeShapeId)) {
+          runtime.setActiveShapeId(null);
+        }
+      },
+      { scope: "document" },
+    );
 
-      const nextSelectedShapeIds = editor.getSelectedShapeIds() as TLShapeId[];
-      if (
-        nextSelectedShapeIds.length === 1 &&
-        nextSelectedShapeIds[0] !== runtime.activeShapeId
-      ) {
-        setActiveShapeId(nextSelectedShapeIds[0]);
-      }
-    });
-
-    // Keep session listener for local storage
     const cleanupSession = editor.store.listen(
       () => {
         const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
         scheduleSessionSave(snapshot.session);
+
+        const runtime = useCanvasRuntime.getState();
+        const nextSelectedShapeIds = editor.getSelectedShapeIds() as TLShapeId[];
+        if (nextSelectedShapeIds.length === 0) {
+          if (runtime.activeShapeId !== null) {
+            runtime.setActiveShapeId(null);
+          }
+        } else if (
+          nextSelectedShapeIds.length === 1 &&
+          nextSelectedShapeIds[0] !== runtime.activeShapeId
+        ) {
+          setActiveShapeId(nextSelectedShapeIds[0]);
+        }
+
+        recoverCanvasViewportIfNeeded(editor);
       },
       { scope: "session" },
     );
 
     return () => {
-      cleanupSelection();
+      cleanupDocument();
       cleanupSession();
     };
   }, [editorReady, scheduleSessionSave, setActiveShapeId]);
+
+  React.useEffect(() => {
+    if (!editorReady || !connectionBootstrapReady) {
+      return;
+    }
+    if (prevCanvasPrefsInstanceRef.current === canvasPrefsInstanceId) {
+      return;
+    }
+    prevCanvasPrefsInstanceRef.current = canvasPrefsInstanceId;
+
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    loadCanvasSessionIntoEditor(editor, readCanvasSession(board?.guid));
+    const pageId = editor.getCurrentPageId();
+    if (!hasTrustedSessionViewport(readCanvasSession(board?.guid), pageId)) {
+      void fitCanvasEditorToPageContent(editor);
+    }
+  }, [board?.guid, canvasPrefsInstanceId, connectionBootstrapReady, editorReady]);
 
   React.useEffect(() => {
     if (!editorReady || !canvasSettingsLoaded) {
@@ -1333,7 +1406,7 @@ export const CanvasView: React.FC = () => {
     setActiveShapeId(null);
   }, [setActiveShapeId]);
 
-  if (isLoading) {
+  if (isLoading || !connectionBootstrapReady) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -1552,7 +1625,7 @@ export const CanvasView: React.FC = () => {
           <CanvasTopLeftToolbarContext.Provider value={topLeftToolbarContextValue}>
             <CanvasAgentCrashBoundary className="h-full w-full">
               <Tldraw
-                key={`${board?.guid || "canvas"}:${activeInstanceId}:${tldrawRemountKey}`}
+                key={`${board?.guid || "canvas"}:${tldrawRemountKey}`}
                 licenseKey={TLDRAW_LICENSE_KEY}
                 snapshot={initialSnapshot ?? undefined}
                 shapeUtils={shapeUtils}
@@ -1561,6 +1634,21 @@ export const CanvasView: React.FC = () => {
                   editorRef.current = nextEditor;
                   setEditorReady(true);
                   setAgentBridgeEditor(nextEditor);
+
+                  const pageId = nextEditor.getCurrentPageId();
+                  const session = readCanvasSession(board?.guid);
+                  if (!hasTrustedSessionViewport(session, pageId)) {
+                    requestAnimationFrame(() => {
+                      if (initialViewportFitDoneRef.current) {
+                        return;
+                      }
+                      if (fitCanvasEditorToPageContent(nextEditor)) {
+                        initialViewportFitDoneRef.current = true;
+                      }
+                    });
+                  } else {
+                    initialViewportFitDoneRef.current = true;
+                  }
                 }}
               >
                 <CanvasThemeBridge />
