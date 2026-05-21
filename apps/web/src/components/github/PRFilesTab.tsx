@@ -152,9 +152,10 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     [orderedFiles],
   );
 
-  const { codeViewItems, fileLevelThreads } = useMemo(() => {
+  const { codeViewItems, fileLevelThreads, pathByFileName, itemIds } = useMemo(() => {
     const items: CodeViewItem<PrAnnotationMeta>[] = [];
     const fileThreads = new Map<string, ReviewComment[][]>();
+    const nextPathByFileName = new Map<string, string>();
 
     for (const file of orderedFiles) {
       const threads = commentsByPath.get(file.filename) ?? [];
@@ -191,7 +192,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         },
       );
 
-      pathByFileNameRef.current.set(fileDiff.name, file.filename);
+      nextPathByFileName.set(fileDiff.name, file.filename);
       items.push({
         id: file.filename,
         type: 'diff',
@@ -200,16 +201,21 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
       });
     }
 
-    return { codeViewItems: items, fileLevelThreads: fileThreads };
+    return {
+      codeViewItems: items,
+      fileLevelThreads: fileThreads,
+      pathByFileName: nextPathByFileName,
+      itemIds: items.map((item) => item.id),
+    };
   }, [orderedFiles, commentsByPath]);
 
   const renderHeaderPrefix = useMemo(
     () =>
       createDiffHeaderPrefixRenderer({
         viewerRef: codeViewRef,
-        pathByFileName: pathByFileNameRef.current,
+        pathByFileName,
       }),
-    [codeViewMountKey, viewerMounted],
+    [codeViewMountKey, pathByFileName, viewerMounted],
   );
 
   const codeViewOptions = useMemo(
@@ -247,7 +253,10 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     [commentsByPath],
   );
 
-  itemIdsRef.current = codeViewItems.map((item) => item.id);
+  useEffect(() => {
+    pathByFileNameRef.current = pathByFileName;
+    itemIdsRef.current = itemIds;
+  }, [itemIds, pathByFileName]);
 
   useEffect(() => {
     if (codeViewItems.length === 0) {

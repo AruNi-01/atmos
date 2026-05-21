@@ -102,6 +102,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
   );
 
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedAllItems, setHasLoadedAllItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialItems, setInitialItems] = useState<CodeViewItem<ReviewAnnotationMeta>[]>([]);
   const [annotationVersion, setAnnotationVersion] = useState(0);
@@ -142,6 +143,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
   const fileSnapshotByPathRef = useRef<Map<string, ReviewFileDto>>(new Map());
   const lastHandledNavRef = useRef<string | null>(null);
   const inlineCommentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const loadErrorRef = useRef<Error | null>(null);
 
   const orderedFiles = useMemo(
     () =>
@@ -230,6 +232,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
     setViewerKey((key) => key + 1);
     setViewerMounted(false);
     setInitialItems([]);
+    setHasLoadedAllItems(false);
     pendingAppendRef.current = [];
     pathByFileNameRef.current = new Map();
     loadedContentsRef.current = new Map();
@@ -237,6 +240,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
     itemIdsRef.current = [];
     scrollActiveIdRef.current = null;
     lastHandledNavRef.current = null;
+    loadErrorRef.current = null;
 
     if (!reviewCtx.currentRevision) {
       setIsLoading(false);
@@ -284,12 +288,19 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
                   id: file.snapshot.file_path,
                   type: 'diff' as const,
                   fileDiff,
+                  collapsed: collapseMode === 'collapsed',
                 };
               } catch (loadError) {
                 console.error(
                   `Failed to load review diff for ${file.snapshot.file_path}:`,
                   loadError,
                 );
+                if (loadErrorRef.current == null) {
+                  loadErrorRef.current =
+                    loadError instanceof Error
+                      ? loadError
+                      : new Error('Failed to load review diff');
+                }
                 return null;
               }
             }),
@@ -327,7 +338,11 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
           }
         }
 
-        if (!cancelled && !hasPublishedInitial) {
+        if (!cancelled) {
+          setHasLoadedAllItems(true);
+          if (!hasPublishedInitial && loadErrorRef.current) {
+            setError(loadErrorRef.current.message);
+          }
           setIsLoading(false);
         }
       } catch (loadError) {
@@ -347,7 +362,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [orderedFiles, reviewCtx.currentRevision]);
+  }, [collapseMode, orderedFiles, reviewCtx.currentRevision]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;
@@ -359,14 +374,16 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
 
   useEffect(() => {
     if (!effectiveContextId || itemIdsRef.current.length === 0) return;
-    const currentSelectedPath =
-      selectedPath && itemIdsRef.current.includes(selectedPath) ? selectedPath : null;
-    if (currentSelectedPath) return;
+    if (selectedPath && !hasLoadedAllItems) return;
+    if (selectedPath && itemIdsRef.current.includes(selectedPath)) return;
+    if (selectedPath && navigationTarget?.diffFilePath === selectedPath) return;
     setDiffGroupActiveFile(groupPath, itemIdsRef.current[0], effectiveContextId);
   }, [
     effectiveContextId,
     groupPath,
+    hasLoadedAllItems,
     initialItems,
+    navigationTarget?.diffFilePath,
     selectedPath,
     setDiffGroupActiveFile,
     viewerKey,
@@ -940,8 +957,9 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
     ) {
       return;
     }
+    const targetPath = navigationTarget.diffFilePath;
+    if (!itemIdsRef.current.includes(targetPath)) return;
     if (lastHandledNavRef.current === navigationScrollKey) return;
-    lastHandledNavRef.current = navigationScrollKey;
 
     if (navigationTarget.reviewCommentGuid) {
       setCollapsedInlineCommentGuids((prev) => {
@@ -958,11 +976,15 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
     }
 
     if (effectiveContextId) {
-      setDiffGroupActiveFile(groupPath, navigationTarget.diffFilePath, effectiveContextId);
+      setDiffGroupActiveFile(groupPath, targetPath, effectiveContextId);
     }
 
     requestAnimationFrame(() => {
-      scrollCodeViewToItem(codeViewRef.current, navigationTarget.diffFilePath!, {
+      if (!codeViewRef.current?.getItem(targetPath)) {
+        return;
+      }
+      lastHandledNavRef.current = navigationScrollKey;
+      scrollCodeViewToItem(codeViewRef.current, targetPath, {
         line: navigationTarget.line,
         behavior: 'smooth',
       });
@@ -971,6 +993,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
       }
     });
   }, [
+    annotationVersion,
     clearNavigationTarget,
     effectiveContextId,
     groupPath,

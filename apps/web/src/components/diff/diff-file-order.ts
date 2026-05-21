@@ -11,13 +11,6 @@ export function compareDiffTreePaths(leftPath: string, rightPath: string): numbe
 
     if (leftPart === rightPart) continue;
 
-    const leftIsLeaf = index === leftParts.length - 1;
-    const rightIsLeaf = index === rightParts.length - 1;
-
-    if (leftIsLeaf !== rightIsLeaf) {
-      return leftIsLeaf ? 1 : -1;
-    }
-
     return leftPart.localeCompare(rightPart);
   }
 

@@ -194,6 +194,25 @@ export const DiffViewer = ({
     return { oldMap, newMap };
   }, [diffMeta]);
 
+  const getMappedContextRange = useCallback((
+    lineMap: Map<number, LineTypeInfo>,
+    startLine: number,
+    endLine: number,
+  ) => {
+    const mapped: LineTypeInfo[] = [];
+    for (let line = startLine; line <= endLine; line++) {
+      const info = lineMap.get(line);
+      if (info) mapped.push(info);
+    }
+
+    return {
+      oldStart: mapped[0]?.oldLine ?? startLine,
+      oldEnd: mapped[mapped.length - 1]?.oldLine ?? endLine,
+      newStart: mapped[0]?.newLine ?? startLine,
+      newEnd: mapped[mapped.length - 1]?.newLine ?? endLine,
+    };
+  }, []);
+
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [isPopoverVisible, setIsPopoverVisible] = useState(false);
   const [isPopoverExpanded, setIsPopoverExpanded] = useState(false);
@@ -253,8 +272,9 @@ export const DiffViewer = ({
 
     if (onlyContext) {
       changeType = 'context';
-      beforeText = oldLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
-      afterText = newLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
+      const mapped = getMappedContextRange(sideMap, normalizedStart, normalizedEnd);
+      beforeText = oldLines.slice(mapped.oldStart - 1, mapped.oldEnd).join('\n');
+      afterText = newLines.slice(mapped.newStart - 1, mapped.newEnd).join('\n');
     } else if (onlyPureAddition) {
       changeType = 'addition';
       beforeText = undefined;
@@ -300,7 +320,7 @@ export const DiffViewer = ({
       beforeText,
       afterText,
     };
-  }, [filePath, lineTypeMap, newFile?.contents, oldFile?.contents]);
+  }, [filePath, getMappedContextRange, lineTypeMap, newFile?.contents, oldFile?.contents]);
 
   const openInlineCommentDraft = useCallback((draft: InlineCommentDraft) => {
     dismissPopover();
@@ -347,8 +367,8 @@ export const DiffViewer = ({
         startLine: selection.startLine,
         endLine: selection.endLine,
         selectedText: selection.selectedText,
-        beforeContext: [],
-        afterContext: [],
+        beforeContext: selection.beforeText ? selection.beforeText.split('\n') : [],
+        afterContext: selection.afterText ? selection.afterText.split('\n') : [],
       });
       return;
     }

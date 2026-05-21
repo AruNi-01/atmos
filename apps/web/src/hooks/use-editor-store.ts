@@ -122,6 +122,7 @@ function isGroupedDiffEditorPath(path: string): boolean {
 
 export function isDiffEditorPath(path: string): boolean {
   return (
+    path.startsWith(EDITOR_DIFF_PREFIX) ||
     isGroupedDiffEditorPath(path) ||
     path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
   );

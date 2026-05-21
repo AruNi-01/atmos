@@ -76,6 +76,8 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
 
   const workerPoolReady = useDiffWorkerPoolReady();
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedAllItems, setHasLoadedAllItems] = useState(false);
+  const [loadedItemVersion, setLoadedItemVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [initialItems, setInitialItems] = useState<CodeViewItem<CopyAnnotationMeta>[]>(
     [],
@@ -261,6 +263,8 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     setViewerKey((key) => key + 1);
     setViewerMounted(false);
     setInitialItems([]);
+    setHasLoadedAllItems(false);
+    setLoadedItemVersion(0);
     pendingAppendRef.current = [];
     pathByFileNameRef.current = new Map();
     loadedContentsRef.current = new Map();
@@ -317,6 +321,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
               id: result.id,
               type: 'diff',
               fileDiff: result.fileDiff,
+              collapsed: collapseMode === 'collapsed',
             });
           }
 
@@ -326,6 +331,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
             hasPublishedInitial = true;
             itemIdsRef.current = codeItems.map((item) => item.id);
             setInitialItems(codeItems);
+            setLoadedItemVersion((value) => value + 1);
             setIsLoading(false);
             await yieldToBrowser();
           } else {
@@ -336,6 +342,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
             const viewer = codeViewRef.current;
             if (viewer != null) {
               viewer.addItems(codeItems);
+              setLoadedItemVersion((value) => value + 1);
               await yieldToBrowser();
             } else {
               pendingAppendRef.current.push(...codeItems);
@@ -346,6 +353,9 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
         if (!cancelled && !hasPublishedInitial) {
           itemIdsRef.current = [];
           setIsLoading(false);
+        }
+        if (!cancelled) {
+          setHasLoadedAllItems(true);
         }
       } catch (err) {
         if (!cancelled) {
@@ -360,25 +370,28 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [groupFiles, groupKind, repoPath]);
+  }, [collapseMode, groupFiles, groupKind, repoPath]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;
     const pending = pendingAppendRef.current;
     pendingAppendRef.current = [];
     codeViewRef.current?.addItems(pending);
+    setLoadedItemVersion((value) => value + 1);
   }, [viewerMounted, initialItems]);
 
   useEffect(() => {
     if (!effectiveContextId || itemIdsRef.current.length === 0) return;
-    const currentSelectedPath =
-      selectedPath && itemIdsRef.current.includes(selectedPath) ? selectedPath : null;
-    if (currentSelectedPath) return;
+    if (selectedPath && !hasLoadedAllItems) return;
+    if (selectedPath && itemIdsRef.current.includes(selectedPath)) return;
+    if (selectedPath && navigationTarget?.diffFilePath === selectedPath) return;
     setDiffGroupActiveFile(groupPath, itemIdsRef.current[0], effectiveContextId);
   }, [
     effectiveContextId,
     groupPath,
+    hasLoadedAllItems,
     initialItems,
+    navigationTarget?.diffFilePath,
     selectedPath,
     setDiffGroupActiveFile,
     viewerKey,
@@ -470,15 +483,18 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     ) {
       return;
     }
-    if (lastHandledNavRef.current === navigationScrollKey) return;
-    lastHandledNavRef.current = navigationScrollKey;
-
     const fileId = navigationTarget.diffFilePath;
+    if (!itemIdsRef.current.includes(fileId)) return;
+    if (lastHandledNavRef.current === navigationScrollKey) return;
     if (effectiveContextId) {
       setDiffGroupActiveFile(groupPath, fileId, effectiveContextId);
     }
 
     requestAnimationFrame(() => {
+      if (!codeViewRef.current?.getItem(fileId)) {
+        return;
+      }
+      lastHandledNavRef.current = navigationScrollKey;
       scrollCodeViewToItem(codeViewRef.current, fileId, {
         line: navigationTarget.line,
         behavior: 'smooth',
@@ -495,6 +511,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   }, [
     navigationTarget,
     navigationScrollKey,
+    loadedItemVersion,
     isLoading,
     viewerMounted,
     groupPath,

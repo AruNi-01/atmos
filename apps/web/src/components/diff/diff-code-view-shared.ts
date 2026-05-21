@@ -108,6 +108,25 @@ function buildLineTypeMaps(fileDiff: FileDiffMetadata) {
   return { oldMap, newMap };
 }
 
+function getMappedContextRange(
+  lineMap: Map<number, LineTypeInfo>,
+  startLine: number,
+  endLine: number,
+) {
+  const mapped: LineTypeInfo[] = [];
+  for (let line = startLine; line <= endLine; line += 1) {
+    const info = lineMap.get(line);
+    if (info) mapped.push(info);
+  }
+
+  return {
+    oldStart: mapped[0]?.oldLine ?? startLine,
+    oldEnd: mapped[mapped.length - 1]?.oldLine ?? endLine,
+    newStart: mapped[0]?.newLine ?? startLine,
+    newEnd: mapped[mapped.length - 1]?.newLine ?? endLine,
+  };
+}
+
 export function formatSelectedRangeLabel(range: SelectedLineRange): string {
   const start = Math.min(range.start, range.end);
   const end = Math.max(range.start, range.end);
@@ -151,8 +170,9 @@ export function buildDiffSelectionInfo(args: {
 
   if (onlyContext) {
     changeType = 'context';
-    beforeText = oldLines.slice(startLine - 1, endLine).join('\n');
-    afterText = newLines.slice(startLine - 1, endLine).join('\n');
+    const mapped = getMappedContextRange(lineMap, startLine, endLine);
+    beforeText = oldLines.slice(mapped.oldStart - 1, mapped.oldEnd).join('\n');
+    afterText = newLines.slice(mapped.newStart - 1, mapped.newEnd).join('\n');
   } else if (onlyAddition) {
     changeType = 'addition';
     afterText = newLines.slice(startLine - 1, endLine).join('\n');
