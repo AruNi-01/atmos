@@ -14,6 +14,7 @@ import { SidebarLayoutProvider } from "@/components/layout/SidebarLayoutContext"
 import { WorkspaceCreationOverlay } from "@/components/layout/WorkspaceCreationOverlay";
 import { CanvasOverlay } from "@/components/canvas/CanvasOverlay";
 import { ConnectionBootstrapper } from "@/components/ConnectionBootstrapper";
+import { DiffWorkerPoolProvider } from "@/components/diff/DiffWorkerPoolProvider";
 
 type Props = {
   children: React.ReactNode;
@@ -48,6 +49,7 @@ export default async function AppLayout({ children, params }: Props) {
         }
       >
         <SidebarLayoutProvider>
+          <DiffWorkerPoolProvider>
           <ConnectionBootstrapper />
           <HostedBootstrapBoundary>
             <Header />
@@ -70,6 +72,7 @@ export default async function AppLayout({ children, params }: Props) {
 
             <CanvasOverlay />
           </HostedBootstrapBoundary>
+          </DiffWorkerPoolProvider>
         </SidebarLayoutProvider>
       </Suspense>
 

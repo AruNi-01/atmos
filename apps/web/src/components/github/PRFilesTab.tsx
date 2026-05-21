@@ -1,16 +1,27 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
-import { PatchDiff, Virtualizer } from '@pierre/diffs/react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
+import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
+import { processFile } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
-import { Avatar, AvatarImage, AvatarFallback, Skeleton, getFileIconProps, ScrollArea, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
-import { MessageSquare, Plus, Minus, ChevronRight, ChevronDown, PanelLeftClose, PanelLeftOpen, MoreHorizontal } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback, Skeleton, ScrollArea, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
+import { MessageSquare, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
 import { DiffFileTree } from '@/components/diff/DiffFileTree';
 import { motion, AnimatePresence } from 'motion/react';
 import type { PrFile } from '@/hooks/use-github';
+import { useDiffWorkerPoolReady } from '@/components/diff/DiffWorkerPoolProvider';
+import { DiffCodeViewSettingsMenu } from '@/components/diff/DiffCodeViewSettingsMenu';
+import { applyCollapseModeToItems } from '@/components/diff/diff-code-view-shared';
+import { buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS } from '@/components/diff/diff-view-constants';
+import {
+  createDiffHeaderPrefixRenderer,
+  findDiffItemIdAtScrollTop,
+  scrollCodeViewToItem,
+} from '@/components/diff/code-view-ui';
 
 interface ReviewComment {
   id?: number;
@@ -32,7 +43,6 @@ interface PRFilesTabProps {
   repo: string;
 }
 
-// Group review comments by file path
 function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComment[][]> {
   const threadMap = new Map<number, ReviewComment[]>();
   for (const c of comments) {
@@ -53,26 +63,15 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
   const first = thread[0];
   const [collapsed, setCollapsed] = React.useState(false);
   return (
-    // `contain: inline-size` is critical: when this thread is slotted into the
-    // pierre/diffs `[data-line-annotation]` grid item, its descendants' min-content
-    // would normally propagate up and widen the grid track (in split view this
-    // pushes the right diff side past the container, hiding the left side).
-    // Containing the inline-size makes our intrinsic width = 0 from the parent's
-    // perspective, so the diff column stays at its allotted 1fr width.
-    // `container-type: inline-size` also lets inner content react to our actual
-    // rendered width via container queries if needed.
     <div
       className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px] block"
       style={{ contain: 'layout inline-size', containerType: 'inline-size', minWidth: 0, maxWidth: '100%' }}
     >
       <button
         className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex items-center gap-1.5 w-full text-left group cursor-pointer"
-        onClick={() => setCollapsed(v => !v)}
+        onClick={() => setCollapsed((v) => !v)}
       >
-        <div className="relative size-3 shrink-0">
-          <MessageSquare className="absolute inset-0 size-3 transition-opacity duration-150 group-hover:opacity-0" />
-          <ChevronRight className={cn("absolute inset-0 size-3 opacity-0 transition-all duration-150 group-hover:opacity-100", !collapsed && "rotate-90")} />
-        </div>
+        <MessageSquare className="size-3 shrink-0" />
         {first?.line != null ? `Line ${first.line}` : 'Comment'}
       </button>
       {!collapsed && (
@@ -91,16 +90,6 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
                   </span>
                 )}
               </div>
-              {/*
-                Mirror the center-area review CommentCard/MessageBubble behavior:
-                let prose flow naturally and provide a single horizontal scroll
-                container around the entire markdown body. When a `<details>`
-                block expands and reveals wide content (long URLs, code blocks,
-                tables), the user can scroll horizontally INSIDE the comment
-                — the comment box itself stays pinned to the diff column width
-                because the FileCommentThread root has `contain: inline-size`.
-                Plain prose paragraphs still wrap normally via the renderer.
-              */}
               <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden">
                 <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
                   {c.body ?? ''}
@@ -114,150 +103,200 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
   );
 }
 
-function FileDiffItem({
-  file,
-  threads,
-  options,
-  expanded,
-  onToggle,
-}: {
-  file: PrFile;
-  threads: ReviewComment[][];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options: any;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const fileName = file.filename.split('/').pop() ?? file.filename;
+type PrAnnotationMeta = {
+  kind: 'line-thread';
+  threadIndex: number;
+  path: string;
+};
 
-  // Split threads: line-specific vs file-level
-  const lineThreads = threads.filter(t => t[0]?.line != null || t[0]?.original_line != null);
-  const fileThreads = threads.filter(t => t[0]?.line == null && t[0]?.original_line == null);
-
-  // Build lineAnnotations for PatchDiff
-  const lineAnnotations = lineThreads.map((thread, i) => {
-    const first = thread[0];
-    const lineNumber = first?.line ?? first?.original_line ?? 1;
-    const side = first?.side === 'LEFT' ? 'deletions' : 'additions';
-    return { side: side as 'deletions' | 'additions', lineNumber, metadata: i };
-  });
-
-  return (
-    <div className="border border-border/40 rounded-lg overflow-hidden mb-2">
-      {/* File header */}
-      <button
-        className="flex items-center gap-2 w-full px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors text-left border-b border-border/30"
-        onClick={() => onToggle()}
-      >
-        {expanded ? <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />}
-        <img {...getFileIconProps({ name: fileName, isDir: false })} className="size-4 shrink-0" />
-        <span className="text-[12px] font-mono text-foreground/80 truncate flex-1">{file.filename}</span>
-        <span className="text-[10px] text-emerald-500 font-mono shrink-0 flex items-center gap-0.5">
-          <Plus className="size-3" />{file.additions}
-        </span>
-        <span className="text-[10px] text-red-500 font-mono shrink-0 flex items-center gap-0.5">
-          <Minus className="size-3" />{file.deletions}
-        </span>
-        {threads.length > 0 && (
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground shrink-0">
-            <MessageSquare className="size-3" />{threads.length}
-          </span>
-        )}
-      </button>
-
-      {expanded && (
-        <div>
-          {file.patch ? (
-            <PatchDiff
-              patch={`--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`}
-              options={options}
-              lineAnnotations={lineAnnotations}
-              renderAnnotation={(annotation) => {
-                const thread = lineThreads[annotation.metadata as number];
-                if (!thread) return null;
-                return <FileCommentThread thread={thread} />;
-              }}
-            />
-          ) : (
-            <div className="px-4 py-3 text-[11px] text-muted-foreground italic">
-              {file.status === 'renamed' ? 'File renamed' : file.status === 'added' ? 'New file' : file.status === 'removed' ? 'File deleted' : 'No diff available (file too large)'}
-            </div>
-          )}
-          {/* File-level comments (no line info) at the bottom */}
-          {fileThreads.map((thread, i) => (
-            <FileCommentThread key={i} thread={thread} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Simple file tree node
 export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }: PRFilesTabProps) {
   const { resolvedTheme } = useTheme();
+  const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [viewerMounted, setViewerMounted] = useState(false);
   const [treeVisible, setTreeVisible] = useState(true);
   const [treeWidth, setTreeWidth] = useState(224);
   const [isResizing, setIsResizing] = useState(false);
   const onResizeDragStart = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizing(true);
-    const startX = e.clientX, startW = treeWidth;
-    const onMove = (ev: MouseEvent) => setTreeWidth(Math.max(140, Math.min(480, startW + ev.clientX - startX)));
-    const onUp = () => { setIsResizing(false); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    const startX = e.clientX;
+    const startW = treeWidth;
+    const onMove = (ev: MouseEvent) =>
+      setTreeWidth(Math.max(140, Math.min(480, startW + ev.clientX - startX)));
+    const onUp = () => {
+      setIsResizing(false);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   };
   const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
-  const wordWrap = true;
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(() => new Set());
+  const [wordWrap, setWordWrap] = useState(true);
+  const [showBackgrounds, setShowBackgrounds] = useState(true);
+  const [lineNumbers, setLineNumbers] = useState(true);
+  const [diffIndicators, setDiffIndicators] =
+    useState<'bars' | 'classic' | 'none'>('bars');
+  const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
+    'expanded',
+  );
+  const pathByFileNameRef = useRef<Map<string, string>>(new Map());
+  const codeViewRef = useRef<CodeViewHandle<PrAnnotationMeta | undefined>>(null);
+  const itemIdsRef = useRef<string[]>([]);
+  const scrollActiveIdRef = useRef<string | null>(null);
 
-  const diffOptions = useMemo(() => ({
-    theme: (resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
-    diffStyle: diffStyle as 'unified' | 'split',
-    overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
-    disableFileHeader: true,
-    // Note: expandUnchanged is not enabled here because PatchDiff only receives patch strings
-    // from GitHub API (not full file contents), so it cannot expand collapsed unmodified lines.
-    // To enable expansion, we would need to fetch complete file contents via GitHub contents API
-    // and use FileDiff instead of PatchDiff.
-  }), [resolvedTheme, diffStyle, wordWrap]);
+  const codeViewMountKey = useMemo(
+    () => files.map((f) => f.filename).join('|'),
+    [files],
+  );
 
-  const totalStats = useMemo(() => ({
-    additions: files.reduce((s, f) => s + f.additions, 0),
-    deletions: files.reduce((s, f) => s + f.deletions, 0),
-    changed: files.length,
-  }), [files]);
+  const commentsByPath = useMemo(
+    () => groupCommentsByPath(reviewComments),
+    [reviewComments],
+  );
 
-  const commentsByPath = useMemo(() => groupCommentsByPath(reviewComments), [reviewComments]);
+  const { codeViewItems, fileLevelThreads } = useMemo(() => {
+    const items: CodeViewItem<PrAnnotationMeta>[] = [];
+    const fileThreads = new Map<string, ReviewComment[][]>();
 
-  React.useEffect(() => {
-    setExpandedFiles(new Set(files.slice(0, 3).map(f => f.filename)));
-  }, [files]);
+    for (const file of files) {
+      const threads = commentsByPath.get(file.filename) ?? [];
+      const lineThreads = threads.filter(
+        (t) => t[0]?.line != null || t[0]?.original_line != null,
+      );
+      const nonLineThreads = threads.filter(
+        (t) => t[0]?.line == null && t[0]?.original_line == null,
+      );
+      if (nonLineThreads.length > 0) {
+        fileThreads.set(file.filename, nonLineThreads);
+      }
 
-  const treeItems = useMemo(() => files.map(f => ({
-    path: f.filename,
-    additions: f.additions,
-    deletions: f.deletions,
-  })), [files]);
+      if (!file.patch) continue;
+
+      const patch = `--- a/${file.filename}\n+++ b/${file.filename}\n${file.patch}`;
+      const fileDiff = processFile(patch, { cacheKey: file.filename });
+      if (!fileDiff) continue;
+
+      const annotations: DiffLineAnnotation<PrAnnotationMeta>[] = lineThreads.map(
+        (thread, threadIndex) => {
+          const first = thread[0];
+          const lineNumber = first?.line ?? first?.original_line ?? 1;
+          const side = first?.side === 'LEFT' ? 'deletions' : 'additions';
+          return {
+            side: side as 'deletions' | 'additions',
+            lineNumber,
+            metadata: {
+              kind: 'line-thread' as const,
+              threadIndex,
+              path: file.filename,
+            },
+          };
+        },
+      );
+
+      pathByFileNameRef.current.set(fileDiff.name, file.filename);
+      items.push({
+        id: file.filename,
+        type: 'diff',
+        fileDiff,
+        annotations,
+      });
+    }
+
+    return { codeViewItems: items, fileLevelThreads: fileThreads };
+  }, [files, commentsByPath]);
+
+  const renderHeaderPrefix = useMemo(
+    () =>
+      createDiffHeaderPrefixRenderer({
+        viewerRef: codeViewRef,
+        pathByFileName: pathByFileNameRef.current,
+      }),
+    [codeViewMountKey, viewerMounted],
+  );
+
+  const codeViewOptions = useMemo(
+    () => ({
+      ...buildSharedDiffViewOptions({
+        theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
+        diffStyle,
+        wordWrap,
+        disableBackground: !showBackgrounds,
+        lineNumbers,
+        diffIndicators,
+        enableLineSelection: false,
+      }),
+    }),
+    [resolvedTheme, diffStyle, wordWrap, showBackgrounds, lineNumbers, diffIndicators],
+  );
+
+  const handleToggleCollapseMode = useCallback(() => {
+    const next = collapseMode === 'expanded' ? 'collapsed' : 'expanded';
+    setCollapseMode(next);
+    applyCollapseModeToItems(codeViewRef, itemIdsRef.current, next);
+  }, [collapseMode]);
+
+  const renderAnnotation = useCallback(
+    (annotation: DiffLineAnnotation<PrAnnotationMeta>) => {
+      if (annotation.metadata?.kind !== 'line-thread') return null;
+      const threads = commentsByPath.get(annotation.metadata.path) ?? [];
+      const lineThreads = threads.filter(
+        (t) => t[0]?.line != null || t[0]?.original_line != null,
+      );
+      const thread = lineThreads[annotation.metadata.threadIndex];
+      if (!thread) return null;
+      return <FileCommentThread thread={thread} />;
+    },
+    [commentsByPath],
+  );
+
+  itemIdsRef.current = codeViewItems.map((item) => item.id);
+
+  const handleViewerRef = useCallback(
+    (handle: CodeViewHandle<PrAnnotationMeta | undefined> | null) => {
+      codeViewRef.current = handle;
+      setViewerMounted(handle != null);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const instance = codeViewRef.current?.getInstance();
+    if (instance == null) return;
+
+    return instance.subscribeToScroll((scrollTop, viewer) => {
+      if (itemIdsRef.current.length === 0) return;
+      const activeId = findDiffItemIdAtScrollTop(
+        viewer,
+        scrollTop,
+        itemIdsRef.current,
+      );
+      if (activeId == null || activeId === scrollActiveIdRef.current) return;
+      scrollActiveIdRef.current = activeId;
+      setSelectedPath(activeId);
+    });
+  }, [codeViewMountKey, viewerMounted]);
+
+  const totalStats = useMemo(
+    () => ({
+      additions: files.reduce((s, f) => s + f.additions, 0),
+      deletions: files.reduce((s, f) => s + f.deletions, 0),
+      changed: files.length,
+    }),
+    [files],
+  );
 
   const handleSelect = (path: string) => {
     setSelectedPath(path);
-    setExpandedFiles(prev => { const next = new Set(prev); next.add(path); return next; });
-    // Scroll after a tick to allow expansion to render
-    setTimeout(() => {
-      const el = scrollContainerRef.current?.querySelector(`#pr-diff-${CSS.escape(path)}`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+    scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
   };
 
   const toolbar = (
     <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border/40 shrink-0">
       <button
         className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-        onClick={() => setTreeVisible(v => !v)}
+        onClick={() => setTreeVisible((v) => !v)}
         title={treeVisible ? 'Hide file tree' : 'Show file tree'}
       >
         {treeVisible ? <PanelLeftClose className="size-3.5" /> : <PanelLeftOpen className="size-3.5" />}
@@ -267,26 +306,22 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         <div className="flex items-center gap-2 text-[11px] font-mono font-medium">
           <span className="text-emerald-500">+{totalStats.additions}</span>
           <span className="text-red-500">-{totalStats.deletions}</span>
-          <div className="flex gap-0.5">
-            {Array.from({ length: 5 }, (_, i) => {
-              const filled = Math.round((totalStats.changed / Math.max(totalStats.changed, 1)) * 5);
-              return <div key={i} className={cn("size-2.5 rounded-sm", i < filled ? "bg-emerald-500" : "bg-muted-foreground/20")} />;
-            })}
-          </div>
         </div>
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors" title="View options">
-            <MoreHorizontal className="size-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[10rem]">
-          <DropdownMenuItem onSelect={(e) => e.preventDefault()} onClick={() => setDiffStyle(s => s === 'unified' ? 'split' : 'unified')} className="text-xs">
-            {diffStyle === 'unified' ? 'Split view' : 'Unified view'}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <DiffCodeViewSettingsMenu
+        diffStyle={diffStyle}
+        onDiffStyleChange={setDiffStyle}
+        showBackgrounds={showBackgrounds}
+        onShowBackgroundsChange={setShowBackgrounds}
+        lineNumbers={lineNumbers}
+        onLineNumbersChange={setLineNumbers}
+        wordWrap={wordWrap}
+        onWordWrapChange={setWordWrap}
+        diffIndicators={diffIndicators}
+        onDiffIndicatorsChange={setDiffIndicators}
+        collapseMode={collapseMode}
+        onToggleCollapseMode={handleToggleCollapseMode}
+      />
     </div>
   );
 
@@ -314,34 +349,38 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
 
       <div className="flex flex-1 min-h-0">
         <AnimatePresence initial={false}>
-        {treeVisible && (
-          <motion.div
-            key="tree"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: treeWidth, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={isResizing ? { duration: 0 } : { duration: 0.2, ease: 'easeInOut' }}
-            className="shrink-0 overflow-hidden"
-          >
-            <ScrollArea className="h-full py-1 border-r border-border/40" style={{ width: treeWidth }}>
-          <DiffFileTree
-            items={treeItems}
-            selectedPath={selectedPath ?? undefined}
-            ariaLabel="PR changed files"
-            renderFileInlineDecoration={(item) => {
-              const count = commentsByPath.get(item.path)?.length ?? 0;
-              if (!count) return null;
-              return (
-                <span className="ml-1 flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0">
-                  <MessageSquare className="size-3" />{count}
-                </span>
-              );
-            }}
-            onSelectFile={handleSelect}
-          />
-          </ScrollArea>
-          </motion.div>
-        )}
+          {treeVisible && (
+            <motion.div
+              key="tree"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: treeWidth, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={isResizing ? { duration: 0 } : { duration: 0.2, ease: 'easeInOut' }}
+              className="shrink-0 overflow-hidden"
+            >
+              <ScrollArea className="h-full py-1 border-r border-border/40" style={{ width: treeWidth }}>
+                <DiffFileTree
+                  items={files.map((f) => ({
+                    path: f.filename,
+                    additions: f.additions,
+                    deletions: f.deletions,
+                  }))}
+                  selectedPath={selectedPath ?? undefined}
+                  ariaLabel="PR changed files"
+                  renderFileInlineDecoration={(item) => {
+                    const count = commentsByPath.get(item.path)?.length ?? 0;
+                    if (!count) return null;
+                    return (
+                      <span className="ml-1 flex items-center gap-0.5 text-[11px] text-muted-foreground shrink-0">
+                        <MessageSquare className="size-3" />{count}
+                      </span>
+                    );
+                  }}
+                  onSelectFile={handleSelect}
+                />
+              </ScrollArea>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {treeVisible && (
@@ -351,26 +390,30 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
           />
         )}
 
-        <div className="flex-1 min-w-0 h-full overflow-auto">
-        <div ref={scrollContainerRef} className="p-2 pb-20 min-w-0">
-          <Virtualizer>
-            {files.map((file) => (
-              <div key={file.filename} id={`pr-diff-${file.filename}`}>
-                <FileDiffItem
-                  file={file}
-                  threads={commentsByPath.get(file.filename) ?? []}
-                  options={diffOptions}
-                  expanded={expandedFiles.has(file.filename)}
-                  onToggle={() => setExpandedFiles(prev => {
-                    const next = new Set(prev);
-                    if (next.has(file.filename)) next.delete(file.filename); else next.add(file.filename);
-                    return next;
-                  })}
-                />
-              </div>
-            ))}
-          </Virtualizer>
-        </div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {workerPoolReady && codeViewItems.length > 0 ? (
+          <CodeView
+            key={codeViewMountKey}
+            ref={handleViewerRef}
+            initialItems={codeViewItems}
+            options={codeViewOptions}
+            renderAnnotation={renderAnnotation}
+            renderHeaderPrefix={renderHeaderPrefix}
+            className={CODE_VIEW_HOST_CLASS}
+          />
+          ) : !loading ? (
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+              No diff content
+            </div>
+          ) : null}
+          {Array.from(fileLevelThreads.entries()).map(([path, threads]) => (
+            <div key={path} className="border-t border-border/30 px-2 py-1">
+              <div className="text-[10px] text-muted-foreground px-2 py-1 font-mono truncate">{path}</div>
+              {threads.map((thread, i) => (
+                <FileCommentThread key={i} thread={thread} />
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     </div>

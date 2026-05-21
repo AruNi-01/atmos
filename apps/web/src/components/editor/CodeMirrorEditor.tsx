@@ -754,7 +754,14 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   gitDiffSource={editorGitDiffSource}
                   gitDiffRefreshNonce={gitDiffRefreshNonce}
                   onGitGutterStateChanged={handleGitGutterStateChanged}
-                  navigationTarget={navigationTarget}
+                  navigationTarget={
+                    navigationTarget?.line != null
+                      ? {
+                          line: navigationTarget.line,
+                          column: navigationTarget.column,
+                        }
+                      : null
+                  }
                   onChange={handleEditorChange}
                   onCreateEditor={handleEditorCreate}
                   onNavigationTargetApplied={() => clearNavigationTarget(file.path, effectiveContextId || undefined)}

@@ -11,6 +11,7 @@ import {
 import { fsApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import { detectCodeLanguage } from '@/lib/code-language';
+import { getDiffGroupTabLabel, isDiffGroupEditorPath } from '@/lib/diff-editor-paths';
 
 // ===== 类型定义 =====
 
@@ -29,10 +30,12 @@ export interface OpenFile {
 }
 
 export interface FileNavigationTarget {
-  line: number;
+  line?: number;
   column?: number;
   reviewCommentGuid?: string;
   reviewMessageGuid?: string;
+  /** Scroll to a file within a `diff-group://` CodeView tab */
+  diffFilePath?: string;
 }
 
 export interface FileTreeRevealTarget {
@@ -50,6 +53,8 @@ interface EditorStore {
   // 状态
   workspaceStates: Record<string, WorkspaceState>;
   navigationTargets: Record<string, Record<string, FileNavigationTarget>>;
+  /** Sidebar highlight for `diff-group://` tabs (updated on click and while scrolling). */
+  diffGroupActiveFiles: Record<string, Record<string, string>>;
   fileTreeRevealTarget: FileTreeRevealTarget | null;
   currentWorkspaceId: string | null;
 
@@ -65,7 +70,14 @@ interface EditorStore {
   openFile: (
     path: string,
     workspaceId?: string,
-    options?: { preview?: boolean; line?: number; column?: number; reviewCommentGuid?: string; reviewMessageGuid?: string }
+    options?: {
+      preview?: boolean;
+      line?: number;
+      column?: number;
+      reviewCommentGuid?: string;
+      reviewMessageGuid?: string;
+      diffFilePath?: string;
+    }
   ) => Promise<void>;
   reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
   pinFile: (path: string, workspaceId?: string) => void;
@@ -76,6 +88,11 @@ interface EditorStore {
   saveActiveFile: (workspaceId?: string) => Promise<void>;
   setCurrentProjectPath: (path: string | null) => void;
   clearNavigationTarget: (path: string, workspaceId?: string) => void;
+  setDiffGroupActiveFile: (
+    groupPath: string,
+    filePath: string | null,
+    workspaceId?: string,
+  ) => void;
   requestFileTreeReveal: (path: string, workspaceId?: string) => void;
   clearFileTreeRevealTarget: (requestId?: number) => void;
   replaceOpenFilePath: (from: string, to: string, workspaceId?: string) => void;
@@ -88,13 +105,14 @@ interface EditorStore {
   hasUnsavedChanges: (workspaceId?: string) => boolean;
 }
 
+/** @deprecated Per-file diff tabs — use `diff-group://` instead */
 export const EDITOR_DIFF_PREFIX = 'diff://';
 export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
 export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
 export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
 
 export function isDiffEditorPath(path: string): boolean {
-  return path.startsWith(EDITOR_DIFF_PREFIX) || path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
+  return isDiffGroupEditorPath(path) || path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
 }
 
 export function isConflictResolveEditorPath(path: string): boolean {
@@ -144,6 +162,10 @@ function isBinaryFile(path: string): boolean {
 }
 
 function getFileNameFromPath(path: string): string {
+  if (isDiffGroupEditorPath(path)) {
+    return getDiffGroupTabLabel(path);
+  }
+
   const sourcePath = getEditorSourcePath(path);
   const baseName = sourcePath.split('/').pop() || sourcePath;
 
@@ -174,6 +196,10 @@ function getSpecialTabName(path: string, name: string): string {
     return getReviewDiffTabName(name);
   }
 
+  if (isDiffGroupEditorPath(path)) {
+    return getDiffGroupTabLabel(path);
+  }
+
   if (isDiffEditorPath(path)) {
     return getDiffTabName(name);
   }
@@ -192,6 +218,23 @@ async function readFileWithTimeout(path: string, timeoutMs = 12000) {
 
 function nowTimestamp(): number {
   return Date.now();
+}
+
+function applyDiffGroupActiveFile(
+  diffGroupActiveFiles: Record<string, Record<string, string>>,
+  workspaceId: string,
+  groupPath: string,
+  filePath: string,
+): Record<string, Record<string, string>> {
+  const current = diffGroupActiveFiles[workspaceId]?.[groupPath];
+  if (current === filePath) return diffGroupActiveFiles;
+  return {
+    ...diffGroupActiveFiles,
+    [workspaceId]: {
+      ...(diffGroupActiveFiles[workspaceId] || {}),
+      [groupPath]: filePath,
+    },
+  };
 }
 
 function removeNavigationTargetForPath(
@@ -228,6 +271,7 @@ function touchOpenFile(
 export const useEditorStore = create<EditorStore>()((set, get) => ({
       workspaceStates: {},
       navigationTargets: {},
+      diffGroupActiveFiles: {},
       fileTreeRevealTarget: null,
       currentWorkspaceId: null,
       currentProjectPath: null,
@@ -359,6 +403,30 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         });
       },
 
+      setDiffGroupActiveFile: (groupPath, filePath, workspaceId) => {
+        const id = workspaceId || get().currentWorkspaceId;
+        if (!id) return;
+
+        set((state) => {
+          const workspaceFiles = { ...(state.diffGroupActiveFiles[id] || {}) };
+          if (filePath == null) {
+            if (!(groupPath in workspaceFiles)) return state;
+            delete workspaceFiles[groupPath];
+          } else if (workspaceFiles[groupPath] === filePath) {
+            return state;
+          } else {
+            workspaceFiles[groupPath] = filePath;
+          }
+
+          return {
+            diffGroupActiveFiles: {
+              ...state.diffGroupActiveFiles,
+              [id]: workspaceFiles,
+            },
+          };
+        });
+      },
+
       getOpenFiles: (workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return [];
@@ -381,16 +449,26 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         const timestamp = nowTimestamp();
 
         const isPreview = options?.preview ?? true; // Default to preview mode
+        const hasLine =
+          typeof options?.line === 'number' && Number.isFinite(options.line);
+        const hasDiffFilePath =
+          typeof options?.diffFilePath === 'string' && options.diffFilePath.length > 0;
         const navigationTarget =
-          typeof options?.line === 'number' && Number.isFinite(options.line)
+          hasLine || hasDiffFilePath || options?.reviewCommentGuid || options?.reviewMessageGuid
             ? {
-                line: Math.max(1, Math.floor(options.line)),
-                column:
-                  typeof options.column === 'number' && Number.isFinite(options.column)
-                    ? Math.max(1, Math.floor(options.column))
-                    : undefined,
-                reviewCommentGuid: options.reviewCommentGuid,
-                reviewMessageGuid: options.reviewMessageGuid,
+                ...(hasLine
+                  ? {
+                      line: Math.max(1, Math.floor(options!.line!)),
+                      column:
+                        typeof options?.column === 'number' &&
+                        Number.isFinite(options.column)
+                          ? Math.max(1, Math.floor(options.column))
+                          : undefined,
+                    }
+                  : {}),
+                reviewCommentGuid: options?.reviewCommentGuid,
+                reviewMessageGuid: options?.reviewMessageGuid,
+                diffFilePath: options?.diffFilePath,
               }
             : null;
 
@@ -421,6 +499,15 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
                   },
                 }
               : removeNavigationTargetForPath(state.navigationTargets, id, path),
+            diffGroupActiveFiles:
+              hasDiffFilePath && isDiffGroupEditorPath(path)
+                ? applyDiffGroupActiveFile(
+                    state.diffGroupActiveFiles,
+                    id,
+                    path,
+                    options!.diffFilePath!,
+                  )
+                : state.diffGroupActiveFiles,
           }));
           if (existingFile.isLoading) {
             await get().reloadFileContent(path, id);
@@ -475,6 +562,15 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
                 },
               }
             : removeNavigationTargetForPath(state.navigationTargets, id, path),
+          diffGroupActiveFiles:
+            hasDiffFilePath && isDiffGroupEditorPath(path)
+              ? applyDiffGroupActiveFile(
+                  state.diffGroupActiveFiles,
+                  id,
+                  path,
+                  options!.diffFilePath!,
+                )
+              : state.diffGroupActiveFiles,
         }));
 
         if (isDiffEditorPath(path) || isConflictResolveEditorPath(path)) {

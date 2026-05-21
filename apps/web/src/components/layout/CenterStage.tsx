@@ -60,6 +60,7 @@ import {
   isDiffEditorPath,
   EDITOR_REVIEW_DIFF_PREFIX,
 } from "@/hooks/use-editor-store";
+import { isDiffGroupEditorPath } from "@/lib/diff-editor-paths";
 import { useShallow } from "zustand/react/shallow";
 import { useGitStore } from "@/hooks/use-git-store";
 import {
@@ -122,6 +123,10 @@ const WikiTab = dynamic(
   { ssr: false },
 );
 
+const ChangesCodeView = dynamic(
+  () => import("@/components/diff/ChangesCodeView").then((m) => m.ChangesCodeView),
+  { ssr: false },
+);
 const DiffViewer = dynamic(
   () => import("@/components/diff/DiffViewer").then((m) => m.DiffViewer),
   { ssr: false },
@@ -178,7 +183,7 @@ type TabGroupItem = {
   id: string;
   label: string;
   value: string;
-  kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "review-diff" | "conflict";
+  kind: "overview" | "wiki" | "terminal" | "project-wiki" | "code-review" | "file" | "diff" | "diff-group" | "review-diff" | "conflict";
   file?: OpenFile;
 };
 type TabGroupOrderByContext = CenterStageUiPrefs["tabGroupOrderByContext"];
@@ -1257,12 +1262,12 @@ const CenterStage: React.FC = () => {
     }
 
     const diffTabsGroup = openFiles
-      .filter((file) => isDiffEditorPath(file.path) && !file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX))
+      .filter((file) => isDiffGroupEditorPath(file.path))
       .map((file) => ({
         id: file.path,
         label: file.name,
         value: file.path,
-        kind: "diff" as const,
+        kind: "diff-group" as const,
         file,
       }));
     if (diffTabsGroup.length > 0) {
@@ -1309,7 +1314,7 @@ const CenterStage: React.FC = () => {
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem, isActive: boolean) => {
     const textClassName = cn(
       "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
-      tab.kind === "diff" && "text-emerald-500",
+      (tab.kind === "diff" || tab.kind === "diff-group") && "text-emerald-500",
       tab.kind === "review-diff" && "text-blue-400",
       tab.kind === "conflict" && "text-amber-500",
       tab.file?.isPreview && "italic",
@@ -1371,7 +1376,7 @@ const CenterStage: React.FC = () => {
       <>
         {tab.kind === "review-diff" ? (
           <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
-        ) : tab.kind === "diff" ? (
+        ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
           <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
         ) : tab.kind === "conflict" ? (
           <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
@@ -1393,6 +1398,7 @@ const CenterStage: React.FC = () => {
       tab.kind === "code-review" ||
       tab.kind === "file" ||
       tab.kind === "diff" ||
+      tab.kind === "diff-group" ||
       tab.kind === "review-diff" ||
       tab.kind === "conflict"
     );
@@ -1839,8 +1845,9 @@ const CenterStage: React.FC = () => {
 
           {/* Open File Tabs */}
           {openFiles.map((file) => {
-            const isDiff = isDiffEditorPath(file.path);
+            const isDiffGroup = isDiffGroupEditorPath(file.path);
             const isReviewDiff = file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
+            const isDiff = isDiffGroup || isReviewDiff;
             const isConflictResolver = isConflictResolveEditorPath(file.path);
             const displayPath = getEditorSourcePath(file.path);
 
@@ -1874,7 +1881,7 @@ const CenterStage: React.FC = () => {
                       className={cn(
                         "text-[13px] font-medium whitespace-nowrap",
                         isReviewDiff && "text-blue-400",
-                        isDiff && !isReviewDiff && "text-emerald-500",
+                        isDiffGroup && "text-emerald-500",
                         isConflictResolver && "text-amber-500",
                         file.isPreview && "italic"
                       )}
@@ -2162,14 +2169,17 @@ const CenterStage: React.FC = () => {
             keepMounted
             className="flex-1 min-h-0 min-w-0"
           >
-            {isDiffEditorPath(file.path) && currentRepoPath ? (
+            {isDiffGroupEditorPath(file.path) && currentRepoPath ? (
+                <ChangesCodeView
+                  repoPath={currentRepoPath}
+                  groupPath={file.path}
+                />
+              ) : file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) && currentRepoPath ? (
                 <ReviewContextProvider
                   target={reviewTarget}
                   filePath={getEditorSourcePath(file.path)}
                   fileSnapshotGuid={
-                    file.path.startsWith('review-diff://')
-                      ? file.path.slice('review-diff://'.length).split('/')[0] || null
-                      : null
+                    file.path.slice(EDITOR_REVIEW_DIFF_PREFIX.length).split('/')[0] || null
                   }
                 >
                   <DiffViewer

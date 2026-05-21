@@ -88,6 +88,7 @@ const devRewritesConfig =
     : {};
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@pierre/diffs"],
   output: isStaticExportTarget ? "export" : undefined,
   // Generate en/index.html instead of en.html so static file servers
   // can resolve /en/ correctly (ServeDir append_index_html).

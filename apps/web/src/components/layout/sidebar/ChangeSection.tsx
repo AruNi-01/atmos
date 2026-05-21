@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/hooks/use-editor-store";
 import type { GitChangedFile } from "@/api/ws-api";
+import { buildDiffGroupPath, type DiffChangeGroupKind } from "@/lib/diff-editor-paths";
 import { DiffFileTree } from "@/components/diff/DiffFileTree";
 import { DiffFilePathLabel } from "@/components/diff/DiffFilePathLabel";
 
@@ -61,9 +62,16 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
   const [runningActionKey, setRunningActionKey] = useState<string | null>(null);
+  const groupPath = buildDiffGroupPath(kind as DiffChangeGroupKind);
   const activeFilePath = useEditorStore((s) =>
     s.getActiveFilePath(workspaceId || undefined),
   );
+  const selectedDiffFilePath = useEditorStore((s) => {
+    if (!workspaceId) return undefined;
+    const active = s.workspaceStates[workspaceId]?.activeFilePath;
+    if (active !== groupPath) return undefined;
+    return s.diffGroupActiveFiles[workspaceId]?.[groupPath];
+  });
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
 
@@ -90,10 +98,10 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
     }
   };
 
-  const openDiffFile = (path: string, preview: boolean) => {
-    void openFile(`diff://${path}`, workspaceId || undefined, { preview });
+  const openDiffFile = (filePath: string, preview: boolean) => {
+    void openFile(groupPath, workspaceId || undefined, { preview, diffFilePath: filePath });
     if (!preview) {
-      pinFile(`diff://${path}`, workspaceId || undefined);
+      pinFile(groupPath, workspaceId || undefined);
     }
   };
 
@@ -264,11 +272,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 additions: file.additions,
                 deletions: file.deletions,
               }))}
-              selectedPath={
-                activeFilePath?.startsWith("diff://")
-                  ? activeFilePath.slice("diff://".length)
-                  : undefined
-              }
+              selectedPath={selectedDiffFilePath}
               ariaLabel={`${title} tree`}
               className=""
               indentOffset={28}
@@ -429,7 +433,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 onDoubleClick={() => openDiffFile(file.path, false)}
                 className={cn(
                   "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
-                  activeFilePath === `diff://${file.path}`
+                  selectedDiffFilePath === file.path
                     ? "bg-sidebar-accent text-sidebar-foreground"
                     : "hover:bg-sidebar-accent/50",
                 )}
