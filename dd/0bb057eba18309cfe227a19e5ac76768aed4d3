@@ -1,0 +1,98 @@
+apps/web/src/components/canvas/CanvasView.tsx
+  s_a5072a579dc01c::t_17ad4c99728e8a 63
+  s_a5072a579dc01c::t_09713651181b56 1271-1274
+  s_a5072a579dc01c::t_0cc2e8ddd0915b 1642-1646
+  s_a5072a579dc01c::t_a45e1daf4b1c46 1011
+scripts/desktop/before-build.mjs
+  s_84cdb839a4f25b::t_3bd17040220dfd 34
+  s_84cdb839a4f25b::t_e82e39c81532c9 1,4
+  s_84cdb839a4f25b::t_56646afb77c369 108-109
+apps/web/src/components/canvas/__tests__/use-canvas-board.test.ts
+  s_a5072a579dc01c::t_2754823af8521b 3-7
+  s_a5072a579dc01c::t_a82d35e1d7cc00 114-126
+README.zh-CN.md
+  s_84cdb839a4f25b::t_4d023631300455 59
+docs/development.md
+  s_84cdb839a4f25b::t_4554f63c6d7949 46,48
+  s_84cdb839a4f25b::t_ba934f39c0af11 49
+  s_84cdb839a4f25b::t_76a53e01db1b0e 45,47
+apps/web/src/app/globals.css
+  s_a1eedee19a1844::t_ed9a7e321af0c8 323-348
+AGENTS.md
+  s_84cdb839a4f25b::t_1184e038182473 154
+scripts/desktop/build-web-static.mjs
+  s_84cdb839a4f25b::t_5c5df0749275b8 1-118
+scripts/desktop/README.md
+  s_84cdb839a4f25b::t_615dad62c6f900 8-9
+  s_84cdb839a4f25b::t_89c911e7aba333 97-99,103-105
+README.md
+  s_84cdb839a4f25b::t_57318ec6dda24d 112
+apps/web/src/components/canvas/use-canvas-board.ts
+  s_a5072a579dc01c::t_57cf19b857e4e6 32
+  s_a5072a579dc01c::t_2604ea2a75c069 36-50,61
+apps/web/src/components/terminal/Terminal.tsx
+  s_7d293b4b2b1908::t_802928afd59d67 1592-1593,1595-1596,1598-1601,1605
+justfile
+  s_84cdb839a4f25b::t_578d07b2f05618 76
+  s_84cdb839a4f25b::t_b4f512a3e45a5f 84
+  s_84cdb839a4f25b::t_3750ec140636be 73-74
+  s_84cdb839a4f25b::t_7679bc3827eb44 72
+apps/web/src/components/canvas/canvas-viewport.ts
+  s_a1eedee19a1844::t_ffb9e692840d49 1-14
+scripts/desktop/prepare-sidecar.sh
+  s_84cdb839a4f25b::t_723cca4830351d 22-24
+apps/desktop/AGENTS.md
+  s_84cdb839a4f25b::t_7725134a1bc10d 12
+  s_84cdb839a4f25b::t_dd27743ac548b5 9
+  s_84cdb839a4f25b::t_94a50bba3ba8d7 11
+crates/core-service/src/service/terminal.rs
+  s_95c1a7487967a3::t_4815829d0e8a0f 1720-1737,1749-1755,1764-1771,1785-1794
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "dd0bb057eba18309cfe227a19e5ac76768aed4d3",
+  "prompts": {},
+  "sessions": {
+    "s_7d293b4b2b1908": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "264b276d-0071-4eb9-b909-839637f31484",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_84cdb839a4f25b": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "c16a29d0-01c5-4954-bba8-18ab4e7b4ba4",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_95c1a7487967a3": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "6ebabb3a-3be0-4f7d-881a-43b608d69d94",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a1eedee19a1844": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "71f04fd5-c457-4cc0-96d5-b05c8b23c686",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a5072a579dc01c": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "af60eb0e-4e7d-42d4-8824-71e32a0d63e2",
+        "model": "composer-2.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
