@@ -10,6 +10,7 @@ interface ReviewContextProviderProps {
   target: ReviewTarget | null;
   filePath: string;
   fileSnapshotGuid?: string | null;
+  revisionGuid?: string | null;
   children: React.ReactNode;
 }
 
@@ -17,9 +18,10 @@ export const ReviewContextProvider: React.FC<ReviewContextProviderProps> = ({
   target,
   filePath,
   fileSnapshotGuid,
+  revisionGuid,
   children,
 }) => {
-  const ctx = useReviewContext({ target, filePath, fileSnapshotGuid });
+  const ctx = useReviewContext({ target, filePath, fileSnapshotGuid, revisionGuid });
 
   // Memoize context value to avoid unnecessary re-renders
   const contextValue = useMemo(() => ctx, [

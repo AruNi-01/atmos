@@ -36,9 +36,15 @@ interface UseReviewContextArgs {
   target: ReviewTarget | null;
   filePath: string;
   fileSnapshotGuid?: string | null;
+  revisionGuid?: string | null;
 }
 
-export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseReviewContextArgs) {
+export function useReviewContext({
+  target,
+  filePath,
+  fileSnapshotGuid,
+  revisionGuid,
+}: UseReviewContextArgs) {
   const [storedReviewAgentId, setStoredReviewAgentId] = useReviewDefaultAgentId();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
   const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
@@ -113,6 +119,12 @@ export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseRevi
 
   const currentSession = useMemo(() => {
     if (sessions.length === 0) return null;
+    if (revisionGuid) {
+      const revisionSession = sessions.find((session) =>
+        session.revisions.some((revision) => revision.guid === revisionGuid),
+      );
+      if (revisionSession) return revisionSession;
+    }
     if (fileSnapshotGuid) {
       const snapshotSession = sessions.find((session) =>
         session.revisions.some((revision) =>
@@ -128,7 +140,7 @@ export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseRevi
       sessions.find((session) => session.status === "active") ??
       sortReviewSessions(sessions)[0]
     );
-  }, [fileSnapshotGuid, selectedSessionGuid, sessions]);
+  }, [fileSnapshotGuid, revisionGuid, selectedSessionGuid, sessions]);
 
   // Note: We intentionally do NOT sync currentSession back to URL here.
   // The URL is the source of truth for user selection; currentSession
@@ -136,6 +148,11 @@ export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseRevi
 
   const currentRevision = useMemo(() => {
     if (!currentSession) return null;
+    if (revisionGuid) {
+      const explicitRevision =
+        currentSession.revisions.find((revision) => revision.guid === revisionGuid) ?? null;
+      if (explicitRevision) return explicitRevision;
+    }
     if (fileSnapshotGuid) {
       const snapshotRevision = currentSession.revisions.find((revision) =>
         revision.files.some((file) => file.snapshot.guid === fileSnapshotGuid),
@@ -148,7 +165,7 @@ export function useReviewContext({ target, filePath, fileSnapshotGuid }: UseRevi
           revision.guid === (selectedRevisionGuid ?? currentSession.current_revision_guid),
       ) ?? currentSession.revisions[0] ?? null
     );
-  }, [currentSession, fileSnapshotGuid, selectedRevisionGuid]);
+  }, [currentSession, fileSnapshotGuid, revisionGuid, selectedRevisionGuid]);
 
   // Auto-switch to latest revision when session creates a new one (e.g., after finalize)
   const prevLatestRevisionGuidRef = useRef<string | null>(null);

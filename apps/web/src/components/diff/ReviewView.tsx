@@ -13,7 +13,13 @@ import { cn } from "@/lib/utils";
 import { useReviewCtx } from "@/components/diff/review/ReviewContextProvider";
 import { useReviewSnapshotStore } from "@/hooks/use-review-snapshot-store";
 import { useContextParams } from "@/hooks/use-context-params";
-import { useEditorStore, EDITOR_REVIEW_DIFF_PREFIX, getEditorSourcePath } from "@/hooks/use-editor-store";
+import {
+  useEditorStore,
+  EDITOR_REVIEW_DIFF_PREFIX,
+  EDITOR_REVIEW_GROUP_PREFIX,
+  isReviewGroupEditorPath,
+  getEditorSourcePath,
+} from "@/hooks/use-editor-store";
 import { DiffFilePathLabel } from "@/components/diff/DiffFilePathLabel";
 import { CommentCard } from "@/components/diff/review/CommentCard";
 import { FrozenFileList } from "@/components/diff/review/FrozenFileList";
@@ -30,14 +36,17 @@ import { useSidebarUiPrefs } from "@/hooks/use-ui-pref-hooks";
 
 const ReviewView: React.FC = () => {
   const { effectiveContextId } = useContextParams();
-  // For review-diff editor tabs, use the same context key as the main editor
-  // to ensure file/comment navigation opens in the correct tab namespace.
   const reviewEditorKey = effectiveContextId;
   const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
   const rawFilePath = (reviewEditorKey && getActiveFilePath(reviewEditorKey)) || "";
-  const filePath = rawFilePath.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
-    ? getEditorSourcePath(rawFilePath)
-    : "";
+  const activeGroupedFilePath = useEditorStore((s) =>
+    reviewEditorKey ? s.diffGroupActiveFiles[reviewEditorKey]?.[rawFilePath] ?? "" : "",
+  );
+  const filePath = isReviewGroupEditorPath(rawFilePath)
+    ? activeGroupedFilePath
+    : rawFilePath.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
+      ? getEditorSourcePath(rawFilePath)
+      : "";
 
   const {
     currentSession,
@@ -57,7 +66,6 @@ const ReviewView: React.FC = () => {
     artifactLoading,
   } = useReviewCtx();
 
-  const setSnapshot = useReviewSnapshotStore((s) => s.setSnapshot);
   const setSessionDisplay = useReviewSnapshotStore((s) => s.setSessionDisplay);
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
@@ -101,6 +109,9 @@ const ReviewView: React.FC = () => {
 
   const summaryRunGuid = latestSummaryRun?.guid ?? null;
   const hasLoadedSummary = artifactPreview?.kind === "summary" && artifactPreview?.runGuid === summaryRunGuid;
+  const reviewGroupPath = currentRevision
+    ? `${EDITOR_REVIEW_GROUP_PREFIX}${currentRevision.guid}`
+    : null;
 
   useEffect(() => {
     if (summaryRunGuid && !hasLoadedSummary && !artifactLoading) {
@@ -210,23 +221,20 @@ const ReviewView: React.FC = () => {
                   revision={currentRevision}
                   currentFilePath={filePath}
                   canEdit={canEdit}
-                  onSelectFile={(snapshotGuid, snapFilePath, label) => {
-                    setSnapshot({
-                      snapshotGuid,
-                      label,
-                      filePath: snapFilePath,
+                  onSelectFile={(_snapshotGuid, snapFilePath) => {
+                    if (!reviewGroupPath) return;
+                    void openFile(reviewGroupPath, reviewEditorKey, {
+                      preview: true,
+                      diffFilePath: snapFilePath,
                     });
-                    void openFile(`${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`, reviewEditorKey, { preview: true });
                   }}
-                  onDoubleClickFile={(snapshotGuid, snapFilePath) => {
-                    const tabPath = `${EDITOR_REVIEW_DIFF_PREFIX}${snapshotGuid}/${snapFilePath}`;
-                    setSnapshot({
-                      snapshotGuid,
-                      label: revisionLabel,
-                      filePath: snapFilePath,
+                  onDoubleClickFile={(_snapshotGuid, snapFilePath) => {
+                    if (!reviewGroupPath) return;
+                    void openFile(reviewGroupPath, reviewEditorKey, {
+                      preview: false,
+                      diffFilePath: snapFilePath,
                     });
-                    void openFile(tabPath, reviewEditorKey, { preview: false });
-                    pinFile(tabPath, reviewEditorKey ?? undefined);
+                    pinFile(reviewGroupPath, reviewEditorKey ?? undefined);
                   }}
                   onToggleReviewed={handleToggleReviewed}
                   revisionLabel={revisionLabel}
@@ -299,14 +307,10 @@ const ReviewView: React.FC = () => {
                           onNavigate={(targetComment, targetMessage) => {
                             const snapFilePath =
                               targetComment.anchor.file_path || file;
-                            const tabPath = `${EDITOR_REVIEW_DIFF_PREFIX}${targetComment.file_snapshot_guid}/${snapFilePath}`;
-                            setSnapshot({
-                              snapshotGuid: targetComment.file_snapshot_guid,
-                              label: revisionLabel,
-                              filePath: snapFilePath,
-                            });
-                            void openFile(tabPath, reviewEditorKey, {
+                            if (!reviewGroupPath) return;
+                            void openFile(reviewGroupPath, reviewEditorKey, {
                               preview: true,
+                              diffFilePath: snapFilePath,
                               line: targetComment.anchor_start_line,
                               reviewCommentGuid: targetComment.guid,
                               reviewMessageGuid: targetMessage?.guid,

@@ -58,6 +58,8 @@ import {
   getEditorSourcePath,
   isConflictResolveEditorPath,
   isDiffEditorPath,
+  isReviewGroupEditorPath,
+  getReviewGroupRevisionGuid,
   EDITOR_REVIEW_DIFF_PREFIX,
 } from "@/hooks/use-editor-store";
 import { isDiffGroupEditorPath } from "@/lib/diff-editor-paths";
@@ -129,6 +131,10 @@ const ChangesCodeView = dynamic(
 );
 const DiffViewer = dynamic(
   () => import("@/components/diff/DiffViewer").then((m) => m.DiffViewer),
+  { ssr: false },
+);
+const ReviewCodeView = dynamic(
+  () => import("@/components/diff/ReviewCodeView").then((m) => m.ReviewCodeView),
   { ssr: false },
 );
 
@@ -1275,7 +1281,7 @@ const CenterStage: React.FC = () => {
     }
 
     const reviewTabsGroup = openFiles
-      .filter((file) => file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX))
+      .filter((file) => file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(file.path))
       .map((file) => ({
         id: file.path,
         label: file.name,
@@ -1846,7 +1852,9 @@ const CenterStage: React.FC = () => {
           {/* Open File Tabs */}
           {openFiles.map((file) => {
             const isDiffGroup = isDiffGroupEditorPath(file.path);
-            const isReviewDiff = file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
+            const isReviewDiff =
+              file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) ||
+              isReviewGroupEditorPath(file.path);
             const isDiff = isDiffGroup || isReviewDiff;
             const isConflictResolver = isConflictResolveEditorPath(file.path);
             const displayPath = getEditorSourcePath(file.path);
@@ -2174,6 +2182,15 @@ const CenterStage: React.FC = () => {
                   repoPath={currentRepoPath}
                   groupPath={file.path}
                 />
+              ) : isReviewGroupEditorPath(file.path) ? (
+                <ReviewContextProvider
+                  target={reviewTarget}
+                  filePath=""
+                  fileSnapshotGuid={null}
+                  revisionGuid={getReviewGroupRevisionGuid(file.path)}
+                >
+                  <ReviewCodeView groupPath={file.path} />
+                </ReviewContextProvider>
               ) : file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) && currentRepoPath ? (
                 <ReviewContextProvider
                   target={reviewTarget}

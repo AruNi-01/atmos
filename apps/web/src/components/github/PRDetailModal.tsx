@@ -808,7 +808,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
         showCloseButton={false}
         className={cn(
           "transition-all duration-200 flex flex-col gap-0 overflow-hidden",
-          isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none" : "max-w-6xl sm:max-w-6xl w-full max-h-[90vh] px-6 pb-6 pt-0"
+          isFullscreen ? "max-w-none sm:max-w-none w-screen sm:w-screen h-screen max-h-screen px-6 pb-6 pt-0 m-0 border-none rounded-none" : "max-w-6xl sm:max-w-6xl w-full h-[80vh] px-6 pb-6 pt-0"
         )}
       >
         <div className="flex flex-col flex-1 min-h-0 min-h-[600px]">

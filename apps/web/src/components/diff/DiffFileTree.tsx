@@ -129,10 +129,7 @@ function buildRows(
   depth = 0,
 ): TreeRow[] {
   const rows: TreeRow[] = [];
-  const children = Array.from(node.children.values()).sort((a, b) => {
-    if (!!a.file !== !!b.file) return a.file ? 1 : -1;
-    return a.name.localeCompare(b.name);
-  });
+  const children = Array.from(node.children.values());
 
   for (const child of children) {
     if (child.file) {

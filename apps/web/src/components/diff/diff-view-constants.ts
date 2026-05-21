@@ -31,9 +31,20 @@ export const DIFF_VIEW_SEPARATOR_CSS = `
     white-space: nowrap;
   }
 
-  /* Undo mistaken override: keep Pierre's content-column separators hidden in split */
-  [data-diff-type=split] [data-additions] [data-content] [data-separator-wrapper] {
-    display: none !important;
+  /* Keep unchanged separators visually spanning both split panes. */
+  [data-diff-type=split]
+    :is([data-deletions] [data-content], [data-additions] [data-content])
+    [data-separator=line-info] [data-separator-wrapper],
+  [data-diff-type=split]
+    :is([data-deletions] [data-content], [data-additions] [data-content])
+    [data-separator=line-info-basic] [data-separator-wrapper] {
+    display: block !important;
+  }
+
+  [data-diff-type=split] [data-additions] [data-content]
+    :is([data-separator=line-info], [data-separator=line-info-basic])
+    [data-separator-content] {
+    visibility: hidden !important;
   }
 
   /* Left/unified: ensure label stays visible in gutter */

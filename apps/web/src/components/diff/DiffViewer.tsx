@@ -13,7 +13,7 @@ import type {
 import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
-import { Button, Loader2, Textarea, toastManager, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui';
+import { Button, Loader2, Textarea, toastManager, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipTrigger, Switch } from '@workspace/ui';
 import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
@@ -24,11 +24,12 @@ import { ReviewMessageActionsMenu } from '@/components/diff/review/ReviewMessage
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
 import { cn } from '@/lib/utils';
-import { ChevronRight, Command, CornerDownLeft, MessageSquareReply, SendHorizontal, X, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, Columns2, Command, CornerDownLeft, MessageSquareReply, Minus, Rows3, SendHorizontal, Settings2, X } from 'lucide-react';
 import {
   reviewCommentStatusLabel,
   statusTone,
 } from '@/components/diff/review/utils';
+import { buildSharedDiffViewOptions } from '@/components/diff/diff-view-constants';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -60,25 +61,8 @@ function getDiffScrollRoot(container: HTMLElement | null): HTMLElement | null {
   return codePanel ?? container;
 }
 
-const SCROLLBAR_CSS = `
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(128, 128, 128, 0.2);
-    border-radius: 9999px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(128, 128, 128, 0.4);
-  }
-  ::-webkit-scrollbar-corner {
-    background: transparent;
-  }
-`;
+const SETTING_ROW_CLASS =
+  'flex w-full cursor-pointer items-center justify-between gap-4 px-2 py-1.5 text-sm';
 
 export const DiffViewer = ({
   repoPath,
@@ -351,9 +335,25 @@ export const DiffViewer = ({
 
     const startLine = Math.min(range.start, range.end);
     const endLine = Math.max(range.start, range.end);
-    const side = range.side;
+    const side = range.endSide ?? range.side;
     if (!side) return;
-    setSelectionInfo(buildSelectionInfo(startLine, endLine, side));
+    const selection = buildSelectionInfo(startLine, endLine, side);
+
+    if (isReviewDiff) {
+      if (!reviewContext.canEdit || !reviewContext.file) return;
+      openInlineCommentDraft({
+        side: selection.diffSide === 'old' ? 'old' : 'new',
+        diffSide: selection.diffSide === 'old' ? 'old' : 'new',
+        startLine: selection.startLine,
+        endLine: selection.endLine,
+        selectedText: selection.selectedText,
+        beforeContext: [],
+        afterContext: [],
+      });
+      return;
+    }
+
+    setSelectionInfo(selection);
 
     const container = containerRef.current;
     const containerRect = container.getBoundingClientRect();
@@ -379,7 +379,7 @@ export const DiffViewer = ({
     setPopoverPosition({ x: popX, y: popY });
     setIsPopoverVisible(true);
     setIsPopoverExpanded(false);
-  }, [buildSelectionInfo]);
+  }, [buildSelectionInfo, isReviewDiff, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file]);
 
   useEffect(() => {
     if (!isPopoverVisible) return;
@@ -466,22 +466,28 @@ export const DiffViewer = ({
     loadDiff();
   }, [repoPath, filePath, compareMode, snapshotGuidFromPath]);
 
-  const diffOptions = useMemo(() => ({
-    theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light' as const,
-    diffStyle: diffStyle,
-    disableBackground: disableBackground,
-    disableFileHeader: true,
-    overflow: (wordWrap ? 'wrap' : 'scroll') as 'wrap' | 'scroll',
-    unsafeCSS: SCROLLBAR_CSS,
-    enableGutterUtility: true,
-    enableLineSelection: !isReviewDiff,
-    onLineSelectionEnd: isReviewDiff ? undefined : handleLineSelectionEnd,
-  }) satisfies FileDiffOptions<{
+  const diffOptions = useMemo(() => {
+    const sharedOptions = buildSharedDiffViewOptions({
+      theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
+      diffStyle,
+      wordWrap,
+      disableBackground,
+      enableGutterUtility: true,
+      enableLineSelection: true,
+    });
+
+    return {
+      ...sharedOptions,
+      disableFileHeader: true,
+      unsafeCSS: sharedOptions.unsafeCSS,
+      onLineSelectionEnd: handleLineSelectionEnd,
+    } satisfies FileDiffOptions<{
     kind: 'comment';
     comment: ReviewCommentDto;
   } | {
     kind: 'composer';
-  }>, [resolvedTheme, diffStyle, disableBackground, wordWrap, handleLineSelectionEnd, isReviewDiff]);
+    }>;
+  }, [resolvedTheme, diffStyle, disableBackground, wordWrap, handleLineSelectionEnd, isReviewDiff]);
 
   const commentAnnotations = useMemo(() => {
     if (!isReviewDiff || !reviewContext.file) return [];
@@ -1114,24 +1120,8 @@ export const DiffViewer = ({
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
       <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
-        <button
-          type="button"
-          onClick={() => setFileCollapsed(!fileCollapsed)}
-          className="flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer shrink-0 mr-2"
-          aria-label={fileCollapsed ? 'Expand file' : 'Collapse file'}
-        >
-          {fileCollapsed ? (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
-        </button>
         <div
-          className="relative h-5 flex-1 min-w-0 overflow-hidden mr-3"
+          className="relative h-5 flex-1 min-w-0 overflow-hidden pr-3"
           onMouseEnter={() => setTipPaused(true)}
           onMouseLeave={() => setTipPaused(false)}
         >
@@ -1175,7 +1165,7 @@ export const DiffViewer = ({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {(() => {
             if (!snapshotGuidFromPath) return null;
             const file = reviewContext.file;
@@ -1206,37 +1196,67 @@ export const DiffViewer = ({
               </button>
             );
           })()}
+          <button
+            type="button"
+            title={diffStyle === 'split' ? 'Switch to unified view' : 'Switch to split view'}
+            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            onClick={() =>
+              setDiffStyle(diffStyle === 'split' ? 'unified' : 'split')
+            }
+          >
+            {diffStyle === 'split' ? (
+              <Columns2 className="size-3.5" />
+            ) : (
+              <Rows3 className="size-3.5" />
+            )}
+          </button>
+          <button
+            type="button"
+            title={fileCollapsed ? 'Expand file' : 'Collapse file'}
+            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            onClick={() => setFileCollapsed(!fileCollapsed)}
+          >
+            <Minus
+              className={cn(
+                'size-3.5 rotate-90 transition-transform',
+                fileCollapsed && 'rotate-0',
+              )}
+            />
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center justify-center size-6 rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                title="More actions"
+                className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+                title="View options"
               >
-                <MoreHorizontal className="size-3.5" />
+                <Settings2 className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[10rem]">
+            <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem
+                className="cursor-default p-0"
                 onSelect={(e) => e.preventDefault()}
-                onClick={() => setWordWrap(!wordWrap)}
-                className="text-xs"
               >
-                {wordWrap ? "Scroll" : "Wrap"}
+                <label className={SETTING_ROW_CLASS}>
+                  <span className="min-w-0 flex-1">Backgrounds</span>
+                  <Switch
+                    checked={!disableBackground}
+                    onCheckedChange={(checked) => setDisableBackground(!checked)}
+                  />
+                </label>
               </DropdownMenuItem>
               <DropdownMenuItem
+                className="cursor-default p-0"
                 onSelect={(e) => e.preventDefault()}
-                onClick={() => setDiffStyle(diffStyle === 'unified' ? 'split' : 'unified')}
-                className="text-xs"
               >
-                {diffStyle === 'unified' ? "Split" : "Unified"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                onClick={() => setDisableBackground(!disableBackground)}
-                className="text-xs"
-              >
-                {disableBackground ? "Show BG" : "No BG"}
+                <label className={SETTING_ROW_CLASS}>
+                  <span className="min-w-0 flex-1">Word wrap</span>
+                  <Switch
+                    checked={wordWrap}
+                    onCheckedChange={setWordWrap}
+                  />
+                </label>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

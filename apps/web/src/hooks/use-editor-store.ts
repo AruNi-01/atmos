@@ -108,11 +108,23 @@ interface EditorStore {
 /** @deprecated Per-file diff tabs — use `diff-group://` instead */
 export const EDITOR_DIFF_PREFIX = 'diff://';
 export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
+export const EDITOR_REVIEW_GROUP_PREFIX = 'review-group://';
 export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
 export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
 
+export function isReviewGroupEditorPath(path: string): boolean {
+  return path.startsWith(EDITOR_REVIEW_GROUP_PREFIX);
+}
+
+function isGroupedDiffEditorPath(path: string): boolean {
+  return isDiffGroupEditorPath(path) || isReviewGroupEditorPath(path);
+}
+
 export function isDiffEditorPath(path: string): boolean {
-  return isDiffGroupEditorPath(path) || path.startsWith(EDITOR_REVIEW_DIFF_PREFIX);
+  return (
+    isGroupedDiffEditorPath(path) ||
+    path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
+  );
 }
 
 export function isConflictResolveEditorPath(path: string): boolean {
@@ -120,6 +132,10 @@ export function isConflictResolveEditorPath(path: string): boolean {
 }
 
 export function getEditorSourcePath(path: string): string {
+  if (path.startsWith(EDITOR_REVIEW_GROUP_PREFIX)) {
+    return path.slice(EDITOR_REVIEW_GROUP_PREFIX.length);
+  }
+
   if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
     const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
     const slashIdx = rest.indexOf('/');
@@ -144,6 +160,12 @@ export function getReviewDiffSnapshotGuid(path: string): string | null {
   return slashIdx >= 0 ? rest.slice(0, slashIdx) : null;
 }
 
+export function getReviewGroupRevisionGuid(path: string): string | null {
+  if (!path.startsWith(EDITOR_REVIEW_GROUP_PREFIX)) return null;
+  const revisionGuid = path.slice(EDITOR_REVIEW_GROUP_PREFIX.length);
+  return revisionGuid || null;
+}
+
 function getLanguageFromPath(path: string): string {
   return detectCodeLanguage(getEditorSourcePath(path));
 }
@@ -162,6 +184,10 @@ function isBinaryFile(path: string): boolean {
 }
 
 function getFileNameFromPath(path: string): string {
+  if (isReviewGroupEditorPath(path)) {
+    return 'Review';
+  }
+
   if (isDiffGroupEditorPath(path)) {
     return getDiffGroupTabLabel(path);
   }
@@ -192,6 +218,10 @@ function getReviewDiffTabName(name: string): string {
 }
 
 function getSpecialTabName(path: string, name: string): string {
+  if (isReviewGroupEditorPath(path)) {
+    return 'Review';
+  }
+
   if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
     return getReviewDiffTabName(name);
   }
@@ -500,7 +530,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
                 }
               : removeNavigationTargetForPath(state.navigationTargets, id, path),
             diffGroupActiveFiles:
-              hasDiffFilePath && isDiffGroupEditorPath(path)
+              hasDiffFilePath && isGroupedDiffEditorPath(path)
                 ? applyDiffGroupActiveFile(
                     state.diffGroupActiveFiles,
                     id,
@@ -563,7 +593,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
               }
             : removeNavigationTargetForPath(state.navigationTargets, id, path),
           diffGroupActiveFiles:
-            hasDiffFilePath && isDiffGroupEditorPath(path)
+            hasDiffFilePath && isGroupedDiffEditorPath(path)
               ? applyDiffGroupActiveFile(
                   state.diffGroupActiveFiles,
                   id,
