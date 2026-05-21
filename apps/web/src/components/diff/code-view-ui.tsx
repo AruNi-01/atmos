@@ -59,7 +59,7 @@ export function createDiffHeaderPrefixRenderer<LAnnotation>(args: {
           <ChevronRight
             className={cn(
               'size-4 transition-transform',
-              (isEmptyDiff || collapsed) && '-rotate-90',
+              !isEmptyDiff && !collapsed && 'rotate-90',
             )}
           />
         </button>

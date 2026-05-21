@@ -2,6 +2,13 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { FileDiff, Virtualizer } from '@pierre/diffs/react';
+import {
+  IconCollapsedRow,
+  IconDiffSplit,
+  IconDiffUnified,
+  IconExpandAll,
+  IconGearFill,
+} from '@pierre/icons';
 import type {
   DiffLineAnnotation,
   FileContents,
@@ -24,7 +31,7 @@ import { ReviewMessageActionsMenu } from '@/components/diff/review/ReviewMessage
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
 import { cn } from '@/lib/utils';
-import { ChevronRight, Columns2, Command, CornerDownLeft, MessageSquareReply, Minus, Rows3, SendHorizontal, Settings2, X } from 'lucide-react';
+import { ChevronRight, Command, CornerDownLeft, MessageSquareReply, SendHorizontal, X } from 'lucide-react';
 import {
   reviewCommentStatusLabel,
   statusTone,
@@ -1225,9 +1232,9 @@ export const DiffViewer = ({
             }
           >
             {diffStyle === 'split' ? (
-              <Columns2 className="size-3.5" />
+              <IconDiffSplit className="size-3.5" />
             ) : (
-              <Rows3 className="size-3.5" />
+              <IconDiffUnified className="size-3.5" />
             )}
           </button>
           <button
@@ -1236,12 +1243,11 @@ export const DiffViewer = ({
             className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
             onClick={() => setFileCollapsed(!fileCollapsed)}
           >
-            <Minus
-              className={cn(
-                'size-3.5 rotate-90 transition-transform',
-                fileCollapsed && 'rotate-0',
-              )}
-            />
+            {fileCollapsed ? (
+              <IconCollapsedRow className="size-3.5" />
+            ) : (
+              <IconExpandAll className="size-3.5" />
+            )}
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1250,7 +1256,7 @@ export const DiffViewer = ({
                 className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                 title="View options"
               >
-                <Settings2 className="size-3.5" />
+                <IconGearFill className="size-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">

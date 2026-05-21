@@ -104,6 +104,11 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     Map<string, { oldContent: string; newContent: string }>
   >(new Map());
   const copyKeyRef = useRef(0);
+  const collapseModeRef = useRef(collapseMode);
+
+  useEffect(() => {
+    collapseModeRef.current = collapseMode;
+  }, [collapseMode]);
 
   const groupFiles = useMemo(() => {
     if (!groupKind) return [];
@@ -321,7 +326,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
               id: result.id,
               type: 'diff',
               fileDiff: result.fileDiff,
-              collapsed: collapseMode === 'collapsed',
+              collapsed: collapseModeRef.current === 'collapsed',
             });
           }
 
@@ -370,7 +375,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [collapseMode, groupFiles, groupKind, repoPath]);
+  }, [groupFiles, groupKind, repoPath]);
 
   useEffect(() => {
     if (!viewerMounted || pendingAppendRef.current.length === 0) return;
