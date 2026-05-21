@@ -151,7 +151,7 @@ just                    # List all available commands
 bun install             # Install frontend dependencies
 just dev-api            # Start API server (writes runtime_manifest.json)
 just dev-web            # Start web app
-just dev-desktop        # Desktop (runs prepare-sidecar + Tauri)
+just dev-desktop        # Desktop (rebuilds web static + prepare-sidecar + tauri dev --no-watch)
 just test               # Run all tests
 just lint               # Run all linters
 ```

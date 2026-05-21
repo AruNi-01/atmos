@@ -5,7 +5,6 @@
   "identifier": "com.atmos.desktop",
   "build": {
     "beforeDevCommand": "",
-    "devUrl": "http://localhost:3030",
     "beforeBuildCommand": "node ../../scripts/desktop/before-build.mjs",
     "frontendDist": "../../web/out"
   },

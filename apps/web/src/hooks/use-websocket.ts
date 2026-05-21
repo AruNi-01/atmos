@@ -304,6 +304,33 @@ interface WebSocketStore {
 
 const getWsUrl = (): string => buildWsUrlSync("/ws");
 
+/** Shared in-flight connect; callers await the same handshake. */
+let connectInFlight: Promise<void> | null = null;
+
+const defaultConnectionWaitMs = (): number =>
+  isTauriRuntime() ? 30_000 : 15_000;
+
+/**
+ * Ensure WebSocket is connected. Awaits bootstrap + handshake (not a blind poll).
+ */
+export async function waitForWebSocketConnection(
+  timeoutMs = defaultConnectionWaitMs(),
+): Promise<void> {
+  if (useWebSocketStore.getState().connectionState === "connected") {
+    return;
+  }
+
+  await Promise.race([
+    useWebSocketStore.getState().connect(),
+    new Promise<void>((_, reject) => {
+      setTimeout(
+        () => reject(new Error("WebSocket connection timeout")),
+        timeoutMs,
+      );
+    }),
+  ]);
+}
+
 export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
   // 初始状态
   connectionState: "disconnected",
@@ -323,115 +350,159 @@ export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
 
   // 连接
   connect: async () => {
-    const { connectionState } = get();
-
-    // Prevent duplicate connections: only allow connect from 'disconnected' state.
-    if (connectionState === "connected" || connectionState === "connecting") {
+    if (get().connectionState === "connected") {
       return;
     }
-
-    set({ connectionState: "connecting" });
-
-    try {
-      if (isHostedAtmosOrigin()) {
-        await ensureComputerClientSettingsHydrated();
-      } else {
-        await ensureLocalAppConnectionBootstrap();
-      }
-      useConnectionStore.getState().syncActiveInstanceFromComputer();
-      const clientType = isTauriRuntime() ? "desktop" : "web";
-      const computer = useAtmosComputerStore.getState();
-      let runtimeUrl: string;
-      const relayUrl = computer.relayWebSocketUrl?.trim();
-      if (computer.connectionMode === "relay" && relayUrl) {
-        runtimeUrl = relayUrl.includes("client_type=")
-          ? relayUrl
-          : `${relayUrl}${relayUrl.includes("?") ? "&" : "?"}client_type=${encodeURIComponent(clientType)}`;
-      } else {
-        runtimeUrl = await buildWsUrl("/ws", { client_type: clientType });
-      }
-
-      // Re-check after async gap — another connect() may have won the race.
-      if (get().connectionState !== "connecting") return;
-
-      debugLog(`ws:connect url=${runtimeUrl.replace(/token=[^&]+/, "token=<redacted>")}`);
-      console.log(
-        "[WebSocket] Connecting to:",
-        runtimeUrl.replace(/token=[^&]+/, "token=<redacted>"),
-      );
-
-      // Close any lingering socket before creating a new one.
-      const prev = get().socket;
-      if (
-        prev &&
-        (prev.readyState === WebSocket.OPEN ||
-          prev.readyState === WebSocket.CONNECTING)
-      ) {
-        prev.onclose = null;
-        prev.close(1000, "Replaced");
-      }
-
-      const ws = new WebSocket(runtimeUrl);
-
-      // Store socket immediately so subsequent connect() calls see it.
-      set({ socket: ws, url: runtimeUrl });
-
-      ws.onopen = () => {
-        debugLog("ws:onopen connected");
-        console.log("[WebSocket] Connected");
-        const { reconnectTimer } = get();
-        if (reconnectTimer) {
-          clearTimeout(reconnectTimer);
-        }
-        set({ connectionState: "connected", socket: ws, reconnectAttempts: 0, reconnectTimer: null });
-        void syncClientSessionFromStore().catch(() => undefined);
-      };
-
-      ws.onclose = (event) => {
-        if (get().socket !== ws) return;
-        debugLog(
-          `ws:onclose code=${event.code} reason="${event.reason}" wasClean=${event.wasClean}`,
-        );
-        console.log(
-          "[WebSocket] Disconnected:",
-          event.code,
-          event.reason,
-          "wasClean:",
-          event.wasClean,
-        );
-
-        const { pendingRequests } = get();
-        pendingRequests.forEach((pending) => {
-          clearTimeout(pending.timeout);
-          pending.reject(new Error("WebSocket connection closed"));
-        });
-
-        set({ connectionState: "disconnected", socket: null, pendingRequests: new Map() });
-
-        if (!event.wasClean) {
-          get()._scheduleReconnect();
-        }
-      };
-
-      ws.onerror = (error) => {
-        debugLog(`ws:onerror ${JSON.stringify(error)}`);
-        console.error("[WebSocket] Error:", error);
-      };
-
-      ws.onmessage = (event) => {
-        get()._handleMessage(event);
-      };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      debugLog(`ws:connect catch err=${msg}`);
-      console.error("[WebSocket] Connection failed:", error);
-      set({ connectionState: "disconnected", socket: null });
-      get()._scheduleReconnect();
+    if (connectInFlight) {
+      return connectInFlight;
     }
+
+    connectInFlight = (async () => {
+      const { connectionState } = get();
+      if (connectionState === "connected") {
+        return;
+      }
+
+      set({ connectionState: "connecting" });
+
+      try {
+        if (isHostedAtmosOrigin()) {
+          await ensureComputerClientSettingsHydrated();
+        } else {
+          await ensureLocalAppConnectionBootstrap();
+        }
+        useConnectionStore.getState().syncActiveInstanceFromComputer();
+        const clientType = isTauriRuntime() ? "desktop" : "web";
+        const computer = useAtmosComputerStore.getState();
+        let runtimeUrl: string;
+        const relayUrl = computer.relayWebSocketUrl?.trim();
+        if (computer.connectionMode === "relay" && relayUrl) {
+          runtimeUrl = relayUrl.includes("client_type=")
+            ? relayUrl
+            : `${relayUrl}${relayUrl.includes("?") ? "&" : "?"}client_type=${encodeURIComponent(clientType)}`;
+        } else {
+          runtimeUrl = await buildWsUrl("/ws", { client_type: clientType });
+        }
+
+        if (get().connectionState !== "connecting") {
+          return;
+        }
+
+        debugLog(`ws:connect url=${runtimeUrl.replace(/token=[^&]+/, "token=<redacted>")}`);
+        console.log(
+          "[WebSocket] Connecting to:",
+          runtimeUrl.replace(/token=[^&]+/, "token=<redacted>"),
+        );
+
+        const prev = get().socket;
+        if (
+          prev &&
+          (prev.readyState === WebSocket.OPEN ||
+            prev.readyState === WebSocket.CONNECTING)
+        ) {
+          prev.onclose = null;
+          prev.close(1000, "Replaced");
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          const ws = new WebSocket(runtimeUrl);
+          let settled = false;
+          const finish = (fn: () => void) => {
+            if (settled) return;
+            settled = true;
+            fn();
+          };
+
+          set({ socket: ws, url: runtimeUrl });
+
+          ws.onopen = () => {
+            debugLog("ws:onopen connected");
+            console.log("[WebSocket] Connected");
+            const { reconnectTimer } = get();
+            if (reconnectTimer) {
+              clearTimeout(reconnectTimer);
+            }
+            set({
+              connectionState: "connected",
+              socket: ws,
+              reconnectAttempts: 0,
+              reconnectTimer: null,
+            });
+            void syncClientSessionFromStore().catch(() => undefined);
+            finish(resolve);
+          };
+
+          ws.onclose = (event) => {
+            if (get().socket !== ws) return;
+            debugLog(
+              `ws:onclose code=${event.code} reason="${event.reason}" wasClean=${event.wasClean}`,
+            );
+            console.log(
+              "[WebSocket] Disconnected:",
+              event.code,
+              event.reason,
+              "wasClean:",
+              event.wasClean,
+            );
+
+            const { pendingRequests } = get();
+            pendingRequests.forEach((pending) => {
+              clearTimeout(pending.timeout);
+              pending.reject(new Error("WebSocket connection closed"));
+            });
+
+            set({
+              connectionState: "disconnected",
+              socket: null,
+              pendingRequests: new Map(),
+            });
+
+            if (!settled) {
+              finish(() => {
+                reject(
+                  new Error(
+                    event.reason?.trim() || "WebSocket connection closed",
+                  ),
+                );
+              });
+              if (!event.wasClean) {
+                get()._scheduleReconnect();
+              }
+              return;
+            }
+
+            if (!event.wasClean) {
+              get()._scheduleReconnect();
+            }
+          };
+
+          ws.onerror = (error) => {
+            debugLog(`ws:onerror ${JSON.stringify(error)}`);
+            console.error("[WebSocket] Error:", error);
+          };
+
+          ws.onmessage = (event) => {
+            get()._handleMessage(event);
+          };
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        debugLog(`ws:connect catch err=${msg}`);
+        console.error("[WebSocket] Connection failed:", error);
+        set({ connectionState: "disconnected", socket: null });
+        get()._scheduleReconnect();
+        throw error instanceof Error ? error : new Error(msg);
+      }
+    })().finally(() => {
+      connectInFlight = null;
+    });
+
+    return connectInFlight;
   },
 
   // 断开连接
   disconnect: () => {
+    connectInFlight = null;
     const { socket, reconnectTimer, pendingRequests } = get();
 
     if (reconnectTimer) {

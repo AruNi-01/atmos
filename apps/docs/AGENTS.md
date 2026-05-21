@@ -58,6 +58,12 @@ apps/docs/
 
 **i18n**: English is default (`index.mdx`). Add `page.zh.mdx` beside each page for 中文 (`/zh/...`).
 
+**`meta.zh.json` sidebar order**: Fumadocs builds a **separate page tree per locale**. If `meta.zh.json` omits `pages` (title-only), that folder’s children fall back to **alphabetical sort by file slug** (`localeCompare` on paths)—not by Chinese display titles. English and 中文 sidebars will then diverge even when content is translated.
+
+- When `meta.json` defines `pages`, **`meta.zh.json` in the same folder must repeat the same `pages` array** (same English slugs; Fumadocs resolves `*.zh.mdx`).
+- Only folder-local fields may differ in `meta.zh.json` (e.g. `title`, `description`, separator labels in parent `meta.zh.json`).
+- Adding a new page: update **both** `meta.json` and `meta.zh.json` (or add `pages` to an existing title-only `meta.zh.json`).
+
 ### Conventions
 - One topic per MDX file; use `{/* TODO */}` until the page is written (HTML `<!-- -->` breaks MDX)
 - Folder `meta.json` lists `pages` order; root `meta.json` lists sections (`...folder`) — omit root-tab folders (e.g. `cli`) from root `pages`
@@ -73,8 +79,9 @@ apps/docs/
 ### NEVER
 - Put framework-specific logic here that belongs in `packages/`
 - Add internationalization without integrating with `@atmos/i18n`
+- Ship a `meta.zh.json` that only overrides `title` while `meta.json` has `pages`—that breaks 中文 sidebar order
 
 ### ALWAYS
 - Keep documentation content in MDX format
-- Use meta.json for navigation configuration
+- Use `meta.json` / `meta.zh.json` `pages` arrays together for navigation order in every localized folder
 

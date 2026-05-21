@@ -66,6 +66,7 @@ import {
   type UsageProviderResponse,
 } from "@/api/ws-api";
 import { useWebSocketStore } from "@/hooks/use-websocket";
+import { useLayoutSettings } from "@/hooks/use-layout-settings";
 
 const STALE_MS = 3 * 60 * 1000;
 const ALL_PROVIDER_ID = "all";
@@ -1262,6 +1263,9 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   });
   const [providerOrder, setProviderOrder] = useUsageProviderOrder();
   const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<string | null>(null);
+  const footerShowUsageCarousel = useLayoutSettings((s) => s.showUsageCarousel);
+  const setFooterShowUsageCarousel = useLayoutSettings((s) => s.setFooterShowUsageCarousel);
+  const loadLayoutSettings = useLayoutSettings((s) => s.loadSettings);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1355,6 +1359,10 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
     },
     []
   );
+
+  useEffect(() => {
+    void loadLayoutSettings();
+  }, [loadLayoutSettings]);
 
   useEffect(() => {
     if (!open) return;
@@ -1969,26 +1977,33 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                       sideOffset={8}
                       className="w-56 rounded-[16px] border-border/70 p-2"
                     >
-                      <div className="px-2 pb-2 pt-1">
-                        <div className="text-xs font-medium text-foreground">Footer carousel</div>
-                        <div className="mt-0.5 text-[11px] text-foreground/75">
-                          Choose enabled AI Usage sources.
+                      <div className="flex items-start justify-between gap-3 px-2 pb-2 pt-1">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-foreground">Footer carousel</div>
+                          <div className="mt-0.5 text-[11px] text-foreground/75">
+                            Choose enabled AI Usage sources shown in the app footer.
+                          </div>
                         </div>
+                        <Switch
+                          checked={footerShowUsageCarousel}
+                          onCheckedChange={(checked) => void setFooterShowUsageCarousel(!!checked)}
+                          aria-label="Show AI usage carousel in app footer"
+                        />
                       </div>
-                      {carouselProviders.length > 0 ? (
-                        <div className="max-h-64 overflow-y-auto">
-                          {carouselProviders.map((provider) => {
-                            const checked = provider.footer_carousel_show;
-                            const isSwitchingFooterCarousel = switchingFooterCarouselProviderId === provider.id;
-                            return (
-                              <button
-                                key={provider.id}
-                                type="button"
-                                aria-pressed={checked}
-                                disabled={isSwitchingFooterCarousel}
-                                onClick={() => void toggleFooterCarouselProvider(provider.id, !checked)}
-                                className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/65"
-                              >
+                        {carouselProviders.length > 0 ? (
+                          <div className="max-h-64 overflow-y-auto">
+                            {carouselProviders.map((provider) => {
+                              const checked = provider.footer_carousel_show;
+                              const isSwitchingFooterCarousel = switchingFooterCarouselProviderId === provider.id;
+                              return (
+                                <button
+                                  key={provider.id}
+                                  type="button"
+                                  aria-pressed={checked}
+                                  disabled={isSwitchingFooterCarousel || !footerShowUsageCarousel}
+                                  onClick={() => void toggleFooterCarouselProvider(provider.id, !checked)}
+                                  className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted/65 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
                                 <span className="flex min-w-0 items-center gap-2">
                                   <span className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-border/60 bg-background/75 text-foreground/85 [&_svg]:size-3.5 [&_span]:size-3.5">
                                     <ProviderGlyph providerId={provider.id} size={14} />
@@ -2007,11 +2022,11 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
                             );
                           })}
                         </div>
-                      ) : (
-                        <div className="px-2 py-3 text-[11px] text-foreground/75">
-                          No enabled AI Usage sources yet.
-                        </div>
-                      )}
+                        ) : (
+                          <div className="px-2 py-3 text-[11px] text-foreground/75">
+                            No enabled AI Usage sources yet.
+                          </div>
+                        )}
                     </PopoverContent>
                   </Popover>
                 </div>

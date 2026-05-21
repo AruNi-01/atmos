@@ -1,3 +1,10 @@
 {
-  "title": "工作流"
+  "title": "工作流",
+  "pages": [
+    "project-and-workspace-manager",
+    "general-build-process",
+    "code-review-in-atmos",
+    "build-in-canvas",
+    "remote-build"
+  ]
 }

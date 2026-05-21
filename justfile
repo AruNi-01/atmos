@@ -69,27 +69,19 @@ dev-landing-portless:
 dev-docs:
     bun --filter docs dev
 
-# 启动 Desktop (Tauri) 开发环境 (完整启动，前后端日志混合)
+# 启动 Desktop (Tauri) 开发环境
+# prepare-sidecar 会先 next build 最新 web 静态包，再由 sidecar 提供 UI（无需 just dev-web）
+# --no-dev-server-wait 不等待 localhost:3030；--no-watch 避免改 Rust 时反复重启
 dev-desktop:
-    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run dev
-
-# Desktop 分开启动: 仅前端 (用于单独查看前端日志)
-# NEXT_PUBLIC_API_PORT 指向 Desktop sidecar 的固定端口，使浏览器也能连上
-dev-desktop-frontend:
-    NEXT_PUBLIC_API_PORT=30303 bun --filter web dev --port 3030
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --no-watch --no-dev-server-wait --config src-tauri/tauri.debug.conf.json
 
 # Desktop 分开启动: 仅后端 (开发模式，使用 cargo run)
 dev-desktop-backend:
     RUST_LOG=info cargo run --bin api
 
-# Desktop 分开启动: 仅 Tauri 窗口 (需先启动 frontend，backend 会自动启动)
-# --no-watch 防止修改 workspace 内其他 crate 的 Rust 代码时桌面端自动重启
-dev-desktop-tauri:
-    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --no-watch --config src-tauri/tauri.debug.conf.json
-
 # Desktop 调试模式：主窗口先显示，sidecar 异常弹窗提示（单命令）
 dev-desktop-debug:
-    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && ATMOS_DESKTOP_DEBUG=true RUST_LOG=info bun run tauri dev --no-watch --config src-tauri/tauri.debug.conf.json --verbose
+    bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && ATMOS_DESKTOP_DEBUG=true RUST_LOG=info bun run tauri dev --no-watch --no-dev-server-wait --config src-tauri/tauri.debug.conf.json --verbose
 
 # 启动 API 服务器
 # 直接 cargo run，Ctrl+C 信号能正确传播，避免 shell 先于 api 退出导致输出乱序
@@ -423,9 +415,7 @@ fresh: clean install-deps
 alias dw := dev-web
 alias dwp := dev-web-portless
 alias dd := dev-desktop
-alias ddf := dev-desktop-frontend
 alias ddb := dev-desktop-backend
-alias ddt := dev-desktop-tauri
 alias dl := dev-landing
 alias dlp := dev-landing-portless
 alias d-d := dev-docs

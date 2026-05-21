@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { Project, Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
 import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel, type WorkspaceAttachmentPayload } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
-import { useWebSocketStore } from './use-websocket';
+import { useWebSocketStore, waitForWebSocketConnection } from './use-websocket';
 
 // Sort workspaces: pinned first (by pinOrder ASC), then by createdAt DESC
 function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
@@ -339,33 +339,8 @@ function mapWorkspaceModel(model: WorkspaceModel): Workspace {
 // Track delete progress toast IDs by workspace ID
 const deleteProgressToasts = new Map<string, { toastId: string; workspaceName: string }>();
 
-async function waitForConnection(timeoutMs = 5000): Promise<void> {
-  const { connectionState, connect } = useWebSocketStore.getState();
-  
-  if (connectionState === 'connected') {
-    return;
-  }
-  
-  // 触发连接
-  if (connectionState === 'disconnected') {
-    connect();
-  }
-  
-  // 等待连接建立
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error('WebSocket connection timeout'));
-    }, timeoutMs);
-    
-    const checkConnection = setInterval(() => {
-      const state = useWebSocketStore.getState();
-      if (state.connectionState === 'connected') {
-        clearInterval(checkConnection);
-        clearTimeout(timeout);
-        resolve();
-      }
-    }, 100);
-  });
+async function waitForConnection(timeoutMs?: number): Promise<void> {
+  await waitForWebSocketConnection(timeoutMs);
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({

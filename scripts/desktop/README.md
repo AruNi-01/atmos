@@ -5,7 +5,8 @@ This directory contains local scripts for building the Atmos desktop app on deve
 ## Scripts
 
 - `build-local-macos.sh`: Main local build entry for macOS.
-- `prepare-sidecar.sh`: Builds `api` + `atmos`, copies static web output, and lays out the **unified local runtime** bundle.
+- `prepare-sidecar.sh`: Builds `api` + `atmos`, **rebuilds** web static export (`build-web-static.mjs`), and lays out the **unified local runtime** bundle.
+- `build-web-static.mjs`: `next build` with `BUILD_TARGET=desktop` and copy to `binaries/web-out`.
 - `layout-runtime-bundle.sh`: Creates `apps/desktop/src-tauri/binaries/runtime/current/` (`bin/api`, `bin/atmos`, `web/`, `system-skills/`).
 - `before-build.mjs`: Node-based prebuild script used by Tauri `beforeBuildCommand`.
 
@@ -90,13 +91,18 @@ These paths are **gitignored** except `.gitkeep` stubs — run `prepare-sidecar.
 From project root:
 
 - `just dev-desktop`
-- `just dev-desktop-tauri`
 - `just dev-desktop-debug`
 - `just build-desktop`
 
-These commands already call `scripts/desktop/prepare-sidecar.sh`.
+These commands already call `scripts/desktop/prepare-sidecar.sh` (includes a fresh web static build each time).
+
+Set `ATMOS_DESKTOP_SKIP_WEB_BUILD=1` to reuse an existing `apps/web/out` when only changing Rust/API.
 
 ## Troubleshooting
+
+- Desktop shows an old UI after code changes  
+  You need a new static export — run `just dev-desktop` again (or `node scripts/desktop/build-web-static.mjs`). Do not rely on `apps/web/out` from days ago; `prepare-sidecar` now rebuilds it by default.
+
 
 - `command not found: bun`  
   Install Bun and ensure it is in `PATH`.

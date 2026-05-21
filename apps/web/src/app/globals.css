@@ -320,3 +320,29 @@ html:not([data-theme-ready="true"]) body {
     animation-duration: 0s !important;
   }
 }
+
+/*
+ * tldraw canvas paint workaround for WebKit/WKWebView (Tauri Desktop, Safari).
+ *
+ * Symptom: clicking on the empty canvas with the select tool blanks the entire
+ * canvas area — grid, shapes, and tldraw's own background all stop painting,
+ * so the wrapper's `bg-background` shows through (black in dark theme, white
+ * in light). DOM is unchanged; only `data-state` on `.tl-container` flips
+ * between `select.idle` ↔ `select.pointing_canvas`. Double-clicking restores
+ * the rendering. Browsers (Chromium) are unaffected.
+ *
+ * Root cause: tldraw sets `content-visibility: auto` on `.tl-canvas` (see
+ * `node_modules/tldraw/tldraw.css`). WebKit's `content-visibility: auto`
+ * has a long-standing bug where lightweight ancestor mutations (an attribute
+ * flip) can leave the subtree in the "skipped rendering" state even though
+ * the element is fully on-screen. Camera / viewport recovery cannot fix this
+ * because the camera is fine — the painter has been told to skip the subtree.
+ *
+ * Fix: force `content-visibility: visible` on Atmos's single canvas. Losing
+ * the optimisation has no measurable cost (we only ever render one canvas at
+ * a time) and the rule is a no-op in browsers that handled the original
+ * `auto` correctly.
+ */
+.tldraw-wrapper .tl-canvas {
+  content-visibility: visible;
+}

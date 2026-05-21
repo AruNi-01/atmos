@@ -29,7 +29,23 @@ export function createDefaultDocument(): CanvasBoardDocument {
 export function createDefaultCanvasSession(): CanvasTldrawSession {
   return {
     version: SESSION_SNAPSHOT_VERSION,
+    isGridMode: true,
   } as CanvasTldrawSession;
+}
+
+/** tldraw stores show-grid on `snapshot.session.isGridMode` (no separate Tldraw prop). */
+export function resolveCanvasSessionForLoad(
+  session?: CanvasTldrawSession | null,
+): CanvasTldrawSession {
+  if (!session || typeof session !== "object") {
+    return createDefaultCanvasSession();
+  }
+
+  if (session.isGridMode === false) {
+    return session;
+  }
+
+  return { ...session, isGridMode: true };
 }
 
 export function createCanvasSnapshot(
@@ -42,7 +58,7 @@ export function createCanvasSnapshot(
 
   return {
     document: normalizeCanvasTerminalShapePropsInDocument(document),
-    session: session ?? createDefaultCanvasSession(),
+    session: resolveCanvasSessionForLoad(session),
   };
 }
 

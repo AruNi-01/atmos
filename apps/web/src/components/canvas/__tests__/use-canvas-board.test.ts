@@ -1,6 +1,10 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, expect, it } from "bun:test";
-import { createCanvasSnapshot, parseBoardDocument } from "../use-canvas-board";
+import {
+  createCanvasSnapshot,
+  parseBoardDocument,
+  resolveCanvasSessionForLoad,
+} from "../use-canvas-board";
 
 describe("parseBoardDocument", () => {
   it("accepts the expected v1 document wrapper", () => {
@@ -105,5 +109,18 @@ describe("parseBoardDocument", () => {
         lastAttachedAt: null,
       },
     });
+  });
+});
+
+describe("resolveCanvasSessionForLoad", () => {
+  it("defaults show-grid on for new sessions", () => {
+    expect(resolveCanvasSessionForLoad(null).isGridMode).toBe(true);
+    expect(resolveCanvasSessionForLoad({ version: 0 }).isGridMode).toBe(true);
+  });
+
+  it("keeps show-grid off when the user saved that preference", () => {
+    expect(resolveCanvasSessionForLoad({ version: 0, isGridMode: false }).isGridMode).toBe(
+      false,
+    );
   });
 });

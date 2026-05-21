@@ -23,21 +23,28 @@
   isolation: isolate;
 }
 
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane {
-  filter: saturate(0.95) brightness(0.95);
-  transition: filter 0.18s ease;
+/* Dim inactive panes with an overlay instead of filter — CSS filter on mosaic-window
+   causes a half-pixel white seam at split edges in WKWebView (Tauri desktop). */
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.05);
+  transition: background 0.18s ease;
 }
 
-.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover {
-  filter: saturate(0.98) brightness(0.98);
+.atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover::before {
+  background: rgba(0, 0, 0, 0.02);
 }
 
-.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane {
-  filter: saturate(0.6) brightness(0.55);
+.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane::before {
+  background: rgba(0, 0, 0, 0.45);
 }
 
-.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover {
-  filter: saturate(0.75) brightness(0.7);
+.dark .atmos-mosaic-theme .mosaic-window.is-inactive-pane:hover::before {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .atmos-mosaic-theme .mosaic-window.is-inactive-pane .terminal-mosaic-toolbar-left {
@@ -237,11 +244,6 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
-/* Container query context for scroll button narrow detection */
-.terminal-padding-wrapper {
-  container-type: inline-size;
-}
-
 .terminal-search-overlay {
   position: absolute;
   top: 10px;
@@ -340,123 +342,24 @@
   }
 }
 
-/* Scroll-to-bottom ghost button */
+/* Scroll-to-bottom — fixed icon in bottom-right */
 .terminal-scroll-to-bottom {
   position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 10px;
+  bottom: 10px;
   z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: var(--radius-sm, 6px);
-  cursor: pointer;
-  color: var(--foreground);
-  background: color-mix(in srgb, var(--background) 90%, var(--foreground) 10%);
-  border: 1px dashed color-mix(in srgb, var(--foreground) 34%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-  opacity: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  transition:
-    opacity 0.25s ease,
-    background 0.25s ease,
-    border-color 0.25s ease,
-    transform 0.25s ease,
-    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    gap 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: scrollBtnFadeIn 0.15s ease-out;
+  animation: terminalScrollBtnFadeIn 0.15s ease-out;
 }
 
-.terminal-scroll-icon {
-  flex-shrink: 0;
-  transition: opacity 0.2s ease 0.05s;
-}
-
-.terminal-scroll-label {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  font-size: 12px;
-  font-family: var(--font-mono, monospace);
-  line-height: 1;
-  transition:
-    max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s ease;
-}
-
-.terminal-scroll-prompt {
-  color: var(--muted-foreground);
-}
-
-.terminal-scroll-cd {
-  color: #22c55e;
-  font-weight: 500;
-}
-
-.terminal-scroll-target {
-  color: var(--foreground);
-}
-
-/* Hover expand — only when container is wide enough (>=200px) */
-@container (min-width: 200px) {
-  .terminal-scroll-to-bottom:hover {
-    opacity: 1;
-    width: 108px;
-    padding: 0 10px;
-    gap: 5px;
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--background) 84%, var(--foreground) 16%);
-    border-color: color-mix(in srgb, var(--foreground) 44%, transparent);
-    transform: translateX(-50%);
-  }
-
-  .terminal-scroll-to-bottom:hover .terminal-scroll-icon {
+@keyframes terminalScrollBtnFadeIn {
+  from {
     opacity: 0;
-    width: 0;
-    overflow: hidden;
-    transition: opacity 0.1s ease, width 0.2s ease 0.1s;
+    transform: translateY(4px);
   }
-
-  .terminal-scroll-to-bottom:hover .terminal-scroll-label {
-    max-width: 100px;
+  to {
     opacity: 1;
-    transition:
-      max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1) 0.05s,
-      opacity 0.25s ease 0.1s;
+    transform: translateY(0);
   }
-}
-
-/* Hover fallback — narrow container, just brighten */
-@container (max-width: 199px) {
-  .terminal-scroll-to-bottom:hover {
-    opacity: 1;
-    color: var(--foreground);
-    background: color-mix(in srgb, var(--background) 84%, var(--foreground) 16%);
-    border-color: color-mix(in srgb, var(--foreground) 44%, transparent);
-    transform: translateX(-50%) scale(1.05);
-  }
-}
-
-.terminal-scroll-to-bottom:active {
-  transform: translateX(-50%) scale(0.97);
-}
-
-@keyframes scrollBtnFadeIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* Terminal Content Integration */

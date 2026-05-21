@@ -120,6 +120,40 @@ function normalizeSnapshotData(data: string): string {
   return data.replace(/\r?\n/g, "\r\n");
 }
 
+/**
+ * xterm `_core` hooks used for snapshot hydration. `term.write()` batches output
+ * across animation frames (~12ms), so large tmux replays visibly scroll from top
+ * to bottom; `writeSync` + instant `scrollToBottom` lands on the last line once.
+ */
+type XTermInternalCore = {
+  writeSync: (data: string | Uint8Array, maxSubsequentCalls?: number) => void;
+  scrollToBottom: (disableSmoothScroll?: boolean) => void;
+};
+
+function getXtermInternalCore(term: XTerm): XTermInternalCore | null {
+  const core = (term as XTerm & { _core?: XTermInternalCore })._core;
+  return core ?? null;
+}
+
+function jumpXtermToBottom(term: XTerm): void {
+  const core = getXtermInternalCore(term);
+  if (core) {
+    core.scrollToBottom(true);
+    return;
+  }
+  term.scrollToBottom();
+}
+
+function writeXtermPayload(term: XTerm, payload: string, onComplete: () => void): void {
+  const core = getXtermInternalCore(term);
+  if (core) {
+    core.writeSync(payload);
+    onComplete();
+    return;
+  }
+  term.write(payload, onComplete);
+}
+
 type TerminalWriteChunk = string | Uint8Array;
 
 function cloneTerminalWriteChunk(data: TerminalWriteChunk): TerminalWriteChunk {
@@ -585,9 +619,10 @@ const Terminal = ({
     // tmux `capture-pane -N` preserves trailing spaces so background-coloured
     // TUI panels survive reconnect. Replay them with autowrap disabled so a
     // full-width captured row does not create an extra wrapped line in xterm.js.
-    term.write(`${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${mouseRestore}`, () => {
+    const payload = `${clearScreen}\x1b[?7l${data}\x1b[?7h\x1b[0m${cursorRestore}${mouseRestore}`;
+    writeXtermPayload(term, payload, () => {
       if (!useAlternateScreen) {
-        term.scrollToBottom();
+        jumpXtermToBottom(term);
       }
       scheduleInputReady();
     });
@@ -639,7 +674,12 @@ const Terminal = ({
       clear: () => terminalRef.current?.clear(),
       write: (data: string) => terminalRef.current?.write(data),
       sendText: (data: string) => sendInput(data),
-      scrollToBottom: () => terminalRef.current?.scrollToBottom(),
+      scrollToBottom: () => {
+        const terminal = terminalRef.current;
+        if (terminal) {
+          jumpXtermToBottom(terminal);
+        }
+      },
       paste: async () => {
         const terminal = terminalRef.current;
         if (!terminal) return;
@@ -1547,22 +1587,23 @@ const Terminal = ({
       />
       {/* Scroll-to-bottom button — appears when scrolled up */}
       {showScrollDown && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           aria-label="Scroll to bottom"
+          title="Scroll to bottom"
+          className="terminal-scroll-to-bottom"
           onClick={() => {
-            terminalRef.current?.scrollToBottom();
+            const terminal = terminalRef.current;
+            if (terminal) {
+              jumpXtermToBottom(terminal);
+            }
             setShowScrollDown(false);
           }}
-          className="terminal-scroll-to-bottom group"
         >
-          <ArrowDown size={14} className="terminal-scroll-icon" />
-          <span className="terminal-scroll-label">
-            <span className="terminal-scroll-prompt">$</span>{" "}
-            <span className="terminal-scroll-cd">cd</span>{" "}
-            <span className="terminal-scroll-target">bottom</span>
-          </span>
-        </button>
+          <ArrowDown className="size-3.5" />
+        </Button>
       )}
     </div>
   );

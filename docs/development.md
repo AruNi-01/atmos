@@ -42,7 +42,11 @@ Runs the Rust API server.
 ```bash
 just dev-desktop
 ```
-Runs the Tauri application. The command runs `scripts/desktop/prepare-sidecar.sh` first, which builds `api`/`atmos` and lays out `apps/desktop/src-tauri/binaries/runtime/current/` (shared local runtime — see `crates/runtime-manager/README.md`).
+
+Runs `prepare-sidecar.sh` then Tauri (`--no-dev-server-wait`, `--no-watch`). Each start **rebuilds** the web static export and serves it from the bundled API — **do not** start `just dev-web` first.
+
+- Browser web dev (hot reload, separate from Desktop): `just dev-web`.
+- Rust/API-only iteration: `ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just dev-desktop`.
 
 If `cargo check -p atmos-desktop` fails with missing `binaries/runtime/current`, run the prepare script once manually.
 

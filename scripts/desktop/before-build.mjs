@@ -1,29 +1,11 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { buildWebStaticForDesktop, copyWebStaticToSidecar } from "./build-web-static.mjs";
 import { layoutRuntimeBundle } from "./layout-runtime-bundle.mjs";
 
 const rootDir = resolve(import.meta.dirname, "../..");
 const cliCargoToml = join(rootDir, "apps/cli/Cargo.toml");
-const webEnvLocalPath = join(rootDir, "apps/web/.env.local");
-
-function loadWebEnvVar(name) {
-  if (process.env[name]) return process.env[name];
-  if (!existsSync(webEnvLocalPath)) return undefined;
-
-  const content = readFileSync(webEnvLocalPath, "utf8");
-  const line = content
-    .split(/\r?\n/)
-    .map((entry) => entry.trim())
-    .find((entry) => entry && !entry.startsWith("#") && entry.startsWith(`${name}=`));
-
-  if (!line) return undefined;
-
-  const rawValue = line.slice(name.length + 1).trim();
-  const quotedWithDouble = rawValue.startsWith('"') && rawValue.endsWith('"');
-  const quotedWithSingle = rawValue.startsWith("'") && rawValue.endsWith("'");
-  return quotedWithDouble || quotedWithSingle ? rawValue.slice(1, -1) : rawValue;
-}
 
 function readCliVersion() {
   const cargoToml = readFileSync(cliCargoToml, "utf8");
@@ -49,33 +31,7 @@ function run(command, args, options = {}) {
   }
 }
 
-// Static export (output: "export") does not support API Route Handlers.
-// Temporarily move them out of the way so `next build` succeeds.
-const webApiDir = join(rootDir, "apps/web/src/app/api");
-const webApiBackup = join(rootDir, "apps/web/src/app/_api_desktop_backup");
-const webDevLock = join(rootDir, "apps/web/.next/dev/lock");
-const hasApiDir = existsSync(webApiDir);
-if (hasApiDir) {
-  renameSync(webApiDir, webApiBackup);
-}
-if (existsSync(webDevLock)) {
-  rmSync(webDevLock, { force: true });
-}
-
-try {
-  run("bun", ["--filter", "web", "build"], {
-    env: {
-      ...process.env,
-      BUILD_TARGET: "desktop",
-      NEXT_PUBLIC_TLDRAW_LICENSE_KEY: process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY ?? loadWebEnvVar("NEXT_PUBLIC_TLDRAW_LICENSE_KEY"),
-      ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
-    },
-  });
-} finally {
-  if (hasApiDir) {
-    renameSync(webApiBackup, webApiDir);
-  }
-}
+buildWebStaticForDesktop(rootDir);
 
 let targetTriple = process.env.TARGET_TRIPLE;
 if (!targetTriple) {
@@ -149,26 +105,10 @@ writeFileSync(
 );
 console.log(`Prepared Atmos CLI resource: ${toCli}`);
 
-const webOut = join(rootDir, "apps/web/out");
-const sidecarWebOut = join(binariesDir, "web-out");
+copyWebStaticToSidecar(rootDir);
+
 const systemSkills = join(rootDir, "skills");
 const bundledSystemSkills = join(binariesDir, "system-skills");
-
-if (existsSync(webOut)) {
-  const indexHtmlPath = join(webOut, "index.html");
-  const enIndexPath = join(webOut, "en", "index.html");
-  if (!existsSync(indexHtmlPath) && existsSync(enIndexPath)) {
-    // Copy the default locale's page as root index.html so Tauri loads
-    // without a visible redirect flash (meta-refresh → /en/).
-    cpSync(enIndexPath, indexHtmlPath);
-  }
-
-  rmSync(sidecarWebOut, { recursive: true, force: true });
-  cpSync(webOut, sidecarWebOut, { recursive: true });
-  console.log(`Copied web static export to: ${sidecarWebOut}`);
-} else {
-  console.warn(`Warning: ${webOut} not found, skipping web static copy`);
-}
 
 if (existsSync(systemSkills)) {
   rmSync(bundledSystemSkills, { recursive: true, force: true });

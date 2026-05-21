@@ -617,27 +617,11 @@ async function wsRequest<T>(
   data: unknown = {},
   timeoutMs?: number,
 ): Promise<T> {
-  const { send, connectionState, connect } = useWebSocketStore.getState();
+  const { send, connectionState } = useWebSocketStore.getState();
 
-  // 如果未连接，尝试连接
   if (connectionState !== "connected") {
-    connect();
-
-    // 等待连接建立
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error("WebSocket connection timeout"));
-      }, 5000);
-
-      const checkConnection = setInterval(() => {
-        const state = useWebSocketStore.getState();
-        if (state.connectionState === "connected") {
-          clearInterval(checkConnection);
-          clearTimeout(timeout);
-          resolve();
-        }
-      }, 100);
-    });
+    const { waitForWebSocketConnection } = await import("@/hooks/use-websocket");
+    await waitForWebSocketConnection();
   }
 
   return send<T>(action, data, timeoutMs);

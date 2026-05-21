@@ -56,7 +56,7 @@ just dev-web
 
 # Desktop 运行
 just dev-web
-just dev-desktop-tauri
+just dev-desktop
 ```
 
 ## 许可证

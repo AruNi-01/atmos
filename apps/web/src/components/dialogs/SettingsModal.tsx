@@ -85,6 +85,7 @@ import {
   ArrowDown,
   ListFilter,
   Github,
+  PanelBottom,
 } from 'lucide-react';
 import InfoCircleIcon from '@workspace/ui/components/icons/info-circle-icon';
 import LayoutDashboardIcon from '@workspace/ui/components/icons/layout-dashboard-icon';
@@ -648,6 +649,9 @@ function LayoutSettingsSection() {
     workspaceSidebarSecondColumnKanban,
     workspaceSidebarTimeTwoColumn,
     workspaceSidebarStatusTwoColumn,
+    showWsConnection,
+    showUsageCarousel,
+    showAgentStatus,
     loadSettings,
     setProjectFilesSide,
     setWorkspaceSidebarTwoColumn,
@@ -655,14 +659,24 @@ function LayoutSettingsSection() {
     setWorkspaceSidebarSecondColumnKanban,
     setWorkspaceSidebarTimeTwoColumn,
     setWorkspaceSidebarStatusTwoColumn,
+    setFooterShowWsConnection,
+    setFooterShowUsageCarousel,
+    setFooterShowAgentStatus,
   } = useLayoutSettings();
-  const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(true);
+  const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+  const [, setActiveSettingTab] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
+  const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(false);
+  const [footerLayoutExpanded, setFooterLayoutExpanded] = React.useState(false);
   const isAnyTwoColumnEnabled =
     workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn;
+  const footerEnabledCount =
+    Number(showWsConnection) + Number(showUsageCarousel) + Number(showAgentStatus);
 
   React.useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    void loadExperimentSettings();
+  }, [loadSettings, loadExperimentSettings]);
 
   return (
     <div className="space-y-4">
@@ -812,6 +826,115 @@ function LayoutSettingsSection() {
                     checked={workspaceSidebarStatusTwoColumn}
                     onCheckedChange={(checked) => void setWorkspaceSidebarStatusTwoColumn(!!checked)}
                   />
+                </div>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+      <Collapsible
+        open={footerLayoutExpanded}
+        onOpenChange={setFooterLayoutExpanded}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex items-start gap-3">
+              <span className="relative mt-0.5 size-5 shrink-0">
+                <PanelBottom className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
+                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-medium text-foreground">Footer layout</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Choose which status strips appear in the app footer. When every item below is off and ACP Chat is disabled in Experiments, the footer is hidden.
+                </p>
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          <div className="pt-1 text-xs text-muted-foreground">
+            {footerEnabledCount > 0 ? `${footerEnabledCount} enabled` : 'Hidden'}
+          </div>
+        </div>
+        <CollapsibleContent>
+          <div className="border-t border-border px-4">
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+                <div>
+                  <p className="text-sm font-medium text-foreground">WebSocket connection status</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Show live connection state and active WebSocket clients in the footer.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={showWsConnection}
+                    onCheckedChange={(checked) => void setFooterShowWsConnection(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+                <div>
+                  <p className="text-sm font-medium text-foreground">AI Quota Usage carousel</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Rotate enabled AI usage summaries in the footer. Provider picks and the master switch in AI Usage also apply here.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={showUsageCarousel}
+                    onCheckedChange={(checked) => void setFooterShowUsageCarousel(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Agent Status Panel</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Show running agent sessions in the footer. Install hooks for each agent in{' '}
+                    <button
+                      type="button"
+                      className="text-foreground underline underline-offset-2 hover:text-foreground/80"
+                      onClick={() => void setActiveSettingTab('code-agent')}
+                    >
+                      Code Agent
+                    </button>{' '}
+                    so Atmos can receive their state.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={showAgentStatus}
+                    onCheckedChange={(checked) => void setFooterShowAgentStatus(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="px-2 py-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8">
+                <div>
+                  <p className="text-sm font-medium text-foreground">ACP Agent Chat entry</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Opens the floating ACP chat panel from the footer when enabled. Turn it on or off in Experiments — not controlled here.
+                  </p>
+                </div>
+                <div className="flex flex-col items-end justify-center gap-2 text-right">
+                  <span className="text-xs text-muted-foreground">
+                    {managementAgentsEnabled ? 'Enabled in Experiments' : 'Disabled in Experiments'}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => void setActiveSettingTab('experiments')}
+                  >
+                    Open Experiments
+                  </Button>
                 </div>
               </div>
             </div>

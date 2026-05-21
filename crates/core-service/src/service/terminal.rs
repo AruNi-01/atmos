@@ -1717,6 +1717,24 @@ fn run_control_mode_tmux_session(
         let mut line = Vec::new();
         let mut passthrough_unwrapper = TmuxPassthroughUnwrapper::default();
 
+        // Suppress %output bytes that flow during the tmux control client's
+        // initial attach/resize/refresh cycle. Those bytes are tmux replaying
+        // the pane's current visible state — the exact same content that
+        // `capture_pane_snapshot` (called by the caller right after this
+        // thread finishes init) hands the frontend as a one-shot JSON snapshot
+        // applied via xterm `writeSync`. Forwarding the replay too would force
+        // the slow rAF-batched `term.write()` path to redraw the same pixels,
+        // which is what users see as "the terminal slowly scrolls from the
+        // top" after switching workspaces or reattaching.
+        //
+        // Boundary: tmux processes commands serially in its event loop and
+        // emits %begin/%end (or %error on failure) per command. We send
+        // exactly two init commands below (resize-window + refresh-client),
+        // so the 2nd %end / %error means all redundant repaint %output is
+        // behind us and any subsequent %output is genuine PTY activity.
+        let mut suppress_pane_output = true;
+        let mut init_responses_remaining: u8 = 2;
+
         while reader_running.load(Ordering::SeqCst) {
             line.clear();
             match reader.read_until(b'\n', &mut line) {
@@ -1728,12 +1746,27 @@ fn run_control_mode_tmux_session(
                     | Some(ControlModeEvent::ExtendedOutput { pane_id, data, .. })
                         if pane_id == reader_pane_id =>
                     {
+                        if suppress_pane_output {
+                            // Always feed bytes through the DCS passthrough
+                            // unwrapper so its state machine stays in sync
+                            // with the live stream even while we drop them.
+                            let _ = passthrough_unwrapper.push(&data);
+                            continue;
+                        }
                         // Preserve synchronized-output markers. Modern TUIs use
                         // them to bracket a complete redraw frame; xterm.js can
                         // use that hint to avoid presenting half-drawn frames.
                         let data = passthrough_unwrapper.push(&data);
                         if !data.is_empty() && output_tx.send(data).is_err() {
                             break;
+                        }
+                    }
+                    Some(ControlModeEvent::End) => {
+                        if init_responses_remaining > 0 {
+                            init_responses_remaining -= 1;
+                            if init_responses_remaining == 0 {
+                                suppress_pane_output = false;
+                            }
                         }
                     }
                     Some(ControlModeEvent::Exit(reason)) => {
@@ -1749,6 +1782,16 @@ fn run_control_mode_tmux_session(
                             "tmux control command error for session {}: {}",
                             reader_session_id, error
                         );
+                        // %error terminates a command response the same way
+                        // %end does, so it still counts against our init
+                        // response budget — otherwise a failed init command
+                        // would leave the suppress flag stuck forever.
+                        if init_responses_remaining > 0 {
+                            init_responses_remaining -= 1;
+                            if init_responses_remaining == 0 {
+                                suppress_pane_output = false;
+                            }
+                        }
                     }
                     Some(_) | None => {}
                 },

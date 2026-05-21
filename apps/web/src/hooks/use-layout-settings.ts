@@ -6,7 +6,13 @@ import { useFunctionSettingsStore } from '@/hooks/use-function-settings-store';
 
 export type ProjectFilesSide = 'left' | 'right';
 
-interface LayoutSettingsState {
+export interface FooterLayoutPrefs {
+  showWsConnection: boolean;
+  showUsageCarousel: boolean;
+  showAgentStatus: boolean;
+}
+
+interface LayoutSettingsState extends FooterLayoutPrefs {
   projectFilesSide: ProjectFilesSide;
   workspaceSidebarTwoColumn: boolean;
   workspaceSidebarTwoColumnShowPinned: boolean;
@@ -21,6 +27,17 @@ interface LayoutSettingsState {
   setWorkspaceSidebarSecondColumnKanban: (value: boolean) => Promise<void>;
   setWorkspaceSidebarTimeTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarStatusTwoColumn: (value: boolean) => Promise<void>;
+  setFooterShowWsConnection: (value: boolean) => Promise<void>;
+  setFooterShowUsageCarousel: (value: boolean) => Promise<void>;
+  setFooterShowAgentStatus: (value: boolean) => Promise<void>;
+}
+
+function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLayoutPrefs {
+  return {
+    showWsConnection: layout?.footer_show_ws_connection !== false,
+    showUsageCarousel: layout?.footer_show_usage_carousel !== false,
+    showAgentStatus: layout?.footer_show_agent_status !== false,
+  };
 }
 
 export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
@@ -30,6 +47,9 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
   workspaceSidebarSecondColumnKanban: false,
   workspaceSidebarTimeTwoColumn: false,
   workspaceSidebarStatusTwoColumn: false,
+  showWsConnection: true,
+  showUsageCarousel: true,
+  showAgentStatus: true,
   loaded: false,
 
   loadSettings: async (force = false) => {
@@ -39,15 +59,9 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
         useFunctionSettingsStore.getState().invalidate();
       }
       const settings = await useFunctionSettingsStore.getState().load();
-      const layout = settings.layout as {
-        project_files_side?: string;
-        workspace_sidebar_two_column?: boolean;
-        workspace_sidebar_two_column_show_pinned?: boolean;
-        workspace_sidebar_second_column_kanban?: boolean;
-        workspace_sidebar_time_two_column?: boolean;
-        workspace_sidebar_status_two_column?: boolean;
-      } | undefined;
+      const layout = settings.layout as Record<string, unknown> | undefined;
       const side = layout?.project_files_side;
+      const footer = readFooterLayout(layout);
       set({
         projectFilesSide: side === 'right' ? 'right' : 'left',
         workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
@@ -55,6 +69,7 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
         workspaceSidebarSecondColumnKanban: layout?.workspace_sidebar_second_column_kanban === true,
         workspaceSidebarTimeTwoColumn: layout?.workspace_sidebar_time_two_column === true,
         workspaceSidebarStatusTwoColumn: layout?.workspace_sidebar_status_two_column === true,
+        ...footer,
         loaded: true,
       });
     } catch {
@@ -111,6 +126,33 @@ export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
     set({ workspaceSidebarStatusTwoColumn: value });
     try {
       await functionSettingsApi.update('layout', 'workspace_sidebar_status_two_column', value);
+    } catch {
+      await get().loadSettings(true);
+    }
+  },
+
+  setFooterShowWsConnection: async (value) => {
+    set({ showWsConnection: value });
+    try {
+      await functionSettingsApi.update('layout', 'footer_show_ws_connection', value);
+    } catch {
+      await get().loadSettings(true);
+    }
+  },
+
+  setFooterShowUsageCarousel: async (value) => {
+    set({ showUsageCarousel: value });
+    try {
+      await functionSettingsApi.update('layout', 'footer_show_usage_carousel', value);
+    } catch {
+      await get().loadSettings(true);
+    }
+  },
+
+  setFooterShowAgentStatus: async (value) => {
+    set({ showAgentStatus: value });
+    try {
+      await functionSettingsApi.update('layout', 'footer_show_agent_status', value);
     } catch {
       await get().loadSettings(true);
     }

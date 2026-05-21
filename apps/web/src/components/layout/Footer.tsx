@@ -35,6 +35,7 @@ import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledB
 import type { AnimatedIconHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/components/layout/NappingBotIcon';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
+import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { useAppRouter } from '@/hooks/use-app-router';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
@@ -443,6 +444,10 @@ const Footer: React.FC = () => {
   const [, setAgentChatOpen] = useAgentChatUrl();
   const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
   const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+  const showWsConnection = useLayoutSettings((s) => s.showWsConnection);
+  const showUsageCarousel = useLayoutSettings((s) => s.showUsageCarousel);
+  const showAgentStatus = useLayoutSettings((s) => s.showAgentStatus);
+  const loadLayoutSettings = useLayoutSettings((s) => s.loadSettings);
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [usageOverview, setUsageOverview] = useState<UsageOverviewResponse | null>(null);
   const [usageIndex, setUsageIndex] = useState(0);
@@ -467,7 +472,8 @@ const Footer: React.FC = () => {
 
   useEffect(() => {
     void loadExperimentSettings();
-  }, [loadExperimentSettings]);
+    void loadLayoutSettings();
+  }, [loadExperimentSettings, loadLayoutSettings]);
 
   useEffect(() => {
     if (connectionState !== 'connected') return;
@@ -540,71 +546,83 @@ const Footer: React.FC = () => {
     return acc;
   }, {});
 
+  const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
+  const showLeft = showWsConnection || showLeftCarousel;
+  const showRightAgent = showAgentStatus;
+  const showRightAcp = managementAgentsEnabled;
+  const showRight = showRightAgent || showRightAcp;
+
+  if (!showLeft && !showRight) {
+    return null;
+  }
+
   return (
     <footer className="h-6 flex items-center justify-between px-3 backdrop-blur-md border-t border-sidebar-border text-[10px] font-mono text-muted-foreground select-none shadow-sm">
-
-      {/* Left Status */}
-      <div className="flex items-center space-x-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className="flex items-center hover:text-foreground cursor-pointer transition-colors ease-out duration-200"
-              onMouseEnter={fetchConnections}
-            >
-              <div className={cn(
-                "size-2 rounded-full mr-2",
-                statusColors[connectionState],
-                connectionState !== 'connected' && "animate-pulse"
-              )}></div>
-              <span className="font-medium text-muted-foreground">{statusText[connectionState]}</span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs p-0">
-            <div className="px-3 py-2 text-[11px] font-mono">
-              <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
-                <span>Active WebSocket</span>
-                {connections.length > 0 && (
-                  <span className="font-normal text-background/90">{connections.length}</span>
-                )}
-              </div>
-              {connectionState !== 'connected' ? (
-                <div className="text-background/90">Not connected</div>
-              ) : loading && connections.length === 0 ? (
-                <div className="text-background/90">Loading...</div>
-              ) : connections.length === 0 ? (
-                <div className="text-background/90">No connections</div>
-              ) : (
-                <div className="space-y-1.5">
-                  {Object.entries(grouped).map(([type, conns]) => {
-                    const label = CLIENT_TYPE_LABELS[type] ?? type.toUpperCase();
-                    const style = CLIENT_TYPE_STYLES[type] ?? "bg-neutral-500/20 text-neutral-400";
-                    return (
-                      <div key={type}>
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className={cn("inline-block rounded-sm px-1 py-px text-[9px] font-bold leading-tight", style)}>
-                            {label}
-                          </span>
-                          <span className="text-background/90">{conns.length}</span>
-                        </div>
-                        <div className="pl-2 space-y-px">
-                          {conns.map((conn) => (
-                            <div key={conn.id} className="flex items-center justify-between gap-3">
-                              <span className="text-background/90 tabular-nums">{shortId(conn.id)}</span>
-                              <span className="text-background/70 tabular-nums">{formatIdleTime(conn.idle_secs)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+      {showLeft ? (
+        <div className="flex items-center space-x-2">
+          {showWsConnection ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  className="flex items-center hover:text-foreground cursor-pointer transition-colors ease-out duration-200"
+                  onMouseEnter={fetchConnections}
+                >
+                  <div className={cn(
+                    "size-2 rounded-full mr-2",
+                    statusColors[connectionState],
+                    connectionState !== 'connected' && "animate-pulse"
+                  )}></div>
+                  <span className="font-medium text-muted-foreground">{statusText[connectionState]}</span>
                 </div>
-              )}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-        <div className="h-3 w-px bg-border"></div>
-        {usageCarouselItem ? (
-          <>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs p-0">
+                <div className="px-3 py-2 text-[11px] font-mono">
+                  <div className="font-semibold mb-1.5 flex items-center justify-between gap-4">
+                    <span>Active WebSocket</span>
+                    {connections.length > 0 && (
+                      <span className="font-normal text-background/90">{connections.length}</span>
+                    )}
+                  </div>
+                  {connectionState !== 'connected' ? (
+                    <div className="text-background/90">Not connected</div>
+                  ) : loading && connections.length === 0 ? (
+                    <div className="text-background/90">Loading...</div>
+                  ) : connections.length === 0 ? (
+                    <div className="text-background/90">No connections</div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {Object.entries(grouped).map(([type, conns]) => {
+                        const label = CLIENT_TYPE_LABELS[type] ?? type.toUpperCase();
+                        const style = CLIENT_TYPE_STYLES[type] ?? "bg-neutral-500/20 text-neutral-400";
+                        return (
+                          <div key={type}>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className={cn("inline-block rounded-sm px-1 py-px text-[9px] font-bold leading-tight", style)}>
+                                {label}
+                              </span>
+                              <span className="text-background/90">{conns.length}</span>
+                            </div>
+                            <div className="pl-2 space-y-px">
+                              {conns.map((conn) => (
+                                <div key={conn.id} className="flex items-center justify-between gap-3">
+                                  <span className="text-background/90 tabular-nums">{shortId(conn.id)}</span>
+                                  <span className="text-background/70 tabular-nums">{formatIdleTime(conn.idle_secs)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+          {showWsConnection && showLeftCarousel ? (
+            <div className="h-3 w-px bg-border" />
+          ) : null}
+          {showLeftCarousel && usageCarouselItem ? (
             <div
               className="flex min-w-0 w-[min(360px,38vw)] items-center gap-1.5 text-muted-foreground"
               onMouseEnter={() => setIsUsageCarouselHovered(true)}
@@ -638,83 +656,80 @@ const Footer: React.FC = () => {
                 </motion.div>
               </AnimatePresence>
             </div>
-          </>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      ) : (
+        <div />
+      )}
 
-      {/* Right Status */}
-      <div className="flex items-center space-x-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer">
-              {tickerSession ? (
-                <>
-                  {/* Spinner for the current ticker session */}
-                  <AgentHookStatusIndicator state={tickerSession.state} variant="compact" />
-
-                  {/* Ticker label — key remounts on session change, CSS handles fade-in.
-                      Plain span (no motion wrapper) so TextShimmer's internal
-                      motion.create animation is never nested inside another
-                      AnimatePresence and its backgroundPosition isn't interrupted. */}
-                  <span
-                    key={tickerSession.session_id}
-                    className="flex items-center gap-0 animate-in fade-in slide-in-from-bottom-1 duration-200"
-                  >
-                    {(() => {
-                      const { projectName, workspaceName, workspaceDisplayName } =
-                        resolveContextName(tickerSession.context_id);
-                      const workspaceTickerLabel = workspaceDisplayName ?? workspaceName;
-                      return projectName ? (
-                        <span className="font-medium whitespace-nowrap text-foreground">
-                          {projectName}
-                          {workspaceTickerLabel && (
-                            <>
-                              <span className="text-muted-foreground mx-0.5">-</span>
-                              <span>{workspaceTickerLabel}</span>
-                            </>
+      {showRight ? (
+        <div className="flex items-center space-x-2">
+          {showRightAgent ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1.5 hover:text-foreground transition-colors cursor-pointer">
+                  {tickerSession ? (
+                    <>
+                      <AgentHookStatusIndicator state={tickerSession.state} variant="compact" />
+                      <span
+                        key={tickerSession.session_id}
+                        className="flex items-center gap-0 animate-in fade-in slide-in-from-bottom-1 duration-200"
+                      >
+                        {(() => {
+                          const { projectName, workspaceName, workspaceDisplayName } =
+                            resolveContextName(tickerSession.context_id);
+                          const workspaceTickerLabel = workspaceDisplayName ?? workspaceName;
+                          return projectName ? (
+                            <span className="font-medium whitespace-nowrap text-foreground">
+                              {projectName}
+                              {workspaceTickerLabel && (
+                                <>
+                                  <span className="text-muted-foreground mx-0.5">-</span>
+                                  <span>{workspaceTickerLabel}</span>
+                                </>
+                              )}
+                            </span>
+                          ) : null;
+                        })()}
+                        <span className="text-muted-foreground mx-1">/</span>
+                        <TextShimmer
+                          as="span"
+                          className={cn(
+                            "text-[10px] whitespace-nowrap",
+                            tickerSession.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-400/60",
                           )}
-                        </span>
-                      ) : null;
-                    })()}
-                    <span className="text-muted-foreground mx-1">/</span>
-                    <TextShimmer
-                      as="span"
-                      className={cn(
-                        "text-[10px] whitespace-nowrap",
-                        tickerSession.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-400/60",
-                      )}
-                      duration={tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? 2 : 1.5}
-                    >
-                      {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? "Waiting for permission" : "Running"}`}
-                    </TextShimmer>
-                  </span>
-
-                  {/* Permission bell — always visible when any session needs attention */}
-                  {hasPermission && <PermissionBellFooter />}
-                </>
-              ) : (
-                activeSessions.length === 0 ? (
-                  <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
-                    <NappingBotIcon />
-                    <span>Napping ~</span>
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground whitespace-nowrap">Agent: Idle</span>
-                )
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="top" align="end" className="w-72 p-0">
-            <AgentStatusPopoverContent />
-          </PopoverContent>
-        </Popover>
-        {managementAgentsEnabled ? (
-          <>
-            <div className="h-3 w-px bg-border"></div>
+                          duration={tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? 2 : 1.5}
+                        >
+                          {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? "Waiting for permission" : "Running"}`}
+                        </TextShimmer>
+                      </span>
+                      {hasPermission && <PermissionBellFooter />}
+                    </>
+                  ) : (
+                    activeSessions.length === 0 ? (
+                      <span className="text-muted-foreground whitespace-nowrap inline-flex items-center gap-1.5">
+                        <NappingBotIcon />
+                        <span>Napping ~</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground whitespace-nowrap">Agent: Idle</span>
+                    )
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="end" className="w-72 p-0">
+                <AgentStatusPopoverContent />
+              </PopoverContent>
+            </Popover>
+          ) : null}
+          {showRightAgent && showRightAcp ? (
+            <div className="h-3 w-px bg-border" />
+          ) : null}
+          {showRightAcp ? (
             <AcpChatButton onClick={() => setAgentChatOpen(true)} />
-          </>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      ) : null}
     </footer>
   );
 };

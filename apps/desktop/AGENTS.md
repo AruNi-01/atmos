@@ -6,11 +6,12 @@
 
 ## Build And Test
 
-- **Dev**: `just dev-desktop` (full) or `just dev-desktop-tauri` (Tauri only)
+- **Dev**: `just dev-desktop` — `prepare-sidecar.sh` (rebuilds web static + API/CLI) then `tauri dev --no-dev-server-wait --no-watch` (no `dev-web` required)
 - **Build**: `just build-desktop`
-- **Prepare**: `bash ./scripts/desktop/prepare-sidecar.sh` (run before dev/build — builds API/CLI and lays out `binaries/runtime/current`)
-
+- **Prepare**: `bash ./scripts/desktop/prepare-sidecar.sh` (builds latest `apps/web/out`, API/CLI, lays out `binaries/runtime/current`)
+- **Faster re-run** (Rust-only): `ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just dev-desktop`
 ---
+
 
 ## Local API runtime (unified with CLI / local-web)
 

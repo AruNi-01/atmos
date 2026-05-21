@@ -19,22 +19,8 @@ cp "target/$TARGET_TRIPLE/release/api$BIN_EXT" \
 
 echo "✅ Prepared sidecar: apps/desktop/src-tauri/binaries/atmos-sidecar-$TARGET_TRIPLE$BIN_EXT"
 
-# Copy Next.js static export so the sidecar can serve it directly.
-# This lets the desktop webview load from http://127.0.0.1:{port} (pure HTTP),
-# avoiding macOS WKWebView mixed-content blocking (tauri:// -> http://).
-WEB_OUT="$ROOT_DIR/apps/web/out"
-SIDECAR_WEBOUT="$ROOT_DIR/apps/desktop/src-tauri/binaries/web-out"
-
-if [ -d "$WEB_OUT" ]; then
-  rm -rf "$SIDECAR_WEBOUT"
-  cp -r "$WEB_OUT" "$SIDECAR_WEBOUT"
-  echo "📦 Copied web static export to: $SIDECAR_WEBOUT"
-else
-  # Dev mode: web static export not built yet. Create an empty directory
-  # so Tauri's resource path validation passes (tauri.conf.json declares
-  # "binaries/web-out" as a bundled resource).
-  mkdir -p "$SIDECAR_WEBOUT"
-  echo "⚠️ Warning: $WEB_OUT not found, created empty $SIDECAR_WEBOUT for dev mode"
-fi
+# Always build + bundle the latest web static export (no Next dev / hot reload).
+# Set ATMOS_DESKTOP_SKIP_WEB_BUILD=1 to reuse an existing apps/web/out.
+node "$ROOT_DIR/scripts/desktop/build-web-static.mjs" "$ROOT_DIR"
 
 node "$ROOT_DIR/scripts/desktop/layout-runtime-bundle.mjs" "$ROOT_DIR" "$TARGET_TRIPLE" "$BIN_EXT"

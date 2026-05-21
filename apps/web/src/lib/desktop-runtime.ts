@@ -83,21 +83,30 @@ export async function getRuntimeApiConfig(): Promise<ApiConfig> {
       };
     }).__TAURI_INTERNALS__;
     if (internals?.invoke) {
-      try {
-        debugLog('getRuntimeApiConfig: invoking get_api_config...');
-        const result = await internals.invoke('get_api_config');
-        cachedConfig = {
-          host: result.host ?? '127.0.0.1',
-          port: result.port,
-          token: result.token,
-        };
-        debugLog(`getRuntimeApiConfig: success port=${cachedConfig.port}`);
-        return cachedConfig;
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
-        console.warn('[desktop-runtime] invoke get_api_config failed:', e);
-        throw e;
+      const maxWaitMs = 30_000;
+      const startedAt = Date.now();
+      while (true) {
+        try {
+          debugLog('getRuntimeApiConfig: invoking get_api_config...');
+          const result = await internals.invoke('get_api_config');
+          cachedConfig = {
+            host: result.host ?? '127.0.0.1',
+            port: result.port,
+            token: result.token,
+          };
+          debugLog(`getRuntimeApiConfig: success port=${cachedConfig.port}`);
+          return cachedConfig;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          const apiNotReady = msg === 'API not ready';
+          if (apiNotReady && Date.now() - startedAt < maxWaitMs) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            continue;
+          }
+          errorLog(`getRuntimeApiConfig: invoke FAILED err=${msg}`);
+          console.warn('[desktop-runtime] invoke get_api_config failed:', e);
+          throw e;
+        }
       }
     }
     errorLog('getRuntimeApiConfig: __TAURI_INTERNALS__.invoke not available');

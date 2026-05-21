@@ -2,8 +2,6 @@
 
 import { useEffect } from 'react';
 import { isTauriRuntime } from '@/lib/desktop-runtime';
-import { ensureLocalAppConnectionBootstrap } from '@/lib/app-connection-bootstrap';
-import { useWebSocketStore } from '@/hooks/use-websocket';
 import { useProjectStore } from '@/hooks/use-project-store';
 
 /**
@@ -17,8 +15,8 @@ export function SplashPrefetchBootstrap() {
     }
 
     void (async () => {
-      await ensureLocalAppConnectionBootstrap();
-      await useWebSocketStore.getState().connect();
+      const { waitForWebSocketConnection } = await import('@/hooks/use-websocket');
+      await waitForWebSocketConnection();
       const { projects, isLoading } = useProjectStore.getState();
       if (projects.length === 0 && !isLoading) {
         await useProjectStore.getState().fetchProjects();

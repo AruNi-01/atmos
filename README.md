@@ -109,7 +109,7 @@ just dev-web
 
 # Run in desktop
 just dev-web
-just dev-desktop-tauri
+just dev-desktop
 ```
 
 ## License

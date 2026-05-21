@@ -60,6 +60,7 @@ import { AGENT_OPTIONS } from "@/components/wiki/AgentSelect";
 import { useCanvasRuntime } from "./use-canvas-runtime";
 import {
   createCanvasSnapshot,
+  resolveCanvasSessionForLoad,
   useCanvasBoard,
   type CanvasBoardDocument,
   type CanvasTldrawDocument,
@@ -1007,7 +1008,7 @@ export const CanvasView: React.FC = () => {
     }
     return createCanvasSnapshot(
       document.tldrawDocument,
-      readCanvasSession(board?.guid),
+      resolveCanvasSessionForLoad(readCanvasSession(board?.guid)),
     );
   }, [board?.guid, connectionBootstrapReady, document?.tldrawDocument]);
 
@@ -1267,7 +1268,10 @@ export const CanvasView: React.FC = () => {
       return;
     }
 
-    loadCanvasSessionIntoEditor(editor, readCanvasSession(board?.guid));
+    loadCanvasSessionIntoEditor(
+      editor,
+      resolveCanvasSessionForLoad(readCanvasSession(board?.guid)),
+    );
     const pageId = editor.getCurrentPageId();
     if (!hasTrustedSessionViewport(readCanvasSession(board?.guid), pageId)) {
       void fitCanvasEditorToPageContent(editor);
@@ -1634,6 +1638,11 @@ export const CanvasView: React.FC = () => {
                   editorRef.current = nextEditor;
                   setEditorReady(true);
                   setAgentBridgeEditor(nextEditor);
+
+                  // IndexedDB session can override snapshot; re-apply unless user saved grid off.
+                  if (readCanvasSession(board?.guid)?.isGridMode !== false) {
+                    nextEditor.updateInstanceState({ isGridMode: true });
+                  }
 
                   const pageId = nextEditor.getCurrentPageId();
                   const session = readCanvasSession(board?.guid);
