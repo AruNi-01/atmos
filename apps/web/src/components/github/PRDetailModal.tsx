@@ -30,9 +30,9 @@ import {
 } from '@workspace/ui';
 import { MultiFileDiff } from '@pierre/diffs/react';
 import type { FileContents } from '@pierre/diffs';
-import { useTheme } from 'next-themes';
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
+import { ATMOS_DIFF_THEME } from '@/components/diff/diff-view-constants';
 import {
   Github,
   ExternalLink,
@@ -396,7 +396,6 @@ function SidebarSection({ title, icon, children }: { title: string; icon: React.
 
 const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const { resolvedTheme } = useTheme();
   const isMounted = React.useSyncExternalStore(
     () => () => { },
     () => true,
@@ -409,15 +408,14 @@ const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ th
   }, [thread.diffHunk, thread.path]);
 
   const diffOptions = useMemo(() => {
-    const isDark = resolvedTheme === 'dark' || (!resolvedTheme && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     return {
-      theme: (isDark ? 'pierre-dark' : 'pierre-light') as 'pierre-dark' | 'pierre-light',
+      theme: ATMOS_DIFF_THEME,
       diffStyle: 'unified' as const,
       overflow: 'wrap' as const,
       disableLineNumbers: false,
       disableFileHeader: true,
     };
-  }, [resolvedTheme]);
+  }, []);
 
   return (
     <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">

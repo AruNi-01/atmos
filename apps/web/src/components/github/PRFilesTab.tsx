@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
 import { processFile } from '@pierre/diffs';
-import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
 import { MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,7 +14,7 @@ import type { PrFile } from '@/hooks/use-github';
 import { useDiffWorkerPoolReady } from '@/components/diff/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/components/diff/DiffCodeViewSettingsMenu';
 import { applyCollapseModeToItems } from '@/components/diff/diff-code-view-shared';
-import { buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS } from '@/components/diff/diff-view-constants';
+import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS } from '@/components/diff/diff-view-constants';
 import {
   createDiffHeaderPrefixRenderer,
   findDiffItemIdAtScrollTop,
@@ -109,7 +108,6 @@ type PrAnnotationMeta = {
 };
 
 export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }: PRFilesTabProps) {
-  const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [viewerMounted, setViewerMounted] = useState(false);
@@ -221,7 +219,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   const codeViewOptions = useMemo(
     () => ({
       ...buildSharedDiffViewOptions({
-        theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
+        theme: ATMOS_DIFF_THEME,
         diffStyle,
         wordWrap,
         disableBackground: !showBackgrounds,
@@ -230,7 +228,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         enableLineSelection: false,
       }),
     }),
-    [resolvedTheme, diffStyle, wordWrap, showBackgrounds, lineNumbers, diffIndicators],
+    [diffStyle, wordWrap, showBackgrounds, lineNumbers, diffIndicators],
   );
 
   const handleToggleCollapseMode = useCallback(() => {

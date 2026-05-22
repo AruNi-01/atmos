@@ -21,7 +21,6 @@ import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
 import { Button, Loader2, Textarea, toastManager, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipTrigger, Switch } from '@workspace/ui';
-import { useTheme } from 'next-themes';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
@@ -36,7 +35,7 @@ import {
   reviewCommentStatusLabel,
   statusTone,
 } from '@/components/diff/review/utils';
-import { buildSharedDiffViewOptions } from '@/components/diff/diff-view-constants';
+import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions } from '@/components/diff/diff-view-constants';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -125,7 +124,6 @@ export const DiffViewer = ({
   const [showTip, setShowTip] = useState(false);
   const [tipPaused, setTipPaused] = useState(false);
   const [fileCollapsed, setFileCollapsed] = useState(false);
-  const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const clearNavigationTarget = useEditorStore((state) => state.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
@@ -495,7 +493,7 @@ export const DiffViewer = ({
 
   const diffOptions = useMemo(() => {
     const sharedOptions = buildSharedDiffViewOptions({
-      theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
+      theme: ATMOS_DIFF_THEME,
       diffStyle,
       wordWrap,
       disableBackground,
@@ -514,7 +512,7 @@ export const DiffViewer = ({
   } | {
     kind: 'composer';
     }>;
-  }, [resolvedTheme, diffStyle, disableBackground, wordWrap, handleLineSelectionEnd, isReviewDiff]);
+  }, [diffStyle, disableBackground, wordWrap, handleLineSelectionEnd, isReviewDiff]);
 
   const commentAnnotations = useMemo(() => {
     if (!isReviewDiff || !reviewContext.file) return [];

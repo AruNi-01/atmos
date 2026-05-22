@@ -13,7 +13,6 @@ import { reviewWsApi } from '@/api/ws-api';
 import { useReviewCtx } from '@/components/diff/review/ReviewContextProvider';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useContextParams } from '@/hooks/use-context-params';
-import { useTheme } from 'next-themes';
 import { useDiffWorkerPoolReady } from '@/components/diff/DiffWorkerPoolProvider';
 import { DiffCodeViewScaffold } from '@/components/diff/DiffCodeViewScaffold';
 import { DiffCodeViewSettingsMenu } from '@/components/diff/DiffCodeViewSettingsMenu';
@@ -25,6 +24,7 @@ import {
   updateViewerDiffItem,
 } from '@/components/diff/diff-code-view-shared';
 import {
+  ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   CODE_VIEW_HOST_CLASS,
 } from '@/components/diff/diff-view-constants';
@@ -89,7 +89,6 @@ interface ReviewCodeViewProps {
 
 export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
   const { effectiveContextId } = useContextParams();
-  const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const reviewCtx = useReviewCtx();
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
@@ -867,7 +866,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
   const codeViewOptions = useMemo(
     () => ({
       ...buildSharedDiffViewOptions({
-        theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
+        theme: ATMOS_DIFF_THEME,
         diffStyle,
         wordWrap,
         disableBackground: !showBackgrounds,
@@ -897,7 +896,6 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
       diffStyle,
       lineNumbers,
       openInlineCommentDraft,
-      resolvedTheme,
       reviewCtx.canEdit,
       showBackgrounds,
       wordWrap,

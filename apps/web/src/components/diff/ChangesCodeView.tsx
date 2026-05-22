@@ -6,7 +6,6 @@ import type { CodeViewItem, DiffLineAnnotation, SelectedLineRange } from '@pierr
 import { parseDiffFromFile } from '@pierre/diffs';
 import { Loader2 } from 'lucide-react';
 import { toastManager } from '@workspace/ui';
-import { useTheme } from 'next-themes';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
@@ -32,6 +31,7 @@ import {
   updateViewerDiffItem,
 } from '@/components/diff/diff-code-view-shared';
 import {
+  ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   CODE_VIEW_HOST_CLASS,
 } from '@/components/diff/diff-view-constants';
@@ -56,7 +56,6 @@ interface ChangesCodeViewProps {
 export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
-  const { resolvedTheme } = useTheme();
   const compareRef = useGitStore((s) => s.compareRef);
   const stagedFiles = useGitStore((s) => s.stagedFiles);
   const unstagedFiles = useGitStore((s) => s.unstagedFiles);
@@ -405,7 +404,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   const codeViewOptions = useMemo(
     () => ({
       ...buildSharedDiffViewOptions({
-        theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
+        theme: ATMOS_DIFF_THEME,
         diffStyle,
         wordWrap,
         disableBackground: !showBackgrounds,
@@ -430,7 +429,6 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
       },
     }),
     [
-      resolvedTheme,
       diffStyle,
       wordWrap,
       showBackgrounds,
