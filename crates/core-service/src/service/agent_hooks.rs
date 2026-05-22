@@ -14,9 +14,8 @@ use chrono::Utc;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
-
-use infra::{WsEvent, WsManager, WsMessage};
 
 use super::notification::NotificationService;
 
@@ -101,10 +100,17 @@ pub struct AgentHookStateUpdate {
     pub pane_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AgentHookEvent {
+    StateChanged(AgentHookStateUpdate),
+    SessionsCleared { session_ids: Vec<String> },
+}
+
 pub struct AgentHooksService {
     sessions: RwLock<HashMap<String, AgentHookSession>>,
-    ws_manager: RwLock<Option<Arc<WsManager>>>,
     notification_service: RwLock<Option<Arc<NotificationService>>>,
+    event_tx: broadcast::Sender<AgentHookEvent>,
     /// Known project root paths. Kept for diagnostics / future use but
     /// primary filtering is done at the hook level via ATMOS_MANAGED env var.
     known_project_paths: RwLock<HashSet<String>>,
@@ -112,20 +118,21 @@ pub struct AgentHooksService {
 
 impl AgentHooksService {
     pub fn new() -> Self {
+        let (event_tx, _) = broadcast::channel(64);
         Self {
             sessions: RwLock::new(HashMap::new()),
-            ws_manager: RwLock::new(None),
             notification_service: RwLock::new(None),
+            event_tx,
             known_project_paths: RwLock::new(HashSet::new()),
         }
     }
 
-    pub fn set_ws_manager(&self, manager: Arc<WsManager>) {
-        *self.ws_manager.write() = Some(manager);
-    }
-
     pub fn set_notification_service(&self, service: Arc<NotificationService>) {
         *self.notification_service.write() = Some(service);
+    }
+
+    pub fn subscribe_events(&self) -> broadcast::Receiver<AgentHookEvent> {
+        self.event_tx.subscribe()
     }
 
     /// Replace the set of known project root paths.
@@ -196,8 +203,8 @@ impl AgentHooksService {
     }
 
     /// Remove idle sessions whose last activity is older than `timeout_mins` minutes.
-    /// Broadcasts `AgentHookSessionsCleared` with the removed session IDs so clients
-    /// can update their local state without a full refresh.
+    /// Emits `AgentHookSessionsCleared` with the removed session IDs so clients can
+    /// update their local state without a full refresh.
     pub fn clear_idle_older_than(&self, timeout_mins: u64) {
         let cutoff = Utc::now() - chrono::Duration::minutes(timeout_mins as i64);
         let removed: Vec<String> = {
@@ -282,37 +289,20 @@ impl AgentHooksService {
 
     fn broadcast_state_update(&self, update: AgentHookStateUpdate) {
         debug!(
-            "Broadcasting state: session={} tool={} state={}",
+            "Publishing state: session={} tool={} state={}",
             update.session_id, update.tool, update.state
         );
-        let ws = self.ws_manager.read();
-        if let Some(ref manager) = *ws {
-            let manager = Arc::clone(manager);
-            let data = serde_json::to_value(&update).unwrap_or_default();
-            let msg = WsMessage::notification(WsEvent::AgentHookStateChanged, data);
-            tokio::spawn(async move {
-                if let Err(e) = manager.broadcast(&msg).await {
-                    warn!("Failed to broadcast agent hook state update: {}", e);
-                }
-            });
-        } else {
-            warn!("Cannot broadcast: WsManager not set");
+        if let Err(error) = self.event_tx.send(AgentHookEvent::StateChanged(update)) {
+            warn!("Failed to publish agent hook state update: {}", error);
         }
     }
 
     fn broadcast_sessions_cleared(&self, session_ids: Vec<String>) {
-        let ws = self.ws_manager.read();
-        if let Some(ref manager) = *ws {
-            let manager = Arc::clone(manager);
-            let msg = WsMessage::notification(
-                WsEvent::AgentHookSessionsCleared,
-                serde_json::json!({ "session_ids": session_ids }),
-            );
-            tokio::spawn(async move {
-                if let Err(e) = manager.broadcast(&msg).await {
-                    warn!("Failed to broadcast agent hook sessions cleared: {}", e);
-                }
-            });
+        if let Err(error) = self
+            .event_tx
+            .send(AgentHookEvent::SessionsCleared { session_ids })
+        {
+            warn!("Failed to publish agent hook sessions cleared: {}", error);
         }
     }
 

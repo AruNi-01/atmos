@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{EngineError, Result};
 
-use super::{GitEngine, WorktreeInfo, run_git, try_run_git, types::parse_worktree_list};
+use super::{run_git, try_run_git, types::parse_worktree_list, GitEngine, WorktreeInfo};
 
 impl GitEngine {
     /// Get the atmos workspace base directory: ~/.atmos/workspaces

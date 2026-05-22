@@ -1,5 +1,5 @@
 use crate::error::{Result, ServiceError};
-use infra::{GithubIssuePayload, GithubPrPayload};
+use crate::{GithubIssuePayload, GithubPrPayload};
 use llm::{
     render_prompt_template, FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
 };
@@ -73,7 +73,7 @@ fn build_todo_user_language_instruction(output_language: Option<&str>) -> String
     )
 }
 
-pub(crate) fn normalize_task_markdown(markdown: &str) -> String {
+pub fn normalize_task_markdown(markdown: &str) -> String {
     markdown
         .lines()
         .filter_map(|line| {

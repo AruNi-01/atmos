@@ -1,0 +1,727 @@
+"use client";
+
+import { create } from "zustand";
+import { v4 as uuidv4 } from "uuid";
+import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
+import { syncClientSessionFromStore } from "@/features/connection/lib/sync-client-session";
+import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
+import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
+import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+import { useConnectionStore } from "@/features/connection/hooks/use-connection-store";
+import { buildWsUrl, buildWsUrlSync } from "@/shared/lib/ws-url";
+import { debugLog } from "@/shared/lib/desktop-logger";
+
+// ===== 类型定义 =====
+
+export type WsAction =
+  // 文件系统操作
+  | "fs_get_home_dir"
+  | "fs_list_dir"
+  | "fs_search_dirs"
+  | "fs_validate_git_path"
+  | "fs_read_file"
+  | "fs_write_file"
+  | "fs_create_dir"
+  | "fs_rename_path"
+  | "fs_delete_path"
+  | "fs_duplicate_path"
+  | "fs_list_project_files"
+  | "fs_search_content"
+  // App 操作
+  | "app_open"
+  // Canvas 操作
+  | "canvas_get_default_board"
+  | "canvas_update_default_board"
+  // Canvas terminal-agent bridge (APP-015)
+  | "canvas_bridge_register"
+  | "canvas_bridge_unregister"
+  | "canvas_agent_dispatch_result"
+  // Git 操作
+  | "git_get_status"
+  | "git_get_head_commit"
+  | "git_get_commit_count"
+  | "git_list_branches"
+  | "git_list_remote_branches"
+  | "git_rename_branch"
+  | "git_changed_files"
+  | "git_file_diff"
+  | "git_stage_patch_chunk"
+  | "git_restore_patch_chunk"
+  | "git_generate_commit_message"
+  | "git_commit"
+  | "git_push"
+  | "git_stage"
+  | "git_unstage"
+  | "git_discard_unstaged"
+  | "git_discard_untracked"
+  | "git_pull"
+  | "git_fetch"
+  | "git_sync"
+  | "git_log"
+  // Usage 操作
+  | "usage_get_overview"
+  | "usage_set_provider_switch"
+  | "usage_set_provider_footer_carousel"
+  | "usage_set_all_providers_switch"
+  | "usage_set_provider_manual_setup"
+  | "usage_add_provider_api_key"
+  | "usage_delete_provider_api_key"
+  | "usage_set_auto_refresh"
+  // Project 操作
+  | "project_list"
+  | "project_create"
+  | "project_update"
+  | "project_update_target_branch"
+  | "project_update_order"
+  | "project_delete"
+  | "project_validate_path"
+  // Script 操作
+  | "script_get"
+  | "script_save"
+  // Workspace 操作
+  | "workspace_list"
+  | "workspace_create"
+  | "workspace_update_name"
+  | "workspace_update_branch"
+  | "workspace_update_workflow_status"
+  | "workspace_update_priority"
+  | "workspace_label_list"
+  | "workspace_label_create"
+  | "workspace_label_update"
+  | "workspace_label_delete"
+  | "workspace_label_restore"
+  | "workspace_update_labels"
+  | "workspace_update_order"
+  | "workspace_mark_visited"
+  | "workspace_delete"
+  | "workspace_pin"
+  | "workspace_unpin"
+  | "workspace_update_pin_order"
+  | "workspace_archive"
+  | "workspace_list_archived"
+  | "workspace_unarchive"
+  | "workspace_retry_setup"
+  | "workspace_skip_setup_step"
+  | "workspace_skip_setup_script"
+  | "workspace_confirm_todos"
+  | "workspace_import_github_issues"
+  // Project 检查操作
+  | "project_check_can_delete"
+  // Review 操作
+  | "review_session_list"
+  | "review_session_get"
+  | "review_session_create"
+  | "review_session_close"
+  | "review_session_archive"
+  | "review_session_activate"
+  | "review_session_rename"
+  | "review_file_list"
+  | "review_file_content_get"
+  | "review_file_set_reviewed"
+  | "review_comment_list"
+  | "review_comment_create"
+  | "review_comment_update_status"
+  | "review_message_add"
+  | "review_message_update"
+  | "review_message_delete"
+  | "review_agent_run_list"
+  | "review_agent_run_create"
+  | "review_agent_run_artifact_get"
+  | "review_agent_run_finalize"
+  | "review_agent_run_set_status"
+  // Skills 操作
+  | "skills_list"
+  | "skills_get"
+  | "skills_set_enabled"
+  | "skills_delete"
+  | "wiki_skill_install"
+  | "wiki_skill_system_status"
+  | "code_review_skill_system_status"
+  | "git_commit_skill_system_status"
+  | "sync_single_system_skill"
+  | "skills_system_sync"
+  // Function settings
+  | "function_settings_get"
+  | "function_settings_update"
+  | "workspace_gitignore_dirs_get"
+  | "workspace_gitignore_dirs_update"
+  | "llm_providers_get"
+  | "llm_providers_update"
+  | "llm_provider_test"
+  // Code Agent custom settings
+  | "code_agent_custom_get"
+  | "code_agent_custom_update"
+  | "agent_behaviour_settings_get"
+  | "agent_behaviour_settings_update"
+  // Notification settings
+  | "notification_settings_get"
+  | "notification_settings_update"
+  | "notification_test_push"
+  // Agent 操作
+  | "agent_list"
+  | "agent_install"
+  | "agent_config_get"
+  | "agent_config_set"
+  | "agent_behaviour_settings_get"
+  | "agent_behaviour_settings_update"
+  | "agent_registry_list"
+  | "agent_registry_install"
+  | "agent_registry_remove"
+  // Custom Agent 操作
+  | "custom_agent_list"
+  | "custom_agent_add"
+  | "custom_agent_remove"
+  | "custom_agent_get_json"
+  | "custom_agent_set_json"
+  | "custom_agent_get_manifest_path"
+  // GitHub 操作
+  | "github_pr_list"
+  | "github_pr_detail"
+  | "github_pr_detail_sidebar"
+  | "github_pr_timeline_page"
+  | "github_pr_files"
+  | "github_pr_create"
+  | "github_pr_merge"
+  | "github_pr_close"
+  | "github_pr_reopen"
+  | "github_pr_comment"
+  | "github_pr_ready"
+  | "github_pr_draft"
+  | "github_pr_open_browser"
+  | "github_issue_list"
+  | "github_issue_get"
+  | "github_pr_list_repo"
+  | "github_pr_get"
+  | "github_ci_status"
+  | "github_ci_open_browser"
+  | "github_actions_list"
+  | "github_actions_rerun"
+  | "github_actions_detail"
+  // Local Model 操作
+  | "local_model_list"
+  | "local_model_refresh"
+  | "local_model_runtime_download"
+  | "local_model_download"
+  | "local_model_start"
+  | "local_model_stop"
+  | "local_model_delete"
+  | "local_model_delete_runtime"
+  | "local_model_status"
+  | "local_model_resolve_hf_url"
+  | "local_model_custom_add"
+  | "local_model_custom_delete";
+
+export interface WsRequest {
+  type: "request";
+  payload: {
+    request_id: string;
+    action: WsAction;
+    data: unknown;
+  };
+}
+
+export interface WsResponse {
+  type: "response";
+  payload: {
+    request_id: string;
+    success: boolean;
+    data: unknown;
+  };
+}
+
+export interface WsError {
+  type: "error";
+  payload: {
+    request_id: string;
+    code: string;
+    message: string;
+  };
+}
+
+export interface WsNotification {
+  type: "notification";
+  payload: {
+    event: string;
+    data: unknown;
+  };
+}
+
+export type WsMessage = WsRequest | WsResponse | WsError | WsNotification;
+
+// ===== WebSocket 状态管理 =====
+
+type ConnectionState =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "reconnecting";
+
+interface PendingRequest {
+  resolve: (data: unknown) => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+interface WebSocketStore {
+  // 状态
+  connectionState: ConnectionState;
+  socket: WebSocket | null;
+  pendingRequests: Map<string, PendingRequest>;
+  eventListeners: Map<string, Set<(data: unknown) => void>>;
+
+  // 配置
+  url: string;
+  reconnectInterval: number;
+  requestTimeout: number;
+  maxReconnectAttempts: number;
+
+  // 内部状态
+  // No app-level heartbeat timer:
+  //   - Local (loopback) WS never silently stalls; TCP keepalive is enough.
+  //   - Relay WS: the daemon side drives WS-protocol PINGs on its own
+  //     outbound link; the browser link uses CF + browser/edge keepalive
+  //     plus client-side auto-reconnect on drop.
+  //   Sending app-level "ping" frames would wake the relay Durable Object
+  //   on every tick and burn billable CPU for zero functional value.
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
+  reconnectAttempts: number;
+
+  // 动作
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  send: <T = unknown>(
+    action: WsAction,
+    data?: unknown,
+    timeoutMs?: number,
+  ) => Promise<T>;
+  onEvent: (event: string, callback: (data: unknown) => void) => () => void;
+
+  // 内部方法
+  _handleMessage: (event: MessageEvent) => void;
+  _scheduleReconnect: () => void;
+}
+
+const getWsUrl = (): string => buildWsUrlSync("/ws");
+
+/** Shared in-flight connect; callers await the same handshake. */
+let connectInFlight: Promise<void> | null = null;
+
+const defaultConnectionWaitMs = (): number =>
+  isTauriRuntime() ? 30_000 : 15_000;
+
+/**
+ * Ensure WebSocket is connected. Awaits bootstrap + handshake (not a blind poll).
+ */
+export async function waitForWebSocketConnection(
+  timeoutMs = defaultConnectionWaitMs(),
+): Promise<void> {
+  if (useWebSocketStore.getState().connectionState === "connected") {
+    return;
+  }
+
+  await Promise.race([
+    useWebSocketStore.getState().connect(),
+    new Promise<void>((_, reject) => {
+      setTimeout(
+        () => reject(new Error("WebSocket connection timeout")),
+        timeoutMs,
+      );
+    }),
+  ]);
+}
+
+export const useWebSocketStore = create<WebSocketStore>((set, get) => ({
+  // 初始状态
+  connectionState: "disconnected",
+  socket: null,
+  pendingRequests: new Map(),
+  eventListeners: new Map(),
+
+  // 配置
+  url: getWsUrl(),
+  reconnectInterval: 1000,
+  requestTimeout: 30000,
+  maxReconnectAttempts: 10,
+
+  // 内部状态
+  reconnectTimer: null,
+  reconnectAttempts: 0,
+
+  // 连接
+  connect: async () => {
+    if (get().connectionState === "connected") {
+      return;
+    }
+    if (connectInFlight) {
+      return connectInFlight;
+    }
+
+    connectInFlight = (async () => {
+      const { connectionState } = get();
+      if (connectionState === "connected") {
+        return;
+      }
+
+      set({ connectionState: "connecting" });
+
+      try {
+        if (isHostedAtmosOrigin()) {
+          await ensureComputerClientSettingsHydrated();
+        } else {
+          await ensureLocalAppConnectionBootstrap();
+        }
+        useConnectionStore.getState().syncActiveInstanceFromComputer();
+        const clientType = isTauriRuntime() ? "desktop" : "web";
+        const computer = useAtmosComputerStore.getState();
+        let runtimeUrl: string;
+        const relayUrl = computer.relayWebSocketUrl?.trim();
+        if (computer.connectionMode === "relay" && relayUrl) {
+          runtimeUrl = relayUrl.includes("client_type=")
+            ? relayUrl
+            : `${relayUrl}${relayUrl.includes("?") ? "&" : "?"}client_type=${encodeURIComponent(clientType)}`;
+        } else {
+          runtimeUrl = await buildWsUrl("/ws", { client_type: clientType });
+        }
+
+        if (get().connectionState !== "connecting") {
+          return;
+        }
+
+        debugLog(`ws:connect url=${runtimeUrl.replace(/token=[^&]+/, "token=<redacted>")}`);
+        console.log(
+          "[WebSocket] Connecting to:",
+          runtimeUrl.replace(/token=[^&]+/, "token=<redacted>"),
+        );
+
+        const prev = get().socket;
+        if (
+          prev &&
+          (prev.readyState === WebSocket.OPEN ||
+            prev.readyState === WebSocket.CONNECTING)
+        ) {
+          prev.onclose = null;
+          prev.close(1000, "Replaced");
+        }
+
+        await new Promise<void>((resolve, reject) => {
+          const ws = new WebSocket(runtimeUrl);
+          let settled = false;
+          const finish = (fn: () => void) => {
+            if (settled) return;
+            settled = true;
+            fn();
+          };
+
+          set({ socket: ws, url: runtimeUrl });
+
+          ws.onopen = () => {
+            debugLog("ws:onopen connected");
+            console.log("[WebSocket] Connected");
+            const { reconnectTimer } = get();
+            if (reconnectTimer) {
+              clearTimeout(reconnectTimer);
+            }
+            set({
+              connectionState: "connected",
+              socket: ws,
+              reconnectAttempts: 0,
+              reconnectTimer: null,
+            });
+            void syncClientSessionFromStore().catch(() => undefined);
+            finish(resolve);
+          };
+
+          ws.onclose = (event) => {
+            if (get().socket !== ws) return;
+            debugLog(
+              `ws:onclose code=${event.code} reason="${event.reason}" wasClean=${event.wasClean}`,
+            );
+            console.log(
+              "[WebSocket] Disconnected:",
+              event.code,
+              event.reason,
+              "wasClean:",
+              event.wasClean,
+            );
+
+            const { pendingRequests } = get();
+            pendingRequests.forEach((pending) => {
+              clearTimeout(pending.timeout);
+              pending.reject(new Error("WebSocket connection closed"));
+            });
+
+            set({
+              connectionState: "disconnected",
+              socket: null,
+              pendingRequests: new Map(),
+            });
+
+            if (!settled) {
+              finish(() => {
+                reject(
+                  new Error(
+                    event.reason?.trim() || "WebSocket connection closed",
+                  ),
+                );
+              });
+              if (!event.wasClean) {
+                get()._scheduleReconnect();
+              }
+              return;
+            }
+
+            if (!event.wasClean) {
+              get()._scheduleReconnect();
+            }
+          };
+
+          ws.onerror = (error) => {
+            debugLog(`ws:onerror ${JSON.stringify(error)}`);
+            console.error("[WebSocket] Error:", error);
+          };
+
+          ws.onmessage = (event) => {
+            get()._handleMessage(event);
+          };
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        debugLog(`ws:connect catch err=${msg}`);
+        console.error("[WebSocket] Connection failed:", error);
+        set({ connectionState: "disconnected", socket: null });
+        get()._scheduleReconnect();
+        throw error instanceof Error ? error : new Error(msg);
+      }
+    })().finally(() => {
+      connectInFlight = null;
+    });
+
+    return connectInFlight;
+  },
+
+  // 断开连接
+  disconnect: () => {
+    connectInFlight = null;
+    const { socket, reconnectTimer, pendingRequests } = get();
+
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+    }
+
+    // 拒绝所有待处理的请求
+    pendingRequests.forEach((pending) => {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error("WebSocket disconnected"));
+    });
+
+    // 关闭连接
+    if (socket) {
+      socket.close(1000, "Client disconnect");
+    }
+
+    set({
+      socket: null,
+      connectionState: "disconnected",
+      reconnectTimer: null,
+      pendingRequests: new Map(),
+    });
+  },
+
+  // 发送请求
+  send: <T = unknown>(
+    action: WsAction,
+    data: unknown = {},
+    timeoutMs?: number,
+  ): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      const { socket, connectionState, pendingRequests, requestTimeout } =
+        get();
+
+      if (!socket || connectionState !== "connected") {
+        reject(new Error("WebSocket not connected"));
+        return;
+      }
+
+      const requestId = uuidv4();
+
+      const request: WsRequest = {
+        type: "request",
+        payload: {
+          request_id: requestId,
+          action,
+          data,
+        },
+      };
+
+      // 设置超时
+      const timeout = setTimeout(() => {
+        const pending = pendingRequests.get(requestId);
+        if (pending) {
+          pendingRequests.delete(requestId);
+          pending.reject(new Error(`Request timeout: ${action}`));
+        }
+      }, timeoutMs ?? requestTimeout);
+
+      // 存储待处理请求
+      pendingRequests.set(requestId, {
+        resolve: resolve as (data: unknown) => void,
+        reject,
+        timeout,
+      });
+
+      // 发送请求
+      try {
+        socket.send(JSON.stringify(request));
+      } catch (error) {
+        clearTimeout(timeout);
+        pendingRequests.delete(requestId);
+        reject(error);
+      }
+    });
+  },
+
+  // 注册事件监听
+  onEvent: (event: string, callback: (data: unknown) => void) => {
+    const { eventListeners } = get();
+    if (!eventListeners.has(event)) {
+      eventListeners.set(event, new Set());
+    }
+    eventListeners.get(event)!.add(callback);
+
+    // 返回卸载函数
+    return () => {
+      const listeners = get().eventListeners.get(event);
+      if (listeners) {
+        listeners.delete(callback);
+      }
+    };
+  },
+
+  // 处理消息
+  _handleMessage: (event: MessageEvent) => {
+    const { pendingRequests } = get();
+
+    try {
+      const message = JSON.parse(event.data) as WsMessage;
+
+      // 处理响应
+      if (message.type === "response") {
+        const { request_id, success, data } = message.payload;
+        const pending = pendingRequests.get(request_id);
+
+        if (pending) {
+          clearTimeout(pending.timeout);
+          pendingRequests.delete(request_id);
+
+          if (success) {
+            pending.resolve(data);
+          } else {
+            const errorMessage =
+              typeof data === "string" ? data : JSON.stringify(data);
+            pending.reject(new Error(`Request failed: ${errorMessage}`));
+          }
+        }
+        return;
+      }
+
+      // 处理错误
+      if (message.type === "error") {
+        const payload = message.payload;
+
+        if (!payload || !payload.request_id) {
+          console.warn(
+            "[WebSocket] Received malformed error message:",
+            message,
+          );
+          return;
+        }
+
+        const { request_id, code, message: errorMessage } = payload;
+        const pending = pendingRequests.get(request_id);
+
+        if (pending) {
+          clearTimeout(pending.timeout);
+          pendingRequests.delete(request_id);
+          pending.reject(new Error(`[${code}] ${errorMessage}`));
+        }
+        return;
+      }
+
+      // 处理通知
+      if (message.type === "notification") {
+        const { event: eventName, data } = message.payload;
+        if (eventName === "agent_hook_state_changed") {
+          console.debug("[WS] agent_hook_state_changed:", (data as Record<string, unknown>)?.tool, (data as Record<string, unknown>)?.state, "listeners:", get().eventListeners.get(eventName)?.size ?? 0);
+        }
+        const listeners = get().eventListeners.get(eventName);
+        if (listeners) {
+          listeners.forEach((cb) => cb(data));
+        }
+        return;
+      }
+    } catch (error) {
+      console.error("[WebSocket] Failed to parse message:", error);
+    }
+  },
+
+  _scheduleReconnect: () => {
+    const { reconnectInterval, reconnectTimer, reconnectAttempts, maxReconnectAttempts } = get();
+
+    if (reconnectTimer) {
+      return;
+    }
+
+    if (reconnectAttempts >= maxReconnectAttempts) {
+      console.warn(`[WebSocket] Max reconnect attempts (${maxReconnectAttempts}) reached, will retry every 60s`);
+      // Instead of giving up permanently, schedule a slow periodic retry
+      // so the connection recovers without requiring a page reload.
+      set({ connectionState: "disconnected", reconnectAttempts: 0 });
+      const timer = setTimeout(() => {
+        set({ reconnectTimer: null });
+        get().connect();
+      }, 60000);
+      set({ reconnectTimer: timer });
+      return;
+    }
+
+    const delay = Math.min(reconnectInterval * Math.pow(2, reconnectAttempts), 30000);
+    const nextAttempt = reconnectAttempts + 1;
+    console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${nextAttempt}/${maxReconnectAttempts})`);
+
+    set({ connectionState: "reconnecting", reconnectAttempts: nextAttempt });
+
+    const timer = setTimeout(() => {
+      set({ reconnectTimer: null });
+      get().connect();
+    }, delay);
+
+    set({ reconnectTimer: timer });
+  },
+}));
+
+// ===== 自定义 Hook =====
+
+/**
+ * 使用 WebSocket 连接的 Hook
+ *
+ * 在应用根组件中调用以建立连接：
+ * ```tsx
+ * const { connect, connectionState } = useWebSocket();
+ * useEffect(() => { connect(); }, []);
+ * ```
+ */
+export function useWebSocket() {
+  const connectionState = useWebSocketStore(s => s.connectionState);
+  const connect = useWebSocketStore(s => s.connect);
+  const disconnect = useWebSocketStore(s => s.disconnect);
+  const send = useWebSocketStore(s => s.send);
+
+  return {
+    connectionState,
+    isConnected: connectionState === "connected",
+    connect,
+    disconnect,
+    send,
+  };
+}

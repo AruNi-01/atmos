@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { ErrorDisplay } from '@/components/error-display';
+import { ErrorDisplay } from '@/shared/components/error-display';
 
 export default function LocaleError({
   error,

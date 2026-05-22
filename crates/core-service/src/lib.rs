@@ -5,7 +5,7 @@ pub mod utils;
 
 pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
-pub use service::agent_hooks::AgentHooksService;
+pub use service::agent_hooks::{AgentHookEvent, AgentHooksService};
 pub use service::agent_session::{AgentSessionService, LazySessionSpec};
 pub use service::canvas::{CanvasBoardDto, CanvasService, SaveCanvasBoardReq};
 pub use service::canvas_agent_relay::{
@@ -24,4 +24,7 @@ pub use service::terminal::{
 pub use service::terminal_overview::build_terminal_overview_active_sessions_json;
 pub use service::test::TestService;
 pub use service::workspace::{WorkspaceDto, WorkspaceService};
-pub use service::ws_message::WsMessageService;
+pub use types::{
+    GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload, SharedString, SkillFile,
+    SkillInfo, SkillPlacement, WorkspaceAttachmentPayload,
+};

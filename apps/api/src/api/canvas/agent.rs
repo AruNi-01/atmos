@@ -17,10 +17,10 @@ use std::time::Duration;
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use core_service::ResolveTarget;
-use infra::{WsEvent, WsMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::api::ws::{WsEvent, WsMessage};
 use crate::app_state::AppState;
 
 const MAX_PAYLOAD_BYTES: usize = 256 * 1024;

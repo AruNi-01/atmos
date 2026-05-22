@@ -7,11 +7,11 @@ use crate::service::workspace_todos::{
     build_issue_todo_request, normalize_task_markdown, render_requirement_markdown,
 };
 use crate::utils::workspace_name_generator;
+use crate::{GithubIssuePayload, GithubPrPayload, WorkspaceAttachmentPayload};
 use core_engine::{FsEngine, GitEngine};
 use infra::db::entities::{workspace, workspace_label};
 use infra::db::repo::{ProjectRepo, WorkspaceRepo};
-use infra::{GithubIssuePayload, GithubPrPayload};
-use llm::{FileLlmConfigStore, LlmFeature, generate_text, generate_text_stream};
+use llm::{generate_text, generate_text_stream, FileLlmConfigStore, LlmFeature};
 use sea_orm::DatabaseConnection;
 use std::collections::HashSet;
 use std::path::Path;
@@ -21,7 +21,7 @@ use tokio::sync::mpsc;
 mod management;
 
 pub use crate::service::workspace_support::{
-    WORKSPACE_PRIORITIES, WORKSPACE_WORKFLOW_STATUSES, WorkspaceDto, WorkspaceLabelDto,
+    WorkspaceDto, WorkspaceLabelDto, WORKSPACE_PRIORITIES, WORKSPACE_WORKFLOW_STATUSES,
 };
 
 pub struct WorkspaceService {
@@ -639,7 +639,7 @@ impl WorkspaceService {
     pub async fn write_workspace_attachments(
         &self,
         guid: String,
-        attachments: Vec<infra::WorkspaceAttachmentPayload>,
+        attachments: Vec<WorkspaceAttachmentPayload>,
     ) -> Result<()> {
         if attachments.is_empty() {
             return Ok(());

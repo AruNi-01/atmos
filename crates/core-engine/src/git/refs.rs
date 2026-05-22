@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::error::{EngineError, Result};
 
-use super::{GitEngine, GitStatus, run_git, try_run_git};
+use super::{run_git, try_run_git, GitEngine, GitStatus};
 
 impl GitEngine {
     pub(super) fn resolve_remote_branch_ref(

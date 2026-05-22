@@ -1,5 +1,5 @@
 use crate::error::{Result, ServiceError};
-use infra::{SkillInfo, SkillPlacement};
+use crate::{SkillInfo, SkillPlacement};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};

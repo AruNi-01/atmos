@@ -10,13 +10,13 @@ mod support;
 mod types;
 
 use self::support::{
-    ProjectPathRecord, delete_entry_without_following_symlink, ensure_selection_applied,
+    delete_entry_without_following_symlink, ensure_selection_applied,
     move_entry_without_following_symlink, placement_matches_selection, project_records,
-    selected_placement_ids,
+    selected_placement_ids, ProjectPathRecord,
 };
 pub use self::types::ScanMode;
 use crate::error::{Result, ServiceError};
-use infra::{SkillInfo, SkillPlacement};
+use crate::{SkillInfo, SkillPlacement};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 

@@ -1,6 +1,6 @@
 # Infrastructure Layer (L1) - AGENTS.md
 
-> **🔧 L1: The Backbone**: Handles direct interactions with data providers and low-level system services.
+> **🔧 L1: The Backbone**: Handles persistence, local infrastructure primitives, and low-level data utilities. User-facing HTTP/WebSocket entry code lives in `apps/api`.
 
 ---
 
@@ -21,7 +21,6 @@ crates/infra/
     │   ├── entities/        # SeaORM entities
     │   ├── repo/            # Repository pattern
     │   └── migration/       # Database migrations
-    ├── websocket/           # WebSocket connection management
     ├── jobs/                # Background job processing
     ├── queue/               # Job queue management
     ├── cache/               # Caching layer
@@ -39,8 +38,9 @@ crates/infra/
 ### Repositories
 - Use Repository pattern in `db/repo/` to abstract SeaORM away from business logic
 
-### WebSocket
-- Real-time signaling logic lives in `websocket/manager.rs`
+### Transports
+- Inbound browser/client WebSocket code belongs in `apps/api/src/api/ws`
+- External-service clients may live in a dedicated capability crate when they are not API entry adapters
 
 ---
 
@@ -49,8 +49,8 @@ crates/infra/
 ### NEVER
 - Put business logic here — this is data access only
 - Access repositories directly from `apps/api` — go through `core-service`
+- Add inbound HTTP/WebSocket handlers, browser connection managers, or API protocol DTOs here
 
 ### ALWAYS
 - Keep entities inheriting from `base.rs`
 - Use Repository pattern to abstract SeaORM
-

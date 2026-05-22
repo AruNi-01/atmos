@@ -1,7 +1,7 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
-import type { Workspace, WorkspaceWorkflowStatus, WorkspacePriority, WorkspaceLabel } from "@/types/types";
+import type { Workspace, WorkspaceWorkflowStatus, WorkspacePriority, WorkspaceLabel } from "@/shared/types/domain";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws/github-api";
 import type {
   ArchivedWorkspace,

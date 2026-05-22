@@ -12,7 +12,7 @@
 |------|-------|
 | **Cross-Cutting References** (Shortcuts, Debug, etc.) | [agents/AGENTS.md](agents/AGENTS.md) |
 | **Rust crates index** (layer map) | [crates/AGENTS.md](crates/AGENTS.md) |
-| **Backend: Infrastructure** (DB, WS, Redis) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
+| **Backend: Infrastructure** (DB, Cache, Queue, Jobs) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
 | **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
 | **Backend: Business Logic** (Auth, Project, Workspace) | [crates/core-service/AGENTS.md](crates/core-service/AGENTS.md) |
 | **Backend: Agent Integration** (ACP, Agent Manager) | [crates/agent/AGENTS.md](crates/agent/AGENTS.md) |
@@ -39,13 +39,15 @@ atmos/
 │   └── references/            # Detailed references (shortcuts, debug, etc.)
 │
 ├── crates/                    # 🦀 Rust Packages (see crates/AGENTS.md)
-│   ├── infra/                 # L1: Infrastructure (DB, WebSocket, Jobs)
+│   ├── infra/                 # L1: Infrastructure (DB, Cache, Queue, Jobs)
 │   ├── core-engine/           # L2: Tech Capabilities (PTY, Git, FS)
 │   ├── core-service/          # L3: Business Rules
-│   ├── agent/                 # Agent Integration (ACP Client)
+│   ├── agent/                 # Agent capability (ACP Client)
 │   ├── ai-usage/              # AI Usage Tracking
 │   ├── token-usage/           # Token Usage Tracking
-│   ├── llm/                   # LLM Integration
+│   ├── llm/                   # LLM capability
+│   ├── local-model-runtime/   # Local model runtime capability
+│   ├── remote-access/         # Remote access capability
 │   └── runtime-manager/       # Local runtime manifest, supervisor, relay registration
 │
 ├── apps/                      # 🚀 Applications
@@ -81,7 +83,7 @@ atmos/
 ## 🔄 Development Workflow
 
 ### Backend Change Flow
-`infra` (Data) → `core-engine` (Capability) → `core-service` (Business) → `api` (Endpoint)
+`infra` (data/foundation) → `core-engine` (technical capability) → `core-service` (business/application) → `apps/api` (HTTP/WS/relay entry)
 
 ### Frontend Change Flow
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
@@ -121,7 +123,7 @@ One **`apps/api` process** per machine is the default **Atmos Server**. Desktop,
 
 - **UI Components**: Use `@workspace/ui/components/ui/*` for atomic parts
 - **Backend Access**: Each app manages its own `api/client.ts` and `types/api.ts`
-- **Rust Services**: Inject `core-service` into `apps/api` via `AppState`
+- **Rust Services**: Inject `core-service` into `apps/api` via `AppState`; HTTP and browser WebSocket protocols are owned by `apps/api`
 
 ---
 
@@ -133,6 +135,7 @@ One **`apps/api` process** per machine is the default **Atmos Server**. Desktop,
 - **REST is the exception** — Use REST only for: startup/bootstrap data, explicit settings persistence, one-off admin actions, or when an existing module is already REST-based
 - **Avoid duplicate transports** — Do not build a new REST path for capabilities that should use WebSocket
 - **When unsure, prefer extending WS messages** — Extend the existing WebSocket protocol rather than creating parallel REST endpoints
+- **Inbound WebSocket lives in `apps/api`** — browser/client WebSocket connection management, auth, message parsing, protocol DTOs, and action routing belong under `apps/api/src/api/ws`; `infra` does not own inbound user transports.
 
 ---
 

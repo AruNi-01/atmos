@@ -3,9 +3,8 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
-
-use infra::{WsEvent, WsManager, WsMessage};
 
 use super::agent_hooks::{AgentHookState, AgentHookStateUpdate, AgentToolType};
 
@@ -79,16 +78,17 @@ pub struct NotificationPayload {
 
 pub struct NotificationService {
     settings: RwLock<NotificationSettings>,
-    ws_manager: RwLock<Option<Arc<WsManager>>>,
+    client_notification_tx: broadcast::Sender<NotificationPayload>,
     http_client: reqwest::Client,
 }
 
 impl NotificationService {
     pub fn new() -> Self {
         let settings = load_settings().unwrap_or_default();
+        let (client_notification_tx, _) = broadcast::channel(64);
         Self {
             settings: RwLock::new(settings),
-            ws_manager: RwLock::new(None),
+            client_notification_tx,
             http_client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
@@ -96,8 +96,8 @@ impl NotificationService {
         }
     }
 
-    pub fn set_ws_manager(&self, manager: Arc<WsManager>) {
-        *self.ws_manager.write() = Some(manager);
+    pub fn subscribe_client_notifications(&self) -> broadcast::Receiver<NotificationPayload> {
+        self.client_notification_tx.subscribe()
     }
 
     pub fn get_settings(&self) -> NotificationSettings {
@@ -174,16 +174,8 @@ impl NotificationService {
     }
 
     fn broadcast_client_notification(&self, payload: &NotificationPayload) {
-        let ws = self.ws_manager.read();
-        if let Some(ref manager) = *ws {
-            let manager = Arc::clone(manager);
-            let data = serde_json::to_value(payload).unwrap_or_default();
-            let msg = WsMessage::notification(WsEvent::AgentNotification, data);
-            tokio::spawn(async move {
-                if let Err(e) = manager.broadcast(&msg).await {
-                    warn!("Failed to broadcast agent notification: {}", e);
-                }
-            });
+        if let Err(error) = self.client_notification_tx.send(payload.clone()) {
+            warn!("Failed to publish agent notification: {}", error);
         }
     }
 

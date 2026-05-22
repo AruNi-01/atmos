@@ -1,7 +1,7 @@
 "use client";
 
-import { useWebSocketStore } from "@/hooks/use-websocket";
-import type { WsAction } from "@/hooks/use-websocket";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import type { WsAction } from "@/features/connection/hooks/use-websocket";
 
 /**
  * Shared helper for request/response actions over the app WebSocket.
@@ -14,7 +14,7 @@ export async function wsRequest<T>(
   const { send, connectionState } = useWebSocketStore.getState();
 
   if (connectionState !== "connected") {
-    const { waitForWebSocketConnection } = await import("@/hooks/use-websocket");
+    const { waitForWebSocketConnection } = await import("@/features/connection/hooks/use-websocket");
     await waitForWebSocketConnection();
   }
 

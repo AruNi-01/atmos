@@ -1,7 +1,7 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
-import { useWebSocketStore } from "@/hooks/use-websocket";
+import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 
 export type UsageDetailRowTone =
   | "default"

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::error::{EngineError, Result};
 
-use super::{GitEngine, run_git, try_run_git_with_stderr};
+use super::{run_git, try_run_git_with_stderr, GitEngine};
 
 impl GitEngine {
     /// Commit all staged and unstaged changes

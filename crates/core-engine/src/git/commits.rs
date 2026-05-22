@@ -4,7 +4,7 @@ use std::process::Command;
 
 use crate::error::{EngineError, Result};
 
-use super::{CommitInfo, GitEngine, run_git, try_run_git};
+use super::{run_git, try_run_git, CommitInfo, GitEngine};
 
 impl GitEngine {
     /// Get commit log for the current branch (paginated)

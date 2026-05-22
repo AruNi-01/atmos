@@ -3,7 +3,7 @@ use std::path::Path;
 
 use crate::error::Result;
 
-use super::{ChangedFileInfo, ChangedFilesInfo, FileDiffInfo, GitEngine, run_git, try_run_git};
+use super::{run_git, try_run_git, ChangedFileInfo, ChangedFilesInfo, FileDiffInfo, GitEngine};
 
 fn is_unmerged_porcelain_status(status: &str) -> bool {
     matches!(status, "DD" | "AU" | "UD" | "UA" | "DU" | "AA" | "UU")

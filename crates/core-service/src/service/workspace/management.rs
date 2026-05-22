@@ -5,8 +5,8 @@ use infra::db::repo::{ProjectRepo, WorkspaceRepo};
 
 use crate::error::{Result, ServiceError};
 use crate::service::workspace_support::{
-    WorkspaceDto, WorkspaceLabelDto, is_valid_workspace_priority,
-    is_valid_workspace_workflow_status,
+    is_valid_workspace_priority, is_valid_workspace_workflow_status, WorkspaceDto,
+    WorkspaceLabelDto,
 };
 
 use super::WorkspaceService;

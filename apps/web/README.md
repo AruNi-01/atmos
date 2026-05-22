@@ -13,14 +13,12 @@ apps/web/
 │   ├── app/                    # Next.js App Router
 │   │   ├── [locale]/           # Internationalized routes
 │   │   └── globals.css         # Global styles
-│   ├── components/             # Local React components
-│   ├── hooks/                  # Local React hooks
-│   ├── types/                  # 🌟 TypeScript types
-│   │   └── api.ts              # API Response/Request types
 │   ├── api/                    # 🌟 API Communication Layer
-│   │   └── client.ts           # Centralized API client
+│   ├── app-shell/              # Global chrome, layout, sidebars, overlays
+│   ├── features/               # Business feature folders
 │   ├── i18n/                   # I18n configuration
-│   └── lib/                    # Shared utilities
+│   ├── providers/              # App-wide React providers
+│   └── shared/                 # Cross-feature components/hooks/lib/types
 ├── middleware.ts               # next-intl middleware
 ├── next.config.ts              # Next.js configuration
 ├── components.json             # shadcn configuration
@@ -35,8 +33,14 @@ apps/web/
 ### API Layer (`src/api/`)
 Instead of a shared package, the API client is co-located within the app to allow for faster iteration and app-specific error handling. All calls to the Rust backend go through this layer.
 
-### Type Definition (`src/types/`)
-`api.ts` serves as the frontend "Source of Truth" for the backend contract. When changing an Axum handler in `apps/api`, you must update the corresponding type here.
+### Feature Ownership (`src/features/`)
+Business UI is grouped by feature. A feature owns its local components, hooks,
+stores, helpers, and types unless they are genuinely shared by unrelated
+features.
+
+### Shared Code (`src/shared/`)
+Shared code is intentionally narrow: reusable rendering components, cross-feature
+hooks, platform helpers, preference stores, and domain types.
 
 ---
 

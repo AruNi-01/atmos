@@ -1,11 +1,11 @@
 'use client';
-import { useAtmosComputerStore } from '@/lib/atmos-computer-store';
+import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {
   getLoopbackHttpBase,
   getRuntimeApiConfig,
   httpBase,
   wsBase,
-} from '@/lib/desktop-runtime';
+} from '@/shared/lib/desktop-runtime';
 
 /**
  * REST API client for endpoints that need to be called before WebSocket connection

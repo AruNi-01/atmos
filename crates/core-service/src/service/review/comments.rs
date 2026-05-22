@@ -10,8 +10,8 @@ use uuid::Uuid;
 use crate::error::{Result, ServiceError};
 
 use super::support::{
-    MESSAGE_INLINE_LIMIT, is_valid_review_comment_status, normalize_review_file_path,
-    review_message_visible_in_revision,
+    is_valid_review_comment_status, normalize_review_file_path, review_message_visible_in_revision,
+    MESSAGE_INLINE_LIMIT,
 };
 use super::{
     AddReviewMessageInput, CreateReviewCommentByFilePathInput, CreateReviewCommentInput,

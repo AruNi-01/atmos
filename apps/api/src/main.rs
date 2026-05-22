@@ -7,6 +7,7 @@ mod relay;
 
 use std::sync::Arc;
 
+use crate::api::ws::{WsEvent, WsManager, WsMessage, WsMessageService};
 use crate::middleware::{require_local_token, require_loopback_or_token};
 use ai_usage::UsageService;
 use app_state::{AppServices, AppState};
@@ -21,11 +22,11 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentHooksService, AgentService, AgentSessionService, CanvasAgentRelay, CanvasService,
-    MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
-    TestService, WorkspaceService, WsMessageService,
+    AgentHookEvent, AgentHooksService, AgentService, AgentSessionService, CanvasAgentRelay,
+    CanvasService, MessagePushService, NotificationService, ProjectService, ReviewService,
+    TerminalService, TestService, WorkspaceService,
 };
-use infra::{DbConnection, Migrator, WsEvent, WsManager, WsMessage};
+use infra::{DbConnection, Migrator};
 use sea_orm_migration::MigratorTrait;
 use serde_json::json;
 use token_usage::TokenUsageService;
@@ -66,6 +67,39 @@ fn spawn_ws_forwarder<T: serde::Serialize + Clone + Send + 'static>(
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                     warn!("Lagged on {} updates, skipped {} messages", label, skipped);
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    })
+}
+
+fn spawn_agent_hook_forwarder(
+    mut rx: tokio::sync::broadcast::Receiver<AgentHookEvent>,
+    ws_manager: Arc<WsManager>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let (ws_event, data) = match event {
+                        AgentHookEvent::StateChanged(update) => {
+                            (WsEvent::AgentHookStateChanged, json!(update))
+                        }
+                        AgentHookEvent::SessionsCleared { session_ids } => (
+                            WsEvent::AgentHookSessionsCleared,
+                            json!({ "session_ids": session_ids }),
+                        ),
+                    };
+                    if let Err(error) = ws_manager
+                        .broadcast(&WsMessage::notification(ws_event, data))
+                        .await
+                    {
+                        warn!("Failed to broadcast agent hook event: {}", error);
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    warn!("Lagged on agent hook events, skipped {} messages", skipped);
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
@@ -311,9 +345,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let ws_manager = app_state.ws_service.manager();
 
-    agent_hooks_service.set_ws_manager(Arc::clone(&ws_manager));
     agent_hooks_service.set_notification_service(Arc::clone(&notification_service));
-    notification_service.set_ws_manager(Arc::clone(&ws_manager));
+
+    spawn_agent_hook_forwarder(
+        agent_hooks_service.subscribe_events(),
+        Arc::clone(&ws_manager),
+    );
+
+    spawn_ws_forwarder(
+        notification_service.subscribe_client_notifications(),
+        Arc::clone(&ws_manager),
+        WsEvent::AgentNotification,
+        "agent notification",
+    );
 
     spawn_ws_forwarder(
         usage_service.subscribe_updates(),

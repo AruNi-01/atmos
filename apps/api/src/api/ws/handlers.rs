@@ -1,10 +1,11 @@
 //! WebSocket HTTP Upgrade handler for Axum.
 //!
 //! This module only handles the HTTP -> WebSocket upgrade.
-//! All message processing is delegated to infra::WsService.
+//! All message processing is delegated to the API-owned WsService.
 
 use std::sync::Arc;
 
+use super::{ClientType, WsMessage};
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -13,7 +14,6 @@ use axum::{
     response::Response,
 };
 use futures_util::{SinkExt, StreamExt};
-use infra::{ClientType, WsMessage};
 use serde::Deserialize;
 use tokio::sync::{mpsc, watch};
 
@@ -46,7 +46,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, client_type: ClientTy
     // Create channel for sending messages
     let (tx, mut rx) = mpsc::channel::<String>(32);
 
-    // Register connection with WsService (in infra layer)
+    // Register connection with WsService (in API layer)
     let conn_id = state.ws_service.register(client_type, tx.clone()).await;
     tracing::info!("WebSocket connection established: {}", conn_id);
 
@@ -136,7 +136,7 @@ async fn handle_incoming_message(
         Message::Text(text) => {
             let text_str: &str = text.as_ref();
 
-            // Unified message handling - infra layer handles both control and business messages
+            // Unified message handling - API layer handles both control and business messages
             if let Some(response) = state.ws_service.handle_message(conn_id, text_str).await {
                 // Send response if there is one
                 if let Err(e) = tx.send(response).await {

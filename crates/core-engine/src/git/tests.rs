@@ -1,4 +1,4 @@
-use super::{GitEngine, sync_worktree_local_excludes};
+use super::{sync_worktree_local_excludes, GitEngine};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -260,13 +260,11 @@ fn changed_files_preserve_unmerged_status_codes() {
         .get_changed_files(&repo_path, None, false)
         .expect("changed files should be available");
 
-    assert!(
-        changes
-            .staged_files
-            .iter()
-            .chain(changes.unstaged_files.iter())
-            .any(|file| file.path == "README.md" && file.status == "UU")
-    );
+    assert!(changes
+        .staged_files
+        .iter()
+        .chain(changes.unstaged_files.iter())
+        .any(|file| file.path == "README.md" && file.status == "UU"));
 
     fs::remove_dir_all(root).expect("temp repo should be removed");
 }

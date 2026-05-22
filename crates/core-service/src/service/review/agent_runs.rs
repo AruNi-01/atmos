@@ -9,11 +9,11 @@ use infra::utils::review_artifacts::{run_root_abs_path, write_text_atomic};
 
 use crate::error::{Result, ServiceError};
 
+use super::{is_open_review_comment_status, ReviewService};
 use super::{
     CreateReviewAgentRunInput, ReviewAgentRunCreatedDto, ReviewAgentRunStatusDto, ReviewCommentDto,
     ReviewRunArtifactDto, SetReviewAgentRunStatusInput,
 };
-use super::{ReviewService, is_open_review_comment_status};
 
 const VALID_RUN_KINDS: &[&str] = &["review", "fix"];
 const VALID_EXECUTION_MODES: &[&str] = &["copy_prompt", "agent_chat", "terminal_cli"];

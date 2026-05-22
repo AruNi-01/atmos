@@ -1,8 +1,8 @@
 use super::metadata::{extract_description, extract_from_frontmatter, strip_frontmatter};
 use super::support::{build_placement_id, build_skill_id, is_manageable_scope};
 use super::types::{ScanContext, ScanMode, ScanStatus, SkillEntryMeta};
-use super::{DISABLED_STORAGE_REL_PATH, SkillScanner};
-use infra::{SkillFile, SkillInfo, SkillPlacement};
+use super::{SkillScanner, DISABLED_STORAGE_REL_PATH};
+use crate::{SkillFile, SkillInfo, SkillPlacement};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};

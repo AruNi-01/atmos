@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@/lib/utils": ["../../packages/ui/src/lib/utils.ts"],
       "@/*": ["./src/*"],
       "@workspace/ui": ["../../packages/ui/src/index.ts"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]

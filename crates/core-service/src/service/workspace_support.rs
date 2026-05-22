@@ -1,6 +1,6 @@
 use crate::error::{Result, ServiceError};
+use crate::{GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload};
 use infra::db::entities::{workspace, workspace_label};
-use infra::{GithubIssueLabelPayload, GithubIssuePayload, GithubPrPayload};
 use serde::Serialize;
 
 pub const WORKSPACE_WORKFLOW_STATUSES: &[&str] = &[
