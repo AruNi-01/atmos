@@ -1,0 +1,983 @@
+apps/web/src/api/ws-api.ts
+  s_be6a00985408b3::t_4ff121066cb85e 5,920
+  s_be6a00985408b3::t_d16794fa3dfd44 6-7,17,25-60
+  s_be6a00985408b3::t_5e7fa5bf432280 916-918
+  s_be6a00985408b3::t_334e78d1b5020f 921
+  s_be6a00985408b3::t_9d0cc26c102dae 3,922
+  s_be6a00985408b3::t_c13efc11b9f53a 8-16,18-24
+  s_be6a00985408b3::t_ea7a34f72a394c 919
+apps/web/src/components/terminal/TerminalGridContextMenu.tsx
+  s_be6a00985408b3::t_b4be2dee9fd350 1-227
+crates/core-service/src/service/terminal/runtime.rs
+  s_be6a00985408b3::t_c81af459f43513 6,11-12,14,20
+  s_be6a00985408b3::t_3fde3b3883c71a 1-4,7-10,13,15-19,21-544,547-628
+  s_be6a00985408b3::t_d05b236b20fc49 5,545-546
+apps/web/src/components/canvas/canvas-agent-bus-result.ts
+  s_be6a00985408b3::t_a203c3896eef0a 1-50
+apps/web/src/components/layout/use-center-stage-tab-groups.ts
+  s_be6a00985408b3::t_ad342a9cbec91b 1-128
+apps/web/src/hooks/use-terminal-store.ts
+  s_be6a00985408b3::t_5dacf67b349895 15
+  s_be6a00985408b3::t_22ebc75e54a188 7
+  s_be6a00985408b3::t_f86e02624f999a 307
+  s_be6a00985408b3::t_c00169f4b34999 645-646,651,655
+  s_be6a00985408b3::t_f826a8999ff98d 28,30,362,409
+  s_be6a00985408b3::t_3ca798df0a0f89 841
+  s_be6a00985408b3::t_20625c738a6584 16,20
+  s_be6a00985408b3::t_954f0a2a944212 8
+  s_be6a00985408b3::t_4359a46dd4954d 722-723,728
+  s_be6a00985408b3::t_b1e923d00ab020 13-14,17-19,21,23-27,29,31-32,36-44
+  s_be6a00985408b3::t_721df6023855dc 22
+  s_be6a00985408b3::t_66f42eb9f020f7 5-6,33
+apps/web/src/components/dialogs/EditorSettingsSection.tsx
+  s_be6a00985408b3::t_40fe16af466d29 1-140
+apps/web/src/components/layout/usage-popover-components.tsx
+  s_be6a00985408b3::t_9d37e5366d85cf 3-4,7,9-14,16-18,21,24,26-27,29-211,388
+  s_be6a00985408b3::t_f2e5f2d856af83 1-2,5-6,8,15,19-20,22-23,25,28,212-387,389-406
+apps/web/src/components/terminal/terminal-runtime-utils.ts
+  s_be6a00985408b3::t_ce9b5fe2d75908 1-266
+apps/web/src/components/layout/use-header-hotkeys.ts
+  s_be6a00985408b3::t_8717955b7eca97 1-88
+apps/web/src/components/run-preview/use-preview-iframe-load.ts
+  s_be6a00985408b3::t_6eabc81babab08 6-9,43,118
+  s_be6a00985408b3::t_796c717beea7aa 1-5,10-42,44-117,119-172
+apps/web/src/components/layout/CenterStagePanels.tsx
+  s_be6a00985408b3::t_04f3797e070db4 1-367
+apps/web/src/components/agent/use-agent-chat-message-handler.ts
+  s_be6a00985408b3::t_dc744f0ce31e06 3,15,30
+  s_be6a00985408b3::t_1ea611b64ab0f9 1-2,4-14,16-29,31-209
+crates/core-engine/src/git/actions.rs
+  s_be6a00985408b3::t_af9d958710af75 1-160
+apps/web/src/components/dialogs/RemoteAccessSection.tsx
+  s_be6a00985408b3::t_bfe5e8eba0c6b3 45-52
+  s_be6a00985408b3::t_c84ab200b321d6 30-43
+apps/web/src/components/github/pr-detail-modal-sidebar.tsx
+  s_be6a00985408b3::t_30336bc0752d69 1-280
+apps/web/src/components/layout/left-sidebar-controls.tsx
+  s_be6a00985408b3::t_4236cc1d6ff52b 32,236-238,860-861
+  s_be6a00985408b3::t_22d42e5b32b2ee 29,126,130,133,140,144-145
+  s_be6a00985408b3::t_e5a72ec6686074 27,37
+  s_be6a00985408b3::t_2b327ef1a88f6d 6-8,15,28,489-772
+  s_be6a00985408b3::t_b6de6fa2c0de15 9,14,16,19-20,22-24,30,39,72-125,127-129,131-132,134-139,141-143,146-198
+  s_be6a00985408b3::t_a3b85bd9be1f5f 1-5,13,17,21,26,41-71,199-235,862-863
+  s_be6a00985408b3::t_bbc74afd8696e5 11-12,25,40,315,432-488,773-859
+  s_be6a00985408b3::t_299546d8d998bf 38
+  s_be6a00985408b3::t_b2e7e93ca4fd3b 10,18,31,33-36,239-314,316-431
+apps/web/src/api/ws/review-api.ts
+  s_be6a00985408b3::t_ea7a34f72a394c 1-444
+crates/infra/src/db/repo/review_repo.rs
+  s_be6a00985408b3::t_21c02578602284 1,3,5-10
+crates/core-service/src/service/ws_message/local_model.rs
+  s_be6a00985408b3::t_8a5e0167dce876 5,8,10
+  s_be6a00985408b3::t_b5c7cc963b7062 1-4,6-7,9,11-372
+apps/web/src/components/github/pr-detail-modal-parts.tsx
+  s_be6a00985408b3::t_f8b54a880be6f8 1-368,371-515
+  s_be6a00985408b3::t_e5d661d03b81b9 369-370
+apps/web/src/components/skills/InstalledSkillListCard.tsx
+  s_be6a00985408b3::t_07f005784c4e06 1-190
+apps/web/src/hooks/project-store-types.ts
+  s_be6a00985408b3::t_fd33e7304b1b49 82-90
+  s_be6a00985408b3::t_d71bd209e99335 1-81
+crates/core-engine/src/git/patches.rs
+  s_be6a00985408b3::t_949511e40662c6 1-75
+crates/core-service/src/service/ws_message/agents.rs
+  s_be6a00985408b3::t_4a21eb954a6d45 1-115
+apps/web/src/components/terminal/use-terminal-grid-canvas-pins.ts
+  s_be6a00985408b3::t_632831f256d4e7 1-184
+apps/api/src/api/system/handlers.rs
+  s_be6a00985408b3::t_4998ed7e86c748 299,344
+apps/web/src/components/run-preview/PreviewToolbar.tsx
+  s_be6a00985408b3::t_08b38e76a0a8eb 1-929
+packages/ui/src/components/ai-elements/prompt-input.tsx
+  s_be6a00985408b3::t_ab07db9d215ae7 3,15,45-48,55
+  s_be6a00985408b3::t_9046e27ff7f8ea 35-44,49-54,56-60
+apps/web/src/components/layout/usage-popover-detail.tsx
+  s_be6a00985408b3::t_83e8de21bdc2d1 1-549
+apps/web/src/components/skills/SkillsResourcesTab.tsx
+  s_be6a00985408b3::t_07f005784c4e06 1-86
+crates/infra/src/db/repo/review_repo/revision.rs
+  s_be6a00985408b3::t_2bdf8e0902f64b 1-94
+crates/core-service/src/service/ws_message/workspace_setup.rs
+  s_be6a00985408b3::t_fec8028d40cb7a 1-4,7-483,487-748
+  s_be6a00985408b3::t_8a5e0167dce876 5-6
+  s_be6a00985408b3::t_c81af459f43513 484-486
+apps/api/src/api/system/debug_log.rs
+  s_be6a00985408b3::t_c81af459f43513 1
+  s_be6a00985408b3::t_1aff579fd84501 2-40
+apps/web/src/components/run-preview/use-preview-lifecycle-effects.ts
+  s_be6a00985408b3::t_6346809b4c0f5b 1-381
+apps/web/src/components/terminal/terminal-mosaic-scoped-pane-window.tsx
+  s_be6a00985408b3::t_17a1695d90f97a 1-317
+apps/web/src/components/diff/DiffViewer.tsx
+  s_be6a00985408b3::t_529d920dc484a0 15,23-32,59
+  s_be6a00985408b3::t_bdc0746d5e99e5 342
+  s_be6a00985408b3::t_957e341c5b5880 34,773-780,782-793
+  s_be6a00985408b3::t_0d24b2efd8b88b 374
+  s_be6a00985408b3::t_4a13262090d2b4 162
+  s_be6a00985408b3::t_647932778237d1 781
+  s_be6a00985408b3::t_078ee36da2e584 673-676,678-692,694-726,728-731,740
+  s_be6a00985408b3::t_addcd2370cd225 341
+  s_be6a00985408b3::t_427250d789a032 123
+  s_be6a00985408b3::t_59cb2b4f4fc8c3 151-160
+apps/web/src/components/canvas/canvas-agent-bus-helpers.ts
+  s_be6a00985408b3::t_9c5541fa17a7ed 1-177
+  s_be6a00985408b3::t_8c0f29d3f23ca2 178-192
+apps/web/src/components/welcome/welcome-page-helpers.tsx
+  s_be6a00985408b3::t_92b84aa36218ff 103-109,115
+  s_be6a00985408b3::t_1a45e024347ed9 1,75-102,110-114,116-131
+  s_be6a00985408b3::t_8a7fff519a278d 2-31,44-74,222-497
+  s_be6a00985408b3::t_774004f1840a57 32-43,132-221
+apps/web/src/components/layout/token-usage-dialog-utils.ts
+  s_be6a00985408b3::t_73ee6e347b4acf 1-582
+apps/web/src/components/dialogs/CreateWorkspaceDialog.tsx
+  s_be6a00985408b3::t_1813cfb1504b69 361
+  s_be6a00985408b3::t_d4f3f6cc011d4a 859-877
+  s_be6a00985408b3::t_aaf6caaf2ff9f1 2,5-11
+  s_be6a00985408b3::t_b1dea663587db7 12-16
+  s_be6a00985408b3::t_27a6c46d732156 724-732,736-744,762-776,778-786,789-849
+  s_be6a00985408b3::t_ef85dafd47a7e9 28-40
+  s_be6a00985408b3::t_435aa8e89abfbc 712-718
+apps/web/src/components/welcome/use-welcome-slash-navigation.ts
+  s_be6a00985408b3::t_938aee1c0ba5db 1-145
+apps/web/src/components/layout/center-stage-tabs.tsx
+  s_be6a00985408b3::t_1cf8b5094069e9 4-20,193-287
+  s_be6a00985408b3::t_3eec9abe64c326 75-76
+  s_be6a00985408b3::t_9712086ac3b45c 1-3,21-74,77-192,288-309
+crates/core-engine/src/git/types.rs
+  s_be6a00985408b3::t_169db70e9e73ef 1-121
+apps/api/src/api/system/files.rs
+  s_be6a00985408b3::t_1aff579fd84501 1-3,5-75
+  s_be6a00985408b3::t_c81af459f43513 4
+crates/infra/src/websocket/message/review.rs
+  s_be6a00985408b3::t_adde52f37e8e68 1-161
+apps/web/src/components/run-preview/use-preview-navigation.ts
+  s_be6a00985408b3::t_e6275e07edf125 1-19,21-42,44-208,211-223,225-274
+  s_be6a00985408b3::t_bf487613c0309e 20,43,209-210,224
+crates/core-service/src/service/terminal_overview.rs
+  s_be6a00985408b3::t_63cb120aa57fe5 7
+apps/web/src/hooks/terminal-store-types.ts
+  s_be6a00985408b3::t_01ec08fc162fc4 1-97
+crates/runtime-manager/src/computer_client_settings.rs
+  s_be6a00985408b3::t_c81af459f43513 77-79
+crates/core-service/src/service/terminal/types.rs
+  s_be6a00985408b3::t_3feaba5b5d6429 1-177
+apps/web/src/components/dialogs/LabelSettingsSection.tsx
+  s_be6a00985408b3::t_6ab1f792943445 1-594
+crates/runtime-manager/src/manifest.rs
+  s_be6a00985408b3::t_c81af459f43513 255-259
+packages/ui/src/components/ai-elements/prompt-input-context.tsx
+  s_be6a00985408b3::t_9046e27ff7f8ea 1-197
+crates/core-service/src/service/skill/tests.rs
+  s_be6a00985408b3::t_7f39b494700223 41-46
+  s_be6a00985408b3::t_fab929a957cf79 1-40,47-223
+apps/web/src/hooks/project-store-connection.ts
+  s_be6a00985408b3::t_fd33e7304b1b49 1-6
+crates/core-service/src/service/review/agent_runs.rs
+  s_be6a00985408b3::t_a72a5dd49f5203 7
+  s_be6a00985408b3::t_13c2b518c2b166 13-14
+  s_be6a00985408b3::t_64a96bc80d8a19 1-2,4-6,8
+  s_be6a00985408b3::t_b9878ca204c4a5 3,9-11,20-21,433
+  s_be6a00985408b3::t_ebc65dcd48c4bd 12,15-19,22-432
+crates/core-service/src/service/ws_message/project.rs
+  s_be6a00985408b3::t_8a5e0167dce876 1
+  s_be6a00985408b3::t_dd6ccf976b094c 2,8,10,14-109
+  s_be6a00985408b3::t_c76d9c60a0860c 3-7,9,11-13,110-244
+apps/web/src/components/canvas/CanvasToolbarChrome.tsx
+  s_be6a00985408b3::t_f7614a8e9c0601 1-466
+apps/web/src/components/welcome/WelcomeComposerControls.tsx
+  s_be6a00985408b3::t_9b3a42dcf4af2c 1-124,126-242
+  s_be6a00985408b3::t_3450a7000c854f 125
+apps/web/src/components/run-preview/Preview.tsx
+  s_be6a00985408b3::t_646a6616b8726a 30-38
+  s_be6a00985408b3::t_47e3cafc5cf0ef 20
+  s_be6a00985408b3::t_96d7bb5bf22d7a 5,19
+  s_be6a00985408b3::t_3fcd0b9fd8c545 26
+  s_be6a00985408b3::t_e9f0e851014753 21
+  s_be6a00985408b3::t_736296132e2384 22,179-197
+  s_be6a00985408b3::t_039b48d44c35fb 25
+  s_be6a00985408b3::t_b307bcc7c1b421 244-278
+  s_be6a00985408b3::t_527213e1d42a65 431-439,629
+  s_be6a00985408b3::t_589dd90ae69e60 23,133-156
+  s_be6a00985408b3::t_d8e399c7de1686 28,713-738
+  s_be6a00985408b3::t_a03f50b816e3b7 24
+  s_be6a00985408b3::t_ea32c6e3c89b18 793-871,873-900,902-908
+  s_be6a00985408b3::t_ec18429640fca1 29,110-114
+  s_be6a00985408b3::t_757f347de4e74e 596,606
+  s_be6a00985408b3::t_92b2c5fcce082e 775
+  s_be6a00985408b3::t_b758c1f62ba99c 634,636-640,642-643,646-648,650-665
+  s_be6a00985408b3::t_0a60f60d83fa47 613,615-616,618,621,625-627,631-632
+  s_be6a00985408b3::t_fc58f5b0efa8a3 27,198-213
+  s_be6a00985408b3::t_8eda4033109f90 3
+specs/APP/QUALITY-001_large-file-code-debt-cleanup/TEST.md
+  s_be6a00985408b3::t_a867dabe98381a 1-92
+apps/web/src/components/layout/left-sidebar-settings.ts
+  s_be6a00985408b3::t_a9089f548173f5 1-56
+apps/web/src/components/run-preview/use-preview-selection.ts
+  s_be6a00985408b3::t_9f61fef32ce83e 1-2,4-27,32-138
+  s_be6a00985408b3::t_ee4d834054e323 3,28-31
+apps/web/src/hooks/project-store-setup-progress.ts
+  s_be6a00985408b3::t_31b923a4d9a5a6 1-175
+apps/web/src/components/layout/usage-popover-utils.ts
+  s_be6a00985408b3::t_1fc9d59f422f23 1-265
+apps/web/src/components/layout/sidebar/WorkspaceKanbanTypes.ts
+  s_be6a00985408b3::t_9522cea4e3d3b2 1-153
+apps/api/src/api/system/mod.rs
+  s_be6a00985408b3::t_19c2866e8271e3 4,6,58-59,62
+  s_be6a00985408b3::t_b62a462566efda 1,55-56
+  s_be6a00985408b3::t_4998ed7e86c748 66
+  s_be6a00985408b3::t_83a258c6d780aa 2
+apps/api/src/api/system/client_session.rs
+  s_be6a00985408b3::t_1aff579fd84501 1-2,4-5,7-79
+  s_be6a00985408b3::t_c81af459f43513 3,6
+apps/web/src/hooks/use-editor-store.ts
+  s_be6a00985408b3::t_de907c2d1c71e9 13-49
+apps/web/src/components/layout/LeftSidebarPinnedSection.tsx
+  s_be6a00985408b3::t_a72054563cdf8c 1-142
+crates/infra/src/websocket/message/workspace.rs
+  s_be6a00985408b3::t_752841dfcb0a9d 1-262
+apps/web/src/hooks/use-project-store.ts
+  s_be6a00985408b3::t_7d77e0919c4da2 17-23,384,392-393,403
+  s_be6a00985408b3::t_ac552a85efd569 4,7-8,14-15
+  s_be6a00985408b3::t_1e84d5d4abbbdf 5,24
+  s_be6a00985408b3::t_e39e595d949437 10-13,484,629
+  s_be6a00985408b3::t_79ffa7981f2bdc 634
+  s_be6a00985408b3::t_00e96e122a0d9b 9,16,25-26
+  s_be6a00985408b3::t_e216a7bfba0be5 643-644,653,657
+  s_be6a00985408b3::t_01a30308760266 628
+crates/core-service/src/service/skill.rs
+  s_be6a00985408b3::t_25378fb971505c 13,15
+  s_be6a00985408b3::t_1eb16897bb46d1 16
+  s_be6a00985408b3::t_73e03ad8e0599a 5-6,14,19-20
+  s_be6a00985408b3::t_e341187e53733d 130
+  s_be6a00985408b3::t_05961792f40b16 3-4,7-12,17
+  s_be6a00985408b3::t_fab929a957cf79 143-144
+apps/web/src/components/layout/global-search-parts.tsx
+  s_be6a00985408b3::t_93219a4c6d657b 1-2,5-84,86-134,136-176,178-201
+  s_be6a00985408b3::t_d9beae15d35594 3-4,85,135,177
+apps/web/src/components/layout/use-left-sidebar-file-tree-sync.ts
+  s_be6a00985408b3::t_bf3ff39e3d873a 1-84
+crates/infra/src/db/repo/review_repo/session.rs
+  s_be6a00985408b3::t_2bdf8e0902f64b 1-181
+apps/web/src/hooks/editor-store-types.ts
+  s_be6a00985408b3::t_de907c2d1c71e9 1-89
+apps/web/src/hooks/project-store-label-actions.ts
+  s_be6a00985408b3::t_1b85beba6ba4ff 3
+  s_be6a00985408b3::t_fd33e7304b1b49 1-2,4-21,23-26,28-146
+  s_be6a00985408b3::t_09397f1193f8a6 22,27
+apps/web/src/lib/codemirror-git-gutter-utils.ts
+  s_be6a00985408b3::t_a4242af0fd3178 1-58
+apps/web/src/components/run-preview/PreviewViewport.tsx
+  s_be6a00985408b3::t_115e523e4f1d4e 1-146
+crates/core-service/src/service/skill_support.rs
+  s_be6a00985408b3::t_508f277f55378d 1-263
+crates/infra/src/db/repo/review_repo/comment.rs
+  s_be6a00985408b3::t_f9e15ab9622d9d 1-264
+apps/web/src/components/layout/sidebar/WorkspaceKanbanView.tsx
+  s_be6a00985408b3::t_a9cbeb98bddc34 35,71-97,99
+  s_be6a00985408b3::t_3c801fa8b21d58 480
+apps/web/src/components/skills/SkillsMarketTab.tsx
+  s_be6a00985408b3::t_07f005784c4e06 1-170
+crates/core-engine/src/git/excludes.rs
+  s_be6a00985408b3::t_d4abaa1f296546 1-197
+apps/web/src/components/welcome/WelcomeAdvancedOptions.tsx
+  s_be6a00985408b3::t_f0fdc33a71722c 44-47,206
+  s_be6a00985408b3::t_4acb8c6faefc05 1-43,48-205,207-835
+crates/infra/src/websocket/message/git.rs
+  s_be6a00985408b3::t_57009127ce3ab7 1-277
+apps/web/src/components/agent/use-agent-chat-session.ts
+  s_be6a00985408b3::t_8d138126cf22d5 305-344
+  s_be6a00985408b3::t_98a14adbdce1fa 42,176-189
+  s_be6a00985408b3::t_227170c4cf6fe7 133-136,138-141,143-146
+  s_be6a00985408b3::t_cda4a46e6f583a 43
+  s_be6a00985408b3::t_7f8cf28b90fb3b 45,231-236
+  s_be6a00985408b3::t_b50f8fb8d668e4 243-250,253-285
+  s_be6a00985408b3::t_1867e337ea8b80 32-41
+  s_be6a00985408b3::t_4ed59b06143113 830
+  s_be6a00985408b3::t_48268f887327a1 46
+  s_be6a00985408b3::t_50c440cd4a5a83 407
+  s_be6a00985408b3::t_eb77f52a258d08 44,796-814
+  s_be6a00985408b3::t_236e5f279fd41d 404,441-451
+crates/core-engine/src/tmux/capture.rs
+  s_be6a00985408b3::t_3f55c539d7f3e5 1-4,63-251
+  s_be6a00985408b3::t_65568c31387d31 5-62,252-253
+apps/web/src/components/dialogs/SettingsModal.tsx
+  s_be6a00985408b3::t_7a423160336597 14
+  s_be6a00985408b3::t_357dc04b2cee50 639-640,715-723
+  s_be6a00985408b3::t_ef1837a035dda4 698-714
+  s_be6a00985408b3::t_6294fc3e13d7e1 82
+  s_be6a00985408b3::t_9aa3826f5e7ef0 594-604,606-607
+  s_be6a00985408b3::t_9e742af5ec267d 650-656
+  s_be6a00985408b3::t_c15abc90dbfaa5 41-45
+  s_be6a00985408b3::t_20e6ca759a6671 641-649
+  s_be6a00985408b3::t_4d796d68bc682e 657-691,693-697
+  s_be6a00985408b3::t_2f1887fa20a045 13
+  s_be6a00985408b3::t_834fa0ca1f52af 39-40
+  s_be6a00985408b3::t_e02fc74a562c23 46,48-51,59-69
+  s_be6a00985408b3::t_8ade5546ff5025 26
+  s_be6a00985408b3::t_e0565ed5e28631 416-427
+  s_be6a00985408b3::t_e58e4ac5993d47 32-38
+  s_be6a00985408b3::t_6825673f610bcb 618-621
+apps/web/src/components/run-preview/use-preview-extension-downloads.ts
+  s_be6a00985408b3::t_736296132e2384 1-137
+crates/infra/src/websocket/message/github.rs
+  s_be6a00985408b3::t_4d43b96e4e96fc 1-245
+crates/core-service/src/service/terminal/management.rs
+  s_be6a00985408b3::t_9718ae26bff0bf 1-465
+specs/AGENTS.md
+  s_be6a00985408b3::t_a867dabe98381a 38,40,57
+  s_be6a00985408b3::t_af3affeecee7ed 31-37,39,41-42
+apps/web/src/api/ws/skills-api.ts
+  s_be6a00985408b3::t_5e7fa5bf432280 1-147
+apps/web/src/components/layout/use-center-stage-terminal-agents.ts
+  s_be6a00985408b3::t_6ffa75bd27a644 1-97
+apps/web/src/components/layout/LeftSidebarManagementCenter.tsx
+  s_be6a00985408b3::t_aaee444a8fe86b 1-321
+specs/APP/QUALITY-001_large-file-code-debt-cleanup/TECH.md
+  s_be6a00985408b3::t_0b95da28e4cb6e 1-111
+crates/core-service/src/service/workspace_support.rs
+  s_be6a00985408b3::t_074cfd9918e6fe 1-47,49-146
+  s_be6a00985408b3::t_1022e342cd4742 48
+crates/core-service/src/service/skill/metadata.rs
+  s_be6a00985408b3::t_5baca1e231561a 1-78
+apps/web/src/api/ws/github-api.ts
+  s_be6a00985408b3::t_4ff121066cb85e 1-96
+apps/web/src/components/files/file-tree-utils.ts
+  s_be6a00985408b3::t_ee6aed12fd4773 1-113
+apps/web/src/components/layout/left-sidebar-tab-footer-controls.tsx
+  s_be6a00985408b3::t_4db13d8f41b11a 1-200
+apps/web/src/components/dialogs/CodeAgentSettingsSection.tsx
+  s_be6a00985408b3::t_13b80b923bd3c1 1-376
+crates/infra/src/websocket/message/skills.rs
+  s_be6a00985408b3::t_2a7d0aafb6dddb 1-123
+apps/web/src/components/layout/use-left-sidebar-workspace-renderers.tsx
+  s_be6a00985408b3::t_a59a4ddd5fa092 1-12,16,18,25-204
+  s_be6a00985408b3::t_6657419289c927 13-15,17,19-24
+crates/core-service/src/service/skill/scanner.rs
+  s_be6a00985408b3::t_50395f4b1b4d0a 1-831
+apps/web/src/components/run-preview/use-preview-toolbar-layout.ts
+  s_be6a00985408b3::t_d8e399c7de1686 1-122
+apps/web/src/components/welcome/use-welcome-slash-search.ts
+  s_be6a00985408b3::t_1b3e0b2d48677d 1-107
+crates/core-service/src/service/terminal.rs
+  s_be6a00985408b3::t_3feaba5b5d6429 23,26-30
+  s_be6a00985408b3::t_7a51ad0ebc5c56 22
+  s_be6a00985408b3::t_ae30fae9cf663b 25
+  s_be6a00985408b3::t_9718ae26bff0bf 12,21
+  s_be6a00985408b3::t_e67eac48415777 15,24
+apps/web/src/lib/codemirror-git-gutter.ts
+  s_be6a00985408b3::t_64324b3625a288 28-37,92,252
+crates/core-service/src/service/skill/support.rs
+  s_be6a00985408b3::t_923c2a91fe0ce8 1-263
+apps/web/src/components/terminal/terminal-grid-utils.ts
+  s_be6a00985408b3::t_b2724c673ed5c5 1-83
+crates/core-service/src/service/ws_message/workspace_notifications.rs
+  s_be6a00985408b3::t_08bb8ea3d0ebbe 1-23
+apps/web/src/components/dialogs/TerminalSettingsSection.tsx
+  s_be6a00985408b3::t_1fdac4a5bd1807 17,48,52
+  s_be6a00985408b3::t_9c9fdf6fff98cd 1-16,18-47,49-51,53-154
+apps/web/src/hooks/project-store-mappers.ts
+  s_be6a00985408b3::t_5340e80020a39d 1-75
+crates/core-service/src/service/ws_message/usage.rs
+  s_be6a00985408b3::t_8a5e0167dce876 1
+  s_be6a00985408b3::t_edfaf45ab72392 2-100
+apps/web/src/components/agent/use-agent-chat-ui-handlers.ts
+  s_be6a00985408b3::t_03c77a43451ec7 1-9,11-93,95-191
+  s_be6a00985408b3::t_49dda03c4234ed 10,94
+apps/web/src/hooks/project-store-subscriptions.ts
+  s_be6a00985408b3::t_4f969f7534a92d 1-130
+apps/web/src/components/diff/diff-viewer-selection.ts
+  s_be6a00985408b3::t_31ab74beafbcfe 1-205
+apps/api/src/relay/supervisor.rs
+  s_be6a00985408b3::t_c81af459f43513 104-105
+crates/core-service/src/service/mod.rs
+  s_be6a00985408b3::t_2c04b669f6a923 21
+  s_be6a00985408b3::t_1022e342cd4742 18
+  s_be6a00985408b3::t_3dba10484ba3bd 19
+apps/web/src/components/run-preview/use-preview-window-state.ts
+  s_be6a00985408b3::t_9b38b100234329 1-68
+crates/core-engine/src/tmux/session.rs
+  s_be6a00985408b3::t_ac6f8bf7017d8f 585
+  s_be6a00985408b3::t_65719e4238a698 10-43,560-584,586-595
+  s_be6a00985408b3::t_32ae1d500a4ea3 241
+  s_be6a00985408b3::t_af6d779c3d0899 1-9,44-240,242-559
+apps/web/src/components/agent/use-agent-chat-history-handlers.ts
+  s_be6a00985408b3::t_43cde209177172 1-237
+apps/web/src/components/layout/GlobalSearch.tsx
+  s_be6a00985408b3::t_bc6ba3400ec203 19,28-35
+  s_be6a00985408b3::t_22802149b461ea 104,112
+  s_be6a00985408b3::t_0217633c1e83c2 420-431,433,435-455
+  s_be6a00985408b3::t_dad351e55ab15f 24-27,40
+  s_be6a00985408b3::t_9ad7191ad5d9cf 145,205,217-224
+  s_be6a00985408b3::t_8a77919d73b8f1 251,257
+  s_be6a00985408b3::t_e417a904f0bcee 266-295,297
+  s_be6a00985408b3::t_42e9921792367f 351
+  s_be6a00985408b3::t_41de19ffac39a8 75
+apps/web/src/api/ws-api-types.ts
+  s_be6a00985408b3::t_709503aeb6132c 1-263
+apps/web/src/components/files/FileTreeRow.tsx
+  s_be6a00985408b3::t_ee6aed12fd4773 1-2,5-29,32-125
+  s_be6a00985408b3::t_2d5aff9af99832 3-4,30-31
+crates/infra/src/db/repo/review_repo/agent_run.rs
+  s_be6a00985408b3::t_f9e15ab9622d9d 1-216
+apps/web/src/components/dialogs/CreateWorkspaceDialogParts.tsx
+  s_be6a00985408b3::t_c186e6501cdbbb 35-39
+  s_be6a00985408b3::t_ee1eca108fd58c 1-34,40-450
+apps/web/src/components/welcome/WelcomeComposerCard.tsx
+  s_be6a00985408b3::t_c7beb2c836069d 1-128
+apps/web/src/components/dialogs/CreateWorkspaceDialogTypes.ts
+  s_be6a00985408b3::t_f50473e7ee3e5d 1-11
+apps/web/src/hooks/use-ui-pref-hooks.ts
+  s_be6a00985408b3::t_7b6eae85025bd9 140-143,148-153,156-161
+apps/web/src/components/diff/review-code-view-inline-annotations.tsx
+  s_be6a00985408b3::t_5926a8a9d3eab3 1-331
+apps/web/src/hooks/editor-store-paths.ts
+  s_be6a00985408b3::t_de907c2d1c71e9 1-135
+crates/core-service/src/service/review.rs
+  s_be6a00985408b3::t_98c02d7683b379 1,5-6
+  s_be6a00985408b3::t_23e55db4397611 11
+  s_be6a00985408b3::t_1a55cf4b1f4958 14
+  s_be6a00985408b3::t_7e8feb5290540d 36
+  s_be6a00985408b3::t_15f32b23246644 15
+  s_be6a00985408b3::t_f4be6509a0806c 12
+  s_be6a00985408b3::t_2c6831b7e4f390 13
+  s_be6a00985408b3::t_4f85d61693b74c 16
+  s_be6a00985408b3::t_b6f30ae8a1563b 17,22
+  s_be6a00985408b3::t_73e45c4908cc0c 18-19
+  s_be6a00985408b3::t_6056e558ad1430 20,23
+crates/core-service/src/service/review/prompts.rs
+  s_be6a00985408b3::t_0da5c9ece3db2d 4
+  s_be6a00985408b3::t_611a7c641d991d 1-3,5-234
+apps/web/src/components/run-preview/PreviewContent.tsx
+  s_be6a00985408b3::t_6fc1da9d9b46b9 1-36
+apps/web/src/api/ws/settings-api.ts
+  s_be6a00985408b3::t_5e7fa5bf432280 1-192
+crates/core-service/src/service/ws_message.rs
+  s_be6a00985408b3::t_a838f584f70907 7
+  s_be6a00985408b3::t_c76d9c60a0860c 11
+  s_be6a00985408b3::t_fbe885ef2dbc5e 17-19
+  s_be6a00985408b3::t_fec8028d40cb7a 20
+  s_be6a00985408b3::t_54665445e89e15 21
+  s_be6a00985408b3::t_48500227224bda 12
+  s_be6a00985408b3::t_11f1cddd99167a 88
+  s_be6a00985408b3::t_dd8ea6291ad9de 13
+  s_be6a00985408b3::t_b5c7cc963b7062 10,83
+  s_be6a00985408b3::t_08a05e05688b30 8
+  s_be6a00985408b3::t_ff6ba28a40b382 6
+  s_be6a00985408b3::t_339662ec3090c7 9
+  s_be6a00985408b3::t_a757edc077e481 14
+  s_be6a00985408b3::t_edfaf45ab72392 15
+  s_be6a00985408b3::t_32275a839389c1 72-81,824
+  s_be6a00985408b3::t_cb2c07cd1af54a 16
+  s_be6a00985408b3::t_8a5e0167dce876 84,89
+apps/web/src/components/dialogs/AgentHookStatusCard.tsx
+  s_be6a00985408b3::t_57d7b975c67526 1-256
+apps/web/src/components/welcome/WelcomeComposerFooter.tsx
+  s_be6a00985408b3::t_46c02704e2608a 1-105
+apps/web/src/components/dialogs/SettingsModalSections.tsx
+  s_be6a00985408b3::t_d3e72a803c4a94 1-249
+crates/infra/src/db/repo/review_repo/file.rs
+  s_be6a00985408b3::t_2bdf8e0902f64b 1-244
+apps/web/src/components/run-preview/use-preview-favorites.ts
+  s_be6a00985408b3::t_589dd90ae69e60 1-184
+apps/web/src/components/canvas/CanvasTerminalCard.tsx
+  s_be6a00985408b3::t_8094a4adf7dfae 1-18,20-80,82-353
+  s_be6a00985408b3::t_34e241bd85aa0f 19,81
+apps/desktop/src-tauri/src/runtime.rs
+  s_be6a00985408b3::t_c81af459f43513 20-23,92,125-126
+crates/core-service/src/service/review/comments.rs
+  s_be6a00985408b3::t_2c6831b7e4f390 1-12,15-546
+  s_be6a00985408b3::t_f4be6509a0806c 13-14
+crates/core-service/src/service/ws_message/workspace_gitignore.rs
+  s_be6a00985408b3::t_bb505f050fd6b6 1-121
+crates/runtime-manager/src/register.rs
+  s_be6a00985408b3::t_c81af459f43513 73-74
+apps/web/src/components/welcome/use-welcome-agent-options.ts
+  s_be6a00985408b3::t_2c798391863244 1-101
+apps/web/src/components/welcome/use-welcome-project-context.ts
+  s_be6a00985408b3::t_26c0b868f39a53 1-460
+apps/web/src/components/canvas/canvas-agent-bus-read.ts
+  s_be6a00985408b3::t_8c0f29d3f23ca2 1-194
+apps/web/src/components/terminal/use-terminal-links.ts
+  s_be6a00985408b3::t_b95f44d361829d 1-322
+apps/web/src/hooks/project-store-order-actions.ts
+  s_be6a00985408b3::t_e39e595d949437 10-11,13,15,40-41,43-47
+  s_be6a00985408b3::t_fd33e7304b1b49 1-9,12,14,16-39,42,48-112
+crates/core-service/src/service/ws_message/review.rs
+  s_be6a00985408b3::t_68e5a8b784ea0f 1-510
+apps/desktop/src-tauri/src/main.rs
+  s_be6a00985408b3::t_c81af459f43513 370,380
+apps/web/src/components/layout/UsagePopover.tsx
+  s_be6a00985408b3::t_ad5a82ed7763cc 63
+  s_be6a00985408b3::t_3f9665db4e5fc4 323,335
+  s_be6a00985408b3::t_b306e46e941f27 51-54
+  s_be6a00985408b3::t_4f390b8109895f 50,57
+  s_be6a00985408b3::t_d93695d5e80cae 55
+  s_be6a00985408b3::t_a176d4558e549d 56,58-61
+apps/web/src/components/canvas/CanvasView.tsx
+  s_be6a00985408b3::t_641e2e05331f70 83-87
+  s_be6a00985408b3::t_f7614a8e9c0601 88-96
+  s_be6a00985408b3::t_02d4e83f9186be 274
+  s_be6a00985408b3::t_a320fe9f0b3402 323,361
+apps/cli/src/commands/computer.rs
+  s_be6a00985408b3::t_c81af459f43513 5,8
+apps/web/src/components/skills/SkillsViewEmptyState.tsx
+  s_be6a00985408b3::t_07f005784c4e06 1-55
+apps/web/src/components/diff/diff-viewer-review-annotations.tsx
+  s_be6a00985408b3::t_e0fcc33051f07b 1-330
+apps/cli/src/commands/canvas.rs
+  s_be6a00985408b3::t_c81af459f43513 368-369
+apps/web/src/components/layout/use-center-stage-named-terminal-visibility.ts
+  s_be6a00985408b3::t_c23cd05adb884a 1-87
+apps/web/src/components/diff/DiffViewerHeader.tsx
+  s_be6a00985408b3::t_e66c732a028ecf 1-32,34-54,56-90,92-201
+  s_be6a00985408b3::t_b99ef822fa8234 33,55,91
+apps/web/src/components/files/FileTree.tsx
+  s_be6a00985408b3::t_15d53ef57d3a73 571-593
+  s_be6a00985408b3::t_5fbcb618bb224e 7-8,12-23
+  s_be6a00985408b3::t_23a6ec496eb631 55
+  s_be6a00985408b3::t_71e696a0aaa076 553,555-562,564,566
+apps/web/src/components/dialogs/remote-access-controls.tsx
+  s_be6a00985408b3::t_a41e1a67492ce7 1-870
+crates/core-engine/src/tmux/mod.rs
+  s_be6a00985408b3::t_41b970acdfefd2 23
+  s_be6a00985408b3::t_2f484e14b8fec6 13-14,16,25-28
+  s_be6a00985408b3::t_5122c31b1a5297 11
+  s_be6a00985408b3::t_75a56955836df8 15
+  s_be6a00985408b3::t_4e5a97d4a32ec2 20
+apps/web/src/components/github/PRDetailModal.tsx
+  s_be6a00985408b3::t_171e7e9e8913f8 249
+  s_be6a00985408b3::t_36435961fa851e 56,68
+  s_be6a00985408b3::t_2c5c13164433ae 880-891
+  s_be6a00985408b3::t_614a22644eec39 868-873
+  s_be6a00985408b3::t_5ac7b5d4808450 1,33,54,57-59,61-64,66-67
+  s_be6a00985408b3::t_a36878fedaeb21 60,65
+  s_be6a00985408b3::t_4eb46fc658e49d 251
+  s_be6a00985408b3::t_b6c277a3214fce 98
+crates/core-service/src/service/workspace_todos.rs
+  s_be6a00985408b3::t_b03f29e571bab8 1-3,5-154
+  s_be6a00985408b3::t_c81af459f43513 4
+crates/infra/src/websocket/message/agents.rs
+  s_be6a00985408b3::t_67052ee192c084 1-33,35-43,45-53,55
+  s_be6a00985408b3::t_361614251477be 34,44,54
+crates/core-service/src/service/ws_message/skills.rs
+  s_be6a00985408b3::t_a757edc077e481 1-472
+apps/web/src/components/agent/use-agent-chat-submit-handler.ts
+  s_be6a00985408b3::t_eb77f52a258d08 1-138
+crates/core-engine/src/git/worktrees.rs
+  s_be6a00985408b3::t_af9d958710af75 1-4,6-207
+  s_be6a00985408b3::t_3d7812597f0151 5
+crates/core-service/src/service/review/agent_runs/finalize_fix.rs
+  s_be6a00985408b3::t_fe5fba8e2ffd76 1-382
+apps/web/src/components/layout/CenterStage.tsx
+  s_be6a00985408b3::t_d81c894c1e065c 310-317,319-320,322-327,329-337,339-349,351-361
+  s_be6a00985408b3::t_573cee12f8588b 685-697,700-701,703-719,827-841,887-891
+  s_be6a00985408b3::t_d2fba4aa703bbc 50-55
+  s_be6a00985408b3::t_1f5ff16345e435 787-815
+  s_be6a00985408b3::t_c1dd4196e24d4a 263-276
+  s_be6a00985408b3::t_eac5a965076fdd 76,396
+  s_be6a00985408b3::t_beaeff1dcbe8b8 642-646
+  s_be6a00985408b3::t_3d128b475e62e9 648-654
+  s_be6a00985408b3::t_d48bd93e1c0a07 755-785
+  s_be6a00985408b3::t_d928eb94496064 723-729
+  s_be6a00985408b3::t_c23cd05adb884a 77,164-181
+  s_be6a00985408b3::t_7f46c60ab1a3f8 57-60,93,818-825
+  s_be6a00985408b3::t_77c0b2cefc37df 66-67,69-74
+  s_be6a00985408b3::t_e07d73b37d4d10 56
+  s_be6a00985408b3::t_4842991c55d978 68,680-683
+  s_be6a00985408b3::t_66f993ee4e635b 65
+  s_be6a00985408b3::t_a1e4cb76b17a54 61-64
+  s_be6a00985408b3::t_8ad77261c0538d 318
+  s_be6a00985408b3::t_3eec9abe64c326 477,565,639
+  s_be6a00985408b3::t_a8f7d901f063c1 75
+apps/web/src/components/dialogs/local-model-panel-parts.tsx
+  s_be6a00985408b3::t_3929ad04202464 1-669
+apps/web/src/components/welcome/use-welcome-composer-attachments.ts
+  s_be6a00985408b3::t_553bdb874accec 1-78
+apps/web/src/components/terminal/use-terminal-search.ts
+  s_be6a00985408b3::t_b95f44d361829d 1-108
+apps/web/src/components/github/pr-detail-modal-actions.tsx
+  s_be6a00985408b3::t_f07ab561433ccb 1-196
+crates/core-service/src/service/ws_message/workspace.rs
+  s_be6a00985408b3::t_e256809aea8684 5,450,455,486-488
+  s_be6a00985408b3::t_cb2c07cd1af54a 2-4,6-449,451-454,456-485,489-771
+  s_be6a00985408b3::t_471cc0db94f775 1
+crates/core-engine/src/tmux/locale.rs
+  s_be6a00985408b3::t_634e7c53650b33 1-2,5-32,89
+  s_be6a00985408b3::t_03612ebac18912 3-4,33-88
+crates/core-service/src/service/workspace.rs
+  s_be6a00985408b3::t_0c89d0fcdbd66a 691-693,712,755,780,785
+  s_be6a00985408b3::t_fa2cbef30419f5 21
+  s_be6a00985408b3::t_13977aa23d09fc 2,5,13,23,25
+  s_be6a00985408b3::t_800b97c9efedff 3-4,10
+  s_be6a00985408b3::t_351607d07bc81f 14,24
+  s_be6a00985408b3::t_1022e342cd4742 514-516,519-521,613-616,619-622
+  s_be6a00985408b3::t_aff9f9142ebb0d 173,186-187,241,260,262,266,302,325
+  s_be6a00985408b3::t_c081a1cd512707 680
+  s_be6a00985408b3::t_427ad6fe28c3d4 449-450
+  s_be6a00985408b3::t_92619f7aa89735 6-8
+apps/web/src/components/layout/CenterStageTabBar.tsx
+  s_be6a00985408b3::t_97e18a5789c9e7 297,309,526-528,556,564,575,583-585
+  s_be6a00985408b3::t_0b93abe32975d4 1-296,298-308,310-525,529-555,557-563,565-574,576-582,586-694
+apps/web/src/components/agent/use-agent-chat-status-publisher.ts
+  s_be6a00985408b3::t_0f96d9803c853d 1-37
+apps/web/src/hooks/terminal-store-helpers.ts
+  s_be6a00985408b3::t_4ff0a466c60550 10-11,54-59,472-533
+  s_be6a00985408b3::t_0c0fadaa713cf0 39
+  s_be6a00985408b3::t_64dad1fcbf447f 4,534-575
+  s_be6a00985408b3::t_ffe998993e945b 1-3,5,7-9,12-29,60-331,576-577
+  s_be6a00985408b3::t_0ab1b8e4ce98c6 6,30-38,40-53,332-471
+crates/core-service/src/service/review/dto.rs
+  s_be6a00985408b3::t_eb81541137c73d 1-2,4-104
+  s_be6a00985408b3::t_f4be6509a0806c 3
+apps/web/src/components/terminal/TerminalChrome.tsx
+  s_be6a00985408b3::t_5bb774595c5cad 17-18,20,41-42,44,63,128,163
+  s_be6a00985408b3::t_92cb1c546b0e41 3,5,12,23,60,213
+  s_be6a00985408b3::t_68eebe654c644c 4,13
+  s_be6a00985408b3::t_ee22bb0dc65e96 1-2,6-11,14-16,19,21-22,24-40,43,45-59,61-62,64-127,129-162,164-212,214-290
+crates/core-engine/src/git/tests.rs
+  s_be6a00985408b3::t_ac483923bdb268 2-262,270-394,399-496,498-523
+  s_be6a00985408b3::t_169db70e9e73ef 497
+  s_be6a00985408b3::t_516d5743dc2200 1,263-269
+  s_be6a00985408b3::t_447cb127a7c18b 395-398
+apps/web/src/components/layout/use-left-sidebar-two-column-resize.ts
+  s_be6a00985408b3::t_a556ab8365abdf 1-167
+apps/web/src/components/diff/ReviewCodeView.tsx
+  s_be6a00985408b3::t_0feb83fc8b1046 36-40
+  s_be6a00985408b3::t_f80f62d15122d1 556-567,578-603
+  s_be6a00985408b3::t_eb5a653ad1c3f7 152-155
+apps/web/src/components/canvas/canvas-agent-bus-apply.ts
+  s_be6a00985408b3::t_8c0f29d3f23ca2 1-85
+apps/web/src/components/terminal/Terminal.tsx
+  s_be6a00985408b3::t_b8a228a477af39 193,202,206,208
+  s_be6a00985408b3::t_e557f1e2c9866c 25,48-50
+  s_be6a00985408b3::t_773e40aabc2587 46,679-693,695,697-707
+  s_be6a00985408b3::t_acdd517696f5f4 389
+  s_be6a00985408b3::t_a74f2a5afdae69 47,141-150
+  s_be6a00985408b3::t_1cf0b85ec8949e 15,21,27-45
+  s_be6a00985408b3::t_c7be806c94a95e 111-138
+apps/web/src/components/terminal/terminal-ws-url.ts
+  s_be6a00985408b3::t_a74f2a5afdae69 1-76
+apps/web/src/components/canvas/canvas-agent-bus-viewport.ts
+  s_be6a00985408b3::t_1d89a95d177ba1 81
+  s_be6a00985408b3::t_8c0f29d3f23ca2 1-80,82-104
+crates/core-service/src/service/ws_message/git.rs
+  s_be6a00985408b3::t_32275a839389c1 48,157
+  s_be6a00985408b3::t_08a05e05688b30 1-2,4-47,49-156,158-417
+  s_be6a00985408b3::t_8a5e0167dce876 3
+apps/web/src/components/layout/sidebar/WorkspaceKanbanCard.tsx
+  s_be6a00985408b3::t_9e31fa47c32536 1-417
+apps/web/src/components/terminal/use-terminal-input-ready.ts
+  s_be6a00985408b3::t_b95f44d361829d 1-71
+crates/core-service/src/service/review/tests.rs
+  s_be6a00985408b3::t_61314cb27a1525 1-469
+apps/web/src/components/layout/TokenUsageDialog.tsx
+  s_be6a00985408b3::t_fada78a90203f6 69-97,99-100
+  s_be6a00985408b3::t_3473e4e3371495 409-413
+  s_be6a00985408b3::t_c591ff7ec0ed8f 98
+  s_be6a00985408b3::t_90b02838355e00 386-393
+  s_be6a00985408b3::t_f683b6f24623a3 4,61-68
+apps/web/src/api/ws/usage-api.ts
+  s_be6a00985408b3::t_334e78d1b5020f 1-261
+apps/web/src/components/dialogs/use-settings-update-actions.tsx
+  s_be6a00985408b3::t_571a4632026224 1-275
+apps/web/src/components/dialogs/settings/settings-modal-utils.ts
+  s_be6a00985408b3::t_0f61d0d5e9f987 1-102
+apps/web/src/components/layout/header-parts.tsx
+  s_be6a00985408b3::t_34fd7240050fdc 1-25,28-226
+  s_be6a00985408b3::t_1a408530557f84 26-27
+apps/web/src/lib/codemirror-git-gutter-theme.ts
+  s_be6a00985408b3::t_3e68f00a556448 1-253
+crates/core-engine/src/lib.rs
+  s_be6a00985408b3::t_c81af459f43513 18-19
+apps/web/src/components/welcome/WelcomeMentionPopover.tsx
+  s_be6a00985408b3::t_9300c1535e60f6 43,55,89,122,173
+  s_be6a00985408b3::t_a429be437132d5 1-42,44-54,56-88,90-121,123-172,174-214
+crates/infra/src/websocket/message.rs
+  s_be6a00985408b3::t_f667365db11031 8,16
+  s_be6a00985408b3::t_a603574cf7ca96 4,9,12,17
+  s_be6a00985408b3::t_be330676ec7b7a 5,13
+  s_be6a00985408b3::t_a5b3a655735d08 7,15
+  s_be6a00985408b3::t_96f218e9754338 10,18
+  s_be6a00985408b3::t_e72807dd898aea 6,11,14,19
+apps/web/src/components/skills/SkillsInstalledTab.tsx
+  s_be6a00985408b3::t_07f005784c4e06 1-83
+crates/core-engine/src/git/commits.rs
+  s_be6a00985408b3::t_af9d958710af75 1-184
+crates/core-engine/src/git/refs.rs
+  s_be6a00985408b3::t_af9d958710af75 1-346
+apps/web/src/components/dialogs/settings-modal-sidebar.tsx
+  s_be6a00985408b3::t_c1c0acf770ac86 1-179,184,187-214,216-241
+  s_be6a00985408b3::t_6d2aabb1d8e814 180-183,185-186,215
+apps/web/src/components/terminal/TerminalGrid.tsx
+  s_be6a00985408b3::t_6b25918d6b707d 7
+  s_be6a00985408b3::t_3f578440b062ab 16,31-37,46
+  s_be6a00985408b3::t_6b8902b4122504 26
+  s_be6a00985408b3::t_b6e7e1eddd7fc2 178-186
+  s_be6a00985408b3::t_71cf5d798813a4 15
+  s_be6a00985408b3::t_74910ffaae0473 23-25
+  s_be6a00985408b3::t_2993cbb2b838bb 727,732-736,760-765
+  s_be6a00985408b3::t_72e00f2766a072 571
+  s_be6a00985408b3::t_3f54e24b70f2f3 28-30
+  s_be6a00985408b3::t_a80fe3dd7270b2 768-773,780-784
+  s_be6a00985408b3::t_7b854eedee27ca 512-521
+  s_be6a00985408b3::t_1baf653f2ffcda 14,17,22,38-41
+  s_be6a00985408b3::t_a758e862447760 659-660,662-691
+crates/core-service/src/service/review/agent_run_finalize.rs
+  s_be6a00985408b3::t_7f904fec69c630 1-211
+apps/web/src/components/layout/use-left-sidebar-workspace-derived.ts
+  s_be6a00985408b3::t_e90d48c7a52c42 1-172
+apps/web/src/components/terminal/terminal-grid-states.tsx
+  s_be6a00985408b3::t_b3daed4e4bcd7b 1-60
+crates/core-service/src/service/review/session.rs
+  s_be6a00985408b3::t_4f85d61693b74c 1-20,22-318
+  s_be6a00985408b3::t_1fde0627f8f897 21
+apps/web/src/components/layout/center-stage-dialogs.tsx
+  s_be6a00985408b3::t_a1e4cb76b17a54 1-86
+apps/web/src/components/layout/llm-providers-modal-parts.tsx
+  s_be6a00985408b3::t_5cff2096fa7645 1-307
+apps/web/src/components/dialogs/SettingsAboutSection.tsx
+  s_be6a00985408b3::t_cc5b19c5ebcfac 1-168
+apps/web/src/components/run-preview/preview-utils.tsx
+  s_be6a00985408b3::t_7e824ac38a95a9 4-249,365-396
+  s_be6a00985408b3::t_70c149ecd3ae79 1-3,250-364
+apps/web/src/components/skills/SkillsView.tsx
+  s_be6a00985408b3::t_a4fd408aa091c3 32-34,40-45
+  s_be6a00985408b3::t_05af8719e5ac96 124,128,357,364,447-472
+apps/web/src/components/layout/LlmProvidersModal.tsx
+  s_be6a00985408b3::t_3b9f1adf8115ca 4,42-48
+  s_be6a00985408b3::t_fe9e807434545a 337-344,347-362
+  s_be6a00985408b3::t_6827605c426b5f 22-40
+  s_be6a00985408b3::t_03cec523842212 41
+  s_be6a00985408b3::t_690f7160bc0f28 527-533,553,556-560
+  s_be6a00985408b3::t_2aaa917d6acb2a 83
+apps/web/src/components/dialogs/LocalModelPanel.tsx
+  s_be6a00985408b3::t_8290b48a3e168d 29-34
+  s_be6a00985408b3::t_3859acdddd4bd3 44
+apps/web/src/api/ws/request.ts
+  s_be6a00985408b3::t_9d0cc26c102dae 1-22
+apps/web/src/components/agent/use-agent-chat-session-types.ts
+  s_be6a00985408b3::t_0cabbe2d4e4fb4 1-202
+crates/core-service/src/service/review/agent_runs/revision.rs
+  s_be6a00985408b3::t_13c2b518c2b166 3
+  s_be6a00985408b3::t_445c689fc99c40 1-2,4-196
+apps/web/src/components/layout/LeftSidebar.tsx
+  s_be6a00985408b3::t_a7f436efed3705 759-785
+  s_be6a00985408b3::t_8cc1d680991b5a 12,33-37
+  s_be6a00985408b3::t_af8fb90c222552 51,522-525,583-615,629-661
+  s_be6a00985408b3::t_b3572255618f4b 44,46,55
+  s_be6a00985408b3::t_9cec198d701946 443-447,449-450,452-453,455-461,463,465-468,471-473,487
+  s_be6a00985408b3::t_2f241a76e01181 488-503
+  s_be6a00985408b3::t_a5676b7e172f58 47-48
+  s_be6a00985408b3::t_792bcda656be6f 10,60,474-486
+  s_be6a00985408b3::t_5252f05e58f102 798-805,830-853
+  s_be6a00985408b3::t_8c5ae1e0084e16 717-724,728-743
+  s_be6a00985408b3::t_96adb7f05fdf6f 56,59
+  s_be6a00985408b3::t_c2c267dd935e85 49,54
+  s_be6a00985408b3::t_ed4ffc7089e829 619-625,708-713
+  s_be6a00985408b3::t_2427d72c87bf16 45,568-579
+  s_be6a00985408b3::t_a9d6cb7f7213fd 547-551,555,561,565
+  s_be6a00985408b3::t_120982663bece0 3,57
+  s_be6a00985408b3::t_d590c97297e287 50,52
+  s_be6a00985408b3::t_ba6618df6278de 313-322
+  s_be6a00985408b3::t_708d441ae6b382 53,665-704
+  s_be6a00985408b3::t_3710c8fbc0b09a 203,213
+  s_be6a00985408b3::t_3ffe04445653d0 58
+apps/web/src/api/ws/local-model-api.ts
+  s_be6a00985408b3::t_9d0cc26c102dae 1-104
+crates/core-engine/src/git/changes.rs
+  s_be6a00985408b3::t_516d5743dc2200 6
+  s_be6a00985408b3::t_949511e40662c6 1-3,5,7-360
+  s_be6a00985408b3::t_41115da4688849 4
+apps/web/src/components/terminal/terminal-mosaic-workspace-pane-window.tsx
+  s_be6a00985408b3::t_33f5db3995ab60 1-344
+apps/web/src/components/layout/global-search-app-items.tsx
+  s_be6a00985408b3::t_92f6c76ed2585a 55,70,73
+  s_be6a00985408b3::t_18f876f1dd6db7 1-54,56-69,71-72,74-416
+apps/web/src/components/terminal/terminal-grid-close-confirm-dialog.tsx
+  s_be6a00985408b3::t_388e5a8ea57020 1-69
+apps/web/src/components/layout/llm-providers-modal-sections.tsx
+  s_be6a00985408b3::t_94a9b6bdcf400a 1-634
+apps/web/src/components/layout/header-action-controls.tsx
+  s_be6a00985408b3::t_e17a3278f6be22 1-299,301-487
+  s_be6a00985408b3::t_9bab2354df4716 300
+apps/web/src/components/dialogs/CanvasSettingsSection.tsx
+  s_be6a00985408b3::t_aef5df5e82b1d4 1-174
+apps/web/src/components/skills/skills-view-utils.ts
+  s_be6a00985408b3::t_07f005784c4e06 1-81
+apps/web/src/components/dialogs/ShortcutsSettingsSection.tsx
+  s_be6a00985408b3::t_4ae3514f8529c5 1-116
+packages/ui/src/components/ai-elements/prompt-input-primitives.tsx
+  s_be6a00985408b3::t_ab07db9d215ae7 1-441
+apps/web/src/components/dialogs/SettingsAiSection.tsx
+  s_be6a00985408b3::t_37c33771ce2e52 1-2,4-590,592-607
+  s_be6a00985408b3::t_bd848e8cbdb2e3 3
+  s_be6a00985408b3::t_a45979bb4744d6 591
+apps/web/src/components/dialogs/CreateWorkspaceDialogGithubPanels.tsx
+  s_be6a00985408b3::t_03db83dceadbeb 1-425
+crates/core-engine/src/tmux/install.rs
+  s_be6a00985408b3::t_8dd14e6063e4fc 4,6-7,155-196
+  s_be6a00985408b3::t_5c7f00664293f2 1-3,5,8-154,197-251
+apps/web/src/components/welcome/use-welcome-mention-search.ts
+  s_be6a00985408b3::t_1b3e0b2d48677d 1-157
+crates/core-service/src/service/ws_message/github.rs
+  s_be6a00985408b3::t_4bb3892f7eb5a5 134,139-144,444,475,560,575,688
+  s_be6a00985408b3::t_8a5e0167dce876 1
+  s_be6a00985408b3::t_339662ec3090c7 2-133,135-138,145-443,445-474,476-559,561-574,576-687,689-747
+apps/web/src/components/files/FileTreeContextMenu.tsx
+  s_be6a00985408b3::t_ee6aed12fd4773 1-396
+crates/core-service/src/service/ws_message_support.rs
+  s_be6a00985408b3::t_05a341022ed88b 1-166
+apps/web/src/components/layout/use-left-sidebar-drag-handlers.ts
+  s_be6a00985408b3::t_792bcda656be6f 1-117
+apps/web/src/components/welcome/SlashCommandPopover.tsx
+  s_be6a00985408b3::t_679e14a62ccc9f 1-40,42-57,59-103,105-125,127-156,158-176,178-207,209-233,235-273
+  s_be6a00985408b3::t_79dfa07d648cdc 41,58,104,126,157,177,208,234
+crates/runtime-manager/src/computer_name.rs
+  s_be6a00985408b3::t_c81af459f43513 32-35
+crates/runtime-manager/src/registration_meta.rs
+  s_be6a00985408b3::t_c81af459f43513 31,35-36
+apps/web/src/components/editor/codemirror-search-panel.tsx
+  s_be6a00985408b3::t_7fc09d7341be01 1-395
+apps/web/src/components/editor/BaseCodeMirrorEditor.tsx
+  s_be6a00985408b3::t_2cfaa2dd4fae82 15,37
+apps/api/src/api/system/cli.rs
+  s_be6a00985408b3::t_b62a462566efda 1-508
+apps/web/src/components/terminal/use-terminal-grid-hotkeys.ts
+  s_be6a00985408b3::t_065e1bc032f9c7 1-107
+apps/web/src/components/welcome/WelcomePage.tsx
+  s_be6a00985408b3::t_4f52cf033a26a3 37-38,40-41,43
+  s_be6a00985408b3::t_05dee409cb965b 346
+  s_be6a00985408b3::t_b1b3b01d5438ed 703-807
+  s_be6a00985408b3::t_4420473d3bbfd1 392,398
+  s_be6a00985408b3::t_065f26ddc7b1da 222,225
+  s_be6a00985408b3::t_52291c994db8a3 34-35
+  s_be6a00985408b3::t_2a8d9afaa93745 400-403
+  s_be6a00985408b3::t_5d6c19b1d6cf80 19-20
+  s_be6a00985408b3::t_2c798391863244 16,126-131
+  s_be6a00985408b3::t_553bdb874accec 17,100-108,553,652-653,683
+  s_be6a00985408b3::t_938aee1c0ba5db 21-24,110,349-363
+  s_be6a00985408b3::t_3a251a79c428cb 121-124
+  s_be6a00985408b3::t_4da909088d2899 616-627
+  s_be6a00985408b3::t_52821b88d3c77a 18
+  s_be6a00985408b3::t_e643b662ecd5b5 595,605-606
+  s_be6a00985408b3::t_06c612d17b585c 39,42,52-53,408-433
+  s_be6a00985408b3::t_973d8192ec2bb2 628-651,654-682,684-685,690-701
+  s_be6a00985408b3::t_46eb4e9684721b 63
+  s_be6a00985408b3::t_59b2602e51d43c 45-47,109
+  s_be6a00985408b3::t_1aa97be58ac62f 36
+  s_be6a00985408b3::t_088be7eb98af27 242-251
+  s_be6a00985408b3::t_8b31c5a5177b7d 296-309
+  s_be6a00985408b3::t_94a6574f33e758 44,49-51,54-62,64-67
+  s_be6a00985408b3::t_be5aebd41c30a7 183-221,223-224,226-240
+  s_be6a00985408b3::t_1b527a1b05aa43 686-689,812-816
+  s_be6a00985408b3::t_a345bd972e3690 702,808-809
+crates/core-service/src/service/workspace/management.rs
+  s_be6a00985408b3::t_f0ea4e4626cd1a 1-7,10-327
+  s_be6a00985408b3::t_351607d07bc81f 8-9
+crates/core-service/src/service/ws_message/workspace_cleanup.rs
+  s_be6a00985408b3::t_c2b1784f62d8dd 1-113
+crates/runtime-manager/src/lib.rs
+  s_be6a00985408b3::t_c81af459f43513 26-31,37
+apps/web/src/components/layout/center-stage-file-menu.tsx
+  s_be6a00985408b3::t_7f46c60ab1a3f8 1-145
+apps/web/src/components/layout/use-header-fullscreen.ts
+  s_be6a00985408b3::t_bb6b82a000c780 1-109
+apps/web/src/components/layout/global-search-content.tsx
+  s_be6a00985408b3::t_42d27a823424d1 1-449
+apps/web/src/components/dialogs/WorkspaceSettingsSection.tsx
+  s_be6a00985408b3::t_2d88a433dfe8ff 1-493
+apps/web/src/hooks/project-store-setup-actions.ts
+  s_be6a00985408b3::t_fd33e7304b1b49 1-122
+crates/core-service/src/service/ws_message/settings.rs
+  s_be6a00985408b3::t_f91e922410e77e 1-3,6-61,63-268
+  s_be6a00985408b3::t_8a5e0167dce876 4-5
+  s_be6a00985408b3::t_98a26ab8c224ec 62
+crates/core-service/src/service/skill/types.rs
+  s_be6a00985408b3::t_9a44da644a34be 1-56
+apps/web/src/components/canvas/canvas-agent-bus.ts
+  s_be6a00985408b3::t_5181fb617238b3 45,54,62-68,75-78
+  s_be6a00985408b3::t_7551405e6a4e58 130,133,136,139,142,154-156,225,228
+  s_be6a00985408b3::t_a203c3896eef0a 61,69-74,81-87
+  s_be6a00985408b3::t_a60f386bf1c77c 313-314,408,422,444,454,463,472,488,503,530,563,580
+  s_be6a00985408b3::t_9c5541fa17a7ed 46-53,55-60,608
+apps/web/src/components/layout/left-sidebar-derived.ts
+  s_be6a00985408b3::t_bd3c1024fe9715 1-72
+crates/core-service/src/service/review/support.rs
+  s_be6a00985408b3::t_b6f30ae8a1563b 1-119
+apps/web/src/hooks/terminal-store-auxiliary-actions.ts
+  s_be6a00985408b3::t_c4c13a5ef9ed45 1-440
+apps/web/src/components/layout/center-stage-support.tsx
+  s_be6a00985408b3::t_35f0d13d043027 1-16,18-20,40-97,99-125,127-135,137-145,147-151,153-174,176-404
+  s_be6a00985408b3::t_4842991c55d978 17,21-39
+  s_be6a00985408b3::t_9278846d69140c 98,126,136,146,152,175
+crates/core-engine/src/tmux/types.rs
+  s_be6a00985408b3::t_39c38330fe879a 1-86
+apps/web/src/components/layout/llm-providers-modal-utils.ts
+  s_be6a00985408b3::t_e26ba3a7b9f42c 1-459
+apps/web/src/api/ws/agent-api.ts
+  s_be6a00985408b3::t_5e7fa5bf432280 1-153
+apps/web/src/components/layout/token-usage-dialog-parts.tsx
+  s_be6a00985408b3::t_a78ec0bdbebf36 1-34,36-395
+  s_be6a00985408b3::t_d41d3590739502 35
+apps/web/src/components/dialogs/ExperimentSettingsSection.tsx
+  s_be6a00985408b3::t_309a6d3b253cff 1-70
+apps/web/src/components/dialogs/settings/SaveActionButton.tsx
+  s_be6a00985408b3::t_7235c888742a75 1-27
+crates/core-service/src/service/review/types.rs
+  s_be6a00985408b3::t_b11acd1ca52856 1,8-103,105-221
+  s_be6a00985408b3::t_1c825aa26accc0 7
+  s_be6a00985408b3::t_b6f30ae8a1563b 104
+  s_be6a00985408b3::t_8a9ea3dcf489c0 2-6
+apps/web/src/components/dialogs/NotifySettingsSection.tsx
+  s_be6a00985408b3::t_0473b7d8b7ccad 1-496
+crates/runtime-manager/src/identity.rs
+  s_be6a00985408b3::t_c81af459f43513 70-71
+apps/web/src/components/dialogs/IntegrationsSettingsSection.tsx
+  s_be6a00985408b3::t_26575f10cd9f6e 1-227
+apps/web/src/components/dialogs/LayoutSettingsSection.tsx
+  s_be6a00985408b3::t_4fd873becfe2d4 1-322
+crates/core-engine/src/git/mod.rs
+  s_be6a00985408b3::t_949511e40662c6 9,12
+  s_be6a00985408b3::t_169db70e9e73ef 14,18-20
+  s_be6a00985408b3::t_e56c3975862e49 17
+  s_be6a00985408b3::t_244b52cda5a747 105
+  s_be6a00985408b3::t_c5d1ec57522cdf 3,8,10,13,15
+  s_be6a00985408b3::t_e991f805183574 11
+apps/web/src/hooks/editor-store-helpers.ts
+  s_be6a00985408b3::t_de907c2d1c71e9 1-63
+crates/core-service/src/service/ws_message/fs.rs
+  s_be6a00985408b3::t_32275a839389c1 51-54,145-148
+  s_be6a00985408b3::t_8a5e0167dce876 1
+  s_be6a00985408b3::t_82eb08965b61c7 2-50,55-144,149-235
+crates/runtime-manager/src/supervisor.rs
+  s_be6a00985408b3::t_c81af459f43513 91-94,121-127,212-215,231-236,265-266,441,477-480,534-537
+apps/web/src/components/layout/Header.tsx
+  s_be6a00985408b3::t_a24add49c1504f 58,236-243
+  s_be6a00985408b3::t_adf6f03ef725fd 54-56
+  s_be6a00985408b3::t_f3de395af038c0 554-581,583-619
+  s_be6a00985408b3::t_bfa6f362c3524d 57,86-91
+  s_be6a00985408b3::t_32bb28ac1ef992 37
+crates/infra/src/websocket/message/fs.rs
+  s_be6a00985408b3::t_136032af00473d 1-274
+apps/web/src/components/layout/header-git-context.tsx
+  s_be6a00985408b3::t_ba643cb6fdd5c1 1-286
+apps/web/src/components/welcome/WelcomePageShell.tsx
+  s_be6a00985408b3::t_5b579a9067065c 1-5,7-82,147-148
+  s_be6a00985408b3::t_97a7c319a68c2e 6,83-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "c03faf93fd38c7f0e4cd71cbb350694c12322310",
+  "prompts": {},
+  "sessions": {
+    "s_be6a00985408b3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e4d76-c8de-7583-99a2-3576f5a41dfc",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
