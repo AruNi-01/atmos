@@ -2,14 +2,15 @@
 
 import type { DiffIndicators } from '@pierre/diffs';
 import {
-  Columns2,
-  EyeOff,
-  Minus,
-  MoreHorizontal,
-  Plus,
-  Rows3,
-  Settings2,
-} from 'lucide-react';
+  IconCodeStyleBars,
+  IconCollapsedRow,
+  IconDiffSplit,
+  IconDiffUnified,
+  IconExpandAll,
+  IconEyeSlash,
+  IconGearFill,
+  IconSymbolDiffstat,
+} from '@pierre/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,9 +67,9 @@ export function DiffCodeViewSettingsMenu({
         }
       >
         {diffStyle === 'split' ? (
-          <Columns2 className="size-3.5" />
+          <IconDiffSplit className="size-3.5" />
         ) : (
-          <Rows3 className="size-3.5" />
+          <IconDiffUnified className="size-3.5" />
         )}
       </button>
       <button
@@ -80,9 +81,9 @@ export function DiffCodeViewSettingsMenu({
         onClick={onToggleCollapseMode}
       >
         {collapseMode === 'expanded' ? (
-          <Minus className="size-3.5 rotate-90" />
+          <IconExpandAll className="size-3.5" />
         ) : (
-          <Plus className="size-3.5 rotate-90" />
+          <IconCollapsedRow className="size-3.5" />
         )}
       </button>
       <DropdownMenu>
@@ -92,7 +93,7 @@ export function DiffCodeViewSettingsMenu({
             title="View options"
             className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
           >
-            <Settings2 className="size-3.5" />
+            <IconGearFill className="size-3.5" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
@@ -148,21 +149,21 @@ export function DiffCodeViewSettingsMenu({
                   className="size-7 p-0"
                   aria-label="Bar indicators"
                 >
-                  <MoreHorizontal className="size-3" />
+                  <IconCodeStyleBars className="size-3" />
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="classic"
                   className="size-7 p-0"
                   aria-label="Classic indicators"
                 >
-                  <span className="font-mono text-[10px] leading-none">±</span>
+                  <IconSymbolDiffstat className="size-3" />
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="none"
                   className="size-7 p-0"
                   aria-label="No indicators"
                 >
-                  <EyeOff className="size-3" />
+                  <IconEyeSlash className="size-3" />
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>

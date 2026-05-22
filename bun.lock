@@ -118,6 +118,7 @@
         "@headless-tree/core": "^1.6.2",
         "@headless-tree/react": "^1.6.2",
         "@pierre/diffs": "^1.2.1",
+        "@pierre/icons": "^0.5.0",
         "@pierre/trees": "1.0.0-beta.3",
         "@radix-ui/react-dialog": "^1.1.15",
         "@replit/codemirror-lang-svelte": "^6.0.0",
@@ -781,6 +782,8 @@
     "@parcel/watcher-win32-x64": ["@parcel/watcher-win32-x64@2.5.4", "", { "os": "win32", "cpu": "x64" }, "sha512-3A6efb6BOKwyw7yk9ro2vus2YTt2nvcd56AuzxdMiVOxL9umDyN5PKkKfZ/gZ9row41SjVmTVQNWQhaRRGpOKw=="],
 
     "@pierre/diffs": ["@pierre/diffs@1.2.1", "", { "dependencies": { "@pierre/theme": "1.0.3", "@shikijs/transformers": "^3.0.0", "diff": "8.0.3", "hast-util-to-html": "9.0.5", "lru_map": "0.4.1", "shiki": "^3.0.0" }, "peerDependencies": { "react": "^18.3.1 || ^19.0.0", "react-dom": "^18.3.1 || ^19.0.0" } }, "sha512-T9pYhh1KeaYLTwL1HMiAkeETj9CPjiKq6pqiUWRVJXvIkIvYutMrYyr3kN07cFWX2XPM8eqe6l2dknezs6K2AA=="],
+
+    "@pierre/icons": ["@pierre/icons@0.5.0", "", { "peerDependencies": { "react": "^18.0.0 || ^19.0.0" } }, "sha512-c46ZiKK8Vh3fhJM7Ci9jKW36UKsD+DTxVnr91liX0bgpc2jkwICW9bx9XTQsETpLR9CnoLSA/4ZQyLrb5HO0GA=="],
 
     "@pierre/theme": ["@pierre/theme@1.0.3", "", {}, "sha512-sWHv11TMoqKxKDgTIk5VbhQjdPhs8DCcBxbjh3mRlS3YOM/OcrWoGX6MM8eBGn9cUu3M46Py0JnxsG2nJaFTuA=="],
 

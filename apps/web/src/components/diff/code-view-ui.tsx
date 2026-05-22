@@ -1,11 +1,7 @@
 'use client';
 
 import type { MutableRefObject } from 'react';
-import type {
-  CodeViewItem,
-  CodeViewScrollBehavior,
-  CodeViewScrollListener,
-} from '@pierre/diffs';
+import type { CodeViewItem, CodeViewScrollBehavior } from '@pierre/diffs';
 import type { CodeViewHandle } from '@pierre/diffs/react';
 import { ChevronRight } from 'lucide-react';
 import { getFileIconProps } from '@workspace/ui';
@@ -63,7 +59,7 @@ export function createDiffHeaderPrefixRenderer<LAnnotation>(args: {
           <ChevronRight
             className={cn(
               'size-4 transition-transform',
-              (isEmptyDiff || collapsed) && '-rotate-90',
+              !isEmptyDiff && !collapsed && 'rotate-90',
             )}
           />
         </button>
@@ -96,24 +92,49 @@ export function scrollCodeViewToItem<LAnnotation = undefined>(
   }
 }
 
-/** File whose header is closest to (but not below) the viewport top. */
-export function findDiffItemIdAtScrollTop<LAnnotation>(
-  viewer: Parameters<CodeViewScrollListener<LAnnotation>>[1],
-  scrollTop: number,
+/** File whose diff occupies the viewport center, with a top-of-viewport fallback. */
+export function findDiffItemIdForViewport<LAnnotation>(
+  viewer: {
+    getTopForItem(id: string): number | undefined;
+    getWindowSpecs(): { top: number; bottom: number };
+  },
   itemIds: readonly string[],
 ): string | undefined {
+  const windowSpecs = viewer.getWindowSpecs();
+  const viewportTop = windowSpecs.top;
+  const viewportMidpoint = viewportTop + (windowSpecs.bottom - viewportTop) / 2;
   let activeId: string | undefined;
   let activeTop = -Infinity;
   const viewportOffset = 4;
 
-  for (const id of itemIds) {
+  for (let index = 0; index < itemIds.length; index += 1) {
+    const id = itemIds[index];
     const top = viewer.getTopForItem(id);
     if (top == null) continue;
-    if (top <= scrollTop + viewportOffset && top > activeTop) {
+    const nextTop = itemIds[index + 1]
+      ? viewer.getTopForItem(itemIds[index + 1])
+      : undefined;
+
+    if (viewportMidpoint >= top && (nextTop == null || viewportMidpoint < nextTop)) {
+      return id;
+    }
+
+    if (top <= viewportTop + viewportOffset && top > activeTop) {
       activeTop = top;
       activeId = id;
     }
   }
 
   return activeId ?? itemIds[0];
+}
+
+export function findDiffItemIdAtScrollTop<LAnnotation>(
+  viewer: {
+    getTopForItem(id: string): number | undefined;
+    getWindowSpecs(): { top: number; bottom: number };
+  },
+  _scrollTop: number,
+  itemIds: readonly string[],
+): string | undefined {
+  return findDiffItemIdForViewport(viewer, itemIds);
 }

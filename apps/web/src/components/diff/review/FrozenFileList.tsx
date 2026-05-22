@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { ReviewFileDto, ReviewSessionDto } from "@/api/ws-api";
 import { DiffFileTree } from "@/components/diff/DiffFileTree";
 import { DiffFilePathLabel } from "@/components/diff/DiffFilePathLabel";
+import { sortByDiffTreePath } from "@/components/diff/diff-file-order";
 
 interface FrozenFileListProps {
   revision: ReviewSessionDto["revisions"][number] | null;
@@ -66,8 +67,14 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
   viewMode = "list",
 }) => {
   const clickTimers = useRef<Record<string, number>>({});
+  const orderedFiles = sortByDiffTreePath(
+    revision?.files.map((file) => ({
+      path: file.snapshot.file_path,
+      file,
+    })) ?? [],
+  ).map((entry) => entry.file);
 
-  if (!revision || revision.files.length === 0) {
+  if (!revision || orderedFiles.length === 0) {
     return (
       <p className="text-xs text-muted-foreground px-1">
         No files in this revision.
@@ -77,12 +84,12 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
 
   if (viewMode === "tree") {
     const fileByPath = new Map(
-      revision.files.map((file) => [file.snapshot.file_path, file]),
+      orderedFiles.map((file) => [file.snapshot.file_path, file]),
     );
 
     return (
       <DiffFileTree
-        items={revision.files.map((file) => {
+        items={orderedFiles.map((file) => {
           const annotations = [
             file.state.reviewed ? "reviewed" : null,
             file.open_comment_count > 0 ? `${file.open_comment_count}` : null,
@@ -220,7 +227,7 @@ export const FrozenFileList: React.FC<FrozenFileListProps> = ({
 
   return (
     <div className="space-y-1">
-      {revision.files.map((file) => {
+      {orderedFiles.map((file) => {
         const path = file.snapshot.file_path;
         const isCurrent = path === currentFilePath;
         const status = file.snapshot.git_status;

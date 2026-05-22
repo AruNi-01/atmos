@@ -6,7 +6,6 @@ import type { CodeViewItem, DiffLineAnnotation, SelectedLineRange } from '@pierr
 import { parseDiffFromFile } from '@pierre/diffs';
 import { Loader2 } from 'lucide-react';
 import { toastManager } from '@workspace/ui';
-import { useTheme } from 'next-themes';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
@@ -19,23 +18,29 @@ import {
 } from '@/lib/diff-editor-paths';
 import { useDiffWorkerPoolReady } from '@/components/diff/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/components/diff/DiffCodeViewSettingsMenu';
+import { DiffCodeViewScaffold } from '@/components/diff/DiffCodeViewScaffold';
 import { DiffCopyAnnotation } from '@/components/diff/DiffCopyAnnotation';
+import { sortByDiffTreePath } from '@/components/diff/diff-file-order';
 import {
   applyCollapseModeToItems,
+  buildDiffSelectionInfo,
+  formatSelectedRangeLabel,
   getTextForRange,
   isCopyAnnotation,
   type CopyAnnotationMeta,
   updateViewerDiffItem,
 } from '@/components/diff/diff-code-view-shared';
 import {
+  ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   CODE_VIEW_HOST_CLASS,
 } from '@/components/diff/diff-view-constants';
 import {
   createDiffHeaderPrefixRenderer,
-  findDiffItemIdAtScrollTop,
+  findDiffItemIdForViewport,
   scrollCodeViewToItem,
 } from '@/components/diff/code-view-ui';
+import { formatDiffSelectionForAI } from '@/lib/format-selection-for-ai';
 
 const CODE_VIEW_BATCH_SIZE = 25;
 
@@ -51,7 +56,6 @@ interface ChangesCodeViewProps {
 export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
-  const { resolvedTheme } = useTheme();
   const compareRef = useGitStore((s) => s.compareRef);
   const stagedFiles = useGitStore((s) => s.stagedFiles);
   const unstagedFiles = useGitStore((s) => s.unstagedFiles);
@@ -60,6 +64,9 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
 
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
   const setDiffGroupActiveFile = useEditorStore((s) => s.setDiffGroupActiveFile);
+  const selectedPath = useEditorStore((s) =>
+    effectiveContextId ? s.diffGroupActiveFiles[effectiveContextId]?.[groupPath] : undefined,
+  );
   const navigationTarget = useEditorStore((s) =>
     effectiveContextId
       ? s.navigationTargets[effectiveContextId]?.[groupPath] ?? null
@@ -68,14 +75,16 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
 
   const workerPoolReady = useDiffWorkerPoolReady();
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedAllItems, setHasLoadedAllItems] = useState(false);
+  const [loadedItemVersion, setLoadedItemVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [initialItems, setInitialItems] = useState<CodeViewItem<CopyAnnotationMeta>[]>(
     [],
   );
   const [viewerKey, setViewerKey] = useState(0);
   const [viewerMounted, setViewerMounted] = useState(false);
-  const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
-  const [wordWrap, setWordWrap] = useState(false);
+  const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('unified');
+  const [wordWrap, setWordWrap] = useState(true);
   const [showBackgrounds, setShowBackgrounds] = useState(true);
   const [lineNumbers, setLineNumbers] = useState(true);
   const [diffIndicators, setDiffIndicators] =
@@ -94,16 +103,23 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     Map<string, { oldContent: string; newContent: string }>
   >(new Map());
   const copyKeyRef = useRef(0);
+  const collapseModeRef = useRef(collapseMode);
+
+  useEffect(() => {
+    collapseModeRef.current = collapseMode;
+  }, [collapseMode]);
 
   const groupFiles = useMemo(() => {
     if (!groupKind) return [];
-    return getFilesForDiffGroup(groupKind, {
-      stagedFiles,
-      unstagedFiles,
-      untrackedFiles,
-      compareFiles,
-      compareRef,
-    });
+    return sortByDiffTreePath(
+      getFilesForDiffGroup(groupKind, {
+        stagedFiles,
+        unstagedFiles,
+        untrackedFiles,
+        compareFiles,
+        compareRef,
+      }),
+    );
   }, [
     groupKind,
     stagedFiles,
@@ -120,6 +136,16 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     }),
     [groupFiles],
   );
+  const treeItems = useMemo(
+    () =>
+      groupFiles.map((file) => ({
+        path: file.path,
+        additions: file.additions,
+        deletions: file.deletions,
+      })),
+    [groupFiles],
+  );
+  const groupLabel = getDiffGroupTabLabel(groupPath);
 
   const renderHeaderPrefix = useMemo(
     () =>
@@ -141,7 +167,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   }, []);
 
   const handleCopyAnnotation = useCallback(
-    (itemId: string, key: string) => {
+    (itemId: string, key: string, note: string) => {
       const viewer = codeViewRef.current;
       const item = viewer?.getItem(itemId);
       const contents = loadedContentsRef.current.get(itemId);
@@ -152,8 +178,17 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
       );
       if (!annotation || !isCopyAnnotation(annotation)) return;
 
-      const text = getTextForRange(contents, annotation.metadata.range);
-      if (!text) {
+      const selectionInfo = buildDiffSelectionInfo({
+        filePath: annotation.metadata.filePath,
+        fileDiff: item.fileDiff,
+        contents,
+        range: annotation.metadata.range,
+      });
+      const prompt = selectionInfo
+        ? formatDiffSelectionForAI(selectionInfo, note)
+        : null;
+
+      if (!prompt) {
         toastManager.add({
           title: 'Nothing to copy',
           type: 'error',
@@ -161,15 +196,15 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
         return;
       }
 
-      void navigator.clipboard.writeText(text).then(
+      void navigator.clipboard.writeText(prompt).then(
         () =>
           toastManager.add({
-            title: 'Copied to clipboard',
+            title: 'Prompt copied',
             type: 'success',
           }),
         () =>
           toastManager.add({
-            title: 'Failed to copy',
+            title: 'Failed to copy prompt',
             type: 'error',
           }),
       );
@@ -214,6 +249,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
           itemId={annotation.metadata.filePath}
           onCopy={handleCopyAnnotation}
           onDismiss={removeCopyAnnotation}
+          lineLabel={formatSelectedRangeLabel(annotation.metadata.range)}
         />
       );
     },
@@ -231,10 +267,13 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     setViewerKey((key) => key + 1);
     setViewerMounted(false);
     setInitialItems([]);
+    setHasLoadedAllItems(false);
+    setLoadedItemVersion(0);
     pendingAppendRef.current = [];
     pathByFileNameRef.current = new Map();
     loadedContentsRef.current = new Map();
     lastHandledNavRef.current = null;
+    scrollActiveIdRef.current = null;
 
     const loadFile = async (file: (typeof groupFiles)[number]) => {
       const diff = await gitApi.getFileDiff(repoPath, file.path);
@@ -286,6 +325,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
               id: result.id,
               type: 'diff',
               fileDiff: result.fileDiff,
+              collapsed: collapseModeRef.current === 'collapsed',
             });
           }
 
@@ -295,6 +335,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
             hasPublishedInitial = true;
             itemIdsRef.current = codeItems.map((item) => item.id);
             setInitialItems(codeItems);
+            setLoadedItemVersion((value) => value + 1);
             setIsLoading(false);
             await yieldToBrowser();
           } else {
@@ -305,6 +346,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
             const viewer = codeViewRef.current;
             if (viewer != null) {
               viewer.addItems(codeItems);
+              setLoadedItemVersion((value) => value + 1);
               await yieldToBrowser();
             } else {
               pendingAppendRef.current.push(...codeItems);
@@ -315,6 +357,9 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
         if (!cancelled && !hasPublishedInitial) {
           itemIdsRef.current = [];
           setIsLoading(false);
+        }
+        if (!cancelled) {
+          setHasLoadedAllItems(true);
         }
       } catch (err) {
         if (!cancelled) {
@@ -336,20 +381,45 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     const pending = pendingAppendRef.current;
     pendingAppendRef.current = [];
     codeViewRef.current?.addItems(pending);
+    setLoadedItemVersion((value) => value + 1);
   }, [viewerMounted, initialItems]);
+
+  useEffect(() => {
+    if (!effectiveContextId || itemIdsRef.current.length === 0) return;
+    if (selectedPath && !hasLoadedAllItems) return;
+    if (selectedPath && itemIdsRef.current.includes(selectedPath)) return;
+    if (selectedPath && navigationTarget?.diffFilePath === selectedPath) return;
+    setDiffGroupActiveFile(groupPath, itemIdsRef.current[0], effectiveContextId);
+  }, [
+    effectiveContextId,
+    groupPath,
+    hasLoadedAllItems,
+    initialItems,
+    navigationTarget?.diffFilePath,
+    selectedPath,
+    setDiffGroupActiveFile,
+    viewerKey,
+  ]);
 
   const codeViewOptions = useMemo(
     () => ({
       ...buildSharedDiffViewOptions({
-        theme: resolvedTheme === 'dark' ? 'pierre-dark' : 'pierre-light',
+        theme: ATMOS_DIFF_THEME,
         diffStyle,
         wordWrap,
         disableBackground: !showBackgrounds,
         lineNumbers,
         diffIndicators,
-        enableLineSelection: false,
+        enableLineSelection: true,
         enableGutterUtility: true,
       }),
+      onLineSelectionEnd(
+        range: SelectedLineRange | null,
+        context: { item: CodeViewItem<CopyAnnotationMeta> },
+      ) {
+        if (!range || context.item.type !== 'diff') return;
+        openCopyAnnotation(context.item.id, range);
+      },
       onGutterUtilityClick(
         range: SelectedLineRange,
         context: { item: CodeViewItem<CopyAnnotationMeta> },
@@ -359,7 +429,6 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
       },
     }),
     [
-      resolvedTheme,
       diffStyle,
       wordWrap,
       showBackgrounds,
@@ -389,9 +458,8 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
 
     return instance.subscribeToScroll((scrollTop, viewer) => {
       if (itemIdsRef.current.length === 0) return;
-      const activeId = findDiffItemIdAtScrollTop(
+      const activeId = findDiffItemIdForViewport(
         viewer,
-        scrollTop,
         itemIdsRef.current,
       );
       if (activeId == null || activeId === scrollActiveIdRef.current) return;
@@ -418,15 +486,18 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     ) {
       return;
     }
-    if (lastHandledNavRef.current === navigationScrollKey) return;
-    lastHandledNavRef.current = navigationScrollKey;
-
     const fileId = navigationTarget.diffFilePath;
+    if (!itemIdsRef.current.includes(fileId)) return;
+    if (lastHandledNavRef.current === navigationScrollKey) return;
     if (effectiveContextId) {
       setDiffGroupActiveFile(groupPath, fileId, effectiveContextId);
     }
 
     requestAnimationFrame(() => {
+      if (!codeViewRef.current?.getItem(fileId)) {
+        return;
+      }
+      lastHandledNavRef.current = navigationScrollKey;
       scrollCodeViewToItem(codeViewRef.current, fileId, {
         line: navigationTarget.line,
         behavior: 'smooth',
@@ -443,6 +514,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   }, [
     navigationTarget,
     navigationScrollKey,
+    loadedItemVersion,
     isLoading,
     viewerMounted,
     groupPath,
@@ -461,8 +533,26 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
 
   if (isLoading || !workerPoolReady) {
     return (
-      <div className="flex h-full items-center justify-center bg-background">
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="flex h-full flex-col overflow-hidden bg-background">
+        <DiffCodeViewScaffold
+          items={treeItems}
+          selectedPath={selectedPath}
+          ariaLabel={`${groupLabel} files`}
+          loading
+          loadingTreeLabel={groupLabel}
+          defaultTreeVisible={false}
+          toolbar={
+            <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="truncate text-sm font-medium text-foreground">{groupLabel}</span>
+              </div>
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          }
+          onSelectFile={() => {}}
+        >
+          <div />
+        </DiffCodeViewScaffold>
       </div>
     );
   }
@@ -486,50 +576,56 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     );
   }
 
-  const groupLabel = getDiffGroupTabLabel(groupPath);
+  const handleSelectFile = (path: string) => {
+    if (effectiveContextId) {
+      setDiffGroupActiveFile(groupPath, path, effectiveContextId);
+    }
+    scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
+  };
+  const toolbar = (
+    <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="truncate text-sm font-medium text-foreground">{groupLabel}</span>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {treeItems.length} file{treeItems.length === 1 ? '' : 's'}
+        </span>
+        {compareRef ? (
+          <span className="shrink-0 text-xs text-muted-foreground">vs {compareRef}</span>
+        ) : null}
+      </div>
+      {(totalStats.additions > 0 || totalStats.deletions > 0) && (
+        <div className="flex shrink-0 items-center gap-2 text-[11px] font-mono font-medium">
+          <span className="text-emerald-500">+{totalStats.additions}</span>
+          <span className="text-red-500">-{totalStats.deletions}</span>
+        </div>
+      )}
+      <DiffCodeViewSettingsMenu
+        diffStyle={diffStyle}
+        onDiffStyleChange={setDiffStyle}
+        showBackgrounds={showBackgrounds}
+        onShowBackgroundsChange={setShowBackgrounds}
+        lineNumbers={lineNumbers}
+        onLineNumbersChange={setLineNumbers}
+        wordWrap={wordWrap}
+        onWordWrapChange={setWordWrap}
+        diffIndicators={diffIndicators}
+        onDiffIndicatorsChange={setDiffIndicators}
+        collapseMode={collapseMode}
+        onToggleCollapseMode={handleToggleCollapseMode}
+      />
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-sidebar-border bg-muted/30 px-4">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="truncate text-sm font-medium text-foreground">{groupLabel}</span>
-          <span className="text-xs text-muted-foreground shrink-0">
-            {initialItems.length} file{initialItems.length === 1 ? '' : 's'}
-          </span>
-          {compareRef ? (
-            <span className="text-xs text-muted-foreground shrink-0">vs {compareRef}</span>
-          ) : null}
-          {(totalStats.additions > 0 || totalStats.deletions > 0) && (
-            <span className="shrink-0 font-mono text-xs">
-              {totalStats.additions > 0 && (
-                <span className="text-green-500">+{totalStats.additions}</span>
-              )}
-              {totalStats.additions > 0 && totalStats.deletions > 0 && (
-                <span className="mx-1 text-muted-foreground">/</span>
-              )}
-              {totalStats.deletions > 0 && (
-                <span className="text-red-500">-{totalStats.deletions}</span>
-              )}
-            </span>
-          )}
-        </div>
-        <DiffCodeViewSettingsMenu
-          diffStyle={diffStyle}
-          onDiffStyleChange={setDiffStyle}
-          showBackgrounds={showBackgrounds}
-          onShowBackgroundsChange={setShowBackgrounds}
-          lineNumbers={lineNumbers}
-          onLineNumbersChange={setLineNumbers}
-          wordWrap={wordWrap}
-          onWordWrapChange={setWordWrap}
-          diffIndicators={diffIndicators}
-          onDiffIndicatorsChange={setDiffIndicators}
-          collapseMode={collapseMode}
-          onToggleCollapseMode={handleToggleCollapseMode}
-        />
-      </div>
-
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <DiffCodeViewScaffold
+        items={treeItems}
+        selectedPath={selectedPath}
+        ariaLabel={`${groupLabel} files`}
+        toolbar={toolbar}
+        defaultTreeVisible={false}
+        onSelectFile={handleSelectFile}
+      >
         <CodeView
           key={`${groupPath}:${viewerKey}`}
           ref={handleViewerRef}
@@ -539,7 +635,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
           renderAnnotation={renderAnnotation}
           className={CODE_VIEW_HOST_CLASS}
         />
-      </div>
+      </DiffCodeViewScaffold>
     </div>
   );
 }

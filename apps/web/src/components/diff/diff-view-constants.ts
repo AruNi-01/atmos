@@ -1,4 +1,4 @@
-import type { CodeViewLayout, DiffIndicators } from '@pierre/diffs';
+import type { CodeViewLayout, DiffIndicators, ThemesType } from '@pierre/diffs';
 
 /** Matches diffshub CodeView layout — tight gaps reduce scroll height churn. */
 export const CODE_VIEW_LAYOUT: CodeViewLayout = {
@@ -31,9 +31,20 @@ export const DIFF_VIEW_SEPARATOR_CSS = `
     white-space: nowrap;
   }
 
-  /* Undo mistaken override: keep Pierre's content-column separators hidden in split */
-  [data-diff-type=split] [data-additions] [data-content] [data-separator-wrapper] {
-    display: none !important;
+  /* Keep unchanged separators visually spanning both split panes. */
+  [data-diff-type=split]
+    :is([data-deletions] [data-content], [data-additions] [data-content])
+    [data-separator=line-info] [data-separator-wrapper],
+  [data-diff-type=split]
+    :is([data-deletions] [data-content], [data-additions] [data-content])
+    [data-separator=line-info-basic] [data-separator-wrapper] {
+    display: block !important;
+  }
+
+  [data-diff-type=split] :is([data-deletions] [data-content], [data-additions] [data-content])
+    :is([data-separator=line-info], [data-separator=line-info-basic])
+    [data-separator-content] {
+    visibility: hidden !important;
   }
 
   /* Left/unified: ensure label stays visible in gutter */
@@ -65,8 +76,13 @@ export const DIFF_VIEW_SCROLLBAR_CSS = `
   }
 `;
 
+export const ATMOS_DIFF_THEME: ThemesType = {
+  dark: 'pierre-dark-soft',
+  light: 'pierre-light-soft',
+};
+
 export function buildSharedDiffViewOptions(args: {
-  theme: 'pierre-dark' | 'pierre-light';
+  theme: ThemesType;
   diffStyle: 'split' | 'unified';
   wordWrap: boolean;
   disableBackground?: boolean;
@@ -75,7 +91,7 @@ export function buildSharedDiffViewOptions(args: {
   enableLineSelection?: boolean;
   enableGutterUtility?: boolean;
 }): {
-  theme: 'pierre-dark' | 'pierre-light';
+  theme: ThemesType;
   diffStyle: 'split' | 'unified';
   disableBackground: boolean;
   disableLineNumbers: boolean;

@@ -20,6 +20,7 @@ import type { GitChangedFile } from "@/api/ws-api";
 import { buildDiffGroupPath, type DiffChangeGroupKind } from "@/lib/diff-editor-paths";
 import { DiffFileTree } from "@/components/diff/DiffFileTree";
 import { DiffFilePathLabel } from "@/components/diff/DiffFilePathLabel";
+import { sortByDiffTreePath } from "@/components/diff/diff-file-order";
 
 function stopActionEvent(
   event:
@@ -74,8 +75,9 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   });
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
+  const orderedFiles = sortByDiffTreePath(files);
 
-  if (files.length === 0) return null;
+  if (orderedFiles.length === 0) return null;
 
   const isDestructiveSection = kind === "unstaged" || kind === "untracked";
 
@@ -204,7 +206,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           />
           <span>{title}</span>
           <span className="text-[10px] ml-1 px-1.5 rounded-full bg-sidebar-accent text-muted-foreground tabular-nums">
-            {files.length}
+            {orderedFiles.length}
           </span>
         </CollapsibleTrigger>
 
@@ -266,7 +268,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
         {viewMode === "tree" ? (
           <div className="mt-0.5 overflow-hidden pb-2">
             <DiffFileTree
-              items={files.map((file) => ({
+              items={orderedFiles.map((file) => ({
                 path: file.path,
                 gitStatus: file.status,
                 additions: file.additions,
@@ -420,7 +422,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
-            {files.map((file) => {
+            {orderedFiles.map((file) => {
             const fileName = file.path.split("/").pop() || file.path;
             const hasActiveRowAction =
               confirmingActionKey?.includes(`:${file.path}:`) ||
