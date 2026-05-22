@@ -365,7 +365,8 @@ pub struct CreateArrowArgs {
 
 impl CreateArrowArgs {
     fn body(&self) -> Result<Value, String> {
-        let has_coords = self.x1.is_some() || self.y1.is_some() || self.x2.is_some() || self.y2.is_some();
+        let has_coords =
+            self.x1.is_some() || self.y1.is_some() || self.x2.is_some() || self.y2.is_some();
         let has_bindings = self.from_id.is_some() || self.to_id.is_some();
         if !has_coords && !has_bindings {
             return Err(

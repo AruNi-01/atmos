@@ -1,62 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
-import type { DragStartEvent, ImperativePanelHandle } from '@workspace/ui';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useHotkeys } from "react-hotkeys-hook";
 import { useAppRouter } from '@/hooks/use-app-router';
 import { useQueryState } from 'nuqs';
 import { useContextParams } from '@/hooks/use-context-params';
 import { useSidebarLayout } from '@/components/layout/SidebarLayoutContext';
 import { centerStageParams, leftSidebarParams, type LeftSidebarTab } from '@/lib/nuqs/searchParams';
-import {
-  Plus,
-  Folder,
-  Layers,
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  cn,
-  restrictToVerticalAxis,
-  restrictToWindowEdges,
-  MouseSensor,
-  DragOverlay,
-  defaultDropAnimationSideEffects,
-  Tabs,
-  TabsList,
-  TabsTab,
-  TabsPanel,
-  FolderKanban,
-  ArrowRight,
-  Puzzle,
-  SquareTerminal,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  Panel,
-  PanelGroup,
-  PanelResizeHandle,
-  useSortable,
-  CSS,
-} from "@workspace/ui";
+import { cn, Tabs, TabsPanel } from "@workspace/ui";
 import { useAppStorage } from "@atmos/shared";
-import type { Project,
-  WorkspacePriority,
-  WorkspaceWorkflowStatus } from '@/types/types';
+import type { Project } from '@/types/types';
 import { useProjectStore } from '@/hooks/use-project-store';
 import { CreateProjectDialog } from '@/components/dialogs/CreateProjectDialog';
 import { WorkspaceScriptDialog } from '@/components/dialogs/WorkspaceScriptDialog';
@@ -64,72 +17,50 @@ import { DeleteProjectDialog } from '@/components/dialogs/DeleteProjectDialog';
 import { FileTreePanel } from '@/components/files/FileTreePanel';
 import { functionSettingsApi } from '@/api/ws-api';
 import { useFunctionSettingsStore } from '@/hooks/use-function-settings-store';
-import { useEditorStore } from '@/hooks/use-editor-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/hooks/use-git-info-store';
 import { useDialogStore } from '@/hooks/use-dialog-store';
 import {
-  Bot,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  Command,
-  FolderPlus,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Presentation,
-  SquareKanban,
-} from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-import { ProjectItem } from '@/components/layout/sidebar/ProjectItem';
-import { SortableProject } from '@/components/layout/sidebar/SortableProject';
-import { WorkspaceContent } from '@/components/layout/sidebar/WorkspaceContent';
-import { WorkspaceItem } from '@/components/layout/sidebar/WorkspaceItem';
-import {
   DEFAULT_KANBAN_CARD_PROPERTIES,
-  KanbanWorkspaceCard,
-  WorkspaceKanbanView,
-  resolveKanbanCardProperties,
   type KanbanCardProperties,
 } from '@/components/layout/sidebar/WorkspaceKanbanView';
 import {
-  flattenProjectWorkspaces,
-  getWorkspaceTimeGroupKey,
-  getWorkspaceTimeGroupLabel,
-  groupWorkspaces,
-  type FlattenedWorkspaceEntry,
-} from '@/components/layout/sidebar/workspace-grouping';
-import {
-  WORKSPACE_WORKFLOW_STATUS_OPTIONS,
-  getWorkspaceWorkflowStatusMeta,
   type SidebarGroupingMode,
 } from '@/components/layout/sidebar/workspace-status';
-import { WORKSPACE_PRIORITY_OPTIONS } from '@/components/layout/sidebar/workspace-metadata-controls';
 import {
-  EMPTY_WORKSPACE_KANBAN_FILTERS,
-  WorkspaceKanbanFilterMenu,
-  filterWorkspaceKanbanEntries,
-  getActiveWorkspaceKanbanFilterCount,
   type WorkspaceKanbanFilters,
 } from '@/components/layout/sidebar/WorkspaceKanbanFilterMenu';
+import {
+  EMPTY_WORKSPACE_KANBAN_FILTERS,
+  parseWorkspaceKanbanCardProperties,
+  parseWorkspaceKanbanFilters,
+} from '@/components/layout/left-sidebar-settings';
 import { isWorkspaceSetupBlocking } from '@/utils/workspace-setup';
 import { useWorkspaceCreationStore } from '@/hooks/use-workspace-creation-store';
 import { useLayoutSettings } from '@/hooks/use-layout-settings';
 import { useExperimentSettings } from '@/hooks/use-experiment-settings';
-import { useFileTreeStore } from '@/hooks/use-file-tree-store';
 import { useInitialProjectsLoading } from '@/hooks/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/components/layout/ProjectsSidebarLoading';
+import { LeftSidebarManagementCenter } from '@/components/layout/LeftSidebarManagementCenter';
+import { LeftSidebarPinnedSection } from '@/components/layout/LeftSidebarPinnedSection';
+import {
+    GroupedWorkspaceOneColumnContent,
+    GroupedWorkspaceTwoColumnLeftContent,
+    GroupedWorkspaceTwoColumnRightContent,
+    LeftSidebarFooter,
+    LeftSidebarSortableProjectList,
+    LeftSidebarTabsHeader,
+    ProjectWorkspaceTwoColumnRightContent,
+    TwoColumnSidebarContent,
+} from '@/components/layout/left-sidebar-controls';
+import { useLeftSidebarFileTreeSync } from '@/components/layout/use-left-sidebar-file-tree-sync';
+import { useLeftSidebarTwoColumnResize } from '@/components/layout/use-left-sidebar-two-column-resize';
+import { useLeftSidebarWorkspaceDerived } from '@/components/layout/use-left-sidebar-workspace-derived';
+import { useLeftSidebarWorkspaceRenderers } from '@/components/layout/use-left-sidebar-workspace-renderers';
+import { useLeftSidebarDragHandlers } from '@/components/layout/use-left-sidebar-drag-handlers';
 
 interface LeftSidebarProps {
     projects?: Project[];
-}
-
-function normalizePathForContainment(path: string): string {
-    const normalized = path.replace(/\\/g, '/');
-    if (normalized.length > 1 && normalized.endsWith('/')) {
-        return normalized.slice(0, -1);
-    }
-    return normalized;
 }
 
 const LeftSidebar: React.FC<LeftSidebarProps> = () => {
@@ -186,8 +117,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         }))
     );
 
-    const setCurrentProjectPath = useEditorStore(s => s.setCurrentProjectPath);
-    const fileTreeRevealTarget = useEditorStore(s => s.fileTreeRevealTarget);
     const { setCurrentContext } = useGitInfoStore();
     const { isLeftCollapsed, leftSidebarSize, resizeLeftSidebar } = useSidebarLayout();
     const filesOnRight = useLayoutSettings((s) => s.projectFilesSide === 'right');
@@ -214,7 +143,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     );
     const [isPinnedSectionCollapsed, setIsPinnedSectionCollapsed] = useState(false);
     const [isPinnedDividerHovered, setIsPinnedDividerHovered] = useState(false);
-    const [activeId, setActiveId] = useState<string | null>(null);
     const [selectedProjectSidebarId, setSelectedProjectSidebarId] = useState<string | null>(null);
     const [projectSidebarSelectionRouteKey, setProjectSidebarSelectionRouteKey] = useState<string | null>(null);
     const [selectedWorkspaceGroupKey, setSelectedWorkspaceGroupKey] = useState<string | null>(null);
@@ -222,25 +150,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isSecondColumnPinnedExpanded, setIsSecondColumnPinnedExpanded] = useState(true);
     const [isSecondColumnWorkspacesExpanded, setIsSecondColumnWorkspacesExpanded] = useState(true);
     const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
-    const [isTwoColumnPrimaryCollapsed, setIsTwoColumnPrimaryCollapsed] = useState(false);
-    const [twoColumnPrimarySizes, setTwoColumnPrimarySizes] = useState<Record<string, number>>({
-        project: 40,
-        time: 38,
-        status: 38,
-    });
-    const previousExpandedLeftSidebarSizeRef = useRef<number | null>(null);
-    const syncedCollapsedLeftSidebarSizeRef = useRef<number | null>(null);
-    const previousTwoColumnPrimaryCollapsedRef = useRef(isTwoColumnPrimaryCollapsed);
-    const isTwoColumnDividerDraggingRef = useRef(false);
-    const pendingTwoColumnPrimarySizeRef = useRef<number | null>(null);
-    const twoColumnPrimaryPanelRef = useRef<ImperativePanelHandle>(null);
 
-    const fileTreeProjectId = useFileTreeStore((s) => s.projectId);
-    const fileTreeWorkspaceId = useFileTreeStore((s) => s.workspaceId);
-    const fileTreeShowHidden = useFileTreeStore((s) => s.showHidden);
-    const isLoadingFiles = useFileTreeStore((s) => s.isLoading);
-    const fetchFileTree = useFileTreeStore((s) => s.fetch);
-    const showHiddenFiles = useFileTreeStore((s) => s.showHidden);
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
     const managementTerminalsEnabled = useExperimentSettings((s) => s.managementTerminalsEnabled);
@@ -249,32 +159,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useEffect(() => {
         void loadExperimentSettings();
     }, [loadExperimentSettings]);
-
-    const managementCenterItems = useMemo(
-        (): Array<{
-            id: string;
-            label: string;
-            icon: typeof FolderKanban;
-            path?: string;
-            kind?: 'kanban' | 'new-workspace' | 'canvas';
-        }> => {
-            const all = [
-                { id: 'workspaces', label: 'Workspaces', icon: FolderKanban, path: '/workspaces' },
-                { id: 'skills', label: 'Skills', icon: Puzzle, path: '/skills' },
-                { id: 'terminals', label: 'Terminals', icon: SquareTerminal, path: '/terminals' },
-                { id: 'agents', label: 'Agents', icon: Bot, path: '/agents' },
-                { id: 'canvas', label: 'Canvas', icon: Presentation, kind: 'canvas' as const },
-                { id: 'kanban', label: 'Kanban', icon: SquareKanban, kind: 'kanban' as const },
-                { id: 'new-workspace', label: 'New Workspace', icon: Plus, kind: 'new-workspace' as const },
-            ];
-            return all.filter((item) => {
-                if (item.id === 'terminals' && !managementTerminalsEnabled) return false;
-                if (item.id === 'agents' && !managementAgentsEnabled) return false;
-                return true;
-            });
-        },
-        [managementTerminalsEnabled, managementAgentsEnabled],
-    );
 
     const {
         isCreateProjectOpen,
@@ -314,32 +198,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     }, [isPinnedSectionCollapsed, isGroupingSettingsReady]);
 
     useEffect(() => {
-        const availableStatusSet = new Set(WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => option.value));
-        const availablePrioritySet = new Set(WORKSPACE_PRIORITY_OPTIONS.map((option) => option.value));
-
         useFunctionSettingsStore.getState().load()
             .then((settings) => {
-                const section = settings.workspace_kanban_view;
-                const raw = (section && typeof section === "object" && "state" in (section as Record<string, unknown>))
-                    ? (section as { state?: unknown }).state
-                    : section;
-                const state = (raw && typeof raw === "object") ? raw as { filters?: Record<string, unknown> } : {};
-                const filters = state.filters && typeof state.filters === "object" ? state.filters : {};
-
-                setKanbanFilters({
-                    statuses: Array.isArray(filters.statuses)
-                        ? filters.statuses.filter((item): item is WorkspaceWorkflowStatus => availableStatusSet.has(item as WorkspaceWorkflowStatus))
-                        : [],
-                    priorities: Array.isArray(filters.priorities)
-                        ? filters.priorities.filter((item): item is WorkspacePriority => availablePrioritySet.has(item as WorkspacePriority))
-                        : [],
-                    labelIds: Array.isArray(filters.label_ids)
-                        ? filters.label_ids.filter((item): item is string => typeof item === "string")
-                        : [],
-                    projectIds: Array.isArray(filters.project_ids)
-                        ? filters.project_ids.filter((item): item is string => typeof item === "string")
-                        : [],
-                });
+                setKanbanFilters(parseWorkspaceKanbanFilters(settings));
             })
             .catch(() => {
                 setKanbanFilters(EMPTY_WORKSPACE_KANBAN_FILTERS);
@@ -349,11 +210,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     useEffect(() => {
         useFunctionSettingsStore.getState().load()
             .then((settings) => {
-                const section = settings.workspace_kanban_view;
-                const raw = (section && typeof section === "object" && "state" in (section as Record<string, unknown>))
-                    ? (section as { state?: unknown }).state
-                    : section;
-                setSecondColumnKanbanCardProperties(resolveKanbanCardProperties(raw));
+                setSecondColumnKanbanCardProperties(parseWorkspaceKanbanCardProperties(settings));
             })
             .catch(() => {
                 setSecondColumnKanbanCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
@@ -453,67 +310,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         void markWorkspaceVisited(currentWorkspaceId);
     }, [currentView, currentWorkspaceId, isLoading, markWorkspaceVisited, projects]);
 
-    const doFetchFileTree = useCallback(async (projectId: string, workspaceId: string | null, effectivePath: string, showHidden: boolean = false) => {
-        if (!effectivePath) return;
-        setCurrentProjectPath(effectivePath);
-        await fetchFileTree(projectId, workspaceId, effectivePath, showHidden);
-    }, [setCurrentProjectPath, fetchFileTree]);
-
-    useEffect(() => {
-        if ((activeTab === 'files' || filesOnRight) && currentProjectId && currentEffectivePath) {
-            const canFetch = currentWorkspaceId ? !isSettingUp : true;
-
-            if (canFetch) {
-                const isContextMismatch = fileTreeProjectId !== currentProjectId || fileTreeWorkspaceId !== currentWorkspaceId;
-                const isHiddenMismatch = fileTreeShowHidden !== showHiddenFiles;
-
-                if ((isContextMismatch || isHiddenMismatch) && !isLoadingFiles) {
-                    doFetchFileTree(currentProjectId, currentWorkspaceId, currentEffectivePath, showHiddenFiles);
-                }
-            }
-        }
-    }, [activeTab, filesOnRight, currentProjectId, currentWorkspaceId, currentEffectivePath, isSettingUp, fileTreeProjectId, fileTreeWorkspaceId, fileTreeShowHidden, isLoadingFiles, doFetchFileTree, showHiddenFiles]);
-
-    useEffect(() => {
-        if (!fileTreeRevealTarget) return;
-        if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== effectiveContextId) {
-            return;
-        }
-        if (!currentEffectivePath) return;
-        const normalizedCurrentPath = normalizePathForContainment(currentEffectivePath);
-        const normalizedRevealPath = normalizePathForContainment(fileTreeRevealTarget.path);
-        if (
-            normalizedRevealPath !== normalizedCurrentPath &&
-            !normalizedRevealPath.startsWith(`${normalizedCurrentPath}/`)
-        ) {
-            return;
-        }
-        if (activeTab !== 'files') {
-            void setActiveTab('files');
-        }
-    }, [activeTab, currentEffectivePath, currentWorkspaceId, effectiveContextId, fileTreeRevealTarget, setActiveTab]);
+    useLeftSidebarFileTreeSync({
+        activeTab,
+        currentEffectivePath,
+        currentProjectId,
+        currentWorkspaceId,
+        effectiveContextId,
+        filesOnRight,
+        isSettingUp,
+        setActiveTab,
+    });
 
     const handleTabChange = (value: string) => {
         setActiveTab(value as LeftSidebarTab);
     };
-
-    const isAnyProjectDragging = activeId !== null && projects.some(p => p.id === activeId);
-
-    const sensors = useSensors(
-        useSensor(MouseSensor, {
-            activationConstraint: {
-                distance: 5,
-            },
-        }),
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 5,
-            },
-        }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    );
 
     const toggleProject = (id: string) => {
         setExpandedProjects(prev =>
@@ -537,82 +347,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setSelectedWorkspaceGroupKey(groupKey);
         setWorkspaceGroupSelectionRouteKey(currentSidebarRouteKey);
     }, [currentSidebarRouteKey]);
-
-    const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(String(event.active.id));
-    };
-
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
-        setActiveId(null);
-
-        if (over && active.id !== over.id) {
-            const activeProjectIndex = projects.findIndex((i) => i.id === active.id);
-            const overProjectIndex = projects.findIndex((i) => i.id === over.id);
-
-            if (activeProjectIndex !== -1 && overProjectIndex !== -1) {
-                // Disable project reordering when workspace filters are active
-                if (activeKanbanFilterCount > 0) {
-                    return;
-                }
-                const newProjects = arrayMove(projects, activeProjectIndex, overProjectIndex);
-                await reorderProjects(newProjects);
-                return;
-            }
-
-            for (const project of projects) {
-                const activeWorkspaceIndex = project.workspaces.findIndex((w) => w.id === active.id);
-                const overWorkspaceIndex = project.workspaces.findIndex((w) => w.id === over.id);
-
-                if (activeWorkspaceIndex !== -1 && overWorkspaceIndex !== -1) {
-                    // Check if this project is currently filtered
-                    const isFiltered = activeKanbanFilterCount > 0;
-                    
-                    if (isFiltered) {
-                        // Get the visible workspace IDs for this project from the filtered data
-                        const visibleWorkspaceIds = new Set(
-                            filteredFlattenedWorkspaces
-                                .filter((entry) => entry.projectId === project.id)
-                                .map((entry) => entry.workspace.id)
-                        );
-                        
-                        // Get the filtered list of workspaces (only visible ones) in their full-array order
-                        const visibleWorkspacesInOrder = project.workspaces.filter((w) => visibleWorkspaceIds.has(w.id));
-                        
-                        // Find indices in the filtered list
-                        const activeFilteredIndex = visibleWorkspacesInOrder.findIndex((w) => w.id === active.id);
-                        const overFilteredIndex = visibleWorkspacesInOrder.findIndex((w) => w.id === over.id);
-                        
-                        if (activeFilteredIndex === -1 || overFilteredIndex === -1) {
-                            // Should not happen, but safety check
-                            return;
-                        }
-                        
-                        // Use arrayMove on the filtered list to get the new order
-                        const reorderedVisibleWorkspaces = arrayMove(visibleWorkspacesInOrder, activeFilteredIndex, overFilteredIndex);
-                        
-                        // Rebuild the full array: keep hidden workspaces in place, replace visible ones with new order
-                        const newWorkspaces = project.workspaces.map((workspace) => {
-                            if (visibleWorkspaceIds.has(workspace.id)) {
-                                // This is a visible workspace, replace with the next one from the reordered list
-                                const nextWorkspace = reorderedVisibleWorkspaces.shift();
-                                return nextWorkspace ?? workspace;
-                            }
-                            // This is a hidden workspace, keep it as is
-                            return workspace;
-                        });
-                        
-                        await reorderWorkspaces(project.id, newWorkspaces);
-                    } else {
-                        // Not filtered, use the original logic
-                        const newWorkspaces = arrayMove(project.workspaces, activeWorkspaceIndex, overWorkspaceIndex);
-                        await reorderWorkspaces(project.id, newWorkspaces);
-                    }
-                    return;
-                }
-            }
-        }
-    };
 
     const handleAddProject = () => {
         setCreateProjectOpen(true);
@@ -706,147 +440,67 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         await updateProject(projectId, { logoPath });
     };
 
-    const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
-    const activeKanbanFilterCount = getActiveWorkspaceKanbanFilterCount(kanbanFilters);
-    const filteredFlattenedWorkspaces = filterWorkspaceKanbanEntries(
+    const {
+        activeKanbanFilterCount,
+        effectiveSelectedProjectSidebarId,
+        effectiveSelectedWorkspaceGroupKey,
+        filteredFlattenedWorkspaces,
         flattenedWorkspaces,
-        kanbanFilters,
-    );
-    const projectModeProjects = useMemo(() => {
-        if (activeKanbanFilterCount === 0) return projects;
-        const visibleWorkspaceIds = new Set(filteredFlattenedWorkspaces.map((entry) => entry.workspace.id));
-        return projects
-            .map((project) => ({
-                ...project,
-                workspaces: project.workspaces.filter((workspace) => visibleWorkspaceIds.has(workspace.id)),
-            }))
-            .filter((project) => project.workspaces.length > 0);
-    }, [activeKanbanFilterCount, filteredFlattenedWorkspaces, projects]);
-    const pinnedWorkspaces = useMemo(
-        () => filteredFlattenedWorkspaces
-            .filter((e) => e.workspace.isPinned)
-            .sort((a, b) => {
-                const aOrder = a.workspace.pinOrder;
-                const bOrder = b.workspace.pinOrder;
-                if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) {
-                    return aOrder - bOrder;
-                }
-                if (aOrder !== undefined && bOrder === undefined) return -1;
-                if (aOrder === undefined && bOrder !== undefined) return 1;
-
-                const aTime = a.workspace.pinnedAt ? new Date(a.workspace.pinnedAt).getTime() : 0;
-                const bTime = b.workspace.pinnedAt ? new Date(b.workspace.pinnedAt).getTime() : 0;
-                if (aTime !== bTime) return bTime - aTime;
-                return a.workspace.id.localeCompare(b.workspace.id);
-            }),
-        [filteredFlattenedWorkspaces],
-    );
-    const isPinnedSortingDisabled = activeKanbanFilterCount > 0;
-    const unpinnedFlattenedWorkspaces = useMemo(
-        () => filteredFlattenedWorkspaces.filter((e) => !e.workspace.isPinned),
-        [filteredFlattenedWorkspaces],
-    );
-    const groupedWorkspaces = useMemo(() => {
-        if (groupingMode === 'project') return [];
-        return groupWorkspaces(unpinnedFlattenedWorkspaces, groupingMode);
-    }, [unpinnedFlattenedWorkspaces, groupingMode]);
-    const isProjectTwoColumn = groupingMode === 'project' && workspaceSidebarTwoColumn;
-    const isTimeTwoColumn = groupingMode === 'time' && workspaceSidebarTimeTwoColumn;
-    const isStatusTwoColumn = groupingMode === 'status' && workspaceSidebarStatusTwoColumn;
-    const isTwoColumnSidebar = isProjectTwoColumn || isTimeTwoColumn || isStatusTwoColumn;
-    const shouldShowGlobalPinnedSection = pinnedWorkspaces.length > 0;
-    const currentWorkspaceGroupKey = useMemo(() => {
-        if (!currentWorkspace || currentWorkspace.isPinned) return null;
-        if (groupingMode === 'status') {
-            return currentWorkspace.workflowStatus;
-        }
-        if (groupingMode === 'time') {
-            return getWorkspaceTimeGroupKey(currentWorkspace);
-        }
-        return null;
-    }, [currentWorkspace, groupingMode]);
-    const effectiveSelectedProjectSidebarId = useMemo(() => {
-        if (!isProjectTwoColumn || projectModeProjects.length === 0) return null;
-        const visibleIds = new Set(projectModeProjects.map((project) => project.id));
-        if (
-            selectedProjectSidebarId &&
-            projectSidebarSelectionRouteKey === currentSidebarRouteKey &&
-            visibleIds.has(selectedProjectSidebarId)
-        ) {
-            return selectedProjectSidebarId;
-        }
-        if (currentProjectId && visibleIds.has(currentProjectId)) {
-            return currentProjectId;
-        }
-        return projectModeProjects[0]?.id ?? null;
-    }, [
+        groupedWorkspaces,
+        isPinnedSortingDisabled,
+        isProjectTwoColumn,
+        isTwoColumnSidebar,
+        pinnedWorkspaces,
+        projectModeProjects,
+        selectedGroupForSidebar,
+        selectedProjectForSidebar,
+        selectedProjectPinnedEntries,
+        selectedProjectUnpinnedWorkspaces,
+        shouldShowGlobalPinnedSection,
+    } = useLeftSidebarWorkspaceDerived({
         currentProjectId,
         currentSidebarRouteKey,
-        isProjectTwoColumn,
-        projectModeProjects,
-        projectSidebarSelectionRouteKey,
-        selectedProjectSidebarId,
-    ]);
-    const effectiveSelectedWorkspaceGroupKey = useMemo(() => {
-        if (groupingMode === 'project' || !isTwoColumnSidebar || groupedWorkspaces.length === 0) return null;
-        const visibleKeys = new Set(groupedWorkspaces.map((group) => group.key));
-        if (
-            selectedWorkspaceGroupKey &&
-            workspaceGroupSelectionRouteKey === currentSidebarRouteKey &&
-            visibleKeys.has(selectedWorkspaceGroupKey)
-        ) {
-            return selectedWorkspaceGroupKey;
-        }
-        if (currentWorkspaceGroupKey && visibleKeys.has(currentWorkspaceGroupKey)) {
-            return currentWorkspaceGroupKey;
-        }
-        return groupedWorkspaces[0]?.key ?? null;
-    }, [
-        currentSidebarRouteKey,
-        currentWorkspaceGroupKey,
-        groupedWorkspaces,
+        currentWorkspace,
         groupingMode,
-        isTwoColumnSidebar,
+        kanbanFilters,
+        projectSidebarSelectionRouteKey,
+        projects,
+        selectedProjectSidebarId,
         selectedWorkspaceGroupKey,
         workspaceGroupSelectionRouteKey,
-    ]);
-    const selectedProjectForSidebar = useMemo(
-        () => projectModeProjects.find((project) => project.id === effectiveSelectedProjectSidebarId) ?? null,
-        [effectiveSelectedProjectSidebarId, projectModeProjects],
-    );
-    const selectedGroupForSidebar = useMemo(
-        () => groupedWorkspaces.find((group) => group.key === effectiveSelectedWorkspaceGroupKey) ?? null,
-        [effectiveSelectedWorkspaceGroupKey, groupedWorkspaces],
-    );
-    const selectedProjectPinnedEntries = useMemo(() => {
-        if (!selectedProjectForSidebar) return [];
-        return selectedProjectForSidebar.workspaces
-            .filter((workspace) => workspace.isPinned)
-            .map((workspace) => ({
-                projectId: selectedProjectForSidebar.id,
-                projectName: selectedProjectForSidebar.name,
-                projectPath: selectedProjectForSidebar.mainFilePath,
-                workspace,
-            }))
-            .sort((a, b) => {
-                const aOrder = a.workspace.pinOrder;
-                const bOrder = b.workspace.pinOrder;
-                if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) {
-                    return aOrder - bOrder;
-                }
-                if (aOrder !== undefined && bOrder === undefined) return -1;
-                if (aOrder === undefined && bOrder !== undefined) return 1;
-
-                const aTime = a.workspace.pinnedAt ? new Date(a.workspace.pinnedAt).getTime() : 0;
-                const bTime = b.workspace.pinnedAt ? new Date(b.workspace.pinnedAt).getTime() : 0;
-                if (aTime !== bTime) return bTime - aTime;
-                return a.workspace.id.localeCompare(b.workspace.id);
-            });
-    }, [selectedProjectForSidebar]);
-    const selectedProjectUnpinnedWorkspaces = useMemo(
-        () => selectedProjectForSidebar?.workspaces.filter((workspace) => !workspace.isPinned) ?? [],
-        [selectedProjectForSidebar],
-    );
+        workspaceSidebarStatusTwoColumn,
+        workspaceSidebarTimeTwoColumn,
+        workspaceSidebarTwoColumn,
+    });
+    const {
+        activeId,
+        handleDragEnd,
+        handleDragStart,
+        isAnyProjectDragging,
+        sensors,
+    } = useLeftSidebarDragHandlers({
+        activeKanbanFilterCount,
+        filteredFlattenedWorkspaces,
+        projects,
+        reorderProjects,
+        reorderWorkspaces,
+    });
+    const {
+        currentTwoColumnPrimarySize,
+        handleTwoColumnDividerDragging,
+        handleTwoColumnPrimaryResize,
+        isTwoColumnPrimaryCollapsed,
+        setIsTwoColumnPrimaryCollapsed,
+        toggleTwoColumnPrimaryPanel,
+        twoColumnPrimaryPanelRef,
+    } = useLeftSidebarTwoColumnResize({
+        groupingMode,
+        isLeftCollapsed,
+        isProjectTwoColumn,
+        isTwoColumnSidebar,
+        leftSidebarSize,
+        resizeLeftSidebar,
+    });
 
     const handleDeleteProject = (projectId: string) => {
         const project = projects.find(p => p.id === projectId);
@@ -865,6 +519,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         setScriptDialogProjectId(projectId);
     };
 
+    const handleSelectProjectMain = useCallback((id: string) => {
+        router.push(`/project?id=${id}`);
+    }, [router]);
+
     const [isAddProjectReady, setIsAddProjectReady] = useState(false);
 
     useEffect(() => {
@@ -881,907 +539,208 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         return () => clearTimeout(timer);
     }, [activeTab]);
 
-    const renderWorkspaceItemRow = useCallback((
-        entry: FlattenedWorkspaceEntry,
-        options?: {
-            showProjectName?: boolean;
-            rightContext?: React.ReactNode;
-            suppressInfoPopover?: boolean;
-            sortingDisabled?: boolean;
-            sortingDisabledMessage?: string;
-        },
-    ) => (
-        <WorkspaceItem
-            key={entry.workspace.id}
-            workspace={entry.workspace}
-            projectId={entry.projectId}
-            projectName={entry.projectName}
-            projectPath={entry.projectPath}
-            showProjectName={options?.showProjectName}
-            rightContext={options?.rightContext}
-            suppressInfoPopover={options?.suppressInfoPopover}
-            sortingDisabled={options?.sortingDisabled}
-            sortingDisabledMessage={options?.sortingDisabledMessage}
-            onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
-            onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
-            onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
-            onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
-            onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
-                updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
-            }
-            onUpdatePriority={(workspaceId, priority) =>
-                updateWorkspacePriority(entry.projectId, workspaceId, priority)
-            }
-            availableLabels={workspaceLabels}
-            onCreateLabel={createWorkspaceLabel}
-            onUpdateLabel={updateWorkspaceLabel}
-            onUpdateLabels={(workspaceId, labels) =>
-                updateWorkspaceLabels(entry.projectId, workspaceId, labels)
-            }
-            onUpdateName={(workspaceId, name) =>
-                updateWorkspaceName(entry.projectId, workspaceId, name)
-            }
-        />
-    ), [
-        archiveWorkspace,
-        createWorkspaceLabel,
-        deleteWorkspace,
-        pinWorkspace,
-        unpinWorkspace,
-        updateWorkspaceLabel,
-        updateWorkspaceLabels,
-        updateWorkspaceName,
-        updateWorkspacePriority,
-        updateWorkspaceWorkflowStatus,
-        workspaceLabels,
-    ]);
-
-    const renderWorkspaceContentRow = useCallback((
-        entry: FlattenedWorkspaceEntry,
-        options?: {
-            showProjectName?: boolean;
-            rightContext?: React.ReactNode;
-        },
-    ) => (
-        <WorkspaceContent
-            key={entry.workspace.id}
-            workspace={entry.workspace}
-            projectId={entry.projectId}
-            projectName={entry.projectName}
-            projectPath={entry.projectPath}
-            showProjectName={options?.showProjectName}
-            rightContext={options?.rightContext}
-            onPin={(workspaceId) => pinWorkspace(entry.projectId, workspaceId)}
-            onUnpin={(workspaceId) => unpinWorkspace(entry.projectId, workspaceId)}
-            onArchive={(workspaceId) => archiveWorkspace(entry.projectId, workspaceId)}
-            onDelete={(workspaceId) => deleteWorkspace(entry.projectId, workspaceId)}
-            onUpdateWorkflowStatus={(workspaceId, workflowStatus) =>
-                updateWorkspaceWorkflowStatus(entry.projectId, workspaceId, workflowStatus)
-            }
-            onUpdatePriority={(workspaceId, priority) =>
-                updateWorkspacePriority(entry.projectId, workspaceId, priority)
-            }
-            availableLabels={workspaceLabels}
-            onCreateLabel={createWorkspaceLabel}
-            onUpdateLabel={updateWorkspaceLabel}
-            onUpdateLabels={(workspaceId, labels) =>
-                updateWorkspaceLabels(entry.projectId, workspaceId, labels)
-            }
-            onUpdateName={(workspaceId, name) =>
-                updateWorkspaceName(entry.projectId, workspaceId, name)
-            }
-        />
-    ), [
-        archiveWorkspace,
-        createWorkspaceLabel,
-        deleteWorkspace,
-        pinWorkspace,
-        unpinWorkspace,
-        updateWorkspaceLabel,
-        updateWorkspaceLabels,
-        updateWorkspaceName,
-        updateWorkspacePriority,
-        updateWorkspaceWorkflowStatus,
-        workspaceLabels,
-    ]);
-
     const handleEnterWorkspaceFromSidebarKanban = useCallback((projectId: string, workspaceId: string) => {
         void projectId;
         router.push(`/workspace?id=${workspaceId}`);
     }, [router]);
 
-    const twoColumnLayoutKey = isProjectTwoColumn ? 'project' : groupingMode;
-    const defaultTwoColumnPrimarySize = isProjectTwoColumn ? 40 : 38;
-    const currentTwoColumnPrimarySize = twoColumnPrimarySizes[twoColumnLayoutKey] ?? defaultTwoColumnPrimarySize;
-    const clampOuterLeftSidebarSize = useCallback((size: number) => Math.min(50, Math.max(10, size)), []);
-
-    const toggleTwoColumnPrimaryPanel = useCallback(() => {
-        const panel = twoColumnPrimaryPanelRef.current;
-        if (!panel) return;
-        if (panel.isCollapsed()) {
-            panel.expand();
-        } else {
-            panel.collapse();
-        }
-    }, []);
-
-    const handleTwoColumnDividerDragging = useCallback((dragging: boolean) => {
-        isTwoColumnDividerDraggingRef.current = dragging;
-        if (!dragging) {
-            const pending = pendingTwoColumnPrimarySizeRef.current;
-            pendingTwoColumnPrimarySizeRef.current = null;
-            if (pending != null && pending > 12) {
-                setTwoColumnPrimarySizes((prev) => {
-                    if (prev[twoColumnLayoutKey] === pending) {
-                        return prev;
-                    }
-                    return {
-                        ...prev,
-                        [twoColumnLayoutKey]: pending,
-                    };
-                });
-            }
-        }
-    }, [twoColumnLayoutKey]);
-
-    const handleTwoColumnPrimaryResize = useCallback((size: number) => {
-        // Collapsed primary reports ~0; collapsible snap handles collapse — do not persist 0 as the expanded default.
-        if (size < 1) {
-            pendingTwoColumnPrimarySizeRef.current = null;
-            return;
-        }
-
-        if (isTwoColumnDividerDraggingRef.current) {
-            pendingTwoColumnPrimarySizeRef.current = size;
-            return;
-        }
-
-        setTwoColumnPrimarySizes((prev) => {
-            if (prev[twoColumnLayoutKey] === size) {
-                return prev;
-            }
-
-            return {
-                ...prev,
-                [twoColumnLayoutKey]: size,
-            };
-        });
-    }, [twoColumnLayoutKey]);
-
-    useLayoutEffect(() => {
-        if (!isTwoColumnSidebar) return;
-        const id = requestAnimationFrame(() => {
-            const panel = twoColumnPrimaryPanelRef.current;
-            if (!panel) return;
-            const collapsed = panel.isCollapsed();
-            setIsTwoColumnPrimaryCollapsed((prev) => (prev === collapsed ? prev : collapsed));
-        });
-        return () => cancelAnimationFrame(id);
-    }, [isTwoColumnSidebar, twoColumnLayoutKey]);
-
-    useEffect(() => {
-        if (!isTwoColumnSidebar || isLeftCollapsed || leftSidebarSize <= 0) {
-            previousExpandedLeftSidebarSizeRef.current = null;
-            syncedCollapsedLeftSidebarSizeRef.current = null;
-            previousTwoColumnPrimaryCollapsedRef.current = isTwoColumnPrimaryCollapsed;
-            return;
-        }
-
-        const wasCollapsed = previousTwoColumnPrimaryCollapsedRef.current;
-        previousTwoColumnPrimaryCollapsedRef.current = isTwoColumnPrimaryCollapsed;
-        if (wasCollapsed === isTwoColumnPrimaryCollapsed) {
-            return;
-        }
-
-        const secondaryRatio = Math.max(0.24, (100 - currentTwoColumnPrimarySize) / 100);
-        let nextSize: number | null = null;
-
-        if (isTwoColumnPrimaryCollapsed) {
-            previousExpandedLeftSidebarSizeRef.current = leftSidebarSize;
-            nextSize = clampOuterLeftSidebarSize(leftSidebarSize * secondaryRatio);
-            syncedCollapsedLeftSidebarSizeRef.current = nextSize;
-        } else {
-            const syncedCollapsedSize = syncedCollapsedLeftSidebarSizeRef.current;
-            const userResizedWhileCollapsed =
-                syncedCollapsedSize != null && Math.abs(leftSidebarSize - syncedCollapsedSize) > 0.5;
-
-            nextSize = userResizedWhileCollapsed
-                ? clampOuterLeftSidebarSize(leftSidebarSize / secondaryRatio)
-                : (previousExpandedLeftSidebarSizeRef.current ?? clampOuterLeftSidebarSize(leftSidebarSize / secondaryRatio));
-
-            previousExpandedLeftSidebarSizeRef.current = null;
-            syncedCollapsedLeftSidebarSizeRef.current = null;
-        }
-
-        if (nextSize == null || Math.abs(nextSize - leftSidebarSize) < 0.5) {
-            return;
-        }
-
-        const frame = window.requestAnimationFrame(() => {
-            resizeLeftSidebar(nextSize!);
-        });
-
-        return () => window.cancelAnimationFrame(frame);
-    }, [
-        clampOuterLeftSidebarSize,
-        currentTwoColumnPrimarySize,
-        isLeftCollapsed,
-        isTwoColumnPrimaryCollapsed,
-        isTwoColumnSidebar,
-        leftSidebarSize,
-        resizeLeftSidebar,
-    ]);
-
-    const renderWorkspaceKanbanCard = useCallback((
-        entry: FlattenedWorkspaceEntry,
-        options?: {
-            cardProperties?: KanbanCardProperties;
-            showUnpinnedBorder?: boolean;
-        },
-    ) => (
-        <KanbanWorkspaceCard
-            workspace={entry.workspace}
-            projectId={entry.projectId}
-            projectName={entry.projectName}
-            cardProperties={options?.cardProperties ?? secondColumnKanbanCardProperties}
-            showUnpinnedBorder={options?.showUnpinnedBorder ?? true}
-            onEnterWorkspace={handleEnterWorkspaceFromSidebarKanban}
-            availableLabels={workspaceLabels}
-            onUpdateWorkflowStatus={(projectId, workspaceId, workflowStatus) =>
-                updateWorkspaceWorkflowStatus(projectId, workspaceId, workflowStatus)
-            }
-            onUpdatePriority={(projectId, workspaceId, priority) =>
-                updateWorkspacePriority(projectId, workspaceId, priority)
-            }
-            onCreateLabel={createWorkspaceLabel}
-            onUpdateLabel={updateWorkspaceLabel}
-            onUpdateLabels={(projectId, workspaceId, labels) =>
-                updateWorkspaceLabels(projectId, workspaceId, labels)
-            }
-            onPinWorkspace={(projectId, workspaceId) => pinWorkspace(projectId, workspaceId)}
-            onUnpinWorkspace={(projectId, workspaceId) => unpinWorkspace(projectId, workspaceId)}
-            onArchiveWorkspace={(projectId, workspaceId) => archiveWorkspace(projectId, workspaceId)}
-            onDeleteWorkspace={(projectId, workspaceId) => deleteWorkspace(projectId, workspaceId)}
-        />
-    ), [
+    const {
+        renderWorkspaceContentRow,
+        renderWorkspaceItemRow,
+        renderWorkspaceKanbanCard,
+    } = useLeftSidebarWorkspaceRenderers({
         archiveWorkspace,
         createWorkspaceLabel,
         deleteWorkspace,
-        handleEnterWorkspaceFromSidebarKanban,
+        onEnterWorkspaceFromKanban: handleEnterWorkspaceFromSidebarKanban,
         pinWorkspace,
         secondColumnKanbanCardProperties,
         unpinWorkspace,
         updateWorkspaceLabel,
         updateWorkspaceLabels,
+        updateWorkspaceName,
         updateWorkspacePriority,
         updateWorkspaceWorkflowStatus,
         workspaceLabels,
-    ]);
+    });
 
     const pinnedWorkspaceSection = shouldShowGlobalPinnedSection ? (
-        <>
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event) => {
-                    if (isPinnedSortingDisabled) return;
-                    const { active, over } = event;
-                    if (!over || active.id === over.id) return;
-
-                    const oldIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === active.id);
-                    const newIndex = pinnedWorkspaces.findIndex(e => e.workspace.id === over.id);
-                    if (oldIndex === -1 || newIndex === -1) return;
-
-                    const reordered = arrayMove(pinnedWorkspaces, oldIndex, newIndex);
-                    updateWorkspacePinOrder(reordered.map(e => e.workspace.id));
-                }}
-                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-            >
-                <SortableContext items={pinnedWorkspaces.map(e => e.workspace.id)} strategy={verticalListSortingStrategy}>
-                    <div className={cn(
-                        'grid transition-[grid-template-rows] duration-300 ease-in-out',
-                        isPinnedSectionCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
-                    )}>
-                        <div className="overflow-hidden">
-                            <div className="space-y-0.5 px-2 pb-1">
-                        {pinnedWorkspaces.map((entry) => {
-                            const statusMeta = getWorkspaceWorkflowStatusMeta(entry.workspace.workflowStatus);
-                            const StatusIcon = statusMeta.icon;
-                            const rightContext = groupingMode === 'status' ? (
-                                <StatusIcon className={cn("size-3.5 shrink-0", statusMeta.className)} />
-                            ) : groupingMode === 'time' ? (
-                                <span className="truncate">{getWorkspaceTimeGroupLabel(entry.workspace)}</span>
-                            ) : undefined;
-
-                            return renderWorkspaceItemRow(entry, {
-                                showProjectName: true,
-                                rightContext,
-                                sortingDisabled: isPinnedSortingDisabled,
-                                sortingDisabledMessage: "Clear workspace filters before reordering pinned workspaces.",
-                            });
-                        })}
-                            </div>
-                        </div>
-                    </div>
-                </SortableContext>
-            </DndContext>
-            <div
-                onClick={() => setIsPinnedSectionCollapsed(!isPinnedSectionCollapsed)}
-                className="group/divider relative mx-4 my-1.5 flex items-center cursor-pointer"
-            >
-                <div className='flex-1 border-t border-dashed border-sidebar-border' />
-                <div
-                    onMouseEnter={() => setIsPinnedDividerHovered(true)}
-                    onMouseLeave={() => setIsPinnedDividerHovered(false)}
-                    className={cn(
-                        'relative flex items-center gap-1 cursor-pointer pl-2 transition-colors duration-200',
-                        isPinnedDividerHovered ? 'text-sidebar-foreground' : 'text-muted-foreground'
-                    )}
-                >
-                    {isPinnedSectionCollapsed ? (
-                        <ChevronDown className='size-3.5 shrink-0' />
-                    ) : (
-                        <ChevronUp className='size-3.5 shrink-0' />
-                    )}
-                    {isPinnedSectionCollapsed ? (
-                        <span className='text-[11px] relative pr-1'>
-                            <span className={cn('transition-opacity duration-200', isPinnedDividerHovered ? 'opacity-0' : 'opacity-100')}>Pinned</span>
-                            <span className={cn('absolute left-0 top-0 transition-opacity duration-200', isPinnedDividerHovered ? 'opacity-100' : 'opacity-0')}>Expand</span>
-                        </span>
-                    ) : (
-                        <span className='text-[11px] overflow-hidden max-w-0 opacity-0 group-hover/divider:max-w-[60px] group-hover/divider:opacity-100 group-hover/divider:pr-1 transition-all duration-300 whitespace-nowrap'>
-                            Collapse
-                        </span>
-                    )}
-                </div>
-                <div className='flex-1 border-t border-dashed border-sidebar-border' />
-            </div>
-        </>
+        <LeftSidebarPinnedSection
+            groupingMode={groupingMode}
+            isCollapsed={isPinnedSectionCollapsed}
+            isDividerHovered={isPinnedDividerHovered}
+            isSortingDisabled={isPinnedSortingDisabled}
+            pinnedWorkspaces={pinnedWorkspaces}
+            renderWorkspaceItemRow={renderWorkspaceItemRow}
+            sensors={sensors}
+            onCollapsedChange={setIsPinnedSectionCollapsed}
+            onDividerHoverChange={setIsPinnedDividerHovered}
+            onUpdatePinOrder={updateWorkspacePinOrder}
+        />
     ) : null;
 
     const projectModeOneColumnContent = (
-        <div className="scrollbar-on-hover h-full overflow-y-auto no-scrollbar">
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-            >
-                <SortableContext items={projectModeProjects.map((project) => project.id)} strategy={verticalListSortingStrategy}>
-                    {projectModeProjects.map(project => (
-                        <SortableProject
-                            key={project.id}
-                            project={project}
-                            isExpanded={expandedProjects.includes(project.id)}
-                            isAnyProjectDragging={isAnyProjectDragging}
-                            onToggle={toggleProject}
-                            onAddWorkspace={handleAddWorkspace}
-                            onQuickAddWorkspace={handleQuickAddWorkspace}
-                            onSetColor={handleSetColor}
-                            onSetLogo={handleSetLogo}
-                            onDelete={handleDeleteProject}
-                            onPinWorkspace={pinWorkspace}
-                            onUnpinWorkspace={unpinWorkspace}
-                            onArchiveWorkspace={archiveWorkspace}
-                            onDeleteWorkspace={deleteWorkspace}
-                            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
-                            onUpdateWorkspacePriority={updateWorkspacePriority}
-                            availableLabels={workspaceLabels}
-                            onCreateWorkspaceLabel={createWorkspaceLabel}
-                            onUpdateWorkspaceLabel={updateWorkspaceLabel}
-                            onUpdateWorkspaceLabels={updateWorkspaceLabels}
-                            onUpdateWorkspaceName={updateWorkspaceName}
-                            onConfigureScripts={handleConfigureScripts}
-                            onSelectMain={(id) => router.push(`/project?id=${id}`)}
-                            isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
-                        />
-                    ))}
-                </SortableContext>
-
-                <DragOverlay
-                    dropAnimation={{
-                        sideEffects: defaultDropAnimationSideEffects({
-                            styles: {
-                                active: {
-                                    opacity: '0.4',
-                                },
-                            },
-                        }),
-                    }}
-                >
-                    {activeId && projects.find(p => p.id === activeId) ? (
-                        <ProjectItem
-                            project={projects.find(p => p.id === activeId)!}
-                            isExpanded={false}
-                            isDragging={true}
-                            onToggle={() => { }}
-                            onAddWorkspace={() => { }}
-                            onQuickAddWorkspace={() => { }}
-                            onSetColor={() => { }}
-                            onSetLogo={() => { }}
-                            onDelete={() => { }}
-                            onPinWorkspace={() => { }}
-                            onUnpinWorkspace={() => { }}
-                            onArchiveWorkspace={() => { }}
-                            onDeleteWorkspace={() => { }}
-                            onUpdateWorkspaceName={async () => { }}
-                            onUpdateWorkspaceWorkflowStatus={() => { }}
-                            onUpdateWorkspacePriority={() => { }}
-                            availableLabels={workspaceLabels}
-                            onCreateWorkspaceLabel={async data => ({ id: "", name: data.name, color: data.color, source: "manual" })}
-                            onUpdateWorkspaceLabel={async (_labelId, data) => ({ id: _labelId, name: data.name, color: data.color, source: "manual" })}
-                            onUpdateWorkspaceLabels={async () => { }}
-                            onConfigureScripts={() => { }}
-                            onSelectMain={() => { }}
-                            isActiveProject={false}
-                        />
-                    ) : activeId && projects.some(p => p.workspaces.some(w => w.id === activeId)) ? (
-                        (() => {
-                            const entry = flattenedWorkspaces.find(({ workspace }) => workspace.id === activeId);
-                            if (!entry) return null;
-                            return (
-                                <WorkspaceContent
-                                    workspace={entry.workspace}
-                                    projectId={entry.projectId}
-                                    projectName={entry.projectName}
-                                    isDragging={true}
-                                />
-                            );
-                        })()
-                    ) : null}
-                </DragOverlay>
-            </DndContext>
-        </div>
+        <LeftSidebarSortableProjectList
+            activeId={activeId}
+            activeProjectId={currentProjectId}
+            activeWorkspaceId={currentWorkspaceId}
+            availableLabels={workspaceLabels}
+            className="no-scrollbar"
+            expandedProjectIds={expandedProjects}
+            flattenedWorkspaces={flattenedWorkspaces}
+            isAnyProjectDragging={isAnyProjectDragging}
+            projects={projectModeProjects}
+            sensors={sensors}
+            showDragOverlay
+            onAddWorkspace={handleAddWorkspace}
+            onArchiveWorkspace={archiveWorkspace}
+            onConfigureScripts={handleConfigureScripts}
+            onCreateWorkspaceLabel={createWorkspaceLabel}
+            onDeleteProject={handleDeleteProject}
+            onDeleteWorkspace={deleteWorkspace}
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+            onPinWorkspace={pinWorkspace}
+            onQuickAddWorkspace={handleQuickAddWorkspace}
+            onSelectMain={handleSelectProjectMain}
+            onSetColor={handleSetColor}
+            onSetLogo={handleSetLogo}
+            onToggleProject={toggleProject}
+            onUnpinWorkspace={unpinWorkspace}
+            onUpdateWorkspaceLabel={updateWorkspaceLabel}
+            onUpdateWorkspaceLabels={updateWorkspaceLabels}
+            onUpdateWorkspaceName={updateWorkspaceName}
+            onUpdateWorkspacePriority={updateWorkspacePriority}
+            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+        />
     );
 
     const groupedOneColumnContent = (
-        <div className="scrollbar-on-hover h-full overflow-y-auto no-scrollbar">
-            <div className="space-y-0.5 px-2">
-                {groupedWorkspaces.map((group) => {
-                const stateKey = `${groupingMode}:${group.key}`;
-                const isCollapsed = collapsedWorkspaceGroups[stateKey] ?? false;
-                const statusMeta = groupingMode === 'status'
-                    ? getWorkspaceWorkflowStatusMeta(group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0])
-                    : null;
-                const StatusIcon = statusMeta?.icon;
-
-                return (
-                    <section key={group.key} className="space-y-1.5">
-                        <button
-                            type="button"
-                            onClick={() => toggleWorkspaceGroup(stateKey)}
-                            className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
-                        >
-                            {StatusIcon ? (
-                                <StatusIcon className={cn("size-3.5 shrink-0", statusMeta?.className)} />
-                            ) : null}
-                            <span className="truncate">{group.label}</span>
-                            <ChevronRight
-                                className={cn(
-                                    "ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100",
-                                    !isCollapsed && "rotate-90",
-                                )}
-                            />
-                            <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
-                                {group.items.length}
-                            </span>
-                        </button>
-                        <div
-                            className={cn(
-                                "grid transition-[grid-template-rows] duration-300 ease-out",
-                                isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
-                            )}
-                        >
-                            <div className="overflow-hidden">
-                                <div className="space-y-1 pl-3 pt-0.5">
-                                    {group.items.map((entry) => renderWorkspaceContentRow(entry, { showProjectName: true }))}
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                );
-                })}
-            </div>
-        </div>
+        <GroupedWorkspaceOneColumnContent
+            collapsedWorkspaceGroups={collapsedWorkspaceGroups}
+            groupingMode={groupingMode}
+            groups={groupedWorkspaces}
+            renderWorkspaceContentRow={renderWorkspaceContentRow}
+            toggleWorkspaceGroup={toggleWorkspaceGroup}
+        />
     );
 
     const projectTwoColumnLeftContent = (
-        <div className="scrollbar-on-hover h-full overflow-y-auto py-1.5">
-            <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-            >
-                <SortableContext items={projectModeProjects.map((project) => project.id)} strategy={verticalListSortingStrategy}>
-                    {projectModeProjects.map((project) => (
-                        <SortableProject
-                            key={project.id}
-                            project={project}
-                            isExpanded={false}
-                            hideWorkspaceList={true}
-                            isAnyProjectDragging={isAnyProjectDragging}
-                            onToggle={toggleProject}
-                            onProjectRowClick={handleSelectProjectSidebar}
-                            onAddWorkspace={handleAddWorkspace}
-                            onQuickAddWorkspace={handleQuickAddWorkspace}
-                            onSetColor={handleSetColor}
-                            onSetLogo={handleSetLogo}
-                            onDelete={handleDeleteProject}
-                            onPinWorkspace={pinWorkspace}
-                            onUnpinWorkspace={unpinWorkspace}
-                            onArchiveWorkspace={archiveWorkspace}
-                            onDeleteWorkspace={deleteWorkspace}
-                            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
-                            onUpdateWorkspacePriority={updateWorkspacePriority}
-                            availableLabels={workspaceLabels}
-                            onCreateWorkspaceLabel={createWorkspaceLabel}
-                            onUpdateWorkspaceLabel={updateWorkspaceLabel}
-                            onUpdateWorkspaceLabels={updateWorkspaceLabels}
-                            onUpdateWorkspaceName={updateWorkspaceName}
-                            onConfigureScripts={handleConfigureScripts}
-                            onSelectMain={(id) => router.push(`/project?id=${id}`)}
-                            isActiveProject={currentProjectId === project.id && !currentWorkspaceId}
-                            isSelected={effectiveSelectedProjectSidebarId === project.id}
-                        />
-                    ))}
-                </SortableContext>
-            </DndContext>
-        </div>
+        <LeftSidebarSortableProjectList
+            activeProjectId={currentProjectId}
+            activeWorkspaceId={currentWorkspaceId}
+            availableLabels={workspaceLabels}
+            className="py-1.5"
+            expandedProjectIds={expandedProjects}
+            hideWorkspaceList
+            isAnyProjectDragging={isAnyProjectDragging}
+            projects={projectModeProjects}
+            selectedProjectId={effectiveSelectedProjectSidebarId}
+            sensors={sensors}
+            onAddWorkspace={handleAddWorkspace}
+            onArchiveWorkspace={archiveWorkspace}
+            onConfigureScripts={handleConfigureScripts}
+            onCreateWorkspaceLabel={createWorkspaceLabel}
+            onDeleteProject={handleDeleteProject}
+            onDeleteWorkspace={deleteWorkspace}
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+            onPinWorkspace={pinWorkspace}
+            onProjectRowClick={handleSelectProjectSidebar}
+            onQuickAddWorkspace={handleQuickAddWorkspace}
+            onSelectMain={handleSelectProjectMain}
+            onSetColor={handleSetColor}
+            onSetLogo={handleSetLogo}
+            onToggleProject={toggleProject}
+            onUnpinWorkspace={unpinWorkspace}
+            onUpdateWorkspaceLabel={updateWorkspaceLabel}
+            onUpdateWorkspaceLabels={updateWorkspaceLabels}
+            onUpdateWorkspaceName={updateWorkspaceName}
+            onUpdateWorkspacePriority={updateWorkspacePriority}
+            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+        />
     );
 
     const projectTwoColumnRightContent = (
-        <div className="flex h-full min-h-0 flex-col">
-            <div className="border-b border-sidebar-border">
-                <div className="flex min-h-10 items-center gap-1 px-2">
-                    <div className="min-w-0 flex-1">
-                        {selectedProjectForSidebar ? (
-                            <div className="-mx-2 -mb-1">
-                                <ProjectItem
-                                    project={selectedProjectForSidebar}
-                                    isExpanded={false}
-                                    hideWorkspaceList={true}
-                                    disableRowClick={true}
-                                    onToggle={() => { }}
-                                    onAddWorkspace={handleAddWorkspace}
-                                    onQuickAddWorkspace={handleQuickAddWorkspace}
-                                    onSetColor={handleSetColor}
-                                    onSetLogo={handleSetLogo}
-                                    onDelete={handleDeleteProject}
-                                    onPinWorkspace={pinWorkspace}
-                                    onUnpinWorkspace={unpinWorkspace}
-                                    onArchiveWorkspace={archiveWorkspace}
-                                    onDeleteWorkspace={deleteWorkspace}
-                                    onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
-                                    onUpdateWorkspacePriority={updateWorkspacePriority}
-                                    availableLabels={workspaceLabels}
-                                    onCreateWorkspaceLabel={createWorkspaceLabel}
-                                    onUpdateWorkspaceLabel={updateWorkspaceLabel}
-                                    onUpdateWorkspaceLabels={updateWorkspaceLabels}
-                                    onUpdateWorkspaceName={updateWorkspaceName}
-                                    onConfigureScripts={handleConfigureScripts}
-                                    onSelectMain={(id) => router.push(`/project?id=${id}`)}
-                                    isActiveProject={currentProjectId === selectedProjectForSidebar.id && !currentWorkspaceId}
-                                />
-                            </div>
-                        ) : (
-                            <div className="flex h-full items-center px-3 text-sm text-muted-foreground">
-                                Select a project
-                            </div>
-                        )}
-                    </div>
-                    <div className="shrink-0 pr-0.5">
-                        <TwoColumnSidebarToggleButton
-                            collapsed={isTwoColumnPrimaryCollapsed}
-                            onClick={toggleTwoColumnPrimaryPanel}
-                        />
-                    </div>
-                </div>
-            </div>
-            <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-2">
-                {!selectedProjectForSidebar ? (
-                    <div className="px-3 py-6 text-sm text-muted-foreground">
-                        Select a project to browse its workspaces.
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        {workspaceSidebarTwoColumnShowPinned && selectedProjectPinnedEntries.length > 0 ? (
-                            <Collapsible
-                                open={isSecondColumnPinnedExpanded}
-                                onOpenChange={setIsSecondColumnPinnedExpanded}
-                                className="space-y-1.5"
-                            >
-                                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
-                                    <span className="truncate">
-                                        Pinned
-                                    </span>
-                                    <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isSecondColumnPinnedExpanded && "rotate-90")} />
-                                    <span className="ml-auto text-[10px] text-muted-foreground/80">
-                                        {selectedProjectPinnedEntries.length}
-                                    </span>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div className="overflow-hidden">
-                                        <div className="space-y-0.5 pl-3 pt-0.5">
-                                        <DndContext
-                                            sensors={sensors}
-                                            collisionDetection={closestCenter}
-                                            onDragEnd={(event) => {
-                                                if (isPinnedSortingDisabled) return;
-                                                const { active, over } = event;
-                                                if (!over || active.id === over.id) return;
-                                                const oldIndex = selectedProjectPinnedEntries.findIndex((entry) => entry.workspace.id === active.id);
-                                                const newIndex = selectedProjectPinnedEntries.findIndex((entry) => entry.workspace.id === over.id);
-                                                if (oldIndex === -1 || newIndex === -1) return;
-                                                const reordered = arrayMove(selectedProjectPinnedEntries, oldIndex, newIndex);
-                                                void updateWorkspacePinOrder(reordered.map((entry) => entry.workspace.id));
-                                            }}
-                                            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-                                        >
-                                            <SortableContext items={selectedProjectPinnedEntries.map((entry) => entry.workspace.id)} strategy={verticalListSortingStrategy}>
-                                                <div className={cn("space-y-0.5", workspaceSidebarSecondColumnKanban && "space-y-2")}>
-                                                    {selectedProjectPinnedEntries.map((entry) =>
-                                                        workspaceSidebarSecondColumnKanban ? (
-                                                            isPinnedSortingDisabled ? (
-                                                                <div key={entry.workspace.id}>
-                                                                    {renderWorkspaceKanbanCard(entry)}
-                                                                </div>
-                                                            ) : (
-                                                                <SortableSidebarKanbanCard
-                                                                    key={entry.workspace.id}
-                                                                    workspaceId={entry.workspace.id}
-                                                                >
-                                                                    {renderWorkspaceKanbanCard(entry)}
-                                                                </SortableSidebarKanbanCard>
-                                                            )
-                                                        ) : renderWorkspaceItemRow(entry, {
-                                                            sortingDisabled: isPinnedSortingDisabled,
-                                                            sortingDisabledMessage: "Clear workspace filters before reordering pinned workspaces.",
-                                                        }),
-                                                    )}
-                                                </div>
-                                            </SortableContext>
-                                        </DndContext>
-                                    </div>
-                                    </div>
-                                </CollapsibleContent>
-                            </Collapsible>
-                        ) : null}
-                        {workspaceSidebarTwoColumnShowPinned && selectedProjectPinnedEntries.length > 0 ? (
-                            <Collapsible
-                                open={isSecondColumnWorkspacesExpanded}
-                                onOpenChange={setIsSecondColumnWorkspacesExpanded}
-                                className="space-y-1.5"
-                            >
-                                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] text-muted-foreground transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground">
-                                    <span className="truncate">
-                                        Workspaces
-                                    </span>
-                                    <ChevronRight className={cn("ml-1 size-3 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100", isSecondColumnWorkspacesExpanded && "rotate-90")} />
-                                    <span className="ml-auto text-[10px] text-muted-foreground/80">
-                                        {selectedProjectUnpinnedWorkspaces.length}
-                                    </span>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div className="overflow-hidden">
-                                        <div className="pl-3 pt-0.5">
-                                        <DndContext
-                                            sensors={sensors}
-                                            collisionDetection={closestCenter}
-                                            onDragStart={handleDragStart}
-                                            onDragEnd={handleDragEnd}
-                                            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-                                        >
-                                            <SortableContext items={selectedProjectUnpinnedWorkspaces.map((workspace) => workspace.id)} strategy={verticalListSortingStrategy}>
-                                                <div className={cn("space-y-0.5", workspaceSidebarSecondColumnKanban && "space-y-2")}>
-                                                    {selectedProjectUnpinnedWorkspaces.map((workspace) =>
-                                                        workspaceSidebarSecondColumnKanban ? (
-                                                            <SortableSidebarKanbanCard
-                                                                key={workspace.id}
-                                                                workspaceId={workspace.id}
-                                                            >
-                                                                {renderWorkspaceKanbanCard({
-                                                                    projectId: selectedProjectForSidebar.id,
-                                                                    projectName: selectedProjectForSidebar.name,
-                                                                    projectPath: selectedProjectForSidebar.mainFilePath,
-                                                                    workspace,
-                                                                })}
-                                                            </SortableSidebarKanbanCard>
-                                                        ) : renderWorkspaceItemRow({
-                                                            projectId: selectedProjectForSidebar.id,
-                                                            projectName: selectedProjectForSidebar.name,
-                                                            projectPath: selectedProjectForSidebar.mainFilePath,
-                                                            workspace,
-                                                        }),
-                                                    )}
-                                                </div>
-                                            </SortableContext>
-                                        </DndContext>
-                                        {selectedProjectUnpinnedWorkspaces.length === 0 ? (
-                                            <div className="px-1 py-2 text-sm text-muted-foreground">
-                                                No workspaces.
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                    </div>
-                                </CollapsibleContent>
-                            </Collapsible>
-                        ) : (
-                            <section className="space-y-1.5">
-                                <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={closestCenter}
-                                    onDragStart={handleDragStart}
-                                    onDragEnd={handleDragEnd}
-                                    modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
-                                >
-                                    <SortableContext items={selectedProjectUnpinnedWorkspaces.map((workspace) => workspace.id)} strategy={verticalListSortingStrategy}>
-                                        <div className={cn("space-y-0.5", workspaceSidebarSecondColumnKanban && "space-y-2")}>
-                                            {selectedProjectUnpinnedWorkspaces.map((workspace) =>
-                                                workspaceSidebarSecondColumnKanban ? (
-                                                    <SortableSidebarKanbanCard
-                                                        key={workspace.id}
-                                                        workspaceId={workspace.id}
-                                                    >
-                                                        {renderWorkspaceKanbanCard({
-                                                            projectId: selectedProjectForSidebar.id,
-                                                            projectName: selectedProjectForSidebar.name,
-                                                            projectPath: selectedProjectForSidebar.mainFilePath,
-                                                            workspace,
-                                                        })}
-                                                    </SortableSidebarKanbanCard>
-                                                ) : renderWorkspaceItemRow({
-                                                    projectId: selectedProjectForSidebar.id,
-                                                    projectName: selectedProjectForSidebar.name,
-                                                    projectPath: selectedProjectForSidebar.mainFilePath,
-                                                    workspace,
-                                                }),
-                                            )}
-                                        </div>
-                                    </SortableContext>
-                                </DndContext>
-                                {selectedProjectUnpinnedWorkspaces.length === 0 ? (
-                                    <div className="px-3 py-4 text-sm text-muted-foreground">
-                                        No workspaces.
-                                    </div>
-                                ) : null}
-                            </section>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
+        <ProjectWorkspaceTwoColumnRightContent
+            activeProjectId={currentProjectId}
+            activeWorkspaceId={currentWorkspaceId}
+            availableLabels={workspaceLabels}
+            isPinnedSortingDisabled={isPinnedSortingDisabled}
+            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+            isPinnedExpanded={isSecondColumnPinnedExpanded}
+            isWorkspacesExpanded={isSecondColumnWorkspacesExpanded}
+            secondColumnKanban={workspaceSidebarSecondColumnKanban}
+            selectedProject={selectedProjectForSidebar}
+            selectedProjectPinnedEntries={selectedProjectPinnedEntries}
+            selectedProjectUnpinnedWorkspaces={selectedProjectUnpinnedWorkspaces}
+            sensors={sensors}
+            showPinnedSection={workspaceSidebarTwoColumnShowPinned}
+            renderWorkspaceItemRow={renderWorkspaceItemRow}
+            renderWorkspaceKanbanCard={renderWorkspaceKanbanCard}
+            onAddWorkspace={handleAddWorkspace}
+            onArchiveWorkspace={archiveWorkspace}
+            onConfigureScripts={handleConfigureScripts}
+            onCreateWorkspaceLabel={createWorkspaceLabel}
+            onDeleteProject={handleDeleteProject}
+            onDeleteWorkspace={deleteWorkspace}
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+            onPinnedExpandedChange={setIsSecondColumnPinnedExpanded}
+            onPinWorkspace={pinWorkspace}
+            onQuickAddWorkspace={handleQuickAddWorkspace}
+            onSelectMain={handleSelectProjectMain}
+            onSetColor={handleSetColor}
+            onSetLogo={handleSetLogo}
+            onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
+            onUnpinWorkspace={unpinWorkspace}
+            onUpdateWorkspaceLabel={updateWorkspaceLabel}
+            onUpdateWorkspaceLabels={updateWorkspaceLabels}
+            onUpdateWorkspaceName={updateWorkspaceName}
+            onUpdateWorkspacePinOrder={updateWorkspacePinOrder}
+            onUpdateWorkspacePriority={updateWorkspacePriority}
+            onUpdateWorkspaceWorkflowStatus={updateWorkspaceWorkflowStatus}
+            onWorkspacesExpandedChange={setIsSecondColumnWorkspacesExpanded}
+        />
     );
 
     const groupedTwoColumnLeftContent = (
-        <div className="scrollbar-on-hover h-full overflow-y-auto px-2 py-1.5">
-            <div className="space-y-1">
-                {groupedWorkspaces.map((group) => {
-                    const statusMeta = groupingMode === 'status'
-                        ? getWorkspaceWorkflowStatusMeta(group.key as Parameters<typeof getWorkspaceWorkflowStatusMeta>[0])
-                        : null;
-                    const StatusIcon = statusMeta?.icon;
-                    const isSelected = effectiveSelectedWorkspaceGroupKey === group.key;
-
-                    return (
-                        <button
-                            key={group.key}
-                            type="button"
-                            onClick={() => handleSelectWorkspaceGroup(group.key)}
-                            className={cn(
-                                "flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-[11px] font-semibold tracking-[0.03em] transition-colors",
-                                isSelected
-                                    ? "bg-sidebar-accent text-sidebar-foreground"
-                                    : "text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground",
-                            )}
-                        >
-                            {StatusIcon ? (
-                                <StatusIcon className={cn("size-3.5 shrink-0", statusMeta?.className)} />
-                            ) : null}
-                            <span className="truncate">{group.label}</span>
-                            <span className="ml-auto text-[10px] font-medium normal-case tracking-normal text-muted-foreground/80">
-                                {group.items.length}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
+        <GroupedWorkspaceTwoColumnLeftContent
+            effectiveSelectedWorkspaceGroupKey={effectiveSelectedWorkspaceGroupKey}
+            groupingMode={groupingMode}
+            groups={groupedWorkspaces}
+            onSelectGroup={handleSelectWorkspaceGroup}
+        />
     );
 
     const groupedTwoColumnRightContent = (
-        <div className="flex h-full min-h-0 flex-col">
-            <div className="border-b border-sidebar-border">
-                <div className="flex min-h-10 items-center gap-1 px-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <div className="min-w-0">
-                            <div className="truncate text-sm font-medium text-sidebar-foreground">
-                                {selectedGroupForSidebar?.label ?? 'Select a group'}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="shrink-0 pr-0.5">
-                        <TwoColumnSidebarToggleButton
-                            collapsed={isTwoColumnPrimaryCollapsed}
-                            onClick={toggleTwoColumnPrimaryPanel}
-                        />
-                    </div>
-                </div>
-            </div>
-            <div className="scrollbar-on-hover flex-1 overflow-y-auto px-2 py-2">
-                {!selectedGroupForSidebar ? (
-                    <div className="px-3 py-6 text-sm text-muted-foreground">
-                        Select a group to browse its workspaces.
-                    </div>
-                ) : (
-                    <div className={cn("space-y-1", workspaceSidebarSecondColumnKanban && "space-y-2")}>
-                        {selectedGroupForSidebar.items.map((entry) =>
-                            workspaceSidebarSecondColumnKanban
-                                ? (
-                                    <div key={entry.workspace.id}>
-                                        {renderWorkspaceKanbanCard(entry)}
-                                    </div>
-                                )
-                                : renderWorkspaceContentRow(entry, { showProjectName: true }),
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
+        <GroupedWorkspaceTwoColumnRightContent
+            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+            selectedGroup={selectedGroupForSidebar}
+            secondColumnKanban={workspaceSidebarSecondColumnKanban}
+            renderWorkspaceContentRow={renderWorkspaceContentRow}
+            renderWorkspaceKanbanCard={renderWorkspaceKanbanCard}
+            onTogglePrimaryPanel={toggleTwoColumnPrimaryPanel}
+        />
     );
 
     const twoColumnSidebarContent = isTwoColumnSidebar ? (
-        <div className="flex h-full min-h-0 flex-col">
-            <div className="flex flex-1 min-h-0 min-w-0">
-                <PanelGroup
-                    autoSaveId={isProjectTwoColumn ? "left-sidebar-project-two-column" : `left-sidebar-group-two-column-${groupingMode}`}
-                    direction="horizontal"
-                    storage={storage}
-                    className="flex-1"
-                >
-                    <Panel
-                        ref={twoColumnPrimaryPanelRef}
-                        id={isProjectTwoColumn ? "left-sidebar-two-column-primary-project" : `left-sidebar-two-column-primary-${groupingMode}`}
-                        order={1}
-                        collapsible
-                        collapsedSize={0}
-                        defaultSize={currentTwoColumnPrimarySize}
-                        minSize={14}
-                        maxSize={76}
-                        className="min-w-0 overflow-hidden"
-                        onCollapse={() => setIsTwoColumnPrimaryCollapsed(true)}
-                        onExpand={() => setIsTwoColumnPrimaryCollapsed(false)}
-                        onResize={handleTwoColumnPrimaryResize}
-                    >
-                        <div className="flex h-full min-h-0 flex-col">
-                            {pinnedWorkspaceSection ? (
-                                <div className="pt-1.5">
-                                    {pinnedWorkspaceSection}
-                                </div>
-                            ) : null}
-                            <div className="flex-1 min-h-0 overflow-hidden">
-                                {isProjectTwoColumn ? projectTwoColumnLeftContent : groupedTwoColumnLeftContent}
-                            </div>
-                        </div>
-                    </Panel>
-                    {!isTwoColumnPrimaryCollapsed ? (
-                        <SidebarColumnResizeHandle onDragging={handleTwoColumnDividerDragging} />
-                    ) : null}
-                    <Panel
-                        id={isProjectTwoColumn ? "left-sidebar-two-column-secondary-project" : `left-sidebar-two-column-secondary-${groupingMode}`}
-                        order={2}
-                        defaultSize={100 - currentTwoColumnPrimarySize}
-                        minSize={24}
-                        maxSize={100}
-                        className="min-w-0"
-                    >
-                        {isProjectTwoColumn ? projectTwoColumnRightContent : groupedTwoColumnRightContent}
-                    </Panel>
-                </PanelGroup>
-            </div>
-        </div>
+        <TwoColumnSidebarContent
+            autoSaveId={isProjectTwoColumn ? "left-sidebar-project-two-column" : `left-sidebar-group-two-column-${groupingMode}`}
+            primaryPanelId={isProjectTwoColumn ? "left-sidebar-two-column-primary-project" : `left-sidebar-two-column-primary-${groupingMode}`}
+            secondaryPanelId={isProjectTwoColumn ? "left-sidebar-two-column-secondary-project" : `left-sidebar-two-column-secondary-${groupingMode}`}
+            storage={storage}
+            primaryPanelRef={twoColumnPrimaryPanelRef}
+            isPrimaryCollapsed={isTwoColumnPrimaryCollapsed}
+            primarySize={currentTwoColumnPrimarySize}
+            pinnedSection={pinnedWorkspaceSection}
+            leftContent={isProjectTwoColumn ? projectTwoColumnLeftContent : groupedTwoColumnLeftContent}
+            rightContent={isProjectTwoColumn ? projectTwoColumnRightContent : groupedTwoColumnRightContent}
+            onPrimaryCollapse={() => setIsTwoColumnPrimaryCollapsed(true)}
+            onPrimaryExpand={() => setIsTwoColumnPrimaryCollapsed(false)}
+            onPrimaryResize={handleTwoColumnPrimaryResize}
+            onDividerDragging={handleTwoColumnDividerDragging}
+        />
     ) : null;
 
     const projectTabContent = isInitialProjectsLoading ? (
@@ -1797,170 +756,33 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
             <aside className="@container w-full flex flex-col h-full select-none">
                 {/* Management Center */}
                 <div className="flex flex-col shrink-0">
-                    <div
-                        className="h-10 flex items-center justify-between px-4 text-sm font-medium border-b border-sidebar-border cursor-pointer hover:bg-sidebar-accent/50 transition-colors select-none"
-                        onClick={() => setIsWorkspacesExpanded(!isWorkspacesExpanded)}
-                    >
-                        <div className="flex items-center gap-2">
-                            <Layers className="size-4" />
-                            <span>Management Center</span>
-                        </div>
-                        <div className={cn("text-muted-foreground transition-transform duration-200", isWorkspacesExpanded ? "rotate-90" : "")}>
-                            <ArrowRight className="size-3.5" />
-                        </div>
-                    </div>
-
-                    <div className={cn(
-                        "grid transition-[grid-template-rows] duration-200 ease-in-out",
-                        isWorkspacesExpanded ? "grid-rows-[1fr] border-b border-sidebar-border" : "grid-rows-[0fr]"
-                    )}>
-                        <div className="overflow-hidden">
-                            {(() => {
-                                const managementItems = managementCenterItems;
-                                const totalItems = managementItems.length;
-                                const isOddCount = totalItems % 2 === 1;
-                                return (
-                                    <div className="grid grid-cols-1 @[200px]:grid-cols-2">
-                                        {managementItems.map((item, index) => {
-                                            const Icon = item.icon;
-                                            const isActive = currentView === item.id || (item.kind === 'canvas' && canvasOpen);
-                                            const isLeftColumnOnTwoCol = index % 2 === 0;
-                                            const isLastItemAlone = isOddCount && index === totalItems - 1;
-                                            const cardClassName = cn(
-                                                "group relative h-12 cursor-pointer overflow-hidden transition-all duration-300 outline-none",
-                                                "border-b border-b-sidebar-border/30 transition-colors",
-                                                isLastItemAlone
-                                                    ? "@[200px]:col-span-2"
-                                                    : isLeftColumnOnTwoCol && "@[200px]:border-r @[200px]:border-sidebar-border/30",
-                                                isActive ? "text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                                            );
-                                            const cardInner = (
-                                                <>
-                                                    <AnimatePresence>
-                                                        {isActive && (
-                                                            <motion.div
-                                                                initial={{ scaleX: 0, opacity: 0 }}
-                                                                animate={{ scaleX: 1, opacity: 1 }}
-                                                                exit={{ scaleX: 0, opacity: 0 }}
-                                                                transition={{
-                                                                    default: { ease: [0.16, 1, 0.3, 1] },
-                                                                    opacity: { duration: 0.5 },
-                                                                    scaleX: {
-                                                                        duration: isActive ? 0.6 : 1.0,
-                                                                        type: "tween"
-                                                                    }
-                                                                }}
-                                                                className="absolute bottom-0 left-0 right-0 h-px bg-sidebar-foreground z-10 origin-center"
-                                                            />
-                                                        )}
-                                                    </AnimatePresence>
-
-                                                    <div className="flex flex-col h-[200%] w-full transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) group-hover:-translate-y-1/2">
-                                                        <div className="flex items-center justify-center h-1/2 w-full transition-all duration-300 group-hover:opacity-0 group-hover:scale-90">
-                                                            <Icon className="size-4.5" />
-                                                        </div>
-                                                        <div className="flex items-center justify-center h-1/2 w-full px-1">
-                                                            <span className="text-[10px] font-bold uppercase tracking-tight text-center leading-none">
-                                                                {item.label}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            );
-
-                                            if (item.kind === 'kanban') {
-                                                return (
-                                                    <WorkspaceKanbanView
-                                                       key={item.id}
-                                                       projects={projects}
-                                                       availableLabels={workspaceLabels}
-                                                       onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                                                       onUpdatePriority={updateWorkspacePriority}
-                                                       onCreateLabel={createWorkspaceLabel}
-                                                       onUpdateLabel={updateWorkspaceLabel}
-                                                       onUpdateLabels={updateWorkspaceLabels}
-                                                       onPinWorkspace={pinWorkspace}
-                                                       onUnpinWorkspace={unpinWorkspace}
-                                                       onArchiveWorkspace={archiveWorkspace}
-                                                       onDeleteWorkspace={async (projectId, workspaceId) => {
-                                                           await deleteWorkspace(projectId, workspaceId);
-                                                           await fetchProjects();
-                                                       }}
-                                                       filters={kanbanFilters}
-                                                       onFiltersChange={setKanbanFilters}
-                                                       trigger={(
-                                                            <div className={cardClassName}>
-                                                                {cardInner}
-                                                            </div>
-                                                        )}
-                                                    />
-                                                );
-                                            }
-
-                                            if (item.kind === 'canvas') {
-                                                return (
-                                                    <Tooltip key={item.id}>
-                                                        <TooltipTrigger asChild>
-                                                            <div
-                                                                onClick={() => void setCanvasOpen(true)}
-                                                                className={cardClassName}
-                                                            >
-                                                                {cardInner}
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="bottom">
-                                                            <div className="flex items-center gap-2">
-                                                                <span>Canvas</span>
-                                                                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                                                                    <Command className="size-3" />
-                                                                    <span className="text-xs">⇧</span>
-                                                                    <span className="text-xs">H</span>
-                                                                </kbd>
-                                                            </div>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                );
-                                            }
-
-                                            if (item.kind === 'new-workspace') {
-                                                return (
-                                                    <Tooltip key={item.id}>
-                                                        <TooltipTrigger asChild>
-                                                            <div
-                                                                onClick={handleOpenNewWorkspace}
-                                                                className={cardClassName}
-                                                            >
-                                                                {cardInner}
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="bottom">
-                                                            <div className="flex items-center gap-2">
-                                                                <span>New Workspace</span>
-                                                                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                                                                    <Command className="size-3" />
-                                                                    <span className="text-xs">N</span>
-                                                                </kbd>
-                                                            </div>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                );
-                                            }
-
-                                            return (
-                                                <div
-                                                    key={item.id}
-                                                    onClick={() => item.path && router.push(item.path)}
-                                                    className={cardClassName}
-                                                >
-                                                    {cardInner}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    </div>
+                    <LeftSidebarManagementCenter
+                        isExpanded={isWorkspacesExpanded}
+                        onExpandedChange={setIsWorkspacesExpanded}
+                        currentView={currentView}
+                        canvasOpen={Boolean(canvasOpen)}
+                        managementTerminalsEnabled={managementTerminalsEnabled}
+                        managementAgentsEnabled={managementAgentsEnabled}
+                        projects={projects}
+                        availableLabels={workspaceLabels}
+                        kanbanFilters={kanbanFilters}
+                        onFiltersChange={setKanbanFilters}
+                        onNavigate={(path) => router.push(path)}
+                        onOpenCanvas={() => void setCanvasOpen(true)}
+                        onOpenNewWorkspace={handleOpenNewWorkspace}
+                        onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                        onUpdatePriority={updateWorkspacePriority}
+                        onCreateLabel={createWorkspaceLabel}
+                        onUpdateLabel={updateWorkspaceLabel}
+                        onUpdateLabels={updateWorkspaceLabels}
+                        onPinWorkspace={pinWorkspace}
+                        onUnpinWorkspace={unpinWorkspace}
+                        onArchiveWorkspace={archiveWorkspace}
+                        onDeleteWorkspace={async (projectId, workspaceId) => {
+                            await deleteWorkspace(projectId, workspaceId);
+                            await fetchProjects();
+                        }}
+                    />
 
                 </div>
 
@@ -1973,60 +795,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         className="flex flex-col h-full overflow-hidden"
                         onValueChange={handleTabChange}
                     >
-                        <div className={cn("h-10 flex border-b border-sidebar-border", (filesOnRight || !layoutLoaded) && "hidden")}>
-                            <TabsList variant="underline" className="w-full h-full gap-0 items-stretch py-0!">
-                                <TabsTab
-                                    value="projects"
-                                    className="flex-1 h-full! text-[12px] p-0 overflow-hidden relative rounded-none border-0!"
-                                >
-                                    <div
-                                        className="w-full h-full flex items-center justify-center group cursor-pointer"
-                                        onClick={(e) => {
-                                            if (activeTab === 'projects' && isAddProjectReady) {
-                                                e.stopPropagation();
-                                                handleAddProject();
-                                            }
-                                        }}
-                                    >
-                                        <div className="flex items-center justify-center gap-0.5">
-                                            <div className="relative size-3.5 shrink-0">
-                                                <FolderKanban className={cn(
-                                                    "absolute inset-0 size-3.5 transition-transform duration-300",
-                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:-translate-y-8"
-                                                )} />
-                                                <Plus className={cn(
-                                                    "absolute inset-0 size-3.5 -translate-x-8 opacity-0 transition-all duration-300",
-                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:translate-x-0 group-hover:opacity-100"
-                                                )} />
-                                            </div>
-
-                                            <div className="flex items-center whitespace-nowrap">
-                                                <span className={cn(
-                                                    "inline-block overflow-hidden max-w-0 opacity-0 transition-all duration-300 ease-out text-left",
-                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-[40px] group-hover:opacity-100"
-                                                )}>
-                                                    Add&nbsp;
-                                                </span>
-                                                <span>Project</span>
-                                                <span className={cn(
-                                                    "inline-block overflow-hidden transition-all duration-300 max-w-[10px]",
-                                                    activeTab === 'projects' && isAddProjectReady && "group-hover:max-w-0 group-hover:opacity-0 group-hover:translate-x-2"
-                                                )}>
-                                                    s
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </TabsTab>
-                                <TabsTab
-                                    value="files"
-                                    className="flex-1 h-full! text-[12px] gap-1.5 rounded-none border-0!"
-                                >
-                                    <Folder className="size-3.5" />
-                                    <span>Files</span>
-                                </TabsTab>
-                            </TabsList>
-                        </div>
+                        <LeftSidebarTabsHeader
+                            activeTab={activeTab}
+                            filesOnRight={filesOnRight}
+                            isAddProjectReady={isAddProjectReady}
+                            layoutLoaded={layoutLoaded}
+                            onAddProject={handleAddProject}
+                            onTabChange={handleTabChange}
+                        />
 
                         <TabsPanel
                             value="projects"
@@ -2051,66 +827,30 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
                     </Tabs>
                 </div>
-                {(activeTab === 'projects' || filesOnRight) && (
-                    <div className="relative shrink-0 border-t border-sidebar-border bg-transparent">
-                        <div className="relative flex items-center justify-between gap-1 px-1.5 py-0.5">
-                            <div className="flex items-center gap-0">
-                                <button
-                                    type="button"
-                                    title="Add Project"
-                                    onClick={handleAddProject}
-                                    className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-                                >
-                                    <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                                        <FolderPlus className="size-3.5" />
-                                    </span>
-                                </button>
-                            </div>
-                            <div className="flex items-center gap-0">
-                                <WorkspaceKanbanFilterMenu
-                                    projects={projects}
-                                    availableLabels={workspaceLabels}
-                                    filters={kanbanFilters}
-                                    onFiltersChange={setKanbanFilters}
-                                    triggerVariant="icon"
-                                    align="end"
-                                    side="top"
-                                    showGrouping={!isKanbanExpanded}
-                                    groupingMode={groupingMode}
-                                    onGroupingModeChange={setGroupingMode}
-                                />
-                                <WorkspaceKanbanView
-                                projects={projects}
-                                availableLabels={workspaceLabels}
-                                onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
-                                onUpdatePriority={updateWorkspacePriority}
-                                onCreateLabel={createWorkspaceLabel}
-                                onUpdateLabel={updateWorkspaceLabel}
-                                onUpdateLabels={updateWorkspaceLabels}
-                                onPinWorkspace={pinWorkspace}
-                                onUnpinWorkspace={unpinWorkspace}
-                                onArchiveWorkspace={archiveWorkspace}
-                                onDeleteWorkspace={async (projectId, workspaceId) => {
-                                    await deleteWorkspace(projectId, workspaceId);
-                                    await fetchProjects();
-                                }}
-                                filters={kanbanFilters}
-                                onFiltersChange={setKanbanFilters}
-                                trigger={(
-                                    <button
-                                        type="button"
-                                        className="group inline-flex h-8 items-center gap-1 rounded-lg bg-transparent px-0.5 text-[11px] text-muted-foreground/90 transition-colors hover:text-sidebar-foreground"
-                                    >
-                                        <span className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors group-hover:text-sidebar-foreground">
-                                            <SquareKanban className="size-3.5" />
-                                        </span>
-                                    </button>
-                                )}
-                            />
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <LeftSidebarFooter
+                    activeTab={activeTab}
+                    availableLabels={workspaceLabels}
+                    filesOnRight={filesOnRight}
+                    filters={kanbanFilters}
+                    groupingMode={groupingMode}
+                    isKanbanExpanded={isKanbanExpanded}
+                    projects={projects}
+                    onAddProject={handleAddProject}
+                    onArchiveWorkspace={archiveWorkspace}
+                    onCreateLabel={createWorkspaceLabel}
+                    onDeleteWorkspace={async (projectId, workspaceId) => {
+                        await deleteWorkspace(projectId, workspaceId);
+                        await fetchProjects();
+                    }}
+                    onFiltersChange={setKanbanFilters}
+                    onGroupingModeChange={setGroupingMode}
+                    onPinWorkspace={pinWorkspace}
+                    onUnpinWorkspace={unpinWorkspace}
+                    onUpdateLabel={updateWorkspaceLabel}
+                    onUpdateLabels={updateWorkspaceLabels}
+                    onUpdatePriority={updateWorkspacePriority}
+                    onUpdateWorkflowStatus={updateWorkspaceWorkflowStatus}
+                />
             </aside >
             <CreateProjectDialog
                 isOpen={isCreateProjectOpen}
@@ -2141,69 +881,3 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 };
 
 export default LeftSidebar;
-
-function SortableSidebarKanbanCard({
-    workspaceId,
-    children,
-}: {
-    workspaceId: string;
-    children: React.ReactNode;
-}) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: workspaceId });
-
-    const style = {
-        transform: CSS.Translate.toString(transform),
-        transition: transition || 'transform 200ms cubic-bezier(0.2, 0, 0, 1)',
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            {...attributes}
-            {...listeners}
-            className={cn("relative", isDragging && "z-20 opacity-60")}
-        >
-            {children}
-        </div>
-    );
-}
-
-function TwoColumnSidebarToggleButton({
-    collapsed,
-    onClick,
-}: {
-    collapsed: boolean;
-    onClick: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label={collapsed ? "Expand first column" : "Collapse first column"}
-            title={collapsed ? "Expand first column" : "Collapse first column"}
-        >
-            {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
-        </button>
-    );
-}
-
-function SidebarColumnResizeHandle({ onDragging }: { onDragging?: (dragging: boolean) => void }) {
-    return (
-        <PanelResizeHandle
-            onDragging={onDragging}
-            className={cn(
-                "relative flex h-full self-stretch w-px items-center justify-center bg-sidebar-border/70 transition-colors duration-200 hover:bg-sidebar-border group touch-none",
-                "before:absolute before:inset-y-0 before:left-1/2 before:w-1 before:-translate-x-1/2",
-            )}
-        />
-    );
-}

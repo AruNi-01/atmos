@@ -1,19 +1,14 @@
-import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
   Button,
   Tabs,
   TabsList,
-  TabsTrigger,
   TabsTab,
-  TabsPanel,
-  Textarea,
   Avatar,
   AvatarImage,
   AvatarFallback,
@@ -23,16 +18,9 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
 } from '@workspace/ui';
-import { MultiFileDiff } from '@pierre/diffs/react';
-import type { FileContents } from '@pierre/diffs';
 import { useGithubPRDetail, useGithubPRDetailSidebar, useGithubPRTimeline, useGithubPRFiles } from '@/hooks/use-github';
 import { useWebSocketStore } from '@/hooks/use-websocket';
-import { ATMOS_DIFF_THEME } from '@/components/diff/diff-view-constants';
 import {
   Github,
   ExternalLink,
@@ -40,18 +28,14 @@ import {
   XCircle,
   Expand,
   Shrink,
-  Loader2,
   MessageSquare,
-  CheckCircle2,
-  LoaderCircle,
   RotateCw,
+  CheckCircle2,
   AlertCircle,
   GitPullRequest,
   GitCommit,
   Rocket,
   X,
-  ChevronRight,
-  ChevronDown,
   Check,
   Copy,
   Eye,
@@ -61,109 +45,27 @@ import {
   Milestone,
   Edit2,
   FileCode,
-  Users,
-  CircleDot,
-  Code,
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react';
-import { getFileIconProps } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer';
-import { CommitList, type CommitListItem } from './CommitList';
+import { CommitList } from './CommitList';
 import { PRFilesTab } from './PRFilesTab';
-
-interface StatusCheck {
-  state?: string;
-  conclusion?: string;
-  status?: string;
-  name?: string;
-  context?: string;
-  workflowName?: string;
-}
-
-interface TimelineItem {
-  event?: string;
-  type?: string;
-  actor?: Record<string, unknown>;
-  author?: { login?: string; name?: string; avatar_url?: string; avatarUrl?: string; is_bot?: boolean; date?: string };
-  user?: Record<string, unknown>;
-  created_at?: string;
-  submitted_at?: string;
-  authoredDate?: string;
-  body?: string;
-  message?: string;
-  messageHeadline?: string;
-  state?: string;
-  commit_id?: string;
-  merge_commit_sha?: string;
-  commit_sha?: string;
-  assignee?: { login?: string };
-  label?: { name?: string; color?: string };
-  requested_reviewer?: { login?: string };
-  milestone?: { title?: string };
-  rename?: { from?: string; to?: string };
-  deployment?: { environment?: string };
-  deployment_status?: { target_url?: string };
-  environment?: string;
-  createdAt?: string;
-}
-
-interface ReviewComment {
-  id?: number;
-  body?: string;
-  path?: string;
-  line?: number | null;
-  original_line?: number | null;
-  side?: string;
-  diff_hunk?: string;
-  user?: { login?: string; avatar_url?: string; is_bot?: boolean };
-  created_at?: string;
-  updated_at?: string;
-  in_reply_to_id?: number;
-  pull_request_review_id?: number;
-  html_url?: string;
-}
-
-interface ReviewCommentThread {
-  path: string;
-  line: number | null;
-  diffHunk: string;
-  comments: ReviewComment[];
-}
-
-interface Reviewer {
-  login: string;
-  avatar_url?: string;
-  state?: string;
-}
-
-interface Label {
-  name: string;
-  color?: string;
-  description?: string;
-}
-
-interface Assignee {
-  login: string;
-  avatar_url?: string;
-  avatarUrl?: string;
-}
-
-interface ClosingIssue {
-  number: number;
-  title: string;
-  url: string;
-  state?: string;
-  body?: string;
-}
-
-interface ConversationItem extends TimelineItem {
-  type: string;
-  createdAt: string;
-  reviewCommentThreads?: ReviewCommentThread[];
-}
+import { PRActionBar, type PRMergeStrategy } from './pr-detail-modal-actions';
+import {
+  CommentBox,
+  PRDetailSkeleton,
+  ReviewCommentThreadView,
+  prCommitsToListItems,
+  type ConversationItem,
+  type ReviewComment,
+  type ReviewCommentThread,
+  type StatusCheck,
+  type TimelineItem,
+} from './pr-detail-modal-parts';
+import { PRMetadataSidebar } from './pr-detail-modal-sidebar';
 
 interface PRDetailModalProps {
   owner: string;
@@ -174,400 +76,6 @@ interface PRDetailModalProps {
   onOpenChange: (open: boolean) => void;
   onMerged?: () => void;
   onClosed?: () => void;
-}
-
-function CheckGroupItem({ groupName, checks }: { groupName: string, checks: StatusCheck[] }) {
-  const hasFailure = checks.some(c => c.state === 'FAILURE' || c.state === 'ERROR' || c.conclusion === 'FAILURE' || c.conclusion === 'ACTION_REQUIRED');
-  const hasInProgress = checks.some(c => c.state === 'PENDING' || c.state === 'IN_PROGRESS' || c.state === 'EXPECTED' || (c.status && c.status !== 'COMPLETED'));
-
-  const [isOpen, setIsOpen] = React.useState(hasFailure || hasInProgress);
-
-  const GroupIcon = hasFailure ? XCircle : hasInProgress ? Loader2 : CheckCircle2;
-  const groupIconClass = hasFailure ? "text-red-500" : hasInProgress ? "text-amber-500 animate-spin" : "text-emerald-500";
-
-  return (
-    <div className="flex flex-col border-b border-border/40 last:border-0 overflow-hidden bg-background">
-      <button
-        className="flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors w-full text-left"
-        onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
-      >
-        <div className={cn("shrink-0 flex items-center justify-center size-3 text-muted-foreground/50 transition-transform duration-200", isOpen ? "rotate-90" : "rotate-0")}>
-          <ChevronRight className="size-3.5" />
-        </div>
-        <div className="flex-1 min-w-0 font-medium text-[13px] text-foreground truncate">
-          {groupName}
-        </div>
-        <div className="shrink-0 flex items-center">
-          <GroupIcon className={cn("size-3.5", groupIconClass)} />
-        </div>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="bg-muted/20 shadow-inner overflow-hidden"
-          >
-            <div className="flex flex-col pb-1.5 pt-0.5">
-              {checks.map((check, idx) => {
-                const isFailure = check.state === 'FAILURE' || check.state === 'ERROR' || check.conclusion === 'FAILURE';
-                const isSkipped = check.conclusion === 'SKIPPED' || check.conclusion === 'NEUTRAL';
-                const isSuccess = check.state === 'SUCCESS' || check.conclusion === 'SUCCESS';
-
-                return (
-                  <div key={idx} className="flex items-center justify-between text-[13px] px-4 py-2 pl-10 hover:bg-muted/40 group transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="shrink-0 flex items-center justify-center">
-                        {isFailure ? <XCircle className="size-3.5 text-red-500" /> :
-                          isSuccess ? <CheckCircle2 className="size-3.5 text-emerald-500" /> :
-                            isSkipped ? <div className="size-3 rounded-full border-[1.5px] border-muted-foreground/40" /> :
-                              <Loader2 className="size-3.5 text-amber-500 animate-spin" />}
-                      </div>
-                      <span className={cn("font-medium truncate", isFailure ? "text-red-500" : "text-foreground/80")}>
-                        {check.name || check.context}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function PRDetailSkeleton() {
-  return (
-    <div className="flex flex-col gap-6 animate-pulse p-2">
-      {/* Header Skeleton */}
-      <div className="space-y-4 pb-6 border-b border-border/50">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-6 w-2/3 rounded-md" />
-          <Skeleton className="h-4 w-12 rounded-sm" />
-        </div>
-        <div className="flex items-center gap-3">
-          <Skeleton className="size-4 rounded-full" />
-          <Skeleton className="h-3 w-40 rounded-md" />
-          <Skeleton className="h-4 w-20 rounded-md" />
-          <Skeleton className="h-4 w-24 rounded-md" />
-        </div>
-      </div>
-
-      {/* Status Cards Skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Skeleton className="h-28 w-full rounded-xl border border-border/50" />
-        <Skeleton className="h-28 w-full rounded-xl border border-border/50" />
-      </div>
-
-      {/* Conversation Skeleton */}
-      <div className="space-y-8 mt-4 relative">
-        <div className="absolute left-4 top-0 bottom-0 w-px bg-border/30 ml-[2px]" />
-        {[1, 2, 3].map(i => (
-          <div key={i} className="flex gap-4 items-start relative z-10">
-            <Skeleton className="size-8 rounded-full shrink-0 border border-background shadow-sm" />
-            <div className="flex-1 space-y-3">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-3.5 w-24 rounded-md" />
-                <Skeleton className="h-3 w-32 rounded-md" />
-              </div>
-              <Skeleton className="h-24 w-full rounded-lg border border-border/50" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function buildDiffFiles(path: string, diffHunk: string): { oldFile: FileContents; newFile: FileContents } | null {
-  const lines = diffHunk.split('\n');
-  const oldLines: string[] = [];
-  const newLines: string[] = [];
-
-  for (const line of lines) {
-    if (!line || line.startsWith('@@')) continue;
-    if (line.startsWith('-')) {
-      oldLines.push(line.slice(1));
-      continue;
-    }
-    if (line.startsWith('+')) {
-      newLines.push(line.slice(1));
-      continue;
-    }
-    if (line.startsWith(' ')) {
-      const content = line.slice(1);
-      oldLines.push(content);
-      newLines.push(content);
-      continue;
-    }
-  }
-
-  if (oldLines.length === 0 && newLines.length === 0) {
-    return null;
-  }
-
-  return {
-    oldFile: { name: path.split('/').pop() || path, contents: oldLines.join('\n') },
-    newFile: { name: path.split('/').pop() || path, contents: newLines.join('\n') },
-  };
-}
-
-function SafePatchDiffBlock({ path, options, isMounted, diffHunk }: {
-  path: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options: any;
-  isMounted: boolean;
-  diffHunk: string;
-}) {
-  const diffFiles = useMemo(() => buildDiffFiles(path, diffHunk), [path, diffHunk]);
-
-  if (!isMounted || !diffFiles) {
-    return (
-      <div className="max-h-[180px] overflow-auto border-b border-border/30">
-        <pre className="text-[11px] bg-muted/20 px-3 py-2 overflow-x-auto font-mono text-muted-foreground leading-relaxed">
-          {diffHunk}
-        </pre>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-h-[180px] overflow-auto border-b border-border/30">
-      <MultiFileDiff oldFile={diffFiles.oldFile} newFile={diffFiles.newFile} options={options} />
-    </div>
-  );
-}
-
-function ChecksSection({ checks }: { checks: StatusCheck[] }) {
-  const [open, setOpen] = React.useState(false);
-  const allPassed = checks.every((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS');
-  const passedCount = checks.filter((c: StatusCheck) => c.state === 'SUCCESS' || c.conclusion === 'SUCCESS').length;
-
-  const groups: Record<string, StatusCheck[]> = {};
-  checks.forEach((c: StatusCheck) => {
-    let g = c.workflowName;
-    if (!g) g = c.context && c.context.toLowerCase().includes('vercel') ? 'Vercel' : 'Other Checks';
-    if (!groups[g]) groups[g] = [];
-    groups[g].push(c);
-  });
-
-  return (
-    <div className="flex flex-col gap-2">
-      <button
-        className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider w-full text-left group cursor-pointer"
-        onClick={() => setOpen(v => !v)}
-      >
-        <div className="relative size-3.5 shrink-0">
-          {allPassed
-            ? <CheckCircle2 className="absolute inset-0 size-3.5 text-emerald-500 transition-opacity duration-150 group-hover:opacity-0" />
-            : <AlertCircle className="absolute inset-0 size-3.5 text-amber-500 transition-opacity duration-150 group-hover:opacity-0" />}
-          <ChevronRight className={cn("absolute inset-0 size-3.5 opacity-0 transition-all duration-150 group-hover:opacity-100", open && "rotate-90")} />
-        </div>
-        <span>Checks</span>
-        <span className="ml-auto font-normal normal-case tracking-normal text-[10px]">{passedCount}/{checks.length}</span>
-      </button>
-      {open && (
-        <div className="flex flex-col border rounded-lg overflow-hidden border-border/50">
-          {Object.entries(groups).map(([groupName, groupChecks]) => (
-            <CheckGroupItem key={groupName} groupName={groupName} checks={groupChecks} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SidebarSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 text-muted-foreground font-semibold text-[11px] uppercase tracking-wider">
-        {icon}
-        <span>{title}</span>
-      </div>
-      <div className="flex flex-col gap-1">{children}</div>
-    </div>
-  );
-}
-
-const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
-  const [isExpanded, setIsExpanded] = React.useState(false);
-  const isMounted = React.useSyncExternalStore(
-    () => () => { },
-    () => true,
-    () => false,
-  );
-
-  const diffPatch = useMemo(() => {
-    if (!thread.diffHunk) return null;
-    return `--- a/${thread.path}\n+++ b/${thread.path}\n${thread.diffHunk}`;
-  }, [thread.diffHunk, thread.path]);
-
-  const diffOptions = useMemo(() => {
-    return {
-      theme: ATMOS_DIFF_THEME,
-      diffStyle: 'unified' as const,
-      overflow: 'wrap' as const,
-      disableLineNumbers: false,
-      disableFileHeader: true,
-    };
-  }, []);
-
-  return (
-    <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">
-      <button
-        className="flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 transition-colors border-b border-border/40"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <img {...getFileIconProps({ name: thread.path.split('/').pop() || thread.path, isDir: false })} className="size-4 shrink-0" />
-        <span className="text-[12px] font-mono text-foreground/80 truncate">{thread.path}</span>
-        {thread.line && (
-          <span className="text-[10px] text-muted-foreground shrink-0">line {thread.line}</span>
-        )}
-        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">{thread.comments.length} comment{thread.comments.length > 1 ? 's' : ''}</span>
-        <ChevronRight className={cn("size-3 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
-      </button>
-
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            {diffPatch && (
-              <SafePatchDiffBlock path={thread.path} options={diffOptions} isMounted={isMounted} diffHunk={thread.diffHunk} />
-            )}
-            <div className="flex flex-col divide-y divide-border/30">
-              {thread.comments.map((comment, idx) => (
-                <div key={comment.id || idx} className="px-3 py-2">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Avatar className="size-4 border border-border/50">
-                      <AvatarImage src={comment.user?.avatar_url || `https://github.com/${comment.user?.login?.replace('[bot]', '')}.png?size=32`} />
-                      <AvatarFallback className="text-[6px]">{comment.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-[11px] font-semibold text-foreground/90">{comment.user?.login}</span>
-                    {comment.created_at && (
-                      <span className="text-[10px] text-muted-foreground/60 ml-auto">
-                        {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
-                      </span>
-                    )}
-                  </div>
-                  <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
-                    {comment.body || ''}
-                  </MarkdownRenderer>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-});
-
-interface CommentBoxProps {
-  prState: string;
-  isDraft: boolean;
-  mergeable: string;
-  actionLoading: string | null;
-  onComment: (body: string) => void;
-  onClose: (body: string) => void;
-  onMerge: (body: string) => void;
-  onReopen: (body: string) => void;
-}
-
-function CommentBox({ prState, isDraft, mergeable, actionLoading, onComment, onClose, onMerge, onReopen }: CommentBoxProps) {
-  const [comment, setComment] = React.useState('');
-  const [tab, setTab] = React.useState<'write' | 'preview'>('write');
-
-  return (
-    <div className="mt-8 border border-border rounded-lg overflow-hidden">
-      <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-        <span className="text-xs font-semibold flex items-center gap-2">
-          <MessageSquare className="size-3.5" /> Add a comment
-        </span>
-        <Tabs value={tab} onValueChange={(v: string) => setTab(v as 'write' | 'preview')}>
-          <TabsList>
-            <TabsTrigger value="write" className="text-[11px] px-3">Write</TabsTrigger>
-            <TabsTrigger value="preview" className="text-[11px] px-3">Preview</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-      <div className="p-0">
-        {tab === 'write' ? (
-          <Textarea
-            placeholder="Leave a comment"
-            className="min-h-[120px] w-full border-none focus-visible:ring-0 rounded-none resize-y p-4 text-[13px] bg-transparent dark:bg-transparent"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
-        ) : (
-          <div className="p-4 min-h-[120px]">
-            {comment.trim() ? (
-              <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px]">{comment}</MarkdownRenderer>
-            ) : (
-              <div className="text-muted-foreground italic text-xs">Nothing to preview</div>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="px-4 py-2 border-t border-border flex items-center justify-between">
-        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-          <Github className="size-3" /> Markdown supported
-        </div>
-        <div className="flex gap-2">
-          {prState === 'OPEN' && (
-            <>
-              <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onClose(comment)} disabled={!!actionLoading}>
-                <XCircle className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Close PR' : 'Close PR'}
-              </Button>
-              <Button
-                variant="default" size="sm"
-                className={cn("h-8 text-xs font-medium text-white", (isDraft || mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed opacity-70" : "bg-emerald-600 hover:bg-emerald-700")}
-                onClick={() => onMerge(comment)} disabled={!!actionLoading || isDraft || mergeable !== 'MERGEABLE'}
-              >
-                <GitMerge className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Merge' : 'Merge'}
-              </Button>
-            </>
-          )}
-          {prState === 'CLOSED' && (
-            <Button variant="outline" size="sm" className="h-8 text-xs font-medium" onClick={() => onReopen(comment)} disabled={!!actionLoading}>
-              <RotateCw className="mr-2 size-3.5" /> {comment.trim() ? 'Comment & Reopen PR' : 'Reopen PR'}
-            </Button>
-          )}
-          <Button variant="secondary" size="sm" className="h-8 text-xs font-medium" onClick={() => { onComment(comment); setComment(''); }} disabled={!comment.trim() || !!actionLoading}>
-            {actionLoading === 'comment' ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <MessageSquare className="mr-2 size-3.5" />}
-            Comment
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function prCommitsToListItems(
-  commits: Array<{ oid: string; messageHeadline: string; messageBody?: string; authors?: Array<{ login?: string; avatarUrl?: string }>; committedDate?: string }>,
-  owner: string,
-  repo: string,
-): CommitListItem[] {
-  return commits.map(c => ({
-    hash: c.oid,
-    shortHash: c.oid.substring(0, 7),
-    subject: c.messageHeadline,
-    body: c.messageBody,
-    authorName: c.authors?.[0]?.login ?? 'unknown',
-    authorAvatarUrl: c.authors?.[0]?.avatarUrl ?? `https://github.com/${c.authors?.[0]?.login?.replace('[bot]', '')}.png?size=32`,
-    timestamp: c.committedDate ? new Date(c.committedDate) : new Date(0),
-    isPushed: true,
-    githubUrl: `https://github.com/${owner}/${repo}/commit/${c.oid}`,
-  }));
 }
 
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
@@ -587,7 +95,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [actionLoading, setActionLoading] = React.useState<'merge' | 'close' | 'reopen' | 'comment' | null>(null);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
-  const [mergeStrategy, setMergeStrategy] = React.useState<'merge' | 'squash' | 'rebase'>('merge');
+  const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>('merge');
   const [branchCopied, setBranchCopied] = React.useState(false);
 
   // Reset tab state when modal opens/closes or PR changes
@@ -738,8 +246,9 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     }
   };
 
-  const handleReopen = async (body = '') => {
+  const handleReopen = async (_body = '') => {
     if (!prNumber) return;
+    void _body;
     setActionLoading('reopen');
     try {
       await send('github_pr_reopen', { owner, repo, pr_number: prNumber });
@@ -1356,333 +865,30 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 )}
               </div>
 
-              {/* Left: sidebar metadata */}
-              <TooltipProvider delayDuration={300}>
-                <div className={cn(
-                  "shrink-0 hidden lg:flex flex-col overflow-y-auto no-scrollbar overflow-x-hidden transition-[max-width,opacity] duration-200 ease-out",
-                  isSidebarCollapsed ? "max-w-0 opacity-0" : "max-w-[240px] opacity-100"
-                )}>
-                  <div className="flex flex-col gap-5 text-xs pr-2 pt-1 pb-16 w-[240px]">
-
-                    {/* Status Checks */}
-                    {pr.statusCheckRollup?.length > 0 && (
-                      <ChecksSection checks={pr.statusCheckRollup} />
-                    )}
-
-                    {/* Reviewers */}
-                    <SidebarSection title="Reviewers" icon={<Eye className="size-3.5" />}>
-                      {(() => {
-                        const reviewers: Reviewer[] = [];
-                        const seen = new Map<string, number>();
-
-                        if (pr.reviews && Array.isArray(pr.reviews)) {
-                          for (const review of pr.reviews as { author?: { login?: string; avatarUrl?: string; avatar_url?: string }; state?: string }[]) {
-                            const login = review.author?.login;
-                            if (!login) continue;
-                            const existingIdx = seen.get(login);
-                            if (existingIdx !== undefined) {
-                              reviewers[existingIdx] = {
-                                login,
-                                avatar_url: review.author?.avatarUrl || review.author?.avatar_url,
-                                state: review.state,
-                              };
-                            } else {
-                              seen.set(login, reviewers.length);
-                              reviewers.push({
-                                login,
-                                avatar_url: review.author?.avatarUrl || review.author?.avatar_url,
-                                state: review.state,
-                              });
-                            }
-                          }
-                        }
-
-                        if (pr.reviewRequests && Array.isArray(pr.reviewRequests)) {
-                          for (const req of pr.reviewRequests as { login?: string; name?: string; avatarUrl?: string; avatar_url?: string }[]) {
-                            const login = req.login || req.name;
-                            if (login && !seen.has(login)) {
-                              seen.set(login, reviewers.length);
-                              reviewers.push({
-                                login,
-                                avatar_url: req.avatarUrl || req.avatar_url,
-                                state: 'PENDING',
-                              });
-                            }
-                          }
-                        }
-
-                        if (reviewers.length === 0) {
-                          return <span className="text-muted-foreground/60 italic">No reviewers</span>;
-                        }
-
-                        return reviewers.map((r) => (
-                          <div key={r.login} className="flex items-center gap-2 py-0.5">
-                            <Avatar className="size-5 border border-border/50">
-                              <AvatarImage src={r.avatar_url || `https://github.com/${r.login.replace('[bot]', '')}.png?size=32`} />
-                              <AvatarFallback className="text-[7px]">{r.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium text-foreground/90 truncate flex-1">{r.login}</span>
-                            {r.state === 'APPROVED' && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
-                            {r.state === 'CHANGES_REQUESTED' && <XCircle className="size-3.5 text-red-500 shrink-0" />}
-                            {r.state === 'COMMENTED' && <MessageSquare className="size-3.5 text-muted-foreground shrink-0" />}
-                            {r.state === 'PENDING' && <Eye className="size-3.5 text-amber-500 shrink-0" />}
-                          </div>
-                        ));
-                      })()}
-                    </SidebarSection>
-
-                    {/* Assignees */}
-                    <SidebarSection title="Assignees" icon={<User className="size-3.5" />}>
-                      {pr.assignees && Array.isArray(pr.assignees) && pr.assignees.length > 0 ? (
-                        (pr.assignees as Assignee[]).map((a) => (
-                          <div key={a.login} className="flex items-center gap-2 py-0.5">
-                            <Avatar className="size-5 border border-border/50">
-                              <AvatarImage src={a.avatar_url || a.avatarUrl || `https://github.com/${a.login.replace('[bot]', '')}.png?size=32`} />
-                              <AvatarFallback className="text-[7px]">{a.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium text-foreground/90 truncate">{a.login}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground/60 italic">No assignees</span>
-                      )}
-                    </SidebarSection>
-
-                    {/* Labels */}
-                    <SidebarSection title="Labels" icon={<Tag className="size-3.5" />}>
-                      {pr.labels && Array.isArray(pr.labels) && pr.labels.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {(pr.labels as Label[]).map((l) => (
-                            <span
-                              key={l.name}
-                              className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                              style={{
-                                backgroundColor: l.color ? `#${l.color}20` : undefined,
-                                color: l.color ? `#${l.color}` : undefined,
-                                border: l.color ? `1px solid #${l.color}40` : '1px solid var(--border)',
-                              }}
-                            >
-                              {l.name}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground/60 italic">No labels</span>
-                      )}
-                    </SidebarSection>
-
-                    {/* Participants (from backend, human users only) */}
-                    <SidebarSection title="Participants" icon={<Users className="size-3.5" />}>
-                      {sidebarLoading ? (
-                        <div className="flex gap-1">
-                          <Skeleton className="size-6 rounded-full" />
-                          <Skeleton className="size-6 rounded-full" />
-                        </div>
-                      ) : sidebarData?.participants && Array.isArray(sidebarData.participants) && sidebarData.participants.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {(sidebarData.participants as { login: string; avatar_url?: string }[]).map((p) => (
-                            <Tooltip key={p.login}>
-                              <TooltipTrigger asChild>
-                                <Avatar className="size-6 border border-border/50 cursor-default hover:ring-2 hover:ring-primary/30 transition-all">
-                                  <AvatarImage src={p.avatar_url || `https://github.com/${p.login}.png?size=32`} />
-                                  <AvatarFallback className="text-[7px]">{p.login.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="text-xs">{p.login}</TooltipContent>
-                            </Tooltip>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground/60 italic">No participants</span>
-                      )}
-                    </SidebarSection>
-
-                    {/* Development (linked issues) */}
-                    {sidebarLoading && (
-                      <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
-                        <Skeleton className="h-3 w-full rounded" />
-                        <Skeleton className="h-8 w-full rounded mt-1" />
-                      </SidebarSection>
-                    )}
-                    {!sidebarLoading && sidebarData?.closingIssuesReferences && Array.isArray(sidebarData.closingIssuesReferences) && sidebarData.closingIssuesReferences.length > 0 && (
-                      <SidebarSection title="Development" icon={<Code className="size-3.5" />}>
-                        <div className="text-[11px] text-muted-foreground mb-1">
-                          Successfully merging this pull request may close these issues.
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          {(sidebarData.closingIssuesReferences as ClosingIssue[]).map((issue) => {
-                            const isClosed = issue.state === 'closed' || issue.state === 'CLOSED';
-                            return (
-                              <Tooltip key={issue.number}>
-                                <TooltipTrigger asChild>
-                                  <a
-                                    href={issue.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="flex items-start gap-2 py-1 px-1.5 -mx-1.5 rounded-md hover:bg-muted/50 transition-colors"
-                                  >
-                                    <CircleDot className={cn(
-                                      "size-3.5 shrink-0 mt-0.5",
-                                      isClosed ? "text-purple-500" : "text-emerald-500"
-                                    )} />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium text-foreground/90 leading-snug line-clamp-2">
-                                        {issue.title || `Issue #${issue.number}`}
-                                      </div>
-                                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                                        #{issue.number} · {isClosed ? 'Closed' : 'Open'}
-                                      </div>
-                                    </div>
-                                  </a>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="text-xs max-w-[280px]">
-                                  <div className="font-semibold">{issue.title || `Issue #${issue.number}`}</div>
-                                  <div className="text-muted-foreground mt-0.5">#{issue.number} · {isClosed ? 'Closed' : 'Open'}</div>
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          })}
-                        </div>
-                      </SidebarSection>
-                    )}
-                  </div>
-                </div>
-              </TooltipProvider>
+              <PRMetadataSidebar
+                pr={pr}
+                sidebarData={sidebarData}
+                sidebarLoading={sidebarLoading}
+                isSidebarCollapsed={isSidebarCollapsed}
+              />
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">Detailed info not found...</div>
           )}
         </div>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex sm:justify-between items-center bg-background/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-dashed border-border/80 shadow-xl gap-6">
-          <div className="flex gap-2.5">
-            <Button variant="outline" size="sm" onClick={handleOpenGitHub} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3">
-              <ExternalLink className="mr-1.5 size-3.5" />
-              GitHub
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={handleOpenBetterHub} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3">
-              <ExternalLink className="mr-1.5 size-3.5" />
-              BetterHub
-            </Button>
-          </div>
-
-          <div className="w-px h-5 bg-border/40 shrink-0 mx-1" />
-
-          <div className="flex gap-2.5">
-            {loading ? (
-              <>
-                <Skeleton className="h-8 w-24 rounded-md" />
-                <Skeleton className="h-8 w-32 rounded-md" />
-              </>
-            ) : pr?.state === 'OPEN' ? (
-              <>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleClose()}
-                  disabled={!!actionLoading}
-                  className="shadow-sm hover:shadow-md hover:bg-red-600 transition-all"
-                >
-                  {actionLoading === 'close' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <XCircle className="mr-2 size-4" />}
-                  Close PR
-                </Button>
-                <div className="flex h-8 items-stretch gap-px shadow-sm rounded-md overflow-hidden">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => handleMerge()}
-                    disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
-                    className={cn(
-                      "rounded-none h-full shadow-none transition-all transform active:scale-[0.98] text-white border-r border-white/10",
-                      (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
-                    )}
-                  >
-                    {actionLoading === 'merge' ? <Loader2 className="mr-2 size-4 animate-spin" /> : <GitMerge className="mr-2 size-4" />}
-                    {mergeStrategy === 'merge' ? 'Merge pull request' : mergeStrategy === 'squash' ? 'Squash and merge' : 'Rebase and merge'}
-                  </Button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className={cn(
-                          "px-2 rounded-none h-full min-w-0 shadow-none transition-all text-white",
-                          (pr.isDraft || pr.mergeable !== 'MERGEABLE') ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
-                        )}
-                        disabled={!!actionLoading || pr.isDraft || pr.mergeable !== 'MERGEABLE'}
-                      >
-                        <ChevronDown className="size-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[320px] p-1">
-                      <DropdownMenuItem
-                        className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
-                        onClick={() => setMergeStrategy('merge')}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-[13px]">Create a merge commit</span>
-                          {mergeStrategy === 'merge' && <Check className="size-3.5 text-blue-500" />}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground leading-normal">
-                          All commits from this branch will be added to the base branch via a merge commit.
-                        </p>
-                      </DropdownMenuItem>
-                      <div className="h-px bg-border/40 my-1" />
-                      <DropdownMenuItem
-                        className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
-                        onClick={() => setMergeStrategy('squash')}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-[13px]">Squash and merge</span>
-                          {mergeStrategy === 'squash' && <Check className="size-3.5 text-blue-500" />}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground leading-normal">
-                          The {pr.commits?.length || 0} commits from this branch will be combined into one commit in the base branch.
-                        </p>
-                      </DropdownMenuItem>
-                      <div className="h-px bg-border/40 my-1" />
-                      <DropdownMenuItem
-                        className="flex flex-col items-start gap-1 py-2.5 px-3 cursor-pointer"
-                        onClick={() => setMergeStrategy('rebase')}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <span className="font-bold text-[13px]">Rebase and merge</span>
-                          {mergeStrategy === 'rebase' && <Check className="size-3.5 text-blue-500" />}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground leading-normal">
-                          The {pr.commits?.length || 0} commits from this branch will be rebased and added to the base branch.
-                        </p>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </>
-            ) : pr?.state === 'CLOSED' ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleReopen()}
-                disabled={!!actionLoading}
-                className="shadow-sm hover:shadow-md transition-all font-semibold"
-              >
-                {actionLoading === 'reopen' ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <RotateCw className="mr-2 size-4" />}
-                Reopen PR
-              </Button>
-            ) : pr?.state === 'MERGED' ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled
-                className="shadow-sm bg-purple-600/90 text-white opacity-100 cursor-default"
-              >
-                <GitMerge className="mr-2 size-4" />
-                Merged
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        <PRActionBar
+          loading={loading}
+          pr={pr}
+          actionLoading={actionLoading}
+          mergeStrategy={mergeStrategy}
+          onMergeStrategyChange={setMergeStrategy}
+          onOpenGitHub={handleOpenGitHub}
+          onOpenBetterHub={handleOpenBetterHub}
+          onClose={() => handleClose()}
+          onMerge={() => handleMerge()}
+          onReopen={() => handleReopen()}
+        />
       </DialogContent>
     </Dialog>
   );

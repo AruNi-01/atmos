@@ -74,7 +74,9 @@ pub fn read_computer_client_settings() -> Result<Option<ComputerClientSettings>,
     Ok(Some(parsed))
 }
 
-pub fn write_computer_client_settings(settings: &ComputerClientSettings) -> Result<PathBuf, String> {
+pub fn write_computer_client_settings(
+    settings: &ComputerClientSettings,
+) -> Result<PathBuf, String> {
     if settings.version != COMPUTER_CLIENT_SETTINGS_VERSION {
         return Err(format!(
             "Unsupported computer client settings version {} (expected {})",

@@ -1,347 +1,29 @@
 'use client';
 
 import { create } from 'zustand';
-import { Project, Workspace, WorkspaceLabel, WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
-import { wsProjectApi, wsScriptApi, wsWorkspaceApi, ProjectModel, WorkspaceModel, type WorkspaceAttachmentPayload } from '@/api/ws-api';
+import { WorkspacePriority, WorkspaceWorkflowStatus } from '@/types/types';
+import { wsProjectApi, wsScriptApi, wsWorkspaceApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
-import { useWebSocketStore, waitForWebSocketConnection } from './use-websocket';
+import { waitForConnection } from './project-store-connection';
+import { createProjectStoreLabelActions } from './project-store-label-actions';
+import { mapProjectModel, mapWorkspaceModel, sortWorkspaces } from './project-store-mappers';
+import {
+  createProjectStorePinOrderActions,
+  createProjectStoreReorderActions,
+} from './project-store-order-actions';
+import { createProjectStoreSetupActions } from './project-store-setup-actions';
+import { buildInitialWorkspaceSetupProgress } from './project-store-setup-progress';
+import {
+  clearWorkspaceDeleteProgressToast,
+  hasWorkspaceDeleteProgressToast,
+  registerWorkspaceDeleteProgressToast,
+  subscribeToWorkspaceDeleteProgressEvent,
+  subscribeToWorkspaceGitignoreSyncFailedEvent,
+  subscribeToWorkspaceSetupProgressEvent,
+} from './project-store-subscriptions';
+import type { ProjectStore } from './project-store-types';
 
-// Sort workspaces: pinned first (by pinOrder ASC), then by createdAt DESC
-function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
-  return [...workspaces].sort((a, b) => {
-    // Pinned items first
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    
-    // Among pinned items, sort by persisted pin order first.
-    if (a.isPinned && b.isPinned) {
-      const aOrder = a.pinOrder;
-      const bOrder = b.pinOrder;
-      if (aOrder !== undefined && bOrder !== undefined && aOrder !== bOrder) {
-        return aOrder - bOrder;
-      }
-      if (aOrder !== undefined && bOrder === undefined) return -1;
-      if (aOrder === undefined && bOrder !== undefined) return 1;
-
-      const aTime = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
-      const bTime = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
-      if (aTime !== bTime) return bTime - aTime;
-      return a.id.localeCompare(b.id);
-    }
-    
-    // Among non-pinned items, sort by createdAt DESC (newest first)
-    const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    return bCreated - aCreated;
-  });
-}
-
-export interface WorkspaceSetupProgress {
-  workspaceId: string;
-  status: 'creating' | 'setting_up' | 'completed' | 'error';
-  lastStatus?: 'creating' | 'setting_up' | 'completed'; // Track previous success
-  stepKey?:
-    | 'create_worktree'
-    | 'write_requirement'
-    | 'extract_todos'
-    | 'run_setup_script'
-    | 'ready';
-  lastStepKey?:
-    | 'create_worktree'
-    | 'write_requirement'
-    | 'extract_todos'
-    | 'run_setup_script'
-    | 'ready';
-  failedStepKey?:
-    | 'create_worktree'
-    | 'write_requirement'
-    | 'extract_todos'
-    | 'run_setup_script'
-    | 'ready';
-  stepTitle: string;
-  output: string;
-  replaceOutput?: boolean;
-  requiresConfirmation?: boolean;
-  success: boolean;
-  countdown?: number;
-  setupContext?: {
-    hasGithubIssue: boolean;
-    hasGithubPr: boolean;
-    hasRequirementStep: boolean;
-    autoExtractTodos: boolean;
-    hasSetupScript: boolean;
-  };
-  retryContext?: {
-    initialRequirement?: string | null;
-    githubIssue?: WorkspaceModel['github_issue'];
-    autoExtractTodos: boolean;
-  };
-}
-
-interface WorkspaceSetupContextPayload {
-  has_github_issue: boolean;
-  has_github_pr: boolean;
-  has_requirement_step: boolean;
-  auto_extract_todos: boolean;
-  has_setup_script: boolean;
-}
-
-interface WorkspaceSetupProgressEventPayload {
-  workspace_id: string;
-  status: WorkspaceSetupProgress['status'];
-  step_key?: WorkspaceSetupProgress['stepKey'];
-  failed_step_key?: WorkspaceSetupProgress['failedStepKey'];
-  step_title: string;
-  output?: string;
-  replace_output?: boolean;
-  requires_confirmation?: boolean;
-  success: boolean;
-  countdown?: number;
-  setup_context?: WorkspaceSetupContextPayload | null;
-}
-
-const SETUP_STEP_ORDER: Record<
-  NonNullable<WorkspaceSetupProgress["stepKey"]>,
-  number
-> = {
-  create_worktree: 0,
-  write_requirement: 1,
-  extract_todos: 2,
-  run_setup_script: 3,
-  ready: 4,
-};
-
-function getSetupStepOrder(
-  stepKey: WorkspaceSetupProgress["stepKey"] | WorkspaceSetupProgress["lastStepKey"],
-): number {
-  if (!stepKey) return -1;
-  return SETUP_STEP_ORDER[stepKey] ?? -1;
-}
-
-function getInitialAsyncSetupState(input: {
-  hasGithubIssue: boolean;
-  hasRequirementStep: boolean;
-  autoExtractTodos: boolean;
-  hasSetupScript: boolean;
-}): Pick<WorkspaceSetupProgress, 'status' | 'stepKey' | 'stepTitle' | 'success'> {
-  // requirement.md is now pre-filled synchronously during workspace creation,
-  // so the post-create flow no longer surfaces a "write_requirement" step.
-  if (input.autoExtractTodos) {
-    return {
-      status: 'creating',
-      stepKey: 'extract_todos',
-      stepTitle: 'Extracting Initial TODOs',
-      success: true,
-    };
-  }
-
-  if (input.hasSetupScript) {
-    return {
-      status: 'setting_up',
-      stepKey: 'run_setup_script',
-      stepTitle: 'Running Setup Script',
-      success: true,
-    };
-  }
-
-  return {
-    status: 'completed',
-    stepKey: 'ready',
-    stepTitle: 'Ready to Build',
-    success: true,
-  };
-}
-
-function buildInitialWorkspaceSetupProgress(input: {
-  workspaceId: string;
-  setupContext: WorkspaceSetupProgress['setupContext'];
-  retryContext: WorkspaceSetupProgress['retryContext'];
-}): WorkspaceSetupProgress {
-  return {
-    workspaceId: input.workspaceId,
-    ...getInitialAsyncSetupState({
-      hasGithubIssue: !!input.setupContext?.hasGithubIssue,
-      hasRequirementStep: !!input.setupContext?.hasRequirementStep,
-      autoExtractTodos: !!input.setupContext?.autoExtractTodos,
-      hasSetupScript: !!input.setupContext?.hasSetupScript,
-    }),
-    output: '',
-    setupContext: input.setupContext,
-    retryContext: input.retryContext,
-  };
-}
-
-
-function isWorkspaceSetupProgressEventPayload(
-  data: unknown,
-): data is WorkspaceSetupProgressEventPayload {
-  if (!data || typeof data !== 'object') return false;
-
-  const payload = data as Record<string, unknown>;
-  const validStatus = ['creating', 'setting_up', 'completed', 'error'];
-  const validStepKeys = [
-    'create_worktree',
-    'write_requirement',
-    'extract_todos',
-    'run_setup_script',
-    'ready',
-  ];
-
-  return (
-    typeof payload.workspace_id === 'string' &&
-    typeof payload.step_title === 'string' &&
-    typeof payload.success === 'boolean' &&
-    typeof payload.status === 'string' &&
-    (payload.replace_output == null || typeof payload.replace_output === 'boolean') &&
-    (payload.requires_confirmation == null ||
-      typeof payload.requires_confirmation === 'boolean') &&
-    (payload.setup_context == null ||
-      (typeof payload.setup_context === 'object' &&
-        typeof (payload.setup_context as Record<string, unknown>).has_github_issue === 'boolean' &&
-        // has_github_pr was added later — accept payloads from older backends
-        // by treating a missing field as false rather than rejecting the event.
-        (typeof (payload.setup_context as Record<string, unknown>).has_github_pr === 'boolean' ||
-          (payload.setup_context as Record<string, unknown>).has_github_pr === undefined) &&
-        typeof (payload.setup_context as Record<string, unknown>).has_requirement_step === 'boolean' &&
-        typeof (payload.setup_context as Record<string, unknown>).auto_extract_todos === 'boolean' &&
-        typeof (payload.setup_context as Record<string, unknown>).has_setup_script === 'boolean')) &&
-    (payload.step_key == null ||
-      (typeof payload.step_key === 'string' && validStepKeys.includes(payload.step_key))) &&
-    (payload.failed_step_key == null ||
-      (typeof payload.failed_step_key === 'string' && validStepKeys.includes(payload.failed_step_key))) &&
-    validStatus.includes(payload.status)
-  );
-}
-
-interface ProjectStore {
-  projects: Project[];
-  workspaceLabels: WorkspaceLabel[];
-  activeWorkspaceId: string | null;
-  isLoading: boolean;
-
-  // Actions
-  fetchProjects: () => Promise<void>;
-  addProject: (data: { name: string; mainFilePath: string; sidebarOrder?: number; borderColor?: string }) => Promise<void>;
-  updateProject: (id: string, data: Partial<Project>) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
-  
-  addWorkspace: (data: {
-    projectId: string;
-    name: string;
-    displayName?: string | null;
-    branch: string;
-    baseBranch?: string | null;
-    initialRequirement?: string | null;
-    githubIssue?: WorkspaceModel['github_issue'];
-    githubPr?: WorkspaceModel['github_pr'];
-    autoExtractTodos?: boolean;
-    hasSetupScript?: boolean;
-    priority?: WorkspacePriority;
-    workflowStatus?: WorkspaceWorkflowStatus;
-    labels?: WorkspaceLabel[];
-    attachments?: WorkspaceAttachmentPayload[];
-  }) => Promise<string>;
-  quickAddWorkspace: (projectId: string) => Promise<string | null>;
-  deleteWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-  pinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-  unpinWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-  archiveWorkspace: (projectId: string, workspaceId: string) => Promise<void>;
-  updateWorkspaceName: (projectId: string, workspaceId: string, name: string) => Promise<void>;
-  updateWorkspaceBranch: (projectId: string, workspaceId: string, branch: string) => Promise<void>;
-  updateWorkspaceWorkflowStatus: (
-    projectId: string,
-    workspaceId: string,
-    workflowStatus: WorkspaceWorkflowStatus,
-  ) => Promise<void>;
-  updateWorkspacePriority: (
-    projectId: string,
-    workspaceId: string,
-    priority: WorkspacePriority,
-  ) => Promise<void>;
-  fetchWorkspaceLabels: (deletedOnly?: boolean) => Promise<void>;
-  createWorkspaceLabel: (data: { name: string; color: string; source?: 'manual' | 'gitHub_issue' | 'gitHub_pr' }) => Promise<WorkspaceLabel>;
-  updateWorkspaceLabel: (
-    labelId: string,
-    data: { name: string; color: string },
-  ) => Promise<WorkspaceLabel>;
-  deleteWorkspaceLabel: (labelId: string) => Promise<void>;
-  restoreWorkspaceLabel: (labelId: string) => Promise<void>;
-  updateWorkspaceLabels: (
-    projectId: string,
-    workspaceId: string,
-    labels: WorkspaceLabel[],
-  ) => Promise<void>;
-  markWorkspaceVisited: (workspaceId: string) => Promise<void>;
-  addWorkspacesToProject: (projectId: string, workspaceGuids: string[]) => Promise<void>;
-  
-  updateWorkspacePinOrder: (orderedWorkspaceIds: string[]) => Promise<void>;
-  reorderProjects: (newOrder: Project[]) => Promise<void>;
-  reorderWorkspaces: (projectId: string, newOrder: Workspace[]) => Promise<void>;
-  
-  setActiveWorkspaceId: (id: string | null) => void;
-
-  // Setup Progress
-  setupProgress: Record<string, WorkspaceSetupProgress>;
-  setSetupProgress: (progress: WorkspaceSetupProgress) => void;
-  clearSetupProgress: (workspaceId: string) => void;
-  retryWorkspaceSetup: (workspaceId: string) => Promise<void>;
-}
-
-// 转换后端 Project 模型到前端 Project 类型
-function mapProjectModel(model: ProjectModel, workspaces: Workspace[] = []): Project {
-  return {
-    id: model.guid,
-    name: model.name,
-    isOpen: true,
-    workspaces,
-    mainFilePath: model.main_file_path,
-    sidebarOrder: model.sidebar_order,
-    borderColor: model.border_color ?? undefined,
-    logoPath: model.logo_path,
-    targetBranch: model.target_branch ?? undefined,
-  };
-}
-
-// 转换后端 Workspace 模型到前端 Workspace 类型
-function mapWorkspaceModel(model: WorkspaceModel): Workspace {
-  return {
-    id: model.guid,
-    name: model.name,
-    displayName: model.display_name ?? undefined,
-    branch: model.branch,
-    baseBranch: model.base_branch,
-    isActive: false, // 由前端管理
-    status: 'clean', // 默认状态，后续可以从 git 获取
-    projectId: model.project_guid,
-    isPinned: model.is_pinned,
-    pinnedAt: model.pinned_at ?? undefined,
-    pinOrder: model.pin_order ?? undefined,
-    isArchived: model.is_archived,
-    archivedAt: model.archived_at ?? undefined,
-    createdAt: model.created_at,
-    lastVisitedAt: model.last_visited_at ?? undefined,
-    workflowStatus: model.workflow_status as WorkspaceWorkflowStatus,
-    priority: model.priority as WorkspacePriority,
-    labels: (model.labels ?? []).map(label => ({
-      id: label.guid,
-      name: label.name,
-      color: label.color,
-      source: (label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr') || 'manual',
-    })),
-    localPath: model.local_path,
-    githubIssue: model.github_issue,
-    githubPr: model.github_pr,
-    createSource: model.create_source === 'issue_only' ? 'issue_only' : 'manual',
-  };
-}
-
-// 等待 WebSocket 连接
-// Track delete progress toast IDs by workspace ID
-const deleteProgressToasts = new Map<string, { toastId: string; workspaceName: string }>();
-
-async function waitForConnection(timeoutMs?: number): Promise<void> {
-  await waitForWebSocketConnection(timeoutMs);
-}
+export type { WorkspaceSetupProgress } from './project-store-setup-progress';
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
@@ -699,7 +381,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const workspaceName = workspaceBeingDeleted?.displayName || workspaceBeingDeleted?.name || 'Untitled';
 
     // Store workspace name so the WS event handler can show a toast when deletion completes
-    deleteProgressToasts.set(workspaceId, { toastId: '', workspaceName });
+    registerWorkspaceDeleteProgressToast(workspaceId, workspaceName);
 
     try {
       await waitForConnection();
@@ -707,8 +389,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
       // Safety timeout: if no WS progress event arrives within 30s, show a toast
       setTimeout(() => {
-        if (deleteProgressToasts.has(workspaceId)) {
-          deleteProgressToasts.delete(workspaceId);
+        if (hasWorkspaceDeleteProgressToast(workspaceId)) {
+          clearWorkspaceDeleteProgressToast(workspaceId);
           toastManager.add({
             title: 'Deleted',
             description: `Workspace "${workspaceName}" removed (cleanup may still be running)`,
@@ -718,7 +400,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         }
       }, 30_000);
     } catch (error) {
-      deleteProgressToasts.delete(workspaceId);
+      clearWorkspaceDeleteProgressToast(workspaceId);
       toastManager.add({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to delete workspace',
@@ -799,31 +481,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
-  updateWorkspacePinOrder: async (orderedWorkspaceIds) => {
-    const orderById = new Map(orderedWorkspaceIds.map((id, index) => [id, index]));
-
-    // Optimistic update first
-    set(state => ({
-      projects: state.projects.map(p =>
-        ({
-          ...p,
-          workspaces: sortWorkspaces(
-            p.workspaces.map(w => {
-              const pinOrder = orderById.get(w.id);
-              return pinOrder === undefined ? w : { ...w, pinOrder };
-            })
-          )
-        })
-      )
-    }));
-
-    try {
-      await waitForConnection();
-      await wsWorkspaceApi.updatePinOrder(orderedWorkspaceIds);
-    } catch (error) {
-      console.error('Error updating pinned order:', error);
-    }
-  },
+  ...createProjectStorePinOrderActions(set),
 
   archiveWorkspace: async (projectId, workspaceId) => {
     try {
@@ -967,291 +625,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
-  fetchWorkspaceLabels: async (deletedOnly: boolean = false) => {
-    await waitForConnection();
-    const labels = await wsWorkspaceApi.listLabels(deletedOnly);
-    set({
-      workspaceLabels: labels.map(label => ({
-        id: label.guid,
-        name: label.name,
-        color: label.color,
-        source: label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr',
-        createdAt: label.created_at,
-      })),
-    });
-  },
-
-  createWorkspaceLabel: async ({ name, color, source = 'manual' }: { name: string; color: string; source?: 'manual' | 'gitHub_issue' | 'gitHub_pr' }) => {
-    await waitForConnection();
-    const label = await wsWorkspaceApi.createLabel({ name, color, source });
-    const mappedLabel = { id: label.guid, name: label.name, color: label.color, source: label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr', createdAt: label.created_at };
-    set(state => ({
-      workspaceLabels: [
-        ...state.workspaceLabels.filter(existing => existing.id !== mappedLabel.id),
-        mappedLabel,
-      ].sort((a, b) => a.name.localeCompare(b.name)),
-    }));
-    return mappedLabel;
-  },
-
-  updateWorkspaceLabel: async (labelId, { name, color }) => {
-    await waitForConnection();
-    const label = await wsWorkspaceApi.updateLabel(labelId, { name, color });
-    const mappedLabel = { id: label.guid, name: label.name, color: label.color, source: label.source as 'manual' | 'gitHub_issue' | 'gitHub_pr', createdAt: label.created_at };
-    set(state => ({
-      workspaceLabels: state.workspaceLabels
-        .map(existing => existing.id === mappedLabel.id ? mappedLabel : existing)
-        .sort((a, b) => a.name.localeCompare(b.name)),
-      projects: state.projects.map(project => ({
-        ...project,
-        workspaces: project.workspaces.map(workspace => ({
-          ...workspace,
-          labels: workspace.labels.map(existing =>
-            existing.id === mappedLabel.id ? mappedLabel : existing
-          ),
-        })),
-      })),
-    }));
-    return mappedLabel;
-  },
-
-  deleteWorkspaceLabel: async (labelId: string) => {
-    await waitForConnection();
-    await wsWorkspaceApi.deleteLabel(labelId);
-    set(state => ({
-      workspaceLabels: state.workspaceLabels.filter(l => l.id !== labelId),
-    }));
-  },
-
-  restoreWorkspaceLabel: async (labelId: string) => {
-    await waitForConnection();
-    await wsWorkspaceApi.restoreLabel(labelId);
-    // Refetch labels so the restored entry has its full data (name, color, source).
-    await get().fetchWorkspaceLabels();
-  },
-
-  updateWorkspaceLabels: async (
-    projectId: string,
-    workspaceId: string,
-    labels: WorkspaceLabel[],
-  ) => {
-    try {
-      await waitForConnection();
-      await wsWorkspaceApi.updateLabels(workspaceId, labels.map(label => label.id));
-
-      set(state => ({
-        projects: state.projects.map(p =>
-          p.id === projectId
-            ? {
-                ...p,
-                workspaces: p.workspaces.map(w =>
-                  w.id === workspaceId ? { ...w, labels } : w
-                ),
-              }
-            : p
-        )
-      }));
-    } catch (error) {
-      console.error('Error updating workspace labels:', error);
-      toastManager.add({
-        title: 'Error',
-        description: 'Failed to update workspace labels',
-        type: 'error'
-      });
-      throw error;
-    }
-  },
-
-  markWorkspaceVisited: async (workspaceId: string) => {
-    try {
-      await waitForConnection();
-      await wsWorkspaceApi.markVisited(workspaceId);
-      const visitedAt = new Date().toISOString();
-      set(state => ({
-        projects: state.projects.map(project => ({
-          ...project,
-          workspaces: project.workspaces.map(workspace =>
-            workspace.id === workspaceId
-              ? { ...workspace, lastVisitedAt: visitedAt }
-              : workspace
-          ),
-        })),
-      }));
-    } catch (error) {
-      console.error('Error marking workspace visited:', error);
-    }
-  },
-
-  reorderProjects: async (newOrder: Project[]) => {
-    try {
-      await waitForConnection();
-      
-      // Optimistically update state
-      set({ projects: newOrder });
-      
-      // Batch update all project orders in the backend
-      await Promise.all(
-        newOrder.map((project, index) => 
-          wsProjectApi.updateOrder(project.id, index)
-        )
-      );
-      
-      toastManager.add({ 
-        title: 'Success', 
-        description: 'Project order saved', 
-        type: 'success' 
-      });
-    } catch (error) {
-      console.error('Error reordering projects:', error);
-      toastManager.add({ 
-        title: 'Error', 
-        description: 'Failed to save project order', 
-        type: 'error' 
-      });
-      // Revert to original order on error
-      get().fetchProjects();
-    }
-  },
-
-  reorderWorkspaces: async (projectId: string, newOrder: Workspace[]) => {
-    try {
-      await waitForConnection();
-      
-      // Optimistically update state
-      set(state => ({
-        projects: state.projects.map(p => 
-          p.id === projectId ? { ...p, workspaces: newOrder } : p
-        )
-      }));
-      
-      // Batch update all workspace orders in the backend
-      await Promise.all(
-        newOrder.map((workspace, index) => 
-          wsWorkspaceApi.updateOrder(workspace.id, index)
-        )
-      );
-      
-      toastManager.add({ 
-        title: 'Success', 
-        description: 'Workspace order saved', 
-        type: 'success' 
-      });
-    } catch (error) {
-      console.error('Error reordering workspaces:', error);
-      toastManager.add({ 
-        title: 'Error', 
-        description: 'Failed to save workspace order', 
-        type: 'error' 
-      });
-      // Revert to original order on error
-      get().fetchProjects();
-    }
-  },
+  ...createProjectStoreLabelActions(set, get),
+  ...createProjectStoreReorderActions(set, get),
 
   setActiveWorkspaceId: (id) => set({ activeWorkspaceId: id }),
 
   setupProgress: {},
-  setSetupProgress: (progress) => set(state => {
-    const existing = state.setupProgress[progress.workspaceId];
-    const newStatus = progress.status;
-    const existingStepOrder = getSetupStepOrder(existing?.stepKey);
-    const incomingStepOrder = getSetupStepOrder(progress.stepKey);
-    const shouldIgnoreCompletedRegression =
-      !!existing &&
-      existing.status === 'completed' &&
-      newStatus !== 'completed';
-    const shouldIgnoreRegression =
-      !shouldIgnoreCompletedRegression &&
-      !!existing &&
-      existing.status !== 'error' &&
-      existing.status !== 'completed' &&
-      newStatus !== 'error' &&
-      newStatus !== 'completed' &&
-      incomingStepOrder >= 0 &&
-      existingStepOrder > incomingStepOrder;
-    const shouldIgnoreIncomingState =
-      shouldIgnoreCompletedRegression || shouldIgnoreRegression;
-    let lastStatus = existing?.lastStatus;
-    let lastStepKey = existing?.lastStepKey;
-
-    if (shouldIgnoreIncomingState) {
-      lastStatus = existing?.lastStatus;
-      lastStepKey = existing?.lastStepKey;
-    } else if (progress.status === 'error') {
-      lastStatus = existing?.status !== 'error' ? existing?.status : existing?.lastStatus;
-      lastStepKey = progress.stepKey ?? existing?.stepKey ?? existing?.lastStepKey;
-    } else if (progress.status === 'completed') {
-      lastStatus = existing?.status !== 'error' ? existing?.status : existing?.lastStatus;
-      lastStepKey = progress.stepKey ?? existing?.stepKey ?? existing?.lastStepKey;
-    } else if (progress.status !== existing?.status) {
-      // If moving to a new status that isn't error, update lastStatus to the PREVIOUS status
-      if (existing?.status && existing.status !== 'error') {
-        lastStatus = existing.status;
-      }
-      if (existing?.stepKey) {
-        lastStepKey = existing.stepKey;
-      }
-    }
-
-    return {
-      setupProgress: {
-        ...state.setupProgress,
-        [progress.workspaceId]: {
-          ...existing,
-          ...progress,
-          status: shouldIgnoreIncomingState ? existing?.status ?? newStatus : newStatus,
-          stepKey: shouldIgnoreIncomingState ? existing?.stepKey : progress.stepKey,
-          stepTitle: shouldIgnoreIncomingState
-            ? existing?.stepTitle ?? progress.stepTitle
-            : progress.stepTitle,
-          lastStatus: lastStatus,
-          lastStepKey,
-          failedStepKey:
-            progress.status === 'error'
-              ? progress.failedStepKey ?? progress.stepKey ?? existing?.failedStepKey
-              : progress.status === 'completed'
-                ? undefined
-                : existing?.failedStepKey,
-          setupContext: progress.setupContext ?? existing?.setupContext,
-          retryContext: progress.retryContext ?? existing?.retryContext,
-          output: shouldIgnoreIncomingState
-              ? (existing?.output || '')
-              : progress.output !== undefined &&
-                (progress.replaceOutput ||
-                  progress.stepKey !== existing?.stepKey ||
-                  progress.status !== existing?.status)
-                ? progress.output
-                : (existing?.output || '') + (progress.output || '')
-        }
-      }
-    };
-  }),
-  clearSetupProgress: (workspaceId) => set(state => {
-    const newProgress = { ...state.setupProgress };
-    delete newProgress[workspaceId];
-    return { setupProgress: newProgress };
-  }),
-  retryWorkspaceSetup: async (workspaceId) => {
-    try {
-      const progress = get().setupProgress[workspaceId];
-      const retryStep = progress?.failedStepKey ?? progress?.stepKey ?? 'create_worktree';
-
-      await useWebSocketStore.getState().send('workspace_retry_setup', {
-        guid: workspaceId,
-        failed_step_key: retryStep,
-        initial_requirement: progress?.retryContext?.initialRequirement ?? null,
-        github_issue: progress?.retryContext?.githubIssue ?? null,
-        auto_extract_todos: progress?.retryContext?.autoExtractTodos ?? false,
-      });
-    } catch (error) {
-      console.error('Failed to retry setup:', error);
-      toastManager.add({
-        title: 'Retry Failed',
-        description: 'Could not trigger setup retry',
-        type: 'error'
-      });
-    }
-  },
+  ...createProjectStoreSetupActions(set, get),
 }));
 
 /**
@@ -1260,47 +640,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
  * function can be invoked on cleanup to prevent memory leaks.
  */
 export function subscribeToWorkspaceSetupProgress(): () => void {
-  return useWebSocketStore.getState().onEvent('workspace_setup_progress', (data: unknown) => {
-    if (!isWorkspaceSetupProgressEventPayload(data)) return;
-    useProjectStore.getState().setSetupProgress({
-      workspaceId: data.workspace_id,
-      status: data.status,
-      stepKey: data.step_key,
-      failedStepKey: data.failed_step_key,
-      stepTitle: data.step_title,
-      output: data.output || '',
-      replaceOutput: data.replace_output,
-      requiresConfirmation: data.requires_confirmation,
-      success: data.success,
-      countdown: data.countdown,
-      setupContext: data.setup_context
-        ? {
-            hasGithubIssue: data.setup_context.has_github_issue,
-            hasGithubPr: !!data.setup_context.has_github_pr,
-            hasRequirementStep: data.setup_context.has_requirement_step,
-            autoExtractTodos: data.setup_context.auto_extract_todos,
-            hasSetupScript: data.setup_context.has_setup_script,
-          }
-        : undefined,
-    });
+  return subscribeToWorkspaceSetupProgressEvent((progress) => {
+    useProjectStore.getState().setSetupProgress(progress);
   });
-}
-
-interface WorkspaceDeleteProgressPayload {
-  workspace_id: string;
-  step: string;
-  message: string;
-  success: boolean;
-}
-
-function isWorkspaceDeleteProgressPayload(data: unknown): data is WorkspaceDeleteProgressPayload {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'workspace_id' in data &&
-    'step' in data &&
-    'message' in data
-  );
 }
 
 /**
@@ -1308,60 +650,9 @@ function isWorkspaceDeleteProgressPayload(data: unknown): data is WorkspaceDelet
  * Shows toast when deletion completes.
  */
 export function subscribeToWorkspaceDeleteProgress(): () => void {
-  return useWebSocketStore.getState().onEvent('workspace_delete_progress', (data: unknown) => {
-    if (!isWorkspaceDeleteProgressPayload(data)) return;
-
-    const entry = deleteProgressToasts.get(data.workspace_id);
-    if (!entry) return;
-
-    const { workspaceName } = entry;
-
-    if (data.step === 'completed') {
-      toastManager.add({
-        title: 'Deleted',
-        description: `Workspace "${workspaceName}" removed`,
-        type: 'success',
-        timeout: 3000,
-      });
-      deleteProgressToasts.delete(data.workspace_id);
-    } else if (data.step === 'error') {
-      toastManager.add({
-        title: 'Cleanup warning',
-        description: `"${workspaceName}" deleted but cleanup failed: ${data.message}`,
-        type: 'warning',
-        timeout: 5000,
-      });
-      deleteProgressToasts.delete(data.workspace_id);
-    }
-  });
-}
-
-interface WorkspaceGitignoreSyncFailedPayload {
-  workspace_id: string;
-  message: string;
-}
-
-function isWorkspaceGitignoreSyncFailedPayload(
-  data: unknown,
-): data is WorkspaceGitignoreSyncFailedPayload {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'workspace_id' in data &&
-    'message' in data
-  );
+  return subscribeToWorkspaceDeleteProgressEvent();
 }
 
 export function subscribeToWorkspaceGitignoreSyncFailed(): () => void {
-  return useWebSocketStore
-    .getState()
-    .onEvent('workspace_gitignore_sync_failed', (data: unknown) => {
-      if (!isWorkspaceGitignoreSyncFailedPayload(data)) return;
-
-      toastManager.add({
-        title: 'GitIgnore Sync Failed',
-        description: data.message,
-        type: 'error',
-      });
-    });
+  return subscribeToWorkspaceGitignoreSyncFailedEvent();
 }

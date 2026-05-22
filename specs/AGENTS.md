@@ -28,6 +28,18 @@ If a feature spans multiple apps inside Atmos (e.g. web + desktop + api), it is 
 - `kebab-case-title`: short and specific (`github-integration`, not `gh` or `github-integration-v2-final`).
 - Never rename or renumber a published spec. Deprecate with a note inside its files instead.
 
+### 2.1 Quality Specs
+
+Use `specs/APP/QUALITY-NNN_kebab-case-title/` for repository-wide code quality work that is not a product feature, such as large-file reduction, architecture cleanup, dependency hygiene, lint/type debt, or cross-cutting refactors.
+
+Conventions:
+
+- `QUALITY-NNN` is monotonic within `specs/APP/QUALITY-*`.
+- Quality specs must contain **`TECH.md` and `TEST.md`**. They may omit `BRAINSTORM.md` and `PRD.md` when the work is an engineering cleanup with no product-facing scope.
+- `TECH.md` should record the quality target, audit command, affected areas, verification commands, risks, and follow-ups.
+- `TEST.md` should record the regression gates and smoke tests needed to prove the cleanup did not affect product behavior.
+- Do not use `QUALITY-*` for new user-visible functionality; use a normal `APP-NNN_*` spec with the four-file lifecycle.
+
 ---
 
 ## 3. The Four Files (always all four)
@@ -42,6 +54,7 @@ If a feature spans multiple apps inside Atmos (e.g. web + desktop + api), it is 
 Rules:
 
 - **Never delete a file**, even if empty. Leave the template placeholder.
+- Exception: `QUALITY-*` specs require `TECH.md` + `TEST.md`, but may omit `BRAINSTORM.md` and `PRD.md` (see §2.1).
 - **Do not split a spec across directories.** Large `TECH.md` sections can use inline headings or sibling assets (e.g. `assets/`), not sub-specs.
 - Cross-spec dependencies: link with relative paths, don't copy content.
 

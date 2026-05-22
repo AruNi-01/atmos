@@ -1,22 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ViewTransition } from "react";
 import {
   Button,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Input,
-  Skeleton,
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   cn,
 } from "@workspace/ui";
 import { skillsApi, type SkillInfo } from "@/api/ws-api";
@@ -24,21 +14,12 @@ import { useAppRouter } from "@/hooks/use-app-router";
 import { useQueryStates } from "nuqs";
 import { skillsParams, type ScopeFilter, type SkillsTab } from "@/lib/nuqs/searchParams";
 import { useContextParams } from "@/hooks/use-context-params";
-import { AnimatePresence, motion } from "motion/react";
 import {
   BookOpen,
-  CircleCheck,
-  CircleMinus,
-  CircleX,
-  ArrowDownToLine,
-  ChevronRight,
   Download,
-  ExternalLink,
   Filter,
-  Folder,
   FolderOpen,
   Globe,
-  Link2,
   Loader2,
   Puzzle,
   LoaderCircle,
@@ -47,310 +28,21 @@ import {
   Store,
 } from "lucide-react";
 import { SkillDetail } from "./SkillDetail";
-import { SkillActionsMenu } from "./SkillActionsMenu";
 import { SkillInstallTerminalDialog } from "./SkillInstallTerminalDialog";
-import { getAgentStatus, sortAgents } from "./constants";
-import { SkillAgentBadge } from "./SkillAgentBadge";
+import { SkillsInstalledTab } from "./SkillsInstalledTab";
+import { SkillsMarketTab } from "./SkillsMarketTab";
+import { SkillsResourcesTab } from "./SkillsResourcesTab";
 import {
   marketCategories,
   resourceCategories,
-  resolveSkillSourceUrl,
-  type SkillMarketCategory,
   type SkillMarketItem,
-  type SkillResourceCategory,
 } from "./market-data";
-
-const INSTALLED_EMPTY_COPY = "Extend Atmos with local and project-scoped skills, or browse the market below.";
-const MARKET_EMPTY_COPY = "No skills in the market matched your search. Try a different keyword.";
-const RESOURCES_EMPTY_COPY = "No resources matched your search. Try another keyword.";
-
-function buildSkillListUrl({
-  activeTab,
-  filter,
-  projects,
-  query,
-}: {
-  activeTab: SkillsTab;
-  filter: ScopeFilter;
-  projects: string;
-  query: string;
-}) {
-  const searchParams = new URLSearchParams();
-
-  if (activeTab !== "installed") {
-    searchParams.set("tab", activeTab);
-  }
-  if (filter !== "all") {
-    searchParams.set("filter", filter);
-  }
-  if (projects) {
-    searchParams.set("projects", projects);
-  }
-  if (query.trim()) {
-    searchParams.set("q", query.trim());
-  }
-
-  const search = searchParams.toString();
-  return search ? `/skills?${search}` : "/skills";
-}
-
-function filterMarketCategories(categories: SkillMarketCategory[], query: string) {
-  if (!query) {
-    return categories;
-  }
-
-  return categories
-    .map((category) => ({
-      ...category,
-      items: category.items.filter((item) => {
-        const haystack = [
-          category.title,
-          item.title,
-          item.description,
-          item.author?.handle,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(query);
-      }),
-    }))
-    .filter((category) => category.items.length > 0);
-}
-
-function filterResourceCategories(categories: SkillResourceCategory[], query: string) {
-  if (!query) {
-    return categories;
-  }
-
-  return categories
-    .map((category) => ({
-      ...category,
-      items: category.items.filter((item) => {
-        const haystack = [category.title, item.title, item.description].join(" ").toLowerCase();
-        return haystack.includes(query);
-      }),
-    }))
-    .filter((category) => category.items.length > 0);
-}
-
-function renderSkeletonGrid() {
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {[...Array(6)].map((_, index) => (
-        <div key={index} className="space-y-4 rounded-xl border border-border p-5">
-          <div className="flex items-center gap-3">
-            <Skeleton className="size-10 rounded-lg" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-3 w-20" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-4/5" />
-          </div>
-          <div className="space-y-2 pt-2">
-            <Skeleton className="h-8 w-24 rounded-lg" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function getScopeMeta(scope: SkillInfo["scope"]) {
-  switch (scope) {
-    case "global":
-      return {
-        label: "Global",
-        icon: Globe,
-        className: "bg-muted text-foreground",
-      };
-    case "project":
-      return {
-        label: "Project",
-        icon: Folder,
-        className: "bg-muted text-foreground",
-      };
-    case "system":
-      return {
-        label: "Atmos Built-in",
-        icon: Puzzle,
-        className: "bg-foreground/80 text-background",
-      };
-    default:
-      return {
-        label: "InsideTheProject",
-        icon: FolderOpen,
-        className: "bg-muted text-foreground",
-      };
-  }
-}
-
-function getStatusMeta(status: SkillInfo["status"]) {
-  switch (status) {
-    case "enabled":
-      return {
-        label: "Enabled",
-        icon: CircleCheck,
-        className: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-      };
-    case "disabled":
-      return {
-        label: "Disabled",
-        icon: CircleX,
-        className: "border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400",
-      };
-    default:
-      return {
-        label: "Partial",
-        icon: CircleMinus,
-        className: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-      };
-  }
-}
-
-function InstalledSkillListCard({
-  skill,
-  onClick,
-  onUpdated,
-  onDeleted,
-}: {
-  skill: SkillInfo;
-  onClick: () => void;
-  onUpdated: (skill: SkillInfo) => void | Promise<void>;
-  onDeleted: (skillId: string) => void | Promise<void>;
-}) {
-  const scopeMeta = getScopeMeta(skill.scope);
-  const ScopeIcon = scopeMeta.icon;
-  const statusMeta = getStatusMeta(skill.status);
-  const StatusIcon = statusMeta.icon;
-  const isDisabled = skill.status === "disabled";
-
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "group flex h-full cursor-pointer flex-col rounded-xl border p-5 transition-all duration-200",
-        isDisabled
-          ? "border-border/70 hover:bg-muted/35"
-          : "border-border hover:bg-muted/25 hover:shadow-md",
-      )}
-    >
-      <div className="flex flex-1 flex-col">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex items-start gap-3">
-            <div
-              className={cn(
-                "mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border transition-colors",
-                isDisabled
-                  ? "border-border/40 bg-muted/40 text-muted-foreground"
-                  : "border-border/50 bg-muted/20 text-primary group-hover:bg-primary/5",
-              )}
-            >
-              <Puzzle className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h3
-                className={cn(
-                  "truncate text-sm font-semibold tracking-tight",
-                  isDisabled ? "text-foreground/80" : "text-foreground",
-                )}
-              >
-                {skill.title || skill.name}
-              </h3>
-              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        className={cn(
-                          "flex items-center gap-1 rounded px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider cursor-default",
-                          scopeMeta.className,
-                        )}
-                      >
-                        <ScopeIcon className="size-2" />
-                        {scopeMeta.label}
-                      </span>
-                    </TooltipTrigger>
-                    {(skill.scope === "project" || skill.scope === "inside_project") && skill.project_name && (
-                      <TooltipContent side="top">
-                        <p className="text-xs">From: {skill.project_name}</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
-
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider",
-                    statusMeta.className,
-                  )}
-                >
-                  <StatusIcon className="size-2.5" />
-                  {statusMeta.label}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <SkillActionsMenu skill={skill} onUpdated={onUpdated} onDeleted={onDeleted} />
-        </div>
-
-        {skill.description ? (
-          <p
-            className={cn(
-              "mt-4 flex-1 line-clamp-3 text-[13px] leading-relaxed text-pretty",
-              isDisabled ? "text-muted-foreground/75" : "text-muted-foreground",
-            )}
-          >
-            {skill.description}
-          </p>
-        ) : (
-          <p className="mt-4 flex-1 text-[13px] italic leading-relaxed text-muted-foreground/50">No description</p>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {sortAgents(skill.agents).filter((agent) => agent !== "in-project").map((agent) => {
-            const agentStatus = getAgentStatus(skill, agent);
-            return (
-              <SkillAgentBadge
-                key={agent}
-                agent={agent}
-                status={agentStatus}
-                tooltip={agent === "unified" ? "From: .agents/skills" : undefined}
-              />
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="mb-5 flex size-16 items-center justify-center rounded-3xl bg-muted/20 text-muted-foreground/30">
-        {icon}
-      </div>
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground text-pretty">{description}</p>
-      {action}
-    </motion.div>
-  );
-}
+import {
+  buildSkillListUrl,
+  countCategoryItems,
+  filterMarketCategories,
+  filterResourceCategories,
+} from "./skills-view-utils";
 
 export const SkillsView: React.FC = () => {
   const router = useAppRouter();
@@ -429,11 +121,11 @@ export const SkillsView: React.FC = () => {
   }, [deferredQuery]);
 
   const marketResultCount = useMemo(() => {
-    return filteredMarketCategories.reduce((total, category) => total + category.items.length, 0);
+    return countCategoryItems(filteredMarketCategories);
   }, [filteredMarketCategories]);
 
   const resourceResultCount = useMemo(() => {
-    return filteredResourceCategories.reduce((total, category) => total + category.items.length, 0);
+    return countCategoryItems(filteredResourceCategories);
   }, [filteredResourceCategories]);
 
   const loadSkills = useCallback(async ({ force = false }: { force?: boolean } = {}) => {
@@ -662,14 +354,14 @@ export const SkillsView: React.FC = () => {
                   <Store className="size-4" />
                   Market
                   <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium tabular-nums text-sky-700 dark:text-sky-400">
-                    {marketCategories.reduce((total, category) => total + category.items.length, 0)}
+                    {countCategoryItems(marketCategories)}
                   </span>
                 </TabsTrigger>
                 <TabsTrigger value="resources">
                   <BookOpen className="size-4" />
                   Resources
                   <span className="ml-1 shrink-0 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 text-[10px] font-medium tabular-nums text-sky-700 dark:text-sky-400">
-                    {resourceCategories.reduce((total, category) => total + category.items.length, 0)}
+                    {countCategoryItems(resourceCategories)}
                   </span>
                 </TabsTrigger>
               </TabsList>
@@ -752,250 +444,32 @@ export const SkillsView: React.FC = () => {
 
           <div className="flex-1 overflow-auto px-8 pb-8 pt-4">
             <div className="mx-auto w-full max-w-5xl">
-              <TabsContent keepMounted value="installed">
-                {isLoading ? (
-                  renderSkeletonGrid()
-                ) : filteredSkills.length === 0 ? (
-                  <EmptyState
-                    icon={<Puzzle className="size-8" />}
-                    title={skills.length === 0 ? "No skills installed" : "No installed skills matched"}
-                    description={
-                      skills.length === 0
-                        ? INSTALLED_EMPTY_COPY
-                        : query || isFilterActive
-                        ? `No installed skills matched "${query}". Reset the search or filters and try again.`
-                        : INSTALLED_EMPTY_COPY
-                    }
-                    action={
-                      (query || isFilterActive) && (
-                        <Button
-                          variant="link"
-                          onClick={() => void setParams({ q: "", filter: "all", projects: "" })}
-                          className="mt-4"
-                        >
-                          Reset installed filters
-                        </Button>
-                      )
-                    }
-                  />
-                ) : (
-                  <div className="grid gap-5 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
-                    <AnimatePresence mode="popLayout" initial={false}>
-                      {filteredSkills.map((skill, index) => (
-                        <motion.div
-                          key={skill.path}
-                          className="h-full"
-                          layout
-                          initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.94 }}
-                          transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.24), ease: "easeOut" }}
-                        >
-                          <InstalledSkillListCard
-                            skill={skill}
-                            onClick={() => handleOpenInstalledSkill(skill)}
-                            onUpdated={handleSkillUpdated}
-                            onDeleted={handleSkillDeleted}
-                          />
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent keepMounted value="market">
-                {marketResultCount === 0 ? (
-                  <EmptyState
-                    icon={<Store className="size-8" />}
-                    title="No market skills matched"
-                    description={MARKET_EMPTY_COPY}
-                    action={
-                      query ? (
-                        <Button variant="link" onClick={() => void setParams({ q: "" })} className="mt-4">
-                          Clear search
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                ) : (
-                  <div className="space-y-8">
-                    {filteredMarketCategories.map((category) => (
-                      <Collapsible
-                        key={category.id}
-                        open={!(collapsedMarketCategories[category.id] ?? false)}
-                        onOpenChange={(open) => setMarketCategoryOpen(category.id, open)}
-                        className="rounded-2xl border border-border/70 bg-background/40"
-                      >
-                        <CollapsibleTrigger className="group flex w-full items-end justify-between gap-4 px-5 py-4 text-left cursor-pointer">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5 flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                              <ChevronRight className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-90" />
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-semibold tracking-wide text-foreground">{category.title}</h3>
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                {category.items.length} skill{category.items.length > 1 ? "s" : ""}
-                              </p>
-                            </div>
-                          </div>
-                        </CollapsibleTrigger>
-
-                        <CollapsibleContent>
-                          <div className="border-t border-border/60 px-5 pb-5 pt-4">
-                            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                              {category.items.map((item, index) => (
-                                <motion.div
-                                  key={item.id}
-                                  initial={false}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.16) }}
-                                  className="group flex h-full flex-col rounded-xl border border-border p-5 transition-all duration-200 hover:bg-muted/25 hover:shadow-md"
-                                >
-                                  <div className="flex flex-1 flex-col">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0 flex items-start gap-3">
-                                        <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary transition-colors group-hover:bg-primary/5">
-                                          <Puzzle className="size-5" />
-                                        </div>
-                                        <div className="min-w-0">
-                                          <h4 className="truncate text-sm font-semibold tracking-tight text-foreground">{item.title}</h4>
-                                          {item.author && (
-                                            <a
-                                              href={item.author.url}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="mt-1 inline-flex text-xs text-muted-foreground transition-colors hover:text-foreground"
-                                            >
-                                              {item.author.handle}
-                                            </a>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[10px] font-medium text-primary">
-                                        Market
-                                      </span>
-                                    </div>
-
-                                    <p className="mt-4 flex-1 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-                                      {item.description}
-                                    </p>
-
-                                    <div className="mt-4 flex items-center justify-between gap-3">
-                                      <button
-                                        onClick={() => window.open(resolveSkillSourceUrl(item), "_blank", "noopener,noreferrer")}
-                                        className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground cursor-pointer"
-                                      >
-                                        <ExternalLink className="size-3.5" />
-                                        View Source
-                                      </button>
-                                      <button
-                                        onClick={() => setInstallingSkill(item)}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer"
-                                      >
-                                        <ArrowDownToLine className="size-3.5" />
-                                        Install
-                                      </button>
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              ))}
-                            </div>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-
-                    <div className="pt-2 text-center text-xs text-muted-foreground/60">
-                      Power By{" "}
-                      <Link
-                        href="https://github.com/ComposioHQ/awesome-claude-skills"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="transition-colors hover:text-foreground"
-                      >
-                        Awesome Claude Skills
-                      </Link>{" "}
-                      &{" "}
-                      <Link
-                        href="https://skills.sh"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="transition-colors hover:text-foreground"
-                      >
-                        skills.sh
-                      </Link>
-                      .
-                    </div>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent keepMounted value="resources">
-                {resourceResultCount === 0 ? (
-                  <EmptyState
-                    icon={<BookOpen className="size-8" />}
-                    title="No resources matched"
-                    description={RESOURCES_EMPTY_COPY}
-                    action={
-                      query ? (
-                        <Button variant="link" onClick={() => void setParams({ q: "" })} className="mt-4">
-                          Clear search
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                ) : (
-                  <div className="space-y-8">
-                    {filteredResourceCategories.map((category) => (
-                      <section key={category.id} className="space-y-4">
-                        <div className="flex items-end justify-between gap-4 border-b border-border/60 pb-3">
-                          <div>
-                            <h3 className="text-sm font-semibold tracking-wide text-foreground">{category.title}</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {category.items.length} resource{category.items.length > 1 ? "s" : ""}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                          {category.items.map((item, index) => (
-                            <motion.a
-                              key={item.id}
-                              href={item.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.16) }}
-                              className="group flex h-full flex-col rounded-xl border border-border p-5 transition-all duration-200 hover:bg-muted/25 hover:shadow-md"
-                            >
-                              <div className="flex flex-1 flex-col justify-between">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 flex items-start gap-3">
-                                    <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-primary transition-colors group-hover:bg-primary/5">
-                                      <Link2 className="size-5" />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <h4 className="truncate text-sm font-semibold tracking-tight text-foreground">{item.title}</h4>
-                                      <p className="mt-1 text-xs text-muted-foreground">{category.title}</p>
-                                    </div>
-                                  </div>
-                                  <ExternalLink className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
-                                </div>
-
-                                <p className="mt-4 line-clamp-3 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-                                  {item.description}
-                                </p>
-                              </div>
-                            </motion.a>
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
+              <SkillsInstalledTab
+                isLoading={isLoading}
+                skills={skills}
+                filteredSkills={filteredSkills}
+                query={query}
+                isFilterActive={isFilterActive}
+                onResetFilters={() => void setParams({ q: "", filter: "all", projects: "" })}
+                onOpenSkill={handleOpenInstalledSkill}
+                onSkillUpdated={handleSkillUpdated}
+                onSkillDeleted={handleSkillDeleted}
+              />
+              <SkillsMarketTab
+                categories={filteredMarketCategories}
+                resultCount={marketResultCount}
+                query={query}
+                collapsedCategories={collapsedMarketCategories}
+                onCategoryOpenChange={setMarketCategoryOpen}
+                onClearSearch={() => void setParams({ q: "" })}
+                onInstallSkill={setInstallingSkill}
+              />
+              <SkillsResourcesTab
+                categories={filteredResourceCategories}
+                resultCount={resourceResultCount}
+                query={query}
+                onClearSearch={() => void setParams({ q: "" })}
+              />
             </div>
           </div>
         </Tabs>

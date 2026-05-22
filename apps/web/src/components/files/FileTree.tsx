@@ -4,60 +4,23 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTree } from '@headless-tree/react';
 import { asyncDataLoaderFeature } from '@headless-tree/core';
 import type { ItemInstance } from '@headless-tree/core';
-import {
-  cn,
-  getFileIconProps,
-  Loader2,
-  ChevronRight,
-  Folder,
-  CornerUpRight,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Button,
-  Input,
-  toastManager,
-} from '@workspace/ui';
-import {
-  FilePlus2,
-  FolderPlus,
-  Pencil,
-  Trash2,
-  Copy,
-  ExternalLink,
-  Files,
-} from 'lucide-react';
-import { FileTreeNode, appApi, fsApi } from '@/api/ws-api';
+import { cn, Loader2, Folder, toastManager } from '@workspace/ui';
+import { FileTreeNode, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { useContextParams } from "@/hooks/use-context-params";
 import {
-  QUICK_OPEN_APP_MAP,
-  type QuickOpenAppName,
-} from '@/components/layout/quick-open-apps';
-
-import { readQuickOpenLastUsed } from '@/hooks/use-ui-pref-hooks';
-
-interface FileTreeItem {
-  id: string;
-  name: string;
-  path: string;
-  isDir: boolean;
-  isSymlink: boolean;
-  isIgnored: boolean;
-  symlinkTarget?: string;
-  children?: string[];
-}
+  buildDuplicateName,
+  buildItemsMap,
+  getBaseName,
+  getParentPath,
+  getRenameSelectionEnd,
+  joinPath,
+  type FileTreeItem,
+  type FileTreeMenuState,
+  type PendingPanelState,
+} from './file-tree-utils';
+import { FileTreeContextMenu } from './FileTreeContextMenu';
+import { FileTreeRow } from './FileTreeRow';
 
 interface FileTreeProps {
   data: FileTreeNode[];
@@ -66,113 +29,6 @@ interface FileTreeProps {
   onRefresh?: () => Promise<void> | void;
   /** Runs synchronously before opening a file from the tree (e.g. close ancestor Popovers). */
   beforeOpenFile?: () => void;
-}
-
-type PendingPanelState =
-  | null
-  | {
-      mode: 'create-file' | 'create-folder' | 'rename';
-      targetPath: string;
-      parentPath: string;
-      initialName: string;
-      title: string;
-      description: string;
-      confirmLabel: string;
-    };
-
-function buildItemsMap(nodes: FileTreeNode[]): Map<string, FileTreeItem> {
-  const map = new Map<string, FileTreeItem>();
-
-  function traverse(entries: FileTreeNode[]) {
-    for (const node of entries) {
-      map.set(node.path, {
-        id: node.path,
-        name: node.name,
-        path: node.path,
-        isDir: node.is_dir,
-        isSymlink: node.is_symlink,
-        isIgnored: node.is_ignored,
-        symlinkTarget: node.symlink_target,
-        children: node.children?.map((child) => child.path),
-      });
-      if (node.children) {
-        traverse(node.children);
-      }
-    }
-  }
-
-  traverse(nodes);
-  return map;
-}
-
-function FileIcon({
-  name,
-  isDir,
-  isOpen,
-  className,
-}: {
-  name: string;
-  isDir: boolean;
-  isOpen?: boolean;
-  className?: string;
-}) {
-  const iconProps = getFileIconProps({ name, isDir, isOpen, className });
-  return <img {...iconProps} />;
-}
-
-function getParentPath(path: string): string {
-  const parts = path.split('/');
-  parts.pop();
-  return parts.join('/') || '/';
-}
-
-function getBaseName(path: string): string {
-  return path.split('/').pop() || path;
-}
-
-function joinPath(parentPath: string, name: string): string {
-  return parentPath === '/' ? `/${name}` : `${parentPath}/${name}`;
-}
-
-function buildDuplicateName(name: string, isDir: boolean): string {
-  if (isDir) {
-    return `${name} copy`;
-  }
-
-  const lastDot = name.lastIndexOf('.');
-  if (lastDot <= 0) {
-    return `${name} copy`;
-  }
-
-  const stem = name.slice(0, lastDot);
-  const ext = name.slice(lastDot);
-  return `${stem} copy${ext}`;
-}
-
-function getRenameSelectionEnd(name: string, isDir: boolean): number {
-  if (isDir || !name.includes('.')) {
-    return name.length;
-  }
-
-  return (name.split('.')[0] ?? name).length;
-}
-
-async function copyToClipboard(value: string, successMessage: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-    toastManager.add({
-      title: 'Copied',
-      description: successMessage,
-      type: 'success',
-    });
-  } catch (error) {
-    console.error('Failed to copy to clipboard:', error);
-    toastManager.add({
-      title: 'Copy failed',
-      description: 'Could not copy to clipboard.',
-      type: 'error',
-    });
-  }
 }
 
 export const FileTree: React.FC<FileTreeProps> = ({
@@ -196,7 +52,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
   const [highlightedPath, setHighlightedPath] = useState<string | null>(null);
   const [isTreeHighlighted, setIsTreeHighlighted] = useState(false);
-  const [menuState, setMenuState] = useState<{ x: number; y: number; itemPath: string } | null>(null);
+  const [menuState, setMenuState] = useState<FileTreeMenuState | null>(null);
   const [panelState, setPanelState] = useState<PendingPanelState>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [panelName, setPanelName] = useState('');
@@ -689,376 +545,52 @@ export const FileTree: React.FC<FileTreeProps> = ({
           const itemData = item.getItemData();
           if (!itemData) return null;
 
-          const isFolder = item.isFolder();
-          const isExpanded = item.isExpanded();
           const isActive = activeFilePath === itemData.path;
           const isContextTarget = menuState?.itemPath === itemData.path;
           const isHighlighted = highlightedPath === itemData.path;
-          const depth = item.getItemMeta().level;
-
-          const toggle = async () => {
-            if (isExpanded) {
-              item.collapse();
-            } else {
-              item.expand();
-            }
-          };
 
           return (
-            <div
+            <FileTreeRow
               key={item.getId()}
-              ref={item.registerElement}
-              {...item.getProps()}
-              onClick={() => handleItemClick(itemData, isFolder, toggle)}
-              onDoubleClick={() => handleItemDoubleClick(itemData, isFolder)}
-              onContextMenu={(event) => {
+              item={item}
+              itemData={itemData}
+              isActive={isActive}
+              isContextTarget={isContextTarget}
+              isHighlighted={isHighlighted}
+              onClick={handleItemClick}
+              onDoubleClick={handleItemDoubleClick}
+              onContextMenu={(event, itemPath) => {
                 event.preventDefault();
-                setMenuState({ x: event.clientX, y: event.clientY, itemPath: itemData.path });
+                setMenuState({ x: event.clientX, y: event.clientY, itemPath });
               }}
-                className={cn(
-                  'flex items-center py-1 px-2 cursor-pointer select-none rounded-sm transition-colors outline-none',
-                  'hover:bg-sidebar-accent/50',
-                  (isActive || isContextTarget) && 'bg-sidebar-accent text-sidebar-foreground',
-                  isHighlighted && !isActive && 'bg-sidebar-accent/70 text-sidebar-foreground',
-                  itemData.isIgnored && !isActive && 'opacity-40 grayscale-[0.5]',
-                  'focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1',
-              )}
-              style={{ paddingLeft: `${depth * 12 + 8}px` }}
-            >
-              {isFolder ? (
-                <ChevronRight
-                  className={cn(
-                    'size-3.5 mr-1 transition-transform duration-200 text-muted-foreground',
-                    isExpanded && 'rotate-90',
-                  )}
-                />
-              ) : (
-                <span className="w-[18px]" />
-              )}
-              <span className="mr-2 shrink-0">
-                <FileIcon
-                  name={itemData.name}
-                  isDir={isFolder}
-                  isOpen={isExpanded}
-                  className="size-4"
-                />
-              </span>
-              <span className="text-[13px] truncate flex-1">{itemData.name}</span>
-              {itemData.isSymlink && (
-                <span className="ml-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                  <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      <CornerUpRight className="size-3 text-muted-foreground/60" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[300px] break-all">
-                      <p className="text-[11px] leading-tight">
-                        <span className="mr-1">Points to:</span>
-                        {itemData.symlinkTarget || 'Unknown'}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </span>
-              )}
-            </div>
+            />
           );
         })}
       </div>
 
-      <DropdownMenu
-        open={!!menuState}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeOverlays();
-          }
-        }}
-      >
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-hidden
-            className="fixed size-0 pointer-events-none"
-            style={{
-              left: menuState?.x ?? -9999,
-              top: menuState?.y ?? -9999,
-            }}
-          />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" sideOffset={4} className="w-64">
-          {selectedItem ? (
-            <>
-              <DropdownMenuSub
-                open={panelState?.mode === 'create-file'}
-                onOpenChange={(open) => {
-                  if (open) {
-                    openCreatePanel('create-file');
-                  } else if (panelState?.mode === 'create-file') {
-                    closePanel();
-                  }
-                }}
-              >
-                <DropdownMenuSubTrigger>
-                  <FilePlus2 />
-                  New File
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-80 p-3">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">{panelState?.title ?? 'New File'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {panelState?.description ?? `Create a new file in ${getBaseName(selectedItem.path)}.`}
-                      </p>
-                    </div>
-                    <Input
-                      ref={panelInputRef}
-                      value={panelName}
-                      onChange={(event) => setPanelName(event.target.value)}
-                      placeholder="Enter file name"
-                      onKeyDown={handlePanelInputKeyDown}
-                    />
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isMutating}
-                        onClick={closePanel}
-                      >
-                        Cancel
-                      </Button>
-                      <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
-                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                        Create
-                      </Button>
-                    </div>
-                  </div>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSub
-                open={panelState?.mode === 'create-folder'}
-                onOpenChange={(open) => {
-                  if (open) {
-                    openCreatePanel('create-folder');
-                  } else if (panelState?.mode === 'create-folder') {
-                    closePanel();
-                  }
-                }}
-              >
-                <DropdownMenuSubTrigger>
-                  <FolderPlus />
-                  New Folder
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-80 p-3">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">{panelState?.title ?? 'New Folder'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {panelState?.description ?? `Create a new folder in ${getBaseName(selectedItem.path)}.`}
-                      </p>
-                    </div>
-                    <Input
-                      ref={panelInputRef}
-                      value={panelName}
-                      onChange={(event) => setPanelName(event.target.value)}
-                      placeholder="Enter folder name"
-                      onKeyDown={handlePanelInputKeyDown}
-                    />
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isMutating}
-                        onClick={closePanel}
-                      >
-                        Cancel
-                      </Button>
-                      <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
-                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                        Create
-                      </Button>
-                    </div>
-                  </div>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={async () => {
-                  try {
-                    const saved = readQuickOpenLastUsed();
-                    const appName =
-                      saved && Object.prototype.hasOwnProperty.call(QUICK_OPEN_APP_MAP, saved)
-                        ? (saved as QuickOpenAppName)
-                        : 'Finder';
-                    await appApi.openWith(appName, selectedItem.path);
-                  } catch (error) {
-                    console.error('Failed to open in default app:', error);
-                    toastManager.add({
-                      title: 'Open failed',
-                      description: 'Could not open in default app.',
-                      type: 'error',
-                    });
-                  } finally {
-                    setMenuState(null);
-                  }
-                }}
-              >
-                <ExternalLink />
-                Open in Default App
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDuplicate} disabled={isMutating}>
-                <Files />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={async () => {
-                  await copyToClipboard(selectedItem.path, 'Path copied');
-                  setMenuState(null);
-                }}
-              >
-                <Copy />
-                Copy Path
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={async () => {
-                  await copyToClipboard(relativePath || selectedItem.path, 'Relative path copied');
-                  setMenuState(null);
-                }}
-              >
-                <Copy />
-                Copy Relative Path
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub
-                open={panelState?.mode === 'rename'}
-                onOpenChange={(open) => {
-                  if (open) {
-                    openRenamePanel();
-                  } else if (panelState?.mode === 'rename') {
-                    closePanel();
-                  }
-                }}
-              >
-                <DropdownMenuSubTrigger>
-                  <Pencil />
-                  Rename
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-80 p-3">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">{panelState?.title ?? 'Rename'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {panelState?.description ?? `Rename ${selectedItem.name}.`}
-                      </p>
-                    </div>
-                    <Input
-                      ref={panelInputRef}
-                      value={panelName}
-                      onChange={(event) => setPanelName(event.target.value)}
-                      placeholder="Enter name"
-                      onFocus={(event) => {
-                        if (panelState?.mode !== 'rename') return;
-                        if (!renameSelectionAppliedRef.current) {
-                          applyRenameSelection(event.currentTarget);
-                          renameSelectionAppliedRef.current = true;
-                        }
-                      }}
-                      onKeyDown={handlePanelInputKeyDown}
-                    />
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isMutating}
-                        onClick={closePanel}
-                      >
-                        Cancel
-                      </Button>
-                      <Button size="sm" disabled={isMutating} onClick={() => void submitPanel()}>
-                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                        Rename
-                      </Button>
-                    </div>
-                  </div>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <Popover open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={isMutating}
-                    className={cn(
-                      'relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none',
-                      'text-destructive hover:bg-accent/60 focus:bg-accent focus:text-destructive data-[state=open]:bg-accent data-[state=open]:text-destructive disabled:pointer-events-none disabled:opacity-50',
-                    )}
-                    onPointerMove={() => {
-                      if (panelState?.mode === 'rename') {
-                        closePanel();
-                      }
-                    }}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      closePanel();
-                      setDeleteConfirmOpen((current) => !current);
-                    }}
-                  >
-                    <Trash2 className="size-4 shrink-0" />
-                    Delete
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent
-                  side="right"
-                  align="start"
-                  sideOffset={8}
-                  className="w-72 border-border bg-popover p-3 shadow-lg"
-                  onOpenAutoFocus={(event) => event.preventDefault()}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-foreground">
-                        {selectedItem?.isDir ? 'Delete Folder?' : 'Delete File?'}
-                      </p>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        {selectedItem?.isDir
-                          ? `Delete "${selectedItem.name}" and everything inside it. This cannot be undone.`
-                          : `Delete "${selectedItem?.name}". This cannot be undone.`}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isMutating}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          closeOverlays();
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        disabled={isMutating}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          void handleDelete();
-                        }}
-                      >
-                        {isMutating ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <FileTreeContextMenu
+        menuState={menuState}
+        selectedItem={selectedItem}
+        relativePath={relativePath}
+        panelState={panelState}
+        panelName={panelName}
+        panelInputRef={panelInputRef}
+        renameSelectionAppliedRef={renameSelectionAppliedRef}
+        isMutating={isMutating}
+        deleteConfirmOpen={deleteConfirmOpen}
+        setPanelName={setPanelName}
+        setDeleteConfirmOpen={setDeleteConfirmOpen}
+        closePanel={closePanel}
+        closeOverlays={closeOverlays}
+        closeMenu={() => setMenuState(null)}
+        openCreatePanel={openCreatePanel}
+        openRenamePanel={openRenamePanel}
+        handleDuplicate={handleDuplicate}
+        handleDelete={handleDelete}
+        submitPanel={submitPanel}
+        handlePanelInputKeyDown={handlePanelInputKeyDown}
+        applyRenameSelection={applyRenameSelection}
+      />
     </>
   );
 };

@@ -17,9 +17,10 @@ pub async fn ensure_desktop_runtime(
 ) -> Result<u16, DesktopRuntimeFailure> {
     let log_path = crate::logging::app_log_path(app_handle, "runtime-api.log");
 
-    let resource_dir = app_handle.path().resource_dir().map_err(|e| {
-        desktop_failure(&log_path, format!("resource dir unavailable: {e}"))
-    })?;
+    let resource_dir = app_handle
+        .path()
+        .resource_dir()
+        .map_err(|e| desktop_failure(&log_path, format!("resource dir unavailable: {e}")))?;
 
     let runtime_dir = resolve_bundled_runtime_dir(&resource_dir).map_err(|e| {
         desktop_failure(
@@ -88,9 +89,7 @@ fn resolve_bundled_runtime_dir(resource_dir: &Path) -> Result<PathBuf, String> {
     let mut candidates = vec![resource_dir.join("runtime").join("current")];
     #[cfg(debug_assertions)]
     {
-        candidates.push(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries/runtime/current"),
-        );
+        candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries/runtime/current"));
     }
 
     for current in candidates {
@@ -123,7 +122,8 @@ fn augmented_path(runtime_dir: &Path) -> Result<String, String> {
 fn resolve_utf8_locale() -> String {
     for key in ["LC_ALL", "LC_CTYPE", "LANG"] {
         if let Ok(value) = std::env::var(key) {
-            if value.to_ascii_lowercase().contains("utf-8") || value.to_ascii_lowercase().contains("utf8")
+            if value.to_ascii_lowercase().contains("utf-8")
+                || value.to_ascii_lowercase().contains("utf8")
             {
                 return value;
             }

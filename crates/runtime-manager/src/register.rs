@@ -70,8 +70,8 @@ pub async fn register_computer(
         return Err(format!("control plane register failed ({status}): {raw}"));
     }
 
-    let parsed: RegisterResponse = serde_json::from_str(&raw)
-        .map_err(|e| format!("register response parse: {e}"))?;
+    let parsed: RegisterResponse =
+        serde_json::from_str(&raw).map_err(|e| format!("register response parse: {e}"))?;
 
     let identity = ServerIdentity {
         server_id: parsed.server_id,

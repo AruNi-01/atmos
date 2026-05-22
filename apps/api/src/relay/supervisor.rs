@@ -101,10 +101,8 @@ impl RelaySupervisor {
                     break;
                 }
 
-                let lifecycle = RelayLifecycle::new(
-                    Arc::clone(&upstream_connected),
-                    Arc::clone(&last_error),
-                );
+                let lifecycle =
+                    RelayLifecycle::new(Arc::clone(&upstream_connected), Arc::clone(&last_error));
                 let attempt_state = state.clone();
                 let attempt_identity = identity.clone();
                 let attempt_cancel = task_cancel.clone();

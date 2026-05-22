@@ -88,7 +88,10 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
     if existing.running && !existing.healthy && !options.force_restart {
         return Err(format!(
             "Runtime process {} is running but unhealthy at {}. Use --force-restart.",
-            existing.pid.map(|p| p.to_string()).unwrap_or_else(|| "?".into()),
+            existing
+                .pid
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| "?".into()),
             existing.url
         ));
     }
@@ -115,7 +118,13 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
         &options.extra_env,
     )?;
     let health_attempts = if options.daemon { 6 } else { 20 };
-    wait_for_health(&options.host, options.port, health_attempts, Some(launched_pid)).await?;
+    wait_for_health(
+        &options.host,
+        options.port,
+        health_attempts,
+        Some(launched_pid),
+    )
+    .await?;
     let pid = resolve_api_process_id(&layout.api_bin_path, options.port).unwrap_or(launched_pid);
 
     let manifest = RuntimeManifest::new(&options.host, options.port, Some(pid), "runtime-manager");
@@ -200,7 +209,10 @@ async fn collect_status(layout: Option<&RuntimeLayout>) -> Result<RuntimeStatus,
         .as_ref()
         .map(|m| m.api.host.clone())
         .unwrap_or_else(|| DEFAULT_HOST.to_string());
-    let port = manifest.as_ref().map(|m| m.api.port).unwrap_or(DEFAULT_PORT);
+    let port = manifest
+        .as_ref()
+        .map(|m| m.api.port)
+        .unwrap_or(DEFAULT_PORT);
     let url = manifest
         .as_ref()
         .map(|m| m.api.url.clone())
@@ -216,7 +228,12 @@ async fn collect_status(layout: Option<&RuntimeLayout>) -> Result<RuntimeStatus,
             healthy = runtime_process.healthy;
             pid = Some(runtime_process.pid);
             if Some(runtime_process.pid) != m.pid {
-                let updated = RuntimeManifest::new(&m.api.host, m.api.port, Some(runtime_process.pid), &m.source);
+                let updated = RuntimeManifest::new(
+                    &m.api.host,
+                    m.api.port,
+                    Some(runtime_process.pid),
+                    &m.source,
+                );
                 let _ = write_runtime_manifest(&updated);
             }
         } else if m.pid.is_some() {
@@ -245,11 +262,8 @@ async fn collect_status(layout: Option<&RuntimeLayout>) -> Result<RuntimeStatus,
 
 async fn resolve_runtime_process(manifest: &RuntimeManifest) -> Option<RuntimeProcessStatus> {
     let layout = resolve_runtime_layout().ok()?;
-    let pid = resolve_api_process_id_with_hint(
-        &layout.api_bin_path,
-        manifest.api.port,
-        manifest.pid,
-    )?;
+    let pid =
+        resolve_api_process_id_with_hint(&layout.api_bin_path, manifest.api.port, manifest.pid)?;
     Some(RuntimeProcessStatus {
         pid,
         healthy: is_runtime_healthy(&manifest.api.host, manifest.api.port).await,
@@ -424,8 +438,7 @@ fn resolve_api_process_id_with_hint(
     }
 
     system.processes().iter().find_map(|(pid, process)| {
-        process_matches_runtime(process, api_bin_path, port)
-            .then_some(pid.as_u32())
+        process_matches_runtime(process, api_bin_path, port).then_some(pid.as_u32())
     })
 }
 
@@ -461,7 +474,10 @@ fn process_port_matches(process: &Process, port: u16) -> bool {
         .cmd()
         .windows(2)
         .any(|w| w[0] == "--port" && w[1] == port_text)
-        || process.cmd().iter().any(|v| v == &format!("--port={port_text}"))
+        || process
+            .cmd()
+            .iter()
+            .any(|v| v == &format!("--port={port_text}"))
 }
 
 fn paths_match(candidate: &Path, expected: &Path) -> bool {
@@ -515,7 +531,10 @@ fn default_runtime_dir() -> Result<PathBuf, String> {
 }
 
 fn runtime_log_path() -> Result<PathBuf, String> {
-    Ok(atmos_home_dir()?.join("runtime").join("logs").join("api.log"))
+    Ok(atmos_home_dir()?
+        .join("runtime")
+        .join("logs")
+        .join("api.log"))
 }
 
 fn ensure_runtime_installed(layout: &RuntimeLayout) -> Result<(), String> {

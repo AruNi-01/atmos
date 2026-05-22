@@ -3,195 +3,47 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useContextParams } from "@/hooks/use-context-params";
-import {
-  messagesToMarkdown,
-  type ConversationMessage,
-} from "@workspace/ui";
 import { useProjectStore } from "@/hooks/use-project-store";
 import {
-  buildQueuedAgentPromptContent,
   getAgentPromptQueueKey,
   useDialogStore,
   type QueuedAgentPrompt,
 } from "@/hooks/use-dialog-store";
 import { useAgentChatUrl } from "@/hooks/use-agent-chat-url";
-import { useAgentChatStatusStore } from "@/hooks/use-agent-chat-status";
 import {
   useAgentSession,
-  type AgentServerMessage,
   type AgentPlan,
-  type AgentConfigOption,
-  type AgentUsage,
 } from "@/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
 import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
-import type { AgentChatMode } from "@/types/agent-chat";
 import { DEFAULT_AGENT_CHAT_MODE } from "@/types/agent-chat";
 import { useWikiExists, useWikiStore } from "@/hooks/use-wiki-store";
 import {
-  applyServerMessageToEntries,
-  extractPlanMarkdown,
-  getAssistantCopyText,
-  isSwitchModePlanToolCall,
   type ThreadEntry,
 } from "@/lib/agent/thread";
 import {
   type PendingPermission,
-  type AgentActivity,
   getSessionContextKey,
   readDefaultAgentRegistryId,
   writeDefaultAgentRegistryId,
   deriveAgentActivity,
-  sanitizeConversationFilename,
-  getLocalTimestampForFilename,
-  downloadConversationMarkdown,
 } from "./chat-helpers";
-
-// Server-side default title assigned to new chat sessions (must match the
-// backend constant in agent_chat_session_repo.rs / session_title.rs).
-const DEFAULT_SESSION_TITLE = "新会话";
-
-// ---------------------------------------------------------------------------
-// Options & Return types
-// ---------------------------------------------------------------------------
-
-export interface UseAgentChatSessionOptions {
-  variant: "modal" | "sidebar";
-  mode: AgentChatMode;
-  publishStatus: boolean;
-  active?: boolean;
-}
-
-export interface UseAgentChatSessionReturn {
-  // Panel open
-  isPanelOpen: boolean;
-
-  // Connection state
-  isConnected: boolean;
-  isConnecting: boolean;
-  connectionPhase: string;
-  error: string | null;
-  sessionId: string | null;
-  sessionCwd: string | null;
-
-  // Session data
-  entries: ThreadEntry[];
-  setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;
-  currentPlan: AgentPlan | null;
-  pendingPermission: PendingPermission | null;
-  pendingPermissionMarkdown: string | null;
-  agentActivity: AgentActivity;
-  waitingForResponse: boolean;
-  setWaitingForResponse: React.Dispatch<React.SetStateAction<boolean>>;
-  stoppedRef: React.MutableRefObject<boolean>;
-  isResumingHistory: boolean;
-  isResumedSession: boolean;
-  isManualLoadingMessages: boolean;
-
-  // Agents
-  installedAgents: RegistryAgent[];
-  setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
-  activeAgent: RegistryAgent | null;
-  registryId: string;
-  defaultRegistryId: string;
-  loadingAgents: boolean;
-
-  // Config
-  configOptions: AgentConfigOption[];
-  setConfigOption: (key: string, value: string) => void;
-  setAgentDefaultConfig: (configId: string, value: string) => void;
-  sessionUsage: AgentUsage | null;
-
-  // History
-  historyOpen: boolean;
-  setHistoryOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  historySessions: AgentChatSessionItem[];
-  historyHasMore: boolean;
-  historyLoading: boolean;
-  historyCursor: string | null;
-  loadHistorySessions: (cursor?: string) => Promise<void>;
-
-  // Title
-  sessionTitle: string | null;
-  displaySessionTitle: string | null;
-  sessionTitleSource: string | null;
-  isAutoGeneratingTitle: boolean;
-  shouldScrambleAutoTitle: boolean;
-  setShouldScrambleAutoTitle: React.Dispatch<React.SetStateAction<boolean>>;
-  isEditingTitle: boolean;
-  editingTitleValue: string;
-  setEditingTitleValue: React.Dispatch<React.SetStateAction<string>>;
-
-  // Context
-  chatMode: AgentChatMode;
-  localPath: string | null;
-  wikiPath: string | null;
-  sessionWorkspaceId: string | null;
-  sessionProjectId: string | null;
-  canUseCurrentMode: boolean;
-  wikiAskAvailability: { enabled: boolean; reason: string | null };
-  panelLabel: string;
-  panelTitle: string;
-  connectionPhaseLabel: string;
-
-  // Queue
-  queueKey: string;
-  queuedPrompts: QueuedAgentPrompt[];
-  removeQueuedAgentChatPrompt: (id: string) => void;
-  updateQueuedAgentChatPrompt: (id: string, updates: { prompt: string }) => void;
-  moveQueuedAgentChatPrompt: (id: string, toIndex: number) => void;
-
-  // New session agents menu
-  newSessionAgentsOpen: boolean;
-  setNewSessionAgentsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-
-  // Layout refs
-  headerHovered: boolean;
-  setHeaderHovered: React.Dispatch<React.SetStateAction<boolean>>;
-
-  // Refs
-  bottomRef: React.RefObject<HTMLDivElement | null>;
-  conversationRef: React.RefObject<HTMLDivElement | null>;
-  titleInputRef: React.RefObject<HTMLInputElement | null>;
-
-  // Auth
-  authRequest: { message?: string; methods: { id: string; name: string; description?: string }[] } | null;
-  selectedAuthMethodId: string;
-  setSelectedAuthMethodId: React.Dispatch<React.SetStateAction<string>>;
-  clearAuthRequest: () => void;
-  startSession: (opts?: { registryId?: string; authMethodId?: string }) => void;
-
-  // Export
-  exportableMessages: ConversationMessage[];
-
-  // Message navigation
-  userEntryIndices: number[];
-  messageNavIndex: number;
-
-  // Actions
-  handleSubmit: (message: { text: string; files?: import("ai").FileUIPart[] }) => Promise<void>;
-  handleClose: () => void;
-  handlePermission: (optionKind: string) => void;
-  handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
-  handleSelectHistorySession: (s: AgentChatSessionItem) => Promise<void>;
-  handleManualLoadMessages: () => Promise<void>;
-  handleStartEditTitle: () => void;
-  handleFinishEditTitle: () => void;
-  handleTitleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  handlePrevMessage: () => void;
-  handleNextMessage: () => void;
-  handleSetDefaultAgent: (agentId: string) => void;
-  handleOpenNewSessionAgentsMenu: () => void;
-  handleScheduleCloseNewSessionAgentsMenu: () => void;
-  handleExportConversation: () => void;
-
-  // Send
-  sendCancel: () => void;
-
-  // Disconnect
-  disconnect: () => void;
-}
+import {
+  buildAgentChatExportableMessages,
+  DEFAULT_SESSION_TITLE,
+  getConnectionPhaseLabel,
+  resolveAgentChatLocalPath,
+  resolveAgentChatParentProjectId,
+  resolveAgentChatWikiPath,
+  type UseAgentChatSessionOptions,
+  type UseAgentChatSessionReturn,
+} from "./use-agent-chat-session-types";
+import { useAgentChatMessageHandler } from "./use-agent-chat-message-handler";
+import { useAgentChatHistoryHandlers } from "./use-agent-chat-history-handlers";
+import { useAgentChatSubmitHandler } from "./use-agent-chat-submit-handler";
+import { useAgentChatStatusPublisher } from "./use-agent-chat-status-publisher";
+import { useAgentChatUiHandlers } from "./use-agent-chat-ui-handlers";
 
 // ---------------------------------------------------------------------------
 // Hook implementation
@@ -224,7 +76,6 @@ export function useAgentChatSession({
   );
 
   const isPanelOpen = variant === "sidebar" ? active : isAgentChatOpen;
-  const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const chatMode = mode;
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [currentPlan, setCurrentPlan] = useState<AgentPlan | null>(null);
@@ -236,7 +87,6 @@ export function useAgentChatSession({
   const [pendingPermission, setPendingPermission] = useState<PendingPermission | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const conversationRef = useRef<HTMLDivElement>(null);
-  const [messageNavIndex, setMessageNavIndex] = useState(-1);
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historySessions, setHistorySessions] = useState<AgentChatSessionItem[]>([]);
@@ -250,8 +100,6 @@ export function useAgentChatSession({
   const [sessionTitleSource, setSessionTitleSource] = useState<string | null>(null);
   const [isAutoGeneratingTitle, setIsAutoGeneratingTitle] = useState(false);
   const [shouldScrambleAutoTitle, setShouldScrambleAutoTitle] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editingTitleValue, setEditingTitleValue] = useState("");
   const [headerHovered, setHeaderHovered] = useState(false);
   const [selectedAuthMethodId, setSelectedAuthMethodId] = useState<string>("");
   const [activeSessionByContext, setActiveSessionByContext] = useState<Record<string, string>>(
@@ -270,10 +118,7 @@ export function useAgentChatSession({
   const dispatchingQueuedPromptIdRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
   const forcedDisconnectDoneRef = useRef(false);
-  const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectedContextKeyRef = useRef<string | null>(null);
-  const pendingStreamMessagesRef = useRef<AgentServerMessage[]>([]);
-  const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   // ---------------------------------------------------------------------------
@@ -285,32 +130,20 @@ export function useAgentChatSession({
     }
   }, [isPanelOpen, projects.length, fetchProjects]);
 
-  const localPath = React.useMemo(() => {
-    if (!effectiveContextId) return null;
-    for (const p of projects) {
-      const found = p.workspaces.find((w) => w.id === effectiveContextId);
-      if (found) return found.localPath;
-      if (p.id === effectiveContextId) return p.mainFilePath;
-    }
-    return null;
-  }, [projects, effectiveContextId]);
+  const localPath = React.useMemo(
+    () => resolveAgentChatLocalPath(projects, effectiveContextId),
+    [projects, effectiveContextId],
+  );
 
-  const parentProjectId = React.useMemo(() => {
-    if (!workspaceId) return null;
-    for (const p of projects) {
-      if (p.workspaces.find((w) => w.id === workspaceId)) return p.id;
-    }
-    return null;
-  }, [projects, workspaceId]);
+  const parentProjectId = React.useMemo(
+    () => resolveAgentChatParentProjectId(projects, workspaceId),
+    [projects, workspaceId],
+  );
 
-  const wikiPath = React.useMemo(() => {
-    if (!effectiveContextId) return null;
-    for (const p of projects) {
-      if (p.workspaces.find((w) => w.id === effectiveContextId)) return p.mainFilePath;
-      if (p.id === effectiveContextId) return p.mainFilePath;
-    }
-    return null;
-  }, [projects, effectiveContextId]);
+  const wikiPath = React.useMemo(
+    () => resolveAgentChatWikiPath(projects, effectiveContextId),
+    [projects, effectiveContextId],
+  );
 
   const wikiExists = useWikiExists(effectiveContextId);
   const checkWikiExists = useWikiStore((s) => s.checkWikiExists);
@@ -340,137 +173,20 @@ export function useAgentChatSession({
     ? parentProjectId
     : projectId;
 
-  // ---------------------------------------------------------------------------
-  // Stream batching
-  // ---------------------------------------------------------------------------
-  const flushPendingStreamMessages = useCallback(() => {
-    if (streamFlushTimerRef.current) {
-      clearTimeout(streamFlushTimerRef.current);
-      streamFlushTimerRef.current = null;
-    }
-    if (pendingStreamMessagesRef.current.length === 0) return;
-    const queued = pendingStreamMessagesRef.current;
-    pendingStreamMessagesRef.current = [];
-    setEntries((prev) => queued.reduce((acc, item) => applyServerMessageToEntries(acc, item), prev));
-  }, []);
-
-  const scheduleStreamFlush = useCallback(() => {
-    if (streamFlushTimerRef.current) return;
-    streamFlushTimerRef.current = setTimeout(() => {
-      flushPendingStreamMessages();
-    }, 48);
-  }, [flushPendingStreamMessages]);
-
-  useEffect(() => {
-    return () => {
-      if (streamFlushTimerRef.current) {
-        clearTimeout(streamFlushTimerRef.current);
-      }
-    };
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Message handler
-  // ---------------------------------------------------------------------------
-  const handleMessage = useCallback((msg: AgentServerMessage) => {
-    switch (msg.type) {
-      case "stream":
-        if (stoppedRef.current) return;
-        if (msg.done) {
-          stoppedRef.current = false;
-          setWaitingForResponse(false);
-        }
-        pendingStreamMessagesRef.current.push(msg);
-        if (msg.done) {
-          flushPendingStreamMessages();
-        } else {
-          scheduleStreamFlush();
-        }
-        break;
-      case "tool_call":
-        if (stoppedRef.current) return;
-        flushPendingStreamMessages();
-        setEntries((prev) => applyServerMessageToEntries(prev, msg));
-        break;
-      case "plan_update":
-        if (stoppedRef.current) return;
-        flushPendingStreamMessages();
-        setCurrentPlan(msg.plan);
-        setEntries((prev) => applyServerMessageToEntries(prev, msg));
-        break;
-      case "permission_request":
-        flushPendingStreamMessages();
-        setPendingPermission({
-          request_id: msg.request_id,
-          tool: msg.tool,
-          description: msg.description,
-          content_markdown: msg.content_markdown,
-          risk_level: msg.risk_level,
-          options: msg.options ?? [],
-        });
-        break;
-      case "error":
-        flushPendingStreamMessages();
-        stoppedRef.current = false;
-        setWaitingForResponse(false);
-        setEntries((prev) => applyServerMessageToEntries(prev, msg));
-        break;
-      case "turn_end":
-        flushPendingStreamMessages();
-        stoppedRef.current = false;
-        setWaitingForResponse(false);
-        setEntries((prev) => applyServerMessageToEntries(prev, msg));
-        break;
-      case "usage_update":
-        flushPendingStreamMessages();
-        setEntries((prev) => {
-          let changed = false;
-          const next = prev.map((entry) => {
-            if (entry.role !== "assistant" || !entry.isStreaming) return entry;
-            const hasRunningTool = entry.blocks.some(
-              (block) => block.type === "tool_call" && block.status === "running"
-            );
-            if (hasRunningTool) return entry;
-            changed = true;
-            return { ...entry, isStreaming: false };
-          });
-          if (changed) {
-            stoppedRef.current = false;
-            setWaitingForResponse(false);
-          }
-          return changed ? next : prev;
-        });
-        break;
-      case "session_title_updated":
-        setSessionTitle(msg.title);
-        setSessionTitleSource(msg.title_source);
-        setIsAutoGeneratingTitle(false);
-        setShouldScrambleAutoTitle(msg.title_source === "auto");
-        break;
-      case "session_ended":
-        flushPendingStreamMessages();
-        stoppedRef.current = false;
-        setWaitingForResponse(false);
-        break;
-      case "load_completed":
-        flushPendingStreamMessages();
-        stoppedRef.current = false;
-        setWaitingForResponse(false);
-        setIsResumingHistory(false);
-        setEntries((prev) => {
-          let changed = false;
-          const next = prev.map((entry) => {
-            if (entry.role === "assistant" && entry.isStreaming) {
-              changed = true;
-              return { ...entry, isStreaming: false };
-            }
-            return entry;
-          });
-          return changed ? next : prev;
-        });
-        break;
-    }
-  }, [flushPendingStreamMessages, scheduleStreamFlush]);
+  const { handleMessage, pendingPermissionMarkdown } = useAgentChatMessageHandler({
+    entries,
+    pendingPermission,
+    setCurrentPlan,
+    setEntries,
+    setIsAutoGeneratingTitle,
+    setIsResumingHistory,
+    setPendingPermission,
+    setSessionTitle,
+    setSessionTitleSource,
+    setShouldScrambleAutoTitle,
+    setWaitingForResponse,
+    stoppedRef,
+  });
 
   // ---------------------------------------------------------------------------
   // Agent session hook
@@ -512,69 +228,61 @@ export function useAgentChatSession({
     stoppedRef.current = false;
   }, [canUseCurrentMode, disconnect, isConnected]);
 
-  // ---------------------------------------------------------------------------
-  // Publish status to global store
-  // ---------------------------------------------------------------------------
-  const setStatusHasAgents = useAgentChatStatusStore((s) => s.setHasInstalledAgents);
-  const setStatusConnected = useAgentChatStatusStore((s) => s.setIsConnected);
-  const setStatusBusy = useAgentChatStatusStore((s) => s.setIsBusy);
-  useEffect(() => {
-    if (!publishStatus) return;
-    setStatusHasAgents(installedAgents.length > 0);
-  }, [installedAgents.length, publishStatus, setStatusHasAgents]);
-  useEffect(() => {
-    if (!publishStatus) return;
-    setStatusConnected(isConnected);
-  }, [isConnected, publishStatus, setStatusConnected]);
-  useEffect(() => {
-    if (!publishStatus) return;
-    setStatusBusy(waitingForResponse);
-  }, [waitingForResponse, publishStatus, setStatusBusy]);
+  useAgentChatStatusPublisher({
+    installedAgentCount: installedAgents.length,
+    isConnected,
+    publishStatus,
+    waitingForResponse,
+  });
 
   const agentActivity = useMemo(
     () => deriveAgentActivity(entries, waitingForResponse),
     [entries, waitingForResponse]
   );
 
-  // ---------------------------------------------------------------------------
-  // History
-  // ---------------------------------------------------------------------------
-  const loadHistorySessions = useCallback(
-    async (cursor?: string) => {
-      setHistoryLoading(true);
-      try {
-        const contextType =
-          sessionWorkspaceId != null ? "workspace" : sessionProjectId != null ? "project" : "temp";
-        const contextGuid = sessionWorkspaceId ?? sessionProjectId ?? undefined;
-        const res = await agentRestApi.listSessions({
-          context_type: contextType,
-          context_guid: contextGuid,
-          mode: chatMode,
-          limit: 20,
-          cursor,
-        });
-        if (cursor) {
-          setHistorySessions((prev) => [...prev, ...res.items]);
-        } else {
-          setHistorySessions(res.items);
-        }
-        setHistoryCursor(res.next_cursor);
-        setHistoryHasMore(res.has_more);
-      } catch {
-        setHistorySessions([]);
-      } finally {
-        setHistoryLoading(false);
-      }
-    },
-    [sessionWorkspaceId, sessionProjectId, chatMode]
+  const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
+  const displaySessionTitle =
+    sessionTitle && sessionTitle !== DEFAULT_SESSION_TITLE ? sessionTitle : null;
+  const panelLabel = chatMode === "wiki_ask" ? "Wiki Ask" : "Chat";
+  const panelTitle = activeAgent?.name ?? (variant === "sidebar" ? "Wiki Ask" : "Agent Chat");
+  const exportableMessages = useMemo(
+    () => buildAgentChatExportableMessages(entries),
+    [entries],
   );
 
-  useEffect(() => {
-    if (!historyOpen) return;
-    setHistorySessions([]);
-    setHistoryCursor(null);
-    loadHistorySessions();
-  }, [historyOpen, loadHistorySessions]);
+  const {
+    editingTitleValue,
+    handleExportConversation,
+    handleFinishEditTitle,
+    handleNextMessage,
+    handleOpenNewSessionAgentsMenu,
+    handlePrevMessage,
+    handleScheduleCloseNewSessionAgentsMenu,
+    handleSetDefaultAgent,
+    handleStartEditTitle,
+    handleTitleKeyDown,
+    isEditingTitle,
+    messageNavIndex,
+    newSessionAgentsOpen,
+    setEditingTitleValue,
+    setIsEditingTitle,
+    setNewSessionAgentsOpen,
+    userEntryIndices,
+  } = useAgentChatUiHandlers({
+    conversationRef,
+    displaySessionTitle,
+    entries,
+    exportableMessages,
+    panelTitle,
+    sessionId,
+    sessionTitle,
+    setDefaultRegistryId,
+    setIsAutoGeneratingTitle,
+    setSessionTitle,
+    setSessionTitleSource,
+    setShouldScrambleAutoTitle,
+    titleInputRef,
+  });
 
   // ---------------------------------------------------------------------------
   // Context key / queue
@@ -593,6 +301,46 @@ export function useAgentChatSession({
     [agentChatPromptQueues, queueKey]
   );
   const queuedPromptHead = queuedPrompts[0] ?? null;
+
+  const {
+    handleManualLoadMessages,
+    handleSelectHistorySession,
+    loadHistorySessions,
+  } = useAgentChatHistoryHandlers({
+    autoResumeTriedRef,
+    canUseCurrentMode,
+    chatMode,
+    contextKey,
+    disconnect,
+    historyOpen,
+    isConnected,
+    isConnecting,
+    isResumingHistory,
+    resumeSession,
+    sessionId,
+    sessionProjectId,
+    sessionWorkspaceId,
+    setActiveSessionByContext,
+    setCurrentPlan,
+    setEntries,
+    setHistoryCursor,
+    setHistoryHasMore,
+    setHistoryLoading,
+    setHistoryOpen,
+    setHistorySessions,
+    setIsAutoGeneratingTitle,
+    setIsManualLoadingMessages,
+    setIsResumedSession,
+    setIsResumingHistory,
+    setPendingPermission,
+    setRegistryId,
+    setSessionTitle,
+    setSessionTitleSource,
+    setShouldScrambleAutoTitle,
+    setWaitingForResponse,
+    skipNextAutoConnectRef,
+    stoppedRef,
+  });
 
   // ---------------------------------------------------------------------------
   // Context switching effects
@@ -653,49 +401,11 @@ export function useAgentChatSession({
     restoreAttemptedRef.current = false;
     autoResumeTriedRef.current = null;
     autoStartHandledRef.current = false;
-  }, [contextKey, disconnect, isConnected, sessionId]);
+  }, [contextKey, disconnect, isConnected, sessionId, setIsEditingTitle]);
 
   // ---------------------------------------------------------------------------
-  // Select / create / manual load sessions
+  // Create / submit / close / permission
   // ---------------------------------------------------------------------------
-  const handleSelectHistorySession = useCallback(
-    async (s: AgentChatSessionItem) => {
-      if (isConnecting || !canUseCurrentMode) return;
-      if (sessionId === s.guid && isConnected) {
-        setHistoryOpen(false);
-        return;
-      }
-      setHistoryOpen(false);
-      skipNextAutoConnectRef.current = true;
-      disconnect();
-      setEntries([]);
-      setCurrentPlan(null);
-      setPendingPermission(null);
-      setWaitingForResponse(false);
-      stoppedRef.current = false;
-      setRegistryId(s.registry_id);
-      setSessionTitle(s.title || null);
-      setSessionTitleSource(s.title_source ?? null);
-      setIsAutoGeneratingTitle(false);
-      setShouldScrambleAutoTitle(false);
-      setIsResumedSession(true);
-      setActiveSessionByContext((prev) => ({ ...prev, [contextKey]: s.guid }));
-      setIsResumingHistory(true);
-      autoResumeTriedRef.current = null;
-      try {
-        const success = await resumeSession(s.guid);
-        if (!success) {
-          setIsResumingHistory(false);
-        }
-      } catch {
-        setIsResumingHistory(false);
-      } finally {
-        skipNextAutoConnectRef.current = false;
-      }
-    },
-    [canUseCurrentMode, contextKey, disconnect, isConnected, isConnecting, resumeSession, sessionId]
-  );
-
   const handleCreateNewSession = useCallback(async (targetRegistryId?: string) => {
     if (isConnecting || !canUseCurrentMode) return;
     const nextRegistryId = targetRegistryId || defaultRegistryId || registryId;
@@ -728,32 +438,17 @@ export function useAgentChatSession({
     } finally {
       skipNextAutoConnectRef.current = false;
     }
-  }, [canUseCurrentMode, contextKey, defaultRegistryId, disconnect, disconnectStashed, isConnecting, registryId, startSession]);
-
-  const handleManualLoadMessages = useCallback(async () => {
-    const targetSessionId = sessionId;
-    if (!targetSessionId || isConnecting || isResumingHistory) return;
-
-    setIsManualLoadingMessages(true);
-    try {
-      setIsResumingHistory(true);
-      setIsResumedSession(true);
-      skipNextAutoConnectRef.current = true;
-      disconnect();
-      setEntries([]);
-      setCurrentPlan(null);
-      setPendingPermission(null);
-      const success = await resumeSession(targetSessionId);
-      if (!success) {
-        setIsResumingHistory(false);
-      }
-    } catch {
-      setIsResumingHistory(false);
-    } finally {
-      skipNextAutoConnectRef.current = false;
-      setIsManualLoadingMessages(false);
-    }
-  }, [disconnect, isConnecting, isResumingHistory, resumeSession, sessionId]);
+  }, [
+    canUseCurrentMode,
+    contextKey,
+    defaultRegistryId,
+    disconnect,
+    disconnectStashed,
+    isConnecting,
+    registryId,
+    setIsEditingTitle,
+    startSession,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Auth method selection
@@ -1095,151 +790,28 @@ export function useAgentChatSession({
     }
   }, [sessionId, activeSessionTitle]);
 
-  const handleStartEditTitle = useCallback(() => {
-    if (!sessionTitle) return;
-    setEditingTitleValue(sessionTitle);
-    setIsEditingTitle(true);
-    requestAnimationFrame(() => titleInputRef.current?.focus());
-  }, [sessionTitle]);
-
-  const handleFinishEditTitle = useCallback(() => {
-    setIsEditingTitle(false);
-    const trimmed = editingTitleValue.trim();
-    if (!trimmed || trimmed === sessionTitle) return;
-    setSessionTitle(trimmed);
-    setSessionTitleSource("user");
-    setIsAutoGeneratingTitle(false);
-    setShouldScrambleAutoTitle(false);
-    if (sessionId) {
-      void agentRestApi.updateSessionTitle(sessionId, trimmed).catch(() => { });
-    }
-  }, [editingTitleValue, sessionTitle, sessionId]);
-
-  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleFinishEditTitle();
-    } else if (e.key === "Escape") {
-      setIsEditingTitle(false);
-    }
-  }, [handleFinishEditTitle]);
-
-  // ---------------------------------------------------------------------------
-  // Message navigation
-  // ---------------------------------------------------------------------------
-  const userEntryIndices = React.useMemo(
-    () => entries.map((e, i) => (e.role === "user" ? i : -1)).filter((i) => i >= 0),
-    [entries]
-  );
-
-  const scrollToMessage = useCallback((messageIndex: number) => {
-    const el = conversationRef.current?.querySelector(
-      `[data-entry-index="${messageIndex}"]`
-    ) as HTMLElement | null;
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
-    }
-    setMessageNavIndex(messageIndex);
-  }, []);
-
-  const handlePrevMessage = useCallback(() => {
-    if (userEntryIndices.length === 0) return;
-    const currentIdx = userEntryIndices.indexOf(messageNavIndex);
-    if (currentIdx < 0) {
-      scrollToMessage(userEntryIndices[userEntryIndices.length - 1]);
-      return;
-    }
-    if (currentIdx <= 0) return;
-    scrollToMessage(userEntryIndices[currentIdx - 1]);
-  }, [userEntryIndices, messageNavIndex, scrollToMessage]);
-
-  const handleNextMessage = useCallback(() => {
-    if (userEntryIndices.length === 0) return;
-    const currentIdx = userEntryIndices.indexOf(messageNavIndex);
-    if (currentIdx < 0) {
-      scrollToMessage(userEntryIndices[0]);
-      return;
-    }
-    if (currentIdx >= userEntryIndices.length - 1) return;
-    scrollToMessage(userEntryIndices[currentIdx + 1]);
-  }, [userEntryIndices, messageNavIndex, scrollToMessage]);
-
   // ---------------------------------------------------------------------------
   // Submit / Close / Permission
   // ---------------------------------------------------------------------------
-  const handleSubmit = useCallback(
-    async (message: { text: string; files?: import("ai").FileUIPart[] }) => {
-      const text = message.text.trim();
-      if (!text || !isConnected || !canUseCurrentMode) return;
-      stoppedRef.current = false;
-      const displayFiles = message.files?.map((f, i) => ({ ...f, id: `f-${Date.now()}-${i}` }));
-      let sessionTitleForPrompt: string | undefined;
-      if (entries.length === 0 && queuedPrompts.length === 0) {
-        if (chatMode === "wiki_ask") {
-          const projName = (wikiPath ?? localPath)?.split("/").pop() ?? "Project";
-          const now = new Date();
-          const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-          sessionTitleForPrompt = `${projName}_WikiAsk_${ts}`;
-          setSessionTitle(sessionTitleForPrompt);
-          setSessionTitleSource("user");
-          setIsAutoGeneratingTitle(false);
-          setShouldScrambleAutoTitle(false);
-        } else {
-          setSessionTitle(null);
-          setSessionTitleSource("auto");
-          setIsAutoGeneratingTitle(true);
-          setShouldScrambleAutoTitle(false);
-        }
-      }
-      let finalPrompt = text;
-      let attachmentPaths: string[] | undefined;
-
-      const uploadPath = localPath ?? sessionCwd;
-      if (message.files && message.files.length > 0 && uploadPath) {
-        try {
-          const { paths } = await agentRestApi.uploadAttachments(
-            uploadPath,
-            message.files.map((f) => ({
-              url: f.url,
-              filename: f.filename,
-              mediaType: f.mediaType,
-            }))
-          );
-          attachmentPaths = paths.length > 0 ? paths : undefined;
-          finalPrompt = buildQueuedAgentPromptContent(text, attachmentPaths);
-        } catch (err) {
-          console.error("Failed to upload attachments:", err);
-        }
-      }
-
-      enqueueAgentChatPrompt({
-        prompt: finalPrompt,
-        displayPrompt: text,
-        attachmentPaths,
-        files: displayFiles,
-        workspaceId: sessionWorkspaceId,
-        projectId: sessionProjectId,
-        mode: chatMode,
-        sessionTitle: sessionTitleForPrompt,
-        origin: "panel",
-      });
-      clearAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode);
-    },
-    [
-      chatMode,
-      canUseCurrentMode,
-      clearAgentChatDraft,
-      enqueueAgentChatPrompt,
-      entries.length,
-      isConnected,
-      localPath,
-      queuedPrompts.length,
-      sessionCwd,
-      sessionProjectId,
-      sessionWorkspaceId,
-      wikiPath,
-    ]
-  );
+  const handleSubmit = useAgentChatSubmitHandler({
+    canUseCurrentMode,
+    chatMode,
+    clearAgentChatDraft,
+    enqueueAgentChatPrompt,
+    entriesLength: entries.length,
+    isConnected,
+    localPath,
+    queuedPromptCount: queuedPrompts.length,
+    sessionCwd,
+    sessionProjectId,
+    sessionWorkspaceId,
+    stoppedRef,
+    wikiPath,
+    setIsAutoGeneratingTitle,
+    setSessionTitle,
+    setSessionTitleSource,
+    setShouldScrambleAutoTitle,
+  });
 
   const handleClose = useCallback(() => {
     setAgentChatOpen(false);
@@ -1255,110 +827,7 @@ export function useAgentChatSession({
     [pendingPermission, sendPermissionResponse]
   );
 
-  const pendingPermissionMarkdown = useMemo(() => {
-    if (!pendingPermission) return null;
-    if (pendingPermission.content_markdown?.trim()) {
-      return pendingPermission.content_markdown;
-    }
-
-    for (let entryIdx = entries.length - 1; entryIdx >= 0; entryIdx--) {
-      const entry = entries[entryIdx];
-      if (entry.role !== "assistant") continue;
-      for (let blockIdx = entry.blocks.length - 1; blockIdx >= 0; blockIdx--) {
-        const block = entry.blocks[blockIdx];
-        if (block.type !== "tool_call") continue;
-        if (!isSwitchModePlanToolCall(block)) continue;
-        const markdown = extractPlanMarkdown(block.raw_input);
-        if (markdown) return markdown;
-      }
-    }
-
-    return null;
-  }, [entries, pendingPermission]);
-
-  // ---------------------------------------------------------------------------
-  // New-session agents menu
-  // ---------------------------------------------------------------------------
-  const clearCloseAgentsMenuTimer = useCallback(() => {
-    if (closeAgentsMenuTimerRef.current) {
-      clearTimeout(closeAgentsMenuTimerRef.current);
-      closeAgentsMenuTimerRef.current = null;
-    }
-  }, []);
-
-  const handleOpenNewSessionAgentsMenu = useCallback(() => {
-    clearCloseAgentsMenuTimer();
-    setNewSessionAgentsOpen(true);
-  }, [clearCloseAgentsMenuTimer]);
-
-  const handleScheduleCloseNewSessionAgentsMenu = useCallback(() => {
-    clearCloseAgentsMenuTimer();
-    closeAgentsMenuTimerRef.current = setTimeout(() => {
-      setNewSessionAgentsOpen(false);
-    }, 120);
-  }, [clearCloseAgentsMenuTimer]);
-
-  const handleSetDefaultAgent = useCallback((agentId: string) => {
-    setDefaultRegistryId(agentId);
-    writeDefaultAgentRegistryId(agentId);
-  }, []);
-
-  useEffect(() => {
-    return () => clearCloseAgentsMenuTimer();
-  }, [clearCloseAgentsMenuTimer]);
-
-  // ---------------------------------------------------------------------------
-  // Derived values
-  // ---------------------------------------------------------------------------
-  const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
-  const displaySessionTitle =
-    sessionTitle && sessionTitle !== DEFAULT_SESSION_TITLE ? sessionTitle : null;
-  const panelLabel = chatMode === "wiki_ask" ? "Wiki Ask" : "Chat";
-  const panelTitle = activeAgent?.name ?? (variant === "sidebar" ? "Wiki Ask" : "Agent Chat");
-
-  const exportableMessages = useMemo<ConversationMessage[]>(
-    () =>
-      entries.flatMap<ConversationMessage>((entry) => {
-        if (entry.role === "user") {
-          const content = entry.content.trim();
-          return content ? [{ role: "user", content }] : [];
-        }
-
-        const content = getAssistantCopyText(entry).trim();
-        return content ? [{ role: "assistant", content }] : [];
-      }),
-    [entries],
-  );
-
-  const handleExportConversation = useCallback(() => {
-    if (exportableMessages.length === 0) return;
-
-    const timestamp = getLocalTimestampForFilename();
-    const markdown = messagesToMarkdown(exportableMessages);
-    downloadConversationMarkdown(
-      `${sanitizeConversationFilename(displaySessionTitle ?? panelTitle ?? "conversation")}-${timestamp}.md`,
-      markdown,
-    );
-  }, [displaySessionTitle, exportableMessages, panelTitle]);
-
-  const connectionPhaseLabel = (() => {
-    switch (connectionPhase) {
-      case "initializing":
-        return "Initializing ACP connection...";
-      case "authenticating":
-        return "Authenticating with agent...";
-      case "resuming_session":
-        return "Restoring ACP session...";
-      case "creating_session":
-        return "Creating ACP session...";
-      case "connecting_ws":
-        return "Connecting to chat stream...";
-      case "connected":
-        return "Connected";
-      default:
-        return "Ready to connect";
-    }
-  })();
+  const connectionPhaseLabel = getConnectionPhaseLabel(connectionPhase);
 
   // ---------------------------------------------------------------------------
   // Return

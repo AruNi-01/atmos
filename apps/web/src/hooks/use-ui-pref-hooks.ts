@@ -137,20 +137,28 @@ export function useSidebarUiPrefs(): [
 
 // --- Usage ---
 
+const DEFAULT_USAGE_PREFS: { providerOrder: string[] } = {
+  providerOrder: [],
+};
+
 export function useUsageProviderOrder(): [
   string[],
   (order: string[] | ((prev: string[]) => string[])) => void,
 ] {
-  const [prefs, setPrefs] = useInstanceSlice<{ providerOrder: string[] }>('usage', {
-    providerOrder: [],
-  });
-  return [
-    prefs.providerOrder,
-    order =>
+  const [prefs, setPrefs] = useInstanceSlice<{ providerOrder: string[] }>(
+    'usage',
+    DEFAULT_USAGE_PREFS,
+  );
+  const setProviderOrder = useCallback(
+    (order: string[] | ((prev: string[]) => string[])) => {
       setPrefs(prev => ({
         providerOrder: typeof order === 'function' ? order(prev.providerOrder) : order,
-      })),
-  ];
+      }));
+    },
+    [setPrefs],
+  );
+
+  return [prefs.providerOrder, setProviderOrder];
 }
 
 // --- Center stage ---

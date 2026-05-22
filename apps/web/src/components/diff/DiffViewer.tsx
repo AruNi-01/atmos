@@ -2,73 +2,42 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { FileDiff, Virtualizer } from '@pierre/diffs/react';
-import {
-  IconCollapsedRow,
-  IconDiffSplit,
-  IconDiffUnified,
-  IconExpandAll,
-  IconGearFill,
-} from '@pierre/icons';
 import type {
   DiffLineAnnotation,
   FileContents,
   FileDiffOptions,
   SelectedLineRange,
-  ChangeContent,
   FileDiffMetadata,
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
-import { Button, Loader2, Textarea, toastManager, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipTrigger, Switch } from '@workspace/ui';
+import { Loader2, toastManager } from '@workspace/ui';
 import { useGitStore } from '@/hooks/use-git-store';
 import { useEditorStore } from '@/hooks/use-editor-store';
 import { SelectionPopover } from '@/components/selection/SelectionPopover';
 import { useReviewCtx } from '@/components/diff/review/ReviewContextProvider';
-import { MessageBubble } from '@/components/diff/review/MessageBubble';
-import { ReviewMessageActionsMenu } from '@/components/diff/review/ReviewMessageActionsMenu';
 import type { SelectionInfo } from '@/lib/format-selection-for-ai';
 import { useContextParams } from '@/hooks/use-context-params';
-import { cn } from '@/lib/utils';
-import { ChevronRight, Command, CornerDownLeft, MessageSquareReply, SendHorizontal, X } from 'lucide-react';
 import {
-  reviewCommentStatusLabel,
-  statusTone,
-} from '@/components/diff/review/utils';
+  type DiffViewerAnnotationMeta,
+  type DiffViewerInlineCommentDraft,
+  DiffViewerReviewAnnotation,
+} from '@/components/diff/diff-viewer-review-annotations';
+import {
+  DIFF_VIRTUALIZER_SCROLL_CLASS,
+  buildDiffViewerLineTypeMap,
+  buildDiffViewerSelectionInfo,
+  getDiffScrollRoot,
+} from '@/components/diff/diff-viewer-selection';
 import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions } from '@/components/diff/diff-view-constants';
+import { DiffViewerHeader } from '@/components/diff/DiffViewerHeader';
 
 interface DiffViewerProps {
   repoPath: string;
   filePath: string;
   originalPath?: string;
 }
-
-interface InlineCommentDraft {
-  side: 'old' | 'new';
-  startLine: number;
-  endLine: number;
-  selectedText: string;
-  beforeContext: string[];
-  afterContext: string[];
-  diffSide: 'old' | 'new';
-}
-
-const DIFF_VIRTUALIZER_SCROLL_CLASS = 'diff-virtualizer-scroll';
-
-function getDiffScrollRoot(container: HTMLElement | null): HTMLElement | null {
-  if (!container) return null;
-  const virtualizerRoot = container.querySelector<HTMLElement>(
-    `.${DIFF_VIRTUALIZER_SCROLL_CLASS}`,
-  );
-  if (virtualizerRoot) return virtualizerRoot;
-
-  const shadowRoot = container.querySelector('diffs-container')?.shadowRoot;
-  const codePanel = shadowRoot?.querySelector<HTMLElement>('[data-code]');
-  return codePanel ?? container;
-}
-
-const SETTING_ROW_CLASS =
-  'flex w-full cursor-pointer items-center justify-between gap-4 px-2 py-1.5 text-sm';
 
 export const DiffViewer = ({
   repoPath,
@@ -87,7 +56,7 @@ export const DiffViewer = ({
   const [newFile, setNewFile] = useState<FileContents | null>(null);
   const [workingDiff, setWorkingDiff] = useState<FileDiffMetadata | null>(null);
   const [diffCompareRef, setDiffCompareRef] = useState<string | null>(null);
-  const [inlineCommentDraft, setInlineCommentDraft] = useState<InlineCommentDraft | null>(null);
+  const [inlineCommentDraft, setInlineCommentDraft] = useState<DiffViewerInlineCommentDraft | null>(null);
   const [inlineCommentBody, setInlineCommentBody] = useState('');
   const [isSubmittingInlineComment, setIsSubmittingInlineComment] = useState(false);
   const inlineCommentTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -150,73 +119,9 @@ export const DiffViewer = ({
   }, [tipPaused]);
 
   const diffMeta = workingDiff;
-
-  type LineTypeInfo = { type: 'context' | 'addition' | 'deletion' | 'mixed'; oldLine?: number; newLine?: number };
   const lineTypeMap = useMemo(() => {
-    const oldMap = new Map<number, LineTypeInfo>();
-    const newMap = new Map<number, LineTypeInfo>();
-    if (!diffMeta) return { oldMap, newMap };
-
-    for (const hunk of diffMeta.hunks) {
-      let oldLine = hunk.deletionStart;
-      let newLine = hunk.additionStart;
-
-      for (const content of hunk.hunkContent) {
-        if (content.type === 'context') {
-          const lineCount = Array.isArray(content.lines)
-            ? (content.lines as string[]).length
-            : (content.lines as number);
-          for (let i = 0; i < lineCount; i++) {
-            const info: LineTypeInfo = { type: 'context', oldLine, newLine };
-            oldMap.set(oldLine, info);
-            newMap.set(newLine, info);
-            oldLine++;
-            newLine++;
-          }
-        } else {
-          const change = content as ChangeContent;
-          const deletionCount = Array.isArray(change.deletions)
-            ? change.deletions.length
-            : change.deletions;
-          const additionCount = Array.isArray(change.additions)
-            ? change.additions.length
-            : change.additions;
-          const hasBoth = deletionCount > 0 && additionCount > 0;
-          const lineType = hasBoth ? 'mixed' : (deletionCount > 0 ? 'deletion' : 'addition');
-          const delStart = oldLine;
-          const addStart = newLine;
-          for (let i = 0; i < deletionCount; i++) {
-            oldMap.set(oldLine, { type: lineType, oldLine, newLine: addStart });
-            oldLine++;
-          }
-          for (let i = 0; i < additionCount; i++) {
-            newMap.set(newLine, { type: lineType, oldLine: delStart, newLine });
-            newLine++;
-          }
-        }
-      }
-    }
-    return { oldMap, newMap };
+    return buildDiffViewerLineTypeMap(diffMeta);
   }, [diffMeta]);
-
-  const getMappedContextRange = useCallback((
-    lineMap: Map<number, LineTypeInfo>,
-    startLine: number,
-    endLine: number,
-  ) => {
-    const mapped: LineTypeInfo[] = [];
-    for (let line = startLine; line <= endLine; line++) {
-      const info = lineMap.get(line);
-      if (info) mapped.push(info);
-    }
-
-    return {
-      oldStart: mapped[0]?.oldLine ?? startLine,
-      oldEnd: mapped[mapped.length - 1]?.oldLine ?? endLine,
-      newStart: mapped[0]?.newLine ?? startLine,
-      newEnd: mapped[mapped.length - 1]?.newLine ?? endLine,
-    };
-  }, []);
 
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [isPopoverVisible, setIsPopoverVisible] = useState(false);
@@ -243,91 +148,18 @@ export const DiffViewer = ({
   }, []);
 
   const buildSelectionInfo = useCallback((startLine: number, endLine: number, side: 'deletions' | 'additions'): SelectionInfo => {
-    const normalizedStart = Math.min(startLine, endLine);
-    const normalizedEnd = Math.max(startLine, endLine);
-    const sourceContent = side === 'deletions' ? oldFile?.contents : newFile?.contents;
+    return buildDiffViewerSelectionInfo({
+      filePath,
+      oldContent: oldFile?.contents,
+      newContent: newFile?.contents,
+      lineTypeMap,
+      startLine,
+      endLine,
+      side,
+    });
+  }, [filePath, lineTypeMap, newFile?.contents, oldFile?.contents]);
 
-    let selectedText = '';
-    if (sourceContent) {
-      const lines = sourceContent.split('\n');
-      selectedText = lines.slice(normalizedStart - 1, normalizedEnd).join('\n');
-    }
-
-    const oldLines = oldFile?.contents?.split('\n') || [];
-    const newLines = newFile?.contents?.split('\n') || [];
-    const sideMap = side === 'deletions' ? lineTypeMap.oldMap : lineTypeMap.newMap;
-
-    const lineTypes = new Set<string>();
-    for (let ln = normalizedStart; ln <= normalizedEnd; ln++) {
-      const info = sideMap.get(ln);
-      lineTypes.add(info?.type || 'context');
-    }
-
-    let changeType: SelectionInfo['changeType'];
-    let beforeText: string | undefined;
-    let afterText: string | undefined;
-
-    const hasMixed = lineTypes.has('mixed');
-    const hasAddition = lineTypes.has('addition');
-    const hasDeletion = lineTypes.has('deletion');
-    const hasContext = lineTypes.has('context');
-    const onlyContext = lineTypes.size === 1 && hasContext;
-    const onlyPureAddition = !hasMixed && !hasDeletion && hasAddition;
-    const onlyPureDeletion = !hasMixed && !hasAddition && hasDeletion;
-
-    if (onlyContext) {
-      changeType = 'context';
-      const mapped = getMappedContextRange(sideMap, normalizedStart, normalizedEnd);
-      beforeText = oldLines.slice(mapped.oldStart - 1, mapped.oldEnd).join('\n');
-      afterText = newLines.slice(mapped.newStart - 1, mapped.newEnd).join('\n');
-    } else if (onlyPureAddition) {
-      changeType = 'addition';
-      beforeText = undefined;
-      afterText = newLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
-    } else if (onlyPureDeletion) {
-      changeType = 'deletion';
-      beforeText = oldLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
-      afterText = undefined;
-    } else {
-      changeType = 'mixed';
-      let minOtherLine = Infinity;
-      let maxOtherLine = -Infinity;
-      for (let ln = normalizedStart; ln <= normalizedEnd; ln++) {
-        const info = sideMap.get(ln);
-        if (info) {
-          const otherLine = side === 'deletions' ? info.newLine : info.oldLine;
-          if (otherLine != null) {
-            minOtherLine = Math.min(minOtherLine, otherLine);
-            maxOtherLine = Math.max(maxOtherLine, otherLine);
-          }
-        }
-      }
-      if (side === 'deletions') {
-        beforeText = oldLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
-        afterText = minOtherLine <= maxOtherLine
-          ? newLines.slice(minOtherLine - 1, maxOtherLine).join('\n')
-          : undefined;
-      } else {
-        afterText = newLines.slice(normalizedStart - 1, normalizedEnd).join('\n');
-        beforeText = minOtherLine <= maxOtherLine
-          ? oldLines.slice(minOtherLine - 1, maxOtherLine).join('\n')
-          : undefined;
-      }
-    }
-
-    return {
-      filePath: filePath,
-      startLine: normalizedStart,
-      endLine: normalizedEnd,
-      selectedText: selectedText || `Lines ${normalizedStart}-${normalizedEnd}`,
-      changeType,
-      diffSide: side === 'deletions' ? 'old' : 'new',
-      beforeText,
-      afterText,
-    };
-  }, [filePath, getMappedContextRange, lineTypeMap, newFile?.contents, oldFile?.contents]);
-
-  const openInlineCommentDraft = useCallback((draft: InlineCommentDraft) => {
+  const openInlineCommentDraft = useCallback((draft: DiffViewerInlineCommentDraft) => {
     dismissPopover();
     setInlineCommentBody('');
     setInlineCommentDraft(draft);
@@ -506,13 +338,8 @@ export const DiffViewer = ({
       disableFileHeader: true,
       unsafeCSS: sharedOptions.unsafeCSS,
       onLineSelectionEnd: handleLineSelectionEnd,
-    } satisfies FileDiffOptions<{
-    kind: 'comment';
-    comment: ReviewCommentDto;
-  } | {
-    kind: 'composer';
-    }>;
-  }, [diffStyle, disableBackground, wordWrap, handleLineSelectionEnd, isReviewDiff]);
+    } satisfies FileDiffOptions<DiffViewerAnnotationMeta>;
+  }, [diffStyle, disableBackground, wordWrap, handleLineSelectionEnd]);
 
   const commentAnnotations = useMemo(() => {
     if (!isReviewDiff || !reviewContext.file) return [];
@@ -544,7 +371,7 @@ export const DiffViewer = ({
   );
 
   const lineAnnotations = useMemo(
-    () => [...commentAnnotations, ...inlineComposerAnnotation] as unknown as DiffLineAnnotation<{kind: "comment"; comment: ReviewCommentDto;} | {kind: "composer";}>[],
+    () => [...commentAnnotations, ...inlineComposerAnnotation] as unknown as DiffLineAnnotation<DiffViewerAnnotationMeta>[],
     [inlineComposerAnnotation, commentAnnotations],
   );
 
@@ -843,275 +670,74 @@ export const DiffViewer = ({
     );
   }, [buildSelectionInfo, openInlineCommentDraft, reviewContext.canEdit, reviewContext.file, snapshotGuidFromPath]);
 
-  const renderAnnotation = useCallback((annotation: DiffLineAnnotation<{
-    kind: 'comment';
-    comment: ReviewCommentDto;
-  } | {
-    kind: 'composer';
-  }>) => {
-    if (annotation.metadata?.kind === 'composer') {
-      if (!inlineCommentDraft) return null;
-      return (
-        <div className="mx-3 my-2 rounded-lg border border-primary/20 bg-background/95 p-3 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Comment on {inlineCommentDraft.startLine === inlineCommentDraft.endLine ? `L${inlineCommentDraft.startLine}` : `L${inlineCommentDraft.startLine}-L${inlineCommentDraft.endLine}`}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Add a review comment directly on this diff.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => {
-                setInlineCommentDraft(null);
-                setInlineCommentBody('');
-              }}
-              aria-label="Cancel comment"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-          <Textarea
-            ref={inlineCommentTextareaRef}
-            value={inlineCommentBody}
-            onChange={(event) => setInlineCommentBody(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key === 'Enter' &&
-                (event.metaKey || event.ctrlKey) &&
-                inlineCommentBody.trim() &&
-                !isSubmittingInlineComment
-              ) {
-                event.preventDefault();
-                void handleInlineCommentSubmit();
-              }
-            }}
-            placeholder="Describe the issue or expected change..."
-            className="mt-3 min-h-24 bg-background"
-          />
-          <div className="mt-3 flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="sm" onClick={() => void handleInlineCommentSubmit()} disabled={isSubmittingInlineComment}>
-                  {isSubmittingInlineComment ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                  Add Comment
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="flex items-center gap-2">
-                  <span>Add comment</span>
-                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                    <Command className="size-3" />
-                    <CornerDownLeft className="size-3" />
-                  </kbd>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setInlineCommentDraft(null);
-                setInlineCommentBody('');
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      );
-    }
+  const cancelInlineCommentDraft = useCallback(() => {
+    setInlineCommentDraft(null);
+    setInlineCommentBody('');
+  }, []);
 
-    const comment = annotation.metadata?.comment;
-    if (!comment) return null;
-    const expanded =
-      !collapsedInlineCommentGuids.has(comment.guid) ||
-      replyDraftCommentGuid === comment.guid;
-    const title =
-      comment.title?.trim() ||
-      `Comment on L${comment.anchor_start_line}${
-        comment.anchor_start_line === comment.anchor_end_line
-          ? ''
-          : `-${comment.anchor_end_line}`
-      }`;
-    return (
-      <div className={cn(
-        'mx-3 my-2 rounded-lg border p-3 shadow-sm',
-        comment.status === 'fixed'
-          ? 'border-emerald-500/25 bg-emerald-500/5'
-          : comment.status === 'agent_fixed'
-            ? 'border-amber-500/25 bg-amber-500/5'
-            : comment.status === 'dismissed'
-              ? 'border-muted-foreground/15 bg-muted/30'
-              : 'border-blue-500/25 bg-blue-500/5',
-        highlightedInlineCommentGuid === comment.guid &&
-          'animate-pulse ring-2 ring-primary/60 ring-offset-2 ring-offset-background',
-        )}
-        data-review-comment-guid={comment.guid}
-        data-review-anchor-line={comment.anchor_start_line}
-      >
-        <button
-          type="button"
-          onClick={() => toggleInlineCommentExpanded(comment.guid)}
-          className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-left"
-          aria-label={expanded ? "Collapse comment" : "Expand comment"}
-        >
-          <ChevronRight
-            className={cn(
-              'size-3.5 shrink-0 text-muted-foreground transition-transform',
-              expanded && 'rotate-90',
-            )}
-          />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
-              {title}
-            </p>
-          </div>
-          <span
-            className={cn(
-              'shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium',
-              statusTone(comment.status),
-            )}
-          >
-            {reviewCommentStatusLabel(comment.status)}
-          </span>
-        </button>
+  const cancelReplyDraft = useCallback(() => {
+    setReplyDraftCommentGuid(null);
+    setReplyBody('');
+  }, []);
 
-        {expanded && (
-          <>
-            <div className="mt-3 space-y-2">
-              {comment.messages.map((message) => (
-                <div
-                  key={message.guid}
-                  data-review-message-guid={message.guid}
-                  className={cn(
-                    "group/message rounded-md",
-                    highlightedInlineMessageGuid === message.guid &&
-                      "animate-pulse ring-2 ring-primary/60 ring-offset-2 ring-offset-background",
-                  )}
-                >
-                  <MessageBubble
-                    message={message}
-                    onEdit={reviewContext.updateMessage}
-                    action={
-                      reviewContext.canEdit ? (
-                        ({ startEdit }) => (
-                          <ReviewMessageActionsMenu
-                            message={message}
-                            disabled={deletingMessageGuid === message.guid}
-                            onEdit={startEdit}
-                            onDelete={() => handleDeleteMessage(comment, message)}
-                          />
-                        )
-                      ) : null
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-            {reviewContext.canEdit && replyDraftCommentGuid === comment.guid && (
-              <div className="mt-3 rounded-md border border-border bg-background p-2">
-                <Textarea
-                  value={replyBody}
-                  onChange={(event) => setReplyBody(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (
-                      event.key === 'Enter' &&
-                      (event.metaKey || event.ctrlKey) &&
-                      replyBody.trim() &&
-                      !isSubmittingReply
-                    ) {
-                      event.preventDefault();
-                      void handleCommentReplySubmit(comment);
-                    }
-                  }}
-                  placeholder="Reply to this comment..."
-                  className="min-h-20 bg-background text-sm"
-                  autoFocus
-                />
-                <div className="mt-2 flex justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={isSubmittingReply}
-                    onClick={() => {
-                      setReplyDraftCommentGuid(null);
-                      setReplyBody('');
-                    }}
-                  >
-                    <X className="mr-1.5 size-3.5" />
-                    Cancel
-                  </Button>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        disabled={!replyBody.trim() || isSubmittingReply}
-                        onClick={() => void handleCommentReplySubmit(comment)}
-                      >
-                        <SendHorizontal className="mr-1.5 size-3.5" />
-                        Reply
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="flex items-center gap-2">
-                        <span>Send reply</span>
-                        <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-foreground/90">
-                          <Command className="size-3" />
-                          <CornerDownLeft className="size-3" />
-                        </kbd>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            )}
-            {reviewContext.canEdit && (
-              <div className="mt-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setReplyBody('');
-                    setCollapsedInlineCommentGuids((prev) => {
-                      if (!prev.has(comment.guid)) return prev;
-                      const next = new Set(prev);
-                      next.delete(comment.guid);
-                      return next;
-                    });
-                    setReplyDraftCommentGuid((value) =>
-                      value === comment.guid ? null : comment.guid,
-                    );
-                  }}
-                >
-                  <MessageSquareReply className="mr-1.5 size-3.5" />
-                  Reply
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+  const toggleReplyDraft = useCallback((commentGuid: string) => {
+    setReplyBody('');
+    setCollapsedInlineCommentGuids((prev) => {
+      if (!prev.has(commentGuid)) return prev;
+      const next = new Set(prev);
+      next.delete(commentGuid);
+      return next;
+    });
+    setReplyDraftCommentGuid((value) =>
+      value === commentGuid ? null : commentGuid,
     );
-  }, [
-    handleInlineCommentSubmit,
-    handleDeleteMessage,
+  }, []);
+
+  const renderAnnotation = useCallback((annotation: DiffLineAnnotation<DiffViewerAnnotationMeta>) => (
+    <DiffViewerReviewAnnotation
+      annotation={annotation}
+      inlineCommentDraft={inlineCommentDraft}
+      inlineCommentTextareaRef={inlineCommentTextareaRef}
+      inlineCommentBody={inlineCommentBody}
+      isSubmittingInlineComment={isSubmittingInlineComment}
+      replyBody={replyBody}
+      replyDraftCommentGuid={replyDraftCommentGuid}
+      isSubmittingReply={isSubmittingReply}
+      deletingMessageGuid={deletingMessageGuid}
+      collapsedInlineCommentGuids={collapsedInlineCommentGuids}
+      highlightedInlineCommentGuid={highlightedInlineCommentGuid}
+      highlightedInlineMessageGuid={highlightedInlineMessageGuid}
+      canEditReview={reviewContext.canEdit}
+      onInlineCommentBodyChange={setInlineCommentBody}
+      onInlineCommentSubmit={() => void handleInlineCommentSubmit()}
+      onInlineCommentCancel={cancelInlineCommentDraft}
+      onReplyBodyChange={setReplyBody}
+      onReplySubmit={(comment) => void handleCommentReplySubmit(comment)}
+      onReplyCancel={cancelReplyDraft}
+      onToggleReplyDraft={toggleReplyDraft}
+      onToggleInlineCommentExpanded={toggleInlineCommentExpanded}
+      onUpdateMessage={reviewContext.updateMessage}
+      onDeleteMessage={(comment, message) => void handleDeleteMessage(comment, message)}
+    />
+  ), [
+    cancelInlineCommentDraft,
+    cancelReplyDraft,
+    collapsedInlineCommentGuids,
+    deletingMessageGuid,
     handleCommentReplySubmit,
+    handleDeleteMessage,
+    handleInlineCommentSubmit,
+    highlightedInlineCommentGuid,
+    highlightedInlineMessageGuid,
     inlineCommentBody,
     inlineCommentDraft,
     isSubmittingInlineComment,
     isSubmittingReply,
     replyBody,
     replyDraftCommentGuid,
-    collapsedInlineCommentGuids,
-    highlightedInlineMessageGuid,
-    highlightedInlineCommentGuid,
-    deletingMessageGuid,
     reviewContext.canEdit,
     reviewContext.updateMessage,
+    toggleReplyDraft,
     toggleInlineCommentExpanded,
   ]);
 
@@ -1144,148 +770,27 @@ export const DiffViewer = ({
 
   return (
     <div className="h-full flex flex-col bg-background overflow-hidden">
-      <div className="h-10 flex items-center justify-between px-4 border-b border-sidebar-border bg-muted/30 shrink-0">
-        <div
-          className="relative h-5 flex-1 min-w-0 overflow-hidden pr-3"
-          onMouseEnter={() => setTipPaused(true)}
-          onMouseLeave={() => setTipPaused(false)}
-        >
-          <div
-            className="absolute inset-x-0 h-full flex items-center gap-3 transition-all duration-500 ease-in-out"
-            style={{
-              transform: !isReviewDiff && showTip ? 'translateY(-100%)' : 'translateY(0)',
-              opacity: !isReviewDiff && showTip ? 0 : 1,
-            }}
-          >
-            <span className="text-sm font-medium text-foreground truncate">{filePath}</span>
-            {diffCompareRef && <span className="text-xs text-muted-foreground shrink-0">vs {diffCompareRef}</span>}
-            {diffStats && (diffStats.additions > 0 || diffStats.deletions > 0) && (
-              <span className="text-xs font-mono shrink-0">
-                {diffStats.additions > 0 && <span className="text-green-500">+{diffStats.additions}</span>}
-                {diffStats.additions > 0 && diffStats.deletions > 0 && <span className="text-muted-foreground mx-1">/</span>}
-                {diffStats.deletions > 0 && <span className="text-red-500">-{diffStats.deletions}</span>}
-              </span>
-            )}
-            {snapshotGuidFromPath && reviewContext.session && !reviewContext.canEdit ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300 shrink-0">
-                    Snapshot View
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[260px] text-xs">
-                  The snapshot view only displays the file content in the current review version and can only be read.
-                </TooltipContent>
-              </Tooltip>
-            ) : null}
-          </div>
-          {!isReviewDiff && (
-            <div
-              className="absolute inset-x-0 h-full flex items-center transition-all duration-500 ease-in-out"
-              style={{ transform: showTip ? 'translateY(0)' : 'translateY(100%)', opacity: showTip ? 1 : 0 }}
-            >
-              <span className="text-xs text-muted-foreground truncate">
-                Tips: Select line numbers to annotate changes and quickly send to AI Agent (⇧ Shift for multi-select)
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {(() => {
-            if (!snapshotGuidFromPath) return null;
-            const file = reviewContext.file;
-            if (!file) return null;
-            const reviewed = file.state.reviewed;
-            return (
-              <button
-                type="button"
-                onClick={() => handleToggleReviewed(!reviewed)}
-                disabled={!reviewContext.canEdit}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0',
-                  reviewed
-                    ? 'border-blue-500/50 bg-blue-500/15 text-blue-300 hover:bg-blue-500/25'
-                    : 'border-border bg-background/80 text-foreground hover:bg-muted/50'
-                )}
-              >
-                {reviewed ? (
-                  <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm bg-blue-500">
-                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                      <path d="M3 8L6.5 11.5L13 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center w-3.5 h-3.5 rounded-sm border border-muted-foreground/40" />
-                )}
-                <span>Reviewed</span>
-              </button>
-            );
-          })()}
-          <button
-            type="button"
-            title={diffStyle === 'split' ? 'Switch to unified view' : 'Switch to split view'}
-            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-            onClick={() =>
-              setDiffStyle(diffStyle === 'split' ? 'unified' : 'split')
-            }
-          >
-            {diffStyle === 'split' ? (
-              <IconDiffSplit className="size-3.5" />
-            ) : (
-              <IconDiffUnified className="size-3.5" />
-            )}
-          </button>
-          <button
-            type="button"
-            title={fileCollapsed ? 'Expand file' : 'Collapse file'}
-            className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-            onClick={() => setFileCollapsed(!fileCollapsed)}
-          >
-            {fileCollapsed ? (
-              <IconCollapsedRow className="size-3.5" />
-            ) : (
-              <IconExpandAll className="size-3.5" />
-            )}
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-                title="View options"
-              >
-                <IconGearFill className="size-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem
-                className="cursor-default p-0"
-                onSelect={(e) => e.preventDefault()}
-              >
-                <label className={SETTING_ROW_CLASS}>
-                  <span className="min-w-0 flex-1">Backgrounds</span>
-                  <Switch
-                    checked={!disableBackground}
-                    onCheckedChange={(checked) => setDisableBackground(!checked)}
-                  />
-                </label>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="cursor-default p-0"
-                onSelect={(e) => e.preventDefault()}
-              >
-                <label className={SETTING_ROW_CLASS}>
-                  <span className="min-w-0 flex-1">Word wrap</span>
-                  <Switch
-                    checked={wordWrap}
-                    onCheckedChange={setWordWrap}
-                  />
-                </label>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <DiffViewerHeader
+        canEditReview={reviewContext.canEdit}
+        diffCompareRef={diffCompareRef}
+        diffStats={diffStats}
+        diffStyle={diffStyle}
+        disableBackground={disableBackground}
+        fileCollapsed={fileCollapsed}
+        filePath={filePath}
+        hasReviewSession={Boolean(reviewContext.session)}
+        isReviewDiff={isReviewDiff}
+        isReviewed={snapshotGuidFromPath && reviewContext.file ? reviewContext.file.state.reviewed : null}
+        onToggleReviewed={handleToggleReviewed}
+        setDiffStyle={setDiffStyle}
+        setDisableBackground={setDisableBackground}
+        setFileCollapsed={setFileCollapsed}
+        setTipPaused={setTipPaused}
+        setWordWrap={setWordWrap}
+        showTip={showTip}
+        snapshotGuidFromPath={snapshotGuidFromPath}
+        wordWrap={wordWrap}
+      />
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div

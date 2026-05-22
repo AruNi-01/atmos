@@ -28,13 +28,12 @@ impl RegistrationMeta {
     }
 
     pub fn from_value(value: &Value) -> Result<Self, String> {
-        serde_json::from_value(value.clone())
-            .map_err(|e| format!("registration_meta parse: {e}"))
+        serde_json::from_value(value.clone()).map_err(|e| format!("registration_meta parse: {e}"))
     }
 
     pub fn from_json_str(raw: &str) -> Result<Self, String> {
-        let value: Value = serde_json::from_str(raw)
-            .map_err(|e| format!("registration_meta json: {e}"))?;
+        let value: Value =
+            serde_json::from_str(raw).map_err(|e| format!("registration_meta json: {e}"))?;
         Self::from_value(&value)
     }
 }

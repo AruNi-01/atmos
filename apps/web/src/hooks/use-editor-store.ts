@@ -10,294 +10,43 @@ import {
 } from '@/lib/editor-ui-persistence';
 import { fsApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
-import { detectCodeLanguage } from '@/lib/code-language';
-import { getDiffGroupTabLabel, isDiffGroupEditorPath } from '@/lib/diff-editor-paths';
+import type { EditorStore, OpenFile } from './editor-store-types';
+import {
+  applyDiffGroupActiveFile,
+  nowTimestamp,
+  readFileWithTimeout,
+  removeNavigationTargetForPath,
+  touchOpenFile,
+} from './editor-store-helpers';
+import {
+  getEditorSourcePath,
+  getFileNameFromPath,
+  getLanguageFromPath,
+  getSpecialTabName,
+  isBinaryFile,
+  isConflictResolveEditorPath,
+  isDiffEditorPath,
+  isGroupedDiffEditorPath,
+} from './editor-store-paths';
 
-// ===== 类型定义 =====
-
-export interface OpenFile {
-  path: string;
-  name: string;
-  content: string;
-  originalContent: string;
-  language: string;
-  isSymlink: boolean;
-  isDirty: boolean;
-  isLoading: boolean;
-  isPreview: boolean; // Preview mode: italic text, replaced on next single-click
-  lastOpenedAt: number;
-  lastFocusedAt: number;
-}
-
-export interface FileNavigationTarget {
-  line?: number;
-  column?: number;
-  reviewCommentGuid?: string;
-  reviewMessageGuid?: string;
-  /** Scroll to a file within a `diff-group://` CodeView tab */
-  diffFilePath?: string;
-}
-
-export interface FileTreeRevealTarget {
-  path: string;
-  workspaceId?: string;
-  requestId: number;
-}
-
-interface WorkspaceState {
-  openFiles: OpenFile[];
-  activeFilePath: string | null;
-}
-
-interface EditorStore {
-  // 状态
-  workspaceStates: Record<string, WorkspaceState>;
-  navigationTargets: Record<string, Record<string, FileNavigationTarget>>;
-  /** Sidebar highlight for `diff-group://` tabs (updated on click and while scrolling). */
-  diffGroupActiveFiles: Record<string, Record<string, string>>;
-  fileTreeRevealTarget: FileTreeRevealTarget | null;
-  currentWorkspaceId: string | null;
-
-  // 当前项目路径 (这个可能是全局的或者也是按 workspace 的，根据之前代码暂定全局，但改为按 workspace 更合理)
-  currentProjectPath: string | null;
-
-  // Hydration tracking
-  _hasHydrated: boolean;
-  setHasHydrated: (state: boolean) => void;
-
-  // 动作
-  setWorkspaceId: (workspaceId: string | null) => void;
-  openFile: (
-    path: string,
-    workspaceId?: string,
-    options?: {
-      preview?: boolean;
-      line?: number;
-      column?: number;
-      reviewCommentGuid?: string;
-      reviewMessageGuid?: string;
-      diffFilePath?: string;
-    }
-  ) => Promise<void>;
-  reloadFileContent: (path: string, workspaceId?: string) => Promise<void>;
-  pinFile: (path: string, workspaceId?: string) => void;
-  closeFile: (path: string, workspaceId?: string) => void;
-  setActiveFile: (path: string | null, workspaceId?: string) => void;
-  updateFileContent: (path: string, content: string, workspaceId?: string) => void;
-  saveFile: (path: string, workspaceId?: string) => Promise<void>;
-  saveActiveFile: (workspaceId?: string) => Promise<void>;
-  setCurrentProjectPath: (path: string | null) => void;
-  clearNavigationTarget: (path: string, workspaceId?: string) => void;
-  setDiffGroupActiveFile: (
-    groupPath: string,
-    filePath: string | null,
-    workspaceId?: string,
-  ) => void;
-  requestFileTreeReveal: (path: string, workspaceId?: string) => void;
-  clearFileTreeRevealTarget: (requestId?: number) => void;
-  replaceOpenFilePath: (from: string, to: string, workspaceId?: string) => void;
-  closeFilesByPrefix: (prefix: string, workspaceId?: string) => void;
-
-  // 辅助方法
-  getOpenFiles: (workspaceId?: string) => OpenFile[];
-  getActiveFilePath: (workspaceId?: string) => string | null;
-  getActiveFile: (workspaceId?: string) => OpenFile | undefined;
-  hasUnsavedChanges: (workspaceId?: string) => boolean;
-}
-
-/** @deprecated Per-file diff tabs — use `diff-group://` instead */
-export const EDITOR_DIFF_PREFIX = 'diff://';
-export const EDITOR_REVIEW_DIFF_PREFIX = 'review-diff://';
-export const EDITOR_REVIEW_GROUP_PREFIX = 'review-group://';
-export const EDITOR_CONFLICT_RESOLVE_PREFIX = 'git-conflict-resolve://';
-export const EDITOR_CONFLICT_RESOLVE_ALL_PATH = `${EDITOR_CONFLICT_RESOLVE_PREFIX}merge-conflicts`;
-
-export function isReviewGroupEditorPath(path: string): boolean {
-  return path.startsWith(EDITOR_REVIEW_GROUP_PREFIX);
-}
-
-function isGroupedDiffEditorPath(path: string): boolean {
-  return isDiffGroupEditorPath(path) || isReviewGroupEditorPath(path);
-}
-
-export function isDiffEditorPath(path: string): boolean {
-  return (
-    path.startsWith(EDITOR_DIFF_PREFIX) ||
-    isGroupedDiffEditorPath(path) ||
-    path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
-  );
-}
-
-export function isConflictResolveEditorPath(path: string): boolean {
-  return path.startsWith(EDITOR_CONFLICT_RESOLVE_PREFIX);
-}
-
-export function getEditorSourcePath(path: string): string {
-  if (path.startsWith(EDITOR_REVIEW_GROUP_PREFIX)) {
-    return path.slice(EDITOR_REVIEW_GROUP_PREFIX.length);
-  }
-
-  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
-    const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
-    const slashIdx = rest.indexOf('/');
-    return slashIdx >= 0 ? rest.slice(slashIdx + 1) : rest;
-  }
-
-  if (path.startsWith(EDITOR_DIFF_PREFIX)) {
-    return path.slice(EDITOR_DIFF_PREFIX.length);
-  }
-
-  if (isConflictResolveEditorPath(path)) {
-    return path.slice(EDITOR_CONFLICT_RESOLVE_PREFIX.length);
-  }
-
-  return path;
-}
-
-export function getReviewDiffSnapshotGuid(path: string): string | null {
-  if (!path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) return null;
-  const rest = path.slice(EDITOR_REVIEW_DIFF_PREFIX.length);
-  const slashIdx = rest.indexOf('/');
-  return slashIdx >= 0 ? rest.slice(0, slashIdx) : null;
-}
-
-export function getReviewGroupRevisionGuid(path: string): string | null {
-  if (!path.startsWith(EDITOR_REVIEW_GROUP_PREFIX)) return null;
-  const revisionGuid = path.slice(EDITOR_REVIEW_GROUP_PREFIX.length);
-  return revisionGuid || null;
-}
-
-function getLanguageFromPath(path: string): string {
-  return detectCodeLanguage(getEditorSourcePath(path));
-}
-
-function isBinaryFile(path: string): boolean {
-    const ext = getEditorSourcePath(path).split('.').pop()?.toLowerCase();
-    const binaryExts = [
-        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tiff',
-        'pdf',
-        'mp4', 'webm', 'ogg', 'mp3', 'wav',
-        'zip', 'tar', 'gz', '7z', 'rar',
-        // Office docs often need special handling, treat as binary for now
-        'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'
-    ];
-    return ext ? binaryExts.includes(ext) : false;
-}
-
-function getFileNameFromPath(path: string): string {
-  if (isReviewGroupEditorPath(path)) {
-    return 'Review';
-  }
-
-  if (isDiffGroupEditorPath(path)) {
-    return getDiffGroupTabLabel(path);
-  }
-
-  const sourcePath = getEditorSourcePath(path);
-  const baseName = sourcePath.split('/').pop() || sourcePath;
-
-  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
-    return `${baseName} (Review)`;
-  }
-
-  if (isConflictResolveEditorPath(path)) {
-    if (sourcePath === 'merge-conflicts') {
-      return 'Merge Conflicts';
-    }
-    return `${baseName} (Conflict)`;
-  }
-
-  return baseName;
-}
-
-function getDiffTabName(name: string): string {
-  return name.endsWith(' (Diff)') ? name : `${name} (Diff)`;
-}
-
-function getReviewDiffTabName(name: string): string {
-  return name.endsWith(' (Review)') ? name : `${name} (Review)`;
-}
-
-function getSpecialTabName(path: string, name: string): string {
-  if (isReviewGroupEditorPath(path)) {
-    return 'Review';
-  }
-
-  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX)) {
-    return getReviewDiffTabName(name);
-  }
-
-  if (isDiffGroupEditorPath(path)) {
-    return getDiffGroupTabLabel(path);
-  }
-
-  if (isDiffEditorPath(path)) {
-    return getDiffTabName(name);
-  }
-
-  return name;
-}
-
-async function readFileWithTimeout(path: string, timeoutMs = 12000) {
-  return Promise.race([
-    fsApi.readFile(path),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Read timeout: ${path}`)), timeoutMs)
-    ),
-  ]);
-}
-
-function nowTimestamp(): number {
-  return Date.now();
-}
-
-function applyDiffGroupActiveFile(
-  diffGroupActiveFiles: Record<string, Record<string, string>>,
-  workspaceId: string,
-  groupPath: string,
-  filePath: string,
-): Record<string, Record<string, string>> {
-  const current = diffGroupActiveFiles[workspaceId]?.[groupPath];
-  if (current === filePath) return diffGroupActiveFiles;
-  return {
-    ...diffGroupActiveFiles,
-    [workspaceId]: {
-      ...(diffGroupActiveFiles[workspaceId] || {}),
-      [groupPath]: filePath,
-    },
-  };
-}
-
-function removeNavigationTargetForPath(
-  navigationTargets: Record<string, Record<string, FileNavigationTarget>>,
-  workspaceId: string,
-  path: string,
-) {
-  const workspaceTargets = navigationTargets[workspaceId];
-  if (!workspaceTargets?.[path]) {
-    return navigationTargets;
-  }
-
-  const remainingTargets = { ...workspaceTargets };
-  delete remainingTargets[path];
-  return {
-    ...navigationTargets,
-    [workspaceId]: remainingTargets,
-  };
-}
-
-function touchOpenFile(
-  file: OpenFile,
-  timestamp: number,
-  updates?: Partial<Pick<OpenFile, 'lastOpenedAt' | 'lastFocusedAt' | 'isPreview'>>
-): OpenFile {
-  return {
-    ...file,
-    lastOpenedAt: updates?.lastOpenedAt ?? file.lastOpenedAt ?? timestamp,
-    lastFocusedAt: updates?.lastFocusedAt ?? file.lastFocusedAt ?? timestamp,
-    isPreview: updates?.isPreview ?? file.isPreview,
-  };
-}
+export type {
+  FileNavigationTarget,
+  FileTreeRevealTarget,
+  OpenFile,
+} from './editor-store-types';
+export {
+  EDITOR_CONFLICT_RESOLVE_ALL_PATH,
+  EDITOR_CONFLICT_RESOLVE_PREFIX,
+  EDITOR_DIFF_PREFIX,
+  EDITOR_REVIEW_DIFF_PREFIX,
+  EDITOR_REVIEW_GROUP_PREFIX,
+  getEditorSourcePath,
+  getReviewDiffSnapshotGuid,
+  getReviewGroupRevisionGuid,
+  isConflictResolveEditorPath,
+  isDiffEditorPath,
+  isReviewGroupEditorPath,
+} from './editor-store-paths';
 
 export const useEditorStore = create<EditorStore>()((set, get) => ({
       workspaceStates: {},

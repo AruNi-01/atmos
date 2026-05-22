@@ -4,288 +4,50 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useId,
   useRef,
   useState,
 } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
-import type { ISearchOptions, ISearchResultChangeEvent } from "@xterm/addon-search";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { ClipboardAddon, type ClipboardSelectionType, type IClipboardProvider } from "@xterm/addon-clipboard";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
 import { ImageAddon } from "@xterm/addon-image";
 import { useTheme } from "next-themes";
-import { Loader2, ArrowDown, Search, ChevronDown, ChevronUp, X } from "lucide-react";
-import { Button, cn, toastManager } from "@workspace/ui";
-
-// ── Clipboard provider ────────────────────────────────────────────────
-// Custom provider that prevents empty writes from clearing the clipboard
-// (e.g., tmux OSC 52 sequences with empty payload).
-class SafeClipboardProvider implements IClipboardProvider {
-  async readText(selection: ClipboardSelectionType): Promise<string> {
-    if (selection !== "c") return "";
-    // In WKWebView (Tauri desktop), navigator.userActivation.isActive is
-    // always false due to WebKit bug #245993.  Skip the check on desktop so
-    // that OSC 52 clipboard reads still work.
-    if (!isTauriRuntime() && !navigator.userActivation?.isActive) return "";
-    try {
-      return await navigator.clipboard.readText();
-    } catch {
-      // readText() fails when the clipboard contains only non-text data
-      // (e.g. an image).  Fall back to read() and return base64-encoded
-      // image data so TUI apps that request clipboard images via OSC 52
-      // receive the actual content instead of an empty response.
-      try {
-        const items = await navigator.clipboard.read();
-        for (const item of items) {
-          for (const type of item.types) {
-            if (type.startsWith("image/")) {
-              const blob = await item.getType(type);
-              return await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const dataUrl = reader.result as string;
-                  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
-                  resolve(base64);
-                };
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-              });
-            }
-          }
-        }
-      } catch {
-        // read() not supported or permission denied
-      }
-      return "";
-    }
-  }
-  async writeText(selection: ClipboardSelectionType, text: string): Promise<void> {
-    if (selection !== "c" || !text?.trim()) return;
-    if (!isTauriRuntime() && !navigator.userActivation?.isActive) return;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // Clipboard write failed (permissions, etc.)
-    }
-  }
-}
-
-/** CSI-u Shift+Enter for Kitty-style TUIs (Desktop WKWebView). */
-const SHIFT_ENTER_CSI_U = "\x1b[13;2u";
-
-/** Bracketed paste wrapper — tmux control mode does not forward ?2004h to xterm.js. */
-function wrapBracketedPaste(text: string): string {
-  const normalised = text.replace(/\r?\n/g, "\r");
-  return `\x1b[200~${normalised}\x1b[201~`;
-}
-
-/** xterm.js sends \\r for Enter regardless of Shift; pick a sequence the TUI understands. */
-function shiftEnterInput(): string {
-  // Web: CSI-u is often treated as submit/blank; LF is the usual multiline newline.
-  return isTauriRuntime() ? SHIFT_ENTER_CSI_U : "\n";
-}
 
 import "@xterm/xterm/css/xterm.css";
 
-import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "./theme";
+import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "./theme";
 import { useTerminalWebSocket } from "./use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "./types";
 import { getRuntimeApiConfig, isTauriRuntime } from "@/lib/desktop-runtime";
-import { openDesktopExternalUrl } from "@/lib/desktop-external-url";
-import { useEditorStore } from "@/hooks/use-editor-store";
-import { appApi } from "@/api/ws-api";
+import { createTerminalLinkProvider } from "./terminal-link-routing";
 import {
-  createTerminalLinkProvider,
-  type ResolvedTerminalLink,
-  resolveTerminalLinkAtCell,
-  resolveTerminalLink,
-} from "./terminal-link-routing";
-import { useTerminalLinkSettings } from "@/hooks/use-terminal-link-settings";
-
-const TERMINAL_FONT_REGULAR_PATH = "/fonts/HackNerdFontMono-Regular.ttf";
-const TERMINAL_FONT_BOLD_PATH = "/fonts/HackNerdFontMono-Bold.ttf";
-const NERD_FONT_TEST_GLYPH = "\uE0B6";
-const TERMINAL_INPUT_READY_DEBOUNCE_MS = 180;
-const TERMINAL_INPUT_READY_FALLBACK_MS = 1200;
-const MIN_TERMINAL_COLS = 20;
-const MIN_TERMINAL_ROWS = 8;
-const ENABLE_TUI_MOUSE_TRACKING = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
-const DISABLE_TUI_MOUSE_TRACKING = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l";
-let terminalFontLoadPromise: Promise<void> | null = null;
-
-function normalizeSnapshotData(data: string): string {
-  return data.replace(/\r?\n/g, "\r\n");
-}
-
-/**
- * xterm `_core` hooks used for snapshot hydration. `term.write()` batches output
- * across animation frames (~12ms), so large tmux replays visibly scroll from top
- * to bottom; `writeSync` + instant `scrollToBottom` lands on the last line once.
- */
-type XTermInternalCore = {
-  writeSync: (data: string | Uint8Array, maxSubsequentCalls?: number) => void;
-  scrollToBottom: (disableSmoothScroll?: boolean) => void;
-};
-
-function getXtermInternalCore(term: XTerm): XTermInternalCore | null {
-  const core = (term as XTerm & { _core?: XTermInternalCore })._core;
-  return core ?? null;
-}
-
-function jumpXtermToBottom(term: XTerm): void {
-  const core = getXtermInternalCore(term);
-  if (core) {
-    core.scrollToBottom(true);
-    return;
-  }
-  term.scrollToBottom();
-}
-
-function writeXtermPayload(term: XTerm, payload: string, onComplete: () => void): void {
-  const core = getXtermInternalCore(term);
-  if (core) {
-    core.writeSync(payload);
-    onComplete();
-    return;
-  }
-  term.write(payload, onComplete);
-}
-
-type TerminalWriteChunk = string | Uint8Array;
-
-function cloneTerminalWriteChunk(data: TerminalWriteChunk): TerminalWriteChunk {
-  return typeof data === "string" ? data : data.slice();
-}
-
-function coalesceTerminalWriteChunks(chunks: TerminalWriteChunk[]): TerminalWriteChunk[] {
-  const coalesced: TerminalWriteChunk[] = [];
-  let text = "";
-  let byteLength = 0;
-  let byteChunks: Uint8Array[] = [];
-
-  const flushText = () => {
-    if (!text) return;
-    coalesced.push(text);
-    text = "";
-  };
-
-  const flushBytes = () => {
-    if (byteLength === 0) return;
-    if (byteChunks.length === 1) {
-      coalesced.push(byteChunks[0]);
-    } else {
-      const merged = new Uint8Array(byteLength);
-      let offset = 0;
-      for (const chunk of byteChunks) {
-        merged.set(chunk, offset);
-        offset += chunk.byteLength;
-      }
-      coalesced.push(merged);
-    }
-    byteLength = 0;
-    byteChunks = [];
-  };
-
-  for (const chunk of chunks) {
-    if (typeof chunk === "string") {
-      flushBytes();
-      text += chunk;
-    } else {
-      flushText();
-      byteLength += chunk.byteLength;
-      byteChunks.push(chunk);
-    }
-  }
-
-  flushText();
-  flushBytes();
-
-  return coalesced;
-}
-
-function isUsableTerminalGrid(cols: number, rows: number): boolean {
-  return cols >= MIN_TERMINAL_COLS && rows >= MIN_TERMINAL_ROWS;
-}
-
-function isTerminalContainerVisible(element: HTMLElement | null): boolean {
-  if (!element || element.offsetParent === null) return false;
-  const rect = element.getBoundingClientRect();
-  return rect.width > 0 && rect.height > 0;
-}
-
-function isTerminalEmulatorReport(data: string): boolean {
-  if (!data.startsWith("\x1b")) return false;
-
-  // xterm.js emits these through onData when the pane asks the terminal
-  // emulator for state. They are not user keystrokes and tmux control mode has
-  // a dedicated `refresh-client -r` path for them.
-  if (data.startsWith("\x1b]")) return true; // OSC colour/title reports.
-  if (/^\x1b\[\??[\d;]*c$/.test(data)) return true; // DA / secondary DA.
-  if (/^\x1b\[\d+;\d+R$/.test(data)) return true; // Cursor position report.
-  if (/^\x1b\[\?[\d;]+;\d+\$y$/.test(data)) return true; // DECRQM report.
-  if (/^\x1b\[\d+(?:;\d+)*t$/.test(data)) return true; // Window size report.
-
-  return false;
-}
-
-function toAbsoluteAssetUrl(path: string): string {
-  if (typeof window === "undefined") return path;
-  return new URL(path, window.location.origin).toString();
-}
-
-async function ensureTerminalFontsLoaded() {
-  if (typeof document === "undefined" || typeof FontFace === "undefined") return;
-
-  if (!terminalFontLoadPromise) {
-    terminalFontLoadPromise = (async () => {
-      const regularUrl = toAbsoluteAssetUrl(TERMINAL_FONT_REGULAR_PATH);
-      const boldUrl = toAbsoluteAssetUrl(TERMINAL_FONT_BOLD_PATH);
-      const faces = [
-        new FontFace("Hack Nerd Font Mono", `url("${regularUrl}")`, {
-          weight: "400",
-          style: "normal",
-        }),
-        new FontFace("Hack Nerd Font Mono", `url("${boldUrl}")`, {
-          weight: "700",
-          style: "normal",
-        }),
-        // Alias used in older terminal configs.
-        new FontFace("Hack Nerd Font", `url("${regularUrl}")`, {
-          weight: "400",
-          style: "normal",
-        }),
-        new FontFace("Hack Nerd Font", `url("${boldUrl}")`, {
-          weight: "700",
-          style: "normal",
-        }),
-      ];
-
-      const results = await Promise.allSettled(faces.map((face) => face.load()));
-      for (const result of results) {
-        if (result.status === "fulfilled" && !document.fonts.has(result.value)) {
-          document.fonts.add(result.value);
-        }
-      }
-
-      // Force glyph check with a Powerline character that must come from Nerd Font.
-      await Promise.allSettled([
-        document.fonts.load(`${terminalFont.size}px "Hack Nerd Font Mono"`, NERD_FONT_TEST_GLYPH),
-        document.fonts.load(`${terminalFont.size}px "Hack Nerd Font"`, NERD_FONT_TEST_GLYPH),
-        document.fonts.ready,
-      ]);
-    })();
-  }
-
-  try {
-    await terminalFontLoadPromise;
-  } catch {
-    terminalFontLoadPromise = null;
-    throw new Error("Failed to preload terminal fonts");
-  }
-}
+  DISABLE_TUI_MOUSE_TRACKING,
+  ENABLE_TUI_MOUSE_TRACKING,
+  SafeClipboardProvider,
+  cloneTerminalWriteChunk,
+  coalesceTerminalWriteChunks,
+  ensureTerminalFontsLoaded,
+  extractCommandName,
+  isFindShortcut,
+  isTerminalContainerVisible,
+  isTerminalEmulatorReport,
+  isUsableTerminalGrid,
+  jumpXtermToBottom,
+  normalizeSnapshotData,
+  shiftEnterInput,
+  shortenPath,
+  type TerminalWriteChunk,
+  wrapBracketedPaste,
+  writeXtermPayload,
+} from "./terminal-runtime-utils";
+import { TerminalChrome } from "./TerminalChrome";
+import { buildTerminalWsUrl } from "./terminal-ws-url";
+import { useTerminalInputReady } from "./use-terminal-input-ready";
+import { useTerminalLinks } from "./use-terminal-links";
+import { useTerminalSearch } from "./use-terminal-search";
 
 export interface TerminalRef {
   focus: () => void;
@@ -300,57 +62,6 @@ export interface TerminalRef {
   destroy: () => void;
   /** Last N lines of the xterm buffer, optionally skipping lines already read from the bottom. */
   getScreenText: (maxLines: number, skipFromBottom?: number) => string;
-}
-
-// ── Dynamic title helpers ──────────────────────────────────────────────
-// These are used by the OSC 9999 handler to produce clean tab titles.
-
-/** Known multi-word commands where the subcommand is meaningful */
-const MULTI_WORD_CMDS = new Set([
-  "cargo", "npm", "yarn", "pnpm", "bun", "docker", "git",
-  "kubectl", "go", "just", "make", "python", "ruby", "node",
-]);
-
-/**
- * Extract a human-readable command name from a full command string.
- * Strips sudo/env prefixes and keeps relevant subcommands.
- *  "sudo cargo watch -x run" → "cargo watch"
- *  "vim src/main.rs"         → "vim"
- *  "RUST_LOG=debug cargo r"  → "cargo r"
- */
-function extractCommandName(fullCommand: string): string {
-  // Strip leading env-var assignments (FOO=bar) and sudo/env prefixes
-  const stripped = fullCommand
-    .replace(/^(\s*(sudo|command|env)\s+)*/g, "")
-    .replace(/^\s*\S+=\S+\s+/g, "")
-    .trim();
-
-  const parts = stripped.split(/\s+/);
-  if (parts.length === 0) return fullCommand;
-
-  const cmd = parts[0];
-  // For multi-word commands, include the subcommand
-  if (MULTI_WORD_CMDS.has(cmd) && parts.length > 1) {
-    return `${cmd} ${parts[1]}`;
-  }
-  return cmd;
-}
-
-/**
- * Shorten an absolute path for display in a tab title.
- * "/Users/john/projects/atmos/src" → "atmos/src"
- * "/home/user"                     → "~"
- */
-function shortenPath(fullPath: string): string {
-  if (!fullPath || fullPath === "/") return "/";
-  const parts = fullPath.split("/").filter(Boolean);
-  if (parts.length <= 2) return fullPath;
-  // Show last 2 path components
-  return parts.slice(-2).join("/");
-}
-
-function isFindShortcut(event: { ctrlKey: boolean; metaKey: boolean; key: string; shiftKey?: boolean }): boolean {
-  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && !event.shiftKey;
 }
 
 const Terminal = ({
@@ -381,7 +92,6 @@ const Terminal = ({
   const searchResultsListenerRef = useRef<{ dispose: () => void } | null>(null);
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const readOnlyRef = useRef(readOnly);
   // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
   const onTitleChangeRef = useRef(onTitleChange);
@@ -390,95 +100,55 @@ const Terminal = ({
   // Track last emitted title and pending CMD_START timer for debounce/dedup
   const lastTitleRef = useRef<string>("");
   const cmdStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const modifierKeyPressedRef = useRef(false);
-  const pointerModifierPressedRef = useRef(false);
   const terminalInputCleanupRef = useRef<(() => void) | null>(null);
-  const handleTerminalLinkRef = useRef<(event: MouseEvent, resolved: ResolvedTerminalLink) => Promise<void>>(async () => {});
-  const handleResolvedLinkRef = useRef<(event: MouseEvent, rawText: string) => Promise<void>>(async () => {});
   const [showScrollDown, setShowScrollDown] = useState(false);
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchHasMatch, setSearchHasMatch] = useState<boolean | null>(null);
-  const [searchStats, setSearchStats] = useState<{ current: number; total: number }>({
-    current: 0,
-    total: 0,
-  });
   const [status, setStatus] = useState<"connecting" | "connected" | "reconnecting" | "disconnected">("connecting");
   // Ref to hold sendResize so handleConnected can call it without circular dependency
   const sendResizeRef = useRef<(size: { cols: number; rows: number }) => void>(() => {});
   const { resolvedTheme } = useTheme();
-  const openFile = useEditorStore((state) => state.openFile);
-  const requestFileTreeReveal = useEditorStore((state) => state.requestFileTreeReveal);
-  const currentEditorContextId = useEditorStore((state) => state.currentWorkspaceId);
-  const {
-    fileLinkOpenMode,
-    fileLinkOpenApp,
-    loadSettings: loadTerminalLinkSettings,
-  } = useTerminalLinkSettings();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
-  const terminalSearchInputId = useId();
-
-  // For NEW panes: use terminal_name to CREATE a new tmux window
-  // For EXISTING panes: use tmux_window_name to ATTACH to existing tmux window
-  const getTerminalWsUrl = () => {
-    if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
-    if (process.env.NEXT_PUBLIC_API_PORT) return `ws://localhost:${process.env.NEXT_PUBLIC_API_PORT}`;
-    if (typeof window !== "undefined") {
-      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      if (process.env.NODE_ENV === "development") {
-        const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-        if (!isLocal) {
-          return `${wsProtocol}//${window.location.hostname}:30303`;
-        }
-      } else {
-        // Production: use same host/port as the page (tunnel or direct)
-        return `${wsProtocol}//${window.location.host}`;
-      }
-    }
-    return "ws://localhost:30303";
-  };
-  const baseWsUrl = `${getTerminalWsUrl()}/ws/terminal/${sessionId}`;
-  const wsParams = new URLSearchParams({
-    workspace_id: workspaceId,
+  const {
+    resetInputReady,
+    scheduleInputReady,
+    scheduleInputReadyFallback,
+  } = useTerminalInputReady({ onSessionReady, sessionId });
+  const {
+    closeSearch,
+    handleSearchQueryChange,
+    isSearchVisible,
+    openSearch,
+    runSearch,
+    searchHasMatch,
+    searchInputRef,
+    searchQuery,
+    searchStats,
+    setSearchStats,
+    terminalSearchInputId,
+  } = useTerminalSearch({ isDark, searchAddonRef, terminalRef });
+  const {
+    handleResolvedLinkRef,
+    handleTerminalLinkRef,
+    updatePointerModifierState,
+  } = useTerminalLinks({
+    containerRef,
+    cwd,
+    projectRootPath,
+    terminalRef,
+    workspaceId,
   });
 
-  if (cwd) {
-    wsParams.set("cwd", cwd);
-  }
-  // Common params
-  if (projectName) {
-    wsParams.set("project_name", projectName);
-  }
-  if (workspaceName) {
-    wsParams.set("workspace_name", workspaceName);
-  }
-
-  // If noTmux is requested, tell backend to skip tmux
-  if (noTmux) {
-    wsParams.set("mode", "shell");
-    // Still pass terminal_name for metadata display in Terminal Manager
-    const nameForShell = terminalName || tmuxWindowName;
-    if (nameForShell) {
-      wsParams.set("terminal_name", nameForShell);
-    }
-  } else {
-    // Standard Tmux Logic
-    if (isNewPane) {
-      // New pane: send terminal_name to create a new window with this name
-      // Do NOT send tmux_window_name to avoid triggering attach logic
-      const nameForNewWindow = terminalName || tmuxWindowName;
-      if (nameForNewWindow) {
-        wsParams.set("terminal_name", nameForNewWindow);
-      }
-    } else {
-      // Existing pane (from saved layout or reconnection): attach to existing window
-      if (tmuxWindowName) {
-        wsParams.set("tmux_window_name", tmuxWindowName);
-      }
-    }
-  }
-  const wsUrl = `${baseWsUrl}?${wsParams.toString()}`;
+  const wsUrl = buildTerminalWsUrl({
+    cwd,
+    isNewPane,
+    noTmux,
+    projectName,
+    sessionId,
+    terminalName,
+    tmuxWindowName,
+    workspaceId,
+    workspaceName,
+  });
 
   // Batch terminal writes via rAF to reduce render passes. Keep websocket
   // binary frames as bytes so xterm.js owns the streaming UTF-8 parser; tmux
@@ -486,36 +156,6 @@ const Terminal = ({
   const pendingWriteRef = useRef<TerminalWriteChunk[]>([]);
   const rafScheduledRef = useRef(false);
   const outputTextDecoderRef = useRef(new TextDecoder());
-  const inputReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inputReadyFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inputReadyNotifiedRef = useRef(false);
-  const notifyInputReady = useCallback(() => {
-    if (inputReadyNotifiedRef.current) return;
-    inputReadyNotifiedRef.current = true;
-    onSessionReady?.(sessionId);
-  }, [onSessionReady, sessionId]);
-
-  const scheduleInputReady = useCallback(() => {
-    if (inputReadyNotifiedRef.current) return;
-    if (inputReadyTimerRef.current) {
-      clearTimeout(inputReadyTimerRef.current);
-    }
-    inputReadyTimerRef.current = setTimeout(() => {
-      inputReadyTimerRef.current = null;
-      notifyInputReady();
-    }, TERMINAL_INPUT_READY_DEBOUNCE_MS);
-  }, [notifyInputReady]);
-
-  const scheduleInputReadyFallback = useCallback(() => {
-    if (inputReadyNotifiedRef.current) return;
-    if (inputReadyFallbackTimerRef.current) {
-      clearTimeout(inputReadyFallbackTimerRef.current);
-    }
-    inputReadyFallbackTimerRef.current = setTimeout(() => {
-      inputReadyFallbackTimerRef.current = null;
-      notifyInputReady();
-    }, TERMINAL_INPUT_READY_FALLBACK_MS);
-  }, [notifyInputReady]);
 
   const handleOutput = useCallback((data: string | Uint8Array) => {
     if (data.length > 0) {
@@ -550,15 +190,7 @@ const Terminal = ({
   const handleConnected = useCallback(() => {
     setStatus("connected");
     outputTextDecoderRef.current = new TextDecoder();
-    inputReadyNotifiedRef.current = false;
-    if (inputReadyTimerRef.current) {
-      clearTimeout(inputReadyTimerRef.current);
-      inputReadyTimerRef.current = null;
-    }
-    if (inputReadyFallbackTimerRef.current) {
-      clearTimeout(inputReadyFallbackTimerRef.current);
-      inputReadyFallbackTimerRef.current = null;
-    }
+    resetInputReady();
 
     // Re-fit before sending the post-connect size so full-screen TUIs see the
     // browser's current grid, not the constructor's default 80x24 grid.
@@ -567,21 +199,13 @@ const Terminal = ({
       sendResizeRef.current({ cols: terminalRef.current.cols, rows: terminalRef.current.rows });
     }
     scheduleInputReadyFallback();
-  }, [scheduleInputReadyFallback]);
+  }, [resetInputReady, scheduleInputReadyFallback]);
 
   const handleDisconnected = useCallback(() => {
     setStatus("disconnected");
-    inputReadyNotifiedRef.current = false;
-    if (inputReadyTimerRef.current) {
-      clearTimeout(inputReadyTimerRef.current);
-      inputReadyTimerRef.current = null;
-    }
-    if (inputReadyFallbackTimerRef.current) {
-      clearTimeout(inputReadyFallbackTimerRef.current);
-      inputReadyFallbackTimerRef.current = null;
-    }
+    resetInputReady();
     onSessionClose?.(sessionId);
-  }, [sessionId, onSessionClose]);
+  }, [resetInputReady, sessionId, onSessionClose]);
 
   const handleError = useCallback(
     (error: string) => {
@@ -645,17 +269,6 @@ const Terminal = ({
     sendResizeRef.current = sendResize;
   });
 
-  useEffect(() => {
-    return () => {
-      if (inputReadyTimerRef.current) {
-        clearTimeout(inputReadyTimerRef.current);
-      }
-      if (inputReadyFallbackTimerRef.current) {
-        clearTimeout(inputReadyFallbackTimerRef.current);
-      }
-    };
-  }, []);
-
   const uiStatus = isReconnecting ? "reconnecting" : status;
 
   // Update terminal when reconnecting
@@ -716,74 +329,6 @@ const Terminal = ({
     [sendDestroy, disconnect, sendInput]
   );
 
-  const runSearch = useCallback((direction: "next" | "previous", queryOverride?: string) => {
-    const addon = searchAddonRef.current;
-    const query = queryOverride ?? searchQuery;
-    if (!addon || !query.trim()) {
-      setSearchHasMatch(null);
-      setSearchStats({ current: 0, total: 0 });
-      return false;
-    }
-
-    const options: ISearchOptions = {
-      caseSensitive: false,
-      regex: false,
-      wholeWord: false,
-      incremental: true,
-      decorations: {
-        matchBackground: isDark ? "#27272a" : "#d4d4d8",
-        matchBorder: isDark ? "#3f3f46" : "#a1a1aa",
-        matchOverviewRuler: isDark ? "#52525b" : "#71717a",
-        activeMatchBackground: isDark ? "#f4f4f5" : "#18181b",
-        activeMatchBorder: isDark ? "#fafafa" : "#09090b",
-        activeMatchColorOverviewRuler: isDark ? "#fafafa" : "#18181b",
-      },
-    };
-
-    const matched =
-      direction === "previous"
-        ? addon.findPrevious(query, options)
-        : addon.findNext(query, options);
-
-    setSearchHasMatch(matched);
-    return matched;
-  }, [isDark, searchQuery]);
-
-  const closeSearch = useCallback(() => {
-    setIsSearchVisible(false);
-    setSearchQuery("");
-    setSearchHasMatch(null);
-    setSearchStats({ current: 0, total: 0 });
-    searchAddonRef.current?.clearDecorations();
-    terminalRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    if (!isSearchVisible) return;
-    searchInputRef.current?.focus();
-    searchInputRef.current?.select();
-  }, [isSearchVisible]);
-
-  const handleSearchQueryChange = useCallback((nextQuery: string) => {
-    setSearchQuery(nextQuery);
-    if (!nextQuery.trim()) {
-      setSearchHasMatch(null);
-      setSearchStats({ current: 0, total: 0 });
-      searchAddonRef.current?.clearDecorations();
-      return;
-    }
-    runSearch("next", nextQuery);
-  }, [runSearch]);
-
-  const openSearch = useCallback(() => {
-    const terminal = terminalRef.current;
-    const currentSelection = terminal?.hasSelection() ? terminal.getSelection().trim() : "";
-    setIsSearchVisible(true);
-    if (currentSelection) {
-      handleSearchQueryChange(currentSelection);
-    }
-  }, [handleSearchQueryChange]);
-
   // Update terminal theme when system theme changes
   useEffect(() => {
     if (terminalRef.current) {
@@ -795,280 +340,6 @@ const Terminal = ({
   useEffect(() => {
     readOnlyRef.current = readOnly;
   }, [readOnly]);
-
-  useEffect(() => {
-    void loadTerminalLinkSettings();
-  }, [loadTerminalLinkSettings]);
-
-  useEffect(() => {
-    const handleKeyStateChange = (event: KeyboardEvent) => {
-      modifierKeyPressedRef.current = event.metaKey || event.ctrlKey;
-    };
-
-    const clearModifierState = () => {
-      modifierKeyPressedRef.current = false;
-    };
-
-    window.addEventListener("keydown", handleKeyStateChange, true);
-    window.addEventListener("keyup", handleKeyStateChange, true);
-    window.addEventListener("blur", clearModifierState);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyStateChange, true);
-      window.removeEventListener("keyup", handleKeyStateChange, true);
-      window.removeEventListener("blur", clearModifierState);
-    };
-  }, []);
-
-  const updatePointerModifierState = useCallback((event?: MouseEvent | globalThis.MouseEvent) => {
-    pointerModifierPressedRef.current = Boolean(event && (event.metaKey || event.ctrlKey));
-  }, []);
-
-  useEffect(() => {
-    const handleGlobalMouseDown = (event: MouseEvent) => {
-      updatePointerModifierState(event);
-    };
-
-    const clearPointerModifierState = () => {
-      pointerModifierPressedRef.current = false;
-    };
-
-    window.addEventListener("mousedown", handleGlobalMouseDown, true);
-    window.addEventListener("mouseup", clearPointerModifierState, true);
-    window.addEventListener("blur", clearPointerModifierState);
-
-    return () => {
-      window.removeEventListener("mousedown", handleGlobalMouseDown, true);
-      window.removeEventListener("mouseup", clearPointerModifierState, true);
-      window.removeEventListener("blur", clearPointerModifierState);
-    };
-  }, [updatePointerModifierState]);
-
-  const reportTerminalLinkError = useCallback((target: string, error: unknown) => {
-    const description = error instanceof Error ? error.message : String(error);
-    toastManager.add({
-      title: "Failed to open link",
-      description: `${target}: ${description}`,
-      type: "error",
-    });
-  }, []);
-
-  const openExternalLink = useCallback(async (url: string) => {
-    const openedByDesktop = await openDesktopExternalUrl(url);
-    if (openedByDesktop || typeof window === "undefined") {
-      return;
-    }
-
-    window.open(url, "_blank", "noopener,noreferrer");
-  }, []);
-
-  const openPathWithApp = useCallback(async (appName: string, path: string) => {
-    await appApi.openWith(appName, path);
-  }, []);
-
-  const handleTerminalLink = useCallback(async (event: MouseEvent, resolved: ResolvedTerminalLink) => {
-    if (!resolved) {
-      return;
-    }
-
-    const modifierPressed =
-      event.metaKey ||
-      event.ctrlKey ||
-      modifierKeyPressedRef.current ||
-      pointerModifierPressedRef.current;
-
-    event.preventDefault();
-
-    try {
-      if (resolved.type === "external") {
-        if (!modifierPressed) {
-          return;
-        }
-        await openExternalLink(resolved.url);
-        return;
-      }
-
-      const targetContextId = currentEditorContextId || workspaceId;
-
-      if (fileLinkOpenMode === 'finder') {
-        await openPathWithApp('Finder', resolved.path);
-        return;
-      }
-
-      if (fileLinkOpenMode === 'app') {
-        await openPathWithApp(fileLinkOpenApp, resolved.path);
-        return;
-      }
-
-      if (resolved.type === "directory") {
-        requestFileTreeReveal(resolved.path, targetContextId);
-        return;
-      }
-
-      await openFile(resolved.path, targetContextId, {
-        preview: false,
-        line: resolved.line,
-        column: resolved.column,
-      });
-    } catch (error) {
-      reportTerminalLinkError(
-        resolved.type === "external" ? resolved.url : resolved.path,
-        error,
-      );
-    }
-  }, [
-    currentEditorContextId,
-    fileLinkOpenApp,
-    fileLinkOpenMode,
-    openExternalLink,
-    openFile,
-    openPathWithApp,
-    reportTerminalLinkError,
-    requestFileTreeReveal,
-    workspaceId,
-  ]);
-
-  const handleResolvedLink = useCallback(async (event: MouseEvent, rawText: string) => {
-    const resolved = await resolveTerminalLink(rawText, {
-      cwdPath: cwd,
-      projectRootPath,
-    });
-
-    await handleTerminalLink(event, resolved);
-  }, [cwd, handleTerminalLink, projectRootPath]);
-
-  useEffect(() => {
-    handleTerminalLinkRef.current = handleTerminalLink;
-  }, [handleTerminalLink]);
-
-  useEffect(() => {
-    handleResolvedLinkRef.current = handleResolvedLink;
-  }, [handleResolvedLink]);
-
-  const getAnchorCandidates = useCallback((anchor: HTMLAnchorElement) => {
-    const candidates: string[] = [];
-    const textContent = anchor.textContent?.trim();
-    const rawHref = anchor.getAttribute("href")?.trim();
-
-    if (textContent) {
-      candidates.push(textContent);
-    }
-
-    if (!rawHref) {
-      return candidates;
-    }
-
-    candidates.push(rawHref);
-
-    return [...new Set(candidates)];
-  }, []);
-
-  const handleTerminalAnchorActivation = useCallback((anchor: HTMLAnchorElement, event: MouseEvent) => {
-    const candidates = getAnchorCandidates(anchor);
-    const shouldIntercept = candidates.some((candidate) =>
-      candidate.startsWith("/") ||
-      candidate.startsWith("~/") ||
-      candidate.startsWith("./") ||
-      candidate.startsWith("../") ||
-      candidate.startsWith("file://")
-    );
-    if (shouldIntercept) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-
-    void (async () => {
-      for (const candidate of candidates) {
-        const resolved = await resolveTerminalLink(candidate, {
-          cwdPath: cwd,
-          projectRootPath,
-        });
-        if (!resolved || resolved.type === "external") {
-          continue;
-        }
-
-        await handleTerminalLink(event, resolved);
-        return;
-      }
-    })();
-  }, [cwd, getAnchorCandidates, handleTerminalLink, projectRootPath]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleNativeMouseActivation = (event: MouseEvent) => {
-      const terminal = terminalRef.current;
-      if (!terminal) {
-        return;
-      }
-
-      const target = event.target;
-      if (!(target instanceof HTMLCanvasElement) || !target.classList.contains("xterm-link-layer")) {
-        return;
-      }
-
-      const core = (terminal as unknown as {
-        _core?: {
-          _mouseService?: {
-            getCoords: (
-              event: MouseEvent,
-              element: HTMLElement,
-              colCount: number,
-              rowCount: number,
-            ) => [number, number] | undefined;
-          };
-        };
-      })._core;
-
-      const coords = core?._mouseService?.getCoords(
-        event,
-        terminal.element ?? container,
-        terminal.cols,
-        terminal.rows,
-      );
-      if (!coords) {
-        return;
-      }
-
-      const bufferLineNumber = coords[1] + terminal.buffer.active.viewportY;
-      const column = coords[0];
-      void (async () => {
-        const resolved = await resolveTerminalLinkAtCell(
-          terminal,
-          bufferLineNumber,
-          column,
-          { cwdPath: cwd, projectRootPath },
-        );
-        if (!resolved || resolved.type === "external") {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        await handleTerminalLink(event, resolved);
-      })();
-    };
-
-    const handleNativeClickCapture = (event: MouseEvent) => {
-      handleNativeMouseActivation(event);
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
-
-      const anchor = target.closest("a");
-      if (!anchor) {
-        return;
-      }
-
-      handleTerminalAnchorActivation(anchor, event);
-    };
-
-    container.addEventListener("click", handleNativeClickCapture, true);
-    return () => {
-      container.removeEventListener("click", handleNativeClickCapture, true);
-    };
-  }, [cwd, handleTerminalAnchorActivation, handleTerminalLink, projectRootPath]);
 
   // Initialize terminal
   useEffect(() => {
@@ -1115,7 +386,7 @@ const Terminal = ({
     );
     terminal.loadAddon(searchAddon);
     searchAddonRef.current = searchAddon;
-    searchResultsListenerRef.current = searchAddon.onDidChangeResults((event: ISearchResultChangeEvent) => {
+    searchResultsListenerRef.current = searchAddon.onDidChangeResults((event) => {
       setSearchStats({
         current: event.resultIndex >= 0 ? event.resultIndex + 1 : 0,
         total: event.resultCount,
@@ -1405,207 +676,35 @@ const Terminal = ({
   }, [sessionId, workspaceId, cwd, projectRootPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div
-      className="terminal-padding-wrapper"
-      onKeyDownCapture={(event) => {
-        if (isFindShortcut(event)) {
-          event.preventDefault();
-          event.stopPropagation();
-          openSearch();
+    <TerminalChrome
+      className={className}
+      closeSearch={closeSearch}
+      containerRef={containerRef}
+      currentTheme={currentTheme}
+      handleSearchQueryChange={handleSearchQueryChange}
+      isConnected={isConnected}
+      isDark={isDark}
+      isSearchVisible={isSearchVisible}
+      onOpenSearch={openSearch}
+      onPointerModifierStateChange={updatePointerModifierState}
+      onScrollToBottom={() => {
+        const terminal = terminalRef.current;
+        if (terminal) {
+          jumpXtermToBottom(terminal);
         }
+        setShowScrollDown(false);
       }}
-      onMouseDownCapture={(event) => {
-        updatePointerModifierState(event.nativeEvent);
-      }}
-      onMouseUpCapture={() => {
-        updatePointerModifierState();
-      }}
-      style={{
-        width: "100%",
-        height: "100%",
-        /* Left = scrollbar width; right = 0 (scrollbar occupies right, overlay) */
-        padding: "8px 0 8px 8px",
-        backgroundColor: "transparent",
-        position: "relative",
-        boxSizing: "border-box",
-      }}
-    >
-      {/* Loading overlay when connecting */}
-      {uiStatus === "connecting" && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 20,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "var(--background)",
-            gap: "12px",
-          }}
-        >
-          <Loader2
-            size={24}
-            className="animate-spin"
-            suppressHydrationWarning
-            style={{
-              color: isDark ? "#71717a" : "#a1a1aa",
-            }}
-          />
-          <span
-            suppressHydrationWarning
-            style={{
-              fontSize: "13px",
-              color: isDark ? "#71717a" : "#a1a1aa",
-            }}
-          >
-            Connecting to terminal...
-          </span>
-        </div>
-      )}
-      {/* Status indicator */}
-      {uiStatus === "reconnecting" && (
-        <div
-          style={{
-            position: "absolute",
-            top: "4px",
-            right: "8px",
-            zIndex: 10,
-            padding: "2px 8px",
-            borderRadius: "4px",
-            backgroundColor: "rgba(234, 179, 8, 0.2)",
-            color: "#eab308",
-            fontSize: "12px",
-          }}
-        >
-          Reconnecting...
-        </div>
-      )}
-      {uiStatus === "disconnected" && (
-        <div
-          style={{
-            position: "absolute",
-            top: "4px",
-            right: "8px",
-            zIndex: 10,
-            padding: "2px 8px",
-            borderRadius: "4px",
-            backgroundColor: "rgba(239, 68, 68, 0.2)",
-            color: "#ef4444",
-            fontSize: "12px",
-          }}
-        >
-          Disconnected
-        </div>
-      )}
-      {isSearchVisible && (
-        <div className="terminal-search-overlay">
-          <div className="terminal-search-panel">
-            <label htmlFor={terminalSearchInputId} className="terminal-search-icon">
-              <Search size={13} />
-            </label>
-            <input
-              id={terminalSearchInputId}
-              ref={searchInputRef}
-              value={searchQuery}
-              onChange={(event) => {
-                handleSearchQueryChange(event.target.value);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  closeSearch();
-                  return;
-                }
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  runSearch(event.shiftKey ? "previous" : "next");
-                }
-              }}
-              placeholder="Search terminal"
-              spellCheck={false}
-              className={cn(
-                "terminal-search-input",
-                searchHasMatch === false && "terminal-search-input-miss"
-              )}
-            />
-            <div className="terminal-search-meta">
-              {searchQuery.trim()
-                ? `${searchStats.current}/${searchStats.total}`
-                : "0/0"}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="terminal-search-btn"
-              aria-label="Previous match"
-              onClick={() => runSearch("previous")}
-              disabled={!searchQuery.trim()}
-            >
-              <ChevronUp size={13} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="terminal-search-btn"
-              aria-label="Next match"
-              onClick={() => runSearch("next")}
-              disabled={!searchQuery.trim()}
-            >
-              <ChevronDown size={13} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="terminal-search-btn terminal-search-close"
-              aria-label="Close search"
-              onClick={closeSearch}
-            >
-              <X size={13} />
-            </Button>
-          </div>
-        </div>
-      )}
-      <div
-        ref={containerRef}
-        className={`atmos-terminal ${className || ""}`}
-        suppressHydrationWarning
-        style={{
-          width: "100%",
-          height: "100%",
-          opacity: uiStatus === "connecting" ? 0 : 1,
-          backgroundColor: currentTheme.background,
-        }}
-        data-session-id={sessionId}
-        data-workspace-id={workspaceId}
-        data-connected={isConnected}
-        data-status={uiStatus}
-      />
-      {/* Scroll-to-bottom button — appears when scrolled up */}
-      {showScrollDown && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Scroll to bottom"
-          title="Scroll to bottom"
-          className="terminal-scroll-to-bottom"
-          onClick={() => {
-            const terminal = terminalRef.current;
-            if (terminal) {
-              jumpXtermToBottom(terminal);
-            }
-            setShowScrollDown(false);
-          }}
-        >
-          <ArrowDown className="size-3.5" />
-        </Button>
-      )}
-    </div>
+      runSearch={runSearch}
+      searchHasMatch={searchHasMatch}
+      searchInputRef={searchInputRef}
+      searchQuery={searchQuery}
+      searchStats={searchStats}
+      sessionId={sessionId}
+      showScrollDown={showScrollDown}
+      terminalSearchInputId={terminalSearchInputId}
+      uiStatus={uiStatus}
+      workspaceId={workspaceId}
+    />
   );
 };
 

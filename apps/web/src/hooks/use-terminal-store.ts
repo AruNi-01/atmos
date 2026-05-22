@@ -2,399 +2,48 @@
 
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
-import { MosaicNode, MosaicDirection, getLeaves } from "react-mosaic-component";
-import { workspaceLayoutApi, projectLayoutApi, systemApi, TmuxWindow } from "@/api/rest-api";
-import type { TerminalPaneAgent, TerminalPaneProps } from "@/components/terminal/types";
+import { MosaicNode, getLeaves } from "react-mosaic-component";
+import { workspaceLayoutApi, projectLayoutApi, systemApi } from "@/api/rest-api";
+import type { TerminalPaneProps } from "@/components/terminal/types";
+import { createTerminalAuxiliaryActions } from "@/hooks/terminal-store-auxiliary-actions";
 import {
   FIXED_TERMINAL_TAB_VALUE,
-  TERMINAL_LAYOUT_SCHEMA,
   migrateTerminalLayoutDocument,
-  type PersistedTerminalPane,
-  type PersistedTerminalTabDocument,
-  type PersistedTerminalWorkspaceLayoutDocument,
 } from "@/lib/terminal-layout-document";
+import {
+  TERMINAL_TAB_VALUE_PREFIX,
+  buildPersistedTerminalWorkspaceLayout,
+  createLayoutFromTmuxWindows,
+  createFixedTerminalTab,
+  createInitialLayout,
+  createTerminalPane,
+  evictTerminalWorkspaceRuntimeState,
+  getAllDefaultPanesForWorkspace,
+  getNextWindowName,
+  getNextTerminalTabTitle,
+  getScopeKey,
+  getUniqueAgentName,
+  getWorkspaceTerminalTabs,
+  hydratePersistedTab,
+  removePaneFromLayout,
+  samePaneAgent,
+  splitPaneInLayout,
+  type TerminalCenterTab,
+} from "@/hooks/terminal-store-helpers";
+import type { TerminalStore } from "@/hooks/terminal-store-types";
 
 export { FIXED_TERMINAL_TAB_VALUE } from "@/lib/terminal-layout-document";
+export {
+  CODE_REVIEW_WINDOW_NAME,
+  PROJECT_WIKI_WINDOW_NAME,
+  TERMINAL_TAB_VALUE_PREFIX,
+  findWorkspacePaneIdsByTmuxWindowName,
+  getWorkspacePaneFieldsByPaneId,
+  getWorkspacePaneLiveFieldsByTmuxWindow,
+  type TerminalCenterTab,
+} from "@/hooks/terminal-store-helpers";
 
 const SAVE_DEBOUNCE_MS = 500;
-export const TERMINAL_TAB_VALUE_PREFIX = "terminal-tab:";
-
-export interface TerminalCenterTab {
-  id: string;
-  title: string;
-  closable: boolean;
-}
-
-interface TerminalStore {
-  workspaceTerminalTabs: Record<string, TerminalCenterTab[]>;
-  workspaceActiveTerminalTabIds: Record<string, string>;
-  workspacePanes: Record<string, Record<string, TerminalPaneProps>>;
-  workspaceLayouts: Record<string, MosaicNode<string> | null>;
-  workspaceMaximizedIds: Record<string, string | null>;
-  /** Track which workspaces have terminal metadata loaded from backend */
-  loadedWorkspaces: Set<string>;
-  /** Track which terminal scopes (workspace + tab) have pane/layout state hydrated */
-  hydratedTerminalScopes: Set<string>;
-  /** Track which workspaces are currently being initialized (loading from backend) */
-  initializingWorkspaces: Set<string>;
-  /** Track which specific terminal scopes are currently being hydrated */
-  initializingTerminalScopes: Set<string>;
-  /** Track pending save operations */
-  saveTimeouts: Record<string, NodeJS.Timeout>;
-  /** Track if store is hydrated (client-side only) */
-  isHydrated: boolean;
-  /** Cache of existing tmux windows per workspace */
-  tmuxWindowsCache: Record<string, TmuxWindow[]>;
-  /** Canonical persisted terminal layout document cache by workspace/project context */
-  persistedTerminalLayouts: Record<string, PersistedTerminalWorkspaceLayoutDocument | null>;
-  /** Track whether each workspaceId is actually a project context (used for API selection) */
-  workspaceContexts: Record<string, boolean>;
-
-  /** Project Wiki tab: separate panes/layout, does not affect main Terminal (Code workspace) */
-  projectWikiPanes: Record<string, Record<string, TerminalPaneProps>>;
-  projectWikiLayouts: Record<string, MosaicNode<string> | null>;
-  projectWikiMaximizedIds: Record<string, string | null>;
-  projectWikiLoadedWorkspaces: Set<string>;
-  projectWikiInitializingWorkspaces: Set<string>;
-  
-  // Actions
-  getTerminalTabs: (workspaceId: string) => TerminalCenterTab[];
-  getActiveTerminalTabId: (workspaceId: string) => string;
-  setActiveTerminalTab: (workspaceId: string, terminalTabId: string) => void;
-  createTerminalTab: (workspaceId: string) => TerminalCenterTab;
-  closeTerminalTab: (workspaceId: string, terminalTabId: string) => void;
-  getPanes: (workspaceId: string, terminalTabId?: string) => Record<string, TerminalPaneProps>;
-  getLayout: (workspaceId: string, terminalTabId?: string) => MosaicNode<string> | null;
-  getPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string, terminalTabId?: string) => string | null;
-  getMaximizedTerminalId: (workspaceId: string, terminalTabId?: string) => string | null;
-  /** Check if workspace has been fully loaded and is ready for rendering */
-  isWorkspaceReady: (workspaceId: string, terminalTabId?: string) => boolean;
-  setLayout: (workspaceId: string, layout: MosaicNode<string> | null, terminalTabId?: string) => void;
-  addTerminal: (workspaceId: string, label?: string, terminalTabId?: string, agent?: TerminalPaneAgent) => string;
-  removeTerminal: (workspaceId: string, id: string, terminalTabId?: string) => void;
-  splitTerminal: (workspaceId: string, id: string, direction: MosaicDirection, terminalTabId?: string, agent?: TerminalPaneAgent) => string | null;
-  toggleMaximize: (workspaceId: string, id: string, terminalTabId?: string) => void;
-  
-  // Initialization
-  primeWorkspace: (workspaceId: string, isProjectContext?: boolean) => void;
-  initWorkspace: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string) => void;
-  evictWorkspaceRuntime: (workspaceId: string) => void;
-
-  // Backend sync
-  loadFromBackend: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string | null) => Promise<void>;
-  saveToBackend: (workspaceId: string, isProjectContext?: boolean) => void;
-  fetchTmuxWindows: (workspaceId: string) => Promise<TmuxWindow[]>;
-  
-  // Tmux window tracking
-  setTmuxWindowName: (workspaceId: string, paneId: string, tmuxWindowName: string, terminalTabId?: string) => void;
-  markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;
-  
-  // Dynamic title (from shell shim OSC sequences)
-  setDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string, terminalTabId?: string) => void;
-  setPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent, terminalTabId?: string) => void;
-
-  // Project Wiki scope (separate from main Terminal)
-  getProjectWikiPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
-  getProjectWikiLayout: (workspaceId: string) => MosaicNode<string> | null;
-  isProjectWikiReady: (workspaceId: string) => boolean;
-  setProjectWikiLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
-  addProjectWikiTerminal: (workspaceId: string, label?: string, agent?: TerminalPaneAgent) => string;
-  removeProjectWikiTerminal: (workspaceId: string, id: string) => void;
-  splitProjectWikiTerminal: (workspaceId: string, id: string, direction: MosaicDirection, agent?: TerminalPaneAgent) => string | null;
-  initProjectWikiWorkspace: (workspaceId: string) => void;
-  loadProjectWikiFromTmux: (workspaceId: string) => Promise<void>;
-  getProjectWikiPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
-  setProjectWikiDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
-  setProjectWikiPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
-  markProjectWikiPaneAttached: (workspaceId: string, paneId: string) => void;
-  toggleProjectWikiMaximize: (workspaceId: string, id: string) => void;
-
-  // Code Review scope (separate from main Terminal and Project Wiki)
-  codeReviewPanes: Record<string, Record<string, TerminalPaneProps>>;
-  codeReviewLayouts: Record<string, MosaicNode<string> | null>;
-  codeReviewMaximizedIds: Record<string, string | null>;
-  codeReviewLoadedWorkspaces: Set<string>;
-  codeReviewInitializingWorkspaces: Set<string>;
-  getCodeReviewPanes: (workspaceId: string) => Record<string, TerminalPaneProps>;
-  getCodeReviewLayout: (workspaceId: string) => MosaicNode<string> | null;
-  isCodeReviewReady: (workspaceId: string) => boolean;
-  setCodeReviewLayout: (workspaceId: string, layout: MosaicNode<string> | null) => void;
-  addCodeReviewTerminal: (workspaceId: string, label?: string, agent?: TerminalPaneAgent) => string;
-  removeCodeReviewTerminal: (workspaceId: string, id: string) => void;
-  initCodeReviewWorkspace: (workspaceId: string) => void;
-  loadCodeReviewFromTmux: (workspaceId: string) => Promise<void>;
-  getCodeReviewPaneIdByTmuxWindowName: (workspaceId: string, tmuxWindowName: string) => string | null;
-  setCodeReviewDynamicTitle: (workspaceId: string, paneId: string, dynamicTitle: string) => void;
-  setCodeReviewPaneAgent: (workspaceId: string, paneId: string, agent: TerminalPaneAgent) => void;
-  markCodeReviewPaneAttached: (workspaceId: string, paneId: string) => void;
-  toggleCodeReviewMaximize: (workspaceId: string, id: string) => void;
-  splitCodeReviewTerminal: (workspaceId: string, id: string, direction: MosaicDirection, agent?: TerminalPaneAgent) => string | null;
-}
-
-/** Generate next available window name (1, 2, 3, ...) for numeric names */
-function getNextWindowName(existingPanes: Record<string, TerminalPaneProps>): string {
-  const values = Object.values(existingPanes);
-  const usedNames = new Set([
-    ...values.map(p => p.tmuxWindowName),
-    ...values.map(p => p.label),
-  ].filter(Boolean));
-  
-  let num = 1;
-  while (usedNames.has(String(num))) {
-    num++;
-  }
-  return String(num);
-}
-
-/** Fixed tmux window name for Project Wiki - never gets -1/-2 suffix. Export for reuse. */
-export const PROJECT_WIKI_WINDOW_NAME = "Generate Project Wiki";
-
-/** Fixed tmux window name for Code Review - never gets -1/-2 suffix. Export for reuse. */
-export const CODE_REVIEW_WINDOW_NAME = "Code Review";
-
-/** Generate unique window name with suffix for agent windows (e.g., "Claude Code", "Claude Code-2") */
-function getUniqueAgentName(baseName: string, existingPanes: Record<string, TerminalPaneProps>): string {
-  // Project Wiki and Code Review use fixed names - always return as-is for attach/reuse
-  if (baseName === PROJECT_WIKI_WINDOW_NAME || baseName === CODE_REVIEW_WINDOW_NAME) {
-    return baseName;
-  }
-
-  const values = Object.values(existingPanes);
-  const usedNames = new Set([
-    ...values.map(p => p.tmuxWindowName),
-    ...values.map(p => p.label),
-  ].filter(Boolean));
-
-  // If base name is not used, return it directly
-  if (!usedNames.has(baseName)) {
-    return baseName;
-  }
-  
-  // Find next available suffix: baseName-2, baseName-3, ...
-  let num = 2;
-  while (usedNames.has(`${baseName}-${num}`)) {
-    num++;
-  }
-  return `${baseName}-${num}`;
-}
-
-function createFixedTerminalTab(): TerminalCenterTab {
-  return {
-    id: FIXED_TERMINAL_TAB_VALUE,
-    title: "Term",
-    closable: false,
-  };
-}
-
-function createTerminalPane(
-  workspaceId: string,
-  label: string,
-  options: {
-    id?: string;
-    tmuxWindowName?: string;
-    isNewPane: boolean;
-    agent?: TerminalPaneAgent;
-  },
-): TerminalPaneProps {
-  return {
-    id: options.id ?? uuidv4(),
-    label,
-    sessionId: uuidv4(),
-    workspaceId,
-    tmuxWindowName: options.tmuxWindowName ?? label,
-    isNewPane: options.isNewPane,
-    agent: options.agent,
-  };
-}
-
-function samePaneAgent(left: TerminalPaneAgent | undefined, right: TerminalPaneAgent): boolean {
-  return (
-    left?.id === right.id &&
-    left?.label === right.label &&
-    left?.command === right.command &&
-    left?.iconType === right.iconType &&
-    left?.pipeCommand === right.pipeCommand
-  );
-}
-
-function getScopeKey(workspaceId: string, terminalTabId: string = FIXED_TERMINAL_TAB_VALUE): string {
-  return terminalTabId === FIXED_TERMINAL_TAB_VALUE
-    ? workspaceId
-    : `${workspaceId}::${terminalTabId}`;
-}
-
-function getWorkspaceTerminalTabs(state: Pick<TerminalStore, "workspaceTerminalTabs">, workspaceId: string): TerminalCenterTab[] {
-  return state.workspaceTerminalTabs[workspaceId] || [createFixedTerminalTab()];
-}
-
-/**
- * Locate a pane in the main workspace terminal grid by its tmux window name (any tab).
- *
- * Checks hydrated panes first; falls back to the persisted layout so deep
- * links (e.g. the footer agent-status jump) can resolve the owning tab even
- * before the workspace's non-active tabs have been mounted/hydrated.
- */
-export function findWorkspacePaneIdsByTmuxWindowName(
-  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes" | "persistedTerminalLayouts">,
-  workspaceId: string,
-  tmuxWindowName: string,
-): { paneId: string; terminalTabId: string } | null {
-  const tabs = getWorkspaceTerminalTabs(state, workspaceId);
-  for (const tab of tabs) {
-    const scopeKey = getScopeKey(workspaceId, tab.id);
-    const panes = state.workspacePanes[scopeKey];
-    if (!panes) continue;
-    for (const [paneId, pane] of Object.entries(panes)) {
-      if (pane.tmuxWindowName === tmuxWindowName) {
-        return { paneId, terminalTabId: tab.id };
-      }
-    }
-  }
-
-  const persistedTabs = state.persistedTerminalLayouts[workspaceId]?.tabs;
-  if (persistedTabs) {
-    for (const tab of persistedTabs) {
-      for (const [paneId, pane] of Object.entries(tab.panes ?? {})) {
-        const legacyTitle = (pane as unknown as { title?: string }).title;
-        const windowName = pane.tmuxWindowName || pane.label || legacyTitle;
-        if (windowName === tmuxWindowName) {
-          return { paneId, terminalTabId: tab.id };
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-/** Read transient title + agent for a pane in the main grid (by pane id). */
-export function getWorkspacePaneFieldsByPaneId(
-  state: Pick<TerminalStore, "workspacePanes">,
-  workspaceId: string,
-  paneId: string,
-  terminalTabId: string = FIXED_TERMINAL_TAB_VALUE,
-): { dynamicTitle?: string; agent?: TerminalPaneAgent } {
-  const scopeKey = getScopeKey(workspaceId, terminalTabId);
-  const pane = state.workspacePanes[scopeKey]?.[paneId];
-  if (!pane) return {};
-  return { dynamicTitle: pane.dynamicTitle, agent: pane.agent };
-}
-
-/** Read transient title + agent for a tmux-attached pane (same fields the mosaic uses). */
-export function getWorkspacePaneLiveFieldsByTmuxWindow(
-  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes" | "persistedTerminalLayouts">,
-  workspaceId: string,
-  tmuxWindowName: string,
-): { dynamicTitle?: string; agent?: TerminalPaneAgent } {
-  const hit = findWorkspacePaneIdsByTmuxWindowName(state, workspaceId, tmuxWindowName);
-  if (!hit) return {};
-  const scopeKey = getScopeKey(workspaceId, hit.terminalTabId);
-  const pane = state.workspacePanes[scopeKey]?.[hit.paneId];
-  if (!pane) return {};
-  return { dynamicTitle: pane.dynamicTitle, agent: pane.agent };
-}
-
-function getAllDefaultPanesForWorkspace(
-  state: Pick<TerminalStore, "workspaceTerminalTabs" | "workspacePanes" | "persistedTerminalLayouts">,
-  workspaceId: string,
-): Record<string, TerminalPaneProps> {
-  const tabs = getWorkspaceTerminalTabs(state, workspaceId);
-  const persistedTabs = state.persistedTerminalLayouts[workspaceId]?.tabs ?? [];
-  return tabs.reduce<Record<string, TerminalPaneProps>>((acc, tab) => {
-    const scopeKey = getScopeKey(workspaceId, tab.id);
-    const hydratedPanes = state.workspacePanes[scopeKey];
-
-    if (hydratedPanes && Object.keys(hydratedPanes).length > 0) {
-      Object.assign(acc, hydratedPanes);
-      return acc;
-    }
-
-    const persistedTab = persistedTabs.find((persisted) => persisted.id === tab.id);
-    if (!persistedTab?.panes) {
-      return acc;
-    }
-
-    for (const [id, pane] of Object.entries(persistedTab.panes)) {
-      acc[id] = {
-        ...pane,
-        workspaceId,
-        sessionId: "",
-      } as TerminalPaneProps;
-    }
-
-    return acc;
-  }, {});
-}
-
-function getNextTerminalTabTitle(existingTabs: TerminalCenterTab[]): string {
-  const usedTitles = new Set(existingTabs.map((tab) => tab.title));
-  let index = 1;
-  while (usedTitles.has(`Term - ${index}`)) {
-    index++;
-  }
-  return `Term - ${index}`;
-}
-
-function hydratePersistedTab(
-  workspaceId: string,
-  tab: PersistedTerminalTabDocument,
-  existingWindowNames: Set<string>,
-): {
-  panes: Record<string, TerminalPaneProps>;
-  layout: MosaicNode<string> | null;
-  maximizedTerminalId: string | null;
-} | null {
-  if (!tab.layout || !tab.panes || Object.keys(tab.panes).length === 0) {
-    return null;
-  }
-
-  const validatedPanes: Record<string, TerminalPaneProps> = {};
-  for (const [id, pane] of Object.entries(tab.panes)) {
-    // `title` is the legacy field name (before the label/tmuxWindowName split).
-    // Fall back to it so old persisted layouts still resolve the correct window name.
-    const legacyTitle = (pane as unknown as { title?: string }).title;
-    const windowName = pane.tmuxWindowName || pane.label || legacyTitle || getNextWindowName(validatedPanes);
-    const windowExists = existingWindowNames.has(windowName);
-
-    validatedPanes[id] = {
-      ...pane,
-      workspaceId,
-      // Ensure label is always set — old data only has `title`, not `label`.
-      label: pane.label || legacyTitle || windowName,
-      tmuxWindowName: windowName,
-      sessionId: uuidv4(),
-      isNewPane: !windowExists,
-    };
-  }
-
-  return {
-    panes: validatedPanes,
-    layout: tab.layout,
-    maximizedTerminalId: tab.maximizedTerminalId || null,
-  };
-}
-
-function createInitialLayout(
-  workspaceId: string,
-  existingPanes: Record<string, TerminalPaneProps> = {},
-): {
-  panes: Record<string, TerminalPaneProps>, 
-  layout: MosaicNode<string> 
-} {
-  const initialId = uuidv4();
-  const windowName =
-    Object.keys(existingPanes).length > 0 ? getNextWindowName(existingPanes) : "1";
-  return {
-    panes: {
-      [initialId]: createTerminalPane(workspaceId, windowName, {
-        id: initialId,
-        tmuxWindowName: windowName,
-        isNewPane: true,
-      }),
-    },
-    layout: initialId,
-  };
-}
 
 export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   workspaceTerminalTabs: {},
@@ -655,104 +304,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       clearTimeout(timeout);
     }
 
-    set((currentState) => {
-      const nextWorkspaceTerminalTabs = { ...currentState.workspaceTerminalTabs };
-      const nextWorkspaceActiveTerminalTabIds = { ...currentState.workspaceActiveTerminalTabIds };
-      const nextWorkspacePanes = { ...currentState.workspacePanes };
-      const nextWorkspaceLayouts = { ...currentState.workspaceLayouts };
-      const nextWorkspaceMaximizedIds = { ...currentState.workspaceMaximizedIds };
-      const nextSaveTimeouts = { ...currentState.saveTimeouts };
-      const nextTmuxWindowsCache = { ...currentState.tmuxWindowsCache };
-      const nextPersistedTerminalLayouts = { ...currentState.persistedTerminalLayouts };
-      const nextWorkspaceContexts = { ...currentState.workspaceContexts };
-      const nextProjectWikiPanes = { ...currentState.projectWikiPanes };
-      const nextProjectWikiLayouts = { ...currentState.projectWikiLayouts };
-      const nextProjectWikiMaximizedIds = { ...currentState.projectWikiMaximizedIds };
-      const nextCodeReviewPanes = { ...currentState.codeReviewPanes };
-      const nextCodeReviewLayouts = { ...currentState.codeReviewLayouts };
-      const nextCodeReviewMaximizedIds = { ...currentState.codeReviewMaximizedIds };
-      const nextLoadedWorkspaces = new Set(currentState.loadedWorkspaces);
-      const nextHydratedTerminalScopes = new Set(currentState.hydratedTerminalScopes);
-      const nextInitializingWorkspaces = new Set(currentState.initializingWorkspaces);
-      const nextInitializingTerminalScopes = new Set(currentState.initializingTerminalScopes);
-      const nextProjectWikiLoadedWorkspaces = new Set(currentState.projectWikiLoadedWorkspaces);
-      const nextProjectWikiInitializingWorkspaces = new Set(currentState.projectWikiInitializingWorkspaces);
-      const nextCodeReviewLoadedWorkspaces = new Set(currentState.codeReviewLoadedWorkspaces);
-      const nextCodeReviewInitializingWorkspaces = new Set(currentState.codeReviewInitializingWorkspaces);
-
-      delete nextWorkspaceTerminalTabs[workspaceId];
-      delete nextWorkspaceActiveTerminalTabIds[workspaceId];
-      delete nextSaveTimeouts[workspaceId];
-      delete nextTmuxWindowsCache[workspaceId];
-      delete nextPersistedTerminalLayouts[workspaceId];
-      delete nextWorkspaceContexts[workspaceId];
-      delete nextProjectWikiPanes[workspaceId];
-      delete nextProjectWikiLayouts[workspaceId];
-      delete nextProjectWikiMaximizedIds[workspaceId];
-      delete nextCodeReviewPanes[workspaceId];
-      delete nextCodeReviewLayouts[workspaceId];
-      delete nextCodeReviewMaximizedIds[workspaceId];
-
-      for (const key of Object.keys(nextWorkspacePanes)) {
-        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
-          delete nextWorkspacePanes[key];
-        }
-      }
-      for (const key of Object.keys(nextWorkspaceLayouts)) {
-        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
-          delete nextWorkspaceLayouts[key];
-        }
-      }
-      for (const key of Object.keys(nextWorkspaceMaximizedIds)) {
-        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
-          delete nextWorkspaceMaximizedIds[key];
-        }
-      }
-
-      nextLoadedWorkspaces.delete(workspaceId);
-      nextInitializingWorkspaces.delete(workspaceId);
-      nextProjectWikiLoadedWorkspaces.delete(workspaceId);
-      nextProjectWikiInitializingWorkspaces.delete(workspaceId);
-      nextCodeReviewLoadedWorkspaces.delete(workspaceId);
-      nextCodeReviewInitializingWorkspaces.delete(workspaceId);
-
-      for (const key of Array.from(nextHydratedTerminalScopes)) {
-        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
-          nextHydratedTerminalScopes.delete(key);
-        }
-      }
-      for (const key of Array.from(nextInitializingTerminalScopes)) {
-        if (key === workspaceId || key.startsWith(`${workspaceId}::`)) {
-          nextInitializingTerminalScopes.delete(key);
-        }
-      }
-
-      return {
-        workspaceTerminalTabs: nextWorkspaceTerminalTabs,
-        workspaceActiveTerminalTabIds: nextWorkspaceActiveTerminalTabIds,
-        workspacePanes: nextWorkspacePanes,
-        workspaceLayouts: nextWorkspaceLayouts,
-        workspaceMaximizedIds: nextWorkspaceMaximizedIds,
-        loadedWorkspaces: nextLoadedWorkspaces,
-        hydratedTerminalScopes: nextHydratedTerminalScopes,
-        initializingWorkspaces: nextInitializingWorkspaces,
-        initializingTerminalScopes: nextInitializingTerminalScopes,
-        saveTimeouts: nextSaveTimeouts,
-        tmuxWindowsCache: nextTmuxWindowsCache,
-        persistedTerminalLayouts: nextPersistedTerminalLayouts,
-        workspaceContexts: nextWorkspaceContexts,
-        projectWikiPanes: nextProjectWikiPanes,
-        projectWikiLayouts: nextProjectWikiLayouts,
-        projectWikiMaximizedIds: nextProjectWikiMaximizedIds,
-        projectWikiLoadedWorkspaces: nextProjectWikiLoadedWorkspaces,
-        projectWikiInitializingWorkspaces: nextProjectWikiInitializingWorkspaces,
-        codeReviewPanes: nextCodeReviewPanes,
-        codeReviewLayouts: nextCodeReviewLayouts,
-        codeReviewMaximizedIds: nextCodeReviewMaximizedIds,
-        codeReviewLoadedWorkspaces: nextCodeReviewLoadedWorkspaces,
-        codeReviewInitializingWorkspaces: nextCodeReviewInitializingWorkspaces,
-      };
-    });
+    set((currentState) => evictTerminalWorkspaceRuntimeState(currentState, workspaceId));
   },
 
   addTerminal: (workspaceId, label, terminalTabId = FIXED_TERMINAL_TAB_VALUE, agent) => {
@@ -807,22 +359,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const layout = get().workspaceLayouts[scopeKey];
     if (!layout) return;
 
-    // A simpler way to remove by ID in Mosaic:
-    const removeById = (node: MosaicNode<string> | null, targetId: string): MosaicNode<string> | null => {
-      if (!node) return null;
-      if (typeof node === 'string') {
-        return node === targetId ? null : node;
-      }
-      const first = removeById(node.first, targetId);
-      const second = removeById(node.second, targetId);
-      
-      if (!first) return second;
-      if (!second) return first;
-      
-      return { ...node, first, second };
-    };
-
-    const updatedLayout = removeById(layout, id);
+    const updatedLayout = removePaneFromLayout(layout, id);
     
     if (!updatedLayout) {
       // If no terminals left, create a fresh one
@@ -869,25 +406,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
 
     const nextPanes = { ...panes, [newId]: newPane };
 
-    const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
-      if (typeof node === 'string') {
-        if (node === targetId) {
-          return {
-            direction,
-            first: node,
-            second: newId,
-          };
-        }
-        return node;
-      }
-      return {
-        ...node,
-        first: splitById(node.first, targetId),
-        second: splitById(node.second, targetId),
-      };
-    };
-
-    const nextLayout = splitById(layout, id);
+    const nextLayout = splitPaneInLayout(layout, id, newId, direction);
     
     set((state) => ({
       workspacePanes: {
@@ -1123,37 +642,17 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       }
 
       if (targetTabId === FIXED_TERMINAL_TAB_VALUE && existingWindows.length > 0) {
-        const panes: Record<string, TerminalPaneProps> = {};
-        const paneIds: string[] = [];
-
-        for (const win of existingWindows) {
-          const id = uuidv4();
-          paneIds.push(id);
-          panes[id] = createTerminalPane(workspaceId, win.name, {
-            id,
-            tmuxWindowName: win.name,
-            isNewPane: false,
-          });
-        }
-
-        let layout: MosaicNode<string> = paneIds[0];
-        for (let index = 1; index < paneIds.length; index++) {
-          layout = {
-            direction: "row",
-            first: layout,
-            second: paneIds[index],
-            splitPercentage: Math.round((100 * index) / (index + 1)),
-          };
-        }
+        const tmuxLayout = createLayoutFromTmuxWindows(workspaceId, existingWindows);
+        if (!tmuxLayout) return;
 
         set((currentState) => ({
           workspacePanes: {
             ...currentState.workspacePanes,
-            [targetScopeKey!]: panes,
+            [targetScopeKey!]: tmuxLayout.panes,
           },
           workspaceLayouts: {
             ...currentState.workspaceLayouts,
-            [targetScopeKey!]: layout,
+            [targetScopeKey!]: tmuxLayout.layout,
           },
           workspaceMaximizedIds: {
             ...currentState.workspaceMaximizedIds,
@@ -1217,68 +716,16 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       const isProjectContext = currentState.workspaceContexts[workspaceId] || false;
 
       try {
-        const tabs = getWorkspaceTerminalTabs(currentState, workspaceId);
-        const persistedCache = currentState.persistedTerminalLayouts[workspaceId];
-        const persistedTabs: PersistedTerminalTabDocument[] = [];
-
-        for (const tab of tabs) {
-          const scopeKey = getScopeKey(workspaceId, tab.id);
-          const panes = currentState.workspacePanes[scopeKey];
-          const layout = currentState.workspaceLayouts[scopeKey];
-          if (!panes || !layout) {
-            const cachedTab = persistedCache?.tabs.find((persistedTab) => persistedTab.id === tab.id);
-            if (cachedTab) {
-              persistedTabs.push({
-                ...cachedTab,
-                title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-                closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
-              });
-            }
-            continue;
-          }
-
-          const cleanPanes: Record<string, PersistedTerminalPane> = {};
-          for (const [id, pane] of Object.entries(panes)) {
-            cleanPanes[id] = {
-              id: pane.id,
-              label: pane.label,
-              workspaceId: pane.workspaceId,
-              tmuxWindowName: pane.tmuxWindowName,
-              agent: pane.agent,
-              projectName: pane.projectName,
-              workspaceName: pane.workspaceName,
-              isNewPane: pane.isNewPane,
-            };
-          }
-
-          persistedTabs.push({
-            id: tab.id,
-            title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-            closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
-            layout,
-            panes: cleanPanes,
-            maximizedTerminalId: currentState.workspaceMaximizedIds[scopeKey] || null,
-          });
-        }
-
-        const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
-        const payload: PersistedTerminalWorkspaceLayoutDocument = {
-          schema: TERMINAL_LAYOUT_SCHEMA,
-          activeTabId:
-            persistedTabs.some((tab) => tab.id === (currentState.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE))
-              ? currentState.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE
-              : persistedTabs[0]?.id || FIXED_TERMINAL_TAB_VALUE,
-          tabs: persistedTabs,
-        };
-
         // Never overwrite a persisted workspace/project layout with an empty shell.
         // This can happen during early mount when tab UI state is ready before the
         // actual pane/layout state has hydrated from backend.
-        if (persistedTabs.length === 0) {
+        const payload = buildPersistedTerminalWorkspaceLayout(currentState, workspaceId);
+        if (!payload) {
           console.debug('Skipping terminal layout save because no valid tab states are available yet');
           return;
         }
 
+        const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
         set((state) => ({
           persistedTerminalLayouts: {
             ...state.persistedTerminalLayouts,
@@ -1391,421 +838,5 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     get().saveToBackend(workspaceId);
   },
 
-  // --- Project Wiki scope (in-memory, does not affect main Terminal) ---
-  getProjectWikiPanes: (workspaceId) => {
-    return get().projectWikiPanes[workspaceId] || {};
-  },
-  getProjectWikiLayout: (workspaceId) => {
-    return get().projectWikiLayouts[workspaceId] || null;
-  },
-  isProjectWikiReady: (workspaceId) => {
-    const state = get();
-    return state.projectWikiLoadedWorkspaces.has(workspaceId) && !state.projectWikiInitializingWorkspaces.has(workspaceId);
-  },
-  setProjectWikiLayout: (workspaceId, layout) => {
-    set((state) => ({
-      projectWikiLayouts: {
-        ...state.projectWikiLayouts,
-        [workspaceId]: layout,
-      },
-    }));
-    const currentPanes = get().projectWikiPanes[workspaceId] || {};
-    const leaves = layout ? getLeaves(layout) : [];
-    const leafSet = new Set(leaves);
-    const nextPanes: Record<string, TerminalPaneProps> = {};
-    Object.keys(currentPanes).forEach(id => {
-      if (leafSet.has(id)) nextPanes[id] = currentPanes[id];
-    });
-    set((state) => ({
-      projectWikiPanes: {
-        ...state.projectWikiPanes,
-        [workspaceId]: nextPanes,
-      },
-    }));
-  },
-  addProjectWikiTerminal: (workspaceId, label = PROJECT_WIKI_WINDOW_NAME, agent) => {
-    const panes = get().projectWikiPanes[workspaceId] || {};
-    const layout = get().projectWikiLayouts[workspaceId];
-    const newId = uuidv4();
-    const newPane = createTerminalPane(workspaceId, label, {
-      id: newId,
-      tmuxWindowName: label,
-      isNewPane: true,
-      agent,
-    });
-    const nextPanes = { ...panes, [newId]: newPane };
-    let nextLayout: MosaicNode<string>;
-    if (!layout) {
-      nextLayout = newId;
-    } else {
-      nextLayout = { direction: 'row', first: layout, second: newId };
-    }
-    set((state) => ({
-      projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: nextPanes },
-      projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: nextLayout },
-      projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
-    }));
-    return newId;
-  },
-  splitProjectWikiTerminal: (workspaceId, id, direction, agent) => {
-    const layout = get().projectWikiLayouts[workspaceId];
-    const panes = get().projectWikiPanes[workspaceId] || {};
-    if (!layout) return null;
-    const newId = uuidv4();
-    const splitName = PROJECT_WIKI_WINDOW_NAME + "-2";
-    const newPane = createTerminalPane(workspaceId, splitName, {
-      id: newId,
-      tmuxWindowName: splitName,
-      isNewPane: true,
-      agent,
-    });
-    const nextPanes = { ...panes, [newId]: newPane };
-    const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
-      if (typeof node === 'string') {
-        if (node === targetId) return { direction, first: node, second: newId };
-        return node;
-      }
-      return {
-        ...node,
-        first: splitById(node.first, targetId),
-        second: splitById(node.second, targetId),
-      };
-    };
-    const nextLayout = splitById(layout, id);
-    set((state) => ({
-      projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: nextPanes },
-      projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: nextLayout },
-    }));
-    return newId;
-  },
-  removeProjectWikiTerminal: (workspaceId, id) => {
-    const layout = get().projectWikiLayouts[workspaceId];
-    if (!layout) return;
-    const removeById = (node: MosaicNode<string> | null, targetId: string): MosaicNode<string> | null => {
-      if (!node) return null;
-      if (typeof node === 'string') return node === targetId ? null : node;
-      const first = removeById(node.first, targetId);
-      const second = removeById(node.second, targetId);
-      if (!first) return second;
-      if (!second) return first;
-      return { ...node, first, second };
-    };
-    const updatedLayout = removeById(layout, id);
-    const panes = get().projectWikiPanes[workspaceId] || {};
-    const nextPanes: Record<string, TerminalPaneProps> = {};
-    if (updatedLayout) {
-      const leafSet = new Set(getLeaves(updatedLayout));
-      Object.entries(panes).forEach(([k, v]) => {
-        if (leafSet.has(k)) nextPanes[k] = v;
-      });
-    }
-    set((state) => ({
-      projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: nextPanes },
-      projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: updatedLayout },
-    }));
-  },
-  initProjectWikiWorkspace: (workspaceId) => {
-    const state = get();
-    if (state.projectWikiLoadedWorkspaces.has(workspaceId)) return;
-    if (state.projectWikiInitializingWorkspaces.has(workspaceId)) return;
-    set((state) => ({
-      projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces, workspaceId]),
-    }));
-    get().loadProjectWikiFromTmux(workspaceId);
-  },
-  loadProjectWikiFromTmux: async (workspaceId) => {
-    if (typeof window === 'undefined') return;
-    try {
-      const { exists } = await systemApi.checkProjectWikiWindow(workspaceId);
-      const state = get();
-      if (!state.projectWikiInitializingWorkspaces.has(workspaceId)) return; // init was reset
-      if (exists) {
-        const panes = state.projectWikiPanes[workspaceId] || {};
-        const hasWikiPane = Object.values(panes).some(p => p.tmuxWindowName === PROJECT_WIKI_WINDOW_NAME);
-        if (!hasWikiPane) {
-          const newId = uuidv4();
-          const newPane = createTerminalPane(workspaceId, PROJECT_WIKI_WINDOW_NAME, {
-            id: newId,
-            tmuxWindowName: PROJECT_WIKI_WINDOW_NAME,
-            isNewPane: false,
-          });
-          set((state) => ({
-            projectWikiPanes: { ...state.projectWikiPanes, [workspaceId]: { ...panes, [newId]: newPane } },
-            projectWikiLayouts: { ...state.projectWikiLayouts, [workspaceId]: newId },
-            projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
-            projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
-          }));
-          return;
-        }
-      }
-      set((state) => ({
-        projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
-        projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
-      }));
-    } catch (err) {
-      console.debug('Failed to load Project Wiki from tmux:', err);
-      set((state) => ({
-        projectWikiLoadedWorkspaces: new Set([...state.projectWikiLoadedWorkspaces, workspaceId]),
-        projectWikiInitializingWorkspaces: new Set([...state.projectWikiInitializingWorkspaces].filter(id => id !== workspaceId)),
-      }));
-    }
-  },
-  getProjectWikiPaneIdByTmuxWindowName: (workspaceId, tmuxWindowName) => {
-    const panes = get().projectWikiPanes[workspaceId] || {};
-    const entry = Object.entries(panes).find(([, p]) => p.tmuxWindowName === tmuxWindowName);
-    return entry ? entry[0] : null;
-  },
-  setProjectWikiDynamicTitle: (workspaceId, paneId, dynamicTitle) => {
-    const panes = get().projectWikiPanes[workspaceId];
-    if (!panes?.[paneId] || panes[paneId].dynamicTitle === dynamicTitle) return;
-    set((state) => ({
-      projectWikiPanes: {
-        ...state.projectWikiPanes,
-        [workspaceId]: {
-          ...panes,
-          [paneId]: { ...panes[paneId], dynamicTitle },
-        },
-      },
-    }));
-  },
-  markProjectWikiPaneAttached: (workspaceId, paneId) => {
-    const panes = get().projectWikiPanes[workspaceId];
-    const pane = panes?.[paneId];
-    if (!pane || !pane.isNewPane) return;
-
-    set((state) => ({
-      projectWikiPanes: {
-        ...state.projectWikiPanes,
-        [workspaceId]: {
-          ...state.projectWikiPanes[workspaceId],
-          [paneId]: {
-            ...pane,
-            isNewPane: false,
-          },
-        },
-      },
-    }));
-  },
-  setProjectWikiPaneAgent: (workspaceId, paneId, agent) => {
-    const panes = get().projectWikiPanes[workspaceId];
-    if (!panes?.[paneId]) return;
-    if (samePaneAgent(panes[paneId].agent, agent)) return;
-    set((state) => ({
-      projectWikiPanes: {
-        ...state.projectWikiPanes,
-        [workspaceId]: {
-          ...panes,
-          [paneId]: { ...panes[paneId], agent },
-        },
-      },
-    }));
-  },
-  toggleProjectWikiMaximize: (workspaceId, id) => {
-    set((state) => {
-      const current = state.projectWikiMaximizedIds[workspaceId];
-      const next = current === id ? null : id;
-      return {
-        projectWikiMaximizedIds: {
-          ...state.projectWikiMaximizedIds,
-          [workspaceId]: next,
-        },
-      };
-    });
-  },
-
-  // ===== Code Review scope actions =====
-
-  getCodeReviewPanes: (workspaceId) => get().codeReviewPanes[workspaceId] || {},
-  getCodeReviewLayout: (workspaceId) => get().codeReviewLayouts[workspaceId] || null,
-  isCodeReviewReady: (workspaceId) => {
-    const state = get();
-    return state.codeReviewLoadedWorkspaces.has(workspaceId) && !state.codeReviewInitializingWorkspaces.has(workspaceId);
-  },
-  setCodeReviewLayout: (workspaceId, layout) => {
-    set((state) => ({
-      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: layout },
-    }));
-  },
-  addCodeReviewTerminal: (workspaceId, label = CODE_REVIEW_WINDOW_NAME, agent) => {
-    const panes = get().codeReviewPanes[workspaceId] || {};
-    const layout = get().codeReviewLayouts[workspaceId];
-    const newId = uuidv4();
-    const newPane = createTerminalPane(workspaceId, label, {
-      id: newId,
-      tmuxWindowName: label,
-      isNewPane: true,
-      agent,
-    });
-    const nextPanes = { ...panes, [newId]: newPane };
-    let nextLayout: MosaicNode<string>;
-    if (!layout) {
-      nextLayout = newId;
-    } else {
-      nextLayout = { direction: 'row', first: layout, second: newId };
-    }
-    set((state) => ({
-      codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: nextPanes },
-      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: nextLayout },
-      codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
-    }));
-    return newId;
-  },
-  removeCodeReviewTerminal: (workspaceId, id) => {
-    const panes = get().codeReviewPanes[workspaceId] || {};
-    const layout = get().codeReviewLayouts[workspaceId];
-    const nextPanes = { ...panes };
-    delete nextPanes[id];
-    const removeFromLayout = (node: MosaicNode<string>): MosaicNode<string> | null => {
-      if (typeof node === 'string') return node === id ? null : node;
-      const first = removeFromLayout(node.first);
-      const second = removeFromLayout(node.second);
-      if (!first) return second;
-      if (!second) return first;
-      return { ...node, first, second };
-    };
-    const nextLayout = layout ? removeFromLayout(layout) : null;
-    set((state) => ({
-      codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: nextPanes },
-      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: nextLayout },
-    }));
-  },
-  initCodeReviewWorkspace: (workspaceId) => {
-    const state = get();
-    if (state.codeReviewLoadedWorkspaces.has(workspaceId)) return;
-    if (state.codeReviewInitializingWorkspaces.has(workspaceId)) return;
-    set((state) => ({
-      codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces, workspaceId]),
-    }));
-    get().loadCodeReviewFromTmux(workspaceId);
-  },
-  loadCodeReviewFromTmux: async (workspaceId) => {
-    if (typeof window === 'undefined') return;
-    try {
-      const { exists } = await systemApi.checkCodeReviewWindow(workspaceId);
-      const state = get();
-      if (!state.codeReviewInitializingWorkspaces.has(workspaceId)) return;
-      if (exists) {
-        const panes = state.codeReviewPanes[workspaceId] || {};
-        const hasPane = Object.values(panes).some(p => p.tmuxWindowName === CODE_REVIEW_WINDOW_NAME);
-        if (!hasPane) {
-          const newId = uuidv4();
-          const newPane = createTerminalPane(workspaceId, CODE_REVIEW_WINDOW_NAME, {
-            id: newId,
-            tmuxWindowName: CODE_REVIEW_WINDOW_NAME,
-            isNewPane: false,
-          });
-          set((state) => ({
-            codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: { ...panes, [newId]: newPane } },
-            codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: newId },
-            codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
-            codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
-          }));
-          return;
-        }
-      }
-      set((state) => ({
-        codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
-        codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
-      }));
-    } catch (err) {
-      console.debug('Failed to load Code Review from tmux:', err);
-      set((state) => ({
-        codeReviewLoadedWorkspaces: new Set([...state.codeReviewLoadedWorkspaces, workspaceId]),
-        codeReviewInitializingWorkspaces: new Set([...state.codeReviewInitializingWorkspaces].filter(id => id !== workspaceId)),
-      }));
-    }
-  },
-  getCodeReviewPaneIdByTmuxWindowName: (workspaceId, tmuxWindowName) => {
-    const panes = get().codeReviewPanes[workspaceId] || {};
-    const entry = Object.entries(panes).find(([, p]) => p.tmuxWindowName === tmuxWindowName);
-    return entry ? entry[0] : null;
-  },
-  setCodeReviewDynamicTitle: (workspaceId, paneId, dynamicTitle) => {
-    const panes = get().codeReviewPanes[workspaceId];
-    if (!panes?.[paneId] || panes[paneId].dynamicTitle === dynamicTitle) return;
-    set((state) => ({
-      codeReviewPanes: {
-        ...state.codeReviewPanes,
-        [workspaceId]: {
-          ...panes,
-          [paneId]: { ...panes[paneId], dynamicTitle },
-        },
-      },
-    }));
-  },
-  markCodeReviewPaneAttached: (workspaceId, paneId) => {
-    const panes = get().codeReviewPanes[workspaceId];
-    const pane = panes?.[paneId];
-    if (!pane || !pane.isNewPane) return;
-
-    set((state) => ({
-      codeReviewPanes: {
-        ...state.codeReviewPanes,
-        [workspaceId]: {
-          ...state.codeReviewPanes[workspaceId],
-          [paneId]: {
-            ...pane,
-            isNewPane: false,
-          },
-        },
-      },
-    }));
-  },
-  setCodeReviewPaneAgent: (workspaceId, paneId, agent) => {
-    const panes = get().codeReviewPanes[workspaceId];
-    if (!panes?.[paneId]) return;
-    if (samePaneAgent(panes[paneId].agent, agent)) return;
-    set((state) => ({
-      codeReviewPanes: {
-        ...state.codeReviewPanes,
-        [workspaceId]: {
-          ...panes,
-          [paneId]: { ...panes[paneId], agent },
-        },
-      },
-    }));
-  },
-  toggleCodeReviewMaximize: (workspaceId, id) => {
-    set((state) => {
-      const current = state.codeReviewMaximizedIds[workspaceId];
-      const next = current === id ? null : id;
-      return {
-        codeReviewMaximizedIds: {
-          ...state.codeReviewMaximizedIds,
-          [workspaceId]: next,
-        },
-      };
-    });
-  },
-  splitCodeReviewTerminal: (workspaceId, id, direction, agent) => {
-    const layout = get().codeReviewLayouts[workspaceId];
-    const panes = get().codeReviewPanes[workspaceId] || {};
-    if (!layout) return null;
-    const newId = uuidv4();
-    const splitName = CODE_REVIEW_WINDOW_NAME + "-2";
-    const newPane = createTerminalPane(workspaceId, splitName, {
-      id: newId,
-      tmuxWindowName: splitName,
-      isNewPane: true,
-      agent,
-    });
-    const nextPanes = { ...panes, [newId]: newPane };
-    const splitById = (node: MosaicNode<string>, targetId: string): MosaicNode<string> => {
-      if (typeof node === 'string') {
-        if (node === targetId) return { direction, first: node, second: newId };
-        return node;
-      }
-      return {
-        ...node,
-        first: splitById(node.first, targetId),
-        second: splitById(node.second, targetId),
-      };
-    };
-    const nextLayout = splitById(layout, id);
-    set((state) => ({
-      codeReviewPanes: { ...state.codeReviewPanes, [workspaceId]: nextPanes },
-      codeReviewLayouts: { ...state.codeReviewLayouts, [workspaceId]: nextLayout },
-    }));
-    return newId;
-  },
+  ...createTerminalAuxiliaryActions(set, get),
 }));

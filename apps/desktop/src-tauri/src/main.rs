@@ -367,9 +367,7 @@ fn main() {
         // listening on the loopback port.
         tauri::RunEvent::Exit => {
             let _ = preview_bridge::close_preview_window(&app_handle);
-            match tauri::async_runtime::block_on(
-                runtime_manager::supervisor::stop_running(false),
-            ) {
+            match tauri::async_runtime::block_on(runtime_manager::supervisor::stop_running(false)) {
                 Ok(stopped) => {
                     let log_path = logging::app_log_path(&app_handle, "runtime-api.log");
                     logging::append_log(
@@ -379,10 +377,7 @@ fn main() {
                 }
                 Err(err) => {
                     let log_path = logging::app_log_path(&app_handle, "runtime-api.log");
-                    logging::append_log(
-                        &log_path,
-                        &format!("runtime stop on exit failed: {err}"),
-                    );
+                    logging::append_log(&log_path, &format!("runtime stop on exit failed: {err}"));
                 }
             }
         }
