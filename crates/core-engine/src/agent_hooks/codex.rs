@@ -1,16 +1,10 @@
 use serde_json::{json, Value};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use super::{home_dir, AgentHookToolStatus};
 
 fn hooks_json_path() -> Option<std::path::PathBuf> {
     home_dir().ok().map(|h| h.join(".codex").join("hooks.json"))
-}
-
-fn config_toml_path() -> Option<std::path::PathBuf> {
-    home_dir()
-        .ok()
-        .map(|h| h.join(".codex").join("config.toml"))
 }
 
 fn hook_url(port: u16) -> String {
@@ -125,8 +119,6 @@ pub(super) fn install(port: u16) -> AgentHookToolStatus {
         return AgentHookToolStatus::failed(&path_str, e);
     }
 
-    ensure_hooks_feature_flag();
-
     AgentHookToolStatus::success(&path_str)
 }
 
@@ -208,41 +200,6 @@ pub(super) fn check() -> AgentHookToolStatus {
         installed,
         config_path: Some(path_str),
         error: None,
-    }
-}
-
-fn ensure_hooks_feature_flag() {
-    let path = match config_toml_path() {
-        Some(p) => p,
-        None => return,
-    };
-
-    let content = if path.exists() {
-        std::fs::read_to_string(&path).unwrap_or_default()
-    } else {
-        String::new()
-    };
-
-    if content.contains("codex_hooks = true") || content.contains("codex_hooks=true") {
-        return;
-    }
-
-    // Remove previously-written wrong key if present
-    let content = content
-        .replace("hooks = true\n", "")
-        .replace("hooks=true\n", "");
-
-    let new_content = if content.contains("[features]") {
-        content.replace("[features]", "[features]\ncodex_hooks = true")
-    } else {
-        format!("{}\n[features]\ncodex_hooks = true\n", content.trim_end())
-    };
-
-    if let Err(e) = std::fs::write(&path, new_content) {
-        warn!(
-            "Failed to enable Codex hooks feature flag at {:?}: {}",
-            path, e
-        );
     }
 }
 

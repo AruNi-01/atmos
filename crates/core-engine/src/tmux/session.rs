@@ -455,7 +455,7 @@ impl TmuxEngine {
     }
 
     /// Generate session name from workspace ID
-    fn session_name(&self, workspace_id: &str) -> String {
+    pub(super) fn session_name(&self, workspace_id: &str) -> String {
         session_name_from_workspace_id(workspace_id)
     }
 

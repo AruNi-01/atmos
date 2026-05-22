@@ -1,4 +1,5 @@
 use super::*;
+use infra::db::entities::{review_agent_run, review_revision, review_session};
 use infra::db::repo::{ProjectRepo, ReviewRepo};
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
