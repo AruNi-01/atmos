@@ -41,7 +41,7 @@ import { useTerminalGridCanvasPins } from "../hooks/use-terminal-grid-canvas-pin
 import { useTerminalGridHotkeys } from "../hooks/use-terminal-grid-hotkeys";
 
 import "react-mosaic-component/react-mosaic-component.css";
-import "./components/terminal-grid.css";
+import "./terminal-grid.css";
 
 export type { TerminalGridHandle, TerminalToolbarActions } from "../lib/terminal-grid-utils";
 
