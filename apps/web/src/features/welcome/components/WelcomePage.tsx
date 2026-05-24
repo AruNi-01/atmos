@@ -595,6 +595,117 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     return <WelcomePageMountedSkeleton className={className} />;
   }
 
+  const composerFooter = (
+    <WelcomeComposerFooter
+      advancedOptionsProps={{
+        autoExtractDescriptionIssue,
+        autoExtractDescriptionPr,
+        autoExtractTodos,
+        autoExtractTodosPr,
+        baseBranch,
+        baseBranchFilter,
+        branch,
+        branchError,
+        branchInputRef,
+        canAutoExtractTodosIssue,
+        canAutoExtractTodosPr,
+        displayedLinkType,
+        filteredRemoteBranches,
+        handleLoadIssueFromUrl,
+        handleLoadPrFromUrl,
+        handleRefreshIssues,
+        handleRefreshPrs,
+        handleRegenerateBranch,
+        handleSelectIssue,
+        handleSelectLinkType,
+        handleSelectPr,
+        isAdvancedOpen,
+        isBaseBranchesLoading,
+        isBaseBranchOpen,
+        isIssuePreviewLoading,
+        isIssuesLoading,
+        isPrPreviewLoading,
+        isPrsLoading,
+        issueError,
+        issuePreview,
+        issues,
+        issueUrl,
+        linkType,
+        name,
+        onBranchChange: (value) => {
+          branchTouchedRef.current = true;
+          setSubmitError(null);
+          setBranchError(null);
+          setBranch(value);
+        },
+        onIssueUrlChange: (value) => {
+          setIssuePreview(null);
+          setIssueError(null);
+          setIssueUrl(value);
+        },
+        onNameChange: (value) => {
+          nameTouchedRef.current = true;
+          setSubmitError(null);
+          setBranchError(null);
+          setName(value);
+        },
+        onPrUrlChange: (value) => {
+          setPrPreview(null);
+          setPrError(null);
+          setPrUrl(value);
+        },
+        prError,
+        prPreview,
+        prs,
+        prUrl,
+        remoteBranches,
+        repoContext,
+        selectedIssueNumber,
+        selectedPrNumber,
+        selectedProjectId,
+        setAutoExtractTodos,
+        setAutoExtractTodosPr,
+        setBaseBranch,
+        setBaseBranchFilter,
+        setIsAdvancedOpen,
+        setIsBaseBranchOpen,
+        submitError,
+      }}
+      mentionPopoverProps={{
+        activeIndex: activeMentionFileIndex,
+        issuePreview,
+        isLoading: isMentionFilesLoading,
+        listRef: mentionPopoverListRef,
+        mentionFiles,
+        onClose: () => setMentionPopover(null),
+        onSelectFile: selectMentionFile,
+        onSelectNavItem: selectMentionNavItem,
+        onSetItemRef: setMentionItemRef,
+        popover: mentionPopover,
+        prPreview,
+      }}
+      previewAttachment={previewAttachment}
+      slashPopoverProps={{
+        activeIndex: activeSlashItemIndex,
+        expandedSections,
+        filteredAgents,
+        filteredProjects,
+        filteredSkills,
+        isSkillsLoading,
+        listRef: slashPopoverListRef,
+        onClose: () => setSlashPopover(null),
+        onSelectAgent: selectSlashAgent,
+        onSelectProject: selectSlashProject,
+        onSelectSkill: selectSlashSkill,
+        popover: slashPopover,
+        setExpandedSections,
+        setItemRef: setSlashItemRef,
+      }}
+      summaryItems={filledSummaryItems}
+      onPreviewAttachmentClose={() => setPreviewAttachment(null)}
+    />
+  );
+
   return (
     <div
       className={cn(
@@ -698,114 +809,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
               setWorkflowStatus={setWorkflowStatus}
               workflowStatus={workflowStatus}
               workspaceLabels={workspaceLabels}
-            />
-            <WelcomeComposerFooter
-                advancedOptionsProps={{
-                  autoExtractDescriptionIssue,
-                  autoExtractDescriptionPr,
-                  autoExtractTodos,
-                  autoExtractTodosPr,
-                  baseBranch,
-                  baseBranchFilter,
-                  branch,
-                  branchError,
-                  branchInputRef,
-                  canAutoExtractTodosIssue,
-                  canAutoExtractTodosPr,
-                  displayedLinkType,
-                  filteredRemoteBranches,
-                  handleLoadIssueFromUrl,
-                  handleLoadPrFromUrl,
-                  handleRefreshIssues,
-                  handleRefreshPrs,
-                  handleRegenerateBranch,
-                  handleSelectIssue,
-                  handleSelectLinkType,
-                  handleSelectPr,
-                  isAdvancedOpen,
-                  isBaseBranchesLoading,
-                  isBaseBranchOpen,
-                  isIssuePreviewLoading,
-                  isIssuesLoading,
-                  isPrPreviewLoading,
-                  isPrsLoading,
-                  issueError,
-                  issuePreview,
-                  issues,
-                  issueUrl,
-                  linkType,
-                  name,
-                  onBranchChange: (value) => {
-                    branchTouchedRef.current = true;
-                    setSubmitError(null);
-                    setBranchError(null);
-                    setBranch(value);
-                  },
-                  onIssueUrlChange: (value) => {
-                    setIssuePreview(null);
-                    setIssueError(null);
-                    setIssueUrl(value);
-                  },
-                  onNameChange: (value) => {
-                    nameTouchedRef.current = true;
-                    setSubmitError(null);
-                    setBranchError(null);
-                    setName(value);
-                  },
-                  onPrUrlChange: (value) => {
-                    setPrPreview(null);
-                    setPrError(null);
-                    setPrUrl(value);
-                  },
-                  prError,
-                  prPreview,
-                  prs,
-                  prUrl,
-                  remoteBranches,
-                  repoContext,
-                  selectedIssueNumber,
-                  selectedPrNumber,
-                  selectedProjectId,
-                  setAutoExtractTodos,
-                  setAutoExtractTodosPr,
-                  setBaseBranch,
-                  setBaseBranchFilter,
-                  setIsAdvancedOpen,
-                  setIsBaseBranchOpen,
-                  submitError,
-                }}
-                mentionPopoverProps={{
-                  activeIndex: activeMentionFileIndex,
-                  issuePreview,
-                  isLoading: isMentionFilesLoading,
-                  listRef: mentionPopoverListRef,
-                  mentionFiles,
-                  onClose: () => setMentionPopover(null),
-                  onSelectFile: selectMentionFile,
-                  onSelectNavItem: selectMentionNavItem,
-                  onSetItemRef: setMentionItemRef,
-                  popover: mentionPopover,
-                  prPreview,
-                }}
-                previewAttachment={previewAttachment}
-                slashPopoverProps={{
-                  activeIndex: activeSlashItemIndex,
-                  expandedSections,
-                  filteredAgents,
-                  filteredProjects,
-                  filteredSkills,
-                  isSkillsLoading,
-                  listRef: slashPopoverListRef,
-                  onClose: () => setSlashPopover(null),
-                  onSelectAgent: selectSlashAgent,
-                  onSelectProject: selectSlashProject,
-                  onSelectSkill: selectSlashSkill,
-                  popover: slashPopover,
-                  setExpandedSections,
-                  setItemRef: setSlashItemRef,
-                }}
-                summaryItems={filledSummaryItems}
-              onPreviewAttachmentClose={() => setPreviewAttachment(null)}
+              footer={composerFooter}
             />
           </div>
 

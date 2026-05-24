@@ -46,6 +46,7 @@ export function WelcomeComposerCard({
   setWorkflowStatus,
   workflowStatus,
   workspaceLabels,
+  footer,
 }: {
   attachments: ComposerAttachment[];
   composerRef: React.RefObject<ComposerHandle | null>;
@@ -74,6 +75,7 @@ export function WelcomeComposerCard({
   setWorkflowStatus: (value: WorkspaceWorkflowStatus) => void;
   workflowStatus: WorkspaceWorkflowStatus;
   workspaceLabels: WorkspaceLabel[];
+  footer?: React.ReactNode;
 }) {
   return (
     <div className="relative overflow-visible p-1.5">
@@ -122,6 +124,7 @@ export function WelcomeComposerCard({
             workspaceLabels={workspaceLabels}
           />
         </div>
+        {footer}
       </div>
     </div>
   );
