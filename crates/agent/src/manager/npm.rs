@@ -3,10 +3,7 @@ use tokio::process::Command;
 
 use crate::models::{AgentInstallResult, KnownAgent, RegistryInstallResult};
 
-use super::manifest::{
-    load_install_manifest, save_install_manifest, upsert_manifest_entry, with_manifest,
-    ManifestEntry,
-};
+use super::manifest::{load_install_manifest, upsert_manifest_entry, with_manifest, ManifestEntry};
 use super::registry::{fetch_acp_registry, RegistryEntry, RegistryPackageDistribution};
 use super::{AgentError, Result};
 

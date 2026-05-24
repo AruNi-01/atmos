@@ -46,21 +46,6 @@ impl WsManager {
         id
     }
 
-    pub async fn register_connection_with_metadata(
-        &self,
-        client_type: ClientType,
-        sender: mpsc::Sender<String>,
-        metadata: HashMap<String, String>,
-    ) -> String {
-        let connection = WsConnection::with_metadata(client_type, sender, metadata);
-        let id = connection.id.clone();
-        let mut connections = self.connections.write().await;
-        connections.insert(id.clone(), connection);
-        info!("WebSocket connection registered with metadata: {}", id);
-        debug!("Total connections: {}", connections.len());
-        id
-    }
-
     pub async fn unregister_connection(&self, id: &str) -> Option<mpsc::Sender<String>> {
         let mut connections = self.connections.write().await;
         let removed = connections.remove(id);
@@ -79,19 +64,6 @@ impl WsManager {
         if let Some(connection) = connections.get(id) {
             connection.send(json).await?;
             debug!("Message sent to connection: {}", id);
-            Ok(())
-        } else {
-            warn!("Connection not found: {}", id);
-            Err(WsError::ConnectionNotFound(id.to_string()))
-        }
-    }
-
-    pub async fn send_raw(&self, id: &str, message: String) -> WsResult<()> {
-        let connections = self.connections.read().await;
-
-        if let Some(connection) = connections.get(id) {
-            connection.send(message).await?;
-            debug!("Raw message sent to connection: {}", id);
             Ok(())
         } else {
             warn!("Connection not found: {}", id);
@@ -134,49 +106,8 @@ impl WsManager {
         Ok(())
     }
 
-    pub async fn broadcast_except(&self, exclude_id: &str, message: &WsMessage) -> WsResult<()> {
-        let json = message.to_json()?;
-        self.broadcast_except_raw(exclude_id, json).await
-    }
-
-    pub async fn broadcast_except_raw(&self, exclude_id: &str, message: String) -> WsResult<()> {
-        let connections = self.connections.read().await;
-        let mut failed_ids = Vec::new();
-
-        for (id, connection) in connections.iter() {
-            if id == exclude_id {
-                continue;
-            }
-            if connection.send(message.clone()).await.is_err() {
-                warn!("Failed to send message to connection: {}", id);
-                failed_ids.push(id.clone());
-            }
-        }
-
-        drop(connections);
-
-        if !failed_ids.is_empty() {
-            let mut connections = self.connections.write().await;
-            for id in failed_ids {
-                connections.remove(&id);
-                info!("Removed failed connection: {}", id);
-            }
-        }
-
-        Ok(())
-    }
-
     pub async fn connection_count(&self) -> usize {
         self.connections.read().await.len()
-    }
-
-    pub async fn has_connection(&self, id: &str) -> bool {
-        self.connections.read().await.contains_key(id)
-    }
-
-    pub async fn get_sender(&self, id: &str) -> Option<mpsc::Sender<String>> {
-        let connections = self.connections.read().await;
-        connections.get(id).map(|conn| conn.sender().clone())
     }
 
     /// Return a snapshot of all active connections.

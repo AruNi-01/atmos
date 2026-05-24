@@ -74,30 +74,6 @@ impl WsService {
         }
     }
 
-    /// Send a message to a specific connection.
-    pub async fn send_to(&self, conn_id: &str, message: &str) -> Result<(), String> {
-        self.manager
-            .send_raw(conn_id, message.to_string())
-            .await
-            .map_err(|e| e.to_string())
-    }
-
-    /// Broadcast a message to all connections.
-    pub async fn broadcast(&self, message: &str) -> Result<(), String> {
-        self.manager
-            .broadcast_raw(message.to_string())
-            .await
-            .map_err(|e| e.to_string())
-    }
-
-    /// Broadcast a message to all connections except one.
-    pub async fn broadcast_except(&self, exclude_id: &str, message: &str) -> Result<(), String> {
-        self.manager
-            .broadcast_except_raw(exclude_id, message.to_string())
-            .await
-            .map_err(|e| e.to_string())
-    }
-
     /// Get connection count.
     pub async fn connection_count(&self) -> usize {
         self.manager.connection_count().await

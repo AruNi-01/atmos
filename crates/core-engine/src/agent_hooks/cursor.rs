@@ -25,10 +25,6 @@ fn is_atmos_hook(hook_entry: &Value) -> bool {
     false
 }
 
-fn hook_path_pattern() -> &'static str {
-    "localhost:/hooks/cursor"
-}
-
 fn build_cmd(port: u16, event_name: &str) -> String {
     let url = hook_url(port);
     format!(
@@ -38,7 +34,7 @@ fn build_cmd(port: u16, event_name: &str) -> String {
     )
 }
 
-fn build_stdin_cmd(port: u16, event_name: &str) -> String {
+fn build_stdin_cmd(port: u16, _event_name: &str) -> String {
     let url = hook_url(port);
     format!(
         r#"[ "$ATMOS_MANAGED" = "1" ] && cat | curl -sf -X POST -H 'Content-Type: application/json' -H "X-Atmos-Context: $ATMOS_CONTEXT_ID" -H "X-Atmos-Pane: $ATMOS_PANE_ID" -d @- '{url}' >/dev/null 2>&1 || true"#,

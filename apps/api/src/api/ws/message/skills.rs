@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub use core_service::{SkillFile, SkillInfo, SkillPlacement};
+pub use core_service::SkillInfo;
 
 /// Skills 列表请求
 ///

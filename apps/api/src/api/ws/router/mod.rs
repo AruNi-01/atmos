@@ -91,12 +91,6 @@ impl WsMessageService {
         }
     }
 
-    /// Expose the bridge relay so HTTP handlers can resolve targets and
-    /// register pending waiters without re-implementing the routing rules.
-    pub fn canvas_agent_relay(&self) -> Arc<CanvasAgentRelay> {
-        Arc::clone(&self.canvas_agent_relay)
-    }
-
     pub fn set_ws_manager(&self, manager: Arc<WsManager>) -> Result<()> {
         self.ws_manager
             .set(manager)

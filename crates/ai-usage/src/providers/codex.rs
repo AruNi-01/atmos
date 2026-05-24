@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;

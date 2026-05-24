@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use base64::Engine;
 use serde_json::Value;
 use time::format_description::well_known::Rfc3339;

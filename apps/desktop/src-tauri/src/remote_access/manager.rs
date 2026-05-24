@@ -23,7 +23,6 @@ const GATEWAY_URL: &str = "http://127.0.0.1:30313";
 struct ActiveProvider {
     provider: Arc<dyn remote_access::TunnelProvider>,
     session_id: String,
-    public_url: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -229,7 +228,6 @@ impl RemoteAccessManager {
                 ActiveProvider {
                     provider: Arc::clone(&provider),
                     session_id: session.session_id.clone(),
-                    public_url: public_url.clone(),
                 },
             );
         }
@@ -331,16 +329,6 @@ impl RemoteAccessManager {
         self.recover_impl(credentials, target_base_url).await
     }
 
-    /// Recover persisted providers using the default sidecar URL.
-    /// Called from the Tauri command (frontend-initiated recovery).
-    pub async fn recover(
-        &self,
-        credentials: HashMap<ProviderKind, Option<String>>,
-    ) -> Result<HashMap<String, RemoteAccessStatus>, String> {
-        self.recover_impl(credentials, "http://127.0.0.1:30303".to_string())
-            .await
-    }
-
     async fn recover_impl(
         &self,
         credentials: HashMap<ProviderKind, Option<String>>,
@@ -428,7 +416,6 @@ impl RemoteAccessManager {
                             ActiveProvider {
                                 provider: Arc::clone(&provider),
                                 session_id: session.session_id.clone(),
-                                public_url,
                             },
                         );
                     }

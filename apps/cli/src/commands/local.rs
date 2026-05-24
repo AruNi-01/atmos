@@ -115,8 +115,3 @@ fn legacy_status(status: &runtime_manager::supervisor::RuntimeStatus) -> LegacyL
         started_at: None,
     }
 }
-
-pub(crate) async fn local_runtime_status(
-) -> Result<runtime_manager::supervisor::RuntimeStatus, String> {
-    runtime_manager::supervisor::runtime_status().await
-}

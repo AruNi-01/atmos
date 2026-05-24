@@ -2,7 +2,7 @@ pub use sea_orm_migration::prelude::*;
 
 use std::collections::HashSet;
 
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, Statement};
+use sea_orm::{DatabaseConnection, DbBackend, Statement};
 use tracing::{info, warn};
 
 mod m20260117_000001_create_test_message_table;

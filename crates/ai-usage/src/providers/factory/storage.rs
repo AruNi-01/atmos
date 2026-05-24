@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use aes_gcm::aead::{consts::U16, generic_array::GenericArray, Aead, KeyInit};
 use aes_gcm::AesGcm;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use reqwest::Client;
 use serde::Deserialize;
 use time::format_description::well_known::Rfc3339;

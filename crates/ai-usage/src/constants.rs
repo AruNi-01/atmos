@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub(crate) const CACHE_TTL_SECS: u64 = 180;
 pub(crate) const PROVIDER_TIMEOUT_MILLIS: u64 = 8000;
 pub(crate) const CODEX_USAGE_API_URL: &str = "https://chatgpt.com/backend-api/wham/usage";

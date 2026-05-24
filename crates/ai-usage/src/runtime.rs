@@ -71,6 +71,7 @@ pub(crate) enum LiveProviderKind {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub(crate) enum FetchStrategyKind {
     Snapshot,
     Api,

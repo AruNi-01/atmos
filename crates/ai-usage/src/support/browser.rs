@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
 use aes::Aes128;
 use cbc::Decryptor;
