@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
+import { useTheme } from 'next-themes';
 import { Loader2 } from 'lucide-react';
 import { toastManager } from '@workspace/ui';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
+import { useDiffSettings } from '@/features/settings/hooks/use-diff-settings';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import {
   getDiffGroupKind,
@@ -34,6 +36,7 @@ import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   CODE_VIEW_HOST_CLASS,
+  getAtmosDiffThemeType,
 } from '@/features/diff/lib/diff-view-constants';
 import {
   createDiffHeaderPrefixRenderer,
@@ -54,6 +57,7 @@ interface ChangesCodeViewProps {
 }
 
 export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
+  const { resolvedTheme } = useTheme();
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
   const compareRef = useGitStore((s) => s.compareRef);
@@ -83,12 +87,19 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   );
   const [viewerKey, setViewerKey] = useState(0);
   const [viewerMounted, setViewerMounted] = useState(false);
-  const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('unified');
-  const [wordWrap, setWordWrap] = useState(true);
-  const [showBackgrounds, setShowBackgrounds] = useState(true);
-  const [lineNumbers, setLineNumbers] = useState(true);
-  const [diffIndicators, setDiffIndicators] =
-    useState<'bars' | 'classic' | 'none'>('bars');
+  const {
+    diffStyle,
+    showBackgrounds,
+    lineNumbers,
+    wordWrap,
+    diffIndicators,
+    loadSettings: loadDiffSettings,
+    setDiffStyle,
+    setShowBackgrounds,
+    setLineNumbers,
+    setWordWrap,
+    setDiffIndicators,
+  } = useDiffSettings();
   const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
     'expanded',
   );
@@ -104,6 +115,10 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   >(new Map());
   const copyKeyRef = useRef(0);
   const collapseModeRef = useRef(collapseMode);
+
+  useEffect(() => {
+    void loadDiffSettings();
+  }, [loadDiffSettings]);
 
   useEffect(() => {
     collapseModeRef.current = collapseMode;
@@ -405,6 +420,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     () => ({
       ...buildSharedDiffViewOptions({
         theme: ATMOS_DIFF_THEME,
+        themeType: getAtmosDiffThemeType(resolvedTheme),
         diffStyle,
         wordWrap,
         disableBackground: !showBackgrounds,
@@ -430,6 +446,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     }),
     [
       diffStyle,
+      resolvedTheme,
       wordWrap,
       showBackgrounds,
       lineNumbers,

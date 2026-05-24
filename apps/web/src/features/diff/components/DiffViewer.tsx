@@ -10,6 +10,7 @@ import type {
   FileDiffMetadata,
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
+import { useTheme } from 'next-themes';
 import { gitApi, reviewWsApi } from '@/api/ws-api';
 import type { ReviewMessageDto, ReviewCommentDto } from '@/api/ws-api';
 import { Loader2, toastManager } from '@workspace/ui';
@@ -30,8 +31,13 @@ import {
   buildDiffViewerSelectionInfo,
   getDiffScrollRoot,
 } from '@/features/diff/lib/diff-viewer-selection';
-import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions } from '@/features/diff/lib/diff-view-constants';
+import {
+  ATMOS_DIFF_THEME,
+  buildSharedDiffViewOptions,
+  getAtmosDiffThemeType,
+} from '@/features/diff/lib/diff-view-constants';
 import { DiffViewerHeader } from '@/features/diff/components/DiffViewerHeader';
+import { useDiffSettings } from '@/features/settings/hooks/use-diff-settings';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -44,6 +50,7 @@ export const DiffViewer = ({
   filePath,
   originalPath,
 }: DiffViewerProps) => {
+  const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const snapshotGuidFromPath = originalPath?.startsWith('review-diff://')
     ? originalPath.slice('review-diff://'.length).split('/')[0] || null
@@ -87,9 +94,17 @@ export const DiffViewer = ({
     reviewCtx.handleDeleteMessage,
   ]);
 
-  const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
-  const [wordWrap, setWordWrap] = useState(false);
-  const [disableBackground, setDisableBackground] = useState(false);
+  const {
+    diffStyle,
+    showBackgrounds,
+    lineNumbers,
+    wordWrap,
+    diffIndicators,
+    loadSettings: loadDiffSettings,
+    setDiffStyle,
+    setShowBackgrounds,
+    setWordWrap,
+  } = useDiffSettings();
   const [showTip, setShowTip] = useState(false);
   const [tipPaused, setTipPaused] = useState(false);
   const [fileCollapsed, setFileCollapsed] = useState(false);
@@ -102,6 +117,11 @@ export const DiffViewer = ({
   );
 
   const { stagedFiles, unstagedFiles, untrackedFiles, compareFiles, compareRef, compareMode } = useGitStore();
+
+  useEffect(() => {
+    void loadDiffSettings();
+  }, [loadDiffSettings]);
+
   const diffStats = useMemo(() => {
     const allFiles = compareRef
       ? compareFiles
@@ -326,9 +346,12 @@ export const DiffViewer = ({
   const diffOptions = useMemo(() => {
     const sharedOptions = buildSharedDiffViewOptions({
       theme: ATMOS_DIFF_THEME,
+      themeType: getAtmosDiffThemeType(resolvedTheme),
       diffStyle,
       wordWrap,
-      disableBackground,
+      disableBackground: !showBackgrounds,
+      lineNumbers,
+      diffIndicators,
       enableGutterUtility: true,
       enableLineSelection: true,
     });
@@ -336,10 +359,17 @@ export const DiffViewer = ({
     return {
       ...sharedOptions,
       disableFileHeader: true,
-      unsafeCSS: sharedOptions.unsafeCSS,
       onLineSelectionEnd: handleLineSelectionEnd,
     } satisfies FileDiffOptions<DiffViewerAnnotationMeta>;
-  }, [diffStyle, disableBackground, wordWrap, handleLineSelectionEnd]);
+  }, [
+    diffIndicators,
+    diffStyle,
+    handleLineSelectionEnd,
+    lineNumbers,
+    resolvedTheme,
+    showBackgrounds,
+    wordWrap,
+  ]);
 
   const commentAnnotations = useMemo(() => {
     if (!isReviewDiff || !reviewContext.file) return [];
@@ -775,7 +805,7 @@ export const DiffViewer = ({
         diffCompareRef={diffCompareRef}
         diffStats={diffStats}
         diffStyle={diffStyle}
-        disableBackground={disableBackground}
+        disableBackground={!showBackgrounds}
         fileCollapsed={fileCollapsed}
         filePath={filePath}
         hasReviewSession={Boolean(reviewContext.session)}
@@ -783,7 +813,7 @@ export const DiffViewer = ({
         isReviewed={snapshotGuidFromPath && reviewContext.file ? reviewContext.file.state.reviewed : null}
         onToggleReviewed={handleToggleReviewed}
         setDiffStyle={setDiffStyle}
-        setDisableBackground={setDisableBackground}
+        setDisableBackground={(disabled) => void setShowBackgrounds(!disabled)}
         setFileCollapsed={setFileCollapsed}
         setTipPaused={setTipPaused}
         setWordWrap={setWordWrap}

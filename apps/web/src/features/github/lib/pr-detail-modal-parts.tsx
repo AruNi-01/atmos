@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { useTheme } from 'next-themes';
 import {
   Avatar,
   AvatarFallback,
@@ -26,7 +27,11 @@ import {
 } from 'lucide-react';
 import { getFileIconProps } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
-import { ATMOS_DIFF_THEME } from '@/features/diff/lib/diff-view-constants';
+import {
+  ATMOS_DIFF_THEME,
+  buildSharedDiffViewOptions,
+  getAtmosDiffThemeType,
+} from '@/features/diff/lib/diff-view-constants';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { cn } from '@/shared/lib/utils';
 import type { CommitListItem } from '../components/CommitList';
@@ -338,6 +343,7 @@ export function SidebarSection({ title, icon, children }: { title: string; icon:
 }
 
 export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
+  const { resolvedTheme } = useTheme();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const isMounted = React.useSyncExternalStore(
     () => () => { },
@@ -352,13 +358,16 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
 
   const diffOptions = useMemo(() => {
     return {
-      theme: ATMOS_DIFF_THEME,
-      diffStyle: 'unified' as const,
-      overflow: 'wrap' as const,
-      disableLineNumbers: false,
+      ...buildSharedDiffViewOptions({
+        theme: ATMOS_DIFF_THEME,
+        themeType: getAtmosDiffThemeType(resolvedTheme),
+        diffStyle: 'unified',
+        wordWrap: true,
+        lineNumbers: true,
+      }),
       disableFileHeader: true,
     };
-  }, []);
+  }, [resolvedTheme]);
 
   return (
     <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">

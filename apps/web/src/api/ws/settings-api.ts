@@ -12,6 +12,13 @@ export interface FunctionSettings {
     line_highlight?: boolean;
     git_integration?: boolean;
   };
+  diff?: {
+    diff_style?: "split" | "unified";
+    show_backgrounds?: boolean;
+    line_numbers?: boolean;
+    word_wrap?: boolean;
+    diff_indicators?: "bars" | "classic" | "none";
+  };
   canvas?: {
     auto_save_interval?: number;
     max_rendered_terminals?: number;

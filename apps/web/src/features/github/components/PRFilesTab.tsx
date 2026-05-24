@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
 import { processFile } from '@pierre/diffs';
+import { useTheme } from 'next-themes';
 import { Avatar, AvatarImage, AvatarFallback, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
 import { MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,7 +15,8 @@ import type { PrFile } from '@/features/github/hooks/use-github';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
 import { applyCollapseModeToItems } from '@/features/diff/lib/diff-code-view-shared';
-import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS } from '@/features/diff/lib/diff-view-constants';
+import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS, getAtmosDiffThemeType } from '@/features/diff/lib/diff-view-constants';
+import { useDiffSettings } from '@/features/settings/hooks/use-diff-settings';
 import {
   createDiffHeaderPrefixRenderer,
   findDiffItemIdAtScrollTop,
@@ -108,15 +110,23 @@ type PrAnnotationMeta = {
 };
 
 export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }: PRFilesTabProps) {
+  const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [viewerMounted, setViewerMounted] = useState(false);
-  const [diffStyle, setDiffStyle] = useState<'unified' | 'split'>('unified');
-  const [wordWrap, setWordWrap] = useState(true);
-  const [showBackgrounds, setShowBackgrounds] = useState(true);
-  const [lineNumbers, setLineNumbers] = useState(true);
-  const [diffIndicators, setDiffIndicators] =
-    useState<'bars' | 'classic' | 'none'>('bars');
+  const {
+    diffStyle,
+    showBackgrounds,
+    lineNumbers,
+    wordWrap,
+    diffIndicators,
+    loadSettings: loadDiffSettings,
+    setDiffStyle,
+    setShowBackgrounds,
+    setLineNumbers,
+    setWordWrap,
+    setDiffIndicators,
+  } = useDiffSettings();
   const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
     'expanded',
   );
@@ -124,6 +134,10 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   const codeViewRef = useRef<CodeViewHandle<PrAnnotationMeta | undefined>>(null);
   const itemIdsRef = useRef<string[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    void loadDiffSettings();
+  }, [loadDiffSettings]);
 
   const codeViewMountKey = useMemo(
     () => files.map((f) => f.filename).join('|'),
@@ -220,6 +234,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     () => ({
       ...buildSharedDiffViewOptions({
         theme: ATMOS_DIFF_THEME,
+        themeType: getAtmosDiffThemeType(resolvedTheme),
         diffStyle,
         wordWrap,
         disableBackground: !showBackgrounds,
@@ -228,7 +243,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         enableLineSelection: false,
       }),
     }),
-    [diffStyle, wordWrap, showBackgrounds, lineNumbers, diffIndicators],
+    [diffStyle, wordWrap, showBackgrounds, lineNumbers, diffIndicators, resolvedTheme],
   );
 
   const handleToggleCollapseMode = useCallback(() => {

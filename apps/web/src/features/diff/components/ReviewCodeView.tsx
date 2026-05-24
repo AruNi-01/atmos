@@ -8,10 +8,12 @@ import type {
   SelectedLineRange,
 } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
+import { useTheme } from 'next-themes';
 import type { ReviewCommentDto, ReviewFileDto, ReviewMessageDto } from '@/api/ws-api';
 import { reviewWsApi } from '@/api/ws-api';
 import { useReviewCtx } from '@/features/diff/components/review/ReviewContextProvider';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
+import { useDiffSettings } from '@/features/settings/hooks/use-diff-settings';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
@@ -26,6 +28,7 @@ import {
   ATMOS_DIFF_THEME,
   buildSharedDiffViewOptions,
   CODE_VIEW_HOST_CLASS,
+  getAtmosDiffThemeType,
 } from '@/features/diff/lib/diff-view-constants';
 import {
   createDiffHeaderPrefixRenderer,
@@ -54,6 +57,7 @@ interface ReviewCodeViewProps {
 }
 
 export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
+  const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
   const workerPoolReady = useDiffWorkerPoolReady();
   const reviewCtx = useReviewCtx();
@@ -73,12 +77,19 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
   const [annotationVersion, setAnnotationVersion] = useState(0);
   const [viewerKey, setViewerKey] = useState(0);
   const [viewerMounted, setViewerMounted] = useState(false);
-  const [diffStyle, setDiffStyle] = useState<'split' | 'unified'>('split');
-  const [wordWrap, setWordWrap] = useState(false);
-  const [showBackgrounds, setShowBackgrounds] = useState(true);
-  const [lineNumbers, setLineNumbers] = useState(true);
-  const [diffIndicators, setDiffIndicators] =
-    useState<'bars' | 'classic' | 'none'>('bars');
+  const {
+    diffStyle,
+    showBackgrounds,
+    lineNumbers,
+    wordWrap,
+    diffIndicators,
+    loadSettings: loadDiffSettings,
+    setDiffStyle,
+    setShowBackgrounds,
+    setLineNumbers,
+    setWordWrap,
+    setDiffIndicators,
+  } = useDiffSettings();
   const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
     'expanded',
   );
@@ -109,6 +120,10 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
   const lastHandledNavRef = useRef<string | null>(null);
   const inlineCommentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const loadErrorRef = useRef<Error | null>(null);
+
+  useEffect(() => {
+    void loadDiffSettings();
+  }, [loadDiffSettings]);
 
   const orderedFiles = useMemo(
     () =>
@@ -626,6 +641,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
     () => ({
       ...buildSharedDiffViewOptions({
         theme: ATMOS_DIFF_THEME,
+        themeType: getAtmosDiffThemeType(resolvedTheme),
         diffStyle,
         wordWrap,
         disableBackground: !showBackgrounds,
@@ -655,6 +671,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
       diffStyle,
       lineNumbers,
       openInlineCommentDraft,
+      resolvedTheme,
       reviewCtx.canEdit,
       showBackgrounds,
       wordWrap,

@@ -96,7 +96,7 @@ export function DiffCodeViewSettingsMenu({
             <IconGearFill className="size-3.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuItem
             className="cursor-default p-0"
             onSelect={(e) => e.preventDefault()}
@@ -135,7 +135,7 @@ export function DiffCodeViewSettingsMenu({
             onSelect={(e) => e.preventDefault()}
           >
             <div className="flex w-full items-center justify-between gap-3 py-1.5 text-sm">
-              <span>Indicator style</span>
+              <span className="shrink-0 whitespace-nowrap">Indicator style</span>
               <ToggleGroup
                 type="single"
                 value={diffIndicators}
