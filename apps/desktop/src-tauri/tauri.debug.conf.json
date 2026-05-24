@@ -1,79 +1,17 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Atmos",
-  "version": "0.1.0",
-  "identifier": "com.atmos.desktop",
+  "identifier": "com.atmos.desktop.dev",
   "build": {
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "node ../../scripts/desktop/before-build.mjs",
+    "beforeDevCommand": null,
+    "devUrl": null,
     "frontendDist": "../../web/out"
   },
   "app": {
-    "macOSPrivateApi": true,
-    "windows": [
-      {
-        "label": "splashscreen",
-        "url": "/splashscreen.html",
-        "width": 1400,
-        "height": 900,
-        "center": true,
-        "resizable": true,
-        "decorations": true,
-        "hiddenTitle": true,
-        "titleBarStyle": "Overlay",
-        "trafficLightPosition": {
-          "x": 14,
-          "y": 21
-        },
-        "alwaysOnTop": true,
-        "visible": true
-      },
-      {
-        "label": "main",
-        "title": "Atmos",
-        "url": "/",
-        "width": 1400,
-        "height": 900,
-        "minWidth": 900,
-        "minHeight": 600,
-        "dragDropEnabled": false,
-        "hiddenTitle": true,
-        "titleBarStyle": "Overlay",
-        "trafficLightPosition": {
-          "x": 14,
-          "y": 21
-        },
-        "visible": false
-      }
-    ],
     "security": {
       "csp": null
     }
   },
   "bundle": {
-    "active": false,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "resources": {
-      "binaries/runtime/current": "runtime/current",
-      "binaries/web-out": "web-out",
-      "binaries/system-skills": "system-skills",
-      "binaries/atmos-cli": "atmos-cli"
-    }
-  },
-  "plugins": {
-    "updater": {
-      "active": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhEMjIwOUIxMDAzQ0RGM0IKUldRNzN6d0FzUWtpalFBdkU2WWM4NmxlcGZTZ2M4ejR6dVh0R05lNkFINW9YcmpKRWJRbFhTQmwK",
-      "endpoints": [
-        "https://github.com/AruNi-01/atmos/releases/latest/download/latest.json"
-      ]
-    }
+    "active": false
   }
 }

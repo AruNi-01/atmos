@@ -46,11 +46,17 @@ function run(rootDir, command, args, extraEnv = {}) {
 export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
   const webApiDir = join(rootDir, "apps/web/src/app/api");
   const webApiBackup = join(rootDir, "apps/web/src/app/_api_desktop_backup");
+  const webProxyFile = join(rootDir, "apps/web/src/proxy.ts");
+  const webProxyBackup = join(rootDir, "apps/web/src/_proxy_desktop_backup.ts");
   const webDevLock = join(rootDir, "apps/web/.next/dev/lock");
   const hasApiDir = existsSync(webApiDir);
+  const hasProxyFile = existsSync(webProxyFile);
 
   if (hasApiDir) {
     renameSync(webApiDir, webApiBackup);
+  }
+  if (hasProxyFile) {
+    renameSync(webProxyFile, webProxyBackup);
   }
   if (existsSync(webDevLock)) {
     rmSync(webDevLock, { force: true });
@@ -65,8 +71,12 @@ export function buildWebStaticForDesktop(rootDir = defaultRootDir) {
         loadWebEnvVar(rootDir, "NEXT_PUBLIC_TLDRAW_LICENSE_KEY") ??
         "",
       ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
+      NODE_NO_WARNINGS: process.env.NODE_NO_WARNINGS ?? "1",
     });
   } finally {
+    if (hasProxyFile) {
+      renameSync(webProxyBackup, webProxyFile);
+    }
     if (hasApiDir) {
       renameSync(webApiBackup, webApiDir);
     }
