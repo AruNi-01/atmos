@@ -98,7 +98,7 @@ const Header = ({ className }: HeaderProps) => {
 
         <div className='flex items-center gap-3'>
           <nav className="flex items-center gap-4 text-sm font-medium text-muted-foreground mr-2 max-sm:hidden">
-            <Link href="https://github.com/AruNi-01/atmos" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">
+            <Link href="https://docs.atmos.land" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">
               Docs
             </Link>
             <IntlLink href="/changelog" className="transition-colors hover:text-foreground">
