@@ -17,8 +17,8 @@ export async function GET(_req: Request, { params }: RouteContext<'/og/[...slug]
       description={page.data.description}
       site="Atmos"
       icon={<AtmosBrandIcon />}
-      primaryColor="oklch(0.45 0.006 285.885)"
-      primaryTextColor="oklch(0.92 0.004 286.32)"
+      primaryColor="#71717a"
+      primaryTextColor="#e4e4e7"
     />,
     {
       width: 1200,

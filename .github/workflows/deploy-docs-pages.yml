@@ -1,0 +1,59 @@
+name: Deploy Docs Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/docs/**"
+      - "scripts/pages/build-pages-docs.mjs"
+      - "scripts/pages/deploy-pages-docs.mjs"
+      - ".github/workflows/deploy-docs-pages.yml"
+      - ".github/actions/setup-bun/**"
+      - "package.json"
+      - "bun.lock"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-docs-pages-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Ensure Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          OUTPUT=$(bunx wrangler pages project list 2>/dev/null)
+          if echo "$OUTPUT" | grep -q "docs-atmos-land"; then
+            echo "Pages project docs-atmos-land already exists."
+          else
+            bunx wrangler pages project create docs-atmos-land --production-branch main
+          fi
+
+      - name: Build docs for Pages
+        env:
+          NEXT_PUBLIC_SITE_URL: https://docs.atmos.land
+        run: bun run build:docs:pages
+
+      - name: Deploy Pages site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          CF_PAGES_BRANCH: main
+          CF_PAGES_COMMIT_SHA: ${{ github.sha }}
+          CF_PAGES_COMMIT_MESSAGE: ${{ github.event.head_commit.message || github.ref_name || github.event.repository.updated_at }}
+        run: bun run deploy:docs:pages

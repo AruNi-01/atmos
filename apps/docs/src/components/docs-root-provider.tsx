@@ -8,6 +8,7 @@ import type { ComponentProps } from 'react';
 
 export function DocsRootProvider({
   children,
+  search: searchProps,
   theme,
   i18n: i18nProps,
   ...props
@@ -43,10 +44,21 @@ export function DocsRootProvider({
     typeof window === 'undefined'
       ? undefined
       : ({ type: 'application/json' } as const);
+  const search =
+    process.env.NEXT_PUBLIC_BUILD_TARGET === 'pages'
+      ? {
+          ...searchProps,
+          options: {
+            ...searchProps?.options,
+            type: 'static' as const,
+          },
+        }
+      : searchProps;
 
   return (
     <RootProvider
       {...props}
+      search={search}
       i18n={i18n}
       theme={{
         ...theme,

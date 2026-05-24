@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "build:pages": "node ../../scripts/pages/build-pages-docs.mjs",
     "build": "next build",
+    "deploy:pages": "node ../../scripts/pages/deploy-pages-docs.mjs",
     "dev": "next dev",
     "start": "next start",
     "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
