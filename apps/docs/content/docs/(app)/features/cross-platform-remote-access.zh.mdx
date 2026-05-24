@@ -1,75 +1,81 @@
 ---
-title: 跨平台与 Remote Access
-description: 在桌面/浏览器本地使用 Atmos，或通过集成隧道分享本机实例——与 Atmos Computer 无关。
+title: 跨平台与远程访问
+description: 本地使用 Atmos，或通过浏览器链接分享这台电脑。
 ---
 
-Atmos 可在**桌面**与**浏览器**中使用。**Remote Access** 是另一套能力：用**外部内网穿透 / 虚拟局域网**把**本机** Atmos 分享出去，通过 **Public URL** 在浏览器访问。这与 [Atmos Computer](/zh/features/atmos-computer)（**Atmos Relay**、无需 Ngrok/Tailscale/Cloudflare）**完全独立**。
+Atmos 可以作为桌面应用运行，也可以在浏览器中使用。Remote Access 用来通过浏览器链接分享**这台电脑**上的 Atmos 会话。
 
-## 两种「远程」机制
+这不同于 [Atmos Computer](/zh/features/atmos-computer)。Atmos Computer 是让应用连接到另一台真正运行工作的机器。
 
-| | **Remote Access**（本文） | **Atmos Computer** |
-|---|---------------------------|---------------------|
-| **目的** | 分享**当前这台** Atmos | 在**另一台**机器上工作 |
-| **传输** | Tailscale、Cloudflare Tunnel、ngrok 等 | Atmos Relay — 服务器**主动连出**到 Atmos |
-| **Server 在哪** | 你正在用的这台电脑 | 注册的 VPS / 远程主机 |
-| **典型用法** | 浏览器打开 **Public URL** | **My Computers** 里 **Connect** |
-| **配置位置** | 仅**桌面端** → **Settings → Remote Access** | **Settings → Atmos Computer** |
-| **笔记本要装隧道吗** | 要 | **不要** |
+## 两种不同的“远程”机制
 
-不要混用：开 Remote Access 不会注册 Computer；Connect 远程 Computer 也不会启动 Tailscale/ngrok。
+| | **Remote Access**（本页） | **Atmos Computer** |
+|---|---------------------------|--------------------|
+| **目标** | 分享**这台**正在运行的 Atmos 会话 | 在**另一台**机器上工作 |
+| **连接方式** | Tailscale、Cloudflare Tunnel 或 ngrok | Atmos Computer |
+| **工作运行在哪里** | 你当前所在的机器 | 你注册的机器 |
+| **典型客户端** | 浏览器打开 **Public URL** | 桌面端或 Web 在 **My Computers** 中点击 **Connect** |
+| **在哪里配置** | **仅桌面应用** → Settings → **Remote Access** | Settings → **Atmos Computer** |
+| **笔记本需要隧道工具吗** | 需要（对应服务的工具） | **不需要** |
+
+不要混用两者：开启 **Remote Access** 不会注册 Atmos Computer，连接 Atmos Computer 也不会启动 Tailscale 或 ngrok。
 
 ## 跨平台客户端（本地）
 
-| 客户端 | 用法 |
-|--------|------|
-| **桌面应用** | 原生应用，自动连接本机 Atmos |
-| **Web（本地）** | 浏览器打开本机地址（如安装本地 Web 运行时后） |
-| **移动端** | 规划中 |
+在运行工作的那台机器上使用 Atmos：
 
-这是日常**本地**使用，除非你主动启用下面的远程方式。
+| 客户端 | 如何使用 |
+|--------|----------|
+| **桌面应用** | 原生应用；自动连接同一台机器上的 Atmos |
+| **Web（本地）** | 浏览器打开本地地址，例如安装 Local Web Runtime 后 |
+| **移动端** | 计划中，请关注发布说明 |
+
+这是普通的本地使用：不涉及分享链接，也不涉及远程电脑。
 
 ## Remote Access（集成隧道）
 
-把**本机** Atmos 发布出去，让你或其他人在**浏览器**通过 **Public URL** 访问。
+**Remote Access** 可以把**这台电脑**上的 Atmos 发布出去，让你或别人通过浏览器打开一个 **Public URL**。
 
-### 设计说明
+### 它如何工作
 
-1. Atmos 在本机提供**独立安全入口**，而不是把开发端口直接暴露在公网。
-2. 选择 **Tailscale**、**Cloudflare Tunnel** 或 **ngrok**。
-3. 桌面端协助安装/登录 provider，再启动隧道。
-4. **Settings → Remote Access** 与顶栏显示 **Public URL**（及分享链接或入口码）。
-5. 访问者用浏览器打开；Atmos 校验会话后安全提供服务。
+1. Atmos 为这台机器准备一个可分享的浏览器入口。
+2. 你选择一个服务：**Tailscale**、**Cloudflare Tunnel** 或 **ngrok**。
+3. 桌面应用帮助你安装或登录该服务，然后启动隧道。
+4. Atmos 会在 **Settings → Remote Access** 和顶部隧道菜单里显示 **Public URL**，以及可选的分享链接或入口码。
+5. 访问者在浏览器中打开这个 URL，并使用你分享的 Atmos 会话。
 
-数据仍在本机；隧道只是给浏览器一条受控的访问路径。
+你的日常 Atmos 数据仍然留在这台机器上；隧道只是给浏览器提供一个受控入口。
 
-### 配置步骤
+### 在哪里配置
 
-1. 使用**桌面应用**（仅浏览器本地模式**没有** Remote Access）。
-2. **Settings** → **Remote Access**。
-3. **Detect** provider，按引导安装/登录。
-4. 选择 private/public（若支持）、有效期，**Start**。
-5. 复制 **Public URL** 在其他设备浏览器打开。
+1. 使用**桌面应用**（Remote Access 不适用于只在浏览器中运行的本地 Web 模式）。
+2. 打开 **Settings** → **Remote Access**。
+3. 点击 **Detect** 检测服务；按提示安装或登录（应用可以打开辅助终端）。
+4. 如果服务支持，选择 **private** 或 **public** 模式，设置链接有效期，然后点击 **Start**。
+5. 复制 **Public URL**，在另一台设备上打开。具体访问范围取决于服务：局域网、Tailscale 网络或公网。
 
-### Provider
+### 服务说明
 
-- **Tailscale** — 虚拟局域网。
-- **Cloudflare Tunnel** — 经 Cloudflare 的 HTTPS。
-- **ngrok** — 快速公网链接，适合演示。
+- **Tailscale** — 虚拟专用网络；适合你的设备已经在同一个 tailnet 中的情况。
+- **Cloudflare Tunnel** — 通过 Cloudflare 提供 HTTPS；不需要在路由器上开放端口。
+- **ngrok** — 适合演示和临时分享的快速公网 HTTPS 链接。
+
+每种服务类型一次只能运行一个活跃隧道。顶部菜单会显示正在运行的隧道，并在链接过期前提醒你。
 
 ### 停止分享
 
-在设置或顶栏 **Stop**；也可自动过期，必要时 **Renew** / **Recover**。
+在 Settings 或顶部菜单中点击 **Stop** 停止隧道。链接也可以自动过期；需要时可以在同一页面续期或恢复。
 
-## 何时用哪种
+## 什么时候用哪个
 
-| 场景 | 选择 |
+| 场景 | 使用 |
 |------|------|
-| 开发本机，用手机浏览器打开**这台电脑**上的 Atmos | **Remote Access** |
-| 代码与 Agent 在 **VPS**，Mac 只当界面 | **Atmos Computer** → [远程构建](/zh/workflows/remote-build) |
-| 本机已用 Tailscale | **Remote Access** |
-| 不想装隧道，UI 连云端服务器 | **Atmos Computer** |
+| “我在开发笔记本上，想从手机浏览器打开**这台机器**上的 Atmos” | **Remote Access** |
+| “我的代码和 Agent 应该跑在远程机器上，Mac 只负责显示界面” | **Atmos Computer** → [远程构建](/zh/workflows/remote-build) |
+| “这台机器上已经在用 Tailscale” | **Remote Access**（Tailscale） |
+| “不想装隧道工具，只想让界面连接到另一台机器” | **Atmos Computer** |
 
-## 相关
+## 相关内容
 
-- [Atmos Computer](/zh/features/atmos-computer)
-- [远程构建](/zh/workflows/remote-build)
+- [Atmos Computer](/zh/features/atmos-computer) — 不需要隧道的远程机器
+- [远程构建](/zh/workflows/remote-build) — 注册和连接流程

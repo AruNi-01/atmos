@@ -1,26 +1,28 @@
 ---
 title: Cross-Platform & Remote Access
-description: Run Atmos on desktop or browser locally, or share this machine via integrated tunneling—separate from Atmos Computer.
+description: Use Atmos locally, or share this computer through a browser link.
 ---
 
-Atmos ships on multiple **clients** (desktop, browser). **Remote Access** is a third idea: expose **the Atmos Server on this machine** through an external tunnel so someone opens a **public URL** in a browser. That is **not** [Atmos Computer](/features/atmos-computer), which uses **Atmos Relay** and does not require Ngrok, Tailscale, or Cloudflare on your laptop.
+Atmos can run as a desktop app or in a browser. Remote Access is for sharing **this computer's** Atmos session through a browser link.
+
+This is different from [Atmos Computer](/features/atmos-computer), where the app connects to another machine where the work runs.
 
 ## Two different “remote” mechanisms
 
 | | **Remote Access** (this page) | **Atmos Computer** |
 |---|------------------------------|---------------------|
-| **Goal** | Share **this** running Atmos instance | Work on **another** machine’s Atmos Server |
-| **Transport** | Third-party tunnel (Tailscale, Cloudflare Tunnel, ngrok) | Atmos Relay — the server connects **outbound** to Atmos |
-| **Who runs the server** | The machine you are sitting at | The VPS / remote host you registered |
+| **Goal** | Share **this** running Atmos session | Work on **another** machine |
+| **Connection** | Tailscale, Cloudflare Tunnel, or ngrok | Atmos Computer |
+| **Where work runs** | The machine you are sitting at | The machine you registered |
 | **Typical client** | Browser opens **Public URL** | Desktop/Web **Connect** in **My Computers** |
 | **Where to configure** | **Desktop app only** → Settings → **Remote Access** | Settings → **Atmos Computer** |
 | **Tunnel apps on your laptop** | Yes (provider tools) | **No** |
 
-Do not mix the two: turning on **Remote Access** does not register an Atmos Computer, and **Connect** to a remote Computer does not start Tailscale or ngrok.
+Do not mix the two: turning on **Remote Access** does not register an Atmos Computer, and **Connect** to an Atmos Computer does not start Tailscale or ngrok.
 
 ## Cross-platform clients (local)
 
-Use Atmos on the machine where the server runs:
+Use Atmos on the machine where your work runs:
 
 | Client | How you use it |
 |--------|----------------|
@@ -28,19 +30,19 @@ Use Atmos on the machine where the server runs:
 | **Web (local)** | Browser at your local address (e.g. after installing the local web runtime) |
 | **Mobile** | Planned — follow release notes |
 
-This is normal **local** use: no tunnel and no relay unless you turn on one of the remote options below.
+This is normal local use: no sharing link or remote computer is involved.
 
 ## Remote Access (integrated tunneling)
 
 **Remote Access** lets you publish **this computer’s** Atmos so you—or someone else—can open it in a **web browser** via a **Public URL**.
 
-### How it is designed
+### How It Works
 
-1. Atmos runs a **dedicated secure entry** on your machine—not your raw dev port on the open internet.
+1. Atmos prepares a shareable browser entry for this machine.
 2. You choose a provider: **Tailscale**, **Cloudflare Tunnel**, or **ngrok**.
 3. The desktop app helps you install or sign in to that provider, then starts the tunnel.
 4. Atmos shows a **Public URL** (and optional share link or entry code) in **Settings → Remote Access** and in the header tunnel menu.
-5. Visitors open that URL in a browser; Atmos checks the session, then serves the app securely.
+5. Visitors open that URL in a browser and work with the Atmos session you shared.
 
 Your day-to-day Atmos data still stays on this machine; the tunnel only provides a controlled front door for browsers.
 
@@ -69,11 +71,11 @@ You can run one active tunnel per provider type. The header shows running tunnel
 | Scenario | Use |
 |----------|-----|
 | “I’m on my dev laptop; open Atmos from my phone browser **on this machine**” | **Remote Access** |
-| “My code and agents should run on a **VPS**; my Mac only runs the UI” | **Atmos Computer** → [Remote Build](/workflows/remote-build) |
+| “My code and agents should run on a remote machine; my Mac only runs the UI” | **Atmos Computer** → [Remote Build](/workflows/remote-build) |
 | “I already use Tailscale on this box” | **Remote Access** (Tailscale) |
-| “No tunnel apps—I want the UI to talk to a server in the cloud” | **Atmos Computer** |
+| “No tunnel apps—I want the UI to connect to another machine” | **Atmos Computer** |
 
 ## Related
 
-- [Atmos Computer](/features/atmos-computer) — relay-based remote machines (no tunnel)
+- [Atmos Computer](/features/atmos-computer) — remote machines without a tunnel
 - [Remote Build](/workflows/remote-build) — register and connect workflow

@@ -1,6 +1,31 @@
 ---
 title: atmos computer
-description: Register and manage Atmos Computer relay identity.
+description: Register this machine as an Atmos Computer.
 ---
 
-{/* TODO */}
+`atmos computer` helps register this machine as an Atmos Computer so you can connect to it from Desktop or the browser app.
+
+Use it on the machine where your projects, terminals, and agents should run.
+
+## Common Tasks
+
+| Task | Command |
+|------|---------|
+| Register this machine with a registration code | `atmos computer register --token <token>` |
+| Register and start this machine | `atmos computer start --token <token>` |
+| Start an already registered machine | `atmos computer start` |
+| Check registration and connection status | `atmos computer status` |
+
+## Typical Flow
+
+1. In the app, open **Settings** → **Atmos Computer**.
+2. Create or copy a registration code.
+3. On the remote machine, run the command shown in the app.
+4. Return to **My Computers** and wait for the machine to show **Online**.
+5. Click **Connect** from Desktop or the browser app.
+
+## Tips
+
+- Treat registration codes and access keys like passwords.
+- Run this on the remote machine, not on the laptop that only runs the UI.
+- If a computer is offline, check `atmos computer status` on that machine.

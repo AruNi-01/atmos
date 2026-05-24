@@ -1,6 +1,27 @@
 ---
 title: atmos runtime
-description: Ensure and inspect the local Atmos Server.
+description: Start, stop, and check local Atmos.
 ---
 
-{/* TODO: ensure, status, manifest */}
+`atmos runtime` manages the local Atmos runtime on your computer. Use it when the desktop app or browser app cannot connect, or when you want to start Atmos before opening the UI.
+
+## Common Tasks
+
+| Task | Command |
+|------|---------|
+| Start Atmos if it is not running | `atmos runtime ensure` |
+| Check whether Atmos is healthy | `atmos runtime status` |
+| Stop the local runtime | `atmos runtime stop` |
+
+## When To Use It
+
+- You installed the local web runtime and want to open Atmos in a browser.
+- Desktop cannot find the local runtime.
+- You are preparing a machine before registering it as an Atmos Computer.
+- You want to restart the runtime after changing local setup.
+
+## Tips
+
+- Prefer `atmos runtime` over `atmos local` for new setup.
+- If `status` says the runtime is stopped, run `ensure` and then open Atmos again.
+- If you are using Atmos Computer, make sure you run these commands on the machine where your projects should live.

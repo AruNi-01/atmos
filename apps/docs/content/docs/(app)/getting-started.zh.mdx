@@ -1,49 +1,51 @@
 ---
 title: 快速开始
-description: 安装 Atmos 并打开第一个工作区。
+description: 安装 Atmos，并打开第一个工作空间。
 icon: Rocket
 ---
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-选择一种方式运行 Atmos：
+先选择你的工作要运行在哪里。
 
 ## 桌面应用
 
-### macOS 使用 Homebrew
+如果项目就在你自己的电脑上，桌面应用是最适合的起点。
 
-```bash
-brew install --cask AruNi-01/tap/atmos
-```
+- 在 macOS 上，可以用 Homebrew 安装：`brew install --cask AruNi-01/tap/atmos`。
+- 也可以使用 macOS 安装器：`https://install.atmos.land/install-desktop.sh`。
+- Windows 和 Linux 用户可以从 [GitHub Releases](https://github.com/AruNi-01/atmos/releases) 下载最新版本。
 
-### macOS 使用安装脚本
+安装完成后，像打开其他应用一样打开 Atmos。
 
-```bash
-curl -fsSL https://install.atmos.land/install-desktop.sh | bash
-```
+## 浏览器应用
 
-安装脚本适用于 macOS。Windows 和 Linux 用户可以从 [GitHub Releases](https://github.com/AruNi-01/atmos/releases) 下载最新安装包。
-
-## 在浏览器中打开
-
-如果想直接在浏览器中使用 Atmos，可以从 Web app 开始。
+当你想在浏览器标签页里使用界面，或者计划连接到 Atmos Computer 时，可以使用浏览器应用。
 
 <Cards>
   <Card href="https://app.atmos.land" title="在浏览器中打开 Atmos">
-    从 app.atmos.land 打开 Atmos。
+    从 app.atmos.land 开始使用 Web 应用。
   </Card>
 </Cards>
 
-## 第一个工作区
+如果你想在本机浏览器里使用，Local Web Runtime 会在你的机器上启动 Atmos，并打开一个本地地址。可以安装 `@atmos/local-web-runtime` 包，或使用发布说明里链接的安装器。
 
-1. 打开桌面应用或在浏览器中打开 Atmos。
-2. 创建或打开工作区并连接项目。
-3. 打开终端，开始使用 Code Agent。
+## 第一个工作空间
 
-## 从源码运行（贡献者）
+1. 启动桌面应用，或在浏览器中打开 Atmos。
+2. 当 Atmos 提示时，添加一个项目文件夹。
+3. 为你想并行运行的任务创建一个工作空间。
+4. Atmos 会为这个任务准备隔离的工作文件夹和分支。
+5. 打开这个工作空间的终端。
+6. 在这个终端里启动你的 code-agent CLI。
+7. 提交前先 Review diff。
 
-```bash
-bun install && cargo fetch
-just dev-api   # 终端 1
-just dev-web   # 终端 2
-```
+## 第一个 Code Agent 终端
+
+Atmos 是 terminal-first 的：在工作空间终端里启动你已经在使用的 code-agent。每个工作空间都会保留自己的终端会话、分支、文件和 diff，所以你可以并排运行多个 Agent，而不会把工作混在一起。
+
+如果要并行开发，就为每个任务创建一个工作空间，并在每个工作空间终端里启动一个 Agent。用侧边栏、Kanban、Canvas 和 Review 视图观察进度，并把完成的变更带回你正常的 Git 流程。
+
+## 贡献者设置
+
+如果你是在贡献 Atmos 本身，请使用仓库 README 里的源码设置说明。这份文档专注于如何使用产品，而不是如何开发 Atmos。

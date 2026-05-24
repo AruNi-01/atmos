@@ -3,4 +3,18 @@ title: atmos update
 description: Update the CLI binary.
 ---
 
-{/* TODO */}
+`atmos update` checks for a newer Atmos CLI and installs it when available.
+
+Use it when the app or docs mention a new CLI feature, or when a command behaves differently from the current docs.
+
+## Common Tasks
+
+| Task | Command |
+|------|---------|
+| Check without installing | `atmos update --check` |
+| Install the latest available CLI | `atmos update` |
+
+## Tips
+
+- The CLI may also show an update hint after other commands.
+- If update fails, download the latest release from GitHub Releases and reinstall from there.

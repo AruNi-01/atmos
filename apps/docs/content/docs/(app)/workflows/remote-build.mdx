@@ -1,9 +1,9 @@
 ---
 title: Remote Build
-description: Use Atmos Computer and Atmos Relay to build on a remote server—without tunnel software on your client.
+description: Build on another machine while using Atmos from your laptop or browser.
 ---
 
-**Remote build** means your **Atmos app** (Desktop or Web) runs on one device, while **projects, terminals, agents, and data** live on another machine you added as an **Atmos Computer**. Everything goes through **Atmos Relay**, not Ngrok, Tailscale, or Cloudflare Tunnel.
+**Remote build** means the Atmos app runs on one device, while projects, terminals, agents, and workspace data live on another machine you added as an **Atmos Computer**.
 
 ## Not the same as Remote Access
 
@@ -11,10 +11,10 @@ Atmos offers two **separate** remote features—do not use both for the same goa
 
 | Feature | Settings | What it does |
 |---------|----------|--------------|
-| **Atmos Computer** (this guide) | **Atmos Computer** | UI talks to a **remote** server via Atmos Relay; the server connects **outward** to Atmos |
-| **Remote Access** (tunneling) | **Remote Access** (Desktop only) | Shares **this** machine’s Atmos through **Tailscale / Cloudflare / ngrok** and a **Public URL** in the browser |
+| **Atmos Computer** (this guide) | **Atmos Computer** | Work on another machine |
+| **Remote Access** | **Remote Access** (Desktop only) | Share this machine through a browser link |
 
-- Building on a VPS → **Atmos Computer** only.
+- Building on a remote machine → **Atmos Computer** only.
 - “Let someone open **my laptop’s** Atmos in a browser” → **Remote Access** only ([feature doc](/features/cross-platform-remote-access)).
 
 You do **not** need tunnel software on your laptop to **Connect** to an Atmos Computer.
@@ -31,18 +31,18 @@ After **Connect**:
 
 On the machine you are physically using, choose **Use locally** to work against Atmos on that machine again.
 
-### Relay in plain terms
+### Connection In Plain Terms
 
-1. The remote machine keeps a live link to **Atmos Relay**.
+1. The remote machine stays connected to Atmos.
 2. You press **Connect** → Atmos gives your UI a short-lived session to that computer.
-3. All app actions (chat, terminals, files) go through that relay link to the remote server.
+3. App actions such as chat, terminals, and files now happen on that machine.
 
-The default relay service is **relay.atmos.land** (your team may use a custom Atmos cloud URL).
+Your team may use the default Atmos connection service or a custom one.
 
 ## Step 1 — Create an Access Key
 
 1. Open **Settings** → **Atmos Computer** → **Access Key**.
-2. **Generate** (or paste a long key you already trust).
+2. **Generate** or paste a long key you already trust.
 3. **Save** — ties the key to your Atmos account on this device.
 4. **Copy** immediately; it may not be shown again.
 
@@ -52,29 +52,29 @@ Treat the access key like a password.
 
 ### This machine (same device as the app)
 
-1. Make sure **Atmos Server** is running on this PC.
+1. Make sure Atmos is running on this computer.
 2. **Settings** → **Atmos Computer** → **This Computer** → turn on registration.  
-   (The UI may say “Register to Remote”—that is **Atmos Relay**, not **Remote Access** tunnels.)
+   (The UI may say “Register to Remote.” In this context, that means Atmos Computer, not Remote Access.)
 3. Atmos registers this host; **My Computers** shows **Online** when the link is up. Use **Reconnect** if it drops.
 
-### Another machine (VPS / remote host)
+### Another Machine
 
 1. Save an access key on the device where you manage computers (e.g. your laptop).
 2. Install Atmos on the remote host ([Getting started](/getting-started)).
 3. In **Settings** → **Register Computer**, create a **registration code** (short-lived, one-time).
-4. On the remote host, run the install script’s `atmos computer start` command with that code, or follow the on-screen CLI steps.
+4. On the remote host, follow the on-screen CLI steps with that code.
 
-You can also pass a one-time registration token when starting the server on that host—remove it after registration succeeds.
+If you use a one-time registration code, remove it after registration succeeds.
 
 ## Step 3 — Connect from Desktop or Web
 
 1. **Settings** → **Atmos Computer** → **My Computers**.
 2. For a computer that is **Online**, click **Connect**.
-3. The UI reconnects through Atmos Relay; all workspaces now belong to that machine.
+3. The UI reconnects; all workspaces now belong to that machine.
 
 If you are on the computer itself, use **Use locally** instead of Connect.
 
-Offline remote computers stay unavailable until their relay link is active again.
+Offline remote computers stay unavailable until they reconnect.
 
 ## Step 4 — Build remotely
 
@@ -89,7 +89,7 @@ After connecting, use the same workflows as on a local machine:
 
 | Topic | What to know |
 |-------|----------------|
-| **Encryption** | Traffic is protected in transit by standard TLS, but Atmos does **not** offer end-to-end encryption where only you can read payloads on the relay today. |
+| **Connection security** | Traffic is protected in transit, but do not treat the connection service as end-to-end encrypted today. |
 | **Who can connect** | Anyone with your **access key** can manage and connect to your computers—guard it like a password. |
 | **Registration codes** | Short-lived and single-use; generate a new one if it expires. |
 | **Sessions** | Connect sessions last about a day; connect again if needed. |

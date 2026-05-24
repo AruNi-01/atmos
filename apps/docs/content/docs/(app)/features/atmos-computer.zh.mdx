@@ -1,54 +1,47 @@
 ---
 title: Atmos Computer
-description: 经 Atmos Relay 从桌面/Web 连接远程 Atmos——无需第三方隧道。
+description: 将 Atmos 连接到另一台运行项目的机器。
 ---
 
-**Atmos Computer** 把机器（VPS、工作站等）登记到你的 Atmos 账号，通过 **Atmos Relay** 连接。远程服务器**主动连出**到 Atmos；你的笔记本或浏览器再接入该会话。**不需要** Ngrok、Tailscale 或 Cloudflare Tunnel。
+**Atmos Computer** 让你的桌面应用或浏览器连接到另一台机器，项目、终端、Agent 和工作空间都在那台机器上运行。
 
-这与 [跨平台与 Remote Access](/zh/features/cross-platform-remote-access) 里的 **Remote Access**（隧道分享**本机**）**是两套独立能力**。
+当你想在更强的机器、家里的机器或云主机上构建，同时把 Atmos 界面留在笔记本上时，可以使用它。
 
-## 对比 Remote Access
+这和 [跨平台与远程访问](/zh/features/cross-platform-remote-access) 里的 **Remote Access** 是分开的；Remote Access 使用外部隧道分享**你当前所在的这台机器**。
 
-| | **Atmos Computer** | **Remote Access** |
-|---|-------------------|-------------------|
-| **工作在哪** | **远程**已注册主机 | **本机**（托管桌面的电脑） |
-| **网络** | Atmos Relay（服务器出站） | 外部隧道 → 本机安全入口 |
-| **客户端要装隧道吗** | 否 | 是 |
-| **入口** | **Connect** | **Public URL** |
-| **项目数据在** | 远程机器 | 本机 |
+## Atmos Computer 与 Remote Access
 
-**This Computer** 上的「注册到远程」指 **Relay 注册**，不是 **Remote Access** 隧道页。
+| | **Atmos Computer** | **Remote Access**（隧道） |
+|---|-------------------|---------------------------|
+| **工作运行在哪里** | 你注册的那台电脑 | 这台电脑 |
+| **连接方式** | Atmos 将应用连接到那台电脑 | 隧道把这台电脑发布出去 |
+| **客户端需要隧道工具吗** | 不需要 | 需要，在负责托管的桌面端上 |
+| **主要入口** | **Atmos Computer** → **Connect** | **Remote Access** → **Public URL** |
+| **项目存放在哪里** | 远程机器 | 这台机器 |
+
+有些界面在 **This Computer** 上会出现 “remote” 字样。在这个区域里，它的意思是“让这台电脑可以作为 Atmos Computer 使用”，不是“启动 Remote Access 隧道”。
 
 ## 为什么重要
 
-- 代码与构建留在你的服务器。
-- 多台设备共用一台远程开发机。
-- 客户端无需公网 IP 或隧道账号。
+- 把仓库、密钥和构建放在你控制的基础设施上。
+- 从笔记本、台式机或浏览器使用一台更强的远程机器。
+- 避免在笔记本上额外配置隧道工具。
 
-## 连接方式
+## 连接如何工作
 
-```text
-笔记本（桌面或浏览器）
-        │
-        ▼
-   Atmos Relay
-        ▲
-远程机器上的 Atmos Server
-```
-
-UI 不需要服务器的公网 IP；由服务器维持与 Relay 的链接。
+远程机器会和 Atmos 保持连接。当你点击 **Connect** 时，你的应用会通过同一个 Atmos 服务加入那台机器。日常使用 Atmos 时，你不需要知道那台机器的公网地址。
 
 ## 典型流程
 
-1. **Access Key** — **Settings → Atmos Computer** 创建并保存。
-2. **Register** — 将远程机器加入账号。
-3. **Connect** — **My Computers** 选择目标机器。
-4. **Work** — 工作区、终端、Canvas、Agent 均在**该机器**上。
+1. **Access Key** — 在 **Settings → Atmos Computer → Access Key** 创建并保存。
+2. **Register** — 把远程机器添加到你的账户，可以在那台机器上操作，也可以使用注册码。
+3. **Connect** — 在 **My Computers** 下选择电脑；Atmos 会把界面切换到那台机器。
+4. **Work** — 工作空间、终端、Canvas 和 Agent 都在**那台**电脑上运行。
 
-## 延伸阅读
+## 了解更多
 
-- [远程构建](/zh/workflows/remote-build)
+- [远程构建](/zh/workflows/remote-build) — 注册、连接和安全注意事项的分步指南。
 
-## 相关
+## 相关内容
 
-- [跨平台与 Remote Access](/zh/features/cross-platform-remote-access)
+- [跨平台与远程访问](/zh/features/cross-platform-remote-access) — 本地客户端，以及只用于**这台**机器的隧道分享

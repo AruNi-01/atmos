@@ -8,12 +8,7 @@ Start with the simple checks below. They solve most setup and connection issues.
 ## Atmos will not open
 
 1. Restart the app.
-2. If you manage Atmos from the CLI, make sure the runtime is running:
-
-```bash
-atmos runtime ensure
-```
-
+2. If you manage Atmos from the CLI, run `atmos runtime ensure` to make sure the local runtime is running.
 3. Open Desktop again, or open [app.atmos.land](https://app.atmos.land) in your browser.
 
 ## Terminal is not responding
@@ -24,17 +19,7 @@ atmos runtime ensure
 
 ## A remote computer is offline
 
-On that machine, run:
-
-```bash
-atmos runtime status
-```
-
-If it is stopped, run:
-
-```bash
-atmos runtime ensure
-```
+On that machine, run `atmos runtime status`. If it is stopped, run `atmos runtime ensure`.
 
 ## Agent output looks wrong
 

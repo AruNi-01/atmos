@@ -1,6 +1,31 @@
 ---
 title: atmos computer
-description: 注册并管理 Atmos Computer 中继身份。
+description: 把这台机器注册为 Atmos Computer。
 ---
 
-{/* TODO */}
+`atmos computer` 帮你把这台机器注册为 Atmos Computer，这样你就可以从桌面应用或浏览器应用连接到它。
+
+请在项目、终端和 Agent 应该运行的那台机器上使用它。
+
+## 常见任务
+
+| 任务 | 命令 |
+|------|------|
+| 使用注册码注册这台机器 | `atmos computer register --token <token>` |
+| 注册并启动这台机器 | `atmos computer start --token <token>` |
+| 启动已经注册过的机器 | `atmos computer start` |
+| 检查注册和连接状态 | `atmos computer status` |
+
+## 典型流程
+
+1. 在应用中打开 **Settings** → **Atmos Computer**。
+2. 创建或复制注册码。
+3. 在远程机器上运行应用中显示的命令。
+4. 回到 **My Computers**，等待机器显示 **Online**。
+5. 从桌面应用或浏览器应用点击 **Connect**。
+
+## 使用建议
+
+- 像密码一样保护注册码和 access key。
+- 在远程机器上运行这个命令，不要在只负责显示 UI 的笔记本上运行。
+- 如果某台电脑离线，在那台机器上检查 `atmos computer status`。

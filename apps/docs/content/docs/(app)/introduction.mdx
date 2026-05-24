@@ -4,36 +4,30 @@ description: What Atmos is and how the docs are organized.
 icon: BookOpen
 ---
 
-# Intro
+# Introduction
 
-**Atmos - Atmosphere for Agentic Builders**
+Atmos is a concurrent development workspace for running multiple code agents in persistent terminal sessions.
 
-Atmos is a development environment for the agent era: multi-workspace isolation, persistent terminals, integrated Git workflow, Canvas, global agent chat, and more. Use it on your machine via **Desktop** or **Local Web Runtime**.
+It gives each task its own Git worktree, keeps long-running code-agent terminals alive, and lets you switch between parallel branches without losing context. You can run Atmos as a desktop app, open it in a browser, or connect the app to another machine where your code actually lives.
 
-## Features
+## What You Can Do
 
-- **Multi-Workspace Development** — Git worktree isolation for parallel agent execution across multiple environments.
-- **Persistent Tmux Sessions** — Fault-tolerant terminal management with tmux; sessions survive interruptions and restarts.
-- **Built-in Lightweight Editor** — File preview, inline editing, and switch back to manual coding mode anytime.
-- **Integrated Git Workflow** — Diff view, commit assistance, code review, and GitHub PR management in one place.
-- **Skill Management System** — Discover, enable/disable, and delete agent skills with one-click control.
-- **Global Agent Chat Panel** — Start non-terminal conversations from anywhere, powered by ACP to reuse your Code Agent CLI.
-- **Global Search & Command Palette** — Keyboard-driven workflow for searching and executing Atmos features.
-- **Usage Analytics Dashboard** — Track AI coding subscription quotas, agent token consumption, and cost estimation.
-- **Agent Status Notifications** — Hook-based status monitoring with native notifications and self-hosted push server support.
-- **Cross-Platform & Remote Access** — Desktop and browser clients; **Remote Access** (Desktop) shares *this* machine via Tailscale / Cloudflare Tunnel / ngrok and a Public URL—separate from Atmos Computer.
-- **Atmos Computer** — Connect to a *remote* server through Atmos Relay (no tunnel on the client).
-- **Kanban View** - Quickly manage Workspace status, priority, labels and other information in Kanban view.
-- **Canvas** — A cross-project infinite canvas: pin terminal cards from any workspace or project onto one persistent board, and let Code Agents drive the canvas diagrams, notes, and layout without leaving your agent workflow.
-- **Review Workflow** — Review changes in Atmos's built-in diff UI, leave inline comments on specific lines, then hand off to your Code Agent to apply fixes.
-- **Agent Status Tracking** — Real-time agent lifecycle sync via hooks (running, idle, waiting for permission, done) across the UI, with notifications on state changes—native alerts plus self-hosted push (ntfy, Gotify, or a custom webhook).
-- **Lightweight Local Models** — One-click run llama-server for small Hugging Face models on your machine—ideal for light tasks such as session titles, workspace TODO extraction, and Git commit message generation without configuring a cloud API.
+- **Open several tasks at once** — create a separate workspace and branch for each feature, bug fix, experiment, or review.
+- **Run multiple code agents in parallel** — keep one or more agent terminals alive per workspace.
+- **Keep long-running work recoverable** — terminal sessions stay attached to the workspace across reloads, app restarts, and even machine reboots.
+- **Work with agents where the context is** — run your code-agent CLI in the workspace terminal, then inspect files, diffs, reviews, and output in the same place.
+- **Review before you ship** — inspect diffs, leave line comments, ask an agent to fix them, then commit with confidence.
+- **Plan visually** — pin terminals and notes to Canvas when several workspaces need to be compared.
+- **Track many tasks** — use Kanban, labels, priority, search, and agent status to stay oriented.
+- **Work from another machine** — connect to an Atmos Computer when your repos and agents should run on a remote box.
 
-## In this docs
+## Where To Start
 
 | Section | Topics |
 |---------|--------|
-| [Getting started](/getting-started) | Install Desktop or open Atmos in your browser |
-| [Features](/features/multi-workspace) | All product capabilities — workspaces, agents, Canvas, Git, and more |
-| [Workflows](/workflows/project-and-workspace-manager) | Projects, build loop, review, Canvas, remote build |
-| [CLI](/cli) | `atmos` command reference |
+| [Getting started](/getting-started) | Install Atmos, create a worktree-backed workspace, and start a code-agent terminal |
+| [Project & Workspace Manager](/workflows/project-and-workspace-manager) | Add a project, create workspaces, and manage task cards |
+| [General Build Process](/workflows/general-build-process) | The everyday loop from idea to reviewed change |
+| [Code Review in Atmos](/workflows/code-review-in-atmos) | Review diffs, comment, and ask agents to fix issues |
+| [Remote Build](/workflows/remote-build) | Run projects and agents on another machine |
+| [CLI](/cli) | Command-line helpers for runtime, remote computers, Canvas, and review |

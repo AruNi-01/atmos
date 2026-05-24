@@ -1,6 +1,20 @@
 ---
 title: atmos update
-description: 更新 CLI 可执行文件。
+description: 更新 CLI 二进制文件。
 ---
 
-{/* TODO */}
+`atmos update` 会检查是否有更新的 Atmos CLI，并在可用时安装。
+
+当应用或文档提到新的 CLI 功能，或某个命令表现和当前文档不一致时，可以使用它。
+
+## 常见任务
+
+| 任务 | 命令 |
+|------|------|
+| 只检查，不安装 | `atmos update --check` |
+| 安装最新可用 CLI | `atmos update` |
+
+## 使用建议
+
+- CLI 也可能在其他命令之后显示更新提示。
+- 如果更新失败，可以从 GitHub Releases 下载最新版本并重新安装。

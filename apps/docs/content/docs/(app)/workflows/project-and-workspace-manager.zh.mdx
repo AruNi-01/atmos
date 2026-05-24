@@ -1,93 +1,120 @@
 ---
-title: 项目与工作区管理
-description: 创建与管理项目、工作区——一切 Atmos 工作流的基础。
+title: 项目与工作空间管理
+description: 创建和管理项目与工作空间，这是每个 Atmos 工作流的基础。
 ---
 
-**项目**是磁盘上的 Git 仓库；**工作区**是隔离的任务环境（通常为 **Git worktree**），拥有自己的分支、终端、编辑器、Agent 与审查历史。
+项目和工作空间是 Atmos 组织真实工作的方式。**项目**是磁盘上的代码库。**工作空间**是一个围绕单个任务的聚焦区域，有自己的分支、终端、编辑器、Agent 和 Review 历史。
 
-## 概述
+## 概览
 
-### 什么是工作区？
+### 什么是工作空间？
 
-工作区是单一任务单元：功能、修复、实验或审查。终端、Code Agent、diff、Kanban 卡片都附着在工作区上。
+工作空间是一项工作的最小单位：功能、修复、实验或 Review。你在 Atmos 中做的一切，包括终端、Code Agent、diff 和 Kanban 卡片，都挂在某个工作空间下面。
 
-### 为什么用 Git worktree 隔离？
+### 为什么要分离工作空间？
 
-Worktree 让多个工作区在同一仓库的**不同分支**上并行，互不干扰：
+分离的工作空间让多个任务可以共享同一个项目，同时停留在不同分支上。这样可以：
 
-- 多 Agent 并行跑在不同分支。
-- 任务之间上下文清晰分离。
-- 切换任务无需重新 clone。
+- 在不同分支上并行运行 Code Agent。
+- 清晰分离不同任务。
+- 不重新克隆也能快速切换上下文。
 
 ## 核心能力
 
-| 能力 | 说明 |
+| 能力 | 作用 |
 |------|------|
-| **Import Project** | 将 Git 仓库导入为项目 |
-| **创建工作区** | 新 worktree + 创建/setup 流水线 |
-| **Quick New Workspace** | 一键创建（自动命名/分支） |
-| **Kanban** | 状态、优先级、标签 |
-| **Workspace scripts** | Setup / Run / Purge 自动化 |
-| **GitIgnore Dirs Sync** | 将忽略目录（如 `agents/`）同步进 worktree |
+| **Import Project** | 把项目文件夹添加到 Atmos |
+| **Create workspace** | 为任务创建一个聚焦工作空间 |
+| **Quick New Workspace** | 一键创建带自动名称和分支的工作空间 |
+| **Kanban** | 跨工作空间管理状态、优先级和标签 |
+| **Workspace scripts** | 为每个项目配置 setup、run 和 purge 自动化 |
+| **Ignored folder sync** | 把选定的忽略文件夹带入新工作空间 |
 
 ## 1. 添加项目
 
-1. 左侧边栏底部 **Add Project**（文件夹图标），或全局搜索 / New Workspace 中的 **Add Project**。
-2. 在 **Import Project** 中设置 **Project Path**（输入或 **Browse…** → **Select Project Directory**）。
-3. 确认 Git 检测，设置 **Project Name**，点击 **Import Project**。
+1. 在左侧边栏底部点击 **Add Project**（文件夹图标），或从全局搜索 / New Workspace composer 中使用 **Add Project**。
+2. 在 **Import Project** 中选择 **Project Path**，可以手动输入，也可以点击 **Browse…** → **Select Project Directory**。
+3. 确认 Git 检测结果，设置 **Project Name**，然后点击 **Import Project**。
 
-## 2. 配置 Workspace Scripts
+项目会出现在侧边栏里，工作空间会显示在项目下方。
 
-项目 **⋯** → **Workspace Scripts**：
+## 2. 配置工作空间脚本
 
-| 脚本 | 时机 |
-|------|------|
-| **Setup Script** | 新工作区创建后 |
-| **Run Script** | 一键启动服务（Run / Preview，`⌘R`） |
-| **Purge Script** | 删除/归档时清理 |
+每个项目都可以配置在关键生命周期中运行的脚本。打开项目 **⋯** 菜单 → **Workspace Scripts**。
 
-对话框中会说明脚本可用的环境信息（项目路径、工作区名称、工作区目录）。
+| 脚本 | 运行时机 |
+|------|----------|
+| **Setup Script** | 新工作空间创建后运行，例如依赖、环境文件等 |
+| **Run Script** | 一键启动应用或本地预览 |
+| **Purge Script** | 删除或归档工作空间时清理文件 |
 
-## 3. GitIgnore Directories Sync
+对话框会列出脚本可使用的环境值，例如项目路径、工作空间名称和工作空间文件夹。
 
-1. **Settings** → **Workspace** → **GitIgnore Directories Sync**。
-2. 打开总开关。
-3. 为路径选择 **Symlink** / **Copy** / **Off**。
-4. 可添加自定义目录。
+完成后点击 **Save Scripts**。
 
-同步失败会提示 **GitIgnore Sync Failed**。
+## 3. 忽略文件夹同步
 
-## 4. 创建工作区
+有些团队会把 Agent 指令、prompt 或本地工具放在不会提交到 Git 的文件夹里。如果新工作空间也需要这些文件夹，请启用同步。
 
-### 4.1 侧边栏 Quick New Workspace
+1. 打开 **Settings** → **Workspace** → **GitIgnore Directories Sync**。
+2. 打开主开关。
+3. 对每个文件夹选择让 Atmos 链接、复制或忽略。
+4. 需要时添加自定义文件夹。
 
-点击项目行 **Quick New Workspace**（⚡）→ 自动命名/分支 → 跑 setup → 进入工作区。
+如果同步失败，创建工作空间时 Atmos 会显示 **GitIgnore Sync Failed**。
+
+## 4. 创建工作空间
+
+### 4.1 Quick New Workspace（侧边栏）
+
+1. 在项目行点击 **Quick New Workspace**（⚡）。
+2. Atmos 会创建一个带自动名称和分支的工作空间，将状态设为 **In Progress**，并准备它。
+3. 准备完成后，你会进入这个工作空间。
+
+适合：没有 GitHub 链接或自定义分支名的快速探索。
 
 ### 4.2 New Workspace Composer
 
-1. **New Workspace**（管理中心 / `⌘N` / 项目菜单）。
-2. 覆盖中间与右侧面板的 overlay。
-3. **PromptComposer**：`@issue#`、`@pr#`、`@file:`、`/skill:`、粘贴图片；设置优先级/状态/标签。
-4. **Advanced**（`⋯`）：名称、分支、GitHub Issue/PR。
-5. **Create Workspace**（`⌘⇧↵`）→ setup → 打开工作区并可排队初始 Agent 提示。
+1. 从 Management Center（`⌘N`）、项目菜单或全局搜索打开 **New Workspace**。
+2. **New Workspace** 覆盖中间和右侧面板，侧边栏仍然可见。
+3. 在 prompt composer 中：
+   - 输入目标，添加有用引用，或粘贴图片。
+   - 设置 **Priority**、**Status**、**Labels**，并选择项目。
+4. **Advanced**（`⋯`）：设置 **Name**、**Base branch**、**Current workspace branch**，或关联 **GitHub Issue** / **GitHub PR**。
+5. 点击 **Create Workspace**；Atmos 会创建工作空间、准备它、打开它，并且可以排队第一个 Agent prompt。
 
-### 4.3 Create New Workspace 对话框
+适合：带有丰富上下文的 Agent-first 任务。
 
-从 Kanban 列 **+** 或 **Issue Only** 卡片 **Build workspace from issue** 打开；可关联 GitHub、**Auto-extract TODOs with LLM**。
+### 4.3 Create New Workspace 对话框（Kanban 和 issue）
 
-### 4.4 Kanban：仅 Issue 工作区
+1. 在 **Kanban** 中点击某一列上的 **+**，或在 **Issue Only** 卡片上点击 **Build workspace from issue**。
+2. 在 **Create New Workspace** 或 **Build Workspace from Issue** 中选择项目、名称、分支，以及可选的 GitHub issue 或 pull request。
+3. **Create Workspace** 会运行和 composer 相同的准备流程。
 
-1. **Import GitHub Issues** → 选择仓库与 issue → **Import**。
-2. 卡片为 **GitHub Issue Only Workspace**（尚无 worktree）。
-3. 就绪后 **Build workspace from issue** 创建真实工作区。
+### 4.4 Kanban：Issue Only 工作空间
 
-## 5. 用 Kanban 管理
+1. 打开 **Kanban**（侧边栏图标，或 `⌘⇧K` 展开看板）。
+2. 点击 **Import GitHub Issues**，选择仓库，加载 issue，然后点击 **Import N Issue(s)**。
+3. Issue 会以 **GitHub Issue Only Workspace** 卡片出现，在真正创建工作空间前先被看板跟踪。
+4. 准备开始时，使用 **Build workspace from issue** 创建真实工作空间并开始构建。
 
-列：**Backlog**、**To Do**、**In Progress**、**In Review**、**Blocked**、**Completed**、**Canceled**。
+## 5. 用 Kanban 管理工作空间
 
-支持筛选、按项目/状态/时间分组、排序、**Show/Hide Issue Only**；拖拽改状态，**Pin** / **Archive** / **Delete**。
+**列**表示工作流状态：**Backlog**、**To Do**、**In Progress**、**In Review**、**Blocked**、**Completed**、**Canceled**。
 
-## 相关
+**工具栏：**
 
-- [通用构建流程](/zh/workflows/general-build-process)
-- [多工作区开发](/zh/features/multi-workspace)
+- 按状态、优先级、标签、项目过滤。
+- 按 **By Project**、**By Status** 或 **By Time** 分组。
+- 按 **Last Visit**、**Create Time** 或 **Priority** 排序。
+- 切换 **Show Issue Only** / **Hide Issue Only**。
+
+**卡片操作：**拖动改变状态，或执行 **Pin**、**Archive**、**Delete**，也可以打开工作空间。
+
+用 Kanban 回答一个问题：*我接下来该做什么？*
+
+## 相关内容
+
+- [通用构建流程](/zh/workflows/general-build-process) — 工作空间创建后的下一步。
+- [多工作空间开发](/zh/features/multi-workspace) — 功能概览。
+- [Kanban 视图](/zh/features/kanban-view) — 以看板为中心的使用建议。

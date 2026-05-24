@@ -3,8 +3,19 @@ title: CLI overview
 description: The atmos command-line interface.
 ---
 
-```bash
-atmos --help
-```
+The `atmos` command is a helper for running Atmos locally, connecting remote computers, and letting agents interact with Atmos features such as Canvas and Review.
 
-Subcommands map to product areas: `runtime`, `computer`, `canvas`, `review`, `local`, and `update`.
+Most people use the desktop or browser app day to day. Use the CLI when you are setting up a machine, checking whether Atmos is running, registering an Atmos Computer, or giving a coding agent a way to update Canvas or Review.
+
+## Commands
+
+| Command | Use it for |
+|---------|------------|
+| `atmos runtime` | Start, stop, or check the local Atmos runtime |
+| `atmos computer` | Register this machine as an Atmos Computer and keep it available remotely |
+| `atmos canvas` | Let an agent read or update the open Canvas board |
+| `atmos review` | Let an agent read or update review sessions and comments |
+| `atmos update` | Check for and install CLI updates |
+| `atmos local` | Older name for local runtime commands; prefer `atmos runtime` |
+
+Run `atmos --help` in your terminal for the exact command list installed on your machine.

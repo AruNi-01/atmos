@@ -1,56 +1,83 @@
 ---
 title: 在 Canvas 中构建
-description: 把 Canvas 当作跨工作区可视化工作台——固定终端、Frame 与 Agent 绘图。
+description: 用 Canvas 观察多个工作空间，并以可视化方式组织工作。
 ---
 
-**Canvas** 不仅是白板，更是**跨工作区工作台**：固定任意工作区的实时终端，用 Page/Frame 组织，并让 Code Agent 画架构图、流程图与便签。
+**Canvas** 不只是白板。它是一个可视化工作空间：你可以固定实时终端、整理笔记，并在多个任务同时推进时让 Agent 绘制或整理上下文。
 
-## 概述
+## 概览
 
-| 无 Canvas | 有 Canvas |
-|-----------|-----------|
-| 频繁切换工作区 | 多块终端卡片同屏 |
-| 上下文易丢 | **Pin to Canvas** 保持可见 |
-| 图在外部工具 | **Canvas Agent Bridge** 驱动画板 |
+| 没有 Canvas | 使用 Canvas |
+|-------------|-------------|
+| 在多个工作空间之间来回切换 | 多个终端卡片放在同一块画布上 |
+| 切换时丢失上下文 | **Pin to Canvas** 让会话保持可见 |
+| 图放在外部工具里 | Agent 可以帮助编辑画布 |
 
-左侧 **Management Center** → **Canvas**，或 `⌘⇧H` 全屏 overlay（tldraw）。
+从左侧边栏 **Management Center** → **Canvas** 打开 Canvas。
 
 ## 核心能力
 
-- **Pin 终端** — 任意工作区 tmux 面板为卡片。
-- **Page** — 多页（默认 **Page 1**）。
-- **Frame** — 工具栏 **Frame** 创建分组（640×440）。
-- **Agent** — **Enable bridge** 后 `atmos canvas` 操作图形。
-- **复制图形给 Agent** — 选中形状作为上下文。
+- **固定终端** — 把任何工作空间中的实时终端面板作为卡片放到画布上。
+- **页面** — 用不同页面区分不同工作线索。
+- **Frame** — 把相关卡片、笔记和图分组。
+- **Canvas 上的 Agent** — 让 Agent 创建笔记、移动元素并整理画布。
+- **复制图形给 Agent 上下文** — 选择图形，并把内容粘贴到 Agent prompt 中。
 
-## 1. Pin 到 Canvas
+## 1. 把终端固定到 Canvas
 
-1. 工作区 **Terminal** 聚焦有会话的 pane。
-2. **Pin to Canvas**（`⌘⇧P`）。
-3. 打开 **Canvas** 查看卡片；**Source** 回终端，**Unpin** 移除。
+1. 在工作空间中打开 **Terminal** 标签，并聚焦一个有实时会话的面板。
+2. 在面板工具栏点击 **Pin to Canvas**，或使用右键菜单。
+3. Toast 显示 **Pinned to Canvas**；这个图形会保存到默认画布。
+4. 打开 **Canvas**；画布会加载，最近固定的卡片会自动聚焦。
+5. 卡片上的 **Source** 会跳回原终端面板；**Unpin** 会移除图形。
 
-可对多个工作区重复，并行观察多个 Agent。
+你可以对**其他工作空间**里的终端重复这个操作，在一个界面上并行观察多个 Agent。
 
-## 2. Page 与 Frame
+## 2. 整理页面和 Frame
 
-- 终端 pin 在当前 tldraw **Page**。
-- **Frame** 在视口中心创建，用于分组卡片与示意图。
+**页面**
 
-## 3. 并行 Code Agent
+- 终端固定卡片属于当前页面。
+- 当画布有多个页面时，可以从页面菜单切换。
 
-典型：固定分支 A/B 的 Agent 终端 + 便签记录目标；需要完整 UI 时用 **Source** 回工作区。
+**Frame**
 
-## 4. Agent 在 Canvas 上工作
+1. 如果右上角工具栏折叠了，先展开它。
+2. 点击 **Frame**，在当前视图中心放置一个带名称的 Frame。
+3. 调整大小并重命名；把相关卡片和图放到 Frame 中。
 
-1. **Canvas Agent Bridge** → **Enable bridge**。
-2. 从弹层复制 Agent 说明（内置 Canvas Agent 技能）。
-3. 观察 **Canvas agent activity** 与 **Jump** 到最近改动。
+可以用 Frame 表示 “sprint board”、“service A migration” 或 “incident timeline” 这样的分组。
 
-## 保存
+## 3. 在 Canvas 上并行运行 Code Agent
 
-**Save** 与自动保存持久化画板与镜头。
+典型模式：
 
-## 相关
+1. 固定工作空间 A 的 Agent 终端（功能分支）。
+2. 固定工作空间 B 的 Agent 终端（hotfix）。
+3. 添加便签记录目标和风险。
+4. 不离开 Canvas 就能观察两个面板。
 
-- [Canvas](/zh/features/canvas)
+当你需要完整工作空间 UI（编辑器、Review、Run / Preview）时，点击 **Source** 跳转回去。
+
+## 4. 让 Agent 操作 Canvas
+
+1. 打开右上角的 Canvas Agent 控件。
+2. 允许 Agent 访问画布。
+3. 需要时，把那里显示的说明复制给你的编码 Agent。
+4. Agent 工作时：
+   - 桥接图标会闪动，图形可能会短暂高亮。
+   - 右下角的 **Canvas agent activity** 会列出动作。
+   - **Last change · Jump** 会平移到最近的改动。
+
+让 Agent 绘制架构图、时序流程或整理笔记。你也可以把选中的画布内容复制到 Agent 对话中作为上下文。
+
+## 保存与持久化
+
+- **Save** 会保存当前画布状态。
+- 后台也会自动保存。
+
+## 相关内容
+
+- [Canvas](/zh/features/canvas) — 功能概览
 - [通用构建流程](/zh/workflows/general-build-process)
+- [项目与工作空间管理](/zh/workflows/project-and-workspace-manager)

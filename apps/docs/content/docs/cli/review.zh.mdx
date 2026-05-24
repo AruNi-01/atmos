@@ -1,6 +1,28 @@
 ---
 title: atmos review
-description: 在终端中使用审查工作流。
+description: 从终端参与 Review 工作流。
 ---
 
-{/* TODO */}
+`atmos review` 让 Agent 可以从终端操作 Atmos review session。它主要用于需要读取评论、添加回复、更新状态或写总结的 Review Agent。
+
+大多数用户会在应用里 Review 变更。当你在终端中运行编码 Agent，并希望它参与同一个 review session 时，再使用 CLI。
+
+## 它可以帮什么
+
+- 列出和查看 review session。
+- 读取 Review 评论及其周围上下文。
+- 添加或回复评论。
+- 启动、总结或完成一次 Agent Review 运行。
+- 将 Review 工作标记为已解决、失败或完成。
+
+## 典型流程
+
+1. 在 Atmos 中创建 review session。
+2. 在 diff 中添加评论，或启动 Agent Review。
+3. 当终端 Agent 需要 Review 上下文时，让它使用 `atmos review`。
+4. 回到应用中检查更新后的 diff 和评论。
+
+## 使用建议
+
+- Review 时保持应用打开，这样你可以直观看到变更。
+- CLI 用于 Agent 协调，不要把它当作自己阅读 diff 的替代品。

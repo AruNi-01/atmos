@@ -1,9 +1,9 @@
 ---
 title: Build in Canvas
-description: Use Canvas as a cross-workspace visual bench—pinned terminals, frames, and agent-driven diagrams.
+description: Use Canvas to watch several workspaces and organize the work visually.
 ---
 
-**Canvas** is not only a whiteboard. It is a **cross-workspace workbench**: pin live terminals from any project, organize pages and frames, and let Code Agents draw architecture diagrams, flowcharts, and notes while you orchestrate parallel builds.
+**Canvas** is not only a whiteboard. It is a visual workspace where you can pin live terminals, organize notes, and ask agents to draw or arrange context while several tasks are moving at once.
 
 ## Overview
 
@@ -11,22 +11,22 @@ description: Use Canvas as a cross-workspace visual bench—pinned terminals, fr
 |----------------|-------------|
 | Alt-tab between workspaces | Multiple terminal cards on one board |
 | Context lost when switching | **Pin to Canvas** keeps sessions visible |
-| Diagrams in external tools | Agents edit the board via **Canvas Agent Bridge** |
+| Diagrams in external tools | Agents can help edit the board |
 
-Open Canvas from the left sidebar **Management Center** → **Canvas** (or `⌘⇧H`). The overlay uses a full-screen **tldraw** board with optional pinned terminals.
+Open Canvas from the left sidebar **Management Center** → **Canvas**.
 
 ## Core capabilities
 
-- **Pin terminals** — Live tmux panes from any workspace as cards on the board.
-- **Pages** — Multiple tldraw pages (default **Page 1**; use the page menu when more exist).
-- **Frames** — Group shapes on one page (toolbar **Frame** creates a 640×440 frame).
-- **Agent on canvas** — Enable **Canvas Agent Bridge** so agents run `atmos canvas` commands (read, create, move, layout shapes).
+- **Pin terminals** — live terminal panes from any workspace as cards on the board.
+- **Pages** — separate board pages for different threads of work.
+- **Frames** — group related cards, notes, and diagrams.
+- **Agent on Canvas** — let agents create notes, move items, and organize the board.
 - **Copy shapes to agent context** — Select graphics and paste content into agent prompts.
 
 ## 1. Pin a terminal to Canvas
 
 1. In a workspace, open the **Terminal** tab and focus a pane with a live session.
-2. On the pane toolbar, click **Pin to Canvas** (`⌘⇧P`), or use the context menu **Pin to Canvas**.
+2. On the pane toolbar, click **Pin to Canvas**, or use the context menu.
 3. Toast: **Pinned to Canvas** — the shape is saved on your default board.
 4. Open **Canvas** — the board loads; the last pin is auto-focused.
 5. On the card: **Source** jumps back to that terminal pane; **Unpin** removes the shape.
@@ -37,14 +37,14 @@ Repeat for terminals in **other workspaces** to work on multiple agents in paral
 
 **Pages**
 
-- Terminal pins belong to the **current tldraw page**.
-- Switch pages from the tldraw page menu when the board has multiple pages.
+- Terminal pins belong to the current page.
+- Switch pages from the page menu when the board has more than one page.
 
 **Frames**
 
 1. Expand the top-right toolbar if collapsed.
 2. Click **Frame** to drop a named frame at the viewport center.
-3. Resize and rename via tldraw; group related cards and diagrams inside frames.
+3. Resize and rename it; group related cards and diagrams inside frames.
 
 Use frames for “sprint board”, “service A migration”, or “incident timeline” groupings.
 
@@ -61,20 +61,20 @@ Jump to **Source** when you need the full workspace UI (editor, Review, Run / Pr
 
 ## 4. Let agents work on Canvas
 
-1. Top-right → **Canvas Agent Bridge** (bot icon).
-2. Enable **Enable bridge** so external agents can drive the board.
-3. Copy agent instructions from the popover (uses the built-in Canvas agent skill).
+1. Open the Canvas agent controls in the top-right corner.
+2. Enable agent access to the board.
+3. Copy the instructions shown there into your coding agent when needed.
 4. While the agent works:
    - Bridge icon pulses; shapes may show transient highlights.
    - **Canvas agent activity** island (bottom-right) lists actions.
    - **Last change · Jump** pans to the latest edit.
 
-Ask agents to draw architecture diagrams, sequence flows, or layout notes—then copy shape content into chat as `@` context where supported.
+Ask agents to draw architecture diagrams, sequence flows, or organize notes. You can also copy selected board content into an agent conversation when you need to share context.
 
 ## Save and persistence
 
-- **Save** in the share panel writes the tldraw document and camera to the default board.
-- Debounced auto-save also runs in the background.
+- **Save** keeps the current board state.
+- Auto-save also runs in the background.
 
 ## Related
 

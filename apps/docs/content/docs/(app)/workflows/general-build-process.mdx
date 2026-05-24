@@ -1,19 +1,15 @@
 ---
 title: General Build Process
-description: The standard loop from workspace creation through agent build, review, run, and ship.
+description: The everyday loop from workspace creation to a reviewed change.
 ---
 
-In Atmos, **building** means turning an idea into running, reviewed code inside a workspace—not only compiling binaries. The default loop ties together workspaces, setup scripts, Code Agents, review, run/preview, and cleanup.
+In Atmos, building usually means turning an idea into a running, reviewed change inside a workspace.
+
+The default loop is simple: create a workspace, let an agent or human make changes, review the diff, run the app, test it, and clean up when the task is done.
 
 ## Overview
 
-A typical build cycle:
-
-```text
-Create workspace → Setup script → Code Agent in terminal
-  → Review (optional) → Manual edits (optional)
-  → Run script + browser preview → Test → PR → Archive + Purge
-```
+Most tasks follow this order: create a workspace, prepare the project, build with an agent or by hand, review the change, run it, test it, ship it, then archive the workspace.
 
 ## 1. Open or create a workspace
 
@@ -23,14 +19,14 @@ Follow [Project & Workspace Manager](/workflows/project-and-workspace-manager):
 - **New Workspace Composer** (`⌘N`) when you have prompts, GitHub links, or images.
 - **Kanban** when triaging many tasks.
 
-Wait for **Workspace Setup Progress** to finish (worktree, optional issue/PR spec, TODO extraction, setup script).
+Wait for **Workspace Setup Progress** to finish before you start editing or running agents.
 
 ## 2. Run the setup script
 
 If the project defines a **Setup Script**, it runs automatically during creation. Typical jobs:
 
-- Install dependencies (`npm install`, `cargo build`, etc.).
-- Copy `.env.example` or sync secrets.
+- Install project dependencies.
+- Copy example settings or sync secrets.
 - Generate local config.
 
 Steps shown in the UI include **Create Workspace**, **Run Setup Script**, and **Ready**. You can proceed when blocking steps complete.
@@ -39,9 +35,9 @@ Configure scripts under project **⋯** → **Workspace Scripts**.
 
 ## 3. Build with a Code Agent in the terminal
 
-1. Open the workspace **Terminal** tab (tmux-backed, persistent).
-2. Start your **Code Agent CLI** (Cursor agent, Claude Code, etc.) in that shell.
-3. Or use the **global Agent chat panel** (ACP) for non-terminal tasks—still scoped to this workspace.
+1. Open the workspace **Terminal** tab.
+2. Start your coding agent in that shell.
+3. Or use the **global agent chat panel** for focused tasks that do not need a full terminal flow.
 
 Give the agent a clear goal, files, and constraints. Let it iterate with tools while you watch output in the same pane.
 
@@ -50,7 +46,7 @@ Give the agent a clear goal, files, and constraints. Let it iterate with tools w
 Before you trust the diff:
 
 1. Open the right sidebar **Review** tab.
-2. Create a **Review Session** (snapshot of current code).
+2. Create a **Review Session**.
 3. Comment on diffs or run **Agent Review** with a review skill.
 4. Use **Fix** to send open comments back to the Code Agent.
 
@@ -65,7 +61,7 @@ Use the **built-in editor** for small fixes, or your primary IDE for large refac
 1. Configure a **Run Script** on the project if you have not already.
 2. In the workspace, open the right sidebar **Run / Preview** tab.
 3. Click **Run** (or `⌘R`) to execute the run script in the terminal.
-4. When the app prints a URL, Atmos detects it and opens the **built-in browser preview** for live debugging.
+4. When the app prints a preview link, Atmos can open it in the built-in browser preview.
 
 If no run script exists, you will see **No Run Script Configured** with a shortcut to **Workspace Scripts**.
 
@@ -74,12 +70,12 @@ If no run script exists, you will see **No Run Script Configured** with a shortc
 1. Run project tests in the terminal (unit, e2e, lint—whatever your repo uses).
 2. Commit or open a PR from your normal Git flow (Atmos Git view helps inspect diffs first).
 3. **Archive** the workspace when the task is done (sidebar or Kanban **Archive**).
-4. If configured, the **Purge Script** removes heavy artifacts (dependencies cache, build output) so worktrees do not fill the disk.
+4. If configured, the **Purge Script** removes heavy generated files so old workspaces do not fill your disk.
 
-**Archive Behavior** in **Settings** → **Workspace** controls confirmations and whether tmux sessions are killed on archive.
+**Archive Behavior** in **Settings** → **Workspace** controls confirmations and what happens to terminal sessions when a workspace is archived.
 
 ## Related
 
 - [Code Review in Atmos](/workflows/code-review-in-atmos)
 - [Build in Canvas](/workflows/build-in-canvas) — multi-workspace visual layout
-- [Remote Build](/workflows/remote-build) — run the same loop on a VPS
+- [Remote Build](/workflows/remote-build) — run the same loop on another machine

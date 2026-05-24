@@ -1,32 +1,32 @@
 ---
 title: Review 工作流
-description: 在 Atmos 内审查 diff、行内评论，并交给 Code Agent 修复。
+description: 在 Atmos 中查看 diff、逐行评论，并把修复交给 Code Agent。
 ---
 
-Review 工作流刻意放慢节奏——逐条阅读改动、留下行内评论，在提交或 Pull Request 前请 Agent 按评论修复。
+Review 工作流会有意让你慢下来：逐项阅读变更、留下行内评论，并在提交或打开 Pull Request 前让 Agent 处理这些问题。
 
 ## 为什么重要
 
-- 在合并前发现 Agent 失误。
-- 在精确行号记录审查意见。
-- 无需把评论复制到其他工具。
-- 高风险改动保留人工判断。
+- 在合并前发现 Agent 犯的错误。
+- 把 Review 备注记录在具体代码行上。
+- 不用把评论复制到其他地方，也能完成闭环。
+- 在有风险的改动中保留人工判断。
 
-## 审查流程
+## Review 流程
 
-1. 打开有待提交改动的工作区。
-2. 打开 Git 或审查视图阅读 diff。
-3. 在需要修改的行留下评论。
-4. 请 Code Agent 根据评论修复。
-5. 重新运行检查并复审直至通过。
+1. 打开包含待处理改动的工作空间。
+2. 打开 Git 或 Review 视图，阅读 diff。
+3. 在需要修改的行上留下评论。
+4. 让 Code Agent 根据这些评论修复问题。
+5. 重新运行检查并再次 Review，直到干净为止。
 
-## 关注什么
+## 要看什么
 
-- 改动是否完成原始目标？
+- 这个改动是否解决了原始任务？
 - 是否缺少测试、文档或边界情况？
-- diff 能否更小、更清晰？
+- diff 是否还能更小、更清晰？
 
-## 提示
+## 使用建议
 
 - Agent 修复后运行项目测试。
-- 与 [集成 Git 工作流](/zh/features/integrated-git-workflow) 配合提交与 PR。
+- 和 [集成 Git 工作流](/zh/features/integrated-git-workflow) 搭配，完成提交和 PR 步骤。

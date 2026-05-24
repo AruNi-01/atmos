@@ -3,4 +3,26 @@ title: atmos review
 description: Review workflow from the terminal.
 ---
 
-{/* TODO */}
+`atmos review` lets agents work with Atmos review sessions from the terminal. It is mainly for review agents that need to read comments, add replies, update status, or write summaries.
+
+Most users review changes in the app. Use the CLI when you are running a coding agent in a terminal and want it to participate in the same review session.
+
+## What It Can Help With
+
+- List and inspect review sessions.
+- Read review comments and their surrounding context.
+- Add or reply to comments.
+- Start, summarize, or finish an agent review run.
+- Mark review work as resolved, failed, or complete.
+
+## Typical Flow
+
+1. Create a review session in Atmos.
+2. Add comments in the diff, or start an agent review.
+3. Let the terminal agent use `atmos review` when it needs the review context.
+4. Return to the app to inspect the updated diff and comments.
+
+## Tips
+
+- Keep the app open while reviewing so you can inspect changes visually.
+- Use the CLI for agent coordination, not as a replacement for reading the diff yourself.

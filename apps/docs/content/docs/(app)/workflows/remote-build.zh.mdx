@@ -1,76 +1,101 @@
 ---
 title: 远程构建
-description: 通过 Atmos Computer 与 Atmos Relay 在远程服务器构建——客户端无需隧道。
+description: 从笔记本或浏览器使用 Atmos，同时在另一台机器上构建。
 ---
 
-**远程构建**指 Atmos **应用**在一台设备上，而**项目、终端、Agent 与数据**在另一台 **Atmos Computer** 上。全程走 **Atmos Relay**，不走 Ngrok/Tailscale/Cloudflare。
+**远程构建**指的是 Atmos 应用运行在一台设备上，而项目、终端、Agent 和工作空间数据存在于另一台你添加为 **Atmos Computer** 的机器上。
 
-## 与 Remote Access 无关
+## 和 Remote Access 不一样
+
+Atmos 提供两种**不同**的远程功能，不要为了同一个目标同时使用两者：
 
 | 功能 | 设置 | 作用 |
 |------|------|------|
-| **Atmos Computer**（本文） | **Atmos Computer** | UI 经 Relay 连**远程**服务器；服务器**出站**连 Atmos |
-| **Remote Access** | **Remote Access**（仅桌面） | 用隧道暴露**本机**，浏览器打开 **Public URL** |
+| **Atmos Computer**（本指南） | **Atmos Computer** | 在另一台机器上工作 |
+| **Remote Access** | **Remote Access**（仅桌面应用） | 通过浏览器链接分享这台机器 |
 
-- VPS 上构建 → 只用 **Atmos Computer**。
-- 分享**笔记本上的** Atmos → 只用 **Remote Access**（[说明](/zh/features/cross-platform-remote-access)）。
+- 在远程机器上构建 → 只用 **Atmos Computer**。
+- “让别人从浏览器打开**我笔记本上**的 Atmos” → 只用 **Remote Access**（见[功能文档](/zh/features/cross-platform-remote-access)）。
 
-**Connect** 远程 Computer 时，笔记本**不必**安装隧道。
+连接到 Atmos Computer 时，你不需要在笔记本上安装隧道软件。
 
-## 概述
+## 概览
 
-### 数据在哪
+### 你的工作存在哪里
 
-**Connect** 后，工作区、分支、终端、Agent 历史都在**该 Computer**；你的设备只是客户端。在本机可选用 **Use locally** 回到本机 Atmos。
+点击 **Connect** 之后：
 
-### Relay（通俗理解）
+- 工作空间、分支、终端和 Agent 历史都在**那台 Computer** 上。
+- 你的笔记本或浏览器只是**客户端**。
+- 当你已连接到那台 Computer 时，本地运行的 CLI 工具会指向和 UI 相同的 Computer。
 
-1. 远程机器与 **Atmos Relay** 保持连接。
-2. 你点 **Connect** → 获得短期会话。
-3. 聊天、终端、文件等操作经 Relay 到远程服务器。
+如果你就在当前机器上，选择 **Use locally**，回到这台机器上的 Atmos。
 
-默认服务为 **relay.atmos.land**（团队可能使用自定义 Atmos 云地址）。
+### 连接的直观理解
 
-## 步骤 1 — Access Key
+1. 远程机器保持连接到 Atmos。
+2. 你点击 **Connect**，Atmos 给你的 UI 一个到那台电脑的短期会话。
+3. 聊天、终端、文件等应用操作现在都发生在那台机器上。
 
-**Settings → Atmos Computer → Access Key** → **Generate** → **Save** → **Copy**（妥善保管，等同密码）。
+你的团队可以使用默认的 Atmos 连接服务，也可以使用自定义服务。
 
-## 步骤 2 — 注册 Computer
+## 第 1 步：创建 Access Key
 
-### 本机
+1. 打开 **Settings** → **Atmos Computer** → **Access Key**。
+2. 点击 **Generate**，或粘贴一个你信任的长 key。
+3. 点击 **Save**，把这个 key 绑定到当前设备上的 Atmos 账户。
+4. 立即 **Copy**；它之后可能不会再次显示。
 
-1. 本机 **Atmos Server** 已运行。
-2. **This Computer** 开启注册（文案可能是「注册到远程」——指 **Relay**，不是 **Remote Access**）。
-3. **My Computers** 显示 **Online**；断开可用 **Reconnect**。
+把 access key 当作密码保管。
 
-### 远程 VPS
+## 第 2 步：注册一台 Computer
 
-1. 在管理设备上保存 Access Key。
-2. 远程安装 Atmos（[快速开始](/zh/getting-started)）。
-3. **Register Computer** 生成**注册码**（短时、单次）。
-4. 在远程主机按界面提示执行 `atmos computer start` 等命令。
+### 这台机器（和应用在同一台设备上）
 
-也可在远程启动服务时传入一次性注册令牌，成功后删除。
+1. 确保 Atmos 正在这台电脑上运行。
+2. **Settings** → **Atmos Computer** → **This Computer** → 打开注册。  
+   （界面可能写着 “Register to Remote”。在这里它指的是 Atmos Computer，不是 Remote Access。）
+3. Atmos 会注册这台主机；当连接在线时，**My Computers** 会显示 **Online**。如果断开，可以使用 **Reconnect**。
 
-## 步骤 3 — 连接
+### 另一台机器
 
-**My Computers** → **Online** → **Connect**。在本机物理位置用 **Use locally**。
+1. 在你管理电脑的设备上保存 access key，例如你的笔记本。
+2. 在远程主机上安装 Atmos（见[快速开始](/zh/getting-started)）。
+3. 在 **Settings** → **Register Computer** 中创建一个**注册码**，它是短期、一次性的。
+4. 在远程主机上，按照屏幕上的 CLI 步骤使用这个 code。
 
-## 步骤 4 — 远程构建
+如果你使用一次性注册码，注册成功后将它移除。
 
-与本地相同：[项目与工作区](/zh/workflows/project-and-workspace-manager)、[通用构建](/zh/workflows/general-build-process)、[审查](/zh/workflows/code-review-in-atmos)、[Canvas](/zh/workflows/build-in-canvas)。
+## 第 3 步：从 Desktop 或 Web 连接
 
-## 安全说明
+1. 打开 **Settings** → **Atmos Computer** → **My Computers**。
+2. 对于 **Online** 的电脑，点击 **Connect**。
+3. UI 会重新连接；所有工作空间现在都属于那台机器。
 
-| 主题 | 说明 |
-|------|------|
-| **加密** | 传输使用常规 TLS，但当前**无**仅你方可读的端到端加密。 |
-| **Access Key** | 持有者可管理并连接你的 Computer，请妥善保管。 |
-| **注册码** | 短时单次有效。 |
-| **会话** | 连接会话约一天，过期后重新 Connect。 |
-| **撤销** | 在 **My Computers** 移除或撤销以切断访问。 |
+如果你就在那台电脑上，使用 **Use locally**，而不是 Connect。
 
-## 相关
+离线远程电脑在重新连接前不可用。
 
-- [Atmos Computer](/zh/features/atmos-computer)
-- [跨平台与 Remote Access](/zh/features/cross-platform-remote-access)
+## 第 4 步：远程构建
+
+连接后，使用和本地机器相同的工作流：
+
+- [项目与工作空间管理](/zh/workflows/project-and-workspace-manager)
+- [通用构建流程](/zh/workflows/general-build-process)
+- [在 Atmos 中做代码 Review](/zh/workflows/code-review-in-atmos)
+- [在 Canvas 中构建](/zh/workflows/build-in-canvas)
+
+## 安全注意事项
+
+| 主题 | 需要知道什么 |
+|------|--------------|
+| **连接安全** | 传输过程受保护，但今天不要把连接服务视为端到端加密。 |
+| **谁能连接** | 任何拥有你 **access key** 的人都可以管理并连接你的电脑；像密码一样保护它。 |
+| **注册码** | 短期且一次性；过期后生成新的。 |
+| **会话** | 连接会话大约持续一天；需要时重新连接。 |
+| **撤销** | 在 **My Computers** 中移除或撤销电脑，即可切断访问。 |
+
+## 相关内容
+
+- [Atmos Computer](/zh/features/atmos-computer) — 功能概览
+- [跨平台与远程访问](/zh/features/cross-platform-remote-access) — 只用于**这台**机器的隧道分享

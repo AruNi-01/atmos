@@ -1,10 +1,21 @@
 ---
 title: CLI 概览
-description: atmos 命令行接口。
+description: atmos 命令行界面。
 ---
 
-```bash
-atmos --help
-```
+`atmos` 命令是一个辅助工具，用于在本地运行 Atmos、连接远程电脑，并让 Agent 操作 Canvas 和 Review 等 Atmos 功能。
 
-子命令对应产品模块：`runtime`、`computer`、`canvas`、`review`、`local` 和 `update`。
+大多数人日常使用桌面应用或浏览器应用。CLI 适合设置机器、检查 Atmos 是否运行、注册 Atmos Computer，或给编码 Agent 一种更新 Canvas 或 Review 的方式。
+
+## 命令
+
+| 命令 | 用途 |
+|------|------|
+| `atmos runtime` | 启动、停止或检查本地 Atmos runtime |
+| `atmos computer` | 把这台机器注册为 Atmos Computer，并让它可远程使用 |
+| `atmos canvas` | 让 Agent 读取或更新打开的 Canvas 画布 |
+| `atmos review` | 让 Agent 读取或更新 Review session 和评论 |
+| `atmos update` | 检查并安装 CLI 更新 |
+| `atmos local` | 本地 runtime 命令的旧名称；优先使用 `atmos runtime` |
+
+在终端中运行 `atmos --help`，查看你机器上安装的准确命令列表。

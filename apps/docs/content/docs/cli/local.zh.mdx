@@ -3,4 +3,18 @@ title: atmos local
 description: 本地开发辅助命令。
 ---
 
-{/* TODO */}
+`atmos local` 是本地 runtime 命令的旧名称。
+
+新的设置请改用 [atmos runtime](/zh/cli/runtime)。它更清晰，也和应用现在启动、停止、检查本地 Atmos runtime 的方式一致。
+
+## 仍然可用的内容
+
+| 任务 | 旧命令 |
+|------|--------|
+| 启动本地 runtime | `atmos local start` |
+| 检查状态 | `atmos local status` |
+| 停止本地 runtime | `atmos local stop` |
+
+## 建议
+
+除非你在跟随旧说明，否则使用 `atmos runtime ensure`、`atmos runtime status` 和 `atmos runtime stop`。

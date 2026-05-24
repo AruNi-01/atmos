@@ -1,41 +1,26 @@
 ---
 title: 故障排查
-description: 常见问题和解决办法。
+description: 常见问题和修复方式。
 ---
 
-先从下面这些简单检查开始。大多数安装和连接问题都可以这样定位。
+先从下面这些简单检查开始。它们能解决大多数设置和连接问题。
 
 ## Atmos 打不开
 
 1. 重启应用。
-2. 如果你通过 CLI 管理 Atmos，确认 runtime 正在运行：
-
-```bash
-atmos runtime ensure
-```
-
-3. 重新打开 Desktop，或在浏览器中打开 [app.atmos.land](https://app.atmos.land)。
+2. 如果你通过 CLI 管理 Atmos，运行 `atmos runtime ensure`，确认本地运行环境已启动。
+3. 再次打开桌面应用，或在浏览器中打开 [app.atmos.land](https://app.atmos.land)。
 
 ## 终端没有响应
 
-1. 如果当前命令卡住，先停止它。
-2. 在同一个工作区打开新终端。
-3. 运行 `pwd` 这样的小命令，确认 shell 正常。
+1. 如果当前命令卡住了，先停止它。
+2. 在同一个工作空间里打开一个新终端。
+3. 运行一个小命令，比如 `pwd`，确认 shell 可以正常工作。
 
-## 远程 computer 离线
+## 远程电脑离线
 
-在那台机器上运行：
+在那台机器上运行 `atmos runtime status`。如果它已经停止，运行 `atmos runtime ensure`。
 
-```bash
-atmos runtime status
-```
+## Agent 输出看起来不对
 
-如果已经停止，运行：
-
-```bash
-atmos runtime ensure
-```
-
-## Agent 输出不对
-
-先确认打开的是正确工作区和项目目录。然后用更小、更明确的请求重新运行 Agent。
+确认你打开的是正确的工作空间和项目文件夹。然后用更小、更具体的请求重新运行 Agent。

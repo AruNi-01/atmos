@@ -1,55 +1,85 @@
 ---
-title: 在 Atmos 中审查代码
-description: Review Session、行内 diff 评论、Agent 修复循环与审查技能——推送前在本地完成。
+title: 在 Atmos 中做代码 Review
+description: 在 push 前 Review 变更、留下评论，并让 Agent 修复问题。
 ---
 
-**Review Workflow** 用 **Review Session** 冻结代码快照，在推送前于本地完成 diff 评论与 Agent 修复，而不只依赖远程 PR 讨论。
+Atmos Review 帮你在变更离开本机前完成 Review。你可以阅读 diff、在具体行上评论、让 Agent 修复这些评论，然后重复直到准备好 push。
 
-## 概述
+## 概览
 
-| GitHub PR 审查 | Atmos Review |
-|----------------|--------------|
-| 远程 PR 评论 | 本地 **Review Session** 快照 |
-| 常在 push 之后 | **push 之前** |
-| 外部 UI | 内置 diff + **Review** 侧栏 |
-| 人工修 | **Fix** + **Agent Review** |
+| 传统 GitHub PR Review | Atmos Review |
+|-----------------------|--------------|
+| 在远程 PR 上评论 | 本地 **Review Session** |
+| 通常发生在 push 之后 | 在 push 到远端之前 |
+| 外部 UI | 内置 diff + 侧边栏 **Review** 标签 |
+| 手动修复循环 | **Fix** + 带技能的 **Agent Review** |
 
-每次会话可有多个修订版本（`v1`、`v2`…）。
+每个 **Review Session** 都有自己的评论和 Review 轮次，因此你可以比较 Agent 修复后的变化。
 
 ## 1. 开始 Review Session
 
-1. 打开有改动的工作区。
-2. 右侧 **Review** → **New Review Session**。
-3. 基于当前代码创建快照。
+1. 打开包含待 Review 变更的工作空间。
+2. 打开右侧边栏 → **Review** 标签。
+3. 点击 **New Review Session**，或在 session 选择器中点击 **New Session**。
+4. Atmos 会捕获当前变更并创建一个 Review session。
 
-## 2. 两种审查方式
+Session 列表支持 **Active**、**Closed** 和 **Archived** 状态。
 
-### 2.1 人工 diff + Agent 修复
+## 2. 两种 Review 方式
 
-1. **Changed Files** 打开文件 → 中央 **Review** 分组 diff。
-2. 行号旁 **+** → **Add review comment**。
-3. 选择 Agent → **Fix** 处理 open 评论。
-4. 新版本修订（`v2`…）；标记文件 **Reviewed**。
+两种方式都支持多轮 Review 和修复。
 
-### 2.2 Agent Review（技能）
+### 2.1 人工 diff Review + Agent 修复
 
-1. **Fix** 菜单 → **Agent Review**。
-2. **Code Agent Review** 选择 **Review Skill**、ACP 或 CLI 或 **Code Review** 终端。
-3. Agent 留行内评论与 **Review Report**；报告可 **Open session** 回到 Review。
+1. 在 **Changed Files** 下打开文件，查看它的 diff。
+2. 悬停到某一行，选择 **Add review comment**。
+3. 写下备注并提交。
+4. 评论会显示在行内，也会出现在侧边栏的 **Comments** 中。
+5. 在操作栏中选择一个 Agent，点击 **Fix**，把未解决评论发给 Code Agent。
+6. Agent 完成后，Review 新版本的变更。
+7. 过程中可以在文件列表或 diff 工具栏中把文件标记为 **Reviewed**。
+
+**Fix** 菜单在需要时也提供 **Copy Prompt** 和 **Mark failed**。
+
+### 2.2 使用技能做 Agent Review
+
+1. 在 **Review** 标签中，打开 **Fix** 菜单旁边的下拉箭头 → **Agent Review**。
+2. 在 **Code Agent Review** 中选择一个 **Review Skill**，例如内置 reviewer 或你的自定义技能。
+3. 选择 Agent 在哪里运行。
+4. 开始 Review。Agent 可以留下评论，也可以写一份 Review 报告。
+5. 打开报告后，可以用 **Open session** 跳回 Review 标签。
 
 ## 3. 测试变更
 
-每轮修复后重读 diff、跑测试、关闭或 dismiss 评论。查看侧栏 **Summary**（若有）。
+每轮修复后：
 
-## 4. 提交或创建 PR
+1. 重新阅读当前版本的 diff。
+2. 在工作空间终端中运行测试。
+3. 确认未解决评论已经解决或关闭。
 
-确认快照无误后 commit / push / 开 PR。Review Session 是本地质量门禁，不替代远程 PR 流程。
+当 Agent 创建 Review 报告时，可以在 Review 侧边栏中使用 **Summary**。
 
-## 会话管理
+## 4. 提交或打开 PR
 
-切换修订、**Activate** / **Close** / **Archive** / **Rename**、刷新列表。
+当当前变更看起来没问题：
 
-## 相关
+1. 从 Git 视图或终端提交。
+2. 像平时一样 push 并在 GitHub 上打开 pull request。
 
-- [Review 工作流](/zh/features/review-workflow)
-- [通用构建流程](/zh/workflows/general-build-process)
+Review session 是本地质量门禁；它不会替代远程 PR 流程。
+
+## Session 管理
+
+从 session 下拉菜单中可以：
+
+- 切换 **v1**、**v2** 等版本。
+- **Activate Session**、**Close Session**、**Archive Session**、**Rename**。
+- 刷新 session 和评论。
+
+当专门的 review agent 运行时，会出现 **Code Review** 标签。
+
+## 相关内容
+
+- [Review 工作流](/zh/features/review-workflow) — 功能概要
+- [通用构建流程](/zh/workflows/general-build-process) — Review 在构建循环中的位置
+- [集成 Git 工作流](/zh/features/integrated-git-workflow)

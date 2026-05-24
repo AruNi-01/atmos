@@ -6,29 +6,21 @@ icon: Rocket
 
 import { Card, Cards } from 'fumadocs-ui/components/card';
 
-Choose how you run Atmos:
+Choose the setup that matches where you want your work to run.
 
 ## Desktop app
 
-### macOS with Homebrew
+The desktop app is the best starting point when your projects are on your own computer.
 
-```bash
-brew install --cask AruNi-01/tap/atmos
-```
+- On macOS, install with Homebrew using `brew install --cask AruNi-01/tap/atmos`.
+- You can also use the macOS installer from `https://install.atmos.land/install-desktop.sh`.
+- For Windows and Linux, download the latest build from [GitHub Releases](https://github.com/AruNi-01/atmos/releases).
 
-### macOS install script
+After installing, open Atmos like any other app.
 
-```bash
-curl -fsSL https://install.atmos.land/install-desktop.sh | bash
-```
+## Browser app
 
-> **Security tip:** Avoid piping remote scripts straight into your shell. Prefer downloading the script first, reviewing it (or verifying checksums from [GitHub Releases](https://github.com/AruNi-01/atmos/releases)), then running it locally — e.g. `curl -fsSL … -o install-desktop.sh`, verify, `bash install-desktop.sh`.
-
-The install script is for macOS. For Windows and Linux, download the latest installer from [GitHub Releases](https://github.com/AruNi-01/atmos/releases).
-
-## Open in browser
-
-Use the hosted web app when you want to open Atmos directly in a browser.
+Use the browser app when you want the UI in a tab, or when you plan to connect to an Atmos Computer.
 
 <Cards>
   <Card href="https://app.atmos.land" title="Open Atmos in Browser">
@@ -36,16 +28,24 @@ Use the hosted web app when you want to open Atmos directly in a browser.
   </Card>
 </Cards>
 
+For local browser use, the local web runtime starts Atmos on your machine and opens a local address in your browser. Install it from the package `@atmos/local-web-runtime` or use the installer linked from the release notes.
+
 ## First workspace
 
 1. Launch Desktop or open Atmos in your browser.
-2. Create or open a workspace and connect your project.
-3. Open a terminal and start working with your Code Agent.
+2. Add a project folder when Atmos asks for one.
+3. Create a workspace for the task you want to run in parallel.
+4. Atmos prepares an isolated working folder and branch for that task.
+5. Open the workspace terminal.
+6. Start your code-agent CLI in that terminal.
+7. Review the diff before you commit.
 
-## From source (contributors)
+## First Code Agent Terminal
 
-```bash
-bun install && cargo fetch
-just dev-api   # terminal 1
-just dev-web   # terminal 2
-```
+Atmos is terminal-first: start the code agent you already use inside the workspace terminal. Each workspace keeps its own terminal session, branch, files, and diff, so you can run several agents side by side without mixing their work.
+
+For parallel work, create one workspace per task and start one agent in each workspace terminal. Use the sidebar, Kanban, Canvas, and Review views to monitor progress and bring finished changes back into your normal Git flow.
+
+## Contributor Setup
+
+If you are contributing to Atmos itself, use the repository README for source setup. This docs site focuses on using the product, not developing Atmos.

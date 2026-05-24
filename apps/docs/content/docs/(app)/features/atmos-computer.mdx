@@ -1,9 +1,11 @@
 ---
 title: Atmos Computer
-description: Connect Desktop or Web to a remote Atmos Server through Atmos Relay—no third-party tunnel required.
+description: Connect Atmos to another machine where your projects run.
 ---
 
-**Atmos Computer** registers a machine (VPS, workstation, home server) with **Atmos** so your UI connects through **Atmos Relay**. The remote server reaches out to Atmos on its own; your laptop or browser then joins that session. You do **not** install Ngrok, Tailscale, or Cloudflare Tunnel for this.
+**Atmos Computer** lets your desktop app or browser connect to another machine where your projects, terminals, agents, and workspaces run.
+
+Use it when you want to build on a stronger machine, a home machine, or a cloud box while keeping the Atmos UI on your laptop.
 
 This is **separate** from [Cross-Platform & Remote Access](/features/cross-platform-remote-access) **Remote Access**, which uses external tunneling to share **the machine you are on now**.
 
@@ -11,38 +13,29 @@ This is **separate** from [Cross-Platform & Remote Access](/features/cross-platf
 
 | | **Atmos Computer** | **Remote Access** (tunneling) |
 |---|-------------------|-------------------------------|
-| **Where work runs** | The **registered remote** host | **This** computer (where Desktop is hosting) |
-| **Network path** | Atmos Relay (server connects outward) | External provider → secure entry → local Atmos |
+| **Where work runs** | The computer you registered | This computer |
+| **Connection** | Atmos connects the app to that computer | A tunnel publishes this computer |
 | **Client needs tunnel tools** | No | Yes (on the hosting desktop) |
 | **Main entry** | **Atmos Computer** → **Connect** | **Remote Access** → **Public URL** |
 | **Your projects live on** | The remote machine | This machine |
 
-Some UI labels say “remote” on **This Computer**—that means **register this PC with Atmos Relay**, not the **Remote Access** tunnel page.
+Some UI labels say “remote” on **This Computer**. In this section, that means “make this computer available in Atmos Computer,” not “start a Remote Access tunnel.”
 
 ## Why it matters
 
 - Keep repos, secrets, and builds on infrastructure you control.
 - Use one powerful remote box from a laptop, desktop, or browser.
-- No inbound firewall rules or tunnel accounts on the client—only an outbound link from the server.
+- Avoid setting up a separate tunnel tool on your laptop.
 
-## How connection works
+## How Connection Works
 
-```text
-Your laptop (Desktop or browser)
-        │
-        ▼
-   Atmos Relay  (e.g. relay.atmos.land)
-        ▲
-Remote machine running Atmos Server
-```
-
-Your UI never needs the server’s public IP or SSH for Atmos itself—the server maintains the relay link.
+The remote machine keeps a connection open to Atmos. When you click **Connect**, your app joins that machine through the same Atmos service. You do not need to know the machine's public address for everyday Atmos use.
 
 ## Typical flow
 
 1. **Access Key** — create and save in **Settings → Atmos Computer → Access Key**.
 2. **Register** — add the remote machine to your account (from that machine or via a registration code).
-3. **Connect** — pick the computer under **My Computers**; Atmos switches the UI to that server.
+3. **Connect** — pick the computer under **My Computers**; Atmos switches the UI to that machine.
 4. **Work** — workspaces, terminals, Canvas, and agents run on **that** computer.
 
 ## Learn more

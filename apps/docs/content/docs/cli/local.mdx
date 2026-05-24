@@ -3,4 +3,18 @@ title: atmos local
 description: Local development helpers.
 ---
 
-{/* TODO */}
+`atmos local` is the older name for local runtime commands.
+
+For new setup, use [atmos runtime](/cli/runtime) instead. It is clearer and matches how the app now starts, stops, and checks the local Atmos runtime.
+
+## What Still Works
+
+| Task | Older command |
+|------|---------------|
+| Start the local runtime | `atmos local start` |
+| Check status | `atmos local status` |
+| Stop the local runtime | `atmos local stop` |
+
+## Recommendation
+
+Use `atmos runtime ensure`, `atmos runtime status`, and `atmos runtime stop` unless you are following older instructions.

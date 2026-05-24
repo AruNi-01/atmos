@@ -1,6 +1,27 @@
 ---
 title: atmos runtime
-description: 确保并查看本机 Atmos Server 状态。
+description: 启动、停止和检查本地 Atmos。
 ---
 
-{/* TODO：ensure、status、manifest */}
+`atmos runtime` 管理你电脑上的本地 Atmos runtime。当桌面应用或浏览器应用无法连接，或你想在打开 UI 前先启动 Atmos 时，可以使用它。
+
+## 常见任务
+
+| 任务 | 命令 |
+|------|------|
+| 如果 Atmos 没有运行，则启动它 | `atmos runtime ensure` |
+| 检查 Atmos 是否健康 | `atmos runtime status` |
+| 停止本地 runtime | `atmos runtime stop` |
+
+## 什么时候使用
+
+- 你安装了 Local Web Runtime，并想在浏览器中打开 Atmos。
+- 桌面应用找不到本地 runtime。
+- 你正在准备一台机器，之后要把它注册为 Atmos Computer。
+- 你想在本地设置变化后重启 runtime。
+
+## 使用建议
+
+- 新设置优先使用 `atmos runtime`，而不是 `atmos local`。
+- 如果 `status` 显示 runtime 已停止，运行 `ensure`，然后重新打开 Atmos。
+- 如果你在使用 Atmos Computer，确认这些命令运行在项目实际所在的机器上。
