@@ -11,10 +11,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::api::ws::ClientType;
 use futures_util::{SinkExt, StreamExt};
 use http::header::{self, HeaderValue};
 use http::StatusCode;
-use infra::ClientType;
 use runtime_manager::ServerIdentity;
 use serde::Deserialize;
 use tokio::sync::{mpsc, RwLock};

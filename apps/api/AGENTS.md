@@ -27,7 +27,11 @@ apps/api/
 │   │   └── register.rs      # ATMOS_REGISTER_TOKEN one-shot
 │   ├── api/                 # Handlers & DTOs
 │   │   ├── dto.rs
-│   │   ├── ws/              # WebSocket handlers
+│   │   ├── ws/              # Browser WebSocket entry: connection, protocol, router
+│   │   │   ├── handlers.rs  # Axum upgrade handler
+│   │   │   ├── manager.rs   # API-owned browser WS connection manager
+│   │   │   ├── message.rs   # WsMessage / WsAction / WsEvent and DTO modules
+│   │   │   └── router/      # WsAction → service/core adapter
 │   │   ├── workspace/
 │   │   ├── agent/
 │   │   ├── project/
@@ -64,7 +68,10 @@ On successful `TcpListener::bind`:
 ### WebSocket
 
 - Primary transport for interactive features (see root **Transport Rules**).
-- `relay/ingest` must treat relay peers like local WS clients for routing (`conn_id`, events).
+- Browser/client WebSocket belongs here, not in `infra`.
+- `api/ws` owns connection lifecycle, auth context, message parsing, protocol DTOs, action routing, and mapping service events to WS notifications.
+- `core-service` should not depend on `WsMessage`, `WsAction`, `WsManager`, or Axum. If a service needs to notify clients, emit a service event and adapt it here.
+- `relay/ingest` must treat relay peers like local WS clients for routing (`conn_id`, events), while relay protocol adaptation stays in `apps/api/src/relay`.
 
 ### REST
 
@@ -80,6 +87,7 @@ On successful `TcpListener::bind`:
 - Implement business logic here — use `crates/core-service`.
 - Access DB outside `infra` repositories.
 - Add parallel REST for flows that should extend WS messages.
+- Move browser/client WebSocket protocol or connection management into `infra`.
 
 ### ALWAYS
 

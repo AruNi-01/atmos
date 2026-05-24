@@ -67,12 +67,8 @@ pub fn write_server_identity(data: &ServerIdentity) -> Result<PathBuf, String> {
         .ok_or_else(|| format!("identity path has no parent: {}", path.display()))?;
     fs::create_dir_all(dir)
         .map_err(|err| format!("Failed to create {}: {}", dir.display(), err))?;
-    let payload = serde_json::to_string_pretty(data).map_err(|err| {
-        format!(
-            "Failed to serialize {}: {}",
-            RELAY_IDENTITY_FILE_NAME, err
-        )
-    })?;
+    let payload = serde_json::to_string_pretty(data)
+        .map_err(|err| format!("Failed to serialize {}: {}", RELAY_IDENTITY_FILE_NAME, err))?;
     write_identity_file_restricted(&path, &format!("{payload}\n"))?;
     Ok(path)
 }

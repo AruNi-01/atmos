@@ -2,9 +2,10 @@
 
 use clap::{Args, Subcommand};
 use runtime_manager::{
-    normalize_control_plane_url, read_server_identity, register_computer, RegistrationMeta,
+    normalize_control_plane_url, read_server_identity, register_computer,
     resolve_server_identity_path,
     supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_HOST, DEFAULT_PORT},
+    RegistrationMeta,
 };
 use serde_json::{json, Value};
 

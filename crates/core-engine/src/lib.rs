@@ -15,8 +15,8 @@ pub use fs::{
     compensate_path, CompensateStrategy, FileTreeItem, FsEngine, FsEntry, GitValidationResult,
 };
 pub use git::{
-    list_ignored_paths, list_ignored_paths_for_many, ChangedFileInfo, ChangedFilesInfo, CommitInfo,
-    FileDiffInfo, GitEngine, GitStatus, WorktreeInfo, sync_worktree_local_excludes,
+    list_ignored_paths, list_ignored_paths_for_many, sync_worktree_local_excludes, ChangedFileInfo,
+    ChangedFilesInfo, CommitInfo, FileDiffInfo, GitEngine, GitStatus, WorktreeInfo,
 };
 pub use github::GithubEngine;
 pub use search::{search_content, SearchMatch, SearchResult};

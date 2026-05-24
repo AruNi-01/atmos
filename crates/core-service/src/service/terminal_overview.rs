@@ -4,7 +4,7 @@ use crate::error::Result;
 use crate::service::project::ProjectService;
 use crate::service::terminal::TerminalService;
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Builds JSON objects for `GET /api/system/terminal-overview` `active_sessions`,
 /// including `context_scope` and resolved `tmux_window_name`, with batched project

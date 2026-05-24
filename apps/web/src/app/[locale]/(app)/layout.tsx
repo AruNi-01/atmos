@@ -1,20 +1,20 @@
 import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
-import Header from "@/components/layout/Header";
-import LeftSidebar from "@/components/layout/LeftSidebar";
-import CenterStage from "@/components/layout/CenterStage";
-import RightSidebar from "@/components/layout/RightSidebar";
-import GlobalSearch from "@/components/layout/GlobalSearch";
-import { ModalAgentChatPanel } from "@/components/agent/ModalAgentChatPanel";
-import Footer from "@/components/layout/Footer";
-import { HostedBootstrapBoundary } from "@/components/layout/HostedAppShellGate";
-import { PanelLayout } from "@/components/layout/PanelLayout";
-import { DocumentTitle } from "@/components/layout/DocumentTitle";
-import { SidebarLayoutProvider } from "@/components/layout/SidebarLayoutContext";
-import { WorkspaceCreationOverlay } from "@/components/layout/WorkspaceCreationOverlay";
-import { CanvasOverlay } from "@/components/canvas/CanvasOverlay";
-import { ConnectionBootstrapper } from "@/components/ConnectionBootstrapper";
-import { DiffWorkerPoolProvider } from "@/components/diff/DiffWorkerPoolProvider";
+import Header from "@/app-shell/Header";
+import LeftSidebar from "@/app-shell/LeftSidebar";
+import CenterStage from "@/app-shell/CenterStage";
+import RightSidebar from "@/app-shell/RightSidebar";
+import GlobalSearch from "@/app-shell/GlobalSearch";
+import { ModalAgentChatPanel } from "@/features/agent/components/ModalAgentChatPanel";
+import Footer from "@/app-shell/Footer";
+import { HostedBootstrapBoundary } from "@/app-shell/HostedAppShellGate";
+import { PanelLayout } from "@/app-shell/PanelLayout";
+import { DocumentTitle } from "@/app-shell/DocumentTitle";
+import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
+import { WorkspaceCreationOverlay } from "@/app-shell/WorkspaceCreationOverlay";
+import { CanvasOverlay } from "@/features/canvas/components/CanvasOverlay";
+import { ConnectionBootstrapper } from "@/app-shell/bootstrap/ConnectionBootstrapper";
+import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoolProvider";
 
 type Props = {
   children: React.ReactNode;

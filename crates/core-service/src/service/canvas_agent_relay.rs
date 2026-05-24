@@ -73,7 +73,9 @@ pub enum ResolveTarget {
     /// No clients are registered or accepting.
     Offline,
     /// More than one client and no `client_id` was supplied.
-    Ambiguous { clients: Vec<CanvasBridgeClientSummary> },
+    Ambiguous {
+        clients: Vec<CanvasBridgeClientSummary>,
+    },
     /// `client_id` was supplied but didn't match any registered client.
     NotFound,
     /// `client_id` matched a registered client that has `accepts_commands = false`.
@@ -211,8 +213,7 @@ impl CanvasAgentRelay {
     /// Resolve which registered tab should receive a dispatch.
     pub fn resolve_target(&self, client_id: Option<&str>) -> ResolveTarget {
         let bridge = self.bridge.lock().unwrap();
-        let accepting: Vec<&BridgeEntry> =
-            bridge.iter().filter(|e| e.accepts_commands).collect();
+        let accepting: Vec<&BridgeEntry> = bridge.iter().filter(|e| e.accepts_commands).collect();
 
         if let Some(want) = client_id {
             // Exact match against any registered entry (accepting or not).

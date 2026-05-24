@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use crate::api::ws::{WsMessageService, WsService};
 use core_service::{
     AgentHooksService, AgentService, AgentSessionService, CanvasAgentRelay, CanvasService,
     MessagePushService, NotificationService, ProjectService, ReviewService, TerminalService,
-    TestService, WorkspaceService, WsMessageService,
+    TestService, WorkspaceService,
 };
-use infra::WsService;
 use token_usage::TokenUsageService;
 
 use crate::relay::RelaySupervisor;

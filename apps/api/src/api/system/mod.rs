@@ -1,5 +1,9 @@
+mod cli;
+mod client_session;
 mod computer;
+mod debug_log;
 mod diagnostics;
+mod files;
 mod handlers;
 mod skills;
 
@@ -48,19 +52,18 @@ pub fn routes() -> Router<AppState> {
             "/review-skills/scaffold",
             post(handlers::scaffold_review_skill),
         )
-        .route("/cli-version-check", get(handlers::check_cli_version))
-        .route("/cli-install", post(handlers::install_cli))
+        .route("/cli-version-check", get(cli::check_cli_version))
+        .route("/cli-install", post(cli::install_cli))
         .route("/ws-connections", get(handlers::list_ws_connections))
-        .route("/file", get(handlers::serve_file))
-        .route("/debug-log", post(handlers::ingest_frontend_debug_log))
+        .route("/file", get(files::serve_file))
+        .route("/debug-log", post(debug_log::ingest_frontend_debug_log))
         .route(
             "/client-session",
-            get(handlers::get_client_session).put(handlers::put_client_session),
+            get(client_session::get_client_session).put(client_session::put_client_session),
         )
         .route(
             "/computer-client-settings",
-            get(computer::get_computer_client_settings)
-                .put(computer::put_computer_client_settings),
+            get(computer::get_computer_client_settings).put(computer::put_computer_client_settings),
         )
         .route("/computer", get(computer::get_computer_status))
         .route("/runtime-info", get(computer::get_runtime_info))

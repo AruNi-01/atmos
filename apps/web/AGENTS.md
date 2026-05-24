@@ -19,16 +19,24 @@ apps/web/
 ├── src/
 │   ├── app/[locale]/...
 │   ├── api/                 # Next API routes (dev/bootstrap only where needed)
-│   ├── components/
-│   ├── hooks/
-│   │   └── use-websocket.ts # WS URL + relay mode
-│   └── lib/
-│       ├── desktop-runtime.ts      # Tauri / same-origin API discovery
-│       ├── atmos-computer-store.ts # Access token, relay client sessions (APP-016)
-│       ├── ws-url.ts
-│       └── ...
+│   ├── app-shell/           # Global chrome, sidebars, overlays, layout state
+│   ├── features/            # Business-owned components/hooks/stores/libs
+│   ├── providers/           # App-wide React providers
+│   └── shared/
+│       ├── components/      # Web-app shared rendering components only
+│       ├── hooks/           # Cross-feature hooks
+│       ├── lib/             # Platform helpers and pure utilities
+│       ├── stores/          # Cross-feature client stores/preferences
+│       └── types/           # Cross-feature domain types
 └── package.json
 ```
+
+Prefer feature-local ownership over top-level buckets. A feature owns its
+`components/`, `hooks/`, `store/`, `lib/`, and `types/` when those files exist
+for that feature only. Keep feature roots thin, usually limited to `AGENTS.md`
+and deliberate public barrels such as `index.ts`. Move code into `shared/` only
+after two or more features use it, and keep `shared/lib` free of UI component
+imports and feature store writes.
 
 ---
 
@@ -60,6 +68,8 @@ Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host
 ## APP-016 (Atmos Computer) UI
 
 - **Settings** → `AtmosComputerSection.tsx`, `atmos-access-token.ts`
+- Frontend location: `src/features/remote-access/` and
+  `src/features/connection/`
 - User-created **Access Token** (Bearer) for control plane — not a shared CP key.
 - Register token flow for remote computers: copy CLI / env `ATMOS_REGISTER_TOKEN`.
 
@@ -71,7 +81,8 @@ Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer
 
 - API types ↔ `apps/api/src/api/dto.rs`
 - UI atoms from `@workspace/ui`; semantic theme tokens (`bg-background`, etc.)
-- Dialog-specific rules: [src/components/dialogs/AGENTS.md](src/components/dialogs/AGENTS.md)
+- Feature-local dialogs live with their feature, not in a global dialog folder.
+- Settings-specific rules: [src/features/settings/components/AGENTS.md](src/features/settings/components/AGENTS.md)
 
 ---
 

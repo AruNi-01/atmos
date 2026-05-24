@@ -30,6 +30,7 @@ crates/core-service/
 
 ### Orchestration
 - Services should call multiple Engines (L2) and Repos (L1) to fulfill a business goal
+- Services emit domain/application events for client notifications; `apps/api` adapts those events to WebSocket notifications
 
 ### Type Safety
 - Use `types.rs` for domain-specific models used across services
@@ -44,13 +45,14 @@ crates/core-service/
 - **Auth**: Logic for validation and token issuance
 - **Project/Workspace**: Orchestrating Engine and Infra to manage development environments
 - **Terminal**: High-level terminal session orchestration
+- **Notifications**: Service events and settings, without direct WebSocket manager ownership
 
 ---
 
 ## Dependencies
 
 - `core-engine`: L2 engine capabilities (PTY, Git, FS)
-- `infra`: L1 infrastructure (DB, WebSocket, Jobs)
+- `infra`: L1 infrastructure (DB, repos, cache, queue, jobs)
 
 ---
 
@@ -59,8 +61,9 @@ crates/core-service/
 ### NEVER
 - Put technical implementation details here — use `core-engine`
 - Access database directly — use repositories from `infra`
+- Depend on `apps/api`, Axum, `WsMessage`, `WsAction`, `WsManager`, or browser WebSocket DTOs
 
 ### ALWAYS
 - Orchestrate multiple L2 and L1 components to fulfill business goals
 - Use `ServiceError` for consistent error handling
-
+- Keep transport adaptation in `apps/api`; expose ordinary service methods and events

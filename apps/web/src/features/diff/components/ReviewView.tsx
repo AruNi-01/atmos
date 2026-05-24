@@ -1,0 +1,367 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Button,
+  Loader2,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui";
+import { MessageSquarePlus, ChevronRight, LoaderCircle, List, ListTree } from "lucide-react";
+import { cn } from "@/shared/lib/utils";
+import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
+import { useReviewSnapshotStore } from "@/features/code-review/hooks/use-review-snapshot-store";
+import { useContextParams } from "@/shared/hooks/use-context-params";
+import {
+  useEditorStore,
+  EDITOR_REVIEW_DIFF_PREFIX,
+  EDITOR_REVIEW_GROUP_PREFIX,
+  isReviewGroupEditorPath,
+  getEditorSourcePath,
+} from "@/features/editor/store/use-editor-store";
+import { DiffFilePathLabel } from "@/features/diff/components/DiffFilePathLabel";
+import { CommentCard } from "@/features/diff/components/review/CommentCard";
+import { FrozenFileList } from "@/features/diff/components/review/FrozenFileList";
+import {
+  compareReviewTimestamps,
+  formatReviewDateTime,
+  getScopeBadgeText,
+  isOpenReviewCommentStatus,
+  sortComments,
+} from "@/features/diff/components/review/utils";
+import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
+
+import { useSidebarUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
+
+const ReviewView: React.FC = () => {
+  const { effectiveContextId } = useContextParams();
+  const reviewEditorKey = effectiveContextId;
+  const getActiveFilePath = useEditorStore((s) => s.getActiveFilePath);
+  const rawFilePath = (reviewEditorKey && getActiveFilePath(reviewEditorKey)) || "";
+  const activeGroupedFilePath = useEditorStore((s) =>
+    reviewEditorKey ? s.diffGroupActiveFiles[reviewEditorKey]?.[rawFilePath] ?? "" : "",
+  );
+  const filePath = isReviewGroupEditorPath(rawFilePath)
+    ? activeGroupedFilePath
+    : rawFilePath.startsWith(EDITOR_REVIEW_DIFF_PREFIX)
+      ? getEditorSourcePath(rawFilePath)
+      : "";
+
+  const {
+    currentSession,
+    currentRevision,
+    canEdit,
+    comments,
+    isCreating,
+    handleCreateSession,
+    handleToggleReviewed,
+    handleUpdateCommentStatus,
+    handleReplyToComment,
+    handleUpdateMessage,
+    handleDeleteMessage,
+    latestSummaryRun,
+    handlePreviewArtifact,
+    artifactPreview,
+    artifactLoading,
+  } = useReviewCtx();
+
+  const setSessionDisplay = useReviewSnapshotStore((s) => s.setSessionDisplay);
+  const openFile = useEditorStore((s) => s.openFile);
+  const pinFile = useEditorStore((s) => s.pinFile);
+
+  const revisionLabel = useMemo(() => {
+    if (!currentSession || !currentRevision) return "";
+    const sorted = [...currentSession.revisions].sort((a, b) =>
+      compareReviewTimestamps(a.created_at, b.created_at),
+    );
+    const idx = sorted.findIndex((r) => r.guid === currentRevision.guid);
+    return idx >= 0 ? `v${idx + 1}` : "";
+  }, [currentRevision, currentSession]);
+
+  useEffect(() => {
+    setSessionDisplay({
+      sessionTitle: currentSession?.title?.trim() || null,
+      revisionLabel: revisionLabel || null,
+    });
+  }, [currentSession, revisionLabel, setSessionDisplay]);
+
+  const commentsByFile = useMemo(() => {
+    const ordered = sortComments(comments, null);
+    const groups = new Map<string, typeof ordered>();
+    for (const comment of ordered) {
+      const key = comment.anchor.file_path || "(unknown)";
+      const list = groups.get(key) ?? [];
+      list.push(comment);
+      groups.set(key, list);
+    }
+    return Array.from(groups.entries());
+  }, [comments]);
+
+  const [filesOpen, setFilesOpen] = useState(true);
+  const [sidebarUi, setSidebarUi] = useSidebarUiPrefs();
+  const fileViewMode = sidebarUi.reviewFileViewMode;
+  const setFileViewMode = (mode: "list" | "tree") =>
+    setSidebarUi({ reviewFileViewMode: mode });
+  const [commentsOpen, setCommentsOpen] = useState(true);
+  const [commentGroupsOpen, setCommentGroupsOpen] = useState<Record<string, boolean>>({});
+  const [summaryOpen, setSummaryOpen] = useState(true);
+
+  const summaryRunGuid = latestSummaryRun?.guid ?? null;
+  const hasLoadedSummary = artifactPreview?.kind === "summary" && artifactPreview?.runGuid === summaryRunGuid;
+  const reviewGroupPath = currentRevision
+    ? `${EDITOR_REVIEW_GROUP_PREFIX}${currentRevision.guid}`
+    : null;
+
+  useEffect(() => {
+    if (summaryRunGuid && !hasLoadedSummary && !artifactLoading) {
+      handlePreviewArtifact(summaryRunGuid, "summary");
+    }
+  }, [summaryRunGuid, hasLoadedSummary, artifactLoading, handlePreviewArtifact]);
+
+  if (!reviewEditorKey) {
+    return (
+      <div className="p-3 text-xs text-muted-foreground">
+        No project or workspace selected.
+      </div>
+    );
+  }
+
+  if (!currentSession) {
+    return (
+      <div className="p-3">
+        <div className="rounded-lg border border-dashed border-sidebar-border bg-background/70 p-4 text-center">
+          <p className="text-sm text-foreground">No review session yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Start a session to track comments and fix runs for this workspace or project.
+          </p>
+          <Button
+            size="sm"
+            className="mt-3"
+            onClick={handleCreateSession}
+            disabled={isCreating}
+          >
+            {isCreating ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <MessageSquarePlus className="mr-2 size-4" />
+            )}
+            New Review Session
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const fileCount = currentRevision?.files.length ?? 0;
+  const hasFiles = fileCount > 0;
+  const hasComments = commentsByFile.length > 0;
+  const openCommentCount = comments.filter((t) => isOpenReviewCommentStatus(t.status)).length;
+
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      {/* Inline stats line */}
+      <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground shrink-0 border-b border-sidebar-border/50">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {/* N2: scope badge */}
+          <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground border border-border">
+            {getScopeBadgeText(currentSession)}
+          </span>
+          <span>{openCommentCount} open</span>
+          <span>·</span>
+          <span>
+            {currentRevision?.files.filter((f) => f.state.reviewed).length ?? 0}/{fileCount} reviewed
+          </span>
+          {(currentRevision?.files.filter((f) => f.changed_after_review).length ?? 0) > 0 && (
+            <>
+              <span>·</span>
+              <span className="truncate text-amber-600">
+                {currentRevision?.files.filter((f) => f.changed_after_review).length} changed after review
+              </span>
+            </>
+          )}
+        </div>
+        <button
+          type="button"
+          title={fileViewMode === "tree" ? "Show as list" : "Show as tree"}
+          aria-label={fileViewMode === "tree" ? "Show review files as list" : "Show review files as tree"}
+          onClick={() =>
+            setFileViewMode(fileViewMode === "tree" ? "list" : "tree")
+          }
+          className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        >
+          {fileViewMode === "tree" ? (
+            <List className="size-3.5" />
+          ) : (
+            <ListTree className="size-3.5" />
+          )}
+        </button>
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2 py-1">
+        {/* Frozen Files */}
+        <Collapsible open={filesOpen} onOpenChange={setFilesOpen} className="w-full">
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+            <ChevronRight
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-200",
+                filesOpen && "rotate-90",
+              )}
+            />
+            <span>Changed Files</span>
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              {currentSession.reviewed_file_count}/{fileCount}
+            </span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="pb-2">
+              {hasFiles ? (
+                <FrozenFileList
+                  revision={currentRevision}
+                  currentFilePath={filePath}
+                  canEdit={canEdit}
+                  onSelectFile={(_snapshotGuid, snapFilePath) => {
+                    if (!reviewGroupPath) return;
+                    void openFile(reviewGroupPath, reviewEditorKey, {
+                      preview: true,
+                      diffFilePath: snapFilePath,
+                    });
+                  }}
+                  onDoubleClickFile={(_snapshotGuid, snapFilePath) => {
+                    if (!reviewGroupPath) return;
+                    void openFile(reviewGroupPath, reviewEditorKey, {
+                      preview: false,
+                      diffFilePath: snapFilePath,
+                    });
+                    pinFile(reviewGroupPath, reviewEditorKey ?? undefined);
+                  }}
+                  onToggleReviewed={handleToggleReviewed}
+                  revisionLabel={revisionLabel}
+                  viewMode={fileViewMode}
+                />
+              ) : (
+                <p className="px-1 text-xs text-muted-foreground py-2">
+                  No changed files in this revision.
+                </p>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Comments */}
+        <Collapsible open={commentsOpen} onOpenChange={setCommentsOpen} className="w-full">
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+            <ChevronRight
+              className={cn(
+                "size-3.5 shrink-0 transition-transform duration-200",
+                commentsOpen && "rotate-90",
+              )}
+            />
+            <span>Comments</span>
+            <span className="text-[11px] text-muted-foreground ml-auto">
+              {comments.length}
+            </span>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="pb-2 space-y-3">
+              {!hasComments ? (
+                <p className="px-1 text-xs text-muted-foreground">
+                  No review comments in this revision yet.
+                </p>
+              ) : (
+                commentsByFile.map(([file, group]) => (
+                  <Collapsible
+                    key={file}
+                    open={commentGroupsOpen[file] ?? true}
+                    onOpenChange={(open) =>
+                      setCommentGroupsOpen((prev) => ({ ...prev, [file]: open }))
+                    }
+                    className="space-y-2"
+                  >
+                    <CollapsibleTrigger className="group/comment-file flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-sidebar-accent/40 cursor-pointer">
+                      <DiffFilePathLabel
+                        path={file}
+                        className="flex min-w-0 flex-1 items-center gap-2"
+                        fileNameClassName="text-[13px] text-foreground font-semibold whitespace-nowrap shrink-0"
+                        dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
+                      />
+                      <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                        {group.length}
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2">
+                      {group.map((comment) => (
+                        <CommentCard
+                          key={comment.guid}
+                          comment={comment}
+                          canEdit={
+                            canEdit &&
+                            comment.revision_guid ===
+                              currentSession.current_revision_guid
+                          }
+                          onUpdateStatus={handleUpdateCommentStatus}
+                          onReply={handleReplyToComment}
+                          onUpdateMessage={handleUpdateMessage}
+                          onDeleteMessage={handleDeleteMessage}
+                          onNavigate={(targetComment, targetMessage) => {
+                            const snapFilePath =
+                              targetComment.anchor.file_path || file;
+                            if (!reviewGroupPath) return;
+                            void openFile(reviewGroupPath, reviewEditorKey, {
+                              preview: true,
+                              diffFilePath: snapFilePath,
+                              line: targetComment.anchor_start_line,
+                              reviewCommentGuid: targetComment.guid,
+                              reviewMessageGuid: targetMessage?.guid,
+                            });
+                          }}
+                        />
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* Fix Run Summary */}
+        {latestSummaryRun && (
+          <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen} className="w-full">
+            <CollapsibleTrigger className="flex w-full items-center gap-1.5 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+              <ChevronRight
+                className={cn(
+                  "size-3.5 shrink-0 transition-transform duration-200",
+                  summaryOpen && "rotate-90",
+                )}
+              />
+              <span>Summary</span>
+              <span className="text-[11px] text-muted-foreground ml-auto">
+                {formatReviewDateTime(latestSummaryRun.updated_at)}
+              </span>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="pb-2 px-1">
+                {artifactPreview?.runGuid === latestSummaryRun.guid && artifactPreview?.kind === "summary" ? (
+                  <div className="rounded-md border border-border bg-background/80 p-3">
+                    <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[13px] leading-relaxed">
+                      {artifactPreview.content}
+                    </MarkdownRenderer>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <LoaderCircle className="size-3 animate-spin" />
+                    <span>Loading summary...</span>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ReviewView;

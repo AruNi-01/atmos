@@ -863,4 +863,3 @@ fn copy_symlink(source: &Path, target: &Path) -> Result<()> {
         ))
     })
 }
-

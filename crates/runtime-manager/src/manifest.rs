@@ -252,9 +252,11 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         guard.set_home(tmp.path());
 
-        crate::client_session::write_client_session(
-            &crate::client_session::ClientSession::new("sid", "https://ignored", "tok"),
-        )
+        crate::client_session::write_client_session(&crate::client_session::ClientSession::new(
+            "sid",
+            "https://ignored",
+            "tok",
+        ))
         .unwrap();
         let session_path = crate::client_session::client_session_path();
         fs::write(&session_path, "{ not json").unwrap();

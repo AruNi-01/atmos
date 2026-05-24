@@ -29,7 +29,10 @@ pub fn local_computer_display_name_opt() -> Option<String> {
 }
 
 fn command_stdout(program: &str, args: &[&str]) -> Option<String> {
-    let output = std::process::Command::new(program).args(args).output().ok()?;
+    let output = std::process::Command::new(program)
+        .args(args)
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }

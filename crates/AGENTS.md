@@ -1,6 +1,6 @@
 # Crates Directory - AGENTS.md
 
-> **🦀 Rust layers**: `infra` → `core-engine` → `core-service` → consumed by `apps/api`. Cross-cutting crates listed below.
+> **🦀 Rust layers**: `infra` → `core-engine` → `core-service` → consumed by `apps/api`. Capability and host/runtime crates are listed below.
 
 ---
 
@@ -11,13 +11,17 @@
 | L1 | `infra` | [infra/AGENTS.md](infra/AGENTS.md) |
 | L2 | `core-engine` | [core-engine/AGENTS.md](core-engine/AGENTS.md) |
 | L3 | `core-service` | [core-service/AGENTS.md](core-service/AGENTS.md) |
-| — | `agent` | [agent/AGENTS.md](agent/AGENTS.md) |
-| — | `llm` | [llm/AGENTS.md](llm/AGENTS.md) |
-| — | `ai-usage` | [ai-usage/AGENTS.md](ai-usage/AGENTS.md) |
-| — | `token-usage` | [token-usage/AGENTS.md](token-usage/AGENTS.md) |
+| Capability | `agent` | [agent/AGENTS.md](agent/AGENTS.md) |
+| Capability | `llm` | [llm/AGENTS.md](llm/AGENTS.md) |
+| Capability | `ai-usage` | [ai-usage/AGENTS.md](ai-usage/AGENTS.md) |
+| Capability | `token-usage` | [token-usage/AGENTS.md](token-usage/AGENTS.md) |
+| Capability | `local-model-runtime` | — |
+| Capability | `remote-access` | — |
 | Host | `runtime-manager` | [runtime-manager/AGENTS.md](runtime-manager/AGENTS.md) |
 
 Change flow: **infra → core-engine → core-service → apps/api**. Do not skip layers.
+
+Inbound HTTP and browser WebSocket are both API entry concerns. `apps/api/src/api/ws` owns browser WebSocket connection management, protocol DTOs, action routing, and service/event adaptation. `infra` must not contain inbound WebSocket code.
 
 ---
 
@@ -33,6 +37,7 @@ Not part of the business stack — used by **`apps/api`** (manifest + relay iden
 
 - Import `apps/*` from `crates/*`.
 - Put HTTP route handlers in crates (belongs in `apps/api`).
+- Put inbound WebSocket handlers, connection managers, or browser WS protocol DTOs in `infra`.
 
 ### ALWAYS
 
