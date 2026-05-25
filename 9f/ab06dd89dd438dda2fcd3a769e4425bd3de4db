@@ -1,0 +1,37 @@
+apps/web/src/app-shell/bootstrap/ConnectionBootstrapper.tsx
+  s_6eb37eddd3b3e0::t_6e7c8e49c9279d 4-7,114
+  s_6eb37eddd3b3e0::t_d1e986743d6fc2 111-113,115
+apps/web/src/features/connection/lib/hosted-connection.ts
+  s_6eb37eddd3b3e0::t_0d7ab1ca3baf6f 4,139,144-153
+apps/web/src/features/remote-access/components/AtmosComputerSection.tsx
+  s_6eb37eddd3b3e0::t_166d3d509b3e00 30
+  s_6eb37eddd3b3e0::t_4be00ed0537f0f 503-504,506-511,539-551,557,562-567
+  s_6eb37eddd3b3e0::t_da9c78b0ac94bb 472,560,599
+  s_6eb37eddd3b3e0::t_5846986251bdec 143,145-151
+apps/web/src/features/project/store/use-project-store.ts
+  s_6eb37eddd3b3e0::t_b042e39a16ca0a 33,37,51-53,81-83,87-89,97-99,103-111
+apps/web/src/features/connection/lib/hosted-connection-actions.ts
+  s_6eb37eddd3b3e0::t_32ddda49a69b52 5
+  s_6eb37eddd3b3e0::t_e49a80b1c67384 3-4,6,26
+apps/web/src/features/project/store/project-store-types.ts
+  s_6eb37eddd3b3e0::t_dc042069db5c91 16,19
+apps/web/src/features/connection/hooks/use-connection-store.ts
+  s_6eb37eddd3b3e0::t_d3a5ef69d5043c 82-87
+  s_6eb37eddd3b3e0::t_46eaa9548a69bc 57-69,79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "9fab06dd89dd438dda2fcd3a769e4425bd3de4db",
+  "prompts": {},
+  "sessions": {
+    "s_6eb37eddd3b3e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5e01-ec53-76c1-a0ab-1acd9adf6044",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
