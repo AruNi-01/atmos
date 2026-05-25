@@ -1,6 +1,9 @@
 'use client';
 
-import { bootstrapActiveInstance } from '@/features/connection/hooks/use-connection-store';
+import {
+  bootstrapActiveInstance,
+  reloadActiveConnectionData,
+} from '@/features/connection/hooks/use-connection-store';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {
@@ -20,6 +23,7 @@ async function reconnectForCurrentTarget(): Promise<void> {
   useWebSocketStore.getState().disconnect();
   await bootstrapActiveInstance();
   await useWebSocketStore.getState().connect();
+  await reloadActiveConnectionData();
 }
 
 export async function activateHostedLocalConnection(config: ApiConfig): Promise<void> {

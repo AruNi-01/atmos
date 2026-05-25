@@ -27,6 +27,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+import { fetchRelayRuntimeInfo } from '@/api/relay';
 import {
   cpFetchWithAccessToken,
   generateAccessToken,
@@ -139,13 +140,15 @@ export function AtmosComputerSection() {
   const connectedServerId =
     connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
 
-  const reconnectWs = () => {
+  const reconnectWs = async () => {
     useWebSocketStore.getState().disconnect();
-    void (async () => {
-      const { onConnectionTargetChanged } = await import('@/app-shell/bootstrap/ConnectionBootstrapper');
-      await onConnectionTargetChanged();
-      await useWebSocketStore.getState().connect();
-    })();
+    const {
+      onConnectionTargetChanged,
+      reloadActiveConnectionData,
+    } = await import('@/app-shell/bootstrap/ConnectionBootstrapper');
+    await onConnectionTargetChanged();
+    await useWebSocketStore.getState().connect();
+    await reloadActiveConnectionData();
   };
 
   const refreshLocalStatus = useCallback(async () => {
@@ -466,7 +469,7 @@ export function AtmosComputerSection() {
         resetRelaySession();
         setConnectionMode('local');
         void syncClientSessionLocal().catch(() => undefined);
-        reconnectWs();
+        void reconnectWs().catch(() => undefined);
       }
       toastManager.add({
         title: 'Remote access disabled',
@@ -497,9 +500,15 @@ export function AtmosComputerSection() {
       try {
         resetRelaySession();
         setConnectionMode('local');
-        void syncClientSessionLocal().catch(() => undefined);
-        reconnectWs();
+        await syncClientSessionLocal().catch(() => undefined);
+        await reconnectWs();
         toastManager.add({ title: 'Using this computer locally', type: 'success' });
+      } catch (err) {
+        toastManager.add({
+          title: 'Could not switch to local computer',
+          description: err instanceof Error ? err.message : 'Try again.',
+          type: 'error',
+        });
       } finally {
         setBusy(null);
       }
@@ -527,16 +536,35 @@ export function AtmosComputerSection() {
         });
         return;
       }
+      try {
+        await fetchRelayRuntimeInfo(data.gateway_url, data.client_token);
+      } catch (err) {
+        toastManager.add({
+          title: 'Could not connect',
+          description:
+            err instanceof Error
+              ? `Remote computer is not reachable through relay: ${err.message}`
+              : 'Remote computer is not reachable through relay.',
+          type: 'error',
+        });
+        return;
+      }
       setSelectedServerId(serverId);
       setRelayWebSocketUrl(data.ws_url);
       setRelayGatewayHttpBase(data.gateway_url);
       setRelayClientToken(data.client_token);
       setConnectionMode('relay');
-      void syncClientSessionRelay(serverId, data.gateway_url, data.client_token).catch(
+      await syncClientSessionRelay(serverId, data.gateway_url, data.client_token).catch(
         () => undefined,
       );
+      await reconnectWs();
       toastManager.add({ title: 'Connected', type: 'success' });
-      reconnectWs();
+    } catch (err) {
+      toastManager.add({
+        title: 'Could not connect',
+        description: err instanceof Error ? err.message : 'Try again.',
+        type: 'error',
+      });
     } finally {
       setBusy(null);
     }
@@ -568,7 +596,7 @@ export function AtmosComputerSection() {
         resetRelaySession();
         setConnectionMode('local');
         void syncClientSessionLocal().catch(() => undefined);
-        reconnectWs();
+        void reconnectWs().catch(() => undefined);
       }
       toastManager.add({ title: 'Computer removed', type: 'success' });
       await refreshComputerList();
@@ -870,7 +898,6 @@ export function AtmosComputerSection() {
                       variant={isConnected ? 'secondary' : 'default'}
                       disabled={
                         busy !== null ||
-                        (!relayReachable && !isCurrent) ||
                         (isCurrent && connectionMode === 'local')
                       }
                       onClick={() => void onConnect(c.server_id)}

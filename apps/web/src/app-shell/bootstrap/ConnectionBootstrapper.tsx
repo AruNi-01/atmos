@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { bootstrapActiveInstance } from '@/features/connection/hooks/use-connection-store';
+import {
+  bootstrapActiveInstance,
+  reloadActiveConnectionData as reloadActiveConnectionDataFromStore,
+} from '@/features/connection/hooks/use-connection-store';
 import { ensureLocalAppConnectionBootstrap } from '@/features/connection/lib/app-connection-bootstrap';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
@@ -104,4 +107,9 @@ export function ConnectionBootstrapper() {
 /** After relay/local switch: resync instance + editor prefs + WS. */
 export async function onConnectionTargetChanged(): Promise<void> {
   await bootstrapActiveInstance();
+}
+
+/** After the new WS target is connected, reload business data from that Computer. */
+export async function reloadActiveConnectionData(): Promise<void> {
+  await reloadActiveConnectionDataFromStore();
 }

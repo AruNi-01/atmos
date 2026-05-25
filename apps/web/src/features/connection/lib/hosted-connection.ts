@@ -1,6 +1,7 @@
 'use client';
 
 import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
+import { fetchRelayRuntimeInfo } from '@/api/relay';
 import { cpFetchWithAccessToken, registerAccessTokenOnRelay } from '@/features/connection/lib/atmos-access-token';
 import {
   getHostedLoopbackCandidates,
@@ -135,11 +136,21 @@ export async function createHostedRemoteSession(
   if (!res.ok || !data?.ws_url || !data?.gateway_url || !data?.client_token) {
     throw new Error(data?.error ?? 'Could not connect to that computer.');
   }
-  return {
+  const session = {
     ws_url: data.ws_url,
     gateway_url: data.gateway_url,
     client_token: data.client_token,
   };
+  try {
+    await fetchRelayRuntimeInfo(session.gateway_url, session.client_token);
+  } catch (err) {
+    throw new Error(
+      err instanceof Error
+        ? `Remote computer is not reachable through relay: ${err.message}`
+        : 'Remote computer is not reachable through relay.',
+    );
+  }
+  return session;
 }
 
 export function readHostedConnectionPreference(): HostedConnectionPreference | null {

@@ -13,8 +13,10 @@ export interface ProjectStore {
   workspaceLabels: WorkspaceLabel[];
   activeWorkspaceId: string | null;
   isLoading: boolean;
+  connectionEpoch: number;
 
   fetchProjects: () => Promise<void>;
+  resetForConnectionChange: () => void;
   addProject: (data: { name: string; mainFilePath: string; sidebarOrder?: number; borderColor?: string }) => Promise<void>;
   updateProject: (id: string, data: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;

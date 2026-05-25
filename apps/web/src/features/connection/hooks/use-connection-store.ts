@@ -54,6 +54,19 @@ export async function bootstrapActiveInstance(): Promise<void> {
   const conn = useConnectionStore.getState();
   conn.syncActiveInstanceFromComputer();
   conn.invalidateBusinessStores();
+  const activeInstanceId = useConnectionStore.getState().activeInstanceId;
+  const [
+    { useProjectStore },
+    { useFileTreeStore },
+    { useGitInfoStore },
+  ] = await Promise.all([
+    import('@/features/project/store/use-project-store'),
+    import('@/features/files/store/use-file-tree-store'),
+    import('@/features/git/store/use-git-info-store'),
+  ]);
+  useProjectStore.getState().resetForConnectionChange();
+  useFileTreeStore.getState().clear();
+  useGitInfoStore.getState().reset();
   const { useEditorStore } = await import('@/features/editor/store/use-editor-store');
   useEditorStore.setState({
     workspaceStates: {},
@@ -63,6 +76,12 @@ export async function bootstrapActiveInstance(): Promise<void> {
     currentProjectPath: null,
     _hasHydrated: false,
   });
-  restoreEditorFromInstancePrefs(conn.activeInstanceId);
+  restoreEditorFromInstancePrefs(activeInstanceId);
   await useFunctionSettingsStore.getState().load().catch(() => undefined);
+}
+
+/** Call after the new WS target is connected. */
+export async function reloadActiveConnectionData(): Promise<void> {
+  const { useProjectStore } = await import('@/features/project/store/use-project-store');
+  await useProjectStore.getState().fetchProjects();
 }

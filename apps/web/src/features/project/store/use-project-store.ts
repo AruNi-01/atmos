@@ -30,9 +30,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   workspaceLabels: [],
   activeWorkspaceId: null,
   isLoading: false,
+  connectionEpoch: 0,
 
   fetchProjects: async () => {
     if (get().isLoading) return;
+    const epoch = get().connectionEpoch;
     set({ isLoading: true });
     try {
       // 确保 WebSocket 连接
@@ -46,6 +48,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           return [];
         }),
       ]);
+      if (get().connectionEpoch !== epoch) {
+        return;
+      }
       set({
         workspaceLabels: labels.map(label => ({
           id: label.guid,
@@ -73,9 +78,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
       // 按 sidebarOrder 排序
       projectsWithWorkspaces.sort((a, b) => a.sidebarOrder - b.sidebarOrder);
+      if (get().connectionEpoch !== epoch) {
+        return;
+      }
 
       set({ projects: projectsWithWorkspaces });
     } catch (error) {
+      if (get().connectionEpoch !== epoch) {
+        return;
+      }
       console.error('Error fetching projects:', error);
       toastManager.add({ 
         title: 'Error', 
@@ -83,8 +94,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         type: 'error' 
       });
     } finally {
-      set({ isLoading: false });
+      if (get().connectionEpoch === epoch) {
+        set({ isLoading: false });
+      }
     }
+  },
+
+  resetForConnectionChange: () => {
+    set(state => ({
+      projects: [],
+      workspaceLabels: [],
+      activeWorkspaceId: null,
+      isLoading: false,
+      setupProgress: {},
+      connectionEpoch: state.connectionEpoch + 1,
+    }));
   },
 
   addProject: async (data) => {
