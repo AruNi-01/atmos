@@ -1,0 +1,201 @@
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 13,102
+apps/web/src/features/diff/components/ReviewCodeView.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 16,92
+apps/web/src/features/connection/lib/app-connection-bootstrap.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 4
+apps/web/src/features/settings/components/CanvasSettingsSection.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 11
+  s_95e06460d8cbf6::t_661aab064c9eec 10,22
+apps/web/src/features/settings/store/layout-settings-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-42,44-160
+  s_95e06460d8cbf6::t_661aab064c9eec 43
+apps/web/src/features/terminal/hooks/use-terminal-links.ts
+  s_95e06460d8cbf6::t_661aab064c9eec 7,41
+apps/web/src/features/settings/components/SettingsModal.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 14-15,26,108,114,168
+apps/web/src/features/connection/lib/hydrate-relay-session.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 18
+apps/web/src/features/workspace/store/workspace-creation-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-74
+apps/web/src/features/settings/components/NotifySettingsSection.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 24
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 20,76-79
+apps/web/src/providers/app/websocket-provider.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 5,9
+  s_95e06460d8cbf6::t_661aab064c9eec 7-8,93-94
+apps/web/src/features/settings/store/workspace-settings-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-40,42-236
+  s_95e06460d8cbf6::t_661aab064c9eec 41
+apps/web/src/features/settings/store/experiment-settings-store.ts
+  s_95e06460d8cbf6::t_661aab064c9eec 36
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-35,37-94
+apps/web/src/features/settings/components/WorkspaceSettingsSection.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 26-27,46,249
+apps/web/src/features/workspace/components/ArchivedWorkspacesView.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 29,66
+apps/web/src/app-shell/WorkspaceCreationOverlay.tsx
+  s_95e06460d8cbf6::t_81a30d762d16bf 11-14
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 7
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 40-41,122-129,156-158
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 19,39
+apps/web/src/features/connection/lib/hosted-connection-actions.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 6
+apps/web/src/features/code-review/hooks/use-review-context.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 19
+apps/web/src/features/settings/store/notification-settings-store.ts
+  s_95e06460d8cbf6::t_661aab064c9eec 59
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-58,60-158
+apps/web/src/features/agent/components/ModalAgentChatPanel.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 6,10-11
+apps/web/src/shared/stores/use-ui-pref-hooks.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 10
+apps/web/src/features/canvas/lib/canvas-terminal-copy.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 3
+apps/web/src/app-shell/Header.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 33-34,73,75-76
+apps/web/src/app-shell/RightSidebar.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 52
+  s_95e06460d8cbf6::t_661aab064c9eec 54,114-115
+apps/web/src/features/diff/components/ReviewView.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 14
+apps/web/src/features/settings/store/function-settings-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-42
+apps/web/src/app-shell/use-center-stage-terminal-agents.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 6
+apps/web/src/features/run-preview/components/RunScript.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 14
+apps/web/src/features/welcome/components/HostedWelcomeGate.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 33
+  s_95e06460d8cbf6::t_8d65ca54348b43 4,132-142
+apps/web/src/features/settings/store/terminal-link-settings-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-31,33-134
+  s_95e06460d8cbf6::t_661aab064c9eec 32
+apps/web/src/features/canvas/store/__tests__/canvas-settings-store.test.ts
+  s_95e06460d8cbf6::t_661aab064c9eec 14,23,55,72-73,75,82
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-13,15-22,24-54,56-71,74,76-81,83-84
+apps/web/src/features/connection/hooks/use-websocket.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 11
+apps/web/src/features/editor/store/use-editor-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 5
+apps/web/src/features/canvas/store/canvas-runtime-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-16,18-29
+  s_95e06460d8cbf6::t_661aab064c9eec 17
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 26
+apps/web/src/features/canvas/store/canvas-settings-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 5
+  s_95e06460d8cbf6::t_661aab064c9eec 53,65
+apps/web/src/features/settings/components/ExperimentSettingsSection.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 5,16
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 25,61
+apps/web/src/features/code-review/store/review-snapshot-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-30
+apps/web/src/app-shell/HostedAppShellGate.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 6
+apps/web/src/app-shell/center-stage-tabs.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 23
+apps/web/src/features/run-preview/hooks/use-preview-favorites.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 6
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 6-7
+apps/web/src/features/agent/components/AgentHookStatusIndicator.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 6
+apps/web/src/features/workspace/components/CreateWorkspaceDialog.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 27
+apps/web/src/features/connection/store/connection-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 14
+apps/web/src/features/settings/store/editor-settings-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-27,29-183
+  s_95e06460d8cbf6::t_661aab064c9eec 28
+apps/web/src/features/terminal/components/terminal-mosaic-workspace-pane-window.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 17
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 35
+  s_95e06460d8cbf6::t_661aab064c9eec 44,134-135
+apps/web/src/features/settings/components/EditorSettingsSection.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 26-27,192,205
+apps/web/src/features/connection/store/hosted-connection-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-90
+apps/web/src/features/agent/store/agent-chat-status-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-28
+apps/web/src/features/diff/components/DiffViewer.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 40,107
+apps/web/src/app-shell/CenterStage.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 49,154-156
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 24,45,48
+apps/web/src/app-shell/Footer.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 37-38,445-450
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 23
+apps/web/src/features/settings/components/LayoutSettingsSection.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 14-15,39-41
+apps/web/src/features/editor/components/CodeMirrorEditor.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 32,84
+  s_95e06460d8cbf6::t_b00124514d2d89 5,85-103
+apps/web/src/features/welcome/hooks/use-welcome-agent-options.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 10
+apps/web/src/app-shell/sidebar/WorkspaceKanbanView.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 34
+apps/web/src/providers/app/tmux-check-provider.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 6
+apps/web/src/features/agent/store/agent-hooks-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-320
+apps/web/src/features/settings/store/diff-settings-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-60,62-132
+  s_95e06460d8cbf6::t_661aab064c9eec 61
+apps/web/src/features/settings/store/terminal-split-prefs-store.ts
+  s_95e06460d8cbf6::t_661aab064c9eec 20
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-19,21-38
+apps/web/src/features/agent/hooks/use-agent-notifications.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 5
+  s_95e06460d8cbf6::t_661aab064c9eec 6,26,41
+apps/web/src/features/canvas/components/CanvasView.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 29,35,126-131,137,420,441,538
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 32
+apps/web/src/app-shell/bootstrap/ConnectionBootstrapper.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 7,11
+apps/web/src/app-shell/sidebar/ProjectItem.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 49
+apps/web/src/features/agent/hooks/use-agent-chat-status-publisher.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 4
+apps/web/src/app-shell/UsagePopover.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 49,134-136
+apps/web/src/features/settings/components/TerminalSettingsSection.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 12
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 19,21,76-81
+apps/web/src/app-shell/GlobalSearch.tsx
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 17
+  s_95e06460d8cbf6::t_661aab064c9eec 23,66-68
+apps/web/src/features/canvas/components/CanvasTerminalFocusPulse.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 6,13
+apps/web/src/features/code-review/store/review-terminal-runner-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-20
+apps/web/src/features/agent/store/agent-chat-layout-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-41,43-81
+  s_95e06460d8cbf6::t_661aab064c9eec 42
+apps/web/src/features/github/components/PRFilesTab.tsx
+  s_95e06460d8cbf6::t_661aab064c9eec 19,129
+apps/web/src/features/workspace/store/workspace-gitignore-dirs-store.ts
+  s_95e06460d8cbf6::t_ab0d0f1f190a30 1-58,60-166
+  s_95e06460d8cbf6::t_661aab064c9eec 59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "523ccb73ea0376ddda1d825124b5307ca299e684",
+  "prompts": {},
+  "sessions": {
+    "s_95e06460d8cbf6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5e21-6a40-7783-a8b0-cfc215ad71e3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
