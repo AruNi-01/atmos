@@ -1,6 +1,6 @@
 import { systemApi } from "@/api/rest-api";
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
-import { resolveCanvasTerminalContextMaxLines } from "@/features/canvas/hooks/use-canvas-settings";
+import { resolveCanvasTerminalContextMaxLines } from "@/features/canvas/store/canvas-settings-store";
 import type { CanvasTerminalShape } from "./canvas-terminal-shape";
 import {
   formatCanvasTerminalMetadata,

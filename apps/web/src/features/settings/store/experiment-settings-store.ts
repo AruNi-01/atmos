@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 
 export interface ExperimentPrefs {
   managementTerminalsEnabled: boolean;
@@ -33,7 +33,7 @@ function readExperiments(raw: unknown): ExperimentPrefs {
   };
 }
 
-export const useExperimentSettings = create<ExperimentSettingsState>((set, get) => ({
+export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, get) => ({
   managementTerminalsEnabled: false,
   managementAgentsEnabled: false,
   centerWikiTabEnabled: false,

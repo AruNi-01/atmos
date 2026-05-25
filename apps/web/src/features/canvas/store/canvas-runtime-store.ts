@@ -14,7 +14,7 @@ interface CanvasRuntimeState {
   reset: () => void;
 }
 
-export const useCanvasRuntime = create<CanvasRuntimeState>((set) => ({
+export const useCanvasRuntimeStore = create<CanvasRuntimeState>((set) => ({
   activeShapeId: null,
   renderedShapeIds: [],
   focusPulseShapeId: null,

@@ -31,7 +31,7 @@ import {
 } from "@workspace/ui";
 import type { DragEndEvent, DragStartEvent } from "@workspace/ui";
 import { functionSettingsApi, wsWorkspaceApi } from "@/api/ws-api";
-import { useFunctionSettingsStore } from "@/features/settings/hooks/use-function-settings-store";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import type { GithubIssuePayload } from "@/api/ws-api";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useQueryState } from "nuqs";

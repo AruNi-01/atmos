@@ -37,7 +37,7 @@ import {
   getAtmosDiffThemeType,
 } from '@/features/diff/lib/diff-view-constants';
 import { DiffViewerHeader } from '@/features/diff/components/DiffViewerHeader';
-import { useDiffSettings } from '@/features/settings/hooks/use-diff-settings';
+import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 
 interface DiffViewerProps {
   repoPath: string;
@@ -104,7 +104,7 @@ export const DiffViewer = ({
     setDiffStyle,
     setShowBackgrounds,
     setWordWrap,
-  } = useDiffSettings();
+  } = useDiffSettingsStore();
   const [showTip, setShowTip] = useState(false);
   const [tipPaused, setTipPaused] = useState(false);
   const [fileCollapsed, setFileCollapsed] = useState(false);

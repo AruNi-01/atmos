@@ -2,11 +2,11 @@
 
 import { useEffect, ReactNode } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { useAgentHooksStore } from '@/features/agent/hooks/use-agent-hooks-store';
+import { useAgentHooksStore } from '@/features/agent/store/agent-hooks-store';
 import { useAgentNotifications } from '@/features/agent/hooks/use-agent-notifications';
-import { useLayoutSettings } from '@/features/settings/hooks/use-layout-settings';
-import { useExperimentSettings } from '@/features/settings/hooks/use-experiment-settings';
-import { useHostedConnectionStore } from '@/features/connection/hooks/use-hosted-connection-store';
+import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
 import {
   subscribeToWorkspaceDeleteProgress,
@@ -90,8 +90,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     // the event listener persists across reconnections (same Map ref).
     if (connectionState === 'connected') {
       useAgentHooksStore.getState().init();
-      useLayoutSettings.getState().loadSettings();
-      void useExperimentSettings.getState().loadSettings();
+      useLayoutSettingsStore.getState().loadSettings();
+      void useExperimentSettingsStore.getState().loadSettings();
       const { projects, isLoading } = useProjectStore.getState();
       if (projects.length === 0 && !isLoading) {
         void useProjectStore.getState().fetchProjects();

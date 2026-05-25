@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useTmuxCheck } from "@/shared/hooks/use-tmux-check";
 import { TmuxInstallDialog } from "@/features/terminal/components/TmuxInstallDialog";
-import { useHostedConnectionStore } from "@/features/connection/hooks/use-hosted-connection-store";
+import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 
 interface TmuxCheckProviderProps {

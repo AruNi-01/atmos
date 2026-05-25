@@ -13,7 +13,7 @@ import type { ReviewCommentDto, ReviewFileDto, ReviewMessageDto } from '@/api/ws
 import { reviewWsApi } from '@/api/ws-api';
 import { useReviewCtx } from '@/features/diff/components/review/ReviewContextProvider';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { useDiffSettings } from '@/features/settings/hooks/use-diff-settings';
+import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
@@ -89,7 +89,7 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
     setLineNumbers,
     setWordWrap,
     setDiffIndicators,
-  } = useDiffSettings();
+  } = useDiffSettingsStore();
   const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
     'expanded',
   );

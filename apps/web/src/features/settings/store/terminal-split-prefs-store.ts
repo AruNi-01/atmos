@@ -17,7 +17,7 @@ interface TerminalSplitPrefsState extends TerminalSplitPrefs {
   rememberLastSplitAgent: (agentId: string) => void;
 }
 
-export const useTerminalSplitPrefs = create<TerminalSplitPrefsState>((set, get) => ({
+export const useTerminalSplitPrefsStore = create<TerminalSplitPrefsState>((set, get) => ({
   ...DEFAULT_TERMINAL_SPLIT_PREFS,
   hydrated: false,
 

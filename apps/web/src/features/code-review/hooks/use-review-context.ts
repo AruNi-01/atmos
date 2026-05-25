@@ -16,7 +16,7 @@ import { buildCommand, type AgentId } from "@/features/wiki/components/AgentSele
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { useReviewTerminalRunnerStore } from "@/features/code-review/hooks/use-review-terminal-runner";
+import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
 import {
   isOpenReviewCommentStatus,
   sortReviewSessions,

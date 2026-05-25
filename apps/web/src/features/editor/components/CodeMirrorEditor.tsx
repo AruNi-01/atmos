@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { useShallow } from 'zustand/react/shallow';
 import { EditorView } from '@codemirror/view';
 import { openSearchPanel } from '@codemirror/search';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -28,7 +29,7 @@ import { BaseCodeMirrorEditor } from './BaseCodeMirrorEditor';
 import { useSelectionPopover } from '@/features/selection/hooks/use-selection-popover';
 import { SelectionPopover } from '@/features/selection/components/SelectionPopover';
 import { useContextParams } from "@/shared/hooks/use-context-params";
-import { useEditorSettings } from '@/features/settings/hooks/use-editor-settings';
+import { useEditorSettingsStore } from '@/features/settings/store/editor-settings-store';
 import { useQueryState } from 'nuqs';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { parseReviewReportMetadata } from '@/features/code-review/lib/review-report-frontmatter';
@@ -80,7 +81,26 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     setBreadcrumbs,
     setLineHighlight,
     setGitIntegration,
-  } = useEditorSettings();
+  } = useEditorSettingsStore(
+    useShallow((s) => ({
+      autoSave: s.autoSave,
+      lineWrap: s.lineWrap,
+      bracketMatching: s.bracketMatching,
+      minimap: s.minimap,
+      breadcrumbs: s.breadcrumbs,
+      lineHighlight: s.lineHighlight,
+      gitIntegration: s.gitIntegration,
+      loaded: s.loaded,
+      loadSettings: s.loadSettings,
+      setAutoSave: s.setAutoSave,
+      setLineWrap: s.setLineWrap,
+      setBracketMatching: s.setBracketMatching,
+      setMinimap: s.setMinimap,
+      setBreadcrumbs: s.setBreadcrumbs,
+      setLineHighlight: s.setLineHighlight,
+      setGitIntegration: s.setGitIntegration,
+    })),
+  );
   const editorRef = useRef<EditorView | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);

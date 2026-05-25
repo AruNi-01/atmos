@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import { toastManager } from '@workspace/ui';
 
 interface EditorSettingsState {
@@ -25,7 +25,7 @@ interface EditorSettingsState {
   setGitIntegration: (gitIntegration: boolean) => Promise<void>;
 }
 
-export const useEditorSettings = create<EditorSettingsState>((set, get) => ({
+export const useEditorSettingsStore = create<EditorSettingsState>((set, get) => ({
   autoSave: false,
   lineWrap: true,
   bracketMatching: true,

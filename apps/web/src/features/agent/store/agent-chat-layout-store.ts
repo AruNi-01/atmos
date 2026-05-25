@@ -39,7 +39,7 @@ interface AgentChatLayoutStore {
 
 let _layoutLoading = false;
 
-export const useAgentChatLayout = create<AgentChatLayoutStore>((set, get) => ({
+export const useAgentChatLayoutStore = create<AgentChatLayoutStore>((set, get) => ({
   layout: DEFAULT_LAYOUT,
   loaded: false,
 

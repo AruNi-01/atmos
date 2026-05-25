@@ -23,7 +23,7 @@ import {
   useWelcomeSlashNavigation,
 } from "@/features/welcome/hooks/use-welcome-slash-navigation";
 import { useProjectStore } from "@/features/project/store/use-project-store";
-import { useWorkspaceCreationStore } from "@/features/workspace/hooks/use-workspace-creation-store";
+import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import type {

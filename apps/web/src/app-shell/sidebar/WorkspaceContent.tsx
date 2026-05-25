@@ -32,7 +32,7 @@ import type { Workspace, WorkspaceLabel, WorkspacePriority } from "@/shared/type
 import { formatRelativeTime } from "@atmos/shared";
 import { getWorkspaceShortName } from "@/features/workspace/lib/workspace";
 import { gitApi } from "@/api/ws-api";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import {
   WorkspaceLabelBadges,
@@ -41,7 +41,7 @@ import {
   WorkspaceStatusSelect,
 } from "./workspace-metadata-controls";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
-import { useWorkspaceSettings } from "@/features/settings/hooks/use-workspace-settings";
+import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
 
 export interface WorkspaceContentProps {
   workspace: Workspace;
@@ -131,7 +131,8 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const router = useAppRouter();
   const { workspaceId } = useContextParams();
   const isActive = workspaceId === workspace.id;
-  const { confirmBeforeDelete, confirmBeforeArchive } = useWorkspaceSettings();
+  const confirmBeforeDelete = useWorkspaceSettingsStore((s) => s.confirmBeforeDelete);
+  const confirmBeforeArchive = useWorkspaceSettingsStore((s) => s.confirmBeforeArchive);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [showGitWarningDialog, setShowGitWarningDialog] = useState(false);

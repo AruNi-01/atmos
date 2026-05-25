@@ -20,7 +20,7 @@ import {
 import { Command, GripVertical, Inbox, List } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
 import type { CenterStageUiPrefs } from "@/shared/stores/use-ui-pref-hooks";
 import {

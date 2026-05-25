@@ -11,7 +11,7 @@ import {
   writeActiveInstanceIdRaw,
 } from '@/shared/lib/browser-store';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import { restoreEditorFromInstancePrefs } from '@/features/editor/lib/restore-editor-from-prefs';
 
 interface ConnectionStoreState {

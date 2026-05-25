@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAgentChatStatusStore } from "@/features/agent/hooks/use-agent-chat-status";
+import { useAgentChatStatusStore } from "@/features/agent/store/agent-chat-status-store";
 
 interface UseAgentChatStatusPublisherParams {
   installedAgentCount: number;

@@ -11,8 +11,8 @@ import {
   cn,
 } from '@workspace/ui';
 import { ChevronDown, Columns2, PanelBottom } from 'lucide-react';
-import { useExperimentSettings } from '@/features/settings/hooks/use-experiment-settings';
-import { useLayoutSettings } from '@/features/settings/hooks/use-layout-settings';
+import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 
 export function LayoutSettingsSection() {
@@ -36,9 +36,9 @@ export function LayoutSettingsSection() {
     setFooterShowWsConnection,
     setFooterShowUsageCarousel,
     setFooterShowAgentStatus,
-  } = useLayoutSettings();
-  const managementAgentsEnabled = useExperimentSettings((state) => state.managementAgentsEnabled);
-  const loadExperimentSettings = useExperimentSettings((state) => state.loadSettings);
+  } = useLayoutSettingsStore();
+  const managementAgentsEnabled = useExperimentSettingsStore((state) => state.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettingsStore((state) => state.loadSettings);
   const [, setActiveSettingTab] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
   const [workspaceSidebarLayoutExpanded, setWorkspaceSidebarLayoutExpanded] = React.useState(false);
   const [footerLayoutExpanded, setFooterLayoutExpanded] = React.useState(false);

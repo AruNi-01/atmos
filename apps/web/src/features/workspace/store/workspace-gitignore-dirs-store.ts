@@ -56,7 +56,7 @@ const toastInvalidPath = (): void => {
   });
 };
 
-export const useWorkspaceGitignoreDirs = create<State>((set, get) => ({
+export const useWorkspaceGitignoreDirsStore = create<State>((set, get) => ({
   enabled: true,
   entries: [],
   loaded: false,

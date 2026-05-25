@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { HostedLandingLoading } from "@/app-shell/HostedLandingLoading";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
-import { useHostedConnectionStore } from "@/features/connection/hooks/use-hosted-connection-store";
+import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
 
 interface HostedBootstrapBoundaryProps {

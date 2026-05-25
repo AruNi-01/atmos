@@ -49,9 +49,9 @@ import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPane
 import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
 import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
-import { useAgentChatStatusStore } from "@/features/agent/hooks/use-agent-chat-status";
+import { useAgentChatStatusStore } from "@/features/agent/store/agent-chat-status-store";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
-import { useLayoutSettings } from "@/features/settings/hooks/use-layout-settings";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { FileTreePanel } from "@/features/files/components/FileTreePanel";
 
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
@@ -111,7 +111,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const agentIsBusy = useAgentChatStatusStore((s) => s.isBusy);
 
   // Layout settings
-  const { projectFilesSide, loadSettings: loadLayoutSettings } = useLayoutSettings();
+  const projectFilesSide = useLayoutSettingsStore((s) => s.projectFilesSide);
+  const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
   const showFilesTab = projectFilesSide === "right";
   const topTabs = useMemo(() => {

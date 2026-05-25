@@ -14,13 +14,13 @@ import {
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
 import { useProjectStore } from '@/features/project/store/use-project-store';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
-import { useWorkspaceCreationStore } from '@/features/workspace/hooks/use-workspace-creation-store';
+import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { fsApi, type SearchMatch, type FileTreeNode } from '@/api/ws-api';
 import { llmProvidersModalParams, agentChatParams, settingsModalParams, tokenUsageParams, leftSidebarParams } from '@/shared/lib/nuqs/searchParams';
 import { useWorkspaceContext } from '@/features/workspace/hooks/use-workspace-context';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
-import { useExperimentSettings } from '@/features/settings/hooks/use-experiment-settings';
+import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import {
   type AppSearchItem,
   type SearchTab,
@@ -63,9 +63,9 @@ export function GlobalSearch() {
   const [, setKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
   const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
 
-  const managementTerminalsEnabled = useExperimentSettings((s) => s.managementTerminalsEnabled);
-  const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
-  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+  const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
+  const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
 
   useEffect(() => {
     void loadExperimentSettings();

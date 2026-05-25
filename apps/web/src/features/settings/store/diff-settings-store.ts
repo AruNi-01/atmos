@@ -3,7 +3,7 @@
 import type { DiffIndicators } from '@pierre/diffs';
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import { toastManager } from '@workspace/ui';
 
 export type DiffSettingsStyle = 'split' | 'unified';
@@ -58,7 +58,7 @@ async function updateDiffSetting(
   }
 }
 
-export const useDiffSettings = create<DiffSettingsState>((set, get) => ({
+export const useDiffSettingsStore = create<DiffSettingsState>((set, get) => ({
   ...DEFAULT_DIFF_SETTINGS,
   loaded: false,
   loading: false,

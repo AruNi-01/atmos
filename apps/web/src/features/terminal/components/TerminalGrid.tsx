@@ -17,7 +17,7 @@ import type { TerminalPaneAgent } from "../types/index";
 import { isPathLikeTitle } from "./terminal-title";
 import { systemApi } from "@/api/rest-api";
 import { useTerminalStore, FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
-import { useTerminalSplitPrefs } from "@/features/settings/hooks/use-terminal-split-prefs";
+import { useTerminalSplitPrefsStore } from "@/features/settings/store/terminal-split-prefs-store";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
 import {
@@ -73,10 +73,10 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
     [quickOpenAgents],
   );
 
-  const hydrateTerminalSplitPrefs = useTerminalSplitPrefs((state) => state.hydrate);
-  const useLastSplitAgentOnSplit = useTerminalSplitPrefs((state) => state.useLastSplitAgentOnSplit);
-  const lastSplitAgentId = useTerminalSplitPrefs((state) => state.lastSplitAgentId);
-  const rememberLastSplitAgent = useTerminalSplitPrefs((state) => state.rememberLastSplitAgent);
+  const hydrateTerminalSplitPrefs = useTerminalSplitPrefsStore((state) => state.hydrate);
+  const useLastSplitAgentOnSplit = useTerminalSplitPrefsStore((state) => state.useLastSplitAgentOnSplit);
+  const lastSplitAgentId = useTerminalSplitPrefsStore((state) => state.lastSplitAgentId);
+  const rememberLastSplitAgent = useTerminalSplitPrefsStore((state) => state.rememberLastSplitAgent);
 
   React.useEffect(() => {
     hydrateTerminalSplitPrefs();

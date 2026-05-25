@@ -21,7 +21,7 @@ import {
   type NotificationSettings,
   type PushServerConfig,
   type PushServerType,
-} from '@/features/settings/hooks/use-notification-settings';
+} from '@/features/settings/store/notification-settings-store';
 import { SaveActionButton } from '@/features/settings/components/settings/SaveActionButton';
 
 const PUSH_SERVER_TYPE_OPTIONS: { value: PushServerType; label: string; description: string }[] = [

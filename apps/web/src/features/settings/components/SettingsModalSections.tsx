@@ -3,8 +3,8 @@
 import React from 'react';
 import type { CodeAgentCustomEntry, LlmProvidersFile } from '@/api/ws-api';
 import type { UpdateStatus } from '@/features/settings/hooks/use-updater';
-import type { TerminalFileLinkOpenMode } from '@/features/settings/hooks/use-terminal-link-settings';
-import type { NotificationSettings, PushServerConfig } from '@/features/settings/hooks/use-notification-settings';
+import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
+import type { NotificationSettings, PushServerConfig } from '@/features/settings/store/notification-settings-store';
 import type { QuickOpenAppName } from '@/app-shell/quick-open-apps';
 import { AtmosComputerSection } from '@/features/remote-access/components/AtmosComputerSection';
 import { RemoteAccessSection } from '@/features/remote-access/components/RemoteAccessSection';

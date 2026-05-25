@@ -3,14 +3,14 @@
 import { useEditor, useValue, type TLShapeId } from "tldraw";
 import { cn } from "@workspace/ui";
 
-import { useCanvasRuntime } from "../hooks/use-canvas-runtime";
+import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 
 /**
  * Brief highlight around a canvas terminal shape (e.g. after auto-focus on open).
  */
 export function CanvasTerminalFocusPulse() {
   const editor = useEditor();
-  const shapeId = useCanvasRuntime((state) => state.focusPulseShapeId);
+  const shapeId = useCanvasRuntimeStore((state) => state.focusPulseShapeId);
 
   if (!shapeId) return null;
 

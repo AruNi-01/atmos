@@ -26,7 +26,7 @@ import { formatRelativeTime } from '@atmos/shared';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
 import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
 import { motion, AnimatePresence } from "motion/react";
-import { useWorkspaceSettings } from "@/features/settings/hooks/use-workspace-settings";
+import { useWorkspaceSettingsStore } from "@/features/settings/store/workspace-settings-store";
 
 interface OverflowTooltipProps {
   text: string;
@@ -63,7 +63,7 @@ export const ArchivedWorkspacesView: React.FC = () => {
   const fetchProjects = useProjectStore(s => s.fetchProjects);
   const projects = useProjectStore(s => s.projects);
   const deleteProject = useProjectStore(s => s.deleteProject);
-  const { confirmBeforeDelete } = useWorkspaceSettings();
+  const confirmBeforeDelete = useWorkspaceSettingsStore((s) => s.confirmBeforeDelete);
   const [deleteProjectDialog, setDeleteProjectDialog] = useState<{
     isOpen: boolean;
     projectId: string;

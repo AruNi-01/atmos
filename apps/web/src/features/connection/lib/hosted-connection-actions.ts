@@ -3,7 +3,7 @@
 import {
   bootstrapActiveInstance,
   reloadActiveConnectionData,
-} from '@/features/connection/hooks/use-connection-store';
+} from '@/features/connection/store/connection-store';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {

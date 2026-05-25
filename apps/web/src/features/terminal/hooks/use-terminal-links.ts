@@ -4,7 +4,7 @@ import { toastManager } from "@workspace/ui";
 
 import { appApi } from "@/api/ws-api";
 import { useEditorStore } from "@/features/editor/store/use-editor-store";
-import { useTerminalLinkSettings } from "@/features/settings/hooks/use-terminal-link-settings";
+import { useTerminalLinkSettingsStore } from "@/features/settings/store/terminal-link-settings-store";
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
 import {
   resolveTerminalLink,
@@ -38,7 +38,7 @@ export function useTerminalLinks({
     fileLinkOpenMode,
     fileLinkOpenApp,
     loadSettings: loadTerminalLinkSettings,
-  } = useTerminalLinkSettings();
+  } = useTerminalLinkSettingsStore();
 
   useEffect(() => {
     void loadTerminalLinkSettings();

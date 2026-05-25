@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { toastManager } from '@workspace/ui';
 
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import {
   QUICK_OPEN_APP_NAMES,
   type QuickOpenAppName,
@@ -29,7 +29,7 @@ interface TerminalLinkSettingsState {
 const DEFAULT_FILE_LINK_OPEN_MODE: TerminalFileLinkOpenMode = 'atmos';
 const DEFAULT_FILE_LINK_OPEN_APP: QuickOpenAppName = 'Cursor';
 
-export const useTerminalLinkSettings = create<TerminalLinkSettingsState>((set, get) => ({
+export const useTerminalLinkSettingsStore = create<TerminalLinkSettingsState>((set, get) => ({
   fileLinkOpenMode: DEFAULT_FILE_LINK_OPEN_MODE,
   fileLinkOpenApp: DEFAULT_FILE_LINK_OPEN_APP,
   loaded: false,

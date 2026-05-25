@@ -11,8 +11,8 @@ import {
   toastManager,
 } from '@workspace/ui';
 import { AGENT_OPTIONS } from '@/features/wiki/components/AgentSelect';
-import { useTerminalLinkSettings } from '@/features/settings/hooks/use-terminal-link-settings';
-import { useTerminalSplitPrefs } from '@/features/settings/hooks/use-terminal-split-prefs';
+import { useTerminalLinkSettingsStore } from '@/features/settings/store/terminal-link-settings-store';
+import { useTerminalSplitPrefsStore } from '@/features/settings/store/terminal-split-prefs-store';
 import {
   agentBehaviourSettingsApi,
   codeAgentCustomApi,
@@ -23,7 +23,7 @@ import {
 import { LlmProviderEditorDialog } from '@/app-shell/LlmProvidersModal';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
-import { useNotificationSettings } from '@/features/settings/hooks/use-notification-settings';
+import { useNotificationSettingsStore } from '@/features/settings/store/notification-settings-store';
 import {
   requestBrowserNotificationPermission,
   sendBrowserNotification,
@@ -105,13 +105,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     loadSettings: loadTerminalLinkSettings,
     setFileLinkOpenMode,
     setFileLinkOpenApp,
-  } = useTerminalLinkSettings();
+  } = useTerminalLinkSettingsStore();
   const {
     useLastSplitAgentOnSplit,
     lastSplitAgentId,
     hydrate: hydrateTerminalSplitPrefs,
     setUseLastSplitAgentOnSplit,
-  } = useTerminalSplitPrefs();
+  } = useTerminalSplitPrefsStore();
 
   useEffect(() => {
     void loadTerminalLinkSettings();
@@ -165,7 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     removePushServer,
     updatePushServer,
     testPushServer,
-  } = useNotificationSettings();
+  } = useNotificationSettingsStore();
 
   useEffect(() => {
     if (!isOpen) return;

@@ -15,7 +15,7 @@
 
 import { getRuntimeApiConfig, httpBase } from '@/shared/lib/desktop-runtime';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
-import { useConnectionStore } from '@/features/connection/hooks/use-connection-store';
+import { useConnectionStore } from '@/features/connection/store/connection-store';
 
 interface ClientSession {
   version: number;

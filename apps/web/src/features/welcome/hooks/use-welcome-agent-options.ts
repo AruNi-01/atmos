@@ -7,7 +7,7 @@ import {
 } from "@/api/ws-api";
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
-import { useFunctionSettingsStore } from "@/features/settings/hooks/use-function-settings-store";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
 export function useWelcomeAgentOptions() {
   const [agentCustomSettings, setAgentCustomSettings] = React.useState<

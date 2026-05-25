@@ -4,11 +4,14 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import { TextShimmer } from "@workspace/ui";
 import { useContextParams } from "@/shared/hooks/use-context-params";
-import { useWorkspaceCreationStore } from "@/features/workspace/hooks/use-workspace-creation-store";
+import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 
 export function WorkspaceCreationOverlay() {
   const { currentView, workspaceId } = useContextParams();
-  const { isVisible, phase, pendingWorkspaceId, clear } = useWorkspaceCreationStore();
+  const isVisible = useWorkspaceCreationStore((s) => s.isVisible);
+  const phase = useWorkspaceCreationStore((s) => s.phase);
+  const pendingWorkspaceId = useWorkspaceCreationStore((s) => s.pendingWorkspaceId);
+  const clear = useWorkspaceCreationStore((s) => s.clear);
 
   React.useEffect(() => {
     if (!pendingWorkspaceId) {

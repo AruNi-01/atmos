@@ -7,7 +7,7 @@ import {
   instanceIdFromRelaySelection,
   type ConnectionInstanceId,
 } from '@/features/connection/lib/connection-instance';
-import { useConnectionStore } from '@/features/connection/hooks/use-connection-store';
+import { useConnectionStore } from '@/features/connection/store/connection-store';
 import { useUiPrefStore, type UiPrefSlice } from '@/shared/stores/use-ui-pref-store';
 
 function useActiveInstanceId() {

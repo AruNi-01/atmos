@@ -23,8 +23,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { GitIgnoreDirStrategy } from '@/api/ws-api';
-import { useWorkspaceGitignoreDirs } from '@/features/workspace/hooks/use-workspace-gitignore-dirs';
-import { useWorkspaceSettings } from '@/features/settings/hooks/use-workspace-settings';
+import { useWorkspaceGitignoreDirsStore } from '@/features/workspace/store/workspace-gitignore-dirs-store';
+import { useWorkspaceSettingsStore } from '@/features/settings/store/workspace-settings-store';
 
 const STRATEGY_OPTIONS: ReadonlyArray<{ value: GitIgnoreDirStrategy; label: string }> = [
   { value: 'symlink', label: 'Symlink' },
@@ -43,7 +43,7 @@ function GitignoreDirsCard() {
     addCustom,
     removeCustom,
     updateCustomPath,
-  } = useWorkspaceGitignoreDirs();
+  } = useWorkspaceGitignoreDirsStore();
 
   const [expanded, setExpanded] = React.useState(true);
   const [newPath, setNewPath] = React.useState('');
@@ -246,7 +246,7 @@ export function WorkspaceSettingsSection() {
     setKillTmuxOnArchive,
     setCloseAcpOnArchive,
     loadSettings,
-  } = useWorkspaceSettings();
+  } = useWorkspaceSettingsStore();
 
   const [expanded, setExpanded] = React.useState(true);
   const [branchNamingExpanded, setBranchNamingExpanded] = React.useState(true);

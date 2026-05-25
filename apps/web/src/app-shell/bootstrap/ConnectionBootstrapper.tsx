@@ -4,11 +4,11 @@ import { useEffect, useRef } from 'react';
 import {
   bootstrapActiveInstance,
   reloadActiveConnectionData as reloadActiveConnectionDataFromStore,
-} from '@/features/connection/hooks/use-connection-store';
+} from '@/features/connection/store/connection-store';
 import { ensureLocalAppConnectionBootstrap } from '@/features/connection/lib/app-connection-bootstrap';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
-import { useHostedConnectionStore } from '@/features/connection/hooks/use-hosted-connection-store';
+import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
 import {
   createHostedRemoteSession,
   detectHostedLocalServer,

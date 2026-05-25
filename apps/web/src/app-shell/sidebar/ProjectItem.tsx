@@ -46,7 +46,7 @@ import { useTheme } from "next-themes";
 import { SketchPicker } from "react-color";
 import { ImageIcon } from "lucide-react";
 import { WorkspaceItem } from "./WorkspaceItem";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import type { WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import { FileBrowser } from "@/features/files/components/FileBrowser";

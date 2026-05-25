@@ -30,8 +30,8 @@ import { toastManager } from '@workspace/ui';
 import { DeleteWorkspaceDialog } from '@/features/workspace/components/DeleteWorkspaceDialog';
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
 import { SkillsModal } from '@/features/skills';
-import { useAgentChatLayout } from '@/features/agent/hooks/use-agent-chat-layout';
-import { useExperimentSettings } from '@/features/settings/hooks/use-experiment-settings';
+import { useAgentChatLayoutStore } from '@/features/agent/store/agent-chat-layout-store';
+import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
 import { useRemoteAccess } from '@/features/connection/hooks/use-remote-access';
@@ -70,10 +70,10 @@ const Header: React.FC = () => {
   const setupProgress = useProjectStore(s => s.setupProgress);
   const refreshChangedFiles = useGitStore(s => s.refreshChangedFiles);
   const { setGlobalSearchOpen, setHeaderHasOpenOverlay } = useDialogStore();
-  const { layout, updateLayout, loadLayout } = useAgentChatLayout();
+  const { layout, updateLayout, loadLayout } = useAgentChatLayoutStore();
   useEffect(() => { loadLayout(); }, [loadLayout]);
-  const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
-  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+  const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   useEffect(() => {
     void loadExperimentSettings();
   }, [loadExperimentSettings]);

@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { toastManager } from '@workspace/ui';
 
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 
 interface WorkspaceSettingsState {
   closePrOnDelete: boolean;
@@ -38,7 +38,7 @@ const DEFAULT_CONFIRM_ARCHIVE = false;
 const DEFAULT_KILL_TMUX_ARCHIVE = true;
 const DEFAULT_CLOSE_ACP_ARCHIVE = true;
 
-export const useWorkspaceSettings = create<WorkspaceSettingsState>((set, get) => ({
+export const useWorkspaceSettingsStore = create<WorkspaceSettingsState>((set, get) => ({
   closePrOnDelete: DEFAULT_CLOSE_PR,
   closeIssueOnDelete: DEFAULT_CLOSE_ISSUE,
   deleteRemoteBranch: DEFAULT_DELETE_REMOTE,

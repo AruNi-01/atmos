@@ -24,7 +24,7 @@ import {
   wsGithubApi,
 } from '@/api/ws-api';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
-import { useWorkspaceCreationStore } from '@/features/workspace/hooks/use-workspace-creation-store';
+import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
 import {
   ISSUE_CACHE_TTL_MS,
   issueListCache,

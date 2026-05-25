@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { AGENT_STATE } from "@/features/agent/hooks/use-agent-hooks-store";
-import { useNotificationSettings } from "@/features/settings/hooks/use-notification-settings";
+import { AGENT_STATE } from "@/features/agent/store/agent-hooks-store";
+import { useNotificationSettingsStore } from "@/features/settings/store/notification-settings-store";
 import {
   showBrowserNotification,
   showDesktopNotification,
@@ -23,7 +23,7 @@ export function useAgentNotifications() {
 
   const handleNotification = useCallback((data: unknown) => {
     const payload = data as AgentNotificationPayload;
-    const settings = useNotificationSettings.getState().settings;
+    const settings = useNotificationSettingsStore.getState().settings;
 
     if (settings.browser_notification) {
       showBrowserNotification(payload, {
@@ -38,7 +38,7 @@ export function useAgentNotifications() {
   }, []);
 
   useEffect(() => {
-    void useNotificationSettings.getState().loadSettings();
+    void useNotificationSettingsStore.getState().loadSettings();
   }, []);
 
   useEffect(() => {

@@ -11,8 +11,8 @@ import {
   MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
   normalizeCanvasMaxRenderedTerminals,
   normalizeCanvasTerminalContextMaxLines,
-  useCanvasSettings,
-} from "../use-canvas-settings";
+  useCanvasSettingsStore,
+} from "../canvas-settings-store";
 
 const originalUpdate = functionSettingsApi.update;
 const originalToast = toastManager.add;
@@ -20,7 +20,7 @@ const originalToast = toastManager.add;
 afterEach(() => {
   functionSettingsApi.update = originalUpdate;
   toastManager.add = originalToast;
-  useCanvasSettings.setState({
+  useCanvasSettingsStore.setState({
     autoSaveInterval: 1,
     maxRenderedTerminals: DEFAULT_CANVAS_MAX_RENDERED_TERMINALS,
     terminalContextMaxLines: DEFAULT_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
@@ -52,7 +52,7 @@ describe("normalizeCanvasTerminalContextMaxLines", () => {
   });
 });
 
-describe("useCanvasSettings", () => {
+describe("useCanvasSettingsStore", () => {
   it("does not roll back a newer rendered-terminal limit when an older request fails later", async () => {
     let rejectFirstRequest: ((reason?: unknown) => void) | null = null;
     let updateCallCount = 0;
@@ -69,16 +69,16 @@ describe("useCanvasSettings", () => {
     };
     toastManager.add = () => undefined;
 
-    const firstRequest = useCanvasSettings.getState().setMaxRenderedTerminals(20);
-    const secondRequest = useCanvasSettings.getState().setMaxRenderedTerminals(30);
+    const firstRequest = useCanvasSettingsStore.getState().setMaxRenderedTerminals(20);
+    const secondRequest = useCanvasSettingsStore.getState().setMaxRenderedTerminals(30);
 
-    expect(useCanvasSettings.getState().maxRenderedTerminals).toBe(30);
+    expect(useCanvasSettingsStore.getState().maxRenderedTerminals).toBe(30);
 
     rejectFirstRequest?.(new Error("late failure"));
 
     await firstRequest;
     await secondRequest;
 
-    expect(useCanvasSettings.getState().maxRenderedTerminals).toBe(30);
+    expect(useCanvasSettingsStore.getState().maxRenderedTerminals).toBe(30);
   });
 });

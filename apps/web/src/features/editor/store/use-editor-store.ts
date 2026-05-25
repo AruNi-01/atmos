@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { useEffect } from 'react';
-import { getActiveInstanceId } from '@/features/connection/hooks/use-connection-store';
+import { getActiveInstanceId } from '@/features/connection/store/connection-store';
 import { restoreEditorFromInstancePrefs } from '@/features/editor/lib/restore-editor-from-prefs';
 import {
   partializeEditorState,

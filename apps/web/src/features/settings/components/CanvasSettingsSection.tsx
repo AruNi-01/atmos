@@ -7,8 +7,8 @@ import {
   MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
   MIN_CANVAS_MAX_RENDERED_TERMINALS,
   MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES,
-  useCanvasSettings,
-} from '@/features/canvas/hooks/use-canvas-settings';
+  useCanvasSettingsStore,
+} from '@/features/canvas/store/canvas-settings-store';
 
 export function CanvasSettingsSection() {
   const {
@@ -19,7 +19,7 @@ export function CanvasSettingsSection() {
     setAutoSaveInterval,
     setMaxRenderedTerminals,
     setTerminalContextMaxLines,
-  } = useCanvasSettings();
+  } = useCanvasSettingsStore();
   const [localInterval, setLocalInterval] = React.useState(autoSaveInterval.toString());
   const [localMaxRenderedTerminals, setLocalMaxRenderedTerminals] = React.useState(
     maxRenderedTerminals.toString(),

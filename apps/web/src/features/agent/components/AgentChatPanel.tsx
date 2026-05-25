@@ -22,7 +22,7 @@ import {
   cn,
 } from "@workspace/ui";
 import { BookOpen, ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { useAgentChatLayout } from "@/features/agent/hooks/use-agent-chat-layout";
+import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { getAssistantCopyText } from "@/features/agent/lib/agent/thread";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
@@ -58,7 +58,7 @@ export function AgentChatPanel({
   // ---------------------------------------------------------------------------
   // Draggable & Resizable layout (UI-only, stays in component)
   // ---------------------------------------------------------------------------
-  const { layout, updateLayout, loaded: layoutLoaded, loadLayout } = useAgentChatLayout();
+  const { layout, updateLayout, loaded: layoutLoaded, loadLayout } = useAgentChatLayoutStore();
 
   useEffect(() => {
     if (variant === "modal") {

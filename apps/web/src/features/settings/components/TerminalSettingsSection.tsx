@@ -9,7 +9,7 @@ import {
   Switch,
 } from '@workspace/ui';
 import { Check, ChevronDown } from 'lucide-react';
-import type { TerminalFileLinkOpenMode } from '@/features/settings/hooks/use-terminal-link-settings';
+import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
 import {
   QUICK_OPEN_APP_MAP,
   QUICK_OPEN_APP_OPTIONS,

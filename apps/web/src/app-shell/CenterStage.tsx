@@ -21,7 +21,7 @@ import type { ReviewTarget } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import { useQueryStates } from "nuqs";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
-import { useReviewTerminalRunnerStore } from "@/features/code-review/hooks/use-review-terminal-runner";
+import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
 import type { FixedTab } from "@/shared/lib/nuqs/searchParams";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -42,11 +42,11 @@ import {
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
 import { CodeReviewDialog } from "@/features/code-review";
-import { useReviewSnapshotStore } from "@/features/code-review/hooks/use-review-snapshot-store";
+import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { useWorkspaceCreationStore } from "@/features/workspace/hooks/use-workspace-creation-store";
-import { useExperimentSettings } from "@/features/settings/hooks/use-experiment-settings";
+import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
+import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
   FIXED_TABS,
   isTerminalCenterTabValue,
@@ -151,9 +151,9 @@ const CenterStage: React.FC = () => {
     [effectiveContextId, mountedTerminalTabsByContext]
   );
 
-  const centerWikiTabEnabled = useExperimentSettings((s) => s.centerWikiTabEnabled);
-  const experimentPrefsLoaded = useExperimentSettings((s) => s.loaded);
-  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+  const centerWikiTabEnabled = useExperimentSettingsStore((s) => s.centerWikiTabEnabled);
+  const experimentPrefsLoaded = useExperimentSettingsStore((s) => s.loaded);
+  const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   React.useEffect(() => {
     void loadExperimentSettings();
   }, [loadExperimentSettings]);

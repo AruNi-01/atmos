@@ -16,9 +16,9 @@ import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
 import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { clearLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
-import { useCanvasSettings } from "@/features/canvas/hooks/use-canvas-settings";
+import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useCanvasBoard } from "../hooks/use-canvas-board";
-import { useCanvasRuntime } from "../hooks/use-canvas-runtime";
+import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
@@ -73,12 +73,12 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const router = useAppRouter();
   const terminalHostRef = React.useRef<HTMLDivElement | null>(null);
   const terminalRefs = useCanvasTerminalRefs();
-  const activeShapeId = useCanvasRuntime((state) => state.activeShapeId);
-  const renderedShapeIds = useCanvasRuntime((state) => state.renderedShapeIds);
-  const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
-  const setRenderedShapeIds = useCanvasRuntime((state) => state.setRenderedShapeIds);
-  const removeRenderedShapeId = useCanvasRuntime((state) => state.removeRenderedShapeId);
-  const maxRenderedTerminals = useCanvasSettings((state) => state.maxRenderedTerminals);
+  const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
+  const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
+  const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
+  const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
+  const removeRenderedShapeId = useCanvasRuntimeStore((state) => state.removeRenderedShapeId);
+  const maxRenderedTerminals = useCanvasSettingsStore((state) => state.maxRenderedTerminals);
   const configuredAgents = React.useContext(CanvasAgentContext);
 
   const storeWrite = React.useMemo(

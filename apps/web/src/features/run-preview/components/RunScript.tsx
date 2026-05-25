@@ -11,7 +11,7 @@ import { WorkspaceScriptDialog } from '@/features/workspace/components/Workspace
 import { wsScriptApi } from '@/api/ws-api';
 import { toastManager } from '@workspace/ui';
 import type { TerminalRef } from "@/features/terminal/components/Terminal";
-import { getActiveInstanceId } from '@/features/connection/hooks/use-connection-store';
+import { getActiveInstanceId } from '@/features/connection/store/connection-store';
 import { useUiPrefStore } from '@/shared/stores/use-ui-pref-store';
 
 type RunTerminalTab = {

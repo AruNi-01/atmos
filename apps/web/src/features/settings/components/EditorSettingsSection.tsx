@@ -23,8 +23,8 @@ import {
   IconEyeSlash,
   IconSymbolDiffstat,
 } from '@pierre/icons';
-import { useEditorSettings } from '@/features/settings/hooks/use-editor-settings';
-import { useDiffSettings, type DiffSettingsStyle } from '@/features/settings/hooks/use-diff-settings';
+import { useEditorSettingsStore } from '@/features/settings/store/editor-settings-store';
+import { useDiffSettingsStore, type DiffSettingsStyle } from '@/features/settings/store/diff-settings-store';
 
 function SettingRow({
   title,
@@ -189,7 +189,7 @@ export function EditorSettingsSection() {
     setBreadcrumbs,
     setLineHighlight,
     setGitIntegration,
-  } = useEditorSettings();
+  } = useEditorSettingsStore();
   const {
     diffStyle,
     showBackgrounds,
@@ -202,7 +202,7 @@ export function EditorSettingsSection() {
     setLineNumbers,
     setWordWrap,
     setDiffIndicators,
-  } = useDiffSettings();
+  } = useDiffSettingsStore();
   const [codeEditorExpanded, setCodeEditorExpanded] = React.useState(true);
   const [diffExpanded, setDiffExpanded] = React.useState(true);
 

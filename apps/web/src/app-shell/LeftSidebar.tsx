@@ -16,7 +16,7 @@ import { WorkspaceScriptDialog } from '@/features/workspace/components/Workspace
 import { DeleteProjectDialog } from '@/features/project/components/DeleteProjectDialog';
 import { FileTreePanel } from '@/features/files/components/FileTreePanel';
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitInfoStore } from '@/features/git/store/use-git-info-store';
 import { useDialogStore } from '@/app-shell/state/use-dialog-store';
@@ -36,9 +36,9 @@ import {
   parseWorkspaceKanbanFilters,
 } from '@/app-shell/left-sidebar-settings';
 import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-setup';
-import { useWorkspaceCreationStore } from '@/features/workspace/hooks/use-workspace-creation-store';
-import { useLayoutSettings } from '@/features/settings/hooks/use-layout-settings';
-import { useExperimentSettings } from '@/features/settings/hooks/use-experiment-settings';
+import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
+import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
+import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
 import { ProjectsSidebarLoading } from '@/app-shell/ProjectsSidebarLoading';
 import { LeftSidebarManagementCenter } from '@/app-shell/LeftSidebarManagementCenter';
@@ -119,14 +119,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const { setCurrentContext } = useGitInfoStore();
     const { isLeftCollapsed, leftSidebarSize, resizeLeftSidebar } = useSidebarLayout();
-    const filesOnRight = useLayoutSettings((s) => s.projectFilesSide === 'right');
-    const workspaceSidebarTwoColumn = useLayoutSettings((s) => s.workspaceSidebarTwoColumn);
-    const workspaceSidebarTwoColumnShowPinned = useLayoutSettings((s) => s.workspaceSidebarTwoColumnShowPinned);
-    const workspaceSidebarSecondColumnKanban = useLayoutSettings((s) => s.workspaceSidebarSecondColumnKanban);
-    const workspaceSidebarTimeTwoColumn = useLayoutSettings((s) => s.workspaceSidebarTimeTwoColumn);
-    const workspaceSidebarStatusTwoColumn = useLayoutSettings((s) => s.workspaceSidebarStatusTwoColumn);
-    const layoutLoaded = useLayoutSettings((s) => s.loaded);
-    const loadLayoutSettings = useLayoutSettings((s) => s.loadSettings);
+    const filesOnRight = useLayoutSettingsStore((s) => s.projectFilesSide === 'right');
+    const workspaceSidebarTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumn);
+    const workspaceSidebarTwoColumnShowPinned = useLayoutSettingsStore((s) => s.workspaceSidebarTwoColumnShowPinned);
+    const workspaceSidebarSecondColumnKanban = useLayoutSettingsStore((s) => s.workspaceSidebarSecondColumnKanban);
+    const workspaceSidebarTimeTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarTimeTwoColumn);
+    const workspaceSidebarStatusTwoColumn = useLayoutSettingsStore((s) => s.workspaceSidebarStatusTwoColumn);
+    const layoutLoaded = useLayoutSettingsStore((s) => s.loaded);
+    const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
     useEffect(() => { loadLayoutSettings(); }, [loadLayoutSettings]);
 
     const [activeTab, setActiveTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
@@ -153,9 +153,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
-    const managementTerminalsEnabled = useExperimentSettings((s) => s.managementTerminalsEnabled);
-    const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
-    const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
+    const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
+    const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+    const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
     useEffect(() => {
         void loadExperimentSettings();
     }, [loadExperimentSettings]);

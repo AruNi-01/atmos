@@ -3,7 +3,7 @@ import React from "react";
 import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
-import { useFunctionSettingsStore } from "@/features/settings/hooks/use-function-settings-store";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
 export type TerminalQuickOpenAgent = {
   agent: TerminalPaneAgent;

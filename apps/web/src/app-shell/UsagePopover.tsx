@@ -46,7 +46,7 @@ import {
   type UsageOverviewResponse,
 } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
-import { useLayoutSettings } from "@/features/settings/hooks/use-layout-settings";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { useUsageProviderOrder } from "@/shared/stores/use-ui-pref-hooks";
 import {
   formatNextAutoRefreshHint,
@@ -131,9 +131,9 @@ export function UsagePopover({ open: externalOpen, onOpenChange: externalOnOpenC
   });
   const [providerOrder, setProviderOrder] = useUsageProviderOrder();
   const [switchingFooterCarouselProviderId, setSwitchingFooterCarouselProviderId] = useState<string | null>(null);
-  const footerShowUsageCarousel = useLayoutSettings((s) => s.showUsageCarousel);
-  const setFooterShowUsageCarousel = useLayoutSettings((s) => s.setFooterShowUsageCarousel);
-  const loadLayoutSettings = useLayoutSettings((s) => s.loadSettings);
+  const footerShowUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
+  const setFooterShowUsageCarousel = useLayoutSettingsStore((s) => s.setFooterShowUsageCarousel);
+  const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

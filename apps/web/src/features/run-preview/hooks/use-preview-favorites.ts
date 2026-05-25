@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toastManager } from "@workspace/ui";
 import { functionSettingsApi } from "@/api/ws-api";
-import { useFunctionSettingsStore } from "@/features/settings/hooks/use-function-settings-store";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import {
   canonicalizeUrl,
   deriveFavoriteName,

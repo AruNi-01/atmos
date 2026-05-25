@@ -56,7 +56,7 @@ async function getBase(): Promise<string> {
   return httpBase(config);
 }
 
-export const useNotificationSettings = create<NotificationSettingsStore>(
+export const useNotificationSettingsStore = create<NotificationSettingsStore>(
   (set, get) => ({
     settings: DEFAULT_SETTINGS,
     _version: 0,

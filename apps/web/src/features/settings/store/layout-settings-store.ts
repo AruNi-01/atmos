@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { functionSettingsApi } from '@/api/ws-api';
-import { useFunctionSettingsStore } from '@/features/settings/hooks/use-function-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 
 export type ProjectFilesSide = 'left' | 'right';
 
@@ -40,7 +40,7 @@ function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLa
   };
 }
 
-export const useLayoutSettings = create<LayoutSettingsState>((set, get) => ({
+export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => ({
   projectFilesSide: 'left',
   workspaceSidebarTwoColumn: false,
   workspaceSidebarTwoColumnShowPinned: false,

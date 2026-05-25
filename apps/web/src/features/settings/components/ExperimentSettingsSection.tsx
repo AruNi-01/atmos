@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Switch } from '@workspace/ui';
-import { useExperimentSettings } from '@/features/settings/hooks/use-experiment-settings';
+import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 
 export function ExperimentSettingsSection() {
   const {
@@ -13,7 +13,7 @@ export function ExperimentSettingsSection() {
     setManagementTerminalsEnabled,
     setManagementAgentsEnabled,
     setCenterWikiTabEnabled,
-  } = useExperimentSettings();
+  } = useExperimentSettingsStore();
 
   React.useEffect(() => {
     void loadSettings();

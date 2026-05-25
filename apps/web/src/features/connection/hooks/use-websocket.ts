@@ -8,7 +8,7 @@ import { syncClientSessionFromStore } from "@/features/connection/lib/sync-clien
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
 import { ensureLocalAppConnectionBootstrap } from "@/features/connection/lib/app-connection-bootstrap";
 import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
-import { useConnectionStore } from "@/features/connection/hooks/use-connection-store";
+import { useConnectionStore } from "@/features/connection/store/connection-store";
 import { buildWsUrl, buildWsUrlSync } from "@/shared/lib/ws-url";
 import { debugLog } from "@/shared/lib/desktop-logger";
 

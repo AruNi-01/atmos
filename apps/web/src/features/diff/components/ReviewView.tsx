@@ -11,7 +11,7 @@ import {
 import { MessageSquarePlus, ChevronRight, LoaderCircle, List, ListTree } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useReviewCtx } from "@/features/diff/components/review/ReviewContextProvider";
-import { useReviewSnapshotStore } from "@/features/code-review/hooks/use-review-snapshot-store";
+import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import {
   useEditorStore,

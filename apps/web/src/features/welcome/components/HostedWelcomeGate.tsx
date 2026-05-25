@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import {
   Badge,
   Button,
@@ -29,7 +30,7 @@ import WelcomePage from '@/features/welcome/components/WelcomePage';
 import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
 import { HostedSloganShimmer } from '@/shared/components/ui/HostedSloganShimmer';
 import { RemoteComputerSetupBlock } from '@/features/remote-access/components/RemoteComputerSetupBlock';
-import { useHostedConnectionStore } from '@/features/connection/hooks/use-hosted-connection-store';
+import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {
   createHostedRemoteSession,
@@ -128,7 +129,17 @@ function HostedConnectionOnboarding() {
     remoteError,
     setConnected,
     setRemoteError,
-  } = useHostedConnectionStore();
+  } = useHostedConnectionStore(
+    useShallow((s) => ({
+      localProbeState: s.localProbeState,
+      localApiConfig: s.localApiConfig,
+      localStatus: s.localStatus,
+      localError: s.localError,
+      remoteError: s.remoteError,
+      setConnected: s.setConnected,
+      setRemoteError: s.setRemoteError,
+    })),
+  );
   const {
     accessToken,
     controlPlaneUrl,

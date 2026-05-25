@@ -26,13 +26,13 @@ import {
   LoaderCircle,
   Palette,
 } from "lucide-react";
-import { useCanvasSettings } from "@/features/canvas/hooks/use-canvas-settings";
+import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traffic-lights-padding";
 import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
-import { useFunctionSettingsStore } from "@/features/settings/hooks/use-function-settings-store";
+import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
-import { useCanvasRuntime } from "../hooks/use-canvas-runtime";
+import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
   createCanvasSnapshot,
   resolveCanvasSessionForLoad,
@@ -123,18 +123,18 @@ export const CanvasView: React.FC = () => {
   );
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [isManualSaving, setIsManualSaving] = React.useState(false);
-  const setActiveShapeId = useCanvasRuntime((state) => state.setActiveShapeId);
-  const activeShapeId = useCanvasRuntime((state) => state.activeShapeId);
-  const renderedShapeIds = useCanvasRuntime((state) => state.renderedShapeIds);
-  const setRenderedShapeIds = useCanvasRuntime((state) => state.setRenderedShapeIds);
-  const setFocusPulseShapeId = useCanvasRuntime((state) => state.setFocusPulseShapeId);
-  const resetRuntime = useCanvasRuntime((state) => state.reset);
+  const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
+  const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
+  const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
+  const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
+  const setFocusPulseShapeId = useCanvasRuntimeStore((state) => state.setFocusPulseShapeId);
+  const resetRuntime = useCanvasRuntimeStore((state) => state.reset);
   const {
     autoSaveInterval,
     maxRenderedTerminals,
     loaded: canvasSettingsLoaded,
     loadSettings: loadCanvasSettings,
-  } = useCanvasSettings();
+  } = useCanvasSettingsStore();
   const needsTrafficLightsPadding = useDesktopTrafficLightsPadding();
   const editorRef = React.useRef<Editor | null>(null);
   const [editorReady, setEditorReady] = React.useState(false);
@@ -417,7 +417,7 @@ export const CanvasView: React.FC = () => {
 
     const cleanupDocument = editor.store.listen(
       () => {
-        const runtime = useCanvasRuntime.getState();
+        const runtime = useCanvasRuntimeStore.getState();
         const shapes = getCanvasTerminalShapes(editor);
         const shapeIds = new Set(shapes.map((shape) => shape.id));
         const nextRenderedShapeIds = runtime.renderedShapeIds.filter((shapeId) =>
@@ -438,7 +438,7 @@ export const CanvasView: React.FC = () => {
         const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
         scheduleSessionSave(snapshot.session);
 
-        const runtime = useCanvasRuntime.getState();
+        const runtime = useCanvasRuntimeStore.getState();
         const nextSelectedShapeIds = editor.getSelectedShapeIds() as TLShapeId[];
         if (nextSelectedShapeIds.length === 0) {
           if (runtime.activeShapeId !== null) {
@@ -535,7 +535,7 @@ export const CanvasView: React.FC = () => {
         maxRenderedTerminals,
         setActiveShapeId,
         setRenderedShapeIds,
-        renderedShapeIds: useCanvasRuntime.getState().renderedShapeIds,
+        renderedShapeIds: useCanvasRuntimeStore.getState().renderedShapeIds,
         setFocusPulseShapeId,
       });
     });

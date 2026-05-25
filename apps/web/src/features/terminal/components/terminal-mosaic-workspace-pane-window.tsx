@@ -14,7 +14,7 @@ import {
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { AgentHookStatusIndicator } from "@/features/agent/components/AgentHookStatusIndicator";
 import { buildCanvasTerminalPinKey } from "@/features/canvas/lib/canvas-terminal-shape";
-import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/hooks/use-agent-hooks-store";
+import { AGENT_STATE, useAgentHooksStore } from "@/features/agent/store/agent-hooks-store";
 import type { Project } from "@/shared/types/domain";
 import { Terminal, type TerminalRef } from "./Terminal";
 import { TerminalTitleWithAgent } from "./terminal-title";

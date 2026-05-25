@@ -1,7 +1,7 @@
 'use client';
 
 import { ensureComputerClientSettingsHydrated } from '@/features/connection/lib/sync-computer-client-settings';
-import { bootstrapActiveInstance } from '@/features/connection/hooks/use-connection-store';
+import { bootstrapActiveInstance } from '@/features/connection/store/connection-store';
 import { hydrateRelaySessionFromDisk } from '@/features/connection/lib/hydrate-relay-session';
 import { isHostedAtmosOrigin, isTauriRuntime } from '@/shared/lib/desktop-runtime';
 

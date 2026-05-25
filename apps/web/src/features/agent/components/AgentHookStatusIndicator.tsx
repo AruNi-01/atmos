@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { TextShimmer, FilledBellIcon, cn } from "@workspace/ui";
 import type { AnimatedIconHandle } from "@workspace/ui";
-import { AGENT_STATE, type AgentHookState } from "@/features/agent/hooks/use-agent-hooks-store";
+import { AGENT_STATE, type AgentHookState } from "@/features/agent/store/agent-hooks-store";
 
 const SPINNER_NAMES = [
   "braille", "helix", "scan", "cascade", "orbit",

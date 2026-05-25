@@ -10,7 +10,7 @@ import { toastManager } from '@workspace/ui';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
-import { useDiffSettings } from '@/features/settings/hooks/use-diff-settings';
+import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import {
   getDiffGroupKind,
@@ -99,7 +99,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     setLineNumbers,
     setWordWrap,
     setDiffIndicators,
-  } = useDiffSettings();
+  } = useDiffSettingsStore();
   const [collapseMode, setCollapseMode] = useState<'expanded' | 'collapsed'>(
     'expanded',
   );

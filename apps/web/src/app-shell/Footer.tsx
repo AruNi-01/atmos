@@ -20,7 +20,7 @@ import {
   type AgentHookSession,
   AGENT_STATE,
   AGENT_TOOL_LABELS,
-} from '@/features/agent/hooks/use-agent-hooks-store';
+} from '@/features/agent/store/agent-hooks-store';
 import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookStatusIndicator';
 import { AnimatePresence, motion } from 'motion/react';
@@ -34,8 +34,8 @@ import { ProviderGlyph } from '@/app-shell/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
 import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
-import { useExperimentSettings } from '@/features/settings/hooks/use-experiment-settings';
-import { useLayoutSettings } from '@/features/settings/hooks/use-layout-settings';
+import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
+import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
@@ -442,12 +442,12 @@ function HoverScrollText({ text, active }: { text: string; active: boolean }) {
 const Footer: React.FC = () => {
   const connectionState = useWebSocketStore(s => s.connectionState);
   const [, setAgentChatOpen] = useAgentChatUrl();
-  const managementAgentsEnabled = useExperimentSettings((s) => s.managementAgentsEnabled);
-  const loadExperimentSettings = useExperimentSettings((s) => s.loadSettings);
-  const showWsConnection = useLayoutSettings((s) => s.showWsConnection);
-  const showUsageCarousel = useLayoutSettings((s) => s.showUsageCarousel);
-  const showAgentStatus = useLayoutSettings((s) => s.showAgentStatus);
-  const loadLayoutSettings = useLayoutSettings((s) => s.loadSettings);
+  const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
+  const showWsConnection = useLayoutSettingsStore((s) => s.showWsConnection);
+  const showUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
+  const showAgentStatus = useLayoutSettingsStore((s) => s.showAgentStatus);
+  const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
   const [connections, setConnections] = useState<WsConnectionInfo[]>([]);
   const [usageOverview, setUsageOverview] = useState<UsageOverviewResponse | null>(null);
   const [usageIndex, setUsageIndex] = useState(0);
