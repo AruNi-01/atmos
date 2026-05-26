@@ -1,0 +1,317 @@
+crates/core-service/src/service/automation/scheduler.rs
+  s_b68c410ef36996::t_faa4be6e47acbe 8
+  s_b68c410ef36996::t_e005121f71ae2a 1-7,9-219
+apps/web/src/features/agent/hooks/use-agent-notifications.ts
+  s_b68c410ef36996::t_8717b5373c19c8 21-30,32-33,51-70,76,79-81,84-87,89
+apps/web/src/app-shell/sidebar/WorkspaceKanbanTypes.ts
+  s_b68c410ef36996::t_8717b5373c19c8 7,24-28,56
+apps/web/src/features/settings/components/NotifySettingsSection.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 24,68,310-327,376-394,396,400
+apps/web/src/features/automations/components/AutomationAgentPicker.tsx
+  s_b68c410ef36996::t_f6607e4827e177 1-74
+apps/web/src/features/automations/components/AutomationPageShell.tsx
+  s_b68c410ef36996::t_752d2751573fd7 1-165
+apps/web/src/features/automations/lib/automation-format.ts
+  s_b68c410ef36996::t_4afc86dedbbb7a 1-129
+apps/web/src/features/wiki/components/AgentSelect.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 13,15,17
+apps/web/src/features/automations/lib/automation-schedule.ts
+  s_b68c410ef36996::t_682294b678e3f5 1-137
+apps/web/src/app-shell/sidebar/WorkspaceContent.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 14,133,474-490
+resources/terminal-agents/builtin_agents.json
+  s_b68c410ef36996::t_c66555e103731f 1-84
+apps/web/src/shared/types/domain.ts
+  s_b68c410ef36996::t_8717b5373c19c8 19-20,51
+apps/web/src/app-shell/sidebar/WorkspaceKanbanCard.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 24,95,165-176
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 142
+apps/web/src/features/agent/lib/terminal-agent-definitions.ts
+  s_b68c410ef36996::t_e02d17dd1715cf 1
+  s_b68c410ef36996::t_92657b4f2991d0 2-12
+.agents/skills/atmos-specs-review/evals/evals.json
+  s_b68c410ef36996::t_d523be7f09d7b0 1-23
+specs/README.md
+  s_b68c410ef36996::t_8717b5373c19c8 3,13-16,23-25,62-73,97
+resources/terminal-agents/AGENTS.md
+  s_b68c410ef36996::t_3cb2f27d97a527 7,17
+  s_b68c410ef36996::t_809be793777831 1-6,8-16,18
+apps/web/src/api/ws-api-types.ts
+  s_b68c410ef36996::t_8717b5373c19c8 3-4,212
+specs/APP/APP-017_atmos-automations/TECH.md
+  s_b68c410ef36996::t_9cd999a72b96cb 198,204-206,208,785
+  s_b68c410ef36996::t_c3a9bac6c6518c 7,49,243,748,767,792
+  s_b68c410ef36996::t_fe72ac9643c8a8 749,770,793-794
+  s_b68c410ef36996::t_162fa06d80b1b7 679
+  s_b68c410ef36996::t_c0509ab438400c 722
+  s_b68c410ef36996::t_bac95ec6857095 27,359
+  s_b68c410ef36996::t_fd9ce499a658f4 44-45,63,67
+  s_b68c410ef36996::t_c58d44815edeff 203,207,213-216,220-225,230-235
+  s_b68c410ef36996::t_91d6381505c00a 141-145,268
+  s_b68c410ef36996::t_2b00b0806b4758 46,209,244
+  s_b68c410ef36996::t_a1601efe89dbca 639,729
+  s_b68c410ef36996::t_8a56a667886e24 264
+  s_b68c410ef36996::t_29bc1ad71ac125 453,532,546-547
+  s_b68c410ef36996::t_a276e5b6837936 1-2
+  s_b68c410ef36996::t_4ceefc3fc8d344 686,734
+  s_b68c410ef36996::t_4cd714c1277aca 523,525,562,571
+  s_b68c410ef36996::t_9902befe7ebb41 96
+  s_b68c410ef36996::t_85ec1e04f71c4a 634
+  s_b68c410ef36996::t_6e75af939be3c9 3-6,8-26,29-35,37-43,50-57,59-61,64-66,68-95,97-140,146-192,194-197,199-202,210-212,217-219,226-229,236-240,247-248,250,252,255-256,259,261,263,265,267,271-277,281-282,284-286,291-358,360-411,413-452,454-522,524,526-531,533-545,548-561,563-570,572,590-633,635-638,640-678,680-685,687-721,723-728,730-733,735-747,751-754,756-758,760-766,772-784,786-791
+  s_b68c410ef36996::t_36dc424a0f8722 28,36,58,193,260,262,266,269-270,278-280,283,288,290,755
+  s_b68c410ef36996::t_fc13ce49f38d05 47-48,62
+  s_b68c410ef36996::t_89b975d8290e31 750,759,768-769,771
+  s_b68c410ef36996::t_115ca3a3e7f811 242,249,251,253-254,257-258
+  s_b68c410ef36996::t_08fbb2941f64e6 241,245-246,287,289,412
+  s_b68c410ef36996::t_d22f2b5068ba7e 573-589
+crates/core-service/src/lib.rs
+  s_b68c410ef36996::t_8717b5373c19c8 10-18
+apps/web/src/features/automations/types.ts
+  s_b68c410ef36996::t_1942f27929cd8c 1-7,35-38,40-43,45-56,61-70,161
+  s_b68c410ef36996::t_2092a18371bb5c 112
+  s_b68c410ef36996::t_85afd2da9b56cf 8-24,39,44,57-60,71-111,113-151,153-160
+  s_b68c410ef36996::t_410540596cedda 25-34,152
+specs/APP/APP-017_atmos-automations/REVIEW.md
+  s_b68c410ef36996::t_738f3f773c43d1 26,176,202-204,210-211
+  s_b68c410ef36996::t_a040e18341c200 1-22,30-36,38-66,70-73,76-82,84-116,121-124,127-133,135-159,163-166,169-175,177-201,205-208,212-218,220-239,243-246,249-255,257-276,280-283,286-292,294-312,316-319
+  s_b68c410ef36996::t_174b0d51590ccc 23-25,27-29,37,74-75,83,125-126,134,167-168,219,247-248,256,284-285,293,320-321
+  s_b68c410ef36996::t_0b26ef6f20eb8b 209
+  s_b68c410ef36996::t_707a450afe8c97 67-69,117-120,160-162,240-242,277-279,313-315
+crates/core-service/src/service/automation/run_watcher.rs
+  s_b68c410ef36996::t_56bbd56ec4e091 14
+  s_b68c410ef36996::t_5a9885645926af 1-13,15-205
+apps/web/src/features/automations/components/AutomationEnvironmentPicker.tsx
+  s_b68c410ef36996::t_ffa732159785fd 1-144
+apps/api/src/api/ws/router/mod.rs
+  s_b68c410ef36996::t_8717b5373c19c8 7,39-40,56,72,88,113-121,549-603
+AGENTS.md
+  s_b68c410ef36996::t_8717b5373c19c8 27,30,69-71,73,80-83,99,107,109
+specs/APP/APP-017_atmos-automations/PRD.md
+  s_b68c410ef36996::t_a276e5b6837936 1-2
+  s_b68c410ef36996::t_39be1409458794 54,58,60,78
+  s_b68c410ef36996::t_83362d5247fad4 3-36,38-52,55-56,59,61-68,70-77,79-90,92-98
+  s_b68c410ef36996::t_8314cfbafde387 37,53,91
+  s_b68c410ef36996::t_d16401bb050e6e 57
+  s_b68c410ef36996::t_4d9e99caf1e589 69,99
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  s_b68c410ef36996::t_3074243d42c730 1-466
+apps/api/src/api/ws/router/automation.rs
+  s_b68c410ef36996::t_c7f0ec4e023c2b 11,24,29,34
+  s_b68c410ef36996::t_5636690b11ae0c 1-10,12-23,25-28,30-33,35-101,103-113
+  s_b68c410ef36996::t_26f9e1a519f0bc 102
+crates/core-service/Cargo.toml
+  s_b68c410ef36996::t_8717b5373c19c8 29,34
+crates/core-service/src/service/automation/artifacts.rs
+  s_b68c410ef36996::t_468924fe7c075d 1-145
+apps/web/src/features/project/store/project-store-mappers.ts
+  s_b68c410ef36996::t_8717b5373c19c8 1,45-48,77
+crates/core-service/src/service/automation/validation.rs
+  s_b68c410ef36996::t_1612d383ac2dfd 1-148
+crates/infra/src/db/repo/workspace_repo.rs
+  s_b68c410ef36996::t_8717b5373c19c8 14-30,98,134,190
+crates/core-service/src/service/automation/mod.rs
+  s_b68c410ef36996::t_3fa87e9c715240 489-505
+  s_b68c410ef36996::t_cf66c8c1c31956 11
+  s_b68c410ef36996::t_56e0049a805e4b 13
+  s_b68c410ef36996::t_f71f0467a49a5b 285,659
+  s_b68c410ef36996::t_43d38f5bc17a5d 2-5,9-10,15,17,19-25,27-30,36-88,91-284,286-324,326-343,345-379,381,386-415,417-430,432-446,448-488,506-508,510-519,521-531,533-543,545-551,564-565,567-590,592-605,608-620,622-658,660-675
+  s_b68c410ef36996::t_69474d9003ede0 12
+  s_b68c410ef36996::t_3d96c2c04460ce 1,89-90,325,344
+  s_b68c410ef36996::t_091249bf8988bf 7
+  s_b68c410ef36996::t_5a9885645926af 8,34
+  s_b68c410ef36996::t_4fb68f161fac80 382-385
+  s_b68c410ef36996::t_4fc54d9674082c 16,18
+  s_b68c410ef36996::t_5b93212f6a08f4 431
+  s_b68c410ef36996::t_56bbd56ec4e091 32
+  s_b68c410ef36996::t_e005121f71ae2a 591,621
+  s_b68c410ef36996::t_64c741fce0fad7 552-563,566
+  s_b68c410ef36996::t_d52c5330c6afa9 6,26,33,416,509,520,532,544
+  s_b68c410ef36996::t_1612d383ac2dfd 14,31,35
+  s_b68c410ef36996::t_e500737ca92566 380,447,606-607
+  s_b68c410ef36996::t_e9a37934c998c4 676
+apps/web/src/api/ws-api.ts
+  s_b68c410ef36996::t_8717b5373c19c8 4,587-590,632
+crates/core-engine/src/tmux/mod.rs
+  s_b68c410ef36996::t_8717b5373c19c8 191-238
+.agents/skills/atmos-specs-review/SKILL.md
+  s_b68c410ef36996::t_d523be7f09d7b0 1-123
+apps/web/src/features/automations/components/AutomationListPanel.tsx
+  s_b68c410ef36996::t_27fd5a967ccffd 1-141
+apps/web/src/features/automations/components/AutomationDetailPanel.tsx
+  s_b68c410ef36996::t_74e17f8cccf724 1-2,4-218
+  s_b68c410ef36996::t_8b9f8083c807e0 3
+.agents/skills/atmos-specs-review/references/functional-review.md
+  s_b68c410ef36996::t_148031808d5b26 70
+  s_b68c410ef36996::t_d523be7f09d7b0 1-69,71-110
+apps/web/src/app-shell/center-stage-support.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 6,83-86
+apps/web/tsconfig.json
+  s_b68c410ef36996::t_8717b5373c19c8 24
+apps/api/src/app_state.rs
+  s_b68c410ef36996::t_8717b5373c19c8 5-7,20,38,60,86
+crates/infra/src/db/entities/mod.rs
+  s_b68c410ef36996::t_8717b5373c19c8 2-3
+apps/web/src/features/automations/components/AutomationPage.tsx
+  s_b68c410ef36996::t_9824f4bedf5634 1-56
+crates/core-service/src/service/automation/runner.rs
+  s_b68c410ef36996::t_e005121f71ae2a 1-15,17-90,92-120,159-261,280-319
+  s_b68c410ef36996::t_2576c2f7cdeaa4 16,91,121-158
+  s_b68c410ef36996::t_cbdf3d0bb2c93e 262-267,271-279
+  s_b68c410ef36996::t_5b93212f6a08f4 268-270
+crates/core-service/src/service/workspace.rs
+  s_b68c410ef36996::t_8717b5373c19c8 13,155,169-234,491
+apps/web/src/app/[locale]/(app)/automations/page.tsx
+  s_b68c410ef36996::t_1942f27929cd8c 1-6
+.agents/skills/atmos-specs-review/references/quality-review.md
+  s_b68c410ef36996::t_d523be7f09d7b0 1-79,81-129
+  s_b68c410ef36996::t_148031808d5b26 80
+crates/core-service/src/service/automation/target.rs
+  s_b68c410ef36996::t_69474d9003ede0 1-8,10-196
+  s_b68c410ef36996::t_6395586d95f111 9
+specs/references/progress-template.md
+  s_b68c410ef36996::t_6bad3c3ec7faae 1-104
+apps/web/src/app-shell/LeftSidebarManagementCenter.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 21,94
+apps/web/src/features/automations/components/AutomationTriggerPicker.tsx
+  s_b68c410ef36996::t_7f2b02ecb765b7 1-178
+crates/core-service/src/service/notification.rs
+  s_b68c410ef36996::t_2c88a6133f1bde 99-100
+  s_b68c410ef36996::t_8717b5373c19c8 16-19,26,28,30-33,45-46,89-98,198-248,407-424
+crates/core-service/src/service/automation/terminal_agent_manifest.rs
+  s_b68c410ef36996::t_e5b41b733d97f7 1-9
+apps/api/src/main.rs
+  s_b68c410ef36996::t_8717b5373c19c8 25-27,110-165,331-337,356,393,420-424
+apps/web/src/features/automations/components/automation-common.tsx
+  s_b68c410ef36996::t_2df130a7d60c49 1-8,10,12-41,43-56,58-75
+  s_b68c410ef36996::t_20b5375561e7dc 9,11,42,57
+crates/core-service/src/service/automation/lifecycle.rs
+  s_b68c410ef36996::t_cd2962f398be44 6
+  s_b68c410ef36996::t_091249bf8988bf 1-5,7-138,141-142,149-189,196-323
+  s_b68c410ef36996::t_bd9357daa8eb11 324-461
+  s_b68c410ef36996::t_a010402986cbd9 139-140,143-148,190-191
+  s_b68c410ef36996::t_4a4dd068744a2c 192-195
+apps/web/src/features/settings/store/notification-settings-store.ts
+  s_b68c410ef36996::t_8717b5373c19c8 24-25,34-35
+crates/infra/src/db/entities/automation.rs
+  s_b68c410ef36996::t_9441999d815282 1-46
+.gitignore
+  s_b68c410ef36996::t_8717b5373c19c8 131-132
+crates/infra/src/db/entities/automation_run.rs
+  s_b68c410ef36996::t_9441999d815282 1-59
+crates/infra/src/db/repo/mod.rs
+  s_b68c410ef36996::t_8717b5373c19c8 2,11
+crates/infra/src/db/entities/workspace.rs
+  s_b68c410ef36996::t_8717b5373c19c8 44
+crates/infra/src/db/repo/automation_repo.rs
+  s_b68c410ef36996::t_c7f0ec4e023c2b 78,183,241,293
+  s_b68c410ef36996::t_9441999d815282 1-47,79-88,91-182,184-185,209-228,230-234,236-240,242-253,255-292,294-426,428-457,459-485
+  s_b68c410ef36996::t_5562e1dda592c1 48-77,186-208,254,458
+  s_b68c410ef36996::t_c02801385d458b 89-90,427
+  s_b68c410ef36996::t_6518674e932fb6 229,235
+crates/core-service/src/service/automation/scheduler_service.rs
+  s_b68c410ef36996::t_cf66c8c1c31956 1-13,16-207,209-249
+  s_b68c410ef36996::t_4640c35aadb6be 14-15
+  s_b68c410ef36996::t_6395586d95f111 208
+crates/infra/src/db/migration/mod.rs
+  s_b68c410ef36996::t_8717b5373c19c8 34,68
+crates/core-service/src/service/mod.rs
+  s_b68c410ef36996::t_8717b5373c19c8 4
+specs/references/review-template.md
+  s_b68c410ef36996::t_a040e18341c200 1-7,9-10,12-98
+  s_b68c410ef36996::t_a3d649553db0f3 8,11
+specs/APP/APP-017_atmos-automations/TEST.md
+  s_b68c410ef36996::t_f026998b5bd26e 9,82,90
+  s_b68c410ef36996::t_a5a70f5849d59e 36-39,42,44
+  s_b68c410ef36996::t_fcff5c228066a2 30-32,43,246-253
+  s_b68c410ef36996::t_0a117ed8d2c5c1 3-8,10-29,33-35,45-81,83-89,91-245,254-331,333
+  s_b68c410ef36996::t_5170cd4657d7a9 40-41
+  s_b68c410ef36996::t_a276e5b6837936 1-2
+  s_b68c410ef36996::t_f2903d6de520bd 332
+apps/web/src/features/automations/lib/automation-artifacts.ts
+  s_b68c410ef36996::t_15d34f7b74f124 1-21
+specs/APP/APP-017_atmos-automations/BRAINSTORM.md
+  s_b68c410ef36996::t_0079a563aedb18 7
+  s_b68c410ef36996::t_83eace020e28d5 81
+  s_b68c410ef36996::t_a276e5b6837936 1-6,8,11-13,15,17-18,32-33,35-37,41,43,45,49,51,53,57,59,61-67,70-72,75-77,82-84,88,93-95,102-103,105-107,109-112,119
+  s_b68c410ef36996::t_e0e2febc1faeb0 9-10,14,19-20,22,24,26-31,34,38-40,42,46-47,50,52,54-56,58,69,73-74,78-80,85-87,89-92,96-97,99,101,108,113-115,117-118
+  s_b68c410ef36996::t_0867c59a21c534 16,23,44,60,68,98,120
+  s_b68c410ef36996::t_9942c25fcda062 104
+  s_b68c410ef36996::t_4a0efb3253908b 21,25,48,100,116
+apps/web/src/app-shell/global-search-app-items.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 255-265
+specs/APP/APP-017_atmos-automations/PROGRESS.md
+  s_b68c410ef36996::t_866fc2de0861e5 76
+  s_b68c410ef36996::t_b475b11e7158b7 75
+  s_b68c410ef36996::t_1745df7c0fb6e2 53-54
+  s_b68c410ef36996::t_6e228fc1bb1430 56
+  s_b68c410ef36996::t_123e2edb4c56ca 150
+  s_b68c410ef36996::t_a65fdde6d3071a 74
+  s_b68c410ef36996::t_96f11aa6ac5db1 78
+  s_b68c410ef36996::t_b5f9493526985a 7,11,16-18,25-29,31-32,47-52,63,77,79-80,84,96,105-108,130-131,135-136,165-168
+  s_b68c410ef36996::t_23ce1d6eefb311 23,30,42-46,71,73,103,146,156,159,164
+  s_b68c410ef36996::t_7322f975c165bb 57
+  s_b68c410ef36996::t_04c20be435d352 24,55,65,104,118
+  s_b68c410ef36996::t_dac684e5015b92 64
+  s_b68c410ef36996::t_5905c06bc8dc4a 88-95,97-102,109-117,119-129,132-134,138-145,152-155,157-158,160
+  s_b68c410ef36996::t_a1994ef5edbba8 72,137
+  s_b68c410ef36996::t_9a1540dd9edc33 1-6,8-9,12-15,19-22,33-41,58-62,66-70,81-83,85-87,161-163,169
+  s_b68c410ef36996::t_7ef6a6c70ca101 10
+  s_b68c410ef36996::t_28053c03e38a06 147-149,151
+apps/api/src/api/ws/message.rs
+  s_b68c410ef36996::t_8717b5373c19c8 430-445,591-596
+apps/web/src/app-shell/DocumentTitle.tsx
+  s_b68c410ef36996::t_8717b5373c19c8 37-38
+specs/references/improvement-template.md
+  s_b68c410ef36996::t_67d5bb245d2a4e 53,96
+  s_b68c410ef36996::t_b06a70da26782d 1-4,6-52,54-95
+  s_b68c410ef36996::t_8d9a0d30ade8e9 5
+crates/core-service/src/service/automation/events.rs
+  s_b68c410ef36996::t_d52c5330c6afa9 1-35
+apps/web/src/features/automations/components/RunDetailPanel.tsx
+  s_b68c410ef36996::t_6e857361400afa 1-150
+apps/web/src/features/connection/hooks/use-websocket.ts
+  s_b68c410ef36996::t_8717b5373c19c8 178-192
+apps/web/src/features/automations/hooks/use-automations.ts
+  s_b68c410ef36996::t_aa6b8e28ccfcfa 59-69,71-73,75-84
+  s_b68c410ef36996::t_9c748a1f43a34b 162-166
+  s_b68c410ef36996::t_867a18f0f28ee5 27-42,47,53
+  s_b68c410ef36996::t_1942f27929cd8c 1-7,12,17,19-26,43-46,48-52,54-58,179
+  s_b68c410ef36996::t_31d801a2005c24 118,122
+  s_b68c410ef36996::t_1f69b6d007d76c 8-11,13-16,18,70,74,85-117,119-121,123-161,167-178
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_b68c410ef36996::t_e8bd6c43124120 1-384
+specs/AGENTS.md
+  s_b68c410ef36996::t_8717b5373c19c8 72,85,89,93,95-170,177-182,191-194,259-260
+  s_b68c410ef36996::t_b06a70da26782d 94
+apps/web/src/shared/hooks/use-context-params.ts
+  s_b68c410ef36996::t_8717b5373c19c8 5,43,86
+crates/core-service/src/service/automation/agents.rs
+  s_b68c410ef36996::t_98e6b7eea620da 207,209-210,215-222,285-292,331-398,400-405
+  s_b68c410ef36996::t_5b79dcee8c2062 412-433
+  s_b68c410ef36996::t_09c5b4ded22b82 630-631,642,652,660,678,682,684-690,694-699,702-792,811-826,828-832
+  s_b68c410ef36996::t_ce107946468521 9,37-39,42-53,55,57-59,70-71,91-92,103,140-142,163-166,176,198
+  s_b68c410ef36996::t_a7c83caf93ae33 408-411,511-518,520,546-560,562-563
+  s_b68c410ef36996::t_8f6cffa54a384c 1-8,10-36,40-41,54,56,60-69,72-90,93-102,104-139,143-162,167-175,177-197,199-206,208,211-214,223-284,293-330,399,406-407,434-510,519,521-545,561,564-629,632-641,643-651,653-659,661-677,679-681,683,691-693,700-701,793-810,827,833-835
+crates/infra/src/db/migration/m20260526_000026_create_automation_tables.rs
+  s_b68c410ef36996::t_9441999d815282 1-151,167-190,196-337
+  s_b68c410ef36996::t_5b93212f6a08f4 152-166,191-195
+apps/web/src/features/automations/components/RunHistoryPanel.tsx
+  s_b68c410ef36996::t_8037b9d4e78294 1-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "013f00ea1dedca8b188cec9359ccb81f571437e8",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
