@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import {
-  bootstrapActiveInstance,
-  reloadActiveConnectionData as reloadActiveConnectionDataFromStore,
-} from '@/features/connection/store/connection-store';
+  prepareConnectionTargetChange,
+  reloadActiveConnectionData as reloadActiveConnectionDataFromLifecycle,
+} from '@/app-shell/bootstrap/connection-target-lifecycle';
 import { ensureLocalAppConnectionBootstrap } from '@/features/connection/lib/app-connection-bootstrap';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
@@ -26,8 +26,8 @@ import {
  *   1. Local connection prefs from `localStorage` (`computers`, `selectedServerId`).
  *   2. Computer-client settings (access token / control-plane URL) from the loopback API.
  *   3. Relay session from `~/.atmos/client-session.json`: if present, flips
- *      `connectionMode` to `'relay'` *before* `bootstrapActiveInstance()` so the
- *      WebSocket layer picks the relay target on the very first connect.
+ *      `connectionMode` to `'relay'` *before* the app-level target lifecycle
+ *      runs so the WebSocket layer picks the relay target on the very first connect.
  *   4. Bootstrap the active connection instance (which triggers the WS connect).
  */
 export function ConnectionBootstrapper() {
@@ -106,10 +106,10 @@ export function ConnectionBootstrapper() {
 
 /** After relay/local switch: resync instance + editor prefs + WS. */
 export async function onConnectionTargetChanged(): Promise<void> {
-  await bootstrapActiveInstance();
+  await prepareConnectionTargetChange();
 }
 
 /** After the new WS target is connected, reload business data from that Computer. */
 export async function reloadActiveConnectionData(): Promise<void> {
-  await reloadActiveConnectionDataFromStore();
+  await reloadActiveConnectionDataFromLifecycle();
 }

@@ -26,13 +26,16 @@ import {
   Server,
   Trash2,
 } from 'lucide-react';
-import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
-import { fetchRelayRuntimeInfo } from '@/api/relay';
 import {
   cpFetchWithAccessToken,
   generateAccessToken,
   registerAccessTokenOnRelay,
 } from '@/features/connection/lib/atmos-access-token';
+import { createHostedRemoteSession } from '@/features/connection/lib/hosted-connection';
+import {
+  activateCurrentLocalConnection,
+  activateHostedRemoteConnection,
+} from '@/features/connection/lib/hosted-connection-actions';
 import {
   loadLocalComputerStatus,
   registerLocalComputer,
@@ -46,10 +49,6 @@ import {
   ensureComputerClientSettingsHydrated,
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
-import {
-  syncClientSessionLocal,
-  syncClientSessionRelay,
-} from '@/features/connection/lib/sync-client-session';
 import { ComputerDetailsDialog } from '@/features/remote-access/components/ComputerDetailsDialog';
 import { RemoteComputerSetupBlock } from '@/features/remote-access/components/RemoteComputerSetupBlock';
 
@@ -113,15 +112,9 @@ export function AtmosComputerSection() {
     selectedServerId,
     relayWebSocketUrl,
     localServerId,
-    setConnectionMode,
     setAccessToken,
     setComputers,
-    setSelectedServerId,
-    setRelayWebSocketUrl,
-    setRelayGatewayHttpBase,
-    setRelayClientToken,
     setLocalServerId,
-    resetRelaySession,
   } = useAtmosComputerStore();
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -139,17 +132,6 @@ export function AtmosComputerSection() {
   const activeComputers = computers.filter(c => !c.revoked);
   const connectedServerId =
     connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
-
-  const reconnectWs = async () => {
-    useWebSocketStore.getState().disconnect();
-    const {
-      onConnectionTargetChanged,
-      reloadActiveConnectionData,
-    } = await import('@/app-shell/bootstrap/ConnectionBootstrapper');
-    await onConnectionTargetChanged();
-    await useWebSocketStore.getState().connect();
-    await reloadActiveConnectionData();
-  };
 
   const refreshLocalStatus = useCallback(async () => {
     const knownId = useAtmosComputerStore.getState().localServerId;
@@ -466,10 +448,7 @@ export function AtmosComputerSection() {
       await unregisterLocalComputer();
       setLocalServerId(null);
       if (connectedServerId === serverId) {
-        resetRelaySession();
-        setConnectionMode('local');
-        void syncClientSessionLocal().catch(() => undefined);
-        void reconnectWs().catch(() => undefined);
+        void activateCurrentLocalConnection().catch(() => undefined);
       }
       toastManager.add({
         title: 'Remote access disabled',
@@ -498,10 +477,7 @@ export function AtmosComputerSection() {
     if (isLocalMachine) {
       setBusy(`connect-${serverId}`);
       try {
-        resetRelaySession();
-        setConnectionMode('local');
-        await syncClientSessionLocal().catch(() => undefined);
-        await reconnectWs();
+        await activateCurrentLocalConnection();
         toastManager.add({ title: 'Using this computer locally', type: 'success' });
       } catch (err) {
         toastManager.add({
@@ -516,48 +492,8 @@ export function AtmosComputerSection() {
     }
     setBusy(`connect-${serverId}`);
     try {
-      const res = await cpFetchWithAccessToken(
-        controlPlaneUrl,
-        accessToken,
-        `/v1/computers/${encodeURIComponent(serverId)}/client_sessions`,
-        { method: 'POST', body: JSON.stringify({ client_kind: 'web' }) },
-      );
-      const data = (await res.json().catch(() => null)) as {
-        ws_url?: string;
-        gateway_url?: string;
-        client_token?: string;
-        error?: string;
-      } | null;
-      if (!res.ok || !data?.ws_url || !data?.gateway_url || !data?.client_token) {
-        toastManager.add({
-          title: 'Could not connect',
-          description: data?.error ?? 'Is that computer online?',
-          type: 'error',
-        });
-        return;
-      }
-      try {
-        await fetchRelayRuntimeInfo(data.gateway_url, data.client_token);
-      } catch (err) {
-        toastManager.add({
-          title: 'Could not connect',
-          description:
-            err instanceof Error
-              ? `Remote computer is not reachable through relay: ${err.message}`
-              : 'Remote computer is not reachable through relay.',
-          type: 'error',
-        });
-        return;
-      }
-      setSelectedServerId(serverId);
-      setRelayWebSocketUrl(data.ws_url);
-      setRelayGatewayHttpBase(data.gateway_url);
-      setRelayClientToken(data.client_token);
-      setConnectionMode('relay');
-      await syncClientSessionRelay(serverId, data.gateway_url, data.client_token).catch(
-        () => undefined,
-      );
-      await reconnectWs();
+      const session = await createHostedRemoteSession(controlPlaneUrl, accessToken, serverId);
+      await activateHostedRemoteConnection(serverId, session);
       toastManager.add({ title: 'Connected', type: 'success' });
     } catch (err) {
       toastManager.add({
@@ -593,10 +529,7 @@ export function AtmosComputerSection() {
         await refreshLocalStatus();
       }
       if (connectedServerId === serverId) {
-        resetRelaySession();
-        setConnectionMode('local');
-        void syncClientSessionLocal().catch(() => undefined);
-        void reconnectWs().catch(() => undefined);
+        void activateCurrentLocalConnection().catch(() => undefined);
       }
       toastManager.add({ title: 'Computer removed', type: 'success' });
       await refreshComputerList();

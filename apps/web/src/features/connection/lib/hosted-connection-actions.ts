@@ -1,9 +1,9 @@
 'use client';
 
 import {
-  bootstrapActiveInstance,
+  prepareConnectionTargetChange,
   reloadActiveConnectionData,
-} from '@/features/connection/store/connection-store';
+} from '@/app-shell/bootstrap/connection-target-lifecycle';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {
@@ -19,21 +19,25 @@ import {
   type HostedRemoteSession,
 } from '@/features/connection/lib/hosted-connection';
 
-async function reconnectForCurrentTarget(): Promise<void> {
+export async function reconnectForCurrentTarget(): Promise<void> {
   useWebSocketStore.getState().disconnect();
-  await bootstrapActiveInstance();
+  await prepareConnectionTargetChange();
   await useWebSocketStore.getState().connect();
   await reloadActiveConnectionData();
 }
 
-export async function activateHostedLocalConnection(config: ApiConfig): Promise<void> {
+export async function activateCurrentLocalConnection(): Promise<void> {
   const store = useAtmosComputerStore.getState();
-  setHostedRuntimeApiOverride(config);
   store.resetRelaySession();
   store.setConnectionMode('local');
   writeHostedConnectionPreference('local');
   await syncClientSessionLocal().catch(() => undefined);
   await reconnectForCurrentTarget();
+}
+
+export async function activateHostedLocalConnection(config: ApiConfig): Promise<void> {
+  setHostedRuntimeApiOverride(config);
+  await activateCurrentLocalConnection();
 }
 
 export async function activateHostedRemoteConnection(
