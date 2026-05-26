@@ -1,0 +1,30 @@
+apps/web/src/features/connection/store/connection-store.ts
+  s_56ba029a506987::t_b180e8e4bdca2b 45-46,49
+apps/web/src/features/connection/lib/hosted-connection-actions.ts
+  s_56ba029a506987::t_b180e8e4bdca2b 4,6,22,24,29,38-40
+apps/web/src/app-shell/bootstrap/ConnectionBootstrapper.tsx
+  s_56ba029a506987::t_c6c4c3e0ff8f5a 29-30
+  s_56ba029a506987::t_b180e8e4bdca2b 5-7,109,114
+apps/web/src/app-shell/bootstrap/connection-target-lifecycle.ts
+  s_56ba029a506987::t_b180e8e4bdca2b 1-43
+apps/web/src/features/remote-access/components/AtmosComputerSection.tsx
+  s_56ba029a506987::t_b180e8e4bdca2b 34-38,451,480,495-496,532
+apps/web/src/features/connection/lib/app-connection-bootstrap.ts
+  s_56ba029a506987::t_b180e8e4bdca2b 4,25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "3604a65088fe06fcc78957f91c90da3f94482aad",
+  "prompts": {},
+  "sessions": {
+    "s_56ba029a506987": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6196-c645-76a2-af70-83f890eb41fa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
