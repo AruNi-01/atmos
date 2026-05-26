@@ -4,6 +4,7 @@
 //! All communication uses the Request/Response pattern with JSON messages.
 
 mod agents;
+mod automation;
 mod fs;
 mod git;
 mod github;
@@ -35,8 +36,8 @@ use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 
 use core_service::{
-    AgentService, AgentSessionService, ProjectService, ReviewService, TerminalService,
-    WorkspaceService,
+    AgentService, AgentSessionService, AutomationService, ProjectService, ReviewService,
+    TerminalService, WorkspaceService,
 };
 use core_service::{Result, ServiceError};
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
@@ -52,6 +53,7 @@ pub struct WsMessageService {
     terminal_service: Arc<TerminalService>,
     agent_service: Arc<AgentService>,
     agent_session_service: Arc<AgentSessionService>,
+    automation_service: Arc<AutomationService>,
     review_service: Arc<ReviewService>,
     usage_service: Arc<UsageService>,
     canvas_service: Arc<CanvasService>,
@@ -67,6 +69,7 @@ impl WsMessageService {
         terminal_service: Arc<TerminalService>,
         agent_service: Arc<AgentService>,
         agent_session_service: Arc<AgentSessionService>,
+        automation_service: Arc<AutomationService>,
         review_service: Arc<ReviewService>,
         usage_service: Arc<UsageService>,
         canvas_service: Arc<CanvasService>,
@@ -82,6 +85,7 @@ impl WsMessageService {
             terminal_service,
             agent_service,
             agent_session_service,
+            automation_service,
             review_service,
             usage_service,
             canvas_service,
@@ -106,7 +110,15 @@ impl WsMessageService {
             Ok(data) => WsMessage::success(&request_id, data),
             Err(e) => {
                 tracing::error!("[WsMessageService] Request failed: {}", e);
-                WsMessage::error(&request_id, "error", e.to_string())
+                let error_code = match &e {
+                    ServiceError::Validation(message) if message == "already_running" => {
+                        "already_running"
+                    }
+                    ServiceError::Validation(_) => "validation_error",
+                    ServiceError::NotFound(_) => "not_found",
+                    _ => "error",
+                };
+                WsMessage::error(&request_id, error_code, e.to_string())
             }
         }
     }
@@ -532,6 +544,63 @@ impl WsMessageService {
             }
             WsAction::CustomAgentGetManifestPath => {
                 self.handle_custom_agent_get_manifest_path().await
+            }
+
+            // Automation
+            WsAction::AutomationList => {
+                self.handle_automation_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationGet => {
+                self.handle_automation_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationCreate => {
+                self.handle_automation_create(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationUpdate => {
+                self.handle_automation_update(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationDelete => {
+                self.handle_automation_delete(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationRunNow => {
+                self.handle_automation_run_now(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationPause => {
+                self.handle_automation_pause(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationResume => {
+                self.handle_automation_resume(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationCancelRun => {
+                self.handle_automation_cancel_run(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationRunList => {
+                self.handle_automation_run_list(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationRunGet => {
+                self.handle_automation_run_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationArtifactGet => {
+                self.handle_automation_artifact_get(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::AutomationAgentCapabilities => {
+                self.handle_automation_agent_capabilities().await
+            }
+            WsAction::AutomationSchedulePreview => {
+                self.handle_automation_schedule_preview(parse_request(request.data)?)
+                    .await
             }
 
             // GitHub

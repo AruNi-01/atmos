@@ -7,6 +7,15 @@ pub use error::{Result, ServiceError};
 pub use service::agent::AgentService;
 pub use service::agent_hooks::{AgentHookEvent, AgentHooksService};
 pub use service::agent_session::{AgentSessionService, LazySessionSpec};
+pub use service::automation::AutomationAgentCapability;
+pub use service::automation::{
+    AutomationArtifact, AutomationArtifactGetReq, AutomationArtifactKind, AutomationCancelRunReq,
+    AutomationCreateReq, AutomationDeleteReq, AutomationDetail, AutomationEvent, AutomationGetReq,
+    AutomationList, AutomationListReq, AutomationRunDetail, AutomationRunGetReq, AutomationRunList,
+    AutomationRunListReq, AutomationRunNowReq, AutomationRunStatus, AutomationScheduleInput,
+    AutomationScheduleKind, AutomationSchedulePreviewReq, AutomationService, AutomationSummary,
+    AutomationTargetInput, AutomationTargetKind, AutomationUpdateReq, SchedulePreview,
+};
 pub use service::canvas::{CanvasBoardDto, CanvasService, SaveCanvasBoardReq};
 pub use service::canvas_agent_relay::{
     CanvasAgentDispatchOutcome, CanvasAgentRelay, CanvasBridgeClientSummary, CanvasBridgeStatus,

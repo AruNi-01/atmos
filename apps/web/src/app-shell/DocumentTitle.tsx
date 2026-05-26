@@ -34,6 +34,8 @@ export function DocumentTitle() {
           return skillId ? `${skillId} – Skills – ATMOS` : "Skills – ATMOS";
         case "terminals":
           return "Terminals – ATMOS";
+        case "automations":
+          return "Automations – ATMOS";
       }
     }
     return "ATMOS";

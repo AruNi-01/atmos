@@ -10,23 +10,11 @@ import {
 } from "@workspace/ui";
 import { shellQuote } from "@/shared/lib/shell-quote";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 
-export const AGENT_OPTIONS = [
-  { id: "claude", label: "Claude Code", cmd: "claude", params: "--dangerously-skip-permissions" },
-  { id: "codex", label: "Codex", cmd: "codex", params: "--dangerously-bypass-approvals-and-sandbox" },
-  { id: "gemini", label: "Gemini", cmd: "gemini", params: "--yolo" },
-  { id: "devin", label: "Devin", cmd: "devin", params: "--permission-mode bypass --" },
-  { id: "amp", label: "Amp", cmd: "amp", params: "--dangerously-allow-all", useEcho: true },
-  { id: "droid", label: "Droid", cmd: "droid", params: "" },
-  { id: "opencode", label: "OpenCode", cmd: "opencode", params: "--prompt" },
-  { id: "kimi", label: "Kimi", cmd: "kimi", params: "" },
-  { id: "cursor", label: "Cursor Agent", cmd: "agent", params: "--force" },
-  { id: "kilocode", label: "Kilo Code", cmd: "kilocode", params: "" },
-  { id: "kiro", label: "Kiro", cmd: "kiro-cli", params: "chat --agent atmos --trust-all-tools" },
-  { id: "commandcode", label: "CommandCode", cmd: "cmd", params: "--trust --yolo" },
-] as const;
+export const AGENT_OPTIONS = TERMINAL_AGENT_DEFINITIONS;
 
-export type AgentId = (typeof AGENT_OPTIONS)[number]["id"];
+export type AgentId = string;
 
 export function buildCommand(
   agentId: AgentId,

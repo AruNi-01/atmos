@@ -188,6 +188,54 @@ impl TmuxEngine {
         Ok(())
     }
 
+    /// Send raw text bytes to a specific window using tmux hex input.
+    ///
+    /// This avoids interpolating arbitrary text through shell command strings.
+    pub fn send_text_to_window(
+        &self,
+        session_name: &str,
+        window_index: u32,
+        text: &str,
+    ) -> Result<()> {
+        let pane_id = self.get_pane_id(session_name, window_index)?;
+        for chunk in text.as_bytes().chunks(64) {
+            let hex_args = chunk
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<Vec<_>>();
+            let mut args = vec![
+                "send-keys".to_string(),
+                "-t".to_string(),
+                pane_id.clone(),
+                "-H".to_string(),
+            ];
+            args.extend(hex_args);
+            let refs = args.iter().map(String::as_str).collect::<Vec<_>>();
+            self.run_tmux(&refs)?;
+        }
+        Ok(())
+    }
+
+    /// Send Ctrl-C to a specific window's first pane.
+    pub fn interrupt_window(&self, session_name: &str, window_index: u32) -> Result<()> {
+        let target = format!("{}:{}", session_name, window_index);
+        self.run_tmux(&["send-keys", "-t", &target, "C-c"])?;
+        Ok(())
+    }
+
+    /// Return an existing window by name, or create it when missing.
+    pub fn ensure_window_named(
+        &self,
+        session_name: &str,
+        cwd: Option<&str>,
+        window_name: &str,
+    ) -> Result<u32> {
+        if let Some(index) = self.find_window_index_by_name(session_name, window_name)? {
+            return Ok(index);
+        }
+        self.create_window(session_name, window_name, cwd, None, None)
+    }
+
     /// Return the stable tmux pane id (for example `%0`) for a window's first pane.
     pub fn get_pane_id(&self, session_name: &str, window_index: u32) -> Result<String> {
         let target = format!("{}:{}.0", session_name, window_index);

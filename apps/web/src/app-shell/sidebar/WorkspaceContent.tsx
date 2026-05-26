@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   GitBranch,
   Pencil,
+  Workflow,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -106,8 +107,6 @@ function WorkspaceMetadataValue({
 
 export const WorkspaceContent = React.memo<WorkspaceContentProps>(function WorkspaceContent({
   workspace,
-  projectId,
-  projectPath,
   projectName,
   showProjectName,
   rightContext,
@@ -131,6 +130,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
   const router = useAppRouter();
   const { workspaceId } = useContextParams();
   const isActive = workspaceId === workspace.id;
+  const isAutomation = workspace.createSource === "automation";
   const confirmBeforeDelete = useWorkspaceSettingsStore((s) => s.confirmBeforeDelete);
   const confirmBeforeArchive = useWorkspaceSettingsStore((s) => s.confirmBeforeArchive);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -369,7 +369,6 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
 
   const shortName = getWorkspaceShortName(workspace.name);
   const rawDisplayName = workspace.displayName?.trim() || "";
-  const displayName = rawDisplayName || shortName;
   const timeAgo = formatRelativeTime(workspace.lastVisitedAt ?? workspace.createdAt);
 
   React.useEffect(() => {
@@ -472,6 +471,23 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                     <span className="ml-1 font-normal text-muted-foreground/50">/ {projectName}</span>
                   )}
                 </span>
+                {isAutomation && (
+                  <TooltipProvider delayDuration={250}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className="inline-flex shrink-0 cursor-default items-center text-muted-foreground"
+                          aria-label="Automation workspace"
+                        >
+                          <Workflow className="size-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" align="center" sideOffset={8}>
+                        Automation Workspace
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 {workspaceAgentState !== AGENT_STATE.IDLE && (
                   <AgentHookStatusIndicator
                     state={workspaceAgentState}

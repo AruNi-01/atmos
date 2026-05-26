@@ -427,6 +427,22 @@ pub enum WsAction {
     /// 获取 acp_servers.json 文件路径
     CustomAgentGetManifestPath,
 
+    // ===== Automation 操作 =====
+    AutomationList,
+    AutomationGet,
+    AutomationCreate,
+    AutomationUpdate,
+    AutomationDelete,
+    AutomationRunNow,
+    AutomationPause,
+    AutomationResume,
+    AutomationCancelRun,
+    AutomationRunList,
+    AutomationRunGet,
+    AutomationArtifactGet,
+    AutomationAgentCapabilities,
+    AutomationSchedulePreview,
+
     // ===== GitHub 操作 =====
     /// 获取分支关联的所有 PR 列表
     GithubPrList,
@@ -572,6 +588,12 @@ pub enum WsEvent {
     LocalModelStateChanged,
     /// Server → browser: terminal-agent command dispatch (APP-015)
     CanvasAgentDispatch,
+    /// Automation definition changed
+    AutomationDefinitionUpdated,
+    /// Automation run changed
+    AutomationRunUpdated,
+    /// Automation outcome notification
+    AutomationNotification,
 }
 
 /// 项目删除进度通知数据

@@ -11,6 +11,23 @@ pub struct WorkspaceRepo<'a> {
     db: &'a DatabaseConnection,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceCreateSource {
+    Manual,
+    IssueOnly,
+    Automation,
+}
+
+impl WorkspaceCreateSource {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::IssueOnly => "issue_only",
+            Self::Automation => "automation",
+        }
+    }
+}
+
 impl<'a> BaseRepo<workspace::Entity, workspace::Model, workspace::ActiveModel>
     for WorkspaceRepo<'a>
 {
@@ -78,7 +95,7 @@ impl<'a> WorkspaceRepo<'a> {
         workflow_status: Option<String>,
         priority: Option<String>,
         label_guids: Option<Vec<String>>,
-        create_source: String,
+        create_source: WorkspaceCreateSource,
     ) -> Result<workspace::Model> {
         let base = BaseFields::new();
 
@@ -114,7 +131,7 @@ impl<'a> WorkspaceRepo<'a> {
             github_pr_url: Set(github_pr_url),
             github_pr_data: Set(github_pr_data),
             auto_extract_todos: Set(auto_extract_todos),
-            create_source: Set(create_source),
+            create_source: Set(create_source.as_str().to_string()),
         };
 
         let result = model.insert(self.db).await?;
@@ -170,7 +187,7 @@ impl<'a> WorkspaceRepo<'a> {
             github_pr_url: Set(None),
             github_pr_data: Set(None),
             auto_extract_todos: Set(false),
-            create_source: Set("issue_only".to_string()),
+            create_source: Set(WorkspaceCreateSource::IssueOnly.as_str().to_string()),
         };
 
         let result = model.insert(self.db).await?;

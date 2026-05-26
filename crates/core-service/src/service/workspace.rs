@@ -10,7 +10,7 @@ use crate::utils::workspace_name_generator;
 use crate::{GithubIssuePayload, GithubPrPayload, WorkspaceAttachmentPayload};
 use core_engine::{FsEngine, GitEngine};
 use infra::db::entities::{workspace, workspace_label};
-use infra::db::repo::{ProjectRepo, WorkspaceRepo};
+use infra::db::repo::{ProjectRepo, WorkspaceCreateSource, WorkspaceRepo};
 use llm::{generate_text, generate_text_stream, FileLlmConfigStore, LlmFeature};
 use sea_orm::DatabaseConnection;
 use std::collections::HashSet;
@@ -152,8 +152,75 @@ impl WorkspaceService {
     ///
     /// If `name` is empty, a unique Pokemon-based name will be generated.
     /// If `name` is provided, it will be used (with conflict resolution if needed).
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_workspace(
         &self,
+        project_guid: String,
+        display_name: Option<String>,
+        branch: String,
+        base_branch: Option<String>,
+        sidebar_order: i32,
+        github_issue: Option<GithubIssuePayload>,
+        github_pr: Option<GithubPrPayload>,
+        auto_extract_todos: bool,
+        priority: Option<String>,
+        workflow_status: Option<String>,
+        labels: Option<Vec<String>>,
+    ) -> Result<WorkspaceDto> {
+        self.create_workspace_with_source(
+            WorkspaceCreateSource::Manual,
+            project_guid,
+            display_name,
+            branch,
+            base_branch,
+            sidebar_order,
+            github_issue,
+            github_pr,
+            auto_extract_todos,
+            priority,
+            workflow_status,
+            labels,
+        )
+        .await
+    }
+
+    /// 创建自动化工作区。This is the trusted service path for APP-017 automation runs.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_automation_workspace(
+        &self,
+        project_guid: String,
+        display_name: Option<String>,
+        branch: String,
+        base_branch: Option<String>,
+        sidebar_order: i32,
+        github_issue: Option<GithubIssuePayload>,
+        github_pr: Option<GithubPrPayload>,
+        auto_extract_todos: bool,
+        priority: Option<String>,
+        workflow_status: Option<String>,
+        labels: Option<Vec<String>>,
+    ) -> Result<WorkspaceDto> {
+        self.create_workspace_with_source(
+            WorkspaceCreateSource::Automation,
+            project_guid,
+            display_name,
+            branch,
+            base_branch,
+            sidebar_order,
+            github_issue,
+            github_pr,
+            auto_extract_todos,
+            priority,
+            workflow_status,
+            labels,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn create_workspace_with_source(
+        &self,
+        create_source: WorkspaceCreateSource,
         project_guid: String,
         display_name: Option<String>,
         branch: String,
@@ -421,7 +488,7 @@ impl WorkspaceService {
                 workflow_status,
                 priority,
                 labels,
-                "manual".to_string(),
+                create_source,
             )
             .await?;
 

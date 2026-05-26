@@ -22,9 +22,9 @@ use clap::{ArgAction, Parser};
 use config::ServerConfig;
 use core_engine::TestEngine;
 use core_service::{
-    AgentHookEvent, AgentHooksService, AgentService, AgentSessionService, CanvasAgentRelay,
-    CanvasService, MessagePushService, NotificationService, ProjectService, ReviewService,
-    TerminalService, TestService, WorkspaceService,
+    AgentHookEvent, AgentHooksService, AgentService, AgentSessionService, AutomationEvent,
+    AutomationService, CanvasAgentRelay, CanvasService, MessagePushService, NotificationService,
+    ProjectService, ReviewService, TerminalService, TestService, WorkspaceService,
 };
 use infra::{DbConnection, Migrator};
 use sea_orm_migration::MigratorTrait;
@@ -100,6 +100,62 @@ fn spawn_agent_hook_forwarder(
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
                     warn!("Lagged on agent hook events, skipped {} messages", skipped);
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+            }
+        }
+    })
+}
+
+fn spawn_automation_forwarder(
+    mut rx: tokio::sync::broadcast::Receiver<AutomationEvent>,
+    ws_manager: Arc<WsManager>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let (ws_event, data) = match event {
+                        AutomationEvent::DefinitionUpdated {
+                            automation_guid,
+                            change,
+                            automation,
+                        } => (
+                            WsEvent::AutomationDefinitionUpdated,
+                            json!({
+                                "automation_guid": automation_guid,
+                                "change": change,
+                                "automation": automation,
+                            }),
+                        ),
+                        AutomationEvent::RunUpdated {
+                            automation_guid,
+                            run_guid,
+                            status,
+                            run,
+                        } => (
+                            WsEvent::AutomationRunUpdated,
+                            json!({
+                                "automation_guid": automation_guid,
+                                "run_guid": run_guid,
+                                "status": status,
+                                "run": run,
+                            }),
+                        ),
+                        AutomationEvent::Notification(payload) => {
+                            (WsEvent::AutomationNotification, json!(payload))
+                        }
+                    };
+
+                    if let Err(error) = ws_manager
+                        .broadcast(&WsMessage::notification(ws_event, data))
+                        .await
+                    {
+                        warn!("Failed to broadcast automation event: {}", error);
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                    warn!("Lagged on automation events, skipped {} messages", skipped);
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
             }
@@ -272,6 +328,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let terminal_service = Arc::new(TerminalService::new());
     let agent_hooks_service = Arc::new(AgentHooksService::new());
     let notification_service = Arc::new(NotificationService::new());
+    let automation_service = Arc::new(AutomationService::new(
+        Arc::clone(&db),
+        Arc::clone(&project_service),
+        Arc::clone(&workspace_service),
+        Arc::clone(&terminal_service),
+        Arc::clone(&notification_service),
+    ));
 
     let agent_session_service = Arc::new(AgentSessionService::new(
         Arc::clone(&agent_service),
@@ -290,6 +353,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&terminal_service),
         Arc::clone(&agent_service),
         Arc::clone(&agent_session_service),
+        Arc::clone(&automation_service),
         Arc::clone(&review_service),
         Arc::clone(&usage_service),
         Arc::clone(&canvas_service),
@@ -326,6 +390,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             workspace_service,
             agent_service,
             agent_session_service,
+            automation_service: Arc::clone(&automation_service),
             ws_message_service: ws_message_service.clone(),
             message_push_service,
             terminal_service,
@@ -351,6 +416,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         agent_hooks_service.subscribe_events(),
         Arc::clone(&ws_manager),
     );
+
+    spawn_automation_forwarder(
+        automation_service.subscribe_events(),
+        Arc::clone(&ws_manager),
+    );
+    Arc::clone(&automation_service).start_scheduler();
 
     spawn_ws_forwarder(
         notification_service.subscribe_client_notifications(),

@@ -3,6 +3,7 @@
 import React from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { AgentManagerView } from "@/features/agent/components/AgentManagerView";
+import { AutomationPage } from "@/features/automations/components/AutomationPage";
 import { SkillsView } from "@/features/skills/components/SkillsView";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import { TerminalsView } from "@/features/terminal/components/TerminalsView";
@@ -75,6 +76,14 @@ export function CenterStageNoContextView({
     return (
       <main className="h-full overflow-hidden">
         <AgentManagerView />
+      </main>
+    );
+  }
+
+  if (currentView === "automations") {
+    return (
+      <main className="h-full overflow-hidden">
+        <AutomationPage />
       </main>
     );
   }

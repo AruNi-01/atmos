@@ -4,6 +4,7 @@ import {
 } from "@/app-shell/sidebar/workspace-status";
 import type {
   Workspace,
+  WorkspaceCreateSource,
   WorkspaceLabel,
   WorkspacePriority,
   WorkspaceWorkflowStatus,
@@ -20,6 +21,11 @@ export type BoardColumn = {
 };
 
 export function mapKanbanWorkspaceModel(model: WorkspaceModel): Workspace {
+  const createSource: WorkspaceCreateSource =
+    model.create_source === "issue_only" || model.create_source === "automation"
+      ? model.create_source
+      : "manual";
+
   return {
     id: model.guid,
     name: model.name,
@@ -47,7 +53,7 @@ export function mapKanbanWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
-    createSource: model.create_source as "manual" | "issue_only",
+    createSource,
   };
 }
 

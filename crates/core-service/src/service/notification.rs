@@ -13,16 +13,24 @@ fn notification_settings_path() -> PathBuf {
     home.join(".atmos").join("notification_settings.json")
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationSettings {
     #[serde(default)]
     pub browser_notification: bool,
     #[serde(default)]
     pub desktop_notification: bool,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub notify_on_permission_request: bool,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub notify_on_task_complete: bool,
+    #[serde(default = "default_true")]
+    pub notify_on_automation_outcome: bool,
+    #[serde(default)]
+    pub push_automation_outcomes: bool,
     #[serde(default)]
     pub push_servers: Vec<PushServerConfig>,
 }
@@ -34,6 +42,8 @@ impl Default for NotificationSettings {
             desktop_notification: false,
             notify_on_permission_request: true,
             notify_on_task_complete: true,
+            notify_on_automation_outcome: true,
+            push_automation_outcomes: false,
             push_servers: Vec::new(),
         }
     }
@@ -74,6 +84,18 @@ pub struct NotificationPayload {
     pub session_id: String,
     #[serde(default)]
     pub project_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationNotificationPayload {
+    pub title: String,
+    pub body: String,
+    pub automation_guid: String,
+    pub automation_display_name: String,
+    pub run_guid: String,
+    pub status: String,
+    #[serde(default)]
+    pub result_path: Option<String>,
 }
 
 pub struct NotificationService {
@@ -171,6 +193,57 @@ impl NotificationService {
                 }
             });
         }
+    }
+
+    pub fn on_automation_run_outcome(
+        self: &Arc<Self>,
+        automation_guid: impl Into<String>,
+        automation_display_name: impl Into<String>,
+        run_guid: impl Into<String>,
+        status: impl Into<String>,
+        result_path: Option<String>,
+    ) -> Option<AutomationNotificationPayload> {
+        let status = status.into();
+        let status_label = automation_terminal_status_label(&status)?;
+        let automation_display_name = automation_display_name.into();
+        let payload = AutomationNotificationPayload {
+            title: format!("Automation {status_label}"),
+            body: format!("{automation_display_name} {status_label}."),
+            automation_guid: automation_guid.into(),
+            automation_display_name,
+            run_guid: run_guid.into(),
+            status,
+            result_path,
+        };
+
+        let settings = self.settings.read().clone();
+        let should_notify_client = settings.notify_on_automation_outcome
+            && (settings.browser_notification || settings.desktop_notification);
+
+        if settings.push_automation_outcomes {
+            let servers: Vec<PushServerConfig> = settings
+                .push_servers
+                .into_iter()
+                .filter(|server| server.enabled)
+                .collect();
+            if !servers.is_empty() {
+                let service = Arc::clone(self);
+                let push_payload = automation_push_payload(&payload);
+                tokio::spawn(async move {
+                    for server in servers {
+                        if let Err(e) = service.send_push_notification(&server, &push_payload).await
+                        {
+                            warn!(
+                                "Failed to send automation push notification to {}: {}",
+                                server.url, e
+                            );
+                        }
+                    }
+                });
+            }
+        }
+
+        should_notify_client.then_some(payload)
     }
 
     fn broadcast_client_notification(&self, payload: &NotificationPayload) {
@@ -328,6 +401,27 @@ impl NotificationService {
         }
         debug!("Custom webhook notification sent to {}", server.url);
         Ok(())
+    }
+}
+
+fn automation_terminal_status_label(status: &str) -> Option<&'static str> {
+    match status {
+        "completed" => Some("completed"),
+        "failed" => Some("failed"),
+        "cancelled" => Some("cancelled"),
+        "interrupted" => Some("interrupted"),
+        _ => None,
+    }
+}
+
+fn automation_push_payload(payload: &AutomationNotificationPayload) -> NotificationPayload {
+    NotificationPayload {
+        title: payload.title.clone(),
+        body: payload.body.clone(),
+        tool: "automation".to_string(),
+        state: payload.status.clone(),
+        session_id: payload.run_guid.clone(),
+        project_path: None,
     }
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
-import type { Workspace, WorkspaceWorkflowStatus, WorkspacePriority, WorkspaceLabel } from "@/shared/types/domain";
+import type { Workspace, WorkspaceCreateSource, WorkspaceWorkflowStatus, WorkspacePriority, WorkspaceLabel } from "@/shared/types/domain";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws/github-api";
 import type {
   ArchivedWorkspace,
@@ -584,6 +584,10 @@ export const wsProjectApi = {
 
 // ===== Workspace API =====
 
+function mapWorkspaceCreateSource(source: WorkspaceModel["create_source"]): WorkspaceCreateSource {
+  return source === "issue_only" || source === "automation" ? source : "manual";
+}
+
 export const wsWorkspaceApi = {
   /**
    * 获取项目下的所有 Workspace
@@ -625,7 +629,7 @@ export const wsWorkspaceApi = {
       localPath: model.local_path,
       githubIssue: model.github_issue,
       githubPr: model.github_pr,
-      createSource: model.create_source as "manual" | "issue_only",
+      createSource: mapWorkspaceCreateSource(model.create_source),
     }));
   },
 

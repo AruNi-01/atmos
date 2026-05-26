@@ -21,6 +21,8 @@ export interface NotificationSettings {
   desktop_notification: boolean;
   notify_on_permission_request: boolean;
   notify_on_task_complete: boolean;
+  notify_on_automation_outcome: boolean;
+  push_automation_outcomes: boolean;
   push_servers: PushServerConfig[];
 }
 
@@ -29,6 +31,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   desktop_notification: false,
   notify_on_permission_request: true,
   notify_on_task_complete: true,
+  notify_on_automation_outcome: true,
+  push_automation_outcomes: false,
   push_servers: [],
 };
 

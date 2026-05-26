@@ -1,5 +1,7 @@
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws/github-api";
 
+export type WorkspaceCreateSourceModel = "manual" | "issue_only" | "automation";
+
 // 文件系统类型
 export interface FsEntry {
   name: string;
@@ -207,7 +209,7 @@ export interface WorkspaceModel {
   github_issue: GithubIssuePayload | null;
   github_pr: GithubPrPayload | null;
   labels: WorkspaceLabelModel[];
-  create_source: string;
+  create_source: WorkspaceCreateSourceModel;
 }
 
 export interface WorkspaceAttachmentPayload {
