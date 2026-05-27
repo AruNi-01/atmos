@@ -14,9 +14,7 @@ use tokio::sync::RwLock;
 use tracing::info;
 
 use crate::error::Result;
-use crate::utils::path_boundary::{
-    normalize_path_for_boundary, path_or_existing_parent_within_root, path_within_root,
-};
+use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 #[derive(Debug, serde::Serialize)]
 pub struct LazyAgentSession {
@@ -39,9 +37,9 @@ impl AcpToolHandler for AgentToolHandler {
     fn resolve_path(&self, session_cwd: &Path, path: &str) -> PathBuf {
         let path_buf = PathBuf::from(path);
         if path_buf.is_absolute() {
-            normalize_path_for_boundary(&path_buf)
+            path_buf
         } else {
-            normalize_path_for_boundary(&session_cwd.join(path))
+            session_cwd.join(path)
         }
     }
 

@@ -1,21 +1,5 @@
 use std::path::{Component, Path, PathBuf};
 
-pub fn normalize_path_for_boundary(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
-            Component::RootDir => normalized.push(component.as_os_str()),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                normalized.pop();
-            }
-            Component::Normal(segment) => normalized.push(segment),
-        }
-    }
-    normalized
-}
-
 pub fn path_within_root(path: &Path, root: &Path) -> bool {
     let Ok(canonical_root) = root.canonicalize() else {
         return false;
@@ -31,25 +15,57 @@ pub fn path_or_existing_parent_within_root(path: &Path, root: &Path) -> bool {
         return false;
     };
 
-    if path.symlink_metadata().is_ok() {
-        let Ok(canonical_path) = path.canonicalize() else {
-            return false;
-        };
-        return canonical_path.starts_with(canonical_root);
-    }
+    let components: Vec<_> = path.components().collect();
+    let mut current = PathBuf::new();
 
-    let normalized_path = normalize_path_for_boundary(path);
-    for ancestor in normalized_path.ancestors() {
-        if ancestor.symlink_metadata().is_err() {
-            continue;
+    for (idx, component) in components.iter().enumerate() {
+        match component {
+            Component::Prefix(prefix) => current.push(prefix.as_os_str()),
+            Component::RootDir => current.push(component.as_os_str()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                let Ok(canonical_current) = current.canonicalize() else {
+                    return false;
+                };
+                let Some(parent) = canonical_current.parent() else {
+                    return false;
+                };
+                if canonical_current.starts_with(&canonical_root)
+                    && !parent.starts_with(&canonical_root)
+                {
+                    return false;
+                }
+                current = parent.to_path_buf();
+            }
+            Component::Normal(segment) => {
+                let candidate = current.join(segment);
+                if candidate.symlink_metadata().is_ok() {
+                    let Ok(canonical_candidate) = candidate.canonicalize() else {
+                        return false;
+                    };
+                    if current.canonicalize().is_ok_and(|canonical_current| {
+                        canonical_current.starts_with(&canonical_root)
+                    }) && !canonical_candidate.starts_with(&canonical_root)
+                    {
+                        return false;
+                    }
+                    current = canonical_candidate;
+                } else {
+                    let Ok(canonical_current) = current.canonicalize() else {
+                        return false;
+                    };
+                    return canonical_current.starts_with(&canonical_root)
+                        && components[idx..]
+                            .iter()
+                            .all(|part| matches!(part, Component::Normal(_) | Component::CurDir));
+                }
+            }
         }
-        let Ok(canonical_ancestor) = ancestor.canonicalize() else {
-            return false;
-        };
-        return canonical_ancestor.starts_with(canonical_root);
     }
 
-    false
+    current
+        .canonicalize()
+        .is_ok_and(|canonical_current| canonical_current.starts_with(canonical_root))
 }
 
 #[cfg(test)]
@@ -118,6 +134,19 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn write_boundary_allows_existing_parent_segments_inside_root() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let src = root.join("src");
+        fs::create_dir_all(&src).unwrap();
+
+        assert!(path_or_existing_parent_within_root(
+            &src.join("../new/file.txt"),
+            &root
+        ));
+    }
+
     #[cfg(unix)]
     #[test]
     fn boundary_check_rejects_symlink_escape() {
@@ -136,6 +165,10 @@ mod tests {
         ));
         assert!(!path_or_existing_parent_within_root(
             &root.join("outside-link/new-file.txt"),
+            &root
+        ));
+        assert!(!path_or_existing_parent_within_root(
+            &root.join("outside-link/../new-file.txt"),
             &root
         ));
     }
