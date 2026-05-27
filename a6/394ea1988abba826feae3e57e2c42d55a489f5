@@ -1,0 +1,33 @@
+specs/APP/APP-018_acp-protocol-upgrade/PRD.md
+  s_4cf1aa3c956589::t_3f210a3d92b2c0 56
+apps/web/src/features/agent/hooks/use-acp-session-list.ts
+  s_4cf1aa3c956589::t_69ae05385f1d6d 3,66,177
+  s_4cf1aa3c956589::t_7b7d6705b88ec1 64,67,72
+  s_4cf1aa3c956589::t_762c32b7da6ffb 16-19,117,128-130,140
+  s_4cf1aa3c956589::t_8e7e7fbdc898a7 44,51,63,68-71,82-95,116,118-127,131-135,137-139,141-145,147-152,154-161,182
+apps/web/src/features/chat-sessions/components/ChatSessionsManagementView.tsx
+  s_4cf1aa3c956589::t_6b26f0567dcdf4 8,10-12,36,73,78-84,93,101,114,124,144-236,249,404-420,422-457
+  s_4cf1aa3c956589::t_befe5e22e7be5d 421
+specs/APP/APP-018_acp-protocol-upgrade/TECH.md
+  s_4cf1aa3c956589::t_70aad2ff30a40a 246,589
+specs/APP/APP-018_acp-protocol-upgrade/TEST.md
+  s_4cf1aa3c956589::t_9758fd10b97d86 104,110-114,216
+specs/APP/APP-018_acp-protocol-upgrade/IMPROVEMENT.md
+  s_4cf1aa3c956589::t_69a6550ade5a93 52,56,60,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a6394ea1988abba826feae3e57e2c42d55a489f5",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
