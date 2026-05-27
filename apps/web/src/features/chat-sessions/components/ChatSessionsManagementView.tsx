@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
 import {
@@ -28,6 +28,7 @@ import {
   ACP_SESSION_LIST_PAGE_LIMIT,
   useAcpSessionList,
 } from "@/features/agent/hooks/use-acp-session-list";
+import { useProjectStore } from "@/features/project/store/use-project-store";
 
 interface RegistryAgentInfo {
   id: string;
@@ -63,14 +64,79 @@ interface ChatSessionsManagementViewProps {
   hideHeader?: boolean;
 }
 
+const ALL_SESSION_CONTEXT_ID = "all";
+
+interface SessionContextOption {
+  id: string;
+  label: string;
+  cwd: string | null;
+}
+
 export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProps> = ({ hideHeader = false }) => {
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useQueryState("q", chatSessionsParams.q);
   const [selectedRegistryId, setSelectedRegistryId] = useQueryState("registry_id", chatSessionsParams.registry_id);
+  const [selectedSessionContextId, setSelectedSessionContextId] = useState(ALL_SESSION_CONTEXT_ID);
 
   const [registryAgents, setRegistryAgents] = useState<RegistryAgentInfo[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+  const projects = useProjectStore((state) => state.projects);
+  const fetchProjects = useProjectStore((state) => state.fetchProjects);
+  const projectConnectionEpoch = useProjectStore((state) => state.connectionEpoch);
+  const requestedProjectEpochRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (requestedProjectEpochRef.current === projectConnectionEpoch) return;
+    requestedProjectEpochRef.current = projectConnectionEpoch;
+    void fetchProjects();
+  }, [fetchProjects, projectConnectionEpoch]);
+
+  const sessionContextOptions = useMemo<SessionContextOption[]>(() => {
+    const options: SessionContextOption[] = [
+      {
+        id: ALL_SESSION_CONTEXT_ID,
+        label: "All",
+        cwd: null,
+      },
+    ];
+
+    for (const project of projects) {
+      const projectPath = project.mainFilePath.trim();
+      if (projectPath) {
+        options.push({
+          id: `project:${project.id}`,
+          label: `Project: ${project.name}`,
+          cwd: projectPath,
+        });
+      }
+
+      for (const workspace of project.workspaces) {
+        const workspacePath = workspace.localPath.trim();
+        if (!workspacePath) continue;
+        options.push({
+          id: `workspace:${workspace.id}`,
+          label: `Workspace: ${project.name} / ${workspace.displayName || workspace.name}`,
+          cwd: workspacePath,
+        });
+      }
+    }
+
+    return options;
+  }, [projects]);
+
+  useEffect(() => {
+    if (sessionContextOptions.some((option) => option.id === selectedSessionContextId)) return;
+    setSelectedSessionContextId(ALL_SESSION_CONTEXT_ID);
+  }, [selectedSessionContextId, sessionContextOptions]);
+
+  const selectedSessionContext = useMemo(
+    () =>
+      sessionContextOptions.find((option) => option.id === selectedSessionContextId) ??
+      sessionContextOptions[0],
+    [selectedSessionContextId, sessionContextOptions],
+  );
+
   const {
     sessions,
     isLoading,
@@ -83,6 +149,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     loadMore,
   } = useAcpSessionList({
     registryId: selectedRegistryId,
+    cwd: selectedSessionContext.cwd,
     enabled: Boolean(selectedRegistryId),
   });
 
@@ -219,7 +286,24 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
             )}
           />
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Select value={selectedSessionContextId} onValueChange={setSelectedSessionContextId}>
+            <SelectTrigger
+              className={cn(
+                "w-full border-border/50 bg-muted/20 sm:w-[260px]",
+                compact ? "h-9" : "h-10",
+              )}
+            >
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              {sessionContextOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id} textValue={option.label}>
+                  <span className="block max-w-[320px] truncate">{option.label}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select
             value={selectedRegistryId || undefined}
             onValueChange={(value) => {
@@ -227,7 +311,9 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
             }}
             disabled={isLoadingAgents || registryAgents.length === 0}
           >
-            <SelectTrigger className={cn("w-[220px] border-border/50 bg-muted/20", compact ? "h-9" : "h-10")}>
+            <SelectTrigger
+              className={cn("w-full border-border/50 bg-muted/20 sm:w-[220px]", compact ? "h-9" : "h-10")}
+            >
               <SelectValue placeholder={isLoadingAgents ? "Loading agents..." : "Select ACP agent"} />
             </SelectTrigger>
             <SelectContent>

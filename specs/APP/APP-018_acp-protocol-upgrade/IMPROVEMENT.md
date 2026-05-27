@@ -7,6 +7,7 @@
 | Id | Title | Status | Date |
 |----|-------|--------|------|
 | [IMP-001](#imp-001--scope-agent-chat-history-by-current-cwd) | Scope Agent Chat history by current cwd | mitigated | 2026-05-27 |
+| [IMP-002](#imp-002--add-context-filter-to-global-agent-sessions) | Add context filter to global agent sessions | mitigated | 2026-05-27 |
 
 ## IMP-001 · Scope Agent Chat history by current cwd
 
@@ -36,3 +37,28 @@ In contextual Agent Chat, listed ACP sessions are limited to the current Project
 ### Follow-ups
 
 - [ ] Add browser-level coverage once Agent Chat history has a lightweight test harness.
+
+## IMP-002 · Add context filter to global agent sessions
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-05-27 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | product correctness |
+
+### Problem
+
+The `/agents` session management view intentionally listed all native sessions for the selected ACP agent. After contextual Agent Chat became cwd-scoped, users also needed the global management page to narrow the ACP catalog by a Project or Workspace without losing the default all-sessions view.
+
+### Root cause
+
+The global page called `useAcpSessionList` with only `registryId`, even though the shared hook and REST request already supported an optional `cwd`.
+
+### Solution
+
+The global session toolbar now includes a Project/Workspace selector to the left of the ACP agent selector. The selector defaults to All and sends no `cwd`; selecting a Project or Workspace passes the selected local path as `cwd` and reloads the native ACP session list from page one.
+
+### Result
+
+Users can inspect all native sessions for an ACP agent or narrow the list to a specific Project/Workspace path from the `/agents` page.
