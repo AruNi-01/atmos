@@ -9,7 +9,7 @@ import {
 } from "@/api/rest-api";
 import { parseAuthRequiredError } from "@/features/agent/lib/agent-runtime-socket";
 
-export const ACP_SESSION_LIST_PAGE_LIMIT = 20;
+export const ACP_SESSION_LIST_PAGE_LIMIT = 200;
 
 export type AcpSessionListMeta = Omit<ListAgentSessionsResponse, "items">;
 

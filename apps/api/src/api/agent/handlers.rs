@@ -312,7 +312,7 @@ pub struct ListAgentSessionsQuery {
     pub auth_method_id: Option<String>,
 }
 
-const MAX_UNPAGINATED_SESSION_ITEMS: u64 = 20;
+const MAX_UNPAGINATED_SESSION_ITEMS: u64 = 200;
 
 fn default_limit() -> u64 {
     MAX_UNPAGINATED_SESSION_ITEMS
