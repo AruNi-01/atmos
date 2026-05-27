@@ -1,0 +1,23 @@
+packages/relay/src/index.ts
+  s_b68c410ef36996::t_b788ddd609439c 345-362,368-374,376-377,379-380,384,386-387,391-409
+packages/relay/test/token-rotation.test.ts
+  s_b68c410ef36996::t_384b7ac5d21b72 1,3-6,63
+  s_b68c410ef36996::t_822a2ed39a3c30 2,7-61,64-73,75-79,81-82
+  s_b68c410ef36996::t_5079192e8a629a 62,74,80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f8eee6f64f9b8ab7b29e3a607c654f78076eaef1",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
