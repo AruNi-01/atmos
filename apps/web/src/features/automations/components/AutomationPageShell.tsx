@@ -103,7 +103,14 @@ export function AutomationPageShell({
             <div className="flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={onReload} disabled={loading}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={onReload}
+                    disabled={loading}
+                    aria-label="Refresh automations"
+                    title="Refresh automations"
+                  >
                     {loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                   </Button>
                 </TooltipTrigger>

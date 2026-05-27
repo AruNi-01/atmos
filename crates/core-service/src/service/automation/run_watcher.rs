@@ -46,10 +46,24 @@ pub(super) async fn watch_automation_run(
                 tokio::time::sleep(Duration::from_secs(5)).await;
                 let _ = tmux_engine.kill_window(session_name, window_index);
             }
+            let current = match repo.find_run_by_guid(&run_guid).await {
+                Ok(Some(current)) if current.status == AutomationRunStatus::Running.as_str() => {
+                    current
+                }
+                Ok(Some(_)) | Ok(None) => return,
+                Err(error) => {
+                    warn!(
+                        "Failed to re-check automation run {} before cancelling: {}",
+                        run_guid, error
+                    );
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
             let completed_at = Utc::now().naive_utc();
             match repo
                 .update_run_status(
-                    &run.guid,
+                    &current.guid,
                     UpdateAutomationRunStatusRecord {
                         status: AutomationRunStatus::Cancelled.as_str().to_string(),
                         completed_at: Some(completed_at),
@@ -114,12 +128,20 @@ pub(super) async fn watch_automation_run(
             run.tmux_window_index
                 .and_then(|value| value.try_into().ok()),
         ) {
-            let window_exists = tmux_engine
-                .window_exists(session_name, window_index)
-                .unwrap_or(false);
-            if !window_exists {
-                mark_run_interrupted(&db, &notification_service, &event_tx, run).await;
-                return;
+            match tmux_engine.window_exists(session_name, window_index) {
+                Ok(true) => {}
+                Ok(false) => {
+                    mark_run_interrupted(&db, &notification_service, &event_tx, run).await;
+                    return;
+                }
+                Err(error) => {
+                    warn!(
+                        "Failed to probe automation run window {}:{} for {}: {}",
+                        session_name, window_index, run_guid, error
+                    );
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
             }
         }
 

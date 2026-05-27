@@ -5,7 +5,7 @@ import { appApi } from "@/api/ws-api";
 export async function openArtifactPath(path: string) {
   if (!path) return;
   try {
-    await appApi.openWith("Finder", path);
+    await appApi.openPath(path);
     toastManager.add({
       title: "Opened path",
       description: path,

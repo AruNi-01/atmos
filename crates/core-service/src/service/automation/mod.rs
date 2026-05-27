@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::path::Path;
 use std::sync::Arc;
 
 mod agents;
@@ -33,6 +34,10 @@ pub use agents::AutomationAgentCapability;
 pub use events::{AutomationDefinitionChange, AutomationEvent};
 use run_watcher::{mark_run_interrupted, publish_run_update, watch_automation_run};
 use validation::{parse_run_page_token, validate_display_name, validate_instructions};
+
+const DEFAULT_SCHEDULE_PREVIEW_COUNT: usize = 5;
+// Keep previews bounded; clients should request follow-up pages through run history, not schedule preview.
+const MAX_SCHEDULE_PREVIEW_COUNT: usize = 25;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -381,13 +386,14 @@ impl AutomationService {
             .transpose()?;
 
         let automation_guid = Uuid::new_v4().to_string();
+        let definition_dir = artifacts::definition_dir(&automation_guid)?;
         let instructions_path = artifacts::write_instructions(&automation_guid, &instructions)?;
         let artifact_root = artifacts::automation_root()?;
 
         let repo = AutomationRepo::new(&self.db);
-        let model = repo
+        let model = match repo
             .create_automation(CreateAutomationRecord {
-                guid: automation_guid,
+                guid: automation_guid.clone(),
                 display_name,
                 agent_id: req.agent_id,
                 target_kind: req.target.target_kind.as_str().to_string(),
@@ -408,7 +414,14 @@ impl AutomationService {
                 instructions_path: instructions_path.to_string_lossy().to_string(),
                 artifact_root: artifact_root.to_string_lossy().to_string(),
             })
-            .await?;
+            .await
+        {
+            Ok(model) => model,
+            Err(error) => {
+                cleanup_failed_automation_create_artifacts(&instructions_path, &definition_dir);
+                return Err(error.into());
+            }
+        };
 
         let detail = self.detail_from_model(model)?;
         let _ = self.event_tx.send(AutomationEvent::DefinitionUpdated {
@@ -604,7 +617,11 @@ impl AutomationService {
         let mut schedule = req.schedule;
         schedule.timezone = Some(req.timezone);
         let normalized = scheduler::normalize_schedule(&schedule, chrono::Utc::now().naive_utc())?;
-        let occurrences = scheduler::preview_schedule(&schedule, req.count.unwrap_or(5))?;
+        let count = req
+            .count
+            .unwrap_or(DEFAULT_SCHEDULE_PREVIEW_COUNT)
+            .clamp(1, MAX_SCHEDULE_PREVIEW_COUNT);
+        let occurrences = scheduler::preview_schedule(&schedule, count)?;
         Ok(SchedulePreview {
             next_run_at: normalized.next_run_at,
             occurrences,
@@ -623,6 +640,27 @@ impl AutomationService {
             summary: AutomationSummary::from(model),
             instructions,
         })
+    }
+}
+
+fn cleanup_failed_automation_create_artifacts(instructions_path: &Path, definition_dir: &Path) {
+    if let Err(error) = std::fs::remove_file(instructions_path) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(
+                "Failed to clean up automation instructions {} after create error: {}",
+                instructions_path.display(),
+                error
+            );
+        }
+    }
+    if let Err(error) = std::fs::remove_dir_all(definition_dir) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(
+                "Failed to clean up automation definition directory {} after create error: {}",
+                definition_dir.display(),
+                error
+            );
+        }
     }
 }
 

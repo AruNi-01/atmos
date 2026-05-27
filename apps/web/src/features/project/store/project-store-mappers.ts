@@ -1,5 +1,6 @@
-import type { Project, Workspace, WorkspaceCreateSource, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
+import type { Project, Workspace, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import type { ProjectModel, WorkspaceModel } from "@/api/ws-api";
+import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 
 // Sort workspaces: pinned first (by pinOrder ASC), then by createdAt DESC.
 export function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
@@ -42,10 +43,6 @@ export function mapProjectModel(model: ProjectModel, workspaces: Workspace[] = [
   };
 }
 
-function mapWorkspaceCreateSource(source: WorkspaceModel["create_source"]): WorkspaceCreateSource {
-  return source === "issue_only" || source === "automation" ? source : "manual";
-}
-
 export function mapWorkspaceModel(model: WorkspaceModel): Workspace {
   return {
     id: model.guid,
@@ -74,6 +71,6 @@ export function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
-    createSource: mapWorkspaceCreateSource(model.create_source),
+    createSource: normalizeWorkspaceCreateSource(model.create_source),
   };
 }

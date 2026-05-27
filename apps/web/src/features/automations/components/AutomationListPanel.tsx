@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Badge, Button, cn } from "@workspace/ui";
 import { Workflow } from "lucide-react";
 
@@ -36,6 +37,11 @@ export function AutomationListPanel({
   onSelect: (guid: string) => void;
   onCreate: () => void;
 }) {
+  const agentById = React.useMemo(
+    () => new Map(agents.map((agent) => [agent.agent_id, agent])),
+    [agents],
+  );
+
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-background">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -78,10 +84,10 @@ export function AutomationListPanel({
         ) : (
           <div className="space-y-1.5">
             {automations.map((automation) => (
-              <AutomationListRow
-                key={automation.guid}
-                automation={automation}
-                agent={agents.find((item) => item.agent_id === automation.agent_id) ?? null}
+                <AutomationListRow
+                  key={automation.guid}
+                  automation={automation}
+                  agent={agentById.get(automation.agent_id) ?? null}
                 selected={automation.guid === selectedAutomationGuid}
                 onSelect={() => onSelect(automation.guid)}
               />

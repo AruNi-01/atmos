@@ -4,11 +4,11 @@ import {
 } from "@/app-shell/sidebar/workspace-status";
 import type {
   Workspace,
-  WorkspaceCreateSource,
   WorkspaceLabel,
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
+import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 
 export type KanbanEntry = {
   projectId: string;
@@ -21,10 +21,7 @@ export type BoardColumn = {
 };
 
 export function mapKanbanWorkspaceModel(model: WorkspaceModel): Workspace {
-  const createSource: WorkspaceCreateSource =
-    model.create_source === "issue_only" || model.create_source === "automation"
-      ? model.create_source
-      : "manual";
+  const createSource = normalizeWorkspaceCreateSource(model.create_source);
 
   return {
     id: model.guid,

@@ -39,7 +39,8 @@
     "id": "droid",
     "label": "Droid",
     "cmd": "droid",
-    "params": ""
+    "params": "",
+    "promptStrategy": "arg"
   },
   {
     "id": "opencode",
@@ -52,7 +53,8 @@
     "id": "kimi",
     "label": "Kimi",
     "cmd": "kimi",
-    "params": ""
+    "params": "",
+    "promptStrategy": "arg"
   },
   {
     "id": "cursor",
@@ -65,7 +67,8 @@
     "id": "kilocode",
     "label": "Kilo Code",
     "cmd": "kilocode",
-    "params": ""
+    "params": "",
+    "promptStrategy": "arg"
   },
   {
     "id": "kiro",

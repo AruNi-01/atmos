@@ -21,7 +21,7 @@ impl AutomationService {
                             "project_guid is required for project automation target.".to_string(),
                         )
                     })?;
-                if target.workspace_guid.is_some() {
+                if has_non_empty_guid(&target.workspace_guid) {
                     return Err(ServiceError::Validation(
                         "workspace_guid must be empty for project automation target.".to_string(),
                     ));
@@ -45,7 +45,7 @@ impl AutomationService {
                                 .to_string(),
                         )
                     })?;
-                if target.project_guid.is_some() {
+                if has_non_empty_guid(&target.project_guid) {
                     return Err(ServiceError::Validation(
                         "project_guid must be empty for workspace automation target.".to_string(),
                     ));
@@ -69,7 +69,7 @@ impl AutomationService {
                                 .to_string(),
                         )
                     })?;
-                if target.workspace_guid.is_some() {
+                if has_non_empty_guid(&target.workspace_guid) {
                     return Err(ServiceError::Validation(
                         "workspace_guid must be empty for new-workspace automation target."
                             .to_string(),
@@ -83,7 +83,9 @@ impl AutomationService {
                     })?;
             }
             AutomationTargetKind::Standalone => {
-                if target.project_guid.is_some() || target.workspace_guid.is_some() {
+                if has_non_empty_guid(&target.project_guid)
+                    || has_non_empty_guid(&target.workspace_guid)
+                {
                     return Err(ServiceError::Validation(
                         "Standalone automation target must not include project_guid or workspace_guid."
                             .to_string(),
@@ -93,6 +95,14 @@ impl AutomationService {
         }
         Ok(())
     }
+}
+
+fn has_non_empty_guid(value: &Option<String>) -> bool {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some()
 }
 
 pub(super) fn validate_display_name(raw: String) -> Result<String> {

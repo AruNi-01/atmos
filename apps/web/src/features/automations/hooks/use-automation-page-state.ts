@@ -57,11 +57,17 @@ export function useAutomationPageState() {
   const [artifact, setArtifact] = React.useState<AutomationArtifactResponse | null>(null);
   const [artifactLoading, setArtifactLoading] = React.useState(false);
   const [busyAction, setBusyAction] = React.useState<string | null>(null);
+  const selectedAutomationGuidRef = React.useRef<string | null>(null);
+  const runsRequestSeqRef = React.useRef(0);
 
   const selectedAutomation = React.useMemo(
     () => automations.find((automation) => automation.guid === selectedAutomationGuid) ?? null,
     [automations, selectedAutomationGuid],
   );
+
+  React.useEffect(() => {
+    selectedAutomationGuidRef.current = selectedAutomationGuid;
+  }, [selectedAutomationGuid]);
 
   React.useEffect(() => {
     if (projects.length === 0 && !isProjectsLoading) {
@@ -142,21 +148,38 @@ export function useAutomationPageState() {
 
   const loadRuns = React.useCallback(
     async (automationGuid: string) => {
-      setRunsLoading(true);
+      const shouldUpdateSelection = selectedAutomationGuidRef.current === automationGuid;
+      const requestId = shouldUpdateSelection
+        ? runsRequestSeqRef.current + 1
+        : runsRequestSeqRef.current;
+      if (shouldUpdateSelection) {
+        runsRequestSeqRef.current = requestId;
+        setRunsLoading(true);
+      }
+      const isCurrentRequest = () =>
+        shouldUpdateSelection &&
+        selectedAutomationGuidRef.current === automationGuid &&
+        runsRequestSeqRef.current === requestId;
       try {
         const response = await listRuns(automationGuid);
-        setRuns(response.runs);
+        if (isCurrentRequest()) {
+          setRuns(response.runs);
+        }
         return response.runs;
       } catch (err) {
-        setRuns([]);
-        toastManager.add({
-          title: "Failed to load run history",
-          description: err instanceof Error ? err.message : "Unknown error",
-          type: "error",
-        });
+        if (isCurrentRequest()) {
+          setRuns([]);
+          toastManager.add({
+            title: "Failed to load run history",
+            description: err instanceof Error ? err.message : "Unknown error",
+            type: "error",
+          });
+        }
         return [];
       } finally {
-        setRunsLoading(false);
+        if (isCurrentRequest()) {
+          setRunsLoading(false);
+        }
       }
     },
     [listRuns],

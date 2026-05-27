@@ -173,7 +173,7 @@ When creating or refreshing a `REVIEW.md`, load the template on demand from [`re
 
 ## 4. Lifecycle
 
-```
+```text
 BRAINSTORM  →  PRD  →  TECH  →  TEST  →  implement  →  ship
    (open)     (what)   (how)   (verify)    (code)
                                       │          │

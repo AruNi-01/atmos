@@ -134,15 +134,12 @@ impl<'a> AutomationRepo<'a> {
         }
         if let Some(value) = input.target_kind {
             active.target_kind = Set(value);
-            active.project_guid = Set(input.project_guid.flatten());
-            active.workspace_guid = Set(input.workspace_guid.flatten());
-        } else {
-            if let Some(value) = input.project_guid {
-                active.project_guid = Set(value);
-            }
-            if let Some(value) = input.workspace_guid {
-                active.workspace_guid = Set(value);
-            }
+        }
+        if let Some(value) = input.project_guid {
+            active.project_guid = Set(value);
+        }
+        if let Some(value) = input.workspace_guid {
+            active.workspace_guid = Set(value);
         }
         if let Some(value) = input.schedule_enabled {
             active.schedule_enabled = Set(value);
@@ -280,13 +277,16 @@ impl<'a> AutomationRepo<'a> {
             cancellation_requested: Set(false),
         };
 
-        let inserted = model.insert(self.db).await?;
+        let txn = self.db.begin().await?;
+        let inserted = model.insert(&txn).await?;
         self.touch_automation_after_run_created(
+            &txn,
             &inserted.automation_guid,
             &inserted.guid,
             &inserted.status,
         )
         .await?;
+        txn.commit().await?;
         Ok(inserted)
     }
 
@@ -314,8 +314,10 @@ impl<'a> AutomationRepo<'a> {
         guid: &str,
         input: UpdateAutomationRunStatusRecord,
     ) -> Result<automation_run::Model> {
-        let run = self
-            .find_run_by_guid(guid)
+        let txn = self.db.begin().await?;
+        let run = automation_run::Entity::find_by_id(guid.to_string())
+            .filter(automation_run::Column::IsDeleted.eq(false))
+            .one(&txn)
             .await?
             .ok_or_else(|| InfraError::Custom("Automation run not found".into()))?;
         let mut active: automation_run::ActiveModel = run.into();
@@ -326,13 +328,15 @@ impl<'a> AutomationRepo<'a> {
         active.failure_kind = Set(input.failure_kind);
         active.error_message = Set(input.error_message);
 
-        let updated = active.update(self.db).await?;
+        let updated = active.update(&txn).await?;
         self.touch_automation_after_run_status(
+            &txn,
             &updated.automation_guid,
             &updated.guid,
             &updated.status,
         )
         .await?;
+        txn.commit().await?;
         Ok(updated)
     }
 
@@ -359,12 +363,16 @@ impl<'a> AutomationRepo<'a> {
         Ok(())
     }
 
-    async fn touch_automation_after_run_created(
+    async fn touch_automation_after_run_created<C>(
         &self,
+        db: &C,
         automation_guid: &str,
         run_guid: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        C: ConnectionTrait,
+    {
         let result = automation::Entity::update_many()
             .col_expr(
                 automation::Column::LastRunGuid,
@@ -384,7 +392,7 @@ impl<'a> AutomationRepo<'a> {
             )
             .filter(automation::Column::Guid.eq(automation_guid))
             .filter(automation::Column::IsDeleted.eq(false))
-            .exec(self.db)
+            .exec(db)
             .await?;
         if result.rows_affected == 0 {
             return Err(InfraError::Custom("Automation not found".into()));
@@ -392,12 +400,16 @@ impl<'a> AutomationRepo<'a> {
         Ok(())
     }
 
-    async fn touch_automation_after_run_status(
+    async fn touch_automation_after_run_status<C>(
         &self,
+        db: &C,
         automation_guid: &str,
         run_guid: &str,
         status: &str,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        C: ConnectionTrait,
+    {
         let result = automation::Entity::update_many()
             .col_expr(
                 automation::Column::LastRunGuid,
@@ -413,7 +425,7 @@ impl<'a> AutomationRepo<'a> {
             )
             .filter(automation::Column::Guid.eq(automation_guid))
             .filter(automation::Column::IsDeleted.eq(false))
-            .exec(self.db)
+            .exec(db)
             .await?;
         if result.rows_affected == 0 {
             return Err(InfraError::Custom("Automation not found".into()));

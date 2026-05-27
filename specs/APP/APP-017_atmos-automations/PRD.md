@@ -16,6 +16,23 @@
 3. **Secondary**: Let users choose the right execution context: Project, existing Workspace, new Workspace per run, or a standalone automation run directory.
 4. **Secondary**: Notify users when automation runs complete, fail, or need attention.
 
+### Automation creation -> run lifecycle
+
+The product flow keeps setup, execution, persistence, and notification visible as separate user-facing steps.
+
+```mermaid
+flowchart LR
+  A["Create automation"] --> B{"Trigger"}
+  B -->|"Manual"| C["Run now"]
+  B -->|"Scheduled"| D["Scheduler starts due run"]
+  C --> E["Create Automations terminal"]
+  D --> E
+  E --> F["Execute selected terminal agent"]
+  F --> G["Persist run metadata and artifacts"]
+  G --> H["Update run history"]
+  H --> I["Send Desktop/Web notification"]
+```
+
 ## Users & Scenarios
 
 - **Primary persona**: Agentic Builder who repeatedly asks terminal agents to check, maintain, summarize, or repair a project.
@@ -54,8 +71,43 @@
 - **M9 · Terminal execution**: Each run creates a terminal tab named **Automations** and launches the selected terminal agent in non-interactive mode. Project/Workspace runs use that context; no-target runs use the standalone run directory.
 - **M10 · File-based result**: Each run writes the agent's final/model output to a file that users can open from the run detail view.
 - **M11 · Run environments**: Users can choose one of four environments: Project, existing Workspace, new Workspace per run, or no Project/Workspace.
+
+  **Trigger / scope decision flow**
+
+  ```mermaid
+  flowchart TD
+    A["Configure trigger"] --> B{"Manual or scheduled?"}
+    B -->|"Manual"| C["No saved schedule"]
+    B -->|"Scheduled"| D{"Preset or cron?"}
+    D -->|"Hourly / daily / weekly / monthly"| E["Use preset time inputs"]
+    D -->|"Cron"| F["Use five-field cron expression"]
+    C --> G{"Run environment"}
+    E --> G
+    F --> G
+    G -->|"Project"| H["Run in project path"]
+    G -->|"Existing Workspace"| I["Run in selected workspace"]
+    G -->|"New Workspace per run"| J["Create automation-labeled workspace"]
+    G -->|"No Project"| K["Run in standalone ~/.atmos path"]
+  ```
+
 - **M12 · Automation-created workspaces**: When an automation creates a Workspace, the Workspace is marked with `create_source = "automation"`, displays an automation icon label in workspace surfaces, and uses the automation display name as the default Workspace display name.
 - **M13 · Run history**: Users can see automation definitions, latest status, next scheduled run, historical runs, and per-run outcome states: running, completed, failed, cancelled, or interrupted.
+
+  **Run outcome state transitions**
+
+  ```mermaid
+  stateDiagram-v2
+    [*] --> running: terminal window created
+    running --> completed: agent exits successfully
+    running --> failed: startup or agent failure
+    running --> cancelled: user cancels active run
+    running --> interrupted: terminal/window disappears
+    completed --> [*]
+    failed --> [*]
+    cancelled --> [*]
+    interrupted --> [*]
+  ```
+
 - **M14 · Run controls**: Users can run an automation now, pause/resume its schedule, and cancel an active run when cancellation is still possible.
 - **M15 · Notifications**: Desktop/Web notifications are sent for completed, failed, cancelled, and interrupted runs. A push-server setting controls whether automation outcomes also send push notifications.
 - **M16 · Remote Computer behavior**: When the UI is connected to a remote Atmos Computer, creating and managing automations affects that remote Computer's local DB, terminal sessions, and `~/.atmos/` artifact files.

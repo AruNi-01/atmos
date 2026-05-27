@@ -13,17 +13,27 @@ import type { AutomationAgentCapability } from "@/features/automations/types";
 
 export function AutomationAgentPicker({
   agents,
+  loading,
   selectedAgentId,
   onSelect,
 }: {
   agents: AutomationAgentCapability[];
+  loading: boolean;
   selectedAgentId: string;
   onSelect: (agentId: string) => void;
 }) {
-  if (agents.length === 0) {
+  if (loading) {
     return (
       <div className="flex h-10 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">
         Loading agents
+      </div>
+    );
+  }
+
+  if (agents.length === 0) {
+    return (
+      <div className="flex h-10 items-center rounded-md border border-dashed border-border px-3 text-sm text-muted-foreground">
+        No agents available
       </div>
     );
   }

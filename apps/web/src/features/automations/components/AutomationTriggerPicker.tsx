@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import {
   Input,
   Label,
@@ -163,15 +164,43 @@ function NumberField({
   max: number;
   onChange: (value: number) => void;
 }) {
+  const [draft, setDraft] = React.useState(String(value));
+
+  React.useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commitValue = () => {
+    if (draft.trim() === "") {
+      setDraft(String(value));
+      return;
+    }
+    const next = Number(draft);
+    if (!Number.isFinite(next)) {
+      setDraft(String(value));
+      return;
+    }
+    const clamped = clampNumber(next, min, max);
+    setDraft(String(clamped));
+    onChange(clamped);
+  };
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
       <Input
         type="number"
-        value={value}
+        value={draft}
         min={min}
         max={max}
-        onChange={(event) => onChange(clampNumber(Number(event.target.value), min, max))}
+        onBlur={commitValue}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          const next = event.currentTarget.valueAsNumber;
+          if (!Number.isNaN(next)) {
+            onChange(clampNumber(next, min, max));
+          }
+        }}
       />
     </div>
   );

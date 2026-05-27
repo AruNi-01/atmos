@@ -6,6 +6,7 @@ use chrono::Utc;
 use core_engine::TmuxEngine;
 use infra::db::entities::{automation, automation_run};
 use infra::db::repo::{AutomationRepo, CreateAutomationRunRecord, UpdateAutomationRunStatusRecord};
+use tracing::warn;
 
 use crate::error::{Result, ServiceError};
 
@@ -161,7 +162,7 @@ impl AutomationService {
             tmux_window_index,
         });
 
-        let run = repo
+        let run = match repo
             .create_run(CreateAutomationRunRecord {
                 guid: prepared.run_guid.clone(),
                 automation_guid: automation.guid.clone(),
@@ -182,10 +183,50 @@ impl AutomationService {
                 tmux_window_index: Some(tmux_window_index as i32),
                 started_at: prepared.started_at,
             })
-            .await?;
+            .await
+        {
+            Ok(run) => run,
+            Err(error) => {
+                cleanup_automation_terminal_window(
+                    &terminal_launcher,
+                    &tmux_session_name,
+                    tmux_window_index,
+                );
+                return Err(error.into());
+            }
+        };
 
         let run_json = runner::AutomationRunJson::from_run_model(&run);
-        runner::write_run_json(PathBuf::from(&run.run_json_path).as_path(), &run_json)?;
+        if let Err(error) =
+            runner::write_run_json(PathBuf::from(&run.run_json_path).as_path(), &run_json)
+        {
+            cleanup_automation_terminal_window(
+                &terminal_launcher,
+                &tmux_session_name,
+                tmux_window_index,
+            );
+            let completed_at = Utc::now().naive_utc();
+            let failed = repo
+                .update_run_status(
+                    &run.guid,
+                    UpdateAutomationRunStatusRecord {
+                        status: AutomationRunStatus::Failed.as_str().to_string(),
+                        completed_at: Some(completed_at),
+                        exit_code: None,
+                        failure_kind: Some(START_FAILURE_KIND.to_string()),
+                        error_message: Some(error.to_string()),
+                    },
+                )
+                .await?;
+            publish_run_update(
+                &self.db,
+                &self.notification_service,
+                &self.event_tx,
+                failed.clone(),
+            )
+            .await;
+            return Ok(failed);
+        }
 
         if let Err(error) = send_automation_terminal_command(
             &terminal_launcher,
@@ -194,6 +235,11 @@ impl AutomationService {
             &(command + "\n"),
         ) {
             let completed_at = Utc::now().naive_utc();
+            cleanup_automation_terminal_window(
+                &terminal_launcher,
+                &tmux_session_name,
+                tmux_window_index,
+            );
             let failed = repo
                 .update_run_status(
                     &run.guid,
@@ -336,6 +382,9 @@ trait AutomationTerminalLauncher {
         window_index: u32,
         text: &str,
     ) -> std::result::Result<(), String>;
+
+    fn kill_window(&self, session_name: &str, window_index: u32)
+        -> std::result::Result<(), String>;
 }
 
 struct TmuxAutomationTerminalLauncher {
@@ -370,6 +419,16 @@ impl AutomationTerminalLauncher for TmuxAutomationTerminalLauncher {
             .send_text_to_window(session_name, window_index, text)
             .map_err(|error| error.to_string())
     }
+
+    fn kill_window(
+        &self,
+        session_name: &str,
+        window_index: u32,
+    ) -> std::result::Result<(), String> {
+        self.tmux_engine
+            .kill_window(session_name, window_index)
+            .map_err(|error| error.to_string())
+    }
 }
 
 fn create_automation_terminal_window(
@@ -394,6 +453,19 @@ fn send_automation_terminal_command(
     command: &str,
 ) -> std::result::Result<(), String> {
     launcher.send_text_to_window(session_name, window_index, command)
+}
+
+fn cleanup_automation_terminal_window(
+    launcher: &impl AutomationTerminalLauncher,
+    session_name: &str,
+    window_index: u32,
+) {
+    if let Err(error) = launcher.kill_window(session_name, window_index) {
+        warn!(
+            "Failed to clean up automation terminal window {}:{} after startup error: {}",
+            session_name, window_index, error
+        );
+    }
 }
 
 #[cfg(test)]
@@ -422,6 +494,14 @@ mod tests {
             _text: &str,
         ) -> std::result::Result<(), String> {
             self.send_result.clone()
+        }
+
+        fn kill_window(
+            &self,
+            _session_name: &str,
+            _window_index: u32,
+        ) -> std::result::Result<(), String> {
+            Ok(())
         }
     }
 

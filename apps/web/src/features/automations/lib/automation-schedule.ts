@@ -79,6 +79,7 @@ export function buildScheduleInput(
 
 export function parseSchedule(automation: AutomationSummary): {
   trigger: TriggerChoice;
+  timezone: string;
   hour: number;
   minute: number;
   dayOfWeek: number;
@@ -87,6 +88,7 @@ export function parseSchedule(automation: AutomationSummary): {
 } {
   const fallback = {
     trigger: "manual" as TriggerChoice,
+    timezone: automation.schedule_timezone,
     hour: 9,
     minute: 0,
     dayOfWeek: 1,
@@ -104,6 +106,7 @@ export function parseSchedule(automation: AutomationSummary): {
 
   return {
     trigger: automation.schedule_kind,
+    timezone: automation.schedule_timezone,
     hour: Number.isFinite(hour) ? hour : fallback.hour,
     minute: Number.isFinite(minute) ? minute : fallback.minute,
     dayOfWeek: Number.isFinite(dayOfWeek) ? dayOfWeek : fallback.dayOfWeek,

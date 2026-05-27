@@ -14,6 +14,7 @@ export function AutomationPage() {
         initialAutomation={state.setupMode === "edit" ? state.selectedDetail : null}
         initialAutomationLoading={state.setupMode === "edit" && state.detailLoading}
         agents={state.agents}
+        agentsLoading={state.loading}
         projects={state.projects}
         projectsLoading={state.isProjectsLoading}
         schedulePreview={state.schedulePreview}

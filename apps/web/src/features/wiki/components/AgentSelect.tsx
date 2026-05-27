@@ -24,21 +24,17 @@ export function buildCommand(
   if (!agent) return "";
 
   const quoted = shellQuote(prompt);
+  const strategy = agent.promptStrategy ?? (agent.useEcho ? "stdin" : "arg");
+  const params = agent.params ? ` ${agent.params}` : "";
 
-  // Special handling for amp: use echo to pipe prompt
-  if ("useEcho" in agent && agent.useEcho) {
-    const params = agent.params ? ` ${agent.params}` : "";
-    
-    // If prompt is empty, run command directly without echo
-    if (prompt.trim() === '') {
-      return `${agent.cmd}${params}`;
-    }
-    
-    // If prompt is not empty, use echo to pipe
+  if (prompt.trim() === "") {
+    return `${agent.cmd}${params}`;
+  }
+
+  if (strategy === "stdin") {
     return `echo ${quoted} | ${agent.cmd}${params}`;
   }
 
-  // Standard handling for other agents
   const parts: string[] = [agent.cmd];
 
   if (agent.params) {

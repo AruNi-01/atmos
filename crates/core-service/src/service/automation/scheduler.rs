@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDateTime, Timelike, Utc};
+use chrono::{NaiveDateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
 use std::str::FromStr;
@@ -91,8 +91,7 @@ fn preview_cron_expr(
 fn next_after(five_field_expr: &str, tz: Tz, now: NaiveDateTime) -> Result<Option<NaiveDateTime>> {
     Ok(preview_cron_expr(five_field_expr, tz, now, 1)?
         .into_iter()
-        .next()
-        .or_else(|| Some((now + Duration::hours(1)).with_second(0).unwrap_or(now))))
+        .next())
 }
 
 pub fn next_run_after_expr(

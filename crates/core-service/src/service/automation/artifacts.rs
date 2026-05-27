@@ -77,7 +77,10 @@ pub fn ensure_user_private_dir(path: &Path) -> Result<()> {
 }
 
 pub fn read_instructions(path: &str) -> Result<String> {
-    fs::read_to_string(path)
+    let path = PathBuf::from(path);
+    let root = automation_root()?;
+    ensure_path_under_root(&path, &root)?;
+    fs::read_to_string(&path)
         .map_err(|error| ServiceError::Validation(format!("Failed to read instructions: {error}")))
 }
 

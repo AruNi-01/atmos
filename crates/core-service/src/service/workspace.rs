@@ -10,7 +10,9 @@ use crate::utils::workspace_name_generator;
 use crate::{GithubIssuePayload, GithubPrPayload, WorkspaceAttachmentPayload};
 use core_engine::{FsEngine, GitEngine};
 use infra::db::entities::{workspace, workspace_label};
-use infra::db::repo::{ProjectRepo, WorkspaceCreateSource, WorkspaceRepo};
+use infra::db::repo::{
+    CreateIssueOnlyWorkspaceRecord, ProjectRepo, WorkspaceCreateSource, WorkspaceRepo,
+};
 use llm::{generate_text, generate_text_stream, FileLlmConfigStore, LlmFeature};
 use sea_orm::DatabaseConnection;
 use std::collections::HashSet;
@@ -519,15 +521,15 @@ impl WorkspaceService {
         let workspace_repo = WorkspaceRepo::new(&self.db);
 
         let model = workspace_repo
-            .create_issue_only(
+            .create_issue_only(CreateIssueOnlyWorkspaceRecord {
                 project_guid,
                 display_name,
                 github_issue_url,
                 github_issue_data,
                 workflow_status,
                 priority,
-                labels,
-            )
+                label_guids: labels,
+            })
             .await?;
 
         let workspace_labels = workspace_repo

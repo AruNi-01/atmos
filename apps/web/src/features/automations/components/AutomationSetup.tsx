@@ -49,6 +49,7 @@ export function AutomationSetup({
   initialAutomation,
   initialAutomationLoading,
   agents,
+  agentsLoading,
   projects,
   projectsLoading,
   schedulePreview,
@@ -60,6 +61,7 @@ export function AutomationSetup({
   initialAutomation: AutomationDetail | null;
   initialAutomationLoading: boolean;
   agents: AutomationAgentCapability[];
+  agentsLoading: boolean;
   projects: Project[];
   projectsLoading: boolean;
   schedulePreview: (
@@ -72,7 +74,8 @@ export function AutomationSetup({
   onUpdate: (request: AutomationUpdateRequest) => Promise<void>;
 }) {
   const composerRef = React.useRef<ComposerHandle | null>(null);
-  const timezone = React.useMemo(resolveTimezone, []);
+  const previewRequestIdRef = React.useRef(0);
+  const [timezone, setTimezone] = React.useState(resolveTimezone);
   const [displayName, setDisplayName] = React.useState("");
   const [instructions, setInstructions] = React.useState("");
   const [agentId, setAgentId] = React.useState("");
@@ -104,6 +107,7 @@ export function AutomationSetup({
       setProjectGuid(initialAutomation.project_guid ?? "");
       setWorkspaceGuid(initialAutomation.workspace_guid ?? "");
       const parsed = parseSchedule(initialAutomation);
+      setTimezone(parsed.timezone);
       setTrigger(parsed.trigger);
       setHour(parsed.hour);
       setMinute(parsed.minute);
@@ -146,24 +150,33 @@ export function AutomationSetup({
 
   React.useEffect(() => {
     if (!scheduleInput || trigger === "manual") {
+      previewRequestIdRef.current += 1;
       setPreview(null);
       setPreviewError(null);
       setPreviewLoading(false);
       return;
     }
 
+    const requestId = previewRequestIdRef.current + 1;
+    previewRequestIdRef.current = requestId;
     const timeout = setTimeout(() => {
       setPreviewLoading(true);
       schedulePreview(scheduleInput, timezone, 5)
         .then((nextPreview) => {
+          if (previewRequestIdRef.current !== requestId) return;
           setPreview(nextPreview);
           setPreviewError(null);
         })
         .catch((err) => {
+          if (previewRequestIdRef.current !== requestId) return;
           setPreview(null);
           setPreviewError(err instanceof Error ? err.message : "Invalid schedule");
         })
-        .finally(() => setPreviewLoading(false));
+        .finally(() => {
+          if (previewRequestIdRef.current === requestId) {
+            setPreviewLoading(false);
+          }
+        });
     }, 300);
 
     return () => clearTimeout(timeout);
@@ -285,6 +298,7 @@ export function AutomationSetup({
                     <Label>Agent</Label>
                     <AutomationAgentPicker
                       agents={agents}
+                      loading={agentsLoading}
                       selectedAgentId={agentId}
                       onSelect={setAgentId}
                     />
