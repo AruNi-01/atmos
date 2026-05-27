@@ -3,6 +3,8 @@
 
 PRAGMA foreign_keys = OFF;
 
+BEGIN TRANSACTION;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_computers_tenant_server_unique
   ON computers(tenant_id, server_id);
 
@@ -39,6 +41,48 @@ LEFT JOIN github_app_installations i
 WHERE i.installation_id IS NULL;
 
 DROP TABLE __app018_route_integrity_check;
+
+CREATE TABLE github_app_installations_new (
+  installation_id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  account_login TEXT,
+  account_type TEXT,
+  repository_selection TEXT NOT NULL,
+  suspended_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+);
+
+INSERT INTO github_app_installations_new(
+  installation_id,
+  tenant_id,
+  account_login,
+  account_type,
+  repository_selection,
+  suspended_at,
+  created_at,
+  updated_at
+)
+SELECT
+  CAST(installation_id AS TEXT),
+  tenant_id,
+  account_login,
+  account_type,
+  repository_selection,
+  suspended_at,
+  created_at,
+  updated_at
+FROM github_app_installations;
+
+DROP TABLE github_app_installations;
+ALTER TABLE github_app_installations_new RENAME TO github_app_installations;
+
+CREATE INDEX idx_github_app_installations_tenant
+  ON github_app_installations(tenant_id);
+
+CREATE UNIQUE INDEX idx_github_installations_tenant_installation_unique
+  ON github_app_installations(tenant_id, installation_id);
 
 CREATE TABLE github_setup_sessions_new (
   setup_token_hash TEXT PRIMARY KEY,
@@ -85,8 +129,8 @@ CREATE TABLE github_event_routes_new (
   tenant_id TEXT NOT NULL,
   server_id TEXT NOT NULL,
   automation_guid TEXT NOT NULL,
-  installation_id INTEGER NOT NULL,
-  repository_id INTEGER,
+  installation_id TEXT NOT NULL,
+  repository_id TEXT,
   repository_full_name TEXT NOT NULL,
   event_name TEXT NOT NULL,
   action TEXT,
@@ -121,8 +165,8 @@ SELECT
   tenant_id,
   server_id,
   automation_guid,
-  installation_id,
-  repository_id,
+  CAST(installation_id AS TEXT),
+  CASE WHEN repository_id IS NULL THEN NULL ELSE CAST(repository_id AS TEXT) END,
   repository_full_name,
   event_name,
   action,
@@ -150,5 +194,7 @@ CREATE INDEX idx_github_event_routes_tenant
 
 CREATE INDEX idx_github_event_routes_tenant_installation
   ON github_event_routes(tenant_id, installation_id);
+
+COMMIT;
 
 PRAGMA foreign_keys = ON;

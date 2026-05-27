@@ -88,9 +88,10 @@ function RunHistoryRow({
   onCancel: () => void;
 }) {
   const githubSource = parseGithubRunSource(run);
-  const triggerLabel = githubSource
+  const githubLabel = githubSource
     ? [githubSource.repository, githubSource.event].filter(Boolean).join(" / ")
-    : run.trigger_kind;
+    : "";
+  const triggerLabel = githubLabel || run.trigger_kind;
 
   return (
     <div

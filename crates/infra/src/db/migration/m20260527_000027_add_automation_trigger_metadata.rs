@@ -208,12 +208,37 @@ impl MigrationTrait for Migration {
             manager,
             AUTOMATION_RUN_TABLE,
             AutomationRun::TriggerSourceJson,
+            "trigger_source_json",
         )
         .await?;
-        drop_column_if_exists(manager, AUTOMATION_TABLE, Automation::TriggerConfigJson).await?;
-        drop_column_if_exists(manager, AUTOMATION_TABLE, Automation::TriggerStatus).await?;
-        drop_column_if_exists(manager, AUTOMATION_TABLE, Automation::TriggerEnabled).await?;
-        drop_column_if_exists(manager, AUTOMATION_TABLE, Automation::TriggerKind).await?;
+        drop_column_if_exists(
+            manager,
+            AUTOMATION_TABLE,
+            Automation::TriggerConfigJson,
+            "trigger_config_json",
+        )
+        .await?;
+        drop_column_if_exists(
+            manager,
+            AUTOMATION_TABLE,
+            Automation::TriggerStatus,
+            "trigger_status",
+        )
+        .await?;
+        drop_column_if_exists(
+            manager,
+            AUTOMATION_TABLE,
+            Automation::TriggerEnabled,
+            "trigger_enabled",
+        )
+        .await?;
+        drop_column_if_exists(
+            manager,
+            AUTOMATION_TABLE,
+            Automation::TriggerKind,
+            "trigger_kind",
+        )
+        .await?;
 
         Ok(())
     }
@@ -243,10 +268,15 @@ async fn drop_column_if_exists<I>(
     manager: &SchemaManager<'_>,
     table_name: &str,
     column: I,
+    column_name: &str,
 ) -> Result<(), DbErr>
 where
     I: Iden + 'static,
 {
+    if !manager.has_column(table_name, column_name).await? {
+        return Ok(());
+    }
+
     manager
         .alter_table(
             Table::alter()

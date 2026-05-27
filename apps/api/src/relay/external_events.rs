@@ -16,7 +16,7 @@ struct RelayGithubTriggerEvent {
     automation_guid: String,
     provider: String,
     #[serde(default)]
-    repository_id: Option<i64>,
+    repository_id: Option<String>,
     repository_full_name: String,
     event_name: String,
     #[serde(default)]

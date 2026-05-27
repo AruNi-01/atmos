@@ -16,6 +16,7 @@ import {
 import type {
   AutomationDetail,
   GithubEventFamily,
+  GithubInt64,
   GithubTriggerConfig,
 } from "@/features/automations/types";
 import type { TriggerChoice } from "@/features/automations/lib/automation-schedule";
@@ -34,7 +35,7 @@ export function useGithubTriggerSetup({
   const [githubRouteId, setGithubRouteId] = React.useState(generateGithubRouteId);
   const [githubInstallations, setGithubInstallations] = React.useState<GithubInstallation[]>([]);
   const [githubRepositories, setGithubRepositories] = React.useState<GithubRepository[]>([]);
-  const [githubInstallationId, setGithubInstallationId] = React.useState<number | null>(null);
+  const [githubInstallationId, setGithubInstallationId] = React.useState<GithubInt64 | null>(null);
   const [githubRepositoryFullName, setGithubRepositoryFullName] = React.useState("");
   const [githubEventFamily, setGithubEventFamily] = React.useState<GithubEventFamily>("pull_request");
   const [githubPullRequestAction, setGithubPullRequestAction] = React.useState("opened");
@@ -76,6 +77,15 @@ export function useGithubTriggerSetup({
 
   React.useEffect(() => {
     if (mode !== "edit" || !initialGithubConfig) {
+      setGithubRouteId(generateGithubRouteId());
+      setGithubInstallationId(null);
+      setGithubRepositoryFullName("");
+      setGithubEventFamily("pull_request");
+      setGithubPullRequestAction("opened");
+      setGithubBranchFilter("main");
+      setGithubCommentContains("");
+      setGithubSenderLogins("");
+      setGithubWorkflowConclusion("failure");
       return;
     }
     setGithubRouteId(initialGithubConfig.route_id);

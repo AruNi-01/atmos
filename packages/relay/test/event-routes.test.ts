@@ -6,6 +6,7 @@ import {
 import {
   claimGithubSetupSession,
   findMatchingGithubRoutes,
+  getGithubSetupSession,
   routeMatchesEvent,
   type GithubEventRoute,
   type NormalizedGithubEvent,
@@ -19,8 +20,8 @@ function baseRoute(overrides: Partial<GithubEventRoute> = {}): GithubEventRoute 
     tenant_id: "tenant_1",
     server_id: "server_1",
     automation_guid: "automation_1",
-    installation_id: 1,
-    repository_id: 100,
+    installation_id: "1",
+    repository_id: "100",
     repository_full_name: "Atmos/Repo",
     event_name: "pull_request",
     action: "opened",
@@ -32,8 +33,8 @@ function baseRoute(overrides: Partial<GithubEventRoute> = {}): GithubEventRoute 
 function baseEvent(overrides: Partial<NormalizedGithubEvent> = {}): NormalizedGithubEvent {
   return {
     deliveryId: "delivery_1",
-    installationId: 1,
-    repositoryId: 100,
+    installationId: "1",
+    repositoryId: "100",
     repositoryFullName: "Atmos/Repo",
     eventName: "pull_request",
     action: "opened",
@@ -155,11 +156,11 @@ describe("GitHub event routes", () => {
     });
 
     expect(routeMatchesEvent(route, baseEvent({
-      repositoryId: 200,
+      repositoryId: "200",
       repositoryFullName: "Atmos/Renamed",
     }))).toBe(true);
     expect(routeMatchesEvent(route, baseEvent({
-      repositoryId: 200,
+      repositoryId: "200",
       repositoryFullName: "Atmos/Other",
     }))).toBe(false);
   });
@@ -176,8 +177,8 @@ describe("GitHub event routes", () => {
     expect(calls[0]?.sql).toContain("repository_id = ?");
     expect(calls[0]?.sql).toContain("repository_id IS NULL AND repository_full_name = ?");
     expect(calls[0]?.args).toEqual([
-      1,
-      100,
+      "1",
+      "100",
       "Atmos/NewName",
       "pull_request",
       "opened",
@@ -206,7 +207,7 @@ describe("GitHub event routes", () => {
     expect(event?.untrustedTextExcerpt).toContain("/atmos review");
   });
 
-  test("setup session claim atomically marks used before reading row", async () => {
+  test("setup session read is non-mutating before final claim", async () => {
     const { env, calls } = captureQueryEnv({
       first: {
         tenant_id: "tenant_1",
@@ -216,12 +217,37 @@ describe("GitHub event routes", () => {
       changes: 1,
     });
 
-    const session = await claimGithubSetupSession(env as never, "state_hash", 123);
+    const session = await getGithubSetupSession(env as never, "state_hash", 123);
+
+    expect(session?.tenant_id).toBe("tenant_1");
+    expect(calls[0]?.sql).toContain("SELECT tenant_id, server_id, return_url");
+    expect(calls[0]?.sql).toContain("used_at IS NULL AND expires_at > ?");
+    expect(calls[0]?.args).toEqual(["state_hash", 123]);
+    expect(calls[0]?.op).toBe("first");
+  });
+
+  test("setup session final claim is atomic after setup succeeds", async () => {
+    const { env, calls } = captureQueryEnv({
+      first: {
+        tenant_id: "tenant_1",
+        server_id: "server_1",
+        return_url: "https://app.atmos.land/done",
+      },
+      changes: 1,
+    });
+
+    const session = await claimGithubSetupSession(env as never, "state_hash", 123, {
+      tenant_id: "tenant_1",
+      server_id: "server_1",
+      return_url: "https://app.atmos.land/done",
+    });
 
     expect(session?.tenant_id).toBe("tenant_1");
     expect(calls[0]?.sql).toContain("SET used_at = ?");
-    expect(calls[0]?.sql).toContain("used_at IS NULL AND expires_at > ?");
-    expect(calls[0]?.args).toEqual([123, "state_hash", 123]);
+    expect(calls[0]?.sql).toContain("used_at IS NULL");
+    expect(calls[0]?.sql).toContain("expires_at > ?");
+    expect(calls[0]?.sql).toContain("tenant_id = ?");
+    expect(calls[0]?.args).toEqual([123, "state_hash", 123, "tenant_1", "server_1"]);
     expect(calls[0]?.op).toBe("run");
     expect(calls[1]?.op).toBe("first");
   });

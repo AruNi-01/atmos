@@ -2,7 +2,7 @@
 -- Depends on APP-019 stable tenant ids in tenants(tenant_id).
 
 CREATE TABLE github_app_installations (
-  installation_id INTEGER PRIMARY KEY,
+  installation_id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
   account_login TEXT,
   account_type TEXT,
@@ -30,8 +30,8 @@ CREATE TABLE github_event_routes (
   tenant_id TEXT NOT NULL,
   server_id TEXT NOT NULL,
   automation_guid TEXT NOT NULL,
-  installation_id INTEGER NOT NULL,
-  repository_id INTEGER,
+  installation_id TEXT NOT NULL,
+  repository_id TEXT,
   repository_full_name TEXT NOT NULL,
   event_name TEXT NOT NULL,
   action TEXT,

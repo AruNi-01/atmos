@@ -16,6 +16,7 @@ import type { Env } from "./index";
 
 const SIGNATURE_PREFIX = "sha256=";
 const EXCERPT_LIMIT = 4096;
+const MAX_INT64 = 9_223_372_036_854_775_807n;
 
 export async function handleGithubWebhook(
   request: Request,
@@ -172,7 +173,7 @@ export function normalizeGithubEvent(
   const installation = asRecord(payload.installation);
   const repository = asRecord(payload.repository);
   const sender = asRecord(payload.sender);
-  const installationId = asNumber(installation?.id);
+  const installationId = asInt64String(installation?.id);
   const repositoryFullName = asString(repository?.full_name);
   if (!installationId || !repositoryFullName) {
     return null;
@@ -181,7 +182,7 @@ export function normalizeGithubEvent(
   const base = {
     deliveryId,
     installationId,
-    repositoryId: asNumber(repository?.id),
+    repositoryId: asInt64String(repository?.id),
     repositoryFullName,
     eventName: routeEventName,
     senderLogin: asString(sender?.login),
@@ -297,6 +298,17 @@ function asString(value: unknown): string | undefined {
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isSafeInteger(value) ? value : undefined;
+}
+
+function asInt64String(value: unknown): string | undefined {
+  if (typeof value === "string" && /^[1-9]\d{0,18}$/.test(value.trim())) {
+    const trimmed = value.trim();
+    return BigInt(trimmed) <= MAX_INT64 ? trimmed : undefined;
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+    return String(value);
+  }
+  return undefined;
 }
 
 function asBoolean(value: unknown): boolean | undefined {

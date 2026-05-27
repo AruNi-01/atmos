@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use infra::db::entities::automation;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::error::{Result, ServiceError};
@@ -17,9 +17,10 @@ pub enum GithubEventFamily {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubTriggerConfig {
     pub route_id: String,
-    pub installation_id: i64,
-    #[serde(default)]
-    pub repository_id: Option<i64>,
+    #[serde(deserialize_with = "deserialize_int64_string")]
+    pub installation_id: String,
+    #[serde(default, deserialize_with = "deserialize_optional_int64_string")]
+    pub repository_id: Option<String>,
     pub repository_full_name: String,
     pub event_family: GithubEventFamily,
     #[serde(default)]
@@ -45,8 +46,8 @@ pub struct GithubTriggerEvent {
     pub delivery_id: String,
     pub route_id: String,
     pub automation_guid: String,
-    #[serde(default)]
-    pub repository_id: Option<i64>,
+    #[serde(default, deserialize_with = "deserialize_optional_int64_string")]
+    pub repository_id: Option<String>,
     pub repository_full_name: String,
     pub event_name: String,
     #[serde(default)]
@@ -91,20 +92,11 @@ impl GithubTriggerConfig {
 
     pub fn canonicalize(mut self) -> Result<Self> {
         self.route_id = normalize_required_identifier("route_id", &self.route_id)?;
-        if self.installation_id <= 0 {
-            return Err(ServiceError::Validation(
-                "installation_id must be a positive integer.".to_string(),
-            ));
-        }
-        self.repository_id = match self.repository_id {
-            Some(value) if value > 0 => Some(value),
-            Some(_) => {
-                return Err(ServiceError::Validation(
-                    "repository_id must be a positive integer when provided.".to_string(),
-                ));
-            }
-            None => None,
-        };
+        self.installation_id = normalize_int64_string("installation_id", &self.installation_id)?;
+        self.repository_id = self
+            .repository_id
+            .map(|value| normalize_int64_string("repository_id", &value))
+            .transpose()?;
         self.repository_full_name = normalize_repository_full_name(&self.repository_full_name)?;
         self.actions = normalize_actions(&self.event_family, &self.actions)?;
         self.filters = self.filters.canonicalize()?;
@@ -121,9 +113,9 @@ impl GithubTriggerConfig {
 
     pub fn repository_matches_event(&self, event: &GithubTriggerEvent) -> bool {
         repository_matches(
-            self.repository_id,
+            self.repository_id.as_deref(),
             &self.repository_full_name,
-            event.repository_id,
+            event.repository_id.as_deref(),
             &event.repository_full_name,
         )
     }
@@ -151,15 +143,10 @@ impl GithubTriggerEvent {
             ));
         }
         self.automation_guid = self.automation_guid.trim().to_string();
-        self.repository_id = match self.repository_id {
-            Some(value) if value > 0 => Some(value),
-            Some(_) => {
-                return Err(ServiceError::Validation(
-                    "repository_id must be a positive integer when provided.".to_string(),
-                ));
-            }
-            None => None,
-        };
+        self.repository_id = self
+            .repository_id
+            .map(|value| normalize_int64_string("repository_id", &value))
+            .transpose()?;
         self.repository_full_name = normalize_repository_full_name(&self.repository_full_name)?;
         self.event_name = normalize_event_name(&self.event_name)?;
         self.action = self
@@ -203,7 +190,7 @@ pub fn build_github_trigger_context(event: &GithubTriggerEvent) -> String {
     ];
 
     push_optional(&mut lines, "Sender", event.sender_login.as_deref());
-    if let Some(repository_id) = event.repository_id {
+    if let Some(repository_id) = event.repository_id.as_deref() {
         lines.push(format!("Repository ID: {repository_id}"));
     }
     push_optional(&mut lines, "Source URL", event.source_url.as_deref());
@@ -246,9 +233,9 @@ fn route_matches(config_route_id: &str, event_route_id: &str) -> bool {
 }
 
 fn repository_matches(
-    config_repo_id: Option<i64>,
+    config_repo_id: Option<&str>,
     config_repo: &str,
-    event_repo_id: Option<i64>,
+    event_repo_id: Option<&str>,
     event_repo: &str,
 ) -> bool {
     if let (Some(config_repo_id), Some(event_repo_id)) = (config_repo_id, event_repo_id) {
@@ -378,6 +365,61 @@ fn normalize_required_identifier(field: &str, value: &str) -> Result<String> {
         )));
     }
     Ok(value)
+}
+
+fn normalize_int64_string(field: &str, value: &str) -> Result<String> {
+    let Some(value) = non_empty_trimmed(value) else {
+        return Err(ServiceError::Validation(format!("{field} is required.")));
+    };
+    if value.parse::<i64>().is_ok_and(|parsed| parsed > 0) {
+        return Ok(value);
+    }
+    Err(ServiceError::Validation(format!(
+        "{field} must be a positive integer."
+    )))
+}
+
+fn deserialize_int64_string<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    int64_string_from_value(value)
+        .ok_or_else(|| serde::de::Error::custom("expected a positive integer string or number"))
+}
+
+fn deserialize_optional_int64_string<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    match value {
+        Some(value) => int64_string_from_value(value).map(Some).ok_or_else(|| {
+            serde::de::Error::custom("expected a positive integer string or number")
+        }),
+        None => Ok(None),
+    }
+}
+
+fn int64_string_from_value(value: Value) -> Option<String> {
+    match value {
+        Value::String(value) => {
+            let value = value.trim();
+            value
+                .parse::<i64>()
+                .ok()
+                .filter(|parsed| *parsed > 0)
+                .map(|_| value.to_string())
+        }
+        Value::Number(value) => value
+            .as_i64()
+            .filter(|parsed| *parsed > 0)
+            .map(|parsed| parsed.to_string()),
+        Value::Null => None,
+        _ => None,
+    }
 }
 
 fn normalize_repository_full_name(value: &str) -> Result<String> {
@@ -551,7 +593,7 @@ mod tests {
             delivery_id: "delivery-1".to_string(),
             route_id: "route-1".to_string(),
             automation_guid: "automation-1".to_string(),
-            repository_id: Some(2),
+            repository_id: Some("2".to_string()),
             repository_full_name: "owner/repo".to_string(),
             event_name: "issue_comment".to_string(),
             action: Some("created".to_string()),
@@ -573,8 +615,8 @@ mod tests {
     fn github_trigger_matches_route_repo_action_and_filters() {
         let config = GithubTriggerConfig {
             route_id: "route-1".to_string(),
-            installation_id: 1,
-            repository_id: Some(2),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
             repository_full_name: "OWNER/repo".to_string(),
             event_family: GithubEventFamily::PullRequestComment,
             actions: vec!["created".to_string()],
@@ -593,8 +635,8 @@ mod tests {
     fn github_trigger_matches_renamed_repository_by_id() {
         let config = GithubTriggerConfig {
             route_id: "route-1".to_string(),
-            installation_id: 1,
-            repository_id: Some(2),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
             repository_full_name: "owner/old-name".to_string(),
             event_family: GithubEventFamily::PullRequestComment,
             actions: vec!["created".to_string()],
@@ -610,8 +652,8 @@ mod tests {
     fn github_trigger_config_canonicalizes_values() {
         let config = GithubTriggerConfig {
             route_id: " route-1 ".to_string(),
-            installation_id: 1,
-            repository_id: Some(2),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
             repository_full_name: " Owner/Repo ".to_string(),
             event_family: GithubEventFamily::PullRequestComment,
             actions: vec![" CREATED ".to_string(), "created".to_string()],
@@ -637,8 +679,8 @@ mod tests {
     fn github_trigger_config_rejects_invalid_route_and_repo() {
         let error = GithubTriggerConfig {
             route_id: "route 1".to_string(),
-            installation_id: 1,
-            repository_id: Some(2),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
             repository_full_name: "not-a-full-name".to_string(),
             event_family: GithubEventFamily::PullRequest,
             actions: vec!["opened".to_string()],
@@ -654,7 +696,7 @@ mod tests {
     fn github_trigger_rejects_non_matching_comment_filter() {
         let config = GithubTriggerConfig {
             route_id: "route-1".to_string(),
-            installation_id: 1,
+            installation_id: "1".to_string(),
             repository_id: None,
             repository_full_name: "owner/repo".to_string(),
             event_family: GithubEventFamily::PullRequestComment,

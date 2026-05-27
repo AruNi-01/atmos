@@ -26,6 +26,12 @@ FROM client_sessions c
 LEFT JOIN tenants t ON t.token_hash = c.tenant_id
 WHERE t.token_hash IS NULL;
 
+INSERT INTO __app019_orphan_check(table_name, orphan_count)
+SELECT 'client_sessions.server_id', COUNT(*)
+FROM client_sessions s
+LEFT JOIN computers c ON c.server_id = s.server_id
+WHERE c.server_id IS NULL;
+
 DROP TABLE __app019_orphan_check;
 
 ALTER TABLE tenants RENAME TO tenants_legacy;
@@ -119,7 +125,6 @@ ALTER TABLE client_sessions_new RENAME TO client_sessions;
 
 DROP TABLE tenants_legacy;
 
-CREATE INDEX idx_tenants_access_token_hash ON tenants(access_token_hash);
 CREATE INDEX idx_register_tokens_tenant ON register_tokens(tenant_id);
 CREATE INDEX idx_computers_tenant ON computers(tenant_id);
 CREATE INDEX idx_client_sessions_tenant ON client_sessions(tenant_id);

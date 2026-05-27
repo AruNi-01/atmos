@@ -30,6 +30,8 @@ export type GithubEventFamily =
   | "push"
   | "workflow_run";
 
+export type GithubInt64 = string;
+
 export interface GithubTriggerFilters {
   branch?: string | null;
   comment_contains?: string | null;
@@ -39,8 +41,8 @@ export interface GithubTriggerFilters {
 
 export interface GithubTriggerConfig {
   route_id: string;
-  installation_id: number;
-  repository_id?: number | null;
+  installation_id: GithubInt64;
+  repository_id?: GithubInt64 | null;
   repository_full_name: string;
   event_family: GithubEventFamily;
   actions: string[];

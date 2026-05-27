@@ -86,6 +86,7 @@ Set non-secret app identifiers as environment variables or secrets according to 
 - `GITHUB_APP_ID`
 - `GITHUB_APP_SLUG`
 - `GITHUB_APP_CLIENT_ID`
+- `GITHUB_SETUP_RETURN_ORIGINS` (optional comma-separated `http://`/`https://` origins allowed for GitHub setup return URLs; defaults cover `https://app.atmos.land` and local web dev on port 3030)
 
 The production GitHub App webhook URL is `https://relay.atmos.land/v1/github/webhook`, and its callback URL is `https://relay.atmos.land/v1/github/callback`.
 

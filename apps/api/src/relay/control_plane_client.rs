@@ -1,6 +1,6 @@
 use reqwest::Method;
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 use core_service::{Result, ServiceError};
 
@@ -33,6 +33,7 @@ impl RelayControlRequest {
 
 impl RelayControlClient {
     fn new(control_plane_url: &str, access_token: &str) -> Result<Self> {
+        let access_token = access_token.trim();
         if access_token.len() < 32 {
             return Err(ServiceError::Validation(
                 "Relay Access Token is missing or too short.".to_string(),
@@ -55,7 +56,7 @@ impl RelayControlClient {
 
         Ok(Self {
             base_url,
-            access_token: access_token.trim().to_string(),
+            access_token: access_token.to_string(),
             client,
         })
     }
@@ -79,7 +80,16 @@ impl RelayControlClient {
             .await
             .map_err(|error| ServiceError::Processing(format!("Relay request failed: {error}")))?;
         let status = response.status();
-        let data = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
+        let text = response.text().await.map_err(|error| {
+            ServiceError::Processing(format!("Relay response read failed: {error}"))
+        })?;
+        let data = serde_json::from_str::<Value>(&text).map_err(|error| {
+            if status.is_success() {
+                ServiceError::Processing(format!("Relay returned invalid JSON: {error}"))
+            } else {
+                ServiceError::Processing(format!("relay_request_failed (HTTP {})", status.as_u16()))
+            }
+        })?;
         if !status.is_success() {
             let code = data
                 .get("error")

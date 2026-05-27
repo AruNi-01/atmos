@@ -16,7 +16,7 @@ import { CalendarClock, CheckCircle2, Clock3, LoaderCircle } from "lucide-react"
 import { AutomationGithubTriggerPanel } from "@/features/automations/components/AutomationGithubTriggerPanel";
 import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
 import type { AutomationSchedulePreviewResponse } from "@/features/automations/types";
-import type { GithubEventFamily } from "@/features/automations/types";
+import type { GithubEventFamily, GithubInt64 } from "@/features/automations/types";
 import {
   DAY_OPTIONS,
   TRIGGER_OPTIONS,
@@ -82,7 +82,7 @@ export function AutomationTriggerPicker({
   githubLoading: boolean;
   githubRepositoriesLoading: boolean;
   githubError: string | null;
-  githubInstallationId: number | null;
+  githubInstallationId: GithubInt64 | null;
   githubRepositoryFullName: string;
   githubEventFamily: GithubEventFamily;
   githubPullRequestAction: string;
@@ -98,7 +98,7 @@ export function AutomationTriggerPicker({
   onCronExprChange: (value: string) => void;
   onGithubStartSetup: () => void;
   onGithubOpenComputerSettings: () => void;
-  onGithubInstallationChange: (installationId: number) => void;
+  onGithubInstallationChange: (installationId: GithubInt64) => void;
   onGithubRepositoryChange: (fullName: string) => void;
   onGithubEventFamilyChange: (family: GithubEventFamily) => void;
   onGithubPullRequestActionChange: (action: string) => void;

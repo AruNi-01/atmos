@@ -129,17 +129,6 @@ impl AutomationService {
             ));
         }
 
-        if repo
-            .has_running_run_for_automation(&automation.guid)
-            .await?
-        {
-            return Ok(local_rejected(
-                &event,
-                ExternalTriggerRejectReason::AlreadyRunning,
-                "Automation already has a running run.",
-            ));
-        }
-
         let delivery_claim = repo
             .claim_github_delivery(ClaimGithubDeliveryRecord {
                 delivery_id: event.delivery_id.clone(),
@@ -152,6 +141,23 @@ impl AutomationService {
                 &event,
                 ExternalTriggerRejectReason::DuplicateDelivery,
                 "GitHub delivery was already processed for this route.",
+            ));
+        }
+
+        if repo
+            .has_running_run_for_automation(&automation.guid)
+            .await?
+        {
+            repo.reject_github_delivery_claim(
+                &event.delivery_id,
+                &event.route_id,
+                "already_running",
+            )
+            .await?;
+            return Ok(local_rejected(
+                &event,
+                ExternalTriggerRejectReason::AlreadyRunning,
+                "Automation already has a running run.",
             ));
         }
 

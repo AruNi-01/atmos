@@ -7,8 +7,8 @@ export interface GithubTriggerEnvelope {
   server_id: string;
   automation_guid: string;
   provider: "github";
-  installation_id: number;
-  repository_id?: number;
+  installation_id: string;
+  repository_id?: string;
   repository_full_name: string;
   event_name: string;
   action?: string;
@@ -44,16 +44,22 @@ export async function dispatchExternalEventToServer(
 
   const id = env.SERVER_HUB.idFromName(event.server_id);
   const stub = env.SERVER_HUB.get(id);
-  const response = await stub.fetch(
-    new Request("https://do.internal/external_event", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Relay-External-Event": "1",
-      },
-      body: JSON.stringify(envelope),
-    }),
-  );
+  let response: Response;
+  try {
+    response = await stub.fetch(
+      new Request("https://do.internal/external_event", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Relay-External-Event": "1",
+        },
+        body: JSON.stringify(envelope),
+      }),
+    );
+  } catch (error) {
+    console.warn("GitHub external event dispatch failed", error);
+    return { status: "error", errorCode: "dispatch_failed" };
+  }
 
   if (response.status === 503) {
     return { status: "missed_offline", errorCode: "server_offline" };

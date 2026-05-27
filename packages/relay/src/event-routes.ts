@@ -9,6 +9,12 @@ import type { Env } from "./index";
 
 const SETUP_SESSION_TTL_SEC = 10 * 60;
 const MIN_SETUP_TOKEN_BYTES = 32;
+const MAX_INT64 = 9_223_372_036_854_775_807n;
+const DEFAULT_SETUP_RETURN_ORIGINS = [
+  "https://app.atmos.land",
+  "http://localhost:3030",
+  "http://127.0.0.1:3030",
+];
 const SUPPORTED_EVENTS = new Set([
   "pull_request",
   "issue_comment",
@@ -18,8 +24,8 @@ const SUPPORTED_EVENTS = new Set([
 
 export interface NormalizedGithubEvent {
   deliveryId: string;
-  installationId: number;
-  repositoryId?: number;
+  installationId: string;
+  repositoryId?: string;
   repositoryFullName: string;
   eventName: string;
   action?: string;
@@ -38,8 +44,8 @@ export interface GithubEventRoute {
   tenant_id: string;
   server_id: string;
   automation_guid: string;
-  installation_id: number;
-  repository_id: number | null;
+  installation_id: string;
+  repository_id: string | null;
   repository_full_name: string;
   event_name: string;
   action: string | null;
@@ -102,7 +108,11 @@ export async function createGithubSetupSession(
   const expiresAt = now + SETUP_SESSION_TTL_SEC;
   const setupToken = randomBase64Url(MIN_SETUP_TOKEN_BYTES);
   const setupTokenHash = await sha256Hex(setupToken);
-  const returnUrl = normalizeReturnUrl(body?.return_url, url.origin);
+  const returnUrl = normalizeReturnUrl(
+    body?.return_url,
+    url.origin,
+    env.GITHUB_SETUP_RETURN_ORIGINS,
+  );
 
   let installUrl: string;
   try {
@@ -132,14 +142,14 @@ export async function handleGithubCallback(
 ): Promise<Response> {
   const state = url.searchParams.get("state")?.trim() ?? "";
   const code = url.searchParams.get("code")?.trim() ?? "";
-  const installationId = Number(url.searchParams.get("installation_id"));
-  if (!state || !code || !Number.isSafeInteger(installationId)) {
+  const installationId = normalizeInt64String(url.searchParams.get("installation_id"));
+  if (!state || !code || !installationId) {
     return json({ error: "invalid_github_callback" }, 400);
   }
 
   const now = Math.floor(Date.now() / 1000);
   const setupTokenHash = await sha256Hex(state);
-  const session = await claimGithubSetupSession(env, setupTokenHash, now);
+  const session = await getGithubSetupSession(env, setupTokenHash, now);
 
   if (!session) {
     return json({ error: "setup_session_invalid_or_expired" }, 400);
@@ -158,9 +168,14 @@ export async function handleGithubCallback(
     return json({ error: githubErrorCode(error) }, 409);
   }
 
+  const claimed = await claimGithubSetupSession(env, setupTokenHash, now, session);
+  if (!claimed) {
+    return json({ error: "setup_session_already_used" }, 409);
+  }
+
   const redirectUrl = new URL(session.return_url ?? url.origin);
   redirectUrl.searchParams.set("github_setup", "connected");
-  redirectUrl.searchParams.set("installation_id", String(installationId));
+  redirectUrl.searchParams.set("installation_id", installationId);
   return Response.redirect(redirectUrl.toString(), 302);
 }
 
@@ -176,7 +191,7 @@ export async function listGithubInstallations(
   )
     .bind(tenantId)
     .all<{
-      installation_id: number;
+      installation_id: string | number;
       account_login: string | null;
       account_type: string | null;
       repository_selection: string;
@@ -185,13 +200,18 @@ export async function listGithubInstallations(
       updated_at: number;
     }>();
 
-  return json({ installations: results ?? [] });
+  return json({
+    installations: (results ?? []).map((installation) => ({
+      ...installation,
+      installation_id: String(installation.installation_id),
+    })),
+  });
 }
 
 export async function listGithubInstallationRepositories(
   env: Env,
   tenantId: string,
-  installationId: number,
+  installationId: string,
 ): Promise<Response> {
   const installation = await findTenantInstallation(env, tenantId, installationId);
   if (!installation) {
@@ -215,8 +235,8 @@ export async function upsertGithubEventRoute(
     route_id?: string;
     server_id?: string;
     automation_guid?: string;
-    installation_id?: number;
-    repository_id?: number | null;
+    installation_id?: string | number;
+    repository_id?: string | number | null;
     repository_full_name?: string;
     event_name?: string;
     action?: string | null;
@@ -226,7 +246,7 @@ export async function upsertGithubEventRoute(
 
   const serverId = body?.server_id?.trim();
   const automationGuid = body?.automation_guid?.trim();
-  const installationId = Number(body?.installation_id);
+  const installationId = normalizeInt64String(body?.installation_id);
   let repositoryFullName = body?.repository_full_name?.trim() ?? "";
   const eventName = normalizeGithubRouteEventName(body?.event_name);
   const action = normalizeRouteAction(eventName, body?.action);
@@ -234,15 +254,12 @@ export async function upsertGithubEventRoute(
   const filters = body?.filters && typeof body.filters === "object"
     ? normalizeRouteFilters(body.filters as Record<string, unknown>)
     : {};
-  const repositoryId =
-    Number.isSafeInteger(body?.repository_id) && Number(body?.repository_id) > 0
-      ? Number(body?.repository_id)
-      : null;
+  const repositoryId = normalizeInt64String(body?.repository_id);
 
   if (
     !serverId ||
     !automationGuid ||
-    !Number.isSafeInteger(installationId) ||
+    !installationId ||
     !repositoryFullName ||
     !eventName
   ) {
@@ -414,17 +431,37 @@ export async function findMatchingGithubRoutes(
   return (results ?? []).filter((route) => routeMatchesEvent(route, event));
 }
 
-export async function claimGithubSetupSession(
+export async function getGithubSetupSession(
   env: Env,
   setupTokenHash: string,
   now: number,
 ): Promise<GithubSetupSessionClaim | null> {
+  return env.DB.prepare(
+    `SELECT tenant_id, server_id, return_url
+     FROM github_setup_sessions
+     WHERE setup_token_hash = ? AND used_at IS NULL AND expires_at > ?
+     LIMIT 1`,
+  )
+    .bind(setupTokenHash, now)
+    .first<GithubSetupSessionClaim>();
+}
+
+export async function claimGithubSetupSession(
+  env: Env,
+  setupTokenHash: string,
+  now: number,
+  session: GithubSetupSessionClaim,
+): Promise<GithubSetupSessionClaim | null> {
   const claimed = await env.DB.prepare(
     `UPDATE github_setup_sessions
      SET used_at = ?
-     WHERE setup_token_hash = ? AND used_at IS NULL AND expires_at > ?`,
+     WHERE setup_token_hash = ?
+       AND used_at IS NULL
+       AND expires_at > ?
+       AND tenant_id = ?
+       AND server_id = ?`,
   )
-    .bind(now, setupTokenHash, now)
+    .bind(now, setupTokenHash, now, session.tenant_id, session.server_id)
     .run();
 
   if (!claimed.meta.changes) {
@@ -513,8 +550,8 @@ async function persistGithubInstallation(
 async function findTenantInstallation(
   env: Env,
   tenantId: string,
-  installationId: number,
-): Promise<{ installation_id: number } | null> {
+  installationId: string,
+): Promise<{ installation_id: string | number } | null> {
   return env.DB.prepare(
     `SELECT installation_id
      FROM github_app_installations
@@ -522,7 +559,7 @@ async function findTenantInstallation(
      LIMIT 1`,
   )
     .bind(tenantId, installationId)
-    .first<{ installation_id: number }>();
+    .first<{ installation_id: string | number }>();
 }
 
 export function routeMatchesEvent(
@@ -534,7 +571,7 @@ export function routeMatchesEvent(
   }
 
   if (route.repository_id != null && event.repositoryId != null) {
-    if (route.repository_id !== event.repositoryId) {
+    if (String(route.repository_id) !== event.repositoryId) {
       return false;
     }
   } else if (route.repository_full_name !== event.repositoryFullName) {
@@ -708,19 +745,61 @@ function isRepositoryFullName(value: string): boolean {
   return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
 }
 
-function normalizeReturnUrl(value: string | undefined, fallbackOrigin: string): string {
+function normalizeInt64String(value: unknown): string | null {
+  if (typeof value === "string" && /^[1-9]\d{0,18}$/.test(value.trim())) {
+    const trimmed = value.trim();
+    return BigInt(trimmed) <= MAX_INT64 ? trimmed : null;
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+    return String(value);
+  }
+  return null;
+}
+
+function normalizeReturnUrl(
+  value: string | undefined,
+  fallbackOrigin: string,
+  allowedOriginsConfig?: string,
+): string {
+  const fallbackUrl = `${fallbackOrigin}/github/setup/complete`;
   if (!value) {
-    return `${fallbackOrigin}/github/setup/complete`;
+    return fallbackUrl;
   }
   try {
     const url = new URL(value);
-    if (url.protocol === "http:" || url.protocol === "https:") {
+    const fallback = new URL(fallbackOrigin);
+    const allowedOrigins = new Set([
+      fallback.origin,
+      ...DEFAULT_SETUP_RETURN_ORIGINS,
+      ...parseAllowedOrigins(allowedOriginsConfig),
+    ]);
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      allowedOrigins.has(url.origin)
+    ) {
       return url.toString();
     }
   } catch {
     /* ignore */
   }
-  return `${fallbackOrigin}/github/setup/complete`;
+  return fallbackUrl;
+}
+
+function parseAllowedOrigins(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => {
+      if (!origin) {
+        return false;
+      }
+      try {
+        const parsed = new URL(origin);
+        return parsed.origin === origin && (parsed.protocol === "http:" || parsed.protocol === "https:");
+      } catch {
+        return false;
+      }
+    });
 }
 
 function randomBase64Url(byteLength: number): string {

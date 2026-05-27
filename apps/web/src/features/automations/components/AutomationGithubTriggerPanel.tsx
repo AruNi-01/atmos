@@ -14,7 +14,7 @@ import {
 import { Computer, ExternalLink, Github, LoaderCircle } from "lucide-react";
 
 import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
-import type { GithubEventFamily } from "@/features/automations/types";
+import type { GithubEventFamily, GithubInt64 } from "@/features/automations/types";
 
 const EVENT_OPTIONS: Array<{
   value: GithubEventFamily;
@@ -76,7 +76,7 @@ export function AutomationGithubTriggerPanel({
   loading: boolean;
   repositoriesLoading: boolean;
   error: string | null;
-  selectedInstallationId: number | null;
+  selectedInstallationId: GithubInt64 | null;
   selectedRepositoryFullName: string;
   eventFamily: GithubEventFamily;
   pullRequestAction: string;
@@ -86,7 +86,7 @@ export function AutomationGithubTriggerPanel({
   workflowConclusion: string;
   onStartSetup: () => void;
   onOpenComputerSettings: () => void;
-  onInstallationChange: (installationId: number) => void;
+  onInstallationChange: (installationId: GithubInt64) => void;
   onRepositoryChange: (fullName: string) => void;
   onEventFamilyChange: (family: GithubEventFamily) => void;
   onPullRequestActionChange: (action: string) => void;
@@ -138,8 +138,8 @@ export function AutomationGithubTriggerPanel({
           <div className="space-y-2">
             <Label>Installation</Label>
             <Select
-              value={selectedInstallationId ? String(selectedInstallationId) : ""}
-              onValueChange={(value) => onInstallationChange(Number(value))}
+              value={selectedInstallationId ?? ""}
+              onValueChange={onInstallationChange}
               disabled={loading || installations.length === 0}
             >
               <SelectTrigger className="w-full">

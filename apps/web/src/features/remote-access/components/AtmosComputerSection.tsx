@@ -26,11 +26,7 @@ import {
   Server,
   Trash2,
 } from 'lucide-react';
-import { wsRequest } from '@/api/ws/request';
-import type {
-  AutomationListResponse,
-  GithubTriggerConfig,
-} from '@/features/automations/types';
+import { automationApi } from '@/api/ws/automation-api';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { fetchRelayRuntimeInfo } from '@/api/relay';
 import {
@@ -108,45 +104,6 @@ function SettingsBlock({
       <div className="space-y-4 px-6 py-5">{children}</div>
     </section>
   );
-}
-
-async function markGithubAutomationsNeedsSetupAfterIdentitySwitch(): Promise<number> {
-  const list = await wsRequest<AutomationListResponse>('automation_list', {
-    include_paused: true,
-  });
-  const githubAutomations = list.automations.filter(
-    automation =>
-      automation.trigger_kind === 'github' &&
-      automation.trigger_enabled &&
-      automation.trigger_status === 'active',
-  );
-
-  await Promise.all(
-    githubAutomations.map(automation =>
-      wsRequest('automation_update', {
-        automation_guid: automation.guid,
-        trigger: {
-          kind: 'github',
-          enabled: false,
-          status: 'needs_setup',
-          config: parseGithubTriggerConfig(automation.trigger_config_json),
-        },
-      }),
-    ),
-  );
-
-  return githubAutomations.length;
-}
-
-function parseGithubTriggerConfig(raw: string | null): GithubTriggerConfig | null {
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as GithubTriggerConfig;
-  } catch {
-    return null;
-  }
 }
 
 export function AtmosComputerSection() {
@@ -384,6 +341,26 @@ export function AtmosComputerSection() {
     }
   }
 
+  async function teardownLocalRelayIdentity() {
+    setLocalServerId(null);
+    setLocalStatus(prev =>
+      prev
+        ? {
+            ...prev,
+            registered: false,
+            relay_connected: false,
+            relay_last_error: null,
+            server_id: null,
+          }
+        : prev,
+    );
+    setComputers([]);
+    resetRelaySession();
+    setConnectionMode('local');
+    await syncClientSessionLocal().catch(() => undefined);
+    await reconnectWs().catch(() => undefined);
+  }
+
   async function onSaveToken() {
     setBusy('token-save');
     try {
@@ -410,8 +387,9 @@ export function AtmosComputerSection() {
 
         try {
           githubAutomationsMarked =
-            await markGithubAutomationsNeedsSetupAfterIdentitySwitch();
+            await automationApi.markActiveGithubAutomationsNeedsSetup();
         } catch (err) {
+          await teardownLocalRelayIdentity();
           toastManager.add({
             title: 'Identity switch blocked',
             description:
@@ -423,23 +401,7 @@ export function AtmosComputerSection() {
           return;
         }
 
-        setLocalServerId(null);
-        setLocalStatus(prev =>
-          prev
-            ? {
-                ...prev,
-                registered: false,
-                relay_connected: false,
-                relay_last_error: null,
-                server_id: null,
-              }
-            : prev,
-        );
-        setComputers([]);
-        resetRelaySession();
-        setConnectionMode('local');
-        await syncClientSessionLocal().catch(() => undefined);
-        await reconnectWs().catch(() => undefined);
+        await teardownLocalRelayIdentity();
       }
       setAccessToken(token);
       setTokenReveal(null);

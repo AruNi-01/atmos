@@ -26,6 +26,7 @@ export interface Env {
   GITHUB_WEBHOOK_SECRET?: string;
   GITHUB_APP_CLIENT_ID?: string;
   GITHUB_APP_CLIENT_SECRET?: string;
+  GITHUB_SETUP_RETURN_ORIGINS?: string;
 }
 
 const REGISTER_TOKEN_TTL_SEC = 15 * 60;
@@ -341,18 +342,24 @@ async function handleApi(
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const statements: D1PreparedStatement[] = [
-        env.DB.prepare(
-          `UPDATE tenants
-           SET access_token_hash = ?, updated_at = ?, rotated_at = ?
-           WHERE tenant_id = ? AND access_token_hash = ?`,
-        ).bind(
+      const updated = await env.DB.prepare(
+        `UPDATE tenants
+         SET access_token_hash = ?, updated_at = ?, rotated_at = ?
+         WHERE tenant_id = ? AND access_token_hash = ?`,
+      )
+        .bind(
           newTokenHash,
           now,
           now,
           tenantAuth.tenantId,
           tenantAuth.accessTokenHash,
-        ),
+        )
+        .run();
+      if (!updated.meta.changes) {
+        return json({ error: "rotation_conflict" }, 409);
+      }
+
+      const cleanupStatements: D1PreparedStatement[] = [
         env.DB.prepare("DELETE FROM register_tokens WHERE tenant_id = ?").bind(
           tenantAuth.tenantId,
         ),
@@ -362,18 +369,14 @@ async function handleApi(
       ];
 
       if (await tableExists(env, "github_setup_sessions")) {
-        statements.push(
+        cleanupStatements.push(
           env.DB.prepare("DELETE FROM github_setup_sessions WHERE tenant_id = ?").bind(
             tenantAuth.tenantId,
           ),
         );
       }
 
-      const results = await env.DB.batch(statements);
-      const updated = results[0]?.meta.changes ?? 0;
-      if (!updated) {
-        return json({ error: "rotation_conflict" }, 409);
-      }
+      await env.DB.batch(cleanupStatements);
 
       return json({ ok: true, rotated_at: now });
     }
@@ -411,7 +414,7 @@ async function handleApi(
       return listGithubInstallationRepositories(
         env,
         tenant,
-        Number(githubReposMatch[1]),
+        githubReposMatch[1]!,
       );
     }
 

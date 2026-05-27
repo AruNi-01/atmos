@@ -411,6 +411,7 @@ impl<'a> AutomationRepo<'a> {
             )
             .filter(automation_github_delivery_claim::Column::DeliveryId.eq(delivery_id))
             .filter(automation_github_delivery_claim::Column::RouteId.eq(route_id))
+            .filter(automation_github_delivery_claim::Column::Status.eq(GITHUB_DELIVERY_CLAIMED))
             .exec(self.db)
             .await?;
         if result.rows_affected == 0 {

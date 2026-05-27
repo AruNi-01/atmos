@@ -49,7 +49,17 @@ export async function createAutomationWithGithubRoute({
         rollbackErrors.push(formatError(rollbackErr));
       });
     }
-    throw flowError(err, rollbackErrors);
+    const recoverableDetail = await updateAutomation({
+      automation_guid: detail.guid,
+      trigger: triggerInputForSubmit("github", githubConfig, false),
+    }).catch((markErr) => {
+      rollbackErrors.push(`needs_setup update: ${formatError(markErr)}`);
+      return null;
+    });
+    if (!recoverableDetail) {
+      throw flowError(err, rollbackErrors);
+    }
+    return recoverableDetail;
   }
 }
 
@@ -129,6 +139,12 @@ export async function updateAutomationWithGithubRoute({
       await deleteGithubRoute(githubPrereqs, nextRouteId).catch((rollbackErr) => {
         rollbackErrors.push(`new route cleanup: ${formatError(rollbackErr)}`);
       });
+    } else if (nextRouteUpserted && nextRouteId === previousRouteId && previousGithubConfig) {
+      await upsertGithubRoute(githubPrereqs, initialAutomation.guid, previousGithubConfig, true).catch(
+        (rollbackErr) => {
+          rollbackErrors.push(`previous route restore: ${formatError(rollbackErr)}`);
+        },
+      );
     }
     throw flowError(err, rollbackErrors);
   }
@@ -177,7 +193,7 @@ function githubConfigEquals(left: GithubTriggerConfig | null, right: GithubTrigg
   return (
     left.route_id.trim() === right.route_id.trim() &&
     left.installation_id === right.installation_id &&
-    normalizeNullableNumber(left.repository_id) === normalizeNullableNumber(right.repository_id) &&
+    normalizeNullableId(left.repository_id) === normalizeNullableId(right.repository_id) &&
     left.repository_full_name.trim().toLowerCase() === right.repository_full_name.trim().toLowerCase() &&
     left.event_family === right.event_family &&
     stringArrayEquals(normalizeStringArray(left.actions), normalizeStringArray(right.actions)) &&
@@ -194,8 +210,15 @@ function githubConfigEquals(left: GithubTriggerConfig | null, right: GithubTrigg
   );
 }
 
-function normalizeNullableNumber(value: number | null | undefined) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+function normalizeNullableId(value: string | number | null | undefined) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || null;
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    return String(value);
+  }
+  return null;
 }
 
 function normalizeNullableString(value: string | null | undefined) {

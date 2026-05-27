@@ -6,7 +6,7 @@ const GITHUB_PAGE_SIZE = 100;
 const MAX_GITHUB_PAGES = 100;
 
 export interface GithubInstallationRecord {
-  installation_id: number;
+  installation_id: string;
   account_login: string | null;
   account_type: string | null;
   repository_selection: string;
@@ -14,14 +14,14 @@ export interface GithubInstallationRecord {
 }
 
 export interface GithubRepositorySummary {
-  id: number;
+  id: string;
   full_name: string;
   private: boolean;
   default_branch: string;
 }
 
 interface GithubInstallationResponse {
-  id: number;
+  id: number | string;
   account?: {
     login?: string;
     type?: string;
@@ -35,12 +35,12 @@ interface GithubAccessTokenResponse {
 }
 
 interface GithubUserInstallationsResponse {
-  installations?: Array<{ id?: number }>;
+  installations?: Array<{ id?: number | string }>;
 }
 
 interface GithubRepositoriesResponse {
   repositories?: Array<{
-    id?: number;
+    id?: number | string;
     full_name?: string;
     private?: boolean;
     default_branch?: string;
@@ -60,7 +60,7 @@ export function githubAppInstallUrl(env: Env, setupToken: string): string {
 export async function completeGithubInstallationSetup(
   env: Env,
   code: string,
-  installationId: number,
+  installationId: string,
 ): Promise<GithubInstallationRecord> {
   const userToken = await exchangeOAuthCode(env, code);
   const userCanSeeInstallation = await userHasInstallation(userToken, installationId);
@@ -72,7 +72,7 @@ export async function completeGithubInstallationSetup(
 
 export async function listInstallationRepositories(
   env: Env,
-  installationId: number,
+  installationId: string,
 ): Promise<GithubRepositorySummary[]> {
   const installationToken = await createInstallationToken(env, installationId);
   const repositories: GithubRepositorySummary[] = [];
@@ -93,7 +93,7 @@ export async function listInstallationRepositories(
     const pageRepos = (data.repositories ?? [])
       .filter((repo) => repo.id && repo.full_name)
       .map((repo) => ({
-        id: repo.id!,
+        id: String(repo.id!),
         full_name: repo.full_name!,
         private: repo.private ?? false,
         default_branch: repo.default_branch ?? "main",
@@ -139,7 +139,7 @@ async function exchangeOAuthCode(env: Env, code: string): Promise<string> {
 
 async function userHasInstallation(
   userToken: string,
-  installationId: number,
+  installationId: string,
 ): Promise<boolean> {
   let path: string | null = `/user/installations?per_page=${GITHUB_PAGE_SIZE}&page=1`;
   for (let page = 1; path; page += 1) {
@@ -153,7 +153,7 @@ async function userHasInstallation(
       );
     const data = pageResult.data;
     const installations = data.installations ?? [];
-    if (installations.some((installation) => installation.id === installationId)) {
+    if (installations.some((installation) => String(installation.id) === installationId)) {
       return true;
     }
     path = pageResult.nextPath;
@@ -163,7 +163,7 @@ async function userHasInstallation(
 
 async function fetchInstallation(
   env: Env,
-  installationId: number,
+  installationId: string,
 ): Promise<GithubInstallationRecord> {
   const jwt = await createAppJwt(env);
   const data = await githubJson<GithubInstallationResponse>(
@@ -171,7 +171,7 @@ async function fetchInstallation(
     { token: jwt },
   );
   return {
-    installation_id: data.id,
+    installation_id: String(data.id),
     account_login: data.account?.login ?? null,
     account_type: data.account?.type ?? null,
     repository_selection: data.repository_selection ?? "selected",
@@ -181,7 +181,7 @@ async function fetchInstallation(
 
 async function createInstallationToken(
   env: Env,
-  installationId: number,
+  installationId: string,
 ): Promise<string> {
   const jwt = await createAppJwt(env);
   const data = await githubJson<GithubAccessTokenResponse>(

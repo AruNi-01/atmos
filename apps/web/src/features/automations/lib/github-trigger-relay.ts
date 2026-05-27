@@ -1,8 +1,10 @@
 import { wsRequest } from "@/api/ws/request";
-import type { GithubEventFamily, GithubTriggerConfig } from "@/features/automations/types";
+import type { GithubEventFamily, GithubInt64, GithubTriggerConfig } from "@/features/automations/types";
+
+const MAX_INT64 = "9223372036854775807";
 
 export interface GithubInstallation {
-  installation_id: number;
+  installation_id: GithubInt64;
   account_login: string | null;
   account_type: string | null;
   repository_selection: string;
@@ -12,7 +14,7 @@ export interface GithubInstallation {
 }
 
 export interface GithubRepository {
-  id: number;
+  id: GithubInt64;
   full_name: string;
   private: boolean;
   default_branch: string;
@@ -31,7 +33,11 @@ export interface GithubRouteUpsertResult {
 }
 
 export function hasGithubRelayPrerequisites(prereqs: GithubRelayPrerequisites): boolean {
-  return prereqs.accessToken.length >= 32 && Boolean(prereqs.serverId?.trim());
+  return (
+    prereqs.controlPlaneUrl.trim().length > 0 &&
+    prereqs.accessToken.length >= 32 &&
+    Boolean(prereqs.serverId?.trim())
+  );
 }
 
 export function generateGithubRouteId(): string {
@@ -51,12 +57,14 @@ export function parseGithubTriggerConfig(raw: string | null | undefined): Github
     const parsed = JSON.parse(raw) as GithubTriggerConfig;
     if (
       typeof parsed.route_id === "string" &&
-      Number.isFinite(parsed.installation_id) &&
+      normalizeInt64String(parsed.installation_id) &&
       typeof parsed.repository_full_name === "string" &&
       isGithubEventFamily(parsed.event_family)
     ) {
       return {
         ...parsed,
+        installation_id: normalizeInt64String(parsed.installation_id)!,
+        repository_id: normalizeInt64String(parsed.repository_id),
         actions: Array.isArray(parsed.actions) ? parsed.actions : [],
         filters: parsed.filters ?? {},
       };
@@ -96,7 +104,7 @@ export async function listGithubInstallations(
 
 export async function listGithubRepositories(
   prereqs: GithubRelayPrerequisites,
-  installationId: number,
+  installationId: GithubInt64,
 ): Promise<GithubRepository[]> {
   const data = await githubRelayRequest<{ repositories?: GithubRepository[] }>(
     prereqs,
@@ -209,4 +217,15 @@ function relayFilters(config: GithubTriggerConfig): Record<string, unknown> {
 
 function isGithubEventFamily(value: string): value is GithubEventFamily {
   return value === "pull_request" || value === "pull_request_comment" || value === "push" || value === "workflow_run";
+}
+
+function normalizeInt64String(value: unknown): GithubInt64 | null {
+  if (typeof value === "string" && /^[1-9]\d{0,18}$/.test(value.trim())) {
+    const trimmed = value.trim();
+    return trimmed.length < MAX_INT64.length || trimmed <= MAX_INT64 ? trimmed : null;
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+    return String(value);
+  }
+  return null;
 }

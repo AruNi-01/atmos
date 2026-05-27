@@ -255,7 +255,13 @@ pub async fn run(
                             "body": response_body,
                         })
                         .to_string();
-                        let _ = relay_out.send(Message::Text(outbound.into()));
+                        if let Err(error) = relay_out.send(Message::Text(outbound.into())) {
+                            warn!(
+                                target: "atmos_relay",
+                                error = %error,
+                                "external event ack could not be queued; relay delivery status may remain pending"
+                            );
+                        }
                     });
                     continue;
                 }
@@ -281,7 +287,13 @@ pub async fn run(
                             "body": ack_body,
                         })
                         .to_string();
-                        let _ = relay_out.send(Message::Text(outbound.into()));
+                        if let Err(error) = relay_out.send(Message::Text(outbound.into())) {
+                            warn!(
+                                target: "atmos_relay",
+                                error = %error,
+                                "external event ack send failed"
+                            );
+                        }
                     });
                     continue;
                 }

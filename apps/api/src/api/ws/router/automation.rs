@@ -132,7 +132,7 @@ impl WsMessageService {
 
     pub(super) async fn handle_automation_github_repositories(&self, req: Value) -> Result<Value> {
         let mut relay = RelayControlRequest::from_value(req)?;
-        let installation_id = take_required_i64(&mut relay.payload, "installation_id")?;
+        let installation_id = take_required_int64_string(&mut relay.payload, "installation_id")?;
         relay
             .client
             .json::<Value>(
@@ -182,18 +182,20 @@ fn take_required_string(payload: &mut Map<String, Value>, key: &str) -> Result<S
     }
 }
 
-fn take_required_i64(payload: &mut Map<String, Value>, key: &str) -> Result<i64> {
+fn take_required_int64_string(payload: &mut Map<String, Value>, key: &str) -> Result<String> {
     match payload.remove(key) {
+        Some(Value::String(value)) if is_positive_int64_string(value.trim()) => {
+            Ok(value.trim().to_string())
+        }
         Some(Value::Number(value)) => value
             .as_i64()
             .filter(|value| *value > 0)
-            .ok_or_else(|| ServiceError::Validation(format!("{key} is required."))),
-        Some(Value::String(value)) => value
-            .trim()
-            .parse::<i64>()
-            .ok()
-            .filter(|value| *value > 0)
+            .map(|value| value.to_string())
             .ok_or_else(|| ServiceError::Validation(format!("{key} is required."))),
         _ => Err(ServiceError::Validation(format!("{key} is required."))),
     }
+}
+
+fn is_positive_int64_string(value: &str) -> bool {
+    !value.is_empty() && value.parse::<i64>().is_ok_and(|value| value > 0)
 }
