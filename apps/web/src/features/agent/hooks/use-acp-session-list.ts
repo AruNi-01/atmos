@@ -60,7 +60,10 @@ export function useAcpSessionList({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null);
   const requestSeqRef = useRef(0);
+  const rootItemsRef = useRef<Record<string, NativeAgentSessionItem[]>>({});
+  const rootMetaRef = useRef<Record<string, AcpSessionListMeta>>({});
   const rootCursorsRef = useRef<Record<string, string | null>>({});
+  const activeRootKeysRef = useRef<Set<string>>(new Set());
   const rootsKey = JSON.stringify(cwds && cwds.length > 0 ? cwds.filter(Boolean) : cwd ? [cwd] : []);
 
   const roots = useMemo<(string | null)[]>(() => {
@@ -79,7 +82,10 @@ export function useAcpSessionList({
     setIsLoading(false);
     setIsLoadingMore(false);
     setUnsupportedReason(null);
+    rootItemsRef.current = {};
+    rootMetaRef.current = {};
     rootCursorsRef.current = {};
+    activeRootKeysRef.current = new Set();
   }, []);
 
   const mergeSessions = useCallback((items: NativeAgentSessionItem[]) => {
@@ -94,6 +100,85 @@ export function useAcpSessionList({
       return right - left;
     });
   }, []);
+
+  const recomputeFromRootCache = useCallback(() => {
+    const activeKeys = activeRootKeysRef.current;
+    const activeMetas = Object.entries(rootMetaRef.current)
+      .filter(([key]) => activeKeys.has(key))
+      .map(([, value]) => value);
+    const nextCursor = Array.from(activeKeys)
+      .map((key) => rootCursorsRef.current[key])
+      .find(Boolean) ?? null;
+
+    setSessions(mergeSessions(Array.from(activeKeys).flatMap((key) => rootItemsRef.current[key] ?? [])));
+    setCursor(nextCursor);
+
+    const firstMeta = activeMetas[0];
+    if (!firstMeta) {
+      setMeta(null);
+      setUnsupportedReason(null);
+      return;
+    }
+
+    const nextUnsupportedReason =
+      activeMetas.find((item) => item.unsupported_reason)?.unsupported_reason ?? null;
+    setMeta({
+      ...firstMeta,
+      next_cursor: nextCursor,
+      truncated: activeMetas.some((item) => item.truncated),
+      unsupported_reason: nextUnsupportedReason,
+    });
+    setUnsupportedReason(nextUnsupportedReason);
+  }, [mergeSessions]);
+
+  const loadRootPages = useCallback(
+    async ({
+      append,
+      requestSeq,
+      rootsToLoad,
+    }: {
+      append: boolean;
+      requestSeq: number;
+      rootsToLoad: (string | null)[];
+    }) => {
+      if (!registryId || rootsToLoad.length === 0) return;
+
+      const isLatestRequest = () => requestSeq === requestSeqRef.current;
+      const responses = await Promise.all(
+        rootsToLoad.map(async (root) => {
+          const rootKey = sessionListRootKey(root);
+          const response = await agentApi.listSessions({
+            registry_id: registryId,
+            cwd: root,
+            limit,
+            cursor: append ? rootCursorsRef.current[rootKey] ?? undefined : undefined,
+            auth_method_id: authMethodId,
+          });
+          return { rootKey, response };
+        }),
+      );
+      if (!isLatestRequest()) return;
+
+      for (const { rootKey, response } of responses) {
+        rootItemsRef.current[rootKey] = append
+          ? mergeSessions([...(rootItemsRef.current[rootKey] ?? []), ...response.items])
+          : response.items;
+        rootMetaRef.current[rootKey] = {
+          registry_id: response.registry_id,
+          agent_info: response.agent_info,
+          capabilities: response.capabilities,
+          next_cursor: response.next_cursor,
+          truncated: response.truncated,
+          unsupported_reason: response.unsupported_reason,
+        };
+        rootCursorsRef.current[rootKey] = response.next_cursor;
+        activeRootKeysRef.current.add(rootKey);
+      }
+
+      recomputeFromRootCache();
+    },
+    [authMethodId, limit, mergeSessions, recomputeFromRootCache, registryId],
+  );
 
   const loadSessions = useCallback(
     async (nextCursor?: string | null) => {
@@ -118,50 +203,22 @@ export function useAcpSessionList({
           : roots;
 
         if (append && rootsToLoad.length === 0) return;
-
-        const responses = await Promise.all(
-          rootsToLoad.map(async (root) => {
-            const response = await agentApi.listSessions({
-              registry_id: registryId,
-              cwd: root,
-              limit,
-              cursor: append
-                ? rootCursorsRef.current[sessionListRootKey(root)] ?? undefined
-                : nextCursor ?? undefined,
-              auth_method_id: authMethodId,
-            });
-            return { root, response };
-          }),
-        );
-        if (!isLatestRequest()) return;
-
-        const nextRootCursors = append ? { ...rootCursorsRef.current } : {};
-        for (const { root, response } of responses) {
-          nextRootCursors[sessionListRootKey(root)] = response.next_cursor;
+        if (!append) {
+          const nextRootKeys = new Set(rootsToLoad.map(sessionListRootKey));
+          rootItemsRef.current = {};
+          rootMetaRef.current = {};
+          rootCursorsRef.current = {};
+          activeRootKeysRef.current = nextRootKeys;
         }
-        rootCursorsRef.current = nextRootCursors;
 
-        const firstResponse = responses[0]?.response;
-        if (!firstResponse) return;
-        setMeta({
-          registry_id: firstResponse.registry_id,
-          agent_info: firstResponse.agent_info,
-          capabilities: firstResponse.capabilities,
-          next_cursor: Object.values(nextRootCursors).find(Boolean) ?? null,
-          truncated: responses.some(({ response }) => response.truncated),
-          unsupported_reason: firstResponse.unsupported_reason,
-        });
-        setSessions((prev) =>
-          mergeSessions([
-            ...(append ? prev : []),
-            ...responses.flatMap(({ response }) => response.items),
-          ]),
-        );
-        setCursor(Object.values(nextRootCursors).find(Boolean) ?? null);
-        setUnsupportedReason(firstResponse.unsupported_reason);
+        await loadRootPages({ append, requestSeq, rootsToLoad });
       } catch (error) {
         if (!isLatestRequest()) return;
         if (!append) {
+          rootItemsRef.current = {};
+          rootMetaRef.current = {};
+          rootCursorsRef.current = {};
+          activeRootKeysRef.current = new Set();
           setSessions([]);
           setMeta(null);
           setCursor(null);
@@ -174,17 +231,65 @@ export function useAcpSessionList({
         }
       }
     },
-    [authMethodId, limit, mergeSessions, registryId, reset, roots],
+    [loadRootPages, registryId, reset, roots],
   );
 
   useEffect(() => {
     reset();
-  }, [authMethodId, registryId, reset, rootsKey]);
+  }, [authMethodId, limit, registryId, reset]);
 
   useEffect(() => {
-    if (!enabled || !registryId) return;
-    void loadSessions();
-  }, [enabled, loadSessions, registryId]);
+    if (!enabled || !registryId) {
+      reset();
+      return;
+    }
+
+    const nextRootKeys = new Set(roots.map(sessionListRootKey));
+    const currentRootKeys = activeRootKeysRef.current;
+    const addedRoots = roots.filter((root) => !currentRootKeys.has(sessionListRootKey(root)));
+    const removedRootKeys = Array.from(currentRootKeys).filter((key) => !nextRootKeys.has(key));
+
+    if (addedRoots.length === 0 && removedRootKeys.length === 0) return;
+
+    const requestSeq = (requestSeqRef.current += 1);
+    for (const key of removedRootKeys) {
+      delete rootItemsRef.current[key];
+      delete rootMetaRef.current[key];
+      delete rootCursorsRef.current[key];
+    }
+    activeRootKeysRef.current = nextRootKeys;
+    if (removedRootKeys.length > 0) {
+      recomputeFromRootCache();
+    }
+
+    if (addedRoots.length === 0) {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setIsLoadingMore(false);
+    setUnsupportedReason(null);
+    void (async () => {
+      const isLatestRequest = () => requestSeq === requestSeqRef.current;
+      try {
+        await loadRootPages({ append: false, requestSeq, rootsToLoad: addedRoots });
+      } catch (error) {
+        if (!isLatestRequest()) return;
+        for (const root of addedRoots) {
+          activeRootKeysRef.current.delete(sessionListRootKey(root));
+        }
+        recomputeFromRootCache();
+        setUnsupportedReason(getListFailureReason(error));
+      } finally {
+        if (isLatestRequest()) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+      }
+    })();
+  }, [enabled, loadRootPages, recomputeFromRootCache, registryId, reset, roots]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) return;

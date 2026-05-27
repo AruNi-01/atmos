@@ -16,11 +16,10 @@ import {
   ConversationScrollButton,
   Message,
   MessageContent,
-  TextShimmer,
   ShineBorder,
   cn,
 } from "@workspace/ui";
-import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { getAssistantCopyText } from "@/features/agent/lib/agent/thread";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
@@ -339,14 +338,17 @@ export function AgentChatPanel({
         <Conversation className="min-h-0 h-full overflow-hidden">
           <ConversationContent className="gap-3 p-4!">
             {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
-              <div className="flex items-center justify-center py-6">
-                <TextShimmer duration={1.5}>
-                  {loadingAgents && !isConnecting && !isResumingHistory
-                    ? "Loading..."
-                    : isResumingHistory
-                      ? "Restoring session..."
-                      : connectionPhaseLabel}
-                </TextShimmer>
+              <div className="desktop-loading-clean flex items-center justify-center py-6">
+                <span className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-background/80 px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  <span>
+                    {loadingAgents && !isConnecting && !isResumingHistory
+                      ? "Loading..."
+                      : isResumingHistory
+                        ? "Restoring session..."
+                        : connectionPhaseLabel}
+                  </span>
+                </span>
               </div>
             )}
             {error && (

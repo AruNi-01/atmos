@@ -688,12 +688,17 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
 
                   {canLoadMore ? (
                     <div className="flex justify-center pt-6">
-                      <Button variant="outline" onClick={handleLoadMore} disabled={isLoadingMore} className="min-w-[200px]">
+                      <Button
+                        variant="outline"
+                        onClick={handleLoadMore}
+                        disabled={isLoadingMore}
+                        className="desktop-loading-clean min-w-[200px]"
+                      >
                         {isLoadingMore ? (
-                          <>
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                            Loading...
-                          </>
+                          <span className="inline-flex items-center gap-2">
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                            <span>Loading...</span>
+                          </span>
                         ) : (
                           <>
                             Load More
