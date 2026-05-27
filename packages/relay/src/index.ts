@@ -342,53 +342,71 @@ async function handleApi(
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const rotationGuard = "SELECT 1 FROM tenants WHERE tenant_id = ? AND access_token_hash = ?";
-      const statements: D1PreparedStatement[] = [
-        env.DB.prepare(
-          `UPDATE tenants
-           SET access_token_hash = ?, updated_at = ?, rotated_at = ?
-           WHERE tenant_id = ? AND access_token_hash = ?`,
-        ).bind(
+      const previousTenant = await env.DB.prepare(
+        `SELECT updated_at, rotated_at
+         FROM tenants
+         WHERE tenant_id = ? AND access_token_hash = ?
+         LIMIT 1`,
+      )
+        .bind(tenantAuth.tenantId, tenantAuth.accessTokenHash)
+        .first<{ updated_at: number; rotated_at: number | null }>();
+      if (!previousTenant) {
+        return json({ error: "rotation_conflict" }, 409);
+      }
+
+      const updateResult = await env.DB.prepare(
+        `UPDATE tenants
+         SET access_token_hash = ?, updated_at = ?, rotated_at = ?
+         WHERE tenant_id = ? AND access_token_hash = ?`,
+      )
+        .bind(
           newTokenHash,
           now,
           now,
           tenantAuth.tenantId,
           tenantAuth.accessTokenHash,
-        ),
+        )
+        .run();
+      if (!(updateResult.meta.changes ?? 0)) {
+        return json({ error: "rotation_conflict" }, 409);
+      }
+
+      const cleanupStatements: D1PreparedStatement[] = [
         env.DB.prepare(
-          `DELETE FROM register_tokens
-           WHERE tenant_id = ? AND EXISTS (${rotationGuard})`,
-        ).bind(
-          tenantAuth.tenantId,
-          tenantAuth.tenantId,
-          newTokenHash,
-        ),
+          "DELETE FROM register_tokens WHERE tenant_id = ?",
+        ).bind(tenantAuth.tenantId),
         env.DB.prepare(
-          `DELETE FROM client_sessions
-           WHERE tenant_id = ? AND EXISTS (${rotationGuard})`,
-        ).bind(
-          tenantAuth.tenantId,
-          tenantAuth.tenantId,
-          newTokenHash,
-        ),
+          "DELETE FROM client_sessions WHERE tenant_id = ?",
+        ).bind(tenantAuth.tenantId),
       ];
 
       if (await tableExists(env, "github_setup_sessions")) {
-        statements.push(
+        cleanupStatements.push(
           env.DB.prepare(
-            `DELETE FROM github_setup_sessions
-             WHERE tenant_id = ? AND EXISTS (${rotationGuard})`,
-          ).bind(
-            tenantAuth.tenantId,
-            tenantAuth.tenantId,
-            newTokenHash,
-          ),
+            "DELETE FROM github_setup_sessions WHERE tenant_id = ?",
+          ).bind(tenantAuth.tenantId),
         );
       }
 
-      const results = await env.DB.batch(statements);
-      if (!(results[0]?.meta.changes ?? 0)) {
-        return json({ error: "rotation_conflict" }, 409);
+      try {
+        await env.DB.batch(cleanupStatements);
+      } catch (err) {
+        await env.DB.prepare(
+          `UPDATE tenants
+           SET access_token_hash = ?, updated_at = ?, rotated_at = ?
+           WHERE tenant_id = ? AND access_token_hash = ?`,
+        )
+          .bind(
+            tenantAuth.accessTokenHash,
+            previousTenant.updated_at,
+            previousTenant.rotated_at,
+            tenantAuth.tenantId,
+            newTokenHash,
+          )
+          .run()
+          .catch(() => undefined);
+        console.warn("token rotation cleanup failed", err);
+        return json({ error: "rotation_cleanup_failed" }, 500);
       }
 
       return json({ ok: true, rotated_at: now });

@@ -45,9 +45,6 @@ export function parseGithubTriggerConfig(raw: string | null | undefined): Github
     const installationId = normalizeGithubInt64String(parsed.installation_id);
     const repositoryId =
       parsed.repository_id == null ? null : normalizeGithubInt64String(parsed.repository_id);
-    if (parsed.repository_id != null && !repositoryId) {
-      return null;
-    }
     if (
       typeof parsed.route_id === "string" &&
       parsed.route_id.trim().length > 0 &&

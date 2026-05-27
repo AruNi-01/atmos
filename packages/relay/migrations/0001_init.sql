@@ -40,6 +40,5 @@ CREATE TABLE client_sessions (
 
 CREATE INDEX idx_register_tokens_tenant ON register_tokens(tenant_id);
 CREATE INDEX idx_computers_tenant ON computers(tenant_id);
-CREATE INDEX idx_computers_tenant_server ON computers(tenant_id, server_id);
 CREATE INDEX idx_client_sessions_tenant ON client_sessions(tenant_id);
 CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
