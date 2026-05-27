@@ -1,0 +1,22 @@
+crates/agent/src/acp_client/runner.rs
+  s_4cf1aa3c956589::t_f55d223fed7175 233-251
+  s_4cf1aa3c956589::t_2e67fe7812e5f9 667-675,694-695,702
+  s_4cf1aa3c956589::t_6f8f80ba85b44e 676,683,685
+  s_4cf1aa3c956589::t_b090421382b34e 1198-1223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d2d076a045b24b782f51513539bbb5b10c6adbda",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
