@@ -1,0 +1,29 @@
+apps/web/src/app/globals.css
+  s_4cf1aa3c956589::t_9156087584e65c 138-148
+apps/web/src/features/chat-sessions/components/ChatSessionsManagementView.tsx
+  s_4cf1aa3c956589::t_9a470141c48fb5 691-696,698-701
+apps/web/src/features/agent/hooks/use-acp-session-list.ts
+  s_4cf1aa3c956589::t_ea215014636799 63-64,66,85-86,88,104-112,114-182,206-211,213-214,218-221,234,239,242-260,264-265,268-271,273-279,284-292
+  s_4cf1aa3c956589::t_603122f67e9802 272
+  s_4cf1aa3c956589::t_d0f7933766919f 113
+  s_4cf1aa3c956589::t_d311d61235e68e 261-263,280-283
+  s_4cf1aa3c956589::t_40ffda7fa85a85 266-267
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_4cf1aa3c956589::t_26c66c3ae18c16 22,341-351
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4dd869a392d95e5f417f2a4c5d23ce93c138c8dc",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
