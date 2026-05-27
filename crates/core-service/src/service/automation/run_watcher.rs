@@ -173,10 +173,21 @@ pub(super) async fn mark_run_interrupted(
     run: automation_run::Model,
 ) {
     let repo = AutomationRepo::new(db);
+    let current = match repo.find_run_by_guid(&run.guid).await {
+        Ok(Some(current)) if current.status == AutomationRunStatus::Running.as_str() => current,
+        Ok(Some(_)) | Ok(None) => return,
+        Err(error) => {
+            warn!(
+                "Failed to re-check automation run {} before marking interrupted: {}",
+                run.guid, error
+            );
+            return;
+        }
+    };
     let completed_at = Utc::now().naive_utc();
     match repo
         .update_run_status(
-            &run.guid,
+            &current.guid,
             UpdateAutomationRunStatusRecord {
                 status: AutomationRunStatus::Interrupted.as_str().to_string(),
                 completed_at: Some(completed_at),
