@@ -24,9 +24,10 @@
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Desktop** (Tauri + shared local API) | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
+| **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
 | **Relay control plane** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
-| **Write a Spec** (Brainstorm / PRD / TECH / TEST) | [specs/AGENTS.md](specs/AGENTS.md) |
+| **Write/Edit Specs** (planning + optional logs) | [specs/AGENTS.md](specs/AGENTS.md) |
 
 ---
 
@@ -65,15 +66,21 @@ atmos/
 │   ├── i18n/                  # @workspace/i18n (Translations)
 │   └── relay/                 # Atmos Computer control plane + Relay (Workers / D1)
 │
+├── resources/                 # 📄 Cross-runtime product manifests
+│   └── terminal-agents/       # Built-in terminal agent defaults shared by Rust + TS
+│
 ├── docs/                      # 📖 Deep Design & Architecture
-└── specs/                     # 📋 Specs (Brainstorm / PRD / TECH / TEST)
+└── specs/                     # 📋 Specs (Brainstorm / PRD / TECH / TEST + optional logs)
     ├── AGENTS.md              # Specs conventions — read this before writing a spec
     ├── APP/                   # Atmos application (web/desktop/cli/api) specs
     │   └── APP-NNN_<title>/
     │       ├── BRAINSTORM.md
     │       ├── PRD.md
     │       ├── TECH.md
-    │       └── TEST.md
+    │       ├── TEST.md
+    │       ├── PROGRESS.md        # Optional implementation handoff
+    │       ├── REVIEW.md          # Optional implementation review fixes
+    │       └── IMPROVEMENT.md     # Optional post-ship log
     ├── Landing/               # apps/landing specs
     └── Docs/                  # apps/docs specs
 ```
@@ -89,7 +96,7 @@ atmos/
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
 
 ### Specs Flow
-Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-NNN_<title>/` with exactly four files: `BRAINSTORM.md` → `PRD.md` → `TECH.md` → `TEST.md`. The lifecycle is: brainstorm → PRD → TECH → test plan → implementation → test run. Each stage has a dedicated skill in [`.agents/skills/`](.agents/skills/):
+Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-NNN_<title>/` with four standard planning files: `BRAINSTORM.md` → `PRD.md` → `TECH.md` → `TEST.md`. Optional sibling logs such as `PROGRESS.md`, `REVIEW.md`, and `IMPROVEMENT.md` can track implementation handoff, post-implementation review fixes, and post-ship learnings without becoming requirements sources. The lifecycle is: brainstorm → PRD → TECH → test plan → implementation → test run. Each stage has a dedicated skill in [`.agents/skills/`](.agents/skills/):
 
 - `atmos-specs-brainstorm` — explore problem space, write `BRAINSTORM.md`
 - `atmos-specs-prd` — lock WHAT and WHY, write `PRD.md`
@@ -97,8 +104,9 @@ Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-N
 - `atmos-specs-test-plan` — author scenario-level plan in `TEST.md`
 - `atmos-specs-impl` — ship production code under `crates/` / `apps/` / `packages/`, keep regression gate green
 - `atmos-specs-test-run` — write and run the real tests (`cargo test`, `bun test`), append Coverage Status to `TEST.md`
+- `atmos-specs-review` — review implemented specs, write/update `REVIEW.md` findings for functional completeness and code quality
 
-Full conventions (zones, naming, the 4-file rule, review checklist) live in [specs/AGENTS.md](specs/AGENTS.md). Read it before creating or editing a spec.
+Full conventions (zones, naming, the 4-file rule, optional spec logs, review checklist) live in [specs/AGENTS.md](specs/AGENTS.md). Read it before creating or editing a spec.
 
 ---
 

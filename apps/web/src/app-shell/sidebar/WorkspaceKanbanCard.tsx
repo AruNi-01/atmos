@@ -21,6 +21,7 @@ import {
   Pin,
   Plus,
   Trash2,
+  Workflow,
 } from "lucide-react";
 import type {
   Workspace,
@@ -91,6 +92,7 @@ export function KanbanWorkspaceCard({
   onDeleteWorkspace?: (projectId: string, workspaceId: string) => Promise<void>;
 }) {
   const isIssueOnly = workspace.createSource === "issue_only";
+  const isAutomation = workspace.createSource === "automation";
   const workspaceTitle = isIssueOnly && workspace.githubIssue
     ? `#${workspace.githubIssue.number} ${workspace.githubIssue.title}`
     : workspace.name;
@@ -157,6 +159,21 @@ export function KanbanWorkspaceCard({
                     </TooltipTrigger>
                     <TooltipContent side="top">
                       <p>GitHub Issue Only Workspace</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {isAutomation && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="inline-flex cursor-default items-center"
+                        aria-label="Automation workspace"
+                      >
+                        <Workflow className="size-3 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Automation Workspace</p>
                     </TooltipContent>
                   </Tooltip>
                 )}

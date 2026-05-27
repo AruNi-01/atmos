@@ -1,22 +1,28 @@
 # Specifications
 
-> **📋 Product & Technical Specs**: Organized by application, one spec per feature, with 4 standard documents each.
+> **📋 Product & Technical Specs**: Organized by application, one spec per feature, with 4 standard planning documents and optional lifecycle logs.
 
 ---
 
 ## 📁 Directory Structure
 
-```
+```text
 specs/
 ├── README.md                       # This file
 ├── AGENTS.md                       # Conventions for AI agents & contributors
+├── references/                     # On-demand spec templates and deep references
+│   ├── improvement-template.md      # Optional IMPROVEMENT.md template
+│   ├── progress-template.md         # Optional PROGRESS.md template
+│   └── review-template.md           # Optional REVIEW.md template
 │
 ├── APP/                            # Atmos application (web / desktop / cli / api)
 │   ├── APP-001_atmos-core/
 │   │   ├── BRAINSTORM.md           # Brainstorm
 │   │   ├── PRD.md                  # Product Requirements
 │   │   ├── TECH.md                 # Technical Design
-│   │   └── TEST.md                 # Test Plan
+│   │   ├── TEST.md                 # Test Plan
+│   │   ├── PROGRESS.md             # Optional implementation progress / handoff
+│   │   └── REVIEW.md               # Optional implementation review findings
 │   ├── APP-002_.../
 │   ├── APP-016_atmos-computer/
 │   └── ...
@@ -51,7 +57,19 @@ Every `APP-NNN_xxx` / `Landing-NNN_xxx` / `Docs-NNN_xxx` directory contains:
 | `TECH.md` | Technical Design | **HOW** — architecture, data model, APIs, rollout |
 | `TEST.md` | Test Plan | Test strategy, key scenarios, acceptance criteria |
 
-All four files are always present. Missing content stays as a **template placeholder** to keep the structure uniform and discoverable.
+Concrete specs should not keep empty template scaffolding. Keep the four standard files, but delete unused placeholder sections inside them rather than leaving blank template content; only template/example directories should retain placeholders.
+
+## 🧭 Optional Spec Logs
+
+Some specs include optional sibling files:
+
+| File | Role | Use when |
+|------|------|----------|
+| `PROGRESS.md` | Implementation progress / handoff | Work spans multiple sessions, layers, agents, or owners |
+| `REVIEW.md` | Implementation review fixes | Code review finds architecture, maintainability, testability, or code-size issues |
+| `IMPROVEMENT.md` | Post-ship operational log | Production quality learnings, incidents, parity gaps, and follow-ups |
+
+These files are not requirements sources. Requirements live in `PRD.md`, architecture in `TECH.md`, and verification contracts in `TEST.md`.
 
 ---
 
@@ -76,7 +94,10 @@ All four files are always present. Missing content stays as a **template placeho
 | **APP-013** | Project-Level Review Session | `BRAINSTORM.md` |
 | **APP-014** | Canvas | `PRD.md` |
 | **APP-016** | Atmos Computer（Cloudflare Relay + DO） | `specs/APP/APP-016_atmos-computer/`（`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`） |
+| **APP-017** | Atmos Automations | `specs/APP/APP-017_atmos-automations/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `PROGRESS.md`, `REVIEW.md`) |
 | **APP-018** | ACP Protocol Upgrade | `PRD.md` |
+| **APP-019** | GitHub Automation Triggers | `specs/APP/APP-019_github-automation-triggers/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
+| **APP-020** | Relay Stable Tenant Identity | `specs/APP/APP-020_relay-stable-tenant-identity/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
 
 ### Landing
 

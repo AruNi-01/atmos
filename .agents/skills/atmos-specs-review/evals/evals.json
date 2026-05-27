@@ -1,0 +1,23 @@
+{
+  "skill_name": "atmos-specs-review",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review APP-017 for functional completeness against PRD/TECH/TEST. Write any durable findings into REVIEW.md, but do not fix them yet.",
+      "expected_output": "Uses the functional review reference, inspects the spec and implementation surfaces, reports findings first, and creates or updates REVIEW.md entries with evidence and acceptance criteria.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Do a non-functional architecture and maintainability review for APP-017. Focus on duplicated catalogs, module boundaries, code size, and testability.",
+      "expected_output": "Uses the quality review reference, avoids product-scope findings, records concrete maintainability issues in REVIEW.md with severity, evidence, required fix, and verification plan.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Review whether APP-017 is ready to ship. Check functionality and code quality, then summarize remaining risks.",
+      "expected_output": "Loads both references, separates functional from quality findings, updates REVIEW.md only for durable issues, and reports verification commands and residual gaps.",
+      "files": []
+    }
+  ]
+}

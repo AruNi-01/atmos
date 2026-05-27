@@ -11,6 +11,34 @@ pub struct WorkspaceRepo<'a> {
     db: &'a DatabaseConnection,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceCreateSource {
+    Manual,
+    IssueOnly,
+    Automation,
+}
+
+impl WorkspaceCreateSource {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Manual => "manual",
+            Self::IssueOnly => "issue_only",
+            Self::Automation => "automation",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateIssueOnlyWorkspaceRecord {
+    pub project_guid: String,
+    pub display_name: Option<String>,
+    pub github_issue_url: String,
+    pub github_issue_data: String,
+    pub workflow_status: Option<String>,
+    pub priority: Option<String>,
+    pub label_guids: Option<Vec<String>>,
+}
+
 impl<'a> BaseRepo<workspace::Entity, workspace::Model, workspace::ActiveModel>
     for WorkspaceRepo<'a>
 {
@@ -78,7 +106,7 @@ impl<'a> WorkspaceRepo<'a> {
         workflow_status: Option<String>,
         priority: Option<String>,
         label_guids: Option<Vec<String>>,
-        create_source: String,
+        create_source: WorkspaceCreateSource,
     ) -> Result<workspace::Model> {
         let base = BaseFields::new();
 
@@ -114,7 +142,7 @@ impl<'a> WorkspaceRepo<'a> {
             github_pr_url: Set(github_pr_url),
             github_pr_data: Set(github_pr_data),
             auto_extract_todos: Set(auto_extract_todos),
-            create_source: Set(create_source),
+            create_source: Set(create_source.as_str().to_string()),
         };
 
         let result = model.insert(self.db).await?;
@@ -125,17 +153,11 @@ impl<'a> WorkspaceRepo<'a> {
     /// 不创建分支、不初始化 worktree、不运行 setup flow
     pub async fn create_issue_only(
         &self,
-        project_guid: String,
-        display_name: Option<String>,
-        github_issue_url: String,
-        github_issue_data: String,
-        workflow_status: Option<String>,
-        priority: Option<String>,
-        label_guids: Option<Vec<String>>,
+        input: CreateIssueOnlyWorkspaceRecord,
     ) -> Result<workspace::Model> {
         let base = BaseFields::new();
 
-        let serialized_labels = match label_guids {
+        let serialized_labels = match input.label_guids {
             Some(guids) => self.serialize_existing_label_guids(guids).await?,
             None => None,
         };
@@ -145,12 +167,12 @@ impl<'a> WorkspaceRepo<'a> {
 
         let model = workspace::ActiveModel {
             guid: Set(base.guid),
-            project_guid: Set(project_guid),
+            project_guid: Set(input.project_guid),
             created_at: Set(base.created_at),
             updated_at: Set(base.updated_at),
             is_deleted: Set(base.is_deleted),
             name: Set(placeholder_branch.clone()),
-            display_name: Set(display_name),
+            display_name: Set(input.display_name),
             branch: Set(placeholder_branch),
             base_branch: Set("main".to_string()),
             sidebar_order: Set(0),
@@ -160,17 +182,19 @@ impl<'a> WorkspaceRepo<'a> {
             is_archived: Set(false),
             archived_at: Set(None),
             last_visited_at: Set(None),
-            workflow_status: Set(workflow_status.unwrap_or_else(|| "backlog".to_string())),
-            priority: Set(priority.unwrap_or_else(|| "no_priority".to_string())),
+            workflow_status: Set(input
+                .workflow_status
+                .unwrap_or_else(|| "backlog".to_string())),
+            priority: Set(input.priority.unwrap_or_else(|| "no_priority".to_string())),
             label_guids: Set(serialized_labels),
             terminal_layout: Set(None),
             maximized_terminal_id: Set(None),
-            github_issue_url: Set(Some(github_issue_url)),
-            github_issue_data: Set(Some(github_issue_data)),
+            github_issue_url: Set(Some(input.github_issue_url)),
+            github_issue_data: Set(Some(input.github_issue_data)),
             github_pr_url: Set(None),
             github_pr_data: Set(None),
             auto_extract_todos: Set(false),
-            create_source: Set("issue_only".to_string()),
+            create_source: Set(WorkspaceCreateSource::IssueOnly.as_str().to_string()),
         };
 
         let result = model.insert(self.db).await?;

@@ -4,6 +4,7 @@ Single Cloudflare Worker that provides:
 
 - **Control plane (D1)** — register tokens, computer registration, listing, client session issuance
 - **Relay (Durable Objects)** — one `ServerHub` DO per `server_id`; browser and Rust `apps/api` connect as WebSocket peers
+- **Provider ingress** — GitHub App webhook verification, route matching, delivery dedupe, and dispatch to an online Computer
 
 ## Prerequisites
 
@@ -57,6 +58,9 @@ The ID is not a password; it only selects which account receives the deploy.
    npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0001_init.sql
    npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0002_computers_updated_at.sql
    npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0003_computers_registration_meta.sql
+   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0004_stable_tenant_identity.sql
+   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0005_github_automation_triggers.sql
+   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0006_github_route_tenant_integrity.sql
    ```
 
    Or: `npx wrangler d1 migrations apply atmos-computer-cp --remote`
@@ -66,6 +70,25 @@ The ID is not a password; it only selects which account receives the deploy.
    Manual retention SQL (expired tokens, stale computers): [scripts/relay/d1-maintenance.sql](../../scripts/relay/d1-maintenance.sql)
 
 No Worker-wide admin secret is required. Each C-end user registers their own **access token** via `POST /v1/tenants` (see HTTP API). Operator maintenance uses the D1 dashboard directly.
+
+### GitHub App secrets
+
+APP-019 GitHub Automation Triggers require these Worker secrets/config values before webhook setup is usable:
+
+```bash
+wrangler secret put GITHUB_WEBHOOK_SECRET
+wrangler secret put GITHUB_APP_PRIVATE_KEY
+wrangler secret put GITHUB_APP_CLIENT_SECRET
+```
+
+Set non-secret app identifiers as environment variables or secrets according to the deployment environment:
+
+- `GITHUB_APP_ID`
+- `GITHUB_APP_SLUG`
+- `GITHUB_APP_CLIENT_ID`
+- `GITHUB_SETUP_RETURN_ORIGINS` (optional comma-separated `http://`/`https://` origins allowed for GitHub setup return URLs; defaults cover `https://app.atmos.land` and local web dev on port 3030)
+
+The production GitHub App webhook URL is `https://relay.atmos.land/v1/github/webhook`, and its callback URL is `https://relay.atmos.land/v1/github/callback`.
 
 ## Run locally
 
@@ -122,15 +145,23 @@ All JSON. CORS `*` for dev.
 
 | Method | Path | Auth | Notes |
 |--------|------|------|--------|
-| POST | `/v1/tenants` | _(none, rate-limited)_ | Body `{ "token": "<user access token ≥32 chars>" }`; registers tenant (`409` if exists) |
+| POST | `/v1/tenants` | _(none, rate-limited)_ | Body `{ "token": "<user access token ≥32 chars>" }`; registers tenant with stable `tenant_id` (`409` if token exists) |
+| POST | `/v1/tenants/rotate_token` | Bearer **current user access token** | Body `{ "new_token": "<new access token ≥32 chars>" }`; preserves Computers, revokes register/client sessions |
 | POST | `/v1/register_tokens` | Bearer **user access token** | `{ register_token, expires_at, register_command }` |
 | POST | `/v1/computers/register` | _(register_token only)_ | Body `{ register_token, display_name? }` |
 | GET | `/v1/computers` | Bearer user token | Lists **your** computers only |
 | POST | `/v1/computers/:id/revoke` | Bearer user token | Revokes |
 | POST | `/v1/computers/:id/client_sessions` | Bearer user token | `{ client_token, expires_at, ws_url, gateway_url }` |
 | * | `/v1/computers/:id/proxy/*` | Bearer `client_token` or user access token | HTTP gateway to remote `apps/api` (requires Server outbound WS) |
+| POST | `/v1/github/webhook` | GitHub `X-Hub-Signature-256` | Verifies GitHub App webhooks, matches active routes, dedupes by `delivery_id + route_id`, dispatches to ServerHub |
+| POST | `/v1/github/setup_sessions` | Bearer user access token | Creates a 10-minute setup state and returns a GitHub App install URL |
+| GET | `/v1/github/callback` | GitHub OAuth callback + setup state | Validates setup state, verifies installation visibility to the OAuth user, and stores the installation |
+| GET | `/v1/github/installations` | Bearer user access token | Lists GitHub App installations for this tenant |
+| GET | `/v1/github/installations/:id/repositories` | Bearer user access token | Lists repositories visible to that GitHub App installation |
+| POST | `/v1/github/event_routes` | Bearer user access token | Creates or updates route metadata for a local automation |
+| DELETE | `/v1/github/event_routes/:route_id` | Bearer user access token | Disables a route |
 
-`tenant_id` in D1 = `sha256(user_access_token)` (hex). Possession of the token = identity; no account login.
+`tenant_id` in D1 is an opaque stable id. The Access Token authenticates by matching `tenants.access_token_hash`; possession of the current token = identity, with no account login. Rotating the token replaces only the credential hash and clears short-lived register/client sessions, while registered Computers keep their `server_secret`.
 
 ## WebSockets
 
@@ -138,6 +169,22 @@ All JSON. CORS `*` for dev.
 - **Client (browser)** — `GET /ws/client?server_id=…&token=…&client_type=web`.
 
 Envelope format between relay and upstream server matches `specs/APP/APP-016_atmos-computer/TECH.md` §4 (`v`, `kind`, `from`, `to`, `body`).
+
+GitHub trigger dispatch uses a server-directed system envelope:
+
+```json
+{
+  "v": 1,
+  "stream": "system",
+  "kind": "external_event",
+  "from": "relay:github",
+  "to": "server",
+  "request_id": "...",
+  "body": "{...GithubTriggerEnvelope...}"
+}
+```
+
+The server replies with `stream: "system"` / `kind: "external_event_ack"` and a body containing `delivery_id`, `route_id`, and `status` (`accepted`, `local_rejected`, or `error`). Relay updates `github_webhook_deliveries` from that ack; it does not execute automation business logic.
 
 ## `apps/web`
 

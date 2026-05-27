@@ -1,0 +1,2 @@
+-- No-op: GitHub route integrity is enforced logically by Worker write paths.
+-- Baseline GitHub trigger indexes are part of 0005_github_automation_triggers.sql.

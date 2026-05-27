@@ -252,6 +252,18 @@ export function buildGlobalSearchItems({
 
   items.push(
     {
+      id: "management-automations",
+      type: "management",
+      title: "Management Center: Automations",
+      description: "Open automation management",
+      keywords: ["management", "center", "automations", "automation", "schedule", "scheduled", "runs"],
+      icon: <Zap className="size-4 text-muted-foreground" />,
+      action: () => {
+        router.push("/automations");
+        setGlobalSearchOpen(false);
+      },
+    },
+    {
       id: "modal-llm-providers",
       type: "modal",
       title: "Open LLM Providers",

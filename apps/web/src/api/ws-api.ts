@@ -2,6 +2,7 @@
 
 import { wsRequest } from "@/api/ws/request";
 import type { Workspace, WorkspaceWorkflowStatus, WorkspacePriority, WorkspaceLabel } from "@/shared/types/domain";
+import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 import type { GithubIssuePayload, GithubPrPayload } from "@/api/ws/github-api";
 import type {
   ArchivedWorkspace,
@@ -195,6 +196,12 @@ export const appApi = {
   openWith: async (appName: string, path: string): Promise<AppOpenResponse> => {
     return wsRequest<AppOpenResponse>("app_open", {
       app_name: appName,
+      path,
+    });
+  },
+  openPath: async (path: string): Promise<AppOpenResponse> => {
+    return wsRequest<AppOpenResponse>("app_open", {
+      app_name: "Default",
       path,
     });
   },
@@ -625,7 +632,7 @@ export const wsWorkspaceApi = {
       localPath: model.local_path,
       githubIssue: model.github_issue,
       githubPr: model.github_pr,
-      createSource: model.create_source as "manual" | "issue_only",
+      createSource: normalizeWorkspaceCreateSource(model.create_source),
     }));
   },
 

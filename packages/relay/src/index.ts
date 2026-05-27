@@ -6,24 +6,49 @@ import {
   matchGatewayPath,
   validateGatewayAccess,
 } from "./http-gateway";
+import {
+  createGithubSetupSession,
+  disableGithubEventRoute,
+  handleGithubCallback,
+  listGithubInstallationRepositories,
+  listGithubInstallations,
+  upsertGithubEventRoute,
+} from "./event-routes";
+import { handleGithubWebhook } from "./github-webhook";
 import { ServerHub } from "./server-hub";
 
 export interface Env {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
   DB: D1Database;
+  GITHUB_APP_ID?: string;
+  GITHUB_APP_SLUG?: string;
+  GITHUB_APP_PRIVATE_KEY?: string;
+  GITHUB_WEBHOOK_SECRET?: string;
+  GITHUB_APP_CLIENT_ID?: string;
+  GITHUB_APP_CLIENT_SECRET?: string;
+  GITHUB_SETUP_RETURN_ORIGINS?: string;
 }
 
 const REGISTER_TOKEN_TTL_SEC = 15 * 60;
 const CLIENT_TOKEN_TTL_SEC = 24 * 3600;
 const REGISTER_RATE_LIMIT = 30;
 const TENANT_CREATE_RATE_LIMIT = 10;
+const GITHUB_WEBHOOK_RATE_LIMIT = 600;
+const GITHUB_CONTROL_RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 60;
 /** Minimum access token length (characters). */
 const MIN_ACCESS_TOKEN_LEN = 32;
 
+type TenantAuth = {
+  tenantId: string;
+  accessTokenHash: string;
+};
+
 /** Per-isolate IP rate limits (M1). */
 const registerRateByIp = new Map<string, { count: number; windowStart: number }>();
 const tenantCreateRateByIp = new Map<string, { count: number; windowStart: number }>();
+const githubWebhookRateByIp = new Map<string, { count: number; windowStart: number }>();
+const githubControlRateByIp = new Map<string, { count: number; windowStart: number }>();
 
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
@@ -60,6 +85,17 @@ export default {
       );
     }
 
+    if (path === "/v1/github/webhook" && request.method === "POST") {
+      if (!checkRateLimit(clientIp(request), githubWebhookRateByIp, GITHUB_WEBHOOK_RATE_LIMIT)) {
+        return withCors(json({ error: "rate_limited" }, 429));
+      }
+      return withCors(await handleGithubWebhook(request, env));
+    }
+
+    if (path === "/v1/github/callback" && request.method === "GET") {
+      return withCors(await handleGithubCallback(request, env, url));
+    }
+
     return withCors(await handleApi(request, env, url));
   },
 };
@@ -85,7 +121,7 @@ function withCors(res: Response): Response {
   );
   h.set(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Request-Id",
+    "Content-Type, Authorization, X-Request-Id, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256",
   );
   return new Response(res.body, { status: res.status, headers: h });
 }
@@ -109,23 +145,31 @@ function parseBearerToken(request: Request): string | null {
   return token;
 }
 
-/** Returns `tenant_id` (= sha256 hex of the user's access token) when registered. */
-async function tenantFromRequest(
+/** Returns the stable tenant id authenticated by a bearer access token. */
+async function tenantAuthFromRequest(
   request: Request,
   env: Env,
-): Promise<string | null> {
+): Promise<TenantAuth | null> {
   const token = parseBearerToken(request);
   if (!token) {
     return null;
   }
-  const hash = await secretHash(token);
+  const accessTokenHash = await secretHash(token);
   const row = await env.DB.prepare(
-    "SELECT token_hash FROM tenants WHERE token_hash = ? LIMIT 1",
+    "SELECT tenant_id FROM tenants WHERE access_token_hash = ? LIMIT 1",
   )
-    .bind(hash)
-    .first<{ token_hash: string }>();
+    .bind(accessTokenHash)
+    .first<{ tenant_id: string }>();
 
-  return row ? hash : null;
+  return row ? { tenantId: row.tenant_id, accessTokenHash } : null;
+}
+
+async function tenantFromRequest(
+  request: Request,
+  env: Env,
+): Promise<string | null> {
+  const auth = await tenantAuthFromRequest(request, env);
+  return auth?.tenantId ?? null;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -154,6 +198,10 @@ function randomBase64Url(byteLength: number): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+function randomTenantId(): string {
+  return `tn_${randomBase64Url(18)}`;
+}
+
 async function randomUuidLike(): Promise<string> {
   const hex = [...crypto.getRandomValues(new Uint8Array(16))]
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -162,6 +210,15 @@ async function randomUuidLike(): Promise<string> {
     16,
     20,
   )}-${hex.slice(20)}`;
+}
+
+async function tableExists(env: Env, tableName: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+  )
+    .bind(tableName)
+    .first<{ ok: number }>();
+  return !!row;
 }
 
 function httpOrigin(url: URL): string {
@@ -197,12 +254,21 @@ function checkRateLimit(
   return entry.count <= limit;
 }
 
+function checkGithubControlRateLimit(request: Request): boolean {
+  return checkRateLimit(
+    clientIp(request),
+    githubControlRateByIp,
+    GITHUB_CONTROL_RATE_LIMIT,
+  );
+}
+
 async function handleApi(
   request: Request,
   env: Env,
   url: URL,
 ): Promise<Response> {
-  const tenant = await tenantFromRequest(request, env);
+  const tenantAuth = await tenantAuthFromRequest(request, env);
+  const tenant = tenantAuth?.tenantId ?? null;
   const path = normalizedPath(url.pathname);
 
   try {
@@ -225,12 +291,12 @@ async function handleApi(
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const tokenHash = await secretHash(accessToken);
+      const accessTokenHash = await secretHash(accessToken);
 
       const existing = await env.DB.prepare(
-        "SELECT token_hash FROM tenants WHERE token_hash = ? LIMIT 1",
+        "SELECT tenant_id FROM tenants WHERE access_token_hash = ? LIMIT 1",
       )
-        .bind(tokenHash)
+        .bind(accessTokenHash)
         .first();
 
       if (existing) {
@@ -238,12 +304,176 @@ async function handleApi(
       }
 
       await env.DB.prepare(
-        "INSERT INTO tenants(token_hash, created_at) VALUES (?, ?)",
+        `INSERT INTO tenants(tenant_id, access_token_hash, created_at, updated_at, rotated_at)
+         VALUES (?, ?, ?, ?, NULL)`,
       )
-        .bind(tokenHash, now)
+        .bind(randomTenantId(), accessTokenHash, now, now)
         .run();
 
       return json({ ok: true }, 201);
+    }
+
+    if (path === "/v1/tenants/rotate_token" && request.method === "POST") {
+      if (!tenantAuth) {
+        return json({ error: "unauthorized" }, 401);
+      }
+
+      const body = (await request.json().catch(() => null)) as {
+        new_token?: string;
+      } | null;
+      const newToken = body?.new_token?.trim() ?? "";
+      if (newToken.length < MIN_ACCESS_TOKEN_LEN) {
+        return json({ error: "invalid_new_token" }, 400);
+      }
+
+      const newTokenHash = await secretHash(newToken);
+      if (newTokenHash === tenantAuth.accessTokenHash) {
+        return json({ error: "new_token_same_as_current" }, 400);
+      }
+
+      const existing = await env.DB.prepare(
+        "SELECT tenant_id FROM tenants WHERE access_token_hash = ? LIMIT 1",
+      )
+        .bind(newTokenHash)
+        .first();
+
+      if (existing) {
+        return json({ error: "new_token_exists" }, 409);
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const previousTenant = await env.DB.prepare(
+        `SELECT updated_at, rotated_at
+         FROM tenants
+         WHERE tenant_id = ? AND access_token_hash = ?
+         LIMIT 1`,
+      )
+        .bind(tenantAuth.tenantId, tenantAuth.accessTokenHash)
+        .first<{ updated_at: number; rotated_at: number | null }>();
+      if (!previousTenant) {
+        return json({ error: "rotation_conflict" }, 409);
+      }
+
+      const updateResult = await env.DB.prepare(
+        `UPDATE tenants
+         SET access_token_hash = ?, updated_at = ?, rotated_at = ?
+         WHERE tenant_id = ? AND access_token_hash = ?`,
+      )
+        .bind(
+          newTokenHash,
+          now,
+          now,
+          tenantAuth.tenantId,
+          tenantAuth.accessTokenHash,
+        )
+        .run();
+      if (!(updateResult.meta.changes ?? 0)) {
+        return json({ error: "rotation_conflict" }, 409);
+      }
+
+      const cleanupStatements: D1PreparedStatement[] = [
+        env.DB.prepare(
+          "DELETE FROM register_tokens WHERE tenant_id = ?",
+        ).bind(tenantAuth.tenantId),
+        env.DB.prepare(
+          "DELETE FROM client_sessions WHERE tenant_id = ?",
+        ).bind(tenantAuth.tenantId),
+      ];
+
+      if (await tableExists(env, "github_setup_sessions")) {
+        cleanupStatements.push(
+          env.DB.prepare(
+            "DELETE FROM github_setup_sessions WHERE tenant_id = ?",
+          ).bind(tenantAuth.tenantId),
+        );
+      }
+
+      try {
+        await env.DB.batch(cleanupStatements);
+      } catch (err) {
+        await env.DB.prepare(
+          `UPDATE tenants
+           SET access_token_hash = ?, updated_at = ?, rotated_at = ?
+           WHERE tenant_id = ? AND access_token_hash = ?`,
+        )
+          .bind(
+            tenantAuth.accessTokenHash,
+            previousTenant.updated_at,
+            previousTenant.rotated_at,
+            tenantAuth.tenantId,
+            newTokenHash,
+          )
+          .run()
+          .catch(() => undefined);
+        console.warn("token rotation cleanup failed", err);
+        return json({ error: "rotation_cleanup_failed" }, 500);
+      }
+
+      return json({ ok: true, rotated_at: now });
+    }
+
+    if (path === "/v1/github/setup_sessions" && request.method === "POST") {
+      if (!checkGithubControlRateLimit(request)) {
+        return json({ error: "rate_limited" }, 429);
+      }
+      if (!tenant) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return createGithubSetupSession(request, env, url, tenant);
+    }
+
+    if (path === "/v1/github/installations" && request.method === "GET") {
+      if (!checkGithubControlRateLimit(request)) {
+        return json({ error: "rate_limited" }, 429);
+      }
+      if (!tenant) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return listGithubInstallations(env, tenant);
+    }
+
+    const githubReposMatch = path.match(
+      /^\/v1\/github\/installations\/(\d+)\/repositories$/,
+    );
+    if (githubReposMatch && request.method === "GET") {
+      if (!checkGithubControlRateLimit(request)) {
+        return json({ error: "rate_limited" }, 429);
+      }
+      if (!tenant) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return listGithubInstallationRepositories(
+        env,
+        tenant,
+        githubReposMatch[1]!,
+      );
+    }
+
+    if (path === "/v1/github/event_routes" && request.method === "POST") {
+      if (!checkGithubControlRateLimit(request)) {
+        return json({ error: "rate_limited" }, 429);
+      }
+      if (!tenant) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return upsertGithubEventRoute(request, env, tenant);
+    }
+
+    const githubRouteDeleteMatch = path.match(
+      /^\/v1\/github\/event_routes\/([^/]+)$/,
+    );
+    if (githubRouteDeleteMatch && request.method === "DELETE") {
+      if (!checkGithubControlRateLimit(request)) {
+        return json({ error: "rate_limited" }, 429);
+      }
+      if (!tenant) {
+        return json({ error: "unauthorized" }, 401);
+      }
+      return disableGithubEventRoute(
+        env,
+        tenant,
+        decodeURIComponent(githubRouteDeleteMatch[1]!),
+      );
     }
 
     if (path === "/v1/register_tokens" && request.method === "POST") {

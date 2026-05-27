@@ -21,6 +21,7 @@ import {
   type NotificationSettings,
   type PushServerConfig,
   type PushServerType,
+  useNotificationSettingsStore,
 } from '@/features/settings/store/notification-settings-store';
 import { SaveActionButton } from '@/features/settings/components/settings/SaveActionButton';
 
@@ -64,6 +65,7 @@ export function NotifySettingsSection({
   const [testingServerId, setTestingServerId] = React.useState<string | null>(null);
   const [testingLocalChannel, setTestingLocalChannel] = React.useState<'browser' | 'desktop' | null>(null);
   const [pushServerLocalById, setPushServerLocalById] = React.useState<Record<string, PushServerConfig>>({});
+  const updateNotificationField = useNotificationSettingsStore((state) => state.updateField);
 
   React.useEffect(() => {
     const ids = new Set(settings.push_servers.map((server) => server.id));
@@ -305,6 +307,24 @@ export function NotifySettingsSection({
               </div>
             </div>
           </div>
+
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm font-medium text-foreground">Automation run outcomes</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Notify when an automation completes, fails, is cancelled, or is interrupted.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch
+                  checked={settings.notify_on_automation_outcome}
+                  onCheckedChange={(checked) => void updateNotificationField('notify_on_automation_outcome', checked)}
+                  disabled={isSaving}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -353,12 +373,31 @@ export function NotifySettingsSection({
         </div>
 
         <CollapsibleContent>
+          <div className="border-t border-border px-4">
+            <div className="border-b border-border px-2 py-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Push automation outcomes</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Forward automation outcome notifications to enabled push servers.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={settings.push_automation_outcomes}
+                    onCheckedChange={(checked) => void updateNotificationField('push_automation_outcomes', checked)}
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
           {settings.push_servers.length === 0 ? (
-            <div className="border-t border-border px-6 py-5 text-sm text-muted-foreground">
+            <div className="px-6 py-5 text-sm text-muted-foreground">
               No push servers configured yet. Click &quot;Add Server&quot; to get started.
             </div>
           ) : (
-            <div className="border-t border-border px-4">
+            <div className="px-4">
               {settings.push_servers.map((server) => {
                 const typeLabel = PUSH_SERVER_TYPE_OPTIONS.find((option) => option.value === server.type)?.label ?? server.type;
                 const isTesting = testingServerId === server.id;

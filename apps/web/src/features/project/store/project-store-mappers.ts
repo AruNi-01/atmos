@@ -1,5 +1,6 @@
 import type { Project, Workspace, WorkspacePriority, WorkspaceWorkflowStatus } from "@/shared/types/domain";
 import type { ProjectModel, WorkspaceModel } from "@/api/ws-api";
+import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 
 // Sort workspaces: pinned first (by pinOrder ASC), then by createdAt DESC.
 export function sortWorkspaces(workspaces: Workspace[]): Workspace[] {
@@ -70,6 +71,6 @@ export function mapWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
-    createSource: model.create_source === "issue_only" ? "issue_only" : "manual",
+    createSource: normalizeWorkspaceCreateSource(model.create_source),
   };
 }

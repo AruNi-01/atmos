@@ -16,6 +16,8 @@ export type WorkspacePriority =
   | 'medium'
   | 'low';
 
+export type WorkspaceCreateSource = 'manual' | 'issue_only' | 'automation';
+
 export interface WorkspaceLabel {
   id: string;
   name: string;
@@ -46,7 +48,7 @@ export interface Workspace {
   localPath: string;
   githubIssue?: GithubIssuePayload | null;
   githubPr?: GithubPrPayload | null;
-  createSource: 'manual' | 'issue_only';
+  createSource: WorkspaceCreateSource;
 }
 
 export interface Project {

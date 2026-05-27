@@ -1,0 +1,1 @@
+-- No-op: stable tenant identity is part of the baseline schema in 0001_init.sql.

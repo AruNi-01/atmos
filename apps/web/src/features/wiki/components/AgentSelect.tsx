@@ -10,23 +10,11 @@ import {
 } from "@workspace/ui";
 import { shellQuote } from "@/shared/lib/shell-quote";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 
-export const AGENT_OPTIONS = [
-  { id: "claude", label: "Claude Code", cmd: "claude", params: "--dangerously-skip-permissions" },
-  { id: "codex", label: "Codex", cmd: "codex", params: "--dangerously-bypass-approvals-and-sandbox" },
-  { id: "gemini", label: "Gemini", cmd: "gemini", params: "--yolo" },
-  { id: "devin", label: "Devin", cmd: "devin", params: "--permission-mode bypass --" },
-  { id: "amp", label: "Amp", cmd: "amp", params: "--dangerously-allow-all", useEcho: true },
-  { id: "droid", label: "Droid", cmd: "droid", params: "" },
-  { id: "opencode", label: "OpenCode", cmd: "opencode", params: "--prompt" },
-  { id: "kimi", label: "Kimi", cmd: "kimi", params: "" },
-  { id: "cursor", label: "Cursor Agent", cmd: "agent", params: "--force" },
-  { id: "kilocode", label: "Kilo Code", cmd: "kilocode", params: "" },
-  { id: "kiro", label: "Kiro", cmd: "kiro-cli", params: "chat --agent atmos --trust-all-tools" },
-  { id: "commandcode", label: "CommandCode", cmd: "cmd", params: "--trust --yolo" },
-] as const;
+export const AGENT_OPTIONS = TERMINAL_AGENT_DEFINITIONS;
 
-export type AgentId = (typeof AGENT_OPTIONS)[number]["id"];
+export type AgentId = string;
 
 export function buildCommand(
   agentId: AgentId,
@@ -36,21 +24,17 @@ export function buildCommand(
   if (!agent) return "";
 
   const quoted = shellQuote(prompt);
+  const strategy = agent.promptStrategy ?? (agent.useEcho ? "stdin" : "arg");
+  const params = agent.params ? ` ${agent.params}` : "";
 
-  // Special handling for amp: use echo to pipe prompt
-  if ("useEcho" in agent && agent.useEcho) {
-    const params = agent.params ? ` ${agent.params}` : "";
-    
-    // If prompt is empty, run command directly without echo
-    if (prompt.trim() === '') {
-      return `${agent.cmd}${params}`;
-    }
-    
-    // If prompt is not empty, use echo to pipe
+  if (prompt.trim() === "") {
+    return `${agent.cmd}${params}`;
+  }
+
+  if (strategy === "stdin") {
     return `echo ${quoted} | ${agent.cmd}${params}`;
   }
 
-  // Standard handling for other agents
   const parts: string[] = [agent.cmd];
 
   if (agent.params) {

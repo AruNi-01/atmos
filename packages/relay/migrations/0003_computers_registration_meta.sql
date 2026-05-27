@@ -1,2 +1,1 @@
--- JSON: { "via": "web"|"cli"|"desktop"|..., "version": "..." }
-ALTER TABLE computers ADD COLUMN registration_meta TEXT;
+-- No-op: computers.registration_meta is part of the baseline schema in 0001_init.sql.

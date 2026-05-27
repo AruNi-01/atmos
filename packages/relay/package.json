@@ -5,6 +5,9 @@
   "description": "Atmos Computer control plane + Cloudflare Relay",
   "scripts": {
     "dev": "wrangler dev",
+    "test": "bun test",
+    "typecheck": "tsc -p tsconfig.json",
+    "deploy:dry-run": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "deploy:relay": "bash ../../scripts/relay/deploy.sh",
     "db:create": "wrangler d1 create atmos-computer-cp",

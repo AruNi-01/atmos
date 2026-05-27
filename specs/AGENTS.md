@@ -69,7 +69,7 @@ Some specs—especially long-lived integrations—benefit from a **fifth sibling
 **When to add**
 
 - The feature is in production and you are iterating on **quality, crashes, or agent ergonomics** without changing the original PRD scope.
-- You need a durable place to record “what broke → why → what we shipped → what’s left” (e.g. canvas agent vs [tldraw Agent starter kit](https://tldraw.dev/starter-kits/agent)).
+- You need a durable place to record “what broke → why → what we shipped → what’s left”.
 
 **When not to add**
 
@@ -82,25 +82,104 @@ Some specs—especially long-lived integrations—benefit from a **fifth sibling
 - Entries use ids **`IMP-NNN`** (per-file, monotonic), with status `open` | `mitigated` | `closed` | `wont-fix`.
 - Keep an **index table** at the top; append new entries at the bottom (or in a dated section)—do not rewrite history.
 - Link to `TECH.md` / `PRD.md` for baseline design; **do not duplicate** architecture already frozen there.
-- If agent-facing behavior changes, note the **Skill / CLI version** in the entry (e.g. `skills/atmos-canvas-agent/SKILL.md`).
+- If agent-facing behavior changes, note the relevant **Skill / CLI / runtime version** in the entry.
 
 **Agent workflow**
 
-1. Before changing canvas-agent (or similar) behavior, read `IMPROVEMENT.md` for the spec if it exists.
+1. Before changing behavior for a shipped feature, read `IMPROVEMENT.md` for the spec if it exists.
 2. After shipping a fix, add or update an `IMP-NNN` entry (problem → root cause → solution → result → follow-ups).
 3. Update related `TEST.md` acceptance only when the fix changes the formal definition of done.
 
-**Reference implementation**: [APP-015 `IMPROVEMENT.md`](./APP/APP-015_canvas-terminal-agent-integration/IMPROVEMENT.md).
+**Template**
+
+When creating or refreshing an `IMPROVEMENT.md`, load the template on demand from [`references/improvement-template.md`](./references/improvement-template.md). Do not use a concrete spec file as the template.
+
+### 3.2 Optional: `PROGRESS.md` (implementation handoff)
+
+Some specs benefit from a tracked `PROGRESS.md` once implementation begins or is about to begin. It is **not** part of the planning quartet and is **not** a requirements source.
+
+| File | Purpose |
+|------|---------|
+| `PROGRESS.md` | **During implementation**: current state, handoff notes, blockers, changed areas, and verification status |
+
+**When to add**
+
+- The implementation spans multiple layers such as `infra -> core-service -> apps/api -> apps/web`.
+- Work is expected to cross multiple sessions, context compactions, agents, or owners.
+- There is a non-trivial verification matrix or several manual checks.
+- The feature is paused, blocked, or ready for handoff.
+- A completed spec is about to move into implementation and needs an initial handoff checklist.
+
+**When not to add**
+
+- The spec is still actively changing in BRAINSTORM / PRD / TECH / TEST and there is no imminent implementation handoff.
+- The work is small enough to finish in one session with a clear git diff.
+- You only need a scratchpad for command output. Use terminal history or commit messages instead.
+
+**Conventions**
+
+- Lives only inside an existing spec directory: `specs/<ZONE>/<ZONE>-NNN_<title>/PROGRESS.md`.
+- Use it for implementation facts only: what is done, what is next, what is blocked, what was verified.
+- Do not duplicate PRD/TECH/TEST. If scope, architecture, or acceptance changes, update those files first and note the change in `PROGRESS.md`.
+- Keep logs concise and sanitized. Do not paste long command output, secrets, tokens, customer data, private URLs, or full stack traces.
+- When updating `Handoff Notes`, follow [`agents/references/compact-instructions.md`](../agents/references/compact-instructions.md). Write a continuation-oriented coding handoff, not a conversation recap.
+- After ship, set `State: shipped`, add the final verification summary, and stop editing. Post-ship quality learning belongs in `IMPROVEMENT.md`.
+
+**Template**
+
+When creating or refreshing a `PROGRESS.md`, load the template on demand from [`references/progress-template.md`](./references/progress-template.md). Do not inline the template here.
+
+### 3.3 Optional: `REVIEW.md` (implementation review fixes)
+
+Some specs benefit from a tracked `REVIEW.md` after code implementation reaches review. It is **not** part of the planning quartet and is **not** a requirements source.
+
+| File | Purpose |
+|------|---------|
+| `REVIEW.md` | **After implementation**: functional completeness, architecture, maintainability, testability, code size, and review-finding fix status |
+
+**When to add**
+
+- Code has been implemented and review finds functional or non-functional issues that should be fixed deliberately rather than lost in chat.
+- The findings span multiple files, layers, or follow-up commits.
+- The review is about implemented behavior, spec alignment, architecture, maintainability, testability, performance, security, or code quality.
+
+**When not to add**
+
+- The finding changes product requirements. Update `PRD.md` first.
+- The finding changes the technical design contract. Update `TECH.md` first.
+- The finding changes acceptance or coverage expectations. Update `TEST.md` first.
+- The issue is a tiny code-review comment that is fixed immediately and needs no durable tracking.
+
+**Conventions**
+
+- Lives only inside an existing spec directory: `specs/<ZONE>/<ZONE>-NNN_<title>/REVIEW.md`.
+- Entries use ids **`REV-NNN`** (per-file, monotonic), with status `open` | `in_progress` | `fixed` | `verified` | `wont-fix`.
+- Keep an index table at the top; append or update entries without rewriting review history.
+- Link to source files and exact line numbers when useful, but keep the file focused on review findings and fix status.
+- `REVIEW.md` may reference `PROGRESS.md` for implementation handoff and `TEST.md` for verification, but should not duplicate either.
+
+**Agent workflow**
+
+1. After an implementation review, use the repo skill `atmos-specs-review` and create or update `REVIEW.md` when there are durable findings.
+2. Before fixing review findings for a spec, read `REVIEW.md` first and update the relevant entry status as work progresses.
+3. After a fix, record the code/doc areas touched and verification command in the entry's fix log.
+4. Mark an entry `verified` only after the relevant automated or manual check has run.
+
+**Template**
+
+When creating or refreshing a `REVIEW.md`, load the template on demand from [`references/review-template.md`](./references/review-template.md). Do not inline the template here.
 
 ---
 
 ## 4. Lifecycle
 
-```
-BRAINSTORM  →  PRD  →  TECH  →  implement  →  TEST
-   (open)     (what)   (how)     (code)     (verify)
-                                    │
-                                    └──► IMPROVEMENT.md (ongoing, post-ship)
+```text
+BRAINSTORM  →  PRD  →  TECH  →  TEST  →  implement  →  ship
+   (open)     (what)   (how)   (verify)    (code)
+                                      │          │
+                                      │          ├──► PROGRESS.md (optional, during implementation)
+                                      │          ├──► REVIEW.md (optional, after implementation review)
+                                      │          └──► IMPROVEMENT.md (optional, post-ship)
 ```
 
 Recommended flow:
@@ -109,8 +188,10 @@ Recommended flow:
 2. Promote settled content into `PRD.md`. Leave open threads in `BRAINSTORM.md`.
 3. Write `TECH.md` once scope is stable. Reference the PRD rather than restating it.
 4. Write `TEST.md` alongside `TECH.md`; finalize acceptance before shipping.
-5. After ship, prune obsolete sections but keep the spec; it is a historical record.
-6. For production learnings and iterative fixes, append to `IMPROVEMENT.md` when the spec has one (see §3.1).
+5. When implementation begins or is about to begin, add `PROGRESS.md` only when handoff/progress tracking is useful (see §3.2).
+6. After implementation review, add or update `REVIEW.md` when functional or non-functional findings need tracked fixes (see §3.3).
+7. After ship, prune obsolete sections but keep the spec; it is a historical record.
+8. For production learnings and iterative fixes, append to `IMPROVEMENT.md` when the spec has one (see §3.1).
 
 ---
 
@@ -175,6 +256,8 @@ When something in `specs/` ships and stabilizes, migrate the enduring parts into
 - [ ] Correct zone and next available `NNN`.
 - [ ] All four files present, titled, and non-duplicating the template.
 - [ ] If the spec uses `IMPROVEMENT.md`, index table and entry template are present (§3.1).
+- [ ] If the spec uses `PROGRESS.md`, it is concise, sanitized, and not a requirements source (§3.2).
+- [ ] If the spec uses `REVIEW.md`, findings are actionable, statused, and tied to verification (§3.3).
 - [ ] `README.md` **Current Specs** table updated.
 - [ ] Links to related code / specs are relative and valid.
 - [ ] No secrets, customer data, or internal URLs.

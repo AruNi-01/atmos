@@ -18,8 +18,19 @@ interface AgentNotificationPayload {
   project_path?: string | null;
 }
 
+interface AutomationNotificationPayload {
+  title: string;
+  body: string;
+  automation_guid: string;
+  automation_display_name: string;
+  run_guid: string;
+  status: string;
+  result_path?: string | null;
+}
+
 export function useAgentNotifications() {
-  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const unsubscribeAgentRef = useRef<(() => void) | null>(null);
+  const unsubscribeAutomationRef = useRef<(() => void) | null>(null);
 
   const handleNotification = useCallback((data: unknown) => {
     const payload = data as AgentNotificationPayload;
@@ -37,18 +48,43 @@ export function useAgentNotifications() {
     }
   }, []);
 
+  const handleAutomationNotification = useCallback((data: unknown) => {
+    const payload = data as AutomationNotificationPayload;
+    const settings = useNotificationSettingsStore.getState().settings;
+
+    if (!settings.notify_on_automation_outcome) {
+      return;
+    }
+
+    if (settings.browser_notification) {
+      showBrowserNotification(payload, {
+        tag: `atmos-automation-${payload.run_guid}`,
+        requireInteraction: payload.status !== "completed",
+      });
+    }
+
+    if (settings.desktop_notification) {
+      void showDesktopNotification(payload);
+    }
+  }, []);
+
   useEffect(() => {
     void useNotificationSettingsStore.getState().loadSettings();
   }, []);
 
   useEffect(() => {
-    unsubscribeRef.current = useWebSocketStore
+    unsubscribeAgentRef.current = useWebSocketStore
       .getState()
       .onEvent("agent_notification", handleNotification);
+    unsubscribeAutomationRef.current = useWebSocketStore
+      .getState()
+      .onEvent("automation_notification", handleAutomationNotification);
 
     return () => {
-      unsubscribeRef.current?.();
-      unsubscribeRef.current = null;
+      unsubscribeAgentRef.current?.();
+      unsubscribeAutomationRef.current?.();
+      unsubscribeAgentRef.current = null;
+      unsubscribeAutomationRef.current = null;
     };
-  }, [handleNotification]);
+  }, [handleAutomationNotification, handleNotification]);
 }

@@ -1,4 +1,5 @@
 pub mod agent_handler;
+pub mod automation_events;
 pub mod connection;
 pub mod error;
 pub mod handler;
@@ -14,6 +15,7 @@ use axum::{routing::get, Router};
 
 use crate::app_state::AppState;
 
+pub use automation_events::automation_event_to_ws_message;
 pub use connection::ClientType;
 pub use handler::WsMessageHandler;
 pub use manager::WsManager;

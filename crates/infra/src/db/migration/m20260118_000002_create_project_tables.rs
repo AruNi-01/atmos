@@ -64,13 +64,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Workspace::Name).string().not_null())
                     .col(ColumnDef::new(Workspace::Branch).string().not_null())
                     .col(ColumnDef::new(Workspace::SidebarOrder).integer().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-workspace-project")
-                            .from(Workspace::Table, Workspace::ProjectGuid)
-                            .to(Project::Table, Project::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;

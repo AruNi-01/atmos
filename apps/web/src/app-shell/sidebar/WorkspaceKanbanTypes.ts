@@ -8,6 +8,7 @@ import type {
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
+import { normalizeWorkspaceCreateSource } from "@/shared/lib/workspace-create-source";
 
 export type KanbanEntry = {
   projectId: string;
@@ -20,6 +21,8 @@ export type BoardColumn = {
 };
 
 export function mapKanbanWorkspaceModel(model: WorkspaceModel): Workspace {
+  const createSource = normalizeWorkspaceCreateSource(model.create_source);
+
   return {
     id: model.guid,
     name: model.name,
@@ -47,7 +50,7 @@ export function mapKanbanWorkspaceModel(model: WorkspaceModel): Workspace {
     localPath: model.local_path,
     githubIssue: model.github_issue,
     githubPr: model.github_pr,
-    createSource: model.create_source as "manual" | "issue_only",
+    createSource,
   };
 }
 
