@@ -6,6 +6,22 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+function prepareSystemSkillsBundle(rootDir, binariesDir) {
+  const skillsSrc = join(rootDir, "skills");
+  const bundledSkills = join(binariesDir, "system-skills");
+
+  rmSync(bundledSkills, { recursive: true, force: true });
+  if (existsSync(skillsSrc)) {
+    cpSync(skillsSrc, bundledSkills, { recursive: true });
+    console.log(`✅ Bundled system skills: ${bundledSkills}`);
+  } else {
+    mkdirSync(bundledSkills, { recursive: true });
+    console.warn(
+      `Warning: ${skillsSrc} not found, created empty bundled system skills directory`,
+    );
+  }
+}
+
 export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
   const binariesDir = join(rootDir, "apps/desktop/src-tauri/binaries");
   const runtimeRoot = join(binariesDir, "runtime/current");
@@ -40,6 +56,7 @@ export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
     mkdirSync(join(runtimeRoot, "web"), { recursive: true });
   }
 
+  prepareSystemSkillsBundle(rootDir, binariesDir);
   if (existsSync(skillsSrc)) {
     rmSync(join(runtimeRoot, "system-skills"), { recursive: true, force: true });
     cpSync(skillsSrc, join(runtimeRoot, "system-skills"), { recursive: true });
