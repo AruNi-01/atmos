@@ -1,0 +1,20 @@
+"releasenotes/Atmos Desktop 1.2.0-beta.10.md"
+  s_b68c410ef36996::t_a38cf4096c4132 1-8,10-215
+  s_b68c410ef36996::t_440360fe5c54d4 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3399caeabb0004c4dabf71b30bd48d3b55b0eaab",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
