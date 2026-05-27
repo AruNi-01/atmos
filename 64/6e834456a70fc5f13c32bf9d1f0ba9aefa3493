@@ -1,0 +1,27 @@
+apps/web/src/features/connection/lib/app-connection-bootstrap.ts
+  s_b68c410ef36996::t_8b2370f36dcd11 4,25
+apps/web/src/features/connection/lib/hosted-connection-actions.ts
+  s_b68c410ef36996::t_8b2370f36dcd11 4,6,22,24,29,38-40
+apps/web/src/app-shell/bootstrap/ConnectionBootstrapper.tsx
+  s_b68c410ef36996::t_8b2370f36dcd11 5-7,29-30,109,114
+apps/web/src/features/connection/store/connection-store.ts
+  s_b68c410ef36996::t_8b2370f36dcd11 45-46,49
+apps/web/src/app-shell/bootstrap/connection-target-lifecycle.ts
+  s_b68c410ef36996::t_8b2370f36dcd11 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "646e834456a70fc5f13c32bf9d1f0ba9aefa3493",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
