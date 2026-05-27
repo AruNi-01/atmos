@@ -330,10 +330,18 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                     <MessageSquare className="size-8 text-muted-foreground/35" />
                   </div>
                   <h3 className="text-base font-semibold text-foreground">
-                    {selectedAgent ? "No ACP sessions" : "Select an ACP agent"}
+                    {unsupportedReason
+                      ? "ACP session list unavailable"
+                      : selectedAgent
+                        ? "No ACP sessions"
+                        : "Select an ACP agent"}
                   </h3>
                   <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-                    {searchQuery ? "No sessions match the current search." : selectedAgent?.name ?? "Installed agents appear here."}
+                    {unsupportedReason
+                      ? `${selectedAgent?.name ?? "This agent"} does not expose session history through ACP.`
+                      : searchQuery
+                        ? "No sessions match the current search."
+                        : selectedAgent?.name ?? "Installed agents appear here."}
                   </p>
                 </div>
               ) : (

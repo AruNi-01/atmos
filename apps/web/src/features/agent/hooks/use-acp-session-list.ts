@@ -140,7 +140,9 @@ export function useAcpSessionList({
     isLoading,
     isLoadingMore,
     unsupportedReason,
-    resumeUnsupportedReason: getResumeUnsupportedReason(meta?.capabilities),
+    resumeUnsupportedReason: sessions.length > 0 && !unsupportedReason
+      ? getResumeUnsupportedReason(meta?.capabilities)
+      : null,
     isTruncated: meta?.truncated ?? false,
     loadSessions,
     loadMore,
