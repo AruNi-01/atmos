@@ -1,3 +1,19 @@
+import type {
+  AutomationTriggerInput,
+  AutomationTriggerKind,
+  AutomationTriggerStatus,
+} from "@/api/ws/automation-dtos";
+
+export type {
+  AutomationTriggerInput,
+  AutomationTriggerKind,
+  AutomationTriggerStatus,
+  GithubEventFamily,
+  GithubInt64,
+  GithubTriggerConfig,
+  GithubTriggerFilters,
+} from "@/api/ws/automation-dtos";
+
 export type AutomationRunStatus =
   | "running"
   | "completed"
@@ -19,42 +35,6 @@ export type AutomationScheduleKind =
   | "cron";
 
 export type AutomationArtifactKind = "prompt" | "output" | "final" | "run_json";
-
-export type AutomationTriggerKind = "manual" | "scheduled" | "github";
-
-export type AutomationTriggerStatus = "active" | "needs_setup" | "paused" | "error";
-
-export type GithubEventFamily =
-  | "pull_request"
-  | "pull_request_comment"
-  | "push"
-  | "workflow_run";
-
-export type GithubInt64 = string;
-
-export interface GithubTriggerFilters {
-  branch?: string | null;
-  comment_contains?: string | null;
-  sender_logins?: string[];
-  workflow_conclusions?: string[];
-}
-
-export interface GithubTriggerConfig {
-  route_id: string;
-  installation_id: GithubInt64;
-  repository_id?: GithubInt64 | null;
-  repository_full_name: string;
-  event_family: GithubEventFamily;
-  actions: string[];
-  filters: GithubTriggerFilters;
-}
-
-export interface AutomationTriggerInput {
-  kind: AutomationTriggerKind;
-  enabled?: boolean | null;
-  status?: AutomationTriggerStatus | null;
-  config?: GithubTriggerConfig | null;
-}
 
 export type AutomationDefinitionChange =
   | "created"

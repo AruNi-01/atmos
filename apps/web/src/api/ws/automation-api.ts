@@ -1,9 +1,9 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
+import { parseGithubTriggerConfig } from "@/api/ws/automation-dtos";
 import type {
   AutomationListResponse,
-  GithubTriggerConfig,
 } from "@/features/automations/types";
 
 export const automationApi = {
@@ -35,14 +35,3 @@ export const automationApi = {
     return githubAutomations.length;
   },
 };
-
-function parseGithubTriggerConfig(raw: string | null): GithubTriggerConfig | null {
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as GithubTriggerConfig;
-  } catch {
-    return null;
-  }
-}

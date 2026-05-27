@@ -8,6 +8,7 @@ export interface DeliveryIdentity {
   provider: DeliveryProvider;
   deliveryId: string;
   routeId: string;
+  serverId?: string;
 }
 
 export interface DeliveryInsert {
@@ -102,12 +103,23 @@ export async function ackDelivery(
 ): Promise<void> {
   assertGithubProvider(identity.provider);
 
+  const serverFilter = identity.serverId ? " AND server_id = ?" : "";
+  const args: unknown[] = [
+    status,
+    errorCode,
+    identity.deliveryId,
+    identity.routeId,
+  ];
+  if (identity.serverId) {
+    args.push(identity.serverId);
+  }
+
   await env.DB.prepare(
     `UPDATE github_webhook_deliveries
      SET status = ?, error_code = ?
-     WHERE delivery_id = ? AND route_id = ? AND status IN ('matched', 'dispatched')`,
+     WHERE delivery_id = ? AND route_id = ? AND status IN ('matched', 'dispatched')${serverFilter}`,
   )
-    .bind(status, errorCode, identity.deliveryId, identity.routeId)
+    .bind(...args)
     .run();
 }
 

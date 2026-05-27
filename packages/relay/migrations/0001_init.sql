@@ -1,8 +1,13 @@
--- APP-016 control plane: per-user access token tenants + computers.
+-- APP-016/019 control plane: stable tenant identity + registered computers.
+-- Associations are logical: *_id columns are indexed and validated in Worker code,
+-- but no physical foreign keys are created.
 
 CREATE TABLE tenants (
-  token_hash TEXT PRIMARY KEY,
-  created_at INTEGER NOT NULL
+  tenant_id TEXT PRIMARY KEY,
+  access_token_hash TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  rotated_at INTEGER
 );
 
 CREATE TABLE register_tokens (
@@ -20,7 +25,9 @@ CREATE TABLE computers (
   revoked INTEGER NOT NULL DEFAULT 0,
   display_name TEXT,
   created_at INTEGER NOT NULL,
-  last_seen_at INTEGER
+  last_seen_at INTEGER,
+  updated_at INTEGER,
+  registration_meta TEXT
 );
 
 CREATE TABLE client_sessions (
@@ -31,5 +38,8 @@ CREATE TABLE client_sessions (
   created_at INTEGER NOT NULL
 );
 
+CREATE INDEX idx_register_tokens_tenant ON register_tokens(tenant_id);
 CREATE INDEX idx_computers_tenant ON computers(tenant_id);
+CREATE INDEX idx_computers_tenant_server ON computers(tenant_id, server_id);
+CREATE INDEX idx_client_sessions_tenant ON client_sessions(tenant_id);
 CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);

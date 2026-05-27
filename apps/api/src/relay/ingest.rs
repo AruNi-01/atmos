@@ -259,7 +259,7 @@ pub async fn run(
                             warn!(
                                 target: "atmos_relay",
                                 error = %error,
-                                "external event ack could not be queued; relay delivery status may remain pending"
+                                "http relay response could not be queued; delivery may have failed"
                             );
                         }
                     });
@@ -267,10 +267,18 @@ pub async fn run(
                 }
 
                 if env.stream.as_deref() == Some("system") && env.kind == "external_event" {
+                    let Some(ack_to) = env.from.clone().filter(|value| value == "relay:github")
+                    else {
+                        warn!(
+                            target: "atmos_relay",
+                            from = ?env.from,
+                            "external event missing supported relay source; ack cannot be delivered"
+                        );
+                        continue;
+                    };
                     let body = env.body.unwrap_or_default();
                     let relay_out = out_tx.clone();
                     let request_id = env.request_id.clone();
-                    let ack_to = env.from.clone();
                     let state = state.clone();
                     tokio::spawn(async move {
                         let Some(ack_body) =

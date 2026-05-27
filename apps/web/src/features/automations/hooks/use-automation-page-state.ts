@@ -389,7 +389,7 @@ export function useAutomationPageState() {
             deleteAutomation,
           });
           removeAutomation(automation.guid);
-          if (automation.guid === selectedAutomationGuid) {
+          if (automation.guid === selectedAutomationGuidRef.current) {
             setSelectedAutomationGuid(null);
             setSelectedDetail(null);
             setRuns([]);
@@ -435,7 +435,6 @@ export function useAutomationPageState() {
       removeAutomation,
       resumeAutomation,
       runNow,
-      selectedAutomationGuid,
       upsertAutomation,
     ],
   );

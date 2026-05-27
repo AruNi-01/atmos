@@ -26,7 +26,7 @@ new_sqlite_classes = ["ServerHub"]
 [[d1_databases]]
 binding = "DB"
 database_name = "atmos-computer-cp"
-database_id = "dbccabb2-618e-4c50-aaa6-5501aae12482"
+database_id = "3f6112cc-7982-448e-89ba-0513ab4c64da"
 
 # Workers Logs + Traces → Dashboard → atmos-computer-relay → Observability
 # RC: 100% sampling; lower rates in production when traffic grows (see packages/relay/README.md).

@@ -1,5 +1,6 @@
 -- APP-018: GitHub Automation Triggers relay ingress.
--- Depends on APP-019 stable tenant ids in tenants(tenant_id).
+-- Associations are logical: tenant_id/server_id/route_id/installation_id are
+-- validated by Worker code and indexed for lookups, without physical FKs.
 
 CREATE TABLE github_app_installations (
   installation_id TEXT PRIMARY KEY,
@@ -9,8 +10,7 @@ CREATE TABLE github_app_installations (
   repository_selection TEXT NOT NULL,
   suspended_at INTEGER,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+  updated_at INTEGER NOT NULL
 );
 
 CREATE TABLE github_setup_sessions (
@@ -20,9 +20,7 @@ CREATE TABLE github_setup_sessions (
   return_url TEXT,
   expires_at INTEGER NOT NULL,
   used_at INTEGER,
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
-  FOREIGN KEY (server_id) REFERENCES computers(server_id)
+  created_at INTEGER NOT NULL
 );
 
 CREATE TABLE github_event_routes (
@@ -39,10 +37,7 @@ CREATE TABLE github_event_routes (
   enabled INTEGER NOT NULL DEFAULT 1,
   route_status TEXT NOT NULL DEFAULT 'active',
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
-  FOREIGN KEY (server_id) REFERENCES computers(server_id),
-  FOREIGN KEY (installation_id) REFERENCES github_app_installations(installation_id)
+  updated_at INTEGER NOT NULL
 );
 
 CREATE TABLE github_webhook_deliveries (
@@ -59,8 +54,7 @@ CREATE TABLE github_webhook_deliveries (
   received_at INTEGER NOT NULL,
   dispatched_at INTEGER,
   error_code TEXT,
-  PRIMARY KEY (delivery_id, route_id),
-  FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
+  PRIMARY KEY (delivery_id, route_id)
 );
 
 CREATE INDEX idx_github_app_installations_tenant
@@ -72,14 +66,20 @@ CREATE INDEX idx_github_setup_sessions_tenant_server
 CREATE INDEX idx_github_setup_sessions_expiry
   ON github_setup_sessions(expires_at);
 
-CREATE INDEX idx_github_event_routes_match
-  ON github_event_routes(installation_id, repository_full_name, event_name, action, enabled);
+CREATE INDEX idx_github_event_routes_repo_id_match
+  ON github_event_routes(installation_id, repository_id, event_name, action, enabled, route_status);
+
+CREATE INDEX idx_github_event_routes_full_name_match
+  ON github_event_routes(installation_id, repository_full_name, event_name, action, enabled, route_status);
 
 CREATE INDEX idx_github_event_routes_automation
   ON github_event_routes(server_id, automation_guid);
 
 CREATE INDEX idx_github_event_routes_tenant
   ON github_event_routes(tenant_id, server_id);
+
+CREATE INDEX idx_github_event_routes_tenant_installation
+  ON github_event_routes(tenant_id, installation_id);
 
 CREATE INDEX idx_github_deliveries_received
   ON github_webhook_deliveries(received_at);

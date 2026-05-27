@@ -197,5 +197,8 @@ fn take_required_int64_string(payload: &mut Map<String, Value>, key: &str) -> Re
 }
 
 fn is_positive_int64_string(value: &str) -> bool {
-    !value.is_empty() && value.parse::<i64>().is_ok_and(|value| value > 0)
+    !value.is_empty()
+        && !value.starts_with('0')
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+        && value.parse::<i64>().is_ok_and(|value| value > 0)
 }

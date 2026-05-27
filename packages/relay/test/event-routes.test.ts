@@ -266,6 +266,25 @@ describe("GitHub event routes", () => {
     expect(calls[0]?.args).toEqual(["accepted", null, "delivery_1", "route_1"]);
   });
 
+  test("delivery ack can be scoped to connected server", async () => {
+    const { env, calls } = captureDbEnv();
+
+    await ackDelivery(
+      env as never,
+      {
+        provider: "github",
+        deliveryId: "delivery_1",
+        routeId: "route_1",
+        serverId: "server_1",
+      },
+      "accepted",
+      null,
+    );
+
+    expect(calls[0]?.sql).toContain("server_id = ?");
+    expect(calls[0]?.args).toEqual(["accepted", null, "delivery_1", "route_1", "server_1"]);
+  });
+
   test("delivery dispatch status update cannot overwrite a terminal ack", async () => {
     const { env, calls } = captureDbEnv();
 

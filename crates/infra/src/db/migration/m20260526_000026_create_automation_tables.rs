@@ -206,13 +206,6 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_automation_run_automation")
-                            .from(AutomationRun::Table, AutomationRun::AutomationGuid)
-                            .to(Automation::Table, Automation::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;

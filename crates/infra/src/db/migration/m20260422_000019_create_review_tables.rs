@@ -33,11 +33,7 @@ impl MigrationTrait for Migration {
                             .not_null()
                             .default(false),
                     )
-                    .col(
-                        ColumnDef::new(ReviewSession::WorkspaceGuid)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ReviewSession::WorkspaceGuid).string().null())
                     .col(
                         ColumnDef::new(ReviewSession::ProjectGuid)
                             .string()
@@ -73,9 +69,23 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx-review_session-workspace-updated")
+                    .name("idx-review_session-workspace-status-updated")
                     .table(ReviewSession::Table)
                     .col(ReviewSession::WorkspaceGuid)
+                    .col(ReviewSession::Status)
+                    .col(ReviewSession::UpdatedAt)
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-review_session-project-status-updated")
+                    .table(ReviewSession::Table)
+                    .col(ReviewSession::ProjectGuid)
+                    .col(ReviewSession::Status)
                     .col(ReviewSession::UpdatedAt)
                     .if_not_exists()
                     .to_owned(),
@@ -137,13 +147,6 @@ impl MigrationTrait for Migration {
                             .null(),
                     )
                     .col(ColumnDef::new(ReviewRevision::CreatedBy).string().null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_revision-session")
-                            .from(ReviewRevision::Table, ReviewRevision::SessionGuid)
-                            .to(ReviewSession::Table, ReviewSession::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
@@ -196,13 +199,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(ReviewFileIdentity::CanonicalFilePath)
                             .string()
                             .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_file_identity-session")
-                            .from(ReviewFileIdentity::Table, ReviewFileIdentity::SessionGuid)
-                            .to(ReviewSession::Table, ReviewSession::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -314,23 +310,6 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_file_snapshot-revision")
-                            .from(ReviewFileSnapshot::Table, ReviewFileSnapshot::RevisionGuid)
-                            .to(ReviewRevision::Table, ReviewRevision::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_file_snapshot-file_identity")
-                            .from(
-                                ReviewFileSnapshot::Table,
-                                ReviewFileSnapshot::FileIdentityGuid,
-                            )
-                            .to(ReviewFileIdentity::Table, ReviewFileIdentity::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
@@ -410,27 +389,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(ReviewFileState::LastCodeChangeAt)
                             .date_time()
                             .null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_file_state-revision")
-                            .from(ReviewFileState::Table, ReviewFileState::RevisionGuid)
-                            .to(ReviewRevision::Table, ReviewRevision::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_file_state-file_identity")
-                            .from(ReviewFileState::Table, ReviewFileState::FileIdentityGuid)
-                            .to(ReviewFileIdentity::Table, ReviewFileIdentity::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_file_state-file_snapshot")
-                            .from(ReviewFileState::Table, ReviewFileState::FileSnapshotGuid)
-                            .to(ReviewFileSnapshot::Table, ReviewFileSnapshot::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -521,27 +479,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ReviewComment::Title).string().null())
                     .col(ColumnDef::new(ReviewComment::CreatedBy).string().null())
                     .col(ColumnDef::new(ReviewComment::FixedAt).date_time().null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_comment-session")
-                            .from(ReviewComment::Table, ReviewComment::SessionGuid)
-                            .to(ReviewSession::Table, ReviewSession::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_comment-revision")
-                            .from(ReviewComment::Table, ReviewComment::RevisionGuid)
-                            .to(ReviewRevision::Table, ReviewRevision::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_comment-file_snapshot")
-                            .from(ReviewComment::Table, ReviewComment::FileSnapshotGuid)
-                            .to(ReviewFileSnapshot::Table, ReviewFileSnapshot::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
@@ -618,13 +555,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ReviewMessage::Body).text().not_null())
                     .col(ColumnDef::new(ReviewMessage::BodyRelPath).string().null())
                     .col(ColumnDef::new(ReviewMessage::AgentRunGuid).string().null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_message-comment")
-                            .from(ReviewMessage::Table, ReviewMessage::CommentGuid)
-                            .to(ReviewComment::Table, ReviewComment::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
                     .to_owned(),
             )
             .await?;
@@ -725,20 +655,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(ReviewAgentRun::FinishedAt)
                             .date_time()
                             .null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_agent_run-session")
-                            .from(ReviewAgentRun::Table, ReviewAgentRun::SessionGuid)
-                            .to(ReviewSession::Table, ReviewSession::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk-review_agent_run-base_revision")
-                            .from(ReviewAgentRun::Table, ReviewAgentRun::BaseRevisionGuid)
-                            .to(ReviewRevision::Table, ReviewRevision::Guid)
-                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )

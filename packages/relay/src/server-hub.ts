@@ -381,7 +381,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     }
   }
 
-  private async handleExternalEventAck(envelope: RelayEnvelope): Promise<void> {
+  private async handleExternalEventAck(envelope: RelayEnvelope, serverId: string): Promise<void> {
     const provider = providerFromRelayAddress(envelope.to);
     if (!provider) {
       return;
@@ -410,6 +410,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
           provider,
           deliveryId: ack.delivery_id,
           routeId: ack.route_id,
+          serverId,
         },
         ack.status,
         ack.error_code ?? null,
@@ -509,7 +510,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
           return;
         }
         if (env.stream === "system" && env.kind === "external_event_ack") {
-          await this.handleExternalEventAck(env);
+          await this.handleExternalEventAck(env, meta.server_id);
           return;
         }
         if (env.kind === "frame" && env.to?.startsWith("client:")) {

@@ -342,41 +342,54 @@ async function handleApi(
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const updated = await env.DB.prepare(
-        `UPDATE tenants
-         SET access_token_hash = ?, updated_at = ?, rotated_at = ?
-         WHERE tenant_id = ? AND access_token_hash = ?`,
-      )
-        .bind(
+      const rotationGuard = "SELECT 1 FROM tenants WHERE tenant_id = ? AND access_token_hash = ?";
+      const statements: D1PreparedStatement[] = [
+        env.DB.prepare(
+          `UPDATE tenants
+           SET access_token_hash = ?, updated_at = ?, rotated_at = ?
+           WHERE tenant_id = ? AND access_token_hash = ?`,
+        ).bind(
           newTokenHash,
           now,
           now,
           tenantAuth.tenantId,
           tenantAuth.accessTokenHash,
-        )
-        .run();
-      if (!updated.meta.changes) {
-        return json({ error: "rotation_conflict" }, 409);
-      }
-
-      const cleanupStatements: D1PreparedStatement[] = [
-        env.DB.prepare("DELETE FROM register_tokens WHERE tenant_id = ?").bind(
-          tenantAuth.tenantId,
         ),
-        env.DB.prepare("DELETE FROM client_sessions WHERE tenant_id = ?").bind(
+        env.DB.prepare(
+          `DELETE FROM register_tokens
+           WHERE tenant_id = ? AND EXISTS (${rotationGuard})`,
+        ).bind(
           tenantAuth.tenantId,
+          tenantAuth.tenantId,
+          newTokenHash,
+        ),
+        env.DB.prepare(
+          `DELETE FROM client_sessions
+           WHERE tenant_id = ? AND EXISTS (${rotationGuard})`,
+        ).bind(
+          tenantAuth.tenantId,
+          tenantAuth.tenantId,
+          newTokenHash,
         ),
       ];
 
       if (await tableExists(env, "github_setup_sessions")) {
-        cleanupStatements.push(
-          env.DB.prepare("DELETE FROM github_setup_sessions WHERE tenant_id = ?").bind(
+        statements.push(
+          env.DB.prepare(
+            `DELETE FROM github_setup_sessions
+             WHERE tenant_id = ? AND EXISTS (${rotationGuard})`,
+          ).bind(
             tenantAuth.tenantId,
+            tenantAuth.tenantId,
+            newTokenHash,
           ),
         );
       }
 
-      await env.DB.batch(cleanupStatements);
+      const results = await env.DB.batch(statements);
+      if (!(results[0]?.meta.changes ?? 0)) {
+        return json({ error: "rotation_conflict" }, 409);
+      }
 
       return json({ ok: true, rotated_at: now });
     }

@@ -1,7 +1,6 @@
 import { wsRequest } from "@/api/ws/request";
+import { parseGithubTriggerConfig } from "@/api/ws/automation-dtos";
 import type { GithubEventFamily, GithubInt64, GithubTriggerConfig } from "@/features/automations/types";
-
-const MAX_INT64 = "9223372036854775807";
 
 export interface GithubInstallation {
   installation_id: GithubInt64;
@@ -35,7 +34,7 @@ export interface GithubRouteUpsertResult {
 export function hasGithubRelayPrerequisites(prereqs: GithubRelayPrerequisites): boolean {
   return (
     prereqs.controlPlaneUrl.trim().length > 0 &&
-    prereqs.accessToken.length >= 32 &&
+    prereqs.accessToken.trim().length >= 32 &&
     Boolean(prereqs.serverId?.trim())
   );
 }
@@ -47,32 +46,6 @@ export function generateGithubRouteId(): string {
     binary += String.fromCharCode(byte);
   }
   return `route_${btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
-}
-
-export function parseGithubTriggerConfig(raw: string | null | undefined): GithubTriggerConfig | null {
-  if (!raw) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(raw) as GithubTriggerConfig;
-    if (
-      typeof parsed.route_id === "string" &&
-      normalizeInt64String(parsed.installation_id) &&
-      typeof parsed.repository_full_name === "string" &&
-      isGithubEventFamily(parsed.event_family)
-    ) {
-      return {
-        ...parsed,
-        installation_id: normalizeInt64String(parsed.installation_id)!,
-        repository_id: normalizeInt64String(parsed.repository_id),
-        actions: Array.isArray(parsed.actions) ? parsed.actions : [],
-        filters: parsed.filters ?? {},
-      };
-    }
-  } catch {
-    return null;
-  }
-  return null;
 }
 
 export async function createGithubSetupSession(
@@ -215,17 +188,4 @@ function relayFilters(config: GithubTriggerConfig): Record<string, unknown> {
   return filters;
 }
 
-function isGithubEventFamily(value: string): value is GithubEventFamily {
-  return value === "pull_request" || value === "pull_request_comment" || value === "push" || value === "workflow_run";
-}
-
-function normalizeInt64String(value: unknown): GithubInt64 | null {
-  if (typeof value === "string" && /^[1-9]\d{0,18}$/.test(value.trim())) {
-    const trimmed = value.trim();
-    return trimmed.length < MAX_INT64.length || trimmed <= MAX_INT64 ? trimmed : null;
-  }
-  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
-    return String(value);
-  }
-  return null;
-}
+export { parseGithubTriggerConfig };
