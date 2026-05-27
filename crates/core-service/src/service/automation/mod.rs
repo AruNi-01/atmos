@@ -5,6 +5,8 @@ use std::sync::Arc;
 mod agents;
 mod artifacts;
 mod events;
+mod external_trigger;
+mod github_trigger;
 mod lifecycle;
 mod run_watcher;
 mod runner;
@@ -19,6 +21,7 @@ use infra::db::entities::{automation, automation_run};
 use infra::db::repo::{AutomationRepo, CreateAutomationRecord, UpdateAutomationRecord};
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio::sync::{broadcast, Mutex};
 use uuid::Uuid;
 
@@ -32,6 +35,12 @@ use super::workspace::WorkspaceService;
 use agents::automation_agent_capabilities;
 pub use agents::AutomationAgentCapability;
 pub use events::{AutomationDefinitionChange, AutomationEvent};
+pub use external_trigger::{
+    ExternalTriggerOutcome, ExternalTriggerRejectReason, ExternalTriggerRejection,
+};
+pub use github_trigger::{
+    GithubEventFamily, GithubTriggerConfig, GithubTriggerEvent, GithubTriggerFilters,
+};
 use run_watcher::{mark_run_interrupted, publish_run_update, watch_automation_run};
 use validation::{parse_run_page_token, validate_display_name, validate_instructions};
 
@@ -110,6 +119,7 @@ impl AutomationRunStatus {
 pub enum AutomationTriggerKind {
     Manual,
     Scheduled,
+    Github,
 }
 
 impl AutomationTriggerKind {
@@ -117,6 +127,27 @@ impl AutomationTriggerKind {
         match self {
             Self::Manual => "manual",
             Self::Scheduled => "scheduled",
+            Self::Github => "github",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum AutomationTriggerStatus {
+    Active,
+    NeedsSetup,
+    Paused,
+    Error,
+}
+
+impl AutomationTriggerStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::NeedsSetup => "needs_setup",
+            Self::Paused => "paused",
+            Self::Error => "error",
         }
     }
 }
@@ -147,6 +178,17 @@ pub struct AutomationScheduleInput {
     pub day_of_month: Option<u32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationTriggerInput {
+    pub kind: AutomationTriggerKind,
+    #[serde(default)]
+    pub enabled: Option<bool>,
+    #[serde(default)]
+    pub status: Option<AutomationTriggerStatus>,
+    #[serde(default)]
+    pub config: Option<Value>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AutomationListReq {
     #[serde(default)]
@@ -168,6 +210,8 @@ pub struct AutomationCreateReq {
     pub target: AutomationTargetInput,
     #[serde(default)]
     pub schedule: Option<AutomationScheduleInput>,
+    #[serde(default)]
+    pub trigger: Option<AutomationTriggerInput>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -183,6 +227,8 @@ pub struct AutomationUpdateReq {
     pub target: Option<AutomationTargetInput>,
     #[serde(default)]
     pub schedule: Option<Option<AutomationScheduleInput>>,
+    #[serde(default)]
+    pub trigger: Option<Option<AutomationTriggerInput>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,6 +315,10 @@ pub struct AutomationSummary {
     pub schedule_expr: Option<String>,
     pub schedule_timezone: String,
     pub next_run_at: Option<NaiveDateTime>,
+    pub trigger_kind: String,
+    pub trigger_enabled: bool,
+    pub trigger_status: String,
+    pub trigger_config_json: Option<String>,
     pub last_run_guid: Option<String>,
     pub last_status: Option<String>,
     pub run_count: i32,
@@ -285,6 +335,7 @@ pub struct AutomationRunSummary {
     pub guid: String,
     pub automation_guid: String,
     pub trigger_kind: String,
+    pub trigger_source_json: Option<String>,
     pub status: String,
     pub failure_kind: Option<String>,
     pub error_message: Option<String>,
@@ -384,6 +435,8 @@ impl AutomationService {
             .as_ref()
             .map(|schedule| scheduler::normalize_schedule(schedule, chrono::Utc::now().naive_utc()))
             .transpose()?;
+        let normalized_trigger =
+            normalize_trigger_for_create(req.trigger, normalized_schedule.is_some())?;
 
         let automation_guid = Uuid::new_v4().to_string();
         let definition_dir = artifacts::definition_dir(&automation_guid)?;
@@ -411,6 +464,10 @@ impl AutomationService {
                     .map(|schedule| schedule.timezone.clone())
                     .unwrap_or_else(|| "UTC".to_string()),
                 next_run_at: normalized_schedule.and_then(|schedule| schedule.next_run_at),
+                trigger_kind: normalized_trigger.kind,
+                trigger_enabled: normalized_trigger.enabled,
+                trigger_status: normalized_trigger.status,
+                trigger_config_json: normalized_trigger.config_json,
                 instructions_path: instructions_path.to_string_lossy().to_string(),
                 artifact_root: artifact_root.to_string_lossy().to_string(),
             })
@@ -463,6 +520,11 @@ impl AutomationService {
             })
             .transpose()?
             .flatten();
+        let normalized_trigger = normalize_trigger_for_update(
+            req.trigger,
+            req.schedule.as_ref().map(|schedule| schedule.is_some()),
+            &existing,
+        )?;
 
         let update = UpdateAutomationRecord {
             display_name,
@@ -497,6 +559,14 @@ impl AutomationService {
                 .schedule
                 .as_ref()
                 .map(|_| normalized_schedule.and_then(|schedule| schedule.next_run_at)),
+            trigger_kind: normalized_trigger
+                .as_ref()
+                .map(|trigger| trigger.kind.clone()),
+            trigger_enabled: normalized_trigger.as_ref().map(|trigger| trigger.enabled),
+            trigger_status: normalized_trigger
+                .as_ref()
+                .map(|trigger| trigger.status.clone()),
+            trigger_config_json: normalized_trigger.map(|trigger| trigger.config_json),
         };
 
         let staged_instructions = validated_instructions
@@ -527,6 +597,7 @@ impl AutomationService {
 
     pub async fn delete_automation(&self, guid: &str) -> Result<()> {
         let repo = AutomationRepo::new(&self.db);
+        repo.mark_github_trigger_needs_setup(guid).await?;
         repo.soft_delete_automation(guid).await?;
         let _ = self.event_tx.send(AutomationEvent::DefinitionUpdated {
             automation_guid: guid.to_string(),
@@ -643,6 +714,129 @@ impl AutomationService {
     }
 }
 
+#[derive(Debug)]
+struct NormalizedAutomationTrigger {
+    kind: String,
+    enabled: bool,
+    status: String,
+    config_json: Option<String>,
+}
+
+fn normalize_trigger_for_create(
+    input: Option<AutomationTriggerInput>,
+    has_schedule: bool,
+) -> Result<NormalizedAutomationTrigger> {
+    match input {
+        Some(input) => normalize_trigger_input(input, has_schedule),
+        None => Ok(default_trigger_for_schedule(has_schedule)),
+    }
+}
+
+fn normalize_trigger_for_update(
+    input: Option<Option<AutomationTriggerInput>>,
+    schedule_enabled_update: Option<bool>,
+    existing: &automation::Model,
+) -> Result<Option<NormalizedAutomationTrigger>> {
+    match input {
+        Some(Some(input)) => {
+            let has_schedule = schedule_enabled_update.unwrap_or(existing.schedule_enabled);
+            normalize_trigger_input(input, has_schedule).map(Some)
+        }
+        Some(None) => {
+            let has_schedule = schedule_enabled_update.unwrap_or(existing.schedule_enabled);
+            Ok(Some(default_trigger_for_schedule(has_schedule)))
+        }
+        None => Ok(schedule_enabled_update.map(default_trigger_for_schedule)),
+    }
+}
+
+fn default_trigger_for_schedule(has_schedule: bool) -> NormalizedAutomationTrigger {
+    NormalizedAutomationTrigger {
+        kind: if has_schedule {
+            AutomationTriggerKind::Scheduled.as_str()
+        } else {
+            AutomationTriggerKind::Manual.as_str()
+        }
+        .to_string(),
+        enabled: true,
+        status: AutomationTriggerStatus::Active.as_str().to_string(),
+        config_json: None,
+    }
+}
+
+fn normalize_trigger_input(
+    input: AutomationTriggerInput,
+    has_schedule: bool,
+) -> Result<NormalizedAutomationTrigger> {
+    let enabled = input.enabled.unwrap_or(true);
+    let status = normalize_trigger_status(&input.kind, enabled, input.status)
+        .as_str()
+        .to_string();
+    let config_json = normalize_trigger_config(&input.kind, enabled, &status, input.config)?;
+
+    match input.kind {
+        AutomationTriggerKind::Manual if has_schedule => Err(ServiceError::Validation(
+            "Manual trigger cannot be combined with a schedule.".to_string(),
+        )),
+        AutomationTriggerKind::Scheduled if !has_schedule => Err(ServiceError::Validation(
+            "Scheduled trigger requires schedule configuration.".to_string(),
+        )),
+        kind => Ok(NormalizedAutomationTrigger {
+            kind: kind.as_str().to_string(),
+            enabled,
+            status,
+            config_json,
+        }),
+    }
+}
+
+fn normalize_trigger_status(
+    kind: &AutomationTriggerKind,
+    enabled: bool,
+    requested: Option<AutomationTriggerStatus>,
+) -> AutomationTriggerStatus {
+    let status = requested.unwrap_or(AutomationTriggerStatus::Active);
+    if matches!(kind, AutomationTriggerKind::Github)
+        && !enabled
+        && status == AutomationTriggerStatus::Active
+    {
+        return AutomationTriggerStatus::NeedsSetup;
+    }
+    status
+}
+
+fn normalize_trigger_config(
+    kind: &AutomationTriggerKind,
+    enabled: bool,
+    status: &str,
+    config: Option<Value>,
+) -> Result<Option<String>> {
+    match kind {
+        AutomationTriggerKind::Github => {
+            let Some(value) = config else {
+                if enabled && status == AutomationTriggerStatus::Active.as_str() {
+                    return Err(ServiceError::Validation(
+                        "GitHub trigger config is required for active triggers.".to_string(),
+                    ));
+                }
+                return Ok(None);
+            };
+            let config = GithubTriggerConfig::from_value(value)?;
+            serde_json::to_string(&config).map(Some).map_err(|error| {
+                ServiceError::Validation(format!("Failed to serialize trigger config: {error}"))
+            })
+        }
+        AutomationTriggerKind::Manual | AutomationTriggerKind::Scheduled => {
+            if config.is_some() {
+                return Err(ServiceError::Validation(
+                    "Trigger config is only supported for GitHub triggers.".to_string(),
+                ));
+            }
+            Ok(None)
+        }
+    }
+}
+
 fn cleanup_failed_automation_create_artifacts(instructions_path: &Path, definition_dir: &Path) {
     if let Err(error) = std::fs::remove_file(instructions_path) {
         if error.kind() != std::io::ErrorKind::NotFound {
@@ -679,6 +873,10 @@ impl From<automation::Model> for AutomationSummary {
             schedule_expr: model.schedule_expr,
             schedule_timezone: model.schedule_timezone,
             next_run_at: model.next_run_at,
+            trigger_kind: model.trigger_kind,
+            trigger_enabled: model.trigger_enabled,
+            trigger_status: model.trigger_status,
+            trigger_config_json: model.trigger_config_json,
             last_run_guid: model.last_run_guid,
             last_status: model.last_status,
             run_count: model.run_count,
@@ -692,6 +890,7 @@ impl From<automation_run::Model> for AutomationRunSummary {
             guid: model.guid,
             automation_guid: model.automation_guid,
             trigger_kind: model.trigger_kind,
+            trigger_source_json: model.trigger_source_json,
             status: model.status,
             failure_kind: model.failure_kind,
             error_message: model.error_message,
@@ -710,5 +909,73 @@ impl From<automation_run::Model> for AutomationRunSummary {
             completed_at: model.completed_at,
             exit_code: model.exit_code,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn github_trigger_disabled_without_config_normalizes_to_needs_setup() {
+        let trigger = normalize_trigger_input(
+            AutomationTriggerInput {
+                kind: AutomationTriggerKind::Github,
+                enabled: Some(false),
+                status: None,
+                config: None,
+            },
+            false,
+        )
+        .unwrap();
+
+        assert!(!trigger.enabled);
+        assert_eq!(trigger.status, AutomationTriggerStatus::NeedsSetup.as_str());
+        assert!(trigger.config_json.is_none());
+    }
+
+    #[test]
+    fn github_trigger_active_without_config_is_rejected() {
+        let error = normalize_trigger_input(
+            AutomationTriggerInput {
+                kind: AutomationTriggerKind::Github,
+                enabled: Some(true),
+                status: Some(AutomationTriggerStatus::Active),
+                config: None,
+            },
+            false,
+        )
+        .unwrap_err();
+
+        assert!(
+            matches!(error, ServiceError::Validation(message) if message.contains("config is required"))
+        );
+    }
+
+    #[test]
+    fn github_trigger_disabled_active_with_config_normalizes_to_needs_setup() {
+        let trigger = normalize_trigger_input(
+            AutomationTriggerInput {
+                kind: AutomationTriggerKind::Github,
+                enabled: Some(false),
+                status: Some(AutomationTriggerStatus::Active),
+                config: Some(json!({
+                    "route_id": "route-1",
+                    "installation_id": 1,
+                    "repository_full_name": "owner/repo",
+                    "event_family": "pull_request",
+                    "actions": ["opened"],
+                    "filters": {}
+                })),
+            },
+            false,
+        )
+        .unwrap();
+
+        assert!(!trigger.enabled);
+        assert_eq!(trigger.status, AutomationTriggerStatus::NeedsSetup.as_str());
+        assert!(trigger.config_json.is_some());
     }
 }

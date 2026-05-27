@@ -1,6 +1,7 @@
 import type {
   AutomationArtifactKind,
   AutomationRunStatus,
+  AutomationRunSummary,
   AutomationSummary,
   AutomationTargetInput,
   AutomationTargetKind,
@@ -67,6 +68,11 @@ export function formatTargetKind(kind: AutomationTargetKind) {
 }
 
 export function formatScheduleLabel(automation: AutomationSummary) {
+  if (automation.trigger_kind === "github") {
+    return automation.trigger_status === "active"
+      ? "GitHub"
+      : `GitHub · ${automation.trigger_status.replace(/_/g, " ")}`;
+  }
   if (!automation.schedule_enabled || !automation.schedule_kind) {
     return "Manual";
   }
@@ -125,5 +131,35 @@ export function resolveTimezone() {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch {
     return "UTC";
+  }
+}
+
+export interface GithubRunSourceSummary {
+  repository: string | null;
+  event: string | null;
+  sourceUrl: string | null;
+}
+
+export function parseGithubRunSource(run: AutomationRunSummary): GithubRunSourceSummary | null {
+  if (run.trigger_kind !== "github" || !run.trigger_source_json) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(run.trigger_source_json) as {
+      repository_full_name?: unknown;
+      event_name?: unknown;
+      action?: unknown;
+      source_url?: unknown;
+    };
+    const eventName = typeof parsed.event_name === "string" ? parsed.event_name : null;
+    const action = typeof parsed.action === "string" ? parsed.action : null;
+    return {
+      repository:
+        typeof parsed.repository_full_name === "string" ? parsed.repository_full_name : null,
+      event: eventName ? [eventName, action].filter(Boolean).join(".") : action,
+      sourceUrl: typeof parsed.source_url === "string" ? parsed.source_url : null,
+    };
+  } catch {
+    return null;
   }
 }

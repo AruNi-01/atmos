@@ -84,6 +84,7 @@ pub fn prepare_run_files(
     instructions: &str,
     target: &ResolvedAutomationTarget,
     trigger_kind: &str,
+    trigger_context: Option<&str>,
 ) -> Result<PreparedAutomationRun> {
     let run_guid = Uuid::new_v4().to_string();
     let started_at = Utc::now().naive_utc();
@@ -105,6 +106,7 @@ pub fn prepare_run_files(
         instructions,
         &prompt_target,
         trigger_kind,
+        trigger_context,
         started_at,
     );
     artifacts::write_user_private_file(&prompt_path, &prompt)?;
@@ -211,6 +213,7 @@ fn build_prompt(
     instructions: &str,
     target: &ResolvedAutomationTarget,
     trigger_kind: &str,
+    trigger_context: Option<&str>,
     started_at: NaiveDateTime,
 ) -> String {
     let target_label = match target.target_kind.as_str() {
@@ -219,6 +222,12 @@ fn build_prompt(
         "new_workspace" => "New Workspace",
         _ => "Standalone",
     };
+
+    let trigger_context = trigger_context
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| format!("{value}\n\n"))
+        .unwrap_or_default();
 
     format!(
         r#"# Atmos Automation Run
@@ -234,6 +243,7 @@ Workspace ID: {workspace_guid}
 Created Workspace ID: {created_workspace_guid}
 Working directory: {cwd}
 
+{trigger_context}
 ## Agent Instructions
 
 {instructions}
@@ -251,6 +261,7 @@ Run non-interactively and print the final result to stdout. Atmos captures termi
         workspace_guid = target.workspace_guid.as_deref().unwrap_or("none"),
         created_workspace_guid = target.created_workspace_guid.as_deref().unwrap_or("none"),
         cwd = target.cwd.display(),
+        trigger_context = trigger_context,
         instructions = instructions.trim()
     )
 }

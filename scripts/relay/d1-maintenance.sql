@@ -2,9 +2,10 @@
 -- Database name: atmos-computer-cp (see packages/relay/wrangler.toml)
 --
 -- Prerequisites:
---   1. Apply migrations 0002 (updated_at) and 0003 (registration_meta) when needed.
+--   1. Apply migrations through packages/relay/migrations/0006 when needed.
 --   2. Review each section; uncomment DELETE blocks only when ready.
---   3. Adjust retention intervals (default examples use 90 days for stale computers).
+--   3. Adjust retention intervals (default examples use 90 days for stale computers,
+--      30 days for webhook delivery logs).
 --
 -- Example (from repo root):
 --   npx wrangler d1 execute atmos-computer-cp --remote \
@@ -33,7 +34,17 @@ DELETE FROM client_sessions
 WHERE expires_at < unixepoch('now');
 
 -- ---------------------------------------------------------------------------
--- 3) Preview stale computers (not revoked; inactive by updated_at)
+-- 3) Expired GitHub setup sessions and old webhook delivery logs
+-- ---------------------------------------------------------------------------
+DELETE FROM github_setup_sessions
+WHERE expires_at < unixepoch('now')
+   OR (used_at IS NOT NULL AND used_at < unixepoch('now', '-7 days'));
+
+DELETE FROM github_webhook_deliveries
+WHERE received_at < unixepoch('now', '-30 days');
+
+-- ---------------------------------------------------------------------------
+-- 4) Preview stale computers (not revoked; inactive by updated_at)
 --    Replace '-90 days' with your retention window.
 -- ---------------------------------------------------------------------------
 -- SELECT
@@ -50,10 +61,10 @@ WHERE expires_at < unixepoch('now');
 -- ORDER BY updated_at ASC;
 
 -- ---------------------------------------------------------------------------
--- 4) Delete stale computers (run 4a before 4b)
+-- 5) Delete stale computers (run 5a before 5b)
 -- ---------------------------------------------------------------------------
 
--- 4a) Remove client_sessions for computers that will be deleted
+-- 5a) Remove client_sessions for computers that will be deleted
 -- DELETE FROM client_sessions
 -- WHERE server_id IN (
 --   SELECT server_id
@@ -62,13 +73,13 @@ WHERE expires_at < unixepoch('now');
 --     AND updated_at < unixepoch('now', '-90 days')
 -- );
 
--- 4b) Remove stale computer registrations (user must re-register on that machine)
+-- 5b) Remove stale computer registrations (user must re-register on that machine)
 -- DELETE FROM computers
 -- WHERE revoked = 0
 --   AND updated_at < unixepoch('now', '-90 days');
 
 -- ---------------------------------------------------------------------------
--- 5) Optional: purge long-revoked computers (revoke already clears sessions in API)
+-- 6) Optional: purge long-revoked computers (revoke already clears sessions in API)
 -- ---------------------------------------------------------------------------
 -- DELETE FROM client_sessions
 -- WHERE server_id IN (

@@ -3,9 +3,13 @@ use sea_orm::sea_query::Expr;
 use sea_orm::*;
 
 use crate::db::entities::base::BaseFields;
-use crate::db::entities::{automation, automation_run};
+use crate::db::entities::{automation, automation_github_delivery_claim, automation_run};
 use crate::db::repo::base::BaseRepo;
 use crate::error::{InfraError, Result};
+
+const GITHUB_DELIVERY_CLAIMED: &str = "claimed";
+const GITHUB_DELIVERY_ACCEPTED: &str = "accepted";
+const GITHUB_DELIVERY_LOCAL_REJECTED: &str = "local_rejected";
 
 pub struct AutomationRepo<'a> {
     db: &'a DatabaseConnection,
@@ -54,6 +58,9 @@ impl<'a> AutomationRepo<'a> {
             .filter(automation::Column::IsDeleted.eq(false))
             .filter(automation::Column::ScheduleEnabled.eq(true))
             .filter(automation::Column::SchedulePaused.eq(false))
+            .filter(automation::Column::TriggerKind.eq("scheduled"))
+            .filter(automation::Column::TriggerEnabled.eq(true))
+            .filter(automation::Column::TriggerStatus.eq("active"))
             .filter(automation::Column::NextRunAt.lte(now))
             .order_by_asc(automation::Column::NextRunAt)
             .limit(limit)
@@ -69,6 +76,9 @@ impl<'a> AutomationRepo<'a> {
             .filter(automation::Column::IsDeleted.eq(false))
             .filter(automation::Column::ScheduleEnabled.eq(true))
             .filter(automation::Column::SchedulePaused.eq(false))
+            .filter(automation::Column::TriggerKind.eq("scheduled"))
+            .filter(automation::Column::TriggerEnabled.eq(true))
+            .filter(automation::Column::TriggerStatus.eq("active"))
             .filter(automation::Column::NextRunAt.lt(now))
             .order_by_asc(automation::Column::NextRunAt)
             .all(self.db)
@@ -104,6 +114,10 @@ impl<'a> AutomationRepo<'a> {
             schedule_expr: Set(input.schedule_expr),
             schedule_timezone: Set(input.schedule_timezone),
             next_run_at: Set(input.next_run_at),
+            trigger_kind: Set(input.trigger_kind),
+            trigger_enabled: Set(input.trigger_enabled),
+            trigger_status: Set(input.trigger_status),
+            trigger_config_json: Set(input.trigger_config_json),
             instructions_path: Set(input.instructions_path),
             artifact_root: Set(input.artifact_root),
             last_run_guid: Set(None),
@@ -156,6 +170,18 @@ impl<'a> AutomationRepo<'a> {
         if let Some(value) = input.next_run_at {
             active.next_run_at = Set(value);
         }
+        if let Some(value) = input.trigger_kind {
+            active.trigger_kind = Set(value);
+        }
+        if let Some(value) = input.trigger_enabled {
+            active.trigger_enabled = Set(value);
+        }
+        if let Some(value) = input.trigger_status {
+            active.trigger_status = Set(value);
+        }
+        if let Some(value) = input.trigger_config_json {
+            active.trigger_config_json = Set(value);
+        }
 
         Ok(active.update(self.db).await?)
     }
@@ -174,6 +200,25 @@ impl<'a> AutomationRepo<'a> {
         if result.rows_affected == 0 {
             return Err(InfraError::Custom("Automation not found".into()));
         }
+        Ok(())
+    }
+
+    pub async fn mark_github_trigger_needs_setup(&self, guid: &str) -> Result<()> {
+        automation::Entity::update_many()
+            .col_expr(automation::Column::TriggerEnabled, Expr::value(false))
+            .col_expr(
+                automation::Column::TriggerStatus,
+                Expr::value("needs_setup".to_string()),
+            )
+            .col_expr(
+                automation::Column::UpdatedAt,
+                Expr::value(Utc::now().naive_utc()),
+            )
+            .filter(automation::Column::Guid.eq(guid))
+            .filter(automation::Column::IsDeleted.eq(false))
+            .filter(automation::Column::TriggerKind.eq("github"))
+            .exec(self.db)
+            .await?;
         Ok(())
     }
 
@@ -254,6 +299,7 @@ impl<'a> AutomationRepo<'a> {
             is_deleted: Set(base.is_deleted),
             automation_guid: Set(input.automation_guid),
             trigger_kind: Set(input.trigger_kind),
+            trigger_source_json: Set(input.trigger_source_json),
             status: Set(input.status),
             failure_kind: Set(None),
             error_message: Set(None),
@@ -306,6 +352,125 @@ impl<'a> AutomationRepo<'a> {
             .filter(automation_run::Column::IsDeleted.eq(false))
             .order_by_asc(automation_run::Column::StartedAt)
             .all(self.db)
+            .await?)
+    }
+
+    pub async fn claim_github_delivery(
+        &self,
+        input: ClaimGithubDeliveryRecord,
+    ) -> Result<GithubDeliveryClaimResult> {
+        let now = Utc::now().naive_utc();
+        let model = automation_github_delivery_claim::ActiveModel {
+            delivery_id: Set(input.delivery_id.clone()),
+            route_id: Set(input.route_id.clone()),
+            automation_guid: Set(input.automation_guid),
+            run_guid: Set(None),
+            status: Set(GITHUB_DELIVERY_CLAIMED.to_string()),
+            error_code: Set(None),
+            created_at: Set(now),
+            updated_at: Set(now),
+        };
+
+        match model.insert(self.db).await {
+            Ok(inserted) => Ok(GithubDeliveryClaimResult::Claimed(inserted)),
+            Err(error) => {
+                if let Some(existing) = self
+                    .find_github_delivery_claim(&input.delivery_id, &input.route_id)
+                    .await?
+                {
+                    Ok(GithubDeliveryClaimResult::AlreadyClaimed(existing))
+                } else {
+                    Err(error.into())
+                }
+            }
+        }
+    }
+
+    pub async fn associate_github_delivery_run(
+        &self,
+        delivery_id: &str,
+        route_id: &str,
+        run_guid: &str,
+    ) -> Result<()> {
+        let result = automation_github_delivery_claim::Entity::update_many()
+            .col_expr(
+                automation_github_delivery_claim::Column::RunGuid,
+                Expr::value(Some(run_guid.to_string())),
+            )
+            .col_expr(
+                automation_github_delivery_claim::Column::Status,
+                Expr::value(GITHUB_DELIVERY_ACCEPTED.to_string()),
+            )
+            .col_expr(
+                automation_github_delivery_claim::Column::ErrorCode,
+                Expr::value(Option::<String>::None),
+            )
+            .col_expr(
+                automation_github_delivery_claim::Column::UpdatedAt,
+                Expr::value(Utc::now().naive_utc()),
+            )
+            .filter(automation_github_delivery_claim::Column::DeliveryId.eq(delivery_id))
+            .filter(automation_github_delivery_claim::Column::RouteId.eq(route_id))
+            .exec(self.db)
+            .await?;
+        if result.rows_affected == 0 {
+            return Err(InfraError::Custom(
+                "GitHub delivery claim not found".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub async fn reject_github_delivery_claim(
+        &self,
+        delivery_id: &str,
+        route_id: &str,
+        error_code: &str,
+    ) -> Result<()> {
+        automation_github_delivery_claim::Entity::update_many()
+            .col_expr(
+                automation_github_delivery_claim::Column::Status,
+                Expr::value(GITHUB_DELIVERY_LOCAL_REJECTED.to_string()),
+            )
+            .col_expr(
+                automation_github_delivery_claim::Column::ErrorCode,
+                Expr::value(Some(error_code.to_string())),
+            )
+            .col_expr(
+                automation_github_delivery_claim::Column::UpdatedAt,
+                Expr::value(Utc::now().naive_utc()),
+            )
+            .filter(automation_github_delivery_claim::Column::DeliveryId.eq(delivery_id))
+            .filter(automation_github_delivery_claim::Column::RouteId.eq(route_id))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn release_github_delivery_claim(
+        &self,
+        delivery_id: &str,
+        route_id: &str,
+    ) -> Result<()> {
+        automation_github_delivery_claim::Entity::delete_many()
+            .filter(automation_github_delivery_claim::Column::DeliveryId.eq(delivery_id))
+            .filter(automation_github_delivery_claim::Column::RouteId.eq(route_id))
+            .filter(automation_github_delivery_claim::Column::RunGuid.is_null())
+            .filter(automation_github_delivery_claim::Column::Status.eq(GITHUB_DELIVERY_CLAIMED))
+            .exec(self.db)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn find_github_delivery_claim(
+        &self,
+        delivery_id: &str,
+        route_id: &str,
+    ) -> Result<Option<automation_github_delivery_claim::Model>> {
+        Ok(automation_github_delivery_claim::Entity::find()
+            .filter(automation_github_delivery_claim::Column::DeliveryId.eq(delivery_id))
+            .filter(automation_github_delivery_claim::Column::RouteId.eq(route_id))
+            .one(self.db)
             .await?)
     }
 
@@ -447,6 +612,10 @@ pub struct CreateAutomationRecord {
     pub schedule_expr: Option<String>,
     pub schedule_timezone: String,
     pub next_run_at: Option<NaiveDateTime>,
+    pub trigger_kind: String,
+    pub trigger_enabled: bool,
+    pub trigger_status: String,
+    pub trigger_config_json: Option<String>,
     pub instructions_path: String,
     pub artifact_root: String,
 }
@@ -463,6 +632,10 @@ pub struct UpdateAutomationRecord {
     pub schedule_expr: Option<Option<String>>,
     pub schedule_timezone: Option<String>,
     pub next_run_at: Option<Option<NaiveDateTime>>,
+    pub trigger_kind: Option<String>,
+    pub trigger_enabled: Option<bool>,
+    pub trigger_status: Option<String>,
+    pub trigger_config_json: Option<Option<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -470,6 +643,7 @@ pub struct CreateAutomationRunRecord {
     pub guid: String,
     pub automation_guid: String,
     pub trigger_kind: String,
+    pub trigger_source_json: Option<String>,
     pub status: String,
     pub target_kind: String,
     pub project_guid: Option<String>,
@@ -488,10 +662,127 @@ pub struct CreateAutomationRunRecord {
 }
 
 #[derive(Debug, Clone)]
+pub struct ClaimGithubDeliveryRecord {
+    pub delivery_id: String,
+    pub route_id: String,
+    pub automation_guid: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum GithubDeliveryClaimResult {
+    Claimed(automation_github_delivery_claim::Model),
+    AlreadyClaimed(automation_github_delivery_claim::Model),
+}
+
+#[derive(Debug, Clone)]
 pub struct UpdateAutomationRunStatusRecord {
     pub status: String,
     pub completed_at: Option<NaiveDateTime>,
     pub exit_code: Option<i32>,
     pub failure_kind: Option<String>,
     pub error_message: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use sea_orm::Database;
+    use sea_orm_migration::MigratorTrait;
+
+    use crate::db::migration::Migrator;
+
+    use super::*;
+
+    async fn setup_db() -> DatabaseConnection {
+        let db = Database::connect("sqlite::memory:").await.unwrap();
+        Migrator::up(&db, None).await.unwrap();
+        db
+    }
+
+    #[tokio::test]
+    async fn github_delivery_claim_is_unique_by_delivery_and_route() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+
+        let first = repo
+            .claim_github_delivery(ClaimGithubDeliveryRecord {
+                delivery_id: "delivery-1".to_string(),
+                route_id: "route-1".to_string(),
+                automation_guid: "automation-1".to_string(),
+            })
+            .await
+            .unwrap();
+        assert!(matches!(first, GithubDeliveryClaimResult::Claimed(_)));
+
+        let duplicate = repo
+            .claim_github_delivery(ClaimGithubDeliveryRecord {
+                delivery_id: "delivery-1".to_string(),
+                route_id: "route-1".to_string(),
+                automation_guid: "automation-1".to_string(),
+            })
+            .await
+            .unwrap();
+        assert!(matches!(
+            duplicate,
+            GithubDeliveryClaimResult::AlreadyClaimed(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn github_delivery_claim_allows_same_delivery_different_route() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+
+        for route_id in ["route-1", "route-2"] {
+            let result = repo
+                .claim_github_delivery(ClaimGithubDeliveryRecord {
+                    delivery_id: "delivery-1".to_string(),
+                    route_id: route_id.to_string(),
+                    automation_guid: "automation-1".to_string(),
+                })
+                .await
+                .unwrap();
+            assert!(matches!(result, GithubDeliveryClaimResult::Claimed(_)));
+        }
+    }
+
+    #[tokio::test]
+    async fn github_delivery_claim_can_associate_run_or_release_unstarted_claim() {
+        let db = setup_db().await;
+        let repo = AutomationRepo::new(&db);
+
+        repo.claim_github_delivery(ClaimGithubDeliveryRecord {
+            delivery_id: "delivery-1".to_string(),
+            route_id: "route-1".to_string(),
+            automation_guid: "automation-1".to_string(),
+        })
+        .await
+        .unwrap();
+        repo.associate_github_delivery_run("delivery-1", "route-1", "run-1")
+            .await
+            .unwrap();
+
+        let claim = repo
+            .find_github_delivery_claim("delivery-1", "route-1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(claim.run_guid.as_deref(), Some("run-1"));
+        assert_eq!(claim.status, GITHUB_DELIVERY_ACCEPTED);
+
+        repo.claim_github_delivery(ClaimGithubDeliveryRecord {
+            delivery_id: "delivery-2".to_string(),
+            route_id: "route-1".to_string(),
+            automation_guid: "automation-1".to_string(),
+        })
+        .await
+        .unwrap();
+        repo.release_github_delivery_claim("delivery-2", "route-1")
+            .await
+            .unwrap();
+        assert!(repo
+            .find_github_delivery_claim("delivery-2", "route-1")
+            .await
+            .unwrap()
+            .is_none());
+    }
 }

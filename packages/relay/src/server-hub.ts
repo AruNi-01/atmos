@@ -15,6 +15,11 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
+import {
+  ackDelivery,
+  providerFromRelayAddress,
+  type DeliveryAckStatus,
+} from "./delivery-state";
 
 export interface ServerHubEnv {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
@@ -42,6 +47,13 @@ interface HttpRelayResponseBody {
   status: number;
   headers: [string, string][];
   body_b64?: string | null;
+}
+
+interface ExternalEventAckBody {
+  delivery_id?: string;
+  route_id?: string;
+  status?: DeliveryAckStatus;
+  error_code?: string;
 }
 
 export type PeerMeta =
@@ -179,6 +191,10 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get("X-Relay-Http-Gateway") === "1") {
       return this.handleHttpGateway(request);
+    }
+
+    if (request.headers.get("X-Relay-External-Event") === "1") {
+      return this.handleExternalEvent(request);
     }
 
     if (request.headers.get("Upgrade") !== "websocket") {
@@ -319,6 +335,90 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
     }
   }
 
+  private async handleExternalEvent(request: Request): Promise<Response> {
+    const up = this.getServerSocket();
+    if (!up) {
+      return new Response(JSON.stringify({ error: "server_offline" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    let envelope: RelayEnvelope;
+    try {
+      envelope = (await request.json()) as RelayEnvelope;
+    } catch {
+      return new Response(JSON.stringify({ error: "invalid_external_event" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (
+      envelope.v !== 1 ||
+      envelope.stream !== "system" ||
+      envelope.kind !== "external_event" ||
+      envelope.to !== "server" ||
+      typeof envelope.body !== "string"
+    ) {
+      return new Response(JSON.stringify({ error: "invalid_external_event" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    try {
+      up.send(JSON.stringify(envelope));
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 202,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch {
+      return new Response(JSON.stringify({ error: "server_send_failed" }), {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  private async handleExternalEventAck(envelope: RelayEnvelope): Promise<void> {
+    const provider = providerFromRelayAddress(envelope.to);
+    if (!provider) {
+      return;
+    }
+
+    let ack: ExternalEventAckBody;
+    try {
+      ack = JSON.parse(envelope.body ?? "{}") as ExternalEventAckBody;
+    } catch {
+      return;
+    }
+
+    if (
+      !ack.delivery_id ||
+      !ack.route_id ||
+      !ack.status ||
+      !["accepted", "local_rejected", "error"].includes(ack.status)
+    ) {
+      return;
+    }
+
+    try {
+      await ackDelivery(
+        this.env,
+        {
+          provider,
+          deliveryId: ack.delivery_id,
+          routeId: ack.route_id,
+        },
+        ack.status,
+        ack.error_code ?? null,
+      );
+    } catch {
+      /* ignore ack persistence errors; the server already made the local run decision */
+    }
+  }
+
   private fulfillHttpResponse(requestId: string, payload: string) {
     const pending = this.pendingHttp.get(requestId);
     if (!pending) {
@@ -406,6 +506,10 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         const env = JSON.parse(payload) as RelayEnvelope;
         if (env.stream === "http" && env.kind === "response" && env.request_id) {
           this.fulfillHttpResponse(env.request_id, env.body ?? "{}");
+          return;
+        }
+        if (env.stream === "system" && env.kind === "external_event_ack") {
+          await this.handleExternalEventAck(env);
           return;
         }
         if (env.kind === "frame" && env.to?.startsWith("client:")) {

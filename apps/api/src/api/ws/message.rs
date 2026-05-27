@@ -442,6 +442,11 @@ pub enum WsAction {
     AutomationArtifactGet,
     AutomationAgentCapabilities,
     AutomationSchedulePreview,
+    AutomationGithubSetupSession,
+    AutomationGithubInstallations,
+    AutomationGithubRepositories,
+    AutomationGithubEventRouteUpsert,
+    AutomationGithubEventRouteDelete,
 
     // ===== GitHub 操作 =====
     /// 获取分支关联的所有 PR 列表

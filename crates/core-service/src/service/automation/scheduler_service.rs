@@ -188,6 +188,7 @@ impl AutomationService {
                 guid: prepared.run_guid.clone(),
                 automation_guid: automation.guid.clone(),
                 trigger_kind: AutomationTriggerKind::Scheduled.as_str().to_string(),
+                trigger_source_json: None,
                 status: AutomationRunStatus::Running.as_str().to_string(),
                 target_kind: automation.target_kind.clone(),
                 project_guid: automation.project_guid.clone(),

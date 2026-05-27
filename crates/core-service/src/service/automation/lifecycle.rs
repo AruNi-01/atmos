@@ -84,10 +84,26 @@ impl AutomationService {
         automation: automation::Model,
         trigger_kind: AutomationTriggerKind,
     ) -> Result<automation_run::Model> {
+        self.start_run_from_model_with_context(automation, trigger_kind, None, None)
+            .await
+    }
+
+    pub(super) async fn start_run_from_model_with_context(
+        &self,
+        automation: automation::Model,
+        trigger_kind: AutomationTriggerKind,
+        trigger_context: Option<String>,
+        trigger_source_json: Option<String>,
+    ) -> Result<automation_run::Model> {
         let automation_guid = automation.guid.clone();
         self.claim_run_start(&automation_guid).await?;
         let result = self
-            .start_run_from_model_claimed(automation, trigger_kind)
+            .start_run_from_model_claimed(
+                automation,
+                trigger_kind,
+                trigger_context,
+                trigger_source_json,
+            )
             .await;
         self.release_run_start(&automation_guid).await;
         result
@@ -110,6 +126,8 @@ impl AutomationService {
         &self,
         automation: automation::Model,
         trigger_kind: AutomationTriggerKind,
+        trigger_context: Option<String>,
+        trigger_source_json: Option<String>,
     ) -> Result<automation_run::Model> {
         let repo = AutomationRepo::new(&self.db);
         if repo
@@ -122,8 +140,13 @@ impl AutomationService {
         let agent_command = agents::resolve_automation_agent(&automation.agent_id)?;
         let instructions = artifacts::read_instructions(&automation.instructions_path)?;
         let target = self.resolve_target(&automation).await?;
-        let prepared =
-            runner::prepare_run_files(&automation, &instructions, &target, trigger_kind.as_str())?;
+        let prepared = runner::prepare_run_files(
+            &automation,
+            &instructions,
+            &target,
+            trigger_kind.as_str(),
+            trigger_context.as_deref(),
+        )?;
 
         let cwd = if target.target_kind == AutomationTargetKind::Standalone.as_str() {
             prepared.run_dir.clone()
@@ -167,6 +190,7 @@ impl AutomationService {
                 guid: prepared.run_guid.clone(),
                 automation_guid: automation.guid.clone(),
                 trigger_kind: trigger_kind.as_str().to_string(),
+                trigger_source_json,
                 status: AutomationRunStatus::Running.as_str().to_string(),
                 target_kind: target.target_kind.clone(),
                 project_guid: target.project_guid.clone(),

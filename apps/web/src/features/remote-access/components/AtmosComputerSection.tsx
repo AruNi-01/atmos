@@ -26,12 +26,18 @@ import {
   Server,
   Trash2,
 } from 'lucide-react';
+import { wsRequest } from '@/api/ws/request';
+import type {
+  AutomationListResponse,
+  GithubTriggerConfig,
+} from '@/features/automations/types';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { fetchRelayRuntimeInfo } from '@/api/relay';
 import {
   cpFetchWithAccessToken,
   generateAccessToken,
   registerAccessTokenOnRelay,
+  rotateAccessTokenOnRelay,
 } from '@/features/connection/lib/atmos-access-token';
 import {
   loadLocalComputerStatus,
@@ -104,6 +110,45 @@ function SettingsBlock({
   );
 }
 
+async function markGithubAutomationsNeedsSetupAfterIdentitySwitch(): Promise<number> {
+  const list = await wsRequest<AutomationListResponse>('automation_list', {
+    include_paused: true,
+  });
+  const githubAutomations = list.automations.filter(
+    automation =>
+      automation.trigger_kind === 'github' &&
+      automation.trigger_enabled &&
+      automation.trigger_status === 'active',
+  );
+
+  await Promise.all(
+    githubAutomations.map(automation =>
+      wsRequest('automation_update', {
+        automation_guid: automation.guid,
+        trigger: {
+          kind: 'github',
+          enabled: false,
+          status: 'needs_setup',
+          config: parseGithubTriggerConfig(automation.trigger_config_json),
+        },
+      }),
+    ),
+  );
+
+  return githubAutomations.length;
+}
+
+function parseGithubTriggerConfig(raw: string | null): GithubTriggerConfig | null {
+  if (!raw) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as GithubTriggerConfig;
+  } catch {
+    return null;
+  }
+}
+
 export function AtmosComputerSection() {
   const {
     connectionMode,
@@ -162,13 +207,16 @@ export function AtmosComputerSection() {
     }
   }, [setLocalServerId]);
 
-  const refreshComputerList = useCallback(async () => {
-    if (accessToken.trim().length < 32) {
+  const refreshComputerListFor = useCallback(async (
+    token: string,
+    url: string = controlPlaneUrl,
+  ) => {
+    if (token.trim().length < 32) {
       return;
     }
     setListRefreshing(true);
     try {
-      const res = await cpFetchWithAccessToken(controlPlaneUrl, accessToken, '/v1/computers');
+      const res = await cpFetchWithAccessToken(url, token, '/v1/computers');
       const data = (await res.json().catch(() => null)) as { computers?: ComputerRow[] } | null;
       if (res.ok && data?.computers) {
         setComputers(data.computers);
@@ -176,7 +224,11 @@ export function AtmosComputerSection() {
     } finally {
       setListRefreshing(false);
     }
-  }, [accessToken, controlPlaneUrl, setComputers]);
+  }, [controlPlaneUrl, setComputers]);
+
+  const refreshComputerList = useCallback(async () => {
+    await refreshComputerListFor(accessToken, controlPlaneUrl);
+  }, [accessToken, controlPlaneUrl, refreshComputerListFor]);
 
   const onRelayReconnect = useCallback(async () => {
     setBusy('relay-sync');
@@ -336,22 +388,126 @@ export function AtmosComputerSection() {
     setBusy('token-save');
     try {
       const token = tokenDraft.trim();
+      const switchingIdentity = hasKey && token !== accessToken.trim();
       if (!(await ensureAccessTokenReady(token))) {
         return;
       }
+      let githubAutomationsMarked = 0;
+      if (switchingIdentity) {
+        try {
+          await unregisterLocalComputer();
+        } catch (err) {
+          toastManager.add({
+            title: 'Identity switch blocked',
+            description:
+              err instanceof Error
+                ? `Could not stop the old local Relay identity: ${err.message}`
+                : 'Could not stop the old local Relay identity. Try again.',
+            type: 'error',
+          });
+          return;
+        }
+
+        try {
+          githubAutomationsMarked =
+            await markGithubAutomationsNeedsSetupAfterIdentitySwitch();
+        } catch (err) {
+          toastManager.add({
+            title: 'Identity switch blocked',
+            description:
+              err instanceof Error
+                ? `Old local Relay identity was stopped, but GitHub automations could not be marked for setup: ${err.message}`
+                : 'Old local Relay identity was stopped, but GitHub automations could not be marked for setup. Try again.',
+            type: 'error',
+          });
+          return;
+        }
+
+        setLocalServerId(null);
+        setLocalStatus(prev =>
+          prev
+            ? {
+                ...prev,
+                registered: false,
+                relay_connected: false,
+                relay_last_error: null,
+                server_id: null,
+              }
+            : prev,
+        );
+        setComputers([]);
+        resetRelaySession();
+        setConnectionMode('local');
+        await syncClientSessionLocal().catch(() => undefined);
+        await reconnectWs().catch(() => undefined);
+      }
       setAccessToken(token);
+      setTokenReveal(null);
       const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
       if (!persisted) {
         toastManager.add({
-          title: 'Saved for this session',
+          title: switchingIdentity ? 'Identity switched for this session' : 'Saved for this session',
           description:
             'Could not save on this computer. Ensure Atmos is running locally.',
           type: 'warning',
         });
       } else {
-        toastManager.add({ title: 'Access key saved', type: 'success' });
+        toastManager.add({
+          title: switchingIdentity ? 'Identity switched' : 'Access key saved',
+          description: switchingIdentity
+            ? githubAutomationsMarked > 0
+                ? `${githubAutomationsMarked} GitHub-triggered automation${githubAutomationsMarked === 1 ? '' : 's'} now need setup under this identity.`
+                : 'Existing Computers and GitHub routes from the previous key stay with that key.'
+            : undefined,
+          type: 'success',
+        });
       }
-      await refreshComputerList();
+      await refreshComputerListFor(token, controlPlaneUrl);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onRotateToken() {
+    const currentToken = accessToken.trim();
+    if (currentToken.length < 32) {
+      toastManager.add({
+        title: 'Save your access key first',
+        description: 'Rotation uses the current local access key as proof of ownership.',
+        type: 'error',
+      });
+      return;
+    }
+
+    setBusy('token-rotate');
+    try {
+      const nextToken = generateAccessToken();
+      const rotated = await rotateAccessTokenOnRelay(controlPlaneUrl, currentToken, nextToken);
+      if (!rotated.ok) {
+        toastManager.add({
+          title: 'Could not rotate access key',
+          description: rotated.error ?? 'Try again.',
+          type: 'error',
+        });
+        return;
+      }
+
+      const persisted = await saveComputerClientSettingsToDisk(nextToken, controlPlaneUrl);
+      setTokenDraft(nextToken);
+      setAccessToken(nextToken);
+      setTokenReveal(nextToken);
+      resetRelaySession();
+      setConnectionMode('local');
+      void syncClientSessionLocal().catch(() => undefined);
+      void reconnectWs().catch(() => undefined);
+      toastManager.add({
+        title: 'Access key rotated',
+        description: persisted
+          ? 'Computers and GitHub routes stay on the same identity. Copy the new key now.'
+          : 'Relay accepted the rotation, but Atmos could not save locally. Copy the new key now.',
+        type: persisted ? 'success' : 'warning',
+      });
+      await refreshComputerListFor(nextToken, controlPlaneUrl);
     } finally {
       setBusy(null);
     }
@@ -375,7 +531,7 @@ export function AtmosComputerSection() {
           : 'Copy it now — could not save on this computer. Ensure Atmos is running locally.',
         type: persisted ? 'success' : 'warning',
       });
-      await refreshComputerList();
+      await refreshComputerListFor(token, controlPlaneUrl);
     } finally {
       setBusy(null);
     }
@@ -621,6 +777,10 @@ export function AtmosComputerSection() {
     localStatus?.computer_name?.trim() ||
     localStatus?.hostname?.replace(/\.local$/i, '') ||
     'This computer';
+  const tokenDraftTrimmed = tokenDraft.trim();
+  const tokenDraftChanged = tokenDraftTrimmed !== accessToken.trim();
+  const isSwitchingIdentity = hasKey && tokenDraftChanged;
+  const canSaveTokenDraft = Boolean(tokenDraftTrimmed) && (!hasKey || tokenDraftChanged);
 
   return (
     <div className="space-y-4">
@@ -639,62 +799,100 @@ export function AtmosComputerSection() {
         icon={<KeyRound className="size-5" />}
         description="Your access key registers new Computers (via registration codes) and lists all Computers on your account."
         headerAction={
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy !== null || !!tokenDraft.trim()}
-            onClick={() => void onGenerateToken()}
-          >
-            {busy === 'token-generate' ? (
-              <LoaderCircle className="mr-2 size-4 animate-spin" />
-            ) : (
-              <Plus className="mr-2 size-4" />
-            )}
-            Generate
-          </Button>
+          !hasKey ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy !== null || !!tokenDraft.trim()}
+              onClick={() => void onGenerateToken()}
+            >
+              {busy === 'token-generate' ? (
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 size-4" />
+              )}
+              Generate
+            </Button>
+          ) : null
         }
       >
-        <div className="flex items-center gap-3">
-          <div className="relative min-w-0 flex-1">
-            <Input
-              type="password"
-              autoComplete="off"
-              value={tokenDraft}
-              onChange={e => setTokenDraft(e.target.value)}
-              placeholder="Paste your access key or generate a new one"
-              className="pr-10"
-            />
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="relative min-w-0 flex-1">
+              <Input
+                type="password"
+                autoComplete="off"
+                value={tokenDraft}
+                onChange={e => setTokenDraft(e.target.value)}
+                placeholder="Paste your access key or generate a new one"
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
+                disabled={busy !== null || !tokenDraft.trim()}
+                onClick={() => void onCopyToken()}
+                title={tokenCopied ? 'Copied' : 'Copy access key'}
+                aria-label={tokenCopied ? 'Copied' : 'Copy access key'}
+              >
+                {tokenCopied ? (
+                  <Check className="size-4 text-emerald-500" />
+                ) : (
+                  <Copy className="size-4" />
+                )}
+              </Button>
+            </div>
             <Button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
-              disabled={busy !== null || !tokenDraft.trim()}
-              onClick={() => void onCopyToken()}
-              title={tokenCopied ? 'Copied' : 'Copy access key'}
-              aria-label={tokenCopied ? 'Copied' : 'Copy access key'}
+              variant={isSwitchingIdentity ? 'secondary' : 'ghost'}
+              className="shrink-0 px-3"
+              disabled={busy !== null || !canSaveTokenDraft}
+              onClick={() => void onSaveToken()}
             >
-              {tokenCopied ? (
-                <Check className="size-4 text-emerald-500" />
+              {busy === 'token-save' ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : isSwitchingIdentity ? (
+                'Switch Identity'
               ) : (
-                <Copy className="size-4" />
+                'Save'
               )}
             </Button>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            className="shrink-0 px-3"
-            disabled={busy !== null || !tokenDraft.trim()}
-            onClick={() => void onSaveToken()}
-          >
-            {busy === 'token-save' ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              'Save'
-            )}
-          </Button>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {isSwitchingIdentity
+              ? 'Switch Identity replaces the local key directly. Existing Computers and GitHub routes from the current key will not move.'
+              : hasKey
+                ? 'Use Rotate Access Token below to replace this credential while keeping the same Computers and GitHub routes.'
+                : 'Generate or paste an access key to create or use an Atmos Computer identity.'}
+          </p>
         </div>
+        {hasKey ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Rotate Access Token</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Uses the current local key to rotate credentials on Relay, then saves the new key
+                after Relay confirms.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0"
+              disabled={busy !== null}
+              onClick={() => void onRotateToken()}
+            >
+              {busy === 'token-rotate' ? (
+                <LoaderCircle className="mr-2 size-4 animate-spin" />
+              ) : (
+                <RotateCw className="mr-2 size-4" />
+              )}
+              Rotate
+            </Button>
+          </div>
+        ) : null}
         {tokenReveal ? (
           <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
             <p className="text-sm font-medium">Copy your access key now</p>

@@ -190,6 +190,11 @@ export type WsAction =
   | "automation_artifact_get"
   | "automation_agent_capabilities"
   | "automation_schedule_preview"
+  | "automation_github_setup_session"
+  | "automation_github_installations"
+  | "automation_github_repositories"
+  | "automation_github_event_route_upsert"
+  | "automation_github_event_route_delete"
   // GitHub 操作
   | "github_pr_list"
   | "github_pr_detail"

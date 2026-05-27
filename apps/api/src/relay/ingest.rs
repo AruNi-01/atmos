@@ -26,6 +26,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::api::ws::handlers::push_latest_messages;
 use crate::app_state::AppState;
+use crate::relay::external_events;
 use crate::relay::http_gateway;
 
 /// Interval between server-initiated WS protocol pings.
@@ -252,6 +253,32 @@ pub async fn run(
                             "kind": "response",
                             "request_id": request_id,
                             "body": response_body,
+                        })
+                        .to_string();
+                        let _ = relay_out.send(Message::Text(outbound.into()));
+                    });
+                    continue;
+                }
+
+                if env.stream.as_deref() == Some("system") && env.kind == "external_event" {
+                    let body = env.body.unwrap_or_default();
+                    let relay_out = out_tx.clone();
+                    let request_id = env.request_id.clone();
+                    let ack_to = env.from.clone();
+                    let state = state.clone();
+                    tokio::spawn(async move {
+                        let Some(ack_body) =
+                            external_events::handle_external_event_body(&state, &body).await
+                        else {
+                            return;
+                        };
+                        let outbound = serde_json::json!({
+                            "v": 1_u32,
+                            "stream": "system",
+                            "kind": "external_event_ack",
+                            "request_id": request_id,
+                            "to": ack_to,
+                            "body": ack_body,
                         })
                         .to_string();
                         let _ = relay_out.send(Message::Text(outbound.into()));

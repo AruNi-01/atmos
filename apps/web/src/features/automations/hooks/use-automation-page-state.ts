@@ -4,7 +4,9 @@ import * as React from "react";
 import { toastManager } from "@workspace/ui";
 
 import { useAutomations } from "@/features/automations/hooks/use-automations";
+import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
 import { formatShortId } from "@/features/automations/lib/automation-format";
+import { deleteAutomationWithGithubRoute } from "@/features/automations/lib/github-route-lifecycle";
 import type { SetupMode } from "@/features/automations/components/AutomationSetup";
 import type {
   AutomationArtifactKind,
@@ -33,6 +35,7 @@ export function useAutomationPageState() {
     getAutomation,
     createAutomation,
     updateAutomation,
+    deleteAutomation,
     runNow,
     pauseAutomation,
     resumeAutomation,
@@ -42,6 +45,7 @@ export function useAutomationPageState() {
     getArtifact,
     schedulePreview,
   } = useAutomations();
+  const githubPrereqs = useGithubRelayPrerequisites();
   const projects = useProjectStore((state) => state.projects);
   const isProjectsLoading = useProjectStore((state) => state.isLoading);
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
@@ -319,6 +323,7 @@ export function useAutomationPageState() {
       setRuns([]);
       setSelectedRunGuid(null);
       setSetupMode(null);
+      return detail;
     },
     [createAutomation, upsertAutomation],
   );
@@ -335,12 +340,13 @@ export function useAutomationPageState() {
       setSelectedAutomationGuid(detail.guid);
       setSelectedDetail(detail);
       setSetupMode(null);
+      return detail;
     },
     [updateAutomation, upsertAutomation],
   );
 
   const handleDefinitionAction = React.useCallback(
-    async (action: "run" | "pause" | "resume", automation: AutomationSummary) => {
+    async (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => {
       setBusyAction(`${action}:${automation.guid}`);
       try {
         if (action === "run") {
@@ -373,6 +379,28 @@ export function useAutomationPageState() {
             description: automation.display_name,
             type: "info",
           });
+        } else if (action === "delete") {
+          if (!window.confirm(`Delete automation "${automation.display_name}"?`)) {
+            return;
+          }
+          await deleteAutomationWithGithubRoute({
+            automation,
+            githubPrereqs,
+            deleteAutomation,
+          });
+          removeAutomation(automation.guid);
+          if (automation.guid === selectedAutomationGuid) {
+            setSelectedAutomationGuid(null);
+            setSelectedDetail(null);
+            setRuns([]);
+            setSelectedRunGuid(null);
+            setSelectedRun(null);
+          }
+          toastManager.add({
+            title: "Automation deleted",
+            description: automation.display_name,
+            type: "success",
+          });
         } else {
           const detail = await resumeAutomation(automation.guid);
           upsertAutomation(detail);
@@ -385,7 +413,12 @@ export function useAutomationPageState() {
         }
       } catch (err) {
         toastManager.add({
-          title: action === "run" ? "Run now failed" : "Schedule update failed",
+          title:
+            action === "run"
+              ? "Run now failed"
+              : action === "delete"
+                ? "Delete failed"
+                : "Schedule update failed",
           description: err instanceof Error ? err.message : "Unknown error",
           type: "error",
         });
@@ -393,7 +426,18 @@ export function useAutomationPageState() {
         setBusyAction(null);
       }
     },
-    [loadRuns, pauseAutomation, refreshAutomation, resumeAutomation, runNow, upsertAutomation],
+    [
+      deleteAutomation,
+      githubPrereqs,
+      loadRuns,
+      pauseAutomation,
+      refreshAutomation,
+      removeAutomation,
+      resumeAutomation,
+      runNow,
+      selectedAutomationGuid,
+      upsertAutomation,
+    ],
   );
 
   const handleCancelRun = React.useCallback(

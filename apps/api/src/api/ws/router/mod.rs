@@ -602,6 +602,26 @@ impl WsMessageService {
                 self.handle_automation_schedule_preview(parse_request(request.data)?)
                     .await
             }
+            WsAction::AutomationGithubSetupSession => {
+                self.handle_automation_github_setup_session(request.data)
+                    .await
+            }
+            WsAction::AutomationGithubInstallations => {
+                self.handle_automation_github_installations(request.data)
+                    .await
+            }
+            WsAction::AutomationGithubRepositories => {
+                self.handle_automation_github_repositories(request.data)
+                    .await
+            }
+            WsAction::AutomationGithubEventRouteUpsert => {
+                self.handle_automation_github_event_route_upsert(request.data)
+                    .await
+            }
+            WsAction::AutomationGithubEventRouteDelete => {
+                self.handle_automation_github_event_route_delete(request.data)
+                    .await
+            }
 
             // GitHub
             WsAction::GithubPrList => {

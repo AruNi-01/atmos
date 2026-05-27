@@ -69,7 +69,7 @@ export function AutomationPageShell({
   onEdit: () => void;
   onSelectAutomation: (guid: string) => void;
   onRefreshRuns: () => void;
-  onRunAction: (action: "run" | "pause" | "resume", automation: AutomationSummary) => Promise<void>;
+  onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
   onSelectRun: (guid: string) => void;
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;

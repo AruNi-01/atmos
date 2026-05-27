@@ -72,6 +72,51 @@ export async function registerAccessTokenOnRelay(
   }
 }
 
+export async function rotateAccessTokenOnRelay(
+  controlPlaneUrl: string,
+  currentAccessToken: string,
+  newAccessToken: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const currentToken = currentAccessToken.trim();
+  const nextToken = newAccessToken.trim();
+
+  if (currentToken.length < 32) {
+    return { ok: false, error: 'Current access key is too short.' };
+  }
+  if (nextToken.length < 32) {
+    return { ok: false, error: 'New access key is too short.' };
+  }
+  if (currentToken === nextToken) {
+    return { ok: false, error: 'New access key must be different.' };
+  }
+
+  try {
+    const res = await cpFetchWithAccessToken(
+      controlPlaneUrl,
+      currentToken,
+      '/v1/tenants/rotate_token',
+      {
+        method: 'POST',
+        body: JSON.stringify({ new_token: nextToken }),
+      },
+    );
+    if (res.ok) {
+      return { ok: true };
+    }
+
+    const data = (await res.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    return {
+      ok: false,
+      error: data?.error ?? data?.message ?? `HTTP ${res.status}`,
+    };
+  } catch (err) {
+    return { ok: false, error: formatFetchError(err) };
+  }
+}
+
 export async function cpFetchWithAccessToken(
   controlPlaneUrl: string,
   accessToken: string,

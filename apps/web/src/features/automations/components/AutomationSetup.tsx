@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useQueryState } from "nuqs";
 import {
   Button,
   Input,
@@ -27,6 +28,12 @@ import {
   validationMessage,
   type TriggerChoice,
 } from "@/features/automations/lib/automation-schedule";
+import {
+  createAutomationWithGithubRoute,
+  triggerInputForSubmit,
+  updateAutomationWithGithubRoute,
+} from "@/features/automations/lib/github-route-lifecycle";
+import { useGithubTriggerSetup } from "@/features/automations/hooks/use-github-trigger-setup";
 import type {
   AutomationAgentCapability,
   AutomationCreateRequest,
@@ -41,6 +48,7 @@ import {
   type ComposerHandle,
 } from "@/features/welcome/components/PromptComposer";
 import type { Project } from "@/shared/types/domain";
+import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
 
 export type SetupMode = "create" | "edit";
 
@@ -70,11 +78,13 @@ export function AutomationSetup({
     count?: number,
   ) => Promise<AutomationSchedulePreviewResponse>;
   onCancel: () => void;
-  onCreate: (request: AutomationCreateRequest) => Promise<void>;
-  onUpdate: (request: AutomationUpdateRequest) => Promise<void>;
+  onCreate: (request: AutomationCreateRequest) => Promise<AutomationDetail>;
+  onUpdate: (request: AutomationUpdateRequest) => Promise<AutomationDetail>;
 }) {
   const composerRef = React.useRef<ComposerHandle | null>(null);
   const previewRequestIdRef = React.useRef(0);
+  const [, setSettingsModalOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
+  const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
   const [timezone, setTimezone] = React.useState(resolveTimezone);
   const [displayName, setDisplayName] = React.useState("");
   const [instructions, setInstructions] = React.useState("");
@@ -97,6 +107,36 @@ export function AutomationSetup({
   const workspaces = React.useMemo(() => flattenWorkspaces(projects), [projects]);
   const selectedAgent = agents.find((agent) => agent.agent_id === agentId) ?? null;
   const supportedAgents = agents.filter((agent) => agent.automation_supported);
+  const {
+    githubPrereqs,
+    githubRelayReady,
+    githubRouteReady,
+    initialGithubConfig,
+    githubInstallations,
+    githubRepositories,
+    githubLoading,
+    githubRepositoriesLoading,
+    githubError,
+    githubInstallationId,
+    githubRepositoryFullName,
+    githubEventFamily,
+    githubPullRequestAction,
+    githubBranchFilter,
+    githubCommentContains,
+    githubSenderLogins,
+    githubWorkflowConclusion,
+    githubSetupMessage,
+    buildGithubConfig,
+    startGithubSetup,
+    setGithubInstallationId,
+    setGithubRepositoryFullName,
+    setGithubEventFamily,
+    setGithubPullRequestAction,
+    setGithubBranchFilter,
+    setGithubCommentContains,
+    setGithubSenderLogins,
+    setGithubWorkflowConclusion,
+  } = useGithubTriggerSetup({ mode, initialAutomation, trigger });
 
   React.useEffect(() => {
     if (mode === "edit" && initialAutomation) {
@@ -146,8 +186,8 @@ export function AutomationSetup({
   );
   const scheduleValid =
     trigger === "manual" ||
+    trigger === "github" ||
     (scheduleInput !== null && (trigger !== "cron" || cronExpr.trim().split(/\s+/).length === 5));
-
   React.useEffect(() => {
     if (!scheduleInput || trigger === "manual") {
       previewRequestIdRef.current += 1;
@@ -188,7 +228,7 @@ export function AutomationSetup({
     !!selectedAgent?.automation_supported &&
     targetValid &&
     scheduleValid &&
-    (!previewError || trigger === "manual");
+    (!previewError || trigger === "manual" || trigger === "github");
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -207,30 +247,49 @@ export function AutomationSetup({
     }
 
     const target = buildTargetInput(targetKind, projectGuid, workspaceGuid);
-    const requestSchedule = trigger === "manual" ? null : scheduleInput;
-    if (trigger !== "manual" && !requestSchedule) {
+    const requestSchedule = trigger === "manual" || trigger === "github" ? null : scheduleInput;
+    if (trigger !== "manual" && trigger !== "github" && !requestSchedule) {
       setSubmitError("Choose a valid schedule.");
       return;
     }
+    const githubConfig = trigger === "github" ? buildGithubConfig() : null;
+    const previousGithubConfig = mode === "edit" ? initialGithubConfig : null;
 
     setSubmitting(true);
     try {
       if (mode === "create") {
-        await onCreate({
-          display_name: displayName.trim(),
-          instructions: instructions.trim(),
-          agent_id: agentId,
-          target,
-          schedule: requestSchedule,
+        await createAutomationWithGithubRoute({
+          request: {
+            display_name: displayName.trim(),
+            instructions: instructions.trim(),
+            agent_id: agentId,
+            target,
+            schedule: requestSchedule,
+            trigger: triggerInputForSubmit(trigger, githubConfig, false),
+          },
+          githubConfig,
+          githubRouteReady,
+          githubPrereqs,
+          createAutomation: onCreate,
+          updateAutomation: onUpdate,
         });
       } else if (initialAutomation) {
-        await onUpdate({
-          automation_guid: initialAutomation.guid,
-          display_name: displayName.trim(),
-          instructions: instructions.trim(),
-          agent_id: agentId,
-          target,
-          schedule: requestSchedule,
+        await updateAutomationWithGithubRoute({
+          request: {
+            automation_guid: initialAutomation.guid,
+            display_name: displayName.trim(),
+            instructions: instructions.trim(),
+            agent_id: agentId,
+            target,
+            schedule: requestSchedule,
+          },
+          initialAutomation,
+          trigger,
+          previousGithubConfig,
+          nextGithubConfig: githubConfig,
+          githubRouteReady,
+          githubPrereqs,
+          updateAutomation: onUpdate,
         });
       }
     } catch (err) {
@@ -239,6 +298,15 @@ export function AutomationSetup({
       setSubmitting(false);
     }
   };
+
+  const handleGithubStartSetup = React.useCallback(() => {
+    void startGithubSetup(window.location.href);
+  }, [startGithubSetup]);
+
+  const handleOpenComputerSettings = React.useCallback(() => {
+    void setActiveSettingTab("atmos-computer");
+    void setSettingsModalOpen(true);
+  }, [setActiveSettingTab, setSettingsModalOpen]);
 
   if (mode === "edit" && initialAutomationLoading && !initialAutomation) {
     return (
@@ -353,6 +421,21 @@ export function AutomationSetup({
                   preview={preview}
                   previewError={previewError}
                   previewLoading={previewLoading}
+                  githubRelayReady={githubRelayReady}
+                  githubSetupMessage={githubSetupMessage}
+                  githubInstallations={githubInstallations}
+                  githubRepositories={githubRepositories}
+                  githubLoading={githubLoading}
+                  githubRepositoriesLoading={githubRepositoriesLoading}
+                  githubError={githubError}
+                  githubInstallationId={githubInstallationId}
+                  githubRepositoryFullName={githubRepositoryFullName}
+                  githubEventFamily={githubEventFamily}
+                  githubPullRequestAction={githubPullRequestAction}
+                  githubBranchFilter={githubBranchFilter}
+                  githubCommentContains={githubCommentContains}
+                  githubSenderLogins={githubSenderLogins}
+                  githubWorkflowConclusion={githubWorkflowConclusion}
                   onTriggerChange={(nextTrigger) => {
                     setTrigger(nextTrigger);
                     setSubmitError(null);
@@ -362,6 +445,26 @@ export function AutomationSetup({
                   onDayOfWeekChange={setDayOfWeek}
                   onDayOfMonthChange={setDayOfMonth}
                   onCronExprChange={setCronExpr}
+                  onGithubStartSetup={handleGithubStartSetup}
+                  onGithubOpenComputerSettings={handleOpenComputerSettings}
+                  onGithubInstallationChange={(installationId) => {
+                    setGithubInstallationId(installationId);
+                    setGithubRepositoryFullName("");
+                    setSubmitError(null);
+                  }}
+                  onGithubRepositoryChange={(fullName) => {
+                    setGithubRepositoryFullName(fullName);
+                    setSubmitError(null);
+                  }}
+                  onGithubEventFamilyChange={(family) => {
+                    setGithubEventFamily(family);
+                    setSubmitError(null);
+                  }}
+                  onGithubPullRequestActionChange={setGithubPullRequestAction}
+                  onGithubBranchFilterChange={setGithubBranchFilter}
+                  onGithubCommentContainsChange={setGithubCommentContains}
+                  onGithubSenderLoginsChange={setGithubSenderLogins}
+                  onGithubWorkflowConclusionChange={setGithubWorkflowConclusion}
                 />
               </div>
 

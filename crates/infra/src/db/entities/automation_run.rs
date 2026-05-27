@@ -13,6 +13,7 @@ pub struct Model {
     pub is_deleted: bool,
     pub automation_guid: String,
     pub trigger_kind: String,
+    pub trigger_source_json: Option<String>,
     pub status: String,
     pub failure_kind: Option<String>,
     pub error_message: Option<String>,

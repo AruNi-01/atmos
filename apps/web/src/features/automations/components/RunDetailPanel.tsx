@@ -13,6 +13,7 @@ import {
   artifactLabel,
   formatDateTime,
   formatShortId,
+  parseGithubRunSource,
 } from "@/features/automations/lib/automation-format";
 import type {
   AutomationArtifactKind,
@@ -48,6 +49,7 @@ export function RunDetailPanel({
   }
 
   const openPath = artifact?.path ?? run.result_path;
+  const githubSource = parseGithubRunSource(run);
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -93,6 +95,25 @@ export function RunDetailPanel({
         <div className="grid gap-3 md:grid-cols-2">
           <MetadataItem label="Status" value={<StatusBadge status={run.status} />} />
           <MetadataItem label="Trigger" value={run.trigger_kind} />
+          {githubSource?.repository ? (
+            <MetadataItem label="Repository" value={githubSource.repository} />
+          ) : null}
+          {githubSource?.event ? <MetadataItem label="Event" value={githubSource.event} /> : null}
+          {githubSource?.sourceUrl ? (
+            <MetadataItem
+              label="Source"
+              value={
+                <a
+                  className="text-primary underline-offset-2 hover:underline"
+                  href={githubSource.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open GitHub
+                </a>
+              }
+            />
+          ) : null}
           <MetadataItem label="Started" value={formatDateTime(run.started_at)} />
           <MetadataItem label="Completed" value={formatDateTime(run.completed_at)} />
           <MetadataItem label="Exit code" value={run.exit_code === null ? "None" : String(run.exit_code)} />

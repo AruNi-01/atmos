@@ -13,7 +13,10 @@ import {
 } from "@workspace/ui";
 import { CalendarClock, CheckCircle2, Clock3, LoaderCircle } from "lucide-react";
 
+import { AutomationGithubTriggerPanel } from "@/features/automations/components/AutomationGithubTriggerPanel";
+import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
 import type { AutomationSchedulePreviewResponse } from "@/features/automations/types";
+import type { GithubEventFamily } from "@/features/automations/types";
 import {
   DAY_OPTIONS,
   TRIGGER_OPTIONS,
@@ -31,12 +34,37 @@ export function AutomationTriggerPicker({
   preview,
   previewError,
   previewLoading,
+  githubRelayReady,
+  githubSetupMessage,
+  githubInstallations,
+  githubRepositories,
+  githubLoading,
+  githubRepositoriesLoading,
+  githubError,
+  githubInstallationId,
+  githubRepositoryFullName,
+  githubEventFamily,
+  githubPullRequestAction,
+  githubBranchFilter,
+  githubCommentContains,
+  githubSenderLogins,
+  githubWorkflowConclusion,
   onTriggerChange,
   onHourChange,
   onMinuteChange,
   onDayOfWeekChange,
   onDayOfMonthChange,
   onCronExprChange,
+  onGithubStartSetup,
+  onGithubOpenComputerSettings,
+  onGithubInstallationChange,
+  onGithubRepositoryChange,
+  onGithubEventFamilyChange,
+  onGithubPullRequestActionChange,
+  onGithubBranchFilterChange,
+  onGithubCommentContainsChange,
+  onGithubSenderLoginsChange,
+  onGithubWorkflowConclusionChange,
 }: {
   trigger: TriggerChoice;
   hour: number;
@@ -47,12 +75,37 @@ export function AutomationTriggerPicker({
   preview: AutomationSchedulePreviewResponse | null;
   previewError: string | null;
   previewLoading: boolean;
+  githubRelayReady: boolean;
+  githubSetupMessage: string;
+  githubInstallations: GithubInstallation[];
+  githubRepositories: GithubRepository[];
+  githubLoading: boolean;
+  githubRepositoriesLoading: boolean;
+  githubError: string | null;
+  githubInstallationId: number | null;
+  githubRepositoryFullName: string;
+  githubEventFamily: GithubEventFamily;
+  githubPullRequestAction: string;
+  githubBranchFilter: string;
+  githubCommentContains: string;
+  githubSenderLogins: string;
+  githubWorkflowConclusion: string;
   onTriggerChange: (trigger: TriggerChoice) => void;
   onHourChange: (value: number) => void;
   onMinuteChange: (value: number) => void;
   onDayOfWeekChange: (value: number) => void;
   onDayOfMonthChange: (value: number) => void;
   onCronExprChange: (value: string) => void;
+  onGithubStartSetup: () => void;
+  onGithubOpenComputerSettings: () => void;
+  onGithubInstallationChange: (installationId: number) => void;
+  onGithubRepositoryChange: (fullName: string) => void;
+  onGithubEventFamilyChange: (family: GithubEventFamily) => void;
+  onGithubPullRequestActionChange: (action: string) => void;
+  onGithubBranchFilterChange: (value: string) => void;
+  onGithubCommentContainsChange: (value: string) => void;
+  onGithubSenderLoginsChange: (value: string) => void;
+  onGithubWorkflowConclusionChange: (value: string) => void;
 }) {
   return (
     <section className="rounded-md border border-border bg-background p-4 shadow-xs">
@@ -82,7 +135,35 @@ export function AutomationTriggerPicker({
         ))}
       </div>
 
-      {trigger !== "manual" ? (
+      {trigger === "github" ? (
+        <AutomationGithubTriggerPanel
+          relayReady={githubRelayReady}
+          setupMessage={githubSetupMessage}
+          installations={githubInstallations}
+          repositories={githubRepositories}
+          loading={githubLoading}
+          repositoriesLoading={githubRepositoriesLoading}
+          error={githubError}
+          selectedInstallationId={githubInstallationId}
+          selectedRepositoryFullName={githubRepositoryFullName}
+          eventFamily={githubEventFamily}
+          pullRequestAction={githubPullRequestAction}
+          branchFilter={githubBranchFilter}
+          commentContains={githubCommentContains}
+          senderLogins={githubSenderLogins}
+          workflowConclusion={githubWorkflowConclusion}
+          onStartSetup={onGithubStartSetup}
+          onOpenComputerSettings={onGithubOpenComputerSettings}
+          onInstallationChange={onGithubInstallationChange}
+          onRepositoryChange={onGithubRepositoryChange}
+          onEventFamilyChange={onGithubEventFamilyChange}
+          onPullRequestActionChange={onGithubPullRequestActionChange}
+          onBranchFilterChange={onGithubBranchFilterChange}
+          onCommentContainsChange={onGithubCommentContainsChange}
+          onSenderLoginsChange={onGithubSenderLoginsChange}
+          onWorkflowConclusionChange={onGithubWorkflowConclusionChange}
+        />
+      ) : trigger !== "manual" ? (
         <div className="mt-4 space-y-3">
           {trigger === "hourly" ? (
             <NumberField label="Minute" value={minute} min={0} max={59} onChange={onMinuteChange} />

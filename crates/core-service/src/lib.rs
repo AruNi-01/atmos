@@ -14,7 +14,10 @@ pub use service::automation::{
     AutomationList, AutomationListReq, AutomationRunDetail, AutomationRunGetReq, AutomationRunList,
     AutomationRunListReq, AutomationRunNowReq, AutomationRunStatus, AutomationScheduleInput,
     AutomationScheduleKind, AutomationSchedulePreviewReq, AutomationService, AutomationSummary,
-    AutomationTargetInput, AutomationTargetKind, AutomationUpdateReq, SchedulePreview,
+    AutomationTargetInput, AutomationTargetKind, AutomationTriggerInput, AutomationTriggerKind,
+    AutomationTriggerStatus, AutomationUpdateReq, ExternalTriggerOutcome,
+    ExternalTriggerRejectReason, ExternalTriggerRejection, GithubEventFamily, GithubTriggerConfig,
+    GithubTriggerEvent, GithubTriggerFilters, SchedulePreview,
 };
 pub use service::canvas::{CanvasBoardDto, CanvasService, SaveCanvasBoardReq};
 pub use service::canvas_agent_relay::{

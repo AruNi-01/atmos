@@ -7,6 +7,7 @@ import {
   Pause,
   Pencil,
   Play,
+  Trash2,
   Workflow,
 } from "lucide-react";
 
@@ -62,7 +63,7 @@ export function AutomationDetailPanel({
   agents: AutomationAgentCapability[];
   onEdit: () => void;
   onRefreshRuns: () => void;
-  onRunAction: (action: "run" | "pause" | "resume", automation: AutomationSummary) => Promise<void>;
+  onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
   onSelectRun: (guid: string) => void;
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
@@ -148,6 +149,20 @@ export function AutomationDetailPanel({
             <Button variant="outline" size="sm" onClick={onEdit} disabled={!detail && detailLoading}>
               <Pencil className="size-4" />
               Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void onRunAction("delete", automation)}
+              disabled={busyAction === `delete:${automation.guid}`}
+              className="text-destructive hover:text-destructive"
+            >
+              {busyAction === `delete:${automation.guid}` ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              Delete
             </Button>
           </div>
         </div>

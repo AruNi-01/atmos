@@ -8,6 +8,7 @@ import {
   formatDateTime,
   formatShortId,
   formatTargetKind,
+  parseGithubRunSource,
 } from "@/features/automations/lib/automation-format";
 import type { AutomationRunSummary } from "@/features/automations/types";
 
@@ -86,6 +87,11 @@ function RunHistoryRow({
   onSelect: () => void;
   onCancel: () => void;
 }) {
+  const githubSource = parseGithubRunSource(run);
+  const triggerLabel = githubSource
+    ? [githubSource.repository, githubSource.event].filter(Boolean).join(" / ")
+    : run.trigger_kind;
+
   return (
     <div
       className={cn(
@@ -99,7 +105,7 @@ function RunHistoryRow({
           <span className="text-xs tabular-nums text-muted-foreground">{formatShortId(run.guid)}</span>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>{run.trigger_kind}</span>
+          <span>{triggerLabel}</span>
           <span className="text-border">/</span>
           <span>{formatTargetKind(run.target_kind)}</span>
           <span className="text-border">/</span>

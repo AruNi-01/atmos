@@ -32,6 +32,7 @@ mod m20260507_000023_make_review_session_workspace_optional;
 mod m20260512_000024_create_canvas_board;
 mod m20260514_000025_add_project_logo_path;
 mod m20260526_000026_create_automation_tables;
+mod m20260527_000027_add_automation_trigger_metadata;
 
 pub struct Migrator;
 
@@ -66,6 +67,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260512_000024_create_canvas_board::Migration),
             Box::new(m20260514_000025_add_project_logo_path::Migration),
             Box::new(m20260526_000026_create_automation_tables::Migration),
+            Box::new(m20260527_000027_add_automation_trigger_metadata::Migration),
         ]
     }
 }

@@ -20,7 +20,39 @@ export type AutomationScheduleKind =
 
 export type AutomationArtifactKind = "prompt" | "output" | "final" | "run_json";
 
-export type AutomationTriggerKind = "manual" | "scheduled";
+export type AutomationTriggerKind = "manual" | "scheduled" | "github";
+
+export type AutomationTriggerStatus = "active" | "needs_setup" | "paused" | "error";
+
+export type GithubEventFamily =
+  | "pull_request"
+  | "pull_request_comment"
+  | "push"
+  | "workflow_run";
+
+export interface GithubTriggerFilters {
+  branch?: string | null;
+  comment_contains?: string | null;
+  sender_logins?: string[];
+  workflow_conclusions?: string[];
+}
+
+export interface GithubTriggerConfig {
+  route_id: string;
+  installation_id: number;
+  repository_id?: number | null;
+  repository_full_name: string;
+  event_family: GithubEventFamily;
+  actions: string[];
+  filters: GithubTriggerFilters;
+}
+
+export interface AutomationTriggerInput {
+  kind: AutomationTriggerKind;
+  enabled?: boolean | null;
+  status?: AutomationTriggerStatus | null;
+  config?: GithubTriggerConfig | null;
+}
 
 export type AutomationDefinitionChange =
   | "created"
@@ -45,6 +77,10 @@ export interface AutomationSummary {
   schedule_expr: string | null;
   schedule_timezone: string;
   next_run_at: string | null;
+  trigger_kind: AutomationTriggerKind;
+  trigger_enabled: boolean;
+  trigger_status: AutomationTriggerStatus;
+  trigger_config_json: string | null;
   last_run_guid: string | null;
   last_status: AutomationRunStatus | null;
   run_count: number;
@@ -92,6 +128,7 @@ export interface AutomationCreateRequest {
   agent_id: string;
   target: AutomationTargetInput;
   schedule: AutomationScheduleInput | null;
+  trigger?: AutomationTriggerInput | null;
 }
 
 export interface AutomationUpdateRequest {
@@ -101,12 +138,14 @@ export interface AutomationUpdateRequest {
   agent_id?: string;
   target?: AutomationTargetInput;
   schedule?: AutomationScheduleInput | null;
+  trigger?: AutomationTriggerInput | null;
 }
 
 export interface AutomationRunSummary {
   guid: string;
   automation_guid: string;
   trigger_kind: AutomationTriggerKind;
+  trigger_source_json: string | null;
   status: AutomationRunStatus;
   failure_kind: string | null;
   error_message: string | null;

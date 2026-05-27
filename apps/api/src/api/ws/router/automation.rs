@@ -1,6 +1,8 @@
-use serde_json::{json, Value};
+use reqwest::Method;
+use serde_json::{json, Map, Value};
 
 use super::*;
+use crate::relay::control_plane_client::RelayControlRequest;
 use core_service::{
     AutomationArtifactGetReq, AutomationCancelRunReq, AutomationCreateReq, AutomationDeleteReq,
     AutomationGetReq, AutomationListReq, AutomationRunGetReq, AutomationRunListReq,
@@ -109,5 +111,89 @@ impl WsMessageService {
     ) -> Result<Value> {
         let result = self.automation_service.schedule_preview(req).await?;
         Ok(json!(result))
+    }
+
+    pub(super) async fn handle_automation_github_setup_session(&self, req: Value) -> Result<Value> {
+        let relay = RelayControlRequest::from_value(req)?;
+        let body = Value::Object(relay.payload);
+        relay
+            .client
+            .json(Method::POST, "/v1/github/setup_sessions", Some(&body))
+            .await
+    }
+
+    pub(super) async fn handle_automation_github_installations(&self, req: Value) -> Result<Value> {
+        let relay = RelayControlRequest::from_value(req)?;
+        relay
+            .client
+            .json::<Value>(Method::GET, "/v1/github/installations", None)
+            .await
+    }
+
+    pub(super) async fn handle_automation_github_repositories(&self, req: Value) -> Result<Value> {
+        let mut relay = RelayControlRequest::from_value(req)?;
+        let installation_id = take_required_i64(&mut relay.payload, "installation_id")?;
+        relay
+            .client
+            .json::<Value>(
+                Method::GET,
+                &format!("/v1/github/installations/{installation_id}/repositories"),
+                None,
+            )
+            .await
+    }
+
+    pub(super) async fn handle_automation_github_event_route_upsert(
+        &self,
+        req: Value,
+    ) -> Result<Value> {
+        let relay = RelayControlRequest::from_value(req)?;
+        let body = Value::Object(relay.payload);
+        relay
+            .client
+            .json(Method::POST, "/v1/github/event_routes", Some(&body))
+            .await
+    }
+
+    pub(super) async fn handle_automation_github_event_route_delete(
+        &self,
+        req: Value,
+    ) -> Result<Value> {
+        let mut relay = RelayControlRequest::from_value(req)?;
+        let route_id = take_required_string(&mut relay.payload, "route_id")?;
+        relay
+            .client
+            .json::<Value>(
+                Method::DELETE,
+                &format!(
+                    "/v1/github/event_routes/{}",
+                    urlencoding::encode(route_id.as_str())
+                ),
+                None,
+            )
+            .await
+    }
+}
+
+fn take_required_string(payload: &mut Map<String, Value>, key: &str) -> Result<String> {
+    match payload.remove(key) {
+        Some(Value::String(value)) if !value.trim().is_empty() => Ok(value.trim().to_string()),
+        _ => Err(ServiceError::Validation(format!("{key} is required."))),
+    }
+}
+
+fn take_required_i64(payload: &mut Map<String, Value>, key: &str) -> Result<i64> {
+    match payload.remove(key) {
+        Some(Value::Number(value)) => value
+            .as_i64()
+            .filter(|value| *value > 0)
+            .ok_or_else(|| ServiceError::Validation(format!("{key} is required."))),
+        Some(Value::String(value)) => value
+            .trim()
+            .parse::<i64>()
+            .ok()
+            .filter(|value| *value > 0)
+            .ok_or_else(|| ServiceError::Validation(format!("{key} is required."))),
+        _ => Err(ServiceError::Validation(format!("{key} is required."))),
     }
 }

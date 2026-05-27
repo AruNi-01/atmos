@@ -6,7 +6,7 @@ import type {
 } from "@/features/automations/types";
 import { clampNumber } from "@/features/automations/lib/automation-format";
 
-export type TriggerChoice = "manual" | AutomationScheduleKind;
+export type TriggerChoice = "manual" | AutomationScheduleKind | "github";
 
 export const TRIGGER_OPTIONS: Array<{
   value: TriggerChoice;
@@ -14,6 +14,7 @@ export const TRIGGER_OPTIONS: Array<{
   description: string;
 }> = [
   { value: "manual", label: "Manual", description: "Run only when started" },
+  { value: "github", label: "GitHub", description: "React to repository events" },
   { value: "hourly", label: "Hourly", description: "At a minute each hour" },
   { value: "daily", label: "Daily", description: "At a time each day" },
   { value: "weekly", label: "Weekly", description: "On a weekday" },
@@ -40,7 +41,7 @@ export function buildScheduleInput(
   dayOfMonth: number,
   cronExpr: string,
 ): AutomationScheduleInput | null {
-  if (trigger === "manual") {
+  if (trigger === "manual" || trigger === "github") {
     return null;
   }
   if (trigger === "cron") {
@@ -95,6 +96,9 @@ export function parseSchedule(automation: AutomationSummary): {
     dayOfMonth: 1,
     cronExpr: automation.schedule_expr ?? "0 9 * * *",
   };
+  if (automation.trigger_kind === "github") {
+    return { ...fallback, trigger: "github" };
+  }
   if (!automation.schedule_kind || !automation.schedule_expr) {
     return fallback;
   }

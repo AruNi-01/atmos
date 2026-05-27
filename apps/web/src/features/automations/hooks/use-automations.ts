@@ -97,6 +97,12 @@ export function useAutomations() {
     return wsRequest<AutomationDetail>("automation_update", request);
   }, []);
 
+  const deleteAutomation = React.useCallback((automationGuid: string) => {
+    return wsRequest<{ ok: boolean }>("automation_delete", {
+      automation_guid: automationGuid,
+    });
+  }, []);
+
   const runNow = React.useCallback((automationGuid: string) => {
     return wsRequest<AutomationRunDetail>("automation_run_now", {
       automation_guid: automationGuid,
@@ -167,6 +173,7 @@ export function useAutomations() {
     getAutomation,
     createAutomation,
     updateAutomation,
+    deleteAutomation,
     runNow,
     pauseAutomation,
     resumeAutomation,
