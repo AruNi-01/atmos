@@ -53,7 +53,6 @@ interface AgentChatHeaderProps {
   handleSetDefaultAgent: (agentId: string) => void;
 
   // Labels
-  panelLabel: string;
   panelTitle: string;
 
   // CWD
@@ -107,7 +106,6 @@ export function AgentChatHeader({
   handleOpenNewSessionAgentsMenu,
   handleScheduleCloseNewSessionAgentsMenu,
   handleSetDefaultAgent,
-  panelLabel,
   panelTitle,
   localPath,
   sessionCwd,
@@ -276,16 +274,10 @@ export function AgentChatHeader({
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-foreground/85 text-background shrink-0">
-                  {panelLabel}
-                </span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-sm font-medium shrink-0">{panelTitle}</span>
-                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-foreground/85 text-background">
-                  {panelLabel}
-                </span>
               </div>
             )}
           </div>

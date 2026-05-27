@@ -28,6 +28,7 @@ export interface UseAgentChatSessionOptions {
   mode: AgentChatMode;
   publishStatus: boolean;
   active?: boolean;
+  transformPrompt?: (prompt: string) => string;
 }
 
 export interface UseAgentChatSessionReturn {
@@ -81,7 +82,6 @@ export interface UseAgentChatSessionReturn {
   sessionWorkspaceId: string | null;
   sessionProjectId: string | null;
   canUseCurrentMode: boolean;
-  panelLabel: string;
   panelTitle: string;
   connectionPhaseLabel: string;
   queueKey: string;

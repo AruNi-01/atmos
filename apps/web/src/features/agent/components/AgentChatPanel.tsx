@@ -44,6 +44,7 @@ interface AgentChatPanelProps {
   mode?: AgentChatMode;
   publishStatus?: boolean;
   active?: boolean;
+  transformPrompt?: (prompt: string) => string;
 }
 
 export function AgentChatPanel({
@@ -51,8 +52,9 @@ export function AgentChatPanel({
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus = variant === "modal",
   active = true,
+  transformPrompt,
 }: AgentChatPanelProps = {}) {
-  const session = useAgentChatSession({ variant, mode, publishStatus, active });
+  const session = useAgentChatSession({ variant, mode, publishStatus, active, transformPrompt });
 
   // ---------------------------------------------------------------------------
   // Draggable & Resizable layout (UI-only, stays in component)
@@ -228,7 +230,6 @@ export function AgentChatPanel({
     sessionWorkspaceId,
     sessionProjectId,
     canUseCurrentMode,
-    panelLabel,
     panelTitle,
     connectionPhaseLabel,
     queueKey,
@@ -309,7 +310,6 @@ export function AgentChatPanel({
         handleOpenNewSessionAgentsMenu={handleOpenNewSessionAgentsMenu}
         handleScheduleCloseNewSessionAgentsMenu={handleScheduleCloseNewSessionAgentsMenu}
         handleSetDefaultAgent={handleSetDefaultAgent}
-        panelLabel={panelLabel}
         panelTitle={panelTitle}
         localPath={localPath}
         sessionCwd={sessionCwd}

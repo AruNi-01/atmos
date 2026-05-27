@@ -31,6 +31,7 @@ interface UseAgentChatSubmitHandlerOptions {
   sessionProjectId: string | null;
   sessionWorkspaceId: string | null;
   stoppedRef: MutableRefObject<boolean>;
+  transformPrompt?: (prompt: string) => string;
   setIsAutoGeneratingTitle: Dispatch<SetStateAction<boolean>>;
   setSessionTitle: Dispatch<SetStateAction<string | null>>;
   setSessionTitleSource: Dispatch<SetStateAction<string | null>>;
@@ -50,6 +51,7 @@ export function useAgentChatSubmitHandler({
   sessionProjectId,
   sessionWorkspaceId,
   stoppedRef,
+  transformPrompt,
   setIsAutoGeneratingTitle,
   setSessionTitle,
   setSessionTitleSource,
@@ -89,7 +91,7 @@ export function useAgentChatSubmitHandler({
       }
 
       enqueueAgentChatPrompt({
-        prompt: finalPrompt,
+        prompt: transformPrompt ? transformPrompt(finalPrompt) : finalPrompt,
         displayPrompt: text,
         attachmentPaths,
         files: displayFiles,
@@ -113,6 +115,7 @@ export function useAgentChatSubmitHandler({
       sessionProjectId,
       sessionWorkspaceId,
       stoppedRef,
+      transformPrompt,
       setIsAutoGeneratingTitle,
       setSessionTitle,
       setSessionTitleSource,

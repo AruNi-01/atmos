@@ -53,6 +53,7 @@ export function useAgentChatSession({
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus,
   active = true,
+  transformPrompt,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
   const { workspaceId, projectId, effectiveContextId } = useContextParams();
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
@@ -224,7 +225,6 @@ export function useAgentChatSession({
   const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
   const displaySessionTitle =
     sessionTitle && sessionTitle !== DEFAULT_SESSION_TITLE ? sessionTitle : null;
-  const panelLabel = "Chat";
   const panelTitle = activeAgent?.name ?? "Agent Chat";
   const exportableMessages = useMemo(
     () => buildAgentChatExportableMessages(entries),
@@ -756,6 +756,7 @@ export function useAgentChatSession({
     sessionProjectId,
     sessionWorkspaceId,
     stoppedRef,
+    transformPrompt,
     setIsAutoGeneratingTitle,
     setSessionTitle,
     setSessionTitleSource,
@@ -865,7 +866,6 @@ export function useAgentChatSession({
     sessionWorkspaceId,
     sessionProjectId,
     canUseCurrentMode,
-    panelLabel,
     panelTitle,
     connectionPhaseLabel,
 
