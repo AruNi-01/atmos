@@ -58,6 +58,8 @@ export function useAcpSessionList({
     setSessions([]);
     setMeta(null);
     setCursor(null);
+    setIsLoading(false);
+    setIsLoadingMore(false);
     setUnsupportedReason(null);
   }, []);
 

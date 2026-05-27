@@ -27,14 +27,29 @@ pub fn path_within_root(path: &Path, root: &Path) -> bool {
 }
 
 pub fn path_or_existing_parent_within_root(path: &Path, root: &Path) -> bool {
-    if path.symlink_metadata().is_ok() {
-        return path_within_root(path, root);
-    }
-
-    let Some(parent) = path.parent() else {
+    let Ok(canonical_root) = root.canonicalize() else {
         return false;
     };
-    path_within_root(parent, root)
+
+    if path.symlink_metadata().is_ok() {
+        let Ok(canonical_path) = path.canonicalize() else {
+            return false;
+        };
+        return canonical_path.starts_with(canonical_root);
+    }
+
+    let normalized_path = normalize_path_for_boundary(path);
+    for ancestor in normalized_path.ancestors() {
+        if ancestor.symlink_metadata().is_err() {
+            continue;
+        }
+        let Ok(canonical_ancestor) = ancestor.canonicalize() else {
+            return false;
+        };
+        return canonical_ancestor.starts_with(canonical_root);
+    }
+
+    false
 }
 
 #[cfg(test)]
@@ -73,6 +88,32 @@ mod tests {
 
         assert!(path_or_existing_parent_within_root(
             &root.join("new-file.txt"),
+            &root
+        ));
+    }
+
+    #[test]
+    fn write_boundary_allows_new_nested_path_inside_root() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        fs::create_dir_all(&root).unwrap();
+
+        assert!(path_or_existing_parent_within_root(
+            &root.join("new/nested/file.txt"),
+            &root
+        ));
+    }
+
+    #[test]
+    fn write_boundary_rejects_new_nested_path_after_parent_escape() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let outside = temp.path().join("outside");
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+
+        assert!(!path_or_existing_parent_within_root(
+            &root.join("../outside/new/file.txt"),
             &root
         ));
     }
