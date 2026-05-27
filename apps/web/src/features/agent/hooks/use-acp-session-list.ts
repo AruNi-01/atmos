@@ -10,6 +10,8 @@ import {
 import { parseAuthRequiredError } from "@/features/agent/lib/agent-runtime-socket";
 
 export const ACP_SESSION_LIST_PAGE_LIMIT = 200;
+const ACP_SESSION_LIST_BATCH_TARGET = 20;
+const MAX_SESSION_LIST_PAGES_PER_BATCH = 5;
 
 export type AcpSessionListMeta = Omit<ListAgentSessionsResponse, "items">;
 
@@ -45,6 +47,7 @@ export function useAcpSessionList({
   authMethodId = null,
   enabled = true,
   limit = ACP_SESSION_LIST_PAGE_LIMIT,
+  batchTarget = ACP_SESSION_LIST_BATCH_TARGET,
 }: {
   registryId: string | null;
   cwd?: string | null;
@@ -52,6 +55,7 @@ export function useAcpSessionList({
   authMethodId?: string | null;
   enabled?: boolean;
   limit?: number;
+  batchTarget?: number;
 }) {
   const [sessions, setSessions] = useState<NativeAgentSessionItem[]>([]);
   const [meta, setMeta] = useState<AcpSessionListMeta | null>(null);
@@ -147,13 +151,50 @@ export function useAcpSessionList({
       const responses = await Promise.all(
         rootsToLoad.map(async (root) => {
           const rootKey = sessionListRootKey(root);
-          const response = await agentApi.listSessions({
-            registry_id: registryId,
-            cwd: root,
-            limit,
-            cursor: append ? rootCursorsRef.current[rootKey] ?? undefined : undefined,
-            auth_method_id: authMethodId,
-          });
+          const items: NativeAgentSessionItem[] = [];
+          let cursor = append ? rootCursorsRef.current[rootKey] ?? undefined : undefined;
+          let response: ListAgentSessionsResponse | null = null;
+          let nextCursor: string | null = null;
+          let truncated = false;
+          let pageCount = 0;
+          const seenCursors = new Set<string>();
+          if (cursor) seenCursors.add(cursor);
+
+          while (pageCount < MAX_SESSION_LIST_PAGES_PER_BATCH) {
+            const page = await agentApi.listSessions({
+              registry_id: registryId,
+              cwd: root,
+              limit,
+              cursor,
+              auth_method_id: authMethodId,
+            });
+            pageCount += 1;
+            response = page;
+            items.push(...page.items);
+            truncated = truncated || page.truncated;
+            nextCursor = page.next_cursor;
+
+            if (!nextCursor || items.length >= batchTarget || seenCursors.has(nextCursor)) {
+              if (nextCursor && seenCursors.has(nextCursor)) {
+                nextCursor = null;
+              }
+              break;
+            }
+
+            seenCursors.add(nextCursor);
+            cursor = nextCursor;
+          }
+
+          if (!response) {
+            throw new Error("Failed to load ACP sessions.");
+          }
+
+          response = {
+            ...response,
+            items,
+            next_cursor: nextCursor,
+            truncated,
+          };
           return { rootKey, response };
         }),
       );
@@ -177,7 +218,7 @@ export function useAcpSessionList({
 
       recomputeFromRootCache();
     },
-    [authMethodId, limit, mergeSessions, recomputeFromRootCache, registryId],
+    [authMethodId, batchTarget, limit, mergeSessions, recomputeFromRootCache, registryId],
   );
 
   const loadSessions = useCallback(

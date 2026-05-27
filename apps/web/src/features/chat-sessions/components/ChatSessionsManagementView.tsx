@@ -84,6 +84,12 @@ interface WorkspaceScopeOption {
   cwd: string;
 }
 
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((item) => rightSet.has(item));
+}
+
 export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProps> = ({ hideHeader = false }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -91,6 +97,8 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   const [selectedRegistryId, setSelectedRegistryId] = useQueryState("registry_id", chatSessionsParams.registry_id);
   const [selectedSessionContextId, setSelectedSessionContextId] = useState(ALL_SESSION_CONTEXT_ID);
   const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>([]);
+  const [draftWorkspaceIds, setDraftWorkspaceIds] = useState<string[]>([]);
+  const [workspacePopoverOpen, setWorkspacePopoverOpen] = useState(false);
 
   const [registryAgents, setRegistryAgents] = useState<RegistryAgentInfo[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
@@ -174,21 +182,23 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     if (!projectId) {
       defaultedWorkspaceProjectIdRef.current = null;
       setSelectedWorkspaceIds([]);
+      setDraftWorkspaceIds([]);
       return;
     }
 
     const availableIds = new Set(projectWorkspaceOptions.map((workspace) => workspace.id));
     if (defaultedWorkspaceProjectIdRef.current !== projectId) {
       defaultedWorkspaceProjectIdRef.current = projectId;
-      setSelectedWorkspaceIds(
-        projectWorkspaceOptions
-          .slice(0, DEFAULT_PROJECT_WORKSPACE_LIMIT)
-          .map((workspace) => workspace.id),
-      );
+      const defaultWorkspaceIds = projectWorkspaceOptions
+        .slice(0, DEFAULT_PROJECT_WORKSPACE_LIMIT)
+        .map((workspace) => workspace.id);
+      setSelectedWorkspaceIds(defaultWorkspaceIds);
+      setDraftWorkspaceIds(defaultWorkspaceIds);
       return;
     }
 
     setSelectedWorkspaceIds((prev) => prev.filter((id) => availableIds.has(id)));
+    setDraftWorkspaceIds((prev) => prev.filter((id) => availableIds.has(id)));
   }, [projectWorkspaceOptions, selectedProject?.id]);
 
   const selectedWorkspaceIdSet = useMemo(
@@ -216,9 +226,14 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
       : selectedWorkspaceCount === 1
         ? "1 workspace"
         : `${selectedWorkspaceCount} workspaces`;
+  const draftWorkspaceIdSet = useMemo(
+    () => new Set(draftWorkspaceIds),
+    [draftWorkspaceIds],
+  );
+  const workspaceSelectionDirty = !sameStringSet(selectedWorkspaceIds, draftWorkspaceIds);
 
   const toggleWorkspaceSelection = useCallback((workspaceId: string, checked: boolean) => {
-    setSelectedWorkspaceIds((prev) => {
+    setDraftWorkspaceIds((prev) => {
       if (checked) {
         return prev.includes(workspaceId) ? prev : [...prev, workspaceId];
       }
@@ -227,12 +242,25 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   }, []);
 
   const selectRecentWorkspaces = useCallback(() => {
-    setSelectedWorkspaceIds(
+    setDraftWorkspaceIds(
       projectWorkspaceOptions
         .slice(0, DEFAULT_PROJECT_WORKSPACE_LIMIT)
         .map((workspace) => workspace.id),
     );
   }, [projectWorkspaceOptions]);
+
+  const applyWorkspaceSelection = useCallback(() => {
+    const availableIds = new Set(projectWorkspaceOptions.map((workspace) => workspace.id));
+    setSelectedWorkspaceIds(draftWorkspaceIds.filter((id) => availableIds.has(id)));
+    setWorkspacePopoverOpen(false);
+  }, [draftWorkspaceIds, projectWorkspaceOptions]);
+
+  const handleWorkspacePopoverOpenChange = useCallback((open: boolean) => {
+    setWorkspacePopoverOpen(open);
+    if (open) {
+      setDraftWorkspaceIds(selectedWorkspaceIds);
+    }
+  }, [selectedWorkspaceIds]);
 
   const {
     sessions,
@@ -402,7 +430,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
             </SelectContent>
           </Select>
           {selectedProject ? (
-            <Popover>
+            <Popover open={workspacePopoverOpen} onOpenChange={handleWorkspacePopoverOpenChange}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
@@ -442,7 +470,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                         className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted/60"
                       >
                         <Checkbox
-                          checked={selectedWorkspaceIdSet.has(workspace.id)}
+                          checked={draftWorkspaceIdSet.has(workspace.id)}
                           onCheckedChange={(checked) =>
                             toggleWorkspaceSelection(workspace.id, checked === true)
                           }
@@ -451,6 +479,20 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                       </label>
                     ))
                   )}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 border-t border-border/50 px-2 pt-2">
+                  <span className="min-w-0 text-xs text-muted-foreground">
+                    {draftWorkspaceIds.length} selected
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 px-3 text-xs"
+                    onClick={applyWorkspaceSelection}
+                    disabled={!workspaceSelectionDirty}
+                  >
+                    Apply
+                  </Button>
                 </div>
               </PopoverContent>
             </Popover>
