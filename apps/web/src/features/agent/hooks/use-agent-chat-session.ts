@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryState } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { agentChatParams } from "@/shared/lib/nuqs/searchParams";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import {
   getAgentPromptQueueKey,
@@ -15,10 +17,8 @@ import {
   type AgentPlan,
 } from "@/features/agent/hooks/use-agent-session";
 import { agentApi } from "@/api/ws-api";
-import { agentApi as agentRestApi, type AgentChatSessionItem } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
 import { DEFAULT_AGENT_CHAT_MODE } from "@/features/agent/types/index";
-import { useWikiExists, useWikiStore } from "@/features/wiki/store/use-wiki-store";
 import {
   type ThreadEntry,
 } from "@/features/agent/lib/agent/thread";
@@ -34,12 +34,11 @@ import {
   DEFAULT_SESSION_TITLE,
   getConnectionPhaseLabel,
   resolveAgentChatLocalPath,
-  resolveAgentChatParentProjectId,
-  resolveAgentChatWikiPath,
   type UseAgentChatSessionOptions,
   type UseAgentChatSessionReturn,
 } from "./use-agent-chat-session-types";
 import { useAgentChatMessageHandler } from "./use-agent-chat-message-handler";
+import { useAcpSessionList } from "./use-acp-session-list";
 import { useAgentChatHistoryHandlers } from "./use-agent-chat-history-handlers";
 import { useAgentChatSubmitHandler } from "./use-agent-chat-submit-handler";
 import { useAgentChatStatusPublisher } from "./use-agent-chat-status-publisher";
@@ -55,8 +54,11 @@ export function useAgentChatSession({
   publishStatus,
   active = true,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
-  const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
+  const { workspaceId, projectId, effectiveContextId } = useContextParams();
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
+  const [targetAgentId] = useQueryState("agent", agentChatParams.agent);
+  const [targetSessionId] = useQueryState("session", agentChatParams.session);
+  const [targetSessionCwd] = useQueryState("sessionCwd", agentChatParams.sessionCwd);
   const {
     agentChatPromptQueues,
     enqueueAgentChatPrompt,
@@ -89,10 +91,6 @@ export function useAgentChatSession({
   const conversationRef = useRef<HTMLDivElement>(null);
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historySessions, setHistorySessions] = useState<AgentChatSessionItem[]>([]);
-  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
-  const [historyHasMore, setHistoryHasMore] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [isResumingHistory, setIsResumingHistory] = useState(false);
   const [isManualLoadingMessages, setIsManualLoadingMessages] = useState(false);
   const [isResumedSession, setIsResumedSession] = useState(false);
@@ -115,11 +113,11 @@ export function useAgentChatSession({
   const restoreAttemptedRef = useRef(false);
   const autoResumeTriedRef = useRef<string | null>(null);
   const autoStartHandledRef = useRef(false);
+  const handledDeepLinkRef = useRef<string | null>(null);
   const dispatchingQueuedPromptIdRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
   const forcedDisconnectDoneRef = useRef(false);
   const connectedContextKeyRef = useRef<string | null>(null);
-  const titleInputRef = useRef<HTMLInputElement>(null);
 
   // ---------------------------------------------------------------------------
   // Fetch projects when panel opens
@@ -135,49 +133,30 @@ export function useAgentChatSession({
     [projects, effectiveContextId],
   );
 
-  const parentProjectId = React.useMemo(
-    () => resolveAgentChatParentProjectId(projects, workspaceId),
-    [projects, workspaceId],
-  );
-
-  const wikiPath = React.useMemo(
-    () => resolveAgentChatWikiPath(projects, effectiveContextId),
-    [projects, effectiveContextId],
-  );
-
-  const wikiExists = useWikiExists(effectiveContextId);
-  const checkWikiExists = useWikiStore((s) => s.checkWikiExists);
-  const isProjectScopedView = currentView === "workspace" || currentView === "project";
-  const hasBoundContext = workspaceId != null || projectId != null;
-  const wikiAskAvailability = useMemo(() => {
-    if (!hasBoundContext || !isProjectScopedView) {
-      return { enabled: false, reason: "Only available in Project or Workspace" as const };
-    }
-    if (wikiExists !== true) {
-      return { enabled: false, reason: "Generate Wiki first to use Wiki Ask" as const };
-    }
-    return { enabled: true, reason: null };
-  }, [hasBoundContext, isProjectScopedView, wikiExists]);
-  const canUseCurrentMode = chatMode !== "wiki_ask" || wikiAskAvailability.enabled;
-
-  useEffect(() => {
-    if (!effectiveContextId || !wikiPath || !isProjectScopedView) return;
-    if (wikiExists !== null) return;
-    void checkWikiExists(effectiveContextId, wikiPath);
-  }, [checkWikiExists, effectiveContextId, isProjectScopedView, wikiPath, wikiExists]);
-
-  const sessionWorkspaceId = chatMode === "wiki_ask" && workspaceId && parentProjectId
-    ? null
-    : workspaceId;
-  const sessionProjectId = chatMode === "wiki_ask" && workspaceId && parentProjectId
-    ? parentProjectId
-    : projectId;
+  const canUseCurrentMode = true;
+  const sessionWorkspaceId = workspaceId;
+  const sessionProjectId = projectId;
+  const {
+    sessions: historySessions,
+    setSessions: setHistorySessions,
+    cursor: historyCursor,
+    hasMore: historyHasMore,
+    isLoading: historyLoading,
+    resumeUnsupportedReason: historyResumeUnsupportedReason,
+    unsupportedReason: historyUnsupportedReason,
+    loadSessions: loadHistorySessions,
+  } = useAcpSessionList({
+    registryId,
+    authMethodId: selectedAuthMethodId || null,
+    enabled: historyOpen,
+  });
 
   const { handleMessage, pendingPermissionMarkdown } = useAgentChatMessageHandler({
     entries,
     pendingPermission,
     setCurrentPlan,
     setEntries,
+    setHistorySessions,
     setIsAutoGeneratingTitle,
     setIsResumingHistory,
     setPendingPermission,
@@ -198,6 +177,8 @@ export function useAgentChatSession({
     connectionPhase,
     error,
     authRequest,
+    agentInfo,
+    capabilities,
     sendPrompt,
     sendCancel,
     sendPermissionResponse,
@@ -212,21 +193,13 @@ export function useAgentChatSession({
     sessionUsage,
     setConfigOption,
     setAgentDefaultConfig,
+    logoutAgent,
   } = useAgentSession({
     workspaceId: sessionWorkspaceId,
     projectId: sessionProjectId,
     registryId,
-    mode: chatMode,
     onMessage: handleMessage,
   });
-
-  useEffect(() => {
-    if (canUseCurrentMode || !isConnected) return;
-    disconnect();
-    setWaitingForResponse(false);
-    setPendingPermission(null);
-    stoppedRef.current = false;
-  }, [canUseCurrentMode, disconnect, isConnected]);
 
   useAgentChatStatusPublisher({
     installedAgentCount: installedAgents.length,
@@ -243,29 +216,22 @@ export function useAgentChatSession({
   const activeAgent = installedAgents.find((agent) => agent.id === registryId) ?? null;
   const displaySessionTitle =
     sessionTitle && sessionTitle !== DEFAULT_SESSION_TITLE ? sessionTitle : null;
-  const panelLabel = chatMode === "wiki_ask" ? "Wiki Ask" : "Chat";
-  const panelTitle = activeAgent?.name ?? (variant === "sidebar" ? "Wiki Ask" : "Agent Chat");
+  const panelLabel = "Chat";
+  const panelTitle = activeAgent?.name ?? "Agent Chat";
   const exportableMessages = useMemo(
     () => buildAgentChatExportableMessages(entries),
     [entries],
   );
 
   const {
-    editingTitleValue,
     handleExportConversation,
-    handleFinishEditTitle,
     handleNextMessage,
     handleOpenNewSessionAgentsMenu,
     handlePrevMessage,
     handleScheduleCloseNewSessionAgentsMenu,
     handleSetDefaultAgent,
-    handleStartEditTitle,
-    handleTitleKeyDown,
-    isEditingTitle,
     messageNavIndex,
     newSessionAgentsOpen,
-    setEditingTitleValue,
-    setIsEditingTitle,
     setNewSessionAgentsOpen,
     userEntryIndices,
   } = useAgentChatUiHandlers({
@@ -274,14 +240,7 @@ export function useAgentChatSession({
     entries,
     exportableMessages,
     panelTitle,
-    sessionId,
-    sessionTitle,
     setDefaultRegistryId,
-    setIsAutoGeneratingTitle,
-    setSessionTitle,
-    setSessionTitleSource,
-    setShouldScrambleAutoTitle,
-    titleInputRef,
   });
 
   // ---------------------------------------------------------------------------
@@ -305,29 +264,20 @@ export function useAgentChatSession({
   const {
     handleManualLoadMessages,
     handleSelectHistorySession,
-    loadHistorySessions,
   } = useAgentChatHistoryHandlers({
     autoResumeTriedRef,
+    autoStartHandledRef,
     canUseCurrentMode,
-    chatMode,
-    contextKey,
     disconnect,
-    historyOpen,
     isConnected,
     isConnecting,
     isResumingHistory,
+    projectId: sessionProjectId,
     resumeSession,
     sessionId,
-    sessionProjectId,
-    sessionWorkspaceId,
-    setActiveSessionByContext,
     setCurrentPlan,
     setEntries,
-    setHistoryCursor,
-    setHistoryHasMore,
-    setHistoryLoading,
     setHistoryOpen,
-    setHistorySessions,
     setIsAutoGeneratingTitle,
     setIsManualLoadingMessages,
     setIsResumedSession,
@@ -338,8 +288,10 @@ export function useAgentChatSession({
     setSessionTitleSource,
     setShouldScrambleAutoTitle,
     setWaitingForResponse,
+    restoreAttemptedRef,
     skipNextAutoConnectRef,
     stoppedRef,
+    workspaceId: sessionWorkspaceId,
   });
 
   // ---------------------------------------------------------------------------
@@ -394,14 +346,13 @@ export function useAgentChatSession({
     setSessionTitleSource(null);
     setIsAutoGeneratingTitle(false);
     setShouldScrambleAutoTitle(false);
-    setIsEditingTitle(false);
     setIsResumedSession(false);
     setWaitingForResponse(false);
     stoppedRef.current = false;
     restoreAttemptedRef.current = false;
     autoResumeTriedRef.current = null;
     autoStartHandledRef.current = false;
-  }, [contextKey, disconnect, isConnected, sessionId, setIsEditingTitle]);
+  }, [contextKey, disconnect, isConnected, sessionId]);
 
   // ---------------------------------------------------------------------------
   // Create / submit / close / permission
@@ -420,7 +371,6 @@ export function useAgentChatSession({
     setSessionTitleSource(null);
     setIsAutoGeneratingTitle(false);
     setShouldScrambleAutoTitle(false);
-    setIsEditingTitle(false);
     setIsResumedSession(false);
     setWaitingForResponse(false);
     stoppedRef.current = false;
@@ -446,7 +396,6 @@ export function useAgentChatSession({
     disconnectStashed,
     isConnecting,
     registryId,
-    setIsEditingTitle,
     startSession,
   ]);
 
@@ -515,6 +464,7 @@ export function useAgentChatSession({
       restoreAttemptedRef.current = false;
       skipNextAutoConnectRef.current = false;
       autoStartHandledRef.current = false;
+      handledDeepLinkRef.current = null;
       setHasLoadedAgents(false);
       setIsResumingHistory(false);
       autoResumeTriedRef.current = null;
@@ -527,16 +477,72 @@ export function useAgentChatSession({
     }
   }, [isPanelOpen, isConnecting, loadingAgents, hasLoadedAgents, installedAgents.length, registryId, refreshAgents]);
 
+  useEffect(() => {
+    const targetKey = targetAgentId && targetSessionId
+      ? `${targetAgentId}:${targetSessionId}`
+      : null;
+    if (!targetKey) {
+      handledDeepLinkRef.current = null;
+      return;
+    }
+    if (!isPanelOpen || !hasLoadedAgents || isConnecting || isResumingHistory) return;
+    if (handledDeepLinkRef.current === targetKey) return;
+
+    handledDeepLinkRef.current = targetKey;
+    skipNextAutoConnectRef.current = true;
+    disconnect();
+    setEntries([]);
+    setCurrentPlan(null);
+    setPendingPermission(null);
+    setWaitingForResponse(false);
+    stoppedRef.current = false;
+    setRegistryId(targetAgentId);
+    setSessionTitle(null);
+    setSessionTitleSource(null);
+    setIsAutoGeneratingTitle(false);
+    setShouldScrambleAutoTitle(false);
+    setIsResumedSession(true);
+    setIsResumingHistory(true);
+    autoResumeTriedRef.current = null;
+    restoreAttemptedRef.current = true;
+    autoStartHandledRef.current = true;
+
+    void resumeSession({
+      registryId: targetAgentId,
+      acpSessionId: targetSessionId,
+      cwd: targetSessionCwd || null,
+      workspaceId: sessionWorkspaceId,
+      projectId: sessionProjectId,
+    })
+      .then((success) => {
+        if (!success) setIsResumingHistory(false);
+      })
+      .catch(() => {
+        setIsResumingHistory(false);
+      })
+      .finally(() => {
+        skipNextAutoConnectRef.current = false;
+      });
+  }, [
+    disconnect,
+    hasLoadedAgents,
+    isConnecting,
+    isPanelOpen,
+    isResumingHistory,
+    resumeSession,
+    sessionProjectId,
+    sessionWorkspaceId,
+    setEntries,
+    targetAgentId,
+    targetSessionCwd,
+    targetSessionId,
+  ]);
+
   // ---------------------------------------------------------------------------
   // Queued prompt dispatch
   // ---------------------------------------------------------------------------
   const sendQueuedPrompt = useCallback((item: QueuedAgentPrompt) => {
-    let finalPrompt = item.prompt;
-    if (item.mode === "wiki_ask") {
-      finalPrompt = `You are in Wiki Ask mode. Prioritize information from the project's generated wiki content under .atmos/wiki. If the wiki does not contain enough context, state that clearly.\n\nUser question:\n${item.prompt}`;
-    }
-
-    const sent = sendPrompt(finalPrompt);
+    const sent = sendPrompt(item.prompt);
     if (!sent) return false;
 
     removeQueuedAgentChatPrompt(item.id);
@@ -559,7 +565,6 @@ export function useAgentChatSession({
       setSessionTitleSource("user");
       setIsAutoGeneratingTitle(false);
       setShouldScrambleAutoTitle(false);
-      void agentRestApi.updateSessionTitle(sessionId, item.sessionTitle).catch(() => { });
     }
     return true;
   }, [removeQueuedAgentChatPrompt, sendPrompt, sessionId]);
@@ -646,75 +651,10 @@ export function useAgentChatSession({
 
       if (!restoreAttemptedRef.current) {
         restoreAttemptedRef.current = true;
-        const cachedSessionId =
-          activeSessionByContextRef.current[contextKey] ?? activeSessionByContext[contextKey];
-        if (cachedSessionId) {
-          if (autoResumeTriedRef.current === cachedSessionId) return;
-          autoResumeTriedRef.current = cachedSessionId;
-          setIsResumedSession(true);
-          autoStartHandledRef.current = true;
-          void (async () => {
-            setIsResumingHistory(true);
-            const success = await resumeSession(cachedSessionId);
-            if (!success) {
-              setIsResumingHistory(false);
-              setIsResumedSession(false);
-              setActiveSessionByContext((prev) => {
-                if (prev[contextKey] !== cachedSessionId) return prev;
-                const next = { ...prev };
-                delete next[contextKey];
-                return next;
-              });
-              autoStartHandledRef.current = false;
-              autoResumeTriedRef.current = null;
-              startSession();
-            }
-          })();
-          return;
-        }
-        void (async () => {
-          try {
-            const contextType = sessionWorkspaceId != null ? "workspace" : sessionProjectId != null ? "project" : "temp";
-            const contextGuid = sessionWorkspaceId ?? sessionProjectId ?? undefined;
-            const res = await agentRestApi.listSessions({
-              context_type: contextType,
-              context_guid: contextGuid,
-              mode: chatMode,
-              limit: 1,
-            });
-            const latestSession = res.items[0];
-            if (latestSession) {
-              if (autoResumeTriedRef.current === latestSession.guid) return;
-              autoResumeTriedRef.current = latestSession.guid;
-              setIsResumedSession(true);
-              setRegistryId(latestSession.registry_id);
-              setSessionTitle(latestSession.title ?? null);
-              setSessionTitleSource(latestSession.title_source ?? null);
-              setIsAutoGeneratingTitle(false);
-              setShouldScrambleAutoTitle(false);
-              autoStartHandledRef.current = true;
-              setIsResumingHistory(true);
-              const success = await resumeSession(latestSession.guid);
-              if (!success) {
-                setIsResumingHistory(false);
-                setIsResumedSession(false);
-                autoStartHandledRef.current = false;
-                autoResumeTriedRef.current = null;
-                startSession();
-              }
-            } else {
-              autoStartHandledRef.current = true;
-              autoResumeTriedRef.current = null;
-              setIsResumedSession(false);
-              startSession();
-            }
-          } catch {
-            autoStartHandledRef.current = true;
-            autoResumeTriedRef.current = null;
-            setIsResumedSession(false);
-            startSession();
-          }
-        })();
+        autoStartHandledRef.current = true;
+        autoResumeTriedRef.current = null;
+        setIsResumedSession(false);
+        startSession();
         return;
       }
       if (!autoStartHandledRef.current) {
@@ -806,7 +746,6 @@ export function useAgentChatSession({
     sessionProjectId,
     sessionWorkspaceId,
     stoppedRef,
-    wikiPath,
     setIsAutoGeneratingTitle,
     setSessionTitle,
     setSessionTitleSource,
@@ -814,8 +753,34 @@ export function useAgentChatSession({
   });
 
   const handleClose = useCallback(() => {
+    disconnect();
     setAgentChatOpen(false);
-  }, [setAgentChatOpen]);
+  }, [disconnect, setAgentChatOpen]);
+
+  const handleLogoutAgent = useCallback(async () => {
+    if (!registryId) return;
+    const ok = await logoutAgent(sessionCwd ?? localPath, selectedAuthMethodId || null);
+    if (!ok) return;
+    setEntries([]);
+    setCurrentPlan(null);
+    setPendingPermission(null);
+    setSessionTitle(null);
+    setSessionTitleSource(null);
+    setIsAutoGeneratingTitle(false);
+    setShouldScrambleAutoTitle(false);
+    setIsResumedSession(false);
+    setWaitingForResponse(false);
+    stoppedRef.current = false;
+    autoResumeTriedRef.current = null;
+    restoreAttemptedRef.current = true;
+    autoStartHandledRef.current = false;
+  }, [
+    localPath,
+    logoutAgent,
+    registryId,
+    selectedAuthMethodId,
+    sessionCwd,
+  ]);
 
   const handlePermission = useCallback(
     (optionKind: string) => {
@@ -861,6 +826,8 @@ export function useAgentChatSession({
     registryId,
     defaultRegistryId,
     loadingAgents,
+    agentInfo,
+    capabilities,
 
     configOptions,
     setConfigOption,
@@ -873,6 +840,8 @@ export function useAgentChatSession({
     historyHasMore,
     historyLoading,
     historyCursor,
+    historyResumeUnsupportedReason,
+    historyUnsupportedReason,
     loadHistorySessions,
 
     sessionTitle,
@@ -881,17 +850,12 @@ export function useAgentChatSession({
     isAutoGeneratingTitle,
     shouldScrambleAutoTitle,
     setShouldScrambleAutoTitle,
-    isEditingTitle,
-    editingTitleValue,
-    setEditingTitleValue,
 
     chatMode,
     localPath,
-    wikiPath,
     sessionWorkspaceId,
     sessionProjectId,
     canUseCurrentMode,
-    wikiAskAvailability,
     panelLabel,
     panelTitle,
     connectionPhaseLabel,
@@ -910,7 +874,6 @@ export function useAgentChatSession({
 
     bottomRef,
     conversationRef,
-    titleInputRef,
 
     authRequest,
     selectedAuthMethodId,
@@ -925,13 +888,11 @@ export function useAgentChatSession({
 
     handleSubmit,
     handleClose,
+    handleLogoutAgent,
     handlePermission,
     handleCreateNewSession,
     handleSelectHistorySession,
     handleManualLoadMessages,
-    handleStartEditTitle,
-    handleFinishEditTitle,
-    handleTitleKeyDown,
     handlePrevMessage,
     handleNextMessage,
     handleSetDefaultAgent,

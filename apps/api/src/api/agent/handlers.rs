@@ -1,6 +1,8 @@
 use std::path::{Path as FsPath, PathBuf};
 
-use axum::extract::{Multipart, Path, Query, State};
+use axum::extract::{Multipart, Query, State};
+use core_service::utils::path_boundary::path_within_root;
+use core_service::ResumeNativeSessionSpec;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -17,18 +19,23 @@ pub struct CreateAgentSessionPayload {
     pub project_id: Option<String>,
     pub registry_id: String,
     pub auth_method_id: Option<String>,
-    pub mode: Option<String>,
 }
 
-fn parse_chat_mode(mode: Option<&str>) -> Result<String, crate::error::ApiError> {
-    match mode.unwrap_or("default") {
-        "default" => Ok("default".to_string()),
-        "wiki_ask" => Ok("wiki_ask".to_string()),
-        other => Err(crate::error::ApiError::BadRequest(format!(
-            "Invalid mode: {}",
-            other
-        ))),
-    }
+#[derive(Deserialize)]
+pub struct ResumeNativeAgentSessionPayload {
+    pub registry_id: String,
+    pub acp_session_id: String,
+    pub cwd: Option<String>,
+    pub workspace_id: Option<String>,
+    pub project_id: Option<String>,
+    pub auth_method_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct LogoutAgentPayload {
+    pub registry_id: String,
+    pub cwd: Option<String>,
+    pub auth_method_id: Option<String>,
 }
 
 /// POST /api/agent/session - Create a new Agent chat session
@@ -38,7 +45,6 @@ pub async fn create_agent_session(
     State(state): State<AppState>,
     Json(payload): Json<CreateAgentSessionPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let mode = parse_chat_mode(payload.mode.as_deref())?;
     let (workspace_id_opt, project_id_opt, cwd) = if let Some(ref wid) = payload.workspace_id {
         let workspace = state
             .workspace_service
@@ -78,8 +84,7 @@ pub async fn create_agent_session(
         (None, None, temp_dir)
     };
 
-    let cwd_str = cwd.to_string_lossy().to_string();
-    let session_id = state
+    let session = state
         .agent_session_service
         .create_session_lazy(
             workspace_id_opt,
@@ -87,39 +92,93 @@ pub async fn create_agent_session(
             &payload.registry_id,
             cwd,
             payload.auth_method_id.clone(),
-            &mode,
         )
         .await?;
-    let title: Option<String> = None;
 
     Ok(Json(ApiResponse::success(json!({
-        "session_id": session_id,
-        "cwd": cwd_str,
-        "title": title,
+        "runtime_session_id": session.runtime_session_id,
+        "registry_id": session.registry_id,
+        "cwd": session.cwd,
+        "status": session.status,
     }))))
 }
 
-/// POST /api/agent/sessions/{session_id}/resume - Re-create runtime for an existing session
+/// POST /api/agent/session/resume - Re-create runtime for a native ACP session
 pub async fn resume_agent_session(
-    Path(session_id): Path<String>,
-    Query(q): Query<ResumeAgentSessionQuery>,
     State(state): State<AppState>,
+    Json(payload): Json<ResumeNativeAgentSessionPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let mode = parse_chat_mode(q.mode.as_deref())?;
-    let (runtime_session_id, cwd) = state
+    let requested_cwd = payload
+        .cwd
+        .as_deref()
+        .map(parse_absolute_resume_cwd)
+        .transpose()?;
+    let (cwd, allow_file_access) = if let Some(ref wid) = payload.workspace_id {
+        let workspace = state
+            .workspace_service
+            .get_workspace(wid.clone())
+            .await?
+            .ok_or_else(|| crate::error::ApiError::NotFound("Workspace not found".to_string()))?;
+        let root = PathBuf::from(workspace.local_path);
+        let cwd = requested_cwd.unwrap_or_else(|| root.clone());
+        if !path_within_root(&cwd, &root) {
+            return Err(crate::error::ApiError::BadRequest(
+                "ACP session cwd is outside the selected workspace".to_string(),
+            ));
+        }
+        (Some(cwd), true)
+    } else if let Some(ref pid) = payload.project_id {
+        let project = state
+            .project_service
+            .get_project(pid.clone())
+            .await?
+            .ok_or_else(|| crate::error::ApiError::NotFound("Project not found".to_string()))?;
+        let main_path = PathBuf::from(&project.main_file_path);
+        let root = if main_path.is_dir() {
+            main_path
+        } else {
+            main_path.parent().map(PathBuf::from).unwrap_or(main_path)
+        };
+        let cwd = requested_cwd.unwrap_or_else(|| root.clone());
+        if !path_within_root(&cwd, &root) {
+            return Err(crate::error::ApiError::BadRequest(
+                "ACP session cwd is outside the selected project".to_string(),
+            ));
+        }
+        (Some(cwd), true)
+    } else {
+        (requested_cwd, false)
+    };
+
+    let session = state
         .agent_session_service
-        .resume_session_lazy(&session_id, Some(&mode))
+        .resume_native_session_lazy(ResumeNativeSessionSpec {
+            registry_id: payload.registry_id.clone(),
+            acp_session_id: payload.acp_session_id.clone(),
+            cwd,
+            allow_file_access,
+            workspace_id: payload.workspace_id.clone(),
+            project_id: payload.project_id.clone(),
+            auth_method_id: payload.auth_method_id,
+        })
         .await?;
-    let title = state
-        .agent_session_service
-        .get_session(&runtime_session_id)
-        .await?
-        .and_then(|s| s.title);
     Ok(Json(ApiResponse::success(json!({
-        "session_id": runtime_session_id,
-        "cwd": cwd,
-        "title": title,
+        "runtime_session_id": session.runtime_session_id,
+        "registry_id": session.registry_id,
+        "acp_session_id": payload.acp_session_id,
+        "cwd": session.cwd,
+        "status": session.status,
     }))))
+}
+
+fn parse_absolute_resume_cwd(cwd: &str) -> Result<PathBuf, crate::error::ApiError> {
+    let path = PathBuf::from(cwd);
+    if !path.is_absolute() {
+        return Err(crate::error::ApiError::BadRequest(
+            "ACP session cwd must be an absolute path".to_string(),
+        ));
+    }
+    Ok(path)
 }
 
 /// POST /api/agent/upload-attachments - Upload attachment files to .atmos/attachments/ under the given path
@@ -242,25 +301,22 @@ fn is_inside_git_repo(path: &FsPath) -> bool {
 
 #[derive(Debug, Deserialize)]
 pub struct ListAgentSessionsQuery {
-    pub context_type: Option<String>,
-    pub context_guid: Option<String>,
-    /// Filter by registry_id (ACP Agent)
-    pub registry_id: Option<String>,
-    /// Filter by status: active | closed
-    pub status: Option<String>,
-    pub mode: Option<String>,
+    pub registry_id: String,
+    pub cwd: Option<String>,
+    /// Atmos response cap for agents that return an unpaginated result.
+    ///
+    /// ACP `session/list` itself is cursor-paginated but does not define a
+    /// client-supplied page-size field. Agents own upstream page size.
     #[serde(default = "default_limit")]
     pub limit: u64,
     pub cursor: Option<String>,
+    pub auth_method_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ResumeAgentSessionQuery {
-    pub mode: Option<String>,
-}
+const MAX_UNPAGINATED_SESSION_ITEMS: u64 = 20;
 
 fn default_limit() -> u64 {
-    20
+    MAX_UNPAGINATED_SESSION_ITEMS
 }
 
 /// GET /api/agent/sessions - List agent chat sessions with cursor pagination
@@ -268,105 +324,91 @@ pub async fn list_agent_sessions(
     State(state): State<AppState>,
     Query(q): Query<ListAgentSessionsQuery>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    // Validate status if provided
-    let status = q.status.as_ref().map(|s| match s.as_str() {
-        "active" | "closed" => s.clone(),
-        _ => "active".to_string(),
-    });
-
-    let mode = parse_chat_mode(q.mode.as_deref())?;
-    let (items, next_cursor, has_more) = state
+    let cwd = q.cwd.as_ref().map(PathBuf::from);
+    let mut native = state
         .agent_session_service
-        .list_sessions_with_filters(
-            q.context_type.as_deref(),
-            q.context_guid.as_deref(),
-            q.registry_id.as_deref(),
-            status.as_deref(),
-            Some(&mode),
-            q.limit,
-            q.cursor.as_deref(),
-        )
+        .list_native_sessions(&q.registry_id, cwd, q.cursor, q.auth_method_id)
         .await?;
 
-    let sessions: Vec<Value> = items
+    let response_limit = q.limit.clamp(1, MAX_UNPAGINATED_SESSION_ITEMS) as usize;
+    let truncated = native.next_cursor.is_none() && native.sessions.len() > response_limit;
+    if truncated {
+        tracing::warn!(
+            registry_id = %q.registry_id,
+            returned = native.sessions.len(),
+            limit = response_limit,
+            "ACP session/list returned an unpaginated result larger than Atmos will expose"
+        );
+        native.sessions.truncate(response_limit);
+    }
+
+    let registry_id = q.registry_id.clone();
+    let sessions: Vec<Value> = native
+        .sessions
         .into_iter()
         .map(|s| {
             json!({
-                "guid": s.guid,
+                "registry_id": registry_id.clone(),
+                "acp_session_id": s.acp_session_id,
                 "title": s.title,
-                "title_source": s.title_source,
-                "context_type": s.context_type,
-                "context_guid": s.context_guid,
-                "registry_id": s.registry_id,
-                "status": s.status,
-                "mode": s.mode,
                 "cwd": s.cwd,
-                "created_at": s.created_at,
                 "updated_at": s.updated_at,
             })
         })
         .collect();
 
     Ok(Json(ApiResponse::success(json!({
+        "registry_id": q.registry_id,
+        "agent_info": native.agent_info,
+        "capabilities": native.capabilities,
         "items": sessions,
-        "next_cursor": next_cursor,
-        "has_more": has_more,
+        "next_cursor": native.next_cursor,
+        "truncated": truncated,
+        "unsupported_reason": native.unsupported_reason,
     }))))
 }
 
-/// GET /api/agent/sessions/{session_id} - Get one session metadata
-pub async fn get_agent_session(
-    Path(session_id): Path<String>,
+/// POST /api/agent/logout - Logout selected ACP agent
+pub async fn logout_agent(
     State(state): State<AppState>,
+    Json(payload): Json<LogoutAgentPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let maybe = state.agent_session_service.get_session(&session_id).await?;
-    let s = maybe.ok_or_else(|| {
-        crate::error::ApiError::NotFound(format!("Session {} not found", session_id))
-    })?;
-    Ok(Json(ApiResponse::success(json!({
-        "guid": s.guid,
-        "title": s.title,
-        "title_source": s.title_source,
-        "context_type": s.context_type,
-        "context_guid": s.context_guid,
-        "registry_id": s.registry_id,
-        "status": s.status,
-        "mode": s.mode,
-        "cwd": s.cwd,
-        "created_at": s.created_at,
-        "updated_at": s.updated_at,
-    }))))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateAgentSessionPayload {
-    pub title: String,
-}
-
-/// PATCH /api/agent/sessions/:session_id - Update session title
-pub async fn update_agent_session(
-    Path(session_id): Path<String>,
-    State(state): State<AppState>,
-    Json(payload): Json<UpdateAgentSessionPayload>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
-    state
+    let cwd = payload.cwd.as_ref().map(PathBuf::from);
+    let result = state
         .agent_session_service
-        .update_session_title(&session_id, payload.title.trim())
+        .logout_agent(&payload.registry_id, cwd, payload.auth_method_id)
         .await?;
-    Ok(Json(ApiResponse::success(json!({ "ok": true }))))
+
+    Ok(Json(ApiResponse::success(json!({
+        "registry_id": payload.registry_id,
+        "agent_info": result.agent_info,
+        "capabilities": result.capabilities,
+        "logged_out": result.logged_out,
+        "unsupported_reason": result.unsupported_reason,
+    }))))
 }
 
-/// DELETE /api/agent/sessions/:session_id - Soft delete a session
-pub async fn delete_agent_session(
-    Path(session_id): Path<String>,
-    State(state): State<AppState>,
-) -> ApiResult<Json<ApiResponse<Value>>> {
-    let temp_cwd = state
-        .agent_session_service
-        .delete_session(&session_id)
-        .await?;
-    Ok(Json(ApiResponse::success(json!({
-        "ok": true,
-        "temp_cwd": temp_cwd,
-    }))))
+#[cfg(test)]
+mod tests {
+    use super::parse_absolute_resume_cwd;
+    use core_service::utils::path_boundary::path_within_root;
+    use std::path::Path;
+
+    #[test]
+    fn resume_cwd_must_be_absolute() {
+        assert!(parse_absolute_resume_cwd("relative/path").is_err());
+        assert!(parse_absolute_resume_cwd("/tmp/atmos").is_ok());
+    }
+
+    #[test]
+    fn boundary_check_rejects_parent_escape() {
+        assert!(path_within_root(
+            Path::new("/tmp/workspace/src/../Cargo.toml"),
+            Path::new("/tmp/workspace")
+        ));
+        assert!(!path_within_root(
+            Path::new("/tmp/workspace/../outside"),
+            Path::new("/tmp/workspace")
+        ));
+    }
 }

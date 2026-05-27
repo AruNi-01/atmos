@@ -9,9 +9,14 @@ pub mod types;
 
 pub use client::{AcpSessionEvent, AtmosAcpClient};
 pub use process::spawn_agent;
-pub use runner::{run_acp_session, AcpSessionHandle, AUTH_REQUIRED_ERROR_PREFIX};
+pub use runner::{
+    list_acp_sessions, logout_acp_agent, run_acp_session, AcpSessionControl, AcpSessionHandle,
+    AUTH_REQUIRED_ERROR_PREFIX,
+};
 pub use tools::AcpToolHandler;
 pub use types::{
-    AuthMethodSummary, AuthRequiredPayload, PermissionRequest, PermissionResponse, RiskLevel,
-    StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate,
+    AgentCapabilitiesSnapshot, AgentCapabilityState, AgentImplementationInfo, AgentLogoutResult,
+    AgentSessionInfoUpdate, AuthMethodSummary, AuthRequiredPayload, NativeAgentSession,
+    NativeAgentSessionList, PermissionRequest, PermissionResponse, RiskLevel, StreamDelta,
+    StreamUsage, ToolCallStatus, ToolCallUpdate,
 };

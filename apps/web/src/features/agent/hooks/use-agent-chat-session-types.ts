@@ -2,7 +2,11 @@
 
 import type React from "react";
 import type { ConversationMessage } from "@workspace/ui";
-import type { AgentChatSessionItem } from "@/api/rest-api";
+import type {
+  AgentCapabilities,
+  AgentChatSessionItem,
+  AgentImplementationInfo,
+} from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentConfigOption,
@@ -16,8 +20,7 @@ import type { AgentChatMode } from "@/features/agent/types/index";
 import type { Project } from "@/shared/types/domain";
 import type { AgentActivity, PendingPermission } from "../lib/chat-helpers";
 
-// Server-side default title assigned to new chat sessions (must match the
-// backend constant in agent_chat_session_repo.rs / session_title.rs).
+// Display fallback before an ACP agent reports a title through session_info_update.
 export const DEFAULT_SESSION_TITLE = "新会话";
 
 export interface UseAgentChatSessionOptions {
@@ -53,6 +56,8 @@ export interface UseAgentChatSessionReturn {
   registryId: string;
   defaultRegistryId: string;
   loadingAgents: boolean;
+  agentInfo: AgentImplementationInfo | null;
+  capabilities: AgentCapabilities | null;
   configOptions: AgentConfigOption[];
   setConfigOption: (key: string, value: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
@@ -63,6 +68,8 @@ export interface UseAgentChatSessionReturn {
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
+  historyResumeUnsupportedReason: string | null;
+  historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
   sessionTitle: string | null;
   displaySessionTitle: string | null;
@@ -70,16 +77,11 @@ export interface UseAgentChatSessionReturn {
   isAutoGeneratingTitle: boolean;
   shouldScrambleAutoTitle: boolean;
   setShouldScrambleAutoTitle: React.Dispatch<React.SetStateAction<boolean>>;
-  isEditingTitle: boolean;
-  editingTitleValue: string;
-  setEditingTitleValue: React.Dispatch<React.SetStateAction<string>>;
   chatMode: AgentChatMode;
   localPath: string | null;
-  wikiPath: string | null;
   sessionWorkspaceId: string | null;
   sessionProjectId: string | null;
   canUseCurrentMode: boolean;
-  wikiAskAvailability: { enabled: boolean; reason: string | null };
   panelLabel: string;
   panelTitle: string;
   connectionPhaseLabel: string;
@@ -94,7 +96,6 @@ export interface UseAgentChatSessionReturn {
   setHeaderHovered: React.Dispatch<React.SetStateAction<boolean>>;
   bottomRef: React.RefObject<HTMLDivElement | null>;
   conversationRef: React.RefObject<HTMLDivElement | null>;
-  titleInputRef: React.RefObject<HTMLInputElement | null>;
   authRequest: {
     message?: string;
     methods: { id: string; name: string; description?: string }[];
@@ -111,13 +112,11 @@ export interface UseAgentChatSessionReturn {
     files?: import("ai").FileUIPart[];
   }) => Promise<void>;
   handleClose: () => void;
+  handleLogoutAgent: () => Promise<void>;
   handlePermission: (optionKind: string) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => Promise<void>;
   handleManualLoadMessages: () => Promise<void>;
-  handleStartEditTitle: () => void;
-  handleFinishEditTitle: () => void;
-  handleTitleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   handlePrevMessage: () => void;
   handleNextMessage: () => void;
   handleSetDefaultAgent: (agentId: string) => void;

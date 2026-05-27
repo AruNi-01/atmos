@@ -29,9 +29,10 @@ enum AgentClientMessage {
         _remember_for_session: bool,
     },
     Cancel,
+    CloseSession,
     SetConfigOption {
-        config_id: String,
-        value: String,
+        option_id: String,
+        value: serde_json::Value,
     },
     SetAgentDefaultConfig {
         config_id: String,
@@ -45,6 +46,7 @@ enum AgentCommand {
     Prompt(String),
     PermissionResponse { request_id: String, allowed: bool },
     Cancel,
+    CloseSession,
     SetConfigOption(String, String),
 }
 
@@ -52,6 +54,28 @@ enum AgentCommand {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AgentServerMessage {
+    AgentInfoUpdate {
+        agent_info: Option<agent::AgentImplementationInfo>,
+    },
+    CapabilitiesUpdate {
+        capabilities: agent::AgentCapabilitiesSnapshot,
+    },
+    SessionReady {
+        runtime_session_id: String,
+        acp_session_id: String,
+    },
+    SessionInfoUpdate {
+        acp_session_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        title: Option<Option<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        updated_at: Option<Option<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cwd: Option<Option<String>>,
+    },
+    SessionClosed {
+        reason: Option<String>,
+    },
     Stream {
         role: String,
         kind: String,
@@ -97,14 +121,31 @@ enum AgentServerMessage {
     UsageUpdate {
         usage: agent::acp_client::types::AgentUsage,
     },
-    SessionTitleUpdated {
-        title: String,
-        title_source: String,
-    },
 }
 
-fn event_to_message(ev: AcpSessionEvent) -> Option<AgentServerMessage> {
+fn event_to_message(runtime_session_id: &str, ev: AcpSessionEvent) -> Option<AgentServerMessage> {
     match ev {
+        AcpSessionEvent::AgentInfoUpdate(agent_info) => {
+            Some(AgentServerMessage::AgentInfoUpdate { agent_info })
+        }
+        AcpSessionEvent::CapabilitiesUpdate(capabilities) => {
+            Some(AgentServerMessage::CapabilitiesUpdate { capabilities })
+        }
+        AcpSessionEvent::SessionReady { acp_session_id } => {
+            Some(AgentServerMessage::SessionReady {
+                runtime_session_id: runtime_session_id.to_string(),
+                acp_session_id,
+            })
+        }
+        AcpSessionEvent::SessionInfoUpdate(update) => Some(AgentServerMessage::SessionInfoUpdate {
+            acp_session_id: update.acp_session_id,
+            title: update.title,
+            cwd: None,
+            updated_at: update.updated_at,
+        }),
+        AcpSessionEvent::SessionClosed { reason } => {
+            Some(AgentServerMessage::SessionClosed { reason })
+        }
         AcpSessionEvent::Stream(s) => Some(AgentServerMessage::Stream {
             role: s.role,
             kind: s.kind,
@@ -286,6 +327,7 @@ async fn run_bridge(
                         }
                     }
                     Some(AgentCommand::Cancel) => handle.send_cancel(),
+                    Some(AgentCommand::CloseSession) => handle.send_close(),
                     Some(AgentCommand::SetConfigOption(config_id, value)) => handle.send_set_config_option(config_id, value),
                     None => break,
                 },
@@ -297,7 +339,7 @@ async fn run_bridge(
                                 let _ = bridge_ws_tx.send(msg);
                             }
                         }
-                        if let Some(msg) = event_to_message(ev) {
+                        if let Some(msg) = event_to_message(&session_id_for_bridge, ev) {
                             if let Ok(json) = serde_json::to_string(&msg) {
                                 append_acp_log(
                                     &session_id_for_bridge,
@@ -337,26 +379,6 @@ async fn run_bridge(
                 );
                 match msg {
                     AgentClientMessage::Prompt { message } => {
-                        let title_state = state.clone();
-                        let title_ws_tx = ws_tx.clone();
-                        let title_session_id = session_id.clone();
-                        let title_message = message.clone();
-                        tokio::spawn(async move {
-                            if let Some(title) = title_state
-                                .agent_session_service
-                                .auto_set_title_from_prompt(&title_session_id, &title_message)
-                                .await
-                            {
-                                if let Ok(json) = serde_json::to_string(
-                                    &AgentServerMessage::SessionTitleUpdated {
-                                        title,
-                                        title_source: "auto".to_string(),
-                                    },
-                                ) {
-                                    let _ = title_ws_tx.send(json);
-                                }
-                            }
-                        });
                         let _ = cmd_tx_clone.send(AgentCommand::Prompt(message));
                     }
                     AgentClientMessage::PermissionResponse {
@@ -372,8 +394,15 @@ async fn run_bridge(
                     AgentClientMessage::Cancel => {
                         let _ = cmd_tx_clone.send(AgentCommand::Cancel);
                     }
-                    AgentClientMessage::SetConfigOption { config_id, value } => {
-                        let _ = cmd_tx_clone.send(AgentCommand::SetConfigOption(config_id, value));
+                    AgentClientMessage::CloseSession => {
+                        let _ = cmd_tx_clone.send(AgentCommand::CloseSession);
+                    }
+                    AgentClientMessage::SetConfigOption { option_id, value } => {
+                        let value = match value {
+                            serde_json::Value::String(value) => value,
+                            other => other.to_string(),
+                        };
+                        let _ = cmd_tx_clone.send(AgentCommand::SetConfigOption(option_id, value));
                     }
                     AgentClientMessage::SetAgentDefaultConfig {
                         config_id,
@@ -401,7 +430,10 @@ async fn run_bridge(
                     }
                 }
             }
-            Ok(axum::extract::ws::Message::Close(_)) => break,
+            Ok(axum::extract::ws::Message::Close(_)) => {
+                let _ = cmd_tx_clone.send(AgentCommand::CloseSession);
+                break;
+            }
             Err(e) => {
                 error!("Agent WebSocket error for session {}: {}", session_id, e);
                 break;

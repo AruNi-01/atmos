@@ -76,6 +76,7 @@ All four files are always present. Missing content stays as a **template placeho
 | **APP-013** | Project-Level Review Session | `BRAINSTORM.md` |
 | **APP-014** | Canvas | `PRD.md` |
 | **APP-016** | Atmos Computer（Cloudflare Relay + DO） | `specs/APP/APP-016_atmos-computer/`（`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`） |
+| **APP-018** | ACP Protocol Upgrade | `PRD.md` |
 
 ### Landing
 

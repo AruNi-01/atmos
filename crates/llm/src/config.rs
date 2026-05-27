@@ -4,9 +4,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
-use crate::types::{
-    LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvider, SessionTitleFormatConfig,
-};
+use crate::types::{LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvider};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
@@ -70,10 +68,6 @@ impl FileLlmConfigStore {
     pub fn resolve_default_provider(&self) -> Result<Option<ResolvedLlmProvider>> {
         let config = self.load()?;
         resolve_provider_by_id(&config, config.default_provider.as_deref())
-    }
-
-    pub fn load_session_title_format(&self) -> Result<SessionTitleFormatConfig> {
-        Ok(self.load()?.features.session_title_format)
     }
 
     pub fn load_feature_language(&self, feature: LlmFeature) -> Result<Option<String>> {

@@ -273,10 +273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_hooks_service = Arc::new(AgentHooksService::new());
     let notification_service = Arc::new(NotificationService::new());
 
-    let agent_session_service = Arc::new(AgentSessionService::new(
-        Arc::clone(&agent_service),
-        Arc::clone(&db),
-    ));
+    let agent_session_service = Arc::new(AgentSessionService::new(Arc::clone(&agent_service)));
 
     // APP-015: in-memory bridge registry + pending-dispatch waiters for the
     // Canvas terminal-agent relay. Shared between WsMessageService (browser

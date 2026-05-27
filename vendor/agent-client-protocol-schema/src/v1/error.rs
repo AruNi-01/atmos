@@ -14,6 +14,7 @@ use std::{fmt::Display, str};
 
 use schemars::{JsonSchema, Schema};
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 use crate::IntoOption;
 
@@ -25,6 +26,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 /// JSON-RPC 2.0 error object specification with optional additional data.
 ///
 /// See protocol docs: [JSON-RPC Error Object](https://www.jsonrpc.org/specification#error_object)
+#[skip_serializing_none]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Error {
@@ -36,7 +38,6 @@ pub struct Error {
     pub message: String,
     /// Optional primitive or structured value that contains additional information about the error.
     /// This may include debugging information or context-specific details.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<serde_json::Value>,
 }
 
@@ -44,6 +45,7 @@ impl Error {
     /// Creates a new error with the given code and message.
     ///
     /// The code parameter can be an `ErrorCode` constant or a tuple of (code, message).
+    #[must_use]
     pub fn new(code: i32, message: impl Into<String>) -> Self {
         Error {
             code: code.into(),
@@ -112,6 +114,17 @@ impl Error {
         ErrorCode::AuthRequired.into()
     }
 
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// The agent requires user input via a URL-based elicitation before it can proceed.
+    #[cfg(feature = "unstable_elicitation")]
+    #[must_use]
+    pub fn url_elicitation_required() -> Self {
+        ErrorCode::UrlElicitationRequired.into()
+    }
+
     /// A given resource, such as a file, was not found.
     #[must_use]
     pub fn resource_not_found(uri: Option<String>) -> Self {
@@ -126,6 +139,7 @@ impl Error {
     /// Converts a standard error into an internal JSON-RPC error.
     ///
     /// The error's string representation is included as additional data.
+    #[must_use]
     pub fn into_internal_error(err: impl std::error::Error) -> Self {
         Error::internal_error().data(err.to_string())
     }
@@ -184,6 +198,15 @@ pub enum ErrorCode {
     #[schemars(transform = error_code_transform)]
     #[strum(to_string = "Resource not found")]
     ResourceNotFound, // -32002
+    #[cfg(feature = "unstable_elicitation")]
+    /// **UNSTABLE**
+    ///
+    /// This capability is not part of the spec yet, and may be removed or changed at any point.
+    ///
+    /// The agent requires user input via a URL-based elicitation before it can proceed.
+    #[schemars(transform = error_code_transform)]
+    #[strum(to_string = "URL elicitation required")]
+    UrlElicitationRequired, // -32042
 
     /// Other undefined error code.
     #[schemars(untagged)]
@@ -203,6 +226,8 @@ impl From<i32> for ErrorCode {
             -32800 => ErrorCode::RequestCancelled,
             -32000 => ErrorCode::AuthRequired,
             -32002 => ErrorCode::ResourceNotFound,
+            #[cfg(feature = "unstable_elicitation")]
+            -32042 => ErrorCode::UrlElicitationRequired,
             _ => ErrorCode::Other(value),
         }
     }
@@ -220,6 +245,8 @@ impl From<ErrorCode> for i32 {
             ErrorCode::RequestCancelled => -32800,
             ErrorCode::AuthRequired => -32000,
             ErrorCode::ResourceNotFound => -32002,
+            #[cfg(feature = "unstable_elicitation")]
+            ErrorCode::UrlElicitationRequired => -32042,
             ErrorCode::Other(value) => value,
         }
     }
@@ -247,6 +274,8 @@ fn error_code_transform(schema: &mut Schema) {
         "RequestCancelled" => ErrorCode::RequestCancelled,
         "AuthRequired" => ErrorCode::AuthRequired,
         "ResourceNotFound" => ErrorCode::ResourceNotFound,
+        #[cfg(feature = "unstable_elicitation")]
+        "UrlElicitationRequired" => ErrorCode::UrlElicitationRequired,
         _ => panic!("Unexpected error code name {name}"),
     };
     let mut description = schema

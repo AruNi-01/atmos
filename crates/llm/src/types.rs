@@ -19,7 +19,6 @@ pub enum ProviderKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LlmFeature {
-    SessionTitle,
     GitCommit,
     WorkspaceIssueTodo,
 }
@@ -27,7 +26,6 @@ pub enum LlmFeature {
 impl LlmFeature {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::SessionTitle => "session_title",
             Self::GitCommit => "git_commit",
             Self::WorkspaceIssueTodo => "workspace_issue_todo",
         }
@@ -35,19 +33,7 @@ impl LlmFeature {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SessionTitleFormatConfig {
-    #[serde(default)]
-    pub include_agent_name: bool,
-    #[serde(default)]
-    pub include_project_name: bool,
-    #[serde(default)]
-    pub include_intent_emoji: bool,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LlmFeatureBindings {
-    #[serde(default)]
-    pub session_title: Option<String>,
     #[serde(default)]
     pub git_commit: Option<String>,
     #[serde(default)]
@@ -56,14 +42,11 @@ pub struct LlmFeatureBindings {
     pub workspace_issue_todo: Option<String>,
     #[serde(default)]
     pub workspace_issue_todo_language: Option<String>,
-    #[serde(default)]
-    pub session_title_format: SessionTitleFormatConfig,
 }
 
 impl LlmFeatureBindings {
     pub fn provider_for(&self, feature: LlmFeature) -> Option<&str> {
         match feature {
-            LlmFeature::SessionTitle => self.session_title.as_deref(),
             LlmFeature::GitCommit => self.git_commit.as_deref(),
             LlmFeature::WorkspaceIssueTodo => self.workspace_issue_todo.as_deref(),
         }
@@ -71,7 +54,6 @@ impl LlmFeatureBindings {
 
     pub fn language_for(&self, feature: LlmFeature) -> Option<&str> {
         match feature {
-            LlmFeature::SessionTitle => None,
             LlmFeature::GitCommit => self.git_commit_language.as_deref(),
             LlmFeature::WorkspaceIssueTodo => self.workspace_issue_todo_language.as_deref(),
         }

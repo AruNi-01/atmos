@@ -31,7 +31,6 @@ interface UseAgentChatSubmitHandlerOptions {
   sessionProjectId: string | null;
   sessionWorkspaceId: string | null;
   stoppedRef: MutableRefObject<boolean>;
-  wikiPath: string | null;
   setIsAutoGeneratingTitle: Dispatch<SetStateAction<boolean>>;
   setSessionTitle: Dispatch<SetStateAction<string | null>>;
   setSessionTitleSource: Dispatch<SetStateAction<string | null>>;
@@ -51,7 +50,6 @@ export function useAgentChatSubmitHandler({
   sessionProjectId,
   sessionWorkspaceId,
   stoppedRef,
-  wikiPath,
   setIsAutoGeneratingTitle,
   setSessionTitle,
   setSessionTitleSource,
@@ -63,23 +61,11 @@ export function useAgentChatSubmitHandler({
       if (!text || !isConnected || !canUseCurrentMode) return;
       stoppedRef.current = false;
       const displayFiles = message.files?.map((f, i) => ({ ...f, id: `f-${Date.now()}-${i}` }));
-      let sessionTitleForPrompt: string | undefined;
       if (entriesLength === 0 && queuedPromptCount === 0) {
-        if (chatMode === "wiki_ask") {
-          const projName = (wikiPath ?? localPath)?.split("/").pop() ?? "Project";
-          const now = new Date();
-          const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-          sessionTitleForPrompt = `${projName}_WikiAsk_${ts}`;
-          setSessionTitle(sessionTitleForPrompt);
-          setSessionTitleSource("user");
-          setIsAutoGeneratingTitle(false);
-          setShouldScrambleAutoTitle(false);
-        } else {
-          setSessionTitle(null);
-          setSessionTitleSource("auto");
-          setIsAutoGeneratingTitle(true);
-          setShouldScrambleAutoTitle(false);
-        }
+        setSessionTitle(null);
+        setSessionTitleSource(null);
+        setIsAutoGeneratingTitle(false);
+        setShouldScrambleAutoTitle(false);
       }
       let finalPrompt = text;
       let attachmentPaths: string[] | undefined;
@@ -110,7 +96,6 @@ export function useAgentChatSubmitHandler({
         workspaceId: sessionWorkspaceId,
         projectId: sessionProjectId,
         mode: chatMode,
-        sessionTitle: sessionTitleForPrompt,
         origin: "panel",
       });
       clearAgentChatDraft(sessionWorkspaceId, sessionProjectId, chatMode);
@@ -128,7 +113,6 @@ export function useAgentChatSubmitHandler({
       sessionProjectId,
       sessionWorkspaceId,
       stoppedRef,
-      wikiPath,
       setIsAutoGeneratingTitle,
       setSessionTitle,
       setSessionTitleSource,

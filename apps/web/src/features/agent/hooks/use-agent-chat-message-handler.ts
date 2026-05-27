@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import type { AgentChatSessionItem } from "@/api/rest-api";
 import type { AgentPlan, AgentServerMessage } from "@/features/agent/hooks/use-agent-session";
 import {
   applyServerMessageToEntries,
@@ -15,6 +16,7 @@ interface UseAgentChatMessageHandlerParams {
   pendingPermission: PendingPermission | null;
   setCurrentPlan: Dispatch<SetStateAction<AgentPlan | null>>;
   setEntries: Dispatch<SetStateAction<ThreadEntry[]>>;
+  setHistorySessions: Dispatch<SetStateAction<AgentChatSessionItem[]>>;
   setIsAutoGeneratingTitle: Dispatch<SetStateAction<boolean>>;
   setIsResumingHistory: Dispatch<SetStateAction<boolean>>;
   setPendingPermission: Dispatch<SetStateAction<PendingPermission | null>>;
@@ -30,6 +32,7 @@ export function useAgentChatMessageHandler({
   pendingPermission,
   setCurrentPlan,
   setEntries,
+  setHistorySessions,
   setIsAutoGeneratingTitle,
   setIsResumingHistory,
   setPendingPermission,
@@ -137,11 +140,30 @@ export function useAgentChatMessageHandler({
           return changed ? next : prev;
         });
         break;
-      case "session_title_updated":
-        setSessionTitle(msg.title);
-        setSessionTitleSource(msg.title_source);
+      case "session_info_update":
+        if ("title" in msg) {
+          setSessionTitle(msg.title ?? null);
+          setSessionTitleSource("agent");
+        }
+        setHistorySessions((prev) =>
+          prev.map((session) => {
+            if (session.acp_session_id !== msg.acp_session_id) return session;
+            return {
+              ...session,
+              ...("title" in msg ? { title: msg.title ?? null } : {}),
+              ...("updated_at" in msg ? { updated_at: msg.updated_at ?? null } : {}),
+            };
+          }),
+        );
         setIsAutoGeneratingTitle(false);
-        setShouldScrambleAutoTitle(msg.title_source === "auto");
+        setShouldScrambleAutoTitle(false);
+        break;
+      case "session_ready":
+        setIsResumingHistory(false);
+        break;
+      case "agent_info_update":
+      case "capabilities_update":
+      case "session_closed":
         break;
       case "session_ended":
         flushPendingStreamMessages();
@@ -171,6 +193,7 @@ export function useAgentChatMessageHandler({
     scheduleStreamFlush,
     setCurrentPlan,
     setEntries,
+    setHistorySessions,
     setIsAutoGeneratingTitle,
     setIsResumingHistory,
     setPendingPermission,

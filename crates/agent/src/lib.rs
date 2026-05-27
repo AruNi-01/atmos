@@ -3,9 +3,11 @@ pub mod manager;
 pub mod models;
 
 pub use acp_client::{
-    run_acp_session, AcpSessionEvent, AcpSessionHandle, AcpToolHandler, AtmosAcpClient,
-    PermissionRequest, PermissionResponse, RiskLevel, StreamDelta, StreamUsage, ToolCallStatus,
-    ToolCallUpdate, AUTH_REQUIRED_ERROR_PREFIX,
+    list_acp_sessions, logout_acp_agent, run_acp_session, AcpSessionControl, AcpSessionEvent,
+    AcpSessionHandle, AcpToolHandler, AgentCapabilitiesSnapshot, AgentCapabilityState,
+    AgentImplementationInfo, AgentLogoutResult, AgentSessionInfoUpdate, AtmosAcpClient,
+    NativeAgentSession, NativeAgentSessionList, PermissionRequest, PermissionResponse, RiskLevel,
+    StreamDelta, StreamUsage, ToolCallStatus, ToolCallUpdate, AUTH_REQUIRED_ERROR_PREFIX,
 };
 pub use manager::AgentManager;
 pub use models::{

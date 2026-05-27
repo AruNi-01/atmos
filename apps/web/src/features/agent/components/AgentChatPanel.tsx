@@ -21,7 +21,7 @@ import {
   ShineBorder,
   cn,
 } from "@workspace/ui";
-import { BookOpen, ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { getAssistantCopyText } from "@/features/agent/lib/agent/thread";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
@@ -205,6 +205,8 @@ export function AgentChatPanel({
     registryId,
     defaultRegistryId,
     loadingAgents,
+    agentInfo,
+    capabilities,
     configOptions,
     setConfigOption,
     setAgentDefaultConfig,
@@ -215,22 +217,19 @@ export function AgentChatPanel({
     historyHasMore,
     historyLoading,
     historyCursor,
+    historyResumeUnsupportedReason,
+    historyUnsupportedReason,
     loadHistorySessions,
     displaySessionTitle,
     sessionTitleSource,
     isAutoGeneratingTitle,
     shouldScrambleAutoTitle,
     setShouldScrambleAutoTitle,
-    isEditingTitle,
-    editingTitleValue,
-    setEditingTitleValue,
     chatMode,
     localPath,
-    wikiPath,
     sessionWorkspaceId,
     sessionProjectId,
     canUseCurrentMode,
-    wikiAskAvailability,
     panelLabel,
     panelTitle,
     connectionPhaseLabel,
@@ -245,7 +244,6 @@ export function AgentChatPanel({
     setHeaderHovered,
     bottomRef,
     conversationRef,
-    titleInputRef,
     authRequest,
     selectedAuthMethodId,
     setSelectedAuthMethodId,
@@ -256,13 +254,11 @@ export function AgentChatPanel({
     messageNavIndex,
     handleSubmit,
     handleClose,
+    handleLogoutAgent,
     handlePermission,
     handleCreateNewSession,
     handleSelectHistorySession,
     handleManualLoadMessages,
-    handleStartEditTitle,
-    handleFinishEditTitle,
-    handleTitleKeyDown,
     handlePrevMessage,
     handleNextMessage,
     handleSetDefaultAgent,
@@ -305,6 +301,8 @@ export function AgentChatPanel({
         isConnected={isConnected}
         isConnecting={isConnecting}
         activeAgent={activeAgent}
+        agentInfo={agentInfo}
+        capabilities={capabilities}
         installedAgents={installedAgents}
         defaultRegistryId={defaultRegistryId}
         registryId={registryId}
@@ -326,26 +324,18 @@ export function AgentChatPanel({
         historyHasMore={historyHasMore}
         historyLoading={historyLoading}
         historyCursor={historyCursor}
+        historyResumeUnsupportedReason={historyResumeUnsupportedReason}
+        historyUnsupportedReason={historyUnsupportedReason}
         loadHistorySessions={loadHistorySessions}
         handleSelectHistorySession={handleSelectHistorySession}
-        chatMode={chatMode}
-        sessionWorkspaceId={sessionWorkspaceId}
-        sessionProjectId={sessionProjectId}
-        wikiPath={wikiPath}
         handleClose={handleClose}
+        handleLogoutAgent={handleLogoutAgent}
         displaySessionTitle={displaySessionTitle}
         isAutoGeneratingTitle={isAutoGeneratingTitle}
         shouldScrambleAutoTitle={shouldScrambleAutoTitle}
         setShouldScrambleAutoTitle={setShouldScrambleAutoTitle}
         sessionTitleSource={sessionTitleSource}
         sessionId={sessionId}
-        isEditingTitle={isEditingTitle}
-        editingTitleValue={editingTitleValue}
-        setEditingTitleValue={setEditingTitleValue}
-        handleStartEditTitle={handleStartEditTitle}
-        handleFinishEditTitle={handleFinishEditTitle}
-        handleTitleKeyDown={handleTitleKeyDown}
-        titleInputRef={titleInputRef}
       />
 
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
@@ -382,26 +372,11 @@ export function AgentChatPanel({
                 </Button>
               </div>
             )}
-            {!canUseCurrentMode && entries.length === 0 && !isConnecting && !error && (
-              <ConversationEmptyState
-                icon={<BookOpen className="size-12" />}
-                title="Wiki Ask unavailable"
-                description={wikiAskAvailability.reason ?? "Generate the project wiki first to use Wiki Ask."}
-              />
-            )}
             {canUseCurrentMode && isConnected && entries.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
-                icon={
-                  chatMode === "wiki_ask"
-                    ? <BookOpen className="size-12" />
-                    : <MessageSquare className="size-12" />
-                }
-                title={chatMode === "wiki_ask" ? "Ask your project wiki" : "Start a conversation"}
-                description={
-                  chatMode === "wiki_ask"
-                    ? "Type a question about the generated wiki content"
-                    : "Type a message below to begin chatting"
-                }
+                icon={<MessageSquare className="size-12" />}
+                title="Start a conversation"
+                description="Type a message below to begin chatting"
               />
             )}
             {entries.map((entry, i) => (
@@ -566,7 +541,6 @@ export function AgentChatPanel({
           onMoveQueuedPrompt={moveQueuedAgentChatPrompt}
           onSubmit={handleSubmit}
           canUseCurrentMode={canUseCurrentMode}
-          wikiAskAvailability={wikiAskAvailability}
           isConnected={isConnected}
           chatMode={chatMode}
           sessionWorkspaceId={sessionWorkspaceId}

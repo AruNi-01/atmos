@@ -267,7 +267,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     displayedStagedFiles.length > 0 ||
     displayedUnstagedFiles.length > 0 ||
     displayedUntrackedFiles.length > 0;
-  const showWikiAskSidebar = activeCenterTab === "wiki";
+  const showAgentChatSidebar = activeCenterTab === "wiki";
 
   const handleCommitsRefreshReady = useCallback(
     (refresh: () => Promise<unknown> | void) => {
@@ -295,15 +295,15 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   return (
     <aside className="w-full flex flex-col h-full">
-      <div className={cn("flex-1 min-h-0", !showWikiAskSidebar && "hidden")}>
+      <div className={cn("flex-1 min-h-0", !showAgentChatSidebar && "hidden")}>
         <AgentChatPanel
           variant="sidebar"
-          mode="wiki_ask"
+          mode="default"
           publishStatus={false}
-          active={showWikiAskSidebar}
+          active={showAgentChatSidebar}
         />
       </div>
-      <div className={cn("flex-1 min-h-0", showWikiAskSidebar && "hidden")}>
+      <div className={cn("flex-1 min-h-0", showAgentChatSidebar && "hidden")}>
         <Tabs
           value={activeTab}
           onValueChange={(v) =>

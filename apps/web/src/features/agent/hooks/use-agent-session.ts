@@ -1,170 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agentApi, getAgentWsBase, type AgentAuthMethod, type AgentAuthRequiredPayload } from "@/api/rest-api";
-import { getRuntimeApiConfig } from "@/shared/lib/desktop-runtime";
-import type { AgentChatMode } from "@/features/agent/types/index";
+import {
+  agentApi,
+  type AgentAuthRequiredPayload,
+  type AgentCapabilities,
+  type AgentImplementationInfo,
+} from "@/api/rest-api";
+import {
+  closeAgentWebSocket,
+  connectAgentRuntimeSocket,
+  mergeConfigOptions,
+  parseAuthRequiredError,
+  type AgentConfigOption,
+  type AgentConnectionPhase,
+  type AgentServerMessage,
+  type AgentUsage,
+} from "@/features/agent/lib/agent-runtime-socket";
 
-const AUTH_REQUIRED_ERROR_PREFIX = "ACP_AUTH_REQUIRED::";
-
-export type AgentConnectionPhase =
-  | "idle"
-  | "initializing"
-  | "authenticating"
-  | "resuming_session"
-  | "creating_session"
-  | "connecting_ws"
-  | "connected";
-
-export interface AcpPermissionOption {
-  option_id: string;
-  name: string;
-  /** "allow_once" | "allow_always" | "reject_once" | "reject_always" | "other" */
-  kind: string;
-}
-
-export type AgentServerMessage =
-  | {
-      type: "stream";
-      role?: "assistant" | "user";
-      kind?: "message" | "thinking";
-      delta: string;
-      done: boolean;
-      usage?: unknown;
-    }
-  | {
-      type: "tool_call";
-      tool_call_id: string;
-      parent_tool_call_id?: string;
-      tool: string;
-      description: string;
-      status: "running" | "completed" | "failed";
-      raw_input?: unknown;
-      content?: AgentToolCallContentItem[];
-      raw_output?: unknown;
-      detail?: unknown;
-    }
-  | {
-      type: "permission_request";
-      request_id: string;
-      tool: string;
-      description: string;
-      content_markdown?: string;
-      risk_level: string;
-      options: AcpPermissionOption[];
-    }
-  | { type: "error"; code: string; message: string; recoverable: boolean }
-  | { type: "turn_end"; usage?: AgentTurnUsage }
-  | { type: "session_ended" }
-  | { type: "load_completed" }
-  | { type: "phase_update"; phase: string }
-  | {
-      type: "config_options_update";
-      configOptions: AgentConfigOption[];
-    }
-  | {
-      type: "plan_update";
-      plan: AgentPlan;
-    }
-  | {
-      type: "usage_update";
-      usage: AgentUsage;
-    }
-  | {
-      type: "session_title_updated";
-      title: string;
-      title_source: string;
-    };
-
-export interface AgentCost {
-  amount?: number;
-  currency?: string;
-}
-
-export interface AgentUsage {
-  used?: number;
-  size?: number;
-  cost?: AgentCost;
-}
-
-export interface AgentTurnUsage {
-  totalTokens?: number;
-  inputTokens?: number;
-  outputTokens?: number;
-  thoughtTokens?: number;
-  cachedReadTokens?: number;
-  cachedWriteTokens?: number;
-}
-
-export interface AgentPlanEntry {
-  content: string;
-  priority: string;
-  status: string;
-}
-
-export interface AgentPlan {
-  entries: AgentPlanEntry[];
-}
-
-export interface AgentConfigOptionValue {
-  value: string;
-  name?: string;
-  description?: string;
-}
-
-export interface AgentConfigOption {
-  id: string;
-  name?: string;
-  description?: string;
-  category?: string;
-  type: "select" | string;
-  currentValue?: string;
-  options: AgentConfigOptionValue[];
-}
-
-export type AgentToolCallContentItem =
-  | {
-      type: "text";
-      text: string;
-    }
-  | {
-      type: "diff";
-      path?: string;
-      old_content?: string;
-      new_content: string;
-    }
-  | {
-      type: "terminal";
-      terminal_id: string;
-    };
-
-function mergeConfigOptions(
-  prev: AgentConfigOption[],
-  incoming: AgentConfigOption[],
-): AgentConfigOption[] {
-  if (prev.length === 0) return incoming;
-
-  const merged = [...prev];
-  for (const inc of incoming) {
-    const idx = merged.findIndex((o) => o.id === inc.id);
-    if (idx >= 0) {
-      if (inc.options.length > 0) {
-        merged[idx] = inc;
-      } else {
-        merged[idx] = { ...merged[idx], currentValue: inc.currentValue };
-      }
-    } else if (inc.options.length > 0) {
-      merged.push(inc);
-    }
-  }
-  return merged;
-}
+export type {
+  AcpPermissionOption,
+  AgentConfigOption,
+  AgentConfigOptionValue,
+  AgentConnectionPhase,
+  AgentCost,
+  AgentPlan,
+  AgentPlanEntry,
+  AgentServerMessage,
+  AgentToolCallContentItem,
+  AgentTurnUsage,
+  AgentUsage,
+} from "@/features/agent/lib/agent-runtime-socket";
 
 export interface UseAgentSessionOptions {
   workspaceId: string | null;
   projectId: string | null;
   registryId: string;
-  mode: AgentChatMode;
   onMessage?: (msg: AgentServerMessage) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
@@ -177,15 +48,26 @@ export interface StartSessionOverride {
   projectId?: string | null;
   registryId?: string;
   authMethodId?: string | null;
-  mode?: AgentChatMode;
+}
+
+export interface ResumeSessionInput {
+  registryId: string;
+  acpSessionId: string;
+  cwd?: string | null;
+  workspaceId?: string | null;
+  projectId?: string | null;
+  authMethodId?: string | null;
 }
 
 /** Snapshot of a live session that can be stashed and restored later. */
 export interface StashedSession {
   ws: WebSocket;
   sessionId: string;
+  acpSessionId: string | null;
   cwd: string | null;
   title: string | null;
+  agentInfo: AgentImplementationInfo | null;
+  capabilities: AgentCapabilities | null;
   configOptions: AgentConfigOption[];
   sessionUsage: AgentUsage | null;
 }
@@ -199,6 +81,8 @@ export interface UseAgentSessionReturn {
   connectionPhase: AgentConnectionPhase;
   error: string | null;
   authRequest: AgentAuthRequiredPayload | null;
+  agentInfo: AgentImplementationInfo | null;
+  capabilities: AgentCapabilities | null;
   sendPrompt: (message: string) => boolean;
   sendPermissionResponse: (
     requestId: string,
@@ -207,7 +91,7 @@ export interface UseAgentSessionReturn {
   ) => void;
   sendCancel: () => void;
   startSession: (override?: StartSessionOverride) => Promise<void>;
-  resumeSession: (sessionId: string) => Promise<boolean>;
+  resumeSession: (input: ResumeSessionInput) => Promise<boolean>;
   clearAuthRequest: () => void;
   disconnect: () => void;
   /** Move the current session to an internal stash (keyed by `key`).
@@ -223,49 +107,20 @@ export interface UseAgentSessionReturn {
   sessionUsage: AgentUsage | null;
   setConfigOption: (id: string, value: string) => void;
   setAgentDefaultConfig: (configId: string, value: string) => void;
-}
-
-function parseAuthRequiredError(err: unknown): AgentAuthRequiredPayload | null {
-  const raw = err instanceof Error ? err.message : String(err ?? "");
-  const idx = raw.indexOf(AUTH_REQUIRED_ERROR_PREFIX);
-  if (idx < 0) return null;
-  const jsonPart = raw.slice(idx + AUTH_REQUIRED_ERROR_PREFIX.length).trim();
-  if (!jsonPart) return null;
-  try {
-    const parsed = JSON.parse(jsonPart) as Partial<AgentAuthRequiredPayload>;
-    if (
-      !parsed ||
-      typeof parsed !== "object" ||
-      typeof parsed.request_id !== "string" ||
-      !Array.isArray(parsed.methods) ||
-      typeof parsed.message !== "string"
-    ) {
-      return null;
-    }
-    const methods: AgentAuthMethod[] = parsed.methods
-      .filter((m): m is AgentAuthMethod => !!m && typeof m.id === "string" && typeof m.name === "string")
-      .map((m) => ({ id: m.id, name: m.name, description: m.description }));
-    return {
-      request_id: parsed.request_id,
-      methods,
-      message: parsed.message,
-    };
-  } catch {
-    return null;
-  }
+  logoutAgent: (cwd?: string | null, authMethodId?: string | null) => Promise<boolean>;
 }
 
 export function useAgentSession({
   workspaceId,
   projectId,
   registryId,
-  mode,
   onMessage,
   onConnected,
   onDisconnected,
   onError,
 }: UseAgentSessionOptions): UseAgentSessionReturn {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [acpSessionId, setAcpSessionId] = useState<string | null>(null);
   const [sessionCwd, setSessionCwd] = useState<string | null>(null);
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -275,6 +130,8 @@ export function useAgentSession({
   const [authRequest, setAuthRequest] = useState<AgentAuthRequiredPayload | null>(null);
   const [sessionUsage, setSessionUsage] = useState<AgentUsage | null>(null);
   const [configOptions, setConfigOptions] = useState<AgentConfigOption[]>([]);
+  const [agentInfo, setAgentInfo] = useState<AgentImplementationInfo | null>(null);
+  const [capabilities, setCapabilities] = useState<AgentCapabilities | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const cancelledRef = useRef(false);
   const onMessageRef = useRef(onMessage);
@@ -331,7 +188,7 @@ export function useAgentSession({
     (configId: string, value: string) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
-          JSON.stringify({ type: "set_config_option", config_id: configId, value })
+          JSON.stringify({ type: "set_config_option", option_id: configId, value })
         );
       }
       // Optimistically update local state so UI responds immediately
@@ -364,19 +221,32 @@ export function useAgentSession({
   // read them without adding state to their dependency arrays.
   const latestRef = useRef({
     sessionId: null as string | null,
+    acpSessionId: null as string | null,
     cwd: null as string | null,
     title: null as string | null,
+    agentInfo: null as AgentImplementationInfo | null,
+    capabilities: null as AgentCapabilities | null,
     configOptions: [] as AgentConfigOption[],
     sessionUsage: null as AgentUsage | null,
   });
   useEffect(() => {
-    latestRef.current = { sessionId, cwd: sessionCwd, title: sessionTitle, configOptions, sessionUsage };
+    latestRef.current = {
+      sessionId,
+      acpSessionId,
+      cwd: sessionCwd,
+      title: sessionTitle,
+      agentInfo,
+      capabilities,
+      configOptions,
+      sessionUsage,
+    };
   });
 
   const stashedRef = useRef<Map<string, StashedSession>>(new Map());
 
   const clearActiveState = useCallback(() => {
     setSessionId(null);
+    setAcpSessionId(null);
     setSessionCwd(null);
     setSessionTitle(null);
     setIsConnecting(false);
@@ -386,28 +256,67 @@ export function useAgentSession({
     setAuthRequest(null);
     setSessionUsage(null);
     setConfigOptions([]);
+    setAgentInfo(null);
+    setCapabilities(null);
   }, []);
 
   const disconnect = useCallback(() => {
     if (wsRef.current) {
-      wsRef.current.close();
+      closeAgentWebSocket(wsRef.current);
       wsRef.current = null;
     }
     clearActiveState();
   }, [clearActiveState]);
 
+  const logoutAgent = useCallback(
+    async (cwd?: string | null, authMethodId?: string | null): Promise<boolean> => {
+      if (!registryId) return false;
+      try {
+        await agentApi.logoutAgent(registryId, cwd ?? sessionCwd, authMethodId ?? null);
+        disconnect();
+        setAuthRequest(null);
+        return true;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to logout agent";
+        setError(msg);
+        onError?.(msg);
+        return false;
+      }
+    },
+    [disconnect, onError, registryId, sessionCwd],
+  );
+
   const stashSession = useCallback((key: string) => {
     const ws = wsRef.current;
-    const { sessionId: sid, cwd, title, configOptions: opts, sessionUsage: usage } = latestRef.current;
+    const {
+      sessionId: sid,
+      acpSessionId: acpSid,
+      cwd,
+      title,
+      agentInfo: info,
+      capabilities: caps,
+      configOptions: opts,
+      sessionUsage: usage,
+    } = latestRef.current;
 
     if (ws && ws.readyState === WebSocket.OPEN && sid) {
-      stashedRef.current.set(key, { ws, sessionId: sid, cwd, title, configOptions: opts, sessionUsage: usage });
+      stashedRef.current.set(key, {
+        ws,
+        sessionId: sid,
+        acpSessionId: acpSid,
+        cwd,
+        title,
+        agentInfo: info,
+        capabilities: caps,
+        configOptions: opts,
+        sessionUsage: usage,
+      });
       // Detach without closing – the WS stays alive in the background.
       // Existing onmessage/onclose handlers check `wsRef.current !== ws`
       // and will no-op while the session is stashed.
       wsRef.current = null;
     } else if (ws) {
-      ws.close();
+      closeAgentWebSocket(ws);
       wsRef.current = null;
     }
 
@@ -420,21 +329,24 @@ export function useAgentSession({
     stashedRef.current.delete(key);
 
     if (stashed.ws.readyState !== WebSocket.OPEN) {
-      stashed.ws.close();
+      closeAgentWebSocket(stashed.ws);
       return null;
     }
 
     // Close any current active connection first.
     if (wsRef.current) {
-      wsRef.current.close();
+      closeAgentWebSocket(wsRef.current);
       wsRef.current = null;
     }
 
     // Re-attach: set wsRef so existing onmessage/onclose handlers resume.
     wsRef.current = stashed.ws;
     setSessionId(stashed.sessionId);
+    setAcpSessionId(stashed.acpSessionId);
     setSessionCwd(stashed.cwd);
     setSessionTitle(stashed.title);
+    setAgentInfo(stashed.agentInfo);
+    setCapabilities(stashed.capabilities);
     setConfigOptions(stashed.configOptions);
     setSessionUsage(stashed.sessionUsage);
     setIsConnecting(false);
@@ -449,12 +361,93 @@ export function useAgentSession({
   const disconnectStashed = useCallback((key?: string) => {
     if (key !== undefined) {
       const s = stashedRef.current.get(key);
-      if (s) { s.ws.close(); stashedRef.current.delete(key); }
+      if (s) {
+        closeAgentWebSocket(s.ws);
+        stashedRef.current.delete(key);
+      }
     } else {
-      for (const [, s] of stashedRef.current) s.ws.close();
+      for (const [, s] of stashedRef.current) closeAgentWebSocket(s.ws);
       stashedRef.current.clear();
     }
   }, []);
+
+  const attachRuntimeSessionSocket = useCallback(
+    async (runtimeSessionId: string, mode: "new" | "resume") => {
+      setConnectionPhase("connecting_ws");
+      await connectAgentRuntimeSocket({
+        runtimeSessionId,
+        mode,
+        wsRef,
+        callbacks: {
+          onPhaseChange: setConnectionPhase,
+          onUsageUpdate: (usage, msg) => {
+            setSessionUsage(usage);
+            onMessageRef.current?.(msg);
+          },
+          onAgentInfoUpdate: (info, msg) => {
+            setAgentInfo(info);
+            onMessageRef.current?.(msg);
+          },
+          onCapabilitiesUpdate: (caps, msg) => {
+            setCapabilities(caps);
+            onMessageRef.current?.(msg);
+          },
+          onSessionReady: (msg) => {
+            setSessionId(msg.runtime_session_id);
+            setAcpSessionId(msg.acp_session_id);
+            setIsConnecting(false);
+            setIsConnected(true);
+            setConnectionPhase("connected");
+            setError(null);
+            setAuthRequest(null);
+            onConnected?.();
+            onMessageRef.current?.(msg);
+          },
+          onSessionInfoUpdate: (msg) => {
+            if ("title" in msg) setSessionTitle(msg.title ?? null);
+            if ("cwd" in msg) setSessionCwd(msg.cwd ?? null);
+            onMessageRef.current?.(msg);
+          },
+          onSessionClosed: (msg) => {
+            setIsConnected(false);
+            setConnectionPhase("idle");
+            onMessageRef.current?.(msg);
+          },
+          onConfigOptionsUpdate: (options) => {
+            setConfigOptions((prev) => mergeConfigOptions(prev, options));
+          },
+          onAuthRequired: (payload, fallbackMessage) => {
+            setIsConnecting(false);
+            setConnectionPhase("idle");
+            if (payload) {
+              setAuthRequest(payload);
+            } else {
+              setError(fallbackMessage);
+            }
+          },
+          onUnhandledMessage: (msg) => {
+            onMessageRef.current?.(msg);
+          },
+          onSocketClosed: (didConnect) => {
+            setIsConnecting(false);
+            setIsConnected(false);
+            setConnectionPhase("idle");
+            if (!didConnect) {
+              setSessionId(null);
+              setAcpSessionId(null);
+              setSessionCwd(null);
+            }
+            onDisconnected?.();
+          },
+          onSocketError: (message) => {
+            setError(message);
+            onError?.(message);
+          },
+        },
+      });
+    },
+    [onConnected, onDisconnected, onError],
+  );
 
   const startSession = useCallback(
     async (override?: StartSessionOverride) => {
@@ -467,117 +460,20 @@ export function useAgentSession({
       const w = override?.workspaceId ?? workspaceId;
       const p = override?.projectId ?? projectId;
       const r = override?.registryId ?? registryId;
-      const m = override?.mode ?? mode;
       try {
         setConnectionPhase("creating_session");
-        const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId, m);
+        const res = await agentApi.createSession(w ?? null, p ?? null, r, override?.authMethodId);
 
         if (cancelledRef.current) {
           return;
         }
 
-        const sid = res.session_id;
+        const sid = res.runtime_session_id;
         setSessionId(sid);
+        setAcpSessionId(null);
         setSessionCwd(res.cwd);
-        setSessionTitle(res.title ?? null);
-
-        const wsBase = await getAgentWsBase();
-        const cfg = await getRuntimeApiConfig();
-        const wsUrl = `${wsBase}/ws/agent/${sid}${cfg.token ? `?token=${encodeURIComponent(cfg.token)}` : ""}`;
-        setConnectionPhase("connecting_ws");
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-        // Track whether ACP connection ever succeeded for this WS instance.
-        let didConnect = false;
-
-        ws.onopen = () => {
-          // WS is open, but ACP connection may still be initializing.
-          // Wait for phase_update "connected" before marking as ready.
-        };
-
-        ws.onmessage = (e) => {
-          // Ignore events from a stale WebSocket that was already replaced
-          if (wsRef.current !== ws) return;
-          try {
-            const msg = JSON.parse(e.data) as AgentServerMessage;
-            if (msg.type === "phase_update") {
-              const phaseMap: Record<string, AgentConnectionPhase> = {
-                initializing: "initializing",
-                spawning_agent: "initializing",
-                creating_session: "creating_session",
-                connected: "connected",
-              };
-              const mapped = phaseMap[msg.phase] ?? "initializing";
-              setConnectionPhase(mapped);
-              if (mapped === "connected") {
-                didConnect = true;
-                setIsConnecting(false);
-                setIsConnected(true);
-                setError(null);
-                setAuthRequest(null);
-                onConnected?.();
-              }
-              return;
-            }
-            if (msg.type === "usage_update") {
-              setSessionUsage(msg.usage);
-              onMessageRef.current?.(msg);
-              return;
-            }
-            if (msg.type === "config_options_update") {
-              if (Array.isArray(msg.configOptions)) {
-                setConfigOptions((prev) =>
-                  mergeConfigOptions(prev, msg.configOptions as AgentConfigOption[])
-                );
-              }
-              return;
-            }
-            if (msg.type === "session_title_updated") {
-              setSessionTitle(msg.title);
-              onMessageRef.current?.(msg);
-              return;
-            }
-            // Handle auth-required error from ACP connection phase
-            if (msg.type === "error" && msg.code === "ACP_AUTH_REQUIRED") {
-              setIsConnecting(false);
-              setConnectionPhase("idle");
-              try {
-                const parsed = JSON.parse(msg.message) as Partial<AgentAuthRequiredPayload>;
-                if (parsed && Array.isArray(parsed.methods)) {
-                  setAuthRequest(parsed as AgentAuthRequiredPayload);
-                  return;
-                }
-              } catch { /* fall through */ }
-              setError(msg.message);
-              return;
-            }
-            onMessageRef.current?.(msg);
-          } catch {
-            // ignore parse errors
-          }
-        };
-
-        ws.onclose = () => {
-          // Only reset state if this is still the active WebSocket
-          if (wsRef.current !== ws) return;
-          wsRef.current = null;
-          setIsConnecting(false);
-          setIsConnected(false);
-          setConnectionPhase("idle");
-          // If we never successfully connected (ACP setup failed), clear sessionId
-          // so the auto-reconnect effect doesn't spuriously try to resume this dead session.
-          if (!didConnect) {
-            setSessionId(null);
-            setSessionCwd(null);
-          }
-          onDisconnected?.();
-        };
-
-        ws.onerror = () => {
-          if (wsRef.current !== ws) return;
-          setError("WebSocket error");
-          onError?.("WebSocket error");
-        };
+        setSessionTitle(null);
+        await attachRuntimeSessionSocket(sid, "new");
       } catch (err) {
         setIsConnecting(false);
         setConnectionPhase("idle");
@@ -592,11 +488,11 @@ export function useAgentSession({
         onError?.(msg);
       }
     },
-    [workspaceId, projectId, registryId, mode, onConnected, onDisconnected, onError]
+    [attachRuntimeSessionSocket, workspaceId, projectId, registryId, onError]
   );
 
   const resumeSession = useCallback(
-    async (sessionIdToResume: string) => {
+    async (input: ResumeSessionInput) => {
       setIsConnecting(true);
       setConnectionPhase("resuming_session");
       setError(null);
@@ -604,128 +500,52 @@ export function useAgentSession({
       setSessionUsage(null);
       setConfigOptions([]);
       try {
-        const res = await agentApi.resumeSession(sessionIdToResume, mode);
+        const res = await agentApi.resumeSession(
+          input.registryId,
+          input.acpSessionId,
+          input.cwd,
+          input.workspaceId ?? workspaceId,
+          input.projectId ?? projectId,
+          input.authMethodId,
+        );
 
         if (cancelledRef.current) {
           return false;
         }
 
-        const sid = res.session_id;
+        const sid = res.runtime_session_id;
         setSessionId(sid);
+        setAcpSessionId(res.acp_session_id);
         setSessionCwd(res.cwd);
-        setSessionTitle(res.title ?? null);
-
-        const wsBase = await getAgentWsBase();
-        const cfg = await getRuntimeApiConfig();
-        const wsUrl = `${wsBase}/ws/agent/${sid}${cfg.token ? `?token=${encodeURIComponent(cfg.token)}` : ""}`;
-        setConnectionPhase("connecting_ws");
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-        let didConnect = false;
-
-        ws.onopen = () => {
-          // WS open, wait for phase_update "connected"
-        };
-
-        ws.onmessage = (e) => {
-          if (wsRef.current !== ws) return;
-          try {
-            const msg = JSON.parse(e.data) as AgentServerMessage;
-            if (msg.type === "phase_update") {
-              // When resuming, show "Restoring" instead of "Initializing".
-              const phaseMap: Record<string, AgentConnectionPhase> = {
-                initializing: "resuming_session",
-                spawning_agent: "resuming_session",
-                creating_session: "resuming_session",
-                connected: "connected",
-              };
-              const mapped = phaseMap[msg.phase] ?? "resuming_session";
-              setConnectionPhase(mapped);
-              if (mapped === "connected") {
-                didConnect = true;
-                setIsConnecting(false);
-                setIsConnected(true);
-                setError(null);
-                onConnected?.();
-              }
-              return;
-            }
-            if (msg.type === "usage_update") {
-              setSessionUsage(msg.usage);
-              onMessageRef.current?.(msg);
-              return;
-            }
-            if (msg.type === "config_options_update") {
-              if (Array.isArray(msg.configOptions)) {
-                setConfigOptions((prev) =>
-                  mergeConfigOptions(prev, msg.configOptions as AgentConfigOption[])
-                );
-              }
-              return;
-            }
-            if (msg.type === "session_title_updated") {
-              setSessionTitle(msg.title);
-              onMessageRef.current?.(msg);
-              return;
-            }
-            if (msg.type === "error" && msg.code === "ACP_AUTH_REQUIRED") {
-              setIsConnecting(false);
-              setConnectionPhase("idle");
-              try {
-                const parsed = JSON.parse(msg.message) as Partial<AgentAuthRequiredPayload>;
-                if (parsed && Array.isArray(parsed.methods)) {
-                  setAuthRequest(parsed as AgentAuthRequiredPayload);
-                  return;
-                }
-              } catch { /* fall through */ }
-              setError(msg.message);
-              return;
-            }
-            onMessageRef.current?.(msg);
-          } catch {
-            // ignore parse errors
-          }
-        };
-
-        ws.onclose = () => {
-          if (wsRef.current !== ws) return;
-          wsRef.current = null;
-          setIsConnecting(false);
-          setIsConnected(false);
-          setConnectionPhase("idle");
-          // If ACP setup failed, clear sessionId to prevent spurious auto-resume loops.
-          if (!didConnect) {
-            setSessionId(null);
-            setSessionCwd(null);
-          }
-          onDisconnected?.();
-        };
-
-        ws.onerror = () => {
-          if (wsRef.current !== ws) return;
-          setError("WebSocket error");
-          onError?.("WebSocket error");
-        };
+        setSessionTitle(null);
+        await attachRuntimeSessionSocket(sid, "resume");
         return true;
       } catch (err) {
         setIsConnecting(false);
         setConnectionPhase("idle");
+        const authRequired = parseAuthRequiredError(err);
+        if (authRequired) {
+          setAuthRequest(authRequired);
+          setError(null);
+          return false;
+        }
         const msg = err instanceof Error ? err.message : "Failed to resume session";
         setError(msg);
         onError?.(msg);
         return false;
       }
     },
-    [mode, onConnected, onDisconnected, onError]
+    [attachRuntimeSessionSocket, onError, projectId, workspaceId]
   );
 
   useEffect(() => {
     cancelledRef.current = false;
+    const stashedSessions = stashedRef.current;
     return () => {
       cancelledRef.current = true;
       disconnect();
-      for (const [, s] of stashedRef.current) s.ws.close();
-      stashedRef.current.clear();
+      for (const [, s] of stashedSessions) closeAgentWebSocket(s.ws);
+      stashedSessions.clear();
     };
   }, [disconnect]);
 
@@ -738,6 +558,8 @@ export function useAgentSession({
     connectionPhase,
     error,
     authRequest,
+    agentInfo,
+    capabilities,
     sendPrompt,
     sendCancel,
     sendPermissionResponse,
@@ -752,5 +574,6 @@ export function useAgentSession({
     sessionUsage,
     setConfigOption,
     setAgentDefaultConfig,
+    logoutAgent,
   };
 }

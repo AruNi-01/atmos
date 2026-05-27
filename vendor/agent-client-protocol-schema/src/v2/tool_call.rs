@@ -9,8 +9,10 @@ use std::{path::PathBuf, sync::Arc};
 use derive_more::{Display, From};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_with::{DefaultOnError, VecSkipError, serde_as, skip_serializing_none};
 
-use crate::{ContentBlock, Error, IntoOption, Meta, TerminalId};
+use super::{ContentBlock, Error, Meta, TerminalId};
+use crate::{IntoOption, SkipListener};
 
 /// Represents a tool call that the language model has requested.
 ///
@@ -18,6 +20,8 @@ use crate::{ContentBlock, Error, IntoOption, Meta, TerminalId};
 /// such as reading files, executing code, or fetching data from external sources.
 ///
 /// See protocol docs: [Tool Calls](https://agentclientprotocol.com/protocol/tool-calls)
+#[serde_as]
+#[skip_serializing_none]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -34,28 +38,29 @@ pub struct ToolCall {
     #[serde(default, skip_serializing_if = "ToolCallStatus::is_default")]
     pub status: ToolCallStatus,
     /// Content produced by the tool call.
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_, SkipListener>>")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub content: Vec<ToolCallContent>,
     /// File locations affected by this tool call.
     /// Enables "follow-along" features in clients.
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_, SkipListener>>")]
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub locations: Vec<ToolCallLocation>,
     /// Raw input parameters sent to the tool.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_input: Option<serde_json::Value>,
     /// Raw output returned by the tool.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_output: Option<serde_json::Value>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
     ///
     /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    #[serde(rename = "_meta")]
     pub meta: Option<Meta>,
 }
 
 impl ToolCall {
+    #[must_use]
     pub fn new(tool_call_id: impl Into<ToolCallId>, title: impl Into<String>) -> Self {
         Self {
             tool_call_id: tool_call_id.into(),
@@ -158,6 +163,7 @@ impl ToolCall {
 /// the tool call ID are optional - only changed fields need to be included.
 ///
 /// See protocol docs: [Updating](https://agentclientprotocol.com/protocol/tool-calls#updating)
+#[skip_serializing_none]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -172,7 +178,7 @@ pub struct ToolCallUpdate {
     /// these keys.
     ///
     /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    #[serde(rename = "_meta")]
     pub meta: Option<Meta>,
 }
 
@@ -204,30 +210,33 @@ impl ToolCallUpdate {
 /// Collections (content, locations) are overwritten, not extended.
 ///
 /// See protocol docs: [Updating](https://agentclientprotocol.com/protocol/tool-calls#updating)
+#[serde_as]
+#[skip_serializing_none]
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct ToolCallUpdateFields {
     /// Update the tool kind.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     pub kind: Option<ToolKind>,
     /// Update the execution status.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     pub status: Option<ToolCallStatus>,
     /// Update the human-readable title.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     /// Replace the content collection.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(deserialize_as = "DefaultOnError<Option<VecSkipError<_, SkipListener>>>")]
+    #[serde(default)]
     pub content: Option<Vec<ToolCallContent>>,
     /// Replace the locations collection.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde_as(deserialize_as = "DefaultOnError<Option<VecSkipError<_, SkipListener>>>")]
+    #[serde(default)]
     pub locations: Option<Vec<ToolCallLocation>>,
     /// Update the raw input.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_input: Option<serde_json::Value>,
     /// Update the raw output.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub raw_output: Option<serde_json::Value>,
 }
 
@@ -361,8 +370,15 @@ impl From<ToolCall> for ToolCallUpdate {
 pub struct ToolCallId(pub Arc<str>);
 
 impl ToolCallId {
+    #[must_use]
     pub fn new(id: impl Into<Arc<str>>) -> Self {
         Self(id.into())
+    }
+}
+
+impl IntoOption<ToolCallId> for &str {
+    fn into_option(self) -> Option<ToolCallId> {
+        Some(ToolCallId::new(self))
     }
 }
 
@@ -471,6 +487,7 @@ impl From<Diff> for ToolCallContent {
 }
 
 /// Standard content block (text, images, resources).
+#[skip_serializing_none]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -482,11 +499,12 @@ pub struct Content {
     /// these keys.
     ///
     /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    #[serde(rename = "_meta")]
     pub meta: Option<Meta>,
 }
 
 impl Content {
+    #[must_use]
     pub fn new(content: impl Into<ContentBlock>) -> Self {
         Self {
             content: content.into(),
@@ -511,6 +529,7 @@ impl Content {
 /// The terminal must be added before calling `terminal/release`.
 ///
 /// See protocol docs: [Terminal](https://agentclientprotocol.com/protocol/terminals)
+#[skip_serializing_none]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -521,7 +540,7 @@ pub struct Terminal {
     /// these keys.
     ///
     /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    #[serde(rename = "_meta")]
     pub meta: Option<Meta>,
 }
 
@@ -551,6 +570,7 @@ impl Terminal {
 /// Shows changes to files in a format suitable for display in the client UI.
 ///
 /// See protocol docs: [Content](https://agentclientprotocol.com/protocol/tool-calls#content)
+#[skip_serializing_none]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -566,11 +586,12 @@ pub struct Diff {
     /// these keys.
     ///
     /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    #[serde(rename = "_meta")]
     pub meta: Option<Meta>,
 }
 
 impl Diff {
+    #[must_use]
     pub fn new(path: impl Into<PathBuf>, new_text: impl Into<String>) -> Self {
         Self {
             path: path.into(),
@@ -605,6 +626,7 @@ impl Diff {
 /// which files the agent is working with in real-time.
 ///
 /// See protocol docs: [Following the Agent](https://agentclientprotocol.com/protocol/tool-calls#following-the-agent)
+#[skip_serializing_none]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -612,18 +634,19 @@ pub struct ToolCallLocation {
     /// The file path being accessed or modified.
     pub path: PathBuf,
     /// Optional line number within the file.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub line: Option<u32>,
     /// The _meta property is reserved by ACP to allow clients and agents to attach additional
     /// metadata to their interactions. Implementations MUST NOT make assumptions about values at
     /// these keys.
     ///
     /// See protocol docs: [Extensibility](https://agentclientprotocol.com/protocol/extensibility)
-    #[serde(skip_serializing_if = "Option::is_none", rename = "_meta")]
+    #[serde(rename = "_meta")]
     pub meta: Option<Meta>,
 }
 
 impl ToolCallLocation {
+    #[must_use]
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),

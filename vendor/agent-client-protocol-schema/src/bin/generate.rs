@@ -1,35 +1,63 @@
-use agent_client_protocol_schema::{
-    AGENT_METHOD_NAMES, AgentSide, CLIENT_METHOD_NAMES, ClientSide, JsonRpcMessage,
-    OutgoingMessage, ProtocolVersion,
+use agent_client_protocol_schema::ProtocolVersion;
+#[cfg(feature = "unstable_protocol_v2")]
+use agent_client_protocol_schema::v2::{
+    AGENT_METHOD_NAMES, AgentNotification, AgentRequest, AgentResponse, CLIENT_METHOD_NAMES,
+    ClientNotification, ClientRequest, ClientResponse, JsonRpcMessage, Notification, Request,
+    Response,
 };
-#[cfg(feature = "unstable_cancel_request")]
+#[cfg(all(feature = "unstable_cancel_request", feature = "unstable_protocol_v2"))]
+use agent_client_protocol_schema::v2::{PROTOCOL_LEVEL_METHOD_NAMES, ProtocolLevelNotification};
+#[cfg(not(feature = "unstable_protocol_v2"))]
+use agent_client_protocol_schema::{
+    AGENT_METHOD_NAMES, AgentNotification, AgentRequest, AgentResponse, CLIENT_METHOD_NAMES,
+    ClientNotification, ClientRequest, ClientResponse, JsonRpcMessage, Notification, Request,
+    Response,
+};
+#[cfg(all(
+    feature = "unstable_cancel_request",
+    not(feature = "unstable_protocol_v2")
+))]
 use agent_client_protocol_schema::{PROTOCOL_LEVEL_METHOD_NAMES, ProtocolLevelNotification};
 use schemars::{
     JsonSchema,
     generate::SchemaSettings,
     transform::{RemoveRefSiblings, ReplaceBoolSchemas},
 };
+use serde::{Deserialize, Serialize};
 use std::{env, fs, path::Path};
 
 use markdown_generator::MarkdownGenerator;
 
-#[expect(dead_code)]
-#[derive(JsonSchema)]
+/// All messages that an agent can send to a client.
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
 #[schemars(inline)]
-struct AgentOutgoingMessage(JsonRpcMessage<OutgoingMessage<AgentSide, ClientSide>>);
+#[allow(clippy::large_enum_variant)]
+enum AgentOutgoingMessage {
+    Request(Request<AgentRequest>),
+    Response(Response<AgentResponse>),
+    Notification(Notification<AgentNotification>),
+}
 
-#[expect(dead_code)]
-#[derive(JsonSchema)]
+/// All messages that a client can send to an agent.
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
 #[schemars(inline)]
-struct ClientOutgoingMessage(JsonRpcMessage<OutgoingMessage<ClientSide, AgentSide>>);
+#[allow(clippy::large_enum_variant)]
+enum ClientOutgoingMessage {
+    Request(Request<ClientRequest>),
+    Response(Response<ClientResponse>),
+    Notification(Notification<ClientNotification>),
+}
 
 #[expect(dead_code)]
 #[derive(JsonSchema)]
 #[serde(untagged)]
 #[schemars(title = "Agent Client Protocol")]
+#[allow(clippy::large_enum_variant)]
 enum AcpTypes {
-    Agent(AgentOutgoingMessage),
-    Client(ClientOutgoingMessage),
+    Agent(JsonRpcMessage<AgentOutgoingMessage>),
+    Client(JsonRpcMessage<ClientOutgoingMessage>),
     #[cfg(feature = "unstable_cancel_request")]
     ProtocolLevel(ProtocolLevelNotification),
 }
@@ -56,54 +84,85 @@ fn main() {
     fs::create_dir_all(schema_dir.clone()).unwrap();
     fs::create_dir_all(docs_protocol_dir.clone()).unwrap();
 
-    let schema_file = if cfg!(feature = "unstable") {
-        "schema.unstable.json"
-    } else {
-        "schema.json"
+    // Each cfg combination owns exactly one filename, with disjoint write
+    // sets so the three generation runs that produce the published schemas
+    // can run in any order without clobbering each other:
+    //
+    // - `schema.json`              — stable v1 (no features)
+    // - `schema.unstable.json`     — v1 + unstable feature flags
+    // - `schema.v2.unstable.json`  — v2 (with optional unstable flags)
+    //
+    // There is no v2 stable schema yet; it will be added when v2 stabilizes.
+    let schema_file: &str = match (
+        cfg!(feature = "unstable_protocol_v2"),
+        cfg!(feature = "unstable"),
+    ) {
+        (true, _) => "schema.v2.unstable.json",
+        (false, true) => "schema.unstable.json",
+        (false, false) => "schema.json",
     };
-    fs::write(
-        schema_dir.join(schema_file),
-        serde_json::to_string_pretty(&schema_value).unwrap(),
-    )
-    .expect("Failed to write {schema_file}");
+    let schema_json = serde_json::to_string_pretty(&schema_value).unwrap();
+    fs::write(schema_dir.join(schema_file), &schema_json)
+        .unwrap_or_else(|e| panic!("Failed to write {schema_file}: {e}"));
+
+    // The version embedded in `meta*.json` reflects the protocol version the
+    // *schema itself describes*, not `ProtocolVersion::LATEST` (which always
+    // tracks the latest **stable** version). Generating with the
+    // `unstable_protocol_v2` feature emits v2-shaped types, so the metadata
+    // file must advertise version 2 to stay consistent with its contents.
+    #[cfg(feature = "unstable_protocol_v2")]
+    let schema_protocol_version = ProtocolVersion::V2;
+    #[cfg(not(feature = "unstable_protocol_v2"))]
+    let schema_protocol_version = ProtocolVersion::V1;
 
     // Create a combined metadata object
     #[cfg(not(feature = "unstable_cancel_request"))]
     let metadata = serde_json::json!({
-        "version": ProtocolVersion::LATEST,
+        "version": schema_protocol_version,
         "agentMethods": AGENT_METHOD_NAMES,
         "clientMethods": CLIENT_METHOD_NAMES,
     });
     #[cfg(feature = "unstable_cancel_request")]
     let metadata = serde_json::json!({
-        "version": ProtocolVersion::LATEST,
+        "version": schema_protocol_version,
         "agentMethods": AGENT_METHOD_NAMES,
         "clientMethods": CLIENT_METHOD_NAMES,
         "protocolMethods": PROTOCOL_LEVEL_METHOD_NAMES,
     });
 
-    let meta_file = if cfg!(feature = "unstable") {
-        "meta.unstable.json"
-    } else {
-        "meta.json"
+    let meta_file: &str = match (
+        cfg!(feature = "unstable_protocol_v2"),
+        cfg!(feature = "unstable"),
+    ) {
+        (true, _) => "meta.v2.unstable.json",
+        (false, true) => "meta.unstable.json",
+        (false, false) => "meta.json",
     };
-    fs::write(
-        schema_dir.join(meta_file),
-        serde_json::to_string_pretty(&metadata).unwrap(),
-    )
-    .expect("Failed to write {meta_file}");
+    let metadata_json = serde_json::to_string_pretty(&metadata).unwrap();
+    fs::write(schema_dir.join(meta_file), &metadata_json)
+        .unwrap_or_else(|e| panic!("Failed to write {meta_file}: {e}"));
 
-    // Generate markdown documentation
+    // Generate markdown documentation. Each cfg combination owns its own
+    // doc file just like the JSON schema files above, so the three
+    // `npm run generate` runs don't clobber each other:
+    //
+    // - `schema.mdx`              — stable v1 (no features)
+    // - `draft/schema.mdx`        — v1 + unstable feature flags
+    // - `draft/schema-v2.mdx`     — v2 (with optional unstable flags)
     let mut markdown_gen = MarkdownGenerator::new();
     let markdown_doc = markdown_gen.generate(&schema_value);
 
-    let doc_file = if cfg!(feature = "unstable") {
-        "draft/schema.mdx"
-    } else {
-        "schema.mdx"
+    let doc_file: &str = match (
+        cfg!(feature = "unstable_protocol_v2"),
+        cfg!(feature = "unstable"),
+    ) {
+        (true, _) => "draft/schema-v2.mdx",
+        (false, true) => "draft/schema.mdx",
+        (false, false) => "schema.mdx",
     };
 
-    fs::write(docs_protocol_dir.join(doc_file), markdown_doc).expect("Failed to write {doc_file}");
+    fs::write(docs_protocol_dir.join(doc_file), markdown_doc)
+        .unwrap_or_else(|e| panic!("Failed to write {doc_file}: {e}"));
 
     println!("✓ Generated {schema_file}");
     println!("✓ Generated {meta_file}");
@@ -112,7 +171,7 @@ fn main() {
 
 mod markdown_generator {
     use serde_json::Value;
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::{BTreeMap, BTreeSet, HashMap};
     use std::fmt::Write;
     use std::fs;
     use std::process::Command;
@@ -130,6 +189,7 @@ mod markdown_generator {
             }
         }
 
+        #[expect(clippy::too_many_lines)]
         pub fn generate(&mut self, schema: &Value) -> String {
             // Extract definitions
             if let Some(defs) = schema.get("$defs").and_then(|v| v.as_object()) {
@@ -168,6 +228,18 @@ mod markdown_generator {
                         "agent" => &mut agent_types,
                         "client" => &mut client_types,
                         "protocol" => &mut protocol_types,
+                        "both" => {
+                            let entry = (name.clone(), def.clone());
+                            agent_types
+                                .entry(method.to_string())
+                                .or_default()
+                                .push(entry.clone());
+                            client_types
+                                .entry(method.to_string())
+                                .or_default()
+                                .push(entry);
+                            continue;
+                        }
                         _ => unimplemented!("Unexpected side {side}"),
                     };
 
@@ -181,6 +253,17 @@ mod markdown_generator {
             }
 
             let side_docs = extract_side_docs();
+            let mut duplicate_methods = BTreeSet::new();
+            for method in agent_types.keys() {
+                if client_types.contains_key(method) || protocol_types.contains_key(method) {
+                    duplicate_methods.insert(method.clone());
+                }
+            }
+            for method in client_types.keys() {
+                if protocol_types.contains_key(method) {
+                    duplicate_methods.insert(method.clone());
+                }
+            }
 
             writeln!(&mut self.output, "## Agent").unwrap();
             writeln!(&mut self.output).unwrap();
@@ -195,7 +278,13 @@ requests from clients and execute tasks using language models and tools."
             writeln!(&mut self.output).unwrap();
 
             for (method, types) in agent_types {
-                self.generate_method(&method, side_docs.agent_method_doc(&method), types);
+                let anchor_prefix = duplicate_methods.contains(&method).then_some("agent");
+                self.generate_method(
+                    anchor_prefix,
+                    &method,
+                    side_docs.agent_method_doc(&method),
+                    types,
+                );
             }
 
             writeln!(&mut self.output, "## Client").unwrap();
@@ -211,7 +300,13 @@ and control access to resources."
             .unwrap();
 
             for (method, types) in client_types {
-                self.generate_method(&method, side_docs.client_method_doc(&method), types);
+                let anchor_prefix = duplicate_methods.contains(&method).then_some("client");
+                self.generate_method(
+                    anchor_prefix,
+                    &method,
+                    side_docs.client_method_doc(&method),
+                    types,
+                );
             }
             #[cfg(feature = "unstable_cancel_request")]
             {
@@ -231,7 +326,13 @@ starting with '$/' it is free to ignore the notification."
                 .unwrap();
 
                 for (method, types) in protocol_types {
-                    self.generate_method(&method, side_docs.protocol_method_doc(&method), types);
+                    let anchor_prefix = duplicate_methods.contains(&method).then_some("protocol");
+                    self.generate_method(
+                        anchor_prefix,
+                        &method,
+                        side_docs.protocol_method_doc(&method),
+                        types,
+                    );
                 }
             }
 
@@ -245,17 +346,17 @@ starting with '$/' it is free to ignore the notification."
 
         fn generate_method(
             &mut self,
+            anchor_prefix: Option<&str>,
             method: &str,
             docs: &str,
             mut method_types: Vec<(String, Value)>,
         ) {
             if method.contains('/') {
-                writeln!(
-                    &mut self.output,
-                    "<a id=\"{}\"></a>",
-                    Self::anchor_text(method).replace('/', "-")
-                )
-                .unwrap();
+                let mut anchor = Self::anchor_text(method).replace('/', "-");
+                if let Some(prefix) = anchor_prefix {
+                    anchor = format!("{prefix}-{anchor}");
+                }
+                writeln!(&mut self.output, "<a id=\"{anchor}\"></a>").unwrap();
             }
             writeln!(
                 &mut self.output,
@@ -291,8 +392,37 @@ starting with '$/' it is free to ignore the notification."
                 writeln!(&mut self.output).unwrap();
             }
             // Determine type kind and document accordingly
-            if definition.get("oneOf").is_some() || definition.get("anyOf").is_some() {
-                self.document_union(definition);
+            if let Some(variants) = definition
+                .get("oneOf")
+                .or_else(|| definition.get("anyOf"))
+                .and_then(|v| v.as_array())
+            {
+                if variants.len() == 1 {
+                    // Single-variant union: resolve the $ref and render as its
+                    // underlying type instead of a "Union" wrapper.
+                    let variant = &variants[0];
+                    if let Some(merged_def) = self.merge_variant_definition(variant) {
+                        // Preserve variant-level description if present
+                        if let Some(desc) = Self::get_def_description(variant) {
+                            let escaped_desc = Self::escape_description(&desc);
+                            writeln!(&mut self.output, "{escaped_desc}").unwrap();
+                            writeln!(&mut self.output).unwrap();
+                        }
+                        if merged_def.get("properties").is_some() {
+                            self.document_object(&merged_def);
+                        } else if let Some(type_val) =
+                            merged_def.get("type").and_then(|v| v.as_str())
+                        {
+                            self.document_simple_type(type_val, &merged_def);
+                        } else {
+                            self.document_union(definition);
+                        }
+                    } else {
+                        self.document_union(definition);
+                    }
+                } else {
+                    self.document_union(definition);
+                }
             } else if definition.get("enum").is_some() {
                 self.document_enum_simple(definition);
             } else if definition.get("properties").is_some() {
@@ -308,12 +438,55 @@ starting with '$/' it is free to ignore the notification."
             writeln!(&mut self.output, "**Type:** Union").unwrap();
             writeln!(&mut self.output).unwrap();
 
-            let variants = definition
-                .get("oneOf")
-                .or_else(|| definition.get("anyOf"))
-                .and_then(|v| v.as_array());
+            let discriminator_prop = definition
+                .get("discriminator")
+                .and_then(|d| d.get("propertyName"))
+                .and_then(|p| p.as_str());
 
-            if let Some(variants) = variants {
+            let any_of = definition.get("anyOf").and_then(|v| v.as_array());
+            let one_of = definition.get("oneOf").and_then(|v| v.as_array());
+
+            // Union types with top-level "properties" alongside "oneOf"/"anyOf" use them
+            // as shared properties that apply to all variants (e.g., _meta, message).
+            // The discriminator property (if any) is excluded since it's per-variant.
+            let has_shared_props = if let Some(shared_props) =
+                definition.get("properties").and_then(|v| v.as_object())
+            {
+                let filtered_props: serde_json::Map<String, Value> = shared_props
+                    .iter()
+                    .filter(|(key, _)| Some(key.as_str()) != discriminator_prop)
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
+                if filtered_props.is_empty() {
+                    false
+                } else {
+                    writeln!(&mut self.output, "**Shared properties:**").unwrap();
+                    writeln!(&mut self.output).unwrap();
+                    self.document_properties_as_fields(&filtered_props, definition, 0);
+                    writeln!(&mut self.output).unwrap();
+                    true
+                }
+            } else {
+                false
+            };
+
+            // Print a single "Variants:" label before all variant groups when
+            // there is surrounding context that benefits from a separator
+            // (shared properties above, or multiple variant groups).
+            if has_shared_props || (any_of.is_some() && one_of.is_some()) {
+                writeln!(&mut self.output, "**Variants:**").unwrap();
+                writeln!(&mut self.output).unwrap();
+            }
+
+            if let Some(variants) = any_of {
+                for variant in variants {
+                    self.document_variant_table_row(variant);
+                }
+                writeln!(&mut self.output).unwrap();
+            }
+
+            if let Some(variants) = one_of {
                 for variant in variants {
                     self.document_variant_table_row(variant);
                 }
@@ -346,6 +519,8 @@ starting with '$/' it is free to ignore the notification."
 
                 if let Some(const_val) = discriminator {
                     write!(&mut self.output, "{const_val}").unwrap();
+                } else if let Some(title) = variant.get("title").and_then(|t| t.as_str()) {
+                    write!(&mut self.output, "{title}").unwrap();
                 } else {
                     write!(&mut self.output, "Object").unwrap();
                 }
@@ -409,29 +584,34 @@ starting with '$/' it is free to ignore the notification."
             };
 
             // 1. Check for $ref (direct)
-            if let Some(ref_val) = variant.get("$ref").and_then(|v| v.as_str()) {
-                let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
-                if let Some(ref_def) = self.definitions.get(type_name) {
-                    merge_from(ref_def);
-                }
-            }
-
-            // 2. Check for allOf (often used for inheritance/composition)
-            if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
-                for item in all_of {
-                    if let Some(ref_val) = item.get("$ref").and_then(|v| v.as_str()) {
-                        let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
-                        if let Some(ref_def) = self.definitions.get(type_name) {
-                            merge_from(ref_def);
-                        }
-                    } else {
-                        merge_from(item);
+            if let Some(merged_variant) = self.merge_variant_definition(variant) {
+                merge_from(&merged_variant);
+            } else {
+                // 1. Check for $ref (direct)
+                if let Some(ref_val) = variant.get("$ref").and_then(|v| v.as_str()) {
+                    let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                    if let Some(ref_def) = self.definitions.get(type_name) {
+                        merge_from(ref_def);
                     }
                 }
-            }
 
-            // 3. Local properties
-            merge_from(variant);
+                // 2. Check for allOf (often used for inheritance/composition)
+                if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
+                    for item in all_of {
+                        if let Some(ref_val) = item.get("$ref").and_then(|v| v.as_str()) {
+                            let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                            if let Some(ref_def) = self.definitions.get(type_name) {
+                                merge_from(ref_def);
+                            }
+                        } else {
+                            merge_from(item);
+                        }
+                    }
+                }
+
+                // 3. Local properties
+                merge_from(variant);
+            }
 
             if !merged_props.is_empty() {
                 writeln!(&mut self.output).unwrap();
@@ -525,6 +705,17 @@ starting with '$/' it is free to ignore the notification."
                 // Add description if available
                 if let Some(desc) = Self::get_def_description(prop_schema) {
                     writeln!(&mut self.output, "{indent_str}  {desc}").unwrap();
+                } else if let Some(const_val) = prop_schema.get("const") {
+                    let val_str = if let Some(s) = const_val.as_str() {
+                        format!("\"{s}\"")
+                    } else {
+                        const_val.to_string()
+                    };
+                    writeln!(
+                        &mut self.output,
+                        "{indent_str}  The discriminator value. Must be `{val_str}`."
+                    )
+                    .unwrap();
                 }
 
                 // Add constraints if any
@@ -872,6 +1063,89 @@ starting with '$/' it is free to ignore the notification."
             Some(desc)
         }
 
+        fn merge_variant_definition(&self, variant: &Value) -> Option<Value> {
+            let mut merged = if let Some(ref_val) = variant.get("$ref").and_then(|v| v.as_str()) {
+                let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                self.definitions.get(type_name).cloned()?
+            } else if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
+                let mut base = None;
+
+                for item in all_of {
+                    if let Some(ref_val) = item.get("$ref").and_then(|v| v.as_str()) {
+                        let type_name = ref_val.strip_prefix("#/$defs/").unwrap_or(ref_val);
+                        if let Some(def) = self.definitions.get(type_name) {
+                            base = Some(def.clone());
+                            break;
+                        }
+                    }
+                }
+
+                base.unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+            } else {
+                return None;
+            };
+
+            let Some(merged_obj) = merged.as_object_mut() else {
+                return Some(merged);
+            };
+
+            let mut wrapper_props = serde_json::Map::new();
+            let mut wrapper_required = Vec::new();
+
+            let mut collect_fields = |schema: &Value| {
+                if let Some(props) = schema.get("properties").and_then(|v| v.as_object()) {
+                    for (key, value) in props {
+                        wrapper_props
+                            .entry(key.clone())
+                            .or_insert_with(|| value.clone());
+                    }
+                }
+                if let Some(required) = schema.get("required").and_then(|v| v.as_array()) {
+                    for req in required {
+                        if !wrapper_required.contains(req) {
+                            wrapper_required.push(req.clone());
+                        }
+                    }
+                }
+            };
+
+            if let Some(all_of) = variant.get("allOf").and_then(|v| v.as_array()) {
+                for item in all_of {
+                    if item.get("$ref").is_none() {
+                        collect_fields(item);
+                    }
+                }
+            }
+
+            collect_fields(variant);
+
+            if !wrapper_props.is_empty() {
+                let target_props = merged_obj
+                    .entry("properties".to_string())
+                    .or_insert_with(|| Value::Object(serde_json::Map::new()));
+                if let Some(target_props_obj) = target_props.as_object_mut() {
+                    for (key, value) in wrapper_props {
+                        target_props_obj.entry(key).or_insert(value);
+                    }
+                }
+            }
+
+            if !wrapper_required.is_empty() {
+                let target_required = merged_obj
+                    .entry("required".to_string())
+                    .or_insert_with(|| Value::Array(Vec::new()));
+                if let Some(target_required_arr) = target_required.as_array_mut() {
+                    for req in wrapper_required {
+                        if !target_required_arr.contains(&req) {
+                            target_required_arr.push(req);
+                        }
+                    }
+                }
+            }
+
+            Some(merged)
+        }
+
         fn anchor_text(title: &str) -> String {
             title.to_lowercase()
         }
@@ -889,9 +1163,13 @@ starting with '$/' it is free to ignore the notification."
             match method_name {
                 "initialize" => self.agent.get("InitializeRequest").unwrap(),
                 "authenticate" => self.agent.get("AuthenticateRequest").unwrap(),
+                "providers/list" => self.agent.get("ListProvidersRequest").unwrap(),
+                "providers/set" => self.agent.get("SetProvidersRequest").unwrap(),
+                "providers/disable" => self.agent.get("DisableProvidersRequest").unwrap(),
                 "session/new" => self.agent.get("NewSessionRequest").unwrap(),
                 "session/load" => self.agent.get("LoadSessionRequest").unwrap(),
                 "session/list" => self.agent.get("ListSessionsRequest").unwrap(),
+                "session/delete" => self.agent.get("DeleteSessionRequest").unwrap(),
                 "session/fork" => self.agent.get("ForkSessionRequest").unwrap(),
                 "session/resume" => self.agent.get("ResumeSessionRequest").unwrap(),
                 "session/set_mode" => self.agent.get("SetSessionModeRequest").unwrap(),
@@ -901,6 +1179,19 @@ starting with '$/' it is free to ignore the notification."
                 "session/prompt" => self.agent.get("PromptRequest").unwrap(),
                 "session/cancel" => self.agent.get("CancelNotification").unwrap(),
                 "session/set_model" => self.agent.get("SetSessionModelRequest").unwrap(),
+                "session/close" => self.agent.get("CloseSessionRequest").unwrap(),
+                "logout" => self.agent.get("LogoutRequest").unwrap(),
+                "nes/start" => self.agent.get("StartNesRequest").unwrap(),
+                "nes/suggest" => self.agent.get("SuggestNesRequest").unwrap(),
+                "nes/close" => self.agent.get("CloseNesRequest").unwrap(),
+                "nes/accept" => self.agent.get("AcceptNesNotification").unwrap(),
+                "nes/reject" => self.agent.get("RejectNesNotification").unwrap(),
+                "document/didOpen" => self.agent.get("DidOpenDocumentNotification").unwrap(),
+                "document/didChange" => self.agent.get("DidChangeDocumentNotification").unwrap(),
+                "document/didClose" => self.agent.get("DidCloseDocumentNotification").unwrap(),
+                "document/didSave" => self.agent.get("DidSaveDocumentNotification").unwrap(),
+                "document/didFocus" => self.agent.get("DidFocusDocumentNotification").unwrap(),
+                "mcp/message" => self.agent.get("MessageMcpRequest").unwrap(),
                 _ => panic!("Introduced a method? Add it here :)"),
             }
         }
@@ -917,7 +1208,14 @@ starting with '$/' it is free to ignore the notification."
                 "terminal/output" => self.client.get("TerminalOutputRequest").unwrap(),
                 "terminal/release" => self.client.get("ReleaseTerminalRequest").unwrap(),
                 "terminal/wait_for_exit" => self.client.get("WaitForTerminalExitRequest").unwrap(),
-                "terminal/kill" => self.client.get("KillTerminalCommandRequest").unwrap(),
+                "terminal/kill" => self.client.get("KillTerminalRequest").unwrap(),
+                "elicitation/create" => self.client.get("CreateElicitationRequest").unwrap(),
+                "elicitation/complete" => {
+                    self.client.get("CompleteElicitationNotification").unwrap()
+                }
+                "mcp/connect" => self.client.get("ConnectMcpRequest").unwrap(),
+                "mcp/message" => self.client.get("MessageMcpRequest").unwrap(),
+                "mcp/disconnect" => self.client.get("DisconnectMcpRequest").unwrap(),
                 _ => panic!("Introduced a method? Add it here :)"),
             }
         }
@@ -1041,5 +1339,167 @@ starting with '$/' it is free to ignore the notification."
         }
 
         side_docs
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::MarkdownGenerator;
+        use serde_json::json;
+
+        #[test]
+        fn document_union_includes_shared_properties() {
+            let mut generator = MarkdownGenerator::new();
+            let definition = json!({
+                "description": "Example union.",
+                "discriminator": {
+                    "propertyName": "mode"
+                },
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Shared message."
+                    },
+                    "mode": {
+                        "type": "string",
+                        "description": "The discriminator."
+                    }
+                },
+                "required": ["message", "mode"],
+                "oneOf": [
+                    {
+                        "description": "First variant.",
+                        "properties": {
+                            "mode": {
+                                "const": "form",
+                                "type": "string"
+                            }
+                        },
+                        "required": ["mode"],
+                        "type": "object"
+                    },
+                    {
+                        "description": "Second variant.",
+                        "properties": {
+                            "mode": {
+                                "const": "url",
+                                "type": "string"
+                            }
+                        },
+                        "required": ["mode"],
+                        "type": "object"
+                    }
+                ]
+            });
+
+            generator.document_type(4, "ExampleUnion", &definition);
+
+            assert!(generator.output.contains("**Shared properties:**"));
+            assert!(
+                generator
+                    .output
+                    .contains("<ResponseField name=\"message\" type={\"string\"} required>")
+            );
+            assert!(generator.output.contains("Shared message."));
+            assert!(generator.output.contains("**Variants:**"));
+            assert!(
+                generator
+                    .output
+                    .contains("<ResponseField name=\"form\" type=\"object\">")
+            );
+            assert!(
+                generator
+                    .output
+                    .contains("<ResponseField name=\"url\" type=\"object\">"),
+            );
+            let shared_section = generator.output.split("**Variants:**").next().unwrap_or("");
+            assert!(
+                !shared_section.contains("<ResponseField name=\"mode\""),
+                "discriminator property 'mode' should not appear in shared properties"
+            );
+        }
+
+        #[test]
+        fn document_union_renders_both_any_of_and_one_of() {
+            let mut generator = MarkdownGenerator::new();
+            let definition = json!({
+                "description": "Request with scope and mode.",
+                "anyOf": [
+                    {
+                        "description": "Session scope.",
+                        "properties": {
+                            "sessionId": { "type": "string" }
+                        },
+                        "required": ["sessionId"],
+                        "title": "Session",
+                        "type": "object"
+                    },
+                    {
+                        "description": "Request scope.",
+                        "properties": {
+                            "requestId": { "type": "integer" }
+                        },
+                        "required": ["requestId"],
+                        "title": "Request",
+                        "type": "object"
+                    }
+                ],
+                "discriminator": { "propertyName": "mode" },
+                "oneOf": [
+                    {
+                        "description": "Form variant.",
+                        "properties": {
+                            "mode": { "const": "form", "type": "string" }
+                        },
+                        "required": ["mode"],
+                        "type": "object"
+                    },
+                    {
+                        "description": "URL variant.",
+                        "properties": {
+                            "mode": { "const": "url", "type": "string" }
+                        },
+                        "required": ["mode"],
+                        "type": "object"
+                    }
+                ],
+                "properties": {
+                    "message": { "type": "string", "description": "A message." }
+                },
+                "required": ["message"],
+                "type": "object"
+            });
+
+            generator.document_type(4, "TestRequest", &definition);
+
+            // Shared properties rendered
+            assert!(generator.output.contains("**Shared properties:**"));
+            assert!(generator.output.contains("<ResponseField name=\"message\""));
+
+            // anyOf scope variants use title, not "Object"
+            assert!(
+                generator
+                    .output
+                    .contains("<ResponseField name=\"Session\" type=\"object\">"),
+                "should use title 'Session' not 'Object'"
+            );
+            assert!(
+                generator
+                    .output
+                    .contains("<ResponseField name=\"Request\" type=\"object\">"),
+                "should use title 'Request' not 'Object'"
+            );
+
+            // oneOf mode variants rendered under Variants
+            assert!(generator.output.contains("**Variants:**"));
+            assert!(generator.output.contains("<ResponseField name=\"form\""));
+            assert!(generator.output.contains("<ResponseField name=\"url\""));
+
+            // Verify ordering: Variants → Session/Request → form/url
+            let variants_pos = generator.output.find("**Variants:**").unwrap();
+            let session_pos = generator.output.find("\"Session\"").unwrap();
+            let form_pos = generator.output.find("\"form\"").unwrap();
+            assert!(variants_pos < session_pos);
+            assert!(session_pos < form_pos);
+        }
     }
 }

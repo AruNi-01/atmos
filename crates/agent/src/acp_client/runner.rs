@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 
-use agent_client_protocol::{self as acp, Agent};
+use agent_client_protocol::{self as acp, schema, Agent, ByteStreams, ConnectionTo};
 use tokio::io::AsyncReadExt;
 use tokio::runtime::Builder;
 use tokio::sync::{mpsc, oneshot};
@@ -15,7 +15,9 @@ use tracing::{error, info, warn};
 use crate::acp_client::logging::append_acp_log;
 use crate::acp_client::tools::AcpToolHandler;
 use crate::acp_client::types::{
-    AgentTurnUsage, AuthMethodSummary, AuthRequiredPayload, PermissionRequest,
+    AgentCapabilitiesSnapshot, AgentCapabilityState, AgentImplementationInfo, AgentLogoutResult,
+    AgentTurnUsage, AuthMethodSummary, AuthRequiredPayload, NativeAgentSession,
+    NativeAgentSessionList, PermissionRequest,
 };
 use crate::acp_client::{AcpSessionEvent, AtmosAcpClient};
 use crate::models::AgentLaunchSpec;
@@ -26,12 +28,13 @@ use super::process::spawn_agent;
 enum SessionCommand {
     Prompt(String),
     Cancel,
+    Close,
     SetConfigOption(String, String),
 }
 
 /// Convert legacy `modes` (from the older Session Modes API) into an AgentConfigOption.
 pub(crate) fn map_modes_to_config_option(
-    modes: acp::SessionModeState,
+    modes: schema::SessionModeState,
 ) -> crate::acp_client::types::AgentConfigOption {
     let options = modes
         .available_modes
@@ -55,7 +58,7 @@ pub(crate) fn map_modes_to_config_option(
 
 /// Convert legacy `models` (from the unstable Session Models API) into an AgentConfigOption.
 pub(crate) fn map_models_to_config_option(
-    models: acp::SessionModelState,
+    models: schema::SessionModelState,
 ) -> crate::acp_client::types::AgentConfigOption {
     let options = models
         .available_models
@@ -78,16 +81,16 @@ pub(crate) fn map_models_to_config_option(
 }
 
 pub(crate) fn map_config_options(
-    opts: Vec<acp::SessionConfigOption>,
+    opts: Vec<schema::SessionConfigOption>,
 ) -> Vec<crate::acp_client::types::AgentConfigOption> {
     opts.into_iter()
         .map(|opt| {
             let (current_value, options_vec) = match opt.kind {
-                acp::SessionConfigKind::Select(s) => {
+                schema::SessionConfigKind::Select(s) => {
                     let current = Some(s.current_value.to_string());
                     let mut options = Vec::new();
                     match s.options {
-                        acp::SessionConfigSelectOptions::Ungrouped(uns) => {
+                        schema::SessionConfigSelectOptions::Ungrouped(uns) => {
                             for o in uns {
                                 options.push(crate::acp_client::types::AgentConfigOptionValue {
                                     value: o.value.to_string(),
@@ -96,7 +99,7 @@ pub(crate) fn map_config_options(
                                 });
                             }
                         }
-                        acp::SessionConfigSelectOptions::Grouped(gs) => {
+                        schema::SessionConfigSelectOptions::Grouped(gs) => {
                             for g in gs {
                                 for o in g.options {
                                     options.push(
@@ -154,6 +157,107 @@ fn current_value_only_config_option(
     }
 }
 
+pub(crate) fn map_implementation_info(
+    info: Option<schema::Implementation>,
+) -> Option<AgentImplementationInfo> {
+    info.map(|info| AgentImplementationInfo {
+        name: info.name,
+        title: info.title,
+        version: info.version,
+    })
+}
+
+pub(crate) fn map_agent_capabilities(
+    capabilities: &schema::AgentCapabilities,
+) -> AgentCapabilitiesSnapshot {
+    let session = &capabilities.session_capabilities;
+    AgentCapabilitiesSnapshot {
+        session_list: if session.list.is_some() {
+            AgentCapabilityState::supported()
+        } else {
+            AgentCapabilityState::unsupported(Some(
+                "Agent does not advertise ACP session/list".to_string(),
+            ))
+        },
+        session_resume: if session.resume.is_some() {
+            AgentCapabilityState::supported()
+        } else {
+            AgentCapabilityState::unsupported(Some(
+                "Agent does not advertise ACP session/resume".to_string(),
+            ))
+        },
+        session_close: if session.close.is_some() {
+            AgentCapabilityState::supported()
+        } else {
+            AgentCapabilityState::unsupported(Some(
+                "Agent does not advertise ACP session/close".to_string(),
+            ))
+        },
+        logout: if capabilities.auth.logout.is_some() {
+            AgentCapabilityState::supported()
+        } else {
+            AgentCapabilityState::unsupported(Some(
+                "Agent does not advertise ACP logout".to_string(),
+            ))
+        },
+        config_options: AgentCapabilityState::supported(),
+        session_info_update: AgentCapabilityState::supported(),
+        load_session: if capabilities.load_session {
+            AgentCapabilityState::supported()
+        } else {
+            AgentCapabilityState::unsupported(Some(
+                "Agent does not advertise legacy ACP session/load".to_string(),
+            ))
+        },
+    }
+}
+
+fn auth_methods_from_initialize(
+    init_response: &schema::InitializeResponse,
+) -> Vec<AuthMethodSummary> {
+    init_response
+        .auth_methods
+        .iter()
+        .map(|m| AuthMethodSummary {
+            id: m.id().to_string(),
+            name: m.name().to_string(),
+            description: m.description().map(ToOwned::to_owned),
+        })
+        .collect()
+}
+
+fn internal_error(message: impl Into<String>) -> acp::Error {
+    acp::Error::new(-32603, message.into())
+}
+
+fn auth_required_message(auth_methods: Vec<AuthMethodSummary>) -> Result<String, String> {
+    if auth_methods.is_empty() {
+        return Err(
+            "Agent requires authentication, but no auth methods were advertised".to_string(),
+        );
+    }
+
+    let auth_payload = AuthRequiredPayload {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        methods: auth_methods,
+        message: "Authentication required by agent".to_string(),
+    };
+    let payload = serde_json::to_string(&auth_payload)
+        .map_err(|e| format!("Serialize auth payload failed: {}", e))?;
+    Ok(format!("{}{}", AUTH_REQUIRED_ERROR_PREFIX, payload))
+}
+
+fn send_auth_required_error(
+    ready_tx: &mut Option<oneshot::Sender<Result<String, String>>>,
+    auth_methods: Vec<AuthMethodSummary>,
+) -> Result<(), String> {
+    let msg = auth_required_message(auth_methods)?;
+    if let Some(tx) = ready_tx.take() {
+        let _ = tx.send(Err(msg.clone()));
+    }
+    Err(msg)
+}
+
 /// Handle to an active ACP session - used to send prompts, receive events, and handle permissions
 pub struct AcpSessionHandle {
     pub session_id: String,
@@ -164,7 +268,38 @@ pub struct AcpSessionHandle {
 
 pub const AUTH_REQUIRED_ERROR_PREFIX: &str = "ACP_AUTH_REQUIRED::";
 
+#[derive(Clone)]
+pub struct AcpSessionControl {
+    cmd_tx: mpsc::UnboundedSender<SessionCommand>,
+}
+
+impl AcpSessionControl {
+    pub fn send_prompt(&self, message: String) {
+        let _ = self.cmd_tx.send(SessionCommand::Prompt(message));
+    }
+
+    pub fn send_cancel(&self) {
+        let _ = self.cmd_tx.send(SessionCommand::Cancel);
+    }
+
+    pub fn send_close(&self) {
+        let _ = self.cmd_tx.send(SessionCommand::Close);
+    }
+
+    pub fn send_set_config_option(&self, config_id: String, value: String) {
+        let _ = self
+            .cmd_tx
+            .send(SessionCommand::SetConfigOption(config_id, value));
+    }
+}
+
 impl AcpSessionHandle {
+    pub fn control(&self) -> AcpSessionControl {
+        AcpSessionControl {
+            cmd_tx: self.cmd_tx.clone(),
+        }
+    }
+
     pub fn send_prompt(&self, message: String) {
         let _ = self.cmd_tx.send(SessionCommand::Prompt(message));
     }
@@ -172,6 +307,11 @@ impl AcpSessionHandle {
     /// Send a session/cancel notification to interrupt the current turn
     pub fn send_cancel(&self) {
         let _ = self.cmd_tx.send(SessionCommand::Cancel);
+    }
+
+    /// Send ACP session/close when the active agent advertises support.
+    pub fn send_close(&self) {
+        let _ = self.cmd_tx.send(SessionCommand::Close);
     }
 
     pub fn send_set_config_option(&self, config_id: String, value: String) {
@@ -320,30 +460,91 @@ async fn run_session_inner(
         let _ = stderr_tx.send(text);
     });
 
-    let client = AtmosAcpClient::new(handler, cwd.to_path_buf(), permission_tx, event_tx.clone());
-
-    let outgoing = stdin.compat_write();
-    let incoming = stdout.compat();
+    let client = Arc::new(AtmosAcpClient::new(
+        handler,
+        cwd.to_path_buf(),
+        permission_tx,
+        event_tx.clone(),
+    ));
+    let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
     let cwd = cwd.to_path_buf();
 
-    // Per agent-client-protocol rust-sdk docs: ClientSideConnection spawns futures via spawn_local.
-    // spawn_local requires LocalSet context. Create conn and run everything INSIDE run_until.
-    let local_set = tokio::task::LocalSet::new();
-    local_set
-        .run_until(async move {
-            let (conn, handle_io) =
-                acp::ClientSideConnection::new(client, outgoing, incoming, |fut| {
-                    tokio::task::spawn_local(fut);
-                });
+    let permission_client = client.clone();
+    let read_client = client.clone();
+    let write_client = client.clone();
+    let create_terminal_client = client.clone();
+    let terminal_output_client = client.clone();
+    let release_terminal_client = client.clone();
+    let wait_terminal_client = client.clone();
+    let kill_terminal_client = client.clone();
+    let notification_client = client.clone();
 
-            tokio::task::spawn_local(handle_io);
-
-            // Use match instead of map_err so we can async-await stderr on failure.
+    acp::Client
+        .builder()
+        .name("atmos")
+        .on_receive_request(
+            async move |request: schema::RequestPermissionRequest, responder, _cx| {
+                responder.respond_with_result(permission_client.request_permission(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: schema::ReadTextFileRequest, responder, _cx| {
+                responder.respond_with_result(read_client.read_text_file(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: schema::WriteTextFileRequest, responder, _cx| {
+                responder.respond_with_result(write_client.write_text_file(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: schema::CreateTerminalRequest, responder, _cx| {
+                responder.respond_with_result(create_terminal_client.create_terminal(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: schema::TerminalOutputRequest, responder, _cx| {
+                responder.respond_with_result(terminal_output_client.terminal_output(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: schema::ReleaseTerminalRequest, responder, _cx| {
+                responder
+                    .respond_with_result(release_terminal_client.release_terminal(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: schema::WaitForTerminalExitRequest, responder, _cx| {
+                responder
+                    .respond_with_result(wait_terminal_client.wait_for_terminal_exit(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_request(
+            async move |request: schema::KillTerminalRequest, responder, _cx| {
+                responder.respond_with_result(kill_terminal_client.kill_terminal(request).await)
+            },
+            acp::on_receive_request!(),
+        )
+        .on_receive_notification(
+            async move |notification: schema::SessionNotification, _cx| {
+                notification_client.session_notification(notification).await
+            },
+            acp::on_receive_notification!(),
+        )
+        .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
             let init_response = match conn
-                .initialize(
-                    acp::InitializeRequest::new(acp::ProtocolVersion::V1)
-                        .client_info(acp::Implementation::new("atmos", "0.1.0").title("ATMOS")),
+                .send_request(
+                    schema::InitializeRequest::new(schema::ProtocolVersion::V1)
+                        .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
                 )
+                .block_task()
                 .await
             {
                 Ok(r) => r,
@@ -364,29 +565,27 @@ async fn run_session_inner(
                     if let Some(tx) = ready_tx.take() {
                         let _ = tx.send(Err(msg.clone()));
                     }
-                    return Err(msg);
+                    return Err(internal_error(msg));
                 }
             };
 
-            let auth_methods: Vec<AuthMethodSummary> = init_response
-                .auth_methods
-                .iter()
-                .map(|m| AuthMethodSummary {
-                    id: m.id.to_string(),
-                    name: m.name.clone(),
-                    description: m.description.clone(),
-                })
-                .collect();
+            let agent_info = map_implementation_info(init_response.agent_info.clone());
+            let capabilities = map_agent_capabilities(&init_response.agent_capabilities);
+            let _ = event_tx.send(AcpSessionEvent::AgentInfoUpdate(agent_info.clone()));
+            let _ = event_tx.send(AcpSessionEvent::CapabilitiesUpdate(capabilities.clone()));
+
+            let auth_methods = auth_methods_from_initialize(&init_response);
 
             if let Some(method_id) = auth_method_id {
-                conn.authenticate(acp::AuthenticateRequest::new(method_id))
+                conn.send_request(schema::AuthenticateRequest::new(method_id))
+                    .block_task()
                     .await
                     .map_err(|e| {
                         let msg = format!("Authenticate failed: {}", e);
                         if let Some(tx) = ready_tx.take() {
                             let _ = tx.send(Err(msg.clone()));
                         }
-                        msg
+                        internal_error(msg)
                     })?;
             }
 
@@ -399,9 +598,9 @@ async fn run_session_inner(
             /// the new `config_options` and the legacy `modes`/`models` fields.
             /// Returns (uses_legacy_modes, uses_legacy_models).
             fn emit_session_config(
-                config_options: Option<Vec<acp::SessionConfigOption>>,
-                modes: Option<acp::SessionModeState>,
-                models: Option<acp::SessionModelState>,
+                config_options: Option<Vec<schema::SessionConfigOption>>,
+                modes: Option<schema::SessionModeState>,
+                models: Option<schema::SessionModelState>,
                 event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
             ) -> (bool, bool) {
                 if let Some(opts) = config_options {
@@ -438,45 +637,66 @@ async fn run_session_inner(
                 }
             }
 
-            let mut loaded_existing_session = false;
-            let create_or_load_result: acp::Result<acp::SessionId> =
+            let mut restored_existing_session = false;
+            let mut replayed_loaded_history = false;
+            let create_or_load_result: acp::Result<schema::SessionId> =
                 if let Some(resume_id) = resume_session_id.clone() {
-                    let requested = acp::SessionId::new(resume_id.clone());
-                    match conn
-                        .load_session(acp::LoadSessionRequest::new(requested.clone(), cwd.clone()))
-                        .await
+                    let requested = schema::SessionId::new(resume_id.clone());
+                    if init_response
+                        .agent_capabilities
+                        .session_capabilities
+                        .resume
+                        .is_some()
                     {
-                        Ok(response) => {
-                            info!("Loaded ACP session: {}", resume_id);
-                            loaded_existing_session = true;
+                        conn.send_request(schema::ResumeSessionRequest::new(
+                            requested.clone(),
+                            cwd.clone(),
+                        ))
+                        .block_task()
+                        .await
+                        .map(|response| {
+                            info!("Resumed ACP session: {}", resume_id);
+                            restored_existing_session = true;
                             (uses_legacy_modes, uses_legacy_models) = emit_session_config(
                                 response.config_options,
                                 response.modes,
                                 response.models,
                                 &event_tx,
                             );
-                            Ok(requested)
-                        }
-                        Err(e) => {
-                            warn!(
-                                "ACP load_session failed for {}: {}, fallback to new_session",
-                                resume_id, e
+                            requested
+                        })
+                    } else if init_response.agent_capabilities.load_session {
+                        conn.send_request(schema::LoadSessionRequest::new(
+                            requested.clone(),
+                            cwd.clone(),
+                        ))
+                        .block_task()
+                        .await
+                        .map(|response| {
+                            info!("Loaded ACP session via legacy session/load: {}", resume_id);
+                            restored_existing_session = true;
+                            replayed_loaded_history = true;
+                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
+                                response.config_options,
+                                response.modes,
+                                response.models,
+                                &event_tx,
                             );
-                            conn.new_session(acp::NewSessionRequest::new(cwd.clone()))
-                                .await
-                                .map(|response| {
-                                    (uses_legacy_modes, uses_legacy_models) = emit_session_config(
-                                        response.config_options,
-                                        response.modes,
-                                        response.models,
-                                        &event_tx,
-                                    );
-                                    response.session_id
-                                })
+                            requested
+                        })
+                    } else {
+                        let msg = format!(
+                        "Agent does not support ACP session/resume or legacy session/load for {}",
+                        resume_id
+                    );
+                        if let Some(tx) = ready_tx.take() {
+                            let _ = tx.send(Err(msg.clone()));
                         }
+                        return Err(internal_error(msg));
                     }
                 } else {
-                    conn.new_session(acp::NewSessionRequest::new(cwd))
+                    conn.send_request(schema::NewSessionRequest::new(cwd.clone()))
+                        .block_task()
                         .await
                         .map(|response| {
                             (uses_legacy_modes, uses_legacy_models) = emit_session_config(
@@ -492,41 +712,24 @@ async fn run_session_inner(
             let session_id_acp = match create_or_load_result {
                 Ok(session_id) => session_id,
                 Err(err) if err.code == acp::ErrorCode::AuthRequired => {
-                    if auth_methods.is_empty() {
-                        let msg =
-                            "Agent requires authentication, but no auth methods were advertised"
-                                .to_string();
-                        if let Some(tx) = ready_tx.take() {
-                            let _ = tx.send(Err(msg.clone()));
-                        }
-                        return Err(msg);
+                    if let Err(msg) = send_auth_required_error(&mut ready_tx, auth_methods) {
+                        return Err(internal_error(msg));
                     }
-                    let auth_payload = AuthRequiredPayload {
-                        request_id: uuid::Uuid::new_v4().to_string(),
-                        methods: auth_methods,
-                        message: "Authentication required by agent".to_string(),
-                    };
-                    let payload = serde_json::to_string(&auth_payload)
-                        .map_err(|e| format!("Serialize auth payload failed: {}", e))?;
-                    let msg = format!("{}{}", AUTH_REQUIRED_ERROR_PREFIX, payload);
-                    if let Some(tx) = ready_tx.take() {
-                        let _ = tx.send(Err(msg.clone()));
-                    }
-                    return Err(msg);
+                    unreachable!("auth_required_error always returns Err");
                 }
                 Err(err) => {
                     let msg = err.to_string();
                     if let Some(tx) = ready_tx.take() {
                         let _ = tx.send(Err(msg.clone()));
                     }
-                    return Err(msg);
+                    return Err(internal_error(msg));
                 }
             };
 
             // Apply default configurations for newly created sessions only.
             // When resuming an existing ACP session, applying defaults again can
             // overwrite the live session config (for example, model selection).
-            if !loaded_existing_session {
+            if !restored_existing_session {
                 if let Some(defaults) = default_config {
                     for (config_id, value) in defaults {
                         info!(
@@ -535,10 +738,11 @@ async fn run_session_inner(
                         );
                         if uses_legacy_modes && config_id == "mode" {
                             match conn
-                                .set_session_mode(acp::SetSessionModeRequest::new(
+                                .send_request(schema::SetSessionModeRequest::new(
                                     session_id_acp.clone(),
                                     value.clone(),
                                 ))
+                                .block_task()
                                 .await
                             {
                                 Ok(_) => {
@@ -553,10 +757,11 @@ async fn run_session_inner(
                             }
                         } else if uses_legacy_models && config_id == "model" {
                             match conn
-                                .set_session_model(acp::SetSessionModelRequest::new(
+                                .send_request(schema::SetSessionModelRequest::new(
                                     session_id_acp.clone(),
                                     value.clone(),
                                 ))
+                                .block_task()
                                 .await
                             {
                                 Ok(_) => {
@@ -573,12 +778,12 @@ async fn run_session_inner(
                                 }
                             }
                         } else {
-                            let req = acp::SetSessionConfigOptionRequest::new(
+                            let req = schema::SetSessionConfigOptionRequest::new(
                                 session_id_acp.clone(),
-                                acp::SessionConfigId::new(config_id),
-                                acp::SessionConfigValueId::new(value),
+                                schema::SessionConfigId::new(config_id),
+                                schema::SessionConfigValueId::new(value),
                             );
-                            match conn.set_session_config_option(req).await {
+                            match conn.send_request(req).block_task().await {
                                 Ok(resp) => {
                                     let out = map_config_options(resp.config_options);
                                     let _ =
@@ -601,12 +806,16 @@ async fn run_session_inner(
             // on this single-threaded runtime, so some may still be pending when
             // load_session() returns. Yield repeatedly to let them flush before
             // emitting the completion signal.
-            if resume_session_id.is_some() {
+            if replayed_loaded_history {
                 for _ in 0..20 {
                     tokio::task::yield_now().await;
                 }
                 let _ = event_tx.send(AcpSessionEvent::LoadCompleted);
             }
+
+            let _ = event_tx.send(AcpSessionEvent::SessionReady {
+                acp_session_id: session_id_acp.to_string(),
+            });
 
             if let Some(tx) = ready_tx.take() {
                 let _ = tx.send(Ok(session_id_acp.to_string()));
@@ -628,10 +837,13 @@ async fn run_session_inner(
                             }),
                         );
                         match conn
-                            .prompt(acp::PromptRequest::new(
+                            .send_request(schema::PromptRequest::new(
                                 session_id_acp.clone(),
-                                vec![msg.into()],
+                                vec![schema::ContentBlock::Text(schema::TextContent::new(
+                                    msg.clone(),
+                                ))],
                             ))
+                            .block_task()
                             .await
                         {
                             Ok(res) => {
@@ -657,21 +869,55 @@ async fn run_session_inner(
                         }
                     }
                     SessionCommand::Cancel => {
-                        if let Err(e) = conn
-                            .cancel(acp::CancelNotification::new(session_id_acp.clone()))
+                        if let Err(e) = conn.send_notification(schema::CancelNotification::new(
+                            session_id_acp.clone(),
+                        )) {
+                            warn!("Cancel failed: {}", e);
+                        }
+                    }
+                    SessionCommand::Close => {
+                        if init_response
+                            .agent_capabilities
+                            .session_capabilities
+                            .close
+                            .is_none()
+                        {
+                            let _ = event_tx.send(AcpSessionEvent::SessionClosed {
+                                reason: Some(
+                                    "Agent does not advertise ACP session/close".to_string(),
+                                ),
+                            });
+                            break;
+                        }
+                        match conn
+                            .send_request(schema::CloseSessionRequest::new(session_id_acp.clone()))
+                            .block_task()
                             .await
                         {
-                            warn!("Cancel failed: {}", e);
+                            Ok(_) => {
+                                let _ =
+                                    event_tx.send(AcpSessionEvent::SessionClosed { reason: None });
+                                break;
+                            }
+                            Err(e) => {
+                                warn!("Close session failed: {}", e);
+                                let _ = event_tx.send(AcpSessionEvent::Error {
+                                    code: "CLOSE_FAILED".to_string(),
+                                    message: e.to_string(),
+                                    recoverable: true,
+                                });
+                            }
                         }
                     }
                     SessionCommand::SetConfigOption(config_id, value) => {
                         if uses_legacy_modes && config_id == "mode" {
                             info!("Using legacy set_session_mode: {}", value);
                             match conn
-                                .set_session_mode(acp::SetSessionModeRequest::new(
+                                .send_request(schema::SetSessionModeRequest::new(
                                     session_id_acp.clone(),
                                     value.clone(),
                                 ))
+                                .block_task()
                                 .await
                             {
                                 Ok(_) => {
@@ -685,10 +931,11 @@ async fn run_session_inner(
                         } else if uses_legacy_models && config_id == "model" {
                             info!("Using legacy set_session_model: {}", value);
                             match conn
-                                .set_session_model(acp::SetSessionModelRequest::new(
+                                .send_request(schema::SetSessionModelRequest::new(
                                     session_id_acp.clone(),
                                     value.clone(),
                                 ))
+                                .block_task()
                                 .await
                             {
                                 Ok(_) => {
@@ -701,11 +948,12 @@ async fn run_session_inner(
                             }
                         } else {
                             match conn
-                                .set_session_config_option(acp::SetSessionConfigOptionRequest::new(
+                                .send_request(schema::SetSessionConfigOptionRequest::new(
                                     session_id_acp.clone(),
-                                    acp::SessionConfigId::new(config_id),
-                                    acp::SessionConfigValueId::new(value),
+                                    schema::SessionConfigId::new(config_id),
+                                    schema::SessionConfigValueId::new(value),
                                 ))
+                                .block_task()
                                 .await
                             {
                                 Ok(resp) => {
@@ -723,4 +971,202 @@ async fn run_session_inner(
             Ok(())
         })
         .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn list_acp_sessions(
+    launch_spec: AgentLaunchSpec,
+    cwd: Option<PathBuf>,
+    cursor: Option<String>,
+    env_overrides: Option<std::collections::HashMap<String, String>>,
+    auth_method_id: Option<String>,
+) -> Result<NativeAgentSessionList, String> {
+    let (stdin, stdout, stderr, child_guard) =
+        spawn_agent(&launch_spec, cwd.clone(), env_overrides)
+            .map_err(|e| format!("Failed to spawn agent: {}", e))?;
+    let _child_guard = child_guard;
+
+    let (stderr_tx, stderr_rx) = oneshot::channel::<String>();
+    tokio::spawn(async move {
+        let mut buf = Vec::new();
+        let mut stderr = stderr;
+        let _ = stderr.read_to_end(&mut buf).await;
+        let text = String::from_utf8_lossy(&buf).trim().to_string();
+        let _ = stderr_tx.send(text);
+    });
+
+    let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
+    acp::Client
+        .builder()
+        .name("atmos")
+        .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
+            let init_response = match conn
+                .send_request(
+                    schema::InitializeRequest::new(schema::ProtocolVersion::V1)
+                        .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
+                )
+                .block_task()
+                .await
+            {
+                Ok(response) => response,
+                Err(e) => {
+                    let stderr_text = timeout(Duration::from_secs(1), stderr_rx)
+                        .await
+                        .ok()
+                        .and_then(|r| r.ok())
+                        .filter(|s| !s.is_empty());
+                    let msg = if let Some(stderr) = stderr_text {
+                        format!("Agent error: {}", stderr)
+                    } else {
+                        format!("Initialize failed: {}", e)
+                    };
+                    return Err(internal_error(msg));
+                }
+            };
+
+            let agent_info = map_implementation_info(init_response.agent_info.clone());
+            let capabilities = map_agent_capabilities(&init_response.agent_capabilities);
+            let auth_methods = auth_methods_from_initialize(&init_response);
+
+            if let Some(method_id) = auth_method_id {
+                conn.send_request(schema::AuthenticateRequest::new(method_id))
+                    .block_task()
+                    .await
+                    .map_err(|e| internal_error(format!("Authenticate failed: {}", e)))?;
+            }
+
+            if !capabilities.session_list.supported {
+                return Ok(NativeAgentSessionList {
+                    agent_info,
+                    capabilities: capabilities.clone(),
+                    sessions: Vec::new(),
+                    next_cursor: None,
+                    unsupported_reason: capabilities.session_list.reason.clone(),
+                });
+            }
+
+            let response = match conn
+                .send_request(schema::ListSessionsRequest::new().cwd(cwd).cursor(cursor))
+                .block_task()
+                .await
+            {
+                Ok(response) => response,
+                Err(err) if err.code == acp::ErrorCode::AuthRequired => {
+                    let msg = auth_required_message(auth_methods).map_err(internal_error)?;
+                    return Err(internal_error(msg));
+                }
+                Err(err) => return Err(err),
+            };
+
+            let sessions = response
+                .sessions
+                .into_iter()
+                .map(|session| NativeAgentSession {
+                    acp_session_id: session.session_id.to_string(),
+                    cwd: session.cwd.display().to_string(),
+                    title: session.title,
+                    updated_at: session.updated_at,
+                })
+                .collect();
+
+            Ok(NativeAgentSessionList {
+                agent_info,
+                capabilities,
+                sessions,
+                next_cursor: response.next_cursor,
+                unsupported_reason: None,
+            })
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn logout_acp_agent(
+    launch_spec: AgentLaunchSpec,
+    cwd: Option<PathBuf>,
+    env_overrides: Option<std::collections::HashMap<String, String>>,
+    auth_method_id: Option<String>,
+) -> Result<AgentLogoutResult, String> {
+    let (stdin, stdout, stderr, child_guard) = spawn_agent(&launch_spec, cwd, env_overrides)
+        .map_err(|e| format!("Failed to spawn agent: {}", e))?;
+    let _child_guard = child_guard;
+
+    let (stderr_tx, stderr_rx) = oneshot::channel::<String>();
+    tokio::spawn(async move {
+        let mut buf = Vec::new();
+        let mut stderr = stderr;
+        let _ = stderr.read_to_end(&mut buf).await;
+        let text = String::from_utf8_lossy(&buf).trim().to_string();
+        let _ = stderr_tx.send(text);
+    });
+
+    let transport = ByteStreams::new(stdin.compat_write(), stdout.compat());
+    acp::Client
+        .builder()
+        .name("atmos")
+        .connect_with(transport, async move |conn: ConnectionTo<Agent>| {
+            let init_response = match conn
+                .send_request(
+                    schema::InitializeRequest::new(schema::ProtocolVersion::V1)
+                        .client_info(schema::Implementation::new("atmos", "0.1.0").title("ATMOS")),
+                )
+                .block_task()
+                .await
+            {
+                Ok(response) => response,
+                Err(e) => {
+                    let stderr_text = timeout(Duration::from_secs(1), stderr_rx)
+                        .await
+                        .ok()
+                        .and_then(|r| r.ok())
+                        .filter(|s| !s.is_empty());
+                    let msg = if let Some(stderr) = stderr_text {
+                        format!("Agent error: {}", stderr)
+                    } else {
+                        format!("Initialize failed: {}", e)
+                    };
+                    return Err(internal_error(msg));
+                }
+            };
+
+            let agent_info = map_implementation_info(init_response.agent_info.clone());
+            let capabilities = map_agent_capabilities(&init_response.agent_capabilities);
+            let auth_methods = auth_methods_from_initialize(&init_response);
+
+            if let Some(method_id) = auth_method_id {
+                conn.send_request(schema::AuthenticateRequest::new(method_id))
+                    .block_task()
+                    .await
+                    .map_err(|e| internal_error(format!("Authenticate failed: {}", e)))?;
+            }
+
+            if !capabilities.logout.supported {
+                return Ok(AgentLogoutResult {
+                    agent_info,
+                    capabilities: capabilities.clone(),
+                    logged_out: false,
+                    unsupported_reason: capabilities.logout.reason.clone(),
+                });
+            }
+
+            match conn
+                .send_request(schema::LogoutRequest::new())
+                .block_task()
+                .await
+            {
+                Ok(_) => Ok(AgentLogoutResult {
+                    agent_info,
+                    capabilities,
+                    logged_out: true,
+                    unsupported_reason: None,
+                }),
+                Err(err) if err.code == acp::ErrorCode::AuthRequired => {
+                    let msg = auth_required_message(auth_methods).map_err(internal_error)?;
+                    Err(internal_error(msg))
+                }
+                Err(err) => Err(err),
+            }
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
