@@ -49,7 +49,6 @@ export interface UseAgentChatSessionReturn {
   stoppedRef: React.MutableRefObject<boolean>;
   isResumingHistory: boolean;
   isResumedSession: boolean;
-  isManualLoadingMessages: boolean;
   installedAgents: RegistryAgent[];
   setInstalledAgents: React.Dispatch<React.SetStateAction<RegistryAgent[]>>;
   activeAgent: RegistryAgent | null;
@@ -116,7 +115,6 @@ export interface UseAgentChatSessionReturn {
   handlePermission: (optionKind: string) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => Promise<void>;
-  handleManualLoadMessages: () => Promise<void>;
   handlePrevMessage: () => void;
   handleNextMessage: () => void;
   handleSetDefaultAgent: (agentId: string) => void;

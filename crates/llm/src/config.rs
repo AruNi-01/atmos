@@ -1,6 +1,6 @@
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
@@ -213,7 +213,7 @@ fn resolve_api_key(provider_id: &str, raw_value: &str) -> Result<String> {
 }
 
 #[cfg(unix)]
-fn write_private_file(path: &PathBuf, contents: &[u8]) -> Result<()> {
+fn write_private_file(path: &Path, contents: &[u8]) -> Result<()> {
     let parent = path
         .parent()
         .ok_or_else(|| LlmError::InvalidConfig("Missing parent directory for llm config".into()))?;
@@ -234,13 +234,13 @@ fn write_private_file(path: &PathBuf, contents: &[u8]) -> Result<()> {
 }
 
 #[cfg(not(unix))]
-fn write_private_file(path: &PathBuf, contents: &[u8]) -> Result<()> {
+fn write_private_file(path: &Path, contents: &[u8]) -> Result<()> {
     fs::write(path, contents)?;
     set_private_permissions(path)?;
     Ok(())
 }
 
-fn temporary_write_path(path: &PathBuf, attempt: u32) -> PathBuf {
+fn temporary_write_path(path: &Path, attempt: u32) -> PathBuf {
     let pid = std::process::id();
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -254,7 +254,7 @@ fn temporary_write_path(path: &PathBuf, attempt: u32) -> PathBuf {
 }
 
 #[cfg(unix)]
-fn open_private_temp_file(path: &PathBuf) -> Result<(PathBuf, fs::File)> {
+fn open_private_temp_file(path: &Path) -> Result<(PathBuf, fs::File)> {
     use std::os::unix::fs::OpenOptionsExt;
 
     for attempt in 0..8 {
@@ -277,7 +277,7 @@ fn open_private_temp_file(path: &PathBuf) -> Result<(PathBuf, fs::File)> {
 }
 
 #[cfg(not(unix))]
-fn set_private_permissions(_path: &PathBuf) -> Result<()> {
+fn set_private_permissions(_path: &Path) -> Result<()> {
     Ok(())
 }
 

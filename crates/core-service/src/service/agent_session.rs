@@ -14,7 +14,9 @@ use tokio::sync::RwLock;
 use tracing::info;
 
 use crate::error::Result;
-use crate::utils::path_boundary::{normalize_path_for_boundary, path_within_root};
+use crate::utils::path_boundary::{
+    normalize_path_for_boundary, path_or_existing_parent_within_root, path_within_root,
+};
 
 #[derive(Debug, serde::Serialize)]
 pub struct LazyAgentSession {
@@ -64,7 +66,7 @@ impl AcpToolHandler for AgentToolHandler {
                 "File access disabled. Open a workspace to grant the Agent access to project files.".to_string(),
             );
         }
-        if !path_within_root(path, &self.session_root) {
+        if !path_or_existing_parent_within_root(path, &self.session_root) {
             return Err("File access outside the active workspace is disabled.".to_string());
         }
         self.fs_engine
@@ -93,7 +95,6 @@ pub struct ResumeNativeSessionSpec {
     pub registry_id: String,
     pub acp_session_id: String,
     pub cwd: Option<PathBuf>,
-    pub allow_file_access: bool,
     pub workspace_id: Option<String>,
     pub project_id: Option<String>,
     pub auth_method_id: Option<String>,
@@ -210,6 +211,10 @@ impl AgentSessionService {
         });
         let cwd_str = cwd.to_string_lossy().to_string();
         let runtime_session_id = uuid::Uuid::new_v4().to_string();
+        let allow_file_access = Self::allow_file_access(
+            request.workspace_id.as_deref(),
+            request.project_id.as_deref(),
+        );
 
         let spec = LazySessionSpec {
             runtime_session_id: runtime_session_id.clone(),
@@ -218,7 +223,7 @@ impl AgentSessionService {
             registry_id: request.registry_id.clone(),
             launch_spec,
             cwd,
-            allow_file_access: request.allow_file_access,
+            allow_file_access,
             env_overrides,
             resume_session_id: Some(request.acp_session_id.clone()),
             auth_method_id: request.auth_method_id,

@@ -16,12 +16,11 @@ import {
   ConversationScrollButton,
   Message,
   MessageContent,
-  Button,
   TextShimmer,
   ShineBorder,
   cn,
 } from "@workspace/ui";
-import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { getAssistantCopyText } from "@/features/agent/lib/agent/thread";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
@@ -198,7 +197,6 @@ export function AgentChatPanel({
     stoppedRef,
     isResumingHistory,
     isResumedSession,
-    isManualLoadingMessages,
     installedAgents,
     setInstalledAgents,
     activeAgent,
@@ -258,7 +256,6 @@ export function AgentChatPanel({
     handlePermission,
     handleCreateNewSession,
     handleSelectHistorySession,
-    handleManualLoadMessages,
     handlePrevMessage,
     handleNextMessage,
     handleSetDefaultAgent,
@@ -357,26 +354,15 @@ export function AgentChatPanel({
                 {error}
               </div>
             )}
-            {isConnected && entries.length === 0 && !isConnecting && !error && sessionId && isResumedSession && (
-              <div className="flex justify-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleManualLoadMessages}
-                  disabled={isManualLoadingMessages || isResumingHistory}
-                  className="h-8 text-xs text-muted-foreground"
-                >
-                  {(isManualLoadingMessages || isResumingHistory) && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-                  {isManualLoadingMessages || isResumingHistory ? "Loading messages..." : "Load messages"}
-                </Button>
-              </div>
-            )}
             {canUseCurrentMode && isConnected && entries.length === 0 && !isConnecting && !error && (
               <ConversationEmptyState
                 icon={<MessageSquare className="size-12" />}
-                title="Start a conversation"
-                description="Type a message below to begin chatting"
+                title={isResumedSession ? "Session resumed" : "Start a conversation"}
+                description={
+                  isResumedSession
+                    ? "This agent restored the session context. Send a message to continue."
+                    : "Type a message below to begin chatting"
+                }
               />
             )}
             {entries.map((entry, i) => (

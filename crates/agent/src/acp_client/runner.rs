@@ -251,7 +251,10 @@ fn send_auth_required_error(
     ready_tx: &mut Option<oneshot::Sender<Result<String, String>>>,
     auth_methods: Vec<AuthMethodSummary>,
 ) -> Result<(), String> {
-    let msg = auth_required_message(auth_methods)?;
+    let msg = match auth_required_message(auth_methods) {
+        Ok(message) => message,
+        Err(error) => error,
+    };
     if let Some(tx) = ready_tx.take() {
         let _ = tx.send(Err(msg.clone()));
     }

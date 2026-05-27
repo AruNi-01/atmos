@@ -163,7 +163,20 @@ export function useAgentChatMessageHandler({
         break;
       case "agent_info_update":
       case "capabilities_update":
+        break;
       case "session_closed":
+        flushPendingStreamMessages();
+        stoppedRef.current = false;
+        setWaitingForResponse(false);
+        setIsResumingHistory(false);
+        setPendingPermission(null);
+        setEntries((prev) =>
+          prev.map((entry) =>
+            entry.role === "assistant" && entry.isStreaming
+              ? { ...entry, isStreaming: false }
+              : entry,
+          ),
+        );
         break;
       case "session_ended":
         flushPendingStreamMessages();

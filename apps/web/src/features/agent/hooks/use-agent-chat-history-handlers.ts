@@ -18,7 +18,6 @@ interface UseAgentChatHistoryHandlersParams {
   disconnect: () => void;
   isConnected: boolean;
   isConnecting: boolean;
-  isResumingHistory: boolean;
   projectId: string | null;
   resumeSession: (input: ResumeSessionInput) => Promise<boolean>;
   sessionId: string | null;
@@ -26,7 +25,6 @@ interface UseAgentChatHistoryHandlersParams {
   setEntries: Dispatch<SetStateAction<ThreadEntry[]>>;
   setHistoryOpen: Dispatch<SetStateAction<boolean>>;
   setIsAutoGeneratingTitle: Dispatch<SetStateAction<boolean>>;
-  setIsManualLoadingMessages: Dispatch<SetStateAction<boolean>>;
   setIsResumedSession: Dispatch<SetStateAction<boolean>>;
   setIsResumingHistory: Dispatch<SetStateAction<boolean>>;
   setPendingPermission: Dispatch<SetStateAction<PendingPermission | null>>;
@@ -48,7 +46,6 @@ export function useAgentChatHistoryHandlers({
   disconnect,
   isConnected,
   isConnecting,
-  isResumingHistory,
   projectId,
   resumeSession,
   sessionId,
@@ -56,7 +53,6 @@ export function useAgentChatHistoryHandlers({
   setEntries,
   setHistoryOpen,
   setIsAutoGeneratingTitle,
-  setIsManualLoadingMessages,
   setIsResumedSession,
   setIsResumingHistory,
   setPendingPermission,
@@ -141,26 +137,7 @@ export function useAgentChatHistoryHandlers({
     ],
   );
 
-  const handleManualLoadMessages = useCallback(async () => {
-    const targetSessionId = sessionId;
-    if (!targetSessionId || isConnecting || isResumingHistory) return;
-
-    setIsManualLoadingMessages(true);
-    try {
-      setIsResumingHistory(false);
-    } finally {
-      setIsManualLoadingMessages(false);
-    }
-  }, [
-    isConnecting,
-    isResumingHistory,
-    sessionId,
-    setIsManualLoadingMessages,
-    setIsResumingHistory,
-  ]);
-
   return {
-    handleManualLoadMessages,
     handleSelectHistorySession,
   };
 }

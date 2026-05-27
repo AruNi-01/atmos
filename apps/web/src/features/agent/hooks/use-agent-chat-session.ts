@@ -92,7 +92,6 @@ export function useAgentChatSession({
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [isResumingHistory, setIsResumingHistory] = useState(false);
-  const [isManualLoadingMessages, setIsManualLoadingMessages] = useState(false);
   const [isResumedSession, setIsResumedSession] = useState(false);
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
   const [sessionTitleSource, setSessionTitleSource] = useState<string | null>(null);
@@ -132,6 +131,15 @@ export function useAgentChatSession({
     () => resolveAgentChatLocalPath(projects, effectiveContextId),
     [projects, effectiveContextId],
   );
+
+  const clearDeepLinkSessionParams = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("agent");
+    url.searchParams.delete("session");
+    url.searchParams.delete("sessionCwd");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   const canUseCurrentMode = true;
   const sessionWorkspaceId = workspaceId;
@@ -262,7 +270,6 @@ export function useAgentChatSession({
   const queuedPromptHead = queuedPrompts[0] ?? null;
 
   const {
-    handleManualLoadMessages,
     handleSelectHistorySession,
   } = useAgentChatHistoryHandlers({
     autoResumeTriedRef,
@@ -271,7 +278,6 @@ export function useAgentChatSession({
     disconnect,
     isConnected,
     isConnecting,
-    isResumingHistory,
     projectId: sessionProjectId,
     resumeSession,
     sessionId,
@@ -279,7 +285,6 @@ export function useAgentChatSession({
     setEntries,
     setHistoryOpen,
     setIsAutoGeneratingTitle,
-    setIsManualLoadingMessages,
     setIsResumedSession,
     setIsResumingHistory,
     setPendingPermission,
@@ -515,7 +520,11 @@ export function useAgentChatSession({
       projectId: sessionProjectId,
     })
       .then((success) => {
-        if (!success) setIsResumingHistory(false);
+        if (success) {
+          clearDeepLinkSessionParams();
+        } else {
+          setIsResumingHistory(false);
+        }
       })
       .catch(() => {
         setIsResumingHistory(false);
@@ -525,6 +534,7 @@ export function useAgentChatSession({
       });
   }, [
     disconnect,
+    clearDeepLinkSessionParams,
     hasLoadedAgents,
     isConnecting,
     isPanelOpen,
@@ -818,7 +828,6 @@ export function useAgentChatSession({
     stoppedRef,
     isResumingHistory,
     isResumedSession,
-    isManualLoadingMessages,
 
     installedAgents,
     setInstalledAgents,
@@ -892,7 +901,6 @@ export function useAgentChatSession({
     handlePermission,
     handleCreateNewSession,
     handleSelectHistorySession,
-    handleManualLoadMessages,
     handlePrevMessage,
     handleNextMessage,
     handleSetDefaultAgent,

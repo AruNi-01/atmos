@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   agentApi,
   type AgentCapabilities,
@@ -25,10 +25,13 @@ export function getResumeUnsupportedReason(capabilities: AgentCapabilities | nul
   );
 }
 
-export function getListUnsupportedReason(error: unknown): string | null {
-  return parseAuthRequiredError(error)
-    ? "Authentication is required before this agent can list ACP sessions."
-    : null;
+export function getListFailureReason(error: unknown): string {
+  if (parseAuthRequiredError(error)) {
+    return "Authentication is required before this agent can list ACP sessions.";
+  }
+  return error instanceof Error && error.message
+    ? error.message
+    : "Failed to load ACP sessions.";
 }
 
 export function useAcpSessionList({
@@ -48,8 +51,10 @@ export function useAcpSessionList({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null);
+  const requestSeqRef = useRef(0);
 
   const reset = useCallback(() => {
+    requestSeqRef.current += 1;
     setSessions([]);
     setMeta(null);
     setCursor(null);
@@ -63,6 +68,8 @@ export function useAcpSessionList({
         return;
       }
 
+      const requestSeq = (requestSeqRef.current += 1);
+      const isLatestRequest = () => requestSeq === requestSeqRef.current;
       const append = Boolean(nextCursor);
       if (append) {
         setIsLoadingMore(true);
@@ -78,6 +85,7 @@ export function useAcpSessionList({
           cursor: nextCursor ?? undefined,
           auth_method_id: authMethodId,
         });
+        if (!isLatestRequest()) return;
         setMeta({
           registry_id: response.registry_id,
           agent_info: response.agent_info,
@@ -90,29 +98,31 @@ export function useAcpSessionList({
         setCursor(response.next_cursor);
         setUnsupportedReason(response.unsupported_reason);
       } catch (error) {
+        if (!isLatestRequest()) return;
         if (!append) {
           setSessions([]);
           setMeta(null);
           setCursor(null);
         }
-        setUnsupportedReason(getListUnsupportedReason(error));
+        setUnsupportedReason(getListFailureReason(error));
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
+        if (isLatestRequest()) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
       }
     },
     [authMethodId, limit, registryId, reset],
   );
 
   useEffect(() => {
-    if (!enabled) return;
-    void loadSessions();
-  }, [enabled, loadSessions]);
+    reset();
+  }, [authMethodId, registryId, reset]);
 
   useEffect(() => {
-    if (registryId) return;
-    reset();
-  }, [registryId, reset]);
+    if (!enabled || !registryId) return;
+    void loadSessions();
+  }, [enabled, loadSessions, registryId]);
 
   const loadMore = useCallback(async () => {
     if (!cursor || isLoadingMore) return;
@@ -121,7 +131,7 @@ export function useAcpSessionList({
 
   return {
     sessions,
-    setSessions: setSessions as Dispatch<SetStateAction<NativeAgentSessionItem[]>>,
+    setSessions,
     meta,
     cursor,
     hasMore: Boolean(cursor),

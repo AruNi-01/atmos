@@ -113,7 +113,7 @@ pub async fn resume_agent_session(
         .as_deref()
         .map(parse_absolute_resume_cwd)
         .transpose()?;
-    let (cwd, allow_file_access) = if let Some(ref wid) = payload.workspace_id {
+    let cwd = if let Some(ref wid) = payload.workspace_id {
         let workspace = state
             .workspace_service
             .get_workspace(wid.clone())
@@ -126,7 +126,7 @@ pub async fn resume_agent_session(
                 "ACP session cwd is outside the selected workspace".to_string(),
             ));
         }
-        (Some(cwd), true)
+        Some(cwd)
     } else if let Some(ref pid) = payload.project_id {
         let project = state
             .project_service
@@ -145,9 +145,9 @@ pub async fn resume_agent_session(
                 "ACP session cwd is outside the selected project".to_string(),
             ));
         }
-        (Some(cwd), true)
+        Some(cwd)
     } else {
-        (requested_cwd, false)
+        requested_cwd
     };
 
     let session = state
@@ -156,7 +156,6 @@ pub async fn resume_agent_session(
             registry_id: payload.registry_id.clone(),
             acp_session_id: payload.acp_session_id.clone(),
             cwd,
-            allow_file_access,
             workspace_id: payload.workspace_id.clone(),
             project_id: payload.project_id.clone(),
             auth_method_id: payload.auth_method_id,
@@ -392,7 +391,7 @@ pub async fn logout_agent(
 mod tests {
     use super::parse_absolute_resume_cwd;
     use core_service::utils::path_boundary::path_within_root;
-    use std::path::Path;
+    use std::fs;
 
     #[test]
     fn resume_cwd_must_be_absolute() {
@@ -402,13 +401,16 @@ mod tests {
 
     #[test]
     fn boundary_check_rejects_parent_escape() {
-        assert!(path_within_root(
-            Path::new("/tmp/workspace/src/../Cargo.toml"),
-            Path::new("/tmp/workspace")
-        ));
-        assert!(!path_within_root(
-            Path::new("/tmp/workspace/../outside"),
-            Path::new("/tmp/workspace")
-        ));
+        let temp = std::env::temp_dir().join(format!("atmos-path-test-{}", uuid::Uuid::new_v4()));
+        let root = temp.join("workspace");
+        let src = root.join("src");
+        let outside = temp.join("outside");
+        fs::create_dir_all(&src).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(root.join("Cargo.toml"), "").unwrap();
+
+        assert!(path_within_root(&src.join("../Cargo.toml"), &root));
+        assert!(!path_within_root(&root.join("../outside"), &root));
+        let _ = fs::remove_dir_all(temp);
     }
 }
