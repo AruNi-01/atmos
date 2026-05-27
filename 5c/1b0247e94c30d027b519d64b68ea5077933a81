@@ -1,0 +1,25 @@
+crates/core-service/src/service/agent_session.rs
+  s_4cf1aa3c956589::t_8c8ee994b9a0f2 255-256,258-264,368-406,409-410,426-464
+specs/APP/APP-018_acp-protocol-upgrade/TEST.md
+  s_4cf1aa3c956589::t_d1425bd59ad522 112-113
+specs/APP/APP-018_acp-protocol-upgrade/IMPROVEMENT.md
+  s_4cf1aa3c956589::t_1e430eaf3a21c3 56,60,64
+specs/APP/APP-018_acp-protocol-upgrade/TECH.md
+  s_4cf1aa3c956589::t_fbf005cd741a0d 245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5c1b0247e94c30d027b519d64b68ea5077933a81",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
