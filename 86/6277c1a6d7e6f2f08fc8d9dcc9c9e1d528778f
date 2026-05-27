@@ -1,0 +1,21 @@
+scripts/desktop/layout-runtime-bundle.mjs
+  s_4cf1aa3c956589::t_37f7f7041b2f18 9-24,59
+scripts/desktop/before-build.mjs
+  s_4cf1aa3c956589::t_9e89264d3b061e 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "866277c1a6d7e6f2f08fc8d9dcc9c9e1d528778f",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
