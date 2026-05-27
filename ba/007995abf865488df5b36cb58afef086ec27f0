@@ -1,0 +1,60 @@
+packages/relay/src/server-hub.ts
+  s_b68c410ef36996::t_8d203c4e2d6798 384,413,513
+packages/relay/wrangler.toml
+  s_b68c410ef36996::t_eac1e090badb79 29
+packages/relay/test/event-routes.test.ts
+  s_b68c410ef36996::t_28a7db79369ed5 269-287
+apps/api/src/relay/ingest.rs
+  s_b68c410ef36996::t_c4381d13327546 262,270-278
+packages/relay/migrations/0005_github_automation_triggers.sql
+  s_b68c410ef36996::t_cdba98ecc6f197 2-3,13,23,40,57,69-73,81-83
+packages/relay/src/delivery-state.ts
+  s_b68c410ef36996::t_a5d733d23412e3 11,106-116,120,122
+packages/relay/migrations/0004_stable_tenant_identity.sql
+  s_b68c410ef36996::t_f2665210ebf0dc 1
+crates/infra/src/db/migration/m20260422_000019_create_review_tables.rs
+  s_b68c410ef36996::t_37a3278aa3612a 72,75-88
+  s_b68c410ef36996::t_1fce035965ad6e 36
+apps/web/src/api/ws/automation-api.ts
+  s_b68c410ef36996::t_20af6769d71985 4
+packages/relay/migrations/0003_computers_registration_meta.sql
+  s_b68c410ef36996::t_ae5561039f897f 1
+packages/relay/migrations/0001_init.sql
+  s_b68c410ef36996::t_f2b5f9a8f741fe 1-3,6-10,28-30,41,43-44
+apps/web/src/api/ws/automation-dtos.ts
+  s_b68c410ef36996::t_8cf281fcd8910a 1-45,51-61,63-107
+  s_b68c410ef36996::t_9ef9402663b476 46-50,62
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  s_b68c410ef36996::t_ee752e1fb36390 392
+apps/api/src/api/ws/router/automation.rs
+  s_b68c410ef36996::t_e0900aeb0d278f 200-203
+packages/relay/migrations/0006_github_route_tenant_integrity.sql
+  s_b68c410ef36996::t_4ef3498051ab01 1-2
+apps/web/src/features/automations/lib/github-trigger-relay.ts
+  s_b68c410ef36996::t_d34e1596debe42 191
+  s_b68c410ef36996::t_7a3df07fbadb2f 2,37
+apps/web/src/features/automations/types.ts
+  s_b68c410ef36996::t_3508a0aca0be0d 1-16
+packages/relay/src/index.ts
+  s_b68c410ef36996::t_792f8798a81c8a 345-351,357-362,364,366-370,372,377-381,383-384,389-392
+packages/relay/migrations/0002_computers_updated_at.sql
+  s_b68c410ef36996::t_1b9ad1500b9ee5 1
+crates/infra/src/db/migration/m20260507_000023_make_review_session_workspace_optional.rs
+  s_b68c410ef36996::t_9cd9c4ce7efdd1 8-11,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ba007995abf865488df5b36cb58afef086ec27f0",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
