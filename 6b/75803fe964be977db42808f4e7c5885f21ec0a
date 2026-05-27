@@ -1,0 +1,23 @@
+apps/web/src/features/chat-sessions/components/ChatSessionsManagementView.tsx
+  s_4cf1aa3c956589::t_37e3f639c03365 87-92,100-101,185,192-196,201,229-233,236,245,252-263
+  s_4cf1aa3c956589::t_8a39f47fcdcbdd 433,473,483-495
+apps/web/src/features/agent/hooks/use-acp-session-list.ts
+  s_4cf1aa3c956589::t_5cb0bf68ed9edd 13,50,58,154-162,164-197,221
+  s_4cf1aa3c956589::t_9c0f60219f7bb5 14,163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6b75803fe964be977db42808f4e7c5885f21ec0a",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
