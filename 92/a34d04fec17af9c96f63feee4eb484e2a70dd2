@@ -1,0 +1,21 @@
+apps/cli/Cargo.toml
+  s_b68c410ef36996::t_9b1d8b1dfdb2c6 3
+Cargo.lock
+  ai_agent 515
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "92a34d04fec17af9c96f63feee4eb484e2a70dd2",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
