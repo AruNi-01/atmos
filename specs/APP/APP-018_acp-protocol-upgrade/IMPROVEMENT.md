@@ -49,16 +49,16 @@ In contextual Agent Chat, listed ACP sessions are limited to the current Project
 
 ### Problem
 
-The `/agents` session management view intentionally listed all native sessions for the selected ACP agent. After contextual Agent Chat became cwd-scoped, users also needed the global management page to narrow the ACP catalog by a Project or Workspace without losing the default all-sessions view.
+The `/agents` session management view intentionally listed all native sessions for the selected ACP agent. After contextual Agent Chat became cwd-scoped, users also needed the global management page to narrow the ACP catalog by Project without losing the default all-sessions view. A Project can include the main checkout plus multiple Atmos workspace worktrees, while ACP `session/list` accepts only one `cwd`.
 
 ### Root cause
 
-The global page called `useAcpSessionList` with only `registryId`, even though the shared hook and REST request already supported an optional `cwd`. Local smoke testing also showed that agents do not behave identically: Codex ACP narrows results by `cwd`, while Claude ACP can return mixed cwd rows for the same request.
+The global page called `useAcpSessionList` with only `registryId`, even though the shared hook and REST request already supported an optional `cwd`. Local smoke testing also showed that agents do not behave identically: Codex ACP narrows results by `cwd`, while Claude ACP can return mixed cwd rows for the same request. Because ACP does not accept multiple `cwd` values, Project-level history needs one request per selected Project/Workspace root.
 
 ### Solution
 
-The global session toolbar now includes a Project/Workspace selector to the left of the ACP agent selector. The selector defaults to All and sends no `cwd`; selecting a Project or Workspace passes the selected local path as `cwd` and reloads the native ACP session list from page one. After ACP returns, Atmos also applies the requested `cwd` filter locally so agents that ignore or loosely interpret `cwd` cannot leak sibling workspace sessions into the selected Project/Workspace view.
+The global session toolbar now includes an All/Project selector to the left of the ACP agent selector. Selecting a Project reveals a Workspace multi-select. Atmos always includes the Project root, defaults to the 10 most recently visited Workspace roots, and calls ACP `session/list` once per selected root. After ACP returns, Atmos also applies each requested `cwd` filter locally so agents that ignore or loosely interpret `cwd` cannot leak unrelated sessions into the selected Project view.
 
 ### Result
 
-Users can inspect all native sessions for an ACP agent or narrow the list to a specific Project/Workspace path from the `/agents` page, with consistent filtering across ACP agents.
+Users can inspect all native sessions for an ACP agent or narrow the list to a Project plus selected Workspace roots from the `/agents` page, with consistent filtering across ACP agents.

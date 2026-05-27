@@ -243,6 +243,7 @@ Behavior requirements:
 - `session/list` must be called only when the initialized agent advertises support or the SDK method exists for the current negotiated protocol. Unsupported agents return an explicit unsupported result.
 - `session/list` is cursor-paginated by ACP: request `cursor`, response `nextCursor`. ACP does not define a client-supplied `limit`/`pageSize` field, so Atmos must never auto-follow `nextCursor` to collect all pages. The UI asks for one page at a time; "Load more" sends the previous `nextCursor`.
 - When Atmos sends `ListSessionsRequest.cwd`, the service must also filter returned rows by that cwd before exposing them to the browser. Agents may differ in how strictly they apply the requested cwd, so the client-side contract cannot rely on agent filtering alone.
+- ACP does not support multiple `cwd` values in one `session/list` request. The global `/agents` Project filter therefore fans out one list request per selected root: the Project root plus the selected Workspace roots. The default selected Workspace roots are the 10 most recently visited Workspaces.
 - Agents own upstream page size and should enforce reasonable limits internally. Atmos may cap an oversized unpaginated response before returning it to the browser, but this is a defensive UI bound, not an ACP pagination parameter.
 - `session/resume` must be preferred for native resume. `session/load` is only allowed as a compatibility fallback when the target agent does not support resume but explicitly supports load-style replay. A resume/load failure must return an error to the UI and must not create a new session.
 - `session/close` should be sent for active sessions before dropping the handle. If close fails because the process has already exited, log at debug level and complete local cleanup.
@@ -585,6 +586,6 @@ The exact DB cleanup depends on whether the existing session table is shared out
 ## 11. Open Questions
 
 - Should logout be shown only in Agent Management, or also inside the active Agent Chat header?
-- Resolved: contextual Agent Chat inside Project/Workspace views filters `session/list` by the current context cwd. The global `/agents` session management view defaults to All/unfiltered and exposes an explicit Project/Workspace selector that forwards the selected context path as `cwd`.
+- Resolved: contextual Agent Chat inside Project/Workspace views filters `session/list` by the current context cwd. The global `/agents` session management view defaults to All/unfiltered and exposes an explicit Project selector plus Workspace multi-select; Project filtering fans out across the Project root and selected Workspace roots.
 - If an agent supports list but not resume, should history rows be read-only or hidden?
 - Should session close be sent automatically on browser tab close, or only on explicit user close/workspace archive events?

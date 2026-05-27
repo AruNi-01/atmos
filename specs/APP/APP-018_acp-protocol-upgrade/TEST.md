@@ -101,16 +101,17 @@
 - **Then**: the frontend calls `GET /api/agent/sessions` with `cwd` set to the current Project/Workspace path, and the agent receives an ACP `session/list` request scoped to that cwd.
 - **Signals**: REST query contains `cwd`; ACP mock receives `ListSessionsRequest.cwd`; unrelated-directory sessions are not rendered in contextual history.
 
-### S6c - Global session management can be cwd-scoped
+### S6c - Global session management can be project-scoped
 
 - **Level**: Frontend component test plus API request assertion
 - **Given**: the `/agents` session management view has loaded projects, workspaces, and a selected ACP agent.
 - **When**: the context selector is set to All.
 - **Then**: the frontend calls `GET /api/agent/sessions` without `cwd`, preserving the global catalog view.
-- **When**: the context selector is set to a Project or Workspace.
-- **Then**: the frontend reloads the first ACP list page with `cwd` set to that context's local path.
-- **And**: if the agent returns rows from sibling workspaces or unrelated paths, Atmos filters those rows out before rendering.
-- **Signals**: REST query contains no `cwd` for All and contains the selected project/workspace path after filtering; old rows are replaced rather than appended; sibling workspace cwd rows are absent.
+- **When**: the context selector is set to a Project.
+- **Then**: the frontend reloads the first ACP list page for the Project root and the selected Workspace roots, defaulting to the 10 most recently visited Workspaces.
+- **And**: the Workspace multi-select can add or remove Workspace roots and trigger a fresh page-one load.
+- **And**: if an agent returns rows from sibling workspaces or unrelated paths for any root request, Atmos filters those rows out before rendering.
+- **Signals**: REST query contains no `cwd` for All and contains one `cwd` request per selected Project/Workspace root after filtering; old rows are replaced rather than appended; unrelated cwd rows are absent; duplicate rows across roots are rendered once.
 
 ### S7 - No durable local ACP session catalog
 
@@ -212,7 +213,7 @@
 - [ ] ACP Registry install/list/start flows still work.
 - [ ] Failed resume does not call `session/new`.
 - [ ] History reload does not read Atmos-local Agent Chat rows.
-- [ ] Project/Workspace Agent Chat history passes current context `cwd`; global `/agents` session management defaults to All and can explicitly filter by Project/Workspace.
+- [ ] Project/Workspace Agent Chat history passes current context `cwd`; global `/agents` session management defaults to All and can explicitly filter by Project plus selected Workspace roots.
 - [ ] Capability unsupported states do not hide real launch/auth errors.
 - [ ] Auth tokens, environment values, and raw agent auth payloads are not logged.
 - [ ] Browser reload recovers history from ACP `session/list`, not local storage or DB rows.

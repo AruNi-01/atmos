@@ -5,7 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQueryState } from "nuqs";
 import {
   Button,
+  Checkbox,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -29,6 +33,7 @@ import {
   useAcpSessionList,
 } from "@/features/agent/hooks/use-acp-session-list";
 import { useProjectStore } from "@/features/project/store/use-project-store";
+import type { Workspace } from "@/shared/types/domain";
 
 interface RegistryAgentInfo {
   id: string;
@@ -65,11 +70,18 @@ interface ChatSessionsManagementViewProps {
 }
 
 const ALL_SESSION_CONTEXT_ID = "all";
+const DEFAULT_PROJECT_WORKSPACE_LIMIT = 10;
 
 interface SessionContextOption {
   id: string;
   label: string;
-  cwd: string | null;
+  projectId: string | null;
+}
+
+interface WorkspaceScopeOption {
+  id: string;
+  label: string;
+  cwd: string;
 }
 
 export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProps> = ({ hideHeader = false }) => {
@@ -78,6 +90,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   const [searchQuery, setSearchQuery] = useQueryState("q", chatSessionsParams.q);
   const [selectedRegistryId, setSelectedRegistryId] = useQueryState("registry_id", chatSessionsParams.registry_id);
   const [selectedSessionContextId, setSelectedSessionContextId] = useState(ALL_SESSION_CONTEXT_ID);
+  const [selectedWorkspaceIds, setSelectedWorkspaceIds] = useState<string[]>([]);
 
   const [registryAgents, setRegistryAgents] = useState<RegistryAgentInfo[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
@@ -85,6 +98,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
   const projectConnectionEpoch = useProjectStore((state) => state.connectionEpoch);
   const requestedProjectEpochRef = useRef<number | null>(null);
+  const defaultedWorkspaceProjectIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (requestedProjectEpochRef.current === projectConnectionEpoch) return;
@@ -97,7 +111,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
       {
         id: ALL_SESSION_CONTEXT_ID,
         label: "All",
-        cwd: null,
+        projectId: null,
       },
     ];
 
@@ -107,17 +121,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
         options.push({
           id: `project:${project.id}`,
           label: `Project: ${project.name}`,
-          cwd: projectPath,
-        });
-      }
-
-      for (const workspace of project.workspaces) {
-        const workspacePath = workspace.localPath.trim();
-        if (!workspacePath) continue;
-        options.push({
-          id: `workspace:${workspace.id}`,
-          label: `Workspace: ${project.name} / ${workspace.displayName || workspace.name}`,
-          cwd: workspacePath,
+          projectId: project.id,
         });
       }
     }
@@ -137,6 +141,99 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     [selectedSessionContextId, sessionContextOptions],
   );
 
+  const selectedProject = useMemo(
+    () =>
+      selectedSessionContext.projectId
+        ? projects.find((project) => project.id === selectedSessionContext.projectId) ?? null
+        : null,
+    [projects, selectedSessionContext.projectId],
+  );
+
+  const projectWorkspaceOptions = useMemo<WorkspaceScopeOption[]>(() => {
+    if (!selectedProject) return [];
+
+    const visitedTime = (workspace: Workspace) => {
+      const value = workspace.lastVisitedAt ?? workspace.createdAt;
+      const timestamp = value ? Date.parse(value) : 0;
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
+
+    return selectedProject.workspaces
+      .filter((workspace) => workspace.localPath.trim())
+      .slice()
+      .sort((a, b) => visitedTime(b) - visitedTime(a))
+      .map((workspace) => ({
+        id: workspace.id,
+        label: workspace.displayName || workspace.name,
+        cwd: workspace.localPath.trim(),
+      }));
+  }, [selectedProject]);
+
+  useEffect(() => {
+    const projectId = selectedProject?.id ?? null;
+    if (!projectId) {
+      defaultedWorkspaceProjectIdRef.current = null;
+      setSelectedWorkspaceIds([]);
+      return;
+    }
+
+    const availableIds = new Set(projectWorkspaceOptions.map((workspace) => workspace.id));
+    if (defaultedWorkspaceProjectIdRef.current !== projectId) {
+      defaultedWorkspaceProjectIdRef.current = projectId;
+      setSelectedWorkspaceIds(
+        projectWorkspaceOptions
+          .slice(0, DEFAULT_PROJECT_WORKSPACE_LIMIT)
+          .map((workspace) => workspace.id),
+      );
+      return;
+    }
+
+    setSelectedWorkspaceIds((prev) => prev.filter((id) => availableIds.has(id)));
+  }, [projectWorkspaceOptions, selectedProject?.id]);
+
+  const selectedWorkspaceIdSet = useMemo(
+    () => new Set(selectedWorkspaceIds),
+    [selectedWorkspaceIds],
+  );
+
+  const sessionListRoots = useMemo(() => {
+    if (!selectedProject) return null;
+
+    const roots = [
+      selectedProject.mainFilePath.trim(),
+      ...projectWorkspaceOptions
+        .filter((workspace) => selectedWorkspaceIdSet.has(workspace.id))
+        .map((workspace) => workspace.cwd),
+    ].filter(Boolean);
+
+    return Array.from(new Set(roots));
+  }, [projectWorkspaceOptions, selectedProject, selectedWorkspaceIdSet]);
+
+  const selectedWorkspaceCount = selectedWorkspaceIds.length;
+  const workspaceSelectorLabel =
+    selectedWorkspaceCount === 0
+      ? "No workspaces"
+      : selectedWorkspaceCount === 1
+        ? "1 workspace"
+        : `${selectedWorkspaceCount} workspaces`;
+
+  const toggleWorkspaceSelection = useCallback((workspaceId: string, checked: boolean) => {
+    setSelectedWorkspaceIds((prev) => {
+      if (checked) {
+        return prev.includes(workspaceId) ? prev : [...prev, workspaceId];
+      }
+      return prev.filter((id) => id !== workspaceId);
+    });
+  }, []);
+
+  const selectRecentWorkspaces = useCallback(() => {
+    setSelectedWorkspaceIds(
+      projectWorkspaceOptions
+        .slice(0, DEFAULT_PROJECT_WORKSPACE_LIMIT)
+        .map((workspace) => workspace.id),
+    );
+  }, [projectWorkspaceOptions]);
+
   const {
     sessions,
     isLoading,
@@ -149,7 +246,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     loadMore,
   } = useAcpSessionList({
     registryId: selectedRegistryId,
-    cwd: selectedSessionContext.cwd,
+    cwds: sessionListRoots,
     enabled: Boolean(selectedRegistryId),
   });
 
@@ -304,6 +401,60 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
               ))}
             </SelectContent>
           </Select>
+          {selectedProject ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-between border-border/50 bg-muted/20 font-normal sm:w-[220px]",
+                    compact ? "h-9" : "h-10",
+                  )}
+                >
+                  <span className="truncate">{workspaceSelectorLabel}</span>
+                  <ChevronDown className="ml-2 size-4 shrink-0 opacity-60" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-[320px] p-2">
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                  <div className="min-w-0 text-xs font-semibold text-foreground">Workspaces</div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0 px-2 text-xs"
+                    onClick={selectRecentWorkspaces}
+                    disabled={projectWorkspaceOptions.length === 0}
+                  >
+                    Recent {Math.min(DEFAULT_PROJECT_WORKSPACE_LIMIT, projectWorkspaceOptions.length)}
+                  </Button>
+                </div>
+                <div className="mt-1 max-h-72 overflow-y-auto pr-1">
+                  {projectWorkspaceOptions.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      No workspaces
+                    </div>
+                  ) : (
+                    projectWorkspaceOptions.map((workspace) => (
+                      <label
+                        key={workspace.id}
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted/60"
+                      >
+                        <Checkbox
+                          checked={selectedWorkspaceIdSet.has(workspace.id)}
+                          onCheckedChange={(checked) =>
+                            toggleWorkspaceSelection(workspace.id, checked === true)
+                          }
+                        />
+                        <span className="min-w-0 flex-1 truncate">{workspace.label}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
           <Select
             value={selectedRegistryId || undefined}
             onValueChange={(value) => {

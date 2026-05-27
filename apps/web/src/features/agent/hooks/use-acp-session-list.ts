@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   agentApi,
   type AgentCapabilities,
@@ -12,6 +12,10 @@ import { parseAuthRequiredError } from "@/features/agent/lib/agent-runtime-socke
 export const ACP_SESSION_LIST_PAGE_LIMIT = 200;
 
 export type AcpSessionListMeta = Omit<ListAgentSessionsResponse, "items">;
+
+function sessionListRootKey(root: string | null): string {
+  return root ?? "__all__";
+}
 
 export function getResumeUnsupportedReason(capabilities: AgentCapabilities | null | undefined): string | null {
   if (!capabilities) return null;
@@ -37,12 +41,14 @@ export function getListFailureReason(error: unknown): string {
 export function useAcpSessionList({
   registryId,
   cwd = null,
+  cwds = null,
   authMethodId = null,
   enabled = true,
   limit = ACP_SESSION_LIST_PAGE_LIMIT,
 }: {
   registryId: string | null;
   cwd?: string | null;
+  cwds?: string[] | null;
   authMethodId?: string | null;
   enabled?: boolean;
   limit?: number;
@@ -54,6 +60,16 @@ export function useAcpSessionList({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [unsupportedReason, setUnsupportedReason] = useState<string | null>(null);
   const requestSeqRef = useRef(0);
+  const rootCursorsRef = useRef<Record<string, string | null>>({});
+  const rootsKey = JSON.stringify(cwds && cwds.length > 0 ? cwds.filter(Boolean) : cwd ? [cwd] : []);
+
+  const roots = useMemo<(string | null)[]>(() => {
+    const roots = JSON.parse(rootsKey) as string[];
+    if (roots.length > 0) {
+      return Array.from(new Set(roots));
+    }
+    return cwd ? [cwd] : [null];
+  }, [cwd, rootsKey]);
 
   const reset = useCallback(() => {
     requestSeqRef.current += 1;
@@ -63,6 +79,20 @@ export function useAcpSessionList({
     setIsLoading(false);
     setIsLoadingMore(false);
     setUnsupportedReason(null);
+    rootCursorsRef.current = {};
+  }, []);
+
+  const mergeSessions = useCallback((items: NativeAgentSessionItem[]) => {
+    const byId = new Map<string, NativeAgentSessionItem>();
+    for (const item of items) {
+      byId.set(`${item.registry_id}:${item.acp_session_id}`, item);
+    }
+
+    return Array.from(byId.values()).sort((a, b) => {
+      const left = a.updated_at ? Date.parse(a.updated_at) : 0;
+      const right = b.updated_at ? Date.parse(b.updated_at) : 0;
+      return right - left;
+    });
   }, []);
 
   const loadSessions = useCallback(
@@ -83,25 +113,52 @@ export function useAcpSessionList({
       setUnsupportedReason(null);
 
       try {
-        const response = await agentApi.listSessions({
-          registry_id: registryId,
-          cwd,
-          limit,
-          cursor: nextCursor ?? undefined,
-          auth_method_id: authMethodId,
-        });
+        const rootsToLoad = append
+          ? roots.filter((root) => rootCursorsRef.current[sessionListRootKey(root)])
+          : roots;
+
+        if (append && rootsToLoad.length === 0) return;
+
+        const responses = await Promise.all(
+          rootsToLoad.map(async (root) => {
+            const response = await agentApi.listSessions({
+              registry_id: registryId,
+              cwd: root,
+              limit,
+              cursor: append
+                ? rootCursorsRef.current[sessionListRootKey(root)] ?? undefined
+                : nextCursor ?? undefined,
+              auth_method_id: authMethodId,
+            });
+            return { root, response };
+          }),
+        );
         if (!isLatestRequest()) return;
+
+        const nextRootCursors = append ? { ...rootCursorsRef.current } : {};
+        for (const { root, response } of responses) {
+          nextRootCursors[sessionListRootKey(root)] = response.next_cursor;
+        }
+        rootCursorsRef.current = nextRootCursors;
+
+        const firstResponse = responses[0]?.response;
+        if (!firstResponse) return;
         setMeta({
-          registry_id: response.registry_id,
-          agent_info: response.agent_info,
-          capabilities: response.capabilities,
-          next_cursor: response.next_cursor,
-          truncated: response.truncated,
-          unsupported_reason: response.unsupported_reason,
+          registry_id: firstResponse.registry_id,
+          agent_info: firstResponse.agent_info,
+          capabilities: firstResponse.capabilities,
+          next_cursor: Object.values(nextRootCursors).find(Boolean) ?? null,
+          truncated: responses.some(({ response }) => response.truncated),
+          unsupported_reason: firstResponse.unsupported_reason,
         });
-        setSessions((prev) => (append ? [...prev, ...response.items] : response.items));
-        setCursor(response.next_cursor);
-        setUnsupportedReason(response.unsupported_reason);
+        setSessions((prev) =>
+          mergeSessions([
+            ...(append ? prev : []),
+            ...responses.flatMap(({ response }) => response.items),
+          ]),
+        );
+        setCursor(Object.values(nextRootCursors).find(Boolean) ?? null);
+        setUnsupportedReason(firstResponse.unsupported_reason);
       } catch (error) {
         if (!isLatestRequest()) return;
         if (!append) {
@@ -117,12 +174,12 @@ export function useAcpSessionList({
         }
       }
     },
-    [authMethodId, cwd, limit, registryId, reset],
+    [authMethodId, limit, mergeSessions, registryId, reset, roots],
   );
 
   useEffect(() => {
     reset();
-  }, [authMethodId, cwd, registryId, reset]);
+  }, [authMethodId, registryId, reset, rootsKey]);
 
   useEffect(() => {
     if (!enabled || !registryId) return;
