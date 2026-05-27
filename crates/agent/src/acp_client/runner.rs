@@ -230,6 +230,25 @@ fn internal_error(message: impl Into<String>) -> acp::Error {
     acp::Error::new(-32603, message.into())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SessionRestoreMethod {
+    LoadWithHistory,
+    ResumeContextOnly,
+}
+
+fn select_session_restore_method(
+    supports_load_session: bool,
+    supports_session_resume: bool,
+) -> Option<SessionRestoreMethod> {
+    if supports_load_session {
+        Some(SessionRestoreMethod::LoadWithHistory)
+    } else if supports_session_resume {
+        Some(SessionRestoreMethod::ResumeContextOnly)
+    } else {
+        None
+    }
+}
+
 fn auth_required_message(auth_methods: Vec<AuthMethodSummary>) -> Result<String, String> {
     if auth_methods.is_empty() {
         return Err(
@@ -645,30 +664,15 @@ async fn run_session_inner(
             let create_or_load_result: acp::Result<schema::SessionId> =
                 if let Some(resume_id) = resume_session_id.clone() {
                     let requested = schema::SessionId::new(resume_id.clone());
-                    if init_response
-                        .agent_capabilities
-                        .session_capabilities
-                        .resume
-                        .is_some()
-                    {
-                        conn.send_request(schema::ResumeSessionRequest::new(
-                            requested.clone(),
-                            cwd.clone(),
-                        ))
-                        .block_task()
-                        .await
-                        .map(|response| {
-                            info!("Resumed ACP session: {}", resume_id);
-                            restored_existing_session = true;
-                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
-                                response.config_options,
-                                response.modes,
-                                response.models,
-                                &event_tx,
-                            );
-                            requested
-                        })
-                    } else if init_response.agent_capabilities.load_session {
+                    let restore_method = select_session_restore_method(
+                        init_response.agent_capabilities.load_session,
+                        init_response
+                            .agent_capabilities
+                            .session_capabilities
+                            .resume
+                            .is_some(),
+                    );
+                    if restore_method == Some(SessionRestoreMethod::LoadWithHistory) {
                         conn.send_request(schema::LoadSessionRequest::new(
                             requested.clone(),
                             cwd.clone(),
@@ -679,6 +683,24 @@ async fn run_session_inner(
                             info!("Loaded ACP session via legacy session/load: {}", resume_id);
                             restored_existing_session = true;
                             replayed_loaded_history = true;
+                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
+                                response.config_options,
+                                response.modes,
+                                response.models,
+                                &event_tx,
+                            );
+                            requested
+                        })
+                    } else if restore_method == Some(SessionRestoreMethod::ResumeContextOnly) {
+                        conn.send_request(schema::ResumeSessionRequest::new(
+                            requested.clone(),
+                            cwd.clone(),
+                        ))
+                        .block_task()
+                        .await
+                        .map(|response| {
+                            info!("Resumed ACP session without history replay: {}", resume_id);
+                            restored_existing_session = true;
                             (uses_legacy_modes, uses_legacy_models) = emit_session_config(
                                 response.config_options,
                                 response.modes,
@@ -1172,4 +1194,30 @@ pub async fn logout_acp_agent(
         })
         .await
         .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{select_session_restore_method, SessionRestoreMethod};
+
+    #[test]
+    fn session_restore_prefers_load_when_history_replay_is_available() {
+        assert_eq!(
+            select_session_restore_method(true, true),
+            Some(SessionRestoreMethod::LoadWithHistory)
+        );
+        assert_eq!(
+            select_session_restore_method(true, false),
+            Some(SessionRestoreMethod::LoadWithHistory)
+        );
+    }
+
+    #[test]
+    fn session_restore_falls_back_to_resume_without_history() {
+        assert_eq!(
+            select_session_restore_method(false, true),
+            Some(SessionRestoreMethod::ResumeContextOnly)
+        );
+        assert_eq!(select_session_restore_method(false, false), None);
+    }
 }
