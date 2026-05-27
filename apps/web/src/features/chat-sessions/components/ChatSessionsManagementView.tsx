@@ -297,7 +297,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
                 <div className="mt-6 flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
                   <AlertCircle className="mt-0.5 size-4 shrink-0" />
                   <span>
-                    This agent returned sessions without a next cursor. Atmos is showing the first {ACP_SESSION_LIST_PAGE_LIMIT} items.
+                    This agent returned an unpaginated session list. Atmos is showing the first {ACP_SESSION_LIST_PAGE_LIMIT} items.
                   </span>
                 </div>
               ) : null}
@@ -310,7 +310,7 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
               ) : null}
 
               {isLoading && sessions.length === 0 ? (
-                <div className="space-y-3">
+                <div className="mt-6 space-y-3">
                   {Array.from({ length: 5 }).map((_, index) => (
                     <div
                       key={index}
