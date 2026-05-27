@@ -53,12 +53,12 @@ The `/agents` session management view intentionally listed all native sessions f
 
 ### Root cause
 
-The global page called `useAcpSessionList` with only `registryId`, even though the shared hook and REST request already supported an optional `cwd`.
+The global page called `useAcpSessionList` with only `registryId`, even though the shared hook and REST request already supported an optional `cwd`. Local smoke testing also showed that agents do not behave identically: Codex ACP narrows results by `cwd`, while Claude ACP can return mixed cwd rows for the same request.
 
 ### Solution
 
-The global session toolbar now includes a Project/Workspace selector to the left of the ACP agent selector. The selector defaults to All and sends no `cwd`; selecting a Project or Workspace passes the selected local path as `cwd` and reloads the native ACP session list from page one.
+The global session toolbar now includes a Project/Workspace selector to the left of the ACP agent selector. The selector defaults to All and sends no `cwd`; selecting a Project or Workspace passes the selected local path as `cwd` and reloads the native ACP session list from page one. After ACP returns, Atmos also applies the requested `cwd` filter locally so agents that ignore or loosely interpret `cwd` cannot leak sibling workspace sessions into the selected Project/Workspace view.
 
 ### Result
 
-Users can inspect all native sessions for an ACP agent or narrow the list to a specific Project/Workspace path from the `/agents` page.
+Users can inspect all native sessions for an ACP agent or narrow the list to a specific Project/Workspace path from the `/agents` page, with consistent filtering across ACP agents.

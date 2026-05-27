@@ -242,6 +242,7 @@ Behavior requirements:
 - Initialize response must preserve and expose `agentInfo`.
 - `session/list` must be called only when the initialized agent advertises support or the SDK method exists for the current negotiated protocol. Unsupported agents return an explicit unsupported result.
 - `session/list` is cursor-paginated by ACP: request `cursor`, response `nextCursor`. ACP does not define a client-supplied `limit`/`pageSize` field, so Atmos must never auto-follow `nextCursor` to collect all pages. The UI asks for one page at a time; "Load more" sends the previous `nextCursor`.
+- When Atmos sends `ListSessionsRequest.cwd`, the service must also filter returned rows by that cwd before exposing them to the browser. Agents may differ in how strictly they apply the requested cwd, so the client-side contract cannot rely on agent filtering alone.
 - Agents own upstream page size and should enforce reasonable limits internally. Atmos may cap an oversized unpaginated response before returning it to the browser, but this is a defensive UI bound, not an ACP pagination parameter.
 - `session/resume` must be preferred for native resume. `session/load` is only allowed as a compatibility fallback when the target agent does not support resume but explicitly supports load-style replay. A resume/load failure must return an error to the UI and must not create a new session.
 - `session/close` should be sent for active sessions before dropping the handle. If close fails because the process has already exited, log at debug level and complete local cleanup.

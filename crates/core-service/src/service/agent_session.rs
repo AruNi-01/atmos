@@ -252,9 +252,16 @@ impl AgentSessionService {
         auth_method_id: Option<String>,
     ) -> Result<NativeAgentSessionList> {
         let (launch_spec, env_overrides, _) = self.resolve_agent_launch(registry_id).await?;
-        list_acp_sessions(launch_spec, cwd, cursor, env_overrides, auth_method_id)
+        let requested_cwd = cwd.clone();
+        let mut native = list_acp_sessions(launch_spec, cwd, cursor, env_overrides, auth_method_id)
             .await
-            .map_err(crate::ServiceError::Processing)
+            .map_err(crate::ServiceError::Processing)?;
+
+        if let Some(filter_cwd) = requested_cwd.as_deref() {
+            filter_native_sessions_by_cwd(&mut native, filter_cwd);
+        }
+
+        Ok(native)
     }
 
     pub async fn logout_agent(
@@ -358,9 +365,49 @@ impl AgentSessionService {
     }
 }
 
+fn filter_native_sessions_by_cwd(native: &mut NativeAgentSessionList, filter_cwd: &Path) {
+    native
+        .sessions
+        .retain(|session| session_cwd_matches_filter(Path::new(&session.cwd), filter_cwd));
+}
+
+fn session_cwd_matches_filter(session_cwd: &Path, filter_cwd: &Path) -> bool {
+    if session_cwd.as_os_str().is_empty() || filter_cwd.as_os_str().is_empty() {
+        return false;
+    }
+
+    let session_path = comparable_history_path(session_cwd);
+    let filter_path = comparable_history_path(filter_cwd);
+    session_path == filter_path || session_path.starts_with(filter_path)
+}
+
+fn comparable_history_path(path: &Path) -> PathBuf {
+    path.canonicalize()
+        .unwrap_or_else(|_| normalize_history_path(path))
+}
+
+fn normalize_history_path(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+
+    for component in path.components() {
+        match component {
+            std::path::Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            std::path::Component::RootDir => normalized.push(component.as_os_str()),
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                normalized.pop();
+            }
+            std::path::Component::Normal(segment) => normalized.push(segment),
+        }
+    }
+
+    normalized
+}
+
 #[cfg(test)]
 mod tests {
-    use super::AgentSessionService;
+    use super::{session_cwd_matches_filter, AgentSessionService};
+    use std::path::Path;
 
     #[test]
     fn file_access_enabled_for_workspace_context() {
@@ -375,5 +422,45 @@ mod tests {
     #[test]
     fn file_access_disabled_for_temp_context() {
         assert!(!AgentSessionService::allow_file_access(None, None));
+    }
+
+    #[test]
+    fn session_cwd_filter_matches_exact_project_path() {
+        assert!(session_cwd_matches_filter(
+            Path::new("/Users/example/project"),
+            Path::new("/Users/example/project")
+        ));
+    }
+
+    #[test]
+    fn session_cwd_filter_matches_project_child_path() {
+        assert!(session_cwd_matches_filter(
+            Path::new("/Users/example/project/apps/web"),
+            Path::new("/Users/example/project")
+        ));
+    }
+
+    #[test]
+    fn session_cwd_filter_rejects_sibling_workspace_clone() {
+        assert!(!session_cwd_matches_filter(
+            Path::new("/Users/example/.atmos/workspaces/atmos/pinsir"),
+            Path::new("/Users/example/own_space/OpenSource/atmos")
+        ));
+    }
+
+    #[test]
+    fn session_cwd_filter_rejects_prefix_collision() {
+        assert!(!session_cwd_matches_filter(
+            Path::new("/Users/example/project-other"),
+            Path::new("/Users/example/project")
+        ));
+    }
+
+    #[test]
+    fn session_cwd_filter_normalizes_nonexistent_child_path() {
+        assert!(session_cwd_matches_filter(
+            Path::new("/Users/example/project/new/../apps/web"),
+            Path::new("/Users/example/project")
+        ));
     }
 }

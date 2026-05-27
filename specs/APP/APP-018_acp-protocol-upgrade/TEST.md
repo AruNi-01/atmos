@@ -109,7 +109,8 @@
 - **Then**: the frontend calls `GET /api/agent/sessions` without `cwd`, preserving the global catalog view.
 - **When**: the context selector is set to a Project or Workspace.
 - **Then**: the frontend reloads the first ACP list page with `cwd` set to that context's local path.
-- **Signals**: REST query contains no `cwd` for All and contains the selected project/workspace path after filtering; old rows are replaced rather than appended.
+- **And**: if the agent returns rows from sibling workspaces or unrelated paths, Atmos filters those rows out before rendering.
+- **Signals**: REST query contains no `cwd` for All and contains the selected project/workspace path after filtering; old rows are replaced rather than appended; sibling workspace cwd rows are absent.
 
 ### S7 - No durable local ACP session catalog
 
