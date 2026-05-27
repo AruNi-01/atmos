@@ -1,7 +1,7 @@
 'use client';
 
 import { ensureComputerClientSettingsHydrated } from '@/features/connection/lib/sync-computer-client-settings';
-import { bootstrapActiveInstance } from '@/features/connection/store/connection-store';
+import { prepareConnectionTargetChange } from '@/app-shell/bootstrap/connection-target-lifecycle';
 import { hydrateRelaySessionFromDisk } from '@/features/connection/lib/hydrate-relay-session';
 import { isHostedAtmosOrigin, isTauriRuntime } from '@/shared/lib/desktop-runtime';
 
@@ -22,7 +22,7 @@ export function ensureLocalAppConnectionBootstrap(): Promise<void> {
       await hydrateRelaySessionFromDisk({
         clientType: isTauriRuntime() ? 'desktop' : 'web',
       });
-      await bootstrapActiveInstance();
+      await prepareConnectionTargetChange();
     })().catch((err) => {
       localBootstrapPromise = null;
       throw err;
