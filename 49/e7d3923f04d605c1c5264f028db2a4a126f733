@@ -1,0 +1,21 @@
+apps/web/src/features/agent/hooks/use-acp-session-list.ts
+  s_4cf1aa3c956589::t_6653b3d7c2df88 12
+apps/api/src/api/agent/handlers.rs
+  s_4cf1aa3c956589::t_6653b3d7c2df88 315
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "49e7d3923f04d605c1c5264f028db2a4a126f733",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
