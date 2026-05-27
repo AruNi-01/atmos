@@ -230,6 +230,8 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
     () => new Set(draftWorkspaceIds),
     [draftWorkspaceIds],
   );
+  const allDraftWorkspacesSelected = projectWorkspaceOptions.length > 0 &&
+    projectWorkspaceOptions.every((workspace) => draftWorkspaceIdSet.has(workspace.id));
   const workspaceSelectionDirty = !sameStringSet(selectedWorkspaceIds, draftWorkspaceIds);
 
   const toggleWorkspaceSelection = useCallback((workspaceId: string, checked: boolean) => {
@@ -247,6 +249,16 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
         .slice(0, DEFAULT_PROJECT_WORKSPACE_LIMIT)
         .map((workspace) => workspace.id),
     );
+  }, [projectWorkspaceOptions]);
+
+  const toggleAllWorkspaces = useCallback(() => {
+    const allWorkspaceIds = projectWorkspaceOptions.map((workspace) => workspace.id);
+    setDraftWorkspaceIds((prev) => {
+      const prevSet = new Set(prev);
+      const allSelected = allWorkspaceIds.length > 0 &&
+        allWorkspaceIds.every((workspaceId) => prevSet.has(workspaceId));
+      return allSelected ? [] : allWorkspaceIds;
+    });
   }, [projectWorkspaceOptions]);
 
   const applyWorkspaceSelection = useCallback(() => {
@@ -447,16 +459,30 @@ export const ChatSessionsManagementView: React.FC<ChatSessionsManagementViewProp
               <PopoverContent align="start" className="w-[320px] p-2">
                 <div className="flex items-center justify-between gap-2 px-2 py-1.5">
                   <div className="min-w-0 text-xs font-semibold text-foreground">Workspaces</div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 shrink-0 px-2 text-xs"
-                    onClick={selectRecentWorkspaces}
-                    disabled={projectWorkspaceOptions.length === 0}
-                  >
-                    Recent {Math.min(DEFAULT_PROJECT_WORKSPACE_LIMIT, projectWorkspaceOptions.length)}
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={selectRecentWorkspaces}
+                      disabled={projectWorkspaceOptions.length === 0}
+                    >
+                      Recent {Math.min(DEFAULT_PROJECT_WORKSPACE_LIMIT, projectWorkspaceOptions.length)}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={allDraftWorkspacesSelected ? "secondary" : "ghost"}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={toggleAllWorkspaces}
+                      disabled={projectWorkspaceOptions.length === 0}
+                      aria-pressed={allDraftWorkspacesSelected}
+                      aria-label={allDraftWorkspacesSelected ? "Clear all workspaces" : "Select all workspaces"}
+                    >
+                      All
+                    </Button>
+                  </div>
                 </div>
                 <div className="mt-1 max-h-72 overflow-y-auto pr-1">
                   {projectWorkspaceOptions.length === 0 ? (
