@@ -93,6 +93,14 @@
 - **Then**: Atmos sends exactly one ACP `session/list` request without recursively following `nextCursor`; the "Load more" action sends the next request with `cursor = cursor-2`.
 - **Signals**: ACP list mock call count; outgoing request cursor values; frontend load-more control.
 
+### S6b - Contextual history is cwd-scoped
+
+- **Level**: Frontend hook test plus API request assertion
+- **Given**: the Agent Chat panel is opened inside a Project or Workspace with a resolved local path.
+- **When**: the user opens Agent Chat history.
+- **Then**: the frontend calls `GET /api/agent/sessions` with `cwd` set to the current Project/Workspace path, and the agent receives an ACP `session/list` request scoped to that cwd.
+- **Signals**: REST query contains `cwd`; ACP mock receives `ListSessionsRequest.cwd`; unrelated-directory sessions are not rendered in contextual history.
+
 ### S7 - No durable local ACP session catalog
 
 - **Level**: Core-service integration
@@ -193,6 +201,7 @@
 - [ ] ACP Registry install/list/start flows still work.
 - [ ] Failed resume does not call `session/new`.
 - [ ] History reload does not read Atmos-local Agent Chat rows.
+- [ ] Project/Workspace Agent Chat history passes current context `cwd`; global `/agents` session management stays unfiltered.
 - [ ] Capability unsupported states do not hide real launch/auth errors.
 - [ ] Auth tokens, environment values, and raw agent auth payloads are not logged.
 - [ ] Browser reload recovers history from ACP `session/list`, not local storage or DB rows.

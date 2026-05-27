@@ -36,11 +36,13 @@ export function getListFailureReason(error: unknown): string {
 
 export function useAcpSessionList({
   registryId,
+  cwd = null,
   authMethodId = null,
   enabled = true,
   limit = ACP_SESSION_LIST_PAGE_LIMIT,
 }: {
   registryId: string | null;
+  cwd?: string | null;
   authMethodId?: string | null;
   enabled?: boolean;
   limit?: number;
@@ -83,6 +85,7 @@ export function useAcpSessionList({
       try {
         const response = await agentApi.listSessions({
           registry_id: registryId,
+          cwd,
           limit,
           cursor: nextCursor ?? undefined,
           auth_method_id: authMethodId,
@@ -114,12 +117,12 @@ export function useAcpSessionList({
         }
       }
     },
-    [authMethodId, limit, registryId, reset],
+    [authMethodId, cwd, limit, registryId, reset],
   );
 
   useEffect(() => {
     reset();
-  }, [authMethodId, registryId, reset]);
+  }, [authMethodId, cwd, registryId, reset]);
 
   useEffect(() => {
     if (!enabled || !registryId) return;

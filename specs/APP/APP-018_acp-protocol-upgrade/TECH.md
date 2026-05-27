@@ -584,6 +584,6 @@ The exact DB cleanup depends on whether the existing session table is shared out
 ## 11. Open Questions
 
 - Should logout be shown only in Agent Management, or also inside the active Agent Chat header?
-- Should list default to the current workspace cwd filter, or show all sessions for the selected agent by default?
+- Resolved: contextual Agent Chat inside Project/Workspace views filters `session/list` by the current context cwd. The global `/agents` session management view remains unfiltered.
 - If an agent supports list but not resume, should history rows be read-only or hidden?
 - Should session close be sent automatically on browser tab close, or only on explicit user close/workspace archive events?
