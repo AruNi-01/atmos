@@ -1,0 +1,22 @@
+crates/core-service/src/utils/path_boundary.rs
+  s_4cf1aa3c956589::t_dcca79fbce3e4e 46-48
+  s_4cf1aa3c956589::t_8df3855c852779 18-19,21-45,49-62,66-68,137-149,170-171
+crates/core-service/src/service/agent_session.rs
+  s_4cf1aa3c956589::t_949bbbce88874b 17,40,42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b8e387c5d55b884d261e4f86093195e92c08fe53",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
