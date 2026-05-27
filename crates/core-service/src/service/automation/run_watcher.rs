@@ -13,6 +13,9 @@ use tracing::warn;
 use super::runner;
 use super::{AutomationEvent, AutomationRunStatus, AutomationRunSummary, NotificationService};
 
+const MAX_TMUX_PROBE_ERRORS: u32 = 5;
+const TMUX_PROBE_RETRY_DELAY: Duration = Duration::from_millis(500);
+
 pub(super) async fn watch_automation_run(
     db: Arc<DatabaseConnection>,
     tmux_engine: Arc<TmuxEngine>,
@@ -20,6 +23,8 @@ pub(super) async fn watch_automation_run(
     event_tx: broadcast::Sender<AutomationEvent>,
     run_guid: String,
 ) {
+    let mut tmux_probe_errors = 0_u32;
+
     loop {
         let repo = AutomationRepo::new(&db);
         let run = match repo.find_run_by_guid(&run_guid).await {
@@ -129,17 +134,29 @@ pub(super) async fn watch_automation_run(
                 .and_then(|value| value.try_into().ok()),
         ) {
             match tmux_engine.window_exists(session_name, window_index) {
-                Ok(true) => {}
+                Ok(true) => {
+                    tmux_probe_errors = 0;
+                }
                 Ok(false) => {
                     mark_run_interrupted(&db, &notification_service, &event_tx, run).await;
                     return;
                 }
                 Err(error) => {
+                    tmux_probe_errors = tmux_probe_errors.saturating_add(1);
                     warn!(
-                        "Failed to probe automation run window {}:{} for {}: {}",
-                        session_name, window_index, run_guid, error
+                        "Failed to probe automation run window {}:{} for {} (attempt {}/{}): {}",
+                        session_name,
+                        window_index,
+                        run_guid,
+                        tmux_probe_errors,
+                        MAX_TMUX_PROBE_ERRORS,
+                        error
                     );
-                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    if tmux_probe_errors >= MAX_TMUX_PROBE_ERRORS {
+                        mark_run_interrupted(&db, &notification_service, &event_tx, run).await;
+                        return;
+                    }
+                    tokio::time::sleep(TMUX_PROBE_RETRY_DELAY).await;
                     continue;
                 }
             }

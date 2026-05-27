@@ -187,8 +187,10 @@ export function useAutomationPageState() {
 
   React.useEffect(() => {
     if (!selectedAutomationGuid) {
+      runsRequestSeqRef.current += 1;
       setRuns([]);
       setSelectedRunGuid(null);
+      setRunsLoading(false);
       return;
     }
     void loadRuns(selectedAutomationGuid);

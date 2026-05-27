@@ -26,7 +26,7 @@ function normalizePromptStrategy(value: string | undefined): TerminalAgentPrompt
   throw new Error(`Unsupported terminal agent promptStrategy: ${value}`);
 }
 
-export const TERMINAL_AGENT_DEFINITIONS = terminalAgents.map((agent) => ({
+export const TERMINAL_AGENT_DEFINITIONS: readonly TerminalAgentDefinition[] = terminalAgents.map((agent) => ({
   ...agent,
   promptStrategy: normalizePromptStrategy(agent.promptStrategy),
-})) satisfies readonly TerminalAgentDefinition[];
+}));
