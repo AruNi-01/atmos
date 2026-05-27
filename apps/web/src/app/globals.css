@@ -135,6 +135,17 @@ html:not([data-theme-ready="true"]) body {
     animation: spin-reverse 1s linear infinite;
   }
 
+  .desktop-loading-clean,
+  .desktop-loading-clean * {
+    view-transition-name: none !important;
+  }
+
+  .desktop-loading-clean {
+    contain: paint;
+    isolation: isolate;
+    background-clip: padding-box;
+  }
+
   @keyframes spin-reverse {
     from {
       transform: rotate(360deg);

@@ -73,7 +73,7 @@ No Worker-wide admin secret is required. Each C-end user registers their own **a
 
 ### GitHub App secrets
 
-APP-018 GitHub Automation Triggers require these Worker secrets/config values before webhook setup is usable:
+APP-019 GitHub Automation Triggers require these Worker secrets/config values before webhook setup is usable:
 
 ```bash
 wrangler secret put GITHUB_WEBHOOK_SECRET

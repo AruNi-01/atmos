@@ -13,5 +13,5 @@ pub use error::{LlmError, Result};
 pub use prompt_template::render_prompt_template;
 pub use types::{
     GenerateTextRequest, GenerateTextResponse, LlmFeature, LlmFeatureBindings, LlmProviderEntry,
-    LlmProvidersFile, ProviderKind, ResolvedLlmProvider, ResponseFormat, SessionTitleFormatConfig,
+    LlmProvidersFile, ProviderKind, ResolvedLlmProvider, ResponseFormat,
 };

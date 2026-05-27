@@ -5,7 +5,6 @@ import {
   type LlmProviderEntry,
   type LlmProviderKind,
   type LlmProvidersFile,
-  type SessionTitleFormatConfig,
 } from "@/api/ws-api";
 import { WIKI_LANGUAGE_OPTIONS } from "@/features/wiki/lib/wiki-languages";
 
@@ -34,16 +33,9 @@ export type ModalDraftState = {
 
 export type SaveState = "idle" | "saving" | "saved";
 
-export const DEFAULT_SESSION_TITLE_FORMAT: SessionTitleFormatConfig = {
-  include_agent_name: false,
-  include_project_name: false,
-  include_intent_emoji: false,
-};
-
 export const EMPTY_ROUTING: RoutingDraft = {
   features: {
     git_commit_language: null,
-    session_title_format: DEFAULT_SESSION_TITLE_FORMAT,
     workspace_issue_todo_language: null,
   },
 };
@@ -236,7 +228,6 @@ export function validateRouting(
 ): string | null {
   const clientKeys = new Set(providers.map((provider) => provider.clientKey));
   for (const selected of [
-    routing.features.session_title ?? null,
     routing.features.git_commit ?? null,
     routing.features.workspace_issue_todo ?? null,
   ]) {
@@ -245,16 +236,6 @@ export function validateRouting(
     }
   }
   return null;
-}
-
-export function normalizeSessionTitleFormat(
-  value?: SessionTitleFormatConfig | null,
-): SessionTitleFormatConfig {
-  return {
-    include_agent_name: !!value?.include_agent_name,
-    include_project_name: !!value?.include_project_name,
-    include_intent_emoji: !!value?.include_intent_emoji,
-  };
 }
 
 export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
@@ -287,9 +268,6 @@ export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
     providers,
     routing: {
       features: {
-        session_title: config.features?.session_title
-          ? (persistedToClientKey.get(config.features.session_title) ?? null)
-          : null,
         git_commit: config.features?.git_commit
           ? (persistedToClientKey.get(config.features.git_commit) ?? null)
           : null,
@@ -302,9 +280,6 @@ export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
           : null,
         workspace_issue_todo_language: normalizeFeatureLanguage(
           config.features?.workspace_issue_todo_language,
-        ),
-        session_title_format: normalizeSessionTitleFormat(
-          config.features?.session_title_format,
         ),
       },
     },
@@ -374,10 +349,6 @@ export function modalStateToFile(
     version: state.version || 1,
     default_provider: null,
     features: {
-      session_title: resolveFeatureBinding(
-        state.routing.features.session_title,
-        originalConfig?.features?.session_title,
-      ),
       git_commit: resolveFeatureBinding(
         state.routing.features.git_commit,
         originalConfig?.features?.git_commit,
@@ -391,9 +362,6 @@ export function modalStateToFile(
       ),
       workspace_issue_todo_language: normalizeFeatureLanguage(
         state.routing.features.workspace_issue_todo_language,
-      ),
-      session_title_format: normalizeSessionTitleFormat(
-        state.routing.features.session_title_format,
       ),
     },
     providers,
@@ -435,14 +403,6 @@ export function newProviderDraft(existing: ProviderDraft[]): ProviderDraft {
     timeout_ms: DEFAULT_PROVIDER_TIMEOUT_MS,
     max_output_tokens: "",
   };
-}
-
-export function sessionTitleFormatPreview(format: SessionTitleFormatConfig): string {
-  const segments: string[] = [];
-  if (format.include_agent_name) segments.push("[agentName]");
-  if (format.include_project_name) segments.push("[projectName]");
-  segments.push(format.include_intent_emoji ? "🎨 title desc" : "title desc");
-  return segments.join(" | ");
 }
 
 export function scheduleSaveStateReset(

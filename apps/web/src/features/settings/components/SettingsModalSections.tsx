@@ -95,7 +95,6 @@ interface SettingsModalSectionsProps {
     providerId: string,
     provider: NonNullable<LlmProvidersFile['providers'][string]>,
   ) => Promise<void>;
-  sessionTitleFormatOpen: boolean;
   setProviderDialogState: React.Dispatch<React.SetStateAction<{
     open: boolean;
     providerId: string | null;
@@ -103,7 +102,6 @@ interface SettingsModalSectionsProps {
   setProviderTests: React.Dispatch<React.SetStateAction<ProviderTestState>>;
   setProvidersExpanded: (open: boolean) => void;
   setRoutingExpanded: (open: boolean) => void;
-  setSessionTitleFormatOpen: (open: boolean) => void;
   notifySettings: NotificationSettings;
   isNotifyLoading: boolean;
   isNotifySaving: boolean;
@@ -203,12 +201,10 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           routingExpanded={props.routingExpanded}
           routingSavingKey={props.routingSavingKey}
           runProviderTest={props.runProviderTest}
-          sessionTitleFormatOpen={props.sessionTitleFormatOpen}
           setProviderDialogState={props.setProviderDialogState}
           setProviderTests={props.setProviderTests}
           setProvidersExpanded={props.setProvidersExpanded}
           setRoutingExpanded={props.setRoutingExpanded}
-          setSessionTitleFormatOpen={props.setSessionTitleFormatOpen}
         />
       );
     case 'notify':

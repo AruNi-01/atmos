@@ -95,8 +95,9 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-014** | Canvas | `PRD.md` |
 | **APP-016** | Atmos Computer（Cloudflare Relay + DO） | `specs/APP/APP-016_atmos-computer/`（`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`） |
 | **APP-017** | Atmos Automations | `specs/APP/APP-017_atmos-automations/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `PROGRESS.md`, `REVIEW.md`) |
-| **APP-018** | GitHub Automation Triggers | `specs/APP/APP-018_github-automation-triggers/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
-| **APP-019** | Relay Stable Tenant Identity | `specs/APP/APP-019_relay-stable-tenant-identity/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
+| **APP-018** | ACP Protocol Upgrade | `PRD.md` |
+| **APP-019** | GitHub Automation Triggers | `specs/APP/APP-019_github-automation-triggers/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
+| **APP-020** | Relay Stable Tenant Identity | `specs/APP/APP-020_relay-stable-tenant-identity/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
 
 ### Landing
 

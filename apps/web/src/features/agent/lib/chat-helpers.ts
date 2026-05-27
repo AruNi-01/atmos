@@ -150,11 +150,11 @@ export function isDiffObject(o: unknown): o is DiffFileOutput {
 export function getSessionContextKey(
   workspaceId: string | null,
   projectId: string | null,
-  mode: string
+  _mode: string
 ): string {
-  if (workspaceId) return `workspace:${workspaceId}:${mode}`;
-  if (projectId) return `project:${projectId}:${mode}`;
-  return `temp:${mode}`;
+  if (workspaceId) return `workspace:${workspaceId}`;
+  if (projectId) return `project:${projectId}`;
+  return "temp";
 }
 
 export function sanitizeConversationFilename(value: string): string {

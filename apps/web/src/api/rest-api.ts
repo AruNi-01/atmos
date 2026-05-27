@@ -637,9 +637,10 @@ export const agentHooksApi = {
 // ===== Agent API =====
 
 export interface CreateAgentSessionResponse {
-  session_id: string;
+  runtime_session_id: string;
+  registry_id: string;
   cwd: string;
-  title: string | null;
+  status: string;
 }
 
 export interface AgentAuthMethod {
@@ -654,24 +655,57 @@ export interface AgentAuthRequiredPayload {
   message: string;
 }
 
-export interface AgentChatSessionItem {
-  guid: string;
+export interface AgentImplementationInfo {
+  name: string;
   title: string | null;
-  title_source: string | null;
-  context_type: string;
-  context_guid: string | null;
-  registry_id: string;
-  status: string;
-  mode: string;
-  cwd: string;
-  created_at: string;
-  updated_at: string;
+  version: string;
 }
 
+export interface AgentCapabilityState {
+  supported: boolean;
+  reason: string | null;
+}
+
+export interface AgentCapabilities {
+  session_list: AgentCapabilityState;
+  session_resume: AgentCapabilityState;
+  session_close: AgentCapabilityState;
+  logout: AgentCapabilityState;
+  config_options: AgentCapabilityState;
+  session_info_update: AgentCapabilityState;
+  load_session: AgentCapabilityState;
+}
+
+export interface NativeAgentSessionItem {
+  registry_id: string;
+  acp_session_id: string;
+  title: string | null;
+  cwd: string;
+  updated_at: string | null;
+}
+
+export type AgentChatSessionItem = NativeAgentSessionItem;
+
 export interface ListAgentSessionsResponse {
+  registry_id: string;
+  agent_info: AgentImplementationInfo | null;
+  capabilities: AgentCapabilities;
   items: AgentChatSessionItem[];
   next_cursor: string | null;
-  has_more: boolean;
+  truncated: boolean;
+  unsupported_reason: string | null;
+}
+
+export interface ResumeAgentSessionResponse extends CreateAgentSessionResponse {
+  acp_session_id: string;
+}
+
+export interface LogoutAgentResponse {
+  registry_id: string;
+  agent_info: AgentImplementationInfo | null;
+  capabilities: AgentCapabilities;
+  logged_out: boolean;
+  unsupported_reason: string | null;
 }
 
 export const agentApi = {
@@ -686,7 +720,6 @@ export const agentApi = {
     projectId: string | null | undefined,
     registryId: string,
     authMethodId?: string | null,
-    mode: "default" | "wiki_ask" = "default"
   ): Promise<CreateAgentSessionResponse> => {
     return fetchApi<CreateAgentSessionResponse>('/api/agent/session', {
       method: 'POST',
@@ -695,81 +728,72 @@ export const agentApi = {
         project_id: projectId || null,
         registry_id: registryId,
         auth_method_id: authMethodId || null,
-        mode,
       }),
     });
   },
 
   /**
-   * Resume an existing session by session id (no new DB row).
+   * Resume an existing native ACP session by agent-owned session id.
    */
   resumeSession: async (
-    sessionId: string,
-    mode: "default" | "wiki_ask" = "default"
-  ): Promise<CreateAgentSessionResponse> => {
-    const qs = new URLSearchParams({ mode }).toString();
-    return fetchApi<CreateAgentSessionResponse>(
-      `/api/agent/sessions/${sessionId}/resume?${qs}`,
+    registryId: string,
+    acpSessionId: string,
+    cwd?: string | null,
+    workspaceId?: string | null,
+    projectId?: string | null,
+    authMethodId?: string | null,
+  ): Promise<ResumeAgentSessionResponse> => {
+    return fetchApi<ResumeAgentSessionResponse>(
+      '/api/agent/session/resume',
       {
         method: 'POST',
+        body: JSON.stringify({
+          registry_id: registryId,
+          acp_session_id: acpSessionId,
+          cwd: cwd || null,
+          workspace_id: workspaceId || null,
+          project_id: projectId || null,
+          auth_method_id: authMethodId || null,
+        }),
       }
     );
   },
 
   /**
-   * List agent chat sessions with cursor pagination and filters.
+   * List native ACP sessions for one agent.
    */
-  listSessions: async (params?: {
-    context_type?: string;
-    context_guid?: string;
-    registry_id?: string;
-    status?: "active" | "closed";
-    mode?: "default" | "wiki_ask";
+  listSessions: async (params: {
+    registry_id: string;
+    cwd?: string | null;
     limit?: number;
     cursor?: string;
+    auth_method_id?: string | null;
   }): Promise<ListAgentSessionsResponse> => {
     const search = new URLSearchParams();
-    if (params?.context_type) search.set('context_type', params.context_type);
-    if (params?.context_guid) search.set('context_guid', params.context_guid);
-    if (params?.registry_id) search.set('registry_id', params.registry_id);
-    if (params?.status) search.set('status', params.status);
-    if (params?.mode) search.set('mode', params.mode);
-    if (params?.limit) search.set('limit', String(params.limit));
-    if (params?.cursor) search.set('cursor', params.cursor);
+    search.set('registry_id', params.registry_id);
+    if (params.cwd) search.set('cwd', params.cwd);
+    if (params.limit) search.set('limit', String(params.limit));
+    if (params.cursor) search.set('cursor', params.cursor);
+    if (params.auth_method_id) search.set('auth_method_id', params.auth_method_id);
     const qs = search.toString();
     return fetchApi<ListAgentSessionsResponse>(
       `/api/agent/sessions${qs ? `?${qs}` : ''}`
     );
   },
 
-  /**
-   * Update session title (user-edited).
-   */
-  updateSessionTitle: async (
-    sessionId: string,
-    title: string
-  ): Promise<{ ok: boolean }> => {
-    return fetchApi<{ ok: boolean }>(
-      `/api/agent/sessions/${sessionId}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ title }),
-      }
-    );
-  },
-
-  /**
-   * Delete (soft delete) a session. Returns temp_cwd if it was a temp session.
-   */
-  deleteSession: async (
-    sessionId: string
-  ): Promise<{ ok: boolean; temp_cwd: string | null }> => {
-    return fetchApi<{ ok: boolean; temp_cwd: string | null }>(
-      `/api/agent/sessions/${sessionId}`,
-      {
-        method: 'DELETE',
-      }
-    );
+  logoutAgent: async (
+    registryId: string,
+    cwd?: string | null,
+    authMethodId?: string | null,
+  ): Promise<LogoutAgentResponse> => {
+    return fetchApi<LogoutAgentResponse>('/api/agent/logout', {
+      method: 'POST',
+      body: JSON.stringify({
+        registry_id: registryId,
+        cwd: cwd || null,
+        auth_method_id: authMethodId || null,
+      }),
+    });
   },
 
   /**

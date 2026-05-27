@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { buildWebStaticForDesktop, copyWebStaticToSidecar } from "./build-web-static.mjs";
@@ -106,16 +106,5 @@ writeFileSync(
 console.log(`Prepared Atmos CLI resource: ${toCli}`);
 
 copyWebStaticToSidecar(rootDir);
-
-const systemSkills = join(rootDir, "skills");
-const bundledSystemSkills = join(binariesDir, "system-skills");
-
-if (existsSync(systemSkills)) {
-  rmSync(bundledSystemSkills, { recursive: true, force: true });
-  cpSync(systemSkills, bundledSystemSkills, { recursive: true });
-  console.log(`Copied bundled system skills to: ${bundledSystemSkills}`);
-} else {
-  console.warn(`Warning: ${systemSkills} not found, skipping bundled system skills copy`);
-}
 
 layoutRuntimeBundle(rootDir, targetTriple, binExt);

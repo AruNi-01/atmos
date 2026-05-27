@@ -1,9 +1,6 @@
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
 import { WIKI_LANGUAGE_OPTIONS } from "@/features/wiki/lib/wiki-languages";
-import type {
-  CodeAgentCustomEntry,
-  SessionTitleFormatConfig,
-} from "@/api/ws-api";
+import type { CodeAgentCustomEntry } from "@/api/ws-api";
 
 export const FEATURE_LANGUAGE_OPTIONS = WIKI_LANGUAGE_OPTIONS.filter(
   (option) => option.value !== "other",
@@ -15,24 +12,6 @@ export function fallbackProviderLabel(providerId: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-export function normalizeSessionTitleFormat(
-  value?: SessionTitleFormatConfig | null,
-): SessionTitleFormatConfig {
-  return {
-    include_agent_name: !!value?.include_agent_name,
-    include_project_name: !!value?.include_project_name,
-    include_intent_emoji: !!value?.include_intent_emoji,
-  };
-}
-
-export function sessionTitleFormatPreview(format: SessionTitleFormatConfig): string {
-  const segments: string[] = [];
-  if (format.include_agent_name) segments.push("[agentName]");
-  if (format.include_project_name) segments.push("[projectName]");
-  segments.push(format.include_intent_emoji ? "🎨 title desc" : "title desc");
-  return segments.join(" | ");
 }
 
 const BUILT_IN_AGENT_IDS = new Set<string>(AGENT_OPTIONS.map((agent) => agent.id));

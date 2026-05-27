@@ -9,7 +9,6 @@ pub mod message_push;
 pub mod notification;
 pub mod project;
 pub mod review;
-pub mod session_title;
 pub mod skill;
 pub mod terminal;
 pub mod terminal_overview;

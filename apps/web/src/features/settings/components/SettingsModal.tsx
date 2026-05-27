@@ -78,7 +78,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [routingExpanded, setRoutingExpanded] = useState(true);
   const [providerToggleId, setProviderToggleId] = useState<string | null>(null);
   const [routingSavingKey, setRoutingSavingKey] = useState<string | null>(null);
-  const [sessionTitleFormatOpen, setSessionTitleFormatOpen] = useState(false);
   const [providerTests, setProviderTests] = useState<ProviderTestState>({});
   const providerTestUnsubscribeRef = useRef<Record<string, (() => void) | null>>({});
   // Code Agent settings persisted in ~/.atmos/agent/terminal_code_agent.json
@@ -706,12 +705,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     routingExpanded={routingExpanded}
                     routingSavingKey={routingSavingKey}
                     runProviderTest={runProviderTest}
-                    sessionTitleFormatOpen={sessionTitleFormatOpen}
                     setProviderDialogState={setProviderDialogState}
                     setProviderTests={setProviderTests}
                     setProvidersExpanded={setProvidersExpanded}
                     setRoutingExpanded={setRoutingExpanded}
-                    setSessionTitleFormatOpen={setSessionTitleFormatOpen}
                     notifySettings={notifySettings}
                     isNotifyLoading={isNotifyLoading}
                     isNotifySaving={isNotifySaving}

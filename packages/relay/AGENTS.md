@@ -70,7 +70,7 @@ Default control plane URL: `https://relay.atmos.land` (`ATMOS_CONTROL_PLANE_URL`
 ### ALWAYS
 
 - Keep REST shapes aligned with [specs/APP/APP-016_atmos-computer/TECH.md](../../specs/APP/APP-016_atmos-computer/TECH.md).
-- Keep GitHub trigger ingress aligned with [specs/APP/APP-018_github-automation-triggers/TECH.md](../../specs/APP/APP-018_github-automation-triggers/TECH.md).
+- Keep GitHub trigger ingress aligned with [specs/APP/APP-019_github-automation-triggers/TECH.md](../../specs/APP/APP-019_github-automation-triggers/TECH.md).
 - Run D1 migrations before deploy when schema changes.
 - For provider ingress, verify webhook/auth first, normalize only small event metadata, match route metadata, dedupe delivery records, and dispatch a `stream: "system"` envelope to the target ServerHub.
 - Use the user Access Token for control-plane route/setup mutations. The Computer `server_secret` is only for the outbound server WebSocket.

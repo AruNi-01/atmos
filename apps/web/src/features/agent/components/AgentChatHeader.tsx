@@ -13,10 +13,13 @@ import {
   TextScramble,
   cn,
 } from "@workspace/ui";
-import { Bot, Download, Folder, Heart, Pencil, Plus, X } from "lucide-react";
+import { Bot, Download, Folder, Heart, LogOut, Plus, X } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
-import type { AgentChatMode } from "@/features/agent/types/index";
-import type { AgentChatSessionItem } from "@/api/rest-api";
+import type {
+  AgentCapabilities,
+  AgentChatSessionItem,
+  AgentImplementationInfo,
+} from "@/api/rest-api";
 import type { ConversationMessage } from "@workspace/ui";
 import { AgentIcon } from "./AgentIcon";
 import { AgentChatHistoryPopover } from "./AgentChatHistoryPopover";
@@ -35,6 +38,8 @@ interface AgentChatHeaderProps {
 
   // Agent
   activeAgent: RegistryAgent | null;
+  agentInfo: AgentImplementationInfo | null;
+  capabilities: AgentCapabilities | null;
   installedAgents: RegistryAgent[];
   defaultRegistryId: string;
   registryId: string;
@@ -48,7 +53,6 @@ interface AgentChatHeaderProps {
   handleSetDefaultAgent: (agentId: string) => void;
 
   // Labels
-  panelLabel: string;
   panelTitle: string;
 
   // CWD
@@ -66,15 +70,14 @@ interface AgentChatHeaderProps {
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
+  historyResumeUnsupportedReason: string | null;
+  historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => void;
-  chatMode: AgentChatMode;
-  sessionWorkspaceId: string | null;
-  sessionProjectId: string | null;
-  wikiPath: string | null;
 
   // Close
   handleClose: () => void;
+  handleLogoutAgent: () => Promise<void>;
 
   // Title
   displaySessionTitle: string | null;
@@ -83,13 +86,6 @@ interface AgentChatHeaderProps {
   setShouldScrambleAutoTitle: React.Dispatch<React.SetStateAction<boolean>>;
   sessionTitleSource: string | null;
   sessionId: string | null;
-  isEditingTitle: boolean;
-  editingTitleValue: string;
-  setEditingTitleValue: React.Dispatch<React.SetStateAction<string>>;
-  handleStartEditTitle: () => void;
-  handleFinishEditTitle: () => void;
-  handleTitleKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  titleInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export function AgentChatHeader({
@@ -100,6 +96,8 @@ export function AgentChatHeader({
   isConnected,
   isConnecting,
   activeAgent,
+  agentInfo,
+  capabilities,
   installedAgents,
   defaultRegistryId,
   newSessionAgentsOpen,
@@ -108,7 +106,6 @@ export function AgentChatHeader({
   handleOpenNewSessionAgentsMenu,
   handleScheduleCloseNewSessionAgentsMenu,
   handleSetDefaultAgent,
-  panelLabel,
   panelTitle,
   localPath,
   sessionCwd,
@@ -120,27 +117,24 @@ export function AgentChatHeader({
   historyHasMore,
   historyLoading,
   historyCursor,
+  historyResumeUnsupportedReason,
+  historyUnsupportedReason,
   loadHistorySessions,
   handleSelectHistorySession,
-  chatMode,
-  sessionWorkspaceId,
-  sessionProjectId,
-  wikiPath,
   handleClose,
+  handleLogoutAgent,
   displaySessionTitle,
   isAutoGeneratingTitle,
   shouldScrambleAutoTitle,
   setShouldScrambleAutoTitle,
   sessionTitleSource,
   sessionId,
-  isEditingTitle,
-  editingTitleValue,
-  setEditingTitleValue,
-  handleStartEditTitle,
-  handleFinishEditTitle,
-  handleTitleKeyDown,
-  titleInputRef,
 }: AgentChatHeaderProps) {
+  const displayedAgentName = isConnected && activeAgent
+    ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name)
+    : panelTitle;
+  const canLogout = Boolean(capabilities?.logout.supported);
+
   return (
     <div
       className={cn(
@@ -259,17 +253,31 @@ export function AgentChatHeader({
             </div>
             {isConnected && activeAgent ? (
               <div className="flex items-center gap-1.5 shrink-0 min-w-0">
-                <span className="text-sm font-medium shrink-0 truncate max-w-[200px]">{activeAgent.name}</span>
-                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-foreground/85 text-background shrink-0">
-                  {panelLabel}
-                </span>
+                <TooltipProvider delayDuration={250}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="max-w-[200px] shrink-0 truncate text-sm font-medium">
+                        {displayedAgentName}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-xs">
+                      {agentInfo ? (
+                        <div className="space-y-0.5">
+                          <p>{agentInfo.title ?? agentInfo.name}</p>
+                          <p className="text-muted-foreground">
+                            {agentInfo.name}{agentInfo.version ? ` ${agentInfo.version}` : ""}
+                          </p>
+                        </div>
+                      ) : (
+                        activeAgent.name
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 shrink-0">
                 <span className="text-sm font-medium shrink-0">{panelTitle}</span>
-                <span className="inline-flex items-center rounded-sm border border-dashed border-current px-1.5 py-0.5 text-[10px] font-medium leading-none bg-foreground/85 text-background">
-                  {panelLabel}
-                </span>
               </div>
             )}
           </div>
@@ -322,15 +330,30 @@ export function AgentChatHeader({
             historyHasMore={historyHasMore}
             historyLoading={historyLoading}
             historyCursor={historyCursor}
+            historyResumeUnsupportedReason={historyResumeUnsupportedReason}
+            historyUnsupportedReason={historyUnsupportedReason}
             loadHistorySessions={loadHistorySessions}
             handleSelectHistorySession={handleSelectHistorySession}
             isConnecting={isConnecting}
-            chatMode={chatMode}
-            sessionWorkspaceId={sessionWorkspaceId}
-            sessionProjectId={sessionProjectId}
-            localPath={localPath}
-            wikiPath={wikiPath}
           />
+          {canLogout ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => void handleLogoutAgent()}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                    aria-label="Log out agent"
+                    disabled={isConnecting}
+                  >
+                    <LogOut className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Log out agent</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
           {variant === "modal" && (
             <button
               type="button"
@@ -344,57 +367,37 @@ export function AgentChatHeader({
         </div>
       </div>
       {(displaySessionTitle || isAutoGeneratingTitle) && (
-        isEditingTitle ? (
-          <input
-            ref={titleInputRef}
-            type="text"
-            value={editingTitleValue}
-            onChange={(e) => setEditingTitleValue(e.target.value)}
-            onBlur={handleFinishEditTitle}
-            onKeyDown={handleTitleKeyDown}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="w-full rounded border border-border bg-transparent px-1 text-xs text-foreground outline-none focus:ring-1 focus:ring-ring"
-          />
-        ) : (
-          <TooltipProvider delayDuration={300}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className="group/title flex w-fit items-center gap-1 max-w-full cursor-pointer rounded px-1 -mx-1 hover:bg-muted transition-colors"
-                  onClick={displaySessionTitle ? handleStartEditTitle : undefined}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  {isAutoGeneratingTitle ? (
-                    <span className="truncate text-xs">
-                      <TextShimmer as="span" duration={1.5}>
-                        Generating title...
-                      </TextShimmer>
-                    </span>
-                  ) : shouldScrambleAutoTitle && displaySessionTitle && sessionTitleSource === "auto" ? (
-                    <TextScramble
-                      key={`auto-title-${sessionId ?? "session"}-${displaySessionTitle}`}
-                      as="span"
-                      className="truncate text-xs text-muted-foreground"
-                      duration={0.6}
-                      speed={0.025}
-                      onScrambleComplete={() => setShouldScrambleAutoTitle(false)}
-                    >
-                      {displaySessionTitle}
-                    </TextScramble>
-                  ) : (
-                    <span className="truncate text-xs text-muted-foreground">{displaySessionTitle}</span>
-                  )}
-                  {displaySessionTitle ? (
-                    <Pencil className="size-3 shrink-0 text-muted-foreground/0 group-hover/title:text-muted-foreground transition-colors" />
-                  ) : null}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
-                {displaySessionTitle ?? "Generating title..."}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex w-fit max-w-full items-center gap-1 rounded px-1 -mx-1">
+                {isAutoGeneratingTitle ? (
+                  <span className="truncate text-xs">
+                    <TextShimmer as="span" duration={1.5}>
+                      Generating title...
+                    </TextShimmer>
+                  </span>
+                ) : shouldScrambleAutoTitle && displaySessionTitle && sessionTitleSource === "auto" ? (
+                  <TextScramble
+                    key={`auto-title-${sessionId ?? "session"}-${displaySessionTitle}`}
+                    as="span"
+                    className="truncate text-xs text-muted-foreground"
+                    duration={0.6}
+                    speed={0.025}
+                    onScrambleComplete={() => setShouldScrambleAutoTitle(false)}
+                  >
+                    {displaySessionTitle}
+                  </TextScramble>
+                ) : (
+                  <span className="truncate text-xs text-muted-foreground">{displaySessionTitle}</span>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="start" className="z-100 max-w-[300px] break-words text-xs">
+              {displaySessionTitle ?? "Generating title..."}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
     </div>
   );

@@ -33,7 +33,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
-import { useQueryState, useQueryStates } from "nuqs";
+import { useQueryStates } from "nuqs";
 import {
   centerStageParams,
   rightSidebarParams,
@@ -91,6 +91,29 @@ const BASE_TABS: Array<{
 ];
 
 const FILES_TAB = { value: "files" as RightSidebarTab, label: "Files", Icon: FolderTree };
+
+function buildWikiChatPrompt(
+  prompt: string,
+  projectRoot: string | null | undefined,
+  wikiPage: string | null | undefined,
+): string {
+  const wikiDir = projectRoot ? `${projectRoot}/.atmos/wiki` : ".atmos/wiki";
+  const normalizedPage = wikiPage
+    ? (wikiPage.endsWith(".md") ? wikiPage : `${wikiPage}.md`)
+    : null;
+
+  return [
+    "You are helping inside Atmos Project Wiki.",
+    "Treat this conversation as Project Wiki context.",
+    projectRoot ? `Project root: ${projectRoot}` : "Project root: use the current repository root.",
+    `Wiki directory: ${wikiDir}`,
+    normalizedPage ? `Current wiki page: ${normalizedPage}` : null,
+    "Prioritize information from the generated wiki. Read relevant files under the wiki directory before answering when the question depends on project knowledge. If the wiki content is missing or insufficient, say that clearly and then use repository context as supporting evidence.",
+    "",
+    "User question:",
+    prompt,
+  ].filter(Boolean).join("\n");
+}
 
 interface RightSidebarProps {
   // kept for compatibility if needed, but unused
@@ -178,7 +201,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   const [{ rsTab: activeTab }, setSidebarParams] =
     useQueryStates(rightSidebarParams);
-  const [activeCenterTab] = useQueryState("tab", centerStageParams.tab);
+  const [{ tab: activeCenterTab, wikiPage: activeWikiPage }] =
+    useQueryStates(centerStageParams);
   const [
     { rsPr: activePrNumber, rsRunId: activeRunId, rsCreatePr },
     setModalParams,
@@ -267,7 +291,16 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     displayedStagedFiles.length > 0 ||
     displayedUnstagedFiles.length > 0 ||
     displayedUntrackedFiles.length > 0;
-  const showWikiAskSidebar = activeCenterTab === "wiki";
+  const showAgentChatSidebar = activeCenterTab === "wiki";
+  const transformWikiChatPrompt = useCallback(
+    (prompt: string) =>
+      buildWikiChatPrompt(
+        prompt,
+        currentProject?.mainFilePath ?? currentProjectPath,
+        activeWikiPage,
+      ),
+    [activeWikiPage, currentProject?.mainFilePath, currentProjectPath],
+  );
 
   const handleCommitsRefreshReady = useCallback(
     (refresh: () => Promise<unknown> | void) => {
@@ -295,15 +328,16 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
   return (
     <aside className="w-full flex flex-col h-full">
-      <div className={cn("flex-1 min-h-0", !showWikiAskSidebar && "hidden")}>
+      <div className={cn("flex-1 min-h-0", !showAgentChatSidebar && "hidden")}>
         <AgentChatPanel
           variant="sidebar"
-          mode="wiki_ask"
+          mode="default"
           publishStatus={false}
-          active={showWikiAskSidebar}
+          active={showAgentChatSidebar}
+          transformPrompt={transformWikiChatPrompt}
         />
       </div>
-      <div className={cn("flex-1 min-h-0", showWikiAskSidebar && "hidden")}>
+      <div className={cn("flex-1 min-h-0", showAgentChatSidebar && "hidden")}>
         <Tabs
           value={activeTab}
           onValueChange={(v) =>

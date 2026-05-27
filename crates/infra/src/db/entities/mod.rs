@@ -1,4 +1,3 @@
-pub mod agent_chat_session;
 pub mod automation;
 pub mod automation_github_delivery_claim;
 pub mod automation_run;
