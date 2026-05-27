@@ -1,0 +1,23 @@
+apps/web/src/features/agent/lib/terminal-agent-definitions.ts
+  s_b68c410ef36996::t_5799f572f72483 29,32
+crates/core-service/src/service/automation/run_watcher.rs
+  s_b68c410ef36996::t_e52722806be8aa 16-18,26-27,137-139,145,147-153,155-159
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  s_b68c410ef36996::t_38bcce6b843d5f 190,193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "dc49193704f3d49825a67a61930af947d3a087fc",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
