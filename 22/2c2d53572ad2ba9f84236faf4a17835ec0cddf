@@ -1,0 +1,89 @@
+apps/web/src/features/automations/components/AutomationTriggerPicker.tsx
+  s_b68c410ef36996::t_05b7a6b9b34e64 3,167-173,178-187,193,196-203
+  s_b68c410ef36996::t_07a269f4ff2890 174-177
+apps/web/src/features/automations/components/AutomationPageShell.tsx
+  s_b68c410ef36996::t_0e346decfeb3a6 106-113
+apps/api/src/api/ws/automation_events.rs
+  s_b68c410ef36996::t_9e14b6b1cfd90f 1-33,35-38
+  s_b68c410ef36996::t_e188a1613599ed 34
+apps/web/src/features/agent/lib/terminal-agent-definitions.ts
+  s_b68c410ef36996::t_6645150903bbf8 14-32
+  s_b68c410ef36996::t_383aa26561ce06 3-4,10
+crates/core-service/src/service/automation/run_watcher.rs
+  s_b68c410ef36996::t_c9989de00f0fe9 49,53-62,66,131-144
+  s_b68c410ef36996::t_e188a1613599ed 50-52
+apps/web/src/features/automations/lib/automation-schedule.ts
+  s_b68c410ef36996::t_0b59246fa417af 82,91,109
+specs/APP/APP-017_atmos-automations/PRD.md
+  s_b68c410ef36996::t_7a652b85e64144 19-35,74-92,95-110
+resources/terminal-agents/builtin_agents.json
+  s_b68c410ef36996::t_383aa26561ce06 42-43,56-57,70-71
+apps/web/src/features/project/store/project-store-mappers.ts
+  s_b68c410ef36996::t_be5aa909a4a0d9 1
+  s_b68c410ef36996::t_b14e28abd29f7c 3,74
+apps/web/src/app-shell/sidebar/WorkspaceKanbanTypes.ts
+  s_b68c410ef36996::t_b14e28abd29f7c 11,24
+apps/web/src/features/automations/components/AutomationPage.tsx
+  s_b68c410ef36996::t_0b59246fa417af 17
+apps/web/src/features/automations/lib/automation-artifacts.ts
+  s_b68c410ef36996::t_685512e25887c6 8
+apps/web/src/features/automations/components/AutomationListPanel.tsx
+  s_b68c410ef36996::t_a686db19ef49ad 3,40-44,87-90
+crates/core-service/src/service/automation/mod.rs
+  s_b68c410ef36996::t_69206d018112e9 2,38-41,389,394,396,417-424,620-624,646-663
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_b68c410ef36996::t_183a8174af5b0f 52,64,77-78,110,153,160-161,166,171,175-179,301
+crates/core-service/src/service/automation/artifacts.rs
+  s_b68c410ef36996::t_69206d018112e9 80-83
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  s_b68c410ef36996::t_2fd3da18e1538e 60-61,68-71,151-159,161-162,165-167,170-177,180-182
+  s_b68c410ef36996::t_2664e4cf47c587 160
+apps/api/src/api/ws/mod.rs
+  s_b68c410ef36996::t_9e14b6b1cfd90f 2,18
+crates/core-service/src/service/workspace.rs
+  s_b68c410ef36996::t_d95ae90eaf26c6 13-15,524,531-532
+apps/web/src/api/ws-api.ts
+  s_b68c410ef36996::t_685512e25887c6 202-207
+  s_b68c410ef36996::t_b14e28abd29f7c 4-5,635
+specs/AGENTS.md
+  s_b68c410ef36996::t_7a652b85e64144 176
+apps/web/src/shared/lib/workspace-create-source.ts
+  s_b68c410ef36996::t_b14e28abd29f7c 1-7
+crates/core-service/src/service/automation/validation.rs
+  s_b68c410ef36996::t_7608b65fe76557 24,48,72,100-105
+  s_b68c410ef36996::t_e188a1613599ed 86-88
+crates/core-service/src/service/automation/scheduler.rs
+  s_b68c410ef36996::t_7608b65fe76557 1,94
+crates/infra/src/db/repo/automation_repo.rs
+  s_b68c410ef36996::t_896bf5a8dbb76b 138-142,280-281,283,289,317-320,331,333,339,366,368,372-375,395,403,405,409-412,428
+specs/README.md
+  s_b68c410ef36996::t_7a652b85e64144 60,97
+crates/core-service/src/service/automation/lifecycle.rs
+  s_b68c410ef36996::t_e188a1613599ed 200-202,386-387,423-427
+  s_b68c410ef36996::t_69206d018112e9 9,165,186-197,203-229,238-242,385,422,428-431,458-470,498-504
+apps/web/src/features/automations/components/AutomationAgentPicker.tsx
+  s_b68c410ef36996::t_6d7492b21dc752 16,21,25,33-36
+apps/api/src/main.rs
+  s_b68c410ef36996::t_9e14b6b1cfd90f 10-12,120-122
+apps/web/src/features/wiki/components/AgentSelect.tsx
+  s_b68c410ef36996::t_04d2c8f98e058f 27-28,30-34
+crates/infra/src/db/repo/workspace_repo.rs
+  s_b68c410ef36996::t_e188a1613599ed 185-187
+  s_b68c410ef36996::t_d95ae90eaf26c6 31-41,156,160,170,175,188,192-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "222c2d53572ad2ba9f84236faf4a17835ec0cddf",
+  "prompts": {},
+  "sessions": {
+    "s_b68c410ef36996": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e62b4-5550-7473-a4db-d6df74bf31d5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
