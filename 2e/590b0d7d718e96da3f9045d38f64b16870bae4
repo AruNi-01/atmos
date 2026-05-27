@@ -1,0 +1,19 @@
+apps/web/src/features/chat-sessions/components/ChatSessionsManagementView.tsx
+  s_4cf1aa3c956589::t_347bc69ca968bc 233-234,254-263,462-485
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2e590b0d7d718e96da3f9045d38f64b16870bae4",
+  "prompts": {},
+  "sessions": {
+    "s_4cf1aa3c956589": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e643a-c23d-76c3-babb-3b56a8bf3ca8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
