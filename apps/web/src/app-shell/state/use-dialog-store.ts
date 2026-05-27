@@ -26,11 +26,11 @@ type AgentChatDraftMap = Record<string, string>;
 export function getAgentPromptQueueKey(
   workspaceId: string | null | undefined,
   projectId: string | null | undefined,
-  mode: AgentChatMode,
+  _mode: AgentChatMode,
 ): string {
-  if (workspaceId) return `workspace:${workspaceId}:${mode}`;
-  if (projectId) return `project:${projectId}:${mode}`;
-  return `temp:${mode}`;
+  if (workspaceId) return `workspace:${workspaceId}`;
+  if (projectId) return `project:${projectId}`;
+  return "temp";
 }
 
 export function buildQueuedAgentPromptContent(prompt: string, attachmentPaths?: string[]): string {

@@ -23,7 +23,7 @@ Atmos screenshot
 - **Atmos Computer** — Register your VPS or any machine to the Atmos Register Center, then connect from Desktop, Web, and run terminals, workspaces, and Canvas on that computer—your Atmos environment, wherever the machine lives.
 - **Review Workflow** — Review changes in Atmos's built-in diff UI, leave inline comments on specific lines, then hand off to your Code Agent to apply fixes.
 - **Agent Status Tracking** — Real-time agent lifecycle sync via hooks (running, idle, waiting for permission, done) across the UI, with notifications on state changes—native alerts plus self-hosted push (ntfy, Gotify, or a custom webhook).
-- **Lightweight Local Models** — One-click run llama-server for small Hugging Face models on your machine—ideal for light tasks such as session titles, workspace TODO extraction, and Git commit message generation without config a cloud API.
+- **Lightweight Local Models** — One-click run llama-server for small Hugging Face models on your machine—ideal for light tasks such as workspace TODO extraction and Git commit message generation without configuring a cloud API.
 
 ## Get Started
 

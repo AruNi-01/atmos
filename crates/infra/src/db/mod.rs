@@ -4,7 +4,6 @@ pub mod migration;
 pub mod repo;
 
 pub use connection::DbConnection;
-pub use entities::agent_chat_session;
 pub use entities::project;
 pub use entities::review_agent_run;
 pub use entities::review_comment;

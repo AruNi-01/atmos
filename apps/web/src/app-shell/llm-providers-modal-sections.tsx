@@ -1,5 +1,5 @@
 import type React from "react";
-import { SlidersHorizontal, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -22,12 +22,10 @@ import {
   cn,
 } from "@workspace/ui";
 
-import type { SessionTitleFormatConfig } from "@/api/ws-api";
 import {
   DEFAULT_ANTHROPIC_MAX_OUTPUT_TOKENS,
   DEFAULT_PROVIDER_TIMEOUT_MS,
   KIND_OPTIONS,
-  sessionTitleFormatPreview,
   slugifyProviderId,
   type ProviderDraft,
   type RoutingDraft,
@@ -390,13 +388,11 @@ export function RoutingFeatureBindings({
   loading,
   routingDraft,
   providerOptions,
-  onOpenSessionTitleFormat,
   setRoutingDraft,
 }: {
   loading: boolean;
   routingDraft: RoutingDraft;
   providerOptions: Array<{ value: string; label: string }>;
-  onOpenSessionTitleFormat: () => void;
   setRoutingDraft: React.Dispatch<React.SetStateAction<RoutingDraft>>;
 }) {
   if (loading) {
@@ -411,34 +407,6 @@ export function RoutingFeatureBindings({
 
   return (
     <>
-      <FeatureSelect
-        label="Session title generator"
-        value={routingDraft.features.session_title}
-        providerOptions={providerOptions}
-        noneLabel="Disabled"
-        action={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onOpenSessionTitleFormat}
-            title="Edit session title format"
-            aria-label="Edit session title format"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-          </Button>
-        }
-        onChange={(value) =>
-          setRoutingDraft((current) => ({
-            ...current,
-            features: {
-              ...current.features,
-              session_title: value,
-            },
-          }))
-        }
-      />
-
       <FeatureSelect
         label="Git commit generator"
         value={routingDraft.features.git_commit}
@@ -499,136 +467,5 @@ export function RoutingFeatureBindings({
         }
       />
     </>
-  );
-}
-
-export function SessionTitleFormatDialog({
-  open,
-  onOpenChange,
-  sessionTitleFormatDraft,
-  setSessionTitleFormatDraft,
-  titleFormatSaveState,
-  onSaveSessionTitleFormat,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  sessionTitleFormatDraft: SessionTitleFormatConfig;
-  setSessionTitleFormatDraft: React.Dispatch<
-    React.SetStateAction<SessionTitleFormatConfig>
-  >;
-  titleFormatSaveState: SaveState;
-  onSaveSessionTitleFormat: () => void | Promise<void>;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(94vw,640px)] max-w-[640px] border-border bg-background p-0">
-        <DialogHeader className="border-b border-border px-6 py-5">
-          <DialogTitle>Session Title Format</DialogTitle>
-          <DialogDescription>
-            The final title is assembled as a structured format. Temporary
-            sessions automatically skip the project segment even when enabled.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-5 px-6 py-5">
-          <div className="rounded-2xl border border-border bg-muted/20 p-4">
-            <p className="text-xs font-semibold text-muted-foreground">
-              Final format
-            </p>
-            <p className="mt-2 font-mono text-sm text-foreground">
-              {sessionTitleFormatPreview(sessionTitleFormatDraft)}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              `projectName` comes from the current working directory basename.
-              Temp sessions skip this segment automatically.
-            </p>
-          </div>
-
-          <Field
-            label="Include Intent Emoji"
-            description="Prefix the title description with a single inferred intent emoji, such as 🎨 or 🐞."
-          >
-            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
-              <div>
-                <p className="text-sm text-foreground">Intent segment</p>
-                <p className="text-xs text-muted-foreground">
-                  Example: 🎨 design a retry mechanism
-                </p>
-              </div>
-              <Switch
-                checked={!!sessionTitleFormatDraft.include_intent_emoji}
-                onCheckedChange={(checked) =>
-                  setSessionTitleFormatDraft((current) => ({
-                    ...current,
-                    include_intent_emoji: !!checked,
-                  }))
-                }
-              />
-            </div>
-          </Field>
-
-          <Field
-            label="Include Agent Name"
-            description="Prefix titles with the current ACP agent display name."
-          >
-            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
-              <div>
-                <p className="text-sm text-foreground">Agent segment</p>
-                <p className="text-xs text-muted-foreground">
-                  Example: Claude Agent | title desc
-                </p>
-              </div>
-              <Switch
-                checked={!!sessionTitleFormatDraft.include_agent_name}
-                onCheckedChange={(checked) =>
-                  setSessionTitleFormatDraft((current) => ({
-                    ...current,
-                    include_agent_name: !!checked,
-                  }))
-                }
-              />
-            </div>
-          </Field>
-
-          <Field
-            label="Include Project Name"
-            description="Prefix titles with the current project or workspace directory name when available."
-          >
-            <div className="flex items-center justify-between rounded-xl border border-border bg-background/70 px-4 py-3">
-              <div>
-                <p className="text-sm text-foreground">Project segment</p>
-                <p className="text-xs text-muted-foreground">
-                  Example: my-project | title desc
-                </p>
-              </div>
-              <Switch
-                checked={!!sessionTitleFormatDraft.include_project_name}
-                onCheckedChange={(checked) =>
-                  setSessionTitleFormatDraft((current) => ({
-                    ...current,
-                    include_project_name: !!checked,
-                  }))
-                }
-              />
-            </div>
-          </Field>
-        </div>
-
-        <DialogFooter className="border-t border-border px-6 py-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          <SaveStateButton
-            state={titleFormatSaveState}
-            idleLabel="Save format"
-            savingLabel="Saving..."
-            savedLabel="Saved"
-            onClick={() => void onSaveSessionTitleFormat()}
-            disabled={titleFormatSaveState === "saving"}
-            measureLabel="Save format"
-          />
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

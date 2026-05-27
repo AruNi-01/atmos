@@ -52,6 +52,7 @@ struct ClaudeCredentials {
 }
 
 const TOKEN_EXPIRY_BUFFER_SECS: u64 = 300;
+const CLAUDE_AUTH_STATUS_ARGS: &[&str] = &["auth", "status"];
 
 #[derive(Debug, Clone, Deserialize)]
 struct ClaudeUsageResponse {
@@ -247,7 +248,7 @@ fn claude_token_needs_refresh(credentials: &ClaudeCredentials) -> bool {
     expires_at <= unix_now() + TOKEN_EXPIRY_BUFFER_SECS
 }
 
-/// Delegate token refresh to the Claude CLI by running `claude /status`.
+/// Delegate token refresh to the Claude CLI by running `claude auth status`.
 /// This lets Claude Code rotate its own token so the credentials file /
 /// keychain are updated atomically.  We never call the OAuth token endpoint
 /// ourselves because that would invalidate the token Claude Code is using.
@@ -255,14 +256,14 @@ fn claude_token_needs_refresh(credentials: &ClaudeCredentials) -> bool {
 /// The CLI command does network I/O, so it is run in a blocking thread to
 /// avoid stalling the async executor.
 async fn delegate_claude_refresh() -> Result<(), ProviderError> {
-    tokio::task::spawn_blocking(|| run_command("claude", &["/status"]))
+    tokio::task::spawn_blocking(|| run_command("claude", CLAUDE_AUTH_STATUS_ARGS))
         .await
         .map_err(|e| ProviderError::Fetch(e.to_string()))?
         .map(|_| {
-            debug!("Claude CLI /status completed, credentials should be refreshed");
+            debug!("Claude CLI auth status completed, credentials should be refreshed");
         })
         .map_err(|error| {
-            debug!("Claude CLI /status failed: {error}, credentials may be stale");
+            debug!("Claude CLI auth status failed: {error}, credentials may be stale");
             ProviderError::Fetch(format!(
                 "Claude CLI refresh failed: {error}. Ensure the `claude` CLI is installed and try again."
             ))
@@ -468,7 +469,7 @@ fn parse_primary_api_key(contents: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_primary_api_key, parse_subscription_type};
+    use super::{parse_primary_api_key, parse_subscription_type, CLAUDE_AUTH_STATUS_ARGS};
 
     #[test]
     fn parses_primary_api_key_from_claude_config() {
@@ -494,5 +495,16 @@ mod tests {
         );
         assert_eq!(parse_subscription_type("team").as_deref(), Some("Team"));
         assert!(parse_subscription_type("api").is_none());
+    }
+
+    #[test]
+    fn refresh_command_uses_auth_status_subcommand() {
+        assert_eq!(CLAUDE_AUTH_STATUS_ARGS, &["auth", "status"]);
+        assert!(
+            !CLAUDE_AUTH_STATUS_ARGS
+                .iter()
+                .any(|arg| arg.starts_with('/')),
+            "refresh must not send slash commands as Claude prompts"
+        );
     }
 }

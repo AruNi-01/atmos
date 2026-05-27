@@ -517,6 +517,7 @@ mod tests {
             model: "glm-4.7".to_string(),
             timeout: Duration::from_secs(30),
             max_output_tokens: Some(4096),
+            context_window: 16_384,
         }
     }
 

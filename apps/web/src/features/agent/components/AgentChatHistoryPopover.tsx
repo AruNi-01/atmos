@@ -14,7 +14,6 @@ import {
 import { History, Loader2 } from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
 import type { AgentChatSessionItem } from "@/api/rest-api";
-import type { AgentChatMode } from "@/features/agent/types/index";
 
 interface AgentChatHistoryPopoverProps {
   historyOpen: boolean;
@@ -23,14 +22,11 @@ interface AgentChatHistoryPopoverProps {
   historyHasMore: boolean;
   historyLoading: boolean;
   historyCursor: string | null;
+  historyResumeUnsupportedReason: string | null;
+  historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => void;
   isConnecting: boolean;
-  chatMode: AgentChatMode;
-  sessionWorkspaceId: string | null;
-  sessionProjectId: string | null;
-  localPath: string | null;
-  wikiPath: string | null;
 }
 
 export function AgentChatHistoryPopover({
@@ -40,14 +36,11 @@ export function AgentChatHistoryPopover({
   historyHasMore,
   historyLoading,
   historyCursor,
+  historyResumeUnsupportedReason,
+  historyUnsupportedReason,
   loadHistorySessions,
   handleSelectHistorySession,
   isConnecting,
-  chatMode,
-  sessionWorkspaceId,
-  sessionProjectId,
-  localPath,
-  wikiPath,
 }: AgentChatHistoryPopoverProps) {
   return (
     <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -70,26 +63,18 @@ export function AgentChatHistoryPopover({
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
           <p className="text-sm font-medium shrink-0">
-            {chatMode === "wiki_ask" ? "Wiki Ask history" : "Chat history"}
+            Chat history
           </p>
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="truncate text-[10px] text-muted-foreground/70 cursor-help max-w-[140px]">
-                  {sessionWorkspaceId
-                    ? `Workspace: ${localPath ? localPath.split("/").pop() : sessionWorkspaceId}`
-                    : sessionProjectId
-                      ? `Project: ${(wikiPath ?? localPath)?.split("/").pop() ?? sessionProjectId}`
-                      : "Temp sessions"}
+                  ACP sessions
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs break-all">
                 <p className="text-[11px]">
-                  {sessionWorkspaceId
-                    ? `Showing history for workspace${localPath ? `: ${localPath}` : ""}`
-                    : sessionProjectId
-                      ? `Showing history for project${(wikiPath ?? localPath) ? `: ${wikiPath ?? localPath}` : ""}`
-                      : "Showing history for temporary sessions"}
+                  Showing sessions reported by the selected ACP agent
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -102,26 +87,32 @@ export function AgentChatHistoryPopover({
             </div>
           ) : historySessions.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              {chatMode === "wiki_ask" ? "No Wiki Ask history yet" : "No history yet"}
+              {historyUnsupportedReason ?? "No history yet"}
             </div>
           ) : (
             <div className="p-1">
               {historySessions.map((s) => (
                 <button
-                  key={s.guid}
+                  key={s.acp_session_id}
                   type="button"
                   className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
                   onClick={() => handleSelectHistorySession(s)}
-                  disabled={isConnecting}
+                  disabled={isConnecting || Boolean(historyResumeUnsupportedReason)}
+                  title={historyResumeUnsupportedReason ?? undefined}
                 >
                   <span className="w-full truncate font-medium">
                     {s.title || "New chat"}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {formatLocalDateTime(s.created_at)}
+                    {s.updated_at ? formatLocalDateTime(s.updated_at) : s.cwd}
                   </span>
                 </button>
               ))}
+              {historyResumeUnsupportedReason ? (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  {historyResumeUnsupportedReason}
+                </div>
+              ) : null}
               {historyHasMore && historyCursor && (
                 <button
                   type="button"

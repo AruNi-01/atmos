@@ -16,11 +16,9 @@ import {
 import {
   llmProvidersApi,
   type LlmProvidersFile,
-  type SessionTitleFormatConfig,
 } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
-  DEFAULT_SESSION_TITLE_FORMAT,
   EMPTY_ROUTING,
   KIND_OPTIONS,
   buildProviderNameIssues,
@@ -28,7 +26,6 @@ import {
   modalStateToFile,
   newProviderDraft,
   normalizeFeatureLanguage,
-  normalizeSessionTitleFormat,
   providerDraftToEntry,
   providerLabel,
   scheduleSaveStateReset,
@@ -42,7 +39,6 @@ import {
   ProviderEditorFields,
   ProviderEditorFooter,
   RoutingFeatureBindings,
-  SessionTitleFormatDialog,
   type ProviderTestStatus,
 } from "@/app-shell/llm-providers-modal-sections";
 import { SaveStateButton } from "@/app-shell/llm-providers-modal-parts";
@@ -266,10 +262,6 @@ export function LlmProviderEditorDialog({
     );
     const nextRouting: RoutingDraft = {
       features: {
-        session_title:
-          routingDraft.features.session_title === providerEditor.clientKey
-            ? null
-            : routingDraft.features.session_title,
         git_commit:
           routingDraft.features.git_commit === providerEditor.clientKey
             ? null
@@ -283,9 +275,6 @@ export function LlmProviderEditorDialog({
             : routingDraft.features.workspace_issue_todo,
         workspace_issue_todo_language: normalizeFeatureLanguage(
           routingDraft.features.workspace_issue_todo_language,
-        ),
-        session_title_format: normalizeSessionTitleFormat(
-          routingDraft.features.session_title_format,
         ),
       },
     };
@@ -380,16 +369,9 @@ export function LlmRoutingDialog({
   const [loading, setLoading] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<LlmProvidersFile | null>(null);
   const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
-  const [titleFormatSaveState, setTitleFormatSaveState] =
-    useState<SaveState>("idle");
-  const [sessionTitleFormatOpen, setSessionTitleFormatOpen] = useState(false);
-  const [sessionTitleFormatDraft, setSessionTitleFormatDraft] =
-    useState<SessionTitleFormatConfig>(DEFAULT_SESSION_TITLE_FORMAT);
   const routingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const titleFormatResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useResetTimer(routingResetTimerRef);
-  useResetTimer(titleFormatResetTimerRef);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -400,13 +382,7 @@ export function LlmRoutingDialog({
       setVersion(nextState.version);
       setProviders(nextState.providers);
       setRoutingDraft(nextState.routing);
-      setSessionTitleFormatDraft(
-        normalizeSessionTitleFormat(
-          nextState.routing.features.session_title_format,
-        ),
-      );
       setRoutingSaveState("idle");
-      setTitleFormatSaveState("idle");
     } catch (error) {
       toastManager.add({
         title: "Failed to load routing settings",
@@ -465,48 +441,6 @@ export function LlmRoutingDialog({
     }
   };
 
-  const handleOpenSessionTitleFormat = () => {
-    setSessionTitleFormatDraft(
-      normalizeSessionTitleFormat(routingDraft.features.session_title_format),
-    );
-    setSessionTitleFormatOpen(true);
-  };
-
-  const handleSaveSessionTitleFormat = async () => {
-    const normalized = normalizeSessionTitleFormat(sessionTitleFormatDraft);
-    const nextRouting: RoutingDraft = {
-      features: {
-        ...routingDraft.features,
-        session_title_format: normalized,
-      },
-    };
-
-    setTitleFormatSaveState("saving");
-    try {
-      const nextConfig = modalStateToFile(
-        { version, providers, routing: nextRouting },
-        originalConfig ?? undefined,
-      );
-      await llmProvidersApi.update(nextConfig);
-      setOriginalConfig(nextConfig);
-      setRoutingDraft(nextRouting);
-      setSessionTitleFormatDraft(normalized);
-      setTitleFormatSaveState("saved");
-      scheduleSaveStateReset(
-        setTitleFormatSaveState,
-        titleFormatResetTimerRef,
-      );
-      onSaved?.();
-    } catch (error) {
-      setTitleFormatSaveState("idle");
-      toastManager.add({
-        title: "Failed to save title format",
-        description: error instanceof Error ? error.message : "Unknown error",
-        type: "error",
-      });
-    }
-  };
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -528,7 +462,6 @@ export function LlmRoutingDialog({
               loading={loading}
               routingDraft={routingDraft}
               providerOptions={providerOptions}
-              onOpenSessionTitleFormat={handleOpenSessionTitleFormat}
               setRoutingDraft={setRoutingDraft}
             />
           </div>
@@ -549,15 +482,6 @@ export function LlmRoutingDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <SessionTitleFormatDialog
-        open={sessionTitleFormatOpen}
-        onOpenChange={setSessionTitleFormatOpen}
-        sessionTitleFormatDraft={sessionTitleFormatDraft}
-        setSessionTitleFormatDraft={setSessionTitleFormatDraft}
-        titleFormatSaveState={titleFormatSaveState}
-        onSaveSessionTitleFormat={handleSaveSessionTitleFormat}
-      />
     </>
   );
 }

@@ -7,12 +7,10 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type KeyboardEvent,
   type RefObject,
   type SetStateAction,
 } from "react";
 import { messagesToMarkdown, type ConversationMessage } from "@workspace/ui";
-import { agentApi as agentRestApi } from "@/api/rest-api";
 import type { ThreadEntry } from "@/features/agent/lib/agent/thread";
 import {
   downloadConversationMarkdown,
@@ -27,14 +25,7 @@ interface UseAgentChatUiHandlersParams {
   entries: ThreadEntry[];
   exportableMessages: ConversationMessage[];
   panelTitle: string;
-  sessionId: string | null;
-  sessionTitle: string | null;
   setDefaultRegistryId: Dispatch<SetStateAction<string>>;
-  setIsAutoGeneratingTitle: Dispatch<SetStateAction<boolean>>;
-  setSessionTitle: Dispatch<SetStateAction<string | null>>;
-  setSessionTitleSource: Dispatch<SetStateAction<string | null>>;
-  setShouldScrambleAutoTitle: Dispatch<SetStateAction<boolean>>;
-  titleInputRef: RefObject<HTMLInputElement | null>;
 }
 
 export function useAgentChatUiHandlers({
@@ -43,62 +34,16 @@ export function useAgentChatUiHandlers({
   entries,
   exportableMessages,
   panelTitle,
-  sessionId,
-  sessionTitle,
   setDefaultRegistryId,
-  setIsAutoGeneratingTitle,
-  setSessionTitle,
-  setSessionTitleSource,
-  setShouldScrambleAutoTitle,
-  titleInputRef,
 }: UseAgentChatUiHandlersParams) {
   const [newSessionAgentsOpen, setNewSessionAgentsOpen] = useState(false);
   const [messageNavIndex, setMessageNavIndex] = useState(-1);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editingTitleValue, setEditingTitleValue] = useState("");
   const closeAgentsMenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const userEntryIndices = useMemo(
     () => entries.map((entry, index) => (entry.role === "user" ? index : -1)).filter((index) => index >= 0),
     [entries],
   );
-
-  const handleStartEditTitle = useCallback(() => {
-    if (!sessionTitle) return;
-    setEditingTitleValue(sessionTitle);
-    setIsEditingTitle(true);
-    requestAnimationFrame(() => titleInputRef.current?.focus());
-  }, [sessionTitle, titleInputRef]);
-
-  const handleFinishEditTitle = useCallback(() => {
-    setIsEditingTitle(false);
-    const trimmed = editingTitleValue.trim();
-    if (!trimmed || trimmed === sessionTitle) return;
-    setSessionTitle(trimmed);
-    setSessionTitleSource("user");
-    setIsAutoGeneratingTitle(false);
-    setShouldScrambleAutoTitle(false);
-    if (sessionId) {
-      void agentRestApi.updateSessionTitle(sessionId, trimmed).catch(() => { });
-    }
-  }, [
-    editingTitleValue,
-    sessionId,
-    sessionTitle,
-    setIsAutoGeneratingTitle,
-    setSessionTitle,
-    setSessionTitleSource,
-    setShouldScrambleAutoTitle,
-  ]);
-
-  const handleTitleKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      handleFinishEditTitle();
-    } else if (event.key === "Escape") {
-      setIsEditingTitle(false);
-    }
-  }, [handleFinishEditTitle]);
 
   const scrollToMessage = useCallback((messageIndex: number) => {
     const el = conversationRef.current?.querySelector(
@@ -170,21 +115,14 @@ export function useAgentChatUiHandlers({
   }, [displaySessionTitle, exportableMessages, panelTitle]);
 
   return {
-    editingTitleValue,
     handleExportConversation,
-    handleFinishEditTitle,
     handleNextMessage,
     handleOpenNewSessionAgentsMenu,
     handlePrevMessage,
     handleScheduleCloseNewSessionAgentsMenu,
     handleSetDefaultAgent,
-    handleStartEditTitle,
-    handleTitleKeyDown,
-    isEditingTitle,
     messageNavIndex,
     newSessionAgentsOpen,
-    setEditingTitleValue,
-    setIsEditingTitle,
     setNewSessionAgentsOpen,
     userEntryIndices,
   };

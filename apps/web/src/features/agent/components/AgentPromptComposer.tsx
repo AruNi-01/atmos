@@ -54,7 +54,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   onMoveQueuedPrompt,
   onSubmit,
   canUseCurrentMode,
-  wikiAskAvailability,
   isConnected,
   chatMode,
   sessionWorkspaceId,
@@ -83,7 +82,6 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
   onMoveQueuedPrompt: (id: string, toIndex: number) => void;
   onSubmit: (message: { text: string; files?: import("ai").FileUIPart[] }) => Promise<void>;
   canUseCurrentMode: boolean;
-  wikiAskAvailability: { enabled: boolean; reason: string | null };
   isConnected: boolean;
   chatMode: AgentChatMode;
   sessionWorkspaceId: string | null;
@@ -188,9 +186,9 @@ export const AgentPromptComposer = React.memo(function AgentPromptComposer({
             data-agent-chat-project-id={sessionProjectId ?? undefined}
             placeholder={
               !canUseCurrentMode
-                ? (wikiAskAvailability.reason ?? "Wiki Ask unavailable")
+                ? "Agent unavailable"
                 : isConnected
-                  ? (chatMode === "wiki_ask" ? "Ask about this wiki..." : "Type a message...")
+                  ? "Type a message..."
                   : "Select agent to connect"
             }
             disabled={!isConnected || !canUseCurrentMode}

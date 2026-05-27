@@ -22,20 +22,11 @@ import {
   Switch,
   cn,
 } from "@workspace/ui";
-import {
-  Building2,
-  ChevronDown,
-  House,
-  Languages,
-  Route,
-  SlidersHorizontal,
-} from "lucide-react";
+import { Building2, ChevronDown, House, Languages, Route } from "lucide-react";
 
 import {
   FEATURE_LANGUAGE_OPTIONS,
   fallbackProviderLabel,
-  normalizeSessionTitleFormat,
-  sessionTitleFormatPreview,
 } from "@/features/settings/components/settings/settings-modal-utils";
 import { LocalModelPanel, LocalModelRuntimeControl } from "@/features/settings/components/LocalModelPanel";
 import type { LlmProvidersFile } from "@/api/ws-api";
@@ -64,7 +55,6 @@ type SettingsAiSectionProps = {
     providerId: string,
     provider: NonNullable<LlmProvidersFile["providers"][string]>,
   ) => Promise<void>;
-  sessionTitleFormatOpen: boolean;
   setProviderDialogState: React.Dispatch<React.SetStateAction<{
     open: boolean;
     providerId: string | null;
@@ -72,7 +62,6 @@ type SettingsAiSectionProps = {
   setProviderTests: React.Dispatch<React.SetStateAction<ProviderTestState>>;
   setProvidersExpanded: (open: boolean) => void;
   setRoutingExpanded: (open: boolean) => void;
-  setSessionTitleFormatOpen: (open: boolean) => void;
 };
 
 export function SettingsAiSection({
@@ -87,12 +76,10 @@ export function SettingsAiSection({
   routingExpanded,
   routingSavingKey,
   runProviderTest,
-  sessionTitleFormatOpen,
   setProviderDialogState,
   setProviderTests,
   setProvidersExpanded,
   setRoutingExpanded,
-  setSessionTitleFormatOpen,
 }: SettingsAiSectionProps) {
   const providerEntries = React.useMemo(
     () =>
@@ -103,10 +90,6 @@ export function SettingsAiSection({
         model: provider.model?.trim() || null,
         kind: provider.kind,
       })),
-    [llmConfig],
-  );
-  const sessionTitleFormat = React.useMemo(
-    () => normalizeSessionTitleFormat(llmConfig?.features?.session_title_format),
     [llmConfig],
   );
 
@@ -294,132 +277,9 @@ export function SettingsAiSection({
               <div className="space-y-3 py-2">
                 <Skeleton className="h-16 w-full rounded-xl" />
                 <Skeleton className="h-16 w-full rounded-xl" />
-                <Skeleton className="h-16 w-full rounded-xl" />
               </div>
             ) : (
               <div className="divide-y divide-border">
-                <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 py-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Session title generator</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {sessionTitleFormat.include_agent_name ||
-                      sessionTitleFormat.include_project_name ||
-                      sessionTitleFormat.include_intent_emoji
-                        ? "Custom title format enabled"
-                        : "Default title format"}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-end gap-3">
-                    <Select
-                      value={llmConfig?.features?.session_title ?? "__none__"}
-                      onValueChange={(value) => {
-                        void handleLlmConfigUpdate("session_title", (current) => ({
-                          ...current,
-                          features: {
-                            ...current.features,
-                            session_title: value === "__none__" ? null : value,
-                          },
-                        }));
-                      }}
-                      disabled={routingSavingKey === "session_title"}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Disabled" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Disabled</SelectItem>
-                        {providerEntries.map((provider) => (
-                          <SelectItem key={provider.id} value={provider.id}>
-                            {provider.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Popover open={sessionTitleFormatOpen} onOpenChange={setSessionTitleFormatOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <SlidersHorizontal className="size-4" />
-                          Format
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent align="end" className="w-80 space-y-4 p-4">
-                        <p className="text-sm font-medium text-foreground">Session title format</p>
-                        <div className="rounded-2xl border border-border bg-muted/20 p-4">
-                          <p className="text-xs font-semibold text-muted-foreground">
-                            Final format
-                          </p>
-                          <p className="mt-2 font-mono text-sm text-foreground">
-                            {sessionTitleFormatPreview(sessionTitleFormat)}
-                          </p>
-                        </div>
-                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
-                          <div>
-                            <p className="text-sm text-foreground">Intent emoji</p>
-                          </div>
-                          <Switch
-                            checked={!!sessionTitleFormat.include_intent_emoji}
-                            onCheckedChange={(checked) => {
-                              void handleLlmConfigUpdate("session_title_format", (current) => ({
-                                ...current,
-                                features: {
-                                  ...current.features,
-                                  session_title_format: {
-                                    ...normalizeSessionTitleFormat(current.features.session_title_format),
-                                    include_intent_emoji: !!checked,
-                                  },
-                                },
-                              }));
-                            }}
-                            disabled={routingSavingKey === "session_title_format"}
-                          />
-                        </label>
-                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
-                          <div>
-                            <p className="text-sm text-foreground">Agent name</p>
-                          </div>
-                          <Switch
-                            checked={!!sessionTitleFormat.include_agent_name}
-                            onCheckedChange={(checked) => {
-                              void handleLlmConfigUpdate("session_title_format", (current) => ({
-                                ...current,
-                                features: {
-                                  ...current.features,
-                                  session_title_format: {
-                                    ...normalizeSessionTitleFormat(current.features.session_title_format),
-                                    include_agent_name: !!checked,
-                                  },
-                                },
-                              }));
-                            }}
-                            disabled={routingSavingKey === "session_title_format"}
-                          />
-                        </label>
-                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
-                          <div>
-                            <p className="text-sm text-foreground">Project name</p>
-                          </div>
-                          <Switch
-                            checked={!!sessionTitleFormat.include_project_name}
-                            onCheckedChange={(checked) => {
-                              void handleLlmConfigUpdate("session_title_format", (current) => ({
-                                ...current,
-                                features: {
-                                  ...current.features,
-                                  session_title_format: {
-                                    ...normalizeSessionTitleFormat(current.features.session_title_format),
-                                    include_project_name: !!checked,
-                                  },
-                                },
-                              }));
-                            }}
-                            disabled={routingSavingKey === "session_title_format"}
-                          />
-                        </label>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-8 py-4">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">Git commit generator</p>

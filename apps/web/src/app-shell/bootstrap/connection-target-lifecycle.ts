@@ -33,7 +33,6 @@ export async function prepareConnectionTargetChange(): Promise<void> {
     _hasHydrated: false,
   });
   restoreEditorFromInstancePrefs(activeInstanceId);
-  await useFunctionSettingsStore.getState().load().catch(() => undefined);
 }
 
 /** Call after the new WS target is connected. */

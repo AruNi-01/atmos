@@ -18,7 +18,6 @@ import { useSelectionPopover } from "@/features/selection/hooks/use-selection-po
 import { SelectionPopover } from "@/features/selection/components/SelectionPopover";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { writeToActiveAgentComposer } from "@/features/agent/lib/agent/active-composer";
-import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { parseFrontmatter, type WikiLevel } from "../lib/wiki-utils";
 import { fsApi } from "@/api/ws-api";
@@ -65,7 +64,6 @@ export const WikiContent: React.FC<WikiContentProps> = ({
   const { workspaceId, projectId } = useContextParams();
   const { activeContent, activePage, contentLoading, contentError } =
     useWikiContext(contextId);
-  const fetchProjects = useProjectStore((s) => s.fetchProjects);
   const appendAgentChatDraft = useDialogStore((s) => s.appendAgentChatDraft);
   const topRef = useRef<HTMLDivElement>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
@@ -225,46 +223,23 @@ export const WikiContent: React.FC<WikiContentProps> = ({
     return () => viewport.removeEventListener("scroll", onScroll);
   }, [dismissSelectionPopover, isPreview, selectionPopoverVisible]);
 
-  const handleWikiSelectionAttach = useCallback(async (payload: SelectionAttachedPayload) => {
-    let queueWorkspaceId: string | null | undefined = workspaceId;
-    let queueProjectId: string | null | undefined = projectId;
-
-    if (workspaceId) {
-      const resolveParentProjectId = (items: ReturnType<typeof useProjectStore.getState>["projects"]) =>
-        items.find((project) => project.workspaces.some((workspace) => workspace.id === workspaceId))?.id ?? null;
-
-      let parentProjectId = resolveParentProjectId(useProjectStore.getState().projects);
-      if (!parentProjectId) {
-        try {
-          await fetchProjects();
-        } catch {
-          // Fall through to workspace-scoped queue as a last resort.
-        }
-        parentProjectId = resolveParentProjectId(useProjectStore.getState().projects);
-      }
-
-      if (parentProjectId) {
-        queueWorkspaceId = undefined;
-        queueProjectId = parentProjectId;
-      }
-    }
-
+  const handleWikiSelectionAttach = useCallback((payload: SelectionAttachedPayload) => {
     const wroteToActiveComposer = writeToActiveAgentComposer(
-      queueWorkspaceId,
-      queueProjectId,
-      "wiki_ask",
+      workspaceId,
+      projectId,
+      "default",
       payload.formattedText,
     );
 
     if (!wroteToActiveComposer) {
       appendAgentChatDraft(
-        queueWorkspaceId,
-        queueProjectId,
-        "wiki_ask",
+        workspaceId,
+        projectId,
+        "default",
         payload.formattedText,
       );
     }
-  }, [workspaceId, projectId, fetchProjects, appendAgentChatDraft]);
+  }, [workspaceId, projectId, appendAgentChatDraft]);
 
   if (contentLoading && !activeContent) {
     return (

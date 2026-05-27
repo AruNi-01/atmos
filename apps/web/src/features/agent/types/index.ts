@@ -1,3 +1,3 @@
-export type AgentChatMode = "default" | "wiki_ask";
+export type AgentChatMode = "default";
 
 export const DEFAULT_AGENT_CHAT_MODE: AgentChatMode = "default";

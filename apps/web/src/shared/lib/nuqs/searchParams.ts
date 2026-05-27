@@ -140,6 +140,9 @@ export const overviewParams = {
 // ---------------------------------------------------------------------------
 export const agentChatParams = {
   chat: parseAsBoolean.withDefault(false),
+  agent: parseAsString.withDefault(""),
+  session: parseAsString.withDefault(""),
+  sessionCwd: parseAsString.withDefault(""),
 };
 
 // ---------------------------------------------------------------------------
@@ -205,6 +208,4 @@ export const previewUrlParams = {
 export const chatSessionsParams = {
   q: parseAsString.withDefault(""),
   registry_id: parseAsString.withDefault(""),
-  status: parseAsStringEnum<"active" | "closed" | "">(["active", "closed", ""]).withDefault(""),
-  mode: parseAsStringEnum<"default" | "wiki_ask" | "">(["default", "wiki_ask", ""]).withDefault(""),
 };

@@ -1,4 +1,3 @@
-pub mod agent_chat_session;
 pub mod base;
 pub mod canvas_board;
 pub mod project;

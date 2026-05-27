@@ -57,6 +57,92 @@ pub struct AuthRequiredPayload {
     pub message: String,
 }
 
+/// ACP implementation metadata advertised by an agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentImplementationInfo {
+    pub name: String,
+    pub title: Option<String>,
+    pub version: String,
+}
+
+/// Whether an ACP capability is currently usable.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentCapabilityState {
+    pub supported: bool,
+    pub reason: Option<String>,
+}
+
+impl AgentCapabilityState {
+    pub fn supported() -> Self {
+        Self {
+            supported: true,
+            reason: None,
+        }
+    }
+
+    pub fn unsupported(reason: impl Into<Option<String>>) -> Self {
+        Self {
+            supported: false,
+            reason: reason.into(),
+        }
+    }
+}
+
+/// Snapshot of ACP capabilities Atmos cares about.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentCapabilitiesSnapshot {
+    pub session_list: AgentCapabilityState,
+    pub session_resume: AgentCapabilityState,
+    pub session_close: AgentCapabilityState,
+    pub logout: AgentCapabilityState,
+    pub config_options: AgentCapabilityState,
+    pub session_info_update: AgentCapabilityState,
+    pub load_session: AgentCapabilityState,
+}
+
+/// Native session row returned by ACP `session/list`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct NativeAgentSession {
+    pub acp_session_id: String,
+    pub cwd: String,
+    pub title: Option<String>,
+    pub updated_at: Option<String>,
+}
+
+/// Native ACP session list response returned to higher layers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct NativeAgentSessionList {
+    pub agent_info: Option<AgentImplementationInfo>,
+    pub capabilities: AgentCapabilitiesSnapshot,
+    pub sessions: Vec<NativeAgentSession>,
+    pub next_cursor: Option<String>,
+    pub unsupported_reason: Option<String>,
+}
+
+/// Partial metadata update pushed by ACP `session_info_update`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentSessionInfoUpdate {
+    pub acp_session_id: String,
+    pub title: Option<Option<String>>,
+    pub updated_at: Option<Option<String>>,
+}
+
+/// Result for ACP `logout`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AgentLogoutResult {
+    pub agent_info: Option<AgentImplementationInfo>,
+    pub capabilities: AgentCapabilitiesSnapshot,
+    pub logged_out: bool,
+    pub unsupported_reason: Option<String>,
+}
+
 /// Streaming text delta from agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamDelta {

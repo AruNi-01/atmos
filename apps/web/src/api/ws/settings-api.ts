@@ -79,19 +79,11 @@ export interface LlmProviderEntry {
   local_model_id?: string | null;
 }
 
-export interface SessionTitleFormatConfig {
-  include_agent_name?: boolean;
-  include_project_name?: boolean;
-  include_intent_emoji?: boolean;
-}
-
 export interface LlmFeatureBindings {
-  session_title?: string | null;
   git_commit?: string | null;
   git_commit_language?: string | null;
   workspace_issue_todo?: string | null;
   workspace_issue_todo_language?: string | null;
-  session_title_format?: SessionTitleFormatConfig | null;
 }
 
 export interface LlmProvidersFile {
