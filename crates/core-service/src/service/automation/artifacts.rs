@@ -3,11 +3,19 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use crate::error::{Result, ServiceError};
+use crate::WorkspaceAttachmentPayload;
 
 pub const AUTOMATIONS_DIR: &str = "automations";
 pub const DEFINITIONS_DIR: &str = "definitions";
 pub const RUNS_DIR: &str = "runs";
 pub const INSTRUCTIONS_FILE: &str = "instructions.md";
+pub const ATTACHMENTS_DIR: &str = "attachments";
+
+#[derive(Debug, Clone)]
+pub struct WrittenAttachment {
+    pub token: String,
+    pub path: PathBuf,
+}
 
 pub fn automation_root() -> Result<PathBuf> {
     let home = dirs::home_dir()
@@ -29,6 +37,10 @@ pub fn definition_dir(automation_guid: &str) -> Result<PathBuf> {
 
 pub fn instructions_path(automation_guid: &str) -> Result<PathBuf> {
     Ok(definition_dir(automation_guid)?.join(INSTRUCTIONS_FILE))
+}
+
+pub fn attachments_dir(automation_guid: &str) -> Result<PathBuf> {
+    Ok(definition_dir(automation_guid)?.join(ATTACHMENTS_DIR))
 }
 
 pub fn write_instructions(automation_guid: &str, instructions: &str) -> Result<PathBuf> {
@@ -102,6 +114,60 @@ pub fn write_user_private_file(path: &Path, content: &str) -> Result<()> {
     })?;
     set_file_permissions(path)?;
     Ok(())
+}
+
+pub fn write_attachments(
+    automation_guid: &str,
+    attachments: Vec<WorkspaceAttachmentPayload>,
+) -> Result<Vec<WrittenAttachment>> {
+    if attachments.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    use base64::Engine;
+
+    let dir = attachments_dir(automation_guid)?;
+    ensure_user_private_dir(&dir)?;
+    let mut written = Vec::new();
+
+    for attachment in attachments {
+        let safe = attachment
+            .filename
+            .replace(['/', '\\'], "_")
+            .trim()
+            .to_string();
+        if safe.is_empty() {
+            continue;
+        }
+
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(attachment.data_base64.as_bytes())
+            .map_err(|error| {
+                ServiceError::Validation(format!("Failed to decode attachment {safe}: {error}"))
+            })?;
+        let path = dir.join(&safe);
+        fs::write(&path, bytes).map_err(|error| {
+            ServiceError::Validation(format!(
+                "Failed to write automation attachment {safe}: {error}"
+            ))
+        })?;
+        set_file_permissions(&path)?;
+
+        if let Some(token) = image_placeholder_token(&safe) {
+            written.push(WrittenAttachment { token, path });
+        }
+    }
+
+    Ok(written)
+}
+
+fn image_placeholder_token(filename: &str) -> Option<String> {
+    let stem = filename.split('.').next()?;
+    let number = stem.strip_prefix("img-")?;
+    if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    Some(format!("[#img-{number}]"))
 }
 
 fn ensure_path_under_root(path: &Path, root: &Path) -> Result<()> {

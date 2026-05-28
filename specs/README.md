@@ -98,6 +98,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-018** | ACP Protocol Upgrade | `PRD.md` |
 | **APP-019** | GitHub Automation Triggers | `specs/APP/APP-019_github-automation-triggers/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
 | **APP-020** | Relay Stable Tenant Identity | `specs/APP/APP-020_relay-stable-tenant-identity/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
+| **APP-021** | Appshots Cross-App Snapshot | `specs/APP/APP-021_appshots-cross-app-snapshot/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
 
 ### Landing
 

@@ -111,6 +111,7 @@ export interface AutomationCreateRequest {
   target: AutomationTargetInput;
   schedule: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
+  attachments?: AutomationAttachmentPayload[];
 }
 
 export interface AutomationUpdateRequest {
@@ -121,6 +122,13 @@ export interface AutomationUpdateRequest {
   target?: AutomationTargetInput;
   schedule?: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
+  attachments?: AutomationAttachmentPayload[];
+}
+
+export interface AutomationAttachmentPayload {
+  filename: string;
+  mime?: string | null;
+  data_base64: string;
 }
 
 export interface AutomationRunSummary {

@@ -8,6 +8,7 @@ import type {
 } from "@/api/ws-api";
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
+import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
 
 export interface RepoContext {
   owner: string;
@@ -333,6 +334,9 @@ export function resolvePromptPlaceholders(text: string, atts: ComposerAttachment
   return text
     .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
     .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => relativePath)
+    .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
+      formatAppshotPrompt(timestamp),
+    )
     .replace(/\[#img-(\d+)\]/g, (match, n: string) => {
       const att = atts.find((a) => a.number === Number(n));
       return att ? `.atmos/attachments/${att.filename}` : match;

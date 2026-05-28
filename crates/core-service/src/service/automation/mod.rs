@@ -26,6 +26,7 @@ use tokio::sync::{broadcast, Mutex};
 use uuid::Uuid;
 
 use crate::error::{Result, ServiceError};
+use crate::WorkspaceAttachmentPayload;
 
 use super::notification::NotificationService;
 use super::project::ProjectService;
@@ -209,6 +210,8 @@ pub struct AutomationCreateReq {
     pub agent_id: String,
     pub target: AutomationTargetInput,
     #[serde(default)]
+    pub attachments: Vec<WorkspaceAttachmentPayload>,
+    #[serde(default)]
     pub schedule: Option<AutomationScheduleInput>,
     #[serde(default)]
     pub trigger: Option<AutomationTriggerInput>,
@@ -221,6 +224,8 @@ pub struct AutomationUpdateReq {
     pub display_name: Option<String>,
     #[serde(default)]
     pub instructions: Option<String>,
+    #[serde(default)]
+    pub attachments: Vec<WorkspaceAttachmentPayload>,
     #[serde(default)]
     pub agent_id: Option<String>,
     #[serde(default)]
@@ -427,7 +432,6 @@ impl AutomationService {
 
     pub async fn create_automation(&self, req: AutomationCreateReq) -> Result<AutomationDetail> {
         let display_name = validate_display_name(req.display_name)?;
-        let instructions = validate_instructions(req.instructions)?;
         self.validate_agent(&req.agent_id)?;
         self.validate_target(&req.target).await?;
         let normalized_schedule = req
@@ -440,6 +444,11 @@ impl AutomationService {
 
         let automation_guid = Uuid::new_v4().to_string();
         let definition_dir = artifacts::definition_dir(&automation_guid)?;
+        let attachment_paths = artifacts::write_attachments(&automation_guid, req.attachments)?;
+        let instructions = validate_instructions(resolve_attachment_placeholders(
+            req.instructions,
+            &attachment_paths,
+        ))?;
         let instructions_path = artifacts::write_instructions(&automation_guid, &instructions)?;
         let artifact_root = artifacts::automation_root()?;
 
@@ -498,7 +507,16 @@ impl AutomationService {
                 ServiceError::NotFound(format!("Automation {} not found", req.automation_guid))
             })?;
 
-        let validated_instructions = req.instructions.map(validate_instructions).transpose()?;
+        let attachment_paths = artifacts::write_attachments(&req.automation_guid, req.attachments)?;
+        let validated_instructions = req
+            .instructions
+            .map(|instructions| {
+                validate_instructions(resolve_attachment_placeholders(
+                    instructions,
+                    &attachment_paths,
+                ))
+            })
+            .transpose()?;
         let display_name = req.display_name.map(validate_display_name).transpose()?;
         if let Some(agent_id) = req.agent_id.as_deref() {
             self.validate_agent(agent_id)?;
@@ -858,6 +876,17 @@ fn cleanup_failed_automation_create_artifacts(instructions_path: &Path, definiti
     }
 }
 
+fn resolve_attachment_placeholders(
+    instructions: String,
+    attachments: &[artifacts::WrittenAttachment],
+) -> String {
+    attachments
+        .iter()
+        .fold(instructions, |current, attachment| {
+            current.replace(&attachment.token, &attachment.path.display().to_string())
+        })
+}
+
 impl From<automation::Model> for AutomationSummary {
     fn from(model: automation::Model) -> Self {
         Self {
@@ -915,6 +944,7 @@ impl From<automation_run::Model> for AutomationRunSummary {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use std::path::PathBuf;
 
     use super::*;
 
@@ -977,5 +1007,18 @@ mod tests {
         assert!(!trigger.enabled);
         assert_eq!(trigger.status, AutomationTriggerStatus::NeedsSetup.as_str());
         assert!(trigger.config_json.is_some());
+    }
+
+    #[test]
+    fn resolves_written_attachment_tokens_to_paths() {
+        let resolved = resolve_attachment_placeholders(
+            "Inspect [#img-1] and keep [#img-2].".to_string(),
+            &[artifacts::WrittenAttachment {
+                token: "[#img-1]".to_string(),
+                path: PathBuf::from("/tmp/atmos/img-1.png"),
+            }],
+        );
+
+        assert_eq!(resolved, "Inspect /tmp/atmos/img-1.png and keep [#img-2].");
     }
 }

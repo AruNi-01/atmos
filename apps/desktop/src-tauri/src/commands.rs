@@ -177,3 +177,61 @@ pub async fn preview_bridge_probe_url(url: String) -> Result<(), String> {
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn appshot_status(
+    app: tauri::AppHandle,
+) -> Result<crate::appshot::types::AppshotStatus, String> {
+    crate::appshot::status(app).await
+}
+
+#[tauri::command]
+pub async fn appshot_accept_pending(
+    preview_id: String,
+) -> Result<crate::appshot::types::AppshotAcceptResponse, String> {
+    crate::appshot::accept_pending(preview_id).await
+}
+
+#[tauri::command]
+pub async fn appshot_discard_pending(preview_id: String) -> Result<(), String> {
+    crate::appshot::discard_pending(preview_id).await
+}
+
+#[tauri::command]
+pub async fn appshot_set_pending_auto_accept(
+    req: crate::appshot::types::AppshotPendingAutoAcceptRequest,
+) -> Result<(), String> {
+    crate::appshot::set_pending_auto_accept(req).await
+}
+
+#[tauri::command]
+pub async fn appshot_list_records(
+) -> Result<Vec<crate::appshot::types::AppshotRecordListItem>, String> {
+    crate::appshot::list_records().await
+}
+
+#[tauri::command]
+pub async fn appshot_read_records(
+    req: crate::appshot::types::AppshotReadRecordsRequest,
+) -> Result<Vec<crate::appshot::types::AppshotRecordDetail>, String> {
+    crate::appshot::read_records(req).await
+}
+
+#[tauri::command]
+pub async fn appshot_copy_record(
+    timestamp: String,
+) -> Result<crate::appshot::types::AppshotCopyResponse, String> {
+    crate::appshot::copy_record(timestamp).await
+}
+
+#[tauri::command]
+pub async fn appshot_delete_record(timestamp: String) -> Result<(), String> {
+    crate::appshot::delete_record(timestamp).await
+}
+
+#[tauri::command]
+pub async fn appshot_open_permissions(
+    req: crate::appshot::types::AppshotOpenPermissionsRequest,
+) -> Result<(), String> {
+    crate::appshot::open_permissions(req).await
+}
