@@ -39,7 +39,7 @@
     "id": "droid",
     "label": "Droid",
     "cmd": "droid",
-    "params": "",
+    "params": "exec --skip-permissions-unsafe",
     "promptStrategy": "arg"
   },
   {
@@ -53,8 +53,8 @@
     "id": "kimi",
     "label": "Kimi",
     "cmd": "kimi",
-    "params": "",
-    "promptStrategy": "arg"
+    "params": "--print -p",
+    "promptStrategy": "prompt_flag"
   },
   {
     "id": "cursor",
@@ -66,8 +66,8 @@
   {
     "id": "kilocode",
     "label": "Kilo Code",
-    "cmd": "kilocode",
-    "params": "",
+    "cmd": "kilo",
+    "params": "run --auto --dangerously-skip-permissions",
     "promptStrategy": "arg"
   },
   {

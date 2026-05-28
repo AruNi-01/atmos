@@ -728,14 +728,29 @@ mod tests {
                 "'amp' '--dangerously-allow-all' < \"$PROMPT_FILE\"",
             ),
             (
+                "droid",
+                PromptStrategy::Arg,
+                "'droid' 'exec' '--skip-permissions-unsafe' \"$prompt_content\"",
+            ),
+            (
                 "opencode",
                 PromptStrategy::PromptFlag,
                 "'opencode' '--prompt' \"$prompt_content\"",
             ),
             (
+                "kimi",
+                PromptStrategy::PromptFlag,
+                "'kimi' '--print' '-p' \"$prompt_content\"",
+            ),
+            (
                 "cursor",
                 PromptStrategy::Arg,
                 "'agent' '--force' \"$prompt_content\"",
+            ),
+            (
+                "kilocode",
+                PromptStrategy::Arg,
+                "'kilo' 'run' '--auto' '--dangerously-skip-permissions' \"$prompt_content\"",
             ),
             (
                 "kiro",

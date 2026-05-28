@@ -67,23 +67,38 @@ export function WelcomeAgentSelector({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-56">
         {availableAgents.length > 0 ? (
-          availableAgents.map((agent) => (
+          availableAgents.map((agent) => {
+            const disabledReason = agent.disabledReason?.trim();
+            return (
             <DropdownMenuItem
               key={agent.id}
-              onClick={() => onSelectAgent(agent.id)}
+              disabled={!!disabledReason}
+              onClick={() => {
+                if (!disabledReason) {
+                  onSelectAgent(agent.id);
+                }
+              }}
               className="cursor-pointer justify-between gap-3"
             >
-              <span className="flex items-center gap-2">
+              <span className="flex min-w-0 items-center gap-2">
                 {agent.iconType === "built-in" ? (
                   <AgentIcon registryId={agent.id} name={agent.label} size={16} />
                 ) : (
                   <Bot className="size-4 text-muted-foreground" />
                 )}
-                {agent.label}
+                <span className="min-w-0">
+                  <span className="block truncate">{agent.label}</span>
+                  {agent.description || disabledReason ? (
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {agent.description ?? disabledReason}
+                    </span>
+                  ) : null}
+                </span>
               </span>
               {agent.id === selectedAgentId ? <Check className="size-4 text-foreground" /> : null}
             </DropdownMenuItem>
-          ))
+            );
+          })
         ) : (
           <DropdownMenuItem onClick={onConnectAgent} className="cursor-pointer">
             Connect agents

@@ -46,11 +46,12 @@ export function WelcomeComposerCard({
   setWorkflowStatus,
   workflowStatus,
   workspaceLabels,
+  controls,
   footer,
 }: {
   attachments: ComposerAttachment[];
   composerRef: React.RefObject<ComposerHandle | null>;
-  createWorkspaceLabel: React.ComponentProps<typeof WelcomeComposerControls>["createWorkspaceLabel"];
+  createWorkspaceLabel?: React.ComponentProps<typeof WelcomeComposerControls>["createWorkspaceLabel"];
   disabledSubmit: boolean;
   isInitialProjectsLoading: boolean;
   isSubmitting: boolean;
@@ -60,21 +61,22 @@ export function WelcomeComposerCard({
   onAttachmentPreview: (attachment: ComposerAttachment) => void;
   onAttachmentRemove: (id: string) => void;
   onImagePaste: (blob: Blob, ext: string) => void;
-  onProjectChange: (projectId: string) => void;
+  onProjectChange?: (projectId: string) => void;
   onSlashCancel: () => void;
   onSlashTrigger: (ctx: SlashTriggerContext) => void;
   onTextChange: (text: string) => void;
   placeholder: React.ReactNode;
-  priority: WorkspacePriority;
-  projectId: string;
-  projects: Project[];
-  selectedLabels: WorkspaceLabel[];
-  selectedProject: Project | null;
-  setPriority: (value: WorkspacePriority) => void;
-  setSelectedLabels: (labels: WorkspaceLabel[]) => void;
-  setWorkflowStatus: (value: WorkspaceWorkflowStatus) => void;
-  workflowStatus: WorkspaceWorkflowStatus;
-  workspaceLabels: WorkspaceLabel[];
+  priority?: WorkspacePriority;
+  projectId?: string;
+  projects?: Project[];
+  selectedLabels?: WorkspaceLabel[];
+  selectedProject?: Project | null;
+  setPriority?: (value: WorkspacePriority) => void;
+  setSelectedLabels?: (labels: WorkspaceLabel[]) => void;
+  setWorkflowStatus?: (value: WorkspaceWorkflowStatus) => void;
+  workflowStatus?: WorkspaceWorkflowStatus;
+  workspaceLabels?: WorkspaceLabel[];
+  controls?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
   return (
@@ -105,24 +107,26 @@ export function WelcomeComposerCard({
             onPreview={onAttachmentPreview}
           />
 
-          <WelcomeComposerControls
-            createWorkspaceLabel={createWorkspaceLabel}
-            disabledSubmit={disabledSubmit}
-            isInitialProjectsLoading={isInitialProjectsLoading}
-            isSubmitting={isSubmitting}
-            onAddProject={onAddProject}
-            onProjectChange={onProjectChange}
-            priority={priority}
-            projectId={projectId}
-            projects={projects}
-            selectedLabels={selectedLabels}
-            selectedProject={selectedProject}
-            setPriority={setPriority}
-            setSelectedLabels={setSelectedLabels}
-            setWorkflowStatus={setWorkflowStatus}
-            workflowStatus={workflowStatus}
-            workspaceLabels={workspaceLabels}
-          />
+          {controls ?? (
+            <WelcomeComposerControls
+              createWorkspaceLabel={createWorkspaceLabel!}
+              disabledSubmit={disabledSubmit}
+              isInitialProjectsLoading={isInitialProjectsLoading}
+              isSubmitting={isSubmitting}
+              onAddProject={onAddProject}
+              onProjectChange={onProjectChange!}
+              priority={priority!}
+              projectId={projectId!}
+              projects={projects!}
+              selectedLabels={selectedLabels!}
+              selectedProject={selectedProject}
+              setPriority={setPriority!}
+              setSelectedLabels={setSelectedLabels!}
+              setWorkflowStatus={setWorkflowStatus!}
+              workflowStatus={workflowStatus!}
+              workspaceLabels={workspaceLabels!}
+            />
+          )}
         </div>
         {footer}
       </div>

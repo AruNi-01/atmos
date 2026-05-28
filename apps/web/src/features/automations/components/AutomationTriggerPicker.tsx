@@ -6,12 +6,27 @@ import {
   Label,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
   cn,
 } from "@workspace/ui";
-import { CalendarClock, CheckCircle2, Clock3, LoaderCircle } from "lucide-react";
+import {
+  Braces,
+  Calendar,
+  CalendarClock,
+  CalendarDays,
+  CalendarRange,
+  Clock3,
+  Globe2,
+  Github,
+  LoaderCircle,
+  Play,
+  type LucideIcon,
+} from "lucide-react";
 
 import { AutomationGithubTriggerPanel } from "@/features/automations/components/AutomationGithubTriggerPanel";
 import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
@@ -22,10 +37,26 @@ import {
   TRIGGER_OPTIONS,
   type TriggerChoice,
 } from "@/features/automations/lib/automation-schedule";
-import { clampNumber, formatDateTime } from "@/features/automations/lib/automation-format";
+import {
+  clampNumber,
+  formatDateTime,
+  timezoneOptionsWithCurrent,
+  type TimezoneOption,
+} from "@/features/automations/lib/automation-format";
+
+const TRIGGER_ICON_BY_VALUE: Record<TriggerChoice, LucideIcon> = {
+  manual: Play,
+  github: Github,
+  hourly: Clock3,
+  daily: Calendar,
+  weekly: CalendarDays,
+  monthly: CalendarRange,
+  cron: Braces,
+};
 
 export function AutomationTriggerPicker({
   trigger,
+  timezone,
   hour,
   minute,
   dayOfWeek,
@@ -50,6 +81,7 @@ export function AutomationTriggerPicker({
   githubSenderLogins,
   githubWorkflowConclusion,
   onTriggerChange,
+  onTimezoneChange,
   onHourChange,
   onMinuteChange,
   onDayOfWeekChange,
@@ -65,8 +97,10 @@ export function AutomationTriggerPicker({
   onGithubCommentContainsChange,
   onGithubSenderLoginsChange,
   onGithubWorkflowConclusionChange,
+  surface = "card",
 }: {
   trigger: TriggerChoice;
+  timezone: string;
   hour: number;
   minute: number;
   dayOfWeek: number;
@@ -91,6 +125,7 @@ export function AutomationTriggerPicker({
   githubSenderLogins: string;
   githubWorkflowConclusion: string;
   onTriggerChange: (trigger: TriggerChoice) => void;
+  onTimezoneChange: (timezone: string) => void;
   onHourChange: (value: number) => void;
   onMinuteChange: (value: number) => void;
   onDayOfWeekChange: (value: number) => void;
@@ -106,33 +141,69 @@ export function AutomationTriggerPicker({
   onGithubCommentContainsChange: (value: string) => void;
   onGithubSenderLoginsChange: (value: string) => void;
   onGithubWorkflowConclusionChange: (value: string) => void;
+  surface?: "card" | "plain";
 }) {
+  const selectedTriggerOption =
+    TRIGGER_OPTIONS.find((option) => option.value === trigger) ?? TRIGGER_OPTIONS[0];
+
   return (
-    <section className="rounded-md border border-border bg-background p-4 shadow-xs">
-      <div className="flex items-center gap-2">
-        <CalendarClock className="size-4 text-muted-foreground" />
-        <div className="text-sm font-semibold text-foreground">Trigger</div>
+    <section
+      className={cn(
+        surface === "card"
+          ? "rounded-md border border-border bg-background p-4 shadow-xs"
+          : "space-y-4",
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="size-4 text-muted-foreground" />
+          <div className="text-sm font-semibold text-foreground">Trigger</div>
+        </div>
+        <TimezoneSelect timezone={timezone} onTimezoneChange={onTimezoneChange} />
       </div>
       <div className="mt-4 grid gap-2">
-        {TRIGGER_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onTriggerChange(option.value)}
-            className={cn(
-              "flex items-center justify-between rounded-md border px-3 py-2 text-left transition-colors",
-              trigger === option.value
-                ? "border-primary/40 bg-primary/5"
-                : "border-border bg-background hover:bg-muted/35",
-            )}
+        <Label htmlFor="automation-trigger-kind">Trigger type</Label>
+        <Select
+          value={trigger}
+          onValueChange={(value) => onTriggerChange(value as TriggerChoice)}
+        >
+          <SelectTrigger
+            id="automation-trigger-kind"
+            className="w-full bg-background/35 [&_[data-trigger-option-description]]:hidden"
+            onPointerDownCapture={(event) => event.stopPropagation()}
           >
-            <span>
-              <span className="block text-sm font-medium text-foreground">{option.label}</span>
-              <span className="block text-xs text-muted-foreground">{option.description}</span>
-            </span>
-            {trigger === option.value ? <CheckCircle2 className="size-4 text-primary" /> : null}
-          </button>
-        ))}
+            <SelectValue placeholder="Select trigger" />
+          </SelectTrigger>
+          <SelectContent>
+            {TRIGGER_OPTIONS.map((option) => {
+              const TriggerIcon = TRIGGER_ICON_BY_VALUE[option.value];
+
+              return (
+                <SelectItem key={option.value} value={option.value} textValue={option.label}>
+                  <span className="flex items-start gap-2">
+                    <TriggerIcon
+                      data-trigger-option-icon
+                      className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                    />
+                    <span className="flex flex-col items-start gap-0.5">
+                      <span data-trigger-option-label className="text-sm font-medium">
+                        {option.label}
+                      </span>
+                      <span data-trigger-option-description className="text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </span>
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        {selectedTriggerOption ? (
+          <p className="text-xs text-muted-foreground">
+            {selectedTriggerOption.description}
+          </p>
+        ) : null}
       </div>
 
       {trigger === "github" ? (
@@ -205,7 +276,7 @@ export function AutomationTriggerPicker({
               />
             </div>
           ) : null}
-          <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+          <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2">
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {previewLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Clock3 className="size-3.5" />}
               Next runs
@@ -224,11 +295,79 @@ export function AutomationTriggerPicker({
           </div>
         </div>
       ) : (
-        <div className="mt-4 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+        <div className="mt-4 rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-sm text-muted-foreground">
           No schedule is saved. Use Run Now from the detail view.
         </div>
       )}
     </section>
+  );
+}
+
+function TimezoneSelect({
+  timezone,
+  onTimezoneChange,
+}: {
+  timezone: string;
+  onTimezoneChange: (timezone: string) => void;
+}) {
+  const groupedOptions = React.useMemo(
+    () => groupTimezoneOptions(timezoneOptionsWithCurrent(timezone)),
+    [timezone],
+  );
+
+  return (
+    <Select value={timezone} onValueChange={onTimezoneChange}>
+      <SelectTrigger
+        aria-label="Trigger timezone"
+        size="sm"
+        className="h-8 max-w-[13rem] border-border/60 bg-background/35 px-2.5 text-xs [&_[data-timezone-option-value]]:hidden"
+        onPointerDownCapture={(event) => event.stopPropagation()}
+      >
+        <Globe2 className="size-3.5" />
+        <SelectValue placeholder="Timezone" />
+      </SelectTrigger>
+      <SelectContent align="end" className="max-h-[18rem] w-[18rem]">
+        {groupedOptions.map((group, index) => (
+          <React.Fragment key={group.group}>
+            {index > 0 ? <SelectSeparator /> : null}
+            <SelectGroup>
+              <SelectLabel>{group.group}</SelectLabel>
+              {group.options.map((option) => (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  textValue={`${option.label} ${option.value}`}
+                >
+                  <span className="flex min-w-0 flex-col items-start gap-0.5">
+                    <span data-timezone-option-label className="max-w-[13rem] truncate">
+                      {option.label}
+                    </span>
+                    <span data-timezone-option-value className="max-w-[13rem] truncate text-xs text-muted-foreground">
+                      {option.value}
+                    </span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </React.Fragment>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function groupTimezoneOptions(options: TimezoneOption[]) {
+  return options.reduce<Array<{ group: string; options: TimezoneOption[] }>>(
+    (groups, option) => {
+      const existingGroup = groups.find((group) => group.group === option.group);
+      if (existingGroup) {
+        existingGroup.options.push(option);
+      } else {
+        groups.push({ group: option.group, options: [option] });
+      }
+      return groups;
+    },
+    [],
   );
 }
 

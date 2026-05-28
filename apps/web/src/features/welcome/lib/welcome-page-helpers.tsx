@@ -20,6 +20,8 @@ export interface AgentMenuOption {
   command: string;
   launchCommand: string;
   iconType: "built-in" | "custom";
+  description?: string | null;
+  disabledReason?: string | null;
 }
 
 export interface MentionFileCandidate {

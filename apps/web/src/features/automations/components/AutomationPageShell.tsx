@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui";
-import { LoaderCircle, RefreshCw, Workflow } from "lucide-react";
+import { LoaderCircle, RefreshCw, Timer } from "lucide-react";
 
 import { AutomationDetailPanel } from "@/features/automations/components/AutomationDetailPanel";
 import { AutomationListPanel } from "@/features/automations/components/AutomationListPanel";
@@ -89,7 +89,7 @@ export function AutomationPageShell({
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6">
             <div className="flex min-w-0 items-center gap-4">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-foreground">
-                <Workflow className="size-5" />
+                <Timer className="size-5" />
               </div>
               <div className="min-w-0">
                 <h2 className="truncate text-xl font-semibold tracking-tight text-foreground">Automations</h2>
@@ -120,7 +120,7 @@ export function AutomationPageShell({
                 <TooltipTrigger asChild>
                   <span>
                     <Button disabled={newAutomationDisabled} onClick={onCreate}>
-                      <Workflow className="size-4" />
+                      <Timer className="size-4" />
                       New Automation
                     </Button>
                   </span>

@@ -126,6 +126,62 @@ export function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(Math.trunc(value), min), max);
 }
 
+export interface TimezoneOption {
+  value: string;
+  label: string;
+  group: string;
+}
+
+export const COMMON_TIMEZONE_OPTIONS: TimezoneOption[] = [
+  { value: "UTC", label: "UTC", group: "Universal" },
+  { value: "America/Los_Angeles", label: "Los Angeles", group: "Americas" },
+  { value: "America/Denver", label: "Denver", group: "Americas" },
+  { value: "America/Chicago", label: "Chicago", group: "Americas" },
+  { value: "America/New_York", label: "New York", group: "Americas" },
+  { value: "America/Toronto", label: "Toronto", group: "Americas" },
+  { value: "America/Sao_Paulo", label: "Sao Paulo", group: "Americas" },
+  { value: "Europe/London", label: "London", group: "Europe" },
+  { value: "Europe/Paris", label: "Paris", group: "Europe" },
+  { value: "Europe/Berlin", label: "Berlin", group: "Europe" },
+  { value: "Europe/Madrid", label: "Madrid", group: "Europe" },
+  { value: "Europe/Amsterdam", label: "Amsterdam", group: "Europe" },
+  { value: "Europe/Moscow", label: "Moscow", group: "Europe" },
+  { value: "Africa/Cairo", label: "Cairo", group: "Africa" },
+  { value: "Africa/Johannesburg", label: "Johannesburg", group: "Africa" },
+  { value: "Asia/Dubai", label: "Dubai", group: "Asia" },
+  { value: "Asia/Karachi", label: "Karachi", group: "Asia" },
+  { value: "Asia/Kolkata", label: "Kolkata", group: "Asia" },
+  { value: "Asia/Dhaka", label: "Dhaka", group: "Asia" },
+  { value: "Asia/Bangkok", label: "Bangkok", group: "Asia" },
+  { value: "Asia/Singapore", label: "Singapore", group: "Asia" },
+  { value: "Asia/Shanghai", label: "Shanghai", group: "Asia" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong", group: "Asia" },
+  { value: "Asia/Taipei", label: "Taipei", group: "Asia" },
+  { value: "Asia/Tokyo", label: "Tokyo", group: "Asia" },
+  { value: "Asia/Seoul", label: "Seoul", group: "Asia" },
+  { value: "Australia/Perth", label: "Perth", group: "Oceania" },
+  { value: "Australia/Sydney", label: "Sydney", group: "Oceania" },
+  { value: "Pacific/Auckland", label: "Auckland", group: "Oceania" },
+];
+
+export function timezoneOptionsWithCurrent(timezone: string): TimezoneOption[] {
+  const selectedTimezone = timezone.trim();
+  if (
+    !selectedTimezone ||
+    COMMON_TIMEZONE_OPTIONS.some((option) => option.value === selectedTimezone)
+  ) {
+    return COMMON_TIMEZONE_OPTIONS;
+  }
+  return [
+    {
+      value: selectedTimezone,
+      label: selectedTimezone,
+      group: "Current",
+    },
+    ...COMMON_TIMEZONE_OPTIONS,
+  ];
+}
+
 export function resolveTimezone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";

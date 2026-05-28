@@ -41,6 +41,7 @@ export function AutomationEnvironmentPicker({
   onTargetKindChange,
   onProjectGuidChange,
   onWorkspaceGuidChange,
+  surface = "card",
 }: {
   targetKind: AutomationTargetKind;
   projectGuid: string;
@@ -51,9 +52,16 @@ export function AutomationEnvironmentPicker({
   onTargetKindChange: (kind: AutomationTargetKind) => void;
   onProjectGuidChange: (guid: string) => void;
   onWorkspaceGuidChange: (guid: string) => void;
+  surface?: "card" | "plain";
 }) {
   return (
-    <section className="rounded-md border border-border bg-background p-4 shadow-xs">
+    <section
+      className={cn(
+        surface === "card"
+          ? "rounded-md border border-border bg-background p-4 shadow-xs"
+          : "space-y-4",
+      )}
+    >
       <div className="flex items-center gap-2">
         <FolderGit2 className="size-4 text-muted-foreground" />
         <div className="text-sm font-semibold text-foreground">Environment</div>
@@ -134,7 +142,7 @@ export function AutomationEnvironmentPicker({
             </Select>
           </div>
         ) : (
-          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-border/60 bg-background/35 px-3 py-2 text-sm text-muted-foreground">
             Runs use a standalone directory under the owning Computer&apos;s automation run folder.
           </div>
         )}
