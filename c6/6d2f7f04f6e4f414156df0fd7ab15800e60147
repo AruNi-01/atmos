@@ -1,0 +1,91 @@
+apps/web/src/features/welcome/components/WelcomeComposerCard.tsx
+  s_849b0256f55581::t_a2c8135b3826a3 49,54,64,69-79,110-129
+apps/web/src/app-shell/LeftSidebarManagementCenter.tsx
+  s_849b0256f55581::t_9436c1dfb00607 21,94
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_849b0256f55581::t_46afeafa3fee05 307
+  s_849b0256f55581::t_8ed72c9520b006 123-140,221-237,246-247
+  s_849b0256f55581::t_1e69b50d77011b 497,523-526
+  s_849b0256f55581::t_9b1a7305d01258 419
+  s_849b0256f55581::t_577e8f174156ee 22,248-267
+  s_849b0256f55581::t_0c28d4fd1e07bd 12-14,177-178,420-421,456,458-463
+  s_849b0256f55581::t_7b342f678f8b84 48-49,55-68,118,174-175,422,565-611
+  s_849b0256f55581::t_1d2de52fabc131 398-402,405-417,423-424,426-455,457,464-483,485-487,489-496,498-522,527-559
+  s_849b0256f55581::t_487f29fca78b79 9,45-47
+  s_849b0256f55581::t_adc568212a8d51 613-662
+  s_849b0256f55581::t_40d072da75eddb 173,176
+specs/APP/APP-017_atmos-automations/IMPROVEMENT.md
+  s_849b0256f55581::t_31e82cda67fa48 54
+  s_849b0256f55581::t_8ca3e1a3777f19 26,74-100
+  s_849b0256f55581::t_f29ea452458245 14,27,101-127
+  s_849b0256f55581::t_bb42a7d26061b0 50,58
+  s_849b0256f55581::t_b134f210233101 55
+  s_849b0256f55581::t_f8a7abe2022e4e 53
+  s_849b0256f55581::t_d07d9f0cd53532 1-13,15-24,28-35,37-49,51,56-57,59-64,67,69-71
+  s_849b0256f55581::t_f260c355fa91fe 72
+  s_849b0256f55581::t_1ee1de763f5dec 25,36,65-66,68,73
+apps/web/src/features/automations/components/AutomationSetupControls.tsx
+  s_849b0256f55581::t_48d1832c050944 225,230-238,257-258
+  s_849b0256f55581::t_c3ecc88420ecc0 63
+  s_849b0256f55581::t_474e3533944941 66-67,140-142,144-154,160
+  s_849b0256f55581::t_5e1d78fecaf5ab 252-254
+  s_849b0256f55581::t_6e797c43476d68 185-196,198-218,220-224
+  s_849b0256f55581::t_b708bf2f8d9b15 162-168,239-251,255-256
+  s_849b0256f55581::t_85bd2e580b3ea2 36-39,84-87,89-90,92,94,120-123,125-126,128,130
+  s_849b0256f55581::t_8240fb2a687c09 1-35,40-62,65,73-74,79-83,91,95-96,103,109-110,115-119,127,131-139,143,155-159,161,169-184,226-229
+  s_849b0256f55581::t_0d2ad21050d035 64,68-69,72,104-105,108
+  s_849b0256f55581::t_3fdf61c9980a41 70-71,75-78,88,93,97-102,106-107,111-114,124,129
+apps/web/src/features/automations/components/AutomationEnvironmentPicker.tsx
+  s_849b0256f55581::t_6b67fa1a6236c9 44,55,58-64
+  s_849b0256f55581::t_83d557e9504d23 145
+apps/web/src/features/automations/components/AutomationPageShell.tsx
+  s_849b0256f55581::t_886d6a68b416d6 10,92,123
+crates/core-service/src/service/automation/agents.rs
+  s_849b0256f55581::t_63d44419fd81eb 733
+  s_849b0256f55581::t_868fe3f68ffbe5 741-744,750-753
+  s_849b0256f55581::t_b2462c4b52590d 731-732,734
+apps/web/src/features/automations/components/AutomationTriggerPicker.tsx
+  s_849b0256f55581::t_53c16282bfdd58 173
+  s_849b0256f55581::t_ce5e27a8655d9e 100,144,150-156
+  s_849b0256f55581::t_004ed12edd8565 165
+  s_849b0256f55581::t_89e44db2b75052 279,298
+  s_849b0256f55581::t_3236ceea1cbc14 170-172,196
+  s_849b0256f55581::t_a9f6f98eadfadb 17-23,25-29,46-55
+  s_849b0256f55581::t_db378a62c32eb0 178-195,197-199
+  s_849b0256f55581::t_659355a48fb35b 9,11-12,24,40-45,59,84,103,128,157-162,306-370
+  s_849b0256f55581::t_51aafea5fd5994 202-206
+  s_849b0256f55581::t_89e8d162d1c591 167
+  s_849b0256f55581::t_f449e2b741e34b 146-148
+apps/web/src/features/automations/lib/automation-format.ts
+  s_849b0256f55581::t_9fa30201768f8c 129-184
+apps/web/src/features/welcome/components/WelcomeComposerControls.tsx
+  s_849b0256f55581::t_a1a796194872d1 70-72,75-80,83,89-96,100-101
+apps/web/src/app-shell/global-search-app-items.tsx
+  s_849b0256f55581::t_ec44e9e9e596d3 21,261
+apps/web/src/features/welcome/lib/welcome-page-helpers.tsx
+  s_849b0256f55581::t_78a59d6c7899d7 23-24
+Cargo.lock
+  ai_agent 530
+apps/web/src/features/automations/components/AutomationPage.tsx
+  s_849b0256f55581::t_9563ca8acaba16 4,11,14-15,18-72,74-105
+  s_849b0256f55581::t_f01c635b55ec67 3,13,73
+resources/terminal-agents/builtin_agents.json
+  s_849b0256f55581::t_5715f2138bba4e 42
+  s_849b0256f55581::t_8dbd5563ee9e68 56-57,69-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c66d2f7f04f6e4f414156df0fd7ab15800e60147",
+  "prompts": {},
+  "sessions": {
+    "s_849b0256f55581": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6c7a-20ef-74a0-b786-da49781d1950",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
