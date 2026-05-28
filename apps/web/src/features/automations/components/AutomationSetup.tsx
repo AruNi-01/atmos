@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
 import {
   Button,
   TooltipProvider,
 } from "@workspace/ui";
-import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { ArrowLeft, LoaderCircle, X } from "lucide-react";
 
 import {
   AutomationSetupControls,
@@ -42,10 +43,29 @@ import type {
 import {
   type ComposerHandle,
 } from "@/features/welcome/components/PromptComposer";
+import {
+  type MentionNavItem,
+  type MentionPopoverState,
+  WelcomeMentionPopover,
+} from "@/features/welcome/components/WelcomeMentionPopover";
+import { SlashCommandPopover } from "@/features/welcome/components/SlashCommandPopover";
 import { WelcomeAgentSelector } from "@/features/welcome/components/WelcomeComposerControls";
 import { WelcomeComposerCard } from "@/features/welcome/components/WelcomeComposerCard";
 import { WelcomePageBackdrop } from "@/features/welcome/components/WelcomePageShell";
-import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
+import { useWelcomeComposerAttachments } from "@/features/welcome/hooks/use-welcome-composer-attachments";
+import { useWelcomeMentionSearch } from "@/features/welcome/hooks/use-welcome-mention-search";
+import {
+  type WelcomeSlashPopoverState,
+  useWelcomeSlashNavigation,
+} from "@/features/welcome/hooks/use-welcome-slash-navigation";
+import { useWelcomeSlashSearch } from "@/features/welcome/hooks/use-welcome-slash-search";
+import {
+  blobToBase64,
+  resolvePromptPlaceholders,
+  type AgentMenuOption,
+  type MentionFileCandidate,
+} from "@/features/welcome/lib/welcome-page-helpers";
+import type { SkillInfo } from "@/api/ws-api";
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import type { Project } from "@/shared/types/domain";
 import { settingsModalParams } from "@/shared/lib/nuqs/searchParams";
@@ -65,6 +85,8 @@ const AUTOMATION_HEADLINES: AutomationHeadline[] = [
   "keep_running",
 ];
 const DEFAULT_AUTOMATION_HEADLINE: AutomationHeadline = "automate_next";
+const PREVIEW_FOCUSABLE_SELECTOR =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 export function AutomationSetup({
   mode,
@@ -94,7 +116,17 @@ export function AutomationSetup({
   onUpdate: (request: AutomationUpdateRequest) => Promise<AutomationDetail>;
 }) {
   const composerRef = React.useRef<ComposerHandle | null>(null);
+  const {
+    attachments,
+    clearAttachments,
+    handleAttachmentRemove,
+    handleImagePaste,
+    previewAttachment,
+    setPreviewAttachment,
+    syncAttachmentPlaceholders,
+  } = useWelcomeComposerAttachments(composerRef);
   const previewRequestIdRef = React.useRef(0);
+  const previewDialogRef = React.useRef<HTMLDivElement | null>(null);
   const [, setSettingsModalOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
   const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
   const [timezone, setTimezone] = React.useState(resolveTimezone);
@@ -116,10 +148,75 @@ export function AutomationSetup({
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [headline, setHeadline] = React.useState<AutomationHeadline>(DEFAULT_AUTOMATION_HEADLINE);
+  const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
+  const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
+
+  React.useEffect(() => {
+    if (!previewAttachment || typeof document === "undefined") return;
+
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusFrame = window.requestAnimationFrame(() => {
+      const dialog = previewDialogRef.current;
+      if (!dialog) return;
+      const firstFocusable = dialog.querySelector<HTMLElement>(PREVIEW_FOCUSABLE_SELECTOR);
+      (firstFocusable ?? dialog).focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setPreviewAttachment(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const dialog = previewDialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(PREVIEW_FOCUSABLE_SELECTOR),
+      ).filter((element) => !element.hasAttribute("disabled"));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus && document.contains(previousFocus)) {
+        window.requestAnimationFrame(() => previousFocus.focus());
+      }
+    };
+  }, [previewAttachment, setPreviewAttachment]);
 
   const workspaces = React.useMemo(() => flattenWorkspaces(projects), [projects]);
   const selectedAgent = agents.find((agent) => agent.agent_id === agentId) ?? null;
   const supportedAgents = agents.filter((agent) => agent.automation_supported);
+  const selectedTargetProject = React.useMemo(() => {
+    if (targetKind === "project" || targetKind === "new_workspace") {
+      return projects.find((project) => project.id === projectGuid) ?? null;
+    }
+    if (targetKind === "workspace") {
+      return workspaces.find((item) => item.workspace.id === workspaceGuid)?.project ?? null;
+    }
+    return null;
+  }, [projectGuid, projects, targetKind, workspaceGuid, workspaces]);
+  const selectedProjectPath = selectedTargetProject?.mainFilePath ?? null;
   const agentOptions = React.useMemo<AgentMenuOption[]>(
     () =>
       agents.map((agent) => ({
@@ -138,6 +235,94 @@ export function AutomationSetup({
     [agents],
   );
   const selectedAgentOption = agentOptions.find((agent) => agent.id === agentId);
+  const {
+    filteredAgents,
+    filteredProjects,
+    filteredSkills,
+    isSkillsLoading,
+  } = useWelcomeSlashSearch({
+    availableAgents: agentOptions,
+    popover: slashPopover,
+    projects,
+  });
+  const selectMentionFile = React.useCallback(
+    (item: MentionFileCandidate) => {
+      const popover = mentionPopover;
+      if (!popover) return;
+      composerRef.current?.applyMentionAtRange(
+        popover.atOffset,
+        popover.query.length,
+        { kind: "file", relativePath: item.relativePath },
+      );
+      setMentionPopover(null);
+    },
+    [mentionPopover],
+  );
+  const selectMentionNavItem = React.useCallback(
+    (item: MentionNavItem) => {
+      if (item.type === "file") {
+        selectMentionFile(item.file);
+      }
+    },
+    [selectMentionFile],
+  );
+  const {
+    activeMentionFileIndex,
+    isMentionFilesLoading,
+    mentionFiles,
+    mentionPopoverListRef,
+    setIsMentionFilesLoading,
+    setMentionItemRef,
+  } = useWelcomeMentionSearch({
+    issuePreview: null,
+    onSelectNavItem: selectMentionNavItem,
+    popover: mentionPopover,
+    prPreview: null,
+    selectedProjectPath,
+  });
+  const selectSlashSkill = React.useCallback(
+    (skill: SkillInfo) => {
+      const popover = slashPopover;
+      if (!popover) return;
+      composerRef.current?.applySlashAtRange(
+        popover.slashOffset,
+        popover.query.length,
+        { kind: "skill", absolutePath: skill.path, name: skill.name },
+      );
+      setSlashPopover(null);
+    },
+    [slashPopover],
+  );
+  const selectSlashProject = React.useCallback(
+    (project: { id: string }) => {
+      setTargetKind("project");
+      setProjectGuid(project.id);
+      setWorkspaceGuid("");
+      setSubmitError(null);
+      setSlashPopover(null);
+    },
+    [],
+  );
+  const selectSlashAgent = React.useCallback((agent: AgentMenuOption) => {
+    setAgentId(agent.id);
+    setSubmitError(null);
+    setSlashPopover(null);
+  }, []);
+  const {
+    activeIndex: activeSlashItemIndex,
+    expandedSections,
+    listRef: slashPopoverListRef,
+    setExpandedSections,
+    setItemRef: setSlashItemRef,
+  } = useWelcomeSlashNavigation({
+    filteredAgents,
+    filteredProjects,
+    filteredSkills,
+    onSelectAgent: selectSlashAgent,
+    onSelectProject: selectSlashProject,
+    onSelectSkill: selectSlashSkill,
+    popover: slashPopover,
+  });
   const {
     githubPrereqs,
     githubRelayReady,
@@ -178,6 +363,7 @@ export function AutomationSetup({
 
   React.useEffect(() => {
     if (mode === "edit" && initialAutomation) {
+      clearAttachments();
       setDisplayName(initialAutomation.display_name);
       setInstructions(initialAutomation.instructions);
       setAgentId(initialAutomation.agent_id);
@@ -196,7 +382,7 @@ export function AutomationSetup({
         composerRef.current?.setText(initialAutomation.instructions);
       });
     }
-  }, [initialAutomation, mode]);
+  }, [clearAttachments, initialAutomation, mode]);
 
   React.useEffect(() => {
     if (!agentId && supportedAgents.length > 0) {
@@ -333,15 +519,27 @@ export function AutomationSetup({
 
     setSubmitting(true);
     try {
+      const rawInstructions = composerRef.current?.getText() ?? instructions;
+      const resolvedInstructions = resolvePromptPlaceholders(rawInstructions, []);
+      const attachmentPayload = await Promise.all(
+        attachments.map(async (attachment) => ({
+          filename: attachment.filename,
+          mime: attachment.blob.type || "application/octet-stream",
+          data_base64: await blobToBase64(attachment.blob),
+        })),
+      );
+      let savedAutomation: AutomationDetail | null = null;
+
       if (mode === "create") {
-        await createAutomationWithGithubRoute({
+        savedAutomation = await createAutomationWithGithubRoute({
           request: {
             display_name: displayName.trim(),
-            instructions: instructions.trim(),
+            instructions: resolvedInstructions.trim(),
             agent_id: agentId,
             target,
             schedule: requestSchedule,
             trigger: triggerInputForSubmit(trigger, githubConfig, false),
+            attachments: attachmentPayload,
           },
           githubConfig,
           githubRouteReady,
@@ -350,14 +548,15 @@ export function AutomationSetup({
           updateAutomation: onUpdate,
         });
       } else if (initialAutomation) {
-        await updateAutomationWithGithubRoute({
+        savedAutomation = await updateAutomationWithGithubRoute({
           request: {
             automation_guid: initialAutomation.guid,
             display_name: displayName.trim(),
-            instructions: instructions.trim(),
+            instructions: resolvedInstructions.trim(),
             agent_id: agentId,
             target,
             schedule: requestSchedule,
+            attachments: attachmentPayload,
           },
           initialAutomation,
           trigger,
@@ -368,6 +567,11 @@ export function AutomationSetup({
           updateAutomation: onUpdate,
         });
       }
+      if (savedAutomation) {
+        setInstructions(savedAutomation.instructions);
+        composerRef.current?.setText(savedAutomation.instructions);
+      }
+      clearAttachments();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to save automation");
     } finally {
@@ -435,21 +639,55 @@ export function AutomationSetup({
                 }}
               />
               <WelcomeComposerCard
-                attachments={[]}
+                attachments={attachments}
                 composerRef={composerRef}
                 disabledSubmit={disabledSubmit}
                 isInitialProjectsLoading={projectsLoading}
                 isSubmitting={submitting}
-                onAtCancel={() => undefined}
-                onAtTrigger={() => undefined}
-                onAttachmentPreview={() => undefined}
-                onAttachmentRemove={() => undefined}
-                onImagePaste={() => undefined}
-                onSlashCancel={() => undefined}
-                onSlashTrigger={() => undefined}
+                onAtCancel={() => {
+                  setMentionPopover(null);
+                  setIsMentionFilesLoading(false);
+                }}
+                onAtTrigger={(ctx) => {
+                  setMentionPopover({
+                    top: ctx.caretRect.bottom + 4,
+                    left: ctx.caretRect.left,
+                    atOffset: ctx.atOffset,
+                    query: ctx.query,
+                  });
+                }}
+                onAttachmentPreview={(attachment) => setPreviewAttachment(attachment)}
+                onAttachmentRemove={handleAttachmentRemove}
+                onImagePaste={handleImagePaste}
+                onSlashCancel={() => {
+                  setSlashPopover(null);
+                  setExpandedSections({
+                    skills: false,
+                    projects: false,
+                    agents: false,
+                  });
+                }}
+                onSlashTrigger={(ctx) => {
+                  setSlashPopover({
+                    top: ctx.caretRect.bottom + 4,
+                    left: ctx.caretRect.left,
+                    slashOffset: ctx.slashOffset,
+                    query: ctx.query,
+                  });
+                }}
                 onTextChange={(text) => {
                   setInstructions(text);
                   setSubmitError(null);
+                  setMentionPopover((prev) => {
+                    if (!prev) return prev;
+                    if (text.length < prev.atOffset) return null;
+                    if (text.charAt(prev.atOffset - 1) !== "@") return null;
+                    const newQuery = text.slice(prev.atOffset);
+                    const spaceIdx = newQuery.search(/\s/);
+                    if (spaceIdx >= 0) return null;
+                    return newQuery === prev.query ? prev : { ...prev, query: newQuery };
+                  });
+                  syncAttachmentPlaceholders(text);
                 }}
                 placeholder={<span>{placeholder}</span>}
                 controls={
@@ -555,6 +793,64 @@ export function AutomationSetup({
                   />
                 }
               />
+              <WelcomeMentionPopover
+                activeIndex={activeMentionFileIndex}
+                issuePreview={null}
+                isLoading={isMentionFilesLoading}
+                listRef={mentionPopoverListRef}
+                mentionFiles={mentionFiles}
+                onClose={() => setMentionPopover(null)}
+                onSelectFile={selectMentionFile}
+                onSelectNavItem={selectMentionNavItem}
+                onSetItemRef={setMentionItemRef}
+                popover={mentionPopover}
+                prPreview={null}
+              />
+              <SlashCommandPopover
+                activeIndex={activeSlashItemIndex}
+                expandedSections={expandedSections}
+                filteredAgents={filteredAgents}
+                filteredProjects={filteredProjects}
+                filteredSkills={filteredSkills}
+                isSkillsLoading={isSkillsLoading}
+                listRef={slashPopoverListRef}
+                onClose={() => setSlashPopover(null)}
+                onSelectAgent={selectSlashAgent}
+                onSelectProject={selectSlashProject}
+                onSelectSkill={selectSlashSkill}
+                popover={slashPopover}
+                setExpandedSections={setExpandedSections}
+                setItemRef={setSlashItemRef}
+              />
+              {previewAttachment && typeof document !== "undefined"
+                ? createPortal(
+                    <div
+                      ref={previewDialogRef}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label={`Preview attachment ${previewAttachment.filename}`}
+                      tabIndex={-1}
+                      className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
+                      onClick={() => setPreviewAttachment(null)}
+                    >
+                      <button
+                        type="button"
+                        className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-md border border-white/20 bg-black/40 text-white shadow-lg transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                        onClick={() => setPreviewAttachment(null)}
+                      >
+                        <X className="size-5" />
+                        <span className="sr-only">Close preview</span>
+                      </button>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object URLs and must not go through Next image optimization. */}
+                      <img
+                        src={previewAttachment.objectUrl}
+                        alt={previewAttachment.filename}
+                        className="max-h-[92vh] max-w-[92vw] rounded-md object-contain shadow-2xl"
+                      />
+                    </div>,
+                    document.body,
+                  )
+                : null}
             </div>
           </form>
         </div>

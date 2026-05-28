@@ -31,4 +31,6 @@ remote-access = { path = "../../../crates/remote-access" }
 keyring = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+core-graphics = "0.24"
 objc2-app-kit = "0.3.2"

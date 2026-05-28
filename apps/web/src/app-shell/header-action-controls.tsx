@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 
 import type { ProviderKind, RemoteAccessStatus } from "@/features/connection/hooks/use-remote-access";
+import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
 import { UsagePopover } from "./UsagePopover";
@@ -131,6 +132,7 @@ export function HeaderActionControls({
 }: HeaderActionControlsProps) {
   return (
     <div className="relative z-10 flex items-center space-x-3 justify-end">
+      {isDesktopRuntime ? <AppshotCapturePreview /> : null}
       <LocalModelDownloadProgress />
       <button
         aria-label="Search"
@@ -147,125 +149,128 @@ export function HeaderActionControls({
 
       <div className="desktop-no-drag flex items-center justify-end gap-2">
         {isDesktopRuntime ? (
-          <Popover
-            open={desktopWebPopoverOpen}
-            onOpenChange={(open) => {
-              setDesktopWebPopoverOpen(open);
-              if (open) {
-                void refreshDesktopWebStatus();
-                void refreshRemoteAccessStatus();
-              }
-            }}
-          >
-            <PopoverTrigger asChild>
-              <button
-                aria-label="Open in Web"
-                className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                title={
-                  isRemoteAccessRunning
-                    ? "Tunnel active"
-                    : desktopWebStatus === "ready"
-                      ? "Open in Web"
-                      : "Start Web"
+          <>
+            <AppshotsHeaderButton onCloseAutoFocus={onCloseAutoFocusPrevent} />
+            <Popover
+              open={desktopWebPopoverOpen}
+              onOpenChange={(open) => {
+                setDesktopWebPopoverOpen(open);
+                if (open) {
+                  void refreshDesktopWebStatus();
+                  void refreshRemoteAccessStatus();
                 }
-              >
-                <Globe className="size-4" />
-                {isRemoteAccessRunning && (
-                  <span
-                    className={cn(
-                      "absolute right-1 top-1 size-2 rounded-full ring-1 ring-background",
-                      remoteAccessDotColor,
-                    )}
-                  />
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              sideOffset={8}
-              className="w-80 max-h-[70vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
+              }}
             >
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+              <PopoverTrigger asChild>
+                <button
+                  aria-label="Open in Web"
+                  className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
+                  title={
+                    isRemoteAccessRunning
+                      ? "Tunnel active"
+                      : desktopWebStatus === "ready"
+                        ? "Open in Web"
+                        : "Start Web"
+                  }
+                >
+                  <Globe className="size-4" />
+                  {isRemoteAccessRunning && (
                     <span
                       className={cn(
-                        "size-2 rounded-full",
-                        desktopWebStatus === "ready"
-                          ? "bg-success"
-                          : desktopWebStatus === "checking"
-                            ? "bg-warning"
-                            : "bg-muted-foreground/50",
+                        "absolute right-1 top-1 size-2 rounded-full ring-1 ring-background",
+                        remoteAccessDotColor,
                       )}
                     />
-                    <p className="text-sm font-medium text-popover-foreground">
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={8}
+                className="w-80 max-h-[70vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
+              >
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "size-2 rounded-full",
+                          desktopWebStatus === "ready"
+                            ? "bg-success"
+                            : desktopWebStatus === "checking"
+                              ? "bg-warning"
+                              : "bg-muted-foreground/50",
+                        )}
+                      />
+                      <p className="text-sm font-medium text-popover-foreground">
+                        {desktopWebStatus === "ready"
+                          ? "Web access is ready"
+                          : "Browser access via sidecar"}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
                       {desktopWebStatus === "ready"
-                        ? "Web access is ready"
-                        : "Browser access via sidecar"}
+                        ? "Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches."
+                        : "Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there."}
                     </p>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {desktopWebStatus === "ready"
-                      ? "Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches."
-                      : "Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there."}
-                  </p>
-                </div>
 
-                {browserUrl ? (
-                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
-                    {browserUrl}
-                  </div>
-                ) : null}
-
-                <div className="flex items-center gap-2">
-                  {!isRemoteAccessRunning && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setDesktopWebPopoverOpen(false);
-                        setRemoteAccessSettingsOpen(true);
-                        void setIsSettingsOpen(true);
-                      }}
-                      className="cursor-pointer"
-                    >
-                      Remote Access
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => void onOpenDesktopWeb()}
-                    disabled={isOpeningDesktopWeb}
-                    className="flex-1 cursor-pointer"
-                  >
-                    {isOpeningDesktopWeb
-                      ? "Starting..."
-                      : desktopWebStatus === "ready"
-                        ? "Open In Web"
-                        : "Start Web"}
-                    <ExternalLink className="size-4" />
-                  </Button>
-                </div>
-
-                {isRemoteAccessRunning && activeRemoteTunnels.length > 0 && (
-                  <>
-                    <div className="border-t border-border" />
-                    <div className="space-y-2">
-                      {activeRemoteTunnels.map((tunnel) => (
-                        <TunnelItem
-                          key={tunnel.provider}
-                          status={tunnel}
-                          onRenew={(ttlSecs, reuseToken) =>
-                            tunnel.provider
-                              ? renewRemoteAccess(tunnel.provider, ttlSecs, reuseToken).then(() => {})
-                              : Promise.resolve()
-                          }
-                        />
-                      ))}
+                  {browserUrl ? (
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
+                      {browserUrl}
                     </div>
-                  </>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
+                  ) : null}
+
+                  <div className="flex items-center gap-2">
+                    {!isRemoteAccessRunning && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setDesktopWebPopoverOpen(false);
+                          setRemoteAccessSettingsOpen(true);
+                          void setIsSettingsOpen(true);
+                        }}
+                        className="cursor-pointer"
+                      >
+                        Remote Access
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => void onOpenDesktopWeb()}
+                      disabled={isOpeningDesktopWeb}
+                      className="flex-1 cursor-pointer"
+                    >
+                      {isOpeningDesktopWeb
+                        ? "Starting..."
+                        : desktopWebStatus === "ready"
+                          ? "Open In Web"
+                          : "Start Web"}
+                      <ExternalLink className="size-4" />
+                    </Button>
+                  </div>
+
+                  {isRemoteAccessRunning && activeRemoteTunnels.length > 0 && (
+                    <>
+                      <div className="border-t border-border" />
+                      <div className="space-y-2">
+                        {activeRemoteTunnels.map((tunnel) => (
+                          <TunnelItem
+                            key={tunnel.provider}
+                            status={tunnel}
+                            onRenew={(ttlSecs, reuseToken) =>
+                              tunnel.provider
+                                ? renewRemoteAccess(tunnel.provider, ttlSecs, reuseToken).then(() => {})
+                                : Promise.resolve()
+                            }
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </>
         ) : null}
 
         <Tooltip>

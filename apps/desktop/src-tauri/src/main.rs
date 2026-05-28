@@ -1,3 +1,4 @@
+mod appshot;
 mod commands;
 mod logging;
 mod preview_bridge;
@@ -68,6 +69,7 @@ fn main() {
                     remote_access_state_path,
                 ),
             });
+            appshot::init(app.handle().clone());
 
             let app_handle = app.handle().clone();
             app.listen("frontend://theme-ready", move |_| {
@@ -347,6 +349,16 @@ fn main() {
             commands::preview_bridge_hide,
             commands::preview_bridge_event,
             commands::preview_bridge_probe_url,
+            commands::appshot_status,
+            commands::appshot_accept_pending,
+            commands::appshot_discard_pending,
+            commands::appshot_set_pending_auto_accept,
+            commands::appshot_list_records,
+            commands::appshot_read_records,
+            commands::appshot_read_snapshot,
+            commands::appshot_copy_record,
+            commands::appshot_delete_record,
+            commands::appshot_open_permissions,
             remote_access::commands::remote_access_detect,
             remote_access::commands::remote_access_start,
             remote_access::commands::remote_access_stop,

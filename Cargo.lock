@@ -530,6 +530,8 @@ name = "atmos-desktop"
 version = "1.2.0-beta.10"
 dependencies = [
  "chrono",
+ "core-foundation 0.10.1",
+ "core-graphics",
  "dirs 5.0.1",
  "keyring",
  "objc2-app-kit",

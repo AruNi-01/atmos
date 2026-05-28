@@ -3,6 +3,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { cn, getFileIconProps } from "@workspace/ui";
+import { parseAppshotProtocol } from "@/features/appshot/lib/appshot-protocol";
 
 export type MentionRef =
   | { kind: "issue" | "pr"; number: number }
@@ -59,7 +60,8 @@ interface PromptComposerProps extends ComposerCallbacks {
   onSubmit?: () => void;
 }
 
-const TOKEN_REGEX = /(@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\])/g;
+const TOKEN_REGEX =
+  /(@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\]|\[#appshot:\d{13}\])/g;
 
 /**
  * SVG icons used inside chips live as static assets under
@@ -143,6 +145,14 @@ function buildChipNode(token: string): HTMLSpanElement {
     span.dataset.kind = "img";
     span.className += " border-border/70 bg-muted/60 text-foreground";
     span.textContent = token.replace(/[\[\]]/g, "");
+  } else if (token.startsWith("[#appshot:")) {
+    span.dataset.kind = "appshot";
+    const timestamp = token.slice("[#appshot:".length, -1);
+    span.dataset.tooltip = `Appshot ${timestamp}`;
+    span.className += " border-success/30 bg-success/10 text-success";
+    const label = document.createElement("span");
+    label.textContent = `Appshot · ${timestamp}`;
+    span.appendChild(label);
   }
   return span;
 }
@@ -574,8 +584,19 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
       }
       if (imageHandled) return;
       // Plain text paste — strip rich formatting
-      event.preventDefault();
       const text = event.clipboardData.getData("text/plain");
+      const appshotProtocol = parseAppshotProtocol(text);
+      if (appshotProtocol && editorRef.current) {
+        event.preventDefault();
+        insertNodeAtCaret(
+          editorRef.current,
+          buildChipNode(`[#appshot:${appshotProtocol.timestamp}]`),
+        );
+        insertNodeAtCaret(editorRef.current, document.createTextNode("\u00A0"));
+        fireChange();
+        return;
+      }
+      event.preventDefault();
       if (text) {
         document.execCommand("insertText", false, text);
       }

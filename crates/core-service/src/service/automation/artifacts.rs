@@ -1,13 +1,22 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use crate::error::{Result, ServiceError};
+use crate::WorkspaceAttachmentPayload;
 
 pub const AUTOMATIONS_DIR: &str = "automations";
 pub const DEFINITIONS_DIR: &str = "definitions";
 pub const RUNS_DIR: &str = "runs";
 pub const INSTRUCTIONS_FILE: &str = "instructions.md";
+pub const ATTACHMENTS_DIR: &str = "attachments";
+
+#[derive(Debug, Clone)]
+pub struct WrittenAttachment {
+    pub placeholder_token: Option<String>,
+    pub path: PathBuf,
+}
 
 pub fn automation_root() -> Result<PathBuf> {
     let home = dirs::home_dir()
@@ -29,6 +38,10 @@ pub fn definition_dir(automation_guid: &str) -> Result<PathBuf> {
 
 pub fn instructions_path(automation_guid: &str) -> Result<PathBuf> {
     Ok(definition_dir(automation_guid)?.join(INSTRUCTIONS_FILE))
+}
+
+pub fn attachments_dir(automation_guid: &str) -> Result<PathBuf> {
+    Ok(definition_dir(automation_guid)?.join(ATTACHMENTS_DIR))
 }
 
 pub fn write_instructions(automation_guid: &str, instructions: &str) -> Result<PathBuf> {
@@ -56,12 +69,12 @@ pub fn stage_instructions(automation_guid: &str, instructions: &str) -> Result<S
     })
 }
 
-pub fn commit_staged_instructions(staged: StagedInstructions) -> Result<PathBuf> {
+pub fn commit_staged_instructions(staged: &StagedInstructions) -> Result<PathBuf> {
     fs::rename(&staged.temp_path, &staged.final_path).map_err(|error| {
         ServiceError::Validation(format!("Failed to update automation instructions: {error}"))
     })?;
     set_file_permissions(&staged.final_path)?;
-    Ok(staged.final_path)
+    Ok(staged.final_path.clone())
 }
 
 pub fn discard_staged_instructions(staged: &StagedInstructions) {
@@ -102,6 +115,118 @@ pub fn write_user_private_file(path: &Path, content: &str) -> Result<()> {
     })?;
     set_file_permissions(path)?;
     Ok(())
+}
+
+pub fn write_attachments(
+    automation_guid: &str,
+    attachments: Vec<WorkspaceAttachmentPayload>,
+) -> Result<Vec<WrittenAttachment>> {
+    let dir = attachments_dir(automation_guid)?;
+    write_attachments_to_dir(&dir, attachments)
+}
+
+fn write_attachments_to_dir(
+    dir: &Path,
+    attachments: Vec<WorkspaceAttachmentPayload>,
+) -> Result<Vec<WrittenAttachment>> {
+    if attachments.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    use base64::Engine;
+
+    let mut seen_filenames = HashSet::new();
+    let mut pending = Vec::new();
+    for attachment in attachments {
+        let safe = normalize_attachment_filename(&attachment.filename);
+        if safe.is_empty() {
+            continue;
+        }
+        if !seen_filenames.insert(safe.clone()) {
+            return Err(ServiceError::Validation(format!(
+                "Duplicate automation attachment filename: {safe}"
+            )));
+        }
+        pending.push((safe, attachment));
+    }
+
+    if pending.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    ensure_user_private_dir(dir)?;
+    let mut written = Vec::new();
+    let mut written_paths = Vec::new();
+
+    for (safe, attachment) in pending {
+        let bytes = match base64::engine::general_purpose::STANDARD
+            .decode(attachment.data_base64.as_bytes())
+        {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                discard_attachment_paths(&written_paths);
+                return Err(ServiceError::Validation(format!(
+                    "Failed to decode attachment {safe}: {error}"
+                )));
+            }
+        };
+        let path = dir.join(&safe);
+        if let Err(error) = fs::write(&path, bytes) {
+            let mut cleanup_paths = written_paths.clone();
+            cleanup_paths.push(path.clone());
+            discard_attachment_paths(&cleanup_paths);
+            return Err(ServiceError::Validation(format!(
+                "Failed to write automation attachment {safe}: {error}"
+            )));
+        }
+        written_paths.push(path.clone());
+        if let Err(error) = set_file_permissions(&path) {
+            discard_attachment_paths(&written_paths);
+            return Err(error);
+        }
+
+        written.push(WrittenAttachment {
+            placeholder_token: image_placeholder_token(&safe),
+            path,
+        });
+    }
+
+    Ok(written)
+}
+
+pub fn discard_written_attachments(attachments: &[WrittenAttachment]) {
+    let paths = attachments
+        .iter()
+        .map(|attachment| attachment.path.clone())
+        .collect::<Vec<_>>();
+    discard_attachment_paths(&paths);
+}
+
+fn normalize_attachment_filename(filename: &str) -> String {
+    filename.replace(['/', '\\'], "_").trim().to_string()
+}
+
+fn discard_attachment_paths(paths: &[PathBuf]) {
+    for path in paths {
+        if let Err(error) = fs::remove_file(path) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                tracing::warn!(
+                    "Failed to clean up automation attachment {}: {}",
+                    path.display(),
+                    error
+                );
+            }
+        }
+    }
+}
+
+fn image_placeholder_token(filename: &str) -> Option<String> {
+    let stem = filename.split('.').next()?;
+    let number = stem.strip_prefix("img-")?;
+    if number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    Some(format!("[#img-{number}]"))
 }
 
 fn ensure_path_under_root(path: &Path, root: &Path) -> Result<()> {
@@ -145,4 +270,56 @@ fn set_file_permissions(path: &Path) -> Result<()> {
 #[cfg(not(unix))]
 fn set_file_permissions(_path: &Path) -> Result<()> {
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn attachment(filename: &str, data_base64: &str) -> WorkspaceAttachmentPayload {
+        WorkspaceAttachmentPayload {
+            filename: filename.to_string(),
+            mime: Some("image/png".to_string()),
+            data_base64: data_base64.to_string(),
+        }
+    }
+
+    #[test]
+    fn rejects_duplicate_normalized_attachment_filenames_before_writing() {
+        let dir = tempfile::tempdir().unwrap();
+        let error = write_attachments_to_dir(
+            dir.path(),
+            vec![
+                attachment("a/b.png", "aGVsbG8="),
+                attachment("a\\b.png", "aGVsbG8="),
+            ],
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ServiceError::Validation(message) if message.contains("Duplicate automation attachment filename")
+        ));
+        assert!(!dir.path().join("a_b.png").exists());
+    }
+
+    #[test]
+    fn rolls_back_written_attachments_when_later_decode_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let first_path = dir.path().join("img-1.png");
+        let error = write_attachments_to_dir(
+            dir.path(),
+            vec![
+                attachment("img-1.png", "aGVsbG8="),
+                attachment("img-2.png", "not base64"),
+            ],
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            ServiceError::Validation(message) if message.contains("Failed to decode attachment img-2.png")
+        ));
+        assert!(!first_path.exists());
+    }
 }
