@@ -1,6 +1,6 @@
 {
   "name": "@atmos/local-web-runtime",
-  "version": "0.2.0-beta.7",
+  "version": "0.2.0-beta.8",
   "private": false,
   "type": "module",
   "description": "Install and launch the local Atmos web runtime on your machine.",
