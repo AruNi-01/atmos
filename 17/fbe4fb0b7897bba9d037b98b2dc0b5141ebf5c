@@ -1,0 +1,21 @@
+apps/cli/Cargo.toml
+  s_9889d45b27ded3::t_22af228fa3e15b 3
+packages/local-installer/package.json
+  s_9889d45b27ded3::t_f341cbb84e0850 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "17fbe4fb0b7897bba9d037b98b2dc0b5141ebf5c",
+  "prompts": {},
+  "sessions": {
+    "s_9889d45b27ded3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ecf-97ae-7dd0-a0de-364ac9719f57",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
