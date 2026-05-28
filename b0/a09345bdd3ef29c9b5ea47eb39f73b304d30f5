@@ -1,0 +1,19 @@
+apps/desktop/src-tauri/src/appshot/macos.rs
+  s_b8f61e322a0380::t_e0bb83c25ad842 98,111,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b0a09345bdd3ef29c9b5ea47eb39f73b304d30f5",
+  "prompts": {},
+  "sessions": {
+    "s_b8f61e322a0380": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d51-8e6c-7141-9098-90231d4a78a6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
