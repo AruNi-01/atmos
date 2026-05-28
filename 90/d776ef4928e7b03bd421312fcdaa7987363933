@@ -1,0 +1,99 @@
+apps/desktop/src-tauri/src/appshot/thumbnail.rs
+  s_b8f61e322a0380::t_312ee2afc7ce60 7,10-21,26,29-30,36,40,45,50,56,59,62-68
+  s_b8f61e322a0380::t_a6afd36adf58d7 1-6,8-9,27-28,31-35,37-39,41-44,46-49,51-55,57-58,60-61,69-82
+  s_b8f61e322a0380::t_30de5671b72e73 22-25
+apps/desktop/src-tauri/src/commands.rs
+  s_b8f61e322a0380::t_713053e85c7018 221-226
+apps/web/src/features/appshot/__tests__/appshot-payload.test.ts
+  s_b8f61e322a0380::t_e562fdb614d6f1 32
+apps/web/src/features/appshot/components/AppshotRecordRow.tsx
+  s_b8f61e322a0380::t_3161d2086a0078 16,26,44-46,48-52,54-57
+  s_b8f61e322a0380::t_6275237d8abbfe 30-33,38,42,47,53,65,67-68,72,77,82
+apps/desktop/src-tauri/src/appshot/records.rs
+  s_b8f61e322a0380::t_84cb1c007e47cd 4,324-343
+  s_b8f61e322a0380::t_058b8cfb784e15 563
+  s_b8f61e322a0380::t_32624675d622dc 217-221
+  s_b8f61e322a0380::t_d735fac03befed 7,50,70,75-85,211-216,222-224,344-349,351-353
+apps/desktop/src-tauri/src/appshot/types.rs
+  s_b8f61e322a0380::t_df33eec6279858 30,121-127,193
+  s_b8f61e322a0380::t_3a91dc31d296bf 87-91
+specs/APP/APP-021_appshots-cross-app-snapshot/REVIEW.md
+  s_b8f61e322a0380::t_3f1d83fd96ef5f 179
+  s_b8f61e322a0380::t_d172ff070a4f96 180
+specs/APP/APP-021_appshots-cross-app-snapshot/TECH.md
+  s_b8f61e322a0380::t_73902b15e5f4e0 138,277
+  s_b8f61e322a0380::t_47dde4fb4c5d2b 117-121,274,576
+apps/desktop/src-tauri/src/appshot/macos.rs
+  s_b8f61e322a0380::t_41e5b3fefd4ca8 281-283
+  s_b8f61e322a0380::t_7355db9a0e8f84 631
+  s_b8f61e322a0380::t_542dba360a7699 655,658,661,664,675
+  s_b8f61e322a0380::t_4cdaf768f9dde1 4,153-164,214,221,273,280,284-293
+apps/web/src/features/appshot/lib/appshot-client.ts
+  s_b8f61e322a0380::t_33969f4cea2c01 16,109-113
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  s_b8f61e322a0380::t_86798447dfdc80 22,55-59,62,156,212-244,346,368-374
+  s_b8f61e322a0380::t_12ec3651eebf67 12
+  s_ef1921052081ad::t_7135804aa95758 246,309,319-323
+  s_b8f61e322a0380::t_6d6ad323930aff 441-443,447
+apps/web/src/features/appshot/components/AppshotCapturePreview.tsx
+  s_b8f61e322a0380::t_49eb7c42756756 25,33-36,229,278,280,282-285,394-414
+apps/web/public/appshot-capture-overlay.html
+  s_b8f61e322a0380::t_6c69e19b5ec3a1 1-81
+apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx
+  s_b8f61e322a0380::t_ca724edaf90729 11,45,142-150,180,234-236
+  s_ef1921052081ad::t_c23af276d644a0 211-216
+  s_b8f61e322a0380::t_07873396920af5 233
+apps/web/src/features/appshot/types.ts
+  s_b8f61e322a0380::t_f83afc492c76fc 131-135
+  s_b8f61e322a0380::t_1dc5c7cdf80a07 61,80-84
+apps/desktop/src-tauri/src/appshot/capture_animation.rs
+  s_b8f61e322a0380::t_c3a71f0b07f7f5 1-3,5-52
+  s_b8f61e322a0380::t_41e5b3fefd4ca8 4
+apps/desktop/src-tauri/src/main.rs
+  s_b8f61e322a0380::t_4990b16e7ebafb 358
+apps/desktop/src-tauri/src/appshot/encoding.rs
+  s_b8f61e322a0380::t_472d5386fbb64a 2,7-13
+apps/web/src/shared/components/image-preview-overlay.tsx
+  s_b8f61e322a0380::t_a01dd470484941 1-49
+specs/APP/APP-021_appshots-cross-app-snapshot/TEST.md
+  s_b8f61e322a0380::t_bc3f462eff2558 41-42,176
+  s_b8f61e322a0380::t_593cbd09aacc98 90,183
+apps/desktop/src-tauri/src/appshot/pending.rs
+  s_b8f61e322a0380::t_19ac14ff4b971c 112-113
+  s_b8f61e322a0380::t_8f99252aa7acf4 3,102-103,105-111
+  s_b8f61e322a0380::t_23bf49c5d4c0b0 55,502-507
+apps/web/src/features/welcome/components/WelcomeComposerFooter.tsx
+  s_b8f61e322a0380::t_ca85abba640fcd 14,70-76
+apps/web/src/features/appshot/components/AppshotsHeaderButton.tsx
+  s_ef1921052081ad::t_d623303c24a043 43
+apps/web/src/app/globals.css
+  s_b8f61e322a0380::t_bb93a8733838ad 158-180
+apps/desktop/src-tauri/src/appshot/mod.rs
+  s_b8f61e322a0380::t_4079104c73430f 10
+  s_b8f61e322a0380::t_8dfe85ef3a8010 18,72-73
+  s_b8f61e322a0380::t_24bdc8eab34343 1,98,121-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "90d776ef4928e7b03bd421312fcdaa7987363933",
+  "prompts": {},
+  "sessions": {
+    "s_b8f61e322a0380": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d51-8e6c-7141-9098-90231d4a78a6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ef1921052081ad": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6e79-221f-7961-b8d5-4632bd0402ac",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
