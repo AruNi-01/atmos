@@ -9,13 +9,11 @@ export type AppshotQuality =
 
 export type AppshotPermissionName =
   | "accessibility"
-  | "screen_recording"
-  | "input_monitoring";
+  | "screen_recording";
 
 export type AppshotSettingsTarget =
   | "accessibility"
   | "screen_recording"
-  | "input_monitoring"
   | "privacy_security";
 
 export type AppshotTriggerMode =

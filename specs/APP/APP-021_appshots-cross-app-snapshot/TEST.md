@@ -7,7 +7,7 @@
 - Unit / integration: Validate protocol formatting/parsing, record file layout, prompt expansion, payload caps, redaction, unsupported-platform responses, and permission state mapping without real OS capture.
 - Desktop integration: Exercise Tauri commands with mocked or platform-gated backends where possible.
 - End-to-end: Verify global shortcut capture, right-top preview, record persistence, clipboard protocol, Header history, and supported composer paste behavior in a Desktop build.
-- Manual-only: Real macOS global shortcut, Screen Recording, Accessibility, and possible Input Monitoring permission flows, because OS permission dialogs and cross-app capture are not stable in headless automation.
+- Manual-only: Real macOS global shortcut, Screen Recording, and Accessibility permission flows, because OS permission dialogs and cross-app capture are not stable in headless automation.
 
 ## Coverage map
 
@@ -126,7 +126,7 @@
 ### S12 - Permission recovery
 
 - **Level**: Manual macOS Desktop.
-- **Given**: one or more required macOS permissions are missing: Accessibility, Screen Recording / Screen & System Audio Recording, or Input Monitoring.
+- **Given**: one or more required macOS permissions are missing: Accessibility or Screen Recording / Screen & System Audio Recording.
 - **When**: the user opens the Header Appshots popover or attempts Appshot capture.
 - **Then**: Atmos shows the missing permission name, why Appshots need it, and an Open System Settings action.
 - **And when**: the user clicks Open System Settings.
@@ -172,7 +172,7 @@
 
 1. On macOS Desktop, revoke one Appshots permission, open the Header Appshots popover, and confirm it shows the missing permission with an Open System Settings action.
 2. Click Open System Settings, grant the permission, return to Atmos, and confirm the permission state refreshes without restarting.
-3. Grant Screen Recording, Accessibility, and Input Monitoring if required by the chosen trigger listener; focus an Electron or browser window and press the global Appshot gesture.
+3. Grant Screen Recording and Accessibility; focus an Electron or browser window and press the global Appshot gesture.
 4. Confirm the right-top preview appears with a screenshot, Copy, Delete, and a live countdown; hover it and confirm the countdown pauses; move the mouse out and confirm the countdown resumes and creates a record directory on timeout.
 5. Inspect `~/.atmos/appshots/records/{timestamp}/` and confirm `snapshot.png`, `context.md`, and `metadata.json` exist.
 6. Paste the clipboard into a plain text editor and confirm the first line is `atmos://appshots/{timestamp}` and the instruction points at the record directory.

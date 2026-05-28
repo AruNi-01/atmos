@@ -115,7 +115,6 @@ pub struct AppshotScreenshotMetadata {
 pub enum AppshotPermissionName {
     Accessibility,
     ScreenRecording,
-    InputMonitoring,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,7 +122,6 @@ pub enum AppshotPermissionName {
 pub enum AppshotSettingsTarget {
     Accessibility,
     ScreenRecording,
-    InputMonitoring,
     PrivacySecurity,
 }
 

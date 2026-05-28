@@ -27,7 +27,7 @@ pub async fn status(app: AppHandle) -> Result<AppshotStatus, String> {
     #[cfg(target_os = "macos")]
     {
         shortcut::start(app);
-        let permissions = macos::permission_states(shortcut::is_enabled());
+        let permissions = macos::permission_states();
         let trigger = shortcut::trigger_status(permissions.clone());
         return Ok(AppshotStatus {
             supported: true,
@@ -89,7 +89,7 @@ pub async fn open_permissions(req: AppshotOpenPermissionsRequest) -> Result<(), 
 }
 
 pub async fn trigger_capture(app: AppHandle) {
-    match capture_current(shortcut::is_enabled()).await {
+    match capture_current().await {
         Ok(captured) => match pending::insert(captured) {
             Ok(preview) => {
                 if let Some(main) = app.get_webview_window("main") {
@@ -111,15 +111,14 @@ pub async fn trigger_capture(app: AppHandle) {
     }
 }
 
-async fn capture_current(input_monitoring_granted: bool) -> Result<types::CapturedAppshot, String> {
+async fn capture_current() -> Result<types::CapturedAppshot, String> {
     #[cfg(target_os = "macos")]
     {
-        return macos::capture_frontmost(input_monitoring_granted).await;
+        return macos::capture_frontmost().await;
     }
 
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = input_monitoring_granted;
         Err("Appshots are currently available on macOS desktop builds only.".to_string())
     }
 }

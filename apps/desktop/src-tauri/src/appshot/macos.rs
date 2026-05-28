@@ -81,7 +81,7 @@ pub fn screen_recording_granted() -> bool {
     unsafe { CGPreflightScreenCaptureAccess() }
 }
 
-pub fn permission_states(input_monitoring_granted: bool) -> Vec<AppshotPermissionState> {
+pub fn permission_states() -> Vec<AppshotPermissionState> {
     vec![
         permission_state(
             AppshotPermissionName::Accessibility,
@@ -95,7 +95,6 @@ pub fn permission_states(input_monitoring_granted: bool) -> Vec<AppshotPermissio
             vec![
                 "Open System Settings > Privacy & Security > Accessibility.".to_string(),
                 "Enable Atmos, then return to Atmos.".to_string(),
-                "If Atmos is already enabled after a local rebuild but still shows as denied, remove the stale Atmos entry with the minus button, add the current Atmos app again, then relaunch Atmos.".to_string(),
             ],
         ),
         permission_state(
@@ -108,19 +107,6 @@ pub fn permission_states(input_monitoring_granted: bool) -> Vec<AppshotPermissio
                 "Open System Settings > Privacy & Security > Screen & System Audio Recording."
                     .to_string(),
                 "Enable Atmos, then return to Atmos.".to_string(),
-                "If Atmos is already enabled after a local rebuild but still shows as denied, remove the stale Atmos entry with the minus button, add the current Atmos app again, then relaunch Atmos.".to_string(),
-            ],
-        ),
-        permission_state(
-            AppshotPermissionName::InputMonitoring,
-            "Input Monitoring",
-            input_monitoring_granted,
-            vec!["Listen for the Fn + Option + Command Appshot gesture".to_string()],
-            AppshotSettingsTarget::InputMonitoring,
-            vec![
-                "Open System Settings > Privacy & Security > Input Monitoring.".to_string(),
-                "Enable Atmos if it appears in the list, then return to Atmos.".to_string(),
-                "If Atmos is already enabled after a local rebuild but the shortcut still does not work, remove the stale Atmos entry, add the current Atmos app again, then relaunch Atmos.".to_string(),
             ],
         ),
     ]
@@ -133,9 +119,6 @@ pub fn open_settings(target: AppshotSettingsTarget) -> Result<(), String> {
         }
         AppshotSettingsTarget::ScreenRecording => {
             "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-        }
-        AppshotSettingsTarget::InputMonitoring => {
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
         }
         AppshotSettingsTarget::PrivacySecurity => {
             "x-apple.systempreferences:com.apple.preference.security"
@@ -161,17 +144,15 @@ pub fn open_settings(target: AppshotSettingsTarget) -> Result<(), String> {
     }
 }
 
-pub async fn capture_frontmost(input_monitoring_granted: bool) -> Result<CapturedAppshot, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        capture_frontmost_blocking(input_monitoring_granted)
-    })
-    .await
-    .map_err(|error| format!("appshot capture task failed: {error}"))?
+pub async fn capture_frontmost() -> Result<CapturedAppshot, String> {
+    tauri::async_runtime::spawn_blocking(capture_frontmost_blocking)
+        .await
+        .map_err(|error| format!("appshot capture task failed: {error}"))?
 }
 
-fn capture_frontmost_blocking(input_monitoring_granted: bool) -> Result<CapturedAppshot, String> {
+fn capture_frontmost_blocking() -> Result<CapturedAppshot, String> {
     let captured_at = Utc::now().to_rfc3339();
-    let permissions = permission_states(input_monitoring_granted);
+    let permissions = permission_states();
     let mut warnings = Vec::new();
     let frontmost = match read_frontmost_window() {
         Ok(info) => info,

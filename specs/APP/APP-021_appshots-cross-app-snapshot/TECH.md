@@ -185,7 +185,7 @@ fn on_flags_changed(flags: ModifierFlags, state: &mut ModifierGestureState) {
 Implementation notes:
 
 - `Fn` / Globe behavior can vary by keyboard and macOS settings. `appshot_status` must report when the function modifier cannot be observed, and the feature must not silently remap the gesture to `Option + Command`.
-- This listener may require Accessibility and/or Input Monitoring permission depending on the concrete API. Permission failure is a normal disabled state with recovery UI.
+- The implemented macOS listener uses Accessibility-trusted global modifier events; Input Monitoring is not treated as a required permission for the Appshot gesture. Permission failure is a normal disabled state with recovery UI.
 - The listener should be registered during Desktop app startup and torn down on app shutdown. If macOS disables the event tap, re-enable it once and then report a degraded trigger status if it repeatedly fails.
 
 The trigger must capture the currently focused external app, not the Atmos window.
@@ -196,9 +196,8 @@ Permissions are part of the Appshot UX, not a terminal error path. Any missing p
 
 Required macOS permission surfaces:
 
-- Accessibility: needed for `AXUIElement` traversal and may also satisfy the global modifier listener depending on the chosen implementation.
+- Accessibility: needed for `AXUIElement` traversal and the implemented global modifier listener.
 - Screen Recording / Screen & System Audio Recording: needed for window screenshots.
-- Input Monitoring: may be needed if the modifier gesture listener uses a lower-level event tap that macOS classifies as input monitoring.
 
 Native owns settings navigation:
 
@@ -218,7 +217,7 @@ Use macOS-native APIs through target-specific Rust bindings:
 - Screenshot: v1 uses `screencapture -R` with validated CoreGraphics window bounds; later hardening can move to ScreenCaptureKit or CoreGraphics per-window capture. Never fall back to full-screen capture when the focused window bounds are unknown.
 - Accessibility tree: v1 may use System Events traversal over the frontmost app/window; later hardening can replace this with direct `AXUIElementCreateApplication`, focused window lookup, and recursive `AXUIElementCopyAttributeValue`. Accessibility timeout or syntax/runtime failure must only degrade the record to screenshot-only/accessibility-unavailable; it must not prevent app metadata or `snapshot.png` from being captured.
 - Permissions:
-  - Appshot trigger listener: preflight the chosen `flagsChanged` listener path and surface missing Accessibility/Input Monitoring-style permission as `AppshotPermissionState`.
+  - Appshot trigger listener: preflight the chosen `flagsChanged` listener path and surface missing Accessibility permission as `AppshotPermissionState`.
   - Accessibility: preflight with the AX trust APIs and open System Settings when missing.
   - Screen Recording: preflight/request with CoreGraphics/ScreenCaptureKit-supported APIs and open the relevant System Settings pane when missing.
 
@@ -472,7 +471,6 @@ pub struct AppshotScreenshotMetadata {
 pub enum AppshotPermissionName {
     Accessibility,
     ScreenRecording,
-    InputMonitoring,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -480,7 +478,6 @@ pub enum AppshotPermissionName {
 pub enum AppshotSettingsTarget {
     Accessibility,
     ScreenRecording,
-    InputMonitoring,
     PrivacySecurity,
 }
 

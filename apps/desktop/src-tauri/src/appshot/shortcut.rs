@@ -73,13 +73,6 @@ pub fn trigger_status(
     }
 }
 
-pub fn is_enabled() -> bool {
-    status_state()
-        .lock()
-        .map(|status| status.enabled)
-        .unwrap_or(false)
-}
-
 #[cfg(target_os = "macos")]
 fn start_macos(app: AppHandle) {
     use std::thread;
@@ -124,7 +117,7 @@ fn start_macos(app: AppHandle) {
             }
             set_status_error(
                 &status,
-                "Failed to install Appshot modifier listener. Grant Accessibility and Input Monitoring permissions, then restart Atmos if the listener does not recover.",
+                "Failed to install Appshot modifier listener. Grant Accessibility permission, then restart Atmos if the listener does not recover.",
             );
             return;
         }
@@ -275,7 +268,7 @@ fn handle_tap_disabled(context: &TapContext) {
 
     set_status_warning(
         &context.status,
-        "Appshot modifier listener was disabled by macOS. Check Accessibility and Input Monitoring permissions.",
+        "Appshot modifier listener was disabled by macOS. Check Accessibility permission.",
     );
     unsafe {
         CFRunLoopStop(CFRunLoopGetCurrent());
