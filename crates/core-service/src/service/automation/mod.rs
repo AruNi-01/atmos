@@ -444,13 +444,30 @@ impl AutomationService {
 
         let automation_guid = Uuid::new_v4().to_string();
         let definition_dir = artifacts::definition_dir(&automation_guid)?;
-        let attachment_paths = artifacts::write_attachments(&automation_guid, req.attachments)?;
-        let instructions = validate_instructions(resolve_attachment_placeholders(
-            req.instructions,
-            &attachment_paths,
-        ))?;
-        let instructions_path = artifacts::write_instructions(&automation_guid, &instructions)?;
-        let artifact_root = artifacts::automation_root()?;
+        let attachment_paths = match artifacts::write_attachments(&automation_guid, req.attachments)
+        {
+            Ok(paths) => paths,
+            Err(error) => {
+                cleanup_failed_automation_create_artifacts(&definition_dir);
+                return Err(error);
+            }
+        };
+        let create_artifacts = (|| {
+            let instructions = validate_instructions(resolve_attachment_placeholders(
+                req.instructions,
+                &attachment_paths,
+            ))?;
+            let instructions_path = artifacts::write_instructions(&automation_guid, &instructions)?;
+            let artifact_root = artifacts::automation_root()?;
+            Ok((instructions_path, artifact_root))
+        })();
+        let (instructions_path, artifact_root) = match create_artifacts {
+            Ok(paths) => paths,
+            Err(error) => {
+                cleanup_failed_automation_create_artifacts(&definition_dir);
+                return Err(error);
+            }
+        };
 
         let repo = AutomationRepo::new(&self.db);
         let model = match repo
@@ -484,7 +501,7 @@ impl AutomationService {
         {
             Ok(model) => model,
             Err(error) => {
-                cleanup_failed_automation_create_artifacts(&instructions_path, &definition_dir);
+                cleanup_failed_automation_create_artifacts(&definition_dir);
                 return Err(error.into());
             }
         };
@@ -507,16 +524,6 @@ impl AutomationService {
                 ServiceError::NotFound(format!("Automation {} not found", req.automation_guid))
             })?;
 
-        let attachment_paths = artifacts::write_attachments(&req.automation_guid, req.attachments)?;
-        let validated_instructions = req
-            .instructions
-            .map(|instructions| {
-                validate_instructions(resolve_attachment_placeholders(
-                    instructions,
-                    &attachment_paths,
-                ))
-            })
-            .transpose()?;
         let display_name = req.display_name.map(validate_display_name).transpose()?;
         if let Some(agent_id) = req.agent_id.as_deref() {
             self.validate_agent(agent_id)?;
@@ -543,6 +550,23 @@ impl AutomationService {
             req.schedule.as_ref().map(|schedule| schedule.is_some()),
             &existing,
         )?;
+        let attachment_paths = artifacts::write_attachments(&req.automation_guid, req.attachments)?;
+        let validated_instructions = match req
+            .instructions
+            .map(|instructions| {
+                validate_instructions(resolve_attachment_placeholders(
+                    instructions,
+                    &attachment_paths,
+                ))
+            })
+            .transpose()
+        {
+            Ok(instructions) => instructions,
+            Err(error) => {
+                artifacts::discard_written_attachments(&attachment_paths);
+                return Err(error);
+            }
+        };
 
         let update = UpdateAutomationRecord {
             display_name,
@@ -590,7 +614,14 @@ impl AutomationService {
         let staged_instructions = validated_instructions
             .as_deref()
             .map(|instructions| artifacts::stage_instructions(&existing.guid, instructions))
-            .transpose()?;
+            .transpose();
+        let staged_instructions = match staged_instructions {
+            Ok(staged) => staged,
+            Err(error) => {
+                artifacts::discard_written_attachments(&attachment_paths);
+                return Err(error);
+            }
+        };
 
         let model = match repo.update_automation(&req.automation_guid, update).await {
             Ok(model) => model,
@@ -598,11 +629,16 @@ impl AutomationService {
                 if let Some(staged) = staged_instructions.as_ref() {
                     artifacts::discard_staged_instructions(staged);
                 }
+                artifacts::discard_written_attachments(&attachment_paths);
                 return Err(error.into());
             }
         };
-        if let Some(staged) = staged_instructions {
-            artifacts::commit_staged_instructions(staged)?;
+        if let Some(staged) = staged_instructions.as_ref() {
+            if let Err(error) = artifacts::commit_staged_instructions(staged) {
+                artifacts::discard_staged_instructions(staged);
+                artifacts::discard_written_attachments(&attachment_paths);
+                return Err(error);
+            }
         }
         let detail = self.detail_from_model(model)?;
         let _ = self.event_tx.send(AutomationEvent::DefinitionUpdated {
@@ -855,16 +891,7 @@ fn normalize_trigger_config(
     }
 }
 
-fn cleanup_failed_automation_create_artifacts(instructions_path: &Path, definition_dir: &Path) {
-    if let Err(error) = std::fs::remove_file(instructions_path) {
-        if error.kind() != std::io::ErrorKind::NotFound {
-            tracing::warn!(
-                "Failed to clean up automation instructions {} after create error: {}",
-                instructions_path.display(),
-                error
-            );
-        }
-    }
+fn cleanup_failed_automation_create_artifacts(definition_dir: &Path) {
     if let Err(error) = std::fs::remove_dir_all(definition_dir) {
         if error.kind() != std::io::ErrorKind::NotFound {
             tracing::warn!(
@@ -883,7 +910,11 @@ fn resolve_attachment_placeholders(
     attachments
         .iter()
         .fold(instructions, |current, attachment| {
-            current.replace(&attachment.token, &attachment.path.display().to_string())
+            if let Some(token) = attachment.placeholder_token.as_deref() {
+                current.replace(token, &attachment.path.display().to_string())
+            } else {
+                current
+            }
         })
 }
 
@@ -1014,7 +1045,7 @@ mod tests {
         let resolved = resolve_attachment_placeholders(
             "Inspect [#img-1] and keep [#img-2].".to_string(),
             &[artifacts::WrittenAttachment {
-                token: "[#img-1]".to_string(),
+                placeholder_token: Some("[#img-1]".to_string()),
                 path: PathBuf::from("/tmp/atmos/img-1.png"),
             }],
         );

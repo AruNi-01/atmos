@@ -43,9 +43,14 @@ pub fn copy_text(text: &str) -> Result<(), String> {
 
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        let helpers = ["wl-copy", "xclip"];
-        for helper in helpers {
-            if let Ok(mut child) = Command::new(helper).stdin(Stdio::piped()).spawn() {
+        let helpers: [(&str, &[&str]); 2] =
+            [("wl-copy", &[]), ("xclip", &["-selection", "clipboard"])];
+        for (helper, args) in helpers {
+            if let Ok(mut child) = Command::new(helper)
+                .args(args)
+                .stdin(Stdio::piped())
+                .spawn()
+            {
                 if let Some(stdin) = child.stdin.as_mut() {
                     if stdin.write_all(text.as_bytes()).is_ok() {
                         if let Ok(status) = child.wait() {

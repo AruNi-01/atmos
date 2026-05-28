@@ -90,7 +90,7 @@ fn start_macos(app: AppHandle) {
             Ok(guard) => guard,
             Err(_) => return,
         };
-        if guard.started && (guard.enabled || guard.last_error.is_none()) {
+        if guard.started {
             return;
         }
         guard.started = true;
@@ -269,7 +269,7 @@ fn handle_tap_disabled(context: &TapContext) {
         }
     }
 
-    set_status_error(
+    set_status_warning(
         &context.status,
         "Appshot modifier listener was disabled by macOS. Check Accessibility and Input Monitoring permissions.",
     );
@@ -279,6 +279,14 @@ fn handle_tap_disabled(context: &TapContext) {
 fn set_status_error(status: &Arc<Mutex<RuntimeStatus>>, message: &str) {
     if let Ok(mut status) = status.lock() {
         status.started = false;
+        status.enabled = false;
+        status.last_error = Some(message.to_string());
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_status_warning(status: &Arc<Mutex<RuntimeStatus>>, message: &str) {
+    if let Ok(mut status) = status.lock() {
         status.enabled = false;
         status.last_error = Some(message.to_string());
     }

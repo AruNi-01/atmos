@@ -149,7 +149,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     span.dataset.kind = "appshot";
     const timestamp = token.slice("[#appshot:".length, -1);
     span.dataset.tooltip = `Appshot ${timestamp}`;
-    span.className += " border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+    span.className += " border-success/30 bg-success/10 text-success";
     const label = document.createElement("span");
     label.textContent = `Appshot · ${timestamp}`;
     span.appendChild(label);

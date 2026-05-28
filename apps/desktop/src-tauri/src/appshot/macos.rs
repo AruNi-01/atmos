@@ -17,8 +17,10 @@ use core_graphics::window::{
 use objc2_app_kit::{NSRunningApplication, NSWorkspace};
 use std::fs;
 use std::io::Read;
+use std::mem;
 use std::process::{Command, ExitStatus, Stdio};
 use std::thread;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 const FRONTMOST_WINDOW_TIMEOUT_MS: u64 = 2_500;
@@ -28,7 +30,8 @@ const PROCESS_POLL_INTERVAL_MS: u64 = 20;
 const MIN_WINDOW_WIDTH: i32 = 32;
 const MIN_WINDOW_HEIGHT: i32 = 32;
 const ACCESSIBILITY_REDACTION_TERMS: &[&str] = &["secure", "Secure", "password", "Password"];
-const ACCESSIBILITY_REDACTION_FIELDS: &[&str] = &["roleText", "nameText", "descriptionText"];
+const ACCESSIBILITY_REDACTION_FIELDS: &[&str] =
+    &["roleText", "nameText", "descriptionText", "valueText"];
 
 #[link(name = "ApplicationServices", kind = "framework")]
 extern "C" {
@@ -426,8 +429,10 @@ fn read_window_candidates() -> Result<Vec<WindowCandidate>, String> {
     let options = kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements;
     let raw_windows = copy_window_info(options, kCGNullWindowID)
         .ok_or_else(|| "CoreGraphics window list was unavailable.".to_string())?;
+    let raw_windows_ref = raw_windows.as_concrete_TypeRef();
+    mem::forget(raw_windows);
     let windows: CFArray<CFDictionary<CFType, CFType>> =
-        unsafe { TCFType::wrap_under_get_rule(raw_windows.as_concrete_TypeRef()) };
+        unsafe { TCFType::wrap_under_create_rule(raw_windows_ref) };
 
     let mut candidates = Vec::new();
     for window in windows.iter() {
@@ -638,12 +643,11 @@ on dumpElement(uiElement, depth)
   try
     set descriptionText to my cleanText(description of uiElement)
   end try
+  try
+    set valueText to my cleanText(value of uiElement)
+  end try
   if {redaction_condition} then
     set valueText to "[redacted]"
-  else
-    try
-      set valueText to my cleanText(value of uiElement)
-    end try
   end if
   set lineText to indent & "- " & roleText
   if nameText is not "" then set lineText to lineText & " \"" & nameText & "\""
@@ -844,6 +848,8 @@ fn run_command_output(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| format!("failed to start {label}: {error}"))?;
+    let stdout_reader = spawn_child_pipe_reader(child.stdout.take(), label, "stdout");
+    let stderr_reader = spawn_child_pipe_reader(child.stderr.take(), label, "stderr");
     let started_at = Instant::now();
 
     loop {
@@ -852,8 +858,8 @@ fn run_command_output(
             .map_err(|error| format!("failed to wait for {label}: {error}"))?
         {
             Some(status) => {
-                let stdout = read_child_pipe(child.stdout.take(), label, "stdout")?;
-                let stderr = read_child_pipe(child.stderr.take(), label, "stderr")?;
+                let stdout = join_child_pipe_reader(stdout_reader, label, "stdout")?;
+                let stderr = join_child_pipe_reader(stderr_reader, label, "stderr")?;
                 return Ok(CommandOutput {
                     status,
                     stdout,
@@ -863,6 +869,8 @@ fn run_command_output(
             None if started_at.elapsed() >= timeout => {
                 let _ = child.kill();
                 let _ = child.wait();
+                let _ = stdout_reader.join();
+                let _ = stderr_reader.join();
                 return Err(format!(
                     "{label} timed out after {} ms",
                     timeout.as_millis()
@@ -871,6 +879,28 @@ fn run_command_output(
             None => thread::sleep(Duration::from_millis(PROCESS_POLL_INTERVAL_MS)),
         }
     }
+}
+
+fn spawn_child_pipe_reader<R>(
+    pipe: Option<R>,
+    label: &str,
+    stream_name: &'static str,
+) -> JoinHandle<Result<Vec<u8>, String>>
+where
+    R: Read + Send + 'static,
+{
+    let label = label.to_string();
+    thread::spawn(move || read_child_pipe(pipe, &label, stream_name))
+}
+
+fn join_child_pipe_reader(
+    reader: JoinHandle<Result<Vec<u8>, String>>,
+    label: &str,
+    stream_name: &str,
+) -> Result<Vec<u8>, String> {
+    reader
+        .join()
+        .map_err(|_| format!("failed to join {label} {stream_name} reader"))?
 }
 
 fn read_child_pipe<R: Read>(
@@ -973,8 +1003,8 @@ mod tests {
         assert!(condition.contains("(roleText contains \"password\")"));
         assert!(condition.contains("(nameText contains \"password\")"));
         assert!(condition.contains("(descriptionText contains \"password\")"));
+        assert!(condition.contains("(valueText contains \"password\")"));
         assert!(condition.contains(") or ("));
-        assert!(!condition.contains("valueText contains"));
     }
 
     #[test]

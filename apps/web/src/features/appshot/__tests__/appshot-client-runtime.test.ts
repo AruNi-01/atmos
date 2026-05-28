@@ -13,6 +13,7 @@ import {
 describe("S11 - Appshot browser runtime gating", () => {
   it("returns non-desktop state and avoids Tauri record calls outside Tauri", async () => {
     const browserWindow = new Window({ url: "http://localhost:3030" });
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: browserWindow,
@@ -35,7 +36,11 @@ describe("S11 - Appshot browser runtime gating", () => {
       expect(typeof unlisten).toBe("function");
       expect(unlisten()).toBeUndefined();
     } finally {
-      Reflect.deleteProperty(globalThis, "window");
+      if (previousWindow) {
+        Object.defineProperty(globalThis, "window", previousWindow);
+      } else {
+        Reflect.deleteProperty(globalThis, "window");
+      }
     }
   });
 });

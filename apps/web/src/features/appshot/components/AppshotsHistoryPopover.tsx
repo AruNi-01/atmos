@@ -51,6 +51,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const [copiedTimestamp, setCopiedTimestamp] = React.useState<string | null>(null);
   const [deletingTimestamp, setDeletingTimestamp] = React.useState<string | null>(null);
   const permissionWatcherRef = React.useRef<(() => void) | null>(null);
+  const copyResetTimerRef = React.useRef<number | null>(null);
 
   const refreshStatus = React.useCallback(async () => {
     setStatusLoading(true);
@@ -133,11 +134,19 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     };
   }, [details, open, records, visibleCount]);
 
+  const clearCopyResetTimer = React.useCallback(() => {
+    if (copyResetTimerRef.current !== null) {
+      window.clearTimeout(copyResetTimerRef.current);
+      copyResetTimerRef.current = null;
+    }
+  }, []);
+
   React.useEffect(() => {
     return () => {
       permissionWatcherRef.current?.();
+      clearCopyResetTimer();
     };
-  }, []);
+  }, [clearCopyResetTimer]);
 
   const deniedPermissions = getDeniedAppshotPermissions(status);
   const visibleRecords = records.slice(0, visibleCount);
@@ -159,10 +168,12 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const handleCopy = React.useCallback(async (timestamp: string) => {
     setCopyingTimestamp(timestamp);
     setCopiedTimestamp(null);
+    clearCopyResetTimer();
     try {
       await copyAppshotRecord(timestamp);
       setCopiedTimestamp(timestamp);
-      window.setTimeout(() => {
+      copyResetTimerRef.current = window.setTimeout(() => {
+        copyResetTimerRef.current = null;
         setCopiedTimestamp((current) => (current === timestamp ? null : current));
       }, 1_500);
     } catch (err) {
@@ -170,7 +181,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     } finally {
       setCopyingTimestamp(null);
     }
-  }, []);
+  }, [clearCopyResetTimer]);
 
   const handleDelete = React.useCallback(async (timestamp: string) => {
     setDeletingTimestamp(timestamp);

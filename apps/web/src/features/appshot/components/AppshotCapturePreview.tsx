@@ -35,6 +35,8 @@ export function AppshotCapturePreview() {
   const deadlineRef = React.useRef<number | null>(null);
   const remainingMsRef = React.useRef(0);
   const resolvingRef = React.useRef(false);
+  const mountedRef = React.useRef(false);
+  const permissionWatcherRef = React.useRef<(() => void) | null>(null);
   const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
 
   const clearCountdownInterval = React.useCallback(() => {
@@ -53,6 +55,11 @@ export function AppshotCapturePreview() {
     deadlineRef.current = null;
   }, [clearCountdownInterval]);
 
+  const clearPermissionWatcher = React.useCallback(() => {
+    permissionWatcherRef.current?.();
+    permissionWatcherRef.current = null;
+  }, []);
+
   const updateRemainingFromDeadline = React.useCallback(() => {
     const deadline = deadlineRef.current;
     if (deadline === null) {
@@ -65,6 +72,7 @@ export function AppshotCapturePreview() {
 
   const closePreview = React.useCallback(() => {
     clearTimer();
+    clearPermissionWatcher();
     resolvingRef.current = false;
     previewRef.current = null;
     remainingMsRef.current = 0;
@@ -73,7 +81,7 @@ export function AppshotCapturePreview() {
     setRemainingMs(0);
     setCountdownPaused(false);
     setResolveState("idle");
-  }, [clearTimer]);
+  }, [clearPermissionWatcher, clearTimer]);
 
   const acceptPreview = React.useCallback(
     async (targetPreview: AppshotPendingPreview | null = previewRef.current) => {
@@ -191,7 +199,17 @@ export function AppshotCapturePreview() {
     });
   }, []);
 
+  const watchPreviewPermissionsAfterOpen = React.useCallback(() => {
+    if (!mountedRef.current) {
+      return;
+    }
+    clearPermissionWatcher();
+    permissionWatcherRef.current =
+      watchAppshotStatusAfterPermissionOpen(refreshPreviewPermissions);
+  }, [clearPermissionWatcher, refreshPreviewPermissions]);
+
   React.useEffect(() => {
+    mountedRef.current = true;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
 
@@ -225,11 +243,13 @@ export function AppshotCapturePreview() {
     });
 
     return () => {
+      mountedRef.current = false;
       cancelled = true;
       clearTimer();
+      clearPermissionWatcher();
       unlisten?.();
     };
-  }, [clearTimer, startAutoAcceptCountdown]);
+  }, [clearPermissionWatcher, clearTimer, startAutoAcceptCountdown]);
 
   React.useEffect(() => {
     setPortalContainer(document.body);
@@ -309,7 +329,7 @@ export function AppshotCapturePreview() {
                 key={permission.name}
                 permission={permission}
                 onError={setError}
-                onRefresh={refreshPreviewPermissions}
+                onWatchAfterOpen={watchPreviewPermissionsAfterOpen}
               />
             ))}
           </div>
@@ -363,11 +383,11 @@ export function AppshotCapturePreview() {
 function PreviewPermissionAction({
   permission,
   onError,
-  onRefresh,
+  onWatchAfterOpen,
 }: {
   permission: AppshotPermissionState;
   onError: (message: string) => void;
-  onRefresh: () => Promise<unknown> | unknown;
+  onWatchAfterOpen: () => void;
 }) {
   const action = permission.recovery_action;
 
@@ -390,7 +410,7 @@ function PreviewPermissionAction({
           onClick={() => {
             void openAppshotPermissionTarget(action.target)
               .then(() => {
-                watchAppshotStatusAfterPermissionOpen(onRefresh);
+                onWatchAfterOpen();
               })
               .catch((err) => {
                 onError(err instanceof Error ? err.message : String(err));

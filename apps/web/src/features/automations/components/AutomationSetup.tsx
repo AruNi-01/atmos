@@ -7,7 +7,7 @@ import {
   Button,
   TooltipProvider,
 } from "@workspace/ui";
-import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { ArrowLeft, LoaderCircle, X } from "lucide-react";
 
 import {
   AutomationSetupControls,
@@ -85,6 +85,8 @@ const AUTOMATION_HEADLINES: AutomationHeadline[] = [
   "keep_running",
 ];
 const DEFAULT_AUTOMATION_HEADLINE: AutomationHeadline = "automate_next";
+const PREVIEW_FOCUSABLE_SELECTOR =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 export function AutomationSetup({
   mode,
@@ -124,6 +126,7 @@ export function AutomationSetup({
     syncAttachmentPlaceholders,
   } = useWelcomeComposerAttachments(composerRef);
   const previewRequestIdRef = React.useRef(0);
+  const previewDialogRef = React.useRef<HTMLDivElement | null>(null);
   const [, setSettingsModalOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
   const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
   const [timezone, setTimezone] = React.useState(resolveTimezone);
@@ -147,6 +150,59 @@ export function AutomationSetup({
   const [headline, setHeadline] = React.useState<AutomationHeadline>(DEFAULT_AUTOMATION_HEADLINE);
   const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
   const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
+
+  React.useEffect(() => {
+    if (!previewAttachment || typeof document === "undefined") return;
+
+    const previousFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusFrame = window.requestAnimationFrame(() => {
+      const dialog = previewDialogRef.current;
+      if (!dialog) return;
+      const firstFocusable = dialog.querySelector<HTMLElement>(PREVIEW_FOCUSABLE_SELECTOR);
+      (firstFocusable ?? dialog).focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setPreviewAttachment(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const dialog = previewDialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(PREVIEW_FOCUSABLE_SELECTOR),
+      ).filter((element) => !element.hasAttribute("disabled"));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus && document.contains(previousFocus)) {
+        window.requestAnimationFrame(() => previousFocus.focus());
+      }
+    };
+  }, [previewAttachment, setPreviewAttachment]);
 
   const workspaces = React.useMemo(() => flattenWorkspaces(projects), [projects]);
   const selectedAgent = agents.find((agent) => agent.agent_id === agentId) ?? null;
@@ -472,9 +528,10 @@ export function AutomationSetup({
           data_base64: await blobToBase64(attachment.blob),
         })),
       );
+      let savedAutomation: AutomationDetail | null = null;
 
       if (mode === "create") {
-        await createAutomationWithGithubRoute({
+        savedAutomation = await createAutomationWithGithubRoute({
           request: {
             display_name: displayName.trim(),
             instructions: resolvedInstructions.trim(),
@@ -491,7 +548,7 @@ export function AutomationSetup({
           updateAutomation: onUpdate,
         });
       } else if (initialAutomation) {
-        await updateAutomationWithGithubRoute({
+        savedAutomation = await updateAutomationWithGithubRoute({
           request: {
             automation_guid: initialAutomation.guid,
             display_name: displayName.trim(),
@@ -509,6 +566,10 @@ export function AutomationSetup({
           githubPrereqs,
           updateAutomation: onUpdate,
         });
+      }
+      if (savedAutomation) {
+        setInstructions(savedAutomation.instructions);
+        composerRef.current?.setText(savedAutomation.instructions);
       }
       clearAttachments();
     } catch (err) {
@@ -764,9 +825,22 @@ export function AutomationSetup({
               {previewAttachment && typeof document !== "undefined"
                 ? createPortal(
                     <div
+                      ref={previewDialogRef}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label={`Preview attachment ${previewAttachment.filename}`}
+                      tabIndex={-1}
                       className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
                       onClick={() => setPreviewAttachment(null)}
                     >
+                      <button
+                        type="button"
+                        className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-md border border-white/20 bg-black/40 text-white shadow-lg transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                        onClick={() => setPreviewAttachment(null)}
+                      >
+                        <X className="size-5" />
+                        <span className="sr-only">Close preview</span>
+                      </button>
                       {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object URLs and must not go through Next image optimization. */}
                       <img
                         src={previewAttachment.objectUrl}

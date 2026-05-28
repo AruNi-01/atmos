@@ -328,11 +328,12 @@ function getButtonByText(container: HTMLElement, text: string): HTMLButtonElemen
   return button;
 }
 
-async function flushUntil(predicate: () => boolean): Promise<void> {
-  for (let index = 0; index < 12; index += 1) {
-    if (predicate()) {
-      return;
-    }
+async function flushUntil(
+  predicate: () => boolean,
+  timeoutMs = 2_000,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (!predicate() && Date.now() - startedAt < timeoutMs) {
     await act(async () => {
       await Promise.resolve();
       await new Promise<void>((resolve) => {
@@ -340,7 +341,6 @@ async function flushUntil(predicate: () => boolean): Promise<void> {
       });
     });
   }
-
   expect(predicate()).toBe(true);
 }
 

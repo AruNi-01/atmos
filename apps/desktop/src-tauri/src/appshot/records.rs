@@ -131,7 +131,7 @@ pub fn write_record(captured: CapturedAppshot) -> Result<AppshotAcceptResponse, 
         )
     })?;
 
-    let protocol_text = protocol::format_prompt(&timestamp)?;
+    let protocol_text = protocol::format_prompt_for_record_dir(&timestamp, &final_dir)?;
 
     Ok(AppshotAcceptResponse {
         timestamp,
@@ -187,7 +187,7 @@ pub fn copy_record(timestamp: &str) -> Result<AppshotCopyResponse, String> {
     if !dir.is_dir() {
         return Err(format!("appshot record not found: {timestamp}"));
     }
-    let protocol_text = protocol::format_prompt(timestamp)?;
+    let protocol_text = protocol::format_prompt_for_record_dir(timestamp, &dir)?;
     copy_protocol_text(&protocol_text)?;
     Ok(AppshotCopyResponse {
         timestamp: timestamp.to_string(),
@@ -290,14 +290,17 @@ enum SnapshotDataUrl {
 }
 
 fn read_snapshot_data_url(path: &Path) -> Result<SnapshotDataUrl, String> {
+    const DATA_URL_PREFIX: &str = "data:image/png;base64,";
+
     let metadata =
         fs::metadata(path).map_err(|error| format!("failed to read snapshot metadata: {error}"))?;
-    if metadata.len() > encoding::MAX_INLINE_SNAPSHOT_BYTES as u64 {
+    let encoded_len = DATA_URL_PREFIX.len() as u64 + metadata.len().div_ceil(3) * 4;
+    if encoded_len > encoding::MAX_INLINE_SNAPSHOT_BYTES as u64 {
         return Ok(SnapshotDataUrl::TooLarge);
     }
     let bytes = fs::read(path).map_err(|error| format!("failed to read snapshot: {error}"))?;
     Ok(SnapshotDataUrl::Inline(format!(
-        "data:image/png;base64,{}",
+        "{DATA_URL_PREFIX}{}",
         encoding::base64_encode(&bytes)
     )))
 }
@@ -407,6 +410,9 @@ mod tests {
         assert_eq!(metadata.timestamp, response.timestamp);
         assert_eq!(metadata.record_dir, record_dir.display().to_string());
         assert_eq!(metadata.context_bytes, "# Appshot Context\n\nhello".len());
+        assert!(response
+            .protocol_text
+            .contains(&record_dir.display().to_string()));
 
         let listed = list_records().expect("list records");
         assert_eq!(listed.len(), 1);
@@ -453,6 +459,33 @@ mod tests {
             .len(),
             (encoding::MAX_INLINE_SNAPSHOT_BYTES + 1) as u64
         );
+
+        delete_record(&response.timestamp).expect("delete record");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn read_record_omits_snapshot_when_encoded_data_url_is_too_large() {
+        let root = unique_test_root("encoded-oversized");
+        let _guard = use_test_data_root(root.clone());
+        let mut capture = sample_capture();
+        let raw_len_that_exceeds_after_encoding = encoding::MAX_INLINE_SNAPSHOT_BYTES * 3 / 4;
+        capture.screenshot_png = vec![7; raw_len_that_exceeds_after_encoding];
+        let response = write_record(capture).expect("record write");
+
+        let details = read_records(std::slice::from_ref(&response.timestamp)).expect("read record");
+
+        assert_eq!(details.len(), 1);
+        assert!(details[0].snapshot_url.is_none());
+        assert!(
+            raw_len_that_exceeds_after_encoding <= encoding::MAX_INLINE_SNAPSHOT_BYTES,
+            "test must cover raw bytes below the inline cap"
+        );
+        assert!(details[0]
+            .metadata
+            .warnings
+            .iter()
+            .any(|warning| warning == encoding::OVERSIZED_SNAPSHOT_WARNING));
 
         delete_record(&response.timestamp).expect("delete record");
         let _ = fs::remove_dir_all(root);
