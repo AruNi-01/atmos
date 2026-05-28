@@ -95,6 +95,7 @@ pub fn permission_states(input_monitoring_granted: bool) -> Vec<AppshotPermissio
             vec![
                 "Open System Settings > Privacy & Security > Accessibility.".to_string(),
                 "Enable Atmos, then return to Atmos.".to_string(),
+                "If Atmos is already enabled after a local rebuild but still shows as denied, remove the stale Atmos entry with the minus button, add the current Atmos app again, then relaunch Atmos.".to_string(),
             ],
         ),
         permission_state(
@@ -107,6 +108,7 @@ pub fn permission_states(input_monitoring_granted: bool) -> Vec<AppshotPermissio
                 "Open System Settings > Privacy & Security > Screen & System Audio Recording."
                     .to_string(),
                 "Enable Atmos, then return to Atmos.".to_string(),
+                "If Atmos is already enabled after a local rebuild but still shows as denied, remove the stale Atmos entry with the minus button, add the current Atmos app again, then relaunch Atmos.".to_string(),
             ],
         ),
         permission_state(
@@ -118,6 +120,7 @@ pub fn permission_states(input_monitoring_granted: bool) -> Vec<AppshotPermissio
             vec![
                 "Open System Settings > Privacy & Security > Input Monitoring.".to_string(),
                 "Enable Atmos if it appears in the list, then return to Atmos.".to_string(),
+                "If Atmos is already enabled after a local rebuild but the shortcut still does not work, remove the stale Atmos entry, add the current Atmos app again, then relaunch Atmos.".to_string(),
             ],
         ),
     ]
