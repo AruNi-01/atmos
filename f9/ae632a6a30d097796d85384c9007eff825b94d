@@ -1,0 +1,30 @@
+apps/desktop/src-tauri/src/appshot/macos.rs
+  s_b8f61e322a0380::t_71e624f43594e4 84,147-150,153,155
+specs/APP/APP-021_appshots-cross-app-snapshot/TEST.md
+  s_b8f61e322a0380::t_9f92833eeefed0 10
+  s_b8f61e322a0380::t_71e624f43594e4 129,175
+apps/web/src/features/appshot/types.ts
+  s_b8f61e322a0380::t_9f92833eeefed0 12
+apps/desktop/src-tauri/src/appshot/mod.rs
+  s_b8f61e322a0380::t_71e624f43594e4 30,92,114,117
+specs/APP/APP-021_appshots-cross-app-snapshot/TECH.md
+  s_b8f61e322a0380::t_71e624f43594e4 188,199,220
+apps/desktop/src-tauri/src/appshot/shortcut.rs
+  s_b8f61e322a0380::t_71e624f43594e4 120,271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f9ae632a6a30d097796d85384c9007eff825b94d",
+  "prompts": {},
+  "sessions": {
+    "s_b8f61e322a0380": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d51-8e6c-7141-9098-90231d4a78a6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
