@@ -29,6 +29,7 @@ describe("appshot payload guards", () => {
       captured_at: "2026-05-28T00:00:00Z",
       quality: "screenshot_and_accessibility",
       screenshot_preview_base64: "a".repeat(MAX_INLINE_APPSHOT_IMAGE_CHARS),
+      source_bounds: null,
       permissions: [],
       warnings: [],
       expires_in_ms: 6_000,

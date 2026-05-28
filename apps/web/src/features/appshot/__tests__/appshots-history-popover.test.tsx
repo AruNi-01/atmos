@@ -8,6 +8,7 @@ import type {
   AppshotCopyResponse,
   AppshotRecordDetail,
   AppshotRecordListItem,
+  AppshotSnapshotView,
   AppshotStatus,
 } from "../types";
 
@@ -41,6 +42,7 @@ const calls = {
   delete: [] as string[],
   list: 0,
   read: [] as string[][],
+  readSnapshot: [] as string[],
 };
 
 let recordItems: AppshotRecordListItem[] = [];
@@ -137,6 +139,15 @@ mock.module("../lib/appshot-client", () => ({
       return detail;
     });
   },
+  readAppshotSnapshot: async (
+    timestamp: string,
+  ): Promise<AppshotSnapshotView> => {
+    calls.readSnapshot.push(timestamp);
+    return {
+      timestamp,
+      snapshot_url: `data:image/png;base64,full-${timestamp}`,
+    };
+  },
   watchAppshotStatusAfterPermissionOpen: () => () => undefined,
 }));
 
@@ -166,6 +177,7 @@ beforeEach(() => {
   calls.delete = [];
   calls.list = 0;
   calls.read = [];
+  calls.readSnapshot = [];
   recordItems = [];
   recordDetails = new Map();
 });
@@ -196,6 +208,12 @@ describe("S7/S8 - Header Appshots history", () => {
     expect(container.textContent).not.toContain("App #01");
     expect(container.textContent).not.toContain("App #00");
 
+    const recordsScrollArea = container.querySelector(
+      '[aria-label="Recent Appshot records"]',
+    );
+    expect(recordsScrollArea?.className).toContain("h-[min(42vh,360px)]");
+    expect(recordsScrollArea?.className).toContain("min-h-[160px]");
+
     const readCallCountBeforeMore = calls.read.length;
     await click(getButtonByText(container, "More"));
     await flushUntil(() => uniqueReadTimestamps().length === 12);
@@ -211,6 +229,11 @@ describe("S7/S8 - Header Appshots history", () => {
     );
 
     expect(calls.copy).toEqual([newestFirst[0]]);
+
+    await click(getButtonsByLabel(container, "Preview screenshot for App #11 - Window #11")[0]);
+    await flushUntil(() => calls.readSnapshot.length === 1);
+
+    expect(calls.readSnapshot).toEqual([newestFirst[0]]);
 
     await click(getButtonsByLabel(container, "Delete Appshot record")[0]);
     await flushUntil(() => !container.textContent?.includes("App #11"));

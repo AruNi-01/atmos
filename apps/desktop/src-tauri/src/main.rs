@@ -355,6 +355,7 @@ fn main() {
             commands::appshot_set_pending_auto_accept,
             commands::appshot_list_records,
             commands::appshot_read_records,
+            commands::appshot_read_snapshot,
             commands::appshot_copy_record,
             commands::appshot_delete_record,
             commands::appshot_open_permissions,

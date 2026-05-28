@@ -27,6 +27,7 @@ pub struct AppshotPendingPreview {
     pub captured_at: String,
     pub quality: AppshotQuality,
     pub screenshot_preview_base64: Option<String>,
+    pub source_bounds: Option<AppshotWindowBounds>,
     pub permissions: Vec<AppshotPermissionState>,
     pub warnings: Vec<String>,
     pub expires_in_ms: u64,
@@ -83,6 +84,12 @@ pub struct AppshotRecordDetail {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppshotSnapshotView {
+    pub timestamp: String,
+    pub snapshot_url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppshotRecordMetadata {
     pub timestamp: String,
     pub captured_at: String,
@@ -108,6 +115,14 @@ pub struct AppshotScreenshotMetadata {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub media_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppshotWindowBounds {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -175,6 +190,7 @@ pub struct CapturedAppshot {
     pub quality: AppshotQuality,
     pub screenshot_png: Vec<u8>,
     pub screenshot: AppshotScreenshotMetadata,
+    pub source_bounds: Option<AppshotWindowBounds>,
     pub context_markdown: String,
     pub permissions: Vec<AppshotPermissionState>,
     pub warnings: Vec<String>,

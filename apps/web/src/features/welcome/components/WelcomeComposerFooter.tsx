@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { createPortal } from "react-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui";
 import {
   Eye,
@@ -12,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
+import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 import { SlashCommandPopover } from "@/features/welcome/components/SlashCommandPopover";
 import { WelcomeAdvancedOptions } from "@/features/welcome/components/WelcomeAdvancedOptions";
 import { WelcomeMentionPopover } from "@/features/welcome/components/WelcomeMentionPopover";
@@ -67,22 +67,13 @@ export function WelcomeComposerFooter({
         <WelcomeMentionPopover {...mentionPopoverProps} />
         <SlashCommandPopover {...slashPopoverProps} />
 
-        {previewAttachment && typeof document !== "undefined"
-          ? createPortal(
-              <div
-                className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
-                onClick={onPreviewAttachmentClose}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object URLs and must not go through Next image optimization. */}
-                <img
-                  src={previewAttachment.objectUrl}
-                  alt={previewAttachment.filename}
-                  className="max-h-[92vh] max-w-[92vw] rounded-md object-contain shadow-2xl"
-                />
-              </div>,
-              document.body,
-            )
-          : null}
+        {previewAttachment ? (
+          <ImagePreviewOverlay
+            src={previewAttachment.objectUrl}
+            alt={previewAttachment.filename}
+            onClose={onPreviewAttachmentClose}
+          />
+        ) : null}
 
         {summaryItems.length > 0 ? (
           <div className="scrollbar-on-hover flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap pr-1">

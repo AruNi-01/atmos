@@ -176,6 +176,8 @@ Use bounded thumbnails or file/blob URLs for UI previews. The native record can 
 
 - 2026-05-28 - Native preview/history payloads now use `MAX_INLINE_SNAPSHOT_BYTES`; full `snapshot.png` stays on disk, while oversized inline images are omitted with a warning.
 - 2026-05-28 - Web preview/history state now applies payload sanitizers, and history reads details in bounded batches instead of inlining all 10 row thumbnails at once.
+- 2026-05-28 - Native records now resize persisted `snapshot.png` to a bounded desktop-friendly image, history rows generate thumbnails, and thumbnail click-through lazily loads a larger preview using the shared composer image overlay.
+- 2026-05-28 - Capture UX now adds a bounded native target-window border/flash overlay before screenshot capture and animates the pending card from the target window bounds into the Atmos preview popover.
 - 2026-05-28 - Verified with `cargo test -p atmos-desktop appshot`, focused web Appshot tests, and `bun --filter web typecheck`.
 
 ---

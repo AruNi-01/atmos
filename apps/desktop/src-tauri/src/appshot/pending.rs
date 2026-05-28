@@ -1,5 +1,6 @@
 use crate::appshot::encoding;
 use crate::appshot::records;
+use crate::appshot::thumbnail;
 use crate::appshot::types::{AppshotAcceptResponse, AppshotPendingPreview, CapturedAppshot};
 use chrono::Utc;
 use std::collections::HashMap;
@@ -51,6 +52,7 @@ pub fn insert(captured: CapturedAppshot) -> Result<AppshotPendingPreview, String
         captured_at: captured.captured_at.clone(),
         quality: captured.quality.clone(),
         screenshot_preview_base64,
+        source_bounds: captured.source_bounds.clone(),
         permissions: captured.permissions.clone(),
         warnings: preview_warnings,
         expires_in_ms: if has_denied_permissions {
@@ -97,11 +99,18 @@ fn screenshot_preview_base64(
     if !captured.screenshot.available {
         return None;
     }
-    if captured.screenshot_png.len() > encoding::MAX_INLINE_SNAPSHOT_BYTES {
-        append_warning(warnings, encoding::OVERSIZED_SNAPSHOT_WARNING);
-        return None;
+    if encoding::fits_inline_png_data_url(captured.screenshot_png.len() as u64) {
+        return Some(encoding::base64_encode(&captured.screenshot_png));
     }
-    Some(encoding::base64_encode(&captured.screenshot_png))
+
+    if let Ok(thumbnail_png) = thumbnail::thumbnail_png_for_bytes(&captured.screenshot_png) {
+        if encoding::fits_inline_png_data_url(thumbnail_png.len() as u64) {
+            return Some(encoding::base64_encode(&thumbnail_png));
+        }
+    }
+
+    append_warning(warnings, encoding::OVERSIZED_SNAPSHOT_WARNING);
+    None
 }
 
 fn append_warning(warnings: &mut Vec<String>, warning: &str) {
@@ -490,6 +499,12 @@ mod tests {
                 height: Some(10),
                 media_type: "image/png".to_string(),
             },
+            source_bounds: Some(crate::appshot::types::AppshotWindowBounds {
+                x: 100,
+                y: 120,
+                width: 900,
+                height: 600,
+            }),
             context_markdown: "# Appshot Context\n\nbody".to_string(),
             permissions: vec![AppshotPermissionState {
                 name: AppshotPermissionName::Accessibility,

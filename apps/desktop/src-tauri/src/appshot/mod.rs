@@ -1,3 +1,4 @@
+mod capture_animation;
 mod clipboard;
 mod encoding;
 #[cfg(target_os = "macos")]
@@ -6,6 +7,7 @@ mod pending;
 pub mod protocol;
 mod records;
 mod shortcut;
+mod thumbnail;
 pub mod types;
 #[cfg(not(target_os = "macos"))]
 mod unsupported;
@@ -13,7 +15,7 @@ mod unsupported;
 use crate::appshot::types::{
     AppshotAcceptResponse, AppshotCopyResponse, AppshotOpenPermissionsRequest,
     AppshotPendingAutoAcceptRequest, AppshotReadRecordsRequest, AppshotRecordDetail,
-    AppshotRecordListItem, AppshotStatus,
+    AppshotRecordListItem, AppshotSnapshotView, AppshotStatus,
 };
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -67,6 +69,10 @@ pub async fn read_records(
     records::read_records(&req.timestamps)
 }
 
+pub async fn read_snapshot(timestamp: String) -> Result<AppshotSnapshotView, String> {
+    records::read_snapshot(&timestamp)
+}
+
 pub async fn copy_record(timestamp: String) -> Result<AppshotCopyResponse, String> {
     records::copy_record(&timestamp)
 }
@@ -89,6 +95,7 @@ pub async fn open_permissions(req: AppshotOpenPermissionsRequest) -> Result<(), 
 }
 
 pub async fn trigger_capture(app: AppHandle) {
+    play_capture_animation(&app).await;
     match capture_current().await {
         Ok(captured) => match pending::insert(captured) {
             Ok(preview) => {
@@ -108,6 +115,20 @@ pub async fn trigger_capture(app: AppHandle) {
         Err(error) => {
             let _ = app.emit("appshot://error", error);
         }
+    }
+}
+
+async fn play_capture_animation(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(bounds) = macos::capture_animation_target().await {
+            let _ = capture_animation::play(app.clone(), bounds).await;
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
     }
 }
 

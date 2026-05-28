@@ -1,9 +1,10 @@
 use crate::appshot::clipboard;
 use crate::appshot::encoding;
 use crate::appshot::protocol;
+use crate::appshot::thumbnail;
 use crate::appshot::types::{
     AppshotAcceptResponse, AppshotCopyResponse, AppshotRecordDetail, AppshotRecordListItem,
-    AppshotRecordMetadata, CapturedAppshot,
+    AppshotRecordMetadata, AppshotSnapshotView, CapturedAppshot,
 };
 use chrono::Utc;
 use std::fs;
@@ -46,7 +47,7 @@ fn home_dir() -> PathBuf {
     dirs::home_dir().unwrap_or_else(std::env::temp_dir)
 }
 
-pub fn write_record(captured: CapturedAppshot) -> Result<AppshotAcceptResponse, String> {
+pub fn write_record(mut captured: CapturedAppshot) -> Result<AppshotAcceptResponse, String> {
     let records_root = records_root();
     let tmp_root = tmp_root();
     fs::create_dir_all(&records_root)
@@ -66,11 +67,22 @@ pub fn write_record(captured: CapturedAppshot) -> Result<AppshotAcceptResponse, 
     let snapshot_path = tmp_dir.join(SNAPSHOT_FILE);
     let context_path = tmp_dir.join(CONTEXT_FILE);
     let metadata_path = tmp_dir.join(METADATA_FILE);
-    let snapshot_png = if captured.screenshot_png.is_empty() {
+    let mut snapshot_png = if captured.screenshot_png.is_empty() {
         placeholder_png().to_vec()
     } else {
         captured.screenshot_png
     };
+    if captured.screenshot.available {
+        if let Ok(resized_png) = thumbnail::snapshot_png_for_bytes(&snapshot_png) {
+            if !resized_png.is_empty() && resized_png.len() < snapshot_png.len() {
+                snapshot_png = resized_png;
+                if let Some((width, height)) = png_dimensions(&snapshot_png) {
+                    captured.screenshot.width = Some(width);
+                    captured.screenshot.height = Some(height);
+                }
+            }
+        }
+    }
 
     fs::write(&snapshot_path, &snapshot_png).map_err(|error| {
         cleanup_tmp_dir(
@@ -196,6 +208,23 @@ pub fn copy_record(timestamp: &str) -> Result<AppshotCopyResponse, String> {
     })
 }
 
+pub fn read_snapshot(timestamp: &str) -> Result<AppshotSnapshotView, String> {
+    ensure_timestamp(timestamp)?;
+    let snapshot_path = records_root().join(timestamp).join(SNAPSHOT_FILE);
+    if !snapshot_path.is_file() {
+        return Err(format!("appshot snapshot not found: {timestamp}"));
+    }
+    let snapshot_png = match thumbnail::snapshot_png_for_path(&snapshot_path) {
+        Ok(bytes) => bytes,
+        Err(_) => fs::read(&snapshot_path)
+            .map_err(|error| format!("failed to read appshot snapshot: {error}"))?,
+    };
+    Ok(AppshotSnapshotView {
+        timestamp: timestamp.to_string(),
+        snapshot_url: data_url_for_png(&snapshot_png),
+    })
+}
+
 pub fn copy_protocol_text(protocol_text: &str) -> Result<(), String> {
     clipboard::copy_text(protocol_text)
 }
@@ -290,19 +319,38 @@ enum SnapshotDataUrl {
 }
 
 fn read_snapshot_data_url(path: &Path) -> Result<SnapshotDataUrl, String> {
-    const DATA_URL_PREFIX: &str = "data:image/png;base64,";
-
     let metadata =
         fs::metadata(path).map_err(|error| format!("failed to read snapshot metadata: {error}"))?;
-    let encoded_len = DATA_URL_PREFIX.len() as u64 + metadata.len().div_ceil(3) * 4;
-    if encoded_len > encoding::MAX_INLINE_SNAPSHOT_BYTES as u64 {
-        return Ok(SnapshotDataUrl::TooLarge);
+    if encoding::fits_inline_png_data_url(metadata.len()) {
+        let bytes = fs::read(path).map_err(|error| format!("failed to read snapshot: {error}"))?;
+        return Ok(SnapshotDataUrl::Inline(data_url_for_png(&bytes)));
     }
-    let bytes = fs::read(path).map_err(|error| format!("failed to read snapshot: {error}"))?;
-    Ok(SnapshotDataUrl::Inline(format!(
-        "{DATA_URL_PREFIX}{}",
-        encoding::base64_encode(&bytes)
-    )))
+
+    if let Ok(thumbnail_png) = thumbnail::thumbnail_png_for_path(path) {
+        if encoding::fits_inline_png_data_url(thumbnail_png.len() as u64) {
+            return Ok(SnapshotDataUrl::Inline(data_url_for_png(&thumbnail_png)));
+        }
+    }
+
+    Ok(SnapshotDataUrl::TooLarge)
+}
+
+fn data_url_for_png(bytes: &[u8]) -> String {
+    format!(
+        "{}{}",
+        encoding::DATA_URL_PREFIX,
+        encoding::base64_encode(bytes)
+    )
+}
+
+fn png_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    const PNG_SIG: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
+    if bytes.len() < 24 || &bytes[0..8] != PNG_SIG {
+        return None;
+    }
+    let width = u32::from_be_bytes(bytes[16..20].try_into().ok()?);
+    let height = u32::from_be_bytes(bytes[20..24].try_into().ok()?);
+    Some((width, height))
 }
 
 fn append_warning(warnings: &mut Vec<String>, warning: &str) {
@@ -512,6 +560,7 @@ mod tests {
                 height: Some(10),
                 media_type: "image/png".to_string(),
             },
+            source_bounds: None,
             context_markdown: "# Appshot Context\n\nhello".to_string(),
             permissions: vec![AppshotPermissionState {
                 name: AppshotPermissionName::Accessibility,

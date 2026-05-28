@@ -1,7 +1,7 @@
 use crate::appshot::types::{
     AppshotPermissionName, AppshotPermissionRecoveryAction, AppshotPermissionState,
     AppshotPlatform, AppshotQuality, AppshotScreenshotMetadata, AppshotSettingsTarget,
-    CapturedAppshot,
+    AppshotWindowBounds, CapturedAppshot,
 };
 use chrono::Utc;
 use core_foundation::array::CFArray;
@@ -150,6 +150,18 @@ pub async fn capture_frontmost() -> Result<CapturedAppshot, String> {
         .map_err(|error| format!("appshot capture task failed: {error}"))?
 }
 
+pub async fn capture_animation_target() -> Option<AppshotWindowBounds> {
+    tauri::async_runtime::spawn_blocking(|| {
+        read_frontmost_window_native()
+            .ok()
+            .filter(|frontmost| frontmost.app_name != "Atmos")
+            .and_then(|frontmost| window_bounds(&frontmost))
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 fn capture_frontmost_blocking() -> Result<CapturedAppshot, String> {
     let captured_at = Utc::now().to_rfc3339();
     let permissions = permission_states();
@@ -199,12 +211,14 @@ fn capture_frontmost_blocking() -> Result<CapturedAppshot, String> {
                 height: Some(1),
                 media_type: "image/png".to_string(),
             },
+            source_bounds: None,
             context_markdown,
             permissions,
             warnings,
         });
     }
 
+    let source_bounds = window_bounds(&frontmost);
     let (screenshot_png, screenshot_available, mut screenshot_warnings) =
         capture_screenshot(&frontmost);
     warnings.append(&mut screenshot_warnings);
@@ -256,9 +270,27 @@ fn capture_frontmost_blocking() -> Result<CapturedAppshot, String> {
             height: screenshot_dimensions.map(|(_, height)| height),
             media_type: "image/png".to_string(),
         },
+        source_bounds,
         context_markdown,
         permissions,
         warnings,
+    })
+}
+
+fn window_bounds(frontmost: &FrontmostWindow) -> Option<AppshotWindowBounds> {
+    let (Some(x), Some(y), Some(width), Some(height)) =
+        (frontmost.x, frontmost.y, frontmost.width, frontmost.height)
+    else {
+        return None;
+    };
+    if width <= 0 || height <= 0 {
+        return None;
+    }
+    Some(AppshotWindowBounds {
+        x,
+        y,
+        width: u32::try_from(width).ok()?,
+        height: u32::try_from(height).ok()?,
     })
 }
 
@@ -596,6 +628,7 @@ end replaceText
 
 on cleanText(valueText)
   try
+    if valueText is missing value then return ""
     set outputText to valueText as text
     set outputText to my replaceText(linefeed, " ", outputText)
     set outputText to my replaceText(return, " ", outputText)
@@ -619,16 +652,16 @@ on dumpElement(uiElement, depth)
   set descriptionText to ""
   set valueText to ""
   try
-    set roleText to my cleanText(role of uiElement)
+    tell application "System Events" to set roleText to my cleanText(role of uiElement)
   end try
   try
-    set nameText to my cleanText(name of uiElement)
+    tell application "System Events" to set nameText to my cleanText(name of uiElement)
   end try
   try
-    set descriptionText to my cleanText(description of uiElement)
+    tell application "System Events" to set descriptionText to my cleanText(description of uiElement)
   end try
   try
-    set valueText to my cleanText(value of uiElement)
+    tell application "System Events" to set valueText to my cleanText(value of uiElement)
   end try
   if {redaction_condition} then
     set valueText to "[redacted]"
@@ -639,7 +672,7 @@ on dumpElement(uiElement, depth)
   if descriptionText is not "" and descriptionText is not nameText then set lineText to lineText & " (" & descriptionText & ")"
   set outputText to lineText & linefeed
   try
-    set childItems to UI elements of uiElement
+    tell application "System Events" to set childItems to UI elements of uiElement
     repeat with childItem in childItems
       set outputText to outputText & my dumpElement(childItem, depth + 1)
       if nodeCount > nodeLimit then exit repeat

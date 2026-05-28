@@ -218,6 +218,13 @@ pub async fn appshot_read_records(
 }
 
 #[tauri::command]
+pub async fn appshot_read_snapshot(
+    timestamp: String,
+) -> Result<crate::appshot::types::AppshotSnapshotView, String> {
+    crate::appshot::read_snapshot(timestamp).await
+}
+
+#[tauri::command]
 pub async fn appshot_copy_record(
     timestamp: String,
 ) -> Result<crate::appshot::types::AppshotCopyResponse, String> {

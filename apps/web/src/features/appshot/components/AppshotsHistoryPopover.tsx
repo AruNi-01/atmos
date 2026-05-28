@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
+import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
 
 import {
   copyAppshotRecord,
@@ -18,6 +19,7 @@ import {
   listAppshotRecords,
   openAppshotPermissionTarget,
   readAppshotRecords,
+  readAppshotSnapshot,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
 import { sanitizeRecordDetailPayloads } from "../lib/appshot-payload";
@@ -50,8 +52,14 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const [copyingTimestamp, setCopyingTimestamp] = React.useState<string | null>(null);
   const [copiedTimestamp, setCopiedTimestamp] = React.useState<string | null>(null);
   const [deletingTimestamp, setDeletingTimestamp] = React.useState<string | null>(null);
+  const [previewImage, setPreviewImage] = React.useState<{
+    timestamp: string;
+    src: string;
+    alt: string;
+  } | null>(null);
   const permissionWatcherRef = React.useRef<(() => void) | null>(null);
   const copyResetTimerRef = React.useRef<number | null>(null);
+  const previewRequestRef = React.useRef(0);
 
   const refreshStatus = React.useCallback(async () => {
     setStatusLoading(true);
@@ -145,6 +153,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     return () => {
       permissionWatcherRef.current?.();
       clearCopyResetTimer();
+      previewRequestRef.current += 1;
     };
   }, [clearCopyResetTimer]);
 
@@ -200,8 +209,41 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
     }
   }, []);
 
+  const closePreviewImage = React.useCallback(() => {
+    previewRequestRef.current += 1;
+    setPreviewImage(null);
+  }, []);
+
+  const handlePreview = React.useCallback(async (record: AppshotRecordDetail) => {
+    if (!record.snapshot_url) {
+      return;
+    }
+    const requestId = previewRequestRef.current + 1;
+    previewRequestRef.current = requestId;
+    const alt = `Screenshot preview for ${record.metadata.app_name}`;
+    setPreviewImage({
+      timestamp: record.timestamp,
+      src: record.snapshot_url,
+      alt,
+    });
+    try {
+      const fullSnapshot = await readAppshotSnapshot(record.timestamp);
+      if (previewRequestRef.current === requestId) {
+        setPreviewImage({
+          timestamp: record.timestamp,
+          src: fullSnapshot.snapshot_url,
+          alt,
+        });
+      }
+    } catch (err) {
+      if (previewRequestRef.current === requestId) {
+        setHistoryError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  }, []);
+
   return (
-    <div className="space-y-3">
+    <div className="flex min-h-0 flex-col gap-3">
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -264,7 +306,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
 
       <div className="border-t border-border" />
 
-      <div className="space-y-2">
+      <div className="flex min-h-0 flex-col gap-2">
         <div className="flex items-center justify-between">
           <p className="text-xs font-medium text-popover-foreground">Recent records</p>
           {records.length > 0 ? (
@@ -274,7 +316,11 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
           ) : null}
         </div>
 
-        <ScrollArea className="h-[min(54vh,480px)] pr-1" scrollbarGutter>
+        <ScrollArea
+          aria-label="Recent Appshot records"
+          className="h-[min(42vh,360px)] min-h-[160px] pr-1"
+          scrollbarGutter
+        >
           <div className="space-y-2">
             {historyLoading ? (
               <HistorySkeleton />
@@ -297,6 +343,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
                     deleting={deletingTimestamp === item.timestamp}
                     onCopy={handleCopy}
                     onDelete={handleDelete}
+                    onPreview={handlePreview}
                   />
                 );
               })
@@ -318,6 +365,13 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
           </Button>
         ) : null}
       </div>
+      {previewImage ? (
+        <ImagePreviewOverlay
+          src={previewImage.src}
+          alt={previewImage.alt}
+          onClose={closePreviewImage}
+        />
+      ) : null}
     </div>
   );
 }
@@ -384,14 +438,13 @@ function HistorySkeleton() {
 
 function HistorySkeletonRow() {
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] gap-3 rounded-md border border-border bg-muted/20 p-2">
-      <Skeleton className="h-14 w-[72px] rounded" />
-      <div className="space-y-2 py-1">
-        <Skeleton className="h-3 w-32" />
+    <div className="grid h-[72px] grid-cols-[96px_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-muted/20">
+      <Skeleton className="h-full w-24 rounded-none" />
+      <div className="space-y-2 px-3 py-2">
         <Skeleton className="h-3 w-44" />
         <Skeleton className="h-3 w-full" />
       </div>
-      <div className="flex gap-1">
+      <div className="flex gap-1 px-2 py-2">
         <Skeleton className="size-6 rounded-md" />
         <Skeleton className="size-6 rounded-md" />
       </div>

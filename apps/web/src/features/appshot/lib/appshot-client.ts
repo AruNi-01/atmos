@@ -13,6 +13,7 @@ import type {
   AppshotRecordListItem,
   AppshotReadRecordsRequest,
   AppshotSettingsTarget,
+  AppshotSnapshotView,
   AppshotStatus,
 } from "../types";
 
@@ -102,6 +103,14 @@ export async function readAppshotRecords(
   const req: AppshotReadRecordsRequest = { timestamps };
   return await invokeAppshot<AppshotRecordDetail[]>("appshot_read_records", {
     req,
+  });
+}
+
+export async function readAppshotSnapshot(
+  timestamp: string,
+): Promise<AppshotSnapshotView> {
+  return await invokeAppshot<AppshotSnapshotView>("appshot_read_snapshot", {
+    timestamp,
   });
 }
 

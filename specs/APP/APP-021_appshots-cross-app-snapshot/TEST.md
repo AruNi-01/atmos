@@ -38,8 +38,8 @@
 - **Level**: Manual macOS Desktop plus native integration.
 - **Given**: Atmos Desktop is running with required permissions and another app is focused.
 - **When**: the user presses the configured global shortcut.
-- **Then**: Atmos captures the focused external app, not Atmos, and emits a pending preview event.
-- **Signals**: preview event has `preview_id`, app/window metadata, screenshot preview when available, and `expires_in_ms: 6000`.
+- **Then**: Atmos highlights the focused external app with a blue capture border/flash, captures that app instead of Atmos, and emits a pending preview event.
+- **Signals**: preview event has `preview_id`, app/window metadata, `source_bounds` when known, screenshot preview when available, and `expires_in_ms: 6000`.
 
 ### S2 - Preview popover resolves by delete
 
@@ -87,7 +87,7 @@
 - **Given**: at least 12 record directories exist under `~/.atmos/appshots/records/`.
 - **When**: the user opens the Header Appshots popover.
 - **Then**: the button appears immediately left of Open in Web; the popover explains Appshots; records are sorted newest first; only the first 10 records have details loaded until More is clicked.
-- **Signals**: first page renders 10 rows with app, time, thumbnail, truncated context, Copy, and Delete; More reveals rows 11-20 by reading additional details.
+- **Signals**: first page renders 10 rows with app, time, thumbnail, truncated context, Copy, and Delete; clicking a thumbnail opens the shared image preview overlay; More reveals rows 11-20 by reading additional details.
 
 ### S8 - History copy and delete
 
@@ -173,14 +173,14 @@
 1. On macOS Desktop, revoke one Appshots permission, open the Header Appshots popover, and confirm it shows the missing permission with an Open System Settings action.
 2. Click Open System Settings, grant the permission, return to Atmos, and confirm the permission state refreshes without restarting.
 3. Grant Screen Recording and Accessibility; focus an Electron or browser window and press the global Appshot gesture.
-4. Confirm the right-top preview appears with a screenshot, Copy, Delete, and a live countdown; hover it and confirm the countdown pauses; move the mouse out and confirm the countdown resumes and creates a record directory on timeout.
+4. Confirm the target app briefly shows a blue capture border/flash, then the right-top preview appears with a screenshot, Copy, Delete, a live countdown, and a movement animation into Atmos; hover it and confirm the countdown pauses; move the mouse out and confirm the countdown resumes and creates a record directory on timeout.
 5. Inspect `~/.atmos/appshots/records/{timestamp}/` and confirm `snapshot.png`, `context.md`, and `metadata.json` exist.
 6. Paste the clipboard into a plain text editor and confirm the first line is `atmos://appshots/{timestamp}` and the instruction points at the record directory.
 7. Paste the same clipboard into the Welcome composer and confirm it becomes a compact Appshot label.
 8. Create a workspace from the Welcome page and confirm the resulting requirement/queued prompt includes the protocol reference and instruction.
 9. Paste the same clipboard into Automation setup and confirm saved automation instructions include the protocol reference and instruction.
 10. Paste an image into Automation setup and confirm the saved automation instruction points at an attachment under `~/.atmos/automations/definitions/{automation_guid}/attachments/`.
-11. Open the Header Appshots popover next to Open in Web and confirm recent records show thumbnails, app/time, truncated context, Copy, Delete, and More pagination.
+11. Open the Header Appshots popover next to Open in Web and confirm recent records show thumbnails, app/time, truncated context, Copy, Delete, and More pagination. Click a thumbnail and confirm it opens in the same full-screen image preview overlay used by composer attachments.
 12. Delete a record from history and confirm its directory is removed.
 13. Focus a long Electron/browser page and capture; confirm `metadata.json` does not degrade to `app_name: "Unknown App"` and `snapshot.png` is a real window image even if `quality` is `screenshot_only`.
 14. Focus a password field in a target app, capture, and confirm `context.md`, `metadata.json`, submitted prompt, and logs do not contain the password value.

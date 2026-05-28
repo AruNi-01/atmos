@@ -114,10 +114,11 @@ pub async fn appshot_open_permissions(req: AppshotOpenPermissionsRequest) -> Res
 The product flow is trigger-driven:
 
 1. Native trigger listener observes the configured Appshot gesture and calls capture with `target: "frontmost"` or a platform-specific active-window target.
-2. Native stores a pending capture under an opaque `preview_id`.
-3. Native emits an app event to the main WebView, for example `appshot://preview`, with metadata and screenshot preview bytes.
-4. Web UI calls `appshot_accept_pending` on Copy or after the 6-second timer.
-5. Web UI calls `appshot_discard_pending` on Delete.
+2. Native plays a short capture affordance against the target window bounds: a transparent always-on-top overlay shows a blue breathing border and a camera-flash frame, then closes before the real screenshot is taken so `snapshot.png` does not include the affordance.
+3. Native stores a pending capture under an opaque `preview_id`.
+4. Native emits an app event to the main WebView, for example `appshot://preview`, with metadata, source window bounds, and screenshot preview bytes.
+5. Web UI calls `appshot_accept_pending` on Copy or after the 6-second timer.
+6. Web UI calls `appshot_discard_pending` on Delete.
 
 Native must also own a 6-second timeout for each pending capture so auto-accept still happens if the WebView event is delayed or the UI timer is interrupted. Delete must win if it arrives before the timeout resolves.
 
@@ -134,7 +135,7 @@ Accepted Appshots are stored as directories, not single JSON blobs:
 ```
 
 - Directory name is the 13-digit Unix epoch millisecond timestamp and is the stable record id.
-- `snapshot.png` is the captured window image. The preview popover and history popover use this file for thumbnails. Accepted records keep the three-file contract stable; if screenshot capture fails but a degraded text-only record is still accepted, write a placeholder PNG and mark `screenshot.available = false` in `metadata.json`.
+- `snapshot.png` is the captured window image, resized to a bounded desktop-friendly maximum edge before persistence so local records do not store multi-megabyte Retina captures by default. The preview popover and history popover use generated thumbnails from this file; clicking a history thumbnail lazily loads a larger view into the shared composer image preview overlay. Accepted records keep the three-file contract stable; if screenshot capture fails but a degraded text-only record is still accepted, write a placeholder PNG and mark `screenshot.available = false` in `metadata.json`.
 - `context.md` is agent-readable Markdown with the normalized accessibility tree, focused element, extracted text, warnings, and short capture notes.
 - `metadata.json` is structured data for UI and tooling. It includes timestamp, paths, platform, app name, bundle id/process id, window title/id, screenshot dimensions, capture quality, permission states, warnings, and byte counts.
 - Writes should be atomic: write into a temp directory under `~/.atmos/appshots/tmp/`, then rename to `records/{timestamp}` after all files are complete. Deletion removes the whole record directory.
@@ -270,10 +271,10 @@ apps/web/src/features/appshot/
 ```
 
 - `appshot-client.ts` checks `isTauriRuntime()` from `apps/web/src/shared/lib/desktop-runtime.ts` before invoking native commands.
-- `AppshotCapturePreview` listens for native preview events and renders the right-top 6-second popover with screenshot thumbnail, live countdown, Copy, and Delete. Hovering the preview pauses the frontend countdown and native auto-accept; leaving the preview resumes both from the remaining time.
+- `AppshotCapturePreview` listens for native preview events and renders the right-top 6-second popover with screenshot thumbnail, live countdown, Copy, and Delete. When source bounds are available, the card animates from the captured app's screen position into the Atmos right-top corner. Hovering the preview pauses the frontend countdown and native auto-accept; leaving the preview resumes both from the remaining time.
 - `AppshotsHeaderButton` is inserted immediately to the left of the existing Open in Web button in `apps/web/src/app-shell/header-action-controls.tsx`.
 - `AppshotsHistoryPopover` explains Appshots, lists recent local records, and shows missing-permission recovery actions before the history list when Appshots are disabled by permissions.
-- `AppshotRecordRow` renders app name, capture time, thumbnail from `snapshot.png`, truncated `context.md`, Copy, and Delete.
+- `AppshotRecordRow` renders app name, capture time, thumbnail from `snapshot.png`, truncated `context.md`, Copy, and Delete. Clicking the thumbnail opens the shared image preview overlay used by the composer image viewer.
 - `appshot-protocol.ts` owns `APPSHOT_PROTOCOL_PREFIX = "atmos://appshots/"`, `parseAppshotProtocol(text)`, `formatAppshotPrompt(timestamp)`, and `summarizeAppshotRecord`.
 - The parser accepts protocol text when the first line matches `atmos://appshots/<13-digit timestamp>` after normalizing line endings. Random Appshot URLs elsewhere in text do not become composer labels.
 - `appshot-client.ts` exposes `openAppshotPermissionTarget(target)` and refreshes `appshot_status` when the window regains focus after a settings action.
@@ -572,6 +573,7 @@ type AppshotPreviewEvent = {
   captured_at: string;
   quality: string;
   screenshot_preview_base64?: string;
+  source_bounds?: { x: number; y: number; width: number; height: number };
   permissions: AppshotPermissionState[];
   warnings: string[];
   expires_in_ms: 6000;

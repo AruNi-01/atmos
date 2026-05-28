@@ -22,6 +22,7 @@ import { formatQualityLabel } from "../lib/appshot-protocol";
 import type { AppshotPendingPreview, AppshotPermissionState } from "../types";
 
 type ResolveState = "idle" | "accepting" | "discarding";
+type EntranceOffset = { x: number; y: number };
 
 export function AppshotCapturePreview() {
   const [preview, setPreview] = React.useState<AppshotPendingPreview | null>(null);
@@ -29,6 +30,10 @@ export function AppshotCapturePreview() {
   const [error, setError] = React.useState<string | null>(null);
   const [remainingMs, setRemainingMs] = React.useState(0);
   const [countdownPaused, setCountdownPaused] = React.useState(false);
+  const [entranceOffset, setEntranceOffset] = React.useState<EntranceOffset>({
+    x: 0,
+    y: -18,
+  });
   const previewRef = React.useRef<AppshotPendingPreview | null>(null);
   const timerRef = React.useRef<number | null>(null);
   const countdownIntervalRef = React.useRef<number | null>(null);
@@ -221,6 +226,7 @@ export function AppshotCapturePreview() {
       clearTimer();
       resolvingRef.current = false;
       previewRef.current = nextPreview;
+      setEntranceOffset(computeEntranceOffset(nextPreview));
       setPreview(nextPreview);
       setResolveState("idle");
       setError(null);
@@ -269,9 +275,14 @@ export function AppshotCapturePreview() {
 
   return createPortal(
     <div
+      key={preview.preview_id}
       className={cn(
-        "fixed right-4 top-12 z-[2147483647] w-80 rounded-md border-r border-border bg-background p-3 text-foreground shadow-none desktop-no-drag",
+        "appshot-capture-card-enter fixed right-4 top-12 z-[2147483647] w-80 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-md desktop-no-drag",
       )}
+      style={{
+        "--appshot-enter-x": `${entranceOffset.x}px`,
+        "--appshot-enter-y": `${entranceOffset.y}px`,
+      } as React.CSSProperties}
       role="status"
       aria-live="polite"
       onMouseEnter={pauseAutoAcceptCountdown}
@@ -378,6 +389,29 @@ export function AppshotCapturePreview() {
     </div>,
     portalContainer,
   );
+}
+
+function computeEntranceOffset(preview: AppshotPendingPreview): EntranceOffset {
+  const bounds = preview.source_bounds;
+  if (!bounds || typeof window === "undefined") {
+    return { x: 0, y: -18 };
+  }
+
+  const screenX = window.screenX || window.screenLeft || 0;
+  const screenY = window.screenY || window.screenTop || 0;
+  const targetCenterX = window.innerWidth - 16 - 160;
+  const targetCenterY = 48 + 180;
+  const sourceCenterX = bounds.x + bounds.width / 2 - screenX;
+  const sourceCenterY = bounds.y + bounds.height / 2 - screenY;
+
+  return {
+    x: clamp(sourceCenterX - targetCenterX, -900, 900),
+    y: clamp(sourceCenterY - targetCenterY, -700, 700),
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function PreviewPermissionAction({

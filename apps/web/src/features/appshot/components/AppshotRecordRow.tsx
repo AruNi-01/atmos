@@ -13,6 +13,7 @@ type AppshotRecordRowProps = {
   copying: boolean;
   onCopy: (timestamp: string) => void;
   onDelete: (timestamp: string) => void;
+  onPreview: (record: AppshotRecordDetail) => void;
 };
 
 export function AppshotRecordRow({
@@ -22,26 +23,38 @@ export function AppshotRecordRow({
   copying,
   onCopy,
   onDelete,
+  onPreview,
 }: AppshotRecordRowProps) {
   const summary = summarizeAppshotRecord(record);
   const disabled = deleting || copying;
+  const headline =
+    summary.title && summary.title !== summary.appLabel
+      ? `${summary.appLabel} - ${summary.title}`
+      : summary.appLabel;
 
   return (
     <div
       className={cn(
-        "grid grid-cols-[72px_minmax(0,1fr)_auto] gap-3 rounded-md border border-border bg-muted/20 p-2",
+        "grid h-[72px] grid-cols-[96px_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-muted/20",
         deleting && "opacity-60",
       )}
     >
-      <div className="h-14 w-[72px] overflow-hidden rounded border border-border bg-background">
+      <div className="h-full w-24 overflow-hidden border-r border-border bg-background">
         {record.snapshot_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- Appshot thumbnails are local Tauri data URLs, not remote optimized assets.
-          <img
-            src={record.snapshot_url}
-            alt={`Screenshot preview for ${summary.title}`}
-            className="h-full w-full object-cover"
-            draggable={false}
-          />
+          <button
+            type="button"
+            className="block h-full w-full cursor-zoom-in overflow-hidden"
+            aria-label={`Preview screenshot for ${headline}`}
+            onClick={() => onPreview(record)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- Appshot thumbnails are local Tauri data URLs, not remote optimized assets. */}
+            <img
+              src={record.snapshot_url}
+              alt={`Screenshot preview for ${headline}`}
+              className="h-full w-full object-cover"
+              draggable={false}
+            />
+          </button>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             <ImageOff className="size-4" />
@@ -49,27 +62,24 @@ export function AppshotRecordRow({
         )}
       </div>
 
-      <div className="min-w-0 space-y-1">
+      <div className="min-w-0 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-xs font-medium text-popover-foreground">
-            {summary.appLabel}
+          <p className="min-w-0 truncate text-xs font-medium text-popover-foreground">
+            {headline}
           </p>
           <Badge
             variant="outline"
-            className="h-5 rounded-md px-1.5 text-[10px] font-normal text-muted-foreground"
+            className="h-5 shrink-0 rounded-md px-1.5 text-[10px] font-normal text-muted-foreground"
           >
             {summary.capturedAtLabel}
           </Badge>
         </div>
-        <p className="truncate text-[11px] text-muted-foreground">
-          {summary.title}
-        </p>
-        <p className="max-h-10 overflow-hidden whitespace-pre-wrap text-[11px] leading-5 text-muted-foreground">
+        <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] leading-4 text-muted-foreground">
           {record.context_preview || "No text context was captured."}
         </p>
       </div>
 
-      <div className="flex items-start gap-1">
+      <div className="flex items-start gap-1 px-2 py-2">
         <Button
           type="button"
           variant="ghost"

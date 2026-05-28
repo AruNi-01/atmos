@@ -58,6 +58,7 @@ export type AppshotPendingPreview = {
   captured_at: string;
   quality: AppshotQuality;
   screenshot_preview_base64: string | null;
+  source_bounds: AppshotWindowBounds | null;
   permissions?: AppshotPermissionState[] | null;
   warnings: string[];
   expires_in_ms: number;
@@ -74,6 +75,13 @@ export type AppshotScreenshotMetadata = {
   width: number | null;
   height: number | null;
   media_type: string;
+};
+
+export type AppshotWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
 
 export type AppshotRecordMetadata = {
@@ -118,6 +126,11 @@ export type AppshotRecordDetail = {
   metadata: AppshotRecordMetadata;
   context_preview: string;
   snapshot_url: string | null;
+};
+
+export type AppshotSnapshotView = {
+  timestamp: string;
+  snapshot_url: string;
 };
 
 export type AppshotReadRecordsRequest = {

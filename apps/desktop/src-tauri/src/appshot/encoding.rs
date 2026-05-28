@@ -1,7 +1,16 @@
 const BASE64_TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+pub const DATA_URL_PREFIX: &str = "data:image/png;base64,";
 pub const MAX_INLINE_SNAPSHOT_BYTES: usize = 384 * 1024;
 pub const OVERSIZED_SNAPSHOT_WARNING: &str =
     "Screenshot preview was hidden because the inline image payload is too large.";
+
+pub fn png_data_url_len(byte_len: u64) -> u64 {
+    DATA_URL_PREFIX.len() as u64 + byte_len.div_ceil(3) * 4
+}
+
+pub fn fits_inline_png_data_url(byte_len: u64) -> bool {
+    png_data_url_len(byte_len) <= MAX_INLINE_SNAPSHOT_BYTES as u64
+}
 
 pub fn base64_encode(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
