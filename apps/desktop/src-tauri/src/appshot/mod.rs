@@ -26,7 +26,7 @@ pub fn init(app: AppHandle) {
 pub async fn status(app: AppHandle) -> Result<AppshotStatus, String> {
     #[cfg(target_os = "macos")]
     {
-        let _ = app;
+        shortcut::start(app);
         let permissions = macos::permission_states(shortcut::is_enabled());
         let trigger = shortcut::trigger_status(permissions.clone());
         return Ok(AppshotStatus {

@@ -158,6 +158,10 @@ fn start_macos(app: AppHandle) {
 
         unsafe {
             CFRunLoopRun();
+            if let Ok(mut status) = status.lock() {
+                status.started = false;
+                status.enabled = false;
+            }
             CFRelease(source.cast());
             CFRelease(tap.cast());
             let _ = Box::from_raw(context_ptr);
@@ -273,6 +277,9 @@ fn handle_tap_disabled(context: &TapContext) {
         &context.status,
         "Appshot modifier listener was disabled by macOS. Check Accessibility and Input Monitoring permissions.",
     );
+    unsafe {
+        CFRunLoopStop(CFRunLoopGetCurrent());
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -349,6 +356,7 @@ extern "C" {
         mode: *const std::ffi::c_void,
     );
     fn CFRunLoopRun();
+    fn CFRunLoopStop(run_loop: *mut std::ffi::c_void);
     fn CFMachPortCreateRunLoopSource(
         allocator: *const std::ffi::c_void,
         port: *mut std::ffi::c_void,

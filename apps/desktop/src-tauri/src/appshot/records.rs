@@ -131,7 +131,7 @@ pub fn write_record(captured: CapturedAppshot) -> Result<AppshotAcceptResponse, 
         )
     })?;
 
-    let protocol_text = protocol::format_prompt_for_record_dir(&timestamp, &final_dir)?;
+    let protocol_text = protocol::format_prompt(&timestamp)?;
 
     Ok(AppshotAcceptResponse {
         timestamp,
@@ -187,7 +187,7 @@ pub fn copy_record(timestamp: &str) -> Result<AppshotCopyResponse, String> {
     if !dir.is_dir() {
         return Err(format!("appshot record not found: {timestamp}"));
     }
-    let protocol_text = protocol::format_prompt_for_record_dir(timestamp, &dir)?;
+    let protocol_text = protocol::format_prompt(timestamp)?;
     copy_protocol_text(&protocol_text)?;
     Ok(AppshotCopyResponse {
         timestamp: timestamp.to_string(),
@@ -410,9 +410,13 @@ mod tests {
         assert_eq!(metadata.timestamp, response.timestamp);
         assert_eq!(metadata.record_dir, record_dir.display().to_string());
         assert_eq!(metadata.context_bytes, "# Appshot Context\n\nhello".len());
-        assert!(response
+        assert!(!response
             .protocol_text
             .contains(&record_dir.display().to_string()));
+        assert!(response.protocol_text.contains(&format!(
+            "~/.atmos/appshots/records/{}/",
+            response.timestamp
+        )));
 
         let listed = list_records().expect("list records");
         assert_eq!(listed.len(), 1);
