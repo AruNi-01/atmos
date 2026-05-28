@@ -51,8 +51,15 @@ struct ClaudeCredentials {
     expires_at: Option<u64>,
 }
 
+#[derive(Debug, Clone)]
+struct ClaudeCli {
+    binary: String,
+    version: String,
+}
+
 const TOKEN_EXPIRY_BUFFER_SECS: u64 = 300;
 const CLAUDE_AUTH_STATUS_ARGS: &[&str] = &["auth", "status"];
+const CLAUDE_BINARY_ENV: &str = "CLAUDE_BINARY";
 
 #[derive(Debug, Clone, Deserialize)]
 struct ClaudeUsageResponse {
@@ -256,11 +263,17 @@ fn claude_token_needs_refresh(credentials: &ClaudeCredentials) -> bool {
 /// The CLI command does network I/O, so it is run in a blocking thread to
 /// avoid stalling the async executor.
 async fn delegate_claude_refresh() -> Result<(), ProviderError> {
-    tokio::task::spawn_blocking(|| run_command("claude", CLAUDE_AUTH_STATUS_ARGS))
+    let cli = selected_claude_cli().ok_or_else(unsupported_claude_auth_status_error)?;
+    let binary = cli.binary.clone();
+    let version = cli.version.clone();
+
+    tokio::task::spawn_blocking(move || run_command(&binary, CLAUDE_AUTH_STATUS_ARGS))
         .await
         .map_err(|e| ProviderError::Fetch(e.to_string()))?
         .map(|_| {
-            debug!("Claude CLI auth status completed, credentials should be refreshed");
+            debug!(
+                "Claude CLI auth status completed via {version}, credentials should be refreshed"
+            );
         })
         .map_err(|error| {
             debug!("Claude CLI auth status failed: {error}, credentials may be stale");
@@ -275,18 +288,89 @@ fn detect_claude_version() -> &'static str {
 
     CLAUDE_VERSION
         .get_or_init(|| {
-            run_command("claude", &["--version"])
-                .ok()
-                .and_then(|output| {
-                    output
-                        .split_whitespace()
-                        .next()
-                        .filter(|v| v.contains('.'))
-                        .map(str::to_string)
-                })
-                .unwrap_or_else(|| "2.1.0".to_string())
+            selected_claude_cli()
+                .map(|cli| cli.version.clone())
+                .or_else(|| detect_claude_version_for("claude"))
+                .unwrap_or_else(|| "unknown".to_string())
         })
         .as_str()
+}
+
+fn selected_claude_cli() -> Option<&'static ClaudeCli> {
+    static CLAUDE_CLI: OnceLock<Option<ClaudeCli>> = OnceLock::new();
+    CLAUDE_CLI.get_or_init(resolve_claude_cli).as_ref()
+}
+
+fn resolve_claude_cli() -> Option<ClaudeCli> {
+    for binary in claude_cli_candidates() {
+        if claude_cli_supports_auth_status(&binary) {
+            let version =
+                detect_claude_version_for(&binary).unwrap_or_else(|| "unknown".to_string());
+            return Some(ClaudeCli { binary, version });
+        }
+
+        debug!("Ignoring Claude CLI {binary}: it does not expose the `claude auth status` command");
+    }
+
+    None
+}
+
+fn claude_cli_candidates() -> Vec<String> {
+    if let Ok(binary) = env::var(CLAUDE_BINARY_ENV) {
+        let binary = binary.trim();
+        if !binary.is_empty() {
+            return vec![binary.to_string()];
+        }
+    }
+
+    vec!["claude".to_string()]
+}
+
+fn detect_claude_version_for(binary: &str) -> Option<String> {
+    run_command(binary, &["--version"])
+        .ok()
+        .and_then(|output| extract_claude_version(&output))
+}
+
+fn claude_cli_supports_auth_status(binary: &str) -> bool {
+    let Some(help) = run_command(binary, &["--help"]).ok() else {
+        return false;
+    };
+    if !help_lists_command(&help, "auth") {
+        return false;
+    }
+
+    run_command(binary, &["auth", "--help"])
+        .ok()
+        .is_some_and(|help| help_lists_command(&help, "status"))
+}
+
+fn extract_claude_version(output: &str) -> Option<String> {
+    output
+        .split_whitespace()
+        .find(|token| {
+            token.contains('.') && token.chars().next().is_some_and(|ch| ch.is_ascii_digit())
+        })
+        .map(|token| token.trim_matches(|ch: char| !ch.is_ascii_digit() && ch != '.'))
+        .filter(|token| !token.is_empty())
+        .map(str::to_string)
+}
+
+fn help_lists_command(help: &str, command: &str) -> bool {
+    help.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed == command
+            || trimmed
+                .strip_prefix(command)
+                .is_some_and(|rest| rest.starts_with(' ') || rest.starts_with('|'))
+    })
+}
+
+fn unsupported_claude_auth_status_error() -> ProviderError {
+    ProviderError::Fetch(format!(
+        "Claude CLI refresh requires a `claude` CLI that supports `claude auth status`; checked {}. Update Claude Code or set {CLAUDE_BINARY_ENV} to a supported CLI.",
+        claude_cli_candidates().join(", ")
+    ))
 }
 
 async fn request_claude_usage(
@@ -469,7 +553,10 @@ fn parse_primary_api_key(contents: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_primary_api_key, parse_subscription_type, CLAUDE_AUTH_STATUS_ARGS};
+    use super::{
+        extract_claude_version, help_lists_command, parse_primary_api_key, parse_subscription_type,
+        CLAUDE_AUTH_STATUS_ARGS,
+    };
 
     #[test]
     fn parses_primary_api_key_from_claude_config() {
@@ -506,5 +593,23 @@ mod tests {
                 .any(|arg| arg.starts_with('/')),
             "refresh must not send slash commands as Claude prompts"
         );
+    }
+
+    #[test]
+    fn extracts_cli_version_from_claude_code_output() {
+        assert_eq!(
+            extract_claude_version("2.1.152 (Claude Code)").as_deref(),
+            Some("2.1.152")
+        );
+    }
+
+    #[test]
+    fn detects_commands_in_cli_help_output() {
+        let top_level_help = "Commands:\n  agents [options]  Manage background agents\n  auth              Manage authentication\n";
+        let auth_help = "Commands:\n  login [options]   Sign in\n  status [options]  Show authentication status\n";
+
+        assert!(help_lists_command(top_level_help, "auth"));
+        assert!(help_lists_command(auth_help, "status"));
+        assert!(!help_lists_command(top_level_help, "status"));
     }
 }
