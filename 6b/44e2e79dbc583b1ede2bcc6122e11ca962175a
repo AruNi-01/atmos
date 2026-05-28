@@ -1,0 +1,26 @@
+"releasenotes/Atmos Desktop 1.2.0-beta.11.md"
+  s_9889d45b27ded3::t_a24d39ca6ff715 11-225
+  s_9889d45b27ded3::t_f86cc1d49ad3dd 1-10
+apps/desktop/package.json
+  ai_agent 3
+apps/desktop/src-tauri/Cargo.toml
+  ai_agent 3
+apps/desktop/src-tauri/tauri.conf.json
+  ai_agent 4,74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6b44e2e79dbc583b1ede2bcc6122e11ca962175a",
+  "prompts": {},
+  "sessions": {
+    "s_9889d45b27ded3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ecf-97ae-7dd0-a0de-364ac9719f57",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
