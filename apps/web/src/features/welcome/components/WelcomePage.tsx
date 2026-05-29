@@ -246,6 +246,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
     isSkillsLoading,
   } = useWelcomeSlashSearch({
     availableAgents,
+    activeProjectId: selectedProjectId ?? null,
     popover: slashPopover,
     projects,
   });

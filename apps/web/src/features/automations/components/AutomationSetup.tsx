@@ -1,27 +1,18 @@
 "use client";
 
 import React from "react";
-import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
-import {
-  Button,
-  TooltipProvider,
-} from "@workspace/ui";
-import { ArrowLeft, LoaderCircle, X } from "lucide-react";
+import { Button, TooltipProvider } from "@workspace/ui";
+import { ArrowLeft, LoaderCircle } from "lucide-react";
 
+import { AutomationAttachmentPreviewDialog } from "@/features/automations/components/AutomationAttachmentPreviewDialog";
 import {
   AutomationSetupControls,
   AutomationSetupSubmitButton,
 } from "@/features/automations/components/AutomationSetupControls";
+import { buildTargetInput } from "@/features/automations/lib/automation-format";
 import {
-  buildTargetInput,
-  flattenWorkspaces,
-  resolveTimezone,
-} from "@/features/automations/lib/automation-format";
-import {
-  buildScheduleInput,
   DAY_OPTIONS,
-  parseSchedule,
   validationMessage,
   type TriggerChoice,
 } from "@/features/automations/lib/automation-schedule";
@@ -30,6 +21,7 @@ import {
   triggerInputForSubmit,
   updateAutomationWithGithubRoute,
 } from "@/features/automations/lib/github-route-lifecycle";
+import { useAutomationSetupForm } from "@/features/automations/hooks/use-automation-setup-form";
 import { useGithubTriggerSetup } from "@/features/automations/hooks/use-github-trigger-setup";
 import type {
   AutomationAgentCapability,
@@ -37,12 +29,9 @@ import type {
   AutomationDetail,
   AutomationScheduleInput,
   AutomationSchedulePreviewResponse,
-  AutomationTargetKind,
   AutomationUpdateRequest,
 } from "@/features/automations/types";
-import {
-  type ComposerHandle,
-} from "@/features/welcome/components/PromptComposer";
+import { type ComposerHandle } from "@/features/welcome/components/PromptComposer";
 import {
   type MentionNavItem,
   type MentionPopoverState,
@@ -85,8 +74,6 @@ const AUTOMATION_HEADLINES: AutomationHeadline[] = [
   "keep_running",
 ];
 const DEFAULT_AUTOMATION_HEADLINE: AutomationHeadline = "automate_next";
-const PREVIEW_FOCUSABLE_SELECTOR =
-  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 export function AutomationSetup({
   mode,
@@ -125,97 +112,74 @@ export function AutomationSetup({
     setPreviewAttachment,
     syncAttachmentPlaceholders,
   } = useWelcomeComposerAttachments(composerRef);
-  const previewRequestIdRef = React.useRef(0);
-  const previewDialogRef = React.useRef<HTMLDivElement | null>(null);
-  const [, setSettingsModalOpen] = useQueryState("settingsModal", settingsModalParams.settingsModal);
-  const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
-  const [timezone, setTimezone] = React.useState(resolveTimezone);
-  const [displayName, setDisplayName] = React.useState("");
-  const [instructions, setInstructions] = React.useState("");
-  const [agentId, setAgentId] = React.useState("");
-  const [targetKind, setTargetKind] = React.useState<AutomationTargetKind>("standalone");
-  const [projectGuid, setProjectGuid] = React.useState<string>("");
-  const [workspaceGuid, setWorkspaceGuid] = React.useState<string>("");
-  const [trigger, setTrigger] = React.useState<TriggerChoice>("manual");
-  const [hour, setHour] = React.useState(9);
-  const [minute, setMinute] = React.useState(0);
-  const [dayOfWeek, setDayOfWeek] = React.useState(1);
-  const [dayOfMonth, setDayOfMonth] = React.useState(1);
-  const [cronExpr, setCronExpr] = React.useState("0 9 * * *");
-  const [preview, setPreview] = React.useState<AutomationSchedulePreviewResponse | null>(null);
-  const [previewError, setPreviewError] = React.useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = React.useState(false);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
-  const [headline, setHeadline] = React.useState<AutomationHeadline>(DEFAULT_AUTOMATION_HEADLINE);
-  const [mentionPopover, setMentionPopover] = React.useState<MentionPopoverState>(null);
-  const [slashPopover, setSlashPopover] = React.useState<WelcomeSlashPopoverState>(null);
-
-  React.useEffect(() => {
-    if (!previewAttachment || typeof document === "undefined") return;
-
-    const previousFocus =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusFrame = window.requestAnimationFrame(() => {
-      const dialog = previewDialogRef.current;
-      if (!dialog) return;
-      const firstFocusable = dialog.querySelector<HTMLElement>(PREVIEW_FOCUSABLE_SELECTOR);
-      (firstFocusable ?? dialog).focus();
-    });
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setPreviewAttachment(null);
-        return;
-      }
-      if (event.key !== "Tab") return;
-
-      const dialog = previewDialogRef.current;
-      if (!dialog) return;
-      const focusable = Array.from(
-        dialog.querySelectorAll<HTMLElement>(PREVIEW_FOCUSABLE_SELECTOR),
-      ).filter((element) => !element.hasAttribute("disabled"));
-      if (focusable.length === 0) {
-        event.preventDefault();
-        dialog.focus();
-        return;
-      }
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const active = document.activeElement;
-      if (event.shiftKey && (active === first || !dialog.contains(active))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener("keydown", handleKeyDown);
-      if (previousFocus && document.contains(previousFocus)) {
-        window.requestAnimationFrame(() => previousFocus.focus());
-      }
-    };
-  }, [previewAttachment, setPreviewAttachment]);
-
-  const workspaces = React.useMemo(() => flattenWorkspaces(projects), [projects]);
-  const selectedAgent = agents.find((agent) => agent.agent_id === agentId) ?? null;
-  const supportedAgents = agents.filter((agent) => agent.automation_supported);
-  const selectedTargetProject = React.useMemo(() => {
-    if (targetKind === "project" || targetKind === "new_workspace") {
-      return projects.find((project) => project.id === projectGuid) ?? null;
-    }
-    if (targetKind === "workspace") {
-      return workspaces.find((item) => item.workspace.id === workspaceGuid)?.project ?? null;
-    }
-    return null;
-  }, [projectGuid, projects, targetKind, workspaceGuid, workspaces]);
+  const [, setSettingsModalOpen] = useQueryState(
+    "settingsModal",
+    settingsModalParams.settingsModal,
+  );
+  const [, setActiveSettingTab] = useQueryState(
+    "activeSettingTab",
+    settingsModalParams.activeSettingTab,
+  );
+  const [headline, setHeadline] = React.useState<AutomationHeadline>(
+    DEFAULT_AUTOMATION_HEADLINE,
+  );
+  const [mentionPopover, setMentionPopover] =
+    React.useState<MentionPopoverState>(null);
+  const [slashPopover, setSlashPopover] =
+    React.useState<WelcomeSlashPopoverState>(null);
+  const {
+    timezone,
+    displayName,
+    instructions,
+    agentId,
+    targetKind,
+    projectGuid,
+    workspaceGuid,
+    trigger,
+    hour,
+    minute,
+    dayOfWeek,
+    dayOfMonth,
+    cronExpr,
+    preview,
+    previewError,
+    previewLoading,
+    submitError,
+    submitting,
+    workspaces,
+    selectedAgent,
+    selectedTargetProject,
+    targetValid,
+    environmentLabel,
+    scheduleInput,
+    scheduleValid,
+    triggerValid,
+    formValid,
+    requestSchedule,
+    setInstructions,
+    setSubmitting,
+    setSubmitError,
+    clearSubmitError,
+    setDisplayName,
+    setAgentId,
+    setTargetKind,
+    setProjectGuid,
+    setWorkspaceGuid,
+    setTrigger,
+    setTimezone,
+    setHour,
+    setMinute,
+    setDayOfWeek,
+    setDayOfMonth,
+    setCronExpr,
+  } = useAutomationSetupForm({
+    mode,
+    initialAutomation,
+    agents,
+    projects,
+    schedulePreview,
+    clearAttachments,
+  });
   const selectedProjectPath = selectedTargetProject?.mainFilePath ?? null;
   const agentOptions = React.useMemo<AgentMenuOption[]>(
     () =>
@@ -230,21 +194,21 @@ export function AutomationSetup({
           : agent.unavailable_reason,
         disabledReason: agent.automation_supported
           ? null
-          : agent.unavailable_reason ?? "Agent is not available for automations.",
+          : (agent.unavailable_reason ??
+            "Agent is not available for automations."),
       })),
     [agents],
   );
-  const selectedAgentOption = agentOptions.find((agent) => agent.id === agentId);
-  const {
-    filteredAgents,
-    filteredProjects,
-    filteredSkills,
-    isSkillsLoading,
-  } = useWelcomeSlashSearch({
-    availableAgents: agentOptions,
-    popover: slashPopover,
-    projects,
-  });
+  const selectedAgentOption = agentOptions.find(
+    (agent) => agent.id === agentId,
+  );
+  const { filteredAgents, filteredProjects, filteredSkills, isSkillsLoading } =
+    useWelcomeSlashSearch({
+      availableAgents: agentOptions,
+      activeProjectId: selectedTargetProject?.id ?? null,
+      popover: slashPopover,
+      projects,
+    });
   const selectMentionFile = React.useCallback(
     (item: MentionFileCandidate) => {
       const popover = mentionPopover;
@@ -293,16 +257,13 @@ export function AutomationSetup({
     },
     [slashPopover],
   );
-  const selectSlashProject = React.useCallback(
-    (project: { id: string }) => {
-      setTargetKind("project");
-      setProjectGuid(project.id);
-      setWorkspaceGuid("");
-      setSubmitError(null);
-      setSlashPopover(null);
-    },
-    [],
-  );
+  const selectSlashProject = React.useCallback((project: { id: string }) => {
+    setTargetKind("project");
+    setProjectGuid(project.id);
+    setWorkspaceGuid("");
+    setSubmitError(null);
+    setSlashPopover(null);
+  }, []);
   const selectSlashAgent = React.useCallback((agent: AgentMenuOption) => {
     setAgentId(agent.id);
     setSubmitError(null);
@@ -356,80 +317,19 @@ export function AutomationSetup({
 
   React.useEffect(() => {
     const nextHeadline =
-      AUTOMATION_HEADLINES[Math.floor(Math.random() * AUTOMATION_HEADLINES.length)] ??
-      DEFAULT_AUTOMATION_HEADLINE;
+      AUTOMATION_HEADLINES[
+        Math.floor(Math.random() * AUTOMATION_HEADLINES.length)
+      ] ?? DEFAULT_AUTOMATION_HEADLINE;
     setHeadline(nextHeadline);
   }, []);
 
   React.useEffect(() => {
     if (mode === "edit" && initialAutomation) {
-      clearAttachments();
-      setDisplayName(initialAutomation.display_name);
-      setInstructions(initialAutomation.instructions);
-      setAgentId(initialAutomation.agent_id);
-      setTargetKind(initialAutomation.target_kind);
-      setProjectGuid(initialAutomation.project_guid ?? "");
-      setWorkspaceGuid(initialAutomation.workspace_guid ?? "");
-      const parsed = parseSchedule(initialAutomation);
-      setTimezone(parsed.timezone);
-      setTrigger(parsed.trigger);
-      setHour(parsed.hour);
-      setMinute(parsed.minute);
-      setDayOfWeek(parsed.dayOfWeek);
-      setDayOfMonth(parsed.dayOfMonth);
-      setCronExpr(parsed.cronExpr);
-      requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
         composerRef.current?.setText(initialAutomation.instructions);
       });
     }
-  }, [clearAttachments, initialAutomation, mode]);
-
-  React.useEffect(() => {
-    if (!agentId && supportedAgents.length > 0) {
-      setAgentId(supportedAgents[0]?.agent_id ?? "");
-    }
-  }, [agentId, supportedAgents]);
-
-  React.useEffect(() => {
-    if ((targetKind === "project" || targetKind === "new_workspace") && !projectGuid && projects.length > 0) {
-      setProjectGuid(projects[0]?.id ?? "");
-    }
-    if (targetKind === "workspace" && !workspaceGuid && workspaces.length > 0) {
-      setWorkspaceGuid(workspaces[0]?.workspace.id ?? "");
-    }
-  }, [projectGuid, projects, targetKind, workspaceGuid, workspaces]);
-
-  const targetValid =
-    targetKind === "standalone" ||
-    ((targetKind === "project" || targetKind === "new_workspace") && projectGuid.trim().length > 0) ||
-    (targetKind === "workspace" && workspaceGuid.trim().length > 0);
-
-  const environmentLabel = React.useMemo(() => {
-    if (targetKind === "standalone") {
-      return "Standalone";
-    }
-    if (targetKind === "project") {
-      return projects.find((project) => project.id === projectGuid)?.name ?? "Project";
-    }
-    if (targetKind === "new_workspace") {
-      const projectName = projects.find((project) => project.id === projectGuid)?.name;
-      return projectName ? `New workspace / ${projectName}` : "New Workspace";
-    }
-    const selectedWorkspace = workspaces.find(({ workspace }) => workspace.id === workspaceGuid);
-    return selectedWorkspace
-      ? `${selectedWorkspace.workspace.displayName || selectedWorkspace.workspace.name} / ${selectedWorkspace.project.name}`
-      : "Workspace";
-  }, [projectGuid, projects, targetKind, workspaceGuid, workspaces]);
-
-  const scheduleInput = React.useMemo(
-    () => buildScheduleInput(trigger, timezone, hour, minute, dayOfWeek, dayOfMonth, cronExpr),
-    [cronExpr, dayOfMonth, dayOfWeek, hour, minute, timezone, trigger],
-  );
-  const scheduleValid =
-    trigger === "manual" ||
-    trigger === "github" ||
-    (scheduleInput !== null && (trigger !== "cron" || cronExpr.trim().split(/\s+/).length === 5));
-  const triggerValid = scheduleValid && (!previewError || trigger === "manual" || trigger === "github");
+  }, [initialAutomation, mode]);
   const triggerLabel = React.useMemo(() => {
     return formatTriggerControlLabel({
       trigger,
@@ -451,65 +351,26 @@ export function AutomationSetup({
     timezone,
     trigger,
   ]);
-  React.useEffect(() => {
-    if (!scheduleInput || trigger === "manual") {
-      previewRequestIdRef.current += 1;
-      setPreview(null);
-      setPreviewError(null);
-      setPreviewLoading(false);
-      return;
-    }
-
-    const requestId = previewRequestIdRef.current + 1;
-    previewRequestIdRef.current = requestId;
-    const timeout = setTimeout(() => {
-      setPreviewLoading(true);
-      schedulePreview(scheduleInput, timezone, 5)
-        .then((nextPreview) => {
-          if (previewRequestIdRef.current !== requestId) return;
-          setPreview(nextPreview);
-          setPreviewError(null);
-        })
-        .catch((err) => {
-          if (previewRequestIdRef.current !== requestId) return;
-          setPreview(null);
-          setPreviewError(err instanceof Error ? err.message : "Invalid schedule");
-        })
-        .finally(() => {
-          if (previewRequestIdRef.current === requestId) {
-            setPreviewLoading(false);
-          }
-        });
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [scheduleInput, schedulePreview, timezone, trigger]);
-
-  const formValid =
-    displayName.trim().length > 0 &&
-    instructions.trim().length > 0 &&
-    !!selectedAgent?.automation_supported &&
-    targetValid &&
-    triggerValid;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitError(null);
 
     if (!formValid || submitting) {
-      setSubmitError(validationMessage({
-        displayName,
-        instructions,
-        selectedAgent,
-        targetValid,
-        scheduleValid,
-        previewError,
-      }));
+      setSubmitError(
+        validationMessage({
+          displayName,
+          instructions,
+          selectedAgent,
+          targetValid,
+          scheduleValid,
+          previewError,
+        }),
+      );
       return;
     }
 
     const target = buildTargetInput(targetKind, projectGuid, workspaceGuid);
-    const requestSchedule = trigger === "manual" || trigger === "github" ? null : scheduleInput;
     if (trigger !== "manual" && trigger !== "github" && !requestSchedule) {
       setSubmitError("Choose a valid schedule.");
       return;
@@ -520,7 +381,13 @@ export function AutomationSetup({
     setSubmitting(true);
     try {
       const rawInstructions = composerRef.current?.getText() ?? instructions;
-      const resolvedInstructions = resolvePromptPlaceholders(rawInstructions, []);
+      const resolvedInstructions = resolvePromptPlaceholders(
+        rawInstructions,
+        [],
+        {
+          preserveFileMentions: true,
+        },
+      );
       const attachmentPayload = await Promise.all(
         attachments.map(async (attachment) => ({
           filename: attachment.filename,
@@ -573,7 +440,9 @@ export function AutomationSetup({
       }
       clearAttachments();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to save automation");
+      setSubmitError(
+        err instanceof Error ? err.message : "Failed to save automation",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -635,7 +504,7 @@ export function AutomationSetup({
                 selectedAgentId={agentId}
                 onSelectAgent={(nextAgentId) => {
                   setAgentId(nextAgentId);
-                  setSubmitError(null);
+                  clearSubmitError();
                 }}
               />
               <WelcomeComposerCard
@@ -656,7 +525,9 @@ export function AutomationSetup({
                     query: ctx.query,
                   });
                 }}
-                onAttachmentPreview={(attachment) => setPreviewAttachment(attachment)}
+                onAttachmentPreview={(attachment) =>
+                  setPreviewAttachment(attachment)
+                }
                 onAttachmentRemove={handleAttachmentRemove}
                 onImagePaste={handleImagePaste}
                 onSlashCancel={() => {
@@ -677,7 +548,7 @@ export function AutomationSetup({
                 }}
                 onTextChange={(text) => {
                   setInstructions(text);
-                  setSubmitError(null);
+                  clearSubmitError();
                   setMentionPopover((prev) => {
                     if (!prev) return prev;
                     if (text.length < prev.atOffset) return null;
@@ -685,7 +556,9 @@ export function AutomationSetup({
                     const newQuery = text.slice(prev.atOffset);
                     const spaceIdx = newQuery.search(/\s/);
                     if (spaceIdx >= 0) return null;
-                    return newQuery === prev.query ? prev : { ...prev, query: newQuery };
+                    return newQuery === prev.query
+                      ? prev
+                      : { ...prev, query: newQuery };
                   });
                   syncAttachmentPlaceholders(text);
                 }}
@@ -708,7 +581,7 @@ export function AutomationSetup({
                     submitError={submitError}
                     onDisplayNameChange={(value) => {
                       setDisplayName(value);
-                      setSubmitError(null);
+                      clearSubmitError();
                     }}
                     environmentPickerProps={{
                       targetKind,
@@ -719,15 +592,15 @@ export function AutomationSetup({
                       projectsLoading,
                       onTargetKindChange: (nextKind) => {
                         setTargetKind(nextKind);
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
                       onProjectGuidChange: (guid) => {
                         setProjectGuid(guid);
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
                       onWorkspaceGuidChange: (guid) => {
                         setWorkspaceGuid(guid);
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
                     }}
                     triggerPickerProps={{
@@ -758,11 +631,11 @@ export function AutomationSetup({
                       githubWorkflowConclusion,
                       onTriggerChange: (nextTrigger) => {
                         setTrigger(nextTrigger);
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
                       onTimezoneChange: (nextTimezone) => {
                         setTimezone(nextTimezone);
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
                       onHourChange: setHour,
                       onMinuteChange: setMinute,
@@ -774,21 +647,23 @@ export function AutomationSetup({
                       onGithubInstallationChange: (installationId) => {
                         setGithubInstallationId(installationId);
                         setGithubRepositoryFullName("");
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
                       onGithubRepositoryChange: (fullName) => {
                         setGithubRepositoryFullName(fullName);
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
                       onGithubEventFamilyChange: (family) => {
                         setGithubEventFamily(family);
-                        setSubmitError(null);
+                        clearSubmitError();
                       },
-                      onGithubPullRequestActionChange: setGithubPullRequestAction,
+                      onGithubPullRequestActionChange:
+                        setGithubPullRequestAction,
                       onGithubBranchFilterChange: setGithubBranchFilter,
                       onGithubCommentContainsChange: setGithubCommentContains,
                       onGithubSenderLoginsChange: setGithubSenderLogins,
-                      onGithubWorkflowConclusionChange: setGithubWorkflowConclusion,
+                      onGithubWorkflowConclusionChange:
+                        setGithubWorkflowConclusion,
                     }}
                   />
                 }
@@ -822,35 +697,10 @@ export function AutomationSetup({
                 setExpandedSections={setExpandedSections}
                 setItemRef={setSlashItemRef}
               />
-              {previewAttachment && typeof document !== "undefined"
-                ? createPortal(
-                    <div
-                      ref={previewDialogRef}
-                      role="dialog"
-                      aria-modal="true"
-                      aria-label={`Preview attachment ${previewAttachment.filename}`}
-                      tabIndex={-1}
-                      className="fixed inset-0 z-[2147483647] flex cursor-zoom-out items-center justify-center bg-black/80 backdrop-blur-sm"
-                      onClick={() => setPreviewAttachment(null)}
-                    >
-                      <button
-                        type="button"
-                        className="absolute right-4 top-4 inline-flex size-10 items-center justify-center rounded-md border border-white/20 bg-black/40 text-white shadow-lg transition hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                        onClick={() => setPreviewAttachment(null)}
-                      >
-                        <X className="size-5" />
-                        <span className="sr-only">Close preview</span>
-                      </button>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- previews use local object URLs and must not go through Next image optimization. */}
-                      <img
-                        src={previewAttachment.objectUrl}
-                        alt={previewAttachment.filename}
-                        className="max-h-[92vh] max-w-[92vw] rounded-md object-contain shadow-2xl"
-                      />
-                    </div>,
-                    document.body,
-                  )
-                : null}
+              <AutomationAttachmentPreviewDialog
+                attachment={previewAttachment}
+                onClose={() => setPreviewAttachment(null)}
+              />
             </div>
           </form>
         </div>
@@ -859,7 +709,9 @@ export function AutomationSetup({
   );
 }
 
-function renderAutomationHeadline(headline: AutomationHeadline): React.ReactNode {
+function renderAutomationHeadline(
+  headline: AutomationHeadline,
+): React.ReactNode {
   const logo = (
     <span className="inline-flex items-center">
       <AtmosWordmark
@@ -941,7 +793,8 @@ function formatTriggerControlLabel({
       return `daily at ${time} ${timezone}`;
     case "weekly": {
       const dayLabel =
-        DAY_OPTIONS.find((option) => option.value === dayOfWeek)?.label ?? "weekday";
+        DAY_OPTIONS.find((option) => option.value === dayOfWeek)?.label ??
+        "weekday";
       return `weekly on ${dayLabel} at ${time} ${timezone}`;
     }
     case "monthly":

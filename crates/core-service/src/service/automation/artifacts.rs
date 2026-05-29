@@ -50,6 +50,48 @@ pub fn write_instructions(automation_guid: &str, instructions: &str) -> Result<P
     Ok(path)
 }
 
+pub struct PreparedCreateArtifacts {
+    definition_dir: PathBuf,
+    instructions_path: PathBuf,
+    artifact_root: PathBuf,
+    committed: bool,
+}
+
+impl PreparedCreateArtifacts {
+    pub fn prepare(automation_guid: &str, instructions: &str) -> Result<Self> {
+        let definition_dir = definition_dir(automation_guid)?;
+        let instructions_path = write_instructions(automation_guid, instructions)?;
+        let artifact_root = automation_root()?;
+        Ok(Self {
+            definition_dir,
+            instructions_path,
+            artifact_root,
+            committed: false,
+        })
+    }
+
+    pub fn instructions_path(&self) -> &Path {
+        &self.instructions_path
+    }
+
+    pub fn artifact_root(&self) -> &Path {
+        &self.artifact_root
+    }
+
+    pub fn commit(mut self) {
+        self.committed = true;
+    }
+}
+
+impl Drop for PreparedCreateArtifacts {
+    fn drop(&mut self) {
+        if self.committed {
+            return;
+        }
+        cleanup_definition_dir(&self.definition_dir);
+    }
+}
+
 pub struct StagedInstructions {
     temp_path: PathBuf,
     final_path: PathBuf,
@@ -79,6 +121,57 @@ pub fn commit_staged_instructions(staged: &StagedInstructions) -> Result<PathBuf
 
 pub fn discard_staged_instructions(staged: &StagedInstructions) {
     let _ = fs::remove_file(&staged.temp_path);
+}
+
+pub struct PreparedUpdateArtifacts {
+    attachments: Vec<WrittenAttachment>,
+    staged_instructions: Option<StagedInstructions>,
+    committed: bool,
+}
+
+impl PreparedUpdateArtifacts {
+    pub fn from_written_attachments(
+        automation_guid: &str,
+        written_attachments: Vec<WrittenAttachment>,
+        instructions: Option<&str>,
+    ) -> Result<Self> {
+        let staged_instructions = match instructions {
+            Some(instructions) => match stage_instructions(automation_guid, instructions) {
+                Ok(staged) => Some(staged),
+                Err(error) => {
+                    discard_written_attachments(&written_attachments);
+                    return Err(error);
+                }
+            },
+            None => None,
+        };
+
+        Ok(Self {
+            attachments: written_attachments,
+            staged_instructions,
+            committed: false,
+        })
+    }
+
+    pub fn commit(mut self) -> Result<()> {
+        if let Some(staged) = self.staged_instructions.as_ref() {
+            commit_staged_instructions(staged)?;
+        }
+        self.committed = true;
+        Ok(())
+    }
+}
+
+impl Drop for PreparedUpdateArtifacts {
+    fn drop(&mut self) {
+        if self.committed {
+            return;
+        }
+        if let Some(staged) = self.staged_instructions.as_ref() {
+            discard_staged_instructions(staged);
+        }
+        discard_written_attachments(&self.attachments);
+    }
 }
 
 pub fn ensure_user_private_dir(path: &Path) -> Result<()> {
@@ -216,6 +309,18 @@ fn discard_attachment_paths(paths: &[PathBuf]) {
                     error
                 );
             }
+        }
+    }
+}
+
+fn cleanup_definition_dir(path: &Path) {
+    if let Err(error) = fs::remove_dir_all(path) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            tracing::warn!(
+                "Failed to clean up automation definition directory {}: {}",
+                path.display(),
+                error
+            );
         }
     }
 }

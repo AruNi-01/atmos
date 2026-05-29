@@ -17,7 +17,7 @@ APP-017 spans persistence, scheduler logic, terminal execution, WebSocket transp
 |----------|--------------|
 | M1 · Management entry | S1, S2 |
 | M2 · Creation flow | S3, S4 |
-| M3 · Instructions composer | S3, S4 |
+| M3 · Instructions composer | S3, S4, S31, S32 |
 | M4 · Agent selection | S5, S6 |
 | M5 · Trigger configuration | S7, S8, S20 |
 | M6 · Local-per-Computer ownership | S9, S25 |
@@ -187,6 +187,22 @@ _Last run: 2026-05-26._
 - **When**: workspace surfaces render.
 - **Then**: the workspace card/list row shows the automation icon label and is not filtered out like `issue_only`.
 - **Signals**: visible icon label, workspace appears in normal workspace list.
+
+### S31 — Automations composer keeps file mentions but hides GitHub mentions
+
+- **Level**: Frontend integration
+- **Given**: the APP-017 create/edit setup composer is open.
+- **When**: the user types `@` while a Project or Workspace target is selected.
+- **Then**: the mention popover offers file results from that target context, but no GitHub issue/PR suggestions are shown in the Automations setup flow.
+- **Signals**: `WelcomeMentionPopover` renders a Files section only; issue/PR items are absent.
+
+### S32 — Slash skills follow the selected Project or Workspace
+
+- **Level**: Frontend unit / integration
+- **Given**: the local skill list contains one global skill, one Project A skill, and one Project B skill.
+- **When**: the user opens the setup composer slash menu while targeting Project A, then switches to a Workspace that belongs to Project B, then switches to Standalone.
+- **Then**: the slash menu shows global + Project A skill first, then global + Project B skill after the workspace switch, then only the global skill for Standalone.
+- **Signals**: filtered slash-skill ids update immediately after each environment change; unrelated project-scoped skills are absent.
 
 ### S19 — Different automations can run concurrently
 

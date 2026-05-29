@@ -11,7 +11,7 @@
 | Rule | Detail |
 |------|--------|
 | **When to add** | After fixing a user-reported bug, reliability issue, quality regression, agent ergonomics gap, or deliberate product parity gap. |
-| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-004**). |
+| **Entry id** | `IMP-NNN` — zero-padded, monotonic in this file (next: **IMP-005**). |
 | **Status** | `open` → `mitigated` → `closed` (or `wont-fix` with reason). |
 | **Do not** | Duplicate full TECH sections; link to TECH/PRD and paste only deltas. |
 | **Versions** | If agent-facing behavior changes, note the relevant Skill / CLI / runtime version in the entry. |
@@ -25,6 +25,7 @@
 | IMP-001 | Restore welcome-composer automation setup | mitigated | 2026-05-28 |
 | IMP-002 | Fill headless defaults for Kilo and Kimi | mitigated | 2026-05-28 |
 | IMP-003 | Expose schedule timezone in trigger composer | mitigated | 2026-05-28 |
+| IMP-004 | Scope automations composer commands to automation context | mitigated | 2026-05-29 |
 
 ---
 
@@ -125,3 +126,42 @@ Add a compact timezone select to the right side of the Trigger popover title. De
 ### Result
 
 Users can now switch the schedule timezone in place while configuring the trigger. Schedule preview and the composer footer summary update through the existing timezone state and backend payload.
+
+---
+
+## IMP-004 · Scope automations composer commands to automation context
+
+| Field | Value |
+|-------|--------|
+| **Date** | 2026-05-29 |
+| **Status** | mitigated |
+| **Reported by** | user |
+| **Severity** | integration correctness |
+
+### Problem
+
+The APP-017 setup page reused the welcome composer command surfaces too literally. The local Automations flow mixed in welcome GitHub mention expectations even though this setup path should only expose file mentions, and the `/skill` menu listed project-scoped skills from unrelated projects instead of following the currently selected Project or Workspace.
+
+### Root cause
+
+`AutomationSetup` mounted the same mention/slash popovers as the welcome page, while `useWelcomeSlashSearch` loaded a global skill list once and never filtered project-scoped skills by the active automation environment.
+
+### Solution
+
+Keep the `@` mention popover in file-only mode inside `AutomationSetup`, with GitHub issue/PR previews forced off for APP-017. Add project-context filtering to the shared slash-skill search so the Automations setup passes its effective target project id and only sees global skills plus project-scoped skills for that selected Project or Workspace. Treat Standalone as no-project context, which means only global skills remain visible.
+
+### Result
+
+Automations create/edit now behaves like an automation-scoped composer instead of a full welcome-page clone. `@` keeps file suggestions only, without GitHub issue/PR suggestions, and `/skill` updates immediately when the user switches between Project, Workspace, New Workspace, and Standalone targets.
+
+### Code / docs touched
+
+- `apps/web/src/features/automations/components/AutomationSetup.tsx`
+- `apps/web/src/features/welcome/components/WelcomeComposerCard.tsx`
+- `apps/web/src/features/welcome/hooks/use-welcome-slash-search.ts`
+- `apps/web/src/features/welcome/hooks/__tests__/use-welcome-slash-search.test.ts`
+- `specs/APP/APP-017_atmos-automations/{PRD,TECH,TEST,IMPROVEMENT}.md`
+
+### Follow-ups
+
+- [ ] Add a browser-level smoke test for the slash popover once the local Playwright/browser harness is in place for Automations.

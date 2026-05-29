@@ -56,14 +56,14 @@ export function WelcomeComposerCard({
   isInitialProjectsLoading: boolean;
   isSubmitting: boolean;
   onAddProject?: () => void;
-  onAtCancel: () => void;
-  onAtTrigger: (ctx: AtTriggerContext) => void;
+  onAtCancel?: () => void;
+  onAtTrigger?: (ctx: AtTriggerContext) => void;
   onAttachmentPreview: (attachment: ComposerAttachment) => void;
   onAttachmentRemove: (id: string) => void;
   onImagePaste: (blob: Blob, ext: string) => void;
   onProjectChange?: (projectId: string) => void;
-  onSlashCancel: () => void;
-  onSlashTrigger: (ctx: SlashTriggerContext) => void;
+  onSlashCancel?: () => void;
+  onSlashTrigger?: (ctx: SlashTriggerContext) => void;
   onTextChange: (text: string) => void;
   placeholder: React.ReactNode;
   priority?: WorkspacePriority;

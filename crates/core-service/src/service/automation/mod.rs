@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::path::Path;
 use std::sync::Arc;
 
 mod agents;
@@ -443,31 +442,11 @@ impl AutomationService {
             normalize_trigger_for_create(req.trigger, normalized_schedule.is_some())?;
 
         let automation_guid = Uuid::new_v4().to_string();
-        let definition_dir = artifacts::definition_dir(&automation_guid)?;
-        let attachment_paths = match artifacts::write_attachments(&automation_guid, req.attachments)
-        {
-            Ok(paths) => paths,
-            Err(error) => {
-                cleanup_failed_automation_create_artifacts(&definition_dir);
-                return Err(error);
-            }
-        };
-        let create_artifacts = (|| {
-            let instructions = validate_instructions(resolve_attachment_placeholders(
-                req.instructions,
-                &attachment_paths,
-            ))?;
-            let instructions_path = artifacts::write_instructions(&automation_guid, &instructions)?;
-            let artifact_root = artifacts::automation_root()?;
-            Ok((instructions_path, artifact_root))
-        })();
-        let (instructions_path, artifact_root) = match create_artifacts {
-            Ok(paths) => paths,
-            Err(error) => {
-                cleanup_failed_automation_create_artifacts(&definition_dir);
-                return Err(error);
-            }
-        };
+        let prepared_artifacts = prepare_create_definition_artifacts(
+            &automation_guid,
+            req.instructions,
+            req.attachments,
+        )?;
 
         let repo = AutomationRepo::new(&self.db);
         let model = match repo
@@ -494,17 +473,21 @@ impl AutomationService {
                 trigger_enabled: normalized_trigger.enabled,
                 trigger_status: normalized_trigger.status,
                 trigger_config_json: normalized_trigger.config_json,
-                instructions_path: instructions_path.to_string_lossy().to_string(),
-                artifact_root: artifact_root.to_string_lossy().to_string(),
+                instructions_path: prepared_artifacts
+                    .instructions_path()
+                    .to_string_lossy()
+                    .to_string(),
+                artifact_root: prepared_artifacts
+                    .artifact_root()
+                    .to_string_lossy()
+                    .to_string(),
             })
             .await
         {
             Ok(model) => model,
-            Err(error) => {
-                cleanup_failed_automation_create_artifacts(&definition_dir);
-                return Err(error.into());
-            }
+            Err(error) => return Err(error.into()),
         };
+        prepared_artifacts.commit();
 
         let detail = self.detail_from_model(model)?;
         let _ = self.event_tx.send(AutomationEvent::DefinitionUpdated {
@@ -550,23 +533,8 @@ impl AutomationService {
             req.schedule.as_ref().map(|schedule| schedule.is_some()),
             &existing,
         )?;
-        let attachment_paths = artifacts::write_attachments(&req.automation_guid, req.attachments)?;
-        let validated_instructions = match req
-            .instructions
-            .map(|instructions| {
-                validate_instructions(resolve_attachment_placeholders(
-                    instructions,
-                    &attachment_paths,
-                ))
-            })
-            .transpose()
-        {
-            Ok(instructions) => instructions,
-            Err(error) => {
-                artifacts::discard_written_attachments(&attachment_paths);
-                return Err(error);
-            }
-        };
+        let prepared_artifacts =
+            prepare_update_definition_artifacts(&existing.guid, req.attachments, req.instructions)?;
 
         let update = UpdateAutomationRecord {
             display_name,
@@ -611,35 +579,11 @@ impl AutomationService {
             trigger_config_json: normalized_trigger.map(|trigger| trigger.config_json),
         };
 
-        let staged_instructions = validated_instructions
-            .as_deref()
-            .map(|instructions| artifacts::stage_instructions(&existing.guid, instructions))
-            .transpose();
-        let staged_instructions = match staged_instructions {
-            Ok(staged) => staged,
-            Err(error) => {
-                artifacts::discard_written_attachments(&attachment_paths);
-                return Err(error);
-            }
-        };
-
         let model = match repo.update_automation(&req.automation_guid, update).await {
             Ok(model) => model,
-            Err(error) => {
-                if let Some(staged) = staged_instructions.as_ref() {
-                    artifacts::discard_staged_instructions(staged);
-                }
-                artifacts::discard_written_attachments(&attachment_paths);
-                return Err(error.into());
-            }
+            Err(error) => return Err(error.into()),
         };
-        if let Some(staged) = staged_instructions.as_ref() {
-            if let Err(error) = artifacts::commit_staged_instructions(staged) {
-                artifacts::discard_staged_instructions(staged);
-                artifacts::discard_written_attachments(&attachment_paths);
-                return Err(error);
-            }
-        }
+        prepared_artifacts.commit()?;
         let detail = self.detail_from_model(model)?;
         let _ = self.event_tx.send(AutomationEvent::DefinitionUpdated {
             automation_guid: detail.summary.guid.clone(),
@@ -891,18 +835,6 @@ fn normalize_trigger_config(
     }
 }
 
-fn cleanup_failed_automation_create_artifacts(definition_dir: &Path) {
-    if let Err(error) = std::fs::remove_dir_all(definition_dir) {
-        if error.kind() != std::io::ErrorKind::NotFound {
-            tracing::warn!(
-                "Failed to clean up automation definition directory {} after create error: {}",
-                definition_dir.display(),
-                error
-            );
-        }
-    }
-}
-
 fn resolve_attachment_placeholders(
     instructions: String,
     attachments: &[artifacts::WrittenAttachment],
@@ -942,6 +874,59 @@ impl From<automation::Model> for AutomationSummary {
             run_count: model.run_count,
         }
     }
+}
+
+fn prepare_create_definition_artifacts(
+    automation_guid: &str,
+    instructions: String,
+    attachments: Vec<WorkspaceAttachmentPayload>,
+) -> Result<artifacts::PreparedCreateArtifacts> {
+    let attachment_paths = artifacts::write_attachments(automation_guid, attachments)?;
+    let instructions = match validate_instructions(resolve_attachment_placeholders(
+        instructions,
+        &attachment_paths,
+    )) {
+        Ok(instructions) => instructions,
+        Err(error) => {
+            artifacts::discard_written_attachments(&attachment_paths);
+            return Err(error);
+        }
+    };
+
+    match artifacts::PreparedCreateArtifacts::prepare(automation_guid, &instructions) {
+        Ok(prepared) => Ok(prepared),
+        Err(error) => {
+            artifacts::discard_written_attachments(&attachment_paths);
+            Err(error)
+        }
+    }
+}
+
+fn prepare_update_definition_artifacts(
+    automation_guid: &str,
+    attachments: Vec<WorkspaceAttachmentPayload>,
+    instructions: Option<String>,
+) -> Result<artifacts::PreparedUpdateArtifacts> {
+    let written_attachments = artifacts::write_attachments(automation_guid, attachments)?;
+    let resolved_instructions = match instructions {
+        Some(instructions) => match validate_instructions(resolve_attachment_placeholders(
+            instructions,
+            &written_attachments,
+        )) {
+            Ok(instructions) => Some(instructions),
+            Err(error) => {
+                artifacts::discard_written_attachments(&written_attachments);
+                return Err(error);
+            }
+        },
+        None => None,
+    };
+
+    artifacts::PreparedUpdateArtifacts::from_written_attachments(
+        automation_guid,
+        written_attachments,
+        resolved_instructions.as_deref(),
+    )
 }
 
 impl From<automation_run::Model> for AutomationRunSummary {

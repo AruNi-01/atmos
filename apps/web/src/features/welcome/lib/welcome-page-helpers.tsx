@@ -330,10 +330,16 @@ function getRandomPokemonName(): string {
   return POKEMON_NAMES[Math.floor(Math.random() * POKEMON_NAMES.length)];
 }
 
-export function resolvePromptPlaceholders(text: string, atts: ComposerAttachment[]): string {
+export function resolvePromptPlaceholders(
+  text: string,
+  atts: ComposerAttachment[],
+  options?: { preserveFileMentions?: boolean },
+): string {
   return text
     .replace(/@(?:issue|pr)#\d+/g, () => ".atmos/context/requirement.md")
-    .replace(/@file:([^\s]+)/g, (_match, relativePath: string) => relativePath)
+    .replace(/@file:([^\s]+)/g, (match, relativePath: string) =>
+      options?.preserveFileMentions ? match : relativePath,
+    )
     .replace(/\[#appshot:(\d{13})\]/g, (_match, timestamp: string) =>
       formatAppshotPrompt(timestamp),
     )

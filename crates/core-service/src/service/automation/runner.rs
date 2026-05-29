@@ -101,9 +101,10 @@ pub fn prepare_run_files(
     if prompt_target.target_kind == "standalone" {
         prompt_target.cwd = run_dir.clone();
     }
+    let resolved_instructions = resolve_file_mentions_for_target(instructions, &prompt_target.cwd);
     let prompt = build_prompt(
         automation,
-        instructions,
+        &resolved_instructions,
         &prompt_target,
         trigger_kind,
         trigger_context,
@@ -270,6 +271,40 @@ fn short_guid(guid: &str) -> String {
     guid.chars().take(8).collect()
 }
 
+fn resolve_file_mentions_for_target(instructions: &str, cwd: &Path) -> String {
+    let cwd_display = cwd.to_string_lossy().replace('\\', "/");
+    let mut output = String::with_capacity(instructions.len());
+    let mut cursor = 0usize;
+
+    while let Some(relative_start) = instructions[cursor..].find("@file:") {
+        let start = cursor + relative_start;
+        output.push_str(&instructions[cursor..start]);
+
+        let path_start = start + "@file:".len();
+        let path_end = instructions[path_start..]
+            .find(char::is_whitespace)
+            .map(|offset| path_start + offset)
+            .unwrap_or(instructions.len());
+        let relative_path = &instructions[path_start..path_end];
+        if relative_path.is_empty() {
+            output.push_str("@file:");
+            cursor = path_end;
+            continue;
+        }
+
+        let absolute = if cwd_display.ends_with('/') {
+            format!("{cwd_display}{relative_path}")
+        } else {
+            format!("{cwd_display}/{relative_path}")
+        };
+        output.push_str(&absolute);
+        cursor = path_end;
+    }
+
+    output.push_str(&instructions[cursor..]);
+    output
+}
+
 fn run_dir_for(
     automation: &automation::Model,
     started_at: NaiveDateTime,
@@ -326,5 +361,28 @@ mod tests {
             completed_at_from_run_json(&run_json).map(|value| value.to_string()),
             Some("2026-05-26 08:01:02".to_string())
         );
+    }
+
+    #[test]
+    fn file_mentions_are_resolved_against_target_cwd() {
+        let resolved = resolve_file_mentions_for_target(
+            "Check @file:src/app.ts and @file:docs/spec.md",
+            Path::new("/tmp/workspaces/demo"),
+        );
+
+        assert_eq!(
+            resolved,
+            "Check /tmp/workspaces/demo/src/app.ts and /tmp/workspaces/demo/docs/spec.md"
+        );
+    }
+
+    #[test]
+    fn plain_relative_paths_remain_untouched() {
+        let resolved = resolve_file_mentions_for_target(
+            "Check src/app.ts and docs/spec.md",
+            Path::new("/tmp/workspaces/demo"),
+        );
+
+        assert_eq!(resolved, "Check src/app.ts and docs/spec.md");
     }
 }

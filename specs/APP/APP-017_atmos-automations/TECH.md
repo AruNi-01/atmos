@@ -54,7 +54,7 @@ External/runtime dependencies:
 |-------------|--------------------|
 | M1 | `apps/web/src/app-shell/LeftSidebarManagementCenter.tsx` adds Automations route. |
 | M2 | `apps/web/src/features/automations/components/AutomationSetup.tsx` reuses the welcome composer layout with display-name input. |
-| M3 | Setup uses `PromptComposer` from `apps/web/src/features/welcome/components/PromptComposer.tsx`. |
+| M3 | Setup uses `PromptComposer` from `apps/web/src/features/welcome/components/PromptComposer.tsx`, keeps file-only `@` mentions in `AutomationSetup`, removes welcome GitHub issue/PR mention suggestions there, and scopes `/skill` results to the currently selected Project/Workspace context. |
 | M4 | Backend automation agent resolver reuses shared terminal agent definitions plus user terminal-agent settings, then returns only installed + non-interactive-capable agents as selectable. |
 | M5 | `AutomationSchedule` model supports manual run plus hourly/daily/weekly/monthly/custom cron scheduled trigger. |
 | M6 | Scheduler and data live in the connected Atmos Server process; no hosted scheduler or cross-Computer sync. |
@@ -399,6 +399,18 @@ Setup UI:
 - Reuse `PromptComposer` and the visual full-screen setup shell from `apps/web/src/features/welcome/components/WelcomeComposerCard.tsx`.
 - The setup page title/copy is automation-specific.
 - Add a required display-name input above or adjacent to the composer.
+- Wire the welcome `@` mention popover in file-only mode for `AutomationSetup`: `issuePreview` and `prPreview` remain `null`, so the composer can search files under the effective Project/Workspace path without exposing GitHub issue/PR mentions.
+- Persist file mentions as `@file:relative/path` tokens in automation instructions instead of flattening them at save time.
+- When a run starts, expand those `@file:` tokens against the resolved target cwd before writing `prompt.md`; for `new_workspace`, that means each run rebases file references to that run's newly created workspace path.
+- Pass the effective automation target project id into slash-skill search:
+  - `project` and `new_workspace` use the selected `project_guid`
+  - `workspace` uses the Project that owns the selected `workspace_guid`
+  - `standalone` uses no project context
+- Slash skill filtering rules:
+  - always include `scope = "global"`
+  - include `scope = "project"` and `scope = "inside_project"` only when `skill.project_id` matches the effective project context
+  - exclude unrelated project-scoped skills and all `system` skills
+- Because the slash filter reads live setup state, changing Project or Workspace updates `/skill` results immediately without a page reload.
 - Replace `WelcomeComposerControls` with `AutomationSetupControls`:
   - Project picker.
   - Workspace picker or "new workspace each run".

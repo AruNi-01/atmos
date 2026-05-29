@@ -63,6 +63,8 @@ flowchart LR
 - **M1 · Management entry**: Users can open an **Automations** destination from Management Center.
 - **M2 · Creation flow**: Users can create an automation from a setup UI that follows the existing full-screen composer-style setup pattern, with automation-specific title/copy and a required display-name field.
 - **M3 · Instructions composer**: Users can enter **Agent Instructions** in the same rich prompt-composer style used by the existing setup flow.
+  - The local Automations setup flow keeps `@` file mention search for the selected Project/Workspace files, but it does not expose welcome-page GitHub issue/PR mention suggestions because APP-017 manual/scheduled setup does not carry the welcome GitHub mention integration.
+  - The `/skill` slash command list is context-aware: it always includes global skills, and it includes project-scoped skills only for the currently selected Project or the Project that owns the selected Workspace. Changing the environment target updates that list immediately.
 - **M4 · Agent selection**: Users can select from available terminal agents that support non-interactive execution. Agents without verified non-interactive support are unavailable and show explanatory copy.
 - **M5 · Trigger configuration**: Users can configure a manual run and one scheduled trigger. Scheduled presets include hourly, daily, weekly, and monthly, with preset-specific time inputs. Users can also enter a custom cron expression.
 - **M6 · Local-per-Computer ownership**: Automation definitions, run state, and artifacts belong to the currently connected Atmos Computer. No hosted scheduler or cross-Computer automation sync is required for v1.

@@ -11,14 +11,17 @@ import {
   useDebouncedPopoverQuery,
   type AgentMenuOption,
 } from "@/features/welcome/lib/welcome-page-helpers";
+import { filterSlashSkillsForProject } from "@/features/welcome/lib/slash-skill-context";
 import type { Project } from "@/shared/types/domain";
 
 export function useWelcomeSlashSearch({
   availableAgents,
+  activeProjectId,
   popover,
   projects,
 }: {
   availableAgents: AgentMenuOption[];
+  activeProjectId?: string | null;
   popover: WelcomeSlashPopoverState;
   projects: Project[];
 }) {
@@ -31,9 +34,12 @@ export function useWelcomeSlashSearch({
       setIsSkillsLoading(true);
       try {
         const response = await skillsApi.list({ forceRefresh: false });
-        // Filter to only show global and project skills, not system skills.
+        // Only keep skills that can be surfaced from slash commands.
         const filteredSkills = response.skills.filter(
-          (skill) => skill.scope === "global" || skill.scope === "project",
+          (skill) =>
+            skill.scope === "global" ||
+            skill.scope === "project" ||
+            skill.scope === "inside_project",
         );
         setSkills(filteredSkills);
       } catch (error) {
@@ -47,14 +53,19 @@ export function useWelcomeSlashSearch({
     void loadSkills();
   }, []);
 
+  const visibleSkills = React.useMemo(
+    () => filterSlashSkillsForProject(skills, activeProjectId ?? null),
+    [activeProjectId, skills],
+  );
+
   const skillsFuse = React.useMemo(
     () =>
-      new Fuse(skills, {
+      new Fuse(visibleSkills, {
         keys: ["name", "description"],
         threshold: 0.4,
         ignoreLocation: true,
       }),
-    [skills],
+    [visibleSkills],
   );
 
   const projectsFuse = React.useMemo(
@@ -79,10 +90,10 @@ export function useWelcomeSlashSearch({
 
   const filteredSkills = React.useMemo(() => {
     const query = debouncedSlashQuery;
-    if (!query) return skills;
+    if (!query) return visibleSkills;
     const results = skillsFuse.search(query);
     return results.map((r) => r.item);
-  }, [debouncedSlashQuery, skills, skillsFuse]);
+  }, [debouncedSlashQuery, skillsFuse, visibleSkills]);
 
   const filteredProjects = React.useMemo(() => {
     const query = debouncedSlashQuery;
