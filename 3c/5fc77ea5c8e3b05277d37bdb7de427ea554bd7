@@ -1,0 +1,75 @@
+apps/web/src/features/appshot/lib/appshot-client.ts
+  s_b654b4e204ec30::t_8187173261f39c 165-166
+  s_b654b4e204ec30::t_43a087dda1fe60 3,160,164
+  s_b654b4e204ec30::t_17531363794462 137-159,161-163
+apps/desktop/src-tauri/capabilities/default.json
+  s_b654b4e204ec30::t_ed4a13ed9eecf5 5-7,9
+  s_b654b4e204ec30::t_96269ceef87f70 8
+apps/desktop/src-tauri/src/appshot/macos/permissions.rs
+  s_b654b4e204ec30::t_3566e06ca12bc8 102
+  s_b654b4e204ec30::t_43a087dda1fe60 31,35
+apps/web/src/shared/components/image-preview-overlay.tsx
+  s_b654b4e204ec30::t_f684ccbaece8a6 43
+apps/web/src/features/welcome/components/__tests__/prompt-composer-appshot-paste.test.tsx
+  s_b654b4e204ec30::t_5fba579276a5f4 68,79,83-129,187-191,201-205,221,239
+  s_b654b4e204ec30::t_e6cfa1956c4262 130-148,152-172,192-200
+  s_b654b4e204ec30::t_6c5406f331fa83 149-151
+apps/desktop/src-tauri/src/appshot/permissions_window.rs
+  s_b654b4e204ec30::t_12e4a0d9e7e035 1-61,63-67,73-87
+  s_b654b4e204ec30::t_01c0c7878ed602 62,68,72
+  s_b654b4e204ec30::t_43a087dda1fe60 69-71
+apps/desktop/src-tauri/gen/schemas/capabilities.json
+  s_b654b4e204ec30::t_7d8f296244a568 1
+apps/web/src/features/settings/components/ShortcutsSettingsSection.tsx
+  s_b654b4e204ec30::t_f684ccbaece8a6 3-4,23,88-91
+apps/web/src/features/appshot/components/AppshotsHistoryPopover.tsx
+  s_b654b4e204ec30::t_82b6ed7c27b8e6 296-316
+  s_b654b4e204ec30::t_f684ccbaece8a6 13,40,269-276
+  s_b654b4e204ec30::t_cd80bb702630e9 23,165,167
+apps/desktop/src-tauri/src/commands.rs
+  s_b654b4e204ec30::t_c0bb29cdb6163a 247-248
+  s_b654b4e204ec30::t_515ce134a8fa3c 249-250,252-253
+  s_b654b4e204ec30::t_6deace246c45c9 21,251,254-263
+  s_b654b4e204ec30::t_759e59ce2b5d14 264
+  s_b654b4e204ec30::t_5b6678f4f4b214 236-240
+apps/web/src/features/appshot/components/AppshotCapturePreview.tsx
+  s_b654b4e204ec30::t_76f95dd2e46288 14
+  s_b654b4e204ec30::t_83d57432e28e91 22,335-361
+apps/web/src/features/welcome/components/PromptComposer.tsx
+  s_b654b4e204ec30::t_f684ccbaece8a6 63-67,156,200-237,543-558
+apps/web/src/features/appshot/__tests__/appshots-history-popover.test.tsx
+  s_b654b4e204ec30::t_7f830506f0302e 9,47,52,127,153-155,186,189,252-268,348-364,395-398
+apps/web/src/shared/components/shortcut-key-sequence.tsx
+  s_b654b4e204ec30::t_f684ccbaece8a6 1-32
+apps/web/src/features/appshot/components/AppshotPermissionsWindow.tsx
+  s_b654b4e204ec30::t_7005f61b1f9527 102,104-114,116-119,121,123-132,134-156,158,160-161
+  s_b654b4e204ec30::t_33a239b6143d09 1-101,103,115,120,122,133,157,159,162-243
+apps/desktop/src-tauri/src/appshot/macos.rs
+  s_b654b4e204ec30::t_f684ccbaece8a6 19-22,181-183,242,244-245
+apps/desktop/src-tauri/src/appshot/mod.rs
+  s_b654b4e204ec30::t_091a7831cb3492 28
+  s_b654b4e204ec30::t_9d19252fe0283a 7,111-112
+  s_b654b4e204ec30::t_6f25e3a4eb752f 105-110
+  s_b654b4e204ec30::t_bee4cd136cd986 18-19,30,47-67
+apps/desktop/src-tauri/src/main.rs
+  s_b654b4e204ec30::t_7792d3fb718e89 361
+  s_b654b4e204ec30::t_44467f59c4106a 359
+apps/web/src/app/[locale]/appshot-permissions/page.tsx
+  s_b654b4e204ec30::t_4f63df4c9c4b69 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3c5fc77ea5c8e3b05277d37bdb7de427ea554bd7",
+  "prompts": {},
+  "sessions": {
+    "s_b654b4e204ec30": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7195-36d3-7522-90a5-286cf34343b3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
