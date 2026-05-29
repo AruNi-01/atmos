@@ -380,9 +380,6 @@ export function useAutomationPageState() {
             type: "info",
           });
         } else if (action === "delete") {
-          if (!window.confirm(`Delete automation "${automation.display_name}"?`)) {
-            return;
-          }
           await deleteAutomationWithGithubRoute({
             automation,
             githubPrereqs,

@@ -11,7 +11,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui";
-import { Computer, ExternalLink, Github, LoaderCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleDot,
+  Computer,
+  ExternalLink,
+  Eye,
+  GitBranch,
+  GitMerge,
+  GitPullRequest,
+  GitPullRequestClosed,
+  Github,
+  LoaderCircle,
+  MessageSquare,
+  RotateCcw,
+  Workflow,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { GithubInstallation, GithubRepository } from "@/features/automations/lib/github-trigger-relay";
 import type { GithubEventFamily, GithubInt64 } from "@/features/automations/types";
@@ -20,26 +37,42 @@ const EVENT_OPTIONS: Array<{
   value: GithubEventFamily;
   label: string;
   description: string;
+  Icon: LucideIcon;
 }> = [
-  { value: "pull_request", label: "Pull request", description: "Opened, reopened, ready, closed, or merged" },
-  { value: "pull_request_comment", label: "PR comment", description: "Issue comments on pull requests" },
-  { value: "push", label: "Push", description: "Branch updates" },
-  { value: "workflow_run", label: "Workflow run", description: "GitHub Actions completion" },
+  {
+    value: "pull_request",
+    label: "Pull request",
+    description: "Opened, reopened, ready, closed, or merged",
+    Icon: GitPullRequest,
+  },
+  {
+    value: "pull_request_comment",
+    label: "PR comment",
+    description: "Issue comments on pull requests",
+    Icon: MessageSquare,
+  },
+  { value: "push", label: "Push", description: "Branch updates", Icon: GitBranch },
+  {
+    value: "workflow_run",
+    label: "Workflow run",
+    description: "GitHub Actions completion",
+    Icon: Workflow,
+  },
 ];
 
 const PR_ACTIONS = [
-  { value: "opened", label: "Opened" },
-  { value: "reopened", label: "Reopened" },
-  { value: "ready_for_review", label: "Ready for review" },
-  { value: "closed", label: "Closed" },
-  { value: "merged", label: "Merged" },
+  { value: "opened", label: "Opened", Icon: GitPullRequest },
+  { value: "reopened", label: "Reopened", Icon: RotateCcw },
+  { value: "ready_for_review", label: "Ready for review", Icon: Eye },
+  { value: "closed", label: "Closed", Icon: GitPullRequestClosed },
+  { value: "merged", label: "Merged", Icon: GitMerge },
 ];
 
 const WORKFLOW_CONCLUSIONS = [
-  { value: "any", label: "Any conclusion" },
-  { value: "success", label: "Success" },
-  { value: "failure", label: "Failure" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "any", label: "Any conclusion", Icon: CircleDot },
+  { value: "success", label: "Success", Icon: CheckCircle2 },
+  { value: "failure", label: "Failure", Icon: XCircle },
+  { value: "cancelled", label: "Cancelled", Icon: XCircle },
 ];
 
 export function AutomationGithubTriggerPanel({
@@ -183,8 +216,8 @@ export function AutomationGithubTriggerPanel({
               </SelectTrigger>
               <SelectContent>
                 {EVENT_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                  <SelectItem key={option.value} value={option.value} textValue={option.label}>
+                    <IconOptionLabel Icon={option.Icon} label={option.label} />
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -270,7 +303,7 @@ function SelectField({
 }: {
   label: string;
   value: string;
-  options: Array<{ value: string; label: string }>;
+  options: Array<{ value: string; label: string; Icon?: LucideIcon }>;
   onChange: (value: string) => void;
 }) {
   return (
@@ -282,12 +315,27 @@ function SelectField({
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
+            <SelectItem key={option.value} value={option.value} textValue={option.label}>
+              <IconOptionLabel Icon={option.Icon} label={option.label} />
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+function IconOptionLabel({
+  Icon,
+  label,
+}: {
+  Icon?: LucideIcon;
+  label: string;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
+      <span className="truncate">{label}</span>
+    </span>
   );
 }

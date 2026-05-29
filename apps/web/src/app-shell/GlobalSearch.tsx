@@ -65,6 +65,7 @@ export function GlobalSearch() {
 
   const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
   const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+  const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
 
   useEffect(() => {
@@ -280,6 +281,7 @@ export function GlobalSearch() {
       currentEffectivePath,
       managementTerminalsEnabled,
       managementAgentsEnabled,
+      automationsEnabled,
       isLeftCollapsed,
       setLlmProvidersOpen,
       setAgentChatOpen,
@@ -294,7 +296,7 @@ export function GlobalSearch() {
       showOpening,
       clearWorkspaceCreationOverlay,
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
 
   // Fuse.js instance for app search
   const appFuse = useMemo(() => {

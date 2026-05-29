@@ -8,10 +8,12 @@ export function ExperimentSettingsSection() {
   const {
     managementTerminalsEnabled,
     managementAgentsEnabled,
+    automationsEnabled,
     centerWikiTabEnabled,
     loadSettings,
     setManagementTerminalsEnabled,
     setManagementAgentsEnabled,
+    setAutomationsEnabled,
     setCenterWikiTabEnabled,
   } = useExperimentSettingsStore();
 
@@ -47,6 +49,20 @@ export function ExperimentSettingsSection() {
             <Switch
               checked={managementAgentsEnabled}
               onCheckedChange={(checked) => void setManagementAgentsEnabled(checked)}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8 border-b border-border px-6 py-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Automations (Management Center)</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Enable automation creation, scheduled runs, and GitHub-triggered automation management.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Switch
+              checked={automationsEnabled}
+              onCheckedChange={(checked) => void setAutomationsEnabled(checked)}
             />
           </div>
         </div>

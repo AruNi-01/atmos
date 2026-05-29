@@ -64,6 +64,7 @@ interface BuildGlobalSearchItemsParams {
   currentEffectivePath?: string | null;
   managementTerminalsEnabled: boolean;
   managementAgentsEnabled: boolean;
+  automationsEnabled: boolean;
   isLeftCollapsed: boolean;
   setLlmProvidersOpen: (open: boolean) => void;
   setAgentChatOpen: (open: boolean) => void;
@@ -96,6 +97,7 @@ export function buildGlobalSearchItems({
   currentEffectivePath,
   managementTerminalsEnabled,
   managementAgentsEnabled,
+  automationsEnabled,
   isLeftCollapsed,
   setLlmProvidersOpen,
   setAgentChatOpen,
@@ -251,8 +253,8 @@ export function buildGlobalSearchItems({
     });
   }
 
-  items.push(
-    {
+  if (automationsEnabled) {
+    items.push({
       id: "management-automations",
       type: "management",
       title: "Management Center: Automations",
@@ -263,7 +265,10 @@ export function buildGlobalSearchItems({
         router.push("/automations");
         setGlobalSearchOpen(false);
       },
-    },
+    });
+  }
+
+  items.push(
     {
       id: "modal-llm-providers",
       type: "modal",

@@ -76,77 +76,81 @@ export function WelcomeMentionPopover({
           left: popover.left,
         }}
       >
-        <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
-          <Github className="size-3" />
-          <span>GitHub</span>
-        </div>
-        {issuePreview ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                ref={(element) => {
-                  onSetItemRef(issueIndex, element);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
-                  issueIndex === activeIndex && "bg-muted",
-                )}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  onSelectNavItem({ type: "issue", issue: issuePreview });
-                }}
-              >
-                <CircleDot className="size-4 text-muted-foreground" />
-                <span className="font-mono text-xs text-muted-foreground">
-                  #{issuePreview.number}
-                </span>
-                <span className="truncate">{issuePreview.title}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              align="end"
-              className="z-[2147483647] max-w-xs whitespace-normal break-words"
-            >
-              #{issuePreview.number} {issuePreview.title}
-            </TooltipContent>
-          </Tooltip>
+        {githubCount > 0 ? (
+          <>
+            <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
+              <Github className="size-3" />
+              <span>GitHub</span>
+            </div>
+            {issuePreview ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    ref={(element) => {
+                      onSetItemRef(issueIndex, element);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                      issueIndex === activeIndex && "bg-muted",
+                    )}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onSelectNavItem({ type: "issue", issue: issuePreview });
+                    }}
+                  >
+                    <CircleDot className="size-4 text-muted-foreground" />
+                    <span className="font-mono text-xs text-muted-foreground">
+                      #{issuePreview.number}
+                    </span>
+                    <span className="truncate">{issuePreview.title}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="right"
+                  align="end"
+                  className="z-[2147483647] max-w-xs whitespace-normal break-words"
+                >
+                  #{issuePreview.number} {issuePreview.title}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+            {prPreview ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    ref={(element) => {
+                      onSetItemRef(prIndex, element);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
+                      prIndex === activeIndex && "bg-muted",
+                    )}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onSelectNavItem({ type: "pr", pr: prPreview });
+                    }}
+                  >
+                    <GitPullRequestArrow className="size-4 text-muted-foreground" />
+                    <span className="font-mono text-xs text-muted-foreground">
+                      #{prPreview.number}
+                    </span>
+                    <span className="truncate">{prPreview.title}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="right"
+                  align="end"
+                  className="z-[2147483647] max-w-xs whitespace-normal break-words"
+                >
+                  #{prPreview.number} {prPreview.title}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+            <div className="my-1 h-px bg-border/60" />
+          </>
         ) : null}
-        {prPreview ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                ref={(element) => {
-                  onSetItemRef(prIndex, element);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left hover:bg-muted",
-                  prIndex === activeIndex && "bg-muted",
-                )}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  onSelectNavItem({ type: "pr", pr: prPreview });
-                }}
-              >
-                <GitPullRequestArrow className="size-4 text-muted-foreground" />
-                <span className="font-mono text-xs text-muted-foreground">
-                  #{prPreview.number}
-                </span>
-                <span className="truncate">{prPreview.title}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="right"
-              align="end"
-              className="z-[2147483647] max-w-xs whitespace-normal break-words"
-            >
-              #{prPreview.number} {prPreview.title}
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
-        <div className="my-1 h-px bg-border/60" />
         <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
           <Files className="size-3" />
           <span>Files</span>

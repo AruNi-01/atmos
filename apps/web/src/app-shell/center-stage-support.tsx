@@ -41,10 +41,12 @@ export function resolveCenterStageProjectContext(
 
 export function CenterStageNoContextView({
   currentView,
+  automationsEnabled,
   onAddProject,
   onConnectAgent,
 }: {
   currentView: string;
+  automationsEnabled: boolean;
   onAddProject: () => void;
   onConnectAgent: () => void;
 }) {
@@ -80,7 +82,7 @@ export function CenterStageNoContextView({
     );
   }
 
-  if (currentView === "automations") {
+  if (currentView === "automations" && automationsEnabled) {
     return (
       <main className="h-full overflow-hidden">
         <AutomationPage />

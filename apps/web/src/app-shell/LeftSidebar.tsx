@@ -155,6 +155,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
     const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
+    const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
     const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
     useEffect(() => {
         void loadExperimentSettings();
@@ -763,6 +764,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
                         canvasOpen={Boolean(canvasOpen)}
                         managementTerminalsEnabled={managementTerminalsEnabled}
                         managementAgentsEnabled={managementAgentsEnabled}
+                        automationsEnabled={automationsEnabled}
                         projects={projects}
                         availableLabels={workspaceLabels}
                         kanbanFilters={kanbanFilters}

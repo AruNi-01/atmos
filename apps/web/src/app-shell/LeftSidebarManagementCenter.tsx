@@ -43,6 +43,7 @@ interface LeftSidebarManagementCenterProps {
   canvasOpen: boolean;
   managementTerminalsEnabled: boolean;
   managementAgentsEnabled: boolean;
+  automationsEnabled: boolean;
   projects: Project[];
   availableLabels: WorkspaceLabel[];
   kanbanFilters: WorkspaceKanbanFilters;
@@ -68,6 +69,7 @@ export function LeftSidebarManagementCenter({
   canvasOpen,
   managementTerminalsEnabled,
   managementAgentsEnabled,
+  automationsEnabled,
   projects,
   availableLabels,
   kanbanFilters,
@@ -100,9 +102,10 @@ export function LeftSidebarManagementCenter({
     return all.filter((item) => {
       if (item.id === "terminals" && !managementTerminalsEnabled) return false;
       if (item.id === "agents" && !managementAgentsEnabled) return false;
+      if (item.id === "automations" && !automationsEnabled) return false;
       return true;
     });
-  }, [managementAgentsEnabled, managementTerminalsEnabled]);
+  }, [automationsEnabled, managementAgentsEnabled, managementTerminalsEnabled]);
 
   return (
     <>

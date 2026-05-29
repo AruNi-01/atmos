@@ -7,6 +7,7 @@ import { useFunctionSettingsStore } from '@/features/settings/store/function-set
 export interface ExperimentPrefs {
   managementTerminalsEnabled: boolean;
   managementAgentsEnabled: boolean;
+  automationsEnabled: boolean;
   centerWikiTabEnabled: boolean;
 }
 
@@ -15,6 +16,7 @@ interface ExperimentSettingsState extends ExperimentPrefs {
   loadSettings: () => Promise<void>;
   setManagementTerminalsEnabled: (value: boolean) => Promise<void>;
   setManagementAgentsEnabled: (value: boolean) => Promise<void>;
+  setAutomationsEnabled: (value: boolean) => Promise<void>;
   setCenterWikiTabEnabled: (value: boolean) => Promise<void>;
 }
 
@@ -29,6 +31,7 @@ function readExperiments(raw: unknown): ExperimentPrefs {
   return {
     managementTerminalsEnabled: ex?.mgmt_terminals === true,
     managementAgentsEnabled: ex?.mgmt_agents === true,
+    automationsEnabled: ex?.automations === true,
     centerWikiTabEnabled: ex?.center_wiki_tab === true,
   };
 }
@@ -36,6 +39,7 @@ function readExperiments(raw: unknown): ExperimentPrefs {
 export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, get) => ({
   managementTerminalsEnabled: false,
   managementAgentsEnabled: false,
+  automationsEnabled: false,
   centerWikiTabEnabled: false,
   loaded: false,
 
@@ -78,6 +82,17 @@ export const useExperimentSettingsStore = create<ExperimentSettingsState>((set, 
       useFunctionSettingsStore.getState().invalidate();
     } catch {
       set({ managementAgentsEnabled: prev });
+    }
+  },
+
+  setAutomationsEnabled: async (value) => {
+    const prev = get().automationsEnabled;
+    set({ automationsEnabled: value });
+    try {
+      await functionSettingsApi.update('experiments', 'automations', value);
+      useFunctionSettingsStore.getState().invalidate();
+    } catch {
+      set({ automationsEnabled: prev });
     }
   },
 

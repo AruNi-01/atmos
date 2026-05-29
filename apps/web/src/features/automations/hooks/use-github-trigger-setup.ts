@@ -21,6 +21,8 @@ import type {
 } from "@/features/automations/types";
 import type { TriggerChoice } from "@/features/automations/lib/automation-schedule";
 import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/sync-computer-client-settings";
+import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
+import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 export function useGithubTriggerSetup({
   mode,
@@ -236,10 +238,35 @@ export function useGithubTriggerSetup({
     async (returnUrl: string) => {
       setGithubError(null);
       setGithubLoading(true);
+      const reservedBrowserWindow =
+        typeof window !== "undefined" && !isTauriRuntime()
+          ? window.open("", "_blank")
+          : null;
+      if (reservedBrowserWindow) {
+        reservedBrowserWindow.opener = null;
+      }
+
       try {
         const session = await createGithubSetupSession(githubPrereqs, returnUrl);
-        window.location.assign(session.install_url);
+        const openedByDesktop = await openDesktopExternalUrl(session.install_url);
+        if (openedByDesktop) {
+          reservedBrowserWindow?.close();
+          return;
+        }
+        if (reservedBrowserWindow && !reservedBrowserWindow.closed) {
+          reservedBrowserWindow.location.href = session.install_url;
+          return;
+        }
+        if (typeof window === "undefined") {
+          return;
+        }
+        const openedWindow = window.open(session.install_url, "_blank");
+        if (!openedWindow) {
+          throw new Error("Browser blocked the GitHub setup window. Allow pop-ups for Atmos and try again.");
+        }
+        openedWindow.opener = null;
       } catch (err) {
+        reservedBrowserWindow?.close();
         setGithubError(err instanceof Error ? err.message : "Failed to start GitHub setup");
       } finally {
         setGithubLoading(false);

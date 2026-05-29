@@ -152,6 +152,7 @@ const CenterStage: React.FC = () => {
   );
 
   const centerWikiTabEnabled = useExperimentSettingsStore((s) => s.centerWikiTabEnabled);
+  const automationsEnabled = useExperimentSettingsStore((s) => s.automationsEnabled);
   const experimentPrefsLoaded = useExperimentSettingsStore((s) => s.loaded);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   React.useEffect(() => {
@@ -722,6 +723,7 @@ const CenterStage: React.FC = () => {
     return (
       <CenterStageNoContextView
         currentView={currentView}
+        automationsEnabled={automationsEnabled}
         onAddProject={() => setCreateProjectOpen(true)}
         onConnectAgent={() => {
           router.push('/agents');

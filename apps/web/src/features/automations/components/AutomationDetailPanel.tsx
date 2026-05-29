@@ -1,6 +1,13 @@
 "use client";
 
-import { Badge, Button } from "@workspace/ui";
+import * as React from "react";
+import {
+  Badge,
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@workspace/ui";
 import {
   AlertCircle,
   LoaderCircle,
@@ -68,6 +75,8 @@ export function AutomationDetailPanel({
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   onFetchArtifact: (run: AutomationRunSummary, kind: AutomationArtifactKind) => Promise<void>;
 }) {
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+
   if (!automation) {
     return (
       <section className="flex h-full min-h-0 items-center justify-center rounded-md border border-border bg-background">
@@ -84,6 +93,7 @@ export function AutomationDetailPanel({
   const pauseResumeAction = automation.schedule_paused ? "resume" : "pause";
   const pauseResumeLabel = automation.schedule_paused ? "Resume" : "Pause";
   const latestRun = runs[0] ?? null;
+  const deleteBusy = busyAction === `delete:${automation.guid}`;
   const pausedAfterStartFailure =
     automation.schedule_paused &&
     latestRun?.trigger_kind === "scheduled" &&
@@ -150,20 +160,57 @@ export function AutomationDetailPanel({
               <Pencil className="size-4" />
               Edit
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void onRunAction("delete", automation)}
-              disabled={busyAction === `delete:${automation.guid}`}
-              className="text-destructive hover:text-destructive"
-            >
-              {busyAction === `delete:${automation.guid}` ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Trash2 className="size-4" />
-              )}
-              Delete
-            </Button>
+            <Popover open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={deleteBusy}
+                  className="text-destructive hover:text-destructive"
+                >
+                  {deleteBusy ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                  Delete
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" sideOffset={8} className="w-72 p-3">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Delete this automation?</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {automation.display_name} will be removed, including its saved schedule and GitHub trigger route.
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={deleteBusy}
+                      onClick={() => setDeleteConfirmOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={deleteBusy}
+                      onClick={async () => {
+                        await onRunAction("delete", automation);
+                        setDeleteConfirmOpen(false);
+                      }}
+                    >
+                      {deleteBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         {pausedAfterStartFailure ? (
