@@ -60,8 +60,11 @@ interface PromptComposerProps extends ComposerCallbacks {
   onSubmit?: () => void;
 }
 
-const TOKEN_REGEX =
-  /(@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\]|\[#appshot:\d{13}\])/g;
+const CHIP_TOKEN_PATTERN =
+  String.raw`@(?:issue|pr)#\d+|@file:[^\s]+|\/skill:[^\s]+|\[#img-\d+\]|\[#appshot:\d{13}\]`;
+const TOKEN_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})`, "g");
+const BACKSPACE_CHIP_REGEX = new RegExp(`(${CHIP_TOKEN_PATTERN})[\\u00A0 ]*$`);
+const DELETE_CHIP_REGEX = new RegExp(`^[\\u00A0 ]*(${CHIP_TOKEN_PATTERN})[\\u00A0 ]*`);
 
 /**
  * SVG icons used inside chips live as static assets under
@@ -150,6 +153,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const timestamp = token.slice("[#appshot:".length, -1);
     span.dataset.tooltip = `Appshot ${timestamp}`;
     span.className += " border-success/30 bg-success/10 text-success";
+    span.appendChild(buildMaskIcon("/icons/folders/images.svg"));
     const label = document.createElement("span");
     label.textContent = `Appshot · ${timestamp}`;
     span.appendChild(label);
@@ -191,6 +195,44 @@ function serializeRange(range: Range): string {
   const container = document.createElement("div");
   container.appendChild(range.cloneContents());
   return serialize(container);
+}
+
+function getCaretTextOffset(root: HTMLElement): number | null {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  if (!range.collapsed || !root.contains(range.startContainer)) return null;
+
+  const beforeRange = range.cloneRange();
+  beforeRange.selectNodeContents(root);
+  beforeRange.setEnd(range.startContainer, range.startOffset);
+  return serializeRange(beforeRange).length;
+}
+
+function deleteChipNearCaret(root: HTMLElement, direction: "backward" | "forward"): boolean {
+  const caretOffset = getCaretTextOffset(root);
+  if (caretOffset === null) return false;
+
+  const currentText = serialize(root);
+  const before = currentText.slice(0, caretOffset);
+  const after = currentText.slice(caretOffset);
+  const match =
+    direction === "backward"
+      ? before.match(BACKSPACE_CHIP_REGEX)
+      : after.match(DELETE_CHIP_REGEX);
+  if (!match?.[0]) return false;
+
+  const deleteStart = direction === "backward"
+    ? caretOffset - match[0].length
+    : caretOffset;
+  const deleteEnd = direction === "backward"
+    ? caretOffset
+    : caretOffset + match[0].length;
+  const nextText = currentText.slice(0, deleteStart) + currentText.slice(deleteEnd);
+
+  inflateInto(root, nextText);
+  setCaretAtTextOffset(root, deleteStart);
+  return true;
 }
 
 function inflateInto(root: HTMLElement, text: string) {
@@ -498,6 +540,22 @@ export const PromptComposer = React.forwardRef<ComposerHandle, PromptComposerPro
     }));
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (
+        (event.key === "Backspace" || event.key === "Delete") &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        editorRef.current &&
+        deleteChipNearCaret(editorRef.current, event.key === "Backspace" ? "backward" : "forward")
+      ) {
+        event.preventDefault();
+        fireChange();
+        setChipTooltip(null);
+        onAtCancel?.();
+        onSlashCancel?.();
+        return;
+      }
       if (event.key === "Enter" && !event.shiftKey && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         onSubmit?.();

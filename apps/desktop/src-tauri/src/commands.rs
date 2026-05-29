@@ -18,11 +18,7 @@ pub fn get_local_computer_display_name() -> Result<Option<String>, String> {
 
 #[tauri::command]
 pub fn get_api_config(state: tauri::State<AppState>) -> Result<serde_json::Value, String> {
-    let port = state
-        .api_port
-        .lock()
-        .map_err(|_| "state lock poisoned".to_string())?
-        .ok_or_else(|| "API not ready".to_string())?;
+    let port = current_api_port(&state)?;
 
     Ok(json!({
         "host": "127.0.0.1",
@@ -237,8 +233,32 @@ pub async fn appshot_delete_record(timestamp: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn appshot_trigger_capture(app: tauri::AppHandle) -> Result<(), String> {
+    crate::appshot::trigger_capture(app).await;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn appshot_open_permissions(
     req: crate::appshot::types::AppshotOpenPermissionsRequest,
 ) -> Result<(), String> {
     crate::appshot::open_permissions(req).await
+}
+
+#[tauri::command]
+pub fn appshot_show_permissions_window(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+    locale: Option<String>,
+) -> Result<(), String> {
+    let api_port = current_api_port(&state)?;
+    crate::appshot::show_permissions_window(app, locale, api_port)
+}
+
+fn current_api_port(state: &tauri::State<'_, AppState>) -> Result<u16, String> {
+    state
+        .api_port
+        .lock()
+        .map_err(|_| "state lock poisoned".to_string())?
+        .ok_or_else(|| "API not ready".to_string())
 }

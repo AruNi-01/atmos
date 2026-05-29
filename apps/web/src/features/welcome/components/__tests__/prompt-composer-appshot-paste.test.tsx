@@ -65,6 +65,7 @@ describe("PromptComposer Appshot paste handling", () => {
     if (!editor) {
       throw new Error("PromptComposer editor not found");
     }
+    placeCaretAtEnd(editor);
 
     await act(async () => {
       editor.dispatchEvent(
@@ -75,8 +76,99 @@ describe("PromptComposer Appshot paste handling", () => {
     });
 
     expect(editor.textContent).toContain(`Appshot · ${timestamp}`);
+    expect(editor.querySelector("[data-kind='appshot'] [aria-hidden='true']")).not.toBeNull();
     expect(latestText.trim()).toBe(`[#appshot:${timestamp}]`);
     expect(composerRef.current?.getText().trim()).toBe(`[#appshot:${timestamp}]`);
+  });
+
+  it("deletes a pasted Appshot chip with one Backspace from the end", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    let latestText = "";
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <PromptComposer
+          ref={composerRef}
+          onTextChange={(text) => {
+            latestText = text;
+          }}
+        />,
+      );
+    });
+
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    if (!editor) {
+      throw new Error("PromptComposer editor not found");
+    }
+    placeCaretAtEnd(editor);
+
+    await act(async () => {
+      editor.dispatchEvent(
+        pasteEvent(
+          `atmos://appshots/${timestamp}\nAppshot record is stored locally at ~/.atmos/appshots/records/${timestamp}/.`,
+        ),
+      );
+    });
+
+    await act(async () => {
+      editor.dispatchEvent(
+        new window.KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Backspace",
+        }),
+      );
+    });
+
+    expect(editor.querySelector("[data-kind='appshot']")).toBeNull();
+    expect(latestText.trim()).toBe("");
+    expect(composerRef.current?.getText().trim()).toBe("");
+  });
+
+  it("deletes an Appshot chip with one Delete when the caret is before it", async () => {
+    const composerRef = React.createRef<ComposerHandle>();
+    let latestText = "";
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <PromptComposer
+          ref={composerRef}
+          onTextChange={(text) => {
+            latestText = text;
+          }}
+        />,
+      );
+    });
+
+    await act(async () => {
+      composerRef.current?.setText(`[#appshot:${timestamp}]`);
+    });
+    const editor = container.querySelector<HTMLElement>("[contenteditable='true']");
+    const chip = editor?.querySelector<HTMLElement>("[data-kind='appshot']");
+    if (!editor || !chip) {
+      throw new Error("PromptComposer Appshot chip not found");
+    }
+    placeCaretBefore(chip);
+
+    await act(async () => {
+      editor.dispatchEvent(
+        new window.KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Delete",
+        }),
+      );
+    });
+
+    expect(editor.querySelector("[data-kind='appshot']")).toBeNull();
+    expect(latestText.trim()).toBe("");
+    expect(composerRef.current?.getText().trim()).toBe("");
   });
 });
 
@@ -90,6 +182,25 @@ function pasteEvent(text: string): Event {
     },
   });
   return event;
+}
+
+function placeCaretAtEnd(element: HTMLElement): void {
+  element.focus();
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+}
+
+function placeCaretBefore(element: HTMLElement): void {
+  const range = document.createRange();
+  range.setStartBefore(element);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
 function installDom(): void {
@@ -107,6 +218,7 @@ function installDom(): void {
   setGlobal("Node", win.Node);
   setGlobal("Text", win.Text);
   setGlobal("Event", win.Event);
+  setGlobal("KeyboardEvent", win.KeyboardEvent);
   setGlobal("MutationObserver", win.MutationObserver);
   setGlobal("ResizeObserver", win.ResizeObserver);
   setGlobal("getComputedStyle", win.getComputedStyle.bind(win));
@@ -124,6 +236,7 @@ function cleanupDom(): void {
     "Node",
     "Text",
     "Event",
+    "KeyboardEvent",
     "MutationObserver",
     "ResizeObserver",
     "getComputedStyle",

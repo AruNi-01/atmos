@@ -10,6 +10,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { ImagePreviewOverlay } from "@/shared/components/image-preview-overlay";
+import { ShortcutKeySequence } from "@/shared/components/shortcut-key-sequence";
 
 import {
   copyAppshotRecord,
@@ -17,17 +18,15 @@ import {
   getAppshotStatus,
   getDeniedAppshotPermissions,
   listAppshotRecords,
-  openAppshotPermissionTarget,
   readAppshotRecords,
   readAppshotSnapshot,
+  showAppshotPermissionsWindow,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
 import { sanitizeRecordDetailPayloads } from "../lib/appshot-payload";
 import type {
-  AppshotPermissionState,
   AppshotRecordDetail,
   AppshotRecordListItem,
-  AppshotSettingsTarget,
   AppshotStatus,
 } from "../types";
 import { AppshotRecordRow } from "./AppshotRecordRow";
@@ -38,6 +37,7 @@ type AppshotsHistoryPopoverProps = {
 
 const PAGE_SIZE = 10;
 const DETAIL_BATCH_SIZE = 3;
+const APPSHOT_CAPTURE_SHORTCUT_KEYS = ["Fn", "⌥", "⌘"];
 
 export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const [status, setStatus] = React.useState<AppshotStatus | null>(null);
@@ -162,9 +162,9 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const hasMore = visibleCount < records.length;
 
   const handleOpenPermission = React.useCallback(
-    async (target: AppshotSettingsTarget) => {
+    async () => {
       try {
-        await openAppshotPermissionTarget(target);
+        await showAppshotPermissionsWindow();
         permissionWatcherRef.current?.();
         permissionWatcherRef.current = watchAppshotStatusAfterPermissionOpen(refreshStatus);
       } catch (err) {
@@ -266,8 +266,14 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
           </Button>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Capture another app with Fn + Option + Command, review the preview,
-          then copy a local Appshot reference for agents to read from disk.
+          Capture another app with{" "}
+          <ShortcutKeySequence
+            keys={APPSHOT_CAPTURE_SHORTCUT_KEYS}
+            className="mx-1 align-middle"
+            keyClassName="h-4 min-w-4 rounded px-1 text-[9px]"
+          />
+          , review the preview, then copy a local Appshot reference for agents
+          to read from disk.
         </p>
       </div>
 
@@ -287,19 +293,27 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
       ) : null}
 
       {deniedPermissions.length > 0 ? (
-        <div className="space-y-2 rounded-md border border-warning/30 bg-warning/10 p-2">
-          <div className="flex items-center gap-2 text-xs font-medium text-popover-foreground">
-            <ShieldAlert className="size-3.5 text-warning" />
-            Permissions required
-          </div>
-          <div className="space-y-2">
-            {deniedPermissions.map((permission) => (
-              <PermissionRecovery
-                key={permission.name}
-                permission={permission}
-                onOpenPermission={handleOpenPermission}
-              />
-            ))}
+        <div className="rounded-md border border-warning/30 bg-warning/10 p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs font-medium text-popover-foreground">
+                <ShieldAlert className="size-3.5 text-warning" />
+                Permissions required
+              </div>
+              <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                Open the Atmos Appshots window to grant Accessibility and
+                Screen Recording permissions.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => void handleOpenPermission()}
+              className="shrink-0 cursor-pointer"
+            >
+              Enable
+            </Button>
           </div>
         </div>
       ) : null}
@@ -371,47 +385,6 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
           alt={previewImage.alt}
           onClose={closePreviewImage}
         />
-      ) : null}
-    </div>
-  );
-}
-
-function PermissionRecovery({
-  permission,
-  onOpenPermission,
-}: {
-  permission: AppshotPermissionState;
-  onOpenPermission: (target: AppshotSettingsTarget) => Promise<void>;
-}) {
-  const action = permission.recovery_action;
-
-  return (
-    <div className="rounded-md border border-border bg-popover/70 p-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-medium text-popover-foreground">
-            {permission.display_name}
-          </p>
-          <p className="text-[11px] leading-5 text-muted-foreground">
-            {permission.required_for.join("; ")}
-          </p>
-        </div>
-        {action ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={() => void onOpenPermission(action.target)}
-            className="shrink-0 cursor-pointer"
-          >
-            {action.label || "Open Settings"}
-          </Button>
-        ) : null}
-      </div>
-      {action?.manual_steps.length ? (
-        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-          {action.manual_steps.join(" ")}
-        </p>
       ) : null}
     </div>
   );

@@ -28,14 +28,11 @@ pub(super) fn permission_states() -> Vec<AppshotPermissionState> {
             AppshotPermissionName::Accessibility,
             "Accessibility",
             accessibility_granted(),
-            vec![
-                "Read the target app's accessibility tree".to_string(),
-                "Detect modifier-only Appshot gestures when required by macOS".to_string(),
-            ],
+            vec!["Read the focused app's accessibility tree".to_string()],
             AppshotSettingsTarget::Accessibility,
             vec![
                 "Open System Settings > Privacy & Security > Accessibility.".to_string(),
-                "Enable Atmos, then return to Atmos.".to_string(),
+                "Enable Atmos in the allowed apps list, then return to Atmos.".to_string(),
             ],
         ),
         permission_state(
@@ -102,7 +99,7 @@ fn permission_state(
             None
         } else {
             Some(AppshotPermissionRecoveryAction {
-                label: "Open System Settings".to_string(),
+                label: "Grant".to_string(),
                 target,
                 manual_steps,
             })

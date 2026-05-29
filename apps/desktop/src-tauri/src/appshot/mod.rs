@@ -4,9 +4,9 @@ mod encoding;
 #[cfg(target_os = "macos")]
 mod macos;
 mod pending;
+mod permissions_window;
 pub mod protocol;
 mod records;
-mod shortcut;
 mod thumbnail;
 pub mod types;
 #[cfg(not(target_os = "macos"))]
@@ -15,22 +15,19 @@ mod unsupported;
 use crate::appshot::types::{
     AppshotAcceptResponse, AppshotCopyResponse, AppshotOpenPermissionsRequest,
     AppshotPendingAutoAcceptRequest, AppshotReadRecordsRequest, AppshotRecordDetail,
-    AppshotRecordListItem, AppshotSnapshotView, AppshotStatus,
+    AppshotRecordListItem, AppshotSnapshotView, AppshotStatus, AppshotTriggerMode,
+    AppshotTriggerStatus,
 };
 use tauri::{AppHandle, Emitter, Manager};
 
 const PREVIEW_EVENT: &str = "appshot://preview";
 
-pub fn init(app: AppHandle) {
-    shortcut::start(app);
-}
-
 pub async fn status(app: AppHandle) -> Result<AppshotStatus, String> {
     #[cfg(target_os = "macos")]
     {
-        shortcut::start(app);
+        let _ = app;
         let permissions = macos::permission_states();
-        let trigger = shortcut::trigger_status(permissions.clone());
+        let trigger = trigger_status(permissions.clone());
         return Ok(AppshotStatus {
             supported: true,
             platform: types::AppshotPlatform::Macos,
@@ -44,6 +41,30 @@ pub async fn status(app: AppHandle) -> Result<AppshotStatus, String> {
     {
         let _ = app;
         Ok(unsupported::status())
+    }
+}
+
+fn trigger_status(
+    permissions: Vec<crate::appshot::types::AppshotPermissionState>,
+) -> AppshotTriggerStatus {
+    AppshotTriggerStatus {
+        mode: if cfg!(target_os = "macos") {
+            AppshotTriggerMode::MacosModifierGesture
+        } else {
+            AppshotTriggerMode::Unsupported
+        },
+        enabled: false,
+        required_modifiers: if cfg!(target_os = "macos") {
+            vec![
+                "function".to_string(),
+                "option".to_string(),
+                "command".to_string(),
+            ]
+        } else {
+            Vec::new()
+        },
+        last_error: None,
+        permissions,
     }
 }
 
@@ -79,6 +100,14 @@ pub async fn copy_record(timestamp: String) -> Result<AppshotCopyResponse, Strin
 
 pub async fn delete_record(timestamp: String) -> Result<(), String> {
     records::delete_record(&timestamp)
+}
+
+pub fn show_permissions_window(
+    app: AppHandle,
+    locale: Option<String>,
+    api_port: u16,
+) -> Result<(), String> {
+    permissions_window::show_permissions_window(app, locale, api_port)
 }
 
 pub async fn open_permissions(req: AppshotOpenPermissionsRequest) -> Result<(), String> {

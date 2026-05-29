@@ -1,5 +1,7 @@
 'use client';
 
+import { ShortcutKeySequence } from '@/shared/components/shortcut-key-sequence';
+
 interface ShortcutEntry {
   keys: string[];
   description: string;
@@ -18,16 +20,7 @@ function ShortcutGroup({ title, shortcuts }: { title: string; shortcuts: Shortcu
                 className={i !== shortcuts.length - 1 ? 'border-b border-border' : ''}
               >
                 <td className="w-[200px] px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    {shortcut.keys.map((key, j) => (
-                      <kbd
-                        key={j}
-                        className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-md border border-muted-foreground/20 bg-muted px-1.5 text-xs font-medium text-foreground shadow-sm"
-                      >
-                        {key}
-                      </kbd>
-                    ))}
-                  </div>
+                  <ShortcutKeySequence keys={shortcut.keys} />
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
                   {shortcut.description}
@@ -90,6 +83,12 @@ export function ShortcutsSettingsSection() {
           { keys: ['⌘', '['], description: 'Previous terminal tab' },
           { keys: ['⌘', ']'], description: 'Next terminal tab' },
           { keys: ['⌘', 'C'], description: 'Copy selection' },
+        ]}
+      />
+      <ShortcutGroup
+        title="Appshots"
+        shortcuts={[
+          { keys: ['Fn', '⌥', '⌘'], description: 'Capture the focused app as an Appshot' },
         ]}
       />
       <ShortcutGroup

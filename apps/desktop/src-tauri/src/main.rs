@@ -69,8 +69,6 @@ fn main() {
                     remote_access_state_path,
                 ),
             });
-            appshot::init(app.handle().clone());
-
             let app_handle = app.handle().clone();
             app.listen("frontend://theme-ready", move |_| {
                 let state = app_handle.state::<AppState>();
@@ -358,7 +356,9 @@ fn main() {
             commands::appshot_read_snapshot,
             commands::appshot_copy_record,
             commands::appshot_delete_record,
+            commands::appshot_trigger_capture,
             commands::appshot_open_permissions,
+            commands::appshot_show_permissions_window,
             remote_access::commands::remote_access_detect,
             remote_access::commands::remote_access_start,
             remote_access::commands::remote_access_stop,

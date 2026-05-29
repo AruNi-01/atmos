@@ -40,8 +40,7 @@ export function ImagePreviewOverlay({
       <img
         src={src}
         alt={alt}
-        className="max-h-[92vh] max-w-[92vw] rounded-md object-contain shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
+        className="max-h-[92vh] max-w-[92vw] cursor-zoom-out rounded-md object-contain shadow-2xl"
       />
     </div>,
     document.body,

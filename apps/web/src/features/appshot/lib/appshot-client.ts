@@ -1,5 +1,6 @@
 "use client";
 
+import { defaultLocale, locales } from "@atmos/i18n/config";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 import type {
@@ -131,6 +132,36 @@ export async function openAppshotPermissionTarget(
 ): Promise<void> {
   const req: AppshotOpenPermissionsRequest = { target };
   await invokeAppshot<void>("appshot_open_permissions", { req });
+}
+
+export async function showAppshotPermissionsWindow(
+  locale = currentAppLocale(),
+): Promise<void> {
+  await invokeAppshot<void>("appshot_show_permissions_window", { locale });
+}
+
+function currentAppLocale(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const firstPathSegment = window.location.pathname
+    .split("/")
+    .filter(Boolean)[0];
+  if (isLocaleSegment(firstPathSegment)) {
+    return firstPathSegment;
+  }
+
+  const htmlLang = document.documentElement.lang;
+  if (isLocaleSegment(htmlLang)) {
+    return htmlLang;
+  }
+
+  return defaultLocale;
+}
+
+function isLocaleSegment(value: string | undefined | null): value is string {
+  return Boolean(value && locales.includes(value as typeof locales[number]));
 }
 
 export async function listenAppshotPreview(

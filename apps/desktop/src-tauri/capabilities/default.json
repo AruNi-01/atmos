@@ -2,7 +2,11 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default capability set for Atmos desktop",
-  "windows": ["main", "splashscreen"],
+  "windows": [
+    "main",
+    "splashscreen",
+    "appshot-permissions"
+  ],
   "webviews": ["preview-inspector"],
   "remote": {
     "urls": [

@@ -16,7 +16,10 @@ use std::fs;
 use std::process::Command;
 use std::time::Duration;
 
-const ACCESSIBILITY_TREE_TIMEOUT_MS: u64 = 3_500;
+const ACCESSIBILITY_TREE_TIMEOUT_MS: u64 = 6_000;
+const ACCESSIBILITY_TREE_NODE_LIMIT: u16 = 180;
+const ACCESSIBILITY_TREE_DEPTH_LIMIT: u8 = 5;
+const ACCESSIBILITY_TREE_CHILD_LIMIT: u8 = 24;
 const SCREENSHOT_TIMEOUT_MS: u64 = 2_500;
 const ACCESSIBILITY_REDACTION_TERMS: &[&str] = &["secure", "Secure", "password", "Password"];
 const ACCESSIBILITY_REDACTION_FIELDS: &[&str] =
@@ -175,8 +178,9 @@ fn read_accessibility_tree() -> Result<String, String> {
     let script = format!(
         r#"
 property nodeCount : 0
-property nodeLimit : 420
-property depthLimit : 8
+property nodeLimit : {ACCESSIBILITY_TREE_NODE_LIMIT}
+property depthLimit : {ACCESSIBILITY_TREE_DEPTH_LIMIT}
+property childLimit : {ACCESSIBILITY_TREE_CHILD_LIMIT}
 
 on replaceText(findText, replaceTextValue, inputText)
   set oldDelimiters to AppleScript's text item delimiters
@@ -235,7 +239,10 @@ on dumpElement(uiElement, depth)
   set outputText to lineText & linefeed
   try
     tell application "System Events" to set childItems to UI elements of uiElement
+    set childCount to 0
     repeat with childItem in childItems
+      set childCount to childCount + 1
+      if childCount > childLimit then exit repeat
       set outputText to outputText & my dumpElement(childItem, depth + 1)
       if nodeCount > nodeLimit then exit repeat
     end repeat

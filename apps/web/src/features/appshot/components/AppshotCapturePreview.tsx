@@ -10,8 +10,8 @@ import {
   discardAppshotPending,
   getAppshotStatus,
   listenAppshotPreview,
-  openAppshotPermissionTarget,
   setAppshotPendingAutoAccept,
+  showAppshotPermissionsWindow,
   watchAppshotStatusAfterPermissionOpen,
 } from "../lib/appshot-client";
 import {
@@ -19,7 +19,7 @@ import {
   toBoundedScreenshotDataUrl,
 } from "../lib/appshot-payload";
 import { formatQualityLabel } from "../lib/appshot-protocol";
-import type { AppshotPendingPreview, AppshotPermissionState } from "../types";
+import type { AppshotPendingPreview } from "../types";
 
 type ResolveState = "idle" | "accepting" | "discarding";
 type EntranceOffset = { x: number; y: number };
@@ -332,17 +332,33 @@ export function AppshotCapturePreview() {
 
         {deniedPermissions.length > 0 ? (
           <div className="space-y-2 rounded-md border border-warning/30 bg-warning/10 p-2">
-            <p className="text-xs font-medium text-popover-foreground">
-              Permissions required
-            </p>
-            {deniedPermissions.map((permission) => (
-              <PreviewPermissionAction
-                key={permission.name}
-                permission={permission}
-                onError={setError}
-                onWatchAfterOpen={watchPreviewPermissionsAfterOpen}
-              />
-            ))}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-popover-foreground">
+                  Permissions required
+                </p>
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                  Open the Atmos Appshots window to grant local macOS access.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                className="shrink-0 cursor-pointer"
+                onClick={() => {
+                  void showAppshotPermissionsWindow()
+                    .then(() => {
+                      watchPreviewPermissionsAfterOpen();
+                    })
+                    .catch((err) => {
+                      setError(err instanceof Error ? err.message : String(err));
+                    });
+                }}
+              >
+                Enable
+              </Button>
+            </div>
           </div>
         ) : null}
 
@@ -412,48 +428,4 @@ function computeEntranceOffset(preview: AppshotPendingPreview): EntranceOffset {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function PreviewPermissionAction({
-  permission,
-  onError,
-  onWatchAfterOpen,
-}: {
-  permission: AppshotPermissionState;
-  onError: (message: string) => void;
-  onWatchAfterOpen: () => void;
-}) {
-  const action = permission.recovery_action;
-
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <div className="min-w-0">
-        <p className="text-xs font-medium text-popover-foreground">
-          {permission.display_name}
-        </p>
-        <p className="text-[11px] leading-5 text-muted-foreground">
-          {permission.required_for.join("; ")}
-        </p>
-      </div>
-      {action ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          className="shrink-0 cursor-pointer"
-          onClick={() => {
-            void openAppshotPermissionTarget(action.target)
-              .then(() => {
-                onWatchAfterOpen();
-              })
-              .catch((err) => {
-                onError(err instanceof Error ? err.message : String(err));
-              });
-          }}
-        >
-          {action.label || "Open Settings"}
-        </Button>
-      ) : null}
-    </div>
-  );
 }

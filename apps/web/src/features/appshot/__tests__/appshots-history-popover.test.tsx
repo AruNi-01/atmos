@@ -6,6 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 
 import type {
   AppshotCopyResponse,
+  AppshotPermissionState,
   AppshotRecordDetail,
   AppshotRecordListItem,
   AppshotSnapshotView,
@@ -43,10 +44,12 @@ const calls = {
   list: 0,
   read: [] as string[][],
   readSnapshot: [] as string[],
+  showPermissions: 0,
 };
 
 let recordItems: AppshotRecordListItem[] = [];
 let recordDetails = new Map<string, AppshotRecordDetail>();
+let deniedPermissions: AppshotPermissionState[] = [];
 
 mock.module("@workspace/ui", () => ({
   Badge: ({ children, variant, ...props }: TestSpanProps) => {
@@ -121,12 +124,11 @@ mock.module("../lib/appshot-client", () => ({
     calls.delete.push(timestamp);
   },
   getAppshotStatus: async (): Promise<AppshotStatus> => desktopStatus,
-  getDeniedAppshotPermissions: () => [],
+  getDeniedAppshotPermissions: () => deniedPermissions,
   listAppshotRecords: async (): Promise<AppshotRecordListItem[]> => {
     calls.list += 1;
     return recordItems;
   },
-  openAppshotPermissionTarget: async (): Promise<void> => undefined,
   readAppshotRecords: async (
     timestamps: string[],
   ): Promise<AppshotRecordDetail[]> => {
@@ -147,6 +149,9 @@ mock.module("../lib/appshot-client", () => ({
       timestamp,
       snapshot_url: `data:image/png;base64,full-${timestamp}`,
     };
+  },
+  showAppshotPermissionsWindow: async (): Promise<void> => {
+    calls.showPermissions += 1;
   },
   watchAppshotStatusAfterPermissionOpen: () => () => undefined,
 }));
@@ -178,8 +183,10 @@ beforeEach(() => {
   calls.list = 0;
   calls.read = [];
   calls.readSnapshot = [];
+  calls.showPermissions = 0;
   recordItems = [];
   recordDetails = new Map();
+  deniedPermissions = [];
 });
 
 afterEach(async () => {
@@ -241,6 +248,23 @@ describe("S7/S8 - Header Appshots history", () => {
     expect(calls.delete).toEqual([newestFirst[0]]);
     expect(container.textContent).not.toContain("App #11");
     expect(container.textContent).toContain("App #10");
+  });
+
+  it("shows one permission CTA that opens the dedicated Appshots window", async () => {
+    deniedPermissions = [
+      makeDeniedPermission("accessibility", "Accessibility"),
+      makeDeniedPermission("screen_recording", "Screen Recording"),
+    ];
+
+    const container = await renderHistoryPopover();
+    await flushUntil(() => container.textContent?.includes("Permissions required") ?? false);
+
+    expect(getButtonsByText(container, "Enable")).toHaveLength(1);
+    expect(container.textContent).not.toContain("Grant");
+
+    await click(getButtonByText(container, "Enable"));
+
+    expect(calls.showPermissions).toBe(1);
   });
 });
 
@@ -321,6 +345,23 @@ function makeRecordDetail(
   };
 }
 
+function makeDeniedPermission(
+  name: AppshotPermissionState["name"],
+  displayName: string,
+): AppshotPermissionState {
+  return {
+    name,
+    display_name: displayName,
+    granted: false,
+    required_for: ["Required for Appshots"],
+    recovery_action: {
+      label: "Grant",
+      target: name,
+      manual_steps: [],
+    },
+  };
+}
+
 async function click(element: Element | undefined): Promise<void> {
   if (!element) {
     throw new Error("Expected element to click");
@@ -349,6 +390,12 @@ function getButtonByText(container: HTMLElement, text: string): HTMLButtonElemen
     throw new Error(`Button not found: ${text}`);
   }
   return button;
+}
+
+function getButtonsByText(container: HTMLElement, text: string): HTMLButtonElement[] {
+  return Array.from(container.querySelectorAll("button")).filter(
+    (candidate) => candidate.textContent?.trim() === text,
+  );
 }
 
 async function flushUntil(
