@@ -109,7 +109,17 @@ fn augmented_path(runtime_dir: &Path) -> Result<String, String> {
     let extra = ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"];
     paths.extend(extra.iter().map(|p| PathBuf::from(*p)));
     if let Some(home) = dirs::home_dir() {
-        paths.push(home.join(".atmos").join("bin"));
+        paths.extend([
+            home.join(".atmos").join("bin"),
+            home.join(".local").join("bin"),
+            home.join(".npm-global").join("bin"),
+            home.join(".bun").join("bin"),
+            home.join(".cargo").join("bin"),
+            home.join(".deno").join("bin"),
+            home.join(".yarn").join("bin"),
+            home.join(".local").join("share").join("pnpm"),
+            home.join("Library").join("pnpm"),
+        ]);
     }
     paths.extend(
         std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect::<Vec<_>>(),

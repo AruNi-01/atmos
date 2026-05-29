@@ -137,7 +137,11 @@ pub fn resolve_automation_agent(agent_id: &str) -> Result<AutomationAgentCommand
         )));
     }
     Ok(AutomationAgentCommandSpec {
-        executable: agent.cmd,
+        executable: support
+            .executable_path
+            .unwrap_or_else(|| PathBuf::from(&agent.cmd))
+            .to_string_lossy()
+            .to_string(),
         args: parse_flag_args(&agent.flags)?,
         prompt_strategy: agent.prompt_strategy,
     })
@@ -249,6 +253,7 @@ fn non_empty(value: &str) -> Option<String> {
 struct AutomationSupport {
     installed: bool,
     supported: bool,
+    executable_path: Option<PathBuf>,
     unavailable_reason: Option<String>,
 }
 
@@ -257,6 +262,7 @@ fn automation_support(agent: &ResolvedTerminalAgent) -> AutomationSupport {
         return AutomationSupport {
             installed: false,
             supported: false,
+            executable_path: None,
             unavailable_reason: Some(
                 "This agent is disabled in terminal agent settings.".to_string(),
             ),
@@ -267,25 +273,30 @@ fn automation_support(agent: &ResolvedTerminalAgent) -> AutomationSupport {
         return AutomationSupport {
             installed: false,
             supported: false,
+            executable_path: None,
             unavailable_reason: Some("No command is configured for this agent.".to_string()),
         };
     }
 
     if agent.flags.trim().is_empty() {
+        let executable_path = resolve_executable_path(&agent.cmd);
         return AutomationSupport {
-            installed: executable_in_path(&agent.cmd),
+            installed: executable_path.is_some(),
             supported: false,
+            executable_path,
             unavailable_reason: Some(
                 "No non-interactive automation flags are configured for this agent.".to_string(),
             ),
         };
     }
 
-    let installed = executable_in_path(&agent.cmd);
+    let executable_path = resolve_executable_path(&agent.cmd);
+    let installed = executable_path.is_some();
     if let Err(error) = parse_flag_args(&agent.flags) {
         return AutomationSupport {
             installed,
             supported: false,
+            executable_path,
             unavailable_reason: Some(format!("Automation flags are not parseable: {error}")),
         };
     }
@@ -293,23 +304,86 @@ fn automation_support(agent: &ResolvedTerminalAgent) -> AutomationSupport {
     AutomationSupport {
         installed,
         supported: installed,
+        executable_path,
         unavailable_reason: (!installed).then(|| {
             format!(
-                "{} is not installed or is not executable on PATH.",
+                "{} is not installed or is not executable on PATH or a supported user bin directory.",
                 agent.cmd
             )
         }),
     }
 }
 
-fn executable_in_path(executable: &str) -> bool {
-    if executable.contains(std::path::MAIN_SEPARATOR) {
-        return is_executable(Path::new(executable));
+fn resolve_executable_path(executable: &str) -> Option<PathBuf> {
+    let executable = executable.trim();
+    if executable.is_empty() {
+        return None;
     }
+    if executable.contains(std::path::MAIN_SEPARATOR) {
+        return expand_home_path(executable).filter(|path| is_executable(path));
+    }
+    resolve_executable_path_with_search_paths(executable, executable_search_paths())
+}
 
-    env::var_os("PATH")
-        .map(|paths| env::split_paths(&paths).any(|path| is_executable(&path.join(executable))))
-        .unwrap_or(false)
+fn resolve_executable_path_with_search_paths(
+    executable: &str,
+    search_paths: impl IntoIterator<Item = PathBuf>,
+) -> Option<PathBuf> {
+    search_paths
+        .into_iter()
+        .map(|path| path.join(executable))
+        .find(|path| is_executable(path))
+}
+
+fn executable_search_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(path_env) = env::var_os("PATH") {
+        paths.extend(env::split_paths(&path_env));
+    }
+    paths.extend(common_user_bin_paths());
+    dedupe_paths(paths)
+}
+
+fn common_user_bin_paths() -> Vec<PathBuf> {
+    let mut paths = vec![
+        PathBuf::from("/opt/homebrew/bin"),
+        PathBuf::from("/opt/homebrew/sbin"),
+        PathBuf::from("/usr/local/bin"),
+    ];
+    if let Some(home) = dirs::home_dir() {
+        paths.extend([
+            home.join(".local").join("bin"),
+            home.join(".npm-global").join("bin"),
+            home.join(".bun").join("bin"),
+            home.join(".cargo").join("bin"),
+            home.join(".deno").join("bin"),
+            home.join(".yarn").join("bin"),
+            home.join(".local").join("share").join("pnpm"),
+            home.join("Library").join("pnpm"),
+            home.join(".atmos").join("bin"),
+        ]);
+    }
+    paths
+}
+
+fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
+    let mut deduped = Vec::with_capacity(paths.len());
+    for path in paths {
+        if !deduped.iter().any(|existing| existing == &path) {
+            deduped.push(path);
+        }
+    }
+    deduped
+}
+
+fn expand_home_path(value: &str) -> Option<PathBuf> {
+    if value == "~" {
+        return dirs::home_dir();
+    }
+    if let Some(rest) = value.strip_prefix("~/") {
+        return dirs::home_dir().map(|home| home.join(rest));
+    }
+    Some(PathBuf::from(value))
 }
 
 fn is_executable(path: &Path) -> bool {
@@ -820,6 +894,25 @@ mod tests {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
 
         assert!(is_executable(&path));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn s5_executable_resolution_uses_explicit_search_paths() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("custom-agent");
+        std::fs::write(&path, "#!/bin/sh\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+        let resolved = resolve_executable_path_with_search_paths(
+            "custom-agent",
+            vec![dir.path().to_path_buf()],
+        )
+        .unwrap();
+
+        assert_eq!(resolved, path);
     }
 
     fn codex_spec() -> AutomationAgentCommandSpec {
