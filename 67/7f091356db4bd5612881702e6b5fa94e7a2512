@@ -1,0 +1,51 @@
+apps/web/src/app-shell/CenterStage.tsx
+  s_71dd016a87b226::t_87de06858a906b 155,726
+apps/web/src/features/automations/components/AutomationDetailPanel.tsx
+  s_71dd016a87b226::t_7f63f9573e3483 3-10,96,163-213
+  s_71dd016a87b226::t_30f5b0805d9853 78-79
+apps/web/src/features/welcome/components/WelcomeMentionPopover.tsx
+  s_2f9ea90cdd4b48::t_28ba49e533bc31 79-152
+apps/web/src/app-shell/GlobalSearch.tsx
+  s_71dd016a87b226::t_87de06858a906b 68,284,299
+apps/web/src/app-shell/LeftSidebar.tsx
+  s_71dd016a87b226::t_87de06858a906b 158,767
+apps/web/src/app-shell/global-search-app-items.tsx
+  s_71dd016a87b226::t_87de06858a906b 67,100,256-257,268-271
+apps/web/src/features/automations/hooks/use-github-trigger-setup.ts
+  s_71dd016a87b226::t_dd433f2a637180 25,241-248,252-260,263,267,269
+  s_71dd016a87b226::t_a179c50c617651 24,251,261-262,264-266
+apps/web/src/app-shell/center-stage-support.tsx
+  s_71dd016a87b226::t_87de06858a906b 44,49,85
+apps/web/src/app-shell/LeftSidebarManagementCenter.tsx
+  s_71dd016a87b226::t_87de06858a906b 46,72,105,108
+apps/web/src/features/settings/components/ExperimentSettingsSection.tsx
+  s_71dd016a87b226::t_87de06858a906b 11,16,55-65
+apps/web/src/features/automations/components/AutomationGithubTriggerPanel.tsx
+  s_71dd016a87b226::t_c1104e392becd1 14-31,40,42-60,64-68,72-75,219-220,306,318-319,327-339
+apps/web/src/features/settings/store/experiment-settings-store.ts
+  s_71dd016a87b226::t_87de06858a906b 10,19,34,42,88-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "677f091356db4bd5612881702e6b5fa94e7a2512",
+  "prompts": {},
+  "sessions": {
+    "s_2f9ea90cdd4b48": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e719e-59fe-78c2-83c4-b58831cc6e97",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_71dd016a87b226": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7390-b24a-7811-8c20-164fa3e646a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
