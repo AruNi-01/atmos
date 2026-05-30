@@ -1,8 +1,9 @@
 use tauri::utils::config::Color;
 use tauri::Url;
-use tauri::{
-    AppHandle, LogicalPosition, Manager, Position, TitleBarStyle, WebviewUrl, WebviewWindowBuilder,
-};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+
+#[cfg(target_os = "macos")]
+use tauri::{LogicalPosition, Position, TitleBarStyle};
 
 const PERMISSIONS_WINDOW_LABEL: &str = "appshot-permissions";
 
@@ -22,7 +23,7 @@ pub fn show_permissions_window(
         return Ok(());
     }
 
-    let window = WebviewWindowBuilder::new(
+    let mut builder = WebviewWindowBuilder::new(
         &app,
         PERMISSIONS_WINDOW_LABEL,
         appshot_window_url("appshot-permissions", locale.as_deref(), api_port)?,
@@ -31,15 +32,22 @@ pub fn show_permissions_window(
     .inner_size(720.0, 520.0)
     .min_inner_size(640.0, 460.0)
     .resizable(false)
-    .decorations(true)
-    .hidden_title(true)
-    .title_bar_style(TitleBarStyle::Overlay)
-    .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 18.0)))
-    .transparent(false)
-    .shadow(true)
-    .visible(false)
-    .build()
-    .map_err(|error| format!("failed to open Appshots permissions window: {error}"))?;
+    .decorations(true);
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .hidden_title(true)
+            .title_bar_style(TitleBarStyle::Overlay)
+            .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 18.0)));
+    }
+
+    let window = builder
+        .transparent(false)
+        .shadow(true)
+        .visible(false)
+        .build()
+        .map_err(|error| format!("failed to open Appshots permissions window: {error}"))?;
 
     let _ = window.set_background_color(Some(Color(7, 9, 12, 255)));
     let _ = window.center();
