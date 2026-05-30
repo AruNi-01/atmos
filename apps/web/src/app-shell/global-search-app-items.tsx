@@ -22,7 +22,9 @@ import {
   toastManager,
   Zap,
 } from "@workspace/ui";
+import { Presentation } from "lucide-react";
 import { appApi } from "@/api/ws-api";
+import type { SettingsModalTab } from "@/shared/lib/nuqs/searchParams";
 import { writeQuickOpenLastUsed } from "@/shared/stores/use-ui-pref-hooks";
 import {
   APP_MAP,
@@ -71,14 +73,113 @@ interface BuildGlobalSearchItemsParams {
   setTokenUsageOpen: (open: boolean) => void;
   setLeftSidebarTab: (tab: "projects") => void;
   setKanbanExpanded: (expanded: boolean) => void;
+  setCanvasOpen: (open: boolean) => void;
   setIsLeftCollapsed: (collapsed: boolean) => void;
-  setActiveSettingTab: (tab: "about") => void;
+  setActiveSettingTab: (tab: SettingsModalTab) => void;
   setSettingsOpen: (open: boolean) => void;
   setSubView: (view: "todo" | "usage") => void;
   showCreating: () => void;
   showOpening: (workspaceId: string) => void;
   clearWorkspaceCreationOverlay: () => void;
 }
+
+const SETTINGS_SEARCH_SECTIONS: Array<{
+  id: SettingsModalTab;
+  label: string;
+  description: string;
+  keywords: string[];
+}> = [
+  {
+    id: "layout",
+    label: "Layout",
+    description: "Panel arrangement and sidebar preferences",
+    keywords: ["layout", "panel", "sidebar", "workspace sidebar", "interface"],
+  },
+  {
+    id: "editor",
+    label: "Editor",
+    description: "Code editor preferences and features",
+    keywords: ["editor", "code", "diff", "minimap", "font"],
+  },
+  {
+    id: "canvas",
+    label: "Canvas",
+    description: "Canvas board preferences and auto-save behavior",
+    keywords: ["canvas", "board", "tldraw", "auto save", "terminal context"],
+  },
+  {
+    id: "code-agent",
+    label: "Code Agent",
+    description: "Agent startup commands and custom parameters",
+    keywords: ["code agent", "agent", "claude", "codex", "gemini", "custom agent"],
+  },
+  {
+    id: "terminal",
+    label: "Terminal",
+    description: "Terminal preferences and link behavior",
+    keywords: ["terminal", "shell", "links", "quick open", "finder"],
+  },
+  {
+    id: "workspace",
+    label: "Workspace",
+    description: "Deletion behavior and cleanup options",
+    keywords: ["workspace", "delete", "cleanup", "gitignore", "worktree"],
+  },
+  {
+    id: "labels",
+    label: "Labels",
+    description: "Manage workspace labels and their properties",
+    keywords: ["labels", "tags", "workspace labels", "color"],
+  },
+  {
+    id: "integrations",
+    label: "Integrations",
+    description: "External tool integrations and status",
+    keywords: ["integrations", "tmux", "external", "tools", "status"],
+  },
+  {
+    id: "ai",
+    label: "AI & Provider",
+    description: "Providers and lightweight task routing",
+    keywords: ["ai", "provider", "llm", "model", "openai", "anthropic", "routing"],
+  },
+  {
+    id: "notify",
+    label: "Notify",
+    description: "Notification channels and agent event triggers",
+    keywords: ["notify", "notification", "ntfy", "bark", "gotify", "webhook"],
+  },
+  {
+    id: "tunnel-connector",
+    label: "Tunnel Connector",
+    description: "Tunnel providers and remote browser access",
+    keywords: ["tunnel", "connector", "remote", "browser", "cloudflare", "ngrok"],
+  },
+  {
+    id: "atmos-computer",
+    label: "Atmos Computer",
+    description: "Connect to your computers from anywhere",
+    keywords: ["atmos computer", "computer", "remote", "relay", "access token"],
+  },
+  {
+    id: "shortcuts",
+    label: "Shortcuts",
+    description: "Keyboard shortcuts across the application",
+    keywords: ["shortcuts", "keyboard", "hotkeys", "command"],
+  },
+  {
+    id: "experiments",
+    label: "Experiments",
+    description: "Optional and preview features disabled by default",
+    keywords: ["experiments", "preview", "feature flags", "optional"],
+  },
+  {
+    id: "about",
+    label: "About",
+    description: "Product overview and desktop updates",
+    keywords: ["about", "version", "updates", "desktop", "cli"],
+  },
+];
 
 export function buildGlobalSearchItems({
   projects,
@@ -104,6 +205,7 @@ export function buildGlobalSearchItems({
   setTokenUsageOpen,
   setLeftSidebarTab,
   setKanbanExpanded,
+  setCanvasOpen,
   setIsLeftCollapsed,
   setActiveSettingTab,
   setSettingsOpen,
@@ -115,6 +217,27 @@ export function buildGlobalSearchItems({
   const items: AppSearchItem[] = [];
 
   projects.forEach((project) => {
+    items.push({
+      id: `project-${project.id}`,
+      type: "project",
+      title: project.name,
+      description: "Open project overview",
+      keywords: [
+        "project",
+        "overview",
+        "repository",
+        "repo",
+        project.name,
+        project.mainFilePath ?? "",
+        ...project.name.split(/[-_/]/),
+      ].filter(Boolean),
+      icon: <Layers className="size-4 text-muted-foreground" />,
+      action: () => {
+        router.push(`/project?id=${project.id}`);
+        setGlobalSearchOpen(false);
+      },
+    });
+
     project.workspaces.forEach((workspace) => {
       items.push({
         id: `workspace-${workspace.id}`,
@@ -321,9 +444,21 @@ export function buildGlobalSearchItems({
       },
     },
     {
+      id: "open-canvas",
+      type: "management",
+      title: "Open Canvas",
+      description: "Open the shared project canvas",
+      keywords: ["canvas", "board", "whiteboard", "diagram", "tldraw", "open"],
+      icon: <Presentation className="size-4 text-muted-foreground" />,
+      action: () => {
+        setCanvasOpen(true);
+        setGlobalSearchOpen(false);
+      },
+    },
+    {
       id: "modal-settings",
       type: "modal",
-      title: "Open Setting",
+      title: "Open Settings",
       description: "Open app settings",
       keywords: ["setting", "settings", "preferences", "configure", "config", "open"],
       icon: <Settings className="size-4 text-muted-foreground" />,
@@ -334,6 +469,30 @@ export function buildGlobalSearchItems({
       },
     },
   );
+
+  SETTINGS_SEARCH_SECTIONS.forEach((section) => {
+    items.push({
+      id: `settings-${section.id}`,
+      type: "modal",
+      title: `Settings: ${section.label}`,
+      description: section.description,
+      keywords: [
+        "settings",
+        "setting",
+        "preferences",
+        "configure",
+        section.id,
+        section.label,
+        ...section.keywords,
+      ],
+      icon: <Settings className="size-4 text-muted-foreground" />,
+      action: () => {
+        setActiveSettingTab(section.id);
+        setSettingsOpen(true);
+        setGlobalSearchOpen(false);
+      },
+    });
+  });
 
   if (currentWorkspaceId || currentProject) {
     const todoLabel = currentWorkspace ? currentWorkspace.name : currentProject?.name;

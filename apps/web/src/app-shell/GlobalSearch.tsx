@@ -17,7 +17,7 @@ import { isWorkspaceSetupBlocking } from '@/features/workspace/lib/workspace-set
 import { useWorkspaceCreationStore } from '@/features/workspace/store/workspace-creation-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { fsApi, type SearchMatch, type FileTreeNode } from '@/api/ws-api';
-import { llmProvidersModalParams, agentChatParams, settingsModalParams, tokenUsageParams, leftSidebarParams } from '@/shared/lib/nuqs/searchParams';
+import { llmProvidersModalParams, agentChatParams, settingsModalParams, tokenUsageParams, leftSidebarParams, centerStageParams } from '@/shared/lib/nuqs/searchParams';
 import { useWorkspaceContext } from '@/features/workspace/hooks/use-workspace-context';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
@@ -61,6 +61,7 @@ export function GlobalSearch() {
   const [, setActiveSettingTab] = useQueryState("activeSettingTab", settingsModalParams.activeSettingTab);
   const [, setLeftSidebarTab] = useQueryState("lsTab", leftSidebarParams.lsTab);
   const [, setKanbanExpanded] = useQueryState("lsKanban", leftSidebarParams.lsKanban);
+  const [, setCanvasOpen] = useQueryState("canvas", centerStageParams.canvas);
   const { isLeftCollapsed, setIsLeftCollapsed } = useSidebarLayout();
 
   const managementTerminalsEnabled = useExperimentSettingsStore((s) => s.managementTerminalsEnabled);
@@ -288,6 +289,7 @@ export function GlobalSearch() {
       setTokenUsageOpen,
       setLeftSidebarTab,
       setKanbanExpanded,
+      setCanvasOpen,
       setIsLeftCollapsed,
       setActiveSettingTab,
       setSettingsOpen,
@@ -296,7 +298,7 @@ export function GlobalSearch() {
       showOpening,
       clearWorkspaceCreationOverlay,
     });
-  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
+  }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
 
   // Fuse.js instance for app search
   const appFuse = useMemo(() => {
