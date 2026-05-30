@@ -2,7 +2,7 @@
 
 > **命名**：用户向功能名 **Atmos Computer**（`server_id`）；其上 `**apps/api` 进程**为 **Atmos Server**。下文 **Relay / DO / Control Plane** 为连接与控制面实现。
 >
-> 技术设计：**如何实现**。产品范围见 `PRD.md`。**本文不依赖 [APP-012](../APP-012_remote-access/TECH.md) remote-access。**
+> 技术设计：**如何实现**。产品范围见 `PRD.md`。**本文不依赖 [APP-012](../APP-012_tunnel-connector/TECH.md) tunnel-connector。**
 
 ## 1. 架构总览
 

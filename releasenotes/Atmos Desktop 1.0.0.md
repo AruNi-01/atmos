@@ -1,8 +1,8 @@
-Atmos 1.0.0 is our first major release. This version brings remote access to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements throughout the app.
+Atmos 1.0.0 is our first major release. This version brings remote connectivity to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements throughout the app.
 
 ## New Features
 
-- **Remote Access** — Connect to your Atmos desktop from anywhere using Tailscale, Cloudflare Tunnel, or ngrok. Enable the built-in web service from the desktop app and share access over the internet or your local network. Includes opt-in LAN trust for the API. ([#67](https://github.com/AruNi-01/atmos/pull/67), closes [#26](https://github.com/AruNi-01/atmos/issues/26))
+- **Tunnel Connector** — Connect to your Atmos desktop from anywhere using Tailscale, Cloudflare Tunnel, or ngrok. Enable the built-in web service from the desktop app and share access over the internet or your local network. Includes opt-in LAN trust for the API. ([#67](https://github.com/AruNi-01/atmos/pull/67), closes [#26](https://github.com/AruNi-01/atmos/issues/26))
 
 - **Agent Hooks & Real-Time State Sync** — Agent lifecycle events (running, idle, waiting for permission, complete) now flow through hooks for Claude Code, Codex, and OpenCode, keeping the sidebar, footer, and terminal tabs in sync in real time. A new animated bell icon appears when an agent is waiting for your permission. ([#63](https://github.com/AruNi-01/atmos/pull/63), closes [#24](https://github.com/AruNi-01/atmos/issues/24), [#25](https://github.com/AruNi-01/atmos/issues/25))
 
@@ -18,7 +18,7 @@ Atmos 1.0.0 is our first major release. This version brings remote access to you
 
 - **Agent Permission Latency & Stuck State** — Resolved a bug where Claude Code would appear stuck after the user granted a permission prompt. Permission reply handling is now more reliable and the agent resumes promptly.
 
-- **Remote Access HTTPS Tunnel Connectivity** — Fixed connectivity issues with HTTPS tunnels and added session renewal to keep remote access sessions alive under adverse network conditions.
+- **Tunnel Connector HTTPS Tunnel Connectivity** — Fixed connectivity issues with HTTPS tunnels and added session renewal to keep remote connectivity sessions alive under adverse network conditions.
 
 - **Blocking Async Executor & Hardcoded Sidecar Port** — Fixed a case where the sidecar was blocking the async executor and removed a hardcoded port that prevented the sidecar from starting in some environments.
 

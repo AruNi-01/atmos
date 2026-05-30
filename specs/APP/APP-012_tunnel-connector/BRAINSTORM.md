@@ -1,4 +1,4 @@
-# Brainstorm · APP-012: Remote Access
+# Brainstorm · APP-012: Tunnel Connector
 
 > Problem space, drafts, and exploration. Promote settled content into `PRD.md` / `TECH.md`.
 

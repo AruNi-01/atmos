@@ -29,8 +29,8 @@ layered.
   helpers.
 - `canvas/` — canvas/tldraw runtime, canvas agent bridge, canvas settings.
 - `code-review/` and `diff/` — review workflows and diff/code viewing.
-- `connection/` and `remote-access/` — local/relay connection state, Atmos
-  Computer setup, remote access UI.
+- `connection/`, `atmos-computer/`, and `tunnel-connector/` — local/relay
+  connection state, Atmos Computer setup, tunnel connector UI.
 - `project/` and `workspace/` — project/workspace state, management views, and
   CRUD dialogs.
 - `settings/` — settings modal sections and settings-backed stores.

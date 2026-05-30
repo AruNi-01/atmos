@@ -90,7 +90,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-009** | Desktop (Tauri 2.0) | `TECH.md` |
 | **APP-010** | Preview Element Select (Same-Origin) | `TECH.md` |
 | **APP-011** | Preview Cross-Origin Extension (Browser Ext + Desktop) | `TECH.md` |
-| **APP-012** | Remote Access | `TECH.md` |
+| **APP-012** | Tunnel Connector | `TECH.md` |
 | **APP-013** | Project-Level Review Session | `BRAINSTORM.md` |
 | **APP-014** | Canvas | `PRD.md` |
 | **APP-016** | Atmos Computer（Cloudflare Relay + DO） | `specs/APP/APP-016_atmos-computer/`（`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`） |
@@ -120,7 +120,7 @@ _Empty. Start the first spec from `Docs-001_xxx`._
 ```bash
 # Create a new APP spec
 mkdir -p specs/APP/APP-013_new-feature
-cp specs/APP/APP-012_remote-access/{BRAINSTORM,PRD,TECH,TEST}.md \
+cp specs/APP/APP-012_tunnel-connector/{BRAINSTORM,PRD,TECH,TEST}.md \
    specs/APP/APP-013_new-feature/
 ```
 

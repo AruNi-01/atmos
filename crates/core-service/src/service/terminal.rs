@@ -609,7 +609,7 @@ impl TerminalService {
 
         // NOTE: We intentionally do NOT evict existing sessions for the same tmux window
         // here. Previously this was done to handle page-refresh races, but it also
-        // wrongly kicks legitimate simultaneous clients (e.g. remote access while local
+        // wrongly kicks legitimate simultaneous clients (e.g. tunnel connector while local
         // browser is open). Since each connection now gets its own grouped session name
         // (per-connection session_id), there is no tmux-level conflict between clients.
         // Stale sessions from crashed/disconnected clients are cleaned up by:
@@ -667,7 +667,7 @@ impl TerminalService {
         //
         // WHY per-connection (not per-window):
         // Using a window-stable name caused multiple simultaneous clients (e.g. local
-        // browser + remote access) to share the same grouped session. tmux only allows
+        // browser + tunnel connector) to share the same grouped session. tmux only allows
         // one terminal attached to a session at a time, so the second attach would
         // detach the first, showing "[detached (from session ...)]" to the user.
         //

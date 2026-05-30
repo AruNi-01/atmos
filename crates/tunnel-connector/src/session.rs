@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::error::RemoteAccessError;
+use crate::error::TunnelConnectorError;
 use crate::providers::ProviderKind;
 use crate::types::{CreateSessionRequest, SessionMode, SessionPermission, SessionValidation};
 
@@ -83,12 +83,12 @@ impl SessionStore {
         session_id: &str,
         ttl_secs: i64,
         reuse_token: bool,
-    ) -> Result<TunnelSession, RemoteAccessError> {
+    ) -> Result<TunnelSession, TunnelConnectorError> {
         let now = Utc::now();
         let mut guard = self.inner.write().await;
         let session = guard
             .get_mut(session_id)
-            .ok_or(RemoteAccessError::SessionNotFound)?;
+            .ok_or(TunnelConnectorError::SessionNotFound)?;
 
         session.expires_at = resolve_expiry(now, ttl_secs);
         session.revoked_at = None;
@@ -98,10 +98,10 @@ impl SessionStore {
         Ok(session.clone())
     }
 
-    pub async fn revoke_session(&self, session_id: &str) -> Result<(), RemoteAccessError> {
+    pub async fn revoke_session(&self, session_id: &str) -> Result<(), TunnelConnectorError> {
         let mut guard = self.inner.write().await;
         if guard.remove(session_id).is_none() {
-            return Err(RemoteAccessError::SessionNotFound);
+            return Err(TunnelConnectorError::SessionNotFound);
         }
         Ok(())
     }

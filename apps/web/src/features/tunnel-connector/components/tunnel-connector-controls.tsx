@@ -34,8 +34,8 @@ import type {
   ProviderAccessMode,
   ProviderDiagnostics,
   ProviderKind,
-  RemoteAccessStatus,
-} from "@/features/connection/hooks/use-remote-access";
+  TunnelConnectorStatus,
+} from "@/features/connection/hooks/use-tunnel-connector";
 
 export function formatProvider(kind: ProviderKind): string {
   if (kind === "cloudflare") return "Cloudflare Tunnel";
@@ -578,7 +578,7 @@ export function RenewSessionPopover({
   urgency,
 }: {
   provider: ProviderKind;
-  status: RemoteAccessStatus;
+  status: TunnelConnectorStatus;
   onRenew: (ttlSecs: number, reuseToken: boolean) => Promise<void>;
   urgency: SessionUrgency;
 }) {
@@ -775,7 +775,7 @@ export function ViewTunnelPopover({
   status,
   onRenew,
 }: {
-  status: RemoteAccessStatus;
+  status: TunnelConnectorStatus;
   onRenew: (ttlSecs: number, reuseToken: boolean) => Promise<void>;
 }) {
   const [open, setOpen] = React.useState(false);

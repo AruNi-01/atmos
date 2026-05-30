@@ -4,13 +4,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use chrono::Utc;
-use remote_access::{
-    build_provider, CreateSessionRequest, GatewayHandle, GatewayRuntime, GatewayRuntimeConfig,
-    ProviderAccessMode, ProviderDiagnostics, ProviderKind, ProviderStartRequest, ProviderStatus,
-    RemoteAccessStatus, SessionMode, SessionPermission, SessionStore, TunnelSession,
-};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
+use tunnel_connector::{
+    build_provider, CreateSessionRequest, GatewayHandle, GatewayRuntime, GatewayRuntimeConfig,
+    ProviderAccessMode, ProviderDiagnostics, ProviderKind, ProviderStartRequest, ProviderStatus,
+    SessionMode, SessionPermission, SessionStore, TunnelConnectorStatus, TunnelSession,
+};
 
 /// Fixed local gateway port shared by all providers.
 const GATEWAY_PORT: u16 = 30313;
@@ -21,7 +21,7 @@ const GATEWAY_URL: &str = "http://127.0.0.1:30313";
 // ---------------------------------------------------------------------------
 
 struct ActiveProvider {
-    provider: Arc<dyn remote_access::TunnelProvider>,
+    provider: Arc<dyn tunnel_connector::TunnelProvider>,
     session_id: String,
 }
 
@@ -29,7 +29,7 @@ struct ActiveProvider {
 // Runtime state
 // ---------------------------------------------------------------------------
 
-struct RemoteAccessRuntimeState {
+struct TunnelConnectorRuntimeState {
     /// Single shared gateway — started when first provider starts, stopped
     /// when last provider stops.
     gateway: Option<GatewayHandle>,
@@ -61,15 +61,15 @@ struct PersistedProviderState {
 // ---------------------------------------------------------------------------
 
 #[derive(Clone)]
-pub struct RemoteAccessManager {
-    inner: Arc<RwLock<RemoteAccessRuntimeState>>,
+pub struct TunnelConnectorManager {
+    inner: Arc<RwLock<TunnelConnectorRuntimeState>>,
     state_file: PathBuf,
 }
 
-impl RemoteAccessManager {
+impl TunnelConnectorManager {
     pub fn new(state_file: PathBuf) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(RemoteAccessRuntimeState {
+            inner: Arc::new(RwLock::new(TunnelConnectorRuntimeState {
                 gateway: None,
                 session_store: SessionStore::default(),
                 active: HashMap::new(),
@@ -98,7 +98,7 @@ impl RemoteAccessManager {
         ttl_secs: i64,
         credential: Option<String>,
         on_gateway_error: impl Fn(String) + Send + 'static,
-    ) -> Result<RemoteAccessStatus, String> {
+    ) -> Result<TunnelConnectorStatus, String> {
         Self::debug_log(format!("[manager] start: provider={provider_kind:?}"));
 
         let provider = build_provider(provider_kind);
@@ -289,10 +289,14 @@ impl RemoteAccessManager {
     }
 
     /// Return status for every active provider, keyed by provider kind string.
-    pub async fn status_all(&self) -> HashMap<String, RemoteAccessStatus> {
+    pub async fn status_all(&self) -> HashMap<String, TunnelConnectorStatus> {
         let (active_snapshot, session_store) = {
             let state = self.inner.read().await;
-            let snap: Vec<(ProviderKind, Arc<dyn remote_access::TunnelProvider>, String)> = state
+            let snap: Vec<(
+                ProviderKind,
+                Arc<dyn tunnel_connector::TunnelProvider>,
+                String,
+            )> = state
                 .active
                 .iter()
                 .map(|(k, v)| (*k, Arc::clone(&v.provider), v.session_id.clone()))
@@ -325,7 +329,7 @@ impl RemoteAccessManager {
         &self,
         credentials: HashMap<ProviderKind, Option<String>>,
         target_base_url: String,
-    ) -> Result<HashMap<String, RemoteAccessStatus>, String> {
+    ) -> Result<HashMap<String, TunnelConnectorStatus>, String> {
         self.recover_impl(credentials, target_base_url).await
     }
 
@@ -333,7 +337,7 @@ impl RemoteAccessManager {
         &self,
         credentials: HashMap<ProviderKind, Option<String>>,
         target_base_url: String,
-    ) -> Result<HashMap<String, RemoteAccessStatus>, String> {
+    ) -> Result<HashMap<String, TunnelConnectorStatus>, String> {
         let persisted = self.load_state().await;
         if persisted.providers.is_empty() {
             return Ok(HashMap::new());
@@ -462,7 +466,7 @@ impl RemoteAccessManager {
         provider_kind: ProviderKind,
         ttl_secs: i64,
         reuse_token: bool,
-    ) -> Result<RemoteAccessStatus, String> {
+    ) -> Result<TunnelConnectorStatus, String> {
         let (session_id, session_store, provider) = {
             let state = self.inner.read().await;
             match state.active.get(&provider_kind) {
@@ -594,15 +598,11 @@ impl RemoteAccessManager {
         self.save_state(&full).await
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
     fn build_status(
         provider: ProviderKind,
         provider_status: ProviderStatus,
         session: Option<TunnelSession>,
-    ) -> RemoteAccessStatus {
+    ) -> TunnelConnectorStatus {
         let gateway_url = Some(GATEWAY_URL.to_string());
         let public_url = provider_status
             .public_url
@@ -616,7 +616,7 @@ impl RemoteAccessManager {
         let entry_token = session.as_ref().map(|s| s.entry_token.clone());
         let expires_at = session.as_ref().and_then(|s| s.expires_at);
 
-        RemoteAccessStatus {
+        TunnelConnectorStatus {
             gateway_url,
             public_url,
             share_url,

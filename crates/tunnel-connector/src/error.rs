@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum RemoteAccessError {
+pub enum TunnelConnectorError {
     #[error("provider is unavailable: {0}")]
     ProviderUnavailable(String),
     #[error("provider start failed: {0}")]

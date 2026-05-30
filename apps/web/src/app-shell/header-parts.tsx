@@ -13,7 +13,7 @@ import {
 } from "@workspace/ui";
 import { ChevronDown } from "lucide-react";
 
-import type { RemoteAccessStatus } from "@/features/connection/hooks/use-remote-access";
+import type { TunnelConnectorStatus } from "@/features/connection/hooks/use-tunnel-connector";
 import {
   CopyableLabel,
   CopyableText,
@@ -21,7 +21,7 @@ import {
   formatExpiry,
   formatProvider,
   getSessionUrgency,
-} from "@/features/remote-access/components/RemoteAccessSection";
+} from "@/features/tunnel-connector/components/TunnelConnectorSection";
 
 export { getSessionUrgency };
 
@@ -138,7 +138,7 @@ export function TunnelItem({
   status,
   onRenew,
 }: {
-  status: RemoteAccessStatus;
+  status: TunnelConnectorStatus;
   onRenew: (ttlSecs: number, reuseToken: boolean) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);

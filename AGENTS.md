@@ -48,7 +48,7 @@ atmos/
 │   ├── token-usage/           # Token Usage Tracking
 │   ├── llm/                   # LLM capability
 │   ├── local-model-runtime/   # Local model runtime capability
-│   ├── remote-access/         # Remote access capability
+│   ├── tunnel-connector/         # Tunnel connector capability
 │   └── runtime-manager/       # Local runtime manifest, supervisor, relay registration
 │
 ├── apps/                      # 🚀 Applications

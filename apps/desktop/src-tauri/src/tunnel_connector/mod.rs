@@ -3,18 +3,18 @@ pub mod manager;
 
 use std::collections::HashMap;
 
-use remote_access::{ProviderKind, RemoteAccessStatus};
 use tauri::{Emitter, Manager};
+use tunnel_connector::{ProviderKind, TunnelConnectorStatus};
 
 use crate::state::AppState;
 
 /// Called once at startup (after the sidecar API is ready) to asynchronously
 /// restore any tunnel providers that were running when the app was last closed.
-/// Emits `remote-access-recovered` with the status map on the app handle so
+/// Emits `tunnel-connector-recovered` with the status map on the app handle so
 /// the frontend can update its state without polling.
 pub async fn startup_recover(app: tauri::AppHandle, target_base_url: String) {
     let state = app.state::<AppState>();
-    let manager = &state.remote_access_manager;
+    let manager = &state.tunnel_connector_manager;
 
     let provider_kinds: Vec<ProviderKind> = manager.persisted_provider_kinds().await;
 
@@ -25,7 +25,7 @@ pub async fn startup_recover(app: tauri::AppHandle, target_base_url: String) {
     log_startup(
         &app,
         &format!(
-            "[remote-access] startup_recover: recovering {} provider(s): {:?}",
+            "[tunnel-connector] startup_recover: recovering {} provider(s): {:?}",
             provider_kinds.len(),
             provider_kinds
         ),
@@ -45,23 +45,26 @@ pub async fn startup_recover(app: tauri::AppHandle, target_base_url: String) {
         .await
     {
         Ok(recovered) if !recovered.is_empty() => {
-            let recovered: HashMap<String, RemoteAccessStatus> = recovered;
+            let recovered: HashMap<String, TunnelConnectorStatus> = recovered;
             log_startup(
                 &app,
                 &format!(
-                    "[remote-access] startup_recover: recovered providers: {:?}",
+                    "[tunnel-connector] startup_recover: recovered providers: {:?}",
                     recovered.keys().collect::<Vec<_>>()
                 ),
             );
-            let _ = app.emit("remote-access-recovered", &recovered);
+            let _ = app.emit("tunnel-connector-recovered", &recovered);
         }
         Ok(_) => {
-            log_startup(&app, "[remote-access] startup_recover: nothing to recover");
+            log_startup(
+                &app,
+                "[tunnel-connector] startup_recover: nothing to recover",
+            );
         }
         Err(err) => {
             log_startup(
                 &app,
-                &format!("[remote-access] startup_recover: failed: {err}"),
+                &format!("[tunnel-connector] startup_recover: failed: {err}"),
             );
         }
     }

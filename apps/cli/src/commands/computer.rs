@@ -262,7 +262,7 @@ fn relay_register_hint(api_running: bool, relay_connected: bool) -> &'static str
     if api_running && relay_connected {
         "Registered and connected to the cloud relay."
     } else if api_running {
-        "Registered. If remote access stays offline, run: atmos computer relay-sync (or toggle remote access in Settings)."
+        "Registered. If this computer stays offline, run: atmos computer relay-sync (or toggle Register This Computer in Settings)."
     } else {
         "Relay identity saved. Run `atmos computer start` or `atmos runtime ensure` to launch the API."
     }

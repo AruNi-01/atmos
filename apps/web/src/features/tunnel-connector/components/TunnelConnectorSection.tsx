@@ -23,10 +23,10 @@ import {
 
 import { getRuntimeApiConfig, httpBase, isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import {
-  useRemoteAccess,
+  useTunnelConnector,
   type ProviderKind,
   type ProviderAccessMode,
-} from '@/features/connection/hooks/use-remote-access';
+} from '@/features/connection/hooks/use-tunnel-connector';
 import {
   PROVIDER_INSTALL,
   ProviderActionTerminalPopover,
@@ -40,7 +40,7 @@ import {
   providerAuthLabel,
   providerInstallLabel,
   supportsTokenConfig,
-} from '@/features/remote-access/components/remote-access-controls';
+} from '@/features/tunnel-connector/components/tunnel-connector-controls';
 
 export {
   CopyableLabel,
@@ -49,30 +49,30 @@ export {
   formatExpiry,
   formatProvider,
   getSessionUrgency,
-} from '@/features/remote-access/components/remote-access-controls';
+} from '@/features/tunnel-connector/components/tunnel-connector-controls';
 
-export function RemoteAccessSection() {
+export function TunnelConnectorSection() {
   if (!isTauriRuntime()) {
     return (
       <div className="overflow-hidden rounded-2xl border border-border">
         <div className="px-6 py-5">
-          <p className="text-base font-medium text-foreground">Remote Access</p>
+          <p className="text-base font-medium text-foreground">Tunnel Connector</p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Remote Access is only available in the desktop app.
+            Tunnel Connector is only available in the desktop app.
           </p>
         </div>
       </div>
     );
   }
 
-  return <RemoteAccessContent />;
+  return <TunnelConnectorContent />;
 }
 
 // ---------------------------------------------------------------------------
 // Main content
 // ---------------------------------------------------------------------------
 
-function RemoteAccessContent() {
+function TunnelConnectorContent() {
   const {
     statusMap,
     providers,
@@ -84,7 +84,7 @@ function RemoteAccessContent() {
     stop,
     renew,
     saveCredential,
-  } = useRemoteAccess();
+  } = useTunnelConnector();
 
   const [tokenEditProvider, setTokenEditProvider] = React.useState<ProviderKind | null>(null);
   const [tokenDraft, setTokenDraft] = React.useState('');

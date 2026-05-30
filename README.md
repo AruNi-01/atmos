@@ -17,7 +17,7 @@ Atmos screenshot
 - **Global Search & Command Palette** — Keyboard-driven workflow for searching and executing Atmos features.
 - **Usage Analytics Dashboard** — Track AI coding subscription quotas, agent token consumption, and cost estimation.
 - **Agent Status Notifications** — Hook-based status monitoring with native notifications and self-hosted push server support.
-- **Cross-Platform & Remote Access** — Web and desktop apps, mobile app (planned), integrated tunneling (Ngrok/Tailscale/Cloudflare Tunnel).
+- **Cross-Platform & Tunnel Connector** — Web and desktop apps, mobile app (planned), integrated tunneling (Ngrok/Tailscale/Cloudflare Tunnel).
 - **Kanban View** - Quickly manage Workspace status, priority, labels and other information in Kanban view.
 - **Canvas** — A cross-project infinite canvas: pin terminal cards from any workspace or project onto one persistent board, and let Code Agents drive the canvas diagrams, notes, and layout without leaving your agent workflow.
 - **Atmos Computer** — Register your VPS or any machine to the Atmos Register Center, then connect from Desktop, Web, and run terminals, workspaces, and Canvas on that computer—your Atmos environment, wherever the machine lives.

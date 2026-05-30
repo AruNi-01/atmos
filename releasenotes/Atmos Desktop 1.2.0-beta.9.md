@@ -77,7 +77,7 @@
 
 ---
 
-Atmos 1.2.0-beta.2 includes the complete 1.1.0 feature set — Kanban board with drag-and-drop, GitHub issue import, workspace creation wizard, overhauled Code Review with inline comments, managed local model runtime, expanded code agent support, and extensive UI polish — plus new Atmos Computer capabilities for remote access and relay control. The workspace surface becomes a real workplace with comprehensive project management tools, and now you can also access your Atmos workspace remotely through the Atmos Computer relay system.
+Atmos 1.2.0-beta.2 includes the complete 1.1.0 feature set — Kanban board with drag-and-drop, GitHub issue import, workspace creation wizard, overhauled Code Review with inline comments, managed local model runtime, expanded code agent support, and extensive UI polish — plus new Atmos Computer capabilities for remote connectivity and relay control. The workspace surface becomes a real workplace with comprehensive project management tools, and now you can also access your Atmos workspace remotely through the Atmos Computer relay system.
 
 ## Changes Since 1.2.0-beta.1
 
@@ -131,7 +131,7 @@ Atmos 1.2.0-beta.2 includes the complete 1.1.0 feature set — Kanban board with
 
 - **Management Center** — Added a Kanban entry, moved New Workspace into the management center, and added a New Workspace button to the Kanban toolbar.
 
-- **Web Access** — A Remote Access button is now available in the web access popover.
+- **Browser Access** — A Tunnel Connector button is now available in the web access popover.
 
 ## Bug Fixes
 

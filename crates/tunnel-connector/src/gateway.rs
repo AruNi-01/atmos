@@ -214,7 +214,7 @@ async fn proxy_ws_impl(
     if matches!(validation, SessionValidation::Unauthorized) {
         return (
             StatusCode::UNAUTHORIZED,
-            "remote access session required\n\nProvide ?entry_token=<token> in the URL",
+            "Tunnel Connector session required\n\nProvide ?entry_token=<token> in the URL",
         )
             .into_response();
     }
@@ -299,7 +299,7 @@ fn unauthorized_html_response() -> impl IntoResponse {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Atmos Remote Access</title>
+  <title>Atmos Tunnel Connector</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -354,7 +354,7 @@ fn unauthorized_html_response() -> impl IntoResponse {
 </head>
 <body>
   <div class="card">
-    <h1>Atmos Remote Access</h1>
+    <h1>Atmos Tunnel Connector</h1>
     <p>Enter the access token from your Atmos desktop app to continue.</p>
     <label for="token">Access Token</label>
     <input id="token" type="password" placeholder="Paste your entry token here" autocomplete="off" />

@@ -68,8 +68,8 @@ Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host
 ## APP-016 (Atmos Computer) UI
 
 - **Settings** → `AtmosComputerSection.tsx`, `atmos-access-token.ts`
-- Frontend location: `src/features/remote-access/` and
-  `src/features/connection/`
+- Frontend location: `src/features/atmos-computer/`,
+  `src/features/tunnel-connector/`, and `src/features/connection/`
 - User-created **Access Token** (Bearer) for control plane — not a shared CP key.
 - Register token flow for remote computers: copy CLI / env `ATMOS_REGISTER_TOKEN`.
 

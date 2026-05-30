@@ -1,0 +1,58 @@
+---
+title: 跨平台与隧道连接器
+description: 在本机、浏览器或受支持的隧道服务中使用 Atmos。
+---
+
+Atmos 运行在保存项目、终端、Agent 和工作空间的那台机器上。你可以在这台机器上使用桌面应用，也可以从浏览器打开本地 Web UI，或者通过 **Tunnel Connector** 发布一个浏览器入口。
+
+## 本地客户端
+
+当你正在使用运行 Atmos 的同一台机器时，可以选择这些入口：
+
+| 客户端 | 如何连接 |
+|--------|----------|
+| **桌面应用** | 自动启动并连接本机 Atmos runtime |
+| **本地 Web** | 从浏览器打开同一个本机 runtime |
+| **CLI** | 解析当前活跃的 Atmos runtime，并向它发送命令 |
+
+本地客户端不需要 Public URL，也不需要隧道服务。
+
+## Tunnel Connector
+
+**Tunnel Connector** 集成受支持的隧道服务，让浏览器可以访问这台电脑上的 Atmos runtime。
+
+适合这些场景：
+
+- 从另一台设备打开当前 Atmos 会话；
+- 为演示或评审分享一个临时浏览器链接；
+- 复用已有的 Tailscale、Cloudflare Tunnel 或 ngrok，而不是手动配置端口和网络。
+
+## 支持的服务
+
+| 服务 | 典型用途 |
+|------|----------|
+| **Tailscale** | 在同一个 tailnet 内进行私有访问 |
+| **Cloudflare Tunnel** | 通过 Cloudflare 创建临时 HTTPS 链接 |
+| **ngrok** | 为演示和短期分享创建快速公网 HTTPS 链接 |
+
+每个服务都是一个独立 connector。Atmos 统一管理本地 gateway、session token、状态、过期时间和分享链接。
+
+## 启动隧道
+
+1. 打开**桌面应用**。
+2. 进入 **Settings** → **Tunnel Connector**。
+3. 点击 **Refresh** 检测已安装的服务。
+4. 如果缺少二进制或凭据，按页面中的 provider setup 操作完成配置。
+5. 选择访问模式和过期时间，然后启动隧道。
+6. 复制 Atmos 显示的 **Public URL** 或分享链接。
+
+顶部浏览器菜单也会显示正在运行的隧道、过期提醒、续期控制和停止操作。
+
+## 停止分享
+
+可以从 **Settings** 或顶部菜单停止隧道。链接也会在 session 到达设定 TTL 后自动过期。
+
+## 相关内容
+
+- [Atmos Computer](/zh/features/atmos-computer) — 连接已注册到 Atmos 的电脑
+- [远程构建](/zh/workflows/remote-build) — 在另一台机器上运行项目

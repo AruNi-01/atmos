@@ -34,7 +34,7 @@ import { useAgentChatLayoutStore } from '@/features/agent/store/agent-chat-layou
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useFocusRestore } from '@/shared/hooks/use-focus-restore';
 import { useDesktopWebLauncher } from '@/shared/hooks/use-desktop-web-launcher';
-import { useRemoteAccess } from '@/features/connection/hooks/use-remote-access';
+import { useTunnelConnector } from '@/features/connection/hooks/use-tunnel-connector';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import { useSidebarLayout } from '@/app-shell/SidebarLayoutContext';
 import { useAgentChatUrl } from '@/features/agent/hooks/use-agent-chat-url';
@@ -175,7 +175,7 @@ const Header: React.FC = () => {
     "llmProvidersModal",
     llmProvidersModalParams.llmProvidersModal
   );
-  const [isRemoteAccessSettingsOpen, setRemoteAccessSettingsOpen] = useState(false);
+  const [remoteAccessSettingsSection, setRemoteAccessSettingsSection] = useState<'atmos-computer' | 'tunnel-connector' | null>(null);
   useEffect(() => {
     if (isLlmProvidersOpen) {
       void setIsSettingsOpen(true);
@@ -195,25 +195,25 @@ const Header: React.FC = () => {
   } = useDesktopWebLauncher(pathname, desktopWebSearch);
 
   const {
-    statusMap: remoteAccessStatusMap,
-    refreshStatus: refreshRemoteAccessStatus,
-    renew: renewRemoteAccess,
-  } = useRemoteAccess();
+    statusMap: tunnelConnectorStatusMap,
+    refreshStatus: refreshTunnelConnectorStatus,
+    renew: renewTunnelConnector,
+  } = useTunnelConnector();
   // Collect all active (Running) tunnels for display in the header.
-  const activeRemoteTunnels = useMemo(() =>
-    Object.values(remoteAccessStatusMap).filter(
+  const activeTunnelConnectors = useMemo(() =>
+    Object.values(tunnelConnectorStatusMap).filter(
       (s): s is NonNullable<typeof s> => !!s && s.provider_status.state === 'Running'
     ),
-    [remoteAccessStatusMap]
+    [tunnelConnectorStatusMap]
   );
-  const isRemoteAccessRunning = activeRemoteTunnels.length > 0;
-  const remoteAccessDotColor = useMemo(() => {
-    if (!isRemoteAccessRunning) return 'bg-emerald-500';
-    const urgencies = activeRemoteTunnels.map((t) => getSessionUrgency(t.expires_at));
+  const isTunnelConnectorRunning = activeTunnelConnectors.length > 0;
+  const tunnelConnectorDotColor = useMemo(() => {
+    if (!isTunnelConnectorRunning) return 'bg-emerald-500';
+    const urgencies = activeTunnelConnectors.map((t) => getSessionUrgency(t.expires_at));
     if (urgencies.some((u) => u === 'expired')) return 'bg-red-500';
     if (urgencies.some((u) => u === 'warning')) return 'bg-amber-500';
     return 'bg-emerald-500';
-  }, [activeRemoteTunnels, isRemoteAccessRunning]);
+  }, [activeTunnelConnectors, isTunnelConnectorRunning]);
 
   const [deleteWorkspaceDialog, setDeleteWorkspaceDialog] = useState<{
     isOpen: boolean;
@@ -582,7 +582,7 @@ const Header: React.FC = () => {
 
         <HeaderActionControls
           actionMenuFocusRef={actionMenuFocusRef}
-          activeRemoteTunnels={activeRemoteTunnels}
+          activeTunnelConnectors={activeTunnelConnectors}
           browserUrl={browserUrl}
           desktopWebPopoverOpen={desktopWebPopoverOpen}
           desktopWebStatus={desktopWebStatus}
@@ -590,7 +590,7 @@ const Header: React.FC = () => {
           isDesktopRuntime={isDesktopRuntime}
           isFullScreenActive={isFullScreenActive}
           isOpeningDesktopWeb={isOpeningDesktopWeb}
-          isRemoteAccessRunning={isRemoteAccessRunning}
+          isTunnelConnectorRunning={isTunnelConnectorRunning}
           isRightCollapsed={isRightCollapsed}
           isUsagePopoverOpen={isUsagePopoverOpen}
           layout={layout}
@@ -598,9 +598,9 @@ const Header: React.FC = () => {
           onCloseAutoFocusPrevent={onCloseAutoFocusPrevent}
           onOpenDesktopWeb={handleOpenDesktopWeb}
           refreshDesktopWebStatus={refreshDesktopWebStatus}
-          refreshRemoteAccessStatus={refreshRemoteAccessStatus}
-          remoteAccessDotColor={remoteAccessDotColor}
-          renewRemoteAccess={renewRemoteAccess}
+          refreshTunnelConnectorStatus={refreshTunnelConnectorStatus}
+          tunnelConnectorDotColor={tunnelConnectorDotColor}
+          renewTunnelConnector={renewTunnelConnector}
           resolvedThemeLabel={resolvedThemeLabel}
           setAgentChatOpen={setAgentChatOpen}
           setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
@@ -609,7 +609,7 @@ const Header: React.FC = () => {
           setIsSettingsOpen={setIsSettingsOpen}
           setIsTokenUsageOpen={setIsTokenUsageOpen}
           setIsUsagePopoverOpen={setIsUsagePopoverOpen}
-          setRemoteAccessSettingsOpen={setRemoteAccessSettingsOpen}
+          setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
           setTheme={setTheme}
           showRightSidebar={showRightSidebar}
           theme={theme}
@@ -681,11 +681,11 @@ const Header: React.FC = () => {
             if (isLlmProvidersOpen) {
               void setLlmProvidersOpen(false);
             }
-            if (isRemoteAccessSettingsOpen) {
-              setRemoteAccessSettingsOpen(false);
+            if (remoteAccessSettingsSection) {
+              setRemoteAccessSettingsSection(null);
             }
           }}
-          activeSectionOverride={isLlmProvidersOpen ? 'ai' : isRemoteAccessSettingsOpen ? 'remote-access' : null}
+          activeSectionOverride={isLlmProvidersOpen ? 'ai' : remoteAccessSettingsSection}
         />
       </header>
     </TooltipProvider>

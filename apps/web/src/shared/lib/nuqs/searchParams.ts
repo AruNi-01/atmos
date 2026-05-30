@@ -102,7 +102,7 @@ export type SettingsModalTab =
   | "integrations"
   | "ai"
   | "notify"
-  | "remote-access"
+  | "tunnel-connector"
   | "atmos-computer"
   | "shortcuts"
   | "experiments";
@@ -121,7 +121,7 @@ export const settingsModalParams = {
     "integrations",
     "ai",
     "notify",
-    "remote-access",
+    "tunnel-connector",
     "atmos-computer",
     "shortcuts",
     "experiments",

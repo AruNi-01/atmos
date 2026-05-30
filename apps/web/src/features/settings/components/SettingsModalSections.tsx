@@ -6,8 +6,8 @@ import type { UpdateStatus } from '@/features/settings/hooks/use-updater';
 import type { TerminalFileLinkOpenMode } from '@/features/settings/store/terminal-link-settings-store';
 import type { NotificationSettings, PushServerConfig } from '@/features/settings/store/notification-settings-store';
 import type { QuickOpenAppName } from '@/app-shell/quick-open-apps';
-import { AtmosComputerSection } from '@/features/remote-access/components/AtmosComputerSection';
-import { RemoteAccessSection } from '@/features/remote-access/components/RemoteAccessSection';
+import { AtmosComputerSection } from '@/features/atmos-computer/components/AtmosComputerSection';
+import { TunnelConnectorSection } from '@/features/tunnel-connector/components/TunnelConnectorSection';
 import { CanvasSettingsSection } from '@/features/settings/components/CanvasSettingsSection';
 import { CodeAgentSettingsSection } from '@/features/settings/components/CodeAgentSettingsSection';
 import { EditorSettingsSection } from '@/features/settings/components/EditorSettingsSection';
@@ -225,8 +225,8 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           onTestPushServer={props.onTestPushServer}
         />
       );
-    case 'remote-access':
-      return <RemoteAccessSection />;
+    case 'tunnel-connector':
+      return <TunnelConnectorSection />;
     case 'atmos-computer':
       return <AtmosComputerSection />;
     case 'shortcuts':

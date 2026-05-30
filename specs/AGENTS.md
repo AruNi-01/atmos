@@ -200,7 +200,7 @@ Recommended flow:
 ```bash
 # Pick the next number within the zone, e.g. APP-013
 mkdir -p specs/APP/APP-013_my-feature
-cp specs/APP/APP-012_remote-access/{BRAINSTORM,PRD,TECH,TEST}.md \
+cp specs/APP/APP-012_tunnel-connector/{BRAINSTORM,PRD,TECH,TEST}.md \
    specs/APP/APP-013_my-feature/
 ```
 

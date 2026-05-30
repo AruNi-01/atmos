@@ -1,4 +1,4 @@
-# TEST · APP-012: Remote Access
+# TEST · APP-012: Tunnel Connector
 
 > Test Plan · how we verify.
 

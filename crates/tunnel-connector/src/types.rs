@@ -30,7 +30,7 @@ pub enum SessionValidation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RemoteAccessStatus {
+pub struct TunnelConnectorStatus {
     pub gateway_url: Option<String>,
     pub public_url: Option<String>,
     pub share_url: Option<String>,
@@ -41,13 +41,13 @@ pub struct RemoteAccessStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RemoteAccessStatusSnapshot {
-    pub status: RemoteAccessStatus,
+pub struct TunnelConnectorStatusSnapshot {
+    pub status: TunnelConnectorStatus,
     pub diagnostics: ProviderDiagnostics,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RemoteAccessEvent {
+pub enum TunnelConnectorEvent {
     Started {
         provider: ProviderKind,
         public_url: String,

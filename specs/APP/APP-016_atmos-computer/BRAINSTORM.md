@@ -12,7 +12,7 @@
 
 ### 1.2 非目标（本 spec 刻意不包含）
 
-- **不包含 [APP-012](../APP-012_remote-access/TECH.md) 的 remote-access 能力**：remote-access 解决的是「如何把本机 API 暴露到公网/LAN」这一层；本 spec 的 **Relay 是另一条独立路径**（出站 + 云端路由）。两者可并存，但 **设计决策互不依赖**。
+- **不包含 [APP-012](../APP-012_tunnel-connector/TECH.md) 的 tunnel-connector 能力**：tunnel-connector 解决的是「如何把本机 API 暴露到公网/LAN」这一层；本 spec 的 **Relay 是另一条独立路径**（出站 + 云端路由）。两者可并存，但 **设计决策互不依赖**。
 - **不把 OpenCode 式「单二进制内嵌 serve+web」当作目标**：Atmos 保持 `api` / `web` / `desktop` / `cli` 分仓发布；Relay 只解决 **跨进程、跨机器的控制面与数据面连接**。
 
 ## 2. 参考产品形态（类比，非实现约束）

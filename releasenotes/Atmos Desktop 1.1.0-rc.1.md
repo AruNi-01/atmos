@@ -46,7 +46,7 @@ Atmos 1.1.0 turns the workspace surface into a real workplace: a new Kanban boar
 
 - **Management Center** — Added a Kanban entry, moved New Workspace into the management center, and added a New Workspace button to the Kanban toolbar.
 
-- **Web Access** — A Remote Access button is now available in the web access popover.
+- **Browser Access** — A Tunnel Connector button is now available in the web access popover.
 
 ## Bug Fixes
 

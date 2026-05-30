@@ -45,8 +45,8 @@ export const SETTINGS_GROUPS = [
   {
     id: "system-integration",
     label: "System & Integration",
-    description: "Integrations, remote access, and notifications",
-    items: ["integrations", "remote-access", "atmos-computer", "notify"] as const,
+    description: "Integrations, Tunnel Connector, and notifications",
+    items: ["integrations", "tunnel-connector", "atmos-computer", "notify"] as const,
   },
   {
     id: "workspace-projects",
@@ -114,9 +114,9 @@ export const SETTINGS_SECTIONS = [
     description: "Notification channels and agent event triggers",
   },
   {
-    id: "remote-access",
-    label: "Remote Access",
-    description: "Tunnel gateway and remote browser access",
+    id: "tunnel-connector",
+    label: "Tunnel Connector",
+    description: "Tunnel providers and remote browser access",
   },
   {
     id: "atmos-computer",
@@ -164,7 +164,7 @@ function SettingsSectionIcon({
   if (sectionId === "integrations") return <BlocksIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "ai") return <BrainCircuitIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "notify") return <BellIcon ref={iconRef} className="shrink-0" size={16} />;
-  if (sectionId === "remote-access") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
+  if (sectionId === "tunnel-connector") return <WorldIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "atmos-computer") return <ComputerIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "shortcuts") return <KeyboardIcon ref={iconRef} className="shrink-0" size={16} />;
   if (sectionId === "experiments") {

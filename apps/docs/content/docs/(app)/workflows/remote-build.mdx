@@ -3,99 +3,76 @@ title: Remote Build
 description: Build on another machine while using Atmos from your laptop or browser.
 ---
 
-**Remote build** means the Atmos app runs on one device, while projects, terminals, agents, and workspace data live on another machine you added as an **Atmos Computer**.
+**Remote build** means your Atmos UI runs on one device while the project runtime runs on a registered **Atmos Computer**.
 
-## Not the same as Remote Access
-
-Atmos offers two **separate** remote features—do not use both for the same goal:
-
-| Feature | Settings | What it does |
-|---------|----------|--------------|
-| **Atmos Computer** (this guide) | **Atmos Computer** | Work on another machine |
-| **Remote Access** | **Remote Access** (Desktop only) | Share this machine through a browser link |
-
-- Building on a remote machine → **Atmos Computer** only.
-- “Let someone open **my laptop’s** Atmos in a browser” → **Remote Access** only ([feature doc](/features/cross-platform-remote-access)).
-
-You do **not** need tunnel software on your laptop to **Connect** to an Atmos Computer.
+Use this workflow when a different machine should own the repositories, terminals, agents, workspace state, and build output.
 
 ## Overview
 
-### Where your work lives
+After you connect to an Atmos Computer:
 
-After **Connect**:
+- workspaces, branches, terminals, and agent history belong to that computer;
+- your laptop or browser acts as the client;
+- local CLI commands resolve the same active computer when your UI is connected there.
 
-- Workspaces, branches, terminals, and agent history are on **that Computer**.
-- Your laptop or browser is only the **client**.
-- CLI tools you run locally will target the same Computer as the UI when you are connected.
+To return to the runtime on the machine in front of you, choose **Use locally**.
 
-On the machine you are physically using, choose **Use locally** to work against Atmos on that machine again.
+## Step 1: Create An Access Key
 
-### Connection In Plain Terms
-
-1. The remote machine stays connected to Atmos.
-2. You press **Connect** → Atmos gives your UI a short-lived session to that computer.
-3. App actions such as chat, terminals, and files now happen on that machine.
-
-Your team may use the default Atmos connection service or a custom one.
-
-## Step 1 — Create an Access Key
-
-1. Open **Settings** → **Atmos Computer** → **Access Key**.
-2. **Generate** or paste a long key you already trust.
-3. **Save** — ties the key to your Atmos account on this device.
-4. **Copy** immediately; it may not be shown again.
+1. Open **Settings** → **Atmos Computer**.
+2. Find the **Access Key** area.
+3. Generate a new key or paste one you already trust.
+4. Save it on the device where you manage computers.
+5. Copy it immediately if you need to register another host.
 
 Treat the access key like a password.
 
-## Step 2 — Register a Computer
+## Step 2: Register A Computer
 
-### This machine (same device as the app)
+### Current Machine
 
 1. Make sure Atmos is running on this computer.
-2. **Settings** → **Atmos Computer** → **This Computer** → turn on registration.  
-   (The UI may say “Register to Remote.” In this context, that means Atmos Computer, not Remote Access.)
-3. Atmos registers this host; **My Computers** shows **Online** when the link is up. Use **Reconnect** if it drops.
+2. Open **Settings** → **Atmos Computer** → **This Computer**.
+3. Enable registration.
+4. Wait for this host to appear under **My Computers**.
 
 ### Another Machine
 
-1. Save an access key on the device where you manage computers (e.g. your laptop).
-2. Install Atmos on the remote host ([Getting started](/getting-started)).
-3. In **Settings** → **Register Computer**, create a **registration code** (short-lived, one-time).
-4. On the remote host, follow the on-screen CLI steps with that code.
+1. Install Atmos on the machine that should run the work.
+2. Create a registration code from the device where your access key is saved.
+3. Run the shown CLI command on the target machine.
+4. Confirm the computer appears as **Online**.
 
-If you use a one-time registration code, remove it after registration succeeds.
+Registration codes are short-lived and single-use. Generate a new one if it expires.
 
-## Step 3 — Connect from Desktop or Web
+## Step 3: Connect
 
-1. **Settings** → **Atmos Computer** → **My Computers**.
-2. For a computer that is **Online**, click **Connect**.
-3. The UI reconnects; all workspaces now belong to that machine.
+1. Open **Settings** → **Atmos Computer** → **My Computers**.
+2. Select an online computer.
+3. Click **Connect**.
+4. Wait for the UI to reload against that computer.
 
-If you are on the computer itself, use **Use locally** instead of Connect.
+Offline computers remain visible but cannot be selected until they reconnect.
 
-Offline remote computers stay unavailable until they reconnect.
+## Step 4: Work Normally
 
-## Step 4 — Build remotely
-
-After connecting, use the same workflows as on a local machine:
+Once connected, use the same Atmos workflows:
 
 - [Project & Workspace Manager](/workflows/project-and-workspace-manager)
 - [General Build Process](/workflows/general-build-process)
 - [Code Review in Atmos](/workflows/code-review-in-atmos)
 - [Build in Canvas](/workflows/build-in-canvas)
 
-## Security notes
+## Security Notes
 
 | Topic | What to know |
-|-------|----------------|
-| **Connection security** | Traffic is protected in transit, but do not treat the connection service as end-to-end encrypted today. |
-| **Who can connect** | Anyone with your **access key** can manage and connect to your computers—guard it like a password. |
-| **Registration codes** | Short-lived and single-use; generate a new one if it expires. |
-| **Sessions** | Connect sessions last about a day; connect again if needed. |
-| **Revoke** | Remove or revoke a computer in **My Computers** to cut off access. |
+|-------|--------------|
+| **Access key** | Anyone with the key can manage your registered computers. Store it carefully. |
+| **Registration codes** | Short-lived and one-time. Remove unused codes. |
+| **Sessions** | Connect sessions expire. Reconnect from **My Computers** when needed. |
+| **Revocation** | Remove a computer from **My Computers** when it should no longer be available. |
 
 ## Related
 
 - [Atmos Computer](/features/atmos-computer) — feature overview
-- [Cross-Platform & Remote Access](/features/cross-platform-remote-access) — tunneling for **this** machine only
+- [Cross-Platform & Tunnel Connector](/features/cross-platform-tunnel-connector) — local clients and browser tunnels

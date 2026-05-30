@@ -3,45 +3,43 @@ title: Atmos Computer
 description: Connect Atmos to another machine where your projects run.
 ---
 
-**Atmos Computer** lets your desktop app or browser connect to another machine where your projects, terminals, agents, and workspaces run.
+**Atmos Computer** lets your desktop app or browser connect to computers that are registered with Atmos. After you connect, projects, terminals, agents, and workspaces run on the selected computer.
 
-Use it when you want to build on a stronger machine, a home machine, or a cloud box while keeping the Atmos UI on your laptop.
+Use it when you want to keep the UI on your laptop while the actual work runs on a stronger machine, a home machine, or a cloud box.
 
-This is **separate** from [Cross-Platform & Remote Access](/features/cross-platform-remote-access) **Remote Access**, which uses external tunneling to share **the machine you are on now**.
+## What It Does
 
-## Atmos Computer vs Remote Access
+- Registers a computer under your Atmos account.
+- Keeps that computer available while its local Atmos runtime is online.
+- Lets your current app switch between local work and a registered computer.
+- Routes workspace, terminal, Canvas, review, and agent actions to the selected computer.
 
-| | **Atmos Computer** | **Remote Access** (tunneling) |
-|---|-------------------|-------------------------------|
-| **Where work runs** | The computer you registered | This computer |
-| **Connection** | Atmos connects the app to that computer | A tunnel publishes this computer |
-| **Client needs tunnel tools** | No | Yes (on the hosting desktop) |
-| **Main entry** | **Atmos Computer** → **Connect** | **Remote Access** → **Public URL** |
-| **Your projects live on** | The remote machine | This machine |
+## Typical Flow
 
-Some UI labels say “remote” on **This Computer**. In this section, that means “make this computer available in Atmos Computer,” not “start a Remote Access tunnel.”
+1. Open **Settings** → **Atmos Computer**.
+2. Create or save an **Access Key**.
+3. Register the computer that should run the work.
+4. Wait for it to appear under **My Computers**.
+5. Click **Connect**.
 
-## Why it matters
+Once connected, the UI reloads against that computer. Use **Use locally** when you want to return to the runtime on the machine in front of you.
 
-- Keep repos, secrets, and builds on infrastructure you control.
-- Use one powerful remote box from a laptop, desktop, or browser.
-- Avoid setting up a separate tunnel tool on your laptop.
+## This Computer
 
-## How Connection Works
+The **This Computer** area registers the machine you are currently using. It is useful when you want this host to appear in **My Computers** from another device.
 
-The remote machine keeps a connection open to Atmos. When you click **Connect**, your app joins that machine through the same Atmos service. You do not need to know the machine's public address for everyday Atmos use.
+## My Computers
 
-## Typical flow
+Registered computers show their online status, last-seen time, and connection actions. Offline computers stay listed but cannot be selected until they reconnect.
 
-1. **Access Key** — create and save in **Settings → Atmos Computer → Access Key**.
-2. **Register** — add the remote machine to your account (from that machine or via a registration code).
-3. **Connect** — pick the computer under **My Computers**; Atmos switches the UI to that machine.
-4. **Work** — workspaces, terminals, Canvas, and agents run on **that** computer.
+## Security Notes
 
-## Learn more
-
-- [Remote Build](/workflows/remote-build) — step-by-step register, connect, and security notes.
+- Guard the access key like a password.
+- Registration codes are short-lived and single-use.
+- Remove computers you no longer trust.
+- Connect sessions expire; reconnect when needed.
 
 ## Related
 
-- [Cross-Platform & Remote Access](/features/cross-platform-remote-access) — local clients and tunneling for **this** machine only
+- [Remote Build](/workflows/remote-build) — step-by-step workflow for building on another machine
+- [Cross-Platform & Tunnel Connector](/features/cross-platform-tunnel-connector) — local clients and browser tunnels for this computer

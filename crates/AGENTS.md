@@ -16,7 +16,7 @@
 | Capability | `ai-usage` | [ai-usage/AGENTS.md](ai-usage/AGENTS.md) |
 | Capability | `token-usage` | [token-usage/AGENTS.md](token-usage/AGENTS.md) |
 | Capability | `local-model-runtime` | — |
-| Capability | `remote-access` | — |
+| Capability | `tunnel-connector` | — |
 | Host | `runtime-manager` | [runtime-manager/AGENTS.md](runtime-manager/AGENTS.md) |
 
 Change flow: **infra → core-engine → core-service → apps/api**. Do not skip layers.

@@ -29,7 +29,7 @@ import {
 import WelcomePage from '@/features/welcome/components/WelcomePage';
 import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
 import { HostedSloganShimmer } from '@/shared/components/ui/HostedSloganShimmer';
-import { RemoteComputerSetupBlock } from '@/features/remote-access/components/RemoteComputerSetupBlock';
+import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
 import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 import {

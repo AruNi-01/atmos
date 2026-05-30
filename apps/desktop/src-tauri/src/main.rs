@@ -2,9 +2,9 @@ mod appshot;
 mod commands;
 mod logging;
 mod preview_bridge;
-mod remote_access;
 mod runtime;
 mod state;
+mod tunnel_connector;
 mod updater;
 
 use std::fs;
@@ -51,10 +51,10 @@ fn main() {
                         .join("desktop")
                 })
                 .join(WINDOW_STATE_FILE);
-            let remote_access_state_path = dirs::home_dir()
+            let tunnel_connector_state_path = dirs::home_dir()
                 .unwrap_or_else(std::env::temp_dir)
                 .join(".atmos")
-                .join("remote-access")
+                .join("tunnel-connector")
                 .join("state.json");
             app.manage(AppState {
                 api_port: Mutex::new(None),
@@ -65,8 +65,8 @@ fn main() {
                 startup_failed: AtomicBool::new(false),
                 theme_ready: AtomicBool::new(false),
                 theme_ready_notify: Notify::new(),
-                remote_access_manager: remote_access::manager::RemoteAccessManager::new(
-                    remote_access_state_path,
+                tunnel_connector_manager: tunnel_connector::manager::TunnelConnectorManager::new(
+                    tunnel_connector_state_path,
                 ),
             });
             let app_handle = app.handle().clone();
@@ -125,7 +125,7 @@ fn main() {
                     let recover_handle = app_handle.clone();
                     let target_base_url = format!("http://127.0.0.1:{p}");
                     tauri::async_runtime::spawn(async move {
-                        remote_access::startup_recover(recover_handle, target_base_url).await;
+                        tunnel_connector::startup_recover(recover_handle, target_base_url).await;
                     });
                 }
 
@@ -360,15 +360,15 @@ fn main() {
             commands::appshot_trigger_capture,
             commands::appshot_open_permissions,
             commands::appshot_show_permissions_window,
-            remote_access::commands::remote_access_detect,
-            remote_access::commands::remote_access_start,
-            remote_access::commands::remote_access_stop,
-            remote_access::commands::remote_access_renew,
-            remote_access::commands::remote_access_status,
-            remote_access::commands::remote_access_recover,
-            remote_access::commands::remote_access_provider_guide,
-            remote_access::commands::remote_access_save_credential,
-            remote_access::commands::remote_access_clear_credential,
+            tunnel_connector::commands::tunnel_connector_detect,
+            tunnel_connector::commands::tunnel_connector_start,
+            tunnel_connector::commands::tunnel_connector_stop,
+            tunnel_connector::commands::tunnel_connector_renew,
+            tunnel_connector::commands::tunnel_connector_status,
+            tunnel_connector::commands::tunnel_connector_recover,
+            tunnel_connector::commands::tunnel_connector_provider_guide,
+            tunnel_connector::commands::tunnel_connector_save_credential,
+            tunnel_connector::commands::tunnel_connector_clear_credential,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

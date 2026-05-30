@@ -32,7 +32,7 @@ export type ProviderDiagnostics = {
   logs: { at: string; level: string; message: string }[];
 };
 
-export type RemoteAccessStatus = {
+export type TunnelConnectorStatus = {
   gateway_url: string | null;
   public_url: string | null;
   share_url: string | null;
@@ -43,16 +43,16 @@ export type RemoteAccessStatus = {
 };
 
 // Map of provider kind → its active status (only contains running providers).
-export type RemoteAccessStatusMap = Partial<Record<ProviderKind, RemoteAccessStatus>>;
+export type TunnelConnectorStatusMap = Partial<Record<ProviderKind, TunnelConnectorStatus>>;
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useRemoteAccess() {
+export function useTunnelConnector() {
   const isDesktop = useMemo(() => isTauriRuntime(), []);
 
-  const [statusMap, setStatusMap] = useState<RemoteAccessStatusMap>({});
+  const [statusMap, setStatusMap] = useState<TunnelConnectorStatusMap>({});
   const [providers, setProviders] = useState<ProviderDiagnostics[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Per-provider loading states
@@ -63,10 +63,10 @@ export function useRemoteAccess() {
     if (!isDesktop) return;
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<Record<string, RemoteAccessStatus>>('remote_access_status');
-      setStatusMap(result as RemoteAccessStatusMap);
+      const result = await invoke<Record<string, TunnelConnectorStatus>>('tunnel_connector_status');
+      setStatusMap(result as TunnelConnectorStatusMap);
     } catch (err) {
-      errorLog(`[remote-access] refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
+      errorLog(`[tunnel-connector] refreshStatus failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }, [isDesktop]);
 
@@ -75,10 +75,10 @@ export function useRemoteAccess() {
     setIsLoading(true);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<{ providers: ProviderDiagnostics[] }>('remote_access_detect');
+      const result = await invoke<{ providers: ProviderDiagnostics[] }>('tunnel_connector_detect');
       setProviders(result.providers);
     } catch (err) {
-      errorLog(`[remote-access] detect failed: ${err instanceof Error ? err.message : String(err)}`);
+      errorLog(`[tunnel-connector] detect failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +90,7 @@ export function useRemoteAccess() {
       mode?: ProviderAccessMode,
       targetBaseUrl?: string,
       ttlSecs?: number,
-    ): Promise<RemoteAccessStatus | undefined> => {
+    ): Promise<TunnelConnectorStatus | undefined> => {
       if (!isDesktop) return undefined;
       setStartingProviders((prev) => new Set(prev).add(provider));
       try {
@@ -98,19 +98,19 @@ export function useRemoteAccess() {
         const payload = {
           req: { provider, mode, target_base_url: targetBaseUrl, ttl_secs: ttlSecs },
         };
-        debugLog(`[remote-access] start: ${JSON.stringify(payload)}`);
+        debugLog(`[tunnel-connector] start: ${JSON.stringify(payload)}`);
         const result = await Promise.race([
-          invoke<RemoteAccessStatus>('remote_access_start', payload),
+          invoke<TunnelConnectorStatus>('tunnel_connector_start', payload),
           new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Start tunnel timed out after 30s')), 30_000),
           ),
         ]);
-        debugLog(`[remote-access] start ok: provider=${result.provider} url=${result.public_url}`);
+        debugLog(`[tunnel-connector] start ok: provider=${result.provider} url=${result.public_url}`);
         setStatusMap((prev) => ({ ...prev, [provider]: result }));
         return result;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        errorLog(`[remote-access] start failed: ${msg}`);
+        errorLog(`[tunnel-connector] start failed: ${msg}`);
         throw err;
       } finally {
         setStartingProviders((prev) => {
@@ -129,14 +129,14 @@ export function useRemoteAccess() {
       setStoppingProviders((prev) => new Set(prev).add(provider));
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('remote_access_stop', { req: { provider } });
+        await invoke('tunnel_connector_stop', { req: { provider } });
         setStatusMap((prev) => {
           const next = { ...prev };
           delete next[provider];
           return next;
         });
       } catch (err) {
-        errorLog(`[remote-access] stop failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(`[tunnel-connector] stop failed: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
         setStoppingProviders((prev) => {
           const next = new Set(prev);
@@ -153,17 +153,17 @@ export function useRemoteAccess() {
       provider: ProviderKind,
       ttlSecs?: number,
       reuseToken?: boolean,
-    ): Promise<RemoteAccessStatus | undefined> => {
+    ): Promise<TunnelConnectorStatus | undefined> => {
       if (!isDesktop) return undefined;
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        const result = await invoke<RemoteAccessStatus>('remote_access_renew', {
+        const result = await invoke<TunnelConnectorStatus>('tunnel_connector_renew', {
           req: { provider, ttl_secs: ttlSecs, reuse_token: reuseToken ?? true },
         });
         setStatusMap((prev) => ({ ...prev, [provider]: result }));
         return result;
       } catch (err) {
-        errorLog(`[remote-access] renew failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(`[tunnel-connector] renew failed: ${err instanceof Error ? err.message : String(err)}`);
         throw err;
       }
     },
@@ -175,12 +175,12 @@ export function useRemoteAccess() {
     setIsLoading(true);
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke<Record<string, RemoteAccessStatus>>('remote_access_recover');
+      const result = await invoke<Record<string, TunnelConnectorStatus>>('tunnel_connector_recover');
       if (result && Object.keys(result).length > 0) {
-        setStatusMap(result as RemoteAccessStatusMap);
+        setStatusMap(result as TunnelConnectorStatusMap);
       }
     } catch (err) {
-      errorLog(`[remote-access] recover failed: ${err instanceof Error ? err.message : String(err)}`);
+      errorLog(`[tunnel-connector] recover failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -191,9 +191,9 @@ export function useRemoteAccess() {
       if (!isDesktop) return [];
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        return await invoke<string[]>('remote_access_provider_guide', { provider });
+        return await invoke<string[]>('tunnel_connector_provider_guide', { provider });
       } catch (err) {
-        errorLog(`[remote-access] getProviderGuide failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(`[tunnel-connector] getProviderGuide failed: ${err instanceof Error ? err.message : String(err)}`);
         return [];
       }
     },
@@ -205,9 +205,9 @@ export function useRemoteAccess() {
       if (!isDesktop) return;
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('remote_access_save_credential', { req: { provider, credential } });
+        await invoke('tunnel_connector_save_credential', { req: { provider, credential } });
       } catch (err) {
-        errorLog(`[remote-access] saveCredential failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(`[tunnel-connector] saveCredential failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
     [isDesktop],
@@ -218,9 +218,9 @@ export function useRemoteAccess() {
       if (!isDesktop) return;
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('remote_access_clear_credential', { provider });
+        await invoke('tunnel_connector_clear_credential', { provider });
       } catch (err) {
-        errorLog(`[remote-access] clearCredential failed: ${err instanceof Error ? err.message : String(err)}`);
+        errorLog(`[tunnel-connector] clearCredential failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
     [isDesktop],
@@ -239,9 +239,9 @@ export function useRemoteAccess() {
 
     import('@tauri-apps/api/event').then(({ listen }) => {
       if (cancelled) return;
-      listen<Record<string, RemoteAccessStatus>>('remote-access-recovered', (event) => {
+      listen<Record<string, TunnelConnectorStatus>>('tunnel-connector-recovered', (event) => {
         if (event.payload && Object.keys(event.payload).length > 0) {
-          setStatusMap(event.payload as RemoteAccessStatusMap);
+          setStatusMap(event.payload as TunnelConnectorStatusMap);
         }
       }).then((fn) => {
         if (cancelled) {

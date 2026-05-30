@@ -1,0 +1,58 @@
+---
+title: Cross-Platform & Tunnel Connector
+description: Use Atmos locally, in a browser, or through supported tunnel providers.
+---
+
+Atmos runs on the machine where your projects, terminals, agents, and workspaces live. You can use the desktop app on that machine, open the local web UI from a browser, or publish a browser entry through **Tunnel Connector**.
+
+## Local Clients
+
+Use these when you are working on the same machine that runs Atmos:
+
+| Client | How it connects |
+|--------|-----------------|
+| **Desktop app** | Starts and talks to the local Atmos runtime automatically |
+| **Local web** | Opens the same local runtime from a browser |
+| **CLI** | Resolves the active Atmos runtime and sends commands to it |
+
+Local clients do not require a public URL or a tunnel provider.
+
+## Tunnel Connector
+
+**Tunnel Connector** integrates supported tunnel providers so a browser can reach the Atmos runtime on this computer.
+
+Use it when you want to:
+
+- open your current Atmos session from another device,
+- share a temporary browser link for a demo or review,
+- use an existing Tailscale, Cloudflare Tunnel, or ngrok setup instead of configuring network ports manually.
+
+## Supported Providers
+
+| Provider | Typical use |
+|----------|-------------|
+| **Tailscale** | Private access across devices in your tailnet |
+| **Cloudflare Tunnel** | Temporary HTTPS links through Cloudflare |
+| **ngrok** | Quick public HTTPS links for demos and short-lived sharing |
+
+Each provider runs as its own connector. Atmos manages the local gateway, session token, status, expiry, and share URL from one place.
+
+## Start A Tunnel
+
+1. Open the **Desktop app**.
+2. Go to **Settings** → **Tunnel Connector**.
+3. Click **Refresh** to detect installed providers.
+4. Follow the provider setup action if a binary or credential is missing.
+5. Choose access mode and expiry, then start the tunnel.
+6. Copy the **Public URL** or share URL shown by Atmos.
+
+The header browser menu also shows active tunnels, expiry warnings, renewal controls, and stop actions.
+
+## Stop Sharing
+
+Stop the tunnel from **Settings** or the header menu. Links also expire automatically when their session reaches the configured TTL.
+
+## Related
+
+- [Atmos Computer](/features/atmos-computer) — connect to computers registered with Atmos
+- [Remote Build](/workflows/remote-build) — run projects on another machine

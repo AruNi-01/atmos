@@ -51,8 +51,8 @@ import {
   ensureComputerClientSettingsHydrated,
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
-import { ComputerDetailsDialog } from '@/features/remote-access/components/ComputerDetailsDialog';
-import { RemoteComputerSetupBlock } from '@/features/remote-access/components/RemoteComputerSetupBlock';
+import { ComputerDetailsDialog } from '@/features/atmos-computer/components/ComputerDetailsDialog';
+import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 
 function SettingsBlock({
   title,
@@ -186,7 +186,7 @@ export function AtmosComputerSection() {
       if (sync.relay_connected) {
         toastManager.add({
           title: 'Remote connection restored',
-          description: 'This computer is available for remote access.',
+          description: 'This computer is available for Atmos Computer connections.',
           type: 'success',
         });
       } else {
@@ -479,7 +479,7 @@ export function AtmosComputerSection() {
     if (!hasKey) {
       toastManager.add({
         title: 'Save your access key first',
-        description: 'Add and save an access key before enabling remote access.',
+        description: 'Add and save an access key before registering this computer.',
         type: 'error',
       });
       return;
@@ -530,8 +530,8 @@ export function AtmosComputerSection() {
         }));
         if (reg.relay_connected) {
           toastManager.add({
-            title: 'Remote access enabled',
-            description: 'This computer is available for remote connection.',
+            title: 'Computer registration enabled',
+            description: 'This computer is available for Atmos Computer connections.',
             type: 'success',
           });
         } else {
@@ -563,7 +563,7 @@ export function AtmosComputerSection() {
         void activateCurrentLocalConnection().catch(() => undefined);
       }
       toastManager.add({
-        title: 'Remote access disabled',
+        title: 'Computer registration disabled',
         type: 'success',
       });
       await refreshLocalStatus();
@@ -572,7 +572,7 @@ export function AtmosComputerSection() {
       const description =
         err instanceof Error ? err.message : 'Ensure Atmos is running on this computer, then try again.';
       toastManager.add({
-        title: enabled ? 'Could not register to remote' : 'Could not unregister',
+        title: enabled ? 'Could not register this computer' : 'Could not unregister',
         description,
         type: 'error',
       });
@@ -842,7 +842,7 @@ export function AtmosComputerSection() {
       <SettingsBlock
         title="This Computer"
         icon={<Laptop className="size-5" />}
-        description="Register to remote so other computers can connect to this computer."
+        description="Register this computer so other devices can connect to it."
       >
         <div className="min-w-0 space-y-3">
             <div className="space-y-2">
@@ -853,13 +853,13 @@ export function AtmosComputerSection() {
 
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border/80 bg-muted/15 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-foreground">Register to Remote</p>
+                <p className="text-sm font-medium text-foreground">Register This Computer</p>
                 <p className="text-xs text-muted-foreground">
                   {isLocalRegistered
                     ? isCurrentRelayReachable
-                      ? 'Online in the remote registration center.'
-                      : 'Connecting to the remote registration center…'
-                    : 'Not registered to remote — local use only on this computer.'}
+                      ? 'Online for Atmos Computer connections.'
+                      : 'Connecting this computer…'
+                    : 'Not registered — local use only on this computer.'}
                 </p>
               </div>
               <Switch
@@ -871,7 +871,7 @@ export function AtmosComputerSection() {
             {showRelayReconnect ? (
               <div className="space-y-2 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-foreground">Offline in remote registration center</p>
+                  <p className="text-sm font-medium text-foreground">Offline for Atmos Computer connections</p>
                   <Button
                     type="button"
                     size="sm"
@@ -897,7 +897,7 @@ export function AtmosComputerSection() {
               </div>
             ) : null}
             {!hasKey ? (
-              <p className="text-xs text-muted-foreground">Save an access key above to use Register to Remote.</p>
+              <p className="text-xs text-muted-foreground">Save an access key above to register this computer.</p>
             ) : null}
         </div>
       </SettingsBlock>
@@ -922,7 +922,7 @@ export function AtmosComputerSection() {
           <p className="text-sm text-muted-foreground">Save an access key to see your computers.</p>
         ) : activeComputers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No computers yet. Enable remote access on this computer, or add another remote computer
+            No computers yet. Register this computer, or add another remote computer
             with the same access key.
           </p>
         ) : (

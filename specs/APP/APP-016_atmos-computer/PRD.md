@@ -2,7 +2,7 @@
 
 > **命名**：**Atmos Computer** 是用户可见的一台计算环境（例如在 **VPS** 上启动一台、在笔记本上再连过去）；控制面以 `server_id` 标识；其上运行的 **`apps/api` 进程**仍称 **Atmos Server**。**Cloudflare Relay + Durable Objects** 为连接与传输层，见 `TECH.md`。
 >
-> 产品需求：**做什么、为谁、成功长什么样**。技术协议见 `TECH.md`。与 [APP-012](../APP-012_remote-access/TECH.md) **无依赖关系**（见下文「范围外」）。
+> 产品需求：**做什么、为谁、成功长什么样**。技术协议见 `TECH.md`。与 [APP-012](../APP-012_tunnel-connector/TECH.md) **无依赖关系**（见下文「范围外」）。
 
 ## 1. 背景与动机
 
@@ -65,7 +65,7 @@
 
 | 项 | 说明 |
 |----|------|
-| **[APP-012](../APP-012_remote-access/TECH.md) remote-access** | 不纳入本 spec 的设计依赖；不讨论 Tailscale/反向隧道等作为多 **Computer** / Relay 的前提方案。 |
+| **[APP-012](../APP-012_tunnel-connector/TECH.md) tunnel-connector** | 不纳入本 spec 的设计依赖；不讨论 Tailscale/反向隧道等作为多 **Computer** / Relay 的前提方案。 |
 | **具体云厂商实现细节** | PRD 只要求「CF DO + Worker 提供 Relay/replay」；密钥管理、账单、SLA 在 TECH/运维文档展开。 |
 | **合并 api/web/cli 为单二进制** | 非目标。 |
 | **替换 Atmos 现有业务 WS 协议** | 非目标；Relay 为 **传输层**，业务语义仍在 Server。 |
@@ -90,7 +90,7 @@
 
 ## 8. 文档关系
 
-- `BRAINSTORM.md`：为何选 Relay、与 remote-access 的边界；**Atmos Computer** 命名与痛点。
+- `BRAINSTORM.md`：为何选 Relay、与 tunnel-connector 的边界；**Atmos Computer** 命名与痛点。
 - `TECH.md`：控制面 API、Relay 路由、DO 状态、与现有 `apps/api` WS 集成方式。
 - `TEST.md`：验收场景与回归清单。
 

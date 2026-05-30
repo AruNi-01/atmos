@@ -535,7 +535,6 @@ dependencies = [
  "dirs 5.0.1",
  "keyring",
  "objc2-app-kit",
- "remote-access",
  "reqwest 0.12.28",
  "runtime-manager",
  "serde",
@@ -549,6 +548,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-updater",
  "tokio",
+ "tunnel-connector",
 ]
 
 [[package]]
@@ -5127,30 +5127,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
 
 [[package]]
-name = "remote-access"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum",
- "chrono",
- "futures-util",
- "http",
- "libc",
- "ngrok",
- "rand 0.8.5",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 2.0.17",
- "tokio",
- "tokio-tungstenite 0.24.0",
- "tracing",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "rend"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7793,6 +7769,30 @@ dependencies = [
  "sha1",
  "thiserror 2.0.17",
  "utf-8",
+]
+
+[[package]]
+name = "tunnel-connector"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "chrono",
+ "futures-util",
+ "http",
+ "libc",
+ "ngrok",
+ "rand 0.8.5",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-tungstenite 0.24.0",
+ "tracing",
+ "url",
+ "uuid",
 ]
 
 [[package]]

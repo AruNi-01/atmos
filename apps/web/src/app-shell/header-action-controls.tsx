@@ -3,6 +3,7 @@
 import React from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
+  Badge,
   Bot,
   Button,
   ChartColumnBig,
@@ -15,10 +16,15 @@ import {
   PopoverTrigger,
   Search,
   Sun,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
   cn,
+  toastManager,
 } from "@workspace/ui";
 import {
   Menu,
@@ -34,15 +40,30 @@ import {
 import {
   ArrowBigUp,
   Command,
+  Computer,
   ExternalLink,
   Globe,
+  LoaderCircle,
   PanelRightClose,
   PanelRightOpen,
+  RotateCw,
   Settings,
   SunMoon,
 } from "lucide-react";
 
-import type { ProviderKind, RemoteAccessStatus } from "@/features/connection/hooks/use-remote-access";
+import type { ProviderKind, TunnelConnectorStatus } from "@/features/connection/hooks/use-tunnel-connector";
+import {
+  activateCurrentLocalConnection,
+  activateHostedRemoteConnection,
+} from "@/features/connection/lib/hosted-connection-actions";
+import {
+  createHostedRemoteSession,
+  listHostedRemoteComputers,
+} from "@/features/connection/lib/hosted-connection";
+import {
+  ensureComputerClientSettingsHydrated,
+} from "@/features/connection/lib/sync-computer-client-settings";
+import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-store";
 import { AppshotCapturePreview, AppshotsHeaderButton } from "@/features/appshot";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
@@ -53,7 +74,7 @@ type DesktopWebStatus = "checking" | "ready" | "unavailable";
 
 type HeaderActionControlsProps = {
   actionMenuFocusRef: React.MutableRefObject<HTMLElement | null>;
-  activeRemoteTunnels: RemoteAccessStatus[];
+  activeTunnelConnectors: TunnelConnectorStatus[];
   browserUrl: string | null;
   desktopWebPopoverOpen: boolean;
   desktopWebStatus: DesktopWebStatus;
@@ -61,7 +82,7 @@ type HeaderActionControlsProps = {
   isDesktopRuntime: boolean;
   isFullScreenActive: boolean;
   isOpeningDesktopWeb: boolean;
-  isRemoteAccessRunning: boolean;
+  isTunnelConnectorRunning: boolean;
   isRightCollapsed: boolean;
   isUsagePopoverOpen: boolean;
   layout: { opacity: number };
@@ -69,9 +90,9 @@ type HeaderActionControlsProps = {
   onCloseAutoFocusPrevent: (event: Event) => void;
   onOpenDesktopWeb: () => Promise<void> | void;
   refreshDesktopWebStatus: () => Promise<unknown> | unknown;
-  refreshRemoteAccessStatus: () => Promise<unknown> | unknown;
-  remoteAccessDotColor: string;
-  renewRemoteAccess: (
+  refreshTunnelConnectorStatus: () => Promise<unknown> | unknown;
+  tunnelConnectorDotColor: string;
+  renewTunnelConnector: (
     provider: ProviderKind,
     ttlSecs: number,
     reuseToken: boolean,
@@ -84,7 +105,7 @@ type HeaderActionControlsProps = {
   setIsSettingsOpen: (open: boolean) => Promise<URLSearchParams>;
   setIsTokenUsageOpen: (open: boolean) => Promise<URLSearchParams>;
   setIsUsagePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRemoteAccessSettingsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setRemoteAccessSettingsSection: React.Dispatch<React.SetStateAction<"atmos-computer" | "tunnel-connector" | null>>;
   setTheme: (theme: string) => void;
   showRightSidebar: boolean;
   theme?: string;
@@ -93,9 +114,416 @@ type HeaderActionControlsProps = {
   updateLayout: (layout: { opacity: number }) => void;
 };
 
+type RemoteAccessSettingsSection = "atmos-computer" | "tunnel-connector";
+
+function RemoteAccessPopover({
+  activeTunnelConnectors,
+  browserUrl,
+  desktopWebStatus,
+  isOpeningDesktopWeb,
+  isTunnelConnectorRunning,
+  onOpenDesktopWeb,
+  renewTunnelConnector,
+  setDesktopWebPopoverOpen,
+  setIsSettingsOpen,
+  setRemoteAccessSettingsSection,
+}: {
+  activeTunnelConnectors: TunnelConnectorStatus[];
+  browserUrl: string | null;
+  desktopWebStatus: DesktopWebStatus;
+  isOpeningDesktopWeb: boolean;
+  isTunnelConnectorRunning: boolean;
+  onOpenDesktopWeb: () => Promise<void> | void;
+  renewTunnelConnector: (
+    provider: ProviderKind,
+    ttlSecs: number,
+    reuseToken: boolean,
+  ) => Promise<unknown>;
+  setDesktopWebPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsSettingsOpen: (open: boolean) => Promise<URLSearchParams>;
+  setRemoteAccessSettingsSection: React.Dispatch<React.SetStateAction<RemoteAccessSettingsSection | null>>;
+}) {
+  const openSettings = React.useCallback(
+    (section: RemoteAccessSettingsSection) => {
+      setDesktopWebPopoverOpen(false);
+      setRemoteAccessSettingsSection(section);
+      void setIsSettingsOpen(true);
+    },
+    [setDesktopWebPopoverOpen, setIsSettingsOpen, setRemoteAccessSettingsSection],
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div>
+          <p className="text-sm font-medium text-popover-foreground">Remote Access</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Switch computers or publish this one through a tunnel.
+          </p>
+        </div>
+        {isTunnelConnectorRunning ? (
+          <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            Tunnel active
+          </Badge>
+        ) : null}
+      </div>
+
+      <Tabs defaultValue="computer" className="space-y-3">
+        <TabsList className="grid w-full grid-cols-2 border border-border/70 bg-background/70 p-1">
+          <TabsTrigger value="computer" className="text-xs">
+            Atmos Computer
+          </TabsTrigger>
+          <TabsTrigger value="tunnel" className="text-xs">
+            Tunnel Connector
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="computer" className="mt-0">
+          <AtmosComputerPopoverContent
+            onOpenSettings={() => openSettings("atmos-computer")}
+            onConnected={() => setDesktopWebPopoverOpen(false)}
+          />
+        </TabsContent>
+        <TabsContent value="tunnel" className="mt-0">
+          <TunnelConnectorPopoverContent
+            activeTunnelConnectors={activeTunnelConnectors}
+            browserUrl={browserUrl}
+            desktopWebStatus={desktopWebStatus}
+            isOpeningDesktopWeb={isOpeningDesktopWeb}
+            isTunnelConnectorRunning={isTunnelConnectorRunning}
+            onOpenDesktopWeb={onOpenDesktopWeb}
+            onOpenSettings={() => openSettings("tunnel-connector")}
+            renewTunnelConnector={renewTunnelConnector}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function AtmosComputerPopoverContent({
+  onConnected,
+  onOpenSettings,
+}: {
+  onConnected: () => void;
+  onOpenSettings: () => void;
+}) {
+  const {
+    accessToken,
+    computers,
+    connectionMode,
+    controlPlaneUrl,
+    localServerId,
+    relayWebSocketUrl,
+    selectedServerId,
+    setComputers,
+  } = useAtmosComputerStore();
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const hasAccessToken = accessToken.trim().length >= 32;
+  const activeComputers = React.useMemo(
+    () => computers.filter((computer) => !computer.revoked),
+    [computers],
+  );
+  const connectedServerId =
+    connectionMode === "relay" && relayWebSocketUrl ? selectedServerId : null;
+
+  const refreshComputers = React.useCallback(
+    async (token = useAtmosComputerStore.getState().accessToken) => {
+      const trimmed = token.trim();
+      if (trimmed.length < 32) {
+        return;
+      }
+      setIsRefreshing(true);
+      setError(null);
+      try {
+        const state = useAtmosComputerStore.getState();
+        const rows = await listHostedRemoteComputers(state.controlPlaneUrl, trimmed);
+        setComputers(rows);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load computers.");
+      } finally {
+        setIsRefreshing(false);
+      }
+    },
+    [setComputers],
+  );
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void ensureComputerClientSettingsHydrated().then(() => {
+      if (cancelled) return;
+      void refreshComputers();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshComputers]);
+
+  async function connectComputer(serverId: string) {
+    setBusyId(serverId);
+    setError(null);
+    try {
+      if (serverId === localServerId) {
+        await activateCurrentLocalConnection();
+      } else {
+        const session = await createHostedRemoteSession(controlPlaneUrl, accessToken, serverId);
+        await activateHostedRemoteConnection(serverId, session);
+      }
+      toastManager.add({ title: "Connected", type: "success" });
+      onConnected();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not connect.");
+      toastManager.add({
+        title: "Could not connect",
+        description: err instanceof Error ? err.message : "Try again.",
+        type: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (!hasAccessToken) {
+    return (
+      <div className="rounded-md border border-border bg-muted/20 px-4 py-4">
+        <p className="text-sm font-medium text-popover-foreground">Access key required</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Save an Atmos Computer access key before switching computers from the header.
+        </p>
+        <Button size="sm" className="mt-3 w-full cursor-pointer" onClick={onOpenSettings}>
+          Open Computer Settings
+        </Button>
+      </div>
+    );
+  }
+
+  if (activeComputers.length === 0 && !isRefreshing) {
+    return (
+      <div className="rounded-md border border-border bg-muted/20 px-4 py-4">
+        <p className="text-sm font-medium text-popover-foreground">No computers yet</p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Register this computer or add another machine with the same access key.
+        </p>
+        <div className="mt-3 flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1 cursor-pointer" onClick={() => void refreshComputers()}>
+            <RotateCw className="mr-1.5 size-3.5" />
+            Refresh
+          </Button>
+          <Button size="sm" className="flex-1 cursor-pointer" onClick={onOpenSettings}>
+            Add Computer
+          </Button>
+        </div>
+        {error ? <p className="mt-3 text-xs leading-5 text-destructive">{error}</p> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <p className="text-xs text-muted-foreground">
+          {activeComputers.length} computer{activeComputers.length === 1 ? "" : "s"}
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isRefreshing || busyId !== null}
+          onClick={() => void refreshComputers()}
+          className="h-7 cursor-pointer px-2 text-xs"
+        >
+          <RotateCw className={cn("mr-1.5 size-3.5", isRefreshing && "animate-spin")} />
+          Refresh
+        </Button>
+      </div>
+
+      <div className="max-h-[300px] space-y-2 overflow-y-auto pr-1">
+        {isRefreshing && activeComputers.length === 0 ? (
+          <div className="rounded-md border border-border px-4 py-5 text-sm text-muted-foreground">
+            Loading computers…
+          </div>
+        ) : (
+          activeComputers.map((computer) => {
+            const name = (computer.display_name ?? "Computer").slice(0, 64);
+            const isLocal = computer.server_id === localServerId;
+            const isConnected = connectedServerId === computer.server_id || (isLocal && connectionMode === "local");
+            const isBusy = busyId === computer.server_id;
+            return (
+              <div
+                key={computer.server_id}
+                className="rounded-md border border-border bg-muted/15 px-3 py-2.5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Computer className="size-3.5 shrink-0 text-muted-foreground" />
+                      <p className="truncate text-sm font-medium text-popover-foreground">{name}</p>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1",
+                          computer.online ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            computer.online ? "bg-emerald-500" : "bg-muted-foreground/50",
+                          )}
+                        />
+                        {computer.online ? "Online" : "Offline"}
+                      </span>
+                      {isLocal ? <span>Current machine</span> : null}
+                      {computer.last_seen_at ? <span>Seen {formatComputerSeenAt(computer.last_seen_at)}</span> : null}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={isConnected ? "secondary" : "default"}
+                    disabled={busyId !== null || isConnected}
+                    onClick={() => void connectComputer(computer.server_id)}
+                    className="h-7 shrink-0 cursor-pointer px-2 text-xs"
+                  >
+                    {isBusy ? (
+                      <LoaderCircle className="size-3.5 animate-spin" />
+                    ) : isConnected ? (
+                      "In use"
+                    ) : isLocal ? (
+                      "Use locally"
+                    ) : (
+                      "Connect"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {error ? <p className="px-1 text-xs leading-5 text-destructive">{error}</p> : null}
+      <Button variant="outline" size="sm" className="w-full cursor-pointer" onClick={onOpenSettings}>
+        Manage Computers
+      </Button>
+    </div>
+  );
+}
+
+function formatComputerSeenAt(value: number): string {
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) {
+    return "recently";
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function TunnelConnectorPopoverContent({
+  activeTunnelConnectors,
+  browserUrl,
+  desktopWebStatus,
+  isOpeningDesktopWeb,
+  isTunnelConnectorRunning,
+  onOpenDesktopWeb,
+  onOpenSettings,
+  renewTunnelConnector,
+}: {
+  activeTunnelConnectors: TunnelConnectorStatus[];
+  browserUrl: string | null;
+  desktopWebStatus: DesktopWebStatus;
+  isOpeningDesktopWeb: boolean;
+  isTunnelConnectorRunning: boolean;
+  onOpenDesktopWeb: () => Promise<void> | void;
+  onOpenSettings: () => void;
+  renewTunnelConnector: (
+    provider: ProviderKind,
+    ttlSecs: number,
+    reuseToken: boolean,
+  ) => Promise<unknown>;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              desktopWebStatus === "ready"
+                ? "bg-success"
+                : desktopWebStatus === "checking"
+                  ? "bg-warning"
+                  : "bg-muted-foreground/50",
+            )}
+          />
+          <p className="text-sm font-medium text-popover-foreground">
+            {desktopWebStatus === "ready"
+              ? "Browser access is ready"
+              : "Browser access via sidecar"}
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          {desktopWebStatus === "ready"
+            ? "Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches."
+            : "Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there."}
+        </p>
+      </div>
+
+      {browserUrl ? (
+        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
+          {browserUrl}
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-2">
+        {!isTunnelConnectorRunning && (
+          <Button
+            variant="outline"
+            onClick={onOpenSettings}
+            className="cursor-pointer"
+          >
+            Tunnel Connector
+          </Button>
+        )}
+        <Button
+          onClick={() => void onOpenDesktopWeb()}
+          disabled={isOpeningDesktopWeb}
+          className="flex-1 cursor-pointer"
+        >
+          {isOpeningDesktopWeb
+            ? "Starting..."
+            : desktopWebStatus === "ready"
+              ? "Open In Web"
+              : "Start Web"}
+          <ExternalLink className="size-4" />
+        </Button>
+      </div>
+
+      {isTunnelConnectorRunning && activeTunnelConnectors.length > 0 && (
+        <>
+          <div className="border-t border-border" />
+          <div className="space-y-2">
+            {activeTunnelConnectors.map((tunnel) => (
+              <TunnelItem
+                key={tunnel.provider}
+                status={tunnel}
+                onRenew={(ttlSecs, reuseToken) =>
+                  tunnel.provider
+                    ? renewTunnelConnector(tunnel.provider, ttlSecs, reuseToken).then(() => {})
+                    : Promise.resolve()
+                }
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function HeaderActionControls({
   actionMenuFocusRef,
-  activeRemoteTunnels,
+  activeTunnelConnectors,
   browserUrl,
   desktopWebPopoverOpen,
   desktopWebStatus,
@@ -103,7 +531,7 @@ export function HeaderActionControls({
   isDesktopRuntime,
   isFullScreenActive,
   isOpeningDesktopWeb,
-  isRemoteAccessRunning,
+  isTunnelConnectorRunning,
   isRightCollapsed,
   isUsagePopoverOpen,
   layout,
@@ -111,9 +539,9 @@ export function HeaderActionControls({
   onCloseAutoFocusPrevent,
   onOpenDesktopWeb,
   refreshDesktopWebStatus,
-  refreshRemoteAccessStatus,
-  remoteAccessDotColor,
-  renewRemoteAccess,
+  refreshTunnelConnectorStatus,
+  tunnelConnectorDotColor,
+  renewTunnelConnector,
   resolvedThemeLabel,
   setAgentChatOpen,
   setDesktopWebPopoverOpen,
@@ -122,7 +550,7 @@ export function HeaderActionControls({
   setIsSettingsOpen,
   setIsTokenUsageOpen,
   setIsUsagePopoverOpen,
-  setRemoteAccessSettingsOpen,
+  setRemoteAccessSettingsSection,
   setTheme,
   showRightSidebar,
   theme,
@@ -157,7 +585,7 @@ export function HeaderActionControls({
                 setDesktopWebPopoverOpen(open);
                 if (open) {
                   void refreshDesktopWebStatus();
-                  void refreshRemoteAccessStatus();
+                  void refreshTunnelConnectorStatus();
                 }
               }}
             >
@@ -165,20 +593,14 @@ export function HeaderActionControls({
                 <button
                   aria-label="Open in Web"
                   className="relative size-8 flex items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-out hover:bg-accent hover:text-accent-foreground"
-                  title={
-                    isRemoteAccessRunning
-                      ? "Tunnel active"
-                      : desktopWebStatus === "ready"
-                        ? "Open in Web"
-                        : "Start Web"
-                  }
+                  title="Remote Access"
                 >
                   <Globe className="size-4" />
-                  {isRemoteAccessRunning && (
+                  {isTunnelConnectorRunning && (
                     <span
                       className={cn(
                         "absolute right-1 top-1 size-2 rounded-full ring-1 ring-background",
-                        remoteAccessDotColor,
+                        tunnelConnectorDotColor,
                       )}
                     />
                   )}
@@ -187,87 +609,20 @@ export function HeaderActionControls({
               <PopoverContent
                 align="end"
                 sideOffset={8}
-                className="w-80 max-h-[70vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
+                className="w-[420px] max-w-[calc(100vw-24px)] max-h-[76vh] overflow-y-auto p-3 bg-popover border border-border shadow-md"
               >
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "size-2 rounded-full",
-                          desktopWebStatus === "ready"
-                            ? "bg-success"
-                            : desktopWebStatus === "checking"
-                              ? "bg-warning"
-                              : "bg-muted-foreground/50",
-                        )}
-                      />
-                      <p className="text-sm font-medium text-popover-foreground">
-                        {desktopWebStatus === "ready"
-                          ? "Web access is ready"
-                          : "Browser access via sidecar"}
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {desktopWebStatus === "ready"
-                        ? "Open the current page in your browser using the desktop sidecar URL, with the same API port to avoid cross-origin mismatches."
-                        : "Use the local sidecar URL in your browser. Once the sidecar finishes warming up, the same page will open there."}
-                    </p>
-                  </div>
-
-                  {browserUrl ? (
-                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 font-mono text-[11px] text-muted-foreground break-all">
-                      {browserUrl}
-                    </div>
-                  ) : null}
-
-                  <div className="flex items-center gap-2">
-                    {!isRemoteAccessRunning && (
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setDesktopWebPopoverOpen(false);
-                          setRemoteAccessSettingsOpen(true);
-                          void setIsSettingsOpen(true);
-                        }}
-                        className="cursor-pointer"
-                      >
-                        Remote Access
-                      </Button>
-                    )}
-                    <Button
-                      onClick={() => void onOpenDesktopWeb()}
-                      disabled={isOpeningDesktopWeb}
-                      className="flex-1 cursor-pointer"
-                    >
-                      {isOpeningDesktopWeb
-                        ? "Starting..."
-                        : desktopWebStatus === "ready"
-                          ? "Open In Web"
-                          : "Start Web"}
-                      <ExternalLink className="size-4" />
-                    </Button>
-                  </div>
-
-                  {isRemoteAccessRunning && activeRemoteTunnels.length > 0 && (
-                    <>
-                      <div className="border-t border-border" />
-                      <div className="space-y-2">
-                        {activeRemoteTunnels.map((tunnel) => (
-                          <TunnelItem
-                            key={tunnel.provider}
-                            status={tunnel}
-                            onRenew={(ttlSecs, reuseToken) =>
-                              tunnel.provider
-                                ? renewRemoteAccess(tunnel.provider, ttlSecs, reuseToken).then(() => {})
-                                : Promise.resolve()
-                            }
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <RemoteAccessPopover
+                  activeTunnelConnectors={activeTunnelConnectors}
+                  browserUrl={browserUrl}
+                  desktopWebStatus={desktopWebStatus}
+                  isOpeningDesktopWeb={isOpeningDesktopWeb}
+                  isTunnelConnectorRunning={isTunnelConnectorRunning}
+                  onOpenDesktopWeb={onOpenDesktopWeb}
+                  renewTunnelConnector={renewTunnelConnector}
+                  setDesktopWebPopoverOpen={setDesktopWebPopoverOpen}
+                  setIsSettingsOpen={setIsSettingsOpen}
+                  setRemoteAccessSettingsSection={setRemoteAccessSettingsSection}
+                />
               </PopoverContent>
             </Popover>
           </>

@@ -485,7 +485,7 @@ atmos/
 | **Git 操作** | git2-rs | 编程式 Git 控制 | worktree 管理、提交 |
 | **Patch 应用** | patch-apply-rs/patch | Diff 接受/拒绝 | 精确 patch 应用 |
 | **HTTP 服务** | Axum Router | RESTful API | CORS、日志、错误处理 |
-| **内网穿透** | localtunnel | 远程访问 | 快速隧道建立 |
+| **内网穿透** | localtunnel | 隧道连接器 | 快速隧道建立 |
 
 ### 数据存储
 
@@ -839,7 +839,7 @@ Axum 路由与 WebSocket Handler
 
 - ATMOS CLI (`atmos`) 开发，让大模型远程控制 workspace。
 - Tauri 桌面端集成，共享 Web 前端代码。
-- 内网穿透（localtunnel），远程访问 UI 和 Agent。
+- 内网穿透（localtunnel），隧道连接器 UI 和 Agent。
 - 一键唤起外部 IDE（VS Code、Zed、Cursor、IDEA）。
 - `packages/i18n` 国际化支持。
 

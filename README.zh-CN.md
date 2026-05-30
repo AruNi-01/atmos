@@ -17,7 +17,7 @@ Atmos 截图
 - **全局搜索/操作控制面板** — 键盘驱动的工作流，快速搜索与执行 Atmos 功能。
 - **用量分析看板** — AI 编码订阅额度跟踪、各 Agent Token 消耗与费用预估。
 - **Agent 状态通知** — 基于钩子的状态监控，支持原生通知与自托管推送服务。
-- **跨平台与远程访问** — Web 与桌面应用，移动端（规划中），集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel）。
+- **跨平台与隧道连接器** — Web 与桌面应用，移动端（规划中），集成内网穿透（Ngrok/Tailscale/Cloudflare Tunnel）。
 - **Kanban 视图** - 在 Kanban 视图中快捷管理 Workspace 的状态、优先级、标签等信息。
 - **Canvas** — 跨项目的无限画布：把任意工作区/项目的终端会话固定为卡片，在同一张持久化画板上排布；Code Agent 可操作画布，画示意图、便签与布局，无需离开 Agent 工作流。
 - **Atmos Computer** — 将 VPS 或任意机器注册到 Atmos Register Center，随后在 Desktop、Web 中一键切换并连接，在该 Computer 上使用终端、工作区与 Canvas 等，无论设备部署在何处，都可使用你的 Atmos 运行环境。

@@ -1,4 +1,4 @@
-# PRD · APP-012: Remote Access
+# PRD · APP-012: Tunnel Connector
 
 > Product Requirements · WHAT and WHY.
 

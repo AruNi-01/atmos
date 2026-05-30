@@ -36,19 +36,19 @@ export const changelogData: ChangelogItem[] = [
   {
     id: "desktop-v1.0.0",
     title: {
-      zh: "首个正式大版本：远程访问 · Agent 实时同步 · 文件树 Git 状态",
-      en: "Remote Access, Real-Time Agent Sync & Live Git File Tree",
+      zh: "首个正式大版本：隧道连接器 · Agent 实时同步 · 文件树 Git 状态",
+      en: "Tunnel Connector, Real-Time Agent Sync & Live Git File Tree",
     },
     description: {
-      zh: "Atmos 1.0.0 是首个正式大版本。本次发布带来了桌面远程访问、全 UI 实时 Agent 状态同步、带 Git 状态的实时文件树、顶栏分支同步显示，以及大量稳定性和交互打磨。",
-      en: "Atmos 1.0.0 is our first major release. It brings remote access to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements.",
+      zh: "Atmos 1.0.0 是首个正式大版本。本次发布带来了桌面隧道连接器、全 UI 实时 Agent 状态同步、带 Git 状态的实时文件树、顶栏分支同步显示，以及大量稳定性和交互打磨。",
+      en: "Atmos 1.0.0 is our first major release. It brings Tunnel Connector to your desktop, real-time agent state tracking across the entire UI, a live file tree with Git status, branch sync visibility in the top bar, and a range of reliability and polish improvements.",
     },
     date: "2026-04-06",
     version: "1.0.0",
     releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v1.0.0",
     image: "/changelog/v1.0.0_img.png",
     tags: [
-      { zh: "远程访问", en: "Remote Access" },
+      { zh: "隧道连接器", en: "Tunnel Connector" },
       { zh: "Agent", en: "Agent" },
       { zh: "文件树", en: "File Tree" },
       { zh: "Git", en: "Git" },
@@ -56,7 +56,7 @@ export const changelogData: ChangelogItem[] = [
     content: {
       zh: {
         features: [
-          "**远程访问** — 通过 Tailscale、Cloudflare Tunnel 或 ngrok 从任意位置连接你的 Atmos 桌面端，支持互联网访问和局域网可信 API。([#67](https://github.com/AruNi-01/atmos/pull/67)，关闭 [#26](https://github.com/AruNi-01/atmos/issues/26))",
+          "**隧道连接器** — 通过 Tailscale、Cloudflare Tunnel 或 ngrok 从任意位置连接你的 Atmos 桌面端，支持互联网访问和局域网可信 API。([#67](https://github.com/AruNi-01/atmos/pull/67)，关闭 [#26](https://github.com/AruNi-01/atmos/issues/26))",
           "**Agent Hooks 与实时状态同步** — Claude Code、Codex、OpenCode 的 Agent 生命周期事件（运行中、空闲、等待权限、完成）现在通过 hooks 实时同步到侧边栏、底栏和终端标签页。Agent 等待权限时会显示动态铃铛图标。([#63](https://github.com/AruNi-01/atmos/pull/63)，关闭 [#24](https://github.com/AruNi-01/atmos/issues/24)、[#25](https://github.com/AruNi-01/atmos/issues/25))",
           "**实时文件树与 Git 状态** — 文件树实时更新，并展示每个文件的 Git 状态标识（已修改、已新增、已删除），无需离开编辑器即可掌握改动全貌。",
           "**顶栏分支同步状态** — 顶栏实时显示当前分支是否领先、落后或与远程同步，随时掌握 Git 状态。([#66](https://github.com/AruNi-01/atmos/pull/66))",
@@ -65,7 +65,7 @@ export const changelogData: ChangelogItem[] = [
         fixes: [
           "**PTY 泄漏修复** — 修复页面刷新时终端 PTY 会话未正确释放的问题，现在使用稳定分组名称防止跨刷新积累。([#68](https://github.com/AruNi-01/atmos/pull/68)，关闭 [#64](https://github.com/AruNi-01/atmos/issues/64))",
           "**Agent 权限响应延迟与卡死** — 修复用户授权后 Claude Code 仍显示卡住的问题，权限回复处理更可靠，Agent 能及时恢复运行。",
-          "**远程访问 HTTPS 隧道连通性** — 修复 HTTPS 隧道连接问题，并新增 session 续期，在网络条件不佳时保持远程访问会话存活。",
+          "**隧道连接器 HTTPS 隧道连通性** — 修复 HTTPS 隧道连接问题，并新增 session 续期，在网络条件不佳时保持隧道连接器会话存活。",
           "**阻塞异步执行器与硬编码 Sidecar 端口** — 修复 sidecar 阻塞异步执行器的问题，并移除导致部分环境无法启动的硬编码端口。",
           "**Agent 对话面板透明度** — 恢复因重构误删的 Agent 对话面板透明度控制。",
           "**旋转图标对齐** — 修复用量和计时 UI 中旋转图标错位的问题。([#38](https://github.com/AruNi-01/atmos/issues/38))",
@@ -84,7 +84,7 @@ export const changelogData: ChangelogItem[] = [
       },
       en: {
         features: [
-          "**Remote Access** — Connect to your Atmos desktop from anywhere using Tailscale, Cloudflare Tunnel, or ngrok. Enable the built-in web service and share access over the internet or your local network, with opt-in LAN trust for the API. ([#67](https://github.com/AruNi-01/atmos/pull/67), closes [#26](https://github.com/AruNi-01/atmos/issues/26))",
+          "**Tunnel Connector** — Connect to your Atmos desktop from anywhere using Tailscale, Cloudflare Tunnel, or ngrok. Enable the built-in web service and share access over the internet or your local network, with opt-in LAN trust for the API. ([#67](https://github.com/AruNi-01/atmos/pull/67), closes [#26](https://github.com/AruNi-01/atmos/issues/26))",
           "**Agent Hooks & Real-Time State Sync** — Agent lifecycle events (running, idle, waiting for permission, complete) now flow through hooks for Claude Code, Codex, and OpenCode, keeping the sidebar, footer, and terminal tabs in sync in real time. An animated bell icon appears when an agent is waiting for your permission. ([#63](https://github.com/AruNi-01/atmos/pull/63), closes [#24](https://github.com/AruNi-01/atmos/issues/24), [#25](https://github.com/AruNi-01/atmos/issues/25))",
           "**Live File Tree with Git Status** — The file tree updates in real time and shows live Git status indicators so you can see which files have been modified, added, or deleted without leaving the editor pane.",
           "**Branch Sync Status in Top Bar** — The top bar now shows whether your current branch is ahead, behind, or in sync with its remote, giving you a quick read on your Git state at all times. ([#66](https://github.com/AruNi-01/atmos/pull/66))",
@@ -93,7 +93,7 @@ export const changelogData: ChangelogItem[] = [
         fixes: [
           "**PTY Leak on Page Refresh** — Fixed a leak where terminal PTY sessions were not properly released on page refresh. Sessions now use stable grouped names to prevent accumulation across reloads. ([#68](https://github.com/AruNi-01/atmos/pull/68), closes [#64](https://github.com/AruNi-01/atmos/issues/64))",
           "**Agent Permission Latency & Stuck State** — Resolved a bug where Claude Code would appear stuck after the user granted a permission prompt. Permission reply handling is now more reliable and the agent resumes promptly.",
-          "**Remote Access HTTPS Tunnel Connectivity** — Fixed connectivity issues with HTTPS tunnels and added session renewal to keep remote access sessions alive under adverse network conditions.",
+          "**Tunnel Connector HTTPS Tunnel Connectivity** — Fixed connectivity issues with HTTPS tunnels and added session renewal to keep Tunnel Connector sessions alive under adverse network conditions.",
           "**Blocking Async Executor & Hardcoded Sidecar Port** — Fixed a case where the sidecar was blocking the async executor and removed a hardcoded port that prevented the sidecar from starting in some environments.",
           "**Agent Chat Panel Opacity** — Restored opacity control for the agent chat panel that was inadvertently removed in a prior refactor.",
           "**Spinning Icon Alignment** — Corrected misaligned spinner icons in the usage and timer UI. ([#38](https://github.com/AruNi-01/atmos/issues/38))",
