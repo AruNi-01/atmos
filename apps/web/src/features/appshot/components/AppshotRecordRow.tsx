@@ -27,15 +27,19 @@ export function AppshotRecordRow({
 }: AppshotRecordRowProps) {
   const summary = summarizeAppshotRecord(record);
   const disabled = deleting || copying;
-  const headline =
+  const previewLabel =
     summary.title && summary.title !== summary.appLabel
       ? `${summary.appLabel} - ${summary.title}`
       : summary.appLabel;
+  const windowLabel =
+    summary.title && summary.title !== summary.appLabel
+      ? summary.title
+      : "Untitled window";
 
   return (
     <div
       className={cn(
-        "grid h-[88px] grid-cols-[96px_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-muted/20",
+        "grid h-[72px] grid-cols-[96px_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-muted/20",
         deleting && "opacity-60",
       )}
     >
@@ -44,13 +48,13 @@ export function AppshotRecordRow({
           <button
             type="button"
             className="block h-full w-full cursor-zoom-in overflow-hidden"
-            aria-label={`Preview screenshot for ${headline}`}
+            aria-label={`Preview screenshot for ${previewLabel}`}
             onClick={() => onPreview(record)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- Appshot thumbnails are local Tauri data URLs, not remote optimized assets. */}
             <img
               src={record.snapshot_url}
-              alt={`Screenshot preview for ${headline}`}
+              alt={`Screenshot preview for ${previewLabel}`}
               className="h-full w-full object-cover"
               draggable={false}
             />
@@ -62,43 +66,45 @@ export function AppshotRecordRow({
         )}
       </div>
 
-      <div className="flex min-w-0 flex-col px-3 py-2">
-        <div className="flex min-w-0 items-start gap-2">
+      <div className="flex min-w-0 flex-col justify-center gap-1 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
           <p className="min-w-0 flex-1 truncate text-xs font-medium text-popover-foreground">
-            {headline}
+            {summary.appLabel}
           </p>
           <span className="shrink-0 text-[10px] leading-4 text-muted-foreground">
             {summary.capturedAtLabel}
           </span>
         </div>
-        <p className="mt-1 line-clamp-2 min-h-0 whitespace-pre-wrap text-[11px] leading-4 text-muted-foreground">
-          {record.context_preview || "No text context was captured."}
-        </p>
-        <div className="mt-auto flex justify-end gap-1 pt-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            disabled={disabled}
-            title={copied ? "Copied" : "Copy Appshot reference"}
-            aria-label={copied ? "Copied Appshot reference" : "Copy Appshot reference"}
-            onClick={() => onCopy(record.timestamp)}
-            className="cursor-pointer"
-          >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            disabled={disabled}
-            title="Delete Appshot record"
-            aria-label="Delete Appshot record"
-            onClick={() => onDelete(record.timestamp)}
-            className="cursor-pointer text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="size-3" />
-          </Button>
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-[11px] leading-4 text-muted-foreground">
+            {windowLabel}
+          </p>
+          <div className="flex shrink-0 gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              disabled={disabled}
+              title={copied ? "Copied" : "Copy Appshot reference"}
+              aria-label={copied ? "Copied Appshot reference" : "Copy Appshot reference"}
+              onClick={() => onCopy(record.timestamp)}
+              className="cursor-pointer"
+            >
+              {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              disabled={disabled}
+              title="Delete Appshot record"
+              aria-label="Delete Appshot record"
+              onClick={() => onDelete(record.timestamp)}
+              className="cursor-pointer text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="size-3" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

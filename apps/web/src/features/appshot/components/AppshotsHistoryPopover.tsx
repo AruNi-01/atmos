@@ -272,8 +272,7 @@ export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
             className="mx-1 align-middle"
             keyClassName="h-4 min-w-4 rounded px-1 text-[9px]"
           />
-          , review the preview, then copy a local Appshot reference for agents
-          to read from disk.
+          , review the preview, then copy a local Appshot reference for agents to read.
         </p>
       </div>
 
