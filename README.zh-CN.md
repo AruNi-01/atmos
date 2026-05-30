@@ -37,16 +37,56 @@ Atmos 截图
 brew install --cask AruNi-01/tap/atmos
 ```
 
-### 如何开始使用
+### 桌面端（macOS 安装脚本）
 
-1. 先按你的系统下载安装 Atmos。
-2. 打开桌面端，创建或打开一个工作区。
-3. 连接项目后，就可以在同一界面里使用终端、Agent 和 GitHub 工作流。
+```bash
+curl -fsSL https://install.atmos.land/install-desktop.sh | bash
+```
+
+此安装器仅适用于 **macOS**（Intel & Apple Silicon）。它会下载并将 App 解压至 `/Applications`。
+
+**Linux/Windows** 用户请直接从 GitHub Releases 下载安装包：
+[https://github.com/AruNi-01/atmos/releases](https://github.com/AruNi-01/atmos/releases)
+
+### 本地 Web 运行时
+
+#### 方式一：安装脚本
+
+```bash
+curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
+```
+
+#### 方式二：npm/bun 包
+
+```bash
+# 使用 npm
+npx @atmos/local-web-runtime
+
+# 使用 bun
+bunx @atmos/local-web-runtime
+```
+
+### 快速上手
+
+#### 桌面端
+
+1. 通过 Homebrew 或安装脚本安装 Atmos。
+2. 启动桌面端，创建或打开一个工作区。
+3. 连接项目后，在同一界面中使用终端与 Agent。
+
+#### 本地 Web 运行时
+
+1. 通过安装脚本或 npm/bun 包安装。
+2. 运行时会自动启动（或手动执行 `~/.atmos/bin/atmos runtime ensure`）。
+3. 在浏览器中打开显示的 URL（默认：`http://127.0.0.1:30303`）。
+4. 创建工作区，开始使用 Agent。
 
 ### 从源码运行
 
+> **前置依赖**：[just](https://github.com/casey/just) — `brew install just`（macOS）/ `cargo install just`
+
 ```bash
-## 下载依赖
+## 安装依赖
 bun install
 cargo fetch
 
@@ -57,6 +97,19 @@ just dev-web
 # Desktop 运行
 just dev-web
 just dev-desktop
+```
+
+**不使用 `just` 时：**
+
+```bash
+# API
+cargo run --bin api -- --cleanup-stale-clients true
+
+# Web
+cd apps/web && bun x next dev --turbopack --port 3030
+
+# Desktop
+bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --no-watch --no-dev-server-wait --config src-tauri/tauri.debug.conf.json
 ```
 
 ## 许可证

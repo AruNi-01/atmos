@@ -22,12 +22,25 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const PREVIEW_EVENT: &str = "appshot://preview";
 
+pub fn start_trigger_listener(app: AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        macos::ensure_trigger_listener(app);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+    }
+}
+
 pub async fn status(app: AppHandle) -> Result<AppshotStatus, String> {
     #[cfg(target_os = "macos")]
     {
-        let _ = app;
+        macos::ensure_trigger_listener(app);
         let permissions = macos::permission_states();
-        let trigger = trigger_status(permissions.clone());
+        let (trigger_enabled, trigger_last_error) = macos::trigger_listener_status();
+        let trigger = trigger_status(permissions.clone(), trigger_enabled, trigger_last_error);
         return Ok(AppshotStatus {
             supported: true,
             platform: types::AppshotPlatform::Macos,
@@ -46,6 +59,8 @@ pub async fn status(app: AppHandle) -> Result<AppshotStatus, String> {
 
 fn trigger_status(
     permissions: Vec<crate::appshot::types::AppshotPermissionState>,
+    enabled: bool,
+    last_error: Option<String>,
 ) -> AppshotTriggerStatus {
     AppshotTriggerStatus {
         mode: if cfg!(target_os = "macos") {
@@ -53,17 +68,13 @@ fn trigger_status(
         } else {
             AppshotTriggerMode::Unsupported
         },
-        enabled: false,
+        enabled,
         required_modifiers: if cfg!(target_os = "macos") {
-            vec![
-                "function".to_string(),
-                "option".to_string(),
-                "command".to_string(),
-            ]
+            vec!["left_shift".to_string(), "right_shift".to_string()]
         } else {
             Vec::new()
         },
-        last_error: None,
+        last_error,
         permissions,
     }
 }

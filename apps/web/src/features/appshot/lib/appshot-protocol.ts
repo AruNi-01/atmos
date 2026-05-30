@@ -64,12 +64,12 @@ export function formatAppshotTimestamp(value: string): string {
     return value;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  const month = padDatePart(date.getMonth() + 1);
+  const day = padDatePart(date.getDate());
+  const hour = padDatePart(date.getHours());
+  const minute = padDatePart(date.getMinutes());
+
+  return `${month}-${day} ${hour}:${minute}`;
 }
 
 export function formatQualityLabel(quality: AppshotQuality): string {
@@ -93,4 +93,8 @@ function assertValidTimestamp(timestamp: string): void {
   if (!isValidAppshotTimestamp(timestamp)) {
     throw new Error("Invalid Appshot timestamp");
   }
+}
+
+function padDatePart(value: number): string {
+  return String(value).padStart(2, "0");
 }

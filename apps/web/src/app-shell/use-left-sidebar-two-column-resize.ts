@@ -29,6 +29,7 @@ export function useLeftSidebarTwoColumnResize({
     const previousExpandedLeftSidebarSizeRef = useRef<number | null>(null);
     const syncedCollapsedLeftSidebarSizeRef = useRef<number | null>(null);
     const previousTwoColumnPrimaryCollapsedRef = useRef(isTwoColumnPrimaryCollapsed);
+    const initializedTwoColumnLayoutKeyRef = useRef<string | null>(null);
     const isTwoColumnDividerDraggingRef = useRef(false);
     const pendingTwoColumnPrimarySizeRef = useRef<number | null>(null);
     const twoColumnPrimaryPanelRef = useRef<ImperativePanelHandle>(null);
@@ -97,6 +98,10 @@ export function useLeftSidebarTwoColumnResize({
             const panel = twoColumnPrimaryPanelRef.current;
             if (!panel) return;
             const collapsed = panel.isCollapsed();
+            if (initializedTwoColumnLayoutKeyRef.current !== twoColumnLayoutKey) {
+                initializedTwoColumnLayoutKeyRef.current = twoColumnLayoutKey;
+                previousTwoColumnPrimaryCollapsedRef.current = collapsed;
+            }
             setIsTwoColumnPrimaryCollapsed((prev) => (prev === collapsed ? prev : collapsed));
         });
         return () => cancelAnimationFrame(id);

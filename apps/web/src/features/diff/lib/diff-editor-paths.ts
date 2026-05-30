@@ -74,7 +74,7 @@ export function getFilesForDiffGroup(
     case 'unstaged':
       return pick(git.unstagedFiles);
     case 'untracked':
-      return git.compareRef ? [] : git.untrackedFiles;
+      return git.untrackedFiles;
     default:
       return [];
   }

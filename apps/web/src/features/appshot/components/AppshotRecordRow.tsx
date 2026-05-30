@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Button, cn } from "@workspace/ui";
+import { Button, cn } from "@workspace/ui";
 import { Check, Copy, ImageOff, Trash2 } from "lucide-react";
 
 import { summarizeAppshotRecord } from "../lib/appshot-protocol";
@@ -35,7 +35,7 @@ export function AppshotRecordRow({
   return (
     <div
       className={cn(
-        "grid h-[72px] grid-cols-[96px_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-muted/20",
+        "grid h-[88px] grid-cols-[96px_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-muted/20",
         deleting && "opacity-60",
       )}
     >
@@ -62,48 +62,44 @@ export function AppshotRecordRow({
         )}
       </div>
 
-      <div className="min-w-0 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <p className="min-w-0 truncate text-xs font-medium text-popover-foreground">
+      <div className="flex min-w-0 flex-col px-3 py-2">
+        <div className="flex min-w-0 items-start gap-2">
+          <p className="min-w-0 flex-1 truncate text-xs font-medium text-popover-foreground">
             {headline}
           </p>
-          <Badge
-            variant="outline"
-            className="h-5 shrink-0 rounded-md px-1.5 text-[10px] font-normal text-muted-foreground"
-          >
+          <span className="shrink-0 text-[10px] leading-4 text-muted-foreground">
             {summary.capturedAtLabel}
-          </Badge>
+          </span>
         </div>
-        <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] leading-4 text-muted-foreground">
+        <p className="mt-1 line-clamp-2 min-h-0 whitespace-pre-wrap text-[11px] leading-4 text-muted-foreground">
           {record.context_preview || "No text context was captured."}
         </p>
-      </div>
-
-      <div className="flex items-start gap-1 px-2 py-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={disabled}
-          title={copied ? "Copied" : "Copy Appshot reference"}
-          aria-label={copied ? "Copied Appshot reference" : "Copy Appshot reference"}
-          onClick={() => onCopy(record.timestamp)}
-          className="cursor-pointer"
-        >
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={disabled}
-          title="Delete Appshot record"
-          aria-label="Delete Appshot record"
-          onClick={() => onDelete(record.timestamp)}
-          className="cursor-pointer text-muted-foreground hover:text-destructive"
-        >
-          <Trash2 className="size-3" />
-        </Button>
+        <div className="mt-auto flex justify-end gap-1 pt-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            disabled={disabled}
+            title={copied ? "Copied" : "Copy Appshot reference"}
+            aria-label={copied ? "Copied Appshot reference" : "Copy Appshot reference"}
+            onClick={() => onCopy(record.timestamp)}
+            className="cursor-pointer"
+          >
+            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            disabled={disabled}
+            title="Delete Appshot record"
+            aria-label="Delete Appshot record"
+            onClick={() => onDelete(record.timestamp)}
+            className="cursor-pointer text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="size-3" />
+          </Button>
+        </div>
       </div>
     </div>
   );

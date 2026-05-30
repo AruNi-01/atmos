@@ -2,6 +2,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  formatAppshotTimestamp,
   formatAppshotPrompt,
   parseAppshotProtocol,
 } from "../lib/appshot-protocol";
@@ -28,5 +29,12 @@ describe("appshot protocol", () => {
         "Please inspect this:\natmos://appshots/1760000000000",
       ),
     ).toBeNull();
+  });
+
+  it("formats Appshot timestamps as MM-dd HH:mm", () => {
+    const localDate = new Date(2026, 0, 2, 3, 4);
+
+    expect(formatAppshotTimestamp(localDate.toISOString())).toBe("01-02 03:04");
+    expect(formatAppshotTimestamp(String(localDate.getTime()))).toBe("01-02 03:04");
   });
 });

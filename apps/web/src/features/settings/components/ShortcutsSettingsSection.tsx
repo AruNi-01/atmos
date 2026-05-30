@@ -88,7 +88,7 @@ export function ShortcutsSettingsSection() {
       <ShortcutGroup
         title="Appshots"
         shortcuts={[
-          { keys: ['Fn', '⌥', '⌘'], description: 'Capture the focused app as an Appshot' },
+          { keys: ['Left ⇧', 'Right ⇧'], description: 'Capture the focused app as an Appshot' },
         ]}
       />
       <ShortcutGroup

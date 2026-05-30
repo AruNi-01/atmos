@@ -153,7 +153,7 @@ function buildChipNode(token: string): HTMLSpanElement {
     const timestamp = token.slice("[#appshot:".length, -1);
     span.dataset.tooltip = `Appshot ${timestamp}`;
     span.className += " border-success/30 bg-success/10 text-success";
-    span.appendChild(buildMaskIcon("/icons/folders/images.svg"));
+    span.appendChild(buildMaskIcon("/icons/camera.svg"));
     const label = document.createElement("span");
     label.textContent = `Appshot · ${timestamp}`;
     span.appendChild(label);

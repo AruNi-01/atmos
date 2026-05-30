@@ -75,6 +75,7 @@ fn main() {
                 state.theme_ready.store(true, Ordering::SeqCst);
                 state.theme_ready_notify.notify_waiters();
             });
+            appshot::start_trigger_listener(app.handle().clone());
 
             if let (Some(main), Some(splash)) = (
                 app.get_webview_window("main"),

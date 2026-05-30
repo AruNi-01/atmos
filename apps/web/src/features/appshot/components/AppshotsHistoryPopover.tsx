@@ -37,7 +37,7 @@ type AppshotsHistoryPopoverProps = {
 
 const PAGE_SIZE = 10;
 const DETAIL_BATCH_SIZE = 3;
-const APPSHOT_CAPTURE_SHORTCUT_KEYS = ["Fn", "⌥", "⌘"];
+const APPSHOT_CAPTURE_SHORTCUT_KEYS = ["Left ⇧", "Right ⇧"];
 
 export function AppshotsHistoryPopover({ open }: AppshotsHistoryPopoverProps) {
   const [status, setStatus] = React.useState<AppshotStatus | null>(null);

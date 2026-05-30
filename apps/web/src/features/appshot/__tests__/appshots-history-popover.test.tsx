@@ -167,7 +167,7 @@ const desktopStatus: AppshotStatus = {
   trigger: {
     mode: "macos_modifier_gesture",
     enabled: true,
-    required_modifiers: ["fn", "option", "command"],
+    required_modifiers: ["left_shift", "right_shift"],
     last_error: null,
     permissions: [],
   },

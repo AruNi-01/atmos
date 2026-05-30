@@ -48,12 +48,6 @@ This installer is for **macOS only** (Intel & Apple Silicon). It downloads and e
 For **Linux/Windows**, download the installer directly from GitHub Releases:
 [https://github.com/AruNi-01/atmos/releases](https://github.com/AruNi-01/atmos/releases)
 
-Options:
-
-- `--version <tag>` - Install a specific release tag
-- `--archive <path>` - Install from a local .app.tar.gz archive
-- `--github-source` - Use GitHub Releases instead of custom domain
-
 ### Local Web Runtime
 
 #### Option 1: Install Script
@@ -61,15 +55,6 @@ Options:
 ```bash
 curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 ```
-
-Options:
-
-- `--version <tag>` - Install a specific release tag
-- `--install-dir <path>` - Custom install directory (default: `~/.atmos`)
-- `--port <port>` - Port for local runtime (default: `30303`)
-- `--no-start` - Install only, do not start
-- `--no-open` - Do not auto-open browser
-- `--github-source` - Use GitHub Releases instead of custom domain
 
 #### Option 2: npm/bun Package
 
@@ -98,6 +83,8 @@ bunx @atmos/local-web-runtime
 
 ### Run From Source
 
+> **Prerequisite**: [just](https://github.com/casey/just) — `brew install just` (macOS) / `cargo install just`
+
 ```bash
 ## Install
 bun install
@@ -112,6 +99,19 @@ just dev-web
 just dev-desktop
 ```
 
+**Or without `just`:**
+
+```bash
+# API
+cargo run --bin api -- --cleanup-stale-clients true
+
+# Web
+cd apps/web && bun x next dev --turbopack --port 3030
+
+# Desktop
+bash ./scripts/desktop/prepare-sidecar.sh && cd apps/desktop && bun run tauri dev --no-watch --no-dev-server-wait --config src-tauri/tauri.debug.conf.json
+```
+
 ## License
 
-MIT. See [LICENSE](./LICENSE).
+See [LICENSE](./LICENSE).

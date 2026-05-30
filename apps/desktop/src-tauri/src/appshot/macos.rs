@@ -1,3 +1,5 @@
+#[path = "macos/accessibility.rs"]
+mod accessibility;
 #[path = "macos/frontmost.rs"]
 mod frontmost;
 #[path = "macos/model.rs"]
@@ -6,6 +8,8 @@ mod model;
 mod permissions;
 #[path = "macos/process.rs"]
 mod process;
+#[path = "macos/trigger.rs"]
+mod trigger;
 
 use crate::appshot::types::{
     AppshotPermissionState, AppshotPlatform, AppshotQuality, AppshotScreenshotMetadata,
@@ -16,21 +20,39 @@ use std::fs;
 use std::process::Command;
 use std::time::Duration;
 
-const ACCESSIBILITY_TREE_TIMEOUT_MS: u64 = 6_000;
-const ACCESSIBILITY_TREE_NODE_LIMIT: u16 = 180;
-const ACCESSIBILITY_TREE_DEPTH_LIMIT: u8 = 5;
-const ACCESSIBILITY_TREE_CHILD_LIMIT: u8 = 24;
+const ACCESSIBILITY_TREE_TIMEOUT_MS: u64 = 25_000;
+const ACCESSIBILITY_TREE_NODE_LIMIT: u16 = 8_000;
+const ACCESSIBILITY_TREE_DEPTH_LIMIT: u8 = 32;
+const ACCESSIBILITY_TREE_CHILD_LIMIT: u16 = 250;
 const SCREENSHOT_TIMEOUT_MS: u64 = 2_500;
-const ACCESSIBILITY_REDACTION_TERMS: &[&str] = &["secure", "Secure", "password", "Password"];
-const ACCESSIBILITY_REDACTION_FIELDS: &[&str] =
-    &["roleText", "nameText", "descriptionText", "valueText"];
+const ACCESSIBILITY_CONTEXT_LIMIT_BYTES: usize = 160 * 1024;
+const ACCESSIBILITY_REDACTION_TERMS: &[&str] = &[
+    "secure", "Secure", "password", "Password", "secret", "Secret", "token", "Token",
+];
+const ACCESSIBILITY_REDACTION_FIELDS: &[&str] = &[
+    "roleText",
+    "roleDescriptionText",
+    "nameText",
+    "titleText",
+    "descriptionText",
+    "valueText",
+    "helpText",
+];
 use frontmost::{read_frontmost_window, read_frontmost_window_native};
 use model::{window_bounds, FrontmostWindow};
 use permissions::{accessibility_granted, screen_recording_granted};
-use process::{run_command_output, run_osascript, truncate_bytes};
+use process::{run_command_output, truncate_bytes};
 
 pub fn permission_states() -> Vec<AppshotPermissionState> {
     permissions::permission_states()
+}
+
+pub fn ensure_trigger_listener(app: tauri::AppHandle) {
+    trigger::ensure_listener(app)
+}
+
+pub fn trigger_listener_status() -> (bool, Option<String>) {
+    trigger::listener_status()
 }
 
 pub fn open_settings(target: AppshotSettingsTarget) -> Result<(), String> {
@@ -116,7 +138,7 @@ fn capture_frontmost_blocking() -> Result<CapturedAppshot, String> {
         capture_screenshot(&frontmost);
     warnings.append(&mut screenshot_warnings);
     let screenshot_dimensions = png_dimensions(&screenshot_png);
-    let accessibility_tree = match read_accessibility_tree() {
+    let accessibility_tree = match read_accessibility_tree(&frontmost) {
         Ok(tree) if !tree.trim().is_empty() => tree,
         Ok(_) => {
             warnings.push("Accessibility tree was empty.".to_string());
@@ -170,102 +192,28 @@ fn capture_frontmost_blocking() -> Result<CapturedAppshot, String> {
     })
 }
 
-fn read_accessibility_tree() -> Result<String, String> {
+fn read_accessibility_tree(frontmost: &FrontmostWindow) -> Result<String, String> {
     if !accessibility_granted() {
         return Err("Accessibility permission is required to read UI structure.".to_string());
     }
-    let redaction_condition = accessibility_redaction_condition();
-    let script = format!(
-        r#"
-property nodeCount : 0
-property nodeLimit : {ACCESSIBILITY_TREE_NODE_LIMIT}
-property depthLimit : {ACCESSIBILITY_TREE_DEPTH_LIMIT}
-property childLimit : {ACCESSIBILITY_TREE_CHILD_LIMIT}
+    let config = accessibility::AccessibilityCaptureConfig {
+        timeout: Duration::from_millis(ACCESSIBILITY_TREE_TIMEOUT_MS),
+        node_limit: ACCESSIBILITY_TREE_NODE_LIMIT as usize,
+        depth_limit: ACCESSIBILITY_TREE_DEPTH_LIMIT as usize,
+        child_limit: ACCESSIBILITY_TREE_CHILD_LIMIT as usize,
+        byte_limit: ACCESSIBILITY_CONTEXT_LIMIT_BYTES,
+        redaction_terms: ACCESSIBILITY_REDACTION_TERMS,
+    };
+    accessibility::capture_accessibility_tree(frontmost.process_id, &frontmost.app_name, config)
+}
 
-on replaceText(findText, replaceTextValue, inputText)
-  set oldDelimiters to AppleScript's text item delimiters
-  set AppleScript's text item delimiters to findText
-  set textItems to text items of inputText
-  set AppleScript's text item delimiters to replaceTextValue
-  set outputText to textItems as text
-  set AppleScript's text item delimiters to oldDelimiters
-  return outputText
-end replaceText
-
-on cleanText(valueText)
-  try
-    if valueText is missing value then return ""
-    set outputText to valueText as text
-    set outputText to my replaceText(linefeed, " ", outputText)
-    set outputText to my replaceText(return, " ", outputText)
-    if length of outputText > 140 then set outputText to text 1 thru 140 of outputText
-    return outputText
-  on error
-    return ""
-  end try
-end cleanText
-
-on dumpElement(uiElement, depth)
-  if depth > depthLimit then return ""
-  if nodeCount > nodeLimit then return ""
-  set nodeCount to nodeCount + 1
-  set indent to ""
-  repeat depth times
-    set indent to indent & "  "
-  end repeat
-  set roleText to ""
-  set nameText to ""
-  set descriptionText to ""
-  set valueText to ""
-  try
-    tell application "System Events" to set roleText to my cleanText(role of uiElement)
-  end try
-  try
-    tell application "System Events" to set nameText to my cleanText(name of uiElement)
-  end try
-  try
-    tell application "System Events" to set descriptionText to my cleanText(description of uiElement)
-  end try
-  try
-    tell application "System Events" to set valueText to my cleanText(value of uiElement)
-  end try
-  if {redaction_condition} then
-    set valueText to "[redacted]"
-  end if
-  set lineText to indent & "- " & roleText
-  if nameText is not "" then set lineText to lineText & " \"" & nameText & "\""
-  if valueText is not "" and valueText is not nameText then set lineText to lineText & " = " & valueText
-  if descriptionText is not "" and descriptionText is not nameText then set lineText to lineText & " (" & descriptionText & ")"
-  set outputText to lineText & linefeed
-  try
-    tell application "System Events" to set childItems to UI elements of uiElement
-    set childCount to 0
-    repeat with childItem in childItems
-      set childCount to childCount + 1
-      if childCount > childLimit then exit repeat
-      set outputText to outputText & my dumpElement(childItem, depth + 1)
-      if nodeCount > nodeLimit then exit repeat
-    end repeat
-  end try
-  return outputText
-end dumpElement
-
-tell application "System Events"
-  set frontApp to first application process whose frontmost is true
-  try
-    return my dumpElement(front window of frontApp, 0)
-  on error
-    return my dumpElement(frontApp, 0)
-  end try
-end tell
-"#
-    );
-    let raw = run_osascript(
-        &script,
-        Duration::from_millis(ACCESSIBILITY_TREE_TIMEOUT_MS),
-        "accessibility tree capture",
-    )?;
-    Ok(truncate_bytes(&raw, 24 * 1024))
+fn truncate_context_with_marker(text: &str, limit: usize, marker: &str) -> String {
+    if text.len() <= limit {
+        return text.to_string();
+    }
+    let suffix = format!("\n\n{marker}\n");
+    let body_limit = limit.saturating_sub(suffix.len());
+    format!("{}{}", truncate_bytes(text, body_limit), suffix)
 }
 
 fn accessibility_redaction_condition() -> String {
@@ -385,7 +333,7 @@ fn build_context_markdown(
     }
     out.push_str(&format!("- Captured at: {}\n", captured_at));
     out.push_str(&format!("- Quality: {:?}\n\n", quality));
-    out.push_str("## Accessibility Tree\n\n");
+    out.push_str("## Visible Text Context\n\n");
     out.push_str(accessibility_tree.trim());
     out.push_str("\n\n## Warnings\n\n");
     if warnings.is_empty() {
@@ -397,7 +345,11 @@ fn build_context_markdown(
             out.push('\n');
         }
     }
-    truncate_bytes(&out, 28 * 1024)
+    truncate_context_with_marker(
+        &out,
+        ACCESSIBILITY_CONTEXT_LIMIT_BYTES + 8 * 1024,
+        "[truncated: context.md byte limit reached]",
+    )
 }
 
 fn png_dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
