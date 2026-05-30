@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { DEFAULT_LEFT_SIDEBAR_SIZE } from "@/app-shell/sidebar-layout-constants";
 
 type ToggleFn = () => void;
 
@@ -28,7 +29,7 @@ export function SidebarLayoutProvider({ children }: { children: React.ReactNode 
   const [isLeftCollapsed, setIsLeftCollapsed] = React.useState(false);
   const [isRightCollapsed, setIsRightCollapsed] = React.useState(false);
   const [showRightSidebar, setShowRightSidebar] = React.useState(false);
-  const [leftSidebarSize, setLeftSidebarSize] = React.useState(20);
+  const [leftSidebarSize, setLeftSidebarSize] = React.useState(DEFAULT_LEFT_SIDEBAR_SIZE);
   const [requestedLeftSidebarSize, setRequestedLeftSidebarSize] = React.useState<number | null>(null);
   const [toggleLeftSidebarImpl, setToggleLeftSidebar] = React.useState<ToggleFn | null>(null);
   const [toggleRightSidebarImpl, setToggleRightSidebar] = React.useState<ToggleFn | null>(null);

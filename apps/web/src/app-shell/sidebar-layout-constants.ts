@@ -1,0 +1,3 @@
+export const ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID = "root-sidebar-layout-v3";
+export const DEFAULT_LEFT_SIDEBAR_SIZE = 25;
+export const DEFAULT_COLLAPSED_TWO_COLUMN_LEFT_SIDEBAR_SIZE = 15;
