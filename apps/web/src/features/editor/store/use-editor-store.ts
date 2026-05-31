@@ -48,6 +48,12 @@ export {
   isReviewGroupEditorPath,
 } from './editor-store-paths';
 
+const pendingFileSaves = new Map<string, Promise<void>>();
+
+function getSaveKey(workspaceId: string, path: string): string {
+  return `${workspaceId}\0${path}`;
+}
+
 export const useEditorStore = create<EditorStore>()((set, get) => ({
       workspaceStates: {},
       navigationTargets: {},
@@ -622,12 +628,21 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
       saveFile: async (path, workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
         if (!id) return;
+        const saveKey = getSaveKey(id, path);
+        const pendingSave = pendingFileSaves.get(saveKey);
+        if (pendingSave) {
+          await pendingSave;
+          await get().saveFile(path, id);
+          return;
+        }
+
         const ws = get().workspaceStates[id];
         const file = ws?.openFiles.find(f => f.path === path);
         if (!file || !file.isDirty) return;
+        const savedContent = file.content;
 
-        try {
-          await fsApi.writeFile(getEditorSourcePath(path), file.content);
+        const savePromise = (async () => {
+          await fsApi.writeFile(getEditorSourcePath(path), savedContent);
           set((state) => {
             const currentWs = state.workspaceStates[id];
             return {
@@ -635,14 +650,30 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
                 ...state.workspaceStates,
                 [id]: {
                   ...currentWs,
-                  openFiles: currentWs.openFiles.map(f => f.path === path ? { ...f, originalContent: f.content, isDirty: false } : f)
+                  openFiles: currentWs.openFiles.map(f => (
+                    f.path === path
+                      ? {
+                          ...f,
+                          originalContent: savedContent,
+                          isDirty: f.content !== savedContent,
+                        }
+                      : f
+                  ))
                 }
               }
             };
           });
+        })();
+
+        pendingFileSaves.set(saveKey, savePromise);
+
+        try {
+          await savePromise;
         } catch (error) {
           console.error('Failed to save file:', error);
           throw error;
+        } finally {
+          pendingFileSaves.delete(saveKey);
         }
       },
 

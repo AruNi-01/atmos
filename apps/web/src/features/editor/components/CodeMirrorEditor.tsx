@@ -5,7 +5,6 @@ import { flushSync } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import { EditorView } from '@codemirror/view';
 import { openSearchPanel } from '@codemirror/search';
-import { useHotkeys } from 'react-hotkeys-hook';
 import {
   cn,
   Popover,
@@ -429,15 +428,6 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   const handleEditorChange = useCallback((value: string) => {
     updateFileContent(file.path, value, effectiveContextId || undefined);
   }, [effectiveContextId, file.path, updateFileContent]);
-
-  // Global save hotkey (Cmd/Ctrl + S)
-  useHotkeys('mod+s', (e) => {
-    e.preventDefault();
-    handleSave();
-  }, {
-    enableOnFormTags: true,
-    enableOnContentEditable: true,
-  }, [handleSave]);
 
   const toolbarIconBtnClass =
     'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none';
