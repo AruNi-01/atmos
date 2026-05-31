@@ -13,8 +13,8 @@ import {
   CircleCheck,
   CircleMinus,
   CircleX,
-  Download,
   LoaderCircle,
+  PlugZap,
   Trash2,
   Webhook,
 } from 'lucide-react';
@@ -35,6 +35,8 @@ interface AgentHookInstallReport {
   kiro: AgentHookToolStatus;
   opencode: AgentHookToolStatus;
   ampcode: AgentHookToolStatus;
+  pi: AgentHookToolStatus;
+  hermes: AgentHookToolStatus;
 }
 
 const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
@@ -46,6 +48,8 @@ const HOOK_TOOL_META: { key: keyof AgentHookInstallReport; label: string }[] = [
   { key: 'kiro', label: 'Kiro' },
   { key: 'opencode', label: 'OpenCode' },
   { key: 'ampcode', label: 'AMP' },
+  { key: 'pi', label: 'Pi' },
+  { key: 'hermes', label: 'Hermes Agent' },
 ];
 
 export function AgentHookStatusCard() {
@@ -158,8 +162,14 @@ export function AgentHookStatusCard() {
           </div>
         </CollapsibleTrigger>
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={handleInstallAll} disabled={acting || loading}>
-            {acting ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <Download className="size-4" />}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleInstallAll}
+            disabled={acting || loading}
+            title="Install detected agent hooks"
+          >
+            {acting ? <LoaderCircle className="size-4 animate-spin-reverse" /> : <PlugZap className="size-4" />}
             Install All
           </Button>
           {anyInstalled && (
@@ -169,6 +179,7 @@ export function AgentHookStatusCard() {
               onClick={handleUninstallAll}
               disabled={acting || loading}
               className="text-destructive hover:text-destructive"
+              title="Uninstall managed agent hooks"
             >
               <Trash2 className="size-4" />
               Uninstall All
@@ -224,6 +235,8 @@ export function AgentHookStatusCard() {
                             className="size-6 text-destructive hover:text-destructive"
                             disabled={isBusy || acting}
                             onClick={() => handleUninstallTool(key)}
+                            aria-label={`Uninstall ${label} hooks`}
+                            title={`Uninstall ${label} hooks`}
                           >
                             {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <Trash2 className="size-3" />}
                           </Button>
@@ -234,8 +247,10 @@ export function AgentHookStatusCard() {
                             className="size-6 text-emerald-500 hover:text-emerald-500"
                             disabled={isBusy || acting}
                             onClick={() => handleInstallTool(key)}
+                            aria-label={`Install ${label} hooks`}
+                            title={`Install ${label} hooks`}
                           >
-                            {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <Download className="size-3" />}
+                            {isBusy ? <LoaderCircle className="size-3 animate-spin-reverse" /> : <PlugZap className="size-3" />}
                           </Button>
                         )
                       )}

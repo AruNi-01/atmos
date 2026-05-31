@@ -145,7 +145,7 @@ fn spawn_non_critical_startup_tasks(
     tokio::task::spawn_blocking(move || {
         let report = core_engine::agent_hooks::install_all_hooks(api_port);
         tracing::info!(
-            "Agent hooks auto-install: claude_code={}, codex={}, opencode={}",
+            "Agent hooks auto-install: claude_code={}, codex={}, opencode={}, pi={}, hermes={}",
             if report.claude_code.installed {
                 "installed"
             } else {
@@ -157,6 +157,16 @@ fn spawn_non_critical_startup_tasks(
                 "skipped"
             },
             if report.opencode.installed {
+                "installed"
+            } else {
+                "skipped"
+            },
+            if report.pi.installed {
+                "installed"
+            } else {
+                "skipped"
+            },
+            if report.hermes.installed {
                 "installed"
             } else {
                 "skipped"

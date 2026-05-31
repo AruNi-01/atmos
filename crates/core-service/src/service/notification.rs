@@ -23,6 +23,8 @@ pub struct NotificationSettings {
     pub browser_notification: bool,
     #[serde(default)]
     pub desktop_notification: bool,
+    #[serde(default)]
+    pub app_toast_notification: bool,
     #[serde(default = "default_true")]
     pub notify_on_permission_request: bool,
     #[serde(default = "default_true")]
@@ -40,6 +42,7 @@ impl Default for NotificationSettings {
         Self {
             browser_notification: false,
             desktop_notification: false,
+            app_toast_notification: false,
             notify_on_permission_request: true,
             notify_on_task_complete: true,
             notify_on_automation_outcome: true,
@@ -435,6 +438,8 @@ fn tool_display_name(tool: &AgentToolType) -> &'static str {
         AgentToolType::Kiro => "Kiro",
         AgentToolType::Opencode => "OpenCode",
         AgentToolType::Ampcode => "AMP",
+        AgentToolType::Pi => "Pi",
+        AgentToolType::Hermes => "Hermes",
     }
 }
 

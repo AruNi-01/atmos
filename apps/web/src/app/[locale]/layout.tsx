@@ -13,7 +13,7 @@ import { SplashPrefetchBootstrap } from "@/app-shell/bootstrap/SplashPrefetchBoo
 import { TmuxCheckProvider } from "@/providers/app/tmux-check-provider";
 import { DesktopExternalUrlBridge } from "@/providers/app/desktop-external-url-bridge";
 import UpdateNotification from "@/app-shell/UpdateNotification";
-import { ToastProvider, AnchoredToastProvider, TooltipProvider } from "@workspace/ui";
+import { ToastProvider, AgentToastProvider, AnchoredToastProvider, TooltipProvider } from "@workspace/ui";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -112,11 +112,13 @@ export default async function LocaleLayout({ children, params }: Props) {
                 <SplashPrefetchBootstrap />
                 <TmuxCheckProvider>
                   <ToastProvider position="bottom-right">
-                    <AnchoredToastProvider>
-                      <TooltipProvider>
-                        {children}
-                      </TooltipProvider>
-                    </AnchoredToastProvider>
+                    <AgentToastProvider>
+                      <AnchoredToastProvider>
+                        <TooltipProvider>
+                          {children}
+                        </TooltipProvider>
+                      </AnchoredToastProvider>
+                    </AgentToastProvider>
                   </ToastProvider>
                 </TmuxCheckProvider>
               </WebSocketProvider>

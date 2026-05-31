@@ -4,8 +4,10 @@ mod codex;
 mod cursor;
 mod factory_droid;
 mod gemini;
+mod hermes;
 mod kiro;
 mod opencode;
+mod pi;
 
 use std::path::PathBuf;
 
@@ -24,6 +26,8 @@ pub struct AgentHookInstallReport {
     pub kiro: AgentHookToolStatus,
     pub opencode: AgentHookToolStatus,
     pub ampcode: AgentHookToolStatus,
+    pub pi: AgentHookToolStatus,
+    pub hermes: AgentHookToolStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,9 +80,11 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
     let kiro_status = kiro::install(port);
     let opencode = opencode::install(port);
     let ampcode = ampcode::install(port);
+    let pi_status = pi::install(port);
+    let hermes_status = hermes::install(port);
 
     info!(
-        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, factory_droid={}, kiro={}, opencode={}, ampcode={}",
+        "Agent hook install complete: claude_code={}, codex={}, cursor={}, gemini={}, factory_droid={}, kiro={}, opencode={}, ampcode={}, pi={}, hermes={}",
         if claude.installed { "ok" } else { "skip" },
         if codex.installed { "ok" } else { "skip" },
         if cursor.installed { "ok" } else { "skip" },
@@ -87,6 +93,8 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
         if kiro_status.installed { "ok" } else { "skip" },
         if opencode.installed { "ok" } else { "skip" },
         if ampcode.installed { "ok" } else { "skip" },
+        if pi_status.installed { "ok" } else { "skip" },
+        if hermes_status.installed { "ok" } else { "skip" },
     );
 
     AgentHookInstallReport {
@@ -98,6 +106,8 @@ pub fn install_all_hooks(port: u16) -> AgentHookInstallReport {
         kiro: kiro_status,
         opencode,
         ampcode,
+        pi: pi_status,
+        hermes: hermes_status,
     }
 }
 
@@ -112,6 +122,8 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
     let kiro_status = kiro::uninstall();
     let opencode = opencode::uninstall();
     let ampcode = ampcode::uninstall();
+    let pi_status = pi::uninstall();
+    let hermes_status = hermes::uninstall();
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -122,6 +134,8 @@ pub fn uninstall_all_hooks() -> AgentHookInstallReport {
         kiro: kiro_status,
         opencode,
         ampcode,
+        pi: pi_status,
+        hermes: hermes_status,
     }
 }
 
@@ -134,6 +148,8 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
     let kiro_status = kiro::check();
     let opencode = opencode::check();
     let ampcode = ampcode::check();
+    let pi_status = pi::check();
+    let hermes_status = hermes::check();
 
     AgentHookInstallReport {
         claude_code: claude,
@@ -144,6 +160,8 @@ pub fn check_all_hooks() -> AgentHookInstallReport {
         kiro: kiro_status,
         opencode,
         ampcode,
+        pi: pi_status,
+        hermes: hermes_status,
     }
 }
 
@@ -163,6 +181,8 @@ pub fn install_hook(tool: &str, port: u16) -> Option<AgentHookToolStatus> {
         "kiro" => kiro::install(port),
         "opencode" => opencode::install(port),
         "ampcode" => ampcode::install(port),
+        "pi" => pi::install(port),
+        "hermes" => hermes::install(port),
         _ => return None,
     })
 }
@@ -178,6 +198,8 @@ pub fn uninstall_hook(tool: &str) -> Option<AgentHookToolStatus> {
         "kiro" => kiro::uninstall(),
         "opencode" => opencode::uninstall(),
         "ampcode" => ampcode::uninstall(),
+        "pi" => pi::uninstall(),
+        "hermes" => hermes::uninstall(),
         _ => return None,
     })
 }

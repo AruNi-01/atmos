@@ -7,6 +7,7 @@ export interface TerminalAgentDefinition {
   label: string;
   cmd: string;
   params: string;
+  interactiveParams?: string;
   promptStrategy?: TerminalAgentPromptStrategy;
   useEcho?: boolean;
 }

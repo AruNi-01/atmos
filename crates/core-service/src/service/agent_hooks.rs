@@ -4,8 +4,10 @@ mod codex;
 mod cursor;
 mod factory_droid;
 mod gemini;
+mod hermes;
 mod kiro;
 mod opencode;
+mod pi;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -48,6 +50,8 @@ pub enum AgentToolType {
     Kiro,
     Opencode,
     Ampcode,
+    Pi,
+    Hermes,
 }
 
 impl std::fmt::Display for AgentToolType {
@@ -61,6 +65,8 @@ impl std::fmt::Display for AgentToolType {
             Self::Kiro => write!(f, "kiro"),
             Self::Opencode => write!(f, "opencode"),
             Self::Ampcode => write!(f, "ampcode"),
+            Self::Pi => write!(f, "pi"),
+            Self::Hermes => write!(f, "hermes"),
         }
     }
 }
@@ -336,6 +342,14 @@ impl AgentHooksService {
 
     pub fn handle_ampcode_event(&self, payload: &Value, ctx: &AtmosContext) {
         ampcode::handle_event(self, payload, ctx);
+    }
+
+    pub fn handle_pi_event(&self, payload: &Value, ctx: &AtmosContext) {
+        pi::handle_event(self, payload, ctx);
+    }
+
+    pub fn handle_hermes_event(&self, payload: &Value, ctx: &AtmosContext) {
+        hermes::handle_event(self, payload, ctx);
     }
 
     /// Prefer Atmos pane_id (stable, per-terminal-pane) > payload session_id > fallback.

@@ -1,6 +1,7 @@
 "use client";
 
 import { Toast } from "@base-ui/react/toast";
+import type { ReactNode } from "react";
 import {
   CircleAlertIcon,
   CircleCheckIcon,
@@ -13,6 +14,7 @@ import { cn } from "../../lib/utils";
 import { buttonVariants } from "./button";
 
 const toastManager = Toast.createToastManager();
+const agentToastManager = Toast.createToastManager();
 const anchoredToastManager = Toast.createToastManager();
 
 const TOAST_ICONS = {
@@ -72,6 +74,11 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
           const Icon = toast.type
             ? TOAST_ICONS[toast.type as keyof typeof TOAST_ICONS]
             : null;
+          const customData = toast.data as
+            | { actions?: ReactNode; titlePrefix?: ReactNode }
+            | undefined;
+          const customActions = customData?.actions ?? null;
+          const titlePrefix = customData?.titlePrefix ?? null;
 
           return (
             <Toast.Root
@@ -127,8 +134,15 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
               }
               toast={toast}
             >
-              <Toast.Content className="pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm transition-opacity duration-250 data-behind:pointer-events-none data-behind:opacity-0 data-expanded:opacity-100">
-                <div className="flex gap-2">
+              <Toast.Content
+                className={cn(
+                  "pointer-events-auto flex overflow-hidden px-3.5 py-3 text-sm transition-opacity duration-250 data-behind:pointer-events-none data-behind:opacity-0 data-expanded:opacity-100",
+                  customActions
+                    ? "flex-col items-stretch gap-2"
+                    : "items-center justify-between gap-1.5",
+                )}
+              >
+                <div className="flex min-w-0 flex-1 gap-2">
                   {Icon && (
                     <div
                       className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
@@ -138,31 +152,50 @@ function Toasts({ position = "bottom-right" }: { position: ToastPosition }) {
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-0.5">
-                    <Toast.Title
-                      className="font-medium"
-                      data-slot="toast-title"
-                    />
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      {titlePrefix}
+                      <Toast.Title
+                        className="truncate font-medium"
+                        data-slot="toast-title"
+                      />
+                    </div>
                     <Toast.Description
-                      className="text-muted-foreground"
+                      className="break-words text-muted-foreground"
                       data-slot="toast-description"
                     />
                   </div>
                 </div>
-                {toast.actionProps && (
+                {customActions ? (
+                  <div
+                    className="flex shrink-0 items-center justify-end gap-1.5"
+                    data-slot="toast-actions"
+                  >
+                    {customActions}
+                  </div>
+                ) : toast.actionProps ? (
                   <Toast.Action
                     className={buttonVariants({ size: "xs" })}
                     data-slot="toast-action"
                   >
                     {toast.actionProps.children}
                   </Toast.Action>
-                )}
+                ) : null}
               </Toast.Content>
             </Toast.Root>
           );
         })}
       </Toast.Viewport>
     </Toast.Portal>
+  );
+}
+
+function AgentToastProvider({ children, ...props }: Toast.Provider.Props) {
+  return (
+    <Toast.Provider toastManager={agentToastManager} {...props}>
+      {children}
+      <Toasts position="top-right" />
+    </Toast.Provider>
   );
 }
 
@@ -188,8 +221,13 @@ function AnchoredToasts() {
           const Icon = toast.type
             ? TOAST_ICONS[toast.type as keyof typeof TOAST_ICONS]
             : null;
+          const customData = toast.data as
+            | { actions?: ReactNode; titlePrefix?: ReactNode; tooltipStyle?: boolean }
+            | undefined;
+          const customActions = customData?.actions ?? null;
+          const titlePrefix = customData?.titlePrefix ?? null;
           const tooltipStyle =
-            (toast.data as { tooltipStyle?: boolean })?.tooltipStyle ?? false;
+            customData?.tooltipStyle ?? false;
           const positionerProps = toast.positionerProps;
 
           if (!positionerProps?.anchor) {
@@ -219,8 +257,15 @@ function AnchoredToasts() {
                     <Toast.Title data-slot="toast-title" />
                   </Toast.Content>
                 ) : (
-                  <Toast.Content className="pointer-events-auto flex items-center justify-between gap-1.5 overflow-hidden px-3.5 py-3 text-sm">
-                    <div className="flex gap-2">
+                  <Toast.Content
+                    className={cn(
+                      "pointer-events-auto flex overflow-hidden px-3.5 py-3 text-sm",
+                      customActions
+                        ? "flex-col items-stretch gap-2"
+                        : "items-center justify-between gap-1.5",
+                    )}
+                  >
+                    <div className="flex min-w-0 flex-1 gap-2">
                       {Icon && (
                         <div
                           className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
@@ -230,25 +275,35 @@ function AnchoredToasts() {
                         </div>
                       )}
 
-                      <div className="flex flex-col gap-0.5">
-                        <Toast.Title
-                          className="font-medium"
-                          data-slot="toast-title"
-                        />
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          {titlePrefix}
+                          <Toast.Title
+                            className="truncate font-medium"
+                            data-slot="toast-title"
+                          />
+                        </div>
                         <Toast.Description
-                          className="text-muted-foreground"
+                          className="break-words text-muted-foreground"
                           data-slot="toast-description"
                         />
                       </div>
                     </div>
-                    {toast.actionProps && (
+                    {customActions ? (
+                      <div
+                        className="flex shrink-0 items-center justify-end gap-1.5"
+                        data-slot="toast-actions"
+                      >
+                        {customActions}
+                      </div>
+                    ) : toast.actionProps ? (
                       <Toast.Action
                         className={buttonVariants({ size: "xs" })}
                         data-slot="toast-action"
                       >
                         {toast.actionProps.children}
                       </Toast.Action>
-                    )}
+                    ) : null}
                   </Toast.Content>
                 )}
               </Toast.Root>
@@ -264,6 +319,8 @@ export {
   ToastProvider,
   type ToastPosition,
   toastManager,
+  AgentToastProvider,
+  agentToastManager,
   AnchoredToastProvider,
   anchoredToastManager,
 };

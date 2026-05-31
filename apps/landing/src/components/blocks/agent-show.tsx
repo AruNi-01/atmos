@@ -9,6 +9,9 @@ const agents = [
   { name: 'Droid', icon: '/agents/droid.svg' },
   { name: 'Kilo', icon: '/agents/kilo.svg' },
   { name: 'OpenCode', icon: '/agents/opencode.svg' },
+  { name: 'Pi', icon: '/agents/pi.svg', nativeTheme: true },
+  { name: 'OpenClaw', icon: '/agents/openclaw.jpg', nativeTheme: true },
+  { name: 'Hermes Agent', icon: '/agents/hermes-agent.png', nativeTheme: true },
   { name: 'Gemini', icon: '/agents/gemini.svg' },
   { name: 'Devin', icon: '/agents/devin.svg' },
 ] as const
@@ -46,7 +49,7 @@ export const AgentShow = () => {
                 <img
                   src={agent.icon}
                   alt={agent.name}
-                  className={`size-6 ${agent.name === 'Devin' ? 'dark:invert invert-0' : 'invert dark:invert-0'}`}
+                  className={`size-6 ${getAgentIconClassName(agent)}`}
                 />
                 <span className='text-lg font-semibold opacity-70'>{agent.name}</span>
               </div>
@@ -60,3 +63,9 @@ export const AgentShow = () => {
 }
 
 export default AgentShow
+
+function getAgentIconClassName(agent: (typeof agents)[number]) {
+  if ('nativeTheme' in agent && agent.nativeTheme) return 'invert-0'
+  if (agent.name === 'Devin') return 'dark:invert invert-0'
+  return 'invert dark:invert-0'
+}

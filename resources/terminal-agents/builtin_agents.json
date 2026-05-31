@@ -83,5 +83,28 @@
     "cmd": "cmd",
     "params": "--trust --yolo",
     "promptStrategy": "arg"
+  },
+  {
+    "id": "pi",
+    "label": "Pi",
+    "cmd": "pi",
+    "params": "-p",
+    "interactiveParams": "",
+    "promptStrategy": "prompt_flag"
+  },
+  {
+    "id": "openclaw",
+    "label": "OpenClaw",
+    "cmd": "openclaw",
+    "params": "agent --agent main --local --json --message",
+    "promptStrategy": "prompt_flag"
+  },
+  {
+    "id": "hermes",
+    "label": "Hermes Agent",
+    "cmd": "hermes",
+    "params": "chat --yolo -Q -q",
+    "interactiveParams": "chat --yolo",
+    "promptStrategy": "prompt_flag"
   }
 ]

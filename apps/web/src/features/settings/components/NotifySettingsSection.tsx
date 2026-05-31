@@ -260,6 +260,24 @@ export function NotifySettingsSection({
               </div>
             </div>
           )}
+
+          <div className="border-b border-border px-2 py-4 last:border-b-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+              <div>
+                <p className="text-sm font-medium text-foreground">In-app toast</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Show top-right app toasts when agents need attention or finish.
+                </p>
+              </div>
+              <div className="flex items-center justify-end">
+                <Switch
+                  checked={settings.app_toast_notification}
+                  onCheckedChange={(checked) => void updateNotificationField('app_toast_notification', checked)}
+                  disabled={isSaving}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

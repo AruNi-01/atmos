@@ -836,6 +836,21 @@ mod tests {
                 PromptStrategy::Arg,
                 "'cmd' '--trust' '--yolo' \"$prompt_content\"",
             ),
+            (
+                "pi",
+                PromptStrategy::PromptFlag,
+                "'pi' '-p' \"$prompt_content\"",
+            ),
+            (
+                "openclaw",
+                PromptStrategy::PromptFlag,
+                "'openclaw' 'agent' '--agent' 'main' '--local' '--json' '--message' \"$prompt_content\"",
+            ),
+            (
+                "hermes",
+                PromptStrategy::PromptFlag,
+                "'hermes' 'chat' '--yolo' '-Q' '-q' \"$prompt_content\"",
+            ),
         ];
         let definitions = load_builtin_terminal_agents().unwrap();
         let supported_count = definitions

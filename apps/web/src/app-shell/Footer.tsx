@@ -20,15 +20,14 @@ import {
   type AgentHookSession,
   AGENT_STATE,
   AGENT_TOOL_LABELS,
+  AGENT_TOOL_ICON_IDS,
+  type AgentToolType,
 } from '@/features/agent/store/agent-hooks-store';
 import { useShallow } from 'zustand/react/shallow';
 import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookStatusIndicator';
+import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/features/project/store/use-project-store';
-import {
-  findWorkspacePaneIdsByTmuxWindowName,
-  useTerminalStore,
-} from '@/features/terminal/store/use-terminal-store';
 import { X } from 'lucide-react';
 import { ProviderGlyph } from '@/app-shell/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
@@ -37,6 +36,10 @@ import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
+import {
+  navigateToAgentHookSessionPane,
+  resolveAgentHookContextNames,
+} from '@/features/agent/lib/agent-hook-navigation';
 
 const CLIENT_TYPE_LABELS: Record<string, string> = {
   web: 'WEB',
@@ -133,6 +136,25 @@ function SessionStateBadge({ state, hoverAction, onAction }: {
   );
 }
 
+function AgentToolName({
+  tool,
+  iconSize = 12,
+  className,
+}: {
+  tool: AgentToolType;
+  iconSize?: number;
+  className?: string;
+}) {
+  const label = AGENT_TOOL_LABELS[tool] ?? tool;
+  const iconId = AGENT_TOOL_ICON_IDS[tool] ?? tool;
+  return (
+    <span className={cn("inline-flex min-w-0 items-center gap-1", className)}>
+      <AgentIcon registryId={iconId} name={label} size={iconSize} />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
 function SessionRow({ session, onNavigate }: { session: AgentHookSession; onNavigate: () => void }) {
   const [hovered, setHovered] = React.useState(false);
   const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
@@ -157,9 +179,7 @@ function SessionRow({ session, onNavigate }: { session: AgentHookSession; onNavi
     >
       <div className="flex items-center gap-1.5 min-w-0">
         <AgentHookStatusIndicator state={session.state} variant="compact" />
-        <span className="text-[10px] font-medium">
-          {AGENT_TOOL_LABELS[session.tool] ?? session.tool}
-        </span>
+        <AgentToolName tool={session.tool} iconSize={11} className="text-[10px] font-medium" />
       </div>
       <SessionStateBadge
         state={session.state}
@@ -189,34 +209,11 @@ function useContextDisplayNameResolver() {
 
 function useContextNameResolver() {
   const projects = useProjectStore((s) => s.projects);
-  return useCallback((contextId: string | null | undefined): {
-    projectName: string;
-    workspaceName: string | null;
-    workspaceDisplayName: string | null;
-  } => {
-    if (!contextId) {
-      return { projectName: "", workspaceName: null, workspaceDisplayName: null };
-    }
-    for (const project of projects) {
-      if (project.id === contextId) {
-        return { projectName: project.name, workspaceName: null, workspaceDisplayName: null };
-      }
-      const ws = project.workspaces.find((w) => w.id === contextId);
-      if (ws) {
-        const workspaceName = ws.name || ws.branch;
-        const workspaceDisplayName = ws.displayName?.trim() || null;
-        return {
-          projectName: project.name,
-          workspaceName,
-          workspaceDisplayName:
-            workspaceDisplayName && workspaceDisplayName !== workspaceName
-              ? workspaceDisplayName
-              : null,
-        };
-      }
-    }
-    return { projectName: contextId.slice(0, 8), workspaceName: null, workspaceDisplayName: null };
-  }, [projects]);
+  return useCallback(
+    (contextId: string | null | undefined) =>
+      resolveAgentHookContextNames(contextId, null, projects),
+    [projects],
+  );
 }
 
 // Cycling ticker: rotates through active sessions, showing each for `intervalMs`.
@@ -246,46 +243,7 @@ function AgentStatusPopoverContent() {
   const resolveContextName = useContextNameResolver();
 
   const navigateToSessionPane = useCallback((session: AgentHookSession) => {
-    const contextId = session.context_id;
-    const paneId = session.pane_id;
-
-    if (!contextId || !paneId) return;
-
-    // Parse tmuxWindowName from pane_id (format: "{workspaceId}:{windowName}")
-    const tmuxWindowName = paneId.split(':').slice(1).join(':');
-    if (!tmuxWindowName) return;
-
-    // Determine if context is a project or workspace
-    let basePath = "/workspace";
-    for (const project of projects) {
-      if (project.id === contextId) {
-        basePath = "/project";
-        break;
-      }
-      const ws = project.workspaces.find((w) => w.id === contextId);
-      if (ws) {
-        basePath = "/workspace";
-        break;
-      }
-    }
-
-    // Resolve which terminal tab actually owns the pane so we switch to the
-    // right tab (e.g. "term-1") instead of staying on whatever tab is active
-    // (e.g. the Fixed terminal). Without this, CenterStage's focus helper
-    // would silently focus the pane inside a hidden tab.
-    const hit = findWorkspacePaneIdsByTmuxWindowName(
-      useTerminalStore.getState(),
-      contextId,
-      tmuxWindowName,
-    );
-
-    const params = new URLSearchParams();
-    params.set("id", contextId);
-    if (hit?.terminalTabId) {
-      params.set("tab", hit.terminalTabId);
-    }
-    params.set("terminalTmux", tmuxWindowName);
-    router.push(`${basePath}?${params.toString()}`);
+    navigateToAgentHookSessionPane(session, router, projects);
   }, [router, projects]);
 
   if (sessions.length === 0) {
@@ -692,16 +650,23 @@ const Footer: React.FC = () => {
                           ) : null;
                         })()}
                         <span className="text-muted-foreground mx-1">/</span>
-                        <TextShimmer
-                          as="span"
-                          className={cn(
-                            "text-[10px] whitespace-nowrap",
-                            tickerSession.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-400/60",
-                          )}
-                          duration={tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? 2 : 1.5}
-                        >
-                          {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? "Waiting for permission" : "Running"}`}
-                        </TextShimmer>
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                          <AgentIcon
+                            registryId={AGENT_TOOL_ICON_IDS[tickerSession.tool] ?? tickerSession.tool}
+                            name={AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}
+                            size={12}
+                          />
+                          <TextShimmer
+                            as="span"
+                            className={cn(
+                              "text-[10px] whitespace-nowrap",
+                              tickerSession.state === AGENT_STATE.PERMISSION_REQUEST && "text-amber-400/60",
+                            )}
+                            duration={tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? 2 : 1.5}
+                          >
+                            {`${AGENT_TOOL_LABELS[tickerSession.tool] ?? tickerSession.tool}: ${tickerSession.state === AGENT_STATE.PERMISSION_REQUEST ? "Waiting for permission" : "Running"}`}
+                          </TextShimmer>
+                        </span>
                       </span>
                       {hasPermission && <PermissionBellFooter />}
                     </>

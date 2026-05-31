@@ -16,6 +16,31 @@ export const AGENT_OPTIONS = TERMINAL_AGENT_DEFINITIONS;
 
 export type AgentId = string;
 
+export function getInteractiveAgentParams(
+  agent: (typeof AGENT_OPTIONS)[number],
+  overrideFlags?: string,
+): string {
+  const interactiveParams = agent.interactiveParams ?? "";
+  if (overrideFlags !== undefined) {
+    const flags = overrideFlags.trim();
+    if (isNonInteractivePromptFlagsWithoutPrompt(agent.id, flags)) {
+      return interactiveParams;
+    }
+    if (flags !== agent.params) return flags;
+  }
+  return interactiveParams || overrideFlags?.trim() || agent.params || "";
+}
+
+function isNonInteractivePromptFlagsWithoutPrompt(agentId: string, flags: string): boolean {
+  if (agentId === "pi") {
+    return flags === "-p" || flags === "--print";
+  }
+  if (agentId === "hermes") {
+    return /(?:^|\s)(?:-q|--query)\s*$/.test(flags);
+  }
+  return false;
+}
+
 export function buildCommand(
   agentId: AgentId,
   prompt: string
@@ -28,7 +53,8 @@ export function buildCommand(
   const params = agent.params ? ` ${agent.params}` : "";
 
   if (prompt.trim() === "") {
-    return `${agent.cmd}${params}`;
+    const interactiveParams = getInteractiveAgentParams(agent);
+    return [agent.cmd, interactiveParams].filter(Boolean).join(" ");
   }
 
   if (strategy === "stdin") {

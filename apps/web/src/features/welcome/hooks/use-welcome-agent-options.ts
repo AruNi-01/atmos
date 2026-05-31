@@ -5,7 +5,7 @@ import {
   codeAgentCustomApi,
   type CodeAgentCustomEntry,
 } from "@/api/ws-api";
-import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
@@ -58,7 +58,7 @@ export function useWelcomeAgentOptions() {
       ...AGENT_OPTIONS.filter((agent) => agentCustomSettings[agent.id]?.enabled ?? true).map(
         (agent) => {
           const command = agentCustomSettings[agent.id]?.cmd?.trim() || agent.cmd;
-          const flags = agentCustomSettings[agent.id]?.flags?.trim() || agent.params || "";
+          const flags = getInteractiveAgentParams(agent, agentCustomSettings[agent.id]?.flags);
           return {
             id: agent.id,
             label: agent.label,

@@ -21,6 +21,8 @@ const AGENT_ICON_ALIASES: Record<string, string[]> = {
 const AGENT_ICON_REMAP: Record<string, string> = {
   "amp-acp": "amp",
   "claude": "claude-code",
+  "hermes": "hermes-agent.png",
+  "openclaw": "openclaw.jpg",
   "kilocode": "kilo",
   "kiro": "kiro-cli",
   "commandcode": "command-code",
@@ -28,6 +30,7 @@ const AGENT_ICON_REMAP: Record<string, string> = {
 
 /** Icons that use currentColor — need inverted theme handling (dark on light, light on dark) */
 const INVERTED_THEME_ICONS = new Set(["cline", "junie", "junie-acp", "devin"]);
+const THEME_NATIVE_ICONS = new Set(["hermes", "hermes-agent.png", "openclaw", "openclaw.jpg", "pi"]);
 
 export function getAgentIconCandidates(registryId: string): string[] {
   const primary = AGENT_ICON_REMAP[registryId] ?? registryId;
@@ -38,7 +41,7 @@ export function getAgentIconCandidates(registryId: string): string[] {
   for (const n of [primary, ...aliases]) {
     if (!seen.has(n)) { seen.add(n); names.push(n); }
   }
-  return names.map((name) => `/agents/${name}.svg`);
+  return names.map((name) => `/agents/${name.includes(".") ? name : `${name}.svg`}`);
 }
 
 function shouldInvertTheme(registryId: string): boolean {
@@ -47,6 +50,14 @@ function shouldInvertTheme(registryId: string): boolean {
   if (remapped && INVERTED_THEME_ICONS.has(remapped)) return true;
   const aliases = AGENT_ICON_ALIASES[registryId] ?? [];
   return aliases.some((name) => INVERTED_THEME_ICONS.has(name));
+}
+
+function shouldUseNativeTheme(registryId: string): boolean {
+  if (THEME_NATIVE_ICONS.has(registryId)) return true;
+  const remapped = AGENT_ICON_REMAP[registryId];
+  if (remapped && THEME_NATIVE_ICONS.has(remapped)) return true;
+  const aliases = AGENT_ICON_ALIASES[registryId] ?? [];
+  return aliases.some((name) => THEME_NATIVE_ICONS.has(name));
 }
 
 export const AgentIcon: React.FC<{
@@ -75,6 +86,10 @@ export const AgentIcon: React.FC<{
   );
   const [idx, setIdx] = React.useState(0);
   const invertedTheme = shouldInvertTheme(registryId);
+  const nativeTheme = shouldUseNativeTheme(registryId);
+  const localIconClassName = nativeTheme
+    ? "shrink-0 opacity-95 invert-0"
+    : `shrink-0 opacity-95 ${invertedTheme ? "dark:invert invert-0" : "invert dark:invert-0"}`;
 
   React.useEffect(() => {
     setIdx(0);
@@ -99,7 +114,7 @@ export const AgentIcon: React.FC<{
         alt={`${name} icon`}
         width={size}
         height={size}
-        className={`shrink-0 opacity-95 ${invertedTheme ? "dark:invert invert-0" : "invert dark:invert-0"}`}
+        className={localIconClassName}
         onError={() => setIdx((v) => v + 1)}
       />
     );

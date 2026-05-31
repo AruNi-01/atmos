@@ -7,20 +7,76 @@ import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { TerminalPaneAgent } from "../types/index";
 
 const RUNTIME_WRAPPER_COMMANDS = new Set([
-  "node",
   "bun",
-  "npm",
-  "pnpm",
-  "yarn",
-  "npx",
-  "python",
-  "python3",
-  "uv",
-  "go",
   "cargo",
   "deno",
+  "dotnet",
+  "elixir",
   "env",
+  "erl",
+  "go",
+  "gradle",
+  "iex",
+  "java",
+  "lua",
+  "luajit",
+  "mvn",
+  "mvnw",
+  "node",
+  "nodejs",
+  "npm",
+  "npx",
+  "perl",
+  "php",
+  "pip",
+  "pip3",
+  "pipx",
+  "pnpm",
+  "poetry",
+  "pypy",
+  "python",
+  "python3",
+  "ruby",
+  "rustc",
+  "swift",
+  "uv",
+  "uvx",
+  "yarn",
 ]);
+
+const VERSIONED_RUNTIME_WRAPPER_COMMANDS = [
+  "bun",
+  "deno",
+  "dotnet",
+  "go",
+  "java",
+  "lua",
+  "luajit",
+  "nodejs",
+  "node",
+  "npm",
+  "npx",
+  "perl",
+  "php",
+  "pipx",
+  "pip",
+  "pypy",
+  "python",
+  "ruby",
+  "rustc",
+  "swift",
+  "uvx",
+  "uv",
+];
+
+const EXECUTABLE_SUFFIX_RE = /\.(?:exe|cmd|bat|sh)$/i;
+const VERSION_SUFFIX_RE = /^[-_]?v?\d+(?:\.\d+)*(?:[-+_.]?[a-z][\w.-]*)?$/i;
+
+function normalizeRuntimeWrapperTitle(value: string | undefined): string {
+  const firstToken = value?.trim().split(/\s+/)[0] ?? "";
+  const withoutPath = firstToken.split("/").filter(Boolean).pop() ?? firstToken;
+  return withoutPath.replace(EXECUTABLE_SUFFIX_RE, "").toLowerCase();
+}
 
 function normalizeAgentCommand(value: string): string {
   const firstToken = value.trim().split(/\s+/)[0] ?? "";
@@ -43,8 +99,15 @@ export function isPathLikeTitle(value: string | undefined): boolean {
 }
 
 function isRuntimeWrapperTitle(value: string | undefined): boolean {
-  const normalized = value?.trim().split(/\s+/)[0]?.split("/").filter(Boolean).pop()?.toLowerCase();
-  return Boolean(normalized && RUNTIME_WRAPPER_COMMANDS.has(normalized));
+  const normalized = normalizeRuntimeWrapperTitle(value);
+  return Boolean(
+    normalized
+      && (RUNTIME_WRAPPER_COMMANDS.has(normalized)
+        || VERSIONED_RUNTIME_WRAPPER_COMMANDS.some((command) => {
+          if (!normalized.startsWith(command)) return false;
+          return VERSION_SUFFIX_RE.test(normalized.slice(command.length));
+        })),
+  );
 }
 
 /** When dynamic title is a version string or a runtime wrapper (node, env, …) and we have no agent/toolbar match, show the stable pane title — same idea as version-number tabs. */

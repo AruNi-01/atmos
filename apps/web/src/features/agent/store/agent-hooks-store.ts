@@ -22,6 +22,8 @@ export const AGENT_TOOL = {
   KIRO: "kiro",
   OPENCODE: "opencode",
   AMPCODE: "ampcode",
+  PI: "pi",
+  HERMES: "hermes",
 } as const;
 
 export type AgentToolType = (typeof AGENT_TOOL)[keyof typeof AGENT_TOOL];
@@ -35,6 +37,21 @@ export const AGENT_TOOL_LABELS: Record<AgentToolType, string> = {
   [AGENT_TOOL.KIRO]: "Kiro",
   [AGENT_TOOL.OPENCODE]: "OpenCode",
   [AGENT_TOOL.AMPCODE]: "AMP",
+  [AGENT_TOOL.PI]: "Pi",
+  [AGENT_TOOL.HERMES]: "Hermes Agent",
+};
+
+export const AGENT_TOOL_ICON_IDS: Record<AgentToolType, string> = {
+  [AGENT_TOOL.CLAUDE_CODE]: "claude-code",
+  [AGENT_TOOL.CODEX]: "codex",
+  [AGENT_TOOL.CURSOR]: "cursor",
+  [AGENT_TOOL.GEMINI]: "gemini",
+  [AGENT_TOOL.FACTORY_DROID]: "factory-droid",
+  [AGENT_TOOL.KIRO]: "kiro",
+  [AGENT_TOOL.OPENCODE]: "opencode",
+  [AGENT_TOOL.AMPCODE]: "amp",
+  [AGENT_TOOL.PI]: "pi",
+  [AGENT_TOOL.HERMES]: "hermes",
 };
 
 

@@ -36,6 +36,8 @@ pub fn routes() -> Router<AppState> {
         .route("/kiro", post(handle_kiro_hook))
         .route("/opencode", post(handle_opencode_hook))
         .route("/ampcode", post(handle_ampcode_hook))
+        .route("/pi", post(handle_pi_hook))
+        .route("/hermes", post(handle_hermes_hook))
         .route("/sessions", get(list_hook_sessions))
         .route("/sessions/clear-idle", post(clear_idle_sessions))
         .route(
@@ -97,6 +99,28 @@ async fn handle_ampcode_hook(
     state
         .agent_hooks_service
         .handle_ampcode_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_pi_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state.agent_hooks_service.handle_pi_event(&payload, &ctx);
+    Json(serde_json::json!({ "ok": true }))
+}
+
+async fn handle_hermes_hook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let ctx = extract_atmos_context(&headers);
+    state
+        .agent_hooks_service
+        .handle_hermes_event(&payload, &ctx);
     Json(serde_json::json!({ "ok": true }))
 }
 

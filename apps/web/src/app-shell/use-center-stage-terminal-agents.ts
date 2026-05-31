@@ -2,7 +2,7 @@ import React from "react";
 
 import { codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
-import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 
 export type TerminalQuickOpenAgent = {
@@ -59,7 +59,7 @@ export function useCenterStageTerminalAgents(isSetupBlocking: boolean) {
       ...visibleBuiltInAgents.map((agent) => {
         const custom = agentCustomSettings[agent.id];
         const cmd = custom?.cmd?.trim() || agent.cmd;
-        const flags = custom?.flags?.trim() || agent.params || "";
+        const flags = getInteractiveAgentParams(agent, custom?.flags);
         const parts = [cmd];
         if (flags) parts.push(flags);
         return {

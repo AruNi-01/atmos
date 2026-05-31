@@ -19,6 +19,7 @@ export interface PushServerConfig {
 export interface NotificationSettings {
   browser_notification: boolean;
   desktop_notification: boolean;
+  app_toast_notification: boolean;
   notify_on_permission_request: boolean;
   notify_on_task_complete: boolean;
   notify_on_automation_outcome: boolean;
@@ -29,6 +30,7 @@ export interface NotificationSettings {
 const DEFAULT_SETTINGS: NotificationSettings = {
   browser_notification: false,
   desktop_notification: false,
+  app_toast_notification: false,
   notify_on_permission_request: true,
   notify_on_task_complete: true,
   notify_on_automation_outcome: true,
