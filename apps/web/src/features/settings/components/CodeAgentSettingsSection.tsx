@@ -11,7 +11,7 @@ import {
   Switch,
 } from "@workspace/ui";
 import { Bot, ChevronDown, LoaderCircle, Package, Plus, Trash2, UserCog } from "lucide-react";
-import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/components/AgentSelect";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
 import { AgentHookStatusCard } from "@/features/settings/components/AgentHookStatusCard";
@@ -129,7 +129,10 @@ export function CodeAgentSettingsSection({
                 const isSaving = !!savingBuiltInAgentIds[agent.id];
                 const isSyncingEnabled = !!syncingBuiltInEnabledIds[agent.id];
                 const enabled = custom?.enabled ?? true;
-                const summary = [custom?.cmd ?? agent.cmd, custom?.flags ?? (agent.params || "")]
+                const summary = [
+                  custom?.cmd ?? agent.cmd,
+                  getInteractiveAgentParams(agent, custom?.flags),
+                ]
                   .filter(Boolean)
                   .join(" ");
 

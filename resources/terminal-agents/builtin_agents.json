@@ -97,6 +97,7 @@
     "label": "OpenClaw",
     "cmd": "openclaw",
     "params": "agent --agent main --local --json --message",
+    "interactiveParams": "agent --agent main --local",
     "promptStrategy": "prompt_flag"
   },
   {

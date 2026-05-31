@@ -20,6 +20,7 @@ export function getInteractiveAgentParams(
   agent: (typeof AGENT_OPTIONS)[number],
   overrideFlags?: string,
 ): string {
+  const hasInteractiveParams = Object.prototype.hasOwnProperty.call(agent, "interactiveParams");
   const interactiveParams = agent.interactiveParams ?? "";
   if (overrideFlags !== undefined) {
     const flags = overrideFlags.trim();
@@ -28,7 +29,7 @@ export function getInteractiveAgentParams(
     }
     if (flags !== agent.params) return flags;
   }
-  return interactiveParams || overrideFlags?.trim() || agent.params || "";
+  return hasInteractiveParams ? interactiveParams : overrideFlags?.trim() || agent.params || "";
 }
 
 function isNonInteractivePromptFlagsWithoutPrompt(agentId: string, flags: string): boolean {
@@ -37,6 +38,9 @@ function isNonInteractivePromptFlagsWithoutPrompt(agentId: string, flags: string
   }
   if (agentId === "hermes") {
     return /(?:^|\s)(?:-q|--query)\s*$/.test(flags);
+  }
+  if (agentId === "openclaw") {
+    return flags === "agent --agent main --local --json --message";
   }
   return false;
 }
