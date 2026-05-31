@@ -340,6 +340,7 @@ fn main() {
             commands::send_notification,
             commands::preview_bridge_open,
             commands::preview_bridge_update_bounds,
+            commands::preview_bridge_set_detached,
             commands::preview_bridge_navigate,
             commands::preview_bridge_enter_pick_mode,
             commands::preview_bridge_clear_selection,

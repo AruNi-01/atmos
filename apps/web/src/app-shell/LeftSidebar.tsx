@@ -434,7 +434,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     };
 
     const handleSetColor = async (projectId: string, color?: string) => {
-        await updateProject(projectId, { borderColor: color });
+        await updateProject(projectId, { borderColor: color ?? null });
     };
 
     const handleSetLogo = async (projectId: string, logoPath: string | null) => {

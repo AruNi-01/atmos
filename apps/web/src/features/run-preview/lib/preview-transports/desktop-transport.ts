@@ -104,6 +104,15 @@ export async function connectDesktopPreviewTransport(
         url,
       });
     },
+    async setDetached(detached, url, viewport) {
+      if (destroyed) return;
+      await invokeDesktopPreviewBridge('preview_bridge_set_detached', {
+        sessionId: options.sessionId,
+        url,
+        bounds: viewport,
+        detached,
+      });
+    },
     async show() {
       if (destroyed) return;
       await invokeDesktopPreviewBridge('preview_bridge_show');

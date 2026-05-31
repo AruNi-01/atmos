@@ -130,7 +130,7 @@ impl WsMessageService {
     pub(super) async fn handle_project_update(&self, req: ProjectUpdateRequest) -> Result<Value> {
         if let Some(color) = req.border_color {
             self.project_service
-                .update_color(req.guid.clone(), Some(color))
+                .update_color(req.guid.clone(), color)
                 .await?;
         }
         if let Some(logo_path) = req.logo_path {

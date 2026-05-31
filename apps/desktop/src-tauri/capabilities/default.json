@@ -5,7 +5,8 @@
   "windows": [
     "main",
     "splashscreen",
-    "appshot-permissions"
+    "appshot-permissions",
+    "preview-inspector"
   ],
   "webviews": ["preview-inspector"],
   "remote": {

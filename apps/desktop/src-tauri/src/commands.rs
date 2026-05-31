@@ -107,6 +107,17 @@ pub fn preview_bridge_update_bounds(
 }
 
 #[tauri::command]
+pub fn preview_bridge_set_detached(
+    app: tauri::AppHandle,
+    session_id: String,
+    url: String,
+    bounds: PreviewBridgeBounds,
+    detached: bool,
+) -> Result<(), String> {
+    preview_bridge::set_preview_detached(&app, &session_id, &url, bounds, detached)
+}
+
+#[tauri::command]
 pub fn preview_bridge_navigate(
     app: tauri::AppHandle,
     session_id: String,
@@ -158,6 +169,10 @@ pub fn preview_bridge_event(
 #[tauri::command]
 pub async fn preview_bridge_probe_url(url: String) -> Result<(), String> {
     let parsed = reqwest::Url::parse(&url).map_err(|error| format!("Invalid URL: {}", error))?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Ok(());
+    }
+
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(4))
         .timeout(Duration::from_secs(6))

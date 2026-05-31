@@ -1,6 +1,16 @@
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
+
+fn deserialize_nullable_update_field<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
+}
 use serde_json::Value;
 
 mod agents;
@@ -626,7 +636,9 @@ pub struct ProjectCreateRequest {
 pub struct ProjectUpdateRequest {
     pub guid: String,
     pub name: Option<String>,
-    pub border_color: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_nullable_update_field")]
+    pub border_color: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_nullable_update_field")]
     pub logo_path: Option<Option<String>>,
     pub sidebar_order: Option<i32>,
 }
@@ -634,6 +646,38 @@ pub struct ProjectUpdateRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectDeleteRequest {
     pub guid: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProjectUpdateRequest;
+    use serde_json::json;
+
+    #[test]
+    fn project_update_nullable_fields_distinguish_missing_null_and_value() {
+        let missing: ProjectUpdateRequest =
+            serde_json::from_value(json!({ "guid": "project-1" })).unwrap();
+        assert_eq!(missing.border_color, None);
+        assert_eq!(missing.logo_path, None);
+
+        let cleared: ProjectUpdateRequest = serde_json::from_value(json!({
+            "guid": "project-1",
+            "border_color": null,
+            "logo_path": null
+        }))
+        .unwrap();
+        assert_eq!(cleared.border_color, Some(None));
+        assert_eq!(cleared.logo_path, Some(None));
+
+        let updated: ProjectUpdateRequest = serde_json::from_value(json!({
+            "guid": "project-1",
+            "border_color": "#ef4444",
+            "logo_path": "/tmp/logo.png"
+        }))
+        .unwrap();
+        assert_eq!(updated.border_color, Some(Some("#ef4444".to_string())));
+        assert_eq!(updated.logo_path, Some(Some("/tmp/logo.png".to_string())));
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

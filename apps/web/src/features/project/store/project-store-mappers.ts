@@ -37,7 +37,7 @@ export function mapProjectModel(model: ProjectModel, workspaces: Workspace[] = [
     workspaces,
     mainFilePath: model.main_file_path,
     sidebarOrder: model.sidebar_order,
-    borderColor: model.border_color ?? undefined,
+    borderColor: model.border_color,
     logoPath: model.logo_path,
     targetBranch: model.target_branch ?? undefined,
   };

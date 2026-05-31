@@ -521,7 +521,7 @@ export const wsProjectApi = {
   update: async (data: {
     guid: string;
     name?: string;
-    borderColor?: string;
+    borderColor?: string | null;
     logoPath?: string | null;
     sidebarOrder?: number;
   }): Promise<{ success: boolean }> => {

@@ -59,7 +59,7 @@ export interface Project {
   // New fields for storage
   mainFilePath: string;
   sidebarOrder: number;
-  borderColor?: string;
+  borderColor: string | null;
   logoPath: string | null;
   targetBranch?: string;
 }

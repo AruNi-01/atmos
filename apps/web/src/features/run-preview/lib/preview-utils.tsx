@@ -21,6 +21,12 @@ export const PREVIEW_EXTENSION_REQUIRED_MESSAGE =
 
 export const MAX_HISTORY_LENGTH = 100;
 
+const EXPLICIT_SCHEME_PATTERN = /^[a-z][a-z\d+\-.]*:(?:\/\/|\/)/i;
+const NON_HIERARCHICAL_SCHEME_PATTERN = /^(?:about|blob|data|mailto|sms|tel|urn):/i;
+const HTTP_SCHEME_WITHOUT_SLASHES_PATTERN = /^(https?):(?!\/\/)/i;
+const LOCAL_TARGET_WITHOUT_SCHEME_PATTERN =
+  /^(localhost|127\.0\.0\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|\[::1\])(?::\d+)?(?:[/?#]|$)/i;
+
 const PREVIEW_ERROR_PAGE_MARKERS = [
   "This site can’t provide a secure connection",
   "This site can't provide a secure connection",
@@ -42,19 +48,23 @@ export const normalizeUrl = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return "";
 
-  if (/^https?:\/\//.test(trimmed) === false && /^https?:/.test(trimmed)) {
-    return trimmed.replace(/^(https?):/, "$1://");
+  if (HTTP_SCHEME_WITHOUT_SLASHES_PATTERN.test(trimmed)) {
+    return trimmed.replace(HTTP_SCHEME_WITHOUT_SLASHES_PATTERN, "$1://");
   }
 
-  if (!/^https?:\/\//.test(trimmed)) {
-    const isLocal =
-      /^(localhost|127\.0\.0\.\d+|0\.0\.0\.0|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|\[::1\])(?::\d+)?(?:[/?#]|$)/i.test(
-        trimmed,
-      );
-    return isLocal ? `http://${trimmed}` : `https://${trimmed}`;
+  if (LOCAL_TARGET_WITHOUT_SCHEME_PATTERN.test(trimmed)) {
+    return `http://${trimmed}`;
   }
 
-  return trimmed;
+  if (EXPLICIT_SCHEME_PATTERN.test(trimmed) || NON_HIERARCHICAL_SCHEME_PATTERN.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  return `https://${trimmed}`;
 };
 
 export const canonicalizeUrl = (value: string): string => {
@@ -104,6 +114,22 @@ export const splitDisplayUrl = (value: string): { protocol: string; address: str
   const normalized = normalizeUrl(value);
   if (!normalized) {
     return { protocol: "", address: "" };
+  }
+
+  const explicitScheme = normalized.match(/^([a-z][a-z\d+\-.]*:\/\/)(.*)$/i);
+  if (explicitScheme) {
+    return {
+      protocol: explicitScheme[1],
+      address: explicitScheme[2],
+    };
+  }
+
+  const nonHierarchicalScheme = normalized.match(/^([a-z][a-z\d+\-.]*:)(.*)$/i);
+  if (nonHierarchicalScheme) {
+    return {
+      protocol: nonHierarchicalScheme[1],
+      address: nonHierarchicalScheme[2],
+    };
   }
 
   try {

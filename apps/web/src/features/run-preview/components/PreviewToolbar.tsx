@@ -14,6 +14,8 @@ import {
   PanelTopClose,
   PanelTopOpen,
   Pencil,
+  PictureInPicture2,
+  Puzzle,
   RotateCw,
   Search,
   SquareMousePointer,
@@ -62,6 +64,7 @@ interface PreviewToolbarProps {
   favoritesListOpen: boolean;
   filteredFavorites: FavoriteSite[];
   isDownloadingExtension: boolean;
+  isDesktopPreviewDetached: boolean;
   isElementPickerEnabled: boolean;
   isElementPickerTooltipOpen: boolean;
   isMaximized: boolean;
@@ -83,7 +86,6 @@ interface PreviewToolbarProps {
   toolbarHoverSuppressed: boolean;
   toolbarRowRef: React.RefObject<HTMLDivElement | null>;
   toolbarToggleTitle: string;
-  transportModeLabel: string;
   url: string;
   urlInputRef: React.RefObject<HTMLInputElement | null>;
   userEditedUrlRef: React.MutableRefObject<boolean>;
@@ -101,6 +103,7 @@ interface PreviewToolbarProps {
   handleRefresh: () => void;
   handleRenameFavorite: (site: FavoriteSite) => Promise<void>;
   handleRecheckExtension: () => Promise<void>;
+  handleToggleDesktopPreviewDetached: () => Promise<void>;
   handleToggleElementPicker: () => Promise<void>;
   handleUrlInputBlur: () => void;
   navigateToUrl: (nextValue: string, pushHistory?: boolean) => void;
@@ -142,6 +145,7 @@ export function PreviewToolbar({
   favoritesListOpen,
   filteredFavorites,
   isDownloadingExtension,
+  isDesktopPreviewDetached,
   isElementPickerEnabled,
   isElementPickerTooltipOpen,
   isMaximized,
@@ -163,7 +167,6 @@ export function PreviewToolbar({
   toolbarHoverSuppressed,
   toolbarRowRef,
   toolbarToggleTitle,
-  transportModeLabel,
   url,
   urlInputRef,
   userEditedUrlRef,
@@ -181,6 +184,7 @@ export function PreviewToolbar({
   handleRefresh,
   handleRenameFavorite,
   handleRecheckExtension,
+  handleToggleDesktopPreviewDetached,
   handleToggleElementPicker,
   handleUrlInputBlur,
   navigateToUrl,
@@ -434,6 +438,39 @@ export function PreviewToolbar({
               </Tooltip>
             </TooltipProvider>
 
+            {preferredTransportMode === "desktop-native" ? (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip disableHoverableContent>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <button
+                        onClick={() => {
+                          void handleToggleDesktopPreviewDetached();
+                        }}
+                        disabled={!activeUrl}
+                        className={cn(
+                          "flex h-6 cursor-pointer items-center justify-center px-2 leading-none transition-colors",
+                          activeUrl
+                            ? isDesktopPreviewDetached
+                              ? "text-blue-400 hover:bg-blue-400/10 hover:text-blue-300"
+                              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                            : "cursor-not-allowed text-muted-foreground/30",
+                        )}
+                        aria-label={isDesktopPreviewDetached ? "Restore preview to sidebar" : "Detach preview window"}
+                      >
+                        <PictureInPicture2 className="size-3.5" />
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+                    {isDesktopPreviewDetached
+                      ? "Restore the desktop preview to the sidebar."
+                      : "Open the desktop preview in a separate window."}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
+
             <PreviewExtensionUpdatePopover
               extensionUpdateAvailable={extensionUpdateAvailable}
               extensionUpdatePopoverOpen={extensionUpdatePopoverOpen}
@@ -450,7 +487,6 @@ export function PreviewToolbar({
               isDownloadingExtension={isDownloadingExtension}
               isRecheckingExtension={isRecheckingExtension}
               shouldShowExtensionInstall={shouldShowExtensionInstall}
-              transportModeLabel={transportModeLabel}
               handleDownloadExtension={handleDownloadExtension}
               handleRecheckExtension={handleRecheckExtension}
               setExtensionPopoverOpen={setExtensionPopoverOpen}
@@ -803,7 +839,6 @@ interface PreviewExtensionInstallPopoverProps {
   isDownloadingExtension: boolean;
   isRecheckingExtension: boolean;
   shouldShowExtensionInstall: boolean;
-  transportModeLabel: string;
   handleDownloadExtension: () => Promise<void>;
   handleRecheckExtension: () => Promise<void>;
   setExtensionPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -815,17 +850,12 @@ function PreviewExtensionInstallPopover({
   isDownloadingExtension,
   isRecheckingExtension,
   shouldShowExtensionInstall,
-  transportModeLabel,
   handleDownloadExtension,
   handleRecheckExtension,
   setExtensionPopoverOpen,
 }: PreviewExtensionInstallPopoverProps) {
   if (!shouldShowExtensionInstall) {
-    return (
-      <div className="flex h-6 items-center px-2 text-[11px] leading-none font-medium text-muted-foreground">
-        {transportModeLabel}
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -833,9 +863,11 @@ function PreviewExtensionInstallPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex h-6 cursor-pointer items-center px-2 text-[11px] leading-none font-medium text-foreground transition-colors hover:bg-accent/50"
+          className="flex h-6 cursor-pointer items-center justify-center px-2 leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          aria-label="Install preview extension"
+          title="Install preview extension"
         >
-          {transportModeLabel}
+          <Puzzle className="size-3.5" />
         </button>
       </PopoverTrigger>
       <PopoverContent

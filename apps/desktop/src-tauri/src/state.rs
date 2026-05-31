@@ -21,6 +21,7 @@ pub struct DesktopPreviewBridgeState {
     pub session_id: String,
     pub current_url: String,
     pub pick_mode: bool,
+    pub detached: bool,
 }
 
 pub struct AppState {
