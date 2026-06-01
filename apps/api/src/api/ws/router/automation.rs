@@ -4,9 +4,10 @@ use serde_json::{json, Map, Value};
 use super::*;
 use crate::relay::control_plane_client::RelayControlRequest;
 use core_service::{
-    AutomationArtifactGetReq, AutomationCancelRunReq, AutomationCreateReq, AutomationDeleteReq,
-    AutomationGetReq, AutomationListReq, AutomationRunGetReq, AutomationRunListReq,
-    AutomationRunNowReq, AutomationSchedulePreviewReq, AutomationUpdateReq,
+    AutomationArtifactGetReq, AutomationCancelRunReq, AutomationContinueInTerminalReq,
+    AutomationCreateReq, AutomationDeleteReq, AutomationGetReq, AutomationListReq,
+    AutomationRunGetReq, AutomationRunListReq, AutomationRunNowReq, AutomationSchedulePreviewReq,
+    AutomationUpdateReq,
 };
 
 impl WsMessageService {
@@ -96,6 +97,17 @@ impl WsMessageService {
         req: AutomationArtifactGetReq,
     ) -> Result<Value> {
         let result = self.automation_service.read_artifact(req).await?;
+        Ok(json!(result))
+    }
+
+    pub(super) async fn handle_automation_continue_in_terminal(
+        &self,
+        req: AutomationContinueInTerminalReq,
+    ) -> Result<Value> {
+        let result = self
+            .automation_service
+            .continue_in_terminal(&req.run_guid)
+            .await?;
         Ok(json!(result))
     }
 

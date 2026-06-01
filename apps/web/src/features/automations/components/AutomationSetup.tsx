@@ -489,7 +489,7 @@ export function AutomationSetup({
           Automations
         </Button>
 
-        <div className="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 sm:-translate-y-6 md:-translate-y-12">
+        <div className="relative z-10 mx-auto flex min-h-full w-full max-w-5xl flex-col items-center justify-center py-8 sm:-translate-y-8 md:-translate-y-16">
           <div className="mb-10 flex w-full max-w-4xl flex-col items-center">
             <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-4xl font-semibold tracking-tight text-foreground sm:text-5xl md:text-6xl">
               {renderAutomationHeadline(headline)}

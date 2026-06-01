@@ -135,7 +135,7 @@ export function validationMessage({
   previewError: string | null;
 }) {
   if (!displayName.trim()) return "Display name is required.";
-  if (!instructions.trim()) return "Agent Instructions are required.";
+  if (!instructions.trim()) return "Instructions are required.";
   if (!selectedAgent?.automation_supported) return "Select a supported non-interactive agent.";
   if (!targetValid) return "Choose a valid run environment.";
   if (!scheduleValid) return "Choose a valid trigger schedule.";

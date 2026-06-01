@@ -20,6 +20,7 @@ export function RunHistoryPanel({
   onRefresh,
   onSelectRun,
   onCancelRun,
+  className,
 }: {
   runs: AutomationRunSummary[];
   loading: boolean;
@@ -28,9 +29,10 @@ export function RunHistoryPanel({
   onRefresh: () => void;
   onSelectRun: (guid: string) => void;
   onCancelRun: (run: AutomationRunSummary) => Promise<void>;
+  className?: string;
 }) {
   return (
-    <div className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r">
+    <div className={cn("flex min-h-0 flex-col rounded-md border border-border bg-background", className)}>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <History className="size-4" />

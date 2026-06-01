@@ -3,36 +3,41 @@
     "id": "claude",
     "label": "Claude Code",
     "cmd": "claude",
-    "params": "--dangerously-skip-permissions",
+    "params": "--dangerously-skip-permissions --print",
+    "interactiveParams": "--dangerously-skip-permissions",
     "promptStrategy": "arg"
   },
   {
     "id": "codex",
     "label": "Codex",
     "cmd": "codex",
-    "params": "--dangerously-bypass-approvals-and-sandbox",
+    "params": "exec --dangerously-bypass-approvals-and-sandbox",
+    "interactiveParams": "--dangerously-bypass-approvals-and-sandbox",
     "promptStrategy": "arg"
   },
   {
     "id": "gemini",
     "label": "Gemini",
     "cmd": "gemini",
-    "params": "--yolo",
-    "promptStrategy": "arg"
+    "params": "--yolo --prompt",
+    "interactiveParams": "--yolo",
+    "promptStrategy": "prompt_flag"
   },
   {
     "id": "devin",
     "label": "Devin",
     "cmd": "devin",
-    "params": "--permission-mode bypass --",
+    "params": "--permission-mode dangerous --print",
+    "interactiveParams": "--permission-mode dangerous --",
     "promptStrategy": "arg"
   },
   {
     "id": "amp",
     "label": "Amp",
     "cmd": "amp",
-    "params": "--dangerously-allow-all",
-    "promptStrategy": "stdin",
+    "params": "--dangerously-allow-all --execute",
+    "interactiveParams": "--dangerously-allow-all",
+    "promptStrategy": "arg",
     "useEcho": true
   },
   {
@@ -40,34 +45,39 @@
     "label": "Droid",
     "cmd": "droid",
     "params": "exec --skip-permissions-unsafe",
+    "interactiveParams": "",
     "promptStrategy": "arg"
   },
   {
     "id": "opencode",
     "label": "OpenCode",
     "cmd": "opencode",
-    "params": "--prompt",
-    "promptStrategy": "prompt_flag"
+    "params": "run --dangerously-skip-permissions",
+    "interactiveParams": "",
+    "promptStrategy": "arg"
   },
   {
     "id": "kimi",
     "label": "Kimi",
     "cmd": "kimi",
     "params": "--print -p",
+    "interactiveParams": "",
     "promptStrategy": "prompt_flag"
   },
   {
     "id": "cursor",
     "label": "Cursor Agent",
     "cmd": "agent",
-    "params": "--force",
+    "params": "--force --print --trust",
+    "interactiveParams": "--force",
     "promptStrategy": "arg"
   },
   {
     "id": "kilocode",
     "label": "Kilo Code",
     "cmd": "kilo",
-    "params": "run --auto --dangerously-skip-permissions",
+    "params": "run --auto",
+    "interactiveParams": "",
     "promptStrategy": "arg"
   },
   {
@@ -81,7 +91,8 @@
     "id": "commandcode",
     "label": "CommandCode",
     "cmd": "cmd",
-    "params": "--trust --yolo",
+    "params": "--trust --yolo --skip-onboarding --print",
+    "interactiveParams": "--trust --yolo --skip-onboarding",
     "promptStrategy": "arg"
   },
   {
@@ -104,7 +115,7 @@
     "id": "hermes",
     "label": "Hermes Agent",
     "cmd": "hermes",
-    "params": "chat --yolo -Q -q",
+    "params": "--yolo --accept-hooks --oneshot",
     "interactiveParams": "chat --yolo",
     "promptStrategy": "prompt_flag"
   }

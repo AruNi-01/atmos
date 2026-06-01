@@ -20,27 +20,40 @@ export const WorkspacesManagementView: React.FC = () => {
       <Tabs 
         value={view} 
         onValueChange={(v) => setView(v as "recent" | "archived")}
-        className="flex-1 flex flex-col overflow-hidden"
+        className="relative flex-1 flex flex-col overflow-hidden"
       >
-        <div className="px-6 py-4 shrink-0 border-b border-border bg-background/50">
-          <TabsList className="w-fit h-9">
-            <TabsTab value="recent" className="flex items-center gap-2 px-6 text-sm">
-              Recently
-            </TabsTab>
-            <TabsTab value="archived" className="flex items-center gap-2 px-6 text-sm">
-              Archived
-            </TabsTab>
-          </TabsList>
+        <div className="pointer-events-none absolute left-1/2 top-12 z-30 w-full max-w-5xl -translate-x-1/2 px-8">
+          <div className="flex justify-end">
+            <div className="pointer-events-auto">
+              <WorkspaceViewTabs />
+            </div>
+          </div>
         </div>
-
         <TabsPanel keepMounted value="recent" className="flex-1 overflow-hidden m-0">
-          <RecentWorkspacesView />
+          <RecentWorkspacesView viewSwitcher={<WorkspaceViewTabsSpacer />} />
         </TabsPanel>
 
         <TabsPanel keepMounted value="archived" className="flex-1 overflow-hidden m-0">
-          <ArchivedWorkspacesView />
+          <ArchivedWorkspacesView viewSwitcher={<WorkspaceViewTabsSpacer />} />
         </TabsPanel>
       </Tabs>
     </div>
   );
 };
+
+function WorkspaceViewTabs() {
+  return (
+    <TabsList className="h-9">
+      <TabsTab value="recent" className="flex items-center gap-2 px-6 text-sm">
+        Recently
+      </TabsTab>
+      <TabsTab value="archived" className="flex items-center gap-2 px-6 text-sm">
+        Archived
+      </TabsTab>
+    </TabsList>
+  );
+}
+
+function WorkspaceViewTabsSpacer() {
+  return <div aria-hidden="true" className="h-9 w-[222px]" />;
+}

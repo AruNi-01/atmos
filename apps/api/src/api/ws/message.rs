@@ -450,6 +450,7 @@ pub enum WsAction {
     AutomationRunList,
     AutomationRunGet,
     AutomationArtifactGet,
+    AutomationContinueInTerminal,
     AutomationAgentCapabilities,
     AutomationSchedulePreview,
     AutomationGithubSetupSession,
@@ -607,6 +608,8 @@ pub enum WsEvent {
     AutomationDefinitionUpdated,
     /// Automation run changed
     AutomationRunUpdated,
+    /// Automation run output chunk
+    AutomationRunOutput,
     /// Automation outcome notification
     AutomationNotification,
 }

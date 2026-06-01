@@ -124,7 +124,7 @@ pub(super) fn validate_instructions(raw: String) -> Result<String> {
     let value = raw.trim().to_string();
     if value.is_empty() {
         return Err(ServiceError::Validation(
-            "Agent Instructions are required.".to_string(),
+            "Instructions are required.".to_string(),
         ));
     }
     Ok(value)

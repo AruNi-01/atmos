@@ -31,5 +31,11 @@ pub enum AutomationEvent {
         status: String,
         run: AutomationRunSummary,
     },
+    RunOutput {
+        automation_guid: String,
+        run_guid: String,
+        stream: String,
+        chunk: String,
+    },
     Notification(AutomationNotificationPayload),
 }

@@ -188,6 +188,7 @@ export type WsAction =
   | "automation_run_list"
   | "automation_run_get"
   | "automation_artifact_get"
+  | "automation_continue_in_terminal"
   | "automation_agent_capabilities"
   | "automation_schedule_preview"
   | "automation_github_setup_session"

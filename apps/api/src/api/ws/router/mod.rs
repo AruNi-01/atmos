@@ -595,6 +595,10 @@ impl WsMessageService {
                 self.handle_automation_artifact_get(parse_request(request.data)?)
                     .await
             }
+            WsAction::AutomationContinueInTerminal => {
+                self.handle_automation_continue_in_terminal(parse_request(request.data)?)
+                    .await
+            }
             WsAction::AutomationAgentCapabilities => {
                 self.handle_automation_agent_capabilities().await
             }

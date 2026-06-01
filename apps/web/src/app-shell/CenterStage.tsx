@@ -504,10 +504,10 @@ const CenterStage: React.FC = () => {
   React.useEffect(() => {
     if (
       !effectiveContextId ||
-      currentView !== "workspace" ||
+      (currentView !== "workspace" && currentView !== "project") ||
       isSetupBlocking ||
       !isTerminalWorkspaceReady ||
-      pendingWorkspaceAgentRun?.workspaceId !== effectiveContextId
+      (pendingWorkspaceAgentRun?.workspaceId ?? pendingWorkspaceAgentRun?.projectId) !== effectiveContextId
     ) {
       return;
     }
@@ -522,9 +522,10 @@ const CenterStage: React.FC = () => {
     if (!selectedAgent) return;
 
     const prompt = pending.prompt.trim();
-    const command = prompt
-      ? `${selectedAgent.command.trim()} ${shellQuote(prompt)}`
-      : selectedAgent.command.trim();
+    const command = pending.command?.trim()
+      || (prompt
+        ? `${selectedAgent.command.trim()} ${shellQuote(prompt)}`
+        : selectedAgent.command.trim());
 
     setActiveFile(null, effectiveContextId);
     setActiveTerminalTab(effectiveContextId, FIXED_TERMINAL_TAB_VALUE);

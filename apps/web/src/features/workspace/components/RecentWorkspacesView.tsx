@@ -68,6 +68,7 @@ const GROUP_ORDER: TimeGroup[] = [
 
 interface RecentWorkspacesViewProps {
   refreshKey?: string | number;
+  viewSwitcher?: React.ReactNode;
 }
 
 interface OverflowTooltipProps {
@@ -95,7 +96,7 @@ const OverflowTooltip: React.FC<OverflowTooltipProps> = ({
   </Tooltip>
 );
 
-export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey }) => {
+export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refreshKey, viewSwitcher }) => {
   const router = useAppRouter();
   const projects = useProjectStore(s => s.projects);
   const isStoreLoading = useProjectStore(s => s.isLoading);
@@ -293,16 +294,21 @@ export const RecentWorkspacesView: React.FC<RecentWorkspacesViewProps> = ({ refr
         <ScrollArea className="h-full scrollbar-on-hover">
           <div className="max-w-5xl mx-auto w-full px-8">
             {/* Header / Title - Scrolls away */}
-            <div className="pt-12 pb-8 space-y-2">
-              <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Folder className="size-5" />
+            <div className="pt-12 pb-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Folder className="size-5" />
+                    </div>
+                    Recent Workspaces
+                  </h2>
+                  <p className="text-sm text-muted-foreground text-pretty max-w-sm">
+                    Quickly jump back into your most recent active development sessions.
+                  </p>
                 </div>
-                Recent Workspaces
-              </h2>
-              <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-                Quickly jump back into your most recent active development sessions.
-              </p>
+                {viewSwitcher ? <div className="shrink-0">{viewSwitcher}</div> : null}
+              </div>
             </div>
 
             {/* Sticky Search Bar */}

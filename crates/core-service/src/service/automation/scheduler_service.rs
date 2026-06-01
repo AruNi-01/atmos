@@ -66,17 +66,8 @@ impl AutomationService {
                     .await;
                 }
                 Ok(_) => {
-                    if self.run_window_exists(&run) {
-                        self.spawn_run_watcher(run.guid);
-                    } else {
-                        mark_run_interrupted(
-                            &self.db,
-                            &self.notification_service,
-                            &self.event_tx,
-                            run,
-                        )
+                    mark_run_interrupted(&self.db, &self.notification_service, &self.event_tx, run)
                         .await;
-                    }
                 }
                 Err(_) => {
                     mark_run_interrupted(&self.db, &self.notification_service, &self.event_tx, run)

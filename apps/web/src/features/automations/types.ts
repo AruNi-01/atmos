@@ -34,7 +34,7 @@ export type AutomationScheduleKind =
   | "monthly"
   | "cron";
 
-export type AutomationArtifactKind = "prompt" | "output" | "final" | "run_json";
+export type AutomationArtifactKind = "prompt" | "output" | "final" | "run_json" | "events";
 
 export type AutomationDefinitionChange =
   | "created"
@@ -167,6 +167,19 @@ export interface AutomationArtifactResponse {
   artifact: AutomationArtifactKind;
   path: string;
   content: string;
+}
+
+export interface AutomationContinueInTerminalResponse {
+  run_guid: string;
+  automation_guid: string;
+  agent_id: string;
+  agent_label: string | null;
+  target_kind: AutomationTargetKind;
+  project_guid: string | null;
+  workspace_guid: string | null;
+  command: string;
+  terminal_label: string;
+  prompt_path: string;
 }
 
 export interface AutomationSchedulePreviewResponse {

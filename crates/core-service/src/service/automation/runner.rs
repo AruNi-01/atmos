@@ -13,7 +13,8 @@ pub const PROMPT_FILE: &str = "prompt.md";
 pub const OUTPUT_FILE: &str = "output.log";
 pub const FINAL_FILE: &str = "final.md";
 pub const RUN_JSON_FILE: &str = "run.json";
-pub const TERMINAL_DISPLAY_NAME: &str = "Automations";
+pub const EVENTS_FILE: &str = "events.jsonl";
+pub const CONTINUE_PROMPT_FILE: &str = "continue_prompt.md";
 
 #[derive(Debug, Clone)]
 pub struct ResolvedAutomationTarget {
@@ -22,8 +23,6 @@ pub struct ResolvedAutomationTarget {
     pub workspace_guid: Option<String>,
     pub created_workspace_guid: Option<String>,
     pub cwd: PathBuf,
-    pub project_name: Option<String>,
-    pub workspace_name: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,7 +33,6 @@ pub struct PreparedAutomationRun {
     pub output_path: PathBuf,
     pub result_path: PathBuf,
     pub run_json_path: PathBuf,
-    pub tmux_window_name: String,
     pub started_at: NaiveDateTime,
 }
 
@@ -83,8 +81,8 @@ pub fn prepare_run_files(
     automation: &automation::Model,
     instructions: &str,
     target: &ResolvedAutomationTarget,
-    trigger_kind: &str,
-    trigger_context: Option<&str>,
+    _trigger_kind: &str,
+    _trigger_context: Option<&str>,
 ) -> Result<PreparedAutomationRun> {
     let run_guid = Uuid::new_v4().to_string();
     let started_at = Utc::now().naive_utc();
@@ -96,23 +94,18 @@ pub fn prepare_run_files(
     let output_path = run_dir.join(OUTPUT_FILE);
     let result_path = run_dir.join(FINAL_FILE);
     let run_json_path = run_dir.join(RUN_JSON_FILE);
+    let events_path = run_dir.join(EVENTS_FILE);
 
     let mut prompt_target = target.clone();
     if prompt_target.target_kind == "standalone" {
         prompt_target.cwd = run_dir.clone();
     }
     let resolved_instructions = resolve_file_mentions_for_target(instructions, &prompt_target.cwd);
-    let prompt = build_prompt(
-        automation,
-        &resolved_instructions,
-        &prompt_target,
-        trigger_kind,
-        trigger_context,
-        started_at,
-    );
+    let prompt = build_prompt(&resolved_instructions);
     artifacts::write_user_private_file(&prompt_path, &prompt)?;
     artifacts::write_user_private_file(&output_path, "")?;
     artifacts::write_user_private_file(&result_path, "")?;
+    artifacts::write_user_private_file(&events_path, "")?;
 
     Ok(PreparedAutomationRun {
         run_guid,
@@ -121,7 +114,6 @@ pub fn prepare_run_files(
         output_path,
         result_path,
         run_json_path,
-        tmux_window_name: TERMINAL_DISPLAY_NAME.to_string(),
         started_at,
     })
 }
@@ -140,6 +132,7 @@ pub fn prepare_start_failure_files(
     let output_path = run_dir.join(OUTPUT_FILE);
     let result_path = run_dir.join(FINAL_FILE);
     let run_json_path = run_dir.join(RUN_JSON_FILE);
+    let events_path = run_dir.join(EVENTS_FILE);
     let content = format!(
         "Automation failed before agent execution.\n\nAutomation: {display_name}\nAutomation ID: {automation_guid}\nTarget: {target_kind}\nReason: {error_message}\n",
         display_name = automation.display_name,
@@ -150,6 +143,7 @@ pub fn prepare_start_failure_files(
     artifacts::write_user_private_file(&prompt_path, &content)?;
     artifacts::write_user_private_file(&output_path, &content)?;
     artifacts::write_user_private_file(&result_path, &content)?;
+    artifacts::write_user_private_file(&events_path, "")?;
 
     Ok(PreparedAutomationRun {
         run_guid,
@@ -158,7 +152,6 @@ pub fn prepare_start_failure_files(
         output_path,
         result_path,
         run_json_path,
-        tmux_window_name: TERMINAL_DISPLAY_NAME.to_string(),
         started_at,
     })
 }
@@ -209,62 +202,8 @@ pub fn run_json_for_status(
     value
 }
 
-fn build_prompt(
-    automation: &automation::Model,
-    instructions: &str,
-    target: &ResolvedAutomationTarget,
-    trigger_kind: &str,
-    trigger_context: Option<&str>,
-    started_at: NaiveDateTime,
-) -> String {
-    let target_label = match target.target_kind.as_str() {
-        "project" => "Project",
-        "workspace" => "Workspace",
-        "new_workspace" => "New Workspace",
-        _ => "Standalone",
-    };
-
-    let trigger_context = trigger_context
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| format!("{value}\n\n"))
-        .unwrap_or_default();
-
-    format!(
-        r#"# Atmos Automation Run
-
-Automation: {display_name}
-Automation ID: {automation_guid}
-Trigger: {trigger_kind}
-Started at: {started_at}
-
-Target: {target_label}
-Project ID: {project_guid}
-Workspace ID: {workspace_guid}
-Created Workspace ID: {created_workspace_guid}
-Working directory: {cwd}
-
-{trigger_context}
-## Agent Instructions
-
-{instructions}
-
-## Output
-
-Run non-interactively and print the final result to stdout. Atmos captures terminal output into output.log and final.md for this run.
-"#,
-        display_name = automation.display_name,
-        automation_guid = automation.guid,
-        trigger_kind = trigger_kind,
-        started_at = started_at,
-        target_label = target_label,
-        project_guid = target.project_guid.as_deref().unwrap_or("none"),
-        workspace_guid = target.workspace_guid.as_deref().unwrap_or("none"),
-        created_workspace_guid = target.created_workspace_guid.as_deref().unwrap_or("none"),
-        cwd = target.cwd.display(),
-        trigger_context = trigger_context,
-        instructions = instructions.trim()
-    )
+fn build_prompt(instructions: &str) -> String {
+    instructions.trim().to_string()
 }
 
 fn short_guid(guid: &str) -> String {
@@ -384,5 +323,19 @@ mod tests {
         );
 
         assert_eq!(resolved, "Check src/app.ts and docs/spec.md");
+    }
+
+    #[test]
+    fn prompt_contains_only_user_instructions() {
+        let prompt = build_prompt(
+            r#"
+帮我总结一下 GitHub 中，AruNi-01/Atmos 的项目
+"#,
+        );
+
+        assert_eq!(prompt, "帮我总结一下 GitHub 中，AruNi-01/Atmos 的项目");
+        assert!(!prompt.contains("Atmos Automation Run"));
+        assert!(!prompt.contains("Agent Instructions"));
+        assert!(!prompt.contains("Output"));
     }
 }

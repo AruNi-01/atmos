@@ -2,7 +2,11 @@
 
 import * as React from "react";
 import { toastManager } from "@workspace/ui";
+import { useQueryState } from "nuqs";
 
+import { useDialogStore } from "@/app-shell/state/use-dialog-store";
+import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
+import { DEFAULT_AGENT_CHAT_MODE } from "@/features/agent/types";
 import { useAutomations } from "@/features/automations/hooks/use-automations";
 import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
 import { formatShortId } from "@/features/automations/lib/automation-format";
@@ -21,6 +25,9 @@ import type {
 } from "@/features/automations/types";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { automationsParams, type AutomationsView } from "@/shared/lib/nuqs/searchParams";
 
 export function useAutomationPageState() {
   const {
@@ -43,24 +50,36 @@ export function useAutomationPageState() {
     getRun,
     cancelRun,
     getArtifact,
+    continueInTerminal,
     schedulePreview,
   } = useAutomations();
+  const router = useAppRouter();
+  const queueAgentRun = useWorkspaceCreationStore((state) => state.queueAgentRun);
+  const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
   const githubPrereqs = useGithubRelayPrerequisites();
   const projects = useProjectStore((state) => state.projects);
   const isProjectsLoading = useProjectStore((state) => state.isLoading);
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
 
-  const [setupMode, setSetupMode] = React.useState<SetupMode | null>(null);
-  const [selectedAutomationGuid, setSelectedAutomationGuid] = React.useState<string | null>(null);
+  const [pageView, setPageView] = useQueryState("automationView", automationsParams.view);
+  const [automationParam, setAutomationParam] = useQueryState("automationId", automationsParams.automation);
+  const [runParam, setRunParam] = useQueryState("automationRun", automationsParams.run);
+  const [targetFilter, setTargetFilter] = useQueryState("automationTarget", automationsParams.target);
+  const [searchQuery, setSearchQuery] = useQueryState("automationQ", automationsParams.q);
+
+  const setupMode: SetupMode | null = pageView === "create" || pageView === "edit" ? pageView : null;
+  const selectedAutomationGuid = automationParam || null;
+  const selectedRunGuid = runParam || null;
+
   const [selectedDetail, setSelectedDetail] = React.useState<AutomationDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [runs, setRuns] = React.useState<AutomationRunSummary[]>([]);
   const [runsLoading, setRunsLoading] = React.useState(false);
-  const [selectedRunGuid, setSelectedRunGuid] = React.useState<string | null>(null);
   const [selectedRun, setSelectedRun] = React.useState<AutomationRunSummary | null>(null);
   const [artifact, setArtifact] = React.useState<AutomationArtifactResponse | null>(null);
   const [artifactLoading, setArtifactLoading] = React.useState(false);
   const [busyAction, setBusyAction] = React.useState<string | null>(null);
+  const [standaloneChatRunGuid, setStandaloneChatRunGuid] = React.useState<string | null>(null);
   const selectedAutomationGuidRef = React.useRef<string | null>(null);
   const runsRequestSeqRef = React.useRef(0);
 
@@ -80,14 +99,20 @@ export function useAutomationPageState() {
   }, [fetchProjects, isProjectsLoading, projects.length]);
 
   React.useEffect(() => {
-    if (automations.length === 0) {
-      setSelectedAutomationGuid(null);
+    if ((pageView === "edit" || pageView === "history") && !selectedAutomationGuid) {
+      void setPageView("list");
       return;
     }
-    if (!selectedAutomationGuid || !automations.some((automation) => automation.guid === selectedAutomationGuid)) {
-      setSelectedAutomationGuid(automations[0]?.guid ?? null);
+    if (
+      automations.length > 0 &&
+      selectedAutomationGuid &&
+      !automations.some((automation) => automation.guid === selectedAutomationGuid)
+    ) {
+      void setPageView("list");
+      void setAutomationParam(null);
+      void setRunParam(null);
     }
-  }, [automations, selectedAutomationGuid]);
+  }, [automations, pageView, selectedAutomationGuid, setAutomationParam, setPageView, setRunParam]);
 
   const loadAutomationDetail = React.useCallback(
     async (automationGuid: string, showToast = true) => {
@@ -193,12 +218,12 @@ export function useAutomationPageState() {
     if (!selectedAutomationGuid) {
       runsRequestSeqRef.current += 1;
       setRuns([]);
-      setSelectedRunGuid(null);
+      void setRunParam(null);
       setRunsLoading(false);
       return;
     }
     void loadRuns(selectedAutomationGuid);
-  }, [loadRuns, selectedAutomationGuid]);
+  }, [loadRuns, selectedAutomationGuid, setRunParam]);
 
   React.useEffect(() => {
     const store = useWebSocketStore.getState();
@@ -220,7 +245,9 @@ export function useAutomationPageState() {
         if (payload.automation_guid === selectedAutomationGuid) {
           setSelectedDetail(null);
           setRuns([]);
-          setSelectedRunGuid(null);
+          void setRunParam(null);
+          void setAutomationParam(null);
+          void setPageView("list");
         }
         return;
       }
@@ -266,18 +293,24 @@ export function useAutomationPageState() {
     removeAutomation,
     selectedAutomationGuid,
     selectedRunGuid,
+    setAutomationParam,
+    setPageView,
+    setRunParam,
     upsertAutomation,
   ]);
 
   React.useEffect(() => {
+    if (pageView !== "history") {
+      return;
+    }
     if (runs.length === 0) {
-      setSelectedRunGuid(null);
+      void setRunParam(null);
       return;
     }
     if (!selectedRunGuid || !runs.some((run) => run.guid === selectedRunGuid)) {
-      setSelectedRunGuid(runs[0]?.guid ?? null);
+      void setRunParam(runs[0]?.guid ?? null);
     }
-  }, [runs, selectedRunGuid]);
+  }, [pageView, runs, selectedRunGuid, setRunParam]);
 
   React.useEffect(() => {
     setArtifact(null);
@@ -318,14 +351,14 @@ export function useAutomationPageState() {
         type: "success",
       });
       upsertAutomation(detail);
-      setSelectedAutomationGuid(detail.guid);
+      void setAutomationParam(null);
       setSelectedDetail(detail);
       setRuns([]);
-      setSelectedRunGuid(null);
-      setSetupMode(null);
+      void setRunParam(null);
+      void setPageView("list");
       return detail;
     },
-    [createAutomation, upsertAutomation],
+    [createAutomation, setAutomationParam, setPageView, setRunParam, upsertAutomation],
   );
 
   const handleUpdate = React.useCallback(
@@ -337,12 +370,12 @@ export function useAutomationPageState() {
         type: "success",
       });
       upsertAutomation(detail);
-      setSelectedAutomationGuid(detail.guid);
+      void setAutomationParam(null);
       setSelectedDetail(detail);
-      setSetupMode(null);
+      void setPageView("list");
       return detail;
     },
-    [updateAutomation, upsertAutomation],
+    [setAutomationParam, setPageView, updateAutomation, upsertAutomation],
   );
 
   const handleDefinitionAction = React.useCallback(
@@ -351,7 +384,9 @@ export function useAutomationPageState() {
       try {
         if (action === "run") {
           const run = await runNow(automation.guid);
-          setSelectedRunGuid(run.guid);
+          if (pageView === "history") {
+            void setRunParam(run.guid);
+          }
           setSelectedRun(run);
           await Promise.all([
             refreshAutomation(automation.guid).then(setSelectedDetail).catch(() => undefined),
@@ -387,11 +422,12 @@ export function useAutomationPageState() {
           });
           removeAutomation(automation.guid);
           if (automation.guid === selectedAutomationGuidRef.current) {
-            setSelectedAutomationGuid(null);
+            void setAutomationParam(null);
             setSelectedDetail(null);
             setRuns([]);
-            setSelectedRunGuid(null);
+            void setRunParam(null);
             setSelectedRun(null);
+            void setPageView("list");
           }
           toastManager.add({
             title: "Automation deleted",
@@ -428,10 +464,14 @@ export function useAutomationPageState() {
       githubPrereqs,
       loadRuns,
       pauseAutomation,
+      pageView,
       refreshAutomation,
       removeAutomation,
       resumeAutomation,
       runNow,
+      setAutomationParam,
+      setPageView,
+      setRunParam,
       upsertAutomation,
     ],
   );
@@ -488,6 +528,75 @@ export function useAutomationPageState() {
     [getArtifact],
   );
 
+  const handleContinueInTerminal = React.useCallback(
+    async (run: AutomationRunSummary) => {
+      setBusyAction(`continue:${run.guid}`);
+      try {
+        const response = await continueInTerminal(run.guid);
+        const contextId = response.workspace_guid ?? response.project_guid;
+        if (!contextId) {
+          enqueueAgentChatPrompt({
+            workspaceId: null,
+            projectId: null,
+            mode: DEFAULT_AGENT_CHAT_MODE,
+            registryId: response.agent_id,
+            forceNewSession: true,
+            sessionTitle: response.terminal_label,
+            origin: "automation",
+            displayPrompt: `Continue automation run ${formatShortId(run.guid)}`,
+            prompt: [
+              "Continue this Atmos automation run.",
+              "",
+              `Read the continuation prompt first: ${response.prompt_path}`,
+              "Use the artifact paths referenced there as the source of truth.",
+              "Continue from the automation result and ask before destructive changes unless already authorized.",
+            ].join("\n"),
+          });
+          setStandaloneChatRunGuid(run.guid);
+          toastManager.add({
+            title: "Opening standalone conversation",
+            description: response.agent_label ?? response.agent_id,
+            type: "success",
+          });
+          return;
+        }
+
+        const isBuiltIn = TERMINAL_AGENT_DEFINITIONS.some((agent) => agent.id === response.agent_id);
+        queueAgentRun({
+          workspaceId: response.workspace_guid,
+          projectId: response.workspace_guid ? null : response.project_guid,
+          prompt: "",
+          command: response.command,
+          agent: {
+            id: response.agent_id,
+            label: response.terminal_label,
+            command: response.command,
+            iconType: isBuiltIn ? "built-in" : "custom",
+          },
+        });
+
+        const route = response.workspace_guid
+          ? `/workspace?id=${response.workspace_guid}&tab=terminal`
+          : `/project?id=${contextId}&tab=terminal`;
+        router.push(route);
+        toastManager.add({
+          title: "Opening terminal agent",
+          description: `Context prompt written to ${response.prompt_path}`,
+          type: "success",
+        });
+      } catch (err) {
+        toastManager.add({
+          title: "Failed to continue in terminal",
+          description: err instanceof Error ? err.message : "Unknown error",
+          type: "error",
+        });
+      } finally {
+        setBusyAction((current) => (current === `continue:${run.guid}` ? null : current));
+      }
+    },
+    [continueInTerminal, enqueueAgentChatPrompt, queueAgentRun, router],
+  );
+
   const handleReload = React.useCallback(() => {
     void reload().then(() => {
       if (selectedAutomationGuid) {
@@ -497,6 +606,62 @@ export function useAutomationPageState() {
     });
   }, [loadAutomationDetail, loadRuns, reload, selectedAutomationGuid]);
 
+  const openList = React.useCallback(() => {
+    void setPageView("list");
+    void setAutomationParam(null);
+    void setRunParam(null);
+  }, [setAutomationParam, setPageView, setRunParam]);
+
+  const openHistory = React.useCallback(
+    (automationGuid: string) => {
+      void setAutomationParam(automationGuid);
+      void setRunParam(null);
+      void setPageView("history");
+    },
+    [setAutomationParam, setPageView, setRunParam],
+  );
+
+  const openEdit = React.useCallback(
+    (automationGuid: string) => {
+      void setAutomationParam(automationGuid);
+      void setRunParam(null);
+      void setPageView("edit");
+    },
+    [setAutomationParam, setPageView, setRunParam],
+  );
+
+  const openCreate = React.useCallback(() => {
+    void setAutomationParam(null);
+    void setRunParam(null);
+    void setPageView("create");
+  }, [setAutomationParam, setPageView, setRunParam]);
+
+  const setSetupMode = React.useCallback(
+    (mode: SetupMode | null) => {
+      if (!mode) {
+        openList();
+        return;
+      }
+      if (mode === "create") {
+        openCreate();
+        return;
+      }
+      if (selectedAutomationGuid) {
+        openEdit(selectedAutomationGuid);
+      } else {
+        void setPageView("list");
+      }
+    },
+    [openCreate, openEdit, openList, selectedAutomationGuid, setPageView],
+  );
+
+  const setSelectedRunGuid = React.useCallback(
+    (guid: string | null) => {
+      void setRunParam(guid);
+    },
+    [setRunParam],
+  );
+
   return {
     automations,
     agents,
@@ -504,6 +669,9 @@ export function useAutomationPageState() {
     error,
     projects,
     isProjectsLoading,
+    pageView: pageView as AutomationsView,
+    targetFilter,
+    searchQuery,
     setupMode,
     selectedAutomationGuid,
     selectedAutomation,
@@ -516,9 +684,17 @@ export function useAutomationPageState() {
     artifact,
     artifactLoading,
     busyAction,
+    standaloneChatOpen: Boolean(standaloneChatRunGuid),
+    closeStandaloneChat: () => setStandaloneChatRunGuid(null),
     schedulePreview,
     setSetupMode,
-    setSelectedAutomationGuid,
+    setSelectedAutomationGuid: openHistory,
+    setTargetFilter,
+    setSearchQuery,
+    openList,
+    openHistory,
+    openEdit,
+    openCreate,
     loadRuns,
     handleReload,
     handleCreate,
@@ -526,6 +702,7 @@ export function useAutomationPageState() {
     handleDefinitionAction,
     handleCancelRun,
     handleArtifactFetch,
+    handleContinueInTerminal,
     setSelectedRunGuid,
   };
 }

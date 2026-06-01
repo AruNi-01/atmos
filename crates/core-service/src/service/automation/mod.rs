@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 mod agents;
@@ -7,6 +8,7 @@ mod events;
 mod external_trigger;
 mod github_trigger;
 mod lifecycle;
+mod process_runner;
 mod run_watcher;
 mod runner;
 mod scheduler;
@@ -41,7 +43,7 @@ pub use external_trigger::{
 pub use github_trigger::{
     GithubEventFamily, GithubTriggerConfig, GithubTriggerEvent, GithubTriggerFilters,
 };
-use run_watcher::{mark_run_interrupted, publish_run_update, watch_automation_run};
+use run_watcher::{mark_run_interrupted, publish_run_update};
 use validation::{parse_run_page_token, validate_display_name, validate_instructions};
 
 const DEFAULT_SCHEDULE_PREVIEW_COUNT: usize = 5;
@@ -265,6 +267,11 @@ pub struct AutomationCancelRunReq {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationContinueInTerminalReq {
+    pub run_guid: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationArtifactGetReq {
     pub run_guid: String,
     pub artifact: AutomationArtifactKind,
@@ -277,6 +284,7 @@ pub enum AutomationArtifactKind {
     Output,
     Final,
     RunJson,
+    Events,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -368,6 +376,20 @@ pub struct AutomationArtifact {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationContinueInTerminalResponse {
+    pub run_guid: String,
+    pub automation_guid: String,
+    pub agent_id: String,
+    pub agent_label: Option<String>,
+    pub target_kind: String,
+    pub project_guid: Option<String>,
+    pub workspace_guid: Option<String>,
+    pub command: String,
+    pub terminal_label: String,
+    pub prompt_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchedulePreview {
     pub next_run_at: Option<NaiveDateTime>,
     pub occurrences: Vec<NaiveDateTime>,
@@ -379,7 +401,6 @@ pub struct AutomationService {
     db: Arc<DatabaseConnection>,
     project_service: Arc<ProjectService>,
     workspace_service: Arc<WorkspaceService>,
-    terminal_service: Arc<TerminalService>,
     notification_service: Arc<NotificationService>,
     event_tx: broadcast::Sender<AutomationEvent>,
     active_start_guids: Arc<Mutex<HashSet<String>>>,
@@ -390,7 +411,7 @@ impl AutomationService {
         db: Arc<DatabaseConnection>,
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,
-        terminal_service: Arc<TerminalService>,
+        _terminal_service: Arc<TerminalService>,
         notification_service: Arc<NotificationService>,
     ) -> Self {
         let (event_tx, _) = broadcast::channel(128);
@@ -398,7 +419,6 @@ impl AutomationService {
             db,
             project_service,
             workspace_service,
-            terminal_service,
             notification_service,
             event_tx,
             active_start_guids: Arc::new(Mutex::new(HashSet::new())),
@@ -669,6 +689,10 @@ impl AutomationService {
             AutomationArtifactKind::Output => run.output_path,
             AutomationArtifactKind::Final => run.result_path,
             AutomationArtifactKind::RunJson => run.run_json_path,
+            AutomationArtifactKind::Events => PathBuf::from(&run.run_dir)
+                .join(runner::EVENTS_FILE)
+                .to_string_lossy()
+                .to_string(),
         };
         let content = artifacts::read_artifact(&path)?;
         Ok(AutomationArtifact {

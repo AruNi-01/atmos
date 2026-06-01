@@ -5,8 +5,10 @@ import { create } from 'zustand';
 type WorkspaceCreationPhase = 'creating' | 'opening';
 
 export interface PendingWorkspaceAgentRun {
-  workspaceId: string;
+  workspaceId?: string | null;
+  projectId?: string | null;
   prompt: string;
+  command?: string;
   agent?: {
     id: string;
     label: string;
@@ -24,7 +26,7 @@ interface WorkspaceCreationState {
   showCreating: () => void;
   showOpening: (workspaceId: string) => void;
   queueAgentRun: (data: Omit<PendingWorkspaceAgentRun, "createdAt">) => void;
-  consumeAgentRun: (workspaceId: string) => PendingWorkspaceAgentRun | null;
+  consumeAgentRun: (contextId: string) => PendingWorkspaceAgentRun | null;
   clear: () => void;
 }
 
@@ -45,19 +47,22 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
       phase: 'opening',
       pendingWorkspaceId: workspaceId,
     }),
-  queueAgentRun: ({ workspaceId, prompt, agent }) =>
+  queueAgentRun: ({ workspaceId, projectId, prompt, command, agent }) =>
     set({
       pendingAgentRun: {
         workspaceId,
+        projectId,
         prompt,
+        command,
         agent,
         createdAt: Date.now(),
       },
     }),
-  consumeAgentRun: (workspaceId) => {
+  consumeAgentRun: (contextId) => {
     let pending: PendingWorkspaceAgentRun | null = null;
     set((state) => {
-      if (state.pendingAgentRun?.workspaceId !== workspaceId) {
+      const pendingContextId = state.pendingAgentRun?.workspaceId ?? state.pendingAgentRun?.projectId;
+      if (pendingContextId !== contextId) {
         return state;
       }
       pending = state.pendingAgentRun;

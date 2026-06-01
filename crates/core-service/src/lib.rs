@@ -10,8 +10,9 @@ pub use service::agent_session::{AgentSessionService, LazySessionSpec, ResumeNat
 pub use service::automation::AutomationAgentCapability;
 pub use service::automation::{
     AutomationArtifact, AutomationArtifactGetReq, AutomationArtifactKind, AutomationCancelRunReq,
-    AutomationCreateReq, AutomationDeleteReq, AutomationDetail, AutomationEvent, AutomationGetReq,
-    AutomationList, AutomationListReq, AutomationRunDetail, AutomationRunGetReq, AutomationRunList,
+    AutomationContinueInTerminalReq, AutomationContinueInTerminalResponse, AutomationCreateReq,
+    AutomationDeleteReq, AutomationDetail, AutomationEvent, AutomationGetReq, AutomationList,
+    AutomationListReq, AutomationRunDetail, AutomationRunGetReq, AutomationRunList,
     AutomationRunListReq, AutomationRunNowReq, AutomationRunStatus, AutomationScheduleInput,
     AutomationScheduleKind, AutomationSchedulePreviewReq, AutomationService, AutomationSummary,
     AutomationTargetInput, AutomationTargetKind, AutomationTriggerInput, AutomationTriggerKind,

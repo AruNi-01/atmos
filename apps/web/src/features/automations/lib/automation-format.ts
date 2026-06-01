@@ -89,6 +89,8 @@ export function artifactLabel(kind: AutomationArtifactKind) {
       return "Output Log";
     case "prompt":
       return "Prompt";
+    case "events":
+      return "Events";
     case "run_json":
       return "Run JSON";
   }

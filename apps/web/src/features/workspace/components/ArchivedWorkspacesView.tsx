@@ -53,7 +53,11 @@ const OverflowTooltip: React.FC<OverflowTooltipProps> = ({
   </Tooltip>
 );
 
-export const ArchivedWorkspacesView: React.FC = () => {
+interface ArchivedWorkspacesViewProps {
+  viewSwitcher?: React.ReactNode;
+}
+
+export const ArchivedWorkspacesView: React.FC<ArchivedWorkspacesViewProps> = ({ viewSwitcher }) => {
   const [searchQuery, setSearchQuery] = useQueryState("q", workspacesParams.q);
   const [archivedWorkspaces, setArchivedWorkspaces] = useState<ArchivedWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -215,16 +219,21 @@ export const ArchivedWorkspacesView: React.FC = () => {
         <ScrollArea className="h-full scrollbar-on-hover">
           <div className="max-w-5xl mx-auto w-full px-8">
             {/* Header / Title - Scrolls away */}
-            <div className="pt-12 pb-8 space-y-2">
-              <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground border border-border">
-                  <Archive className="size-5" />
+            <div className="pt-12 pb-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground border border-border">
+                      <Archive className="size-5" />
+                    </div>
+                    Archived Workspaces
+                  </h2>
+                  <p className="text-sm text-muted-foreground text-pretty max-w-sm">
+                    View and manage archived workspaces. Restore them to continue working.
+                  </p>
                 </div>
-                Archived Workspaces
-              </h2>
-              <p className="text-sm text-muted-foreground text-pretty max-w-sm">
-                View and manage archived workspaces. Restore them to continue working.
-              </p>
+                {viewSwitcher ? <div className="shrink-0">{viewSwitcher}</div> : null}
+              </div>
             </div>
 
             {/* Sticky Search Bar */}

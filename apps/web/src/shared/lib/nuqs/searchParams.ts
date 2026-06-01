@@ -48,6 +48,22 @@ export const workspacesParams = {
 };
 
 // ---------------------------------------------------------------------------
+// AutomationsManagement – page state, selected definition, search, filters
+// ---------------------------------------------------------------------------
+export type AutomationsView = "list" | "create" | "edit" | "history";
+export type AutomationTargetFilter = "all" | "project" | "workspace" | "standalone";
+
+export const automationsParams = {
+  view: parseAsStringEnum<AutomationsView>(["list", "create", "edit", "history"])
+    .withDefault("list")
+    .withOptions({ history: "push" }),
+  automation: parseAsString.withDefault(""),
+  run: parseAsString.withDefault(""),
+  target: parseAsStringEnum<AutomationTargetFilter>(["all", "project", "workspace", "standalone"]).withDefault("all"),
+  q: parseAsString.withDefault(""),
+};
+
+// ---------------------------------------------------------------------------
 // SkillsView – scope filter & search
 // ---------------------------------------------------------------------------
 export type SkillsTab = "installed" | "market" | "resources";

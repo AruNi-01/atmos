@@ -3,6 +3,7 @@
 import { Badge, cn } from "@workspace/ui";
 import {
   AlertCircle,
+  Bot,
   CheckCircle2,
   LoaderCircle,
   Square,
@@ -10,7 +11,12 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type { AutomationArtifactKind, AutomationRunStatus } from "@/features/automations/types";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import type {
+  AutomationAgentCapability,
+  AutomationArtifactKind,
+  AutomationRunStatus,
+} from "@/features/automations/types";
 
 export const ARTIFACT_OPTIONS: Array<{
   kind: AutomationArtifactKind;
@@ -20,6 +26,7 @@ export const ARTIFACT_OPTIONS: Array<{
   { kind: "final", label: "Result", description: "final.md" },
   { kind: "output", label: "Output Log", description: "output.log" },
   { kind: "prompt", label: "Prompt", description: "prompt.md" },
+  { kind: "events", label: "Events", description: "events.jsonl" },
   { kind: "run_json", label: "Run JSON", description: "run.json" },
 ];
 
@@ -71,5 +78,30 @@ export function StatusBadge({ status }: { status: AutomationRunStatus }) {
       <Icon className={cn("size-3.5", status === "running" && "animate-spin")} />
       {meta.label}
     </Badge>
+  );
+}
+
+export function AutomationAgentLabel({
+  agent,
+  agentId,
+  className,
+  iconSize = 14,
+}: {
+  agent: AutomationAgentCapability | null;
+  agentId: string;
+  className?: string;
+  iconSize?: number;
+}) {
+  const label = agent?.label ?? agentId;
+
+  return (
+    <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
+      {agentId ? (
+        <AgentIcon registryId={agentId} name={label} size={iconSize} />
+      ) : (
+        <Bot className="shrink-0 text-muted-foreground" style={{ width: iconSize, height: iconSize }} />
+      )}
+      <span className="truncate">{label}</span>
+    </span>
   );
 }

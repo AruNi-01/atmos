@@ -7,6 +7,7 @@ import type {
   AutomationAgentCapability,
   AutomationArtifactKind,
   AutomationArtifactResponse,
+  AutomationContinueInTerminalResponse,
   AutomationCreateRequest,
   AutomationDetail,
   AutomationListResponse,
@@ -148,6 +149,12 @@ export function useAutomations() {
     });
   }, []);
 
+  const continueInTerminal = React.useCallback((runGuid: string) => {
+    return wsRequest<AutomationContinueInTerminalResponse>("automation_continue_in_terminal", {
+      run_guid: runGuid,
+    });
+  }, []);
+
   const schedulePreview = React.useCallback(
     (schedule: AutomationScheduleInput, timezone: string, count = 5) => {
       return wsRequest<AutomationSchedulePreviewResponse>("automation_schedule_preview", {
@@ -181,6 +188,7 @@ export function useAutomations() {
     getRun,
     cancelRun,
     getArtifact,
+    continueInTerminal,
     schedulePreview,
   };
 }

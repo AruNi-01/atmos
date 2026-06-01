@@ -33,8 +33,6 @@ impl AutomationService {
                     workspace_guid: None,
                     created_workspace_guid: None,
                     cwd: PathBuf::from(project.main_file_path),
-                    project_name: Some(project.name),
-                    workspace_name: None,
                 })
             }
             "workspace" => {
@@ -53,24 +51,12 @@ impl AutomationService {
                     .ok_or_else(|| {
                         ServiceError::NotFound(format!("Workspace {workspace_guid} not found"))
                     })?;
-                let project = self
-                    .project_service
-                    .get_project(workspace.model.project_guid.clone())
-                    .await?
-                    .ok_or_else(|| {
-                        ServiceError::NotFound(format!(
-                            "Project {} not found",
-                            workspace.model.project_guid
-                        ))
-                    })?;
                 Ok(ResolvedAutomationTarget {
                     target_kind: automation.target_kind.clone(),
                     project_guid: Some(workspace.model.project_guid),
                     workspace_guid: Some(workspace.model.guid),
                     created_workspace_guid: None,
                     cwd: PathBuf::from(workspace.local_path),
-                    project_name: Some(project.name),
-                    workspace_name: Some(workspace.model.name),
                 })
             }
             "new_workspace" => {
@@ -114,21 +100,12 @@ impl AutomationService {
                     .ok_or_else(|| {
                         ServiceError::NotFound("Automation-created workspace not found".to_string())
                     })?;
-                let project = self
-                    .project_service
-                    .get_project(project_guid.clone())
-                    .await?
-                    .ok_or_else(|| {
-                        ServiceError::NotFound(format!("Project {project_guid} not found"))
-                    })?;
                 Ok(ResolvedAutomationTarget {
                     target_kind: automation.target_kind.clone(),
                     project_guid: Some(project_guid),
                     workspace_guid: Some(workspace.model.guid.clone()),
                     created_workspace_guid: Some(workspace.model.guid),
                     cwd: PathBuf::from(workspace.local_path),
-                    project_name: Some(project.name),
-                    workspace_name: Some(workspace.model.name),
                 })
             }
             "standalone" => Ok(ResolvedAutomationTarget {
@@ -137,26 +114,10 @@ impl AutomationService {
                 workspace_guid: None,
                 created_workspace_guid: None,
                 cwd: artifacts::runs_root()?,
-                project_name: None,
-                workspace_name: None,
             }),
             other => Err(ServiceError::Validation(format!(
                 "Unsupported automation target kind: {other}"
             ))),
-        }
-    }
-
-    pub(super) fn tmux_session_name_for_target(&self, target: &ResolvedAutomationTarget) -> String {
-        let tmux_engine = self.terminal_service.tmux_engine();
-        if let (Some(project_name), Some(workspace_name)) = (
-            target.project_name.as_deref(),
-            target.workspace_name.as_deref(),
-        ) {
-            tmux_engine.get_session_name_from_names(project_name, workspace_name)
-        } else if let Some(project_guid) = target.project_guid.as_deref() {
-            tmux_engine.get_session_name(project_guid)
-        } else {
-            "automations".to_string()
         }
     }
 }
