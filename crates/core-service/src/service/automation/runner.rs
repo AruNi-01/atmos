@@ -41,6 +41,16 @@ pub struct AutomationRunJson {
     pub run_guid: String,
     pub automation_guid: String,
     pub status: String,
+    #[serde(default)]
+    pub target_kind: Option<String>,
+    #[serde(default)]
+    pub project_guid: Option<String>,
+    #[serde(default)]
+    pub workspace_guid: Option<String>,
+    #[serde(default)]
+    pub created_workspace_guid: Option<String>,
+    #[serde(default)]
+    pub cwd: Option<String>,
     pub started_at: String,
     pub completed_at: Option<String>,
     pub exit_code: Option<i32>,
@@ -60,6 +70,11 @@ impl AutomationRunJson {
             run_guid: run.guid.clone(),
             automation_guid: run.automation_guid.clone(),
             status: run.status.clone(),
+            target_kind: Some(run.target_kind.clone()),
+            project_guid: run.project_guid.clone(),
+            workspace_guid: run.workspace_guid.clone(),
+            created_workspace_guid: run.created_workspace_guid.clone(),
+            cwd: Some(run.cwd.clone()),
             started_at: run.started_at.to_string(),
             completed_at: run.completed_at.map(|value| value.to_string()),
             exit_code: run.exit_code,
@@ -283,6 +298,11 @@ mod tests {
             run_guid: "run-123".to_string(),
             automation_guid: "automation-123".to_string(),
             status: "completed".to_string(),
+            target_kind: Some("new_workspace".to_string()),
+            project_guid: Some("project-123".to_string()),
+            workspace_guid: Some("workspace-123".to_string()),
+            created_workspace_guid: Some("workspace-123".to_string()),
+            cwd: Some("/tmp/workspaces/project/workspace-123".to_string()),
             started_at: "2026-05-26 08:00:00".to_string(),
             completed_at: Some("2026-05-26T08:01:02Z".to_string()),
             exit_code: Some(0),
@@ -300,6 +320,32 @@ mod tests {
             completed_at_from_run_json(&run_json).map(|value| value.to_string()),
             Some("2026-05-26 08:01:02".to_string())
         );
+    }
+
+    #[test]
+    fn run_json_accepts_legacy_files_without_target_fields() {
+        let parsed: AutomationRunJson = serde_json::from_str(
+            r#"{
+  "run_guid": "run-123",
+  "automation_guid": "automation-123",
+  "status": "completed",
+  "started_at": "2026-05-26 08:00:00",
+  "completed_at": null,
+  "exit_code": 0,
+  "run_dir": "/tmp/run",
+  "prompt_path": "/tmp/run/prompt.md",
+  "output_path": "/tmp/run/output.log",
+  "result_path": "/tmp/run/final.md",
+  "run_json_path": "/tmp/run/run.json",
+  "tmux_session_name": null,
+  "tmux_window_name": null,
+  "tmux_window_index": null
+}"#,
+        )
+        .expect("legacy run json should remain readable");
+
+        assert_eq!(parsed.target_kind, None);
+        assert_eq!(parsed.cwd, None);
     }
 
     #[test]

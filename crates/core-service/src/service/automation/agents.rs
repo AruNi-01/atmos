@@ -74,6 +74,10 @@ impl AutomationAgentCommandSpec {
     pub fn build_terminal_command(&self, input: &AutomationCommandInput) -> String {
         terminal_agent_invocation(self, &input.prompt_path)
     }
+
+    pub fn build_terminal_launch_command(&self) -> String {
+        terminal_agent_launch_command(self)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -183,11 +187,7 @@ pub fn resolve_interactive_automation_agent(agent_id: &str) -> Result<Automation
         )));
     }
     Ok(AutomationAgentCommandSpec {
-        executable: support
-            .executable_path
-            .unwrap_or_else(|| PathBuf::from(&agent.cmd))
-            .to_string_lossy()
-            .to_string(),
+        executable: terminal_executable_for_agent(&agent.cmd, support.executable_path.as_deref()),
         args: parse_flag_args(&agent.interactive_flags)?,
         prompt_strategy: agent.prompt_strategy,
     })
@@ -382,6 +382,17 @@ fn resolve_executable_path(executable: &str) -> Option<PathBuf> {
     resolve_executable_path_with_search_paths(executable, executable_search_paths())
 }
 
+fn terminal_executable_for_agent(cmd: &str, resolved_path: Option<&Path>) -> String {
+    let cmd = cmd.trim();
+    if cmd.contains(std::path::MAIN_SEPARATOR) || cmd == "~" || cmd.starts_with("~/") {
+        return resolved_path
+            .unwrap_or_else(|| Path::new(cmd))
+            .to_string_lossy()
+            .to_string();
+    }
+    cmd.to_string()
+}
+
 fn resolve_executable_path_with_search_paths(
     executable: &str,
     search_paths: impl IntoIterator<Item = PathBuf>,
@@ -554,6 +565,13 @@ fn terminal_agent_invocation(agent: &AutomationAgentCommandSpec, prompt_path: &P
             parts.join(" ")
         }
     }
+}
+
+fn terminal_agent_launch_command(agent: &AutomationAgentCommandSpec) -> String {
+    let mut parts = Vec::with_capacity(agent.args.len() + 1);
+    parts.push(shell_quote_str(agent.executable.trim()));
+    parts.extend(agent.args.iter().map(|arg| shell_quote_str(arg)));
+    parts.join(" ")
 }
 
 fn shell_quote(path: &Path) -> String {
@@ -803,6 +821,41 @@ mod tests {
         assert!(command.contains("'codex'"));
         assert!(command.contains("'exec'"));
         assert!(command.contains("\"$(cat '/tmp/atmos automation/prompt.md')\""));
+    }
+
+    #[test]
+    fn s11_terminal_launch_command_does_not_inject_prompt() {
+        let command = codex_spec().build_terminal_launch_command();
+
+        assert_eq!(
+            command,
+            "'codex' 'exec' '--dangerously-bypass-approvals-and-sandbox'"
+        );
+    }
+
+    #[test]
+    fn s11_interactive_terminal_command_keeps_bare_executable_name() {
+        let spec = AutomationAgentCommandSpec {
+            executable: terminal_executable_for_agent(
+                "cmd",
+                Some(Path::new("/opt/homebrew/bin/cmd")),
+            ),
+            args: vec!["--trust".to_string(), "--yolo".to_string()],
+            prompt_strategy: PromptStrategy::Arg,
+        };
+
+        let command = spec.build_terminal_launch_command();
+
+        assert_eq!(command, "'cmd' '--trust' '--yolo'");
+        assert!(!command.contains("/opt/homebrew/bin/cmd"));
+    }
+
+    #[test]
+    fn s11_interactive_terminal_command_expands_explicit_executable_path() {
+        assert_eq!(
+            terminal_executable_for_agent("~/bin/cmd", Some(Path::new("/Users/aarynlu/bin/cmd"))),
+            "/Users/aarynlu/bin/cmd"
+        );
     }
 
     #[test]

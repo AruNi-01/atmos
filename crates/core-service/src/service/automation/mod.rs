@@ -387,6 +387,7 @@ pub struct AutomationContinueInTerminalResponse {
     pub command: String,
     pub terminal_label: String,
     pub prompt_path: String,
+    pub prompt_content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -180,6 +180,7 @@ export interface AutomationContinueInTerminalResponse {
   command: string;
   terminal_label: string;
   prompt_path: string;
+  prompt_content: string;
 }
 
 export interface AutomationSchedulePreviewResponse {

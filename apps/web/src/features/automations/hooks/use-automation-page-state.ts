@@ -4,9 +4,7 @@ import * as React from "react";
 import { toastManager } from "@workspace/ui";
 import { useQueryState } from "nuqs";
 
-import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
-import { DEFAULT_AGENT_CHAT_MODE } from "@/features/agent/types";
 import { useAutomations } from "@/features/automations/hooks/use-automations";
 import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
 import { formatShortId } from "@/features/automations/lib/automation-format";
@@ -28,6 +26,18 @@ import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { automationsParams, type AutomationsView } from "@/shared/lib/nuqs/searchParams";
+
+const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+async function copyTextToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    console.error("Failed to copy automation continue prompt:", error);
+    return false;
+  }
+}
 
 export function useAutomationPageState() {
   const {
@@ -55,7 +65,7 @@ export function useAutomationPageState() {
   } = useAutomations();
   const router = useAppRouter();
   const queueAgentRun = useWorkspaceCreationStore((state) => state.queueAgentRun);
-  const enqueueAgentChatPrompt = useDialogStore((state) => state.enqueueAgentChatPrompt);
+  const showOpening = useWorkspaceCreationStore((state) => state.showOpening);
   const githubPrereqs = useGithubRelayPrerequisites();
   const projects = useProjectStore((state) => state.projects);
   const isProjectsLoading = useProjectStore((state) => state.isLoading);
@@ -212,6 +222,41 @@ export function useAutomationPageState() {
       }
     },
     [listRuns],
+  );
+
+  const ensureWorkspaceInProjectStore = React.useCallback(
+    async (workspaceGuid: string) => {
+      const hasWorkspace = () =>
+        useProjectStore
+          .getState()
+          .projects.some((project) =>
+            project.workspaces.some((workspace) => workspace.id === workspaceGuid),
+          );
+      const waitForIdle = async () => {
+        for (
+          let attempt = 0;
+          attempt < 40 && useProjectStore.getState().isLoading;
+          attempt += 1
+        ) {
+          await sleep(50);
+        }
+      };
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await waitForIdle();
+        if (hasWorkspace()) {
+          return true;
+        }
+        await fetchProjects();
+        if (hasWorkspace()) {
+          return true;
+        }
+        await sleep(100);
+      }
+
+      return hasWorkspace();
+    },
+    [fetchProjects],
   );
 
   React.useEffect(() => {
@@ -533,35 +578,31 @@ export function useAutomationPageState() {
       setBusyAction(`continue:${run.guid}`);
       try {
         const response = await continueInTerminal(run.guid);
+        const copied = await copyTextToClipboard(response.prompt_content);
         const contextId = response.workspace_guid ?? response.project_guid;
         if (!contextId) {
-          enqueueAgentChatPrompt({
-            workspaceId: null,
-            projectId: null,
-            mode: DEFAULT_AGENT_CHAT_MODE,
-            registryId: response.agent_id,
-            forceNewSession: true,
-            sessionTitle: response.terminal_label,
-            origin: "automation",
-            displayPrompt: `Continue automation run ${formatShortId(run.guid)}`,
-            prompt: [
-              "Continue this Atmos automation run.",
-              "",
-              `Read the continuation prompt first: ${response.prompt_path}`,
-              "Use the artifact paths referenced there as the source of truth.",
-              "Continue from the automation result and ask before destructive changes unless already authorized.",
-            ].join("\n"),
-          });
           setStandaloneChatRunGuid(run.guid);
           toastManager.add({
             title: "Opening standalone conversation",
-            description: response.agent_label ?? response.agent_id,
-            type: "success",
+            description: copied
+              ? "Continuation prompt copied to clipboard."
+              : `Clipboard unavailable. Prompt saved at ${response.prompt_path}`,
+            type: copied ? "success" : "warning",
           });
           return;
         }
 
         const isBuiltIn = TERMINAL_AGENT_DEFINITIONS.some((agent) => agent.id === response.agent_id);
+        const agentLabel = response.agent_label ?? response.agent_id;
+        if (response.workspace_guid) {
+          showOpening(response.workspace_guid);
+          const workspaceReady = await ensureWorkspaceInProjectStore(response.workspace_guid);
+          if (!workspaceReady) {
+            console.warn(
+              `Automation continue target workspace ${response.workspace_guid} is not in the project store yet.`,
+            );
+          }
+        }
         queueAgentRun({
           workspaceId: response.workspace_guid,
           projectId: response.workspace_guid ? null : response.project_guid,
@@ -569,7 +610,7 @@ export function useAutomationPageState() {
           command: response.command,
           agent: {
             id: response.agent_id,
-            label: response.terminal_label,
+            label: agentLabel,
             command: response.command,
             iconType: isBuiltIn ? "built-in" : "custom",
           },
@@ -581,8 +622,10 @@ export function useAutomationPageState() {
         router.push(route);
         toastManager.add({
           title: "Opening terminal agent",
-          description: `Context prompt written to ${response.prompt_path}`,
-          type: "success",
+          description: copied
+            ? "Continuation prompt copied to clipboard. Paste it into the terminal when ready."
+            : `Clipboard unavailable. Prompt saved at ${response.prompt_path}`,
+          type: copied ? "success" : "warning",
         });
       } catch (err) {
         toastManager.add({
@@ -594,7 +637,13 @@ export function useAutomationPageState() {
         setBusyAction((current) => (current === `continue:${run.guid}` ? null : current));
       }
     },
-    [continueInTerminal, enqueueAgentChatPrompt, queueAgentRun, router],
+    [
+      continueInTerminal,
+      ensureWorkspaceInProjectStore,
+      queueAgentRun,
+      router,
+      showOpening,
+    ],
   );
 
   const handleReload = React.useCallback(() => {

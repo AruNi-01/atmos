@@ -74,12 +74,10 @@ impl AutomationService {
         let agent = agents::resolve_interactive_automation_agent(&automation.agent_id)?;
 
         let prompt_path = PathBuf::from(&run.run_dir).join(runner::CONTINUE_PROMPT_FILE);
-        let prompt = build_continue_prompt(&automation, &run, &prompt_path);
+        let prompt = build_continue_prompt(&automation, &run);
         artifacts::write_user_private_file(&prompt_path, &prompt)?;
 
-        let command = agent.build_terminal_command(&agents::AutomationCommandInput {
-            prompt_path: prompt_path.clone(),
-        });
+        let command = agent.build_terminal_launch_command();
         Ok(AutomationContinueInTerminalResponse {
             run_guid: run.guid.clone(),
             automation_guid: automation.guid.clone(),
@@ -98,6 +96,7 @@ impl AutomationService {
             command,
             terminal_label: format!("Automation {}", short_run_id(run_guid)),
             prompt_path: prompt_path.to_string_lossy().to_string(),
+            prompt_content: prompt,
         })
     }
 
@@ -275,11 +274,7 @@ impl AutomationService {
     }
 }
 
-fn build_continue_prompt(
-    automation: &automation::Model,
-    run: &automation_run::Model,
-    continue_prompt_path: &PathBuf,
-) -> String {
+fn build_continue_prompt(automation: &automation::Model, run: &automation_run::Model) -> String {
     format!(
         r#"# Continue Atmos Automation Run
 
@@ -292,7 +287,6 @@ Working directory: {cwd}
 Read the run context and continue from the result. Start by checking the final result, then inspect the full output log only if needed.
 
 Artifacts:
-- Continue prompt: {continue_prompt_path}
 - Original prompt: {prompt_path}
 - Final result: {result_path}
 - Output log: {output_path}
@@ -305,7 +299,6 @@ When continuing, preserve the original automation intent and explicitly mention 
         run_guid = run.guid,
         status = run.status,
         cwd = run.cwd,
-        continue_prompt_path = continue_prompt_path.display(),
         prompt_path = run.prompt_path,
         result_path = run.result_path,
         output_path = run.output_path,
