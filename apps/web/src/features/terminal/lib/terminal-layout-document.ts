@@ -67,7 +67,7 @@ function normalizePersistedTerminalTabs(tabs: NormalizableTerminalTab[]): Persis
   return tabs.map((tab) => ({
     ...tab,
     title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-    closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
+    closable: true,
     panes: tab.panes ?? {},
     layout: tab.layout ?? null,
     maximizedTerminalId: tab.maximizedTerminalId ?? null,
@@ -123,7 +123,7 @@ export function migrateTerminalLayoutDocument(
           {
             id: FIXED_TERMINAL_TAB_VALUE,
             title: "Term",
-            closable: false,
+            closable: true,
             panes: legacyValue.panes,
             layout: legacyValue.layout ?? null,
             maximizedTerminalId: null,

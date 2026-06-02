@@ -80,7 +80,12 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
 
   getActiveTerminalTabId: (workspaceId) => {
     const state = get();
-    return state.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE;
+    const activeTabId = state.workspaceActiveTerminalTabIds[workspaceId];
+    const tabs = getWorkspaceTerminalTabs(state, workspaceId);
+    if (activeTabId && tabs.some((tab) => tab.id === activeTabId)) {
+      return activeTabId;
+    }
+    return tabs[0]?.id ?? FIXED_TERMINAL_TAB_VALUE;
   },
 
   setActiveTerminalTab: (workspaceId, terminalTabId) => {
@@ -96,11 +101,13 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   createTerminalTab: (workspaceId) => {
     const state = get();
     const existingTabs = getWorkspaceTerminalTabs(state, workspaceId);
-    const newTab: TerminalCenterTab = {
-      id: `${TERMINAL_TAB_VALUE_PREFIX}${uuidv4()}`,
-      title: getNextTerminalTabTitle(existingTabs),
-      closable: true,
-    };
+    const newTab: TerminalCenterTab = existingTabs.length === 0
+      ? createFixedTerminalTab()
+      : {
+          id: `${TERMINAL_TAB_VALUE_PREFIX}${uuidv4()}`,
+          title: getNextTerminalTabTitle(existingTabs),
+          closable: true,
+        };
     const allPanes = getAllDefaultPanesForWorkspace(state, workspaceId);
     const { panes, layout } = createInitialLayout(workspaceId, allPanes);
     const scopeKey = getScopeKey(workspaceId, newTab.id);
@@ -160,8 +167,6 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   },
 
   closeTerminalTab: (workspaceId, terminalTabId) => {
-    if (terminalTabId === FIXED_TERMINAL_TAB_VALUE) return;
-
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
     set((state) => {
       const nextTabs = getWorkspaceTerminalTabs(state, workspaceId).filter((tab) => tab.id !== terminalTabId);
@@ -179,14 +184,17 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       return {
         workspaceTerminalTabs: {
           ...state.workspaceTerminalTabs,
-          [workspaceId]: nextTabs.length > 0 ? nextTabs : [createFixedTerminalTab()],
+          [workspaceId]: nextTabs,
         },
         workspaceActiveTerminalTabIds: {
           ...state.workspaceActiveTerminalTabIds,
-          [workspaceId]:
-            state.workspaceActiveTerminalTabIds[workspaceId] === terminalTabId
-              ? FIXED_TERMINAL_TAB_VALUE
-              : state.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE,
+          [workspaceId]: (() => {
+            const activeTabId = state.workspaceActiveTerminalTabIds[workspaceId];
+            if (activeTabId && activeTabId !== terminalTabId && nextTabs.some((tab) => tab.id === activeTabId)) {
+              return activeTabId;
+            }
+            return nextTabs[0]?.id ?? "";
+          })(),
         },
         workspacePanes: restPanes,
         workspaceLayouts: restLayouts,
@@ -533,17 +541,17 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
             const availableTabs = migrated.layout.tabs.map((tab) => ({
               id: tab.id,
               title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-              closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
+              closable: true,
             }));
             const activeTabId =
               migrated.layout.activeTabId && availableTabs.some((tab) => tab.id === migrated.layout.activeTabId)
                 ? migrated.layout.activeTabId
-                : availableTabs[0]?.id || FIXED_TERMINAL_TAB_VALUE;
+                : availableTabs[0]?.id ?? "";
 
             set((currentState) => ({
               workspaceTerminalTabs: {
                 ...currentState.workspaceTerminalTabs,
-                [workspaceId]: availableTabs.length > 0 ? availableTabs : [createFixedTerminalTab()],
+                [workspaceId]: availableTabs,
               },
               workspaceActiveTerminalTabIds: {
                 ...currentState.workspaceActiveTerminalTabIds,

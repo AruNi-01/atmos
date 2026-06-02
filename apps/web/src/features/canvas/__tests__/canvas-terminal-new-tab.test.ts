@@ -29,6 +29,7 @@ function createTerminalShape(
   id: TLShapeId,
   parentId: string,
   overrides: Partial<CanvasTerminalShape["props"]> = {},
+  recordOverrides: Partial<Pick<CanvasTerminalShape, "x" | "y" | "index">> = {},
 ): CanvasTerminalShape {
   return {
     id,
@@ -54,6 +55,7 @@ function createTerminalShape(
       ...overrides,
     }),
     meta: {},
+    ...recordOverrides,
   };
 }
 
@@ -114,6 +116,10 @@ class FakeRelatedCanvasEditor implements RelatedCanvasTerminalEditor {
     return this.shapes.get(id) as never;
   };
 
+  getCurrentPageShapes = () => {
+    return Array.from(this.shapes.values()) as never;
+  };
+
   getShapePageBounds = (id: TLShapeId) => {
     return this.shapeBounds.get(id) as never;
   };
@@ -129,14 +135,22 @@ class FakeRelatedCanvasEditor implements RelatedCanvasTerminalEditor {
     return this as never;
   };
 
-  updateShape = (shape: { id: TLShapeId; props?: Record<string, unknown> }) => {
+  updateShape = (shape: { id: TLShapeId; type?: string; x?: number; y?: number; props?: Record<string, unknown> }) => {
     const current = this.shapes.get(shape.id);
     if (current) {
+      if (typeof shape.x === "number") {
+        current.x = shape.x;
+      }
+      if (typeof shape.y === "number") {
+        current.y = shape.y;
+      }
       current.props = { ...(current.props as object), ...shape.props };
       const currentBounds = this.shapeBounds.get(shape.id);
       if (currentBounds) {
         const props = current.props as { w?: number; h?: number };
-        this.shapeBounds.set(shape.id, bounds(currentBounds.x, currentBounds.y, props.w ?? currentBounds.w, props.h ?? currentBounds.h));
+        const x = typeof current.x === "number" ? current.x : currentBounds.x;
+        const y = typeof current.y === "number" ? current.y : currentBounds.y;
+        this.shapeBounds.set(shape.id, bounds(x, y, props.w ?? currentBounds.w, props.h ?? currentBounds.h));
       }
     }
     return this as never;
@@ -193,6 +207,72 @@ describe("createRelatedCanvasTerminalShape", () => {
     expect(editor.reparentCalls).toEqual([
       { ids: ["shape:current", "shape:new-terminal"], parentId: "shape:new-frame" },
     ]);
+  });
+
+  it("places the related terminal on the left when the right slot is occupied", () => {
+    const frame = {
+      id: "shape:frame",
+      typeName: "shape",
+      type: "frame",
+      x: -700,
+      y: 80,
+      parentId: "page:page",
+      props: { w: 2400, h: 620, name: "Existing frame" },
+    };
+    const current = createTerminalShape("shape:current" as TLShapeId, "shape:frame");
+    const right = createTerminalShape(
+      "shape:right" as TLShapeId,
+      "shape:frame",
+      { tmuxWindowName: "right", terminalName: "right" },
+      { x: 852, y: 120, index: "a2" },
+    );
+    const editor = new FakeRelatedCanvasEditor([frame, current, right]);
+
+    createRelatedCanvasTerminalShape({
+      editor,
+      shape: current,
+      created: createdTerminal(),
+      frameName: "Ignored",
+      createId: () => "shape:new-terminal" as TLShapeId,
+    });
+
+    expect(editor.shapes.get("shape:new-terminal")?.x).toBe(-652);
+    expect(editor.shapes.get("shape:new-terminal")?.y).toBe(120);
+    expect(editor.shapes.get("shape:right")?.x).toBe(852);
+  });
+
+  it("pushes right-side terminals when every adjacent slot is occupied", () => {
+    const frame = {
+      id: "shape:frame",
+      typeName: "shape",
+      type: "frame",
+      x: -700,
+      y: -360,
+      parentId: "page:page",
+      props: { w: 2600, h: 1400, name: "Existing frame" },
+    };
+    const current = createTerminalShape("shape:current" as TLShapeId, "shape:frame");
+    const right = createTerminalShape("shape:right" as TLShapeId, "shape:frame", {}, { x: 852, y: 120, index: "a2" });
+    const farRight = createTerminalShape("shape:far-right" as TLShapeId, "shape:frame", {}, { x: 1604, y: 120, index: "a3" });
+    const left = createTerminalShape("shape:left" as TLShapeId, "shape:frame", {}, { x: -652, y: 120, index: "a4" });
+    const below = createTerminalShape("shape:below" as TLShapeId, "shape:frame", {}, { x: 100, y: 572, index: "a5" });
+    const above = createTerminalShape("shape:above" as TLShapeId, "shape:frame", {}, { x: 100, y: -332, index: "a6" });
+    const editor = new FakeRelatedCanvasEditor([frame, current, right, farRight, left, below, above]);
+
+    createRelatedCanvasTerminalShape({
+      editor,
+      shape: current,
+      created: createdTerminal(),
+      frameName: "Ignored",
+      createId: () => "shape:new-terminal" as TLShapeId,
+    });
+
+    expect(editor.shapes.get("shape:new-terminal")?.x).toBe(852);
+    expect(editor.shapes.get("shape:new-terminal")?.y).toBe(120);
+    expect(editor.shapes.get("shape:right")?.x).toBe(1604);
+    expect(editor.shapes.get("shape:far-right")?.x).toBe(2356);
+    expect(editor.shapes.get("shape:left")?.x).toBe(-652);
+    expect((editor.shapes.get("shape:frame")?.props as { w?: number }).w).toBe(3800);
   });
 });
 

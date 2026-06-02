@@ -31,7 +31,9 @@ import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traff
 import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
+import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
   createCanvasSnapshot,
@@ -41,6 +43,7 @@ import {
 } from "../hooks/use-canvas-board";
 import type { CanvasTldrawDocument, CanvasTldrawSession } from "@/shared/types/canvas";
 import {
+  clearLastPinnedTerminal,
   readCanvasSession,
   consumeLastPinnedTerminal,
   writeCanvasSession,
@@ -49,6 +52,8 @@ import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-
 import { instanceIdFromRelaySelection } from "@/features/connection/lib/connection-instance";
 import { useCanvasChromePrefs } from "@/features/canvas/hooks/use-canvas-chrome-prefs";
 import {
+  CANVAS_TERMINAL_SHAPES_REMOVED_EVENT,
+  dispatchCanvasTerminalPinStateChange,
   getCanvasTerminalShapes,
 } from "../lib/canvas-terminal-shape";
 import {
@@ -106,6 +111,7 @@ function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoar
 }
 
 export const CanvasView: React.FC = () => {
+  const { currentView, effectiveContextId } = useContextParams();
   const {
     isStylePanelEnabled,
     isTopLeftToolbarCollapsed,
@@ -175,6 +181,15 @@ export const CanvasView: React.FC = () => {
   const canvasAgentBridgeRef = React.useRef(canvasAgentBridge);
   canvasAgentBridgeRef.current = canvasAgentBridge;
   const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil], []);
+  const canvasTerminalTabs = useTerminalStore((state) =>
+    effectiveContextId ? state.workspaceTerminalTabs[effectiveContextId] : undefined,
+  );
+  const canvasTerminalWorkspaceLoaded = useTerminalStore((state) =>
+    effectiveContextId ? state.loadedWorkspaces.has(effectiveContextId) : false,
+  );
+  const canvasWorkspaceIsProject = useTerminalStore((state) =>
+    effectiveContextId ? state.workspaceContexts[effectiveContextId] : undefined,
+  );
   const topLeftToolbarContextValue = React.useMemo(
     () => ({
       isCollapsed: isTopLeftToolbarCollapsed,
@@ -461,6 +476,100 @@ export const CanvasView: React.FC = () => {
       cleanupSession();
     };
   }, [editorReady, scheduleSessionSave, setActiveShapeId]);
+
+  React.useEffect(() => {
+    if (!editorReady) return;
+
+    const handleTerminalShapesRemoved = (event: Event) => {
+      const shapeIds = (event as CustomEvent<{ shapeIds?: unknown }>).detail?.shapeIds;
+      if (!Array.isArray(shapeIds)) {
+        return;
+      }
+
+      const editor = editorRef.current;
+      if (!editor) {
+        return;
+      }
+
+      const existingShapeIds = shapeIds
+        .filter((shapeId): shapeId is string => typeof shapeId === "string")
+        .map((shapeId) => shapeId as TLShapeId)
+        .filter((shapeId) => Boolean(editor.getShape(shapeId)));
+      if (existingShapeIds.length === 0) {
+        return;
+      }
+
+      editor.deleteShapes(existingShapeIds);
+    };
+
+    window.addEventListener(CANVAS_TERMINAL_SHAPES_REMOVED_EVENT, handleTerminalShapesRemoved);
+    return () => {
+      window.removeEventListener(CANVAS_TERMINAL_SHAPES_REMOVED_EVENT, handleTerminalShapesRemoved);
+    };
+  }, [editorReady]);
+
+  React.useEffect(() => {
+    if (!editorReady || !effectiveContextId || !canvasTerminalWorkspaceLoaded) {
+      return;
+    }
+    if (currentView !== "workspace" && currentView !== "project") {
+      return;
+    }
+
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const validTabIds = new Set((canvasTerminalTabs ?? []).map((tab) => tab.id));
+    const contextScope = (canvasWorkspaceIsProject ?? currentView === "project")
+      ? "project"
+      : "workspace";
+    const staleShapes = getCanvasTerminalShapes(editor).filter((shape) => (
+      shape.props.contextScope === contextScope &&
+      shape.props.workspaceId === effectiveContextId &&
+      !validTabIds.has(shape.props.sourceTerminalTabId)
+    ));
+
+    if (staleShapes.length === 0) {
+      return;
+    }
+
+    const staleShapeIds = staleShapes.map((shape) => shape.id as TLShapeId);
+    const stalePinKeys = staleShapes
+      .map((shape) => shape.props.pinKey)
+      .filter((pinKey): pinKey is string => Boolean(pinKey));
+    editor.deleteShapes(staleShapeIds);
+    for (const pinKey of stalePinKeys) {
+      clearLastPinnedTerminal(board?.guid, pinKey);
+      dispatchCanvasTerminalPinStateChange(pinKey, false);
+    }
+
+    if (documentSaveInFlightRef.current) {
+      return;
+    }
+
+    const snapshot = getSnapshot(editor.store) as TLEditorSnapshot;
+    documentSaveInFlightRef.current = true;
+    void (async () => {
+      try {
+        await canvasWsApi.updateDefaultBoard(JSON.stringify(createCanvasDocument(snapshot.document)));
+        setLastSavedAt(new Date());
+      } catch (error) {
+        console.warn("Failed to save pruned Canvas terminals", error);
+      } finally {
+        documentSaveInFlightRef.current = false;
+      }
+    })();
+  }, [
+    board?.guid,
+    canvasTerminalTabs,
+    canvasTerminalWorkspaceLoaded,
+    canvasWorkspaceIsProject,
+    currentView,
+    effectiveContextId,
+    editorReady,
+  ]);
 
   React.useEffect(() => {
     if (!editorReady || !connectionBootstrapReady) {

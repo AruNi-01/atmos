@@ -12,14 +12,24 @@ import {
   buildCanvasTerminalPinKey,
   CANVAS_TERMINAL_SHAPE_TYPE,
   createCanvasTerminalShapeProps,
+  isCanvasTerminalShapeRecord,
+  type CanvasTerminalShapeProps,
   type CanvasTerminalShape,
 } from "./canvas-terminal-shape";
 
 type CanvasTerminalPageBounds = NonNullable<ReturnType<Editor["getShapePageBounds"]>>;
+type RelatedCanvasShape = ReturnType<Editor["getCurrentPageShapes"]>[number];
+
+type PlacementRect = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
 
 export type RelatedCanvasTerminalEditor = Pick<
   Editor,
-  "createShape" | "getShape" | "getShapePageBounds" | "reparentShapes" | "updateShape"
+  "createShape" | "getCurrentPageShapes" | "getShape" | "getShapePageBounds" | "reparentShapes" | "updateShape"
 >;
 
 export type CreatedTerminalTabWithPane = {
@@ -55,6 +65,162 @@ export function resolveRelatedCanvasTerminalFrameName(
     : shape.props.workspaceName || shape.props.projectName || "Workspace";
 }
 
+const RELATED_TERMINAL_GAP = 32;
+
+function rectsOverlap(a: PlacementRect, b: PlacementRect, gap: number): boolean {
+  return !(
+    a.x + a.w + gap <= b.x ||
+    b.x + b.w + gap <= a.x ||
+    a.y + a.h + gap <= b.y ||
+    b.y + b.h + gap <= a.y
+  );
+}
+
+function hasVerticalOverlap(a: PlacementRect, b: PlacementRect, gap: number): boolean {
+  return !(a.y + a.h + gap <= b.y || b.y + b.h + gap <= a.y);
+}
+
+function toPlacementRect(bounds: CanvasTerminalPageBounds): PlacementRect {
+  return { x: bounds.x, y: bounds.y, w: bounds.w, h: bounds.h };
+}
+
+function getRelatedTerminalSlotCandidates(
+  current: CanvasTerminalPageBounds,
+  terminalSize: Pick<CanvasTerminalShapeProps, "w" | "h">,
+): PlacementRect[] {
+  const { w, h } = terminalSize;
+  const gap = RELATED_TERMINAL_GAP;
+  return [
+    { x: current.maxX + gap, y: current.y, w, h },
+    { x: current.x - w - gap, y: current.y, w, h },
+    { x: current.x, y: current.maxY + gap, w, h },
+    { x: current.x, y: current.y - h - gap, w, h },
+  ];
+}
+
+function collectOccupiedRects(
+  editor: RelatedCanvasTerminalEditor,
+  currentShape: CanvasTerminalShape,
+): PlacementRect[] {
+  const parentShapeId = String(currentShape.parentId).startsWith("shape:")
+    ? String(currentShape.parentId)
+    : null;
+  const rects: PlacementRect[] = [];
+
+  for (const candidate of editor.getCurrentPageShapes()) {
+    if (parentShapeId && String(candidate.id) === parentShapeId) {
+      continue;
+    }
+    const bounds = editor.getShapePageBounds(candidate.id as TLShapeId);
+    if (!bounds) {
+      continue;
+    }
+    rects.push(toPlacementRect(bounds));
+  }
+
+  return rects;
+}
+
+function findFreeAdjacentSlot(
+  slots: PlacementRect[],
+  occupied: PlacementRect[],
+  expandableFrameBounds: CanvasTerminalPageBounds | null,
+): PlacementRect | null {
+  const candidates = expandableFrameBounds
+    ? slots.filter((slot) => slot.x >= expandableFrameBounds.x && slot.y >= expandableFrameBounds.y)
+    : slots;
+
+  for (const slot of candidates) {
+    if (!occupied.some((rect) => rectsOverlap(slot, rect, RELATED_TERMINAL_GAP))) {
+      return slot;
+    }
+  }
+  return null;
+}
+
+function getExpandableParentFrameBounds(
+  editor: RelatedCanvasTerminalEditor,
+  currentShape: CanvasTerminalShape,
+): CanvasTerminalPageBounds | null {
+  if (!String(currentShape.parentId).startsWith("shape:")) {
+    return null;
+  }
+
+  const parentShape = editor.getShape(currentShape.parentId as TLShapeId);
+  if (parentShape?.type !== "frame") {
+    return null;
+  }
+
+  return editor.getShapePageBounds(parentShape.id as TLShapeId) ?? null;
+}
+
+function shiftRightSideTerminalShapes(
+  editor: RelatedCanvasTerminalEditor,
+  currentShape: CanvasTerminalShape,
+  rightSlot: PlacementRect,
+): TLShapeId[] {
+  const terminals = editor.getCurrentPageShapes()
+    .filter((candidate): candidate is RelatedCanvasShape & CanvasTerminalShape =>
+      candidate.id !== currentShape.id &&
+      candidate.parentId === currentShape.parentId &&
+      isCanvasTerminalShapeRecord(candidate),
+    )
+    .map((candidate) => {
+      const bounds = editor.getShapePageBounds(candidate.id as TLShapeId);
+      return bounds ? { shape: candidate, rect: toPlacementRect(bounds) } : null;
+    })
+    .filter((candidate): candidate is { shape: RelatedCanvasShape & CanvasTerminalShape; rect: PlacementRect } =>
+      Boolean(candidate),
+    )
+    .filter(({ rect }) => rect.x >= rightSlot.x - RELATED_TERMINAL_GAP && hasVerticalOverlap(rect, rightSlot, RELATED_TERMINAL_GAP));
+
+  if (terminals.length === 0) {
+    return [];
+  }
+
+  const leftMostX = Math.min(...terminals.map(({ rect }) => rect.x));
+  const shiftX = rightSlot.x + rightSlot.w + RELATED_TERMINAL_GAP - leftMostX;
+  if (shiftX <= 0) {
+    return [];
+  }
+
+  const shiftedShapeIds: TLShapeId[] = [];
+  for (const { shape } of terminals) {
+    editor.updateShape({
+      id: shape.id as TLShapeId,
+      type: CANVAS_TERMINAL_SHAPE_TYPE,
+      x: shape.x + shiftX,
+    });
+    shiftedShapeIds.push(shape.id as TLShapeId);
+  }
+
+  return shiftedShapeIds;
+}
+
+function findRelatedCanvasTerminalPlacement(
+  editor: RelatedCanvasTerminalEditor,
+  currentShape: CanvasTerminalShape,
+  currentBounds: CanvasTerminalPageBounds,
+  terminalSize: Pick<CanvasTerminalShapeProps, "w" | "h">,
+): { x: number; y: number; shiftedShapeIds: TLShapeId[] } {
+  const slots = getRelatedTerminalSlotCandidates(currentBounds, terminalSize);
+  const freeSlot = findFreeAdjacentSlot(
+    slots,
+    collectOccupiedRects(editor, currentShape),
+    getExpandableParentFrameBounds(editor, currentShape),
+  );
+  if (freeSlot) {
+    return { x: freeSlot.x, y: freeSlot.y, shiftedShapeIds: [] };
+  }
+
+  const rightSlot = slots[0];
+  return {
+    x: rightSlot.x,
+    y: rightSlot.y,
+    shiftedShapeIds: shiftRightSideTerminalShapes(editor, currentShape, rightSlot),
+  };
+}
+
 export function createRelatedCanvasTerminalShape({
   editor,
   shape,
@@ -87,29 +253,28 @@ export function createRelatedCanvasTerminalShape({
     shape.props.workspaceId,
     nextTmuxWindowName,
   );
-  const gap = 32;
-  const newX = bounds.maxX + gap;
-  const newY = bounds.y;
+  const nextProps = createCanvasTerminalShapeProps({
+    contextScope,
+    workspaceId: shape.props.workspaceId,
+    projectName: shape.props.projectName,
+    workspaceName: shape.props.workspaceName,
+    localPath: shape.props.localPath,
+    terminalName: created.pane.label,
+    tmuxWindowName: nextTmuxWindowName,
+    paneAgent: created.pane.agent,
+    sourceTerminalTabId: created.tab.id,
+    isNewTerminal: true,
+    isPinned: true,
+    pinKey,
+  });
+  const placement = findRelatedCanvasTerminalPlacement(editor, shape, bounds, nextProps);
 
   editor.createShape<CanvasTerminalShape>({
     id: newShapeId,
     type: CANVAS_TERMINAL_SHAPE_TYPE,
-    x: newX,
-    y: newY,
-    props: createCanvasTerminalShapeProps({
-      contextScope,
-      workspaceId: shape.props.workspaceId,
-      projectName: shape.props.projectName,
-      workspaceName: shape.props.workspaceName,
-      localPath: shape.props.localPath,
-      terminalName: created.pane.label,
-      tmuxWindowName: nextTmuxWindowName,
-      paneAgent: created.pane.agent,
-      sourceTerminalTabId: created.tab.id,
-      isNewTerminal: true,
-      isPinned: true,
-      pinKey,
-    }),
+    x: placement.x,
+    y: placement.y,
+    props: nextProps,
   });
 
   const parentShape = String(shape.parentId).startsWith("shape:")
@@ -121,8 +286,13 @@ export function createRelatedCanvasTerminalShape({
     const frameBounds = editor.getShapePageBounds(parentShape.id as TLShapeId);
     if (newBounds && frameBounds) {
       const frameProps = parentShape.props as { w?: number; h?: number };
-      const nextFrameW = Math.max(frameProps.w ?? frameBounds.w, newBounds.maxX - frameBounds.x + 24);
-      const nextFrameH = Math.max(frameProps.h ?? frameBounds.h, newBounds.maxY - frameBounds.y + 24);
+      const shiftedBounds = placement.shiftedShapeIds
+        .map((id) => editor.getShapePageBounds(id))
+        .filter((candidate): candidate is CanvasTerminalPageBounds => Boolean(candidate));
+      const nextContentRight = Math.max(newBounds.maxX, ...shiftedBounds.map((candidate) => candidate.maxX));
+      const nextContentBottom = Math.max(newBounds.maxY, ...shiftedBounds.map((candidate) => candidate.maxY));
+      const nextFrameW = Math.max(frameProps.w ?? frameBounds.w, nextContentRight - frameBounds.x + 24);
+      const nextFrameH = Math.max(frameProps.h ?? frameBounds.h, nextContentBottom - frameBounds.y + 24);
       if (nextFrameW !== frameProps.w || nextFrameH !== frameProps.h) {
         editor.updateShape({
           id: parentShape.id as TLShapeId,
@@ -137,10 +307,14 @@ export function createRelatedCanvasTerminalShape({
     editor.reparentShapes([newShapeId], parentShape.id as TLShapeId);
   } else {
     const newBounds = editor.getShapePageBounds(newShapeId);
-    const frameX = bounds.x - 24;
-    const frameY = bounds.y - 56;
-    const frameRight = (newBounds?.maxX ?? bounds.maxX) + 24;
-    const frameBottom = Math.max(bounds.maxY, newBounds?.maxY ?? bounds.maxY) + 24;
+    const contentLeft = Math.min(bounds.x, newBounds?.x ?? bounds.x);
+    const contentTop = Math.min(bounds.y, newBounds?.y ?? bounds.y);
+    const contentRight = Math.max(bounds.maxX, newBounds?.maxX ?? bounds.maxX);
+    const contentBottom = Math.max(bounds.maxY, newBounds?.maxY ?? bounds.maxY);
+    const frameX = contentLeft - 24;
+    const frameY = contentTop - 56;
+    const frameRight = contentRight + 24;
+    const frameBottom = contentBottom + 24;
     const frameId = createId();
 
     editor.createShape({

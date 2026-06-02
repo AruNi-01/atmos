@@ -109,7 +109,7 @@ export function createFixedTerminalTab(): TerminalCenterTab {
   return {
     id: FIXED_TERMINAL_TAB_VALUE,
     title: "Term",
-    closable: false,
+    closable: true,
   };
 }
 
@@ -160,7 +160,9 @@ export function getWorkspaceTerminalTabs(
   state: Pick<TerminalLookupState, "workspaceTerminalTabs">,
   workspaceId: string,
 ): TerminalCenterTab[] {
-  return state.workspaceTerminalTabs[workspaceId] || [createFixedTerminalTab()];
+  return Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)
+    ? state.workspaceTerminalTabs[workspaceId] ?? []
+    : [createFixedTerminalTab()];
 }
 
 /**
@@ -490,7 +492,7 @@ export function buildPersistedTerminalWorkspaceLayout(
         persistedTabs.push({
           ...cachedTab,
           title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-          closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
+          closable: true,
         });
       }
       continue;
@@ -513,7 +515,7 @@ export function buildPersistedTerminalWorkspaceLayout(
     persistedTabs.push({
       id: tab.id,
       title: tab.id === FIXED_TERMINAL_TAB_VALUE ? "Term" : tab.title,
-      closable: tab.id !== FIXED_TERMINAL_TAB_VALUE,
+      closable: true,
       layout,
       panes: cleanPanes,
       maximizedTerminalId: state.workspaceMaximizedIds[scopeKey] || null,
@@ -521,15 +523,22 @@ export function buildPersistedTerminalWorkspaceLayout(
   }
 
   if (persistedTabs.length === 0) {
-    return null;
+    return Object.prototype.hasOwnProperty.call(state.workspaceTerminalTabs, workspaceId)
+      ? {
+          schema: TERMINAL_LAYOUT_SCHEMA,
+          activeTabId: null,
+          tabs: [],
+        }
+      : null;
   }
 
+  const activeTerminalTabId = state.workspaceActiveTerminalTabIds[workspaceId];
   return {
     schema: TERMINAL_LAYOUT_SCHEMA,
     activeTabId:
-      persistedTabs.some((tab) => tab.id === (state.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE))
-        ? state.workspaceActiveTerminalTabIds[workspaceId] || FIXED_TERMINAL_TAB_VALUE
-        : persistedTabs[0]?.id || FIXED_TERMINAL_TAB_VALUE,
+      activeTerminalTabId && persistedTabs.some((tab) => tab.id === activeTerminalTabId)
+        ? activeTerminalTabId
+        : persistedTabs[0]?.id ?? null,
     tabs: persistedTabs,
   };
 }

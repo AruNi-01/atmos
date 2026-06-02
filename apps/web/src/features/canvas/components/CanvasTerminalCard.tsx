@@ -7,7 +7,7 @@ import {
   useValue,
   type TLShapeId,
 } from "tldraw";
-import { ArrowUpRight, PinOff, Plus, SquareTerminal } from "lucide-react";
+import { ArrowUpRight, PinOff, Plus, SquareTerminal, X } from "lucide-react";
 import { cn, toastManager } from "@workspace/ui";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { Terminal, type TerminalRef } from "@/features/terminal/components/Terminal";
@@ -23,6 +23,7 @@ import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   CanvasTerminalShapeSchemaUtil,
+  dispatchCanvasTerminalCloseRequest,
   dispatchCanvasTerminalPinStateChange,
   getCanvasTerminalShapes,
   type CanvasTerminalShape,
@@ -351,6 +352,41 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     [activeShapeId, board?.guid, editor, removeRenderedShapeId, setActiveShapeId, shape.id, shape.props.pinKey],
   );
 
+  const handleCloseTerminal = React.useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dispatchCanvasTerminalCloseRequest({
+        contextScope: shape.props.contextScope,
+        workspaceId: shape.props.workspaceId,
+        sourceTerminalTabId: shape.props.sourceTerminalTabId || FIXED_TERMINAL_TAB_VALUE,
+        tmuxWindowName: shape.props.tmuxWindowName,
+        pinKey: shape.props.pinKey,
+        shapeId: shape.id as TLShapeId,
+      });
+      editor.deleteShapes([shape.id as TLShapeId]);
+      dispatchCanvasTerminalPinStateChange(shape.props.pinKey, false);
+      clearLastPinnedTerminal(board?.guid, shape.props.pinKey);
+      removeRenderedShapeId(shape.id);
+      if (activeShapeId === shape.id) {
+        setActiveShapeId(null);
+      }
+    },
+    [
+      activeShapeId,
+      board?.guid,
+      editor,
+      removeRenderedShapeId,
+      setActiveShapeId,
+      shape.id,
+      shape.props.contextScope,
+      shape.props.pinKey,
+      shape.props.sourceTerminalTabId,
+      shape.props.tmuxWindowName,
+      shape.props.workspaceId,
+    ],
+  );
+
   return (
     <div
       className={cn(
@@ -398,6 +434,16 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               <PinOff className="size-3.5" />
             </button>
           )}
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={handleCloseTerminal}
+            aria-label="Close terminal"
+            title="Close Terminal"
+            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/12 hover:text-destructive"
+          >
+            <X className="size-3.5" />
+          </button>
           <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}

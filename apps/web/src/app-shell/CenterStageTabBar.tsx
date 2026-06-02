@@ -31,7 +31,6 @@ import {
 } from "@/features/editor/store/use-editor-store";
 import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { cn } from "@/shared/lib/utils";
-import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import {
   CenterStageTabGroupPopover,
   CENTER_TERMINAL_SHORTCUT_LIMIT,
@@ -262,17 +261,8 @@ export function CenterStageTabBar({
         </Tooltip>
       ) : null}
 
-      <TerminalFixedTab
-        activeValue={activeValue}
-        effectiveContextId={effectiveContextId}
-        hoveredTabId={termTabPlusHoveredTabId}
-        onCreateTab={handleCreateTerminalCenterTab}
-        setHoveredTabId={setTermTabPlusHoveredTabId}
-      />
-
       <div ref={scrollableTabsRef} className="flex min-w-0 flex-1 overflow-x-auto no-scrollbar">
         {visibleTerminalTabs
-          .filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE)
           .map((tab, index) => (
             <TerminalExtraTab
               key={tab.id}
@@ -280,7 +270,7 @@ export function CenterStageTabBar({
               effectiveContextId={effectiveContextId}
               hasShortcut={index < CENTER_TERMINAL_SHORTCUT_LIMIT}
               hoveredTabId={termTabPlusHoveredTabId}
-              shortcutDigit={index + 2}
+              shortcutDigit={index + 1}
               tab={tab}
               onClose={handleCloseTerminalCenterTab}
               onCreateTab={handleCreateTerminalCenterTab}
@@ -327,6 +317,9 @@ export function CenterStageTabBar({
       </div>
 
       <div className="sticky right-0 z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm">
+        {visibleTerminalTabs.length === 0 ? (
+          <EmptyTerminalTabsAddButton onCreateTab={handleCreateTerminalCenterTab} />
+        ) : null}
         <CenterStageTabGroupPopover
           open={tabGroupPopoverOpen}
           onOpenChange={setTabGroupPopoverOpen}
@@ -349,7 +342,7 @@ export function CenterStageTabBar({
 
 function isTabGroupItemClosable(tab: TabGroupItem) {
   return (
-    (tab.kind === "terminal" && tab.value !== FIXED_TERMINAL_TAB_VALUE) ||
+    tab.kind === "terminal" ||
     tab.kind === "project-wiki" ||
     tab.kind === "code-review" ||
     tab.kind === "file" ||
@@ -357,66 +350,6 @@ function isTabGroupItemClosable(tab: TabGroupItem) {
     tab.kind === "diff-group" ||
     tab.kind === "review-diff" ||
     tab.kind === "conflict"
-  );
-}
-
-function TerminalFixedTab({
-  activeValue,
-  effectiveContextId,
-  hoveredTabId,
-  onCreateTab,
-  setHoveredTabId,
-}: {
-  activeValue: string;
-  effectiveContextId: string;
-  hoveredTabId: string | null;
-  onCreateTab: () => void;
-  setHoveredTabId: React.Dispatch<React.SetStateAction<string | null>>;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <TabsTab
-          value="terminal"
-          className="group/terminal relative h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
-        >
-          <span className="relative flex size-4 shrink-0 items-center justify-center">
-            <TerminalIcon
-              className={cn(
-                "size-3.5 transition-all duration-200",
-                activeValue === FIXED_TERMINAL_TAB_VALUE
-                  ? "group-hover/terminal:opacity-0 group-hover/terminal:scale-50 group-hover/terminal:rotate-[-20deg]"
-                  : "",
-              )}
-            />
-            {activeValue === FIXED_TERMINAL_TAB_VALUE ? (
-              <CreateTerminalTabButton
-                groupName="terminal"
-                onCreateTab={onCreateTab}
-                onHoverChange={(hovered) => setHoveredTabId(hovered ? FIXED_TERMINAL_TAB_VALUE : null)}
-              />
-            ) : null}
-          </span>
-          <span className="text-[13px] font-medium whitespace-nowrap">Term</span>
-          <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={FIXED_TERMINAL_TAB_VALUE} />
-        </TabsTab>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <div className="flex items-center gap-2">
-          {hoveredTabId === FIXED_TERMINAL_TAB_VALUE ? (
-            <>
-              <span>New Terminal Tab</span>
-              <ShortcutHint digit="T" />
-            </>
-          ) : (
-            <>
-              <span>Term</span>
-              <ShortcutHint digit={1} />
-            </>
-          )}
-        </div>
-      </TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -506,12 +439,35 @@ function TerminalExtraTab({
   );
 }
 
+function EmptyTerminalTabsAddButton({ onCreateTab }: { onCreateTab: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label="New Terminal Tab"
+          onClick={onCreateTab}
+          className="flex h-full w-10 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+        >
+          <Plus className="size-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        <div className="flex items-center gap-2">
+          <span>New Terminal Tab</span>
+          <ShortcutHint digit="T" />
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function CreateTerminalTabButton({
   groupName,
   onCreateTab,
   onHoverChange,
 }: {
-  groupName: "terminal" | "term-tab";
+  groupName: "term-tab";
   onCreateTab: () => void;
   onHoverChange: (hovered: boolean) => void;
 }) {
@@ -523,9 +479,7 @@ function CreateTerminalTabButton({
       className={cn(
         "absolute inset-0 -m-1 flex items-center justify-center rounded-md p-1 text-muted-foreground transition-all",
         "opacity-0 scale-50 rotate-60 pointer-events-none",
-        groupName === "terminal"
-          ? "group-hover/terminal:opacity-100 group-hover/terminal:scale-100 group-hover/terminal:rotate-0 group-hover/terminal:pointer-events-auto"
-          : "group-hover/term-tab:opacity-100 group-hover/term-tab:scale-100 group-hover/term-tab:rotate-0 group-hover/term-tab:pointer-events-auto",
+        groupName === "term-tab" && "group-hover/term-tab:opacity-100 group-hover/term-tab:scale-100 group-hover/term-tab:rotate-0 group-hover/term-tab:pointer-events-auto",
         "hover:bg-muted-foreground/20 hover:text-foreground",
       )}
       onPointerEnter={() => onHoverChange(true)}

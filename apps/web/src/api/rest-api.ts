@@ -480,6 +480,19 @@ export const systemApi = {
     return fetchApi<{ windows: TmuxWindow[] }>(`/api/system/tmux-windows/${workspaceId}`);
   },
 
+  /**
+   * Kill a tmux window for a workspace by window name.
+   */
+  killTmuxWindow: async (
+    workspaceId: string,
+    tmuxWindowName: string,
+  ): Promise<{ killed: boolean; message?: string }> => {
+    return fetchApi<{ killed: boolean; message?: string }>(`/api/system/tmux-window/${workspaceId}`, {
+      method: 'POST',
+      body: JSON.stringify({ tmux_window_name: tmuxWindowName }),
+    });
+  },
+
   captureTmuxWindow: async (
     workspaceId: string,
     params: {

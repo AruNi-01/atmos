@@ -6,6 +6,7 @@ import {
   createCanvasTerminalShapeProps,
   pinCanvasTerminalShapeInSnapshot,
   repairInvalidShapeIndicesInDocument,
+  removeCanvasTerminalShapesFromDocument,
 } from "../lib/canvas-terminal-shape";
 import { createCanvasSnapshot, createDefaultCanvasSession } from "../hooks/use-canvas-board";
 
@@ -75,6 +76,102 @@ describe("canvas terminal pin index", () => {
     const shape = result.snapshot?.document.store[result.shapeId] as { index?: string };
     expect(shape?.index).toBeDefined();
     expect(() => assertValidIndexKey(shape!.index!)).not.toThrow();
+  });
+
+  it("removes only terminals owned by the closed terminal tab", () => {
+    const snapshot = makeSnapshotWithShapes(1);
+    const store = snapshot.document.store as Record<string, unknown>;
+    store["shape:deleted-tab-terminal"] = {
+      id: "shape:deleted-tab-terminal",
+      typeName: "shape",
+      type: "canvas-terminal",
+      x: 0,
+      y: 0,
+      rotation: 0,
+      index: "a3",
+      parentId: "page:page",
+      isLocked: false,
+      opacity: 1,
+      props: createCanvasTerminalShapeProps({
+        contextScope: "workspace",
+        workspaceId: "ws-1",
+        projectName: "P",
+        workspaceName: "W",
+        localPath: "/tmp",
+        terminalName: "2",
+        tmuxWindowName: "2",
+        sourceTerminalTabId: "terminal-tab:deleted",
+        isNewTerminal: false,
+        isPinned: true,
+        pinKey: "workspace:ws-1:2",
+      }),
+      meta: {},
+    };
+    store["shape:fixed-tab-terminal"] = {
+      id: "shape:fixed-tab-terminal",
+      typeName: "shape",
+      type: "canvas-terminal",
+      x: 0,
+      y: 0,
+      rotation: 0,
+      index: "a4",
+      parentId: "page:page",
+      isLocked: false,
+      opacity: 1,
+      props: createCanvasTerminalShapeProps({
+        contextScope: "workspace",
+        workspaceId: "ws-1",
+        projectName: "P",
+        workspaceName: "W",
+        localPath: "/tmp",
+        terminalName: "1",
+        tmuxWindowName: "1",
+        sourceTerminalTabId: "terminal",
+        isNewTerminal: false,
+        isPinned: true,
+        pinKey: "workspace:ws-1:1",
+      }),
+      meta: {},
+    };
+    store["shape:other-workspace-terminal"] = {
+      id: "shape:other-workspace-terminal",
+      typeName: "shape",
+      type: "canvas-terminal",
+      x: 0,
+      y: 0,
+      rotation: 0,
+      index: "a5",
+      parentId: "page:page",
+      isLocked: false,
+      opacity: 1,
+      props: createCanvasTerminalShapeProps({
+        contextScope: "workspace",
+        workspaceId: "ws-2",
+        projectName: "P",
+        workspaceName: "W2",
+        localPath: "/tmp",
+        terminalName: "2",
+        tmuxWindowName: "2",
+        sourceTerminalTabId: "terminal-tab:deleted",
+        isNewTerminal: false,
+        isPinned: true,
+        pinKey: "workspace:ws-2:2",
+      }),
+      meta: {},
+    };
+
+    const result = removeCanvasTerminalShapesFromDocument(snapshot.document, {
+      contextScope: "workspace",
+      workspaceId: "ws-1",
+      sourceTerminalTabIds: ["terminal-tab:deleted"],
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.removedPinKeys).toEqual(["workspace:ws-1:2"]);
+    expect(result.removedShapeIds).toEqual(["shape:deleted-tab-terminal"]);
+    expect(result.document?.store["shape:deleted-tab-terminal"]).toBeUndefined();
+    expect(result.document?.store["shape:fixed-tab-terminal"]).toBeDefined();
+    expect(result.document?.store["shape:other-workspace-terminal"]).toBeDefined();
   });
 
   it("repairs legacy a40-style indices on load", () => {

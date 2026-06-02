@@ -25,6 +25,10 @@ pub fn routes() -> Router<AppState> {
             get(handlers::list_tmux_windows),
         )
         .route(
+            "/tmux-window/{workspace_id}",
+            post(handlers::kill_tmux_window),
+        )
+        .route(
             "/tmux-capture/{workspace_id}",
             get(handlers::capture_tmux_window),
         )

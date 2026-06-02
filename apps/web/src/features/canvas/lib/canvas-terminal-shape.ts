@@ -12,6 +12,7 @@ import {
   type TLPage,
   type TLPageId,
   type TLShape,
+  type TLShapeId,
 } from "tldraw";
 import { getIndexAbove, getIndexBetween, sortByIndex, type IndexKey } from "@tldraw/utils";
 import type { TerminalContextScope } from "@/api/rest-api";
@@ -21,6 +22,8 @@ import { findCanvasTerminalPlacement } from "./canvas-terminal-placement";
 
 export const CANVAS_TERMINAL_SHAPE_TYPE = "canvas-terminal" as const;
 export const CANVAS_TERMINAL_PIN_STATE_EVENT = "canvas-terminal-pin-state-change";
+export const CANVAS_TERMINAL_SHAPES_REMOVED_EVENT = "canvas-terminal-shapes-removed";
+export const CANVAS_TERMINAL_CLOSE_REQUEST_EVENT = "canvas-terminal-close-request";
 const DEFAULT_PAGE_ID = "page:page";
 const DEFAULT_PAGE_NAME = "Page 1";
 const SESSION_SNAPSHOT_VERSION = 0;
@@ -52,6 +55,15 @@ declare module "tldraw" {
 }
 
 export type CanvasTerminalShape = TLShape<typeof CANVAS_TERMINAL_SHAPE_TYPE>;
+
+export type CanvasTerminalCloseRequestDetail = {
+  contextScope: TerminalContextScope;
+  workspaceId: string;
+  sourceTerminalTabId: string;
+  tmuxWindowName: string;
+  pinKey: string;
+  shapeId: TLShapeId;
+};
 
 export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTerminalShape> {
   static override type = CANVAS_TERMINAL_SHAPE_TYPE;
@@ -239,7 +251,7 @@ export function repairInvalidShapeIndicesInDocument(
 export function normalizeCanvasTerminalShapePropsInDocument(
   document: TLEditorSnapshot["document"],
 ): TLEditorSnapshot["document"] {
-  let doc = repairInvalidShapeIndicesInDocument(document);
+  const doc = repairInvalidShapeIndicesInDocument(document);
   const store = doc.store as Record<string, unknown>;
   let changed = doc !== document;
   const nextStore: Record<string, unknown> = {};
@@ -401,6 +413,95 @@ export function pinCanvasTerminalShapeInSnapshot(
   };
 }
 
+export function removeCanvasTerminalShapesFromDocument(
+  document: TLEditorSnapshot["document"] | null,
+  options: {
+    contextScope?: TerminalContextScope;
+    pinKeys?: Iterable<string>;
+    sourceTerminalTabIds?: Iterable<string>;
+    tmuxWindowNames?: Iterable<string>;
+    workspaceId?: string;
+  },
+) {
+  if (!document) {
+    return {
+      changed: false,
+      document,
+      removedPinKeys: [] as string[],
+      removedShapeIds: [] as TLShapeId[],
+    };
+  }
+
+  const sourceTerminalTabIds = new Set(options.sourceTerminalTabIds ?? []);
+  const pinKeys = new Set(options.pinKeys ?? []);
+  const tmuxWindowNames = new Set(options.tmuxWindowNames ?? []);
+  if (
+    sourceTerminalTabIds.size === 0 &&
+    pinKeys.size === 0 &&
+    tmuxWindowNames.size === 0
+  ) {
+    return {
+      changed: false,
+      document,
+      removedPinKeys: [] as string[],
+      removedShapeIds: [] as TLShapeId[],
+    };
+  }
+
+  const normalizedDocument = normalizeCanvasTerminalShapePropsInDocument(document);
+  const store = normalizedDocument.store as Record<string, unknown>;
+  const nextStore = { ...store };
+  const removedPinKeys: string[] = [];
+  const removedShapeIds: TLShapeId[] = [];
+
+  for (const [recordId, record] of Object.entries(store)) {
+    if (!isCanvasTerminalShapeRecord(record)) {
+      continue;
+    }
+
+    const props = record.props;
+    if (options.contextScope && props.contextScope !== options.contextScope) {
+      continue;
+    }
+    if (options.workspaceId && props.workspaceId !== options.workspaceId) {
+      continue;
+    }
+
+    const matches =
+      sourceTerminalTabIds.has(props.sourceTerminalTabId) ||
+      pinKeys.has(props.pinKey) ||
+      tmuxWindowNames.has(props.tmuxWindowName);
+    if (!matches) {
+      continue;
+    }
+
+    delete nextStore[recordId];
+    removedShapeIds.push(record.id as TLShapeId);
+    if (props.pinKey) {
+      removedPinKeys.push(props.pinKey);
+    }
+  }
+
+  if (removedShapeIds.length === 0) {
+    return {
+      changed: false,
+      document,
+      removedPinKeys,
+      removedShapeIds,
+    };
+  }
+
+  return {
+    changed: true,
+    document: {
+      ...normalizedDocument,
+      store: nextStore as TLEditorSnapshot["document"]["store"],
+    },
+    removedPinKeys,
+    removedShapeIds,
+  };
+}
+
 export function getPinnedCanvasTerminalPinKeys(snapshot: TLEditorSnapshot | null) {
   if (!snapshot) {
     return new Set<string>();
@@ -422,6 +523,30 @@ export function dispatchCanvasTerminalPinStateChange(pinKey: string, pinned: boo
   window.dispatchEvent(
     new CustomEvent(CANVAS_TERMINAL_PIN_STATE_EVENT, {
       detail: { pinKey, pinned },
+    }),
+  );
+}
+
+export function dispatchCanvasTerminalShapesRemoved(shapeIds: TLShapeId[]) {
+  if (typeof window === "undefined" || shapeIds.length === 0) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(CANVAS_TERMINAL_SHAPES_REMOVED_EVENT, {
+      detail: { shapeIds },
+    }),
+  );
+}
+
+export function dispatchCanvasTerminalCloseRequest(detail: CanvasTerminalCloseRequestDetail) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<CanvasTerminalCloseRequestDetail>(CANVAS_TERMINAL_CLOSE_REQUEST_EVENT, {
+      detail,
     }),
   );
 }

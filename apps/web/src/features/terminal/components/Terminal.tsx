@@ -64,6 +64,12 @@ export interface TerminalRef {
   getScreenText: (maxLines: number, skipFromBottom?: number) => string;
 }
 
+// tldraw / mosaic can report a usable but transient terminal grid while a new
+// pane is still being inserted. Pin tmux only after the first fit settles.
+const INITIAL_CONNECT_MIN_FRAMES = 2;
+const INITIAL_CONNECT_STABLE_FRAMES = 2;
+const INITIAL_CONNECT_MAX_WAIT_FRAMES = 20;
+
 const Terminal = ({
   sessionId,
   workspaceId,
@@ -348,6 +354,7 @@ const Terminal = ({
     let cancelled = false;
     let linkProvider: { dispose: () => void } | null = null;
     let visibilityPollTimer: ReturnType<typeof setTimeout> | null = null;
+    let connectRafId = 0;
 
     const initTerminal = async () => {
       try {
@@ -546,6 +553,9 @@ const Terminal = ({
     });
 
     let connectStarted = false;
+    let initialConnectFrameCount = 0;
+    let initialConnectStableFrameCount = 0;
+    let lastInitialConnectGrid: { cols: number; rows: number } | null = null;
     const buildRuntimeWsUrl = async () => {
       let runtimeWsUrl = wsUrl;
       try {
@@ -564,12 +574,43 @@ const Terminal = ({
       }
       return runtimeWsUrl;
     };
-    const connectWhenVisible = () => {
-      if (cancelled || connectStarted) return;
-      if (!isTerminalContainerVisible(containerRef.current)) return;
+    const tryFitAndReadGrid = () => {
+      if (!isTerminalContainerVisible(containerRef.current)) return null;
 
       fitAddon.fit();
-      if (!isUsableTerminalGrid(terminal.cols, terminal.rows)) return;
+      const grid = { cols: terminal.cols, rows: terminal.rows };
+      return isUsableTerminalGrid(grid.cols, grid.rows) ? grid : null;
+    };
+    const scheduleConnectCheck = () => {
+      if (cancelled || connectStarted || connectRafId) return;
+      connectRafId = requestAnimationFrame(runConnectCheck);
+    };
+    const runConnectCheck = () => {
+      connectRafId = 0;
+      if (cancelled || connectStarted) return;
+
+      const grid = tryFitAndReadGrid();
+      if (!grid) return;
+
+      initialConnectFrameCount += 1;
+      if (
+        lastInitialConnectGrid &&
+        lastInitialConnectGrid.cols === grid.cols &&
+        lastInitialConnectGrid.rows === grid.rows
+      ) {
+        initialConnectStableFrameCount += 1;
+      } else {
+        lastInitialConnectGrid = grid;
+        initialConnectStableFrameCount = 1;
+      }
+
+      const waitedLongEnough = initialConnectFrameCount >= INITIAL_CONNECT_MIN_FRAMES;
+      const gridIsStable = initialConnectStableFrameCount >= INITIAL_CONNECT_STABLE_FRAMES;
+      const hitWaitLimit = initialConnectFrameCount >= INITIAL_CONNECT_MAX_WAIT_FRAMES;
+      if ((!waitedLongEnough || !gridIsStable) && !hitWaitLimit) {
+        scheduleConnectCheck();
+        return;
+      }
 
       connectStarted = true;
       // Connect with runtime token in desktop mode, then include initial cols/rows.
@@ -584,6 +625,10 @@ const Terminal = ({
         const connectUrl = `${runtimeWsUrl}${separator}cols=${terminal.cols}&rows=${terminal.rows}`;
         connect(connectUrl);
       })();
+    };
+    const connectWhenVisible = () => {
+      if (cancelled || connectStarted) return;
+      scheduleConnectCheck();
     };
     const scheduleVisibilityPoll = () => {
       if (cancelled || connectStarted || visibilityPollTimer) return;
@@ -661,6 +706,7 @@ const Terminal = ({
       terminalInputCleanupRef.current?.();
       terminalInputCleanupRef.current = null;
       if (visibilityPollTimer) clearTimeout(visibilityPollTimer);
+      if (connectRafId) cancelAnimationFrame(connectRafId);
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);

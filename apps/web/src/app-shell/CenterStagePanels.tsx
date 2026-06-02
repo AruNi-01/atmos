@@ -27,6 +27,7 @@ import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { cn } from "@/shared/lib/utils";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
+import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import type { Project, Workspace } from "@/shared/types/domain";
 
 const WikiTab = dynamic(
@@ -101,6 +102,12 @@ interface CenterStagePanelsProps {
   currentWorkspace?: Workspace;
   effectiveContextId: string;
   handleCreateTerminalCenterTab: () => void;
+  handleTerminalPaneClosed: (event: {
+    paneId: string;
+    pane: TerminalPaneProps;
+    terminalTabId: string;
+    isLastPane: boolean;
+  }) => void;
   mountedTerminalTabs: string[];
   openFiles: OpenFile[];
   projectWikiTabVisible: boolean;
@@ -131,6 +138,7 @@ export function CenterStagePanels({
   currentWorkspace,
   effectiveContextId,
   handleCreateTerminalCenterTab,
+  handleTerminalPaneClosed,
   mountedTerminalTabs,
   openFiles,
   projectWikiTabVisible,
@@ -151,32 +159,8 @@ export function CenterStagePanels({
 }: CenterStagePanelsProps) {
   return (
     <>
-      {mountedTerminalTabs.includes(FIXED_TERMINAL_TAB_VALUE) && (
-        <div
-          className={cn(
-            "flex-1 min-h-0 min-w-0",
-            activeValue !== FIXED_TERMINAL_TAB_VALUE && "hidden",
-          )}
-        >
-          <div className="h-full w-full">
-            <TerminalGrid
-              ref={terminalGridRef}
-              workspaceId={effectiveContextId}
-              quickOpenAgents={terminalQuickOpenAgents}
-              className="h-full"
-              isProjectContext={currentView === "project"}
-              onNewTerminalTab={handleCreateTerminalCenterTab}
-            />
-          </div>
-        </div>
-      )}
-
       {visibleTerminalTabs
-        .filter(
-          (tab) =>
-            tab.id !== FIXED_TERMINAL_TAB_VALUE &&
-            mountedTerminalTabs.includes(tab.id),
-        )
+        .filter((tab) => mountedTerminalTabs.includes(tab.id))
         .map((tab) => (
           <div
             key={tab.id}
@@ -187,15 +171,18 @@ export function CenterStagePanels({
           >
             <div className="h-full w-full">
               <TerminalGrid
-                ref={(instance) => {
-                  terminalGridRefs.current[tab.id] = instance;
-                }}
+                ref={tab.id === FIXED_TERMINAL_TAB_VALUE
+                  ? terminalGridRef
+                  : (instance) => {
+                      terminalGridRefs.current[tab.id] = instance;
+                    }}
                 workspaceId={effectiveContextId}
-                terminalTabId={tab.id}
+                terminalTabId={tab.id === FIXED_TERMINAL_TAB_VALUE ? undefined : tab.id}
                 quickOpenAgents={terminalQuickOpenAgents}
                 className="h-full"
                 isProjectContext={currentView === "project"}
                 onNewTerminalTab={handleCreateTerminalCenterTab}
+                onTerminalPaneClosed={handleTerminalPaneClosed}
               />
             </div>
           </div>

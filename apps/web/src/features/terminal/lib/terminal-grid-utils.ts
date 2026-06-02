@@ -1,7 +1,7 @@
 "use client";
 
 import type { MosaicNode } from "react-mosaic-component";
-import type { MosaicBranch, TerminalPaneAgent } from "../types/index";
+import type { MosaicBranch, TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 
 export type TerminalGridScope = "default" | "project-wiki" | "code-review";
 
@@ -31,6 +31,13 @@ export interface TerminalGridProps {
   isProjectContext?: boolean;
   /** Create a new center-stage terminal tab. Triggered by scoped Cmd+T in terminal grids. */
   onNewTerminalTab?: () => void;
+  /** Notifies the center stage after a default-scope pane has been destroyed. */
+  onTerminalPaneClosed?: (event: {
+    paneId: string;
+    pane: TerminalPaneProps;
+    terminalTabId: string;
+    isLastPane: boolean;
+  }) => void;
 }
 
 export interface TerminalGridHandle {
@@ -40,7 +47,7 @@ export interface TerminalGridHandle {
   /** Create or focus terminal by label/window name (e.g. "Generate Project Wiki") and run command. Reuses existing pane if found. */
   createOrFocusAndRunTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => Promise<void>;
   /** Remove terminal pane by tmux window name. Used when killing backend tmux window before replace. */
-  removeTerminalByTmuxWindowName: (tmuxWindowName: string) => void;
+  removeTerminalByTmuxWindowName: (tmuxWindowName: string) => boolean;
   /** Create a new terminal and pre-fill command text without executing it */
   prefillTerminal: (options: { label: string; command: string; agent?: TerminalPaneAgent }) => void;
   destroyAllTerminals: () => void;

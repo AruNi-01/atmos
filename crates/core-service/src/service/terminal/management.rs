@@ -231,6 +231,18 @@ impl TerminalService {
         Ok(())
     }
 
+    /// Kill a tmux window by its user-visible window name in the given session.
+    pub fn kill_window_by_name(&self, session_name: &str, tmux_window_name: &str) -> Result<bool> {
+        if let Some(index) = self
+            .tmux_engine
+            .find_window_index_by_name(session_name, tmux_window_name)?
+        {
+            self.tmux_engine.kill_window(session_name, index)?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     /// Check if a "Code Review" tmux window exists in the given session.
     pub fn has_code_review_window(&self, session_name: &str) -> Result<bool> {
         let idx = self

@@ -10,10 +10,7 @@ import { TerminalsView } from "@/features/terminal/components/TerminalsView";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { WorkspacesManagementView } from "@/features/workspace/components/WorkspacesManagementView";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
-import {
-  FIXED_TERMINAL_TAB_VALUE,
-  type TerminalCenterTab,
-} from "@/features/terminal/store/use-terminal-store";
+import type { TerminalCenterTab } from "@/features/terminal/store/use-terminal-store";
 import { FIXED_TABS, isTerminalCenterTabValue } from "@/app-shell/center-stage-tabs";
 import type { Project, Workspace } from "@/shared/types/domain";
 
@@ -272,7 +269,7 @@ export function useCenterStageTabScrollEffects({
   React.useEffect(() => {
     const container = scrollableTabsRef.current;
     if (!activeValue || !container) return;
-    if (FIXED_TABS.has(activeValue) || activeValue === FIXED_TERMINAL_TAB_VALUE) return;
+    if (FIXED_TABS.has(activeValue)) return;
 
     const timer = setTimeout(() => {
       const current = scrollableTabsRef.current;
@@ -349,11 +346,6 @@ export function useCenterStageKeyboardShortcuts({
   handleCenterStageTabChange: (value: string) => void;
   visibleTerminalTabs: TerminalCenterTab[];
 }) {
-  const additionalTerminalTabs = React.useMemo(
-    () => visibleTerminalTabs.filter((tab) => tab.id !== FIXED_TERMINAL_TAB_VALUE),
-    [visibleTerminalTabs],
-  );
-
   useHotkeys(
     "mod+0",
     () => {
@@ -367,49 +359,50 @@ export function useCenterStageKeyboardShortcuts({
   useHotkeys(
     "mod+1",
     () => {
-      handleCenterStageTabChange(FIXED_TERMINAL_TAB_VALUE);
+      const target = visibleTerminalTabs[0];
+      if (target) handleCenterStageTabChange(target.id);
     },
     { enableOnFormTags: true, preventDefault: true },
-    [handleCenterStageTabChange],
+    [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
   useHotkeys(
     "mod+2",
     () => {
-      const target = additionalTerminalTabs[0];
+      const target = visibleTerminalTabs[1];
       if (target) handleCenterStageTabChange(target.id);
     },
     { enableOnFormTags: true, preventDefault: true },
-    [additionalTerminalTabs, handleCenterStageTabChange],
+    [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
   useHotkeys(
     "mod+3",
     () => {
-      const target = additionalTerminalTabs[1];
+      const target = visibleTerminalTabs[2];
       if (target) handleCenterStageTabChange(target.id);
     },
     { enableOnFormTags: true, preventDefault: true },
-    [additionalTerminalTabs, handleCenterStageTabChange],
+    [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
   useHotkeys(
     "mod+4",
     () => {
-      const target = additionalTerminalTabs[2];
+      const target = visibleTerminalTabs[3];
       if (target) handleCenterStageTabChange(target.id);
     },
     { enableOnFormTags: true, preventDefault: true },
-    [additionalTerminalTabs, handleCenterStageTabChange],
+    [handleCenterStageTabChange, visibleTerminalTabs],
   );
 
   useHotkeys(
     "mod+5",
     () => {
-      const target = additionalTerminalTabs[3];
+      const target = visibleTerminalTabs[4];
       if (target) handleCenterStageTabChange(target.id);
     },
     { enableOnFormTags: true, preventDefault: true },
-    [additionalTerminalTabs, handleCenterStageTabChange],
+    [handleCenterStageTabChange, visibleTerminalTabs],
   );
 }

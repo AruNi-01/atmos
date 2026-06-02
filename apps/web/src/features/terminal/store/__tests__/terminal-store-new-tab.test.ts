@@ -32,7 +32,7 @@ describe("createTerminalTabWithInitialPane", () => {
               {
                 id: FIXED_TERMINAL_TAB_VALUE,
                 title: "Term",
-                closable: false,
+                closable: true,
               },
             ],
           },
@@ -78,5 +78,44 @@ describe("createTerminalTabWithInitialPane", () => {
 
     expect(created).toBeNull();
     expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]).toBeUndefined();
+  });
+
+  it("allows closing the fixed Term tab and recreates it from an empty terminal tab list", () => {
+    const saveCalls: string[] = [];
+    useTerminalStore.setState({
+      loadedWorkspaces: new Set(["workspace-1"]),
+      workspaceTerminalTabs: {
+        "workspace-1": [
+          {
+            id: FIXED_TERMINAL_TAB_VALUE,
+            title: "Term",
+            closable: true,
+          },
+        ],
+      },
+      workspaceActiveTerminalTabIds: {
+        "workspace-1": FIXED_TERMINAL_TAB_VALUE,
+      },
+      saveToBackend: (workspaceId) => {
+        saveCalls.push(workspaceId);
+      },
+    });
+
+    useTerminalStore.getState().closeTerminalTab("workspace-1", FIXED_TERMINAL_TAB_VALUE);
+
+    expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]).toEqual([]);
+    expect(useTerminalStore.getState().workspaceActiveTerminalTabIds["workspace-1"]).toBe("");
+
+    const recreated = useTerminalStore.getState().createTerminalTab("workspace-1");
+
+    expect(recreated).toEqual({
+      id: FIXED_TERMINAL_TAB_VALUE,
+      title: "Term",
+      closable: true,
+    });
+    expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]?.[0]?.id).toBe(
+      FIXED_TERMINAL_TAB_VALUE,
+    );
+    expect(saveCalls).toEqual(["workspace-1", "workspace-1"]);
   });
 });

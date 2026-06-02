@@ -22,6 +22,11 @@ pub struct KillTmuxSessionPayload {
 }
 
 #[derive(Deserialize)]
+pub struct KillTmuxWindowPayload {
+    pub tmux_window_name: String,
+}
+
+#[derive(Deserialize)]
 pub struct KillOrphanedProcessesPayload {
     pub pids: Vec<u32>,
 }
@@ -351,6 +356,42 @@ pub async fn kill_code_review_window(
         Ok(()) => Ok(Json(ApiResponse::success(json!({
             "killed": true,
             "message": "Code Review window closed"
+        })))),
+        Err(e) => Ok(Json(ApiResponse::success(json!({
+            "killed": false,
+            "message": format!("{}", e)
+        })))),
+    }
+}
+
+/// POST /api/system/tmux-window/:workspace_id
+pub async fn kill_tmux_window(
+    State(state): State<AppState>,
+    axum::extract::Path(workspace_id): axum::extract::Path<String>,
+    Json(payload): Json<KillTmuxWindowPayload>,
+) -> ApiResult<Json<ApiResponse<Value>>> {
+    let tmux_window_name = payload.tmux_window_name.trim();
+    if tmux_window_name.is_empty() {
+        return Err(ApiError::BadRequest("tmux_window_name is required".into()));
+    }
+
+    let session_name = match resolve_session_name(&state, &workspace_id).await {
+        Some(s) => s,
+        None => {
+            return Ok(Json(ApiResponse::success(json!({
+                "killed": false,
+                "message": "Could not resolve workspace to tmux session"
+            }))));
+        }
+    };
+
+    match state
+        .terminal_service
+        .kill_window_by_name(&session_name, tmux_window_name)
+    {
+        Ok(killed) => Ok(Json(ApiResponse::success(json!({
+            "killed": killed,
+            "message": if killed { "Tmux window closed" } else { "Tmux window not found" }
         })))),
         Err(e) => Ok(Json(ApiResponse::success(json!({
             "killed": false,

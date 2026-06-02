@@ -31,7 +31,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 
 export const FIXED_TABS = new Set<string>(["overview", "wiki", "project-wiki", "code-review"]);
-export const CENTER_TERMINAL_SHORTCUT_LIMIT = 4;
+export const CENTER_TERMINAL_SHORTCUT_LIMIT = 5;
 
 export type TabGroupItem = {
   id: string;
