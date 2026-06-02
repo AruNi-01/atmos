@@ -1,0 +1,68 @@
+specs/README.md
+  s_9721d472bb8d36::t_02152a0da01f58 102
+apps/web/src/features/canvas/lib/create-related-canvas-terminal.ts
+  s_e2af4b6cfeace3::t_c046bf4a7b00e2 1-166
+specs/APP/APP-022_canvas-terminal-new-tab/PRD.md
+  s_9721d472bb8d36::t_02152a0da01f58 1-22
+apps/web/src/features/terminal/store/use-terminal-store.ts
+  s_e2af4b6cfeace3::t_04d315065d2bcf 136-152
+  s_9721d472bb8d36::t_ed343132f5ba5d 153-161
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  s_9721d472bb8d36::t_fa10354a8e6e7d 273-274,276-280
+  s_9721d472bb8d36::t_e2f1598884b621 10,17-18,88-89,237,239-251,256-264,281,285-289,291-297,299-307,310-322,324-327,329-331,379-388
+  s_e2af4b6cfeace3::t_d4ad45e5d9815b 31-33,238,252-255,265-272,275,282-284,290,298,308-309,323
+  s_e2af4b6cfeace3::t_6358a45dc41065 328
+apps/web/src/features/terminal/store/__tests__/terminal-store-new-tab.test.ts
+  s_e2af4b6cfeace3::t_5e7c14e47d55be 1-82
+.agents/skills/atmos-specs-review/SKILL.md
+  s_765f914bcee491::t_5ad55529132111 10
+specs/APP/APP-022_canvas-terminal-new-tab/REVIEW.md
+  s_e2af4b6cfeace3::t_63c950c994a55a 1-26,29-35,37-63,68-71,75-81,83-111,115-118
+  s_e2af4b6cfeace3::t_ecbc621d363f69 72,119
+  s_e2af4b6cfeace3::t_79c601de30b82d 27-28,36,64-67,73-74,82,112-114,120-121
+specs/APP/APP-022_canvas-terminal-new-tab/TEST.md
+  s_9721d472bb8d36::t_02152a0da01f58 1-15
+specs/APP/APP-022_canvas-terminal-new-tab/TECH.md
+  s_9721d472bb8d36::t_02152a0da01f58 1-25
+apps/web/src/features/terminal/components/TerminalGrid.tsx
+  s_9721d472bb8d36::t_e2f1598884b621 168
+specs/APP/APP-022_canvas-terminal-new-tab/BRAINSTORM.md
+  s_9721d472bb8d36::t_02152a0da01f58 1-13
+apps/web/src/features/terminal/store/terminal-store-types.ts
+  s_e2af4b6cfeace3::t_75a1fa88e82d2c 4,38,42
+  s_9721d472bb8d36::t_ed343132f5ba5d 39-41
+apps/web/src/features/canvas/__tests__/canvas-terminal-new-tab.test.ts
+  s_e2af4b6cfeace3::t_95ec2cf5fde950 1-246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cf856a35a2119431ab88625da78297fc597e70f1",
+  "prompts": {},
+  "sessions": {
+    "s_765f914bcee491": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8868-67d9-7803-b4f9-a401ef3acf40",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_9721d472bb8d36": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8860-c0c0-78b1-9ed0-e062d9310ea9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e2af4b6cfeace3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8867-55cd-7362-a306-ad3bdbbf233b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
