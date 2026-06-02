@@ -133,6 +133,32 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     return newTab;
   },
 
+  createTerminalTabWithInitialPane: async (workspaceId, contextScope = "workspace") => {
+    const isProjectContext = contextScope === "project";
+
+    if (get().workspaceContexts[workspaceId] !== isProjectContext) {
+      set((state) => ({
+        workspaceContexts: { ...state.workspaceContexts, [workspaceId]: isProjectContext },
+      }));
+    }
+
+    if (!get().loadedWorkspaces.has(workspaceId)) {
+      await get().loadFromBackend(workspaceId, isProjectContext, null);
+    }
+
+    if (!get().loadedWorkspaces.has(workspaceId)) {
+      return null;
+    }
+
+    const tab = get().createTerminalTab(workspaceId);
+    const panes = get().getPanes(workspaceId, tab.id);
+    const [paneId, pane] = Object.entries(panes)[0] ?? [];
+    if (!paneId || !pane) {
+      return null;
+    }
+    return { tab, paneId, pane };
+  },
+
   closeTerminalTab: (workspaceId, terminalTabId) => {
     if (terminalTabId === FIXED_TERMINAL_TAB_VALUE) return;
 

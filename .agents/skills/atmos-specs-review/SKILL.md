@@ -7,7 +7,7 @@ args:
     description: Spec identifier, e.g. `APP-017` or `APP-017_atmos-automations`. Required.
     required: true
   - name: mode
-    description: Optional review mode: `functional`, `quality`, or `both`. Infer from the user request when omitted.
+    description: "Optional review mode: `functional`, `quality`, or `both`. Infer from the user request when omitted."
     required: false
 ---
 

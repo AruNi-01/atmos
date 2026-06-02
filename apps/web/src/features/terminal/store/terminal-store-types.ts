@@ -1,7 +1,7 @@
 "use client";
 
 import type { MosaicDirection, MosaicNode } from "react-mosaic-component";
-import type { TmuxWindow } from "@/api/rest-api";
+import type { TerminalContextScope, TmuxWindow } from "@/api/rest-api";
 import type {
   TerminalPaneAgent,
   TerminalPaneProps,
@@ -35,6 +35,11 @@ export interface TerminalStore {
   getActiveTerminalTabId: (workspaceId: string) => string;
   setActiveTerminalTab: (workspaceId: string, terminalTabId: string) => void;
   createTerminalTab: (workspaceId: string) => TerminalCenterTab;
+  createTerminalTabWithInitialPane: (workspaceId: string, contextScope?: TerminalContextScope) => Promise<{
+    tab: TerminalCenterTab;
+    paneId: string;
+    pane: TerminalPaneProps;
+  } | null>;
   closeTerminalTab: (workspaceId: string, terminalTabId: string) => void;
   getPanes: (workspaceId: string, terminalTabId?: string) => Record<string, TerminalPaneProps>;
   getLayout: (workspaceId: string, terminalTabId?: string) => MosaicNode<string> | null;

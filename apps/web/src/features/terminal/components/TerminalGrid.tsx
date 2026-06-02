@@ -165,7 +165,7 @@ export const TerminalGrid = React.forwardRef<TerminalGridHandle, TerminalGridPro
       if (workspace) {
         return {
           projectName: project.name,
-          workspaceName: workspace.name,
+          workspaceName: workspace.displayName || workspace.name,
           localPath: workspace.localPath,
         };
       }
