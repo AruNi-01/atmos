@@ -31,8 +31,8 @@ import {
   Play,
   RefreshCw,
   Search,
+  Timer,
   Trash2,
-  Workflow,
 } from "lucide-react";
 
 import {
@@ -145,7 +145,7 @@ export function AutomationListPanel({
           <div className="space-y-2 pb-8 pt-10">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Workflow className="size-5" />
+                <Timer className="size-5" />
               </div>
               <div className="min-w-0">
                 <h2 className="text-2xl font-bold tracking-tight text-foreground">Automations</h2>
@@ -199,7 +199,7 @@ export function AutomationListPanel({
                   {loading ? <LoaderCircle className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
                 </Button>
                 <Button size="sm" disabled={createDisabled} onClick={onCreate}>
-                  <Workflow className="size-4" />
+                  <Timer className="size-4" />
                   New
                 </Button>
               </div>
@@ -325,7 +325,7 @@ function AutomationListRow({
     >
       <div className="flex min-w-0 flex-1 items-start gap-4">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-          <Workflow className="size-5" />
+          <Timer className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -418,7 +418,7 @@ function EmptyAutomationList({
       className="flex min-h-[360px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-16 text-center"
     >
       <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-muted/40 text-muted-foreground">
-        {hasQuery || hasAutomations ? <Search className="size-8" /> : <Workflow className="size-8" />}
+        {hasQuery || hasAutomations ? <Search className="size-8" /> : <Timer className="size-8" />}
       </div>
       <h3 className="text-lg font-semibold text-foreground">
         {hasQuery || hasAutomations ? "No matching automations" : "No automations yet"}
@@ -436,7 +436,7 @@ function EmptyAutomationList({
         ) : null}
         {!hasAutomations ? (
           <Button disabled={createDisabled} onClick={onCreate}>
-            <Workflow className="size-4" />
+            <Timer className="size-4" />
             New Automation
           </Button>
         ) : null}

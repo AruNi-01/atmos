@@ -8,8 +8,8 @@ import {
   ArrowLeft,
   LoaderCircle,
   Play,
+  Timer,
   TimerReset,
-  Workflow,
   X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -183,7 +183,7 @@ export function AutomationHistoryPage({
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center text-center">
                 <div>
-                  <Workflow className="mx-auto size-8 text-muted-foreground" />
+                  <Timer className="mx-auto size-8 text-muted-foreground" />
                   <div className="mt-3 text-sm font-medium text-foreground">Automation unavailable</div>
                   <div className="mt-1 text-xs text-muted-foreground">Return to the list and choose another item.</div>
                 </div>

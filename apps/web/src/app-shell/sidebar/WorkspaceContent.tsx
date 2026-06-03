@@ -11,7 +11,7 @@ import {
   AlertTriangle,
   GitBranch,
   Pencil,
-  Workflow,
+  Timer,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -479,7 +479,7 @@ export const WorkspaceContent = React.memo<WorkspaceContentProps>(function Works
                           className="inline-flex shrink-0 cursor-default items-center text-muted-foreground"
                           aria-label="Automation workspace"
                         >
-                          <Workflow className="size-3" />
+                          <Timer className="size-3" />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="right" align="center" sideOffset={8}>

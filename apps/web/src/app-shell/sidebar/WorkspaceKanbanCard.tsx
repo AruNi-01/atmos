@@ -20,8 +20,8 @@ import {
   MoreHorizontal,
   Pin,
   Plus,
+  Timer,
   Trash2,
-  Workflow,
 } from "lucide-react";
 import type {
   Workspace,
@@ -169,7 +169,7 @@ export function KanbanWorkspaceCard({
                         className="inline-flex cursor-default items-center"
                         aria-label="Automation workspace"
                       >
-                        <Workflow className="size-3 text-muted-foreground" />
+                        <Timer className="size-3 text-muted-foreground" />
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="top">
