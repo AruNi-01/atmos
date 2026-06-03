@@ -27,8 +27,6 @@ import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { automationsParams, type AutomationsView } from "@/shared/lib/nuqs/searchParams";
 
-const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-
 async function copyTextToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -70,6 +68,7 @@ export function useAutomationPageState() {
   const projects = useProjectStore((state) => state.projects);
   const isProjectsLoading = useProjectStore((state) => state.isLoading);
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
+  const ensureWorkspaceVisible = useProjectStore((state) => state.ensureWorkspaceVisible);
 
   const [pageView, setPageView] = useQueryState("automationView", automationsParams.view);
   const [automationParam, setAutomationParam] = useQueryState("automationId", automationsParams.automation);
@@ -222,41 +221,6 @@ export function useAutomationPageState() {
       }
     },
     [listRuns],
-  );
-
-  const ensureWorkspaceInProjectStore = React.useCallback(
-    async (workspaceGuid: string) => {
-      const hasWorkspace = () =>
-        useProjectStore
-          .getState()
-          .projects.some((project) =>
-            project.workspaces.some((workspace) => workspace.id === workspaceGuid),
-          );
-      const waitForIdle = async () => {
-        for (
-          let attempt = 0;
-          attempt < 40 && useProjectStore.getState().isLoading;
-          attempt += 1
-        ) {
-          await sleep(50);
-        }
-      };
-
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        await waitForIdle();
-        if (hasWorkspace()) {
-          return true;
-        }
-        await fetchProjects();
-        if (hasWorkspace()) {
-          return true;
-        }
-        await sleep(100);
-      }
-
-      return hasWorkspace();
-    },
-    [fetchProjects],
   );
 
   React.useEffect(() => {
@@ -596,7 +560,7 @@ export function useAutomationPageState() {
         const agentLabel = response.agent_label ?? response.agent_id;
         if (response.workspace_guid) {
           showOpening(response.workspace_guid);
-          const workspaceReady = await ensureWorkspaceInProjectStore(response.workspace_guid);
+          const workspaceReady = await ensureWorkspaceVisible(response.workspace_guid);
           if (!workspaceReady) {
             console.warn(
               `Automation continue target workspace ${response.workspace_guid} is not in the project store yet.`,
@@ -639,7 +603,7 @@ export function useAutomationPageState() {
     },
     [
       continueInTerminal,
-      ensureWorkspaceInProjectStore,
+      ensureWorkspaceVisible,
       queueAgentRun,
       router,
       showOpening,

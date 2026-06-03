@@ -14,11 +14,11 @@ import { Terminal, type TerminalRef } from "@/features/terminal/components/Termi
 import { TerminalTitleWithAgent } from "@/features/terminal/components/terminal-title";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 import { useTerminalToolbarTitle } from "@/features/terminal/hooks/use-terminal-toolbar-title";
-import { FIXED_TERMINAL_TAB_VALUE, useTerminalStore } from "@/features/terminal/store/use-terminal-store";
-import { useProjectStore } from "@/features/project/store/use-project-store";
+import { FIXED_TERMINAL_TAB_VALUE } from "@/features/terminal/store/use-terminal-store";
 import { clearLastPinnedTerminal } from "@/shared/stores/use-ui-pref-hooks";
 import { useCanvasSettingsStore } from "@/features/canvas/store/canvas-settings-store";
 import { useCanvasBoard } from "../hooks/use-canvas-board";
+import { useCreateRelatedCanvasTerminal } from "../hooks/use-create-related-canvas-terminal";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
   CANVAS_TERMINAL_SHAPE_TYPE,
@@ -29,10 +29,7 @@ import {
   type CanvasTerminalShape,
 } from "../lib/canvas-terminal-shape";
 import {
-  createRelatedCanvasTerminalShape,
-  resolveRelatedCanvasTerminalFrameName,
-} from "../lib/create-related-canvas-terminal";
-import {
+  areShapeIdListsEqual,
   promoteRenderedShapeId,
 } from "../lib/canvas-terminal-rendering";
 import {
@@ -41,14 +38,6 @@ import {
 } from "../lib/canvas-terminal-ref-context";
 
 export const CanvasAgentContext = React.createContext<TerminalPaneAgent[]>([]);
-
-export function areShapeIdListsEqual(left: string[], right: string[]) {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  return left.every((shapeId, index) => shapeId === right[index]);
-}
 
 export class CanvasTerminalShapeUtil extends CanvasTerminalShapeSchemaUtil {
   component(shape: CanvasTerminalShape) {
@@ -86,8 +75,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const removeRenderedShapeId = useCanvasRuntimeStore((state) => state.removeRenderedShapeId);
   const maxRenderedTerminals = useCanvasSettingsStore((state) => state.maxRenderedTerminals);
   const configuredAgents = React.useContext(CanvasAgentContext);
-  const projects = useProjectStore((state) => state.projects);
-  const createTerminalTabWithInitialPane = useTerminalStore((state) => state.createTerminalTabWithInitialPane);
+  const createRelatedTerminal = useCreateRelatedCanvasTerminal(shape);
 
   const storeWrite = React.useMemo(
     () =>
@@ -240,8 +228,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       event.preventDefault();
       event.stopPropagation();
 
-      const currentBounds = editor.getShapePageBounds(shape.id as TLShapeId);
-      if (!currentBounds) {
+      const result = await createRelatedTerminal();
+      if (result.status === "placement-failed") {
         toastManager.add({
           title: "Canvas",
           description: "Could not place the new terminal on Canvas",
@@ -250,11 +238,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         return;
       }
 
-      const created = await createTerminalTabWithInitialPane(
-        shape.props.workspaceId,
-        shape.props.contextScope,
-      );
-      if (!created) {
+      if (result.status === "terminal-create-failed") {
         toastManager.add({
           title: "Canvas",
           description: "Could not create a new terminal tab",
@@ -263,54 +247,6 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         return;
       }
 
-      const result = createRelatedCanvasTerminalShape({
-        editor,
-        shape,
-        created,
-        frameName: resolveRelatedCanvasTerminalFrameName(projects, shape),
-        currentBounds,
-      });
-      if (!result) {
-        toastManager.add({
-          title: "Canvas",
-          description: "Could not place the new terminal on Canvas",
-          type: "error",
-        });
-        return;
-      }
-
-      const contextScope = shape.props.contextScope;
-      dispatchCanvasTerminalPinStateChange(result.pinKey, true);
-      setActiveShapeId(result.newShapeId);
-      editor.select(result.newShapeId);
-
-      const attachedAt = Date.now();
-      const nextRenderedShapeIds = promoteRenderedShapeId(
-        getCanvasTerminalShapes(editor),
-        renderedShapeIds,
-        result.newShapeId,
-        attachedAt,
-        maxRenderedTerminals,
-      );
-      if (!areShapeIdListsEqual(nextRenderedShapeIds, renderedShapeIds)) {
-        setRenderedShapeIds(nextRenderedShapeIds);
-      }
-      editor.updateShape({
-        id: result.newShapeId,
-        type: CANVAS_TERMINAL_SHAPE_TYPE,
-        props: {
-          lastAttachedAt: attachedAt,
-        },
-      });
-
-      const base = contextScope === "project" ? "/project" : "/workspace";
-      const params = new URLSearchParams();
-      params.set("id", shape.props.workspaceId);
-      params.set("tab", result.terminalTabId);
-      params.set("terminalTmux", result.tmuxWindowName);
-      params.set("canvas", "true");
-      router.replace(`${base}?${params.toString()}`);
-
       toastManager.add({
         title: "Canvas",
         description: "New terminal created",
@@ -318,15 +254,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       });
     },
     [
-      createTerminalTabWithInitialPane,
-      editor,
-      maxRenderedTerminals,
-      projects,
-      renderedShapeIds,
-      router,
-      setActiveShapeId,
-      setRenderedShapeIds,
-      shape,
+      createRelatedTerminal,
     ],
   );
 

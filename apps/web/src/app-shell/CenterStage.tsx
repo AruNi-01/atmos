@@ -41,6 +41,7 @@ import {
   CODE_REVIEW_WINDOW_NAME,
   FIXED_TERMINAL_TAB_VALUE,
   findWorkspacePaneIdsByTmuxWindowName,
+  getTerminalWorkspaceScopeKey,
   useTerminalStore,
 } from "@/features/terminal/store/use-terminal-store";
 import { CodeReviewDialog } from "@/features/code-review";
@@ -148,10 +149,13 @@ const CenterStage: React.FC = () => {
   );
   const isTerminalWorkspaceReady = useTerminalStore((state) => {
     if (!effectiveContextId) return false;
+    const isProjectContext =
+      state.workspaceContexts[effectiveContextId] ?? currentView === "project";
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(effectiveContextId, isProjectContext);
     const contextTerminalTabs = state.workspaceTerminalTabs[effectiveContextId];
     const hasNoTerminalTabs = Array.isArray(contextTerminalTabs) && contextTerminalTabs.length === 0;
     return (
-      state.loadedWorkspaces.has(effectiveContextId) &&
+      state.loadedWorkspaces.has(workspaceScopeKey) &&
       (hasNoTerminalTabs || state.hydratedTerminalScopes.has(effectiveContextId))
     );
   });
@@ -485,6 +489,7 @@ const CenterStage: React.FC = () => {
       useTerminalStore.getState(),
       effectiveContextId,
       tmux,
+      currentView === "project",
     )?.terminalTabId;
 
     if (owningTab && owningTab !== resolvedTab) {
@@ -694,11 +699,14 @@ const CenterStage: React.FC = () => {
       return livePanes;
     }
 
-    const persistedTab = terminalState.persistedTerminalLayouts[workspaceId]?.tabs.find(
+    const isProjectContext =
+      terminalState.workspaceContexts[workspaceId] ?? currentView === "project";
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+    const persistedTab = terminalState.persistedTerminalLayouts[workspaceScopeKey]?.tabs.find(
       (tab) => tab.id === tabId,
     );
     return Object.values(persistedTab?.panes ?? {}) as TerminalPaneProps[];
-  }, []);
+  }, [currentView]);
 
   const handleCloseTerminalCenterTab = React.useCallback((tabId: string) => {
     if (!effectiveContextId) return;
@@ -797,6 +805,7 @@ const CenterStage: React.FC = () => {
       terminalState,
       detail.workspaceId,
       detail.tmuxWindowName,
+      detail.contextScope === "project",
     );
     const terminalTabId = hit?.terminalTabId || detail.sourceTerminalTabId || FIXED_TERMINAL_TAB_VALUE;
     const panes = terminalState.getPanes(detail.workspaceId, terminalTabId);

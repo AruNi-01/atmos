@@ -25,6 +25,7 @@ type TerminalLookupState = {
   workspaceTerminalTabs: Record<string, TerminalCenterTab[]>;
   workspacePanes: Record<string, Record<string, TerminalPaneProps>>;
   persistedTerminalLayouts: Record<string, PersistedTerminalWorkspaceLayoutDocument | null>;
+  workspaceContexts: Record<string, boolean>;
 };
 
 type TerminalRuntimeEvictState = TerminalLookupState & {
@@ -156,6 +157,30 @@ export function getScopeKey(
     : `${workspaceId}::${terminalTabId}`;
 }
 
+export function getTerminalWorkspaceScopeKey(
+  workspaceId: string,
+  isProjectContext: boolean = false,
+): string {
+  return `${isProjectContext ? "project" : "workspace"}:${workspaceId}`;
+}
+
+export function isTerminalWorkspaceScopeKeyForWorkspace(key: string, workspaceId: string): boolean {
+  return (
+    key === workspaceId ||
+    key === getTerminalWorkspaceScopeKey(workspaceId, false) ||
+    key === getTerminalWorkspaceScopeKey(workspaceId, true)
+  );
+}
+
+function getPersistedTerminalLayoutForWorkspace(
+  state: Pick<TerminalLookupState, "persistedTerminalLayouts" | "workspaceContexts">,
+  workspaceId: string,
+  isProjectContext = state.workspaceContexts[workspaceId] ?? false,
+): PersistedTerminalWorkspaceLayoutDocument | null {
+  const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+  return state.persistedTerminalLayouts[workspaceScopeKey] ?? null;
+}
+
 export function getWorkspaceTerminalTabs(
   state: Pick<TerminalLookupState, "workspaceTerminalTabs">,
   workspaceId: string,
@@ -176,6 +201,7 @@ export function findWorkspacePaneIdsByTmuxWindowName(
   state: TerminalLookupState,
   workspaceId: string,
   tmuxWindowName: string,
+  isProjectContext?: boolean,
 ): { paneId: string; terminalTabId: string } | null {
   const tabs = getWorkspaceTerminalTabs(state, workspaceId);
   for (const tab of tabs) {
@@ -189,7 +215,7 @@ export function findWorkspacePaneIdsByTmuxWindowName(
     }
   }
 
-  const persistedTabs = state.persistedTerminalLayouts[workspaceId]?.tabs;
+  const persistedTabs = getPersistedTerminalLayoutForWorkspace(state, workspaceId, isProjectContext)?.tabs;
   if (persistedTabs) {
     for (const tab of persistedTabs) {
       for (const [paneId, pane] of Object.entries(tab.panes ?? {})) {
@@ -237,7 +263,7 @@ export function getAllDefaultPanesForWorkspace(
   workspaceId: string,
 ): Record<string, TerminalPaneProps> {
   const tabs = getWorkspaceTerminalTabs(state, workspaceId);
-  const persistedTabs = state.persistedTerminalLayouts[workspaceId]?.tabs ?? [];
+  const persistedTabs = getPersistedTerminalLayoutForWorkspace(state, workspaceId)?.tabs ?? [];
   return tabs.reduce<Record<string, TerminalPaneProps>>((acc, tab) => {
     const scopeKey = getScopeKey(workspaceId, tab.id);
     const hydratedPanes = state.workspacePanes[scopeKey];
@@ -401,9 +427,21 @@ export function evictTerminalWorkspaceRuntimeState(
 
   delete nextWorkspaceTerminalTabs[workspaceId];
   delete nextWorkspaceActiveTerminalTabIds[workspaceId];
-  delete nextSaveTimeouts[workspaceId];
-  delete nextTmuxWindowsCache[workspaceId];
-  delete nextPersistedTerminalLayouts[workspaceId];
+  for (const key of Object.keys(nextSaveTimeouts)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      delete nextSaveTimeouts[key];
+    }
+  }
+  for (const key of Object.keys(nextTmuxWindowsCache)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      delete nextTmuxWindowsCache[key];
+    }
+  }
+  for (const key of Object.keys(nextPersistedTerminalLayouts)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      delete nextPersistedTerminalLayouts[key];
+    }
+  }
   delete nextWorkspaceContexts[workspaceId];
   delete nextProjectWikiPanes[workspaceId];
   delete nextProjectWikiLayouts[workspaceId];
@@ -428,8 +466,16 @@ export function evictTerminalWorkspaceRuntimeState(
     }
   }
 
-  nextLoadedWorkspaces.delete(workspaceId);
-  nextInitializingWorkspaces.delete(workspaceId);
+  for (const key of Array.from(nextLoadedWorkspaces)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      nextLoadedWorkspaces.delete(key);
+    }
+  }
+  for (const key of Array.from(nextInitializingWorkspaces)) {
+    if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+      nextInitializingWorkspaces.delete(key);
+    }
+  }
   nextProjectWikiLoadedWorkspaces.delete(workspaceId);
   nextProjectWikiInitializingWorkspaces.delete(workspaceId);
   nextCodeReviewLoadedWorkspaces.delete(workspaceId);
@@ -479,7 +525,7 @@ export function buildPersistedTerminalWorkspaceLayout(
   workspaceId: string,
 ): PersistedTerminalWorkspaceLayoutDocument | null {
   const tabs = getWorkspaceTerminalTabs(state, workspaceId);
-  const persistedCache = state.persistedTerminalLayouts[workspaceId];
+  const persistedCache = getPersistedTerminalLayoutForWorkspace(state, workspaceId);
   const persistedTabs: PersistedTerminalTabDocument[] = [];
 
   for (const tab of tabs) {

@@ -16,6 +16,7 @@ export interface ProjectStore {
   connectionEpoch: number;
 
   fetchProjects: () => Promise<void>;
+  ensureWorkspaceVisible: (workspaceId: string) => Promise<boolean>;
   resetForConnectionChange: () => void;
   addProject: (data: { name: string; mainFilePath: string; sidebarOrder?: number; borderColor?: string }) => Promise<void>;
   updateProject: (

@@ -37,6 +37,7 @@ export function navigateToAgentHookSessionPane(
     useTerminalStore.getState(),
     contextId,
     tmuxWindowName,
+    basePath === "/project",
   );
 
   const params = new URLSearchParams();

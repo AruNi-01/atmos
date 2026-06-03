@@ -22,9 +22,11 @@ import {
   getNextWindowName,
   getNextTerminalTabTitle,
   getScopeKey,
+  getTerminalWorkspaceScopeKey,
   getUniqueAgentName,
   getWorkspaceTerminalTabs,
   hydratePersistedTab,
+  isTerminalWorkspaceScopeKeyForWorkspace,
   removePaneFromLayout,
   samePaneAgent,
   splitPaneInLayout,
@@ -38,6 +40,7 @@ export {
   PROJECT_WIKI_WINDOW_NAME,
   TERMINAL_TAB_VALUE_PREFIX,
   findWorkspacePaneIdsByTmuxWindowName,
+  getTerminalWorkspaceScopeKey,
   getWorkspacePaneFieldsByPaneId,
   getWorkspacePaneLiveFieldsByTmuxWindow,
   type TerminalCenterTab,
@@ -45,7 +48,43 @@ export {
 
 const SAVE_DEBOUNCE_MS = 500;
 
-export const useTerminalStore = create<TerminalStore>()((set, get) => ({
+export const useTerminalStore = create<TerminalStore>()((set, get) => {
+  const clearWorkspaceSaveTimeouts = (workspaceId: string) => {
+    for (const [key, timeout] of Object.entries(get().saveTimeouts)) {
+      if (isTerminalWorkspaceScopeKeyForWorkspace(key, workspaceId)) {
+        clearTimeout(timeout);
+      }
+    }
+  };
+
+  const ensureWorkspaceContext = (workspaceId: string, isProjectContext: boolean) => {
+    const currentContext = get().workspaceContexts[workspaceId];
+
+    if (currentContext === isProjectContext) {
+      return;
+    }
+
+    if (currentContext === undefined) {
+      set((state) => ({
+        workspaceContexts: { ...state.workspaceContexts, [workspaceId]: isProjectContext },
+      }));
+      return;
+    }
+
+    clearWorkspaceSaveTimeouts(workspaceId);
+    set((state) => {
+      const evicted = evictTerminalWorkspaceRuntimeState(state, workspaceId);
+      return {
+        ...evicted,
+        workspaceContexts: {
+          ...evicted.workspaceContexts,
+          [workspaceId]: isProjectContext,
+        },
+      };
+    });
+  };
+
+  return ({
   workspaceTerminalTabs: {},
   workspaceActiveTerminalTabIds: {},
   workspacePanes: {},
@@ -142,18 +181,18 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
 
   createTerminalTabWithInitialPane: async (workspaceId, contextScope = "workspace") => {
     const isProjectContext = contextScope === "project";
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
 
-    if (get().workspaceContexts[workspaceId] !== isProjectContext) {
-      set((state) => ({
-        workspaceContexts: { ...state.workspaceContexts, [workspaceId]: isProjectContext },
-      }));
-    }
+    ensureWorkspaceContext(workspaceId, isProjectContext);
 
-    if (!get().loadedWorkspaces.has(workspaceId)) {
+    if (!get().loadedWorkspaces.has(workspaceScopeKey)) {
       await get().loadFromBackend(workspaceId, isProjectContext, null);
     }
 
-    if (!get().loadedWorkspaces.has(workspaceId)) {
+    if (
+      (get().workspaceContexts[workspaceId] ?? false) !== isProjectContext ||
+      !get().loadedWorkspaces.has(workspaceScopeKey)
+    ) {
       return null;
     }
 
@@ -232,10 +271,14 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   isWorkspaceReady: (workspaceId, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
     const state = get();
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(
+      workspaceId,
+      state.workspaceContexts[workspaceId] ?? false,
+    );
     return (
-      state.loadedWorkspaces.has(workspaceId) &&
+      state.loadedWorkspaces.has(workspaceScopeKey) &&
       state.hydratedTerminalScopes.has(scopeKey) &&
-      !state.initializingWorkspaces.has(workspaceId) &&
+      !state.initializingWorkspaces.has(workspaceScopeKey) &&
       !state.initializingTerminalScopes.has(scopeKey)
     );
   },
@@ -279,46 +322,40 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   },
 
   primeWorkspace: (workspaceId, isProjectContext = false) => {
+    ensureWorkspaceContext(workspaceId, isProjectContext);
+
     const state = get();
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
 
-    if (state.workspaceContexts[workspaceId] !== isProjectContext) {
-      set((state) => ({
-        workspaceContexts: { ...state.workspaceContexts, [workspaceId]: isProjectContext },
-      }));
-    }
-
-    if (state.loadedWorkspaces.has(workspaceId)) {
+    if (state.loadedWorkspaces.has(workspaceScopeKey)) {
       return;
     }
 
-    if (state.initializingWorkspaces.has(workspaceId)) {
+    if (state.initializingWorkspaces.has(workspaceScopeKey)) {
       return;
     }
 
     set((state) => ({
-      initializingWorkspaces: new Set([...state.initializingWorkspaces, workspaceId]),
+      initializingWorkspaces: new Set([...state.initializingWorkspaces, workspaceScopeKey]),
     }));
 
     void get().loadFromBackend(workspaceId, isProjectContext, null);
   },
 
   initWorkspace: (workspaceId, isProjectContext = false, terminalTabId = FIXED_TERMINAL_TAB_VALUE) => {
+    ensureWorkspaceContext(workspaceId, isProjectContext);
+
     const state = get();
     const scopeKey = getScopeKey(workspaceId, terminalTabId);
-
-    if (state.workspaceContexts[workspaceId] !== isProjectContext) {
-      set((currentState) => ({
-        workspaceContexts: { ...currentState.workspaceContexts, [workspaceId]: isProjectContext },
-      }));
-    }
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
 
     if (state.hydratedTerminalScopes.has(scopeKey) || state.initializingTerminalScopes.has(scopeKey)) {
       return;
     }
 
-    if (!state.loadedWorkspaces.has(workspaceId) && !state.initializingWorkspaces.has(workspaceId)) {
+    if (!state.loadedWorkspaces.has(workspaceScopeKey) && !state.initializingWorkspaces.has(workspaceScopeKey)) {
       set((currentState) => ({
-        initializingWorkspaces: new Set([...currentState.initializingWorkspaces, workspaceId]),
+        initializingWorkspaces: new Set([...currentState.initializingWorkspaces, workspaceScopeKey]),
         initializingTerminalScopes: new Set([...currentState.initializingTerminalScopes, scopeKey]),
       }));
       void get().loadFromBackend(workspaceId, isProjectContext, terminalTabId);
@@ -332,11 +369,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   },
 
   evictWorkspaceRuntime: (workspaceId) => {
-    const state = get();
-    const timeout = state.saveTimeouts[workspaceId];
-    if (timeout) {
-      clearTimeout(timeout);
-    }
+    clearWorkspaceSaveTimeouts(workspaceId);
 
     set((currentState) => evictTerminalWorkspaceRuntimeState(currentState, workspaceId));
   },
@@ -474,16 +507,25 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     get().saveToBackend(workspaceId);
   },
 
-  fetchTmuxWindows: async (workspaceId) => {
+  fetchTmuxWindows: async (workspaceId, isProjectContext) => {
     try {
       const response = await systemApi.listTmuxWindows(workspaceId);
       const windows = response.windows || [];
+      const resolvedIsProjectContext = isProjectContext ?? get().workspaceContexts[workspaceId] ?? false;
+      const workspaceScopeKey = getTerminalWorkspaceScopeKey(
+        workspaceId,
+        resolvedIsProjectContext,
+      );
+
+      if ((get().workspaceContexts[workspaceId] ?? false) !== resolvedIsProjectContext) {
+        return windows;
+      }
       
       // Cache the windows
       set((state) => ({
         tmuxWindowsCache: {
           ...state.tmuxWindowsCache,
-          [workspaceId]: windows,
+          [workspaceScopeKey]: windows,
         },
       }));
       
@@ -497,14 +539,18 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   loadFromBackend: async (workspaceId, isProjectContext = false, terminalTabId = null) => {
     if (typeof window === "undefined") return;
 
+    ensureWorkspaceContext(workspaceId, isProjectContext);
+
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
     const targetTabId = terminalTabId ?? null;
     const targetScopeKey = targetTabId ? getScopeKey(workspaceId, targetTabId) : null;
     const layoutApi = isProjectContext ? projectLayoutApi : workspaceLayoutApi;
+    const isCurrentContext = () => (get().workspaceContexts[workspaceId] ?? false) === isProjectContext;
 
     const clearWorkspaceInitializing = () => {
       set((state) => ({
         initializingWorkspaces: new Set(
-          [...state.initializingWorkspaces].filter((id) => id !== workspaceId),
+          [...state.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
         ),
       }));
     };
@@ -521,17 +567,22 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     try {
       let state = get();
 
-      let persistedLayout = state.persistedTerminalLayouts[workspaceId] ?? null;
-      let existingWindows = state.tmuxWindowsCache[workspaceId] ?? [];
+      let persistedLayout = state.persistedTerminalLayouts[workspaceScopeKey] ?? null;
+      let existingWindows = state.tmuxWindowsCache[workspaceScopeKey] ?? [];
       let loadedMetadataThisCall = false;
 
-      if (!state.loadedWorkspaces.has(workspaceId)) {
+      if (!state.loadedWorkspaces.has(workspaceScopeKey)) {
         const [layoutResult, fetchedWindows] = await Promise.all([
           layoutApi.getLayout(workspaceId).catch(() => null),
-          get().fetchTmuxWindows(workspaceId),
+          get().fetchTmuxWindows(workspaceId, isProjectContext),
         ]);
 
         existingWindows = fetchedWindows;
+        if (!isCurrentContext()) {
+          clearScopeInitializing();
+          clearWorkspaceInitializing();
+          return;
+        }
 
         if (layoutResult?.layout) {
           const parsed = JSON.parse(layoutResult.layout) as unknown;
@@ -559,11 +610,11 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
               },
               persistedTerminalLayouts: {
                 ...currentState.persistedTerminalLayouts,
-                [workspaceId]: migrated.layout,
+                [workspaceScopeKey]: migrated.layout,
               },
-              loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceId]),
+              loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
               initializingWorkspaces: new Set(
-                [...currentState.initializingWorkspaces].filter((id) => id !== workspaceId),
+                [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
               ),
               isHydrated: true,
             }));
@@ -591,26 +642,34 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
             },
             persistedTerminalLayouts: {
               ...currentState.persistedTerminalLayouts,
-              [workspaceId]: null,
+              [workspaceScopeKey]: null,
             },
-            loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceId]),
+            loadedWorkspaces: new Set([...currentState.loadedWorkspaces, workspaceScopeKey]),
             initializingWorkspaces: new Set(
-              [...currentState.initializingWorkspaces].filter((id) => id !== workspaceId),
+              [...currentState.initializingWorkspaces].filter((id) => id !== workspaceScopeKey),
             ),
             isHydrated: true,
           }));
           loadedMetadataThisCall = true;
         }
       } else if (existingWindows.length === 0) {
-        existingWindows = await get().fetchTmuxWindows(workspaceId);
+        existingWindows = await get().fetchTmuxWindows(workspaceId, isProjectContext);
+        if (!isCurrentContext()) {
+          clearScopeInitializing();
+          clearWorkspaceInitializing();
+          return;
+        }
       }
 
       state = get();
-      persistedLayout = state.persistedTerminalLayouts[workspaceId] ?? persistedLayout;
+      persistedLayout = state.persistedTerminalLayouts[workspaceScopeKey] ?? persistedLayout;
 
       if (loadedMetadataThisCall && persistedLayout?.tabs.length) {
         setTimeout(() => {
           const currentState = get();
+          if ((currentState.workspaceContexts[workspaceId] ?? false) !== isProjectContext) {
+            return;
+          }
           for (const tab of persistedLayout?.tabs ?? []) {
             const scopeKey = getScopeKey(workspaceId, tab.id);
             if (
@@ -734,20 +793,28 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     }
   },
 
-  saveToBackend: (workspaceId) => {
+  saveToBackend: (workspaceId, isProjectContextOverride) => {
     if (typeof window === 'undefined') return;
 
     const state = get();
-    if (!state.loadedWorkspaces.has(workspaceId) || state.initializingWorkspaces.has(workspaceId)) {
+    const isProjectContext = isProjectContextOverride ?? state.workspaceContexts[workspaceId] ?? false;
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
+
+    if (
+      !state.loadedWorkspaces.has(workspaceScopeKey) ||
+      state.initializingWorkspaces.has(workspaceScopeKey)
+    ) {
       return;
     }
-    if (state.saveTimeouts[workspaceId]) {
-      clearTimeout(state.saveTimeouts[workspaceId]);
+    if (state.saveTimeouts[workspaceScopeKey]) {
+      clearTimeout(state.saveTimeouts[workspaceScopeKey]);
     }
 
     const timeout = setTimeout(async () => {
       const currentState = get();
-      const isProjectContext = currentState.workspaceContexts[workspaceId] || false;
+      if ((currentState.workspaceContexts[workspaceId] ?? false) !== isProjectContext) {
+        return;
+      }
 
       try {
         // Never overwrite a persisted workspace/project layout with an empty shell.
@@ -763,7 +830,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
         set((state) => ({
           persistedTerminalLayouts: {
             ...state.persistedTerminalLayouts,
-            [workspaceId]: payload,
+            [workspaceScopeKey]: payload,
           },
         }));
 
@@ -776,7 +843,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     set((state) => ({
       saveTimeouts: {
         ...state.saveTimeouts,
-        [workspaceId]: timeout,
+        [workspaceScopeKey]: timeout,
       },
     }));
   },
@@ -873,4 +940,5 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   },
 
   ...createTerminalAuxiliaryActions(set, get),
-}));
+  });
+});

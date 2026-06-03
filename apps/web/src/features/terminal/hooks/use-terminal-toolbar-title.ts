@@ -81,6 +81,7 @@ export function useTerminalToolbarTitle(options: {
           useTerminalStore.getState(),
           storeWrite.workspaceId,
           storeWrite.tmuxWindowName,
+          storeWrite.contextScope === "project",
         );
         if (!hit) return;
         setDynamicTitle(storeWrite.workspaceId, hit.paneId, title, hit.terminalTabId);

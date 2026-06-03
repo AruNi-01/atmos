@@ -249,8 +249,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const showCreating = useWorkspaceCreationStore((s) => s.showCreating);
     const showOpening = useWorkspaceCreationStore((s) => s.showOpening);
     const clearWorkspaceCreationOverlay = useWorkspaceCreationStore((s) => s.clear);
-    const pendingAgentRunContextId = useWorkspaceCreationStore(
-        (s) => s.pendingAgentRun?.workspaceId ?? s.pendingAgentRun?.projectId ?? null,
+    const openingWorkspaceId = useWorkspaceCreationStore(
+        (s) => (s.phase === 'opening' ? s.pendingWorkspaceId : null),
     );
 
     useEffect(() => {
@@ -284,18 +284,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         );
 
         if (!workspaceStillExists) {
-            if (pendingAgentRunContextId === currentWorkspaceId) {
-                void fetchProjects();
-                return;
-            }
+            if (openingWorkspaceId === currentWorkspaceId) return;
             router.replace('/');
         }
     }, [
         currentView,
         currentWorkspaceId,
-        fetchProjects,
         isLoading,
-        pendingAgentRunContextId,
+        openingWorkspaceId,
         projects,
         router,
     ]);

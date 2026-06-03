@@ -6,6 +6,14 @@ export type CanvasTerminalRenderShape = Pick<CanvasTerminalShape, "id"> & {
   props: Pick<CanvasTerminalShape["props"], "lastAttachedAt">;
 };
 
+export function areShapeIdListsEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((shapeId, index) => shapeId === right[index]);
+}
+
 function getSortableTimestamp(lastAttachedAt: TerminalRenderTimestamp) {
   return typeof lastAttachedAt === "number" && Number.isFinite(lastAttachedAt)
     ? lastAttachedAt

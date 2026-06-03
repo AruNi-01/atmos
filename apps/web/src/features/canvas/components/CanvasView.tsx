@@ -31,7 +31,10 @@ import { useDesktopTrafficLightsPadding } from "@/shared/hooks/use-desktop-traff
 import { canvasWsApi, codeAgentCustomApi, type CodeAgentCustomEntry } from "@/api/ws-api";
 import { useFunctionSettingsStore } from "@/features/settings/store/function-settings-store";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
-import { useTerminalStore } from "@/features/terminal/store/use-terminal-store";
+import {
+  getTerminalWorkspaceScopeKey,
+  useTerminalStore,
+} from "@/features/terminal/store/use-terminal-store";
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
@@ -57,6 +60,7 @@ import {
   getCanvasTerminalShapes,
 } from "../lib/canvas-terminal-shape";
 import {
+  areShapeIdListsEqual,
   getRestoredRenderedShapeIds,
   trimRenderedShapeIds,
 } from "../lib/canvas-terminal-rendering";
@@ -85,7 +89,6 @@ import {
   sanitizeCanvasSessionForPersist,
 } from "../lib/canvas-viewport";
 import {
-  areShapeIdListsEqual,
   CanvasAgentContext,
   CanvasTerminalShapeUtil,
 } from "./CanvasTerminalCard";
@@ -185,7 +188,14 @@ export const CanvasView: React.FC = () => {
     effectiveContextId ? state.workspaceTerminalTabs[effectiveContextId] : undefined,
   );
   const canvasTerminalWorkspaceLoaded = useTerminalStore((state) =>
-    effectiveContextId ? state.loadedWorkspaces.has(effectiveContextId) : false,
+    effectiveContextId
+      ? state.loadedWorkspaces.has(
+          getTerminalWorkspaceScopeKey(
+            effectiveContextId,
+            state.workspaceContexts[effectiveContextId] ?? currentView === "project",
+          ),
+        )
+      : false,
   );
   const canvasWorkspaceIsProject = useTerminalStore((state) =>
     effectiveContextId ? state.workspaceContexts[effectiveContextId] : undefined,

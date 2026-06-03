@@ -58,7 +58,7 @@ export interface TerminalStore {
 
   loadFromBackend: (workspaceId: string, isProjectContext?: boolean, terminalTabId?: string | null) => Promise<void>;
   saveToBackend: (workspaceId: string, isProjectContext?: boolean) => void;
-  fetchTmuxWindows: (workspaceId: string) => Promise<TmuxWindow[]>;
+  fetchTmuxWindows: (workspaceId: string, isProjectContext?: boolean) => Promise<TmuxWindow[]>;
 
   setTmuxWindowName: (workspaceId: string, paneId: string, tmuxWindowName: string, terminalTabId?: string) => void;
   markPaneAttached: (workspaceId: string, paneId: string, terminalTabId?: string) => void;

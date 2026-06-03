@@ -25,6 +25,20 @@ import type { ProjectStore } from './project-store-types';
 
 export type { WorkspaceSetupProgress } from './project-store-setup-progress';
 
+const WORKSPACE_VISIBLE_ATTEMPTS = 5;
+const WORKSPACE_VISIBLE_IDLE_ATTEMPTS = 40;
+const WORKSPACE_VISIBLE_IDLE_DELAY_MS = 50;
+const WORKSPACE_VISIBLE_RETRY_DELAY_MS = 100;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => {
+  setTimeout(resolve, ms);
+});
+
+const hasWorkspace = (projects: ProjectStore['projects'], workspaceId: string) =>
+  projects.some((project) =>
+    project.workspaces.some((workspace) => workspace.id === workspaceId),
+  );
+
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
   workspaceLabels: [],
@@ -98,6 +112,36 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         set({ isLoading: false });
       }
     }
+  },
+
+  ensureWorkspaceVisible: async (workspaceId) => {
+    const waitForIdle = async () => {
+      for (
+        let attempt = 0;
+        attempt < WORKSPACE_VISIBLE_IDLE_ATTEMPTS && get().isLoading;
+        attempt += 1
+      ) {
+        await sleep(WORKSPACE_VISIBLE_IDLE_DELAY_MS);
+      }
+    };
+
+    for (let attempt = 0; attempt < WORKSPACE_VISIBLE_ATTEMPTS; attempt += 1) {
+      await waitForIdle();
+      if (hasWorkspace(get().projects, workspaceId)) {
+        return true;
+      }
+
+      await get().fetchProjects();
+      if (hasWorkspace(get().projects, workspaceId)) {
+        return true;
+      }
+
+      if (attempt < WORKSPACE_VISIBLE_ATTEMPTS - 1) {
+        await sleep(WORKSPACE_VISIBLE_RETRY_DELAY_MS);
+      }
+    }
+
+    return hasWorkspace(get().projects, workspaceId);
   },
 
   resetForConnectionChange: () => {

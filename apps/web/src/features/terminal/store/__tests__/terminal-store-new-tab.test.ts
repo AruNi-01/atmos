@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import {
   FIXED_TERMINAL_TAB_VALUE,
   TERMINAL_TAB_VALUE_PREFIX,
+  getTerminalWorkspaceScopeKey,
   useTerminalStore,
 } from "../use-terminal-store";
 
@@ -19,9 +20,10 @@ describe("createTerminalTabWithInitialPane", () => {
 
     useTerminalStore.setState({
       loadFromBackend: async (workspaceId, isProjectContext = false) => {
+        const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
         loadCalls.push({ workspaceId, isProjectContext });
         useTerminalStore.setState((state) => ({
-          loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceId]),
+          loadedWorkspaces: new Set([...state.loadedWorkspaces, workspaceScopeKey]),
           workspaceContexts: {
             ...state.workspaceContexts,
             [workspaceId]: isProjectContext,
@@ -38,7 +40,7 @@ describe("createTerminalTabWithInitialPane", () => {
           },
           persistedTerminalLayouts: {
             ...state.persistedTerminalLayouts,
-            [workspaceId]: null,
+            [workspaceScopeKey]: null,
           },
         }));
       },
@@ -80,10 +82,83 @@ describe("createTerminalTabWithInitialPane", () => {
     expect(useTerminalStore.getState().workspaceTerminalTabs["workspace-1"]).toBeUndefined();
   });
 
+  it("evicts same-id workspace state before hydrating a project context", async () => {
+    const contextId = "shared-context-id";
+    const workspaceScopeKey = getTerminalWorkspaceScopeKey(contextId, false);
+    const projectScopeKey = getTerminalWorkspaceScopeKey(contextId, true);
+    const loadCalls: Array<{ workspaceId: string; isProjectContext: boolean }> = [];
+    const saveContexts: boolean[] = [];
+
+    useTerminalStore.setState({
+      loadedWorkspaces: new Set([workspaceScopeKey]),
+      workspaceContexts: {
+        [contextId]: false,
+      },
+      workspaceTerminalTabs: {
+        [contextId]: [
+          {
+            id: FIXED_TERMINAL_TAB_VALUE,
+            title: "Term",
+            closable: true,
+          },
+        ],
+      },
+      persistedTerminalLayouts: {
+        [workspaceScopeKey]: null,
+      },
+      loadFromBackend: async (workspaceId, isProjectContext = false) => {
+        loadCalls.push({ workspaceId, isProjectContext });
+        useTerminalStore.setState((state) => ({
+          loadedWorkspaces: new Set([
+            ...state.loadedWorkspaces,
+            getTerminalWorkspaceScopeKey(workspaceId, isProjectContext),
+          ]),
+          workspaceContexts: {
+            ...state.workspaceContexts,
+            [workspaceId]: isProjectContext,
+          },
+          workspaceTerminalTabs: {
+            ...state.workspaceTerminalTabs,
+            [workspaceId]: [
+              {
+                id: FIXED_TERMINAL_TAB_VALUE,
+                title: "Term",
+                closable: true,
+              },
+            ],
+          },
+          persistedTerminalLayouts: {
+            ...state.persistedTerminalLayouts,
+            [getTerminalWorkspaceScopeKey(workspaceId, isProjectContext)]: null,
+          },
+        }));
+      },
+      saveToBackend: (workspaceId) => {
+        saveContexts.push(useTerminalStore.getState().workspaceContexts[workspaceId] ?? false);
+      },
+    });
+
+    const created = await useTerminalStore
+      .getState()
+      .createTerminalTabWithInitialPane(contextId, "project");
+
+    const state = useTerminalStore.getState();
+    expect(created?.tab.id.startsWith(TERMINAL_TAB_VALUE_PREFIX)).toBe(true);
+    expect(loadCalls).toEqual([{ workspaceId: contextId, isProjectContext: true }]);
+    expect(state.loadedWorkspaces.has(workspaceScopeKey)).toBe(false);
+    expect(state.loadedWorkspaces.has(projectScopeKey)).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(state.persistedTerminalLayouts, workspaceScopeKey)).toBe(false);
+    expect(state.workspaceContexts[contextId]).toBe(true);
+    expect(saveContexts).toEqual([true]);
+  });
+
   it("allows closing the fixed Term tab and recreates it from an empty terminal tab list", () => {
     const saveCalls: string[] = [];
     useTerminalStore.setState({
-      loadedWorkspaces: new Set(["workspace-1"]),
+      loadedWorkspaces: new Set([getTerminalWorkspaceScopeKey("workspace-1", false)]),
+      workspaceContexts: {
+        "workspace-1": false,
+      },
       workspaceTerminalTabs: {
         "workspace-1": [
           {
