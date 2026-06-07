@@ -19,6 +19,8 @@ import { connectDesktopPreviewTransport, getPreviewViewportBounds } from "../lib
 import { PreviewContent } from "./PreviewContent";
 import { PreviewToolbar } from "./PreviewToolbar";
 import { PreviewViewport } from "./PreviewViewport";
+import { PreviewBrowserTabBar, type PreviewBrowserTabBarProps } from "./PreviewBrowserTabBar";
+import { PreviewFavoritesListPopover } from "./PreviewFavoritesListPopover";
 import { usePreviewExtensionDownloads } from "../hooks/use-preview-extension-downloads";
 import { usePreviewFavorites } from "../hooks/use-preview-favorites";
 import { usePreviewIframeLoad } from "../hooks/use-preview-iframe-load";
@@ -45,8 +47,12 @@ interface PreviewProps {
   activeUrl: string;
   setActiveUrl: (url: string) => void;
   isActive?: boolean;
+  isMaximized?: boolean;
   workspaceId?: string | null;
   projectId?: string;
+  setIsMaximized?: React.Dispatch<React.SetStateAction<boolean>>;
+  onPageTitleChange?: (title: string) => void;
+  browserTabBarProps?: Omit<PreviewBrowserTabBarProps, "chromeControls">;
 }
 
 interface PreviewTransportState {
@@ -63,6 +69,10 @@ export const Preview: React.FC<PreviewProps> = ({
   activeUrl,
   setActiveUrl,
   isActive = true,
+  isMaximized: controlledIsMaximized,
+  setIsMaximized: controlledSetIsMaximized,
+  onPageTitleChange,
+  browserTabBarProps,
 }) => {
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
   const isGlobalSearchOpen = useDialogStore(s => s.isGlobalSearchOpen);
@@ -109,12 +119,21 @@ export const Preview: React.FC<PreviewProps> = ({
   const iframeLoadResolveRef = useRef<(() => void) | null>(null);
   const extensionVersionRef = useRef<string | null>(null);
   const extensionConnectingRef = useRef(false);
+  const onPageTitleChangeRef = useRef(onPageTitleChange);
   const {
     isMaximized,
     needsDesktopPreviewSafeInset,
     setIsMaximized,
-  } = usePreviewWindowState();
+  } = usePreviewWindowState({
+    isMaximized: controlledIsMaximized,
+    setIsMaximized: controlledSetIsMaximized,
+  });
   isDesktopPreviewDetachedRef.current = isDesktopPreviewDetached;
+  onPageTitleChangeRef.current = onPageTitleChange;
+
+  React.useEffect(() => {
+    onPageTitleChangeRef.current?.(currentPageTitle);
+  }, [currentPageTitle]);
 
   const setViewMode = useCallback((nextViewMode: ViewMode) => {
     void setPreviewToolbarParams({ pvView: nextViewMode });
@@ -243,7 +262,16 @@ export const Preview: React.FC<PreviewProps> = ({
     desktopPreviewViewportRef.current = null;
     extensionConnectingRef.current = false;
     if (activeController) {
-      void Promise.resolve(activeController.destroy());
+      void (async () => {
+        try {
+          if (activeController.mode === 'desktop-native') {
+            // Hide first so the native child webview cannot cover sibling UI while close is in flight.
+            await Promise.resolve(activeController.hide?.());
+          }
+        } finally {
+          await Promise.resolve(activeController.destroy());
+        }
+      })().catch(() => undefined);
     }
 
     if (clearSelection) {
@@ -758,7 +786,6 @@ export const Preview: React.FC<PreviewProps> = ({
     shouldHideToolbarNavigation,
     shouldHideToolbarStatus,
     shouldHideToolbarViewControls,
-    shouldShowToolbarToggle,
     shouldStackPreviewHomeCards,
     shouldStackPreviewHomeNotes,
     shouldUseCompactToolbar,
@@ -775,6 +802,15 @@ export const Preview: React.FC<PreviewProps> = ({
       void setPreviewToolbarParams({ pvToolbar: nextIsToolbarHidden });
     },
   });
+
+  const handleToggleToolbarHidden = useCallback(() => {
+    setIsToolbarHidden(!effectiveIsToolbarHidden);
+  }, [effectiveIsToolbarHidden, setIsToolbarHidden]);
+
+  const handleToggleMaximized = useCallback(() => {
+    setIsMaximized((current) => !current);
+  }, [setIsMaximized]);
+
   const shouldShowExtensionInstall = resolvedTransportMode === 'extension' && !transportState.connected;
 
   const handleRecheckExtension = useCallback(async () => {
@@ -822,15 +858,15 @@ export const Preview: React.FC<PreviewProps> = ({
       : preferredTransportMode === 'extension'
         ? `${isElementPickerEnabled ? "Disable" : "Enable"} element selection. Cross-port pages use the Atmos Inspector extension. Source component detection supports React, Vue, Angular, and Svelte.`
         : `${isElementPickerEnabled ? "Disable" : "Enable"} element selection. Source component detection supports React, Vue, Angular, and Svelte.`;
+  const isChromeManagedByTabBar = Boolean(browserTabBarProps);
   const toolbarProps: React.ComponentProps<typeof PreviewToolbar> = {
     activeFavorite,
     activeUrl,
     canGoBack,
     canGoForward,
-    desktopToolbarExpanded,
+    desktopToolbarExpanded: isChromeManagedByTabBar ? false : desktopToolbarExpanded,
     displayPageTitle,
     displayUrlParts,
-    effectiveIsToolbarHidden,
     elementPickerTitle,
     elementPickerTooltip,
     extensionDownloadStarted,
@@ -839,66 +875,48 @@ export const Preview: React.FC<PreviewProps> = ({
     extensionUpdatePopoverOpen,
     favoriteNameDraft,
     favoritePopoverOpen,
-    favoriteSearch,
-    favorites,
-    favoritesListOpen,
-    filteredFavorites,
     isDownloadingExtension,
     isDesktopPreviewDetached,
     isElementPickerEnabled,
     isElementPickerTooltipOpen,
-    isMaximized,
     isRecheckingExtension,
     isUrlInputFocused,
-    needsDesktopPreviewSafeInset,
+    needsDesktopPreviewSafeInset: needsDesktopPreviewSafeInset && !browserTabBarProps,
     normalizedActiveUrl,
     preferredTransportMode,
-    renameDraft,
-    renamingUrl,
     savingFavorite,
     shouldHideToolbarExternalActions,
     shouldHideToolbarNavigation,
     shouldHideToolbarStatus,
     shouldHideToolbarViewControls,
     shouldShowExtensionInstall,
-    shouldShowToolbarToggle,
     shouldUseCompactToolbar,
-    toolbarHoverSuppressed,
+    toolbarHoverSuppressed: isChromeManagedByTabBar ? false : toolbarHoverSuppressed,
     toolbarRowRef,
-    toolbarToggleTitle,
     url,
     urlInputRef,
     userEditedUrlRef,
-    usesDesktopToolbarExpand,
-    usesToolbarHoverOverlay,
+    usesDesktopToolbarExpand: isChromeManagedByTabBar ? false : usesDesktopToolbarExpand,
+    usesToolbarHoverOverlay: isChromeManagedByTabBar ? false : usesToolbarHoverOverlay,
     viewMode,
     focusUrlInput,
     handleAddFavorite,
-    handleDeleteFavorite,
     handleDownloadExtension,
     handleDownloadExtensionUpdate,
     handleGoBack,
     handleGoForward,
     handleGoHome,
     handleRefresh,
-    handleRenameFavorite,
     handleRecheckExtension,
     handleToggleDesktopPreviewDetached,
     handleToggleElementPicker,
     handleUrlInputBlur,
-    navigateToUrl,
     setDesktopToolbarHovered,
     setExtensionPopoverOpen,
     setExtensionUpdatePopoverOpen,
     setFavoriteNameDraft,
     setFavoritePopoverOpen,
-    setFavoriteSearch,
-    setFavoritesListOpen,
     setIsElementPickerTooltipOpen,
-    setIsMaximized,
-    setIsToolbarHidden,
-    setRenameDraft,
-    setRenamingUrl,
     setUrl,
     setViewMode,
   };
@@ -934,9 +952,44 @@ export const Preview: React.FC<PreviewProps> = ({
 
   return (
     <PreviewContent
+      browserTabBar={
+        browserTabBarProps ? (
+          <PreviewBrowserTabBar
+            {...browserTabBarProps}
+            chromeControls={{
+              favoritesList: (
+                <PreviewFavoritesListPopover
+                  favoriteSearch={favoriteSearch}
+                  favorites={favorites}
+                  favoritesListOpen={favoritesListOpen}
+                  filteredFavorites={filteredFavorites}
+                  renameDraft={renameDraft}
+                  renamingUrl={renamingUrl}
+                  handleDeleteFavorite={handleDeleteFavorite}
+                  handleRenameFavorite={handleRenameFavorite}
+                  navigateToUrl={navigateToUrl}
+                  setFavoriteSearch={setFavoriteSearch}
+                  setFavoritesListOpen={setFavoritesListOpen}
+                  setRenameDraft={setRenameDraft}
+                  setRenamingUrl={setRenamingUrl}
+                />
+              ),
+              isMaximized,
+              isToolbarHidden: effectiveIsToolbarHidden,
+              needsDesktopPreviewSafeInset: needsDesktopPreviewSafeInset && !effectiveIsToolbarHidden,
+              toolbarToggleTitle,
+              onToggleMaximized: handleToggleMaximized,
+              onToggleToolbarHidden: handleToggleToolbarHidden,
+            }}
+          />
+        ) : null
+      }
+      isChromeHidden={isChromeManagedByTabBar && effectiveIsToolbarHidden}
       isMaximized={isMaximized}
+      needsChromeSafeInset={isChromeManagedByTabBar && needsDesktopPreviewSafeInset}
       previewRootRef={previewRootRef}
       toolbarProps={toolbarProps}
+      toolbarHoverSuppressed={toolbarHoverSuppressed}
       viewportProps={viewportProps}
     />
   );

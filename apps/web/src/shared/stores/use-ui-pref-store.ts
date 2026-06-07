@@ -11,6 +11,7 @@ export type UiPrefSlice =
   | 'editor'
   | 'centerStage'
   | 'runPreview'
+  | 'previewBrowser'
   | 'canvas'
   | 'sidebar'
   | 'usage'

@@ -4,25 +4,15 @@ import React from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   ExternalLink,
-  FolderHeart,
   Home,
-  Maximize,
-  Minimize,
   Monitor,
-  PanelTopClose,
-  PanelTopOpen,
-  Pencil,
   PictureInPicture2,
   Puzzle,
   RotateCw,
-  Search,
   SquareMousePointer,
   Smartphone,
   Star,
-  Trash2,
-  X,
 } from "lucide-react";
 import {
   Button,
@@ -50,7 +40,6 @@ interface PreviewToolbarProps {
   desktopToolbarExpanded: boolean;
   displayPageTitle: string;
   displayUrlParts: { protocol: string; address: string };
-  effectiveIsToolbarHidden: boolean;
   elementPickerTitle: string;
   elementPickerTooltip: string;
   extensionDownloadStarted: boolean;
@@ -59,33 +48,24 @@ interface PreviewToolbarProps {
   extensionUpdatePopoverOpen: boolean;
   favoriteNameDraft: string;
   favoritePopoverOpen: boolean;
-  favoriteSearch: string;
-  favorites: FavoriteSite[];
-  favoritesListOpen: boolean;
-  filteredFavorites: FavoriteSite[];
   isDownloadingExtension: boolean;
   isDesktopPreviewDetached: boolean;
   isElementPickerEnabled: boolean;
   isElementPickerTooltipOpen: boolean;
-  isMaximized: boolean;
   isRecheckingExtension: boolean;
   isUrlInputFocused: boolean;
   needsDesktopPreviewSafeInset: boolean;
   normalizedActiveUrl: string;
   preferredTransportMode: ResolvedTransportMode;
-  renameDraft: string;
-  renamingUrl: string | null;
   savingFavorite: boolean;
   shouldHideToolbarExternalActions: boolean;
   shouldHideToolbarNavigation: boolean;
   shouldHideToolbarStatus: boolean;
   shouldHideToolbarViewControls: boolean;
   shouldShowExtensionInstall: boolean;
-  shouldShowToolbarToggle: boolean;
   shouldUseCompactToolbar: boolean;
   toolbarHoverSuppressed: boolean;
   toolbarRowRef: React.RefObject<HTMLDivElement | null>;
-  toolbarToggleTitle: string;
   url: string;
   urlInputRef: React.RefObject<HTMLInputElement | null>;
   userEditedUrlRef: React.MutableRefObject<boolean>;
@@ -94,31 +74,22 @@ interface PreviewToolbarProps {
   viewMode: PreviewViewMode;
   focusUrlInput: () => void;
   handleAddFavorite: () => Promise<void>;
-  handleDeleteFavorite: (site: FavoriteSite) => Promise<void>;
   handleDownloadExtension: () => Promise<void>;
   handleDownloadExtensionUpdate: () => Promise<void>;
   handleGoBack: () => void;
   handleGoForward: () => void;
   handleGoHome: () => void;
   handleRefresh: () => void;
-  handleRenameFavorite: (site: FavoriteSite) => Promise<void>;
   handleRecheckExtension: () => Promise<void>;
   handleToggleDesktopPreviewDetached: () => Promise<void>;
   handleToggleElementPicker: () => Promise<void>;
   handleUrlInputBlur: () => void;
-  navigateToUrl: (nextValue: string, pushHistory?: boolean) => void;
   setDesktopToolbarHovered: React.Dispatch<React.SetStateAction<boolean>>;
   setExtensionPopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setExtensionUpdatePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setFavoriteNameDraft: React.Dispatch<React.SetStateAction<string>>;
   setFavoritePopoverOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setFavoriteSearch: React.Dispatch<React.SetStateAction<string>>;
-  setFavoritesListOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsElementPickerTooltipOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsMaximized: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsToolbarHidden: (nextIsToolbarHidden: boolean) => void;
-  setRenameDraft: React.Dispatch<React.SetStateAction<string>>;
-  setRenamingUrl: React.Dispatch<React.SetStateAction<string | null>>;
   setUrl: (url: string) => void;
   setViewMode: (nextViewMode: PreviewViewMode) => void;
 }
@@ -131,7 +102,6 @@ export function PreviewToolbar({
   desktopToolbarExpanded,
   displayPageTitle,
   displayUrlParts,
-  effectiveIsToolbarHidden,
   elementPickerTitle,
   elementPickerTooltip,
   extensionDownloadStarted,
@@ -140,33 +110,24 @@ export function PreviewToolbar({
   extensionUpdatePopoverOpen,
   favoriteNameDraft,
   favoritePopoverOpen,
-  favoriteSearch,
-  favorites,
-  favoritesListOpen,
-  filteredFavorites,
   isDownloadingExtension,
   isDesktopPreviewDetached,
   isElementPickerEnabled,
   isElementPickerTooltipOpen,
-  isMaximized,
   isRecheckingExtension,
   isUrlInputFocused,
   needsDesktopPreviewSafeInset,
   normalizedActiveUrl,
   preferredTransportMode,
-  renameDraft,
-  renamingUrl,
   savingFavorite,
   shouldHideToolbarExternalActions,
   shouldHideToolbarNavigation,
   shouldHideToolbarStatus,
   shouldHideToolbarViewControls,
   shouldShowExtensionInstall,
-  shouldShowToolbarToggle,
   shouldUseCompactToolbar,
   toolbarHoverSuppressed,
   toolbarRowRef,
-  toolbarToggleTitle,
   url,
   urlInputRef,
   userEditedUrlRef,
@@ -175,31 +136,22 @@ export function PreviewToolbar({
   viewMode,
   focusUrlInput,
   handleAddFavorite,
-  handleDeleteFavorite,
   handleDownloadExtension,
   handleDownloadExtensionUpdate,
   handleGoBack,
   handleGoForward,
   handleGoHome,
   handleRefresh,
-  handleRenameFavorite,
   handleRecheckExtension,
   handleToggleDesktopPreviewDetached,
   handleToggleElementPicker,
   handleUrlInputBlur,
-  navigateToUrl,
   setDesktopToolbarHovered,
   setExtensionPopoverOpen,
   setExtensionUpdatePopoverOpen,
   setFavoriteNameDraft,
   setFavoritePopoverOpen,
-  setFavoriteSearch,
-  setFavoritesListOpen,
   setIsElementPickerTooltipOpen,
-  setIsMaximized,
-  setIsToolbarHidden,
-  setRenameDraft,
-  setRenamingUrl,
   setUrl,
   setViewMode,
 }: PreviewToolbarProps) {
@@ -259,22 +211,6 @@ export function PreviewToolbar({
               <Smartphone className="size-3.5" />
             </button>
           </div>
-
-          <FavoritesListPopover
-            favoriteSearch={favoriteSearch}
-            favorites={favorites}
-            favoritesListOpen={favoritesListOpen}
-            filteredFavorites={filteredFavorites}
-            renameDraft={renameDraft}
-            renamingUrl={renamingUrl}
-            handleDeleteFavorite={handleDeleteFavorite}
-            handleRenameFavorite={handleRenameFavorite}
-            navigateToUrl={navigateToUrl}
-            setFavoriteSearch={setFavoriteSearch}
-            setFavoritesListOpen={setFavoritesListOpen}
-            setRenameDraft={setRenameDraft}
-            setRenamingUrl={setRenamingUrl}
-          />
         </div>
 
         <div
@@ -494,190 +430,8 @@ export function PreviewToolbar({
           </div>
         ) : null}
 
-        {shouldShowToolbarToggle ? (
-          <button
-            onClick={() => setIsToolbarHidden(!effectiveIsToolbarHidden)}
-            className="shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title={toolbarToggleTitle}
-          >
-            {effectiveIsToolbarHidden ? (
-              <PanelTopOpen className="size-3.5" />
-            ) : (
-              <PanelTopClose className="size-3.5" />
-            )}
-          </button>
-        ) : null}
-
-        <button
-          onClick={() => setIsMaximized(!isMaximized)}
-          className="shrink-0 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title={isMaximized ? "Minimize" : "Maximize"}
-        >
-          {isMaximized ? <Minimize className="size-3.5" /> : <Maximize className="size-3.5" />}
-        </button>
       </div>
     </div>
-  );
-}
-
-interface FavoritesListPopoverProps {
-  favoriteSearch: string;
-  favorites: FavoriteSite[];
-  favoritesListOpen: boolean;
-  filteredFavorites: FavoriteSite[];
-  renameDraft: string;
-  renamingUrl: string | null;
-  handleDeleteFavorite: (site: FavoriteSite) => Promise<void>;
-  handleRenameFavorite: (site: FavoriteSite) => Promise<void>;
-  navigateToUrl: (nextValue: string, pushHistory?: boolean) => void;
-  setFavoriteSearch: React.Dispatch<React.SetStateAction<string>>;
-  setFavoritesListOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setRenameDraft: React.Dispatch<React.SetStateAction<string>>;
-  setRenamingUrl: React.Dispatch<React.SetStateAction<string | null>>;
-}
-
-function FavoritesListPopover({
-  favoriteSearch,
-  favorites,
-  favoritesListOpen,
-  filteredFavorites,
-  renameDraft,
-  renamingUrl,
-  handleDeleteFavorite,
-  handleRenameFavorite,
-  navigateToUrl,
-  setFavoriteSearch,
-  setFavoritesListOpen,
-  setRenameDraft,
-  setRenamingUrl,
-}: FavoritesListPopoverProps) {
-  return (
-    <Popover open={favoritesListOpen} onOpenChange={setFavoritesListOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          title="Favorites"
-        >
-          <FolderHeart className="size-3.5" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={8}
-        className="w-[340px] p-2"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onPointerDownOutside={() => setFavoritesListOpen(false)}
-        onEscapeKeyDown={() => setFavoritesListOpen(false)}
-      >
-        <div className="space-y-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={favoriteSearch}
-              onChange={(event) => setFavoriteSearch(event.target.value)}
-              placeholder="Search favorites"
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-
-          <div className="max-h-[280px] space-y-1 overflow-y-auto pr-1">
-            {filteredFavorites.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-                {favorites.length === 0 ? "No favorites yet" : "No matching favorites"}
-              </div>
-            ) : (
-              filteredFavorites.map((site) => {
-                const isRenaming = renamingUrl === site.url;
-                return (
-                  <div
-                    key={site.url}
-                    className="group/item rounded-md border border-transparent px-2 py-2 hover:border-border hover:bg-muted/40"
-                  >
-                    {isRenaming ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          autoFocus
-                          value={renameDraft}
-                          onChange={(event) => setRenameDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              void handleRenameFavorite(site);
-                            }
-                            if (event.key === "Escape") {
-                              setRenamingUrl(null);
-                              setRenameDraft("");
-                            }
-                          }}
-                          placeholder="Favorite name"
-                          className="h-8 text-xs"
-                        />
-                        <button
-                          onClick={() => void handleRenameFavorite(site)}
-                          className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          title="Save"
-                        >
-                          <Check className="size-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setRenamingUrl(null);
-                            setRenameDraft("");
-                          }}
-                          className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          title="Cancel"
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            navigateToUrl(site.url);
-                            setFavoritesListOpen(false);
-                          }}
-                          type="button"
-                          className="min-w-0 flex-1 text-left"
-                          title={site.name || site.url}
-                        >
-                          <div className="truncate text-xs font-medium text-foreground">
-                            {site.name?.trim() || site.url}
-                          </div>
-                          {site.name?.trim() ? (
-                            <div className="truncate text-[11px] text-muted-foreground">{site.url}</div>
-                          ) : null}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setRenamingUrl(site.url);
-                            setRenameDraft(site.name ?? "");
-                          }}
-                          type="button"
-                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover/item:opacity-100"
-                          title="Rename"
-                        >
-                          <Pencil className="size-3.5" />
-                        </button>
-                        <button
-                          onClick={() => void handleDeleteFavorite(site)}
-                          type="button"
-                          className="rounded-sm p-1 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover/item:opacity-100"
-                          title="Delete"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
   );
 }
 

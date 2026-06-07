@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 
 import { invokeDesktopPreviewBridge } from "@/shared/lib/desktop-preview-bridge";
@@ -93,8 +93,14 @@ export function usePreviewLifecycleEffects({
   transportConnected,
   transportControllerRef,
 }: UsePreviewLifecycleEffectsParams) {
+  const handledNavigationRequestRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!requestedIframeUrl || !isActive) return;
+
+    const requestKey = `${navigationToken}:${requestedIframeUrl}`;
+    if (handledNavigationRequestRef.current === requestKey) return;
+    handledNavigationRequestRef.current = requestKey;
 
     setPreviewLoadError(null);
     setIsPreviewLoading(true);
@@ -103,6 +109,7 @@ export function usePreviewLifecycleEffects({
       void hideDesktopPreview();
 
       let disposed = false;
+      let requestSettled = false;
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => {
         controller.abort();
@@ -111,10 +118,12 @@ export function usePreviewLifecycleEffects({
       void invokeDesktopPreviewBridge("preview_bridge_probe_url", {
         url: requestedIframeUrl,
       }).then(() => {
+        requestSettled = true;
         if (disposed) return;
         desktopCommittedUrlRef.current = requestedIframeUrl;
         setDesktopCommittedUrl(requestedIframeUrl);
       }).catch((error) => {
+        requestSettled = true;
         if (disposed) return;
         desktopCommittedUrlRef.current = "";
         setDesktopCommittedUrl("");
@@ -127,6 +136,9 @@ export function usePreviewLifecycleEffects({
         disposed = true;
         window.clearTimeout(timeoutId);
         controller.abort();
+        if (!requestSettled && handledNavigationRequestRef.current === requestKey) {
+          handledNavigationRequestRef.current = null;
+        }
       };
     }
 

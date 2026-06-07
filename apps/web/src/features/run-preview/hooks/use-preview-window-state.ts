@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 
-export function usePreviewWindowState() {
-  const [isMaximized, setIsMaximized] = useState(false);
+interface PreviewWindowStateOptions {
+  isMaximized?: boolean;
+  setIsMaximized?: Dispatch<SetStateAction<boolean>>;
+}
+
+export function usePreviewWindowState(options: PreviewWindowStateOptions = {}) {
+  const [uncontrolledIsMaximized, setUncontrolledIsMaximized] = useState(false);
   const [isDesktopWindowFullscreen, setIsDesktopWindowFullscreen] = useState(false);
+  const isMaximized = options.isMaximized ?? uncontrolledIsMaximized;
+  const setIsMaximized = options.setIsMaximized ?? setUncontrolledIsMaximized;
   const isMacDesktop = useMemo(
     () => isTauriRuntime() && typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent),
     [],
@@ -58,7 +66,7 @@ export function usePreviewWindowState() {
 
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  }, [isMaximized]);
+  }, [isMaximized, setIsMaximized]);
 
   return {
     isMaximized,

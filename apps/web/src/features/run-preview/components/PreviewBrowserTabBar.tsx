@@ -1,0 +1,175 @@
+"use client";
+
+import React from "react";
+import {
+  Globe,
+  Maximize,
+  Minimize,
+  PanelTopClose,
+  PanelTopOpen,
+  Plus,
+  X,
+} from "lucide-react";
+
+import { cn } from "@/shared/lib/utils";
+
+export interface PreviewBrowserTab {
+  id: string;
+  url: string;
+  activeUrl: string;
+  title?: string;
+  lastAccessedAt?: number;
+}
+
+export interface PreviewBrowserChromeControls {
+  favoritesList?: React.ReactNode;
+  isMaximized: boolean;
+  isToolbarHidden: boolean;
+  needsDesktopPreviewSafeInset: boolean;
+  toolbarToggleTitle: string;
+  onToggleMaximized: () => void;
+  onToggleToolbarHidden: () => void;
+}
+
+export interface PreviewBrowserTabBarProps {
+  tabs: PreviewBrowserTab[];
+  activeTabId: string;
+  chromeControls?: PreviewBrowserChromeControls;
+  onAddTab: () => void;
+  onCloseTab: (tabId: string) => void;
+  onSelectTab: (tabId: string) => void;
+}
+
+function getUrlLabel(value: string): string {
+  if (!value.trim()) return "";
+
+  try {
+    const parsed = new URL(value);
+    return `${parsed.host}${parsed.pathname === "/" ? "" : parsed.pathname}`;
+  } catch {
+    return value.replace(/^https?:\/\//i, "");
+  }
+}
+
+function getTabLabel(tab: PreviewBrowserTab, index: number): string {
+  const title = tab.title?.trim();
+  if (title) return title;
+
+  const urlLabel = getUrlLabel(tab.activeUrl || tab.url);
+  if (urlLabel) return urlLabel;
+
+  return index === 0 ? "Preview" : "New tab";
+}
+
+export function PreviewBrowserTabBar({
+  tabs,
+  activeTabId,
+  chromeControls,
+  onAddTab,
+  onCloseTab,
+  onSelectTab,
+}: PreviewBrowserTabBarProps) {
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center gap-1 overflow-hidden bg-muted/20 px-2",
+        chromeControls?.needsDesktopPreviewSafeInset ? "h-[68px] pt-8" : "h-9",
+      )}
+    >
+      <div className="flex h-full min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden no-scrollbar">
+        {tabs.map((tab, index) => {
+          const isActive = tab.id === activeTabId;
+          const label = getTabLabel(tab, index);
+          const canClose = tabs.length > 1;
+
+          return (
+            <div
+              key={tab.id}
+              className={cn(
+                "group/tab flex h-7 w-[156px] max-w-[42vw] shrink-0 items-center overflow-hidden rounded-md border text-xs transition-colors",
+                isActive
+                  ? "border-border bg-background text-foreground shadow-sm"
+                  : "border-transparent bg-transparent text-muted-foreground hover:bg-background/55 hover:text-foreground",
+              )}
+            >
+              <button
+                type="button"
+                className="flex h-full min-w-0 flex-1 items-center gap-1.5 px-2 text-left"
+                title={label}
+                onClick={() => onSelectTab(tab.id)}
+              >
+                <Globe
+                  className={cn(
+                    "size-3.5 shrink-0",
+                    isActive ? "text-primary" : "text-muted-foreground/70",
+                  )}
+                />
+                <span className="min-w-0 truncate text-[11px] font-medium">{label}</span>
+              </button>
+
+              {canClose ? (
+                <button
+                  type="button"
+                  aria-label={`Close ${label}`}
+                  title="Close tab"
+                  className={cn(
+                    "mr-1 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-all hover:bg-muted hover:text-foreground",
+                    isActive ? "opacity-100" : "opacity-0 group-hover/tab:opacity-100",
+                  )}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onCloseTab(tab.id);
+                  }}
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
+
+        <button
+          type="button"
+          aria-label="New browser tab"
+          title="New browser tab"
+          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          onClick={onAddTab}
+        >
+          <Plus className="size-3.5" />
+        </button>
+      </div>
+
+      {chromeControls ? (
+        <div className="flex shrink-0 items-center gap-1 border-l border-border/70 pl-1">
+          {chromeControls.favoritesList}
+          <button
+            type="button"
+            aria-label={chromeControls.toolbarToggleTitle}
+            title={chromeControls.toolbarToggleTitle}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+            onClick={chromeControls.onToggleToolbarHidden}
+          >
+            {chromeControls.isToolbarHidden ? (
+              <PanelTopOpen className="size-3.5" />
+            ) : (
+              <PanelTopClose className="size-3.5" />
+            )}
+          </button>
+          <button
+            type="button"
+            aria-label={chromeControls.isMaximized ? "Minimize preview" : "Maximize preview"}
+            title={chromeControls.isMaximized ? "Minimize" : "Maximize"}
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+            onClick={chromeControls.onToggleMaximized}
+          >
+            {chromeControls.isMaximized ? (
+              <Minimize className="size-3.5" />
+            ) : (
+              <Maximize className="size-3.5" />
+            )}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
