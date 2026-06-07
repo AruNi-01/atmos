@@ -191,6 +191,8 @@ impl AutomationService {
             .create_run(CreateAutomationRunRecord {
                 guid: prepared.run_guid.clone(),
                 automation_guid: automation.guid.clone(),
+                agent_id: Some(agent_command.agent_id.clone()),
+                agent_label: Some(agent_command.label.clone()),
                 trigger_kind: trigger_kind.as_str().to_string(),
                 trigger_source_json,
                 status: AutomationRunStatus::Running.as_str().to_string(),
@@ -201,7 +203,6 @@ impl AutomationService {
                 cwd: cwd_str,
                 run_dir: prepared.run_dir.to_string_lossy().to_string(),
                 prompt_path: prepared.prompt_path.to_string_lossy().to_string(),
-                output_path: prepared.output_path.to_string_lossy().to_string(),
                 result_path: prepared.result_path.to_string_lossy().to_string(),
                 run_json_path: prepared.run_json_path.to_string_lossy().to_string(),
                 tmux_session_name: None,
@@ -284,12 +285,11 @@ Run ID: {run_guid}
 Run status: {status}
 Working directory: {cwd}
 
-Read the run context and continue from the result. Start by checking the final result, then inspect the full output log only if needed.
+Read the run context and continue from the result. Start by checking the final result, then inspect the event stream only if needed.
 
 Artifacts:
 - Original prompt: {prompt_path}
 - Final result: {result_path}
-- Output log: {output_path}
 - Run JSON: {run_json_path}
 
 When continuing, preserve the original automation intent and explicitly mention any follow-up actions you take.
@@ -301,7 +301,6 @@ When continuing, preserve the original automation intent and explicitly mention 
         cwd = run.cwd,
         prompt_path = run.prompt_path,
         result_path = run.result_path,
-        output_path = run.output_path,
         run_json_path = run.run_json_path,
     )
 }

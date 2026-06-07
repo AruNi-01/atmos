@@ -22,9 +22,12 @@ pub struct AutomationCommandInput {
 
 #[derive(Debug, Clone)]
 pub struct AutomationAgentCommandSpec {
+    pub agent_id: String,
+    pub label: String,
     pub executable: String,
     pub args: Vec<String>,
     pub prompt_strategy: PromptStrategy,
+    pub stdout_parser: StdoutParser,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +43,7 @@ pub struct AutomationAgentInvocation {
     pub args: Vec<String>,
     pub prompt_path: PathBuf,
     pub prompt_delivery: PromptDelivery,
+    pub stdout_parser: StdoutParser,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,6 +53,22 @@ pub enum PromptStrategy {
     Stdin,
     PromptFlag,
     FileFlag,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StdoutParser {
+    Plain,
+    ClaudeStreamJson,
+    CodexJsonl,
+    CursorStreamJson,
+    OpencodeJson,
+}
+
+impl Default for StdoutParser {
+    fn default() -> Self {
+        Self::Plain
+    }
 }
 
 impl AutomationAgentCommandSpec {
@@ -68,6 +88,7 @@ impl AutomationAgentCommandSpec {
             args,
             prompt_path: input.prompt_path,
             prompt_delivery,
+            stdout_parser: self.stdout_parser,
         }
     }
 
@@ -91,6 +112,8 @@ struct TerminalAgentDefinition {
     interactive_params: Option<String>,
     #[serde(default, rename = "promptStrategy")]
     prompt_strategy: Option<PromptStrategy>,
+    #[serde(default, rename = "stdoutParser")]
+    stdout_parser: StdoutParser,
     #[serde(default, rename = "useEcho")]
     use_echo: bool,
 }
@@ -112,6 +135,8 @@ struct TerminalCodeAgentEntry {
     flags: String,
     #[serde(default, rename = "promptStrategy")]
     prompt_strategy: Option<PromptStrategy>,
+    #[serde(default, rename = "stdoutParser")]
+    stdout_parser: Option<StdoutParser>,
     #[serde(default)]
     enabled: Option<bool>,
 }
@@ -124,6 +149,7 @@ struct ResolvedTerminalAgent {
     flags: String,
     interactive_flags: String,
     prompt_strategy: PromptStrategy,
+    stdout_parser: StdoutParser,
     enabled: bool,
 }
 
@@ -160,6 +186,8 @@ pub fn resolve_automation_agent(agent_id: &str) -> Result<AutomationAgentCommand
         )));
     }
     Ok(AutomationAgentCommandSpec {
+        agent_id: agent.id,
+        label: agent.label,
         executable: support
             .executable_path
             .unwrap_or_else(|| PathBuf::from(&agent.cmd))
@@ -167,6 +195,7 @@ pub fn resolve_automation_agent(agent_id: &str) -> Result<AutomationAgentCommand
             .to_string(),
         args: parse_flag_args(&agent.flags)?,
         prompt_strategy: agent.prompt_strategy,
+        stdout_parser: agent.stdout_parser,
     })
 }
 
@@ -187,9 +216,12 @@ pub fn resolve_interactive_automation_agent(agent_id: &str) -> Result<Automation
         )));
     }
     Ok(AutomationAgentCommandSpec {
+        agent_id: agent.id,
+        label: agent.label,
         executable: terminal_executable_for_agent(&agent.cmd, support.executable_path.as_deref()),
         args: parse_flag_args(&agent.interactive_flags)?,
         prompt_strategy: agent.prompt_strategy,
+        stdout_parser: StdoutParser::Plain,
     })
 }
 
@@ -214,6 +246,9 @@ fn resolve_terminal_agents_with_settings(
             .and_then(|entry| entry.prompt_strategy)
             .or(definition.prompt_strategy)
             .unwrap_or_else(|| legacy_prompt_strategy(definition.use_echo));
+        let stdout_parser = override_entry
+            .and_then(|entry| entry.stdout_parser)
+            .unwrap_or(definition.stdout_parser);
         let override_flags = override_entry.and_then(|entry| non_empty(&entry.flags));
         let flags = override_flags
             .clone()
@@ -234,6 +269,7 @@ fn resolve_terminal_agents_with_settings(
             flags,
             interactive_flags,
             prompt_strategy,
+            stdout_parser,
             enabled: override_entry
                 .and_then(|entry| entry.enabled)
                 .unwrap_or(true),
@@ -257,6 +293,7 @@ fn resolve_terminal_agents_with_settings(
             flags: entry.flags.clone(),
             interactive_flags: entry.flags,
             prompt_strategy: entry.prompt_strategy.unwrap_or(PromptStrategy::Arg),
+            stdout_parser: entry.stdout_parser.unwrap_or_default(),
             enabled: entry.enabled.unwrap_or(true),
         });
     }
@@ -601,10 +638,12 @@ mod tests {
             invocation.args,
             vec![
                 "exec".to_string(),
+                "--json".to_string(),
                 "--dangerously-bypass-approvals-and-sandbox".to_string()
             ]
         );
         assert_eq!(invocation.prompt_delivery, PromptDelivery::Arg);
+        assert_eq!(invocation.stdout_parser, StdoutParser::CodexJsonl);
         assert_eq!(
             invocation.prompt_path,
             PathBuf::from("/tmp/atmos automation/prompt.md")
@@ -617,8 +656,9 @@ mod tests {
 
         assert!(agents.iter().any(|agent| agent.id == "codex"
             && agent.cmd == "codex"
-            && agent.params == "exec --dangerously-bypass-approvals-and-sandbox"
-            && agent.prompt_strategy == Some(PromptStrategy::Arg)));
+            && agent.params == "exec --json --dangerously-bypass-approvals-and-sandbox"
+            && agent.prompt_strategy == Some(PromptStrategy::Arg)
+            && agent.stdout_parser == StdoutParser::CodexJsonl));
     }
 
     #[test]
@@ -631,6 +671,7 @@ mod tests {
                 params: "--dangerously-bypass-approvals-and-sandbox".to_string(),
                 interactive_params: Some("--dangerously-bypass-approvals-and-sandbox".to_string()),
                 prompt_strategy: Some(PromptStrategy::Arg),
+                stdout_parser: StdoutParser::CodexJsonl,
                 use_echo: false,
             }],
             TerminalCodeAgentFile {
@@ -641,6 +682,7 @@ mod tests {
                         cmd: "custom-codex".to_string(),
                         flags: "--yolo".to_string(),
                         prompt_strategy: None,
+                        stdout_parser: None,
                         enabled: Some(false),
                     },
                     TerminalCodeAgentEntry {
@@ -649,6 +691,7 @@ mod tests {
                         cmd: "custom-agent".to_string(),
                         flags: "--non-interactive".to_string(),
                         prompt_strategy: Some(PromptStrategy::Stdin),
+                        stdout_parser: Some(StdoutParser::Plain),
                         enabled: Some(true),
                     },
                 ],
@@ -674,6 +717,8 @@ mod tests {
     #[test]
     fn s11_fake_supported_agent_uses_structured_args_without_shell_rendering() {
         let invocation = AutomationAgentCommandSpec {
+            agent_id: "fake-agent".to_string(),
+            label: "Fake Agent".to_string(),
             executable: "fake-agent".to_string(),
             args: vec![
                 "--mode".to_string(),
@@ -681,6 +726,7 @@ mod tests {
                 "--literal=$(not-run)".to_string(),
             ],
             prompt_strategy: PromptStrategy::Arg,
+            stdout_parser: StdoutParser::Plain,
         }
         .build_invocation(command_input());
 
@@ -702,92 +748,125 @@ mod tests {
             (
                 "claude",
                 PromptStrategy::Arg,
-                vec!["--dangerously-skip-permissions", "--print"],
+                vec![
+                    "--dangerously-skip-permissions",
+                    "--print",
+                    "--output-format",
+                    "stream-json",
+                    "--verbose",
+                    "--include-partial-messages",
+                ],
                 PromptDelivery::Arg,
+                StdoutParser::ClaudeStreamJson,
             ),
             (
                 "codex",
                 PromptStrategy::Arg,
-                vec!["exec", "--dangerously-bypass-approvals-and-sandbox"],
+                vec![
+                    "exec",
+                    "--json",
+                    "--dangerously-bypass-approvals-and-sandbox",
+                ],
                 PromptDelivery::Arg,
+                StdoutParser::CodexJsonl,
             ),
             (
                 "gemini",
                 PromptStrategy::PromptFlag,
-                vec!["--yolo", "--prompt"],
+                vec!["--yolo", "--output-format", "stream-json", "--prompt"],
                 PromptDelivery::Arg,
+                StdoutParser::CursorStreamJson,
             ),
             (
                 "devin",
                 PromptStrategy::Arg,
                 vec!["--permission-mode", "dangerous", "--print"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "amp",
                 PromptStrategy::Arg,
                 vec!["--dangerously-allow-all", "--execute"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "droid",
                 PromptStrategy::Arg,
                 vec!["exec", "--skip-permissions-unsafe"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "opencode",
                 PromptStrategy::Arg,
-                vec!["run", "--dangerously-skip-permissions"],
+                vec!["run", "--format", "json", "--dangerously-skip-permissions"],
                 PromptDelivery::Arg,
+                StdoutParser::OpencodeJson,
             ),
             (
                 "kimi",
                 PromptStrategy::PromptFlag,
                 vec!["--print", "-p"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "cursor",
                 PromptStrategy::Arg,
-                vec!["--force", "--print", "--trust"],
+                vec![
+                    "--force",
+                    "--print",
+                    "--trust",
+                    "--output-format",
+                    "stream-json",
+                    "--stream-partial-output",
+                ],
                 PromptDelivery::Arg,
+                StdoutParser::CursorStreamJson,
             ),
             (
                 "kilocode",
                 PromptStrategy::Arg,
-                vec!["run", "--auto"],
+                vec!["run", "--auto", "--format", "json"],
                 PromptDelivery::Arg,
+                StdoutParser::OpencodeJson,
             ),
             (
                 "kiro",
                 PromptStrategy::Arg,
                 vec!["chat", "--agent", "atmos", "--trust-all-tools"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "commandcode",
                 PromptStrategy::Arg,
                 vec!["--trust", "--yolo", "--skip-onboarding", "--print"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "pi",
                 PromptStrategy::PromptFlag,
                 vec!["-p"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "openclaw",
                 PromptStrategy::PromptFlag,
                 vec!["agent", "--agent", "main", "--local", "--json", "--message"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
             (
                 "hermes",
                 PromptStrategy::PromptFlag,
                 vec!["--yolo", "--accept-hooks", "--oneshot"],
                 PromptDelivery::Arg,
+                StdoutParser::Plain,
             ),
         ];
         let definitions = load_builtin_terminal_agents().unwrap();
@@ -797,12 +876,16 @@ mod tests {
             .count();
         assert_eq!(cases.len(), supported_count);
 
-        for (agent_id, expected_strategy, expected_args, expected_delivery) in cases {
+        for (agent_id, expected_strategy, expected_args, expected_delivery, expected_parser) in
+            cases
+        {
             let spec = command_spec_for_builtin(&definitions, agent_id);
             let invocation = spec.build_invocation(command_input());
 
             assert_eq!(spec.prompt_strategy, expected_strategy, "{agent_id}");
+            assert_eq!(spec.stdout_parser, expected_parser, "{agent_id}");
             assert_eq!(invocation.prompt_delivery, expected_delivery, "{agent_id}");
+            assert_eq!(invocation.stdout_parser, expected_parser, "{agent_id}");
             assert_eq!(
                 invocation.args,
                 expected_args
@@ -829,19 +912,22 @@ mod tests {
 
         assert_eq!(
             command,
-            "'codex' 'exec' '--dangerously-bypass-approvals-and-sandbox'"
+            "'codex' 'exec' '--json' '--dangerously-bypass-approvals-and-sandbox'"
         );
     }
 
     #[test]
     fn s11_interactive_terminal_command_keeps_bare_executable_name() {
         let spec = AutomationAgentCommandSpec {
+            agent_id: "commandcode".to_string(),
+            label: "CommandCode".to_string(),
             executable: terminal_executable_for_agent(
                 "cmd",
                 Some(Path::new("/opt/homebrew/bin/cmd")),
             ),
             args: vec!["--trust".to_string(), "--yolo".to_string()],
             prompt_strategy: PromptStrategy::Arg,
+            stdout_parser: StdoutParser::Plain,
         };
 
         let command = spec.build_terminal_launch_command();
@@ -911,12 +997,16 @@ mod tests {
 
     fn codex_spec() -> AutomationAgentCommandSpec {
         AutomationAgentCommandSpec {
+            agent_id: "codex".to_string(),
+            label: "Codex".to_string(),
             executable: "codex".to_string(),
             args: vec![
                 "exec".to_string(),
+                "--json".to_string(),
                 "--dangerously-bypass-approvals-and-sandbox".to_string(),
             ],
             prompt_strategy: PromptStrategy::Arg,
+            stdout_parser: StdoutParser::CodexJsonl,
         }
     }
 
@@ -930,11 +1020,14 @@ mod tests {
             .unwrap_or_else(|| panic!("missing builtin agent {agent_id}"));
 
         AutomationAgentCommandSpec {
+            agent_id: definition.id.clone(),
+            label: definition.label.clone(),
             executable: definition.cmd.clone(),
             args: parse_flag_args(&definition.params).unwrap(),
             prompt_strategy: definition
                 .prompt_strategy
                 .unwrap_or_else(|| legacy_prompt_strategy(definition.use_echo)),
+            stdout_parser: definition.stdout_parser,
         }
     }
 }

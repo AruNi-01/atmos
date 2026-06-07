@@ -95,7 +95,7 @@ Implementation should not copy the terminal-agent list for automations. The sett
 
 - [ ] Should M1 include all run environments, or start with Project + Workspace + no-target and add new-workspace-per-run next?
 - [ ] Should the automation display name always become the workspace display name for new-workspace runs, or should users override it?
-- [ ] What optional files beyond prompt, output log, final message, and run metadata should each run directory contain later?
+- [ ] What optional files beyond prompt, final message, event stream, and run metadata should each run directory contain later?
 - [ ] How long should `~/.atmos/automations/runs/...` artifacts be retained, and who cleans them up?
 - [x] Missed jobs while Atmos Server is asleep/offline are not backfilled; startup computes the next future run time.
 - [ ] How should the user test an automation prompt before scheduling it: one-off dry run, run in the Automations terminal, or preview plan only?

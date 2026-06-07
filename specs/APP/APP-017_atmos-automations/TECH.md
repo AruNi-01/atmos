@@ -45,7 +45,7 @@ External/runtime dependencies:
 | Concurrency | Different automations do not block each other, even when they target the same Project or Workspace. Only the same automation is prevented from re-entering while one of its runs is still active. |
 | Terminal tab policy | Each run creates its own terminal window named **Automations**. Runs are tracked by tmux session + window index, so concurrent runs do not rely on unique visible tab names. |
 | Memory layout | No separate memory file in M1. The automation definition stores only `instructions.md`; recurring context should be written by the user into those instructions. Long-lived editable memory can be added later if product usage proves it is needed. |
-| Required run artifacts | M1 writes only `prompt.md`, `output.log`, `final.md`, and `run.json`. `run.json` is also the runner sentinel/status file. |
+| Required run artifacts | M1 writes only `prompt.md`, `final.md`, and `run.json`. `run.json` is also the runner sentinel/status file. |
 | Execution permissions | No separate permission mode. Automation runs the selected terminal agent with its configured non-interactive auto-accept/yolo flags so scheduled work is not blocked by permission prompts. |
 
 ## PRD coverage map
@@ -59,7 +59,7 @@ External/runtime dependencies:
 | M5 | `AutomationSchedule` model supports manual run plus hourly/daily/weekly/monthly/custom cron scheduled trigger. |
 | M6 | Scheduler and data live in the connected Atmos Server process; no hosted scheduler or cross-Computer sync. |
 | M7 | `automation` and `automation_run` SQLite tables persist definitions and run status. |
-| M8 | Artifact helper writes prompt, output log, final result, and run metadata under `~/.atmos/automations/`. |
+| M8 | Artifact helper writes prompt, final result, and run metadata under `~/.atmos/automations/`. Live output chunks are delivered through WebSocket events and are not persisted as a separate artifact. |
 | M9 | Runner creates a per-run **Automations** terminal window and runs a non-interactive agent command in the chosen cwd. |
 | M10 | `final.md` is required and linked from run detail. |
 | M11 | `target_kind` covers `project`, `workspace`, `new_workspace`, and `standalone`. |
@@ -286,7 +286,7 @@ Command template rules:
 
 - Always use the agent's non-interactive auto-accept/yolo mode so automation runs do not block on prompts.
 - Reuse the existing terminal agent command and flags exactly as configured, then add only the automation-specific prompt-file/stdin wrapper.
-- Capture combined terminal output into `output.log`.
+- Capture final/user-readable output into `final.md`; stream stdout/stderr chunks to connected clients through WebSocket events without persisting a separate event artifact.
 - Do not shell-interpolate the prompt. Write `prompt.md` and pass file content through the resolved command as a quoted argument or safe stdin redirection.
 
 ### Workspace integration
@@ -421,7 +421,7 @@ Setup UI:
 Run history/detail:
 
 - List automation definitions with latest status and next run time.
-- Run detail links `final.md`, `output.log`, and terminal tab attachment metadata.
+- Run detail links `final.md`, `run.json`, and terminal tab attachment metadata.
 - Use `app_open` WS action to open artifact files in the OS where appropriate.
 - Subscribe to `automation_run_updated` and `automation_definition_updated` events to refresh state.
 
@@ -519,6 +519,8 @@ CREATE TABLE automation_run (
   is_deleted BOOLEAN NOT NULL DEFAULT 0,
 
   automation_guid TEXT NOT NULL,
+  agent_id TEXT NULL,
+  agent_label TEXT NULL,
   trigger_kind TEXT NOT NULL,
   status TEXT NOT NULL,
   failure_kind TEXT NULL,
@@ -532,7 +534,6 @@ CREATE TABLE automation_run (
 
   run_dir TEXT NOT NULL,
   prompt_path TEXT NOT NULL,
-  output_path TEXT NOT NULL,
   result_path TEXT NOT NULL,
   run_json_path TEXT NOT NULL,
 
@@ -571,7 +572,6 @@ ON automation_run (automation_guid, status);
       {automation_guid}/
         prompt.md
         run.json
-        output.log
         final.md
 ```
 
@@ -588,12 +588,14 @@ Notes:
 {
   "run_guid": "run_xxx",
   "automation_guid": "auto_xxx",
+  "agent_id": "codex",
+  "agent_label": "Codex",
   "status": "running",
   "started_at": "2026-05-26T10:00:00Z",
   "completed_at": null,
   "exit_code": null,
-  "final_path": "/Users/example/.atmos/automations/runs/2026-05-26-10-00-00/auto_xxx/final.md",
-  "output_path": "/Users/example/.atmos/automations/runs/2026-05-26-10-00-00/auto_xxx/output.log"
+  "result_path": "/Users/example/.atmos/automations/runs/2026-05-26-10-00-00/auto_xxx/final.md",
+  "run_json_path": "/Users/example/.atmos/automations/runs/2026-05-26-10-00-00/auto_xxx/run.json"
 }
 ```
 
@@ -648,7 +650,7 @@ type AutomationRunListRequest = {
 
 type AutomationArtifactGetRequest = {
   run_guid: string;
-  artifact: "prompt" | "output" | "final" | "run_json";
+  artifact: "prompt" | "final" | "run_json";
 };
 
 type AutomationSchedulePreviewRequest = {
@@ -728,6 +730,8 @@ type AutomationSummary = {
 type AutomationRunSummary = {
   guid: string;
   automationGuid: string;
+  agentId: string | null;
+  agentLabel: string | null;
   triggerKind: "manual" | "scheduled";
   status: AutomationRunStatus;
   failureKind: string | null;
@@ -738,7 +742,6 @@ type AutomationRunSummary = {
   createdWorkspaceGuid: string | null;
   runDir: string;
   resultPath: string;
-  outputPath: string;
   terminalDisplayName: "Automations";
   tmuxSessionName: string | null;
   tmuxWindowName: string | null;

@@ -10,10 +10,8 @@ use crate::error::{Result, ServiceError};
 use super::artifacts;
 
 pub const PROMPT_FILE: &str = "prompt.md";
-pub const OUTPUT_FILE: &str = "output.log";
 pub const FINAL_FILE: &str = "final.md";
 pub const RUN_JSON_FILE: &str = "run.json";
-pub const EVENTS_FILE: &str = "events.jsonl";
 pub const CONTINUE_PROMPT_FILE: &str = "continue_prompt.md";
 
 #[derive(Debug, Clone)]
@@ -30,7 +28,6 @@ pub struct PreparedAutomationRun {
     pub run_guid: String,
     pub run_dir: PathBuf,
     pub prompt_path: PathBuf,
-    pub output_path: PathBuf,
     pub result_path: PathBuf,
     pub run_json_path: PathBuf,
     pub started_at: NaiveDateTime,
@@ -40,6 +37,10 @@ pub struct PreparedAutomationRun {
 pub struct AutomationRunJson {
     pub run_guid: String,
     pub automation_guid: String,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub agent_label: Option<String>,
     pub status: String,
     #[serde(default)]
     pub target_kind: Option<String>,
@@ -56,7 +57,6 @@ pub struct AutomationRunJson {
     pub exit_code: Option<i32>,
     pub run_dir: String,
     pub prompt_path: String,
-    pub output_path: String,
     pub result_path: String,
     pub run_json_path: String,
     pub tmux_session_name: Option<String>,
@@ -69,6 +69,8 @@ impl AutomationRunJson {
         Self {
             run_guid: run.guid.clone(),
             automation_guid: run.automation_guid.clone(),
+            agent_id: run.agent_id.clone(),
+            agent_label: run.agent_label.clone(),
             status: run.status.clone(),
             target_kind: Some(run.target_kind.clone()),
             project_guid: run.project_guid.clone(),
@@ -80,7 +82,6 @@ impl AutomationRunJson {
             exit_code: run.exit_code,
             run_dir: run.run_dir.clone(),
             prompt_path: run.prompt_path.clone(),
-            output_path: run.output_path.clone(),
             result_path: run.result_path.clone(),
             run_json_path: run.run_json_path.clone(),
             tmux_session_name: run.tmux_session_name.clone(),
@@ -106,10 +107,8 @@ pub fn prepare_run_files(
     artifacts::ensure_user_private_dir(&run_dir)?;
 
     let prompt_path = run_dir.join(PROMPT_FILE);
-    let output_path = run_dir.join(OUTPUT_FILE);
     let result_path = run_dir.join(FINAL_FILE);
     let run_json_path = run_dir.join(RUN_JSON_FILE);
-    let events_path = run_dir.join(EVENTS_FILE);
 
     let mut prompt_target = target.clone();
     if prompt_target.target_kind == "standalone" {
@@ -118,15 +117,12 @@ pub fn prepare_run_files(
     let resolved_instructions = resolve_file_mentions_for_target(instructions, &prompt_target.cwd);
     let prompt = build_prompt(&resolved_instructions);
     artifacts::write_user_private_file(&prompt_path, &prompt)?;
-    artifacts::write_user_private_file(&output_path, "")?;
     artifacts::write_user_private_file(&result_path, "")?;
-    artifacts::write_user_private_file(&events_path, "")?;
 
     Ok(PreparedAutomationRun {
         run_guid,
         run_dir,
         prompt_path,
-        output_path,
         result_path,
         run_json_path,
         started_at,
@@ -144,10 +140,8 @@ pub fn prepare_start_failure_files(
     artifacts::ensure_user_private_dir(&run_dir)?;
 
     let prompt_path = run_dir.join(PROMPT_FILE);
-    let output_path = run_dir.join(OUTPUT_FILE);
     let result_path = run_dir.join(FINAL_FILE);
     let run_json_path = run_dir.join(RUN_JSON_FILE);
-    let events_path = run_dir.join(EVENTS_FILE);
     let content = format!(
         "Automation failed before agent execution.\n\nAutomation: {display_name}\nAutomation ID: {automation_guid}\nTarget: {target_kind}\nReason: {error_message}\n",
         display_name = automation.display_name,
@@ -156,15 +150,12 @@ pub fn prepare_start_failure_files(
     );
 
     artifacts::write_user_private_file(&prompt_path, &content)?;
-    artifacts::write_user_private_file(&output_path, &content)?;
     artifacts::write_user_private_file(&result_path, &content)?;
-    artifacts::write_user_private_file(&events_path, "")?;
 
     Ok(PreparedAutomationRun {
         run_guid,
         run_dir,
         prompt_path,
-        output_path,
         result_path,
         run_json_path,
         started_at,
@@ -297,6 +288,8 @@ mod tests {
         let run_json = AutomationRunJson {
             run_guid: "run-123".to_string(),
             automation_guid: "automation-123".to_string(),
+            agent_id: Some("codex".to_string()),
+            agent_label: Some("Codex".to_string()),
             status: "completed".to_string(),
             target_kind: Some("new_workspace".to_string()),
             project_guid: Some("project-123".to_string()),
@@ -308,7 +301,6 @@ mod tests {
             exit_code: Some(0),
             run_dir: "/tmp/run".to_string(),
             prompt_path: "/tmp/run/prompt.md".to_string(),
-            output_path: "/tmp/run/output.log".to_string(),
             result_path: "/tmp/run/final.md".to_string(),
             run_json_path: "/tmp/run/run.json".to_string(),
             tmux_session_name: Some("automations".to_string()),
@@ -334,7 +326,6 @@ mod tests {
   "exit_code": 0,
   "run_dir": "/tmp/run",
   "prompt_path": "/tmp/run/prompt.md",
-  "output_path": "/tmp/run/output.log",
   "result_path": "/tmp/run/final.md",
   "run_json_path": "/tmp/run/run.json",
   "tmux_session_name": null,

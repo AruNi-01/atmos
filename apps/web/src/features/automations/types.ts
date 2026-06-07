@@ -34,7 +34,7 @@ export type AutomationScheduleKind =
   | "monthly"
   | "cron";
 
-export type AutomationArtifactKind = "prompt" | "output" | "final" | "run_json" | "events";
+export type AutomationArtifactKind = "prompt" | "final" | "run_json";
 
 export type AutomationDefinitionChange =
   | "created"
@@ -134,6 +134,8 @@ export interface AutomationAttachmentPayload {
 export interface AutomationRunSummary {
   guid: string;
   automation_guid: string;
+  agent_id: string | null;
+  agent_label: string | null;
   trigger_kind: AutomationTriggerKind;
   trigger_source_json: string | null;
   status: AutomationRunStatus;
@@ -145,7 +147,6 @@ export interface AutomationRunSummary {
   created_workspace_guid: string | null;
   run_dir: string;
   result_path: string;
-  output_path: string;
   terminal_display_name: string;
   tmux_session_name: string | null;
   tmux_window_name: string | null;
@@ -201,4 +202,13 @@ export interface AutomationRunUpdatedEvent {
   run_guid: string;
   status: AutomationRunStatus;
   run: AutomationRunSummary;
+}
+
+export interface AutomationRunOutputEvent {
+  automation_guid: string;
+  run_guid: string;
+  ts: string;
+  stream: "stdout" | "stderr" | string;
+  chunk: string;
+  final_chunk?: boolean;
 }

@@ -24,9 +24,7 @@ export const ARTIFACT_OPTIONS: Array<{
   description: string;
 }> = [
   { kind: "final", label: "Result", description: "final.md" },
-  { kind: "output", label: "Output Log", description: "output.log" },
   { kind: "prompt", label: "Prompt", description: "prompt.md" },
-  { kind: "events", label: "Events", description: "events.jsonl" },
   { kind: "run_json", label: "Run JSON", description: "run.json" },
 ];
 

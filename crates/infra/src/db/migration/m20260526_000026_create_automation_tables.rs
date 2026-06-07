@@ -126,6 +126,8 @@ impl MigrationTrait for Migration {
                             .string()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(AutomationRun::AgentId).string().null())
+                    .col(ColumnDef::new(AutomationRun::AgentLabel).string().null())
                     .col(
                         ColumnDef::new(AutomationRun::TriggerKind)
                             .string()
@@ -150,11 +152,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(AutomationRun::RunDir).string().not_null())
                     .col(
                         ColumnDef::new(AutomationRun::PromptPath)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(AutomationRun::OutputPath)
                             .string()
                             .not_null(),
                     )
@@ -305,6 +302,8 @@ enum AutomationRun {
     UpdatedAt,
     IsDeleted,
     AutomationGuid,
+    AgentId,
+    AgentLabel,
     TriggerKind,
     Status,
     FailureKind,
@@ -316,7 +315,6 @@ enum AutomationRun {
     Cwd,
     RunDir,
     PromptPath,
-    OutputPath,
     ResultPath,
     RunJsonPath,
     TerminalDisplayName,

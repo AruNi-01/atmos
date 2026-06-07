@@ -10,9 +10,9 @@ use tracing::warn;
 use crate::error::{Result, ServiceError};
 
 use super::{
-    mark_run_interrupted, publish_run_update, runner, scheduler, AutomationDefinitionChange,
-    AutomationEvent, AutomationRunStatus, AutomationService, AutomationSummary,
-    AutomationTriggerKind, START_FAILURE_KIND,
+    agents, mark_run_interrupted, publish_run_update, runner, scheduler,
+    AutomationDefinitionChange, AutomationEvent, AutomationRunStatus, AutomationService,
+    AutomationSummary, AutomationTriggerKind, START_FAILURE_KIND,
 };
 
 impl AutomationService {
@@ -174,10 +174,20 @@ impl AutomationService {
         let repo = AutomationRepo::new(&self.db);
         let prepared = runner::prepare_start_failure_files(automation, &error_message)?;
         let cwd = prepared.run_dir.to_string_lossy().to_string();
+        let agent_label = agents::automation_agent_capabilities()
+            .ok()
+            .and_then(|capabilities| {
+                capabilities
+                    .into_iter()
+                    .find(|capability| capability.agent_id == automation.agent_id)
+                    .map(|capability| capability.label)
+            });
         let run = repo
             .create_run(CreateAutomationRunRecord {
                 guid: prepared.run_guid.clone(),
                 automation_guid: automation.guid.clone(),
+                agent_id: Some(automation.agent_id.clone()),
+                agent_label,
                 trigger_kind: AutomationTriggerKind::Scheduled.as_str().to_string(),
                 trigger_source_json: None,
                 status: AutomationRunStatus::Running.as_str().to_string(),
@@ -188,7 +198,6 @@ impl AutomationService {
                 cwd,
                 run_dir: prepared.run_dir.to_string_lossy().to_string(),
                 prompt_path: prepared.prompt_path.to_string_lossy().to_string(),
-                output_path: prepared.output_path.to_string_lossy().to_string(),
                 result_path: prepared.result_path.to_string_lossy().to_string(),
                 run_json_path: prepared.run_json_path.to_string_lossy().to_string(),
                 tmux_session_name: None,

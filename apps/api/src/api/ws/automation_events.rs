@@ -34,15 +34,19 @@ pub fn automation_event_to_ws_message(event: AutomationEvent) -> Option<WsMessag
         AutomationEvent::RunOutput {
             automation_guid,
             run_guid,
+            ts,
             stream,
             chunk,
+            final_chunk,
         } => (
             WsEvent::AutomationRunOutput,
             json!({
                 "automation_guid": automation_guid,
                 "run_guid": run_guid,
+                "ts": ts,
                 "stream": stream,
                 "chunk": chunk,
+                "final_chunk": final_chunk,
             }),
         ),
         AutomationEvent::Notification(payload) => (WsEvent::AutomationNotification, json!(payload)),

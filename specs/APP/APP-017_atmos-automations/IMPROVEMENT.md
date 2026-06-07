@@ -207,8 +207,8 @@ AutomationService
   -> build structured agent argv
   -> tokio::process::Command spawn
   -> pipe prompt through stdin or argv/file strategy
-  -> stream stdout/stderr into artifacts and WS events
-  -> write final.md + events.jsonl + run.json
+  -> stream stdout/stderr through WS events
+  -> write final.md + run.json
 ```
 
 Implementation shape:
@@ -216,7 +216,7 @@ Implementation shape:
 - Add a runner boundary such as `AutomationProcessRunner` under `crates/core-service/src/service/automation/`.
 - Replace tmux launch for normal automation runs with `tokio::process::Command`.
 - Use `stdin/stdout/stderr = piped`; do not use `shell` on Unix. If Windows support is required later, gate `.cmd`/`.bat` shell behavior explicitly.
-- Preserve the current run artifact directory contract and add `events.jsonl` for structured per-line output events.
+- Preserve the current run artifact directory contract without adding a separate persisted event log.
 - Keep SQLite small: store run status, timestamps, exit code, target metadata, artifact paths, process id if available, and optional parser metadata. Do not store prompt/output bodies in SQLite.
 - Cancellation should set `cancellation_requested`, send a child kill/terminate signal, wait briefly, then force kill if needed. The final status remains `cancelled` when the stop was user-requested.
 
@@ -265,7 +265,7 @@ Add or extend service events so clients can observe a running background process
 
 - `automation_run_updated`: status/timestamps/paths, same as today.
 - `automation_run_output`: optional live chunk or parsed event for the selected run.
-- `automation_run_artifact_updated`: emitted when `final.md`, `output.log`, or `events.jsonl` changes enough for the UI to refresh.
+- `automation_run_artifact_updated`: emitted when `final.md` changes enough for the UI to refresh, if pull-based refresh is needed.
 
 The UI does not need to replay every chunk from SQLite. It can read persisted artifacts through the existing artifact fetch action when the user opens run detail. Live chunks are best-effort WS events for the currently connected client.
 
@@ -281,7 +281,7 @@ Suggested WS action:
 type AutomationContinueInTerminalReq = {
   runGuid: string;
   agentId?: string;
-  includeOutputLog?: boolean;
+  includeFinal?: boolean;
 };
 ```
 
@@ -300,20 +300,20 @@ Continuation prompt should include:
 - Original automation instructions.
 - Trigger kind and trigger context path if present.
 - Target cwd, Project/Workspace ids, and created workspace id if any.
-- `prompt.md`, `final.md`, `output.log`, `events.jsonl`, and `run.json` absolute paths.
+- `prompt.md`, `final.md`, and `run.json` absolute paths.
 - Inline `final.md` content when it is below a small cap, otherwise a path-only reference.
 - A short instruction: continue from this automation result, inspect artifacts as needed, and ask before destructive changes unless the terminal agent mode already grants permission.
 
-Avoid inlining the full `output.log` by default. Large logs should remain file references.
+Do not include a separate event log in the continuation prompt; live output events are not durable user artifacts.
 
 ### Result
 
 Mitigated in backend execution, WebSocket protocol, and the Automations run-detail UI.
 
 - Manual and scheduled automations no longer create tmux windows during unattended execution.
-- Runs now spawn the resolved agent binary directly from `core-service` with piped stdio, persisted `prompt.md`, `output.log`, `final.md`, `events.jsonl`, and `run.json` artifacts.
+- Runs now spawn the resolved agent binary directly from `core-service` with piped stdio, persisted `prompt.md`, `final.md`, and `run.json` artifacts.
 - Run output is emitted through the existing WebSocket event channel as `automation_run_output`, while durable evidence remains file-backed.
-- Run detail exposes `Result`, `Output Log`, `Prompt`, `Events`, and `Run JSON`.
+- Run detail exposes `Result`, `Prompt`, and `Run JSON`.
 - Users can click **Continue** from a completed, failed, cancelled, or interrupted run. For Project/Workspace targets the UI queues an exact interactive terminal command and navigates to the terminal tab; for Standalone targets it copies the command because there is no project/workspace terminal context to focus.
 - Terminal resources are used only when the user explicitly chooses an interactive follow-up.
 
@@ -340,6 +340,6 @@ Mitigated in backend execution, WebSocket protocol, and the Automations run-deta
 
 - [x] Keep this as an APP-017 improvement implementation; no new spec was needed.
 - [x] Split built-in manifest defaults into automation vs interactive params where needed.
-- [x] Define an initial file-backed `events.jsonl` stream for stdout/stderr chunks.
+- [x] Define live `automation_run_output` streaming for stdout/stderr chunks without a persisted Events artifact.
 - [ ] Add broader service tests with fake agent binaries for stdout, stderr, JSONL parsing, cancellation, non-zero exit, and large output.
 - [ ] Add UI smoke coverage for artifact refresh and **Continue in Terminal** focus behavior.

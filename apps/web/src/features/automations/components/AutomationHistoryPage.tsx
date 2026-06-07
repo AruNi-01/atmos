@@ -164,15 +164,14 @@ export function AutomationHistoryPage({
             runs={runs}
             loading={runsLoading}
             selectedRunGuid={selectedRunGuid}
-            busyAction={busyAction}
             onRefresh={onRefreshRuns}
             onSelectRun={onSelectRun}
-            onCancelRun={onCancelRun}
           />
           <div className="min-h-0 overflow-hidden rounded-md border border-border bg-background">
             {visibleAutomation ? (
               <RunDetailPanel
                 run={selectedRun}
+                agents={agents}
                 artifact={artifact}
                 artifactLoading={artifactLoading}
                 busyAction={busyAction}

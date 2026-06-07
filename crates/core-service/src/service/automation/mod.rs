@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 mod agents;
@@ -281,10 +280,8 @@ pub struct AutomationArtifactGetReq {
 #[serde(rename_all = "snake_case")]
 pub enum AutomationArtifactKind {
     Prompt,
-    Output,
     Final,
     RunJson,
-    Events,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -346,6 +343,8 @@ pub struct AutomationRunDetail {
 pub struct AutomationRunSummary {
     pub guid: String,
     pub automation_guid: String,
+    pub agent_id: Option<String>,
+    pub agent_label: Option<String>,
     pub trigger_kind: String,
     pub trigger_source_json: Option<String>,
     pub status: String,
@@ -357,7 +356,6 @@ pub struct AutomationRunSummary {
     pub created_workspace_guid: Option<String>,
     pub run_dir: String,
     pub result_path: String,
-    pub output_path: String,
     pub terminal_display_name: String,
     pub tmux_session_name: Option<String>,
     pub tmux_window_name: Option<String>,
@@ -687,13 +685,8 @@ impl AutomationService {
         })?;
         let path = match req.artifact {
             AutomationArtifactKind::Prompt => run.prompt_path,
-            AutomationArtifactKind::Output => run.output_path,
             AutomationArtifactKind::Final => run.result_path,
             AutomationArtifactKind::RunJson => run.run_json_path,
-            AutomationArtifactKind::Events => PathBuf::from(&run.run_dir)
-                .join(runner::EVENTS_FILE)
-                .to_string_lossy()
-                .to_string(),
         };
         let content = artifacts::read_artifact(&path)?;
         Ok(AutomationArtifact {
@@ -959,6 +952,8 @@ impl From<automation_run::Model> for AutomationRunSummary {
         Self {
             guid: model.guid,
             automation_guid: model.automation_guid,
+            agent_id: model.agent_id,
+            agent_label: model.agent_label,
             trigger_kind: model.trigger_kind,
             trigger_source_json: model.trigger_source_json,
             status: model.status,
@@ -970,7 +965,6 @@ impl From<automation_run::Model> for AutomationRunSummary {
             created_workspace_guid: model.created_workspace_guid,
             run_dir: model.run_dir,
             result_path: model.result_path,
-            output_path: model.output_path,
             terminal_display_name: model.terminal_display_name,
             tmux_session_name: model.tmux_session_name,
             tmux_window_name: model.tmux_window_name,

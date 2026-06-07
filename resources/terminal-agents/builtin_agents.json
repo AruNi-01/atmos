@@ -3,25 +3,28 @@
     "id": "claude",
     "label": "Claude Code",
     "cmd": "claude",
-    "params": "--dangerously-skip-permissions --print",
+    "params": "--dangerously-skip-permissions --print --output-format stream-json --verbose --include-partial-messages",
     "interactiveParams": "--dangerously-skip-permissions",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "stdoutParser": "claude_stream_json"
   },
   {
     "id": "codex",
     "label": "Codex",
     "cmd": "codex",
-    "params": "exec --dangerously-bypass-approvals-and-sandbox",
+    "params": "exec --json --dangerously-bypass-approvals-and-sandbox",
     "interactiveParams": "--dangerously-bypass-approvals-and-sandbox",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "stdoutParser": "codex_jsonl"
   },
   {
     "id": "gemini",
     "label": "Gemini",
     "cmd": "gemini",
-    "params": "--yolo --prompt",
+    "params": "--yolo --output-format stream-json --prompt",
     "interactiveParams": "--yolo",
-    "promptStrategy": "prompt_flag"
+    "promptStrategy": "prompt_flag",
+    "stdoutParser": "cursor_stream_json"
   },
   {
     "id": "devin",
@@ -52,9 +55,10 @@
     "id": "opencode",
     "label": "OpenCode",
     "cmd": "opencode",
-    "params": "run --dangerously-skip-permissions",
+    "params": "run --format json --dangerously-skip-permissions",
     "interactiveParams": "",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "stdoutParser": "opencode_json"
   },
   {
     "id": "kimi",
@@ -68,17 +72,19 @@
     "id": "cursor",
     "label": "Cursor Agent",
     "cmd": "agent",
-    "params": "--force --print --trust",
+    "params": "--force --print --trust --output-format stream-json --stream-partial-output",
     "interactiveParams": "--force",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "stdoutParser": "cursor_stream_json"
   },
   {
     "id": "kilocode",
     "label": "Kilo Code",
     "cmd": "kilo",
-    "params": "run --auto",
+    "params": "run --auto --format json",
     "interactiveParams": "",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "stdoutParser": "opencode_json"
   },
   {
     "id": "kiro",

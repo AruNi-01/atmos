@@ -9,6 +9,7 @@ export interface TerminalAgentDefinition {
   params: string;
   interactiveParams?: string;
   promptStrategy?: TerminalAgentPromptStrategy;
+  stdoutParser?: string;
   useEcho?: boolean;
 }
 

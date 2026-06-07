@@ -15,17 +15,18 @@ import { ChevronDown, FileText, LoaderCircle, Square, Terminal } from "lucide-re
 
 import {
   ARTIFACT_OPTIONS,
+  AutomationAgentLabel,
   MetadataItem,
   StatusBadge,
 } from "@/features/automations/components/automation-common";
 import {
-  artifactLabel,
   formatDateTime,
   formatShortId,
   parseGithubRunSource,
 } from "@/features/automations/lib/automation-format";
 import { MarkdownRenderer } from "@/shared/components/markdown/MarkdownRenderer";
 import type {
+  AutomationAgentCapability,
   AutomationArtifactKind,
   AutomationArtifactResponse,
   AutomationRunSummary,
@@ -33,6 +34,7 @@ import type {
 
 export function RunDetailPanel({
   run,
+  agents,
   artifact,
   artifactLoading,
   busyAction,
@@ -41,6 +43,7 @@ export function RunDetailPanel({
   onContinueInTerminal,
 }: {
   run: AutomationRunSummary | null;
+  agents: AutomationAgentCapability[];
   artifact: AutomationArtifactResponse | null;
   artifactLoading: boolean;
   busyAction: string | null;
@@ -50,6 +53,33 @@ export function RunDetailPanel({
 }) {
   const [metadataOpen, setMetadataOpen] = React.useState(false);
   const [activeArtifact, setActiveArtifact] = React.useState<AutomationArtifactKind>("final");
+  const runAgentId = run?.agent_id ?? null;
+  const runAgentLabel = run?.agent_label ?? null;
+  const runnerAgent = React.useMemo<AutomationAgentCapability | null>(() => {
+    if (!runAgentId) {
+      return null;
+    }
+
+    const capability = agents.find((agent) => agent.agent_id === runAgentId);
+    if (capability) {
+      return {
+        ...capability,
+        label: runAgentLabel ?? capability.label,
+      };
+    }
+
+    if (runAgentLabel) {
+      return {
+        agent_id: runAgentId,
+        label: runAgentLabel,
+        installed: false,
+        automation_supported: false,
+        unavailable_reason: null,
+      };
+    }
+
+    return null;
+  }, [agents, runAgentId, runAgentLabel]);
 
   React.useEffect(() => {
     setActiveArtifact("final");
@@ -126,8 +156,8 @@ export function RunDetailPanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col p-4">
-        <Collapsible open={metadataOpen} onOpenChange={setMetadataOpen} className="shrink-0 rounded-md border border-border bg-muted/10">
-          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-left">
+        <Collapsible open={metadataOpen} onOpenChange={setMetadataOpen} className="shrink-0 overflow-hidden rounded-md border border-border bg-muted/10">
+          <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <StatusBadge status={run.status} />
               <span className="text-xs text-muted-foreground">{run.trigger_kind}</span>
@@ -158,7 +188,15 @@ export function RunDetailPanel({
               <MetadataItem label="Exit code" value={run.exit_code === null ? "None" : String(run.exit_code)} />
               <MetadataItem
                 label="Runner"
-                value={run.tmux_window_name ? run.terminal_display_name || "Terminal" : "Background process"}
+                value={
+                  runAgentId ? (
+                    <AutomationAgentLabel agent={runnerAgent} agentId={runAgentId} iconSize={16} />
+                  ) : run.tmux_window_name ? (
+                    run.terminal_display_name || "Terminal"
+                  ) : (
+                    "Background process"
+                  )
+                }
               />
               {run.error_message ? <MetadataItem label="Error" value={run.error_message} /> : null}
             </div>
@@ -184,18 +222,11 @@ export function RunDetailPanel({
           </TabsList>
 
           <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border bg-muted/10">
-            <div className="shrink-0 border-b border-border px-3 py-2">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {artifact ? artifactLabel(artifact.artifact) : artifactLabel(activeArtifact)}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">
-                {artifact?.path ?? "Loading artifact contents."}
-              </div>
-            </div>
             <ArtifactContent
               artifact={artifact?.run_guid === run.guid && artifact.artifact === activeArtifact ? artifact : null}
               activeArtifact={activeArtifact}
               loading={artifactLoading}
+              running={run.status === "running"}
             />
           </div>
         </Tabs>
@@ -208,14 +239,17 @@ function ArtifactContent({
   artifact,
   activeArtifact,
   loading,
+  running,
 }: {
   artifact: AutomationArtifactResponse | null;
   activeArtifact: AutomationArtifactKind;
   loading: boolean;
+  running: boolean;
 }) {
   const content = artifact?.content ?? "";
   const isJson = activeArtifact === "run_json";
-  const isJsonl = activeArtifact === "events";
+  const scrollRef = React.useRef<HTMLElement | null>(null);
+  const stickToBottomRef = React.useRef(true);
   const formatted = React.useMemo(() => {
     if (!content) {
       return "";
@@ -223,11 +257,29 @@ function ArtifactContent({
     if (isJson) {
       return formatJson(content);
     }
-    if (isJsonl) {
-      return formatJsonLines(content);
-    }
     return content;
-  }, [content, isJson, isJsonl]);
+  }, [content, isJson]);
+
+  React.useEffect(() => {
+    stickToBottomRef.current = true;
+  }, [activeArtifact, artifact?.run_guid]);
+
+  React.useEffect(() => {
+    const element = scrollRef.current;
+    if (!element || !stickToBottomRef.current) {
+      return;
+    }
+    element.scrollTop = element.scrollHeight;
+  }, [formatted]);
+
+  const handleScroll = React.useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) {
+      return;
+    }
+    stickToBottomRef.current =
+      element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+  }, []);
 
   if (loading && !artifact) {
     return (
@@ -246,18 +298,26 @@ function ArtifactContent({
     );
   }
 
-  if (isJson || isJsonl) {
+  if (isJson) {
     return (
-      <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-foreground">
+      <pre
+        ref={scrollRef as React.RefObject<HTMLPreElement>}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-3 text-xs leading-5 text-foreground"
+      >
         {formatted}
       </pre>
     );
   }
 
   return (
-    <div className={cn("min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-foreground")}>
+    <div
+      ref={scrollRef as React.RefObject<HTMLDivElement>}
+      onScroll={handleScroll}
+      className={cn("min-h-0 flex-1 overflow-auto px-4 py-3 text-sm text-foreground")}
+    >
       <MarkdownRenderer className="prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 [&_pre]:max-w-full [&_pre]:overflow-x-auto">
-        {formatted || "No content."}
+        {formatted || (running ? "Waiting for agent output..." : "No content.")}
       </MarkdownRenderer>
     </div>
   );
@@ -269,12 +329,4 @@ function formatJson(raw: string) {
   } catch {
     return raw;
   }
-}
-
-function formatJsonLines(raw: string) {
-  return raw
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .map((line) => formatJson(line))
-    .join("\n");
 }

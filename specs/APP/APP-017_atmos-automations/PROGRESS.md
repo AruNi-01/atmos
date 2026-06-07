@@ -112,7 +112,7 @@ Planning is complete through `TEST.md`. M1 implementation is in place and verifi
 - Different automations may run concurrently, even against the same Project/Workspace.
 - The same automation must not re-enter while it has a `running` run.
 - Run statuses are only `running`, `completed`, `failed`, `cancelled`, and `interrupted`.
-- M1 writes only `prompt.md`, `output.log`, `final.md`, and `run.json`.
+- M1 writes only `prompt.md`, `final.md`, and `run.json`.
 - `run.json` is a small fixed-schema status file and is read fully during startup recovery.
 - Missed schedule ticks while Atmos Server is offline/asleep are not backfilled.
 - Automation reuses the same built-in terminal agent definitions as Agent Select, plus existing `terminal_code_agent.json` overrides/custom agents.

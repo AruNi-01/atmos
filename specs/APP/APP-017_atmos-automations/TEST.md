@@ -38,7 +38,7 @@ APP-017 spans persistence, scheduler logic, terminal execution, WebSocket transp
 _Last run: 2026-05-26._
 
 - S7/S8/S21 — covered by `crates/core-service/src/service/automation/scheduler.rs` unit tests, including configured timezone conversion; `cargo test -p core-service automation -- --nocapture` passed with 19 automation tests.
-- S5/S11/S22/S24 — partially covered by `automation/agents.rs`, `automation/runner.rs`, and `automation/lifecycle.rs` unit tests plus a local fake supported-agent WS smoke run that created a standalone automation, ran it through tmux, wrote `prompt.md`, `output.log`, `final.md`, `run.json`, and reached `completed`.
+- S5/S11/S22/S24 — partially covered by `automation/agents.rs`, `automation/runner.rs`, and `automation/lifecycle.rs` unit tests plus a local fake supported-agent WS smoke run that created a standalone automation, ran it through tmux, wrote `prompt.md`, `final.md`, `run.json`, and reached `completed`.
 - S1/S2 — smoke-covered by `bun --cwd apps/web typecheck` and HTTP render of `http://127.0.0.1:3032/automations`; full browser E2E remains pending because no Playwright harness is installed.
 - S3-S6, S9-S20, S23, S25-S30 — pending fuller service/E2E harness coverage; manual/fake-agent smoke covered the main standalone happy path only.
 
@@ -129,7 +129,7 @@ _Last run: 2026-05-26._
 - **Level**: Service-level with fake agent + tmux runner harness
 - **Given**: a standalone automation and a fake agent that exits `0` and writes a final message.
 - **When**: the user invokes `automation_run_now`.
-- **Then**: the runner creates `~/.atmos/automations/runs/{date-time}/{automation-guid}/`, writes `prompt.md`, `output.log`, `final.md`, and `run.json`, and marks the run `completed`.
+- **Then**: the runner creates `~/.atmos/automations/runs/{date-time}/{automation-guid}/`, writes `prompt.md`, `final.md`, and `run.json`, and marks the run `completed`.
 - **Signals**: artifact files exist, `run.json.status = "completed"`, SQLite `automation_run.status = completed`, `final.md` content matches fake agent output.
 
 ### S12 — Failed run preserves output and status
@@ -137,8 +137,8 @@ _Last run: 2026-05-26._
 - **Level**: Service-level with fake agent
 - **Given**: a standalone automation and a fake agent that exits non-zero after writing output.
 - **When**: the user invokes `automation_run_now`.
-- **Then**: the run becomes `failed`, `output.log` and `run.json` are preserved, and run history shows the failed outcome.
-- **Signals**: SQLite run status `failed`, `run.json.exit_code != 0`, run history row visible, artifact get returns output.
+- **Then**: the run becomes `failed`, `final.md` and `run.json` are preserved, and run history shows the failed outcome.
+- **Signals**: SQLite run status `failed`, `run.json.exit_code != 0`, run history row visible, artifact get returns result and run metadata.
 
 ### S13 — Project target run uses Project cwd
 
@@ -164,11 +164,11 @@ _Last run: 2026-05-26._
 - **Then**: each request is rejected before any definition files or DB rows are created.
 - **Signals**: validation errors, DB unchanged, no new files under `~/.atmos/automations/definitions`.
 
-### S16 — Run detail opens final output and output log
+### S16 — Run detail opens result and run metadata
 
 - **Level**: E2E (Playwright) + service-level
-- **Given**: an automation has one completed run with `final.md` and `output.log`.
-- **When**: the user opens run detail and chooses the result or output artifact.
+- **Given**: an automation has one completed run with `final.md` and `run.json`.
+- **When**: the user opens run detail and chooses the result or run JSON artifact.
 - **Then**: the UI fetches the requested artifact through WS and can invoke `app_open` for local OS opening.
 - **Signals**: `automation_run_get`, `automation_artifact_get`, and `app_open` WS requests; artifact content visible or open action success.
 
@@ -249,8 +249,8 @@ _Last run: 2026-05-26._
 - **Level**: Rust integration / service-level
 - **Given**: SQLite has a `running` run whose `run.json` was updated to `completed` while the API process was down.
 - **When**: `recover_running_runs()` runs on startup.
-- **Then**: SQLite status becomes `completed` without reading `output.log`.
-- **Signals**: DB status changed, no output-log read in test double, artifact paths unchanged.
+- **Then**: SQLite status becomes `completed` without reading `final.md`.
+- **Signals**: DB status changed, no artifact-content read in test double, artifact paths unchanged.
 
 ### S25 — Startup recovery marks lost terminal as interrupted
 
@@ -329,7 +329,7 @@ _Last run: 2026-05-26._
 - [ ] No new unconditional REST endpoints are introduced for automation definitions, runs, or artifacts.
 - [ ] The runner works with a fake non-interactive agent without requiring any real external agent CLI.
 - [ ] `running`, `completed`, `failed`, `cancelled`, and `interrupted` are the only run status values exposed by API/UI.
-- [ ] The run artifact directory contains only the required M1 files unless the user/agent creates additional files: `prompt.md`, `output.log`, `final.md`, `run.json`.
+- [ ] The run artifact directory contains only the required M1 files unless the user/agent creates additional files: `prompt.md`, `final.md`, `run.json`.
 - [ ] No explicit reference-source wording or external product inspiration text appears in APP-017 spec files.
 
 ## Manual verification steps

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, cn } from "@workspace/ui";
-import { Clock3, History, LoaderCircle, RefreshCw, Square } from "lucide-react";
+import { Clock3, History, LoaderCircle, RefreshCw } from "lucide-react";
 
 import { StatusBadge } from "@/features/automations/components/automation-common";
 import {
@@ -16,19 +16,15 @@ export function RunHistoryPanel({
   runs,
   loading,
   selectedRunGuid,
-  busyAction,
   onRefresh,
   onSelectRun,
-  onCancelRun,
   className,
 }: {
   runs: AutomationRunSummary[];
   loading: boolean;
   selectedRunGuid: string | null;
-  busyAction: string | null;
   onRefresh: () => void;
   onSelectRun: (guid: string) => void;
-  onCancelRun: (run: AutomationRunSummary) => Promise<void>;
   className?: string;
 }) {
   return (
@@ -64,9 +60,7 @@ export function RunHistoryPanel({
                 key={run.guid}
                 run={run}
                 selected={run.guid === selectedRunGuid}
-                busy={busyAction === `cancel:${run.guid}`}
                 onSelect={() => onSelectRun(run.guid)}
-                onCancel={() => void onCancelRun(run)}
               />
             ))}
           </div>
@@ -79,15 +73,11 @@ export function RunHistoryPanel({
 function RunHistoryRow({
   run,
   selected,
-  busy,
   onSelect,
-  onCancel,
 }: {
   run: AutomationRunSummary;
   selected: boolean;
-  busy: boolean;
   onSelect: () => void;
-  onCancel: () => void;
 }) {
   const githubSource = parseGithubRunSource(run);
   const githubLabel = githubSource
@@ -115,14 +105,6 @@ function RunHistoryRow({
           <span>{formatDateTime(run.started_at)}</span>
         </div>
       </button>
-      {run.status === "running" ? (
-        <div className="border-t border-border px-3 py-2">
-          <Button variant="outline" size="sm" onClick={onCancel} disabled={busy}>
-            {busy ? <LoaderCircle className="size-4 animate-spin" /> : <Square className="size-4" />}
-            Cancel
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }

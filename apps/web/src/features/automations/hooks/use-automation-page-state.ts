@@ -4,7 +4,6 @@ import * as React from "react";
 import { toastManager } from "@workspace/ui";
 import { useQueryState } from "nuqs";
 
-import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 import { useAutomations } from "@/features/automations/hooks/use-automations";
 import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
 import { formatShortId } from "@/features/automations/lib/automation-format";
@@ -16,6 +15,7 @@ import type {
   AutomationCreateRequest,
   AutomationDefinitionUpdatedEvent,
   AutomationDetail,
+  AutomationRunOutputEvent,
   AutomationRunSummary,
   AutomationRunUpdatedEvent,
   AutomationSummary,
@@ -35,6 +35,47 @@ async function copyTextToClipboard(text: string) {
     console.error("Failed to copy automation continue prompt:", error);
     return false;
   }
+}
+
+type LiveRunOutputBuffer = {
+  final: string;
+};
+
+function appendMissingText(content: string, liveContent: string) {
+  if (!liveContent) {
+    return content;
+  }
+  if (!content) {
+    return liveContent;
+  }
+  if (content.endsWith(liveContent)) {
+    return content;
+  }
+
+  const maxOverlap = Math.min(content.length, liveContent.length);
+  for (let length = maxOverlap; length > 0; length -= 1) {
+    if (content.endsWith(liveContent.slice(0, length))) {
+      return `${content}${liveContent.slice(length)}`;
+    }
+  }
+
+  return `${content}${liveContent}`;
+}
+
+function mergeLiveOutputIntoArtifact(
+  artifact: AutomationArtifactResponse,
+  liveOutput: LiveRunOutputBuffer | undefined,
+) {
+  if (!liveOutput) {
+    return artifact;
+  }
+
+  if (artifact.artifact === "final") {
+    const content = appendMissingText(artifact.content, liveOutput.final);
+    return content === artifact.content ? artifact : { ...artifact, content };
+  }
+
+  return artifact;
 }
 
 export function useAutomationPageState() {
@@ -62,7 +103,6 @@ export function useAutomationPageState() {
     schedulePreview,
   } = useAutomations();
   const router = useAppRouter();
-  const queueAgentRun = useWorkspaceCreationStore((state) => state.queueAgentRun);
   const showOpening = useWorkspaceCreationStore((state) => state.showOpening);
   const githubPrereqs = useGithubRelayPrerequisites();
   const projects = useProjectStore((state) => state.projects);
@@ -90,6 +130,7 @@ export function useAutomationPageState() {
   const [busyAction, setBusyAction] = React.useState<string | null>(null);
   const [standaloneChatRunGuid, setStandaloneChatRunGuid] = React.useState<string | null>(null);
   const selectedAutomationGuidRef = React.useRef<string | null>(null);
+  const liveRunOutputRef = React.useRef<Map<string, LiveRunOutputBuffer>>(new Map());
   const runsRequestSeqRef = React.useRef(0);
 
   const selectedAutomation = React.useMemo(
@@ -99,6 +140,7 @@ export function useAutomationPageState() {
 
   React.useEffect(() => {
     selectedAutomationGuidRef.current = selectedAutomationGuid;
+    liveRunOutputRef.current.clear();
   }, [selectedAutomationGuid]);
 
   React.useEffect(() => {
@@ -292,9 +334,36 @@ export function useAutomationPageState() {
       void loadRuns(payload.automation_guid);
     });
 
+    const offRunOutput = store.onEvent("automation_run_output", (event) => {
+      const payload = event as AutomationRunOutputEvent;
+      if (payload.automation_guid !== selectedAutomationGuid) {
+        return;
+      }
+
+      const finalChunk = payload.final_chunk ? payload.chunk : "";
+      const buffer = liveRunOutputRef.current.get(payload.run_guid) ?? {
+        final: "",
+      };
+      if (finalChunk) {
+        buffer.final = `${buffer.final}${finalChunk}`;
+      }
+      liveRunOutputRef.current.set(payload.run_guid, buffer);
+
+      setArtifact((current) => {
+        if (!current || current.run_guid !== payload.run_guid) {
+          return current;
+        }
+        if (current.artifact === "final") {
+          return finalChunk ? { ...current, content: `${current.content}${finalChunk}` } : current;
+        }
+        return current;
+      });
+    });
+
     return () => {
       offDefinition();
       offRun();
+      offRunOutput();
     };
   }, [
     loadRuns,
@@ -523,7 +592,9 @@ export function useAutomationPageState() {
       setArtifactLoading(true);
       try {
         const response = await getArtifact(run.guid, kind);
-        setArtifact(response);
+        setArtifact(
+          mergeLiveOutputIntoArtifact(response, liveRunOutputRef.current.get(run.guid)),
+        );
       } catch (err) {
         toastManager.add({
           title: "Failed to fetch artifact",
@@ -556,8 +627,6 @@ export function useAutomationPageState() {
           return;
         }
 
-        const isBuiltIn = TERMINAL_AGENT_DEFINITIONS.some((agent) => agent.id === response.agent_id);
-        const agentLabel = response.agent_label ?? response.agent_id;
         if (response.workspace_guid) {
           showOpening(response.workspace_guid);
           const workspaceReady = await ensureWorkspaceVisible(response.workspace_guid);
@@ -567,27 +636,15 @@ export function useAutomationPageState() {
             );
           }
         }
-        queueAgentRun({
-          workspaceId: response.workspace_guid,
-          projectId: response.workspace_guid ? null : response.project_guid,
-          prompt: "",
-          command: response.command,
-          agent: {
-            id: response.agent_id,
-            label: agentLabel,
-            command: response.command,
-            iconType: isBuiltIn ? "built-in" : "custom",
-          },
-        });
 
         const route = response.workspace_guid
           ? `/workspace?id=${response.workspace_guid}&tab=terminal`
           : `/project?id=${contextId}&tab=terminal`;
         router.push(route);
         toastManager.add({
-          title: "Opening terminal agent",
+          title: "Opening terminal",
           description: copied
-            ? "Continuation prompt copied to clipboard. Paste it into the terminal when ready."
+            ? "Continuation prompt copied to clipboard."
             : `Clipboard unavailable. Prompt saved at ${response.prompt_path}`,
           type: copied ? "success" : "warning",
         });
@@ -604,7 +661,6 @@ export function useAutomationPageState() {
     [
       continueInTerminal,
       ensureWorkspaceVisible,
-      queueAgentRun,
       router,
       showOpening,
     ],

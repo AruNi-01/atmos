@@ -51,7 +51,7 @@ flowchart LR
 - As an Atmos user, I want to define an automation with a name, instructions, agent, trigger, and run environment, so that recurring agent work can happen without retyping the same prompt.
 - As a project owner, I want scheduled automations to run inside my chosen Project or Workspace, so that the agent has the right files and git context.
 - As a user running code-changing tasks, I want the option to create a new Workspace for every run, so that automated changes are isolated and easy to review.
-- As a user, I want each run's prompt, output log, final result, and run metadata saved locally, so that I can audit what happened later.
+- As a user, I want each run's prompt, final result, event stream, and run metadata saved locally, so that I can audit what happened later.
 - As a user, I want unsupported agents to be unavailable for automations with a clear reason, so that scheduled tasks only use agents that can run non-interactively.
 - As a remote Computer user, I want automations to be created on the connected Computer, so that remote VPS automations do not require a separate product flow.
 - As a user, I want Desktop/Web and optional push notifications for run outcomes, so that I know when unattended work finishes or fails.
@@ -69,7 +69,7 @@ flowchart LR
 - **M5 · Trigger configuration**: Users can configure a manual run and one scheduled trigger. Scheduled presets include hourly, daily, weekly, and monthly, with preset-specific time inputs. Users can also enter a custom cron expression.
 - **M6 · Local-per-Computer ownership**: Automation definitions, run state, and artifacts belong to the currently connected Atmos Computer. No hosted scheduler or cross-Computer automation sync is required for v1.
 - **M7 · Metadata persistence**: Automation metadata and run status are persisted in that Computer's local SQLite database.
-- **M8 · Artifact persistence**: Prompt, combined terminal output log, final/model output, and run metadata are stored as local files under `~/.atmos/`. Runs without a Project/Workspace use `~/.atmos/automations/runs/{date-time}/{automation-id}/` as their working artifact directory.
+- **M8 · Artifact persistence**: Prompt, final/model output, structured event stream, and run metadata are stored as local files under `~/.atmos/`. Runs without a Project/Workspace use `~/.atmos/automations/runs/{date-time}/{automation-id}/` as their working artifact directory.
 - **M9 · Terminal execution**: Each run creates a terminal tab named **Automations** and launches the selected terminal agent in non-interactive mode. Project/Workspace runs use that context; no-target runs use the standalone run directory.
 - **M10 · File-based result**: Each run writes the agent's final/model output to a file that users can open from the run detail view.
 - **M11 · Run environments**: Users can choose one of four environments: Project, existing Workspace, new Workspace per run, or no Project/Workspace.
