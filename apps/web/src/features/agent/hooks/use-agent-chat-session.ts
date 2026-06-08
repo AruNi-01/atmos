@@ -166,6 +166,7 @@ export function useAgentChatSession({
   const { handleMessage, pendingPermissionMarkdown } = useAgentChatMessageHandler({
     entries,
     pendingPermission,
+    sessionTitle,
     setCurrentPlan,
     setEntries,
     setHistorySessions,

@@ -134,6 +134,11 @@ export function AgentChatHeader({
     ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name)
     : panelTitle;
   const canLogout = Boolean(capabilities?.logout.supported);
+  const shouldAnimateSessionTitle =
+    shouldScrambleAutoTitle &&
+    Boolean(displaySessionTitle) &&
+    (sessionTitleSource === "auto" || sessionTitleSource === "agent");
+  const animatedSessionTitle = shouldAnimateSessionTitle ? displaySessionTitle : null;
 
   return (
     <div
@@ -377,16 +382,18 @@ export function AgentChatHeader({
                       Generating title...
                     </TextShimmer>
                   </span>
-                ) : shouldScrambleAutoTitle && displaySessionTitle && sessionTitleSource === "auto" ? (
+                ) : animatedSessionTitle ? (
                   <TextScramble
-                    key={`auto-title-${sessionId ?? "session"}-${displaySessionTitle}`}
+                    key={`session-title-${sessionTitleSource ?? "unknown"}-${sessionId ?? "session"}-${
+                      animatedSessionTitle
+                    }`}
                     as="span"
                     className="truncate text-xs text-muted-foreground"
                     duration={0.6}
                     speed={0.025}
                     onScrambleComplete={() => setShouldScrambleAutoTitle(false)}
                   >
-                    {displaySessionTitle}
+                    {animatedSessionTitle}
                   </TextScramble>
                 ) : (
                   <span className="truncate text-xs text-muted-foreground">{displaySessionTitle}</span>

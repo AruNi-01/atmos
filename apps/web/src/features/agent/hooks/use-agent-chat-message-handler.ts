@@ -10,10 +10,12 @@ import {
   type ThreadEntry,
 } from "@/features/agent/lib/agent/thread";
 import type { PendingPermission } from "../lib/chat-helpers";
+import { DEFAULT_SESSION_TITLE } from "./use-agent-chat-session-types";
 
 interface UseAgentChatMessageHandlerParams {
   entries: ThreadEntry[];
   pendingPermission: PendingPermission | null;
+  sessionTitle: string | null;
   setCurrentPlan: Dispatch<SetStateAction<AgentPlan | null>>;
   setEntries: Dispatch<SetStateAction<ThreadEntry[]>>;
   setHistorySessions: Dispatch<SetStateAction<AgentChatSessionItem[]>>;
@@ -30,6 +32,7 @@ interface UseAgentChatMessageHandlerParams {
 export function useAgentChatMessageHandler({
   entries,
   pendingPermission,
+  sessionTitle,
   setCurrentPlan,
   setEntries,
   setHistorySessions,
@@ -142,8 +145,14 @@ export function useAgentChatMessageHandler({
         break;
       case "session_info_update":
         if ("title" in msg) {
-          setSessionTitle(msg.title ?? null);
+          const nextTitle = msg.title ?? null;
+          setSessionTitle(nextTitle);
           setSessionTitleSource("agent");
+          if (!nextTitle || nextTitle === DEFAULT_SESSION_TITLE) {
+            setShouldScrambleAutoTitle(false);
+          } else if (nextTitle !== sessionTitle) {
+            setShouldScrambleAutoTitle(true);
+          }
         }
         setHistorySessions((prev) =>
           prev.map((session) => {
@@ -156,7 +165,6 @@ export function useAgentChatMessageHandler({
           }),
         );
         setIsAutoGeneratingTitle(false);
-        setShouldScrambleAutoTitle(false);
         break;
       case "session_ready":
         setIsResumingHistory(false);
@@ -204,6 +212,7 @@ export function useAgentChatMessageHandler({
   }, [
     flushPendingStreamMessages,
     scheduleStreamFlush,
+    sessionTitle,
     setCurrentPlan,
     setEntries,
     setHistorySessions,
