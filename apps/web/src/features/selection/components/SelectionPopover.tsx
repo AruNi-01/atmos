@@ -6,6 +6,7 @@ import {
   Popover,
   PopoverContent,
   PopoverAnchor,
+  PopoverTrigger,
   Button,
   Textarea,
   cn,
@@ -225,10 +226,21 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         pointerEvents: isAnimatingIn ? 'auto' : 'none',
       }}
       onTransitionEnd={handleTransitionEnd}
+      onPointerDown={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onMouseUp={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
-      <Popover open={isExpanded} onOpenChange={(open) => !open && onDismiss()}>
+      <Popover
+        open={isExpanded}
+        onOpenChange={(open) => {
+          if (open) {
+            onExpand();
+          } else {
+            onDismiss();
+          }
+        }}
+      >
         <PopoverAnchor asChild>
           <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
             {type === 'preview' ? (
@@ -268,22 +280,28 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
                 <Paperclip className="h-3.5 w-3.5" />
               </Button>
             ) : null}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={onExpand}
-              title="Add note"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title="Add note"
+              >
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")} />
+              </Button>
+            </PopoverTrigger>
           </div>
         </PopoverAnchor>
 
         <PopoverContent
           align="start"
           sideOffset={4}
-          className="w-80 p-3"
+          data-selection-popover
+          className="z-[10000] w-80 p-3"
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           onInteractOutside={(e) => {
             e.preventDefault();
           }}

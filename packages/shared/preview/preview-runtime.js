@@ -556,33 +556,103 @@
       detailsCard.style.display = expanded ? 'block' : 'none';
     }
 
-    topCancelButton.addEventListener('click', function (event) {
+    function eventTargetInside(event, node) {
+      var target = event && event.target;
+      return !!target && (target === node || (typeof node.contains === 'function' && node.contains(target)));
+    }
+
+    function cancelFromEvent(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       if (cancelHandler) {
         cancelHandler(event);
       }
-    });
-    footerCancelButton.addEventListener('click', function (event) {
-      if (cancelHandler) {
-        cancelHandler(event);
+    }
+
+    function quickCopyFromEvent(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
       }
-    });
-    quickCopyButton.addEventListener('click', function (event) {
       if (copyHandler) {
         copyHandler('', event);
       }
-    });
-    footerCopyButton.addEventListener('click', function (event) {
+    }
+
+    function copyWithNoteFromEvent(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       if (copyHandler) {
         copyHandler((noteInput.value || '').trim(), event);
       }
-    });
-    expandButton.addEventListener('click', function () {
+    }
+
+    let lastExpandPointerAt = 0;
+    function toggleExpandedFromEvent(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       setExpanded(!expanded);
       if (expanded) {
         win.setTimeout(function () {
           noteInput.focus();
         }, 0);
       }
+    }
+
+    function handleOverlayButtonPointerDown(event) {
+      if (eventTargetInside(event, expandButton)) {
+        lastExpandPointerAt = Date.now();
+        toggleExpandedFromEvent(event);
+      } else if (eventTargetInside(event, topCancelButton) || eventTargetInside(event, footerCancelButton)) {
+        cancelFromEvent(event);
+      } else if (eventTargetInside(event, quickCopyButton)) {
+        quickCopyFromEvent(event);
+      } else if (eventTargetInside(event, footerCopyButton)) {
+        copyWithNoteFromEvent(event);
+      }
+    }
+
+    function handleOverlayButtonClick(event) {
+      if (eventTargetInside(event, expandButton)) {
+        if (Date.now() - lastExpandPointerAt < 350) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        toggleExpandedFromEvent(event);
+      } else if (eventTargetInside(event, topCancelButton) || eventTargetInside(event, footerCancelButton)) {
+        cancelFromEvent(event);
+      } else if (eventTargetInside(event, quickCopyButton)) {
+        quickCopyFromEvent(event);
+      } else if (eventTargetInside(event, footerCopyButton)) {
+        copyWithNoteFromEvent(event);
+      }
+    }
+
+    win.addEventListener('pointerdown', handleOverlayButtonPointerDown, true);
+    win.addEventListener('click', handleOverlayButtonClick, true);
+
+    topCancelButton.addEventListener('click', cancelFromEvent);
+    footerCancelButton.addEventListener('click', cancelFromEvent);
+    quickCopyButton.addEventListener('click', quickCopyFromEvent);
+    footerCopyButton.addEventListener('click', copyWithNoteFromEvent);
+    expandButton.addEventListener('pointerdown', function (event) {
+      lastExpandPointerAt = Date.now();
+      toggleExpandedFromEvent(event);
+    });
+    expandButton.addEventListener('click', function (event) {
+      if (Date.now() - lastExpandPointerAt < 350) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      toggleExpandedFromEvent(event);
     });
 
     function place(box, label, rect, text) {
@@ -663,6 +733,8 @@
         copyHandler = handler;
       },
       destroy() {
+        win.removeEventListener('pointerdown', handleOverlayButtonPointerDown, true);
+        win.removeEventListener('click', handleOverlayButtonClick, true);
         toolbar.remove();
         detailsCard.remove();
         hoverBox.segments.forEach(function (segment) { segment.remove(); });
