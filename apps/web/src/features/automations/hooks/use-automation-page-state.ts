@@ -6,26 +6,26 @@ import { useQueryState } from "nuqs";
 
 import { useAutomations } from "@/features/automations/hooks/use-automations";
 import { useGithubRelayPrerequisites } from "@/features/automations/hooks/use-github-relay-prerequisites";
+import { useAutomationRunHistoryState } from "@/features/automations/hooks/use-automation-run-history-state";
+import { useAutomationWebsocketSync } from "@/features/automations/hooks/use-automation-websocket-sync";
 import { formatShortId } from "@/features/automations/lib/automation-format";
 import { deleteAutomationWithGithubRoute } from "@/features/automations/lib/github-route-lifecycle";
 import type { SetupMode } from "@/features/automations/components/AutomationSetup";
 import type {
   AutomationArtifactKind,
-  AutomationArtifactResponse,
   AutomationCreateRequest,
-  AutomationDefinitionUpdatedEvent,
   AutomationDetail,
-  AutomationRunOutputEvent,
   AutomationRunSummary,
-  AutomationRunUpdatedEvent,
   AutomationSummary,
   AutomationUpdateRequest,
 } from "@/features/automations/types";
-import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
-import { automationsParams, type AutomationsView } from "@/shared/lib/nuqs/searchParams";
+import {
+  automationsParams,
+  type AutomationsView,
+} from "@/shared/lib/nuqs/searchParams";
 
 async function copyTextToClipboard(text: string) {
   try {
@@ -35,47 +35,6 @@ async function copyTextToClipboard(text: string) {
     console.error("Failed to copy automation continue prompt:", error);
     return false;
   }
-}
-
-type LiveRunOutputBuffer = {
-  final: string;
-};
-
-function appendMissingText(content: string, liveContent: string) {
-  if (!liveContent) {
-    return content;
-  }
-  if (!content) {
-    return liveContent;
-  }
-  if (content.endsWith(liveContent)) {
-    return content;
-  }
-
-  const maxOverlap = Math.min(content.length, liveContent.length);
-  for (let length = maxOverlap; length > 0; length -= 1) {
-    if (content.endsWith(liveContent.slice(0, length))) {
-      return `${content}${liveContent.slice(length)}`;
-    }
-  }
-
-  return `${content}${liveContent}`;
-}
-
-function mergeLiveOutputIntoArtifact(
-  artifact: AutomationArtifactResponse,
-  liveOutput: LiveRunOutputBuffer | undefined,
-) {
-  if (!liveOutput) {
-    return artifact;
-  }
-
-  if (artifact.artifact === "final") {
-    const content = appendMissingText(artifact.content, liveOutput.final);
-    return content === artifact.content ? artifact : { ...artifact, content };
-  }
-
-  return artifact;
 }
 
 export function useAutomationPageState() {
@@ -108,40 +67,79 @@ export function useAutomationPageState() {
   const projects = useProjectStore((state) => state.projects);
   const isProjectsLoading = useProjectStore((state) => state.isLoading);
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
-  const ensureWorkspaceVisible = useProjectStore((state) => state.ensureWorkspaceVisible);
+  const ensureWorkspaceVisible = useProjectStore(
+    (state) => state.ensureWorkspaceVisible,
+  );
 
-  const [pageView, setPageView] = useQueryState("automationView", automationsParams.view);
-  const [automationParam, setAutomationParam] = useQueryState("automationId", automationsParams.automation);
-  const [runParam, setRunParam] = useQueryState("automationRun", automationsParams.run);
-  const [targetFilter, setTargetFilter] = useQueryState("automationTarget", automationsParams.target);
-  const [searchQuery, setSearchQuery] = useQueryState("automationQ", automationsParams.q);
+  const [pageView, setPageView] = useQueryState(
+    "automationView",
+    automationsParams.view,
+  );
+  const [automationParam, setAutomationParam] = useQueryState(
+    "automationId",
+    automationsParams.automation,
+  );
+  const [runParam, setRunParam] = useQueryState(
+    "automationRun",
+    automationsParams.run,
+  );
+  const [targetFilter, setTargetFilter] = useQueryState(
+    "automationTarget",
+    automationsParams.target,
+  );
+  const [searchQuery, setSearchQuery] = useQueryState(
+    "automationQ",
+    automationsParams.q,
+  );
 
-  const setupMode: SetupMode | null = pageView === "create" || pageView === "edit" ? pageView : null;
+  const setupMode: SetupMode | null =
+    pageView === "create" || pageView === "edit" ? pageView : null;
   const selectedAutomationGuid = automationParam || null;
   const selectedRunGuid = runParam || null;
 
-  const [selectedDetail, setSelectedDetail] = React.useState<AutomationDetail | null>(null);
+  const [selectedDetail, setSelectedDetail] =
+    React.useState<AutomationDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
-  const [runs, setRuns] = React.useState<AutomationRunSummary[]>([]);
-  const [runsLoading, setRunsLoading] = React.useState(false);
-  const [selectedRun, setSelectedRun] = React.useState<AutomationRunSummary | null>(null);
-  const [artifact, setArtifact] = React.useState<AutomationArtifactResponse | null>(null);
-  const [artifactLoading, setArtifactLoading] = React.useState(false);
   const [busyAction, setBusyAction] = React.useState<string | null>(null);
-  const [standaloneChatRunGuid, setStandaloneChatRunGuid] = React.useState<string | null>(null);
+  const [standaloneChatRunGuid, setStandaloneChatRunGuid] = React.useState<
+    string | null
+  >(null);
   const selectedAutomationGuidRef = React.useRef<string | null>(null);
-  const liveRunOutputRef = React.useRef<Map<string, LiveRunOutputBuffer>>(new Map());
-  const runsRequestSeqRef = React.useRef(0);
 
   const selectedAutomation = React.useMemo(
-    () => automations.find((automation) => automation.guid === selectedAutomationGuid) ?? null,
+    () =>
+      automations.find(
+        (automation) => automation.guid === selectedAutomationGuid,
+      ) ?? null,
     [automations, selectedAutomationGuid],
   );
 
   React.useEffect(() => {
     selectedAutomationGuidRef.current = selectedAutomationGuid;
-    liveRunOutputRef.current.clear();
   }, [selectedAutomationGuid]);
+
+  const {
+    artifact,
+    artifactLoading,
+    applyRunOutput,
+    applyRunUpdate,
+    clearRunSelection,
+    handleArtifactFetch,
+    loadRuns,
+    runs,
+    runsLoading,
+    selectedRun,
+    setRuns,
+    setSelectedRun,
+  } = useAutomationRunHistoryState({
+    pageView: pageView as AutomationsView | null,
+    selectedAutomationGuid,
+    selectedRunGuid,
+    setRunParam,
+    listRuns,
+    getRun,
+    getArtifact,
+  });
 
   React.useEffect(() => {
     if (projects.length === 0 && !isProjectsLoading) {
@@ -150,20 +148,32 @@ export function useAutomationPageState() {
   }, [fetchProjects, isProjectsLoading, projects.length]);
 
   React.useEffect(() => {
-    if ((pageView === "edit" || pageView === "history") && !selectedAutomationGuid) {
+    if (
+      (pageView === "edit" || pageView === "history") &&
+      !selectedAutomationGuid
+    ) {
       void setPageView("list");
       return;
     }
     if (
       automations.length > 0 &&
       selectedAutomationGuid &&
-      !automations.some((automation) => automation.guid === selectedAutomationGuid)
+      !automations.some(
+        (automation) => automation.guid === selectedAutomationGuid,
+      )
     ) {
       void setPageView("list");
       void setAutomationParam(null);
       void setRunParam(null);
     }
-  }, [automations, pageView, selectedAutomationGuid, setAutomationParam, setPageView, setRunParam]);
+  }, [
+    automations,
+    pageView,
+    selectedAutomationGuid,
+    setAutomationParam,
+    setPageView,
+    setRunParam,
+  ]);
 
   const loadAutomationDetail = React.useCallback(
     async (automationGuid: string, showToast = true) => {
@@ -226,199 +236,19 @@ export function useAutomationPageState() {
     };
   }, [getAutomation, selectedAutomationGuid, upsertAutomation]);
 
-  const loadRuns = React.useCallback(
-    async (automationGuid: string) => {
-      const shouldUpdateSelection = selectedAutomationGuidRef.current === automationGuid;
-      const requestId = shouldUpdateSelection
-        ? runsRequestSeqRef.current + 1
-        : runsRequestSeqRef.current;
-      if (shouldUpdateSelection) {
-        runsRequestSeqRef.current = requestId;
-        setRunsLoading(true);
-      }
-      const isCurrentRequest = () =>
-        shouldUpdateSelection &&
-        selectedAutomationGuidRef.current === automationGuid &&
-        runsRequestSeqRef.current === requestId;
-      try {
-        const response = await listRuns(automationGuid);
-        if (isCurrentRequest()) {
-          setRuns(response.runs);
-        }
-        return response.runs;
-      } catch (err) {
-        if (isCurrentRequest()) {
-          setRuns([]);
-          toastManager.add({
-            title: "Failed to load run history",
-            description: err instanceof Error ? err.message : "Unknown error",
-            type: "error",
-          });
-        }
-        return [];
-      } finally {
-        if (isCurrentRequest()) {
-          setRunsLoading(false);
-        }
-      }
-    },
-    [listRuns],
-  );
-
-  React.useEffect(() => {
-    if (!selectedAutomationGuid) {
-      runsRequestSeqRef.current += 1;
-      setRuns([]);
-      void setRunParam(null);
-      setRunsLoading(false);
-      return;
-    }
-    void loadRuns(selectedAutomationGuid);
-  }, [loadRuns, selectedAutomationGuid, setRunParam]);
-
-  React.useEffect(() => {
-    const store = useWebSocketStore.getState();
-
-    const refreshAffectedDefinition = (automationGuid: string) => {
-      void refreshAutomation(automationGuid)
-        .then((detail) => {
-          if (automationGuid === selectedAutomationGuid) {
-            setSelectedDetail(detail);
-          }
-        })
-        .catch(() => undefined);
-    };
-
-    const offDefinition = store.onEvent("automation_definition_updated", (event) => {
-      const payload = event as AutomationDefinitionUpdatedEvent;
-      if (payload.change === "deleted") {
-        removeAutomation(payload.automation_guid);
-        if (payload.automation_guid === selectedAutomationGuid) {
-          setSelectedDetail(null);
-          setRuns([]);
-          void setRunParam(null);
-          void setAutomationParam(null);
-          void setPageView("list");
-        }
-        return;
-      }
-
-      if (payload.automation) {
-        upsertAutomation(payload.automation);
-      }
-      if (payload.automation_guid === selectedAutomationGuid) {
-        refreshAffectedDefinition(payload.automation_guid);
-      }
-    });
-
-    const offRun = store.onEvent("automation_run_updated", (event) => {
-      const payload = event as AutomationRunUpdatedEvent;
-      refreshAffectedDefinition(payload.automation_guid);
-
-      if (payload.automation_guid !== selectedAutomationGuid) {
-        return;
-      }
-
-      setRuns((current) => {
-        const index = current.findIndex((run) => run.guid === payload.run_guid);
-        if (index === -1) {
-          return [payload.run, ...current];
-        }
-        const next = current.slice();
-        next[index] = payload.run;
-        return next;
-      });
-      if (selectedRunGuid === payload.run_guid) {
-        setSelectedRun(payload.run);
-      }
-      void loadRuns(payload.automation_guid);
-    });
-
-    const offRunOutput = store.onEvent("automation_run_output", (event) => {
-      const payload = event as AutomationRunOutputEvent;
-      if (payload.automation_guid !== selectedAutomationGuid) {
-        return;
-      }
-
-      const finalChunk = payload.final_chunk ? payload.chunk : "";
-      const buffer = liveRunOutputRef.current.get(payload.run_guid) ?? {
-        final: "",
-      };
-      if (finalChunk) {
-        buffer.final = `${buffer.final}${finalChunk}`;
-      }
-      liveRunOutputRef.current.set(payload.run_guid, buffer);
-
-      setArtifact((current) => {
-        if (!current || current.run_guid !== payload.run_guid) {
-          return current;
-        }
-        if (current.artifact === "final") {
-          return finalChunk ? { ...current, content: `${current.content}${finalChunk}` } : current;
-        }
-        return current;
-      });
-    });
-
-    return () => {
-      offDefinition();
-      offRun();
-      offRunOutput();
-    };
-  }, [
-    loadRuns,
-    refreshAutomation,
-    removeAutomation,
+  useAutomationWebsocketSync({
     selectedAutomationGuid,
-    selectedRunGuid,
+    setSelectedDetail,
     setAutomationParam,
     setPageView,
-    setRunParam,
+    refreshAutomation,
+    removeAutomation,
     upsertAutomation,
-  ]);
-
-  React.useEffect(() => {
-    if (pageView !== "history") {
-      return;
-    }
-    if (runs.length === 0) {
-      void setRunParam(null);
-      return;
-    }
-    if (!selectedRunGuid || !runs.some((run) => run.guid === selectedRunGuid)) {
-      void setRunParam(runs[0]?.guid ?? null);
-    }
-  }, [pageView, runs, selectedRunGuid, setRunParam]);
-
-  React.useEffect(() => {
-    setArtifact(null);
-    if (!selectedRunGuid) {
-      setSelectedRun(null);
-      return;
-    }
-
-    const knownRun = runs.find((run) => run.guid === selectedRunGuid);
-    if (knownRun) {
-      setSelectedRun(knownRun);
-    }
-
-    let cancelled = false;
-    getRun(selectedRunGuid)
-      .then((run) => {
-        if (!cancelled) {
-          setSelectedRun(run);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSelectedRun(knownRun ?? null);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [getRun, runs, selectedRunGuid]);
+    loadRuns,
+    applyRunUpdate,
+    applyRunOutput,
+    clearRunSelection,
+  });
 
   const handleCreate = React.useCallback(
     async (request: AutomationCreateRequest) => {
@@ -436,7 +266,13 @@ export function useAutomationPageState() {
       void setPageView("list");
       return detail;
     },
-    [createAutomation, setAutomationParam, setPageView, setRunParam, upsertAutomation],
+    [
+      createAutomation,
+      setAutomationParam,
+      setPageView,
+      setRunParam,
+      upsertAutomation,
+    ],
   );
 
   const handleUpdate = React.useCallback(
@@ -457,7 +293,10 @@ export function useAutomationPageState() {
   );
 
   const handleDefinitionAction = React.useCallback(
-    async (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => {
+    async (
+      action: "run" | "pause" | "resume" | "delete",
+      automation: AutomationSummary,
+    ) => {
       setBusyAction(`${action}:${automation.guid}`);
       try {
         if (action === "run") {
@@ -467,7 +306,9 @@ export function useAutomationPageState() {
           }
           setSelectedRun(run);
           await Promise.all([
-            refreshAutomation(automation.guid).then(setSelectedDetail).catch(() => undefined),
+            refreshAutomation(automation.guid)
+              .then(setSelectedDetail)
+              .catch(() => undefined),
             loadRuns(automation.guid),
           ]);
           if (run.status === "failed") {
@@ -560,14 +401,18 @@ export function useAutomationPageState() {
       try {
         const nextRun = await cancelRun(run.guid);
         setSelectedRun(nextRun);
-        setRuns((current) => current.map((item) => (item.guid === nextRun.guid ? nextRun : item)));
+        setRuns((current) =>
+          current.map((item) => (item.guid === nextRun.guid ? nextRun : item)),
+        );
         await Promise.all([
           loadRuns(run.automation_guid),
-          refreshAutomation(run.automation_guid).then((detail) => {
-            if (run.automation_guid === selectedAutomationGuid) {
-              setSelectedDetail(detail);
-            }
-          }).catch(() => undefined),
+          refreshAutomation(run.automation_guid)
+            .then((detail) => {
+              if (run.automation_guid === selectedAutomationGuid) {
+                setSelectedDetail(detail);
+              }
+            })
+            .catch(() => undefined),
         ]);
         toastManager.add({
           title: "Run cancelled",
@@ -585,27 +430,6 @@ export function useAutomationPageState() {
       }
     },
     [cancelRun, loadRuns, refreshAutomation, selectedAutomationGuid],
-  );
-
-  const handleArtifactFetch = React.useCallback(
-    async (run: AutomationRunSummary, kind: AutomationArtifactKind) => {
-      setArtifactLoading(true);
-      try {
-        const response = await getArtifact(run.guid, kind);
-        setArtifact(
-          mergeLiveOutputIntoArtifact(response, liveRunOutputRef.current.get(run.guid)),
-        );
-      } catch (err) {
-        toastManager.add({
-          title: "Failed to fetch artifact",
-          description: err instanceof Error ? err.message : "Unknown error",
-          type: "error",
-        });
-      } finally {
-        setArtifactLoading(false);
-      }
-    },
-    [getArtifact],
   );
 
   const handleContinueInTerminal = React.useCallback(
@@ -629,7 +453,9 @@ export function useAutomationPageState() {
 
         if (response.workspace_guid) {
           showOpening(response.workspace_guid);
-          const workspaceReady = await ensureWorkspaceVisible(response.workspace_guid);
+          const workspaceReady = await ensureWorkspaceVisible(
+            response.workspace_guid,
+          );
           if (!workspaceReady) {
             console.warn(
               `Automation continue target workspace ${response.workspace_guid} is not in the project store yet.`,
@@ -655,15 +481,12 @@ export function useAutomationPageState() {
           type: "error",
         });
       } finally {
-        setBusyAction((current) => (current === `continue:${run.guid}` ? null : current));
+        setBusyAction((current) =>
+          current === `continue:${run.guid}` ? null : current,
+        );
       }
     },
-    [
-      continueInTerminal,
-      ensureWorkspaceVisible,
-      router,
-      showOpening,
-    ],
+    [continueInTerminal, ensureWorkspaceVisible, router, showOpening],
   );
 
   const handleReload = React.useCallback(() => {

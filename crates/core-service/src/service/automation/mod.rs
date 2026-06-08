@@ -7,6 +7,7 @@ mod events;
 mod external_trigger;
 mod github_trigger;
 mod lifecycle;
+mod output_rendering;
 mod process_runner;
 mod run_watcher;
 mod runner;
