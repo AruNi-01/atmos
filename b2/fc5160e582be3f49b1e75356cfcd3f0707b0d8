@@ -1,0 +1,28 @@
+apps/web/src/app-shell/PanelLayout.tsx
+  s_59e41c01a9be52::t_03e83ac2a0ee16 406
+  s_59e41c01a9be52::t_b53e368ebcc280 559,562,579,589-591,598
+  s_59e41c01a9be52::t_f22900bd36d221 377-379,397
+  s_59e41c01a9be52::t_d525a71f2cc301 566
+  s_59e41c01a9be52::t_1be743448b52c7 436
+  s_59e41c01a9be52::t_b5027eaa53d3e9 574
+  s_59e41c01a9be52::t_6bd87bff6376e5 435,608-609,618-619
+  s_59e41c01a9be52::t_56bf0cfdc25f39 575
+  s_59e41c01a9be52::t_7f1d2f4334be3b 26-27,29,43,62-66,79-92,252-254,277-283,293-301,333-339,362,410,419-425,464-484,554-558,560-561,563,565,567,570-571,573,580-582,588,595-597
+  s_59e41c01a9be52::t_9a6fd40a0923e0 28,485-553,564,568-569,572,576-578,583-587,592-594,600-607,610-617,620-630
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b2fc5160e582be3f49b1e75356cfcd3f0707b0d8",
+  "prompts": {},
+  "sessions": {
+    "s_59e41c01a9be52": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea655-d76d-7d12-aefa-ac871ba72094",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
