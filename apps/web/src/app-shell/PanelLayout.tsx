@@ -23,6 +23,10 @@ import {
   ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID,
 } from "@/app-shell/sidebar-layout-constants";
 
+const DEFAULT_RIGHT_SIDEBAR_SIZE = 20;
+const SIDEBAR_PEEK_HIT_AREA_PX = 5;
+const SIDEBAR_PEEK_CLOSE_DELAY_MS = 160;
+
 interface PanelLayoutProps {
   leftSidebar: React.ReactNode;
   rightSidebar: React.ReactNode;
@@ -36,6 +40,7 @@ export function PanelLayout({
 }: PanelLayoutProps) {
   const storage = useAppStorage();
   const { currentView } = useContextParams();
+  const layoutRootRef = useRef<HTMLDivElement>(null);
   const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
   const leftPanelRef = useRef<ImperativePanelHandle>(null);
   const rightPanelRef = useRef<ImperativePanelHandle>(null);
@@ -54,6 +59,11 @@ export function PanelLayout({
     setToggleRightSidebar,
   } = useSidebarLayout();
   const [isDragging, setIsDragging] = useState(false);
+  const [layoutRootWidth, setLayoutRootWidth] = useState(0);
+  const [leftOverlaySize, setLeftOverlaySize] = useState(
+    leftSidebarSize > 0 ? leftSidebarSize : DEFAULT_LEFT_SIDEBAR_SIZE,
+  );
+  const [rightOverlaySize, setRightOverlaySize] = useState(DEFAULT_RIGHT_SIDEBAR_SIZE);
   const isDividerDraggingRef = useRef(false);
   const pendingLeftSidebarSizeRef = useRef<number | null>(null);
   const [liveLeftSidebarSize, setLiveLeftSidebarSize] = useState(leftSidebarSize);
@@ -65,6 +75,20 @@ export function PanelLayout({
   const setCreateProjectOpen = useDialogStore((s) => s.setCreateProjectOpen);
   const router = useAppRouter();
   const previousFocusRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    const node = layoutRootRef.current;
+    if (!node) return;
+
+    const updateWidth = () => {
+      setLayoutRootWidth(node.getBoundingClientRect().width);
+    };
+
+    updateWidth();
+    const resizeObserver = new ResizeObserver(updateWidth);
+    resizeObserver.observe(node);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   useEffect(() => {
     if (showOverlay && !isWelcomeClosing) {
@@ -225,6 +249,9 @@ export function PanelLayout({
         dragging: isDividerDraggingRef.current,
       });
       setLiveLeftSidebarSize(size);
+      if (size > 0.5) {
+        setLeftOverlaySize(size);
+      }
       if (isDividerDraggingRef.current) {
         pendingLeftSidebarSizeRef.current = size;
         return;
@@ -247,6 +274,13 @@ export function PanelLayout({
       }
 
       setLiveLeftSidebarSize(nextLeftSize);
+      if (nextLeftSize > 0.5) {
+        setLeftOverlaySize(nextLeftSize);
+      }
+      const nextRightSize = layout[2];
+      if (typeof nextRightSize === "number" && Number.isFinite(nextRightSize) && nextRightSize > 0.5) {
+        setRightOverlaySize(nextRightSize);
+      }
       if (isDividerDraggingRef.current) {
         pendingLeftSidebarSizeRef.current = nextLeftSize;
         return;
@@ -255,6 +289,15 @@ export function PanelLayout({
     },
     [setLeftSidebarSize],
   );
+
+  const handleRightPanelResize = useCallback((size: number) => {
+    if (size > 0.5) {
+      setRightOverlaySize(size);
+    }
+  }, []);
+
+  const leftOverlayWidthPx = getOverlayWidthPx(layoutRootWidth, leftOverlaySize);
+  const rightOverlayWidthPx = getOverlayWidthPx(layoutRootWidth, rightOverlaySize);
 
   const leftPanelNode = (
     <Panel
@@ -287,7 +330,13 @@ export function PanelLayout({
         isLeftCollapsed && "min-w-0!"
       )}
     >
-      {leftSidebar}
+      <SidebarPeekShell
+        side="left"
+        collapsed={isLeftCollapsed}
+        widthPx={leftOverlayWidthPx}
+      >
+        {leftSidebar}
+      </SidebarPeekShell>
     </Panel>
   );
 
@@ -310,7 +359,7 @@ export function PanelLayout({
   const shouldHideLeftDivider = showOverlay && welcomeAnimState === "visible" && !isWelcomeClosing;
 
   return (
-    <div className="relative flex-1 flex min-h-0 overflow-hidden">
+    <div ref={layoutRootRef} className="relative flex-1 flex min-h-0 overflow-hidden">
       <PanelGroup
         ref={panelGroupRef}
         autoSaveId={ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID}
@@ -325,7 +374,9 @@ export function PanelLayout({
         <ResizeHandle
           onDragging={handleDividerDragging}
           hitAreaMargins={{ fine: 2, coarse: 4 }}
-          className={shouldHideLeftDivider ? "bg-transparent hover:bg-transparent" : undefined}
+          className={cn(
+            (shouldHideLeftDivider || isLeftCollapsed) && "bg-transparent hover:bg-transparent",
+          )}
         />
 
         {/* Center Stage */}
@@ -343,6 +394,7 @@ export function PanelLayout({
           <>
             <ResizeHandle
               onDragging={handleDividerDragging}
+              className={cn(isRightCollapsed && "bg-transparent hover:bg-transparent")}
             />
 
             {/* Right Sidebar */}
@@ -351,10 +403,11 @@ export function PanelLayout({
               order={3}
               ref={rightPanelRef}
               collapsible
-              defaultSize={20}
+              defaultSize={DEFAULT_RIGHT_SIDEBAR_SIZE}
               minSize={10}
               maxSize={75}
               collapsedSize={0}
+              onResize={handleRightPanelResize}
               onCollapse={() => setIsRightCollapsed(true)}
               onExpand={() => setIsRightCollapsed(false)}
               className={cn(
@@ -363,7 +416,13 @@ export function PanelLayout({
                 isRightCollapsed && "min-w-0!"
               )}
             >
-              {rightSidebar}
+              <SidebarPeekShell
+                side="right"
+                collapsed={isRightCollapsed}
+                widthPx={rightOverlayWidthPx}
+              >
+                {rightSidebar}
+              </SidebarPeekShell>
             </Panel>
           </>
         ) : null}
@@ -373,7 +432,8 @@ export function PanelLayout({
       {showOverlay && (
         <div
           className={cn(
-            "absolute inset-y-0 right-0 z-50 border-l border-border",
+            "absolute inset-y-0 right-0 z-40",
+            !isLeftCollapsed && liveLeftSidebarSize > 0.5 && "border-l border-border",
             welcomeAnimState === "visible" || isWelcomeClosing
               ? "transition-transform duration-350 ease-in-out"
               : "",
@@ -399,6 +459,175 @@ export function PanelLayout({
       )}
     </div>
   );
+}
+
+function getOverlayWidthPx(rootWidth: number, size: number) {
+  if (!Number.isFinite(rootWidth) || rootWidth <= 0) {
+    return null;
+  }
+
+  return Math.max(SIDEBAR_PEEK_HIT_AREA_PX, Math.round((rootWidth * size) / 100));
+}
+
+interface SidebarPeekShellProps {
+  side: "left" | "right";
+  collapsed: boolean;
+  widthPx: number | null;
+  children: React.ReactNode;
+}
+
+function SidebarPeekShell({
+  side,
+  collapsed,
+  widthPx,
+  children,
+}: SidebarPeekShellProps) {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const showPeek = useCallback(() => {
+    clearCloseTimer();
+    setIsVisible(true);
+  }, [clearCloseTimer]);
+
+  const scheduleHide = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      if (
+        triggerRef.current?.matches(":hover") ||
+        panelRef.current?.matches(":hover") ||
+        document.querySelector(SIDEBAR_PEEK_KEEP_OPEN_SELECTOR)
+      ) {
+        closeTimerRef.current = null;
+        return;
+      }
+
+      setIsVisible(false);
+      closeTimerRef.current = null;
+    }, SIDEBAR_PEEK_CLOSE_DELAY_MS);
+  }, [clearCloseTimer]);
+
+  const handlePointerLeave = useCallback(
+    (relatedTarget: EventTarget | null) => {
+      if (isSidebarPeekKeepOpenTarget(relatedTarget)) {
+        clearCloseTimer();
+        return;
+      }
+      scheduleHide();
+    },
+    [clearCloseTimer, scheduleHide],
+  );
+
+  useEffect(() => {
+    if (!isVisible) {
+      return;
+    }
+
+    const handlePointerOver = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        isNodeInsideRef(target, triggerRef) ||
+        isNodeInsideRef(target, panelRef) ||
+        isSidebarPeekKeepOpenTarget(target)
+      ) {
+        clearCloseTimer();
+        return;
+      }
+      scheduleHide();
+    };
+
+    document.addEventListener("pointerover", handlePointerOver, true);
+    return () => document.removeEventListener("pointerover", handlePointerOver, true);
+  }, [clearCloseTimer, isVisible, scheduleHide]);
+
+  useEffect(() => clearCloseTimer, [clearCloseTimer]);
+
+  if (!collapsed) {
+    return <div className="h-full w-full min-w-0">{children}</div>;
+  }
+
+  const isLeft = side === "left";
+  const edgeClassName = isLeft ? "left-0" : "right-0";
+
+  return (
+    <>
+      <div
+        ref={triggerRef}
+        aria-hidden="true"
+        className={cn("peer fixed top-12 bottom-6 z-[70] bg-transparent", edgeClassName)}
+        style={{ width: SIDEBAR_PEEK_HIT_AREA_PX }}
+        onPointerEnter={showPeek}
+        onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}
+      />
+      <div
+        ref={panelRef}
+        className={cn(
+          "fixed top-12 bottom-6 z-[45] min-w-0 overflow-visible bg-background text-foreground shadow-2xl ring-1 ring-sidebar-border/80",
+          "transition-[translate,opacity,box-shadow] duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[translate,opacity]",
+          isVisible
+            ? "pointer-events-auto translate-x-0 opacity-100"
+            : "pointer-events-none opacity-0 peer-hover:pointer-events-auto peer-hover:opacity-100 hover:pointer-events-auto hover:opacity-100",
+          edgeClassName,
+          isLeft
+            ? "rounded-r-xl border-r border-sidebar-border"
+            : "rounded-l-xl border-l border-sidebar-border",
+          !isVisible && (
+            isLeft
+              ? "-translate-x-full peer-hover:translate-x-0 hover:translate-x-0"
+              : "translate-x-full peer-hover:translate-x-0 hover:translate-x-0"
+          ),
+        )}
+        style={{
+          width: widthPx == null ? "min(360px, calc(100vw - 48px))" : `${widthPx}px`,
+        }}
+        onFocusCapture={showPeek}
+        onPointerEnter={showPeek}
+        onPointerLeave={(event) => handlePointerLeave(event.relatedTarget)}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
+
+const SIDEBAR_PEEK_KEEP_OPEN_SELECTOR = [
+  "[data-workspace-popover-surface='true']:hover",
+  "[data-radix-popper-content-wrapper]:hover",
+  "[data-slot='popover-content']:hover",
+  "[data-slot='hover-card-content']:hover",
+  "[data-slot='tooltip-content']:hover",
+  "[data-slot='dropdown-menu-content']:hover",
+  "[data-slot='dropdown-menu-sub-content']:hover",
+].join(", ");
+
+const SIDEBAR_PEEK_KEEP_OPEN_TARGET_SELECTOR = [
+  "[data-workspace-popover-surface='true']",
+  "[data-radix-popper-content-wrapper]",
+  "[data-slot='popover-content']",
+  "[data-slot='hover-card-content']",
+  "[data-slot='tooltip-content']",
+  "[data-slot='dropdown-menu-content']",
+  "[data-slot='dropdown-menu-sub-content']",
+].join(", ");
+
+function isNodeInsideRef(
+  target: EventTarget | null,
+  ref: React.RefObject<HTMLElement | null>,
+) {
+  return target instanceof Node && ref.current?.contains(target);
+}
+
+function isSidebarPeekKeepOpenTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest(SIDEBAR_PEEK_KEEP_OPEN_TARGET_SELECTOR));
 }
 
 interface ResizeHandleProps {
