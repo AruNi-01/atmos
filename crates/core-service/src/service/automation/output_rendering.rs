@@ -8,14 +8,16 @@ use tokio::sync::{broadcast, mpsc};
 use tracing::warn;
 
 use super::agents::StdoutParser;
-use super::{runner, AutomationEvent};
+#[cfg(test)]
+use super::runner;
+use super::AutomationEvent;
 
-pub(super) struct OutputChunk {
+pub(crate) struct OutputChunk {
     pub stream: &'static str,
     pub bytes: Vec<u8>,
 }
 
-pub(super) async fn read_stream<R>(
+pub(crate) async fn read_stream<R>(
     mut reader: R,
     stream: &'static str,
     output_tx: mpsc::UnboundedSender<OutputChunk>,
@@ -102,10 +104,10 @@ fn publish_rendered_output_event(
     });
 }
 
-struct RenderedOutput {
-    stream: &'static str,
-    text: String,
-    write_to_final: bool,
+pub(crate) struct RenderedOutput {
+    pub stream: &'static str,
+    pub text: String,
+    pub write_to_final: bool,
     separate_before: bool,
 }
 
@@ -159,14 +161,14 @@ impl FinalOutputState {
     }
 }
 
-struct OutputRenderer {
+pub(crate) struct OutputRenderer {
     stdout_parser: StdoutParser,
     jsonl_state: JsonlParserState,
     final_state: FinalOutputState,
 }
 
 impl OutputRenderer {
-    fn new(stdout_parser: StdoutParser) -> Self {
+    pub(crate) fn new(stdout_parser: StdoutParser) -> Self {
         Self {
             stdout_parser,
             jsonl_state: JsonlParserState::default(),
@@ -174,7 +176,7 @@ impl OutputRenderer {
         }
     }
 
-    fn push(&mut self, chunk: OutputChunk) -> Vec<RenderedOutput> {
+    pub(crate) fn push(&mut self, chunk: OutputChunk) -> Vec<RenderedOutput> {
         if chunk.stream != "stdout" {
             return vec![RenderedOutput {
                 stream: chunk.stream,
@@ -197,7 +199,7 @@ impl OutputRenderer {
         self.normalize_final_boundaries(rendered)
     }
 
-    fn finish(&mut self) -> Vec<RenderedOutput> {
+    pub(crate) fn finish(&mut self) -> Vec<RenderedOutput> {
         if self.stdout_parser == StdoutParser::Plain || self.jsonl_state.line_buffer.is_empty() {
             return Vec::new();
         }

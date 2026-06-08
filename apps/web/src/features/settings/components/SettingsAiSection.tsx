@@ -13,11 +13,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
   Switch,
   cn,
@@ -30,6 +25,12 @@ import {
 } from "@/features/settings/components/settings/settings-modal-utils";
 import { LocalModelPanel, LocalModelRuntimeControl } from "@/features/settings/components/LocalModelPanel";
 import type { LlmProvidersFile } from "@/api/ws-api";
+import { FeatureSelect } from "@/app-shell/llm-providers-modal-parts";
+import {
+  agentCliRouteValue,
+  parseAgentCliRouteValue,
+  type LocalAgentOption,
+} from "@/app-shell/llm-providers-modal-utils";
 
 export type ProviderTestState = Record<string, {
   open: boolean;
@@ -46,6 +47,7 @@ type SettingsAiSectionProps = {
   isLlmConfigLoading: boolean;
   llmConfig: LlmProvidersFile | null;
   loadLlmConfig: () => Promise<void>;
+  localAgentOptions: readonly LocalAgentOption[];
   providerTests: ProviderTestState;
   providerToggleId: string | null;
   providersExpanded: boolean;
@@ -70,6 +72,7 @@ export function SettingsAiSection({
   isLlmConfigLoading,
   llmConfig,
   loadLlmConfig,
+  localAgentOptions,
   providerTests,
   providerToggleId,
   providersExpanded,
@@ -83,13 +86,36 @@ export function SettingsAiSection({
 }: SettingsAiSectionProps) {
   const providerEntries = React.useMemo(
     () =>
-      Object.entries(llmConfig?.providers ?? {}).map(([id, provider]) => ({
-        id,
-        label: provider.displayName?.trim() || fallbackProviderLabel(id),
-        enabled: provider.enabled,
-        model: provider.model?.trim() || null,
-        kind: provider.kind,
+      Object.entries(llmConfig?.providers ?? {})
+        .filter(([, provider]) => provider.kind !== "agent-cli")
+        .map(([id, provider]) => ({
+          id,
+          label: provider.displayName?.trim() || fallbackProviderLabel(id),
+          enabled: provider.enabled,
+          model: provider.model?.trim() || null,
+          kind: provider.kind,
+        })),
+    [llmConfig],
+  );
+  const providerOptions = React.useMemo(
+    () =>
+      providerEntries.map((provider) => ({
+        value: provider.id,
+        label: provider.label,
       })),
+    [providerEntries],
+  );
+  const normalizeRoutingValue = React.useCallback(
+    (value?: string | null): string | null => {
+      if (!value) return null;
+      if (parseAgentCliRouteValue(value)) return value;
+      const provider = llmConfig?.providers?.[value];
+      if (provider?.kind === "agent-cli") {
+        const agentId = provider.agent_id?.trim() || provider.model?.trim();
+        return agentId ? agentCliRouteValue(agentId) : null;
+      }
+      return value;
+    },
     [llmConfig],
   );
 
@@ -216,7 +242,9 @@ export function SettingsAiSection({
                         </Popover>
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {provider.kind === "local-managed" ? "Managed local model" : (provider.model || provider.kind)}
+                        {provider.kind === "local-managed"
+                          ? "Managed local model"
+                          : (provider.model || provider.kind)}
                       </p>
                     </div>
                     <div className="flex items-center justify-end gap-3">
@@ -288,31 +316,23 @@ export function SettingsAiSection({
                     </p>
                   </div>
                   <div className="flex items-center justify-end gap-3">
-                    <Select
-                      value={llmConfig?.features?.git_commit ?? "__none__"}
-                      onValueChange={(value) => {
+                    <FeatureSelect
+                      className="w-[220px]"
+                      value={normalizeRoutingValue(llmConfig?.features?.git_commit)}
+                      providerOptions={providerOptions}
+                      localAgentOptions={localAgentOptions}
+                      noneLabel="Disabled"
+                      disabled={routingSavingKey === "git_commit"}
+                      onChange={(value) => {
                         void handleLlmConfigUpdate("git_commit", (current) => ({
                           ...current,
                           features: {
                             ...current.features,
-                            git_commit: value === "__none__" ? null : value,
+                            git_commit: value,
                           },
                         }));
                       }}
-                      disabled={routingSavingKey === "git_commit"}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Disabled" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Disabled</SelectItem>
-                        {providerEntries.map((provider) => (
-                          <SelectItem key={provider.id} value={provider.id}>
-                            {provider.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -363,31 +383,25 @@ export function SettingsAiSection({
                     </p>
                   </div>
                   <div className="flex items-center justify-end gap-3">
-                    <Select
-                      value={llmConfig?.features?.workspace_issue_todo ?? "__none__"}
-                      onValueChange={(value) => {
+                    <FeatureSelect
+                      className="w-[220px]"
+                      value={normalizeRoutingValue(
+                        llmConfig?.features?.workspace_issue_todo,
+                      )}
+                      providerOptions={providerOptions}
+                      localAgentOptions={localAgentOptions}
+                      noneLabel="Disabled"
+                      disabled={routingSavingKey === "workspace_issue_todo"}
+                      onChange={(value) => {
                         void handleLlmConfigUpdate("workspace_issue_todo", (current) => ({
                           ...current,
                           features: {
                             ...current.features,
-                            workspace_issue_todo: value === "__none__" ? null : value,
+                            workspace_issue_todo: value,
                           },
                         }));
                       }}
-                      disabled={routingSavingKey === "workspace_issue_todo"}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Disabled" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Disabled</SelectItem>
-                        {providerEntries.map((provider) => (
-                          <SelectItem key={provider.id} value={provider.id}>
-                            {provider.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">

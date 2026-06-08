@@ -21,6 +21,7 @@ import { TerminalSettingsSection } from '@/features/settings/components/Terminal
 import { WorkspaceSettingsSection } from '@/features/settings/components/WorkspaceSettingsSection';
 import { SettingsAboutSection } from '@/features/settings/components/SettingsAboutSection';
 import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
+import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
 import type { SettingsSectionId } from '@/features/settings/components/settings-modal-sidebar';
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
@@ -86,6 +87,7 @@ interface SettingsModalSectionsProps {
   isLlmConfigLoading: boolean;
   llmConfig: LlmProvidersFile | null;
   loadLlmConfig: () => Promise<void>;
+  localAgentOptions: readonly LocalAgentOption[];
   providerTests: ProviderTestState;
   providerToggleId: string | null;
   providersExpanded: boolean;
@@ -195,6 +197,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           isLlmConfigLoading={props.isLlmConfigLoading}
           llmConfig={props.llmConfig}
           loadLlmConfig={props.loadLlmConfig}
+          localAgentOptions={props.localAgentOptions}
           providerTests={props.providerTests}
           providerToggleId={props.providerToggleId}
           providersExpanded={props.providersExpanded}

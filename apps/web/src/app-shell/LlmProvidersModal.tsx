@@ -14,6 +14,7 @@ import {
 } from "@workspace/ui";
 
 import {
+  codeAgentCustomApi,
   llmProvidersApi,
   type LlmProvidersFile,
 } from "@/api/ws-api";
@@ -21,6 +22,7 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import {
   EMPTY_ROUTING,
   KIND_OPTIONS,
+  buildLocalAgentOptions,
   buildProviderNameIssues,
   fileToModalState,
   modalStateToFile,
@@ -31,6 +33,7 @@ import {
   scheduleSaveStateReset,
   validateProvider,
   validateRouting,
+  type LocalAgentOption,
   type ProviderDraft,
   type RoutingDraft,
   type SaveState,
@@ -368,6 +371,8 @@ export function LlmRoutingDialog({
   const [routingDraft, setRoutingDraft] = useState<RoutingDraft>(EMPTY_ROUTING);
   const [loading, setLoading] = useState(false);
   const [originalConfig, setOriginalConfig] = useState<LlmProvidersFile | null>(null);
+  const [localAgentOptions, setLocalAgentOptions] =
+    useState<LocalAgentOption[]>(buildLocalAgentOptions);
   const [routingSaveState, setRoutingSaveState] = useState<SaveState>("idle");
   const routingResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -376,8 +381,12 @@ export function LlmRoutingDialog({
   const loadConfig = useCallback(async () => {
     setLoading(true);
     try {
-      const config = await llmProvidersApi.get();
+      const [config, agentConfig] = await Promise.all([
+        llmProvidersApi.get(),
+        codeAgentCustomApi.get().catch(() => ({ agents: [] })),
+      ]);
       setOriginalConfig(config);
+      setLocalAgentOptions(buildLocalAgentOptions(agentConfig.agents));
       const nextState = fileToModalState(config);
       setVersion(nextState.version);
       setProviders(nextState.providers);
@@ -462,6 +471,7 @@ export function LlmRoutingDialog({
               loading={loading}
               routingDraft={routingDraft}
               providerOptions={providerOptions}
+              localAgentOptions={localAgentOptions}
               setRoutingDraft={setRoutingDraft}
             />
           </div>

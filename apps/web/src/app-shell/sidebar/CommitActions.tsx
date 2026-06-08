@@ -46,12 +46,21 @@ import type { GitStatusResponse } from "@/api/ws-api";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
+import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
 
 export function resolveGitCommitLlmProvider(
   config: LlmProvidersFile,
 ): { id: string; label: string } | null {
   const providerId = config.features.git_commit ?? null;
   if (!providerId) return null;
+
+  const localAgentLabel = agentCliRouteLabel(providerId);
+  if (localAgentLabel) {
+    return {
+      id: providerId,
+      label: localAgentLabel,
+    };
+  }
 
   const provider = config.providers[providerId];
   if (!provider?.enabled) return null;

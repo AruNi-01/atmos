@@ -64,7 +64,11 @@ export interface FunctionSettings {
   [key: string]: unknown;
 }
 
-export type LlmProviderKind = "openai-compatible" | "anthropic-compatible" | "local-managed";
+export type LlmProviderKind =
+  | "openai-compatible"
+  | "anthropic-compatible"
+  | "local-managed"
+  | "agent-cli";
 
 export interface LlmProviderEntry {
   enabled: boolean;
@@ -77,6 +81,8 @@ export interface LlmProviderEntry {
   max_output_tokens?: number | null;
   /** Only set for kind === "local-managed" */
   local_model_id?: string | null;
+  /** Only set for kind === "agent-cli" */
+  agent_id?: string | null;
 }
 
 export interface LlmFeatureBindings {

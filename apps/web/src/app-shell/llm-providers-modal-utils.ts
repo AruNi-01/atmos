@@ -1,11 +1,13 @@
 import type React from "react";
 
 import {
+  type CodeAgentCustomEntry,
   type LlmFeatureBindings,
   type LlmProviderEntry,
   type LlmProviderKind,
   type LlmProvidersFile,
 } from "@/api/ws-api";
+import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
 import { WIKI_LANGUAGE_OPTIONS } from "@/features/wiki/lib/wiki-languages";
 
 export type ProviderDraft = {
@@ -25,6 +27,8 @@ export type RoutingDraft = {
   features: LlmFeatureBindings;
 };
 
+export type LocalAgentOption = { id: string; label: string };
+
 export type ModalDraftState = {
   version: number;
   providers: ProviderDraft[];
@@ -39,6 +43,73 @@ export const EMPTY_ROUTING: RoutingDraft = {
     workspace_issue_todo_language: null,
   },
 };
+
+export const AGENT_CLI_ROUTE_PREFIX = "agent-cli:";
+
+export function agentCliRouteValue(agentId: string): string {
+  return `${AGENT_CLI_ROUTE_PREFIX}${agentId.trim()}`;
+}
+
+export function parseAgentCliRouteValue(value?: string | null): string | null {
+  const agentId = value?.startsWith(AGENT_CLI_ROUTE_PREFIX)
+    ? value.slice(AGENT_CLI_ROUTE_PREFIX.length).trim()
+    : "";
+  return agentId || null;
+}
+
+export const BUILT_IN_LOCAL_AGENT_OPTIONS: readonly LocalAgentOption[] =
+  TERMINAL_AGENT_DEFINITIONS.map((agent) => ({
+    id: agent.id,
+    label: agent.label,
+  }));
+
+const BUILT_IN_LOCAL_AGENT_IDS = new Set(
+  BUILT_IN_LOCAL_AGENT_OPTIONS.map((agent) => agent.id),
+);
+
+export function buildLocalAgentOptions(
+  configuredAgents: readonly CodeAgentCustomEntry[] = [],
+): LocalAgentOption[] {
+  const configuredById = new Map<string, CodeAgentCustomEntry>();
+  for (const agent of configuredAgents) {
+    const id = agent.id?.trim();
+    if (id) configuredById.set(id, agent);
+  }
+  const options = new Map<string, LocalAgentOption>();
+
+  for (const agent of BUILT_IN_LOCAL_AGENT_OPTIONS) {
+    const configured = configuredById.get(agent.id);
+    if (configured?.enabled === false) continue;
+    options.set(agent.id, { id: agent.id, label: agent.label });
+  }
+
+  for (const agent of configuredAgents) {
+    const id = agent.id?.trim();
+    if (!id || BUILT_IN_LOCAL_AGENT_IDS.has(id) || agent.enabled === false) {
+      continue;
+    }
+    if (!agent.cmd?.trim()) continue;
+    options.set(id, { id, label: agent.label?.trim() || id });
+  }
+
+  return Array.from(options.values());
+}
+
+export function localAgentLabel(
+  agentId: string,
+  localAgentOptions: readonly LocalAgentOption[] = BUILT_IN_LOCAL_AGENT_OPTIONS,
+): string {
+  return localAgentOptions.find((agent) => agent.id === agentId)?.label ?? agentId;
+}
+
+export function agentCliRouteLabel(
+  value?: string | null,
+  localAgentOptions: readonly LocalAgentOption[] = BUILT_IN_LOCAL_AGENT_OPTIONS,
+): string | null {
+  const agentId = parseAgentCliRouteValue(value);
+  if (!agentId) return null;
+  return `Local Agent CLI · ${localAgentLabel(agentId, localAgentOptions)}`;
+}
 
 export const KIND_OPTIONS: Array<{
   value: LlmProviderKind;
@@ -231,6 +302,9 @@ export function validateRouting(
     routing.features.git_commit ?? null,
     routing.features.workspace_issue_todo ?? null,
   ]) {
+    if (parseAgentCliRouteValue(selected)) {
+      continue;
+    }
     if (selected && !clientKeys.has(selected)) {
       return "Routing references a provider that does not exist.";
     }
@@ -239,9 +313,12 @@ export function validateRouting(
 }
 
 export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
-  // local-managed providers are managed by LocalModelPanel, not this editor.
+  // local-managed and agent-cli providers are not edited in this provider editor.
   const providers = Object.entries(config.providers ?? {})
-    .filter(([, provider]) => provider.kind !== "local-managed")
+    .filter(
+      ([, provider]) =>
+        provider.kind !== "local-managed" && provider.kind !== "agent-cli",
+    )
     .map(([id, provider], index) => ({
       clientKey: `provider-${index + 1}-${id}`,
       persistedId: id,
@@ -263,21 +340,34 @@ export function fileToModalState(config: LlmProvidersFile): ModalDraftState {
     providers.map((provider) => [provider.persistedId, provider.clientKey]),
   );
 
+  const featureBindingToDraftValue = (providerId?: string | null): string | null => {
+    if (!providerId) return null;
+    if (parseAgentCliRouteValue(providerId)) return providerId;
+
+    const mapped = persistedToClientKey.get(providerId);
+    if (mapped) return mapped;
+
+    const provider = config.providers?.[providerId];
+    if (provider?.kind === "agent-cli") {
+      const agentId = provider.agent_id?.trim() || provider.model?.trim();
+      return agentId ? agentCliRouteValue(agentId) : null;
+    }
+
+    return null;
+  };
+
   return {
     version: config.version ?? 1,
     providers,
     routing: {
       features: {
-        git_commit: config.features?.git_commit
-          ? (persistedToClientKey.get(config.features.git_commit) ?? null)
-          : null,
+        git_commit: featureBindingToDraftValue(config.features?.git_commit),
         git_commit_language: normalizeFeatureLanguage(
           config.features?.git_commit_language,
         ),
-        workspace_issue_todo: config.features?.workspace_issue_todo
-          ? (persistedToClientKey.get(config.features.workspace_issue_todo) ??
-            null)
-          : null,
+        workspace_issue_todo: featureBindingToDraftValue(
+          config.features?.workspace_issue_todo,
+        ),
         workspace_issue_todo_language: normalizeFeatureLanguage(
           config.features?.workspace_issue_todo_language,
         ),
@@ -310,6 +400,9 @@ export function modalStateToFile(
     originalProviderId: string | null | undefined,
   ): string | null => {
     if (draftKey) {
+      if (parseAgentCliRouteValue(draftKey)) {
+        return draftKey;
+      }
       return providerIdMap.get(draftKey) ?? null;
     }
     if (originalProviderId && localManagedProviders[originalProviderId]) {
@@ -335,6 +428,7 @@ export function modalStateToFile(
         base_url: provider.base_url.trim(),
         api_key: provider.api_key.trim(),
         model: provider.model.trim(),
+        agent_id: null,
         timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
         max_output_tokens: trimmedMaxOutputTokens
           ? parseInt(trimmedMaxOutputTokens, 10)
@@ -379,15 +473,12 @@ export function providerDraftToEntry(provider: ProviderDraft): LlmProviderEntry 
     base_url: provider.base_url.trim(),
     api_key: provider.api_key.trim(),
     model: provider.model.trim(),
+    agent_id: null,
     timeout_ms: trimmedTimeout ? parseInt(trimmedTimeout, 10) : null,
     max_output_tokens: trimmedMaxOutputTokens
       ? parseInt(trimmedMaxOutputTokens, 10)
       : null,
   };
-}
-
-export function featureSelectValue(value?: string | null): string {
-  return value || "__none__";
 }
 
 export function newProviderDraft(existing: ProviderDraft[]): ProviderDraft {

@@ -1,8 +1,8 @@
 use super::support::{function_settings_path, terminal_code_agent_path};
 use super::*;
 use llm::{
-    config::resolve_provider_by_id, generate_text_stream, FileLlmConfigStore, GenerateTextRequest,
-    LlmProviderEntry, LlmProvidersFile, ResponseFormat,
+    config::resolve_provider_by_id, FileLlmConfigStore, GenerateTextRequest, LlmProviderEntry,
+    LlmProvidersFile, ResponseFormat,
 };
 
 impl WsMessageService {
@@ -224,11 +224,12 @@ impl WsMessageService {
             response_format: ResponseFormat::Text,
         };
 
-        let mut rx = generate_text_stream(&resolved, request)
-            .await
-            .map_err(|e| {
-                ServiceError::Validation(format!("Failed to start provider test stream: {e}"))
-            })?;
+        let mut rx =
+            core_service::service::llm_text_generation::generate_text_stream(&resolved, request)
+                .await
+                .map_err(|e| {
+                    ServiceError::Validation(format!("Failed to start provider test stream: {e}"))
+                })?;
 
         let ws_manager = self.ws_manager.get().cloned();
         let mut full_text = String::new();

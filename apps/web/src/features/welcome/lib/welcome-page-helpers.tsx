@@ -9,6 +9,7 @@ import type {
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
+import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
 
 export interface RepoContext {
   owner: string;
@@ -425,6 +426,14 @@ export function resolveWorkspaceIssueTodoProvider(
 ): { id: string; label: string } | null {
   const providerId = config.features.workspace_issue_todo ?? null;
   if (!providerId) return null;
+
+  const localAgentLabel = agentCliRouteLabel(providerId);
+  if (localAgentLabel) {
+    return {
+      id: providerId,
+      label: localAgentLabel,
+    };
+  }
 
   const provider = config.providers[providerId];
   if (!provider?.enabled) return null;

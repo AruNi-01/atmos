@@ -1,7 +1,22 @@
 import React, { useState } from "react";
-import { Check, Languages, LoaderCircle, Save } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Languages,
+  LoaderCircle,
+  Save,
+  Terminal,
+} from "lucide-react";
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
   Input,
   Label,
   Popover,
@@ -16,51 +31,125 @@ import {
 } from "@workspace/ui";
 
 import {
+  BUILT_IN_LOCAL_AGENT_OPTIONS,
   FEATURE_LANGUAGE_OPTIONS,
-  featureSelectValue,
+  agentCliRouteLabel,
+  agentCliRouteValue,
   languageButtonLabel,
   normalizeFeatureLanguage,
+  parseAgentCliRouteValue,
   resolveFeatureLanguagePreset,
+  type LocalAgentOption,
   type SaveState,
 } from "@/app-shell/llm-providers-modal-utils";
+import { AgentIcon } from "@/features/agent/components/AgentIcon";
 
 export function FeatureSelect({
   label,
   value,
   providerOptions,
+  localAgentOptions = BUILT_IN_LOCAL_AGENT_OPTIONS,
   noneLabel,
   action,
+  disabled = false,
+  className,
   onChange,
 }: {
-  label: string;
+  label?: string;
   value?: string | null;
   providerOptions: Array<{ value: string; label: string }>;
+  localAgentOptions?: readonly LocalAgentOption[];
   noneLabel: string;
   action?: React.ReactNode;
+  disabled?: boolean;
+  className?: string;
   onChange: (value: string | null) => void;
 }) {
+  const normalizedValue = value === "__none__" ? null : (value ?? null);
+  const selectedAgentId = parseAgentCliRouteValue(normalizedValue);
+  const selectedProviderValue = selectedAgentId ? null : normalizedValue;
+  const selectedLabel =
+    agentCliRouteLabel(normalizedValue, localAgentOptions) ??
+    (selectedProviderValue
+      ? providerOptions.find((provider) => provider.value === selectedProviderValue)
+          ?.label ?? selectedProviderValue
+      : noneLabel);
+  const hasLabelRow = Boolean(label || action);
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <Label>{label}</Label>
-        {action}
-      </div>
-      <Select
-        value={featureSelectValue(value)}
-        onValueChange={(next) => onChange(next === "__none__" ? null : next)}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={noneLabel} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">{noneLabel}</SelectItem>
+    <div className={cn("space-y-2", className)}>
+      {hasLabelRow ? (
+        <div className="flex items-center justify-between gap-3">
+          {label ? <Label>{label}</Label> : <span />}
+          {action}
+        </div>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            className="h-9 w-full justify-between rounded-md px-3 text-sm font-normal"
+          >
+            <span className="min-w-0 truncate">{selectedLabel}</span>
+            <ChevronDown className="ml-2 size-4 shrink-0 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="w-80 max-w-[calc(100vw-2rem)]"
+        >
+          <DropdownMenuItem
+            className="min-w-0 cursor-pointer"
+            onClick={() => onChange(null)}
+          >
+            <span className="min-w-0 flex-1 truncate">{noneLabel}</span>
+            {!normalizedValue ? (
+              <Check className="ml-auto size-4 shrink-0" />
+            ) : null}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="min-w-0 cursor-pointer">
+              <Terminal className="size-4" />
+              <span className="min-w-0 flex-1 truncate">Local Agent CLI</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-72 w-72 max-w-[calc(100vw-2rem)] overflow-y-auto">
+              {localAgentOptions.length === 0 ? (
+                <DropdownMenuItem disabled>No local agents</DropdownMenuItem>
+              ) : (
+                localAgentOptions.map((agent) => (
+                  <DropdownMenuItem
+                    key={agent.id}
+                    className="min-w-0 cursor-pointer"
+                    onClick={() => onChange(agentCliRouteValue(agent.id))}
+                  >
+                    <AgentIcon registryId={agent.id} name={agent.label} size={16} />
+                    <span className="min-w-0 flex-1 truncate">{agent.label}</span>
+                    {selectedAgentId === agent.id ? (
+                      <Check className="ml-auto size-4 shrink-0" />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSeparator />
           {providerOptions.map((provider) => (
-            <SelectItem key={provider.value} value={provider.value}>
-              {provider.label}
-            </SelectItem>
+            <DropdownMenuItem
+              key={provider.value}
+              className="min-w-0 cursor-pointer"
+              onClick={() => onChange(provider.value)}
+            >
+              <span className="min-w-0 flex-1 truncate">{provider.label}</span>
+              {selectedProviderValue === provider.value ? (
+                <Check className="ml-auto size-4 shrink-0" />
+              ) : null}
+            </DropdownMenuItem>
           ))}
-        </SelectContent>
-      </Select>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

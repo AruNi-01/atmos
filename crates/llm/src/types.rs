@@ -9,6 +9,8 @@ pub enum ProviderKind {
     #[serde(rename = "openai-compatible", alias = "open-ai-compatible")]
     OpenAiCompatible,
     AnthropicCompatible,
+    #[serde(rename = "agent-cli")]
+    AgentCli,
     /// A locally managed llama-server sidecar.  The `base_url` and `api_key`
     /// fields in `LlmProviderEntry` are ignored; the runtime fills them in at
     /// call time once the server is running.  `local_model_id` identifies which
@@ -66,8 +68,11 @@ pub struct LlmProviderEntry {
     #[serde(default, rename = "displayName")]
     pub display_name: Option<String>,
     pub kind: ProviderKind,
+    #[serde(default)]
     pub base_url: String,
+    #[serde(default)]
     pub api_key: String,
+    #[serde(default)]
     pub model: String,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
@@ -77,6 +82,10 @@ pub struct LlmProviderEntry {
     /// entry (e.g. "qwen2.5-0.5b-instruct").
     #[serde(default)]
     pub local_model_id: Option<String>,
+    /// Only used when `kind == AgentCli`.  References a configured terminal
+    /// agent id from the shared terminal-agent manifest/settings.
+    #[serde(default)]
+    pub agent_id: Option<String>,
     /// Maximum context window in tokens for this provider.  Used to cap the
     /// size of the diff/files summary sent in the prompt so the request never
     /// exceeds the model's limit.  When absent the service falls back to a
@@ -115,6 +124,7 @@ pub struct ResolvedLlmProvider {
     pub base_url: String,
     pub api_key: String,
     pub model: String,
+    pub agent_id: Option<String>,
     pub timeout: Duration,
     pub max_output_tokens: Option<u32>,
     /// Effective context window in tokens (always populated after resolution).

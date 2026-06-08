@@ -40,6 +40,9 @@ pub async fn generate_text(
                 .generate_text(provider, request)
                 .await
         }
+        ProviderKind::AgentCli => Err(LlmError::Provider(
+            "agent-cli providers are executed by core-service".to_string(),
+        )),
     }
 }
 
@@ -63,6 +66,9 @@ pub async fn generate_text_stream(
                     .stream_text(&provider, request, tx.clone())
                     .await
             }
+            ProviderKind::AgentCli => Err(LlmError::Provider(
+                "agent-cli providers are executed by core-service".to_string(),
+            )),
         };
 
         if let Err(ref e) = result {

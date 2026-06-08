@@ -1,4 +1,5 @@
 use crate::error::{Result, ServiceError};
+use crate::service::llm_text_generation::{generate_text, generate_text_stream};
 use crate::service::workspace_support::{
     pr_as_issue_payload, sanitize_workspace_handle, validate_workspace_priority,
     validate_workspace_workflow_status, with_project_scope,
@@ -13,7 +14,7 @@ use infra::db::entities::{workspace, workspace_label};
 use infra::db::repo::{
     CreateIssueOnlyWorkspaceRecord, ProjectRepo, WorkspaceCreateSource, WorkspaceRepo,
 };
-use llm::{generate_text, generate_text_stream, FileLlmConfigStore, LlmFeature};
+use llm::{FileLlmConfigStore, LlmFeature};
 use sea_orm::DatabaseConnection;
 use std::collections::HashSet;
 use std::path::Path;

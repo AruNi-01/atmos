@@ -36,6 +36,10 @@ use super::workspace::WorkspaceService;
 
 use agents::automation_agent_capabilities;
 pub use agents::AutomationAgentCapability;
+pub(crate) use agents::{
+    resolve_automation_agent, AutomationAgentInvocation, AutomationCommandInput, PromptDelivery,
+    StdoutParser,
+};
 pub use events::{AutomationDefinitionChange, AutomationEvent};
 pub use external_trigger::{
     ExternalTriggerOutcome, ExternalTriggerRejectReason, ExternalTriggerRejection,
@@ -43,6 +47,7 @@ pub use external_trigger::{
 pub use github_trigger::{
     GithubEventFamily, GithubTriggerConfig, GithubTriggerEvent, GithubTriggerFilters,
 };
+pub(crate) use output_rendering::{read_stream, OutputChunk, OutputRenderer};
 use run_watcher::{mark_run_interrupted, publish_run_update};
 use validation::{parse_run_page_token, validate_display_name, validate_instructions};
 

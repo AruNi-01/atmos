@@ -21,6 +21,7 @@ import {
   type LlmProvidersFile,
 } from '@/api/ws-api';
 import { LlmProviderEditorDialog } from '@/app-shell/LlmProvidersModal';
+import { buildLocalAgentOptions } from '@/app-shell/llm-providers-modal-utils';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { useNotificationSettingsStore } from '@/features/settings/store/notification-settings-store';
@@ -457,6 +458,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const resolvedActiveSection = activeSection ?? 'about';
   const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === resolvedActiveSection) ?? SETTINGS_SECTIONS[0];
+  const localAgentOptions = React.useMemo(
+    () =>
+      buildLocalAgentOptions([
+        ...buildBuiltInEntries(savedAgentCustomSettings),
+        ...savedCustomAgents,
+      ]),
+    [savedAgentCustomSettings, savedCustomAgents],
+  );
 
   const handleProviderEnabledChange = React.useCallback(async (providerId: string, enabled: boolean) => {
     if (!llmConfig?.providers?.[providerId]) return;
@@ -699,6 +708,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     isLlmConfigLoading={isLlmConfigLoading}
                     llmConfig={llmConfig}
                     loadLlmConfig={loadLlmConfig}
+                    localAgentOptions={localAgentOptions}
                     providerTests={providerTests}
                     providerToggleId={providerToggleId}
                     providersExpanded={providersExpanded}

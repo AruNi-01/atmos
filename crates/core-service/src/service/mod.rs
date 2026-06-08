@@ -5,6 +5,7 @@ pub mod automation;
 pub mod canvas;
 pub mod canvas_agent_relay;
 pub mod git_commit_message;
+pub mod llm_text_generation;
 pub mod message_push;
 pub mod notification;
 pub mod project;

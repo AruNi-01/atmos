@@ -515,6 +515,7 @@ mod tests {
             base_url: "https://example.com".to_string(),
             api_key: "test-key".to_string(),
             model: "glm-4.7".to_string(),
+            agent_id: None,
             timeout: Duration::from_secs(30),
             max_output_tokens: Some(4096),
             context_window: 16_384,

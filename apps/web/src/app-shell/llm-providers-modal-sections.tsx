@@ -2,12 +2,7 @@ import type React from "react";
 import { Trash2 } from "lucide-react";
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Input,
   Popover,
   PopoverContent,
@@ -27,6 +22,7 @@ import {
   DEFAULT_PROVIDER_TIMEOUT_MS,
   KIND_OPTIONS,
   slugifyProviderId,
+  type LocalAgentOption,
   type ProviderDraft,
   type RoutingDraft,
   type SaveState,
@@ -388,11 +384,13 @@ export function RoutingFeatureBindings({
   loading,
   routingDraft,
   providerOptions,
+  localAgentOptions,
   setRoutingDraft,
 }: {
   loading: boolean;
   routingDraft: RoutingDraft;
   providerOptions: Array<{ value: string; label: string }>;
+  localAgentOptions: readonly LocalAgentOption[];
   setRoutingDraft: React.Dispatch<React.SetStateAction<RoutingDraft>>;
 }) {
   if (loading) {
@@ -411,6 +409,7 @@ export function RoutingFeatureBindings({
         label="Git commit generator"
         value={routingDraft.features.git_commit}
         providerOptions={providerOptions}
+        localAgentOptions={localAgentOptions}
         noneLabel="Disabled"
         action={
           <FeatureLanguageAction
@@ -441,6 +440,7 @@ export function RoutingFeatureBindings({
         label="Workspace issue TODO extraction"
         value={routingDraft.features.workspace_issue_todo}
         providerOptions={providerOptions}
+        localAgentOptions={localAgentOptions}
         noneLabel="Disabled"
         action={
           <FeatureLanguageAction

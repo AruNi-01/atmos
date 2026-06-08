@@ -27,6 +27,7 @@ pub(super) fn upsert_local_managed_provider(
             timeout_ms: None,
             max_output_tokens: None,
             local_model_id: Some(model_id.to_string()),
+            agent_id: None,
             context_window: None,
         },
     );

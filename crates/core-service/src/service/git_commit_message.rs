@@ -1,12 +1,13 @@
 use core_engine::{ChangedFileInfo, ChangedFilesInfo};
 use llm::{
-    default_git_commit_prompt, generate_text, generate_text_stream, render_prompt_template,
-    FileLlmConfigStore, GenerateTextRequest, LlmFeature, ResponseFormat,
+    default_git_commit_prompt, render_prompt_template, FileLlmConfigStore, GenerateTextRequest,
+    LlmFeature, ResponseFormat,
 };
 use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use crate::error::{Result, ServiceError};
+use crate::service::llm_text_generation::{generate_text, generate_text_stream};
 
 const MAX_SUBJECT_CHARS: usize = 72;
 const MAX_COMMIT_MESSAGE_CHARS: usize = 1_200;

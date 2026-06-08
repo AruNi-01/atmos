@@ -92,6 +92,7 @@ impl AutomationAgentCommandSpec {
         }
     }
 
+    #[cfg(test)]
     pub fn build_terminal_command(&self, input: &AutomationCommandInput) -> String {
         terminal_agent_invocation(self, &input.prompt_path)
     }
@@ -584,6 +585,7 @@ fn split_shell_words(value: &str) -> std::result::Result<Vec<String>, String> {
     Ok(args)
 }
 
+#[cfg(test)]
 fn terminal_agent_invocation(agent: &AutomationAgentCommandSpec, prompt_path: &Path) -> String {
     let mut parts = Vec::with_capacity(agent.args.len() + 3);
     parts.push(shell_quote_str(agent.executable.trim()));
@@ -611,6 +613,7 @@ fn terminal_agent_launch_command(agent: &AutomationAgentCommandSpec) -> String {
     parts.join(" ")
 }
 
+#[cfg(test)]
 fn shell_quote(path: &Path) -> String {
     shell_quote_str(&path.to_string_lossy())
 }

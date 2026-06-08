@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::error::{LlmError, Result};
-use crate::types::{LlmFeature, LlmProvidersFile, ProviderKind, ResolvedLlmProvider};
+use crate::types::{
+    LlmFeature, LlmProviderEntry, LlmProvidersFile, ProviderKind, ResolvedLlmProvider,
+};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_GIT_COMMIT_PROMPT: &str =
@@ -14,6 +16,7 @@ const DEFAULT_GIT_COMMIT_PROMPT: &str =
 const LOCAL_MANAGED_DEFAULT_CONTEXT_WINDOW: u32 = 4_096;
 /// Conservative default for cloud / OpenAI-compatible providers.
 const CLOUD_DEFAULT_CONTEXT_WINDOW: u32 = 16_384;
+const AGENT_CLI_FEATURE_PREFIX: &str = "agent-cli:";
 
 #[derive(Debug, Clone)]
 pub struct FileLlmConfigStore {
@@ -89,7 +92,18 @@ pub fn resolve_feature_config(
     config: &LlmProvidersFile,
     feature: LlmFeature,
 ) -> Result<Option<ResolvedLlmProvider>> {
-    resolve_provider_by_id(config, config.features.provider_for(feature)).map_err(|error| {
+    let provider_id = config.features.provider_for(feature);
+    if let Some(provider_id) = provider_id {
+        if let Some(agent_id) = agent_cli_provider_id(provider_id) {
+            return Ok(Some(resolve_agent_cli_provider(
+                provider_id,
+                agent_id,
+                None,
+            )?));
+        }
+    }
+
+    resolve_provider_by_id(config, provider_id).map_err(|error| {
         match (config.features.provider_for(feature), error) {
             (Some(provider_id), LlmError::InvalidConfig(message))
                 if message.contains("missing provider") =>
@@ -113,6 +127,14 @@ pub fn resolve_provider_by_id(
         return Ok(None);
     };
 
+    if let Some(agent_id) = agent_cli_provider_id(provider_id) {
+        return Ok(Some(resolve_agent_cli_provider(
+            provider_id,
+            agent_id,
+            None,
+        )?));
+    }
+
     let Some(entry) = config.providers.get(provider_id) else {
         return Err(LlmError::InvalidConfig(format!(
             "missing provider `{provider_id}`"
@@ -121,6 +143,30 @@ pub fn resolve_provider_by_id(
 
     if !entry.enabled {
         return Ok(None);
+    }
+
+    if entry.kind == ProviderKind::AgentCli {
+        let agent_id = entry
+            .agent_id
+            .as_deref()
+            .or_else(|| {
+                let model = entry.model.trim();
+                (!model.is_empty()).then_some(model)
+            })
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                LlmError::InvalidConfig(format!(
+                    "AgentCli provider `{}` has no agent_id",
+                    provider_id
+                ))
+            })?;
+
+        return Ok(Some(resolve_agent_cli_provider(
+            provider_id,
+            agent_id,
+            Some(entry),
+        )?));
     }
 
     if entry.kind == ProviderKind::LocalManaged {
@@ -151,6 +197,7 @@ pub fn resolve_provider_by_id(
                 }
                 m_trimmed.to_string()
             },
+            agent_id: None,
             timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
             max_output_tokens: entry.max_output_tokens,
             context_window: entry
@@ -183,10 +230,50 @@ pub fn resolve_provider_by_id(
         base_url: base_url.to_string(),
         api_key,
         model: model.to_string(),
+        agent_id: None,
         timeout: Duration::from_millis(entry.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)),
         max_output_tokens: entry.max_output_tokens,
         context_window: entry.context_window.unwrap_or(CLOUD_DEFAULT_CONTEXT_WINDOW),
     }))
+}
+
+fn agent_cli_provider_id(provider_id: &str) -> Option<&str> {
+    provider_id
+        .strip_prefix(AGENT_CLI_FEATURE_PREFIX)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn resolve_agent_cli_provider(
+    provider_id: &str,
+    agent_id: &str,
+    entry: Option<&LlmProviderEntry>,
+) -> Result<ResolvedLlmProvider> {
+    let agent_id = agent_id.trim();
+    if agent_id.is_empty() {
+        return Err(LlmError::InvalidConfig(format!(
+            "AgentCli provider `{}` has no agent_id",
+            provider_id
+        )));
+    }
+
+    Ok(ResolvedLlmProvider {
+        id: provider_id.to_string(),
+        kind: ProviderKind::AgentCli,
+        base_url: String::new(),
+        api_key: String::new(),
+        model: agent_id.to_string(),
+        agent_id: Some(agent_id.to_string()),
+        timeout: Duration::from_millis(
+            entry
+                .and_then(|entry| entry.timeout_ms)
+                .unwrap_or(DEFAULT_TIMEOUT_MS),
+        ),
+        max_output_tokens: entry.and_then(|entry| entry.max_output_tokens),
+        context_window: entry
+            .and_then(|entry| entry.context_window)
+            .unwrap_or(CLOUD_DEFAULT_CONTEXT_WINDOW),
+    })
 }
 
 fn resolve_api_key(provider_id: &str, raw_value: &str) -> Result<String> {
@@ -283,8 +370,12 @@ fn set_private_permissions(_path: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::{default_git_commit_prompt, FileLlmConfigStore};
-    use crate::types::LlmProvidersFile;
+    use super::{
+        default_git_commit_prompt, resolve_feature_config, resolve_provider_by_id,
+        FileLlmConfigStore,
+    };
+    use crate::types::{LlmFeature, LlmProviderEntry, LlmProvidersFile, ProviderKind};
+    use std::collections::HashMap;
     use std::fs;
 
     fn unique_test_path(name: &str) -> std::path::PathBuf {
@@ -323,5 +414,52 @@ mod tests {
 
         assert!(!prompt.is_empty());
         assert!(prompt.contains("Conventional Commits format"));
+    }
+
+    #[test]
+    fn resolves_agent_cli_provider_by_agent_id() {
+        let config = LlmProvidersFile {
+            providers: HashMap::from([(
+                "local-codex".to_string(),
+                LlmProviderEntry {
+                    enabled: true,
+                    display_name: Some("Local Codex".to_string()),
+                    kind: ProviderKind::AgentCli,
+                    base_url: String::new(),
+                    api_key: String::new(),
+                    model: String::new(),
+                    timeout_ms: Some(12_000),
+                    max_output_tokens: None,
+                    local_model_id: None,
+                    agent_id: Some("codex".to_string()),
+                    context_window: None,
+                },
+            )]),
+            ..LlmProvidersFile::default()
+        };
+
+        let provider = resolve_provider_by_id(&config, Some("local-codex"))
+            .expect("resolve provider")
+            .expect("enabled provider");
+
+        assert_eq!(provider.kind, ProviderKind::AgentCli);
+        assert_eq!(provider.agent_id.as_deref(), Some("codex"));
+        assert_eq!(provider.model, "codex");
+        assert_eq!(provider.timeout.as_millis(), 12_000);
+    }
+
+    #[test]
+    fn resolves_agent_cli_feature_route_without_provider_entry() {
+        let mut config = LlmProvidersFile::default();
+        config.features.git_commit = Some("agent-cli:codex".to_string());
+
+        let provider = resolve_feature_config(&config, LlmFeature::GitCommit)
+            .expect("resolve feature route")
+            .expect("agent cli provider");
+
+        assert_eq!(provider.id, "agent-cli:codex");
+        assert_eq!(provider.kind, ProviderKind::AgentCli);
+        assert_eq!(provider.agent_id.as_deref(), Some("codex"));
+        assert_eq!(provider.model, "codex");
     }
 }
