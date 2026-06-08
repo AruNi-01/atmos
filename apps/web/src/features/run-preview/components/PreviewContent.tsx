@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 
 import { cn } from "@workspace/ui";
 import { PreviewToolbar } from "./PreviewToolbar";
@@ -35,13 +36,13 @@ export function PreviewContent({
     </>
   );
 
-  return (
+  const content = (
     <div
       ref={previewRootRef}
       className={cn(
         "flex flex-col overflow-hidden bg-background transition-all duration-300 ease-in-out",
         isMaximized
-          ? "fixed inset-0 z-50 h-screen w-screen animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
+          ? "fixed inset-0 z-[1000] h-screen w-screen animate-in fade-in zoom-in-95 slide-in-from-bottom-2"
           : "h-full w-full",
       )}
     >
@@ -59,7 +60,7 @@ export function PreviewContent({
         >
           <div
             className={cn(
-              "absolute inset-x-0 top-0 z-20 shadow-lg transition-all duration-300 ease-in-out",
+              "absolute inset-x-0 top-0 z-20 overflow-hidden rounded-b-md border-b border-border/70 bg-background/95 shadow-xl backdrop-blur-md transition-all duration-300 ease-in-out supports-[backdrop-filter]:bg-background/85",
               isChromeHovered ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0",
               needsChromeSafeInset && "top-8",
             )}
@@ -73,4 +74,10 @@ export function PreviewContent({
       <PreviewViewport {...viewportProps} />
     </div>
   );
+
+  if (isMaximized && typeof document !== "undefined") {
+    return createPortal(content, document.body);
+  }
+
+  return content;
 }

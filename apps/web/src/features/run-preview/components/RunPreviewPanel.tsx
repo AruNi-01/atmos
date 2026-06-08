@@ -108,6 +108,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
         }}
         isCollapsed={isRunScriptCollapsed}
         onDragging={setIsDragging}
+        className={cn(isPreviewMaximized && "hidden")}
       />
 
       {/* Bottom: Run Script */}
@@ -125,12 +126,13 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
           !isDragging &&
             "transition-[flex-grow,flex-shrink,basis] duration-300 ease-in-out",
           isRunScriptCollapsed && "min-h-0!",
+          isPreviewMaximized && "hidden",
         )}
       >
         <RunScript
           workspaceId={workspaceId}
           projectId={projectId}
-          isActive={isActive}
+          isActive={isActive && !isPreviewMaximized}
           projectName={projectName}
           workspaceName={workspaceName}
         />

@@ -57,7 +57,7 @@ export function PreviewFavoritesListPopover({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[340px] p-2"
+        className="z-[1001] w-[340px] p-2"
         onOpenAutoFocus={(event) => event.preventDefault()}
         onPointerDownOutside={() => setFavoritesListOpen(false)}
         onEscapeKeyDown={() => setFavoritesListOpen(false)}

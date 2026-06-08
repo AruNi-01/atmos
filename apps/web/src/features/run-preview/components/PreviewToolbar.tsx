@@ -476,7 +476,7 @@ function FavoriteSavePopover({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[320px] p-4"
+        className="z-[1001] w-[320px] p-4"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <div className="space-y-3">
@@ -547,7 +547,7 @@ function PreviewExtensionUpdatePopover({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[320px] space-y-3 p-3"
+        className="z-[1001] w-[320px] space-y-3 p-3"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <p className="text-xs font-medium text-foreground">Extension update available</p>
@@ -627,7 +627,7 @@ function PreviewExtensionInstallPopover({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[320px] space-y-3 p-3"
+        className="z-[1001] w-[320px] space-y-3 p-3"
         onOpenAutoFocus={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
