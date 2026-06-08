@@ -1,0 +1,113 @@
+specs/APP/APP-023_local-run-server-manager/TEST.md
+  s_c340db222acb5b::t_0903c59e7852b7 3-187
+  s_c340db222acb5b::t_d71d8e061af92e 1-2
+apps/web/src/features/local-services/components/LocalServicesFooterItem.tsx
+  s_c340db222acb5b::t_b3cb161348e284 1-14,16-27,29-57,72-130
+  s_c340db222acb5b::t_7b741bd83006d0 15,28,58-71
+apps/web/src/features/run-preview/hooks/use-preview-browser-state.ts
+  s_c340db222acb5b::t_7b741bd83006d0 224-250
+crates/core-engine/src/local_services/scanner.rs
+  s_c340db222acb5b::t_b8cfca72f06b1f 114-116,152-161,317,495-498
+  s_c340db222acb5b::t_bd035c7d7610fc 1-3
+  s_c340db222acb5b::t_caa47d21b51034 4-113,117-151,162-316,318-494,499-509
+apps/web/src/api/ws-api.ts
+  s_c340db222acb5b::t_b2eef240a7503f 930
+specs/APP/APP-023_local-run-server-manager/TECH.md
+  s_c340db222acb5b::t_b9b3903bed4870 348
+  s_c340db222acb5b::t_d71d8e061af92e 1-2
+  s_c340db222acb5b::t_dc306edc00d50d 3-8,23-347,349-475
+  s_c340db222acb5b::t_f2506f5b988b68 9-22
+apps/web/src/api/ws/local-services-api.ts
+  s_c340db222acb5b::t_eb415d324d3691 1-87
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_c340db222acb5b::t_c447f5649972a9 73-74,925-931,946,957-958
+apps/web/src/features/connection/hooks/use-websocket.ts
+  s_c340db222acb5b::t_b2eef240a7503f 161-163
+apps/web/src/features/run-preview/components/RunScript.tsx
+  s_c340db222acb5b::t_64df04089cbe4b 88
+apps/web/src/features/run-preview/components/RunPreviewPanel.tsx
+  s_c340db222acb5b::t_2954b3f28d0562 54
+apps/web/src/features/local-services/components/LocalServiceRow.tsx
+  s_c340db222acb5b::t_1a23333745b826 1-120
+apps/web/src/app-shell/RightSidebar.tsx
+  s_c340db222acb5b::t_c1c78162e7aa48 756
+  s_c340db222acb5b::t_a36b95d732d506 160
+  s_c340db222acb5b::t_39ce5f8271cb08 755
+apps/api/src/api/ws/message.rs
+  s_c340db222acb5b::t_244cf5f8cf14e8 540-546
+apps/web/src/features/run-preview/components/PreviewViewport.tsx
+  s_c340db222acb5b::t_c447f5649972a9 15,31,42-43,62,73-74,146-151
+crates/core-engine/src/local_services/probe.rs
+  s_c340db222acb5b::t_caa47d21b51034 1-107
+crates/core-engine/src/lib.rs
+  s_c340db222acb5b::t_caa47d21b51034 7,23-25
+crates/core-engine/src/local_services/mod.rs
+  s_c340db222acb5b::t_caa47d21b51034 1-49,53-66
+  s_c340db222acb5b::t_b8cfca72f06b1f 50-52
+apps/web/src/features/run-preview/components/PreviewHome.tsx
+  s_c340db222acb5b::t_c447f5649972a9 1-50
+apps/web/src/features/settings/store/layout-settings-store.ts
+  s_c340db222acb5b::t_dd5f59c0c5715f 11,32,40,54,147-150
+apps/web/src/features/local-services/store/local-services-store.ts
+  s_c340db222acb5b::t_eb415d324d3691 1-94
+crates/core-service/src/lib.rs
+  s_c340db222acb5b::t_53a7d3a32ebd83 29-34
+specs/APP/APP-023_local-run-server-manager/PRD.md
+  s_c340db222acb5b::t_c6900511ac349e 3-83
+  s_c340db222acb5b::t_d71d8e061af92e 1-2
+crates/core-service/src/service/mod.rs
+  s_c340db222acb5b::t_53a7d3a32ebd83 9
+apps/web/src/features/local-services/components/LocalServiceList.tsx
+  s_c340db222acb5b::t_22d6829260b244 5,48-53
+  s_c340db222acb5b::t_1a23333745b826 1-4,6-47,54-132
+apps/web/src/app-shell/Footer.tsx
+  s_c340db222acb5b::t_3df19172e437e9 39,407,510,582-588
+apps/web/src/features/settings/components/LayoutSettingsSection.tsx
+  s_c340db222acb5b::t_dd5f59c0c5715f 27,38,50,255-266
+apps/api/src/api/ws/router/local_services.rs
+  s_c340db222acb5b::t_244cf5f8cf14e8 1-23
+crates/core-service/src/service/local_services.rs
+  s_c340db222acb5b::t_7b69659968db73 1-16,18-19,21-168,173-212,216-219,223-294,298-311,319-337,342-359,364-504,506-674,678-700,705-706,712-742,745-835
+  s_c340db222acb5b::t_99cf9e1e321e8c 17,20
+  s_c340db222acb5b::t_e12a6637598ad4 505
+  s_c340db222acb5b::t_b8cfca72f06b1f 169-172,213-215,220-222,295-297,312-318,338-341,360-363,675-677,701-704,707-711,743-744
+apps/web/src/features/local-services/components/LocalServicesPreviewPanel.tsx
+  s_c340db222acb5b::t_b3cb161348e284 1-96
+specs/APP/APP-023_local-run-server-manager/BRAINSTORM.md
+  s_c340db222acb5b::t_7acc5beabf2bd1 166,168,175,177,179,183,185,189-192,194,196,200,202,207-208,216,218,222,224,226,230,234,239,245-246,248,250-251,258,282-284,289,291-294,299,301
+  s_c340db222acb5b::t_78c17eaea2be27 252,255,278,281
+  s_c340db222acb5b::t_ae3c1538a9d1ae 257,297-298
+  s_c340db222acb5b::t_1c159ad77bccfb 249
+  s_c340db222acb5b::t_2f873c052bab2b 28,65,126-127,132,174,256,288
+  s_c340db222acb5b::t_99dfde0adb165a 64,173,223,238,296
+  s_c340db222acb5b::t_d71d8e061af92e 1-8,10-17,25-26,29,32-33,148-161,163-165,167,169-172,176,178,180-182,184,186-188,193,195,197-199,201,203-206,209-215,217,219-221,225,227-229,231-233,235-237,240,242-244,247,253-254,259-277,279-280,285-287,290,295,300
+  s_c340db222acb5b::t_356e0da448a51a 18,55-56,61,77,90-96
+  s_c340db222acb5b::t_b2167f39c490a6 19,21-24,66-67,76,84,114,118,128
+  s_c340db222acb5b::t_2aed0fd23df8e9 20,117,133,162,241
+  s_c340db222acb5b::t_567bcff0b0cd9b 34-37,39-50,52,54,62-63,69,71-74,79-83,98-102,104-112,119-122,124,134-138,142-145,147
+  s_c340db222acb5b::t_95d15c494121fb 9,27,30-31,38,51,53,57-60,68,70,75,78,85-89,97,103,113,115-116,123,125,129-131,139-141,146
+specs/README.md
+  s_c340db222acb5b::t_d71d8e061af92e 103
+apps/web/src/features/local-services/types.ts
+  s_c340db222acb5b::t_eb415d324d3691 1-10
+apps/api/src/api/ws/router/mod.rs
+  s_c340db222acb5b::t_244cf5f8cf14e8 40-41,62,768-776
+  s_c340db222acb5b::t_b8cfca72f06b1f 12
+  s_c340db222acb5b::t_977333b3382da0 80-84,100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "d0cd7790a469eff41bd90bebf5182b323fe70388",
+  "prompts": {},
+  "sessions": {
+    "s_c340db222acb5b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea704-7c5f-7bd1-a049-6f31a89827c2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
