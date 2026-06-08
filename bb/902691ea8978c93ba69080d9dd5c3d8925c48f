@@ -1,0 +1,41 @@
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  s_8fdcff2611d18a::t_e6331aee3587de 704-705,707-721
+  s_8fdcff2611d18a::t_9a4112215ebb5b 56,58-59,61,65,127,138-141,156,199,231-238
+  s_8fdcff2611d18a::t_1480d55b610579 68-72,76-84,107-109
+  s_8fdcff2611d18a::t_81f9f0f56c3913 86-88,94-95,103-104,106,116-117,123-126,128
+  s_8fdcff2611d18a::t_b66d0cb3ab6e2f 57,64,66,96-102,137,158,198,217
+  s_8fdcff2611d18a::t_6e1be209cb138b 49-55,62-63,67,85,118-122,129-136,142-155,157,159-197,200-216,218-230,239-330
+  s_8fdcff2611d18a::t_75553c494b5b7c 60,73-75
+  s_8fdcff2611d18a::t_56170c73c5515e 89-93,105,110-115
+  s_8fdcff2611d18a::t_c020782b9c826a 3
+apps/web/src/features/diff/components/DiffFilePathLabel.tsx
+  s_8fdcff2611d18a::t_1e98203eeed2a8 9,18,34
+  s_8fdcff2611d18a::t_a9fd02e333c3e2 10,19,37
+apps/web/src/features/diff/components/DiffFileTree.tsx
+  s_8fdcff2611d18a::t_0c68f5f8e2e5ca 413-421
+  s_8fdcff2611d18a::t_b09db5d9946af3 607
+  s_8fdcff2611d18a::t_aa15e8a0c3beee 255-261,264-267
+  s_8fdcff2611d18a::t_5ea9378a586bc7 198-205,209-212,223-229,233-236
+  s_8fdcff2611d18a::t_53ac61b85da272 430
+  s_8fdcff2611d18a::t_2486d1459e77ec 286-412,429,432-469,471-472,474-475,477-482,484-502,504-511,513-539
+  s_8fdcff2611d18a::t_00a9f257660dc3 422-428,431,470,473,476,483,512
+  s_8fdcff2611d18a::t_f9a3a86dd07c8e 503
+  s_8fdcff2611d18a::t_5a1e0a43225b9f 600,618-633
+  s_8fdcff2611d18a::t_c20bdb433d66fa 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "bb902691ea8978c93ba69080d9dd5c3d8925c48f",
+  "prompts": {},
+  "sessions": {
+    "s_8fdcff2611d18a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea616-1092-74d3-b1ed-0adeff56898c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
