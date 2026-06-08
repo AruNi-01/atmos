@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { getFileIconProps } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
@@ -195,11 +195,21 @@ function statusClassName(status: string | null | undefined) {
   }
 }
 
-function changeCountDecoration(additions = 0, deletions = 0) {
+function changeCountDecoration(
+  additions = 0,
+  deletions = 0,
+  options?: {
+    className?: string;
+    ref?: React.Ref<HTMLDivElement>;
+  },
+) {
   if (additions <= 0 && deletions <= 0) return null;
 
   return (
-    <div className="flex items-center gap-1 font-medium">
+    <div
+      ref={options?.ref}
+      className={cn("flex items-center gap-1 font-medium", options?.className)}
+    >
       {additions > 0 ? (
         <span className="text-emerald-500">+{additions}</span>
       ) : null}
@@ -210,11 +220,20 @@ function changeCountDecoration(additions = 0, deletions = 0) {
   );
 }
 
-function defaultDecoration(item: DiffFileTreeItem) {
+function defaultDecoration(
+  item: DiffFileTreeItem,
+  options?: {
+    hideChangeCounts?: boolean;
+    changeCountsRef?: React.Ref<HTMLDivElement>;
+  },
+) {
   const status = item.gitStatus === "?" ? "U" : item.gitStatus;
   const changeCounts =
     item.gitStatus !== "?"
-      ? changeCountDecoration(item.additions, item.deletions)
+      ? changeCountDecoration(item.additions, item.deletions, {
+          ref: options?.changeCountsRef,
+          className: options?.hideChangeCounts ? "hidden" : undefined,
+        })
       : null;
   if (!item.annotation && !changeCounts && !status) return null;
 
@@ -233,10 +252,19 @@ function defaultDecoration(item: DiffFileTreeItem) {
   );
 }
 
-function defaultDirectoryDecoration(items: DiffFileTreeItem[]) {
+function defaultDirectoryDecoration(
+  items: DiffFileTreeItem[],
+  options?: {
+    hideChangeCounts?: boolean;
+    changeCountsRef?: React.Ref<HTMLDivElement>;
+  },
+) {
   const additions = items.reduce((sum, item) => sum + (item.additions ?? 0), 0);
   const deletions = items.reduce((sum, item) => sum + (item.deletions ?? 0), 0);
-  const changeCounts = changeCountDecoration(additions, deletions);
+  const changeCounts = changeCountDecoration(additions, deletions, {
+    ref: options?.changeCountsRef,
+    className: options?.hideChangeCounts ? "hidden" : undefined,
+  });
 
   if (!changeCounts) {
     return <span className="size-2 rounded-full bg-yellow-500/70" />;
@@ -253,6 +281,260 @@ function defaultDirectoryDecoration(items: DiffFileTreeItem[]) {
 function FileIcon({ name }: { name: string }) {
   const iconProps = getFileIconProps({ name, isDir: false, className: "size-4 shrink-0" });
   return <img {...iconProps} alt="" />;
+}
+
+function useShouldHideTreeChangeCounts(measurementKey: string) {
+  const nameRef = useRef<HTMLSpanElement | null>(null);
+  const countsRef = useRef<HTMLDivElement | null>(null);
+  const measurementCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [shouldHideCounts, setShouldHideCounts] = useState(false);
+
+  useLayoutEffect(() => {
+    const nameElement = nameRef.current;
+    if (!nameElement) return;
+
+    const measureTextWidth = () => {
+      const text = nameElement.textContent ?? "";
+      if (!text) return 0;
+
+      const style = window.getComputedStyle(nameElement);
+      const canvas =
+        measurementCanvasRef.current ?? document.createElement("canvas");
+      measurementCanvasRef.current = canvas;
+      const context = canvas.getContext("2d");
+      if (!context) return nameElement.scrollWidth;
+
+      context.font =
+        style.font ||
+        `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      return context.measureText(text).width;
+    };
+
+    let animationFrame: number | null = null;
+    const measureNow = () => {
+      animationFrame = null;
+      const countsElement = countsRef.current;
+      const previousDisplay = countsElement?.style.display;
+      const previousVisibility = countsElement?.style.visibility;
+      if (countsElement) {
+        countsElement.style.display = "flex";
+        countsElement.style.visibility = "hidden";
+      }
+
+      const availableWidth = nameElement.getBoundingClientRect().width;
+      const next =
+        nameElement.scrollWidth > availableWidth + 1 ||
+        measureTextWidth() > availableWidth + 1;
+
+      if (countsElement) {
+        countsElement.style.display = previousDisplay ?? "";
+        countsElement.style.visibility = previousVisibility ?? "";
+      }
+
+      setShouldHideCounts((current) => (current === next ? current : next));
+    };
+
+    const measure = () => {
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+      }
+
+      if (typeof requestAnimationFrame === "undefined") {
+        measureNow();
+        return;
+      }
+
+      animationFrame = requestAnimationFrame(measureNow);
+    };
+
+    measure();
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    resizeObserver?.observe(nameElement);
+    if (countsRef.current) {
+      resizeObserver?.observe(countsRef.current);
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", measure);
+    }
+
+    return () => {
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+      }
+      resizeObserver?.disconnect();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("resize", measure);
+      }
+    };
+  }, [measurementKey, shouldHideCounts]);
+
+  return { nameRef, countsRef, shouldHideCounts };
+}
+
+interface DiffFileTreeRowProps {
+  row: TreeRow;
+  indentOffset: number;
+  isSelected: boolean;
+  isActionActive: boolean;
+  isDirectoryActionsVisible: boolean;
+  actions: React.ReactNode;
+  directoryActions: React.ReactNode;
+  decoration: React.ReactNode;
+  directoryDecoration: React.ReactNode;
+  inlineDecoration: React.ReactNode;
+  openDirectories: ReadonlySet<string>;
+  onToggleDirectory: (path: string) => void;
+  onSelectFile: (path: string) => void;
+  onDoubleClickFile?: (path: string) => void;
+}
+
+function DiffFileTreeRow({
+  row,
+  indentOffset,
+  isSelected,
+  isActionActive,
+  isDirectoryActionsVisible,
+  actions,
+  directoryActions,
+  decoration,
+  directoryDecoration,
+  inlineDecoration,
+  openDirectories,
+  onToggleDirectory,
+  onSelectFile,
+  onDoubleClickFile,
+}: DiffFileTreeRowProps) {
+  const file = row.type === "file" ? row.file : undefined;
+  const { nameRef, countsRef, shouldHideCounts } =
+    useShouldHideTreeChangeCounts(row.id);
+  const defaultFileDecoration =
+    file && !decoration
+      ? defaultDecoration(file, {
+          hideChangeCounts: shouldHideCounts,
+          changeCountsRef: countsRef,
+        })
+      : null;
+  const defaultDirectoryDecorationNode =
+    !file && !directoryDecoration && row.hasChangedDescendant
+      ? defaultDirectoryDecoration(row.files, {
+          hideChangeCounts: shouldHideCounts,
+          changeCountsRef: countsRef,
+        })
+      : null;
+  const rightPadding = actions || directoryActions
+    ? "pr-12"
+    : "pr-2";
+
+  return (
+    <div
+      role="treeitem"
+      aria-selected={isSelected || undefined}
+      aria-expanded={
+        row.type === "directory" ? openDirectories.has(row.path) : undefined
+      }
+      className={cn(
+        "group/file relative flex h-7 min-w-0 items-center gap-1 rounded-md px-2 text-[13px] outline-none transition-colors",
+        rightPadding,
+        file ? "cursor-pointer" : "cursor-default",
+        isSelected
+          ? "bg-sidebar-accent text-sidebar-foreground"
+          : "hover:bg-sidebar-accent/50",
+      )}
+      style={{ paddingLeft: indentOffset + 8 + row.depth * 14 }}
+      onClick={() => {
+        if (file) {
+          onSelectFile(row.path);
+        } else {
+          onToggleDirectory(row.path);
+        }
+      }}
+      onDoubleClick={() => {
+        if (file) {
+          onDoubleClickFile?.(row.path);
+        }
+      }}
+    >
+      {row.type === "directory" ? (
+        <>
+          <ChevronRight
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              openDirectories.has(row.path) && "rotate-90",
+            )}
+          />
+          <span ref={nameRef} className="min-w-0 flex-1 truncate text-foreground">
+            {row.name}
+          </span>
+          {directoryDecoration || defaultDirectoryDecorationNode ? (
+            <div
+              className={cn(
+                "ml-auto flex shrink-0 items-center justify-end transition-opacity",
+                directoryActions &&
+                  (isDirectoryActionsVisible
+                    ? "invisible"
+                    : "group-hover/file:invisible"),
+              )}
+            >
+              {directoryDecoration ?? defaultDirectoryDecorationNode}
+            </div>
+          ) : null}
+          {directoryActions ? (
+            <div
+              className={cn(
+                "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
+                isDirectoryActionsVisible
+                  ? "opacity-100 pointer-events-auto"
+                  : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
+              )}
+            >
+              {directoryActions}
+            </div>
+          ) : null}
+        </>
+      ) : row.file ? (
+        <>
+          <span className="w-4 shrink-0" />
+          <FileIcon name={basename(row.path)} />
+          <span ref={nameRef} className="min-w-0 flex-1 truncate text-foreground">
+            {row.name}
+          </span>
+          {inlineDecoration ? (
+            <span className="shrink-0">{inlineDecoration}</span>
+          ) : null}
+          {decoration || defaultFileDecoration ? (
+            <div
+              className={cn(
+                "flex shrink-0 items-center justify-end transition-opacity",
+                actions &&
+                  (isActionActive
+                    ? "invisible"
+                    : "group-hover/file:invisible"),
+              )}
+            >
+              {decoration ?? defaultFileDecoration}
+            </div>
+          ) : null}
+          {actions ? (
+            <div
+              className={cn(
+                "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
+                isActionActive
+                  ? "opacity-100 pointer-events-auto"
+                  : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
+              )}
+            >
+              {actions}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
 }
 
 export function DiffFileTree({
@@ -315,16 +597,14 @@ export function DiffFileTree({
         const actions = file && renderFileActions ? renderFileActions(file) : null;
         const decoration =
           file
-            ? (renderFileDecoration?.(file) ?? defaultDecoration(file))
+            ? (renderFileDecoration?.(file) ?? null)
             : null;
         const inlineDecoration =
           file && renderFileInlineDecoration ? renderFileInlineDecoration(file) : null;
         const directoryDecoration =
           !file && renderDirectoryDecoration
             ? renderDirectoryDecoration(row.files)
-            : row.hasChangedDescendant
-              ? defaultDirectoryDecoration(row.files)
-              : null;
+            : null;
 
         return (
           <motion.div
@@ -335,109 +615,22 @@ export function DiffFileTree({
             transition={{ duration: 0.15, ease: 'easeOut' }}
             style={{ overflow: 'hidden' }}
           >
-          <div
-            role="treeitem"
-            aria-selected={isSelected || undefined}
-            aria-expanded={
-              row.type === "directory" ? openDirectories.has(row.path) : undefined
-            }
-            className={cn(
-              "group/file relative flex h-7 min-w-0 items-center gap-1 rounded-md px-2 pr-24 text-[13px] outline-none transition-colors",
-              file ? "cursor-pointer" : "cursor-default",
-              isSelected
-                ? "bg-sidebar-accent text-sidebar-foreground"
-                : "hover:bg-sidebar-accent/50",
-            )}
-            style={{ paddingLeft: indentOffset + 8 + row.depth * 14 }}
-            onClick={() => {
-              if (file) {
-                onSelectFile(row.path);
-              } else {
-                toggleDirectory(row.path);
-              }
-            }}
-            onDoubleClick={() => {
-              if (file) {
-                onDoubleClickFile?.(row.path);
-              }
-            }}
-          >
-            {row.type === "directory" ? (
-              <>
-                <ChevronRight
-                  className={cn(
-                    "size-4 shrink-0 text-muted-foreground transition-transform",
-                    openDirectories.has(row.path) && "rotate-90",
-                  )}
-                />
-                <span className="min-w-0 flex-1 truncate text-foreground">
-                  {row.name}
-                </span>
-                {directoryDecoration ? (
-                  <div
-                    className={cn(
-                      "absolute right-4 flex min-w-8 items-center justify-end transition-opacity",
-                      directoryActions &&
-                        (isDirectoryActionsVisible
-                          ? "invisible"
-                          : "group-hover/file:invisible"),
-                    )}
-                  >
-                    {directoryDecoration}
-                  </div>
-                ) : null}
-                {directoryActions ? (
-                  <div
-                    className={cn(
-                      "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
-                      isDirectoryActionsVisible
-                        ? "opacity-100 pointer-events-auto"
-                        : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
-                    )}
-                  >
-                    {directoryActions}
-                  </div>
-                ) : null}
-              </>
-            ) : row.file ? (
-              <>
-                <span className="w-4 shrink-0" />
-                <FileIcon name={basename(row.path)} />
-                <span className="min-w-0 truncate text-foreground">
-                  {row.name}
-                </span>
-                {inlineDecoration ? (
-                  <span className="shrink-0">{inlineDecoration}</span>
-                ) : null}
-                <span className="min-w-0 flex-1" />
-                {decoration ? (
-                  <div
-                    className={cn(
-                      "absolute right-4 flex min-w-8 items-center justify-end transition-opacity",
-                      actions &&
-                        (isActionActive
-                          ? "invisible"
-                          : "group-hover/file:invisible"),
-                    )}
-                  >
-                    {decoration}
-                  </div>
-                ) : null}
-                {actions ? (
-                  <div
-                    className={cn(
-                      "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
-                      isActionActive
-                        ? "opacity-100 pointer-events-auto"
-                        : "opacity-0 pointer-events-none group-hover/file:pointer-events-auto group-hover/file:opacity-100",
-                    )}
-                  >
-                    {actions}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-          </div>
+            <DiffFileTreeRow
+              row={row}
+              indentOffset={indentOffset}
+              isSelected={isSelected}
+              isActionActive={isActionActive}
+              isDirectoryActionsVisible={isDirectoryActionsVisible}
+              actions={actions}
+              directoryActions={directoryActions}
+              decoration={decoration}
+              directoryDecoration={directoryDecoration}
+              inlineDecoration={inlineDecoration}
+              openDirectories={openDirectories}
+              onToggleDirectory={toggleDirectory}
+              onSelectFile={onSelectFile}
+              onDoubleClickFile={onDoubleClickFile}
+            />
           </motion.div>
         );
       })}

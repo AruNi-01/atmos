@@ -6,6 +6,8 @@ import { getFileIconProps } from "@workspace/ui";
 interface DiffFilePathLabelProps {
   path: string;
   className?: string;
+  labelRef?: React.Ref<HTMLSpanElement>;
+  fileNameRef?: React.Ref<HTMLSpanElement>;
   fileNameClassName?: string;
   dirPathClassName?: string;
 }
@@ -13,6 +15,8 @@ interface DiffFilePathLabelProps {
 export const DiffFilePathLabel: React.FC<DiffFilePathLabelProps> = ({
   path,
   className,
+  labelRef,
+  fileNameRef,
   fileNameClassName = "text-[13px] text-muted-foreground font-medium whitespace-nowrap shrink-0",
   dirPathClassName = "text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left",
 }) => {
@@ -27,10 +31,10 @@ export const DiffFilePathLabel: React.FC<DiffFilePathLabelProps> = ({
   });
 
   return (
-    <span className={className ? className : "flex min-w-0 items-center gap-2"}>
+    <span ref={labelRef} className={className ? className : "flex min-w-0 items-center gap-2"}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img {...iconProps} alt={`File: ${fileName}`} />
-      <span className={fileNameClassName}>{fileName}</span>
+      <span ref={fileNameRef} className={fileNameClassName}>{fileName}</span>
       <span className={dirPathClassName} dir="rtl">
         <bdi>{dirPath ? `${dirPath}/` : ""}</bdi>
       </span>

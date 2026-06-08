@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import {
   Button,
   ChevronRight,
@@ -46,6 +46,288 @@ export interface ChangeSectionProps {
   viewMode?: "list" | "tree";
 }
 
+type ConfirmableMinusActionArgs = {
+  actionKey: string;
+  onConfirm?: () => void | Promise<void>;
+  title: string;
+  description: string;
+};
+
+function useShouldHideChangeCounts(measurementKey: string) {
+  const labelRef = useRef<HTMLSpanElement | null>(null);
+  const fileNameRef = useRef<HTMLSpanElement | null>(null);
+  const countsRef = useRef<HTMLDivElement | null>(null);
+  const measurementCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [shouldHideCounts, setShouldHideCounts] = useState(false);
+
+  useLayoutEffect(() => {
+    const labelElement = labelRef.current;
+    const fileNameElement = fileNameRef.current;
+    if (!labelElement || !fileNameElement) return;
+
+    const measureTextWidth = () => {
+      const text = fileNameElement.textContent ?? "";
+      if (!text) return 0;
+
+      const style = window.getComputedStyle(fileNameElement);
+      const canvas =
+        measurementCanvasRef.current ?? document.createElement("canvas");
+      measurementCanvasRef.current = canvas;
+      const context = canvas.getContext("2d");
+      if (!context) return fileNameElement.scrollWidth;
+
+      context.font =
+        style.font ||
+        `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      return context.measureText(text).width;
+    };
+
+    let animationFrame: number | null = null;
+    const measureNow = () => {
+      animationFrame = null;
+      const countsElement = countsRef.current;
+      const previousDisplay = countsElement?.style.display;
+      const previousVisibility = countsElement?.style.visibility;
+      if (countsElement) {
+        countsElement.style.display = "flex";
+        countsElement.style.visibility = "hidden";
+      }
+
+      const labelRect = labelElement.getBoundingClientRect();
+      const fileNameRect = fileNameElement.getBoundingClientRect();
+      const visibleFileNameWidth = Math.max(
+        0,
+        Math.min(fileNameRect.right, labelRect.right) -
+          Math.max(fileNameRect.left, labelRect.left),
+      );
+      const availableWidthWithCounts = Math.max(
+        0,
+        visibleFileNameWidth,
+      );
+      const next =
+        fileNameElement.scrollWidth > availableWidthWithCounts + 1 ||
+        measureTextWidth() > availableWidthWithCounts + 1;
+
+      if (countsElement) {
+        countsElement.style.display = previousDisplay ?? "";
+        countsElement.style.visibility = previousVisibility ?? "";
+      }
+
+      setShouldHideCounts((current) => (current === next ? current : next));
+    };
+    const measure = () => {
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+      }
+
+      if (typeof requestAnimationFrame === "undefined") {
+        measureNow();
+        return;
+      }
+
+      animationFrame = requestAnimationFrame(measureNow);
+    };
+
+    measure();
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
+    resizeObserver?.observe(labelElement);
+    resizeObserver?.observe(fileNameElement);
+    if (countsRef.current) {
+      resizeObserver?.observe(countsRef.current);
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", measure);
+    }
+
+    return () => {
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+      }
+      resizeObserver?.disconnect();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("resize", measure);
+      }
+    };
+  }, [measurementKey, shouldHideCounts]);
+
+  return { labelRef, fileNameRef, countsRef, shouldHideCounts };
+}
+
+interface ChangeFileRowProps {
+  kind: ChangeSectionProps["kind"];
+  file: GitChangedFile;
+  isSelected: boolean;
+  stageLabel: string;
+  isDestructiveSection: boolean;
+  confirmingActionKey: string | null;
+  runningActionKey: string | null;
+  onStage?: (files: string[]) => void;
+  onUnstage?: (files: string[]) => void;
+  onDiscard?: (files: string[]) => void;
+  openDiffFile: (filePath: string, preview: boolean) => void;
+  runAction: (
+    actionKey: string,
+    action?: () => void | Promise<void>,
+  ) => Promise<void>;
+  renderConfirmableMinusAction: (
+    args: ConfirmableMinusActionArgs,
+  ) => React.ReactNode;
+}
+
+function ChangeFileRow({
+  kind,
+  file,
+  isSelected,
+  stageLabel,
+  isDestructiveSection,
+  confirmingActionKey,
+  runningActionKey,
+  onStage,
+  onUnstage,
+  onDiscard,
+  openDiffFile,
+  runAction,
+  renderConfirmableMinusAction,
+}: ChangeFileRowProps) {
+  const fileName = file.path.split("/").pop() || file.path;
+  const { labelRef, fileNameRef, countsRef, shouldHideCounts } =
+    useShouldHideChangeCounts(file.path);
+  const hasActiveRowAction =
+    confirmingActionKey?.includes(`:${file.path}:`) ||
+    runningActionKey?.includes(`:${file.path}:`);
+
+  return (
+    <div
+      onClick={() => openDiffFile(file.path, true)}
+      onDoubleClick={() => openDiffFile(file.path, false)}
+      className={cn(
+        "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
+        isSelected
+          ? "bg-sidebar-accent text-sidebar-foreground"
+          : "hover:bg-sidebar-accent/50",
+      )}
+    >
+      <DiffFilePathLabel
+        path={file.path}
+        labelRef={labelRef}
+        fileNameRef={fileNameRef}
+        className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
+        fileNameClassName="min-w-0 truncate text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium"
+        dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
+      />
+
+      <div className="flex items-center h-4 shrink-0 overflow-hidden">
+        <div
+          className={cn(
+            "flex items-center gap-2 text-[11px] font-mono tabular-nums justify-end",
+            hasActiveRowAction ? "invisible" : "group-hover:invisible",
+          )}
+        >
+          {file.status !== "?" && (
+            <div
+              ref={countsRef}
+              className={cn(
+                "flex items-center gap-1 font-medium",
+                shouldHideCounts && "hidden",
+              )}
+            >
+              {file.additions > 0 && (
+                <span className="text-emerald-500">
+                  +{file.additions}
+                </span>
+              )}
+              {file.deletions > 0 && (
+                <span className="text-red-500">
+                  -{file.deletions}
+                </span>
+              )}
+            </div>
+          )}
+          <span
+            className={cn(
+              "w-3 text-center font-bold",
+              file.status === "M"
+                ? "text-yellow-500"
+                : file.status === "A" || file.status === "?"
+                  ? "text-emerald-500"
+                  : file.status === "D"
+                    ? "text-red-500"
+                    : "text-foreground",
+            )}
+          >
+            {file.status === "?" ? "U" : file.status}
+          </span>
+        </div>
+
+        <div
+          className={cn(
+            "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
+            hasActiveRowAction
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
+          )}
+        >
+          {onStage && (
+            <button
+              type="button"
+              onPointerDown={stopActionEvent}
+              onMouseDown={stopActionEvent}
+              onDoubleClick={stopActionEvent}
+              onClick={(e) => {
+                stopActionEvent(e);
+                void runAction(`${kind}:${file.path}:stage`, () =>
+                  onStage([file.path]),
+                );
+              }}
+              title={stageLabel}
+              className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          )}
+          {kind === "staged" && onUnstage && (
+            <button
+              type="button"
+              onPointerDown={stopActionEvent}
+              onMouseDown={stopActionEvent}
+              onDoubleClick={stopActionEvent}
+              onClick={(e) => {
+                stopActionEvent(e);
+                void runAction(`${kind}:${file.path}:unstage`, () =>
+                  onUnstage([file.path]),
+                );
+              }}
+              title="Unstage Changes"
+              className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Minus className="size-3.5" />
+            </button>
+          )}
+          {isDestructiveSection
+            ? renderConfirmableMinusAction({
+                actionKey: `${kind}:${file.path}:discard`,
+                onConfirm: () => onDiscard?.([file.path]),
+                title:
+                  kind === "untracked"
+                    ? `Delete "${fileName}"?`
+                    : `Discard changes in "${fileName}"?`,
+                description:
+                  kind === "untracked"
+                    ? "This removes the untracked file from disk."
+                    : "This restores the file to its last committed state.",
+              })
+            : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSection({
   kind,
   title,
@@ -64,9 +346,6 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
   const [runningActionKey, setRunningActionKey] = useState<string | null>(null);
   const groupPath = buildDiffGroupPath(kind as DiffChangeGroupKind);
-  const activeFilePath = useEditorStore((s) =>
-    s.getActiveFilePath(workspaceId || undefined),
-  );
   const selectedDiffFilePath = useEditorStore((s) => {
     if (!workspaceId) return undefined;
     const active = s.workspaceStates[workspaceId]?.activeFilePath;
@@ -422,131 +701,24 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </div>
         ) : (
           <div className="flex flex-col gap-0.5 mt-0.5 overflow-hidden pb-2">
-            {orderedFiles.map((file) => {
-            const fileName = file.path.split("/").pop() || file.path;
-            const hasActiveRowAction =
-              confirmingActionKey?.includes(`:${file.path}:`) ||
-              runningActionKey?.includes(`:${file.path}:`);
-
-            return (
-              <div
+            {orderedFiles.map((file) => (
+              <ChangeFileRow
                 key={file.path}
-                onClick={() => openDiffFile(file.path, true)}
-                onDoubleClick={() => openDiffFile(file.path, false)}
-                className={cn(
-                  "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
-                  selectedDiffFilePath === file.path
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "hover:bg-sidebar-accent/50",
-                )}
-              >
-                <DiffFilePathLabel
-                  path={file.path}
-                  className="flex min-w-0 flex-1 items-center gap-2"
-                  fileNameClassName="text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium whitespace-nowrap shrink-0"
-                  dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
-                />
-
-                <div className="flex items-center h-4 shrink min-w-0 overflow-hidden">
-                  <div
-                    className={cn(
-                      "flex items-center gap-2 text-[11px] font-mono tabular-nums min-w-[30px] justify-end",
-                      hasActiveRowAction ? "invisible" : "group-hover:invisible",
-                    )}
-                  >
-                    {file.status !== "?" && (
-                      <div className="flex items-center gap-1 font-medium">
-                        {file.additions > 0 && (
-                          <span className="text-emerald-500">
-                            +{file.additions}
-                          </span>
-                        )}
-                        {file.deletions > 0 && (
-                          <span className="text-red-500">
-                            -{file.deletions}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <span
-                      className={cn(
-                        "w-3 text-center font-bold",
-                        file.status === "M"
-                          ? "text-yellow-500"
-                          : file.status === "A" || file.status === "?"
-                            ? "text-emerald-500"
-                            : file.status === "D"
-                              ? "text-red-500"
-                              : "text-foreground",
-                      )}
-                    >
-                      {file.status === "?" ? "U" : file.status}
-                    </span>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
-                      hasActiveRowAction
-                        ? "opacity-100 pointer-events-auto"
-                        : "opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
-                    )}
-                  >
-                    {onStage && (
-                      <button
-                        type="button"
-                        onPointerDown={stopActionEvent}
-                        onMouseDown={stopActionEvent}
-                        onDoubleClick={stopActionEvent}
-                        onClick={(e) => {
-                          stopActionEvent(e);
-                          void runAction(`${kind}:${file.path}:stage`, () =>
-                            onStage([file.path]),
-                          );
-                        }}
-                        title={stageLabel}
-                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Plus className="size-3.5" />
-                      </button>
-                    )}
-                    {kind === "staged" && onUnstage && (
-                      <button
-                        type="button"
-                        onPointerDown={stopActionEvent}
-                        onMouseDown={stopActionEvent}
-                        onDoubleClick={stopActionEvent}
-                        onClick={(e) => {
-                          stopActionEvent(e);
-                          void runAction(`${kind}:${file.path}:unstage`, () =>
-                            onUnstage([file.path]),
-                          );
-                        }}
-                        title="Unstage Changes"
-                        className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Minus className="size-3.5" />
-                      </button>
-                    )}
-                    {isDestructiveSection
-                      ? renderConfirmableMinusAction({
-                          actionKey: `${kind}:${file.path}:discard`,
-                          onConfirm: () => onDiscard?.([file.path]),
-                          title:
-                            kind === "untracked"
-                              ? `Delete "${fileName}"?`
-                              : `Discard changes in "${fileName}"?`,
-                          description:
-                            kind === "untracked"
-                              ? "This removes the untracked file from disk."
-                              : "This restores the file to its last committed state.",
-                        })
-                      : null}
-                  </div>
-                </div>
-              </div>
-            );
-            })}
+                kind={kind}
+                file={file}
+                isSelected={selectedDiffFilePath === file.path}
+                stageLabel={stageLabel}
+                isDestructiveSection={isDestructiveSection}
+                confirmingActionKey={confirmingActionKey}
+                runningActionKey={runningActionKey}
+                onStage={onStage}
+                onUnstage={onUnstage}
+                onDiscard={onDiscard}
+                openDiffFile={openDiffFile}
+                runAction={runAction}
+                renderConfirmableMinusAction={renderConfirmableMinusAction}
+              />
+            ))}
           </div>
         )}
       </CollapsibleContent>
