@@ -1,0 +1,26 @@
+apps/web/src/features/agent/components/AgentChatHeader.tsx
+  s_312f62dfb685fc::t_621012c82258b7 137-140
+  s_312f62dfb685fc::t_e4a8cd2b1c1af7 141,385,388,396
+  s_312f62dfb685fc::t_9ac4e0ec79bed8 387,389
+apps/web/src/features/agent/hooks/use-agent-chat-message-handler.ts
+  s_312f62dfb685fc::t_7e029866a87163 13,18,35,148-149,215
+  s_312f62dfb685fc::t_676b09a359bd7c 151-155
+apps/web/src/features/agent/hooks/use-agent-chat-session.ts
+  s_312f62dfb685fc::t_5dd4e102d15d59 169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "f23b8cdbe949a8ffb7c1cc4816296ce840fcc201",
+  "prompts": {},
+  "sessions": {
+    "s_312f62dfb685fc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea638-b2bf-76f3-8185-4f86b00f867a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
