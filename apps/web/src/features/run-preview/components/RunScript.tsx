@@ -83,10 +83,9 @@ interface RunScriptProps {
   isActive: boolean;
   projectName?: string;
   workspaceName?: string;
-  onDetectedUrl?: (url: string) => void;
 }
 
-export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, isActive, projectName, workspaceName, onDetectedUrl }) => {
+export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, isActive, projectName, workspaceName }) => {
 
   // Initial tab
   const [tabs, setTabs] = useState<RunTerminalTab[]>(DEFAULT_RUN_TABS);
@@ -272,26 +271,6 @@ export const RunScript: React.FC<RunScriptProps> = ({ workspaceId, projectId, is
         delete newState[tabId];
         return newState;
       });
-    }
-
-    // Attempt to detect localhost URL
-    // Strip ANSI codes first to ensure clean matching
-    const cleanData = data.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
-
-    // Log for debugging
-    console.log('[RunScript] Terminal Data Segment:', {
-      raw: JSON.stringify(data),
-      clean: cleanData
-    });
-
-    // matches http://localhost:3000, http://127.0.0.1:8080, etc.
-    const urlRegex = /(http:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):\d+)/;
-    const match = cleanData.match(urlRegex);
-    if (match) {
-      console.log('[RunScript] URL Detected:', match[1]);
-      if (match[1]) {
-        onDetectedUrl?.(match[1]);
-      }
     }
   };
 

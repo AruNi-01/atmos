@@ -24,6 +24,7 @@ export function LayoutSettingsSection() {
     workspaceSidebarTimeTwoColumn,
     workspaceSidebarStatusTwoColumn,
     showWsConnection,
+    showLocalServices,
     showUsageCarousel,
     showAgentStatus,
     loadSettings,
@@ -34,6 +35,7 @@ export function LayoutSettingsSection() {
     setWorkspaceSidebarTimeTwoColumn,
     setWorkspaceSidebarStatusTwoColumn,
     setFooterShowWsConnection,
+    setFooterShowLocalServices,
     setFooterShowUsageCarousel,
     setFooterShowAgentStatus,
   } = useLayoutSettingsStore();
@@ -45,7 +47,7 @@ export function LayoutSettingsSection() {
   const isAnyTwoColumnEnabled =
     workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn;
   const footerEnabledCount =
-    Number(showWsConnection) + Number(showUsageCarousel) + Number(showAgentStatus);
+    Number(showWsConnection) + Number(showLocalServices) + Number(showUsageCarousel) + Number(showAgentStatus);
 
   React.useEffect(() => {
     loadSettings();
@@ -246,6 +248,22 @@ export function LayoutSettingsSection() {
                   <Switch
                     checked={showWsConnection}
                     onCheckedChange={(checked) => void setFooterShowWsConnection(!!checked)}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-b border-border px-2 py-4 last:border-b-0">
+              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Local Services</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Show Project and Workspace local services in the footer.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Switch
+                    checked={showLocalServices}
+                    onCheckedChange={(checked) => void setFooterShowLocalServices(!!checked)}
                   />
                 </div>
               </div>

@@ -221,6 +221,33 @@ export function usePreviewBrowserState({
     void setCommittedPreviewUrl(activeNavigationUrl);
   }, [activeBrowserTab, committedPreviewUrl, setCommittedPreviewUrl]);
 
+  useEffect(() => {
+    const nextUrl = canonicalizeUrl(committedPreviewUrl) || committedPreviewUrl.trim();
+    if (!nextUrl) return;
+
+    setBrowserState((current) => {
+      const activeTab = current.tabs.find((tab) => tab.id === current.activeTabId);
+      if (canonicalizeUrl(getTabNavigationUrl(activeTab)) === nextUrl) {
+        return current;
+      }
+
+      return {
+        ...current,
+        tabs: current.tabs.map((tab) =>
+          tab.id === current.activeTabId
+            ? {
+                ...tab,
+                url: nextUrl,
+                activeUrl: nextUrl,
+                title: "",
+                lastAccessedAt: Date.now(),
+              }
+            : tab,
+        ),
+      };
+    });
+  }, [committedPreviewUrl]);
+
   const updateBrowserTab = useCallback(
     (tabId: string, updater: (tab: PreviewBrowserTab) => PreviewBrowserTab) => {
       setBrowserState((current) => {
@@ -307,62 +334,6 @@ export function usePreviewBrowserState({
     [updateBrowserTab],
   );
 
-  const handleDetectedUrl = useCallback((url: string) => {
-    const detectedUrl = canonicalizeUrl(url) || url.trim();
-    if (!detectedUrl) return;
-
-    setBrowserState((current) => {
-      const now = Date.now();
-      const activeTab = current.tabs.find(
-        (tab) => tab.id === current.activeTabId,
-      );
-      const reusableBlankTab = activeTab && !getTabNavigationUrl(activeTab);
-      const existingTab = current.tabs.find(
-        (tab) => canonicalizeUrl(getTabNavigationUrl(tab)) === detectedUrl,
-      );
-
-      if (existingTab) {
-        return {
-          ...current,
-          activeTabId: existingTab.id,
-          tabs: current.tabs.map((tab) =>
-            tab.id === existingTab.id
-              ? {
-                  ...tab,
-                  url: detectedUrl,
-                  activeUrl: detectedUrl,
-                  lastAccessedAt: now,
-                }
-              : tab,
-          ),
-        };
-      }
-
-      if (reusableBlankTab) {
-        return {
-          ...current,
-          tabs: current.tabs.map((tab) =>
-            tab.id === activeTab.id
-              ? {
-                  ...tab,
-                  url: detectedUrl,
-                  activeUrl: detectedUrl,
-                  title: "",
-                  lastAccessedAt: now,
-                }
-              : tab,
-          ),
-        };
-      }
-
-      const nextTab = createBrowserTab(detectedUrl, now);
-      return pruneLeastRecentlyAccessed({
-        tabs: [...current.tabs, nextTab],
-        activeTabId: nextTab.id,
-      });
-    });
-  }, []);
-
   const handleAddBrowserTab = useCallback(() => {
     const now = Date.now();
     const nextTab = createBrowserTab("", now + 1);
@@ -414,7 +385,6 @@ export function usePreviewBrowserState({
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
-    handleDetectedUrl,
     handlePreviewTitleChange,
     handleSelectBrowserTab,
     previewTabsToRender,

@@ -36,6 +36,7 @@ import { NappingBotIcon } from '@/app-shell/NappingBotIcon';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { useAppRouter } from '@/shared/hooks/use-app-router';
+import { LocalServicesFooterItem } from '@/features/local-services/components/LocalServicesFooterItem';
 import {
   navigateToAgentHookSessionPane,
   resolveAgentHookContextNames,
@@ -403,6 +404,7 @@ const Footer: React.FC = () => {
   const managementAgentsEnabled = useExperimentSettingsStore((s) => s.managementAgentsEnabled);
   const loadExperimentSettings = useExperimentSettingsStore((s) => s.loadSettings);
   const showWsConnection = useLayoutSettingsStore((s) => s.showWsConnection);
+  const showLocalServices = useLayoutSettingsStore((s) => s.showLocalServices);
   const showUsageCarousel = useLayoutSettingsStore((s) => s.showUsageCarousel);
   const showAgentStatus = useLayoutSettingsStore((s) => s.showAgentStatus);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
@@ -505,7 +507,7 @@ const Footer: React.FC = () => {
   }, {});
 
   const showLeftCarousel = showUsageCarousel && Boolean(usageCarouselItem);
-  const showLeft = showWsConnection || showLeftCarousel;
+  const showLeft = showWsConnection || showLocalServices || showLeftCarousel;
   const showRightAgent = showAgentStatus;
   const showRightAcp = managementAgentsEnabled;
   const showRight = showRightAgent || showRightAcp;
@@ -577,7 +579,13 @@ const Footer: React.FC = () => {
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {showWsConnection && showLeftCarousel ? (
+          {showWsConnection && (showLocalServices || showLeftCarousel) ? (
+            <div className="h-3 w-px bg-border" />
+          ) : null}
+          {showLocalServices ? (
+            <LocalServicesFooterItem />
+          ) : null}
+          {showLocalServices && showLeftCarousel ? (
             <div className="h-3 w-px bg-border" />
           ) : null}
           {showLeftCarousel && usageCarouselItem ? (

@@ -158,6 +158,9 @@ export type WsAction =
   | "notification_settings_get"
   | "notification_settings_update"
   | "notification_test_push"
+  // Local Services
+  | "local_services_scan"
+  | "local_services_stop"
   // Agent 操作
   | "agent_list"
   | "agent_install"

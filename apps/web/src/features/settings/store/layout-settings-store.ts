@@ -8,6 +8,7 @@ export type ProjectFilesSide = 'left' | 'right';
 
 export interface FooterLayoutPrefs {
   showWsConnection: boolean;
+  showLocalServices: boolean;
   showUsageCarousel: boolean;
   showAgentStatus: boolean;
 }
@@ -28,6 +29,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs {
   setWorkspaceSidebarTimeTwoColumn: (value: boolean) => Promise<void>;
   setWorkspaceSidebarStatusTwoColumn: (value: boolean) => Promise<void>;
   setFooterShowWsConnection: (value: boolean) => Promise<void>;
+  setFooterShowLocalServices: (value: boolean) => Promise<void>;
   setFooterShowUsageCarousel: (value: boolean) => Promise<void>;
   setFooterShowAgentStatus: (value: boolean) => Promise<void>;
 }
@@ -35,6 +37,7 @@ interface LayoutSettingsState extends FooterLayoutPrefs {
 function readFooterLayout(layout: Record<string, unknown> | undefined): FooterLayoutPrefs {
   return {
     showWsConnection: layout?.footer_show_ws_connection !== false,
+    showLocalServices: layout?.footer_show_local_services !== false,
     showUsageCarousel: layout?.footer_show_usage_carousel !== false,
     showAgentStatus: layout?.footer_show_agent_status !== false,
   };
@@ -48,6 +51,7 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
   workspaceSidebarTimeTwoColumn: false,
   workspaceSidebarStatusTwoColumn: false,
   showWsConnection: true,
+  showLocalServices: true,
   showUsageCarousel: true,
   showAgentStatus: true,
   loaded: false,
@@ -135,6 +139,15 @@ export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => 
     set({ showWsConnection: value });
     try {
       await functionSettingsApi.update('layout', 'footer_show_ws_connection', value);
+    } catch {
+      await get().loadSettings(true);
+    }
+  },
+
+  setFooterShowLocalServices: async (value) => {
+    set({ showLocalServices: value });
+    try {
+      await functionSettingsApi.update('layout', 'footer_show_local_services', value);
     } catch {
       await get().loadSettings(true);
     }

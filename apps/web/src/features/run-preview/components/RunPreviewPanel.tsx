@@ -41,7 +41,6 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
-    handleDetectedUrl,
     handlePreviewTitleChange,
     handleSelectBrowserTab,
     previewTabsToRender,
@@ -52,7 +51,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
   return (
     <PanelGroup
       direction="vertical"
-      autoSaveId={`run-preview-layout-${workspaceId || "default"}`}
+      autoSaveId={`run-preview-layout-${workspaceId || projectId || "default"}`}
       storage={storage}
       className="flex-col h-full w-full overflow-hidden"
     >
@@ -134,7 +133,6 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
           isActive={isActive}
           projectName={projectName}
           workspaceName={workspaceName}
-          onDetectedUrl={handleDetectedUrl}
         />
       </Panel>
     </PanelGroup>

@@ -537,6 +537,13 @@ pub enum WsAction {
     NotificationSettingsUpdate,
     /// Send a test push notification
     NotificationTestPush,
+
+    // ===== Local Services =====
+    /// Scan Project/Workspace-attributed local services
+    LocalServicesScan,
+    /// Stop a strongly attributed local service
+    LocalServicesStop,
+
     // ===== Local Model =====
     /// Fetch the remote model manifest and return available models + current state
     LocalModelList,

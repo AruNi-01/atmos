@@ -70,6 +70,8 @@ export const Preview: React.FC<PreviewProps> = ({
   setActiveUrl,
   isActive = true,
   isMaximized: controlledIsMaximized,
+  workspaceId,
+  projectId,
   setIsMaximized: controlledSetIsMaximized,
   onPageTitleChange,
   browserTabBarProps,
@@ -787,7 +789,6 @@ export const Preview: React.FC<PreviewProps> = ({
     shouldHideToolbarStatus,
     shouldHideToolbarViewControls,
     shouldStackPreviewHomeCards,
-    shouldStackPreviewHomeNotes,
     shouldUseCompactToolbar,
     toolbarHoverSuppressed,
     toolbarRowRef,
@@ -921,6 +922,13 @@ export const Preview: React.FC<PreviewProps> = ({
     setViewMode,
   };
 
+  const handleOpenLocalServiceUrl = useCallback((nextUrl: string) => {
+    const canonical = canonicalizeUrl(nextUrl) || nextUrl.trim();
+    if (!canonical) return;
+    setUrl(canonical);
+    setActiveUrl(canonical);
+  }, [setActiveUrl, setUrl]);
+
   const viewportProps: React.ComponentProps<typeof PreviewViewport> = {
     activeUrl,
     desktopViewportRef,
@@ -935,6 +943,7 @@ export const Preview: React.FC<PreviewProps> = ({
     onCloseFavoritesList: () => setFavoritesListOpen(false),
     onDismissElementPickerTooltip: () => setIsElementPickerTooltipOpen(false),
     preferredTransportMode,
+    projectId,
     previewLoadError,
     requestedIframeUrl,
     resolvedTransportMode,
@@ -945,7 +954,8 @@ export const Preview: React.FC<PreviewProps> = ({
     selectionPopoverVisible,
     setSelectionPopoverExpanded,
     shouldStackPreviewHomeCards,
-    shouldStackPreviewHomeNotes,
+    workspaceId,
+    onOpenLocalServiceUrl: handleOpenLocalServiceUrl,
     transportMessage: transportState.message,
     viewMode,
   };

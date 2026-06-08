@@ -157,12 +157,11 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     () => currentProject?.workspaces.find((w) => w.id === workspaceId),
     [currentProject, workspaceId],
   );
+  const runPreviewProjectId = projectIdFromUrl ?? currentProject?.id ?? null;
   const setupProgress = useProjectStore((s) => s.setupProgress);
   const isSettingUp = isWorkspaceSetupBlocking(
     workspaceId ? setupProgress[workspaceId] : null,
   );
-
-  const effectiveContextId = workspaceId || projectIdFromUrl;
 
   const reviewTarget = useMemo((): ReviewTarget | null => {
     if (workspaceId) return { kind: "workspace", workspaceId };
@@ -753,8 +752,8 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
             )}
           >
             <RunPreviewPanel
-              workspaceId={effectiveContextId}
-              projectId={currentProject?.id}
+              workspaceId={workspaceId ?? null}
+              projectId={runPreviewProjectId ?? undefined}
               isActive={activeTab === "run-preview"}
               projectName={currentProject?.name}
               workspaceName={currentWorkspace?.name}

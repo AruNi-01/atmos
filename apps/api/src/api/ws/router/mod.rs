@@ -9,6 +9,7 @@ mod fs;
 mod git;
 mod github;
 mod local_model;
+mod local_services;
 mod project;
 mod review;
 mod settings;
@@ -36,8 +37,8 @@ use serde_json::{json, Value};
 use tokio::sync::OnceCell;
 
 use core_service::{
-    AgentService, AgentSessionService, AutomationService, ProjectService, ReviewService,
-    TerminalService, WorkspaceService,
+    AgentService, AgentSessionService, AutomationService, LocalServicesService, ProjectService,
+    ReviewService, TerminalService, WorkspaceService,
 };
 use core_service::{Result, ServiceError};
 use support::{parse_request, WorkspaceArchiveSettings, WorkspaceDeleteSettings};
@@ -58,6 +59,7 @@ pub struct WsMessageService {
     usage_service: Arc<UsageService>,
     canvas_service: Arc<CanvasService>,
     canvas_agent_relay: Arc<CanvasAgentRelay>,
+    local_services_service: Arc<LocalServicesService>,
     ws_manager: OnceCell<Arc<WsManager>>,
     local_model_manager: Arc<LocalRuntimeManager>,
 }
@@ -75,6 +77,11 @@ impl WsMessageService {
         canvas_service: Arc<CanvasService>,
         canvas_agent_relay: Arc<CanvasAgentRelay>,
     ) -> Self {
+        let local_services_service = Arc::new(LocalServicesService::new(
+            Arc::clone(&project_service),
+            Arc::clone(&workspace_service),
+        ));
+
         Self {
             fs_engine: FsEngine::new(),
             git_engine: GitEngine::new(),
@@ -90,6 +97,7 @@ impl WsMessageService {
             usage_service,
             canvas_service,
             canvas_agent_relay,
+            local_services_service,
             ws_manager: OnceCell::new(),
             local_model_manager: Arc::new(LocalRuntimeManager::new()),
         }
@@ -756,6 +764,16 @@ impl WsMessageService {
             | WsAction::NotificationTestPush => Err(ServiceError::Processing(
                 "Notification settings are managed via REST API at /hooks/notification/*".into(),
             )),
+
+            // ===== Local Services =====
+            WsAction::LocalServicesScan => {
+                self.handle_local_services_scan(parse_request(request.data)?)
+                    .await
+            }
+            WsAction::LocalServicesStop => {
+                self.handle_local_services_stop(parse_request(request.data)?)
+                    .await
+            }
 
             // ===== Local Model =====
             WsAction::LocalModelList => self.handle_local_model_list().await,

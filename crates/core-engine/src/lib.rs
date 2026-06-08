@@ -4,6 +4,7 @@ pub mod error;
 pub mod fs;
 pub mod git;
 pub mod github;
+pub mod local_services;
 pub mod search;
 pub mod shims;
 pub mod test_engine;
@@ -19,6 +20,9 @@ pub use git::{
     ChangedFilesInfo, CommitInfo, FileDiffInfo, GitEngine, GitStatus, WorktreeInfo,
 };
 pub use github::GithubEngine;
+pub use local_services::{
+    LocalHttpProbeResult, LocalServiceProtocol, LocalServicesEngine, LocalTcpListener,
+};
 pub use search::{search_content, SearchMatch, SearchResult};
 pub use test_engine::TestEngine;
 pub use tmux::{

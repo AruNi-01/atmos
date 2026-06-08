@@ -8,11 +8,11 @@ import type { SelectionInfo } from "@/shared/lib/format-selection-for-ai";
 import type { PreviewTransportMode } from "../lib/preview-bridge/types";
 import {
   renderPreviewErrorCard,
-  renderPreviewHome,
   renderPreviewLoadingOverlay,
   type PreviewLoadError,
 } from "../lib/preview-utils";
 import type { PreviewViewMode } from "@/shared/lib/nuqs/searchParams";
+import { PreviewHome } from "./PreviewHome";
 
 type PreviewViewportProps = {
   activeUrl: string;
@@ -28,6 +28,7 @@ type PreviewViewportProps = {
   onCloseFavoritesList: () => void;
   onDismissElementPickerTooltip: () => void;
   preferredTransportMode: PreviewTransportMode | "unavailable";
+  projectId?: string | null;
   previewLoadError: PreviewLoadError | null;
   requestedIframeUrl: string;
   resolvedTransportMode: PreviewTransportMode | "unavailable";
@@ -38,7 +39,8 @@ type PreviewViewportProps = {
   selectionPopoverVisible: boolean;
   setSelectionPopoverExpanded: (expanded: boolean) => void;
   shouldStackPreviewHomeCards: boolean;
-  shouldStackPreviewHomeNotes: boolean;
+  workspaceId?: string | null;
+  onOpenLocalServiceUrl: (url: string) => void;
   transportMessage: string;
   viewMode: PreviewViewMode;
 };
@@ -57,6 +59,7 @@ export function PreviewViewport({
   onCloseFavoritesList,
   onDismissElementPickerTooltip,
   preferredTransportMode,
+  projectId,
   previewLoadError,
   requestedIframeUrl,
   resolvedTransportMode,
@@ -67,7 +70,8 @@ export function PreviewViewport({
   selectionPopoverVisible,
   setSelectionPopoverExpanded,
   shouldStackPreviewHomeCards,
-  shouldStackPreviewHomeNotes,
+  workspaceId,
+  onOpenLocalServiceUrl,
   transportMessage,
   viewMode,
 }: PreviewViewportProps) {
@@ -139,7 +143,12 @@ export function PreviewViewport({
           </>
         )
       ) : (
-        renderPreviewHome(shouldStackPreviewHomeCards, shouldStackPreviewHomeNotes)
+        <PreviewHome
+          projectId={projectId}
+          workspaceId={workspaceId}
+          shouldStackPreviewHomeCards={shouldStackPreviewHomeCards}
+          onOpenUrl={onOpenLocalServiceUrl}
+        />
       )}
     </div>
   );

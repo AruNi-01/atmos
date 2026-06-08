@@ -100,6 +100,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-020** | Relay Stable Tenant Identity | `specs/APP/APP-020_relay-stable-tenant-identity/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
 | **APP-021** | Appshots Cross-App Snapshot | `specs/APP/APP-021_appshots-cross-app-snapshot/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`, `REVIEW.md`) |
 | **APP-022** | Canvas Terminal New Tab | `specs/APP/APP-022_canvas-terminal-new-tab/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-023** | Local Run Server Manager | `specs/APP/APP-023_local-run-server-manager/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 
 ### Landing
 

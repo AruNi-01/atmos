@@ -26,6 +26,12 @@ pub use service::canvas_agent_relay::{
     CompleteDispatchResult, DuplicateRequestError, ResolveTarget, DEFAULT_RELAY_TIMEOUT_MS,
     MAX_RELAY_TIMEOUT_MS,
 };
+pub use service::local_services::{
+    LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceStatus,
+    LocalServiceStopRequest, LocalServiceStopResponse, LocalServicesScanRequest,
+    LocalServicesScanResponse, LocalServicesScope, LocalServicesService,
+    LocalServicesUnavailableDto,
+};
 pub use service::message_push::MessagePushService;
 pub use service::notification::NotificationService;
 pub use service::project::ProjectService;
