@@ -1,0 +1,44 @@
+crates/core-service/src/service/automation/output_rendering.rs
+  s_38479d46de531d::t_9b30cb2fb3d2f0 126-129
+  s_38479d46de531d::t_78bb78e480e9c2 1-125,130-668
+crates/core-service/src/service/automation/process_runner.rs
+  s_38479d46de531d::t_e8ac104067c92f 279
+  s_38479d46de531d::t_78bb78e480e9c2 1,10,12,18-19,123
+apps/web/src/features/automations/hooks/use-automation-websocket-sync.ts
+  s_38479d46de531d::t_14b923dc71e83a 1-12,14-16,20-56,70-71,80-110
+  s_38479d46de531d::t_47e4203af837e6 17-19,57-69,72-79
+  s_38479d46de531d::t_6e96643b084f9f 13
+apps/web/src/features/run-preview/hooks/use-preview-browser-state.ts
+  s_38479d46de531d::t_9b30cb2fb3d2f0 25-28,53-55,77,92-122,124-125,149-152,154-155,163-165,168-171,173,178,183-190,193,224-242,244-246,248-260,262-264,266-279,281-291,293-308,316-318,320-322,399,403-406
+  s_38479d46de531d::t_78bb78e480e9c2 1-24,29-52,56-76,78-91,123,126-148,153,156-162,166-167,172,174-177,179-182,191-192,194-223,243,247,261,265,280,292,309-315,319,323-398,400-402,407-424
+crates/core-service/src/service/automation/mod.rs
+  s_38479d46de531d::t_78bb78e480e9c2 10
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  s_38479d46de531d::t_14b923dc71e83a 9-10,121-142,239,241,244-245,247-251
+  s_38479d46de531d::t_47e4203af837e6 25-28,70-72,74-93,95-96,100-101,104-106,110-113,151-154,161-163,169-176,269-275,296-299,309-311,404-406,409-415,456-458,484-486,489
+apps/web/src/features/automations/lib/live-run-output.ts
+  s_38479d46de531d::t_14b923dc71e83a 1-49
+apps/web/src/features/automations/hooks/use-automation-run-history-state.ts
+  s_38479d46de531d::t_14b923dc71e83a 1-5,10-16,18-23,27-44,49-50,54-62,65-197,201-213,218-254
+  s_38479d46de531d::t_47e4203af837e6 6-9,24-26,45-48,51-53,63-64,198-200,214-217
+  s_38479d46de531d::t_6e96643b084f9f 17
+apps/web/src/features/run-preview/components/RunPreviewPanel.tsx
+  s_38479d46de531d::t_9b30cb2fb3d2f0 3,7-12,17-18,28-34,55,77-79,85-87,126-128,163,178
+  s_38479d46de531d::t_78bb78e480e9c2 4,6,13,15-16,40-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "525bce69b32267e993d56e25e74451ee3eeb4baf",
+  "prompts": {},
+  "sessions": {
+    "s_38479d46de531d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea489-72db-7892-b01f-2fd772cd171c",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
