@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { Button, cn } from "@workspace/ui";
 
 import type { LocalService } from "@/features/local-services/types";
+import { localServiceOpenUrl } from "@/features/local-services/lib/local-service-url";
 import {
   localServicesScopeKey,
   useLocalServicesStore,
@@ -52,7 +53,8 @@ export function LocalServicesPreviewPanel({
   }, [connectionState, refresh]);
 
   const handleOpen = React.useCallback((service: LocalService) => {
-    if (service.url) onOpenUrl(service.url);
+    const openUrl = localServiceOpenUrl(service);
+    if (openUrl) onOpenUrl(openUrl);
   }, [onOpenUrl]);
 
   return (
@@ -73,11 +75,7 @@ export function LocalServicesPreviewPanel({
           disabled={loading || connectionState !== "connected"}
           title="Refresh Local Services"
         >
-          {loading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
-          )}
+          <RotateCcw className={cn("size-4", loading && "animate-spin-reverse")} />
         </Button>
       </div>
       {error ? (

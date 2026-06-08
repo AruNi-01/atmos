@@ -923,11 +923,8 @@ export const Preview: React.FC<PreviewProps> = ({
   };
 
   const handleOpenLocalServiceUrl = useCallback((nextUrl: string) => {
-    const canonical = canonicalizeUrl(nextUrl) || nextUrl.trim();
-    if (!canonical) return;
-    setUrl(canonical);
-    setActiveUrl(canonical);
-  }, [setActiveUrl, setUrl]);
+    navigateToUrl(nextUrl);
+  }, [navigateToUrl]);
 
   const viewportProps: React.ComponentProps<typeof PreviewViewport> = {
     activeUrl,

@@ -1,8 +1,15 @@
 "use client";
 
 import React from "react";
-import { ExternalLink, Square, Terminal } from "lucide-react";
-import { Button, cn } from "@workspace/ui";
+import { ExternalLink, Loader2, Square, Terminal } from "lucide-react";
+import {
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Skeleton,
+  cn,
+} from "@workspace/ui";
 
 import type { LocalService } from "@/features/local-services/types";
 
@@ -19,17 +26,20 @@ interface LocalServiceRowProps {
   service: LocalService;
   compact?: boolean;
   showOwner?: boolean;
+  stopPending?: boolean;
   onOpen?: (service: LocalService) => void;
-  onStop?: (service: LocalService) => void;
+  onStop?: (service: LocalService) => void | Promise<void>;
 }
 
 export function LocalServiceRow({
   service,
   compact = false,
   showOwner = false,
+  stopPending = false,
   onOpen,
   onStop,
 }: LocalServiceRowProps) {
+  const [stopConfirmOpen, setStopConfirmOpen] = React.useState(false);
   const title = service.title?.trim() || service.display_url || `localhost:${service.port}`;
   const ownerName =
     service.owner.workspace_name || service.owner.project_name || service.owner.root_path;
@@ -37,18 +47,24 @@ export function LocalServiceRow({
   const dot = STATUS_DOT[service.status] ?? STATUS_DOT.unsupported;
   const openable = Boolean(service.can_open && service.url && onOpen);
 
+  const confirmStop = React.useCallback(async () => {
+    if (!onStop || stopPending) return;
+    await onStop(service);
+    setStopConfirmOpen(false);
+  }, [onStop, service, stopPending]);
+
   return (
     <div
       className={cn(
         "group grid min-h-[76px] grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border/70 bg-background/60 px-3 py-2 transition-colors hover:bg-muted/40",
-        compact && "min-h-[58px] grid-cols-[64px_minmax(0,1fr)_auto] gap-2 px-2",
+        compact && "min-h-[76px] grid-cols-[88px_minmax(0,1fr)_auto] gap-3 px-3 py-2.5",
       )}
     >
       <button
         type="button"
         className={cn(
           "relative flex h-14 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/50",
-          compact && "h-10 w-16",
+          compact && "h-14 w-[88px]",
           openable && "cursor-pointer hover:border-foreground/30",
         )}
         onClick={() => {
@@ -62,11 +78,20 @@ export function LocalServiceRow({
           <span className="size-1.5 rounded-full bg-amber-400" />
           <span className="size-1.5 rounded-full bg-emerald-400" />
         </div>
-        <div className="mt-2 w-[72%] space-y-1.5">
-          <div className="h-1.5 rounded bg-muted-foreground/25" />
-          <div className="h-1.5 w-2/3 rounded bg-muted-foreground/25" />
-          <div className="truncate pt-0.5 text-[8px] font-semibold text-foreground">
+        <div className={cn("mt-3.5 w-[72%] space-y-1.5", compact && "space-y-1")}>
+          <div
+            className={cn(
+              "truncate text-[8px] font-semibold leading-none text-foreground",
+              compact && "text-[8px]",
+            )}
+          >
             {service.display_url}
+          </div>
+          <div className="space-y-1">
+            <Skeleton className={cn("h-1.5 w-full rounded bg-muted-foreground/25", compact && "h-1")} />
+            <Skeleton
+              className={cn("h-1.5 w-2/3 rounded bg-muted-foreground/25", compact && "h-1 w-1/2")}
+            />
           </div>
         </div>
       </button>
@@ -103,16 +128,62 @@ export function LocalServiceRow({
           </Button>
         ) : null}
         {service.can_stop && onStop ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="size-7 text-muted-foreground hover:text-destructive"
-            title="Stop service"
-            onClick={() => onStop(service)}
+          <Popover
+            open={stopConfirmOpen}
+            onOpenChange={(open) => {
+              if (!stopPending) setStopConfirmOpen(open);
+            }}
           >
-            <Square className="size-3.5" />
-          </Button>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7 text-muted-foreground hover:text-destructive"
+                title="Stop service"
+                aria-label={`Stop ${title}`}
+                disabled={stopPending}
+              >
+                {stopPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Square className="size-3.5" />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="left" align="center" className="w-60 space-y-3 p-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">Stop service?</p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Stop <span className="font-medium text-foreground">{service.display_url}</span> on port{" "}
+                  {service.port}?
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setStopConfirmOpen(false)}
+                  disabled={stopPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => void confirmStop()}
+                  disabled={stopPending}
+                >
+                  {stopPending ? <Loader2 className="size-3 animate-spin" /> : <Square className="size-3" />}
+                  Stop
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         ) : null}
       </div>
     </div>

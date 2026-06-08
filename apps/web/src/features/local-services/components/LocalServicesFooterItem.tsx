@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Loader2, RefreshCw, Server } from "lucide-react";
+import { Loader2, RotateCcw, Server } from "lucide-react";
 import {
   Button,
   Popover,
@@ -11,6 +11,7 @@ import {
 } from "@workspace/ui";
 
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
+import { localServiceOpenUrl } from "@/features/local-services/lib/local-service-url";
 import type { LocalService } from "@/features/local-services/types";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import {
@@ -46,18 +47,12 @@ export function LocalServicesFooterItem() {
     }
   }, [connectionState, loading, refresh, scope?.data]);
 
-  React.useEffect(() => {
-    if (!open || connectionState !== "connected") return;
-    refresh(false);
-    const timer = window.setInterval(() => refresh(false), 30_000);
-    return () => window.clearInterval(timer);
-  }, [connectionState, open, refresh]);
-
   const handleOpen = React.useCallback((service: LocalService) => {
-    if (!service.url) return;
+    const openUrl = localServiceOpenUrl(service);
+    if (!openUrl) return;
     const params = new URLSearchParams();
     params.set("rsTab", "run-preview");
-    params.set("pvUrl", service.url);
+    params.set("pvUrl", openUrl);
     if (service.owner.workspace_id) {
       params.set("id", service.owner.workspace_id);
       router.push(`/workspace?${params.toString()}`);
@@ -65,7 +60,7 @@ export function LocalServicesFooterItem() {
       params.set("id", service.owner.project_id);
       router.push(`/project?${params.toString()}`);
     } else {
-      window.open(service.url, "_blank", "noopener,noreferrer");
+      window.open(openUrl, "_blank", "noopener,noreferrer");
     }
     setOpen(false);
   }, [router]);
@@ -77,7 +72,6 @@ export function LocalServicesFooterItem() {
           type="button"
           className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
           title="Local Services"
-          onMouseEnter={() => refresh(false)}
         >
           {loading ? (
             <Loader2 className="size-3 animate-spin" />
@@ -105,7 +99,7 @@ export function LocalServicesFooterItem() {
               disabled={loading || connectionState !== "connected"}
               title="Refresh"
             >
-              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+              <RotateCcw className={cn("size-3.5", loading && "animate-spin-reverse")} />
             </Button>
           </div>
           {error ? (

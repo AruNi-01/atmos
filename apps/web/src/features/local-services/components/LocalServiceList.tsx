@@ -31,9 +31,6 @@ export function LocalServiceList({
 
   const handleStop = React.useCallback(async (service: LocalService) => {
     if (!service.pid) return;
-    const label = service.title || service.display_url;
-    const confirmed = window.confirm(`Stop ${label} on port ${service.port}?`);
-    if (!confirmed) return;
 
     setStoppingId(service.id);
     try {
@@ -77,6 +74,7 @@ export function LocalServiceList({
               service={service}
               compact={compact}
               showOwner={showOwner}
+              stopPending={stoppingId === service.id}
               onOpen={onOpen}
               onStop={handleStop}
             />
@@ -103,6 +101,7 @@ export function LocalServiceList({
               <LocalServiceRow
                 service={service}
                 compact={compact}
+                stopPending={stoppingId === service.id}
                 onOpen={onOpen}
                 onStop={handleStop}
               />

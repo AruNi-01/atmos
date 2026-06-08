@@ -395,6 +395,7 @@ impl LocalServicesService {
         let container_proxy = looks_like_container_proxy(&listener);
         let connect_host = connect_host(&listener.local_addr);
         let probe_url = format!("http://{}:{}", connect_host, listener.port);
+        let browser_url = browser_url(&connect_host, listener.port);
         let mut status = if protected {
             LocalServiceStatus::Protected
         } else {
@@ -423,7 +424,7 @@ impl LocalServicesService {
                         LocalServiceKind::WorkspaceDevServer
                     };
                     title = probe.title;
-                    url = Some(probe.url);
+                    url = Some(browser_url.clone());
                     can_open = !container_proxy;
                 }
                 Ok(_) | Err(_) => {
@@ -580,6 +581,16 @@ fn connect_host(local_addr: &str) -> String {
         "*" | "0.0.0.0" | "::" | "" => "127.0.0.1".into(),
         value => value.to_string(),
     }
+}
+
+fn browser_url(connect_host: &str, port: u16) -> String {
+    let normalized = connect_host.trim_matches(['[', ']']);
+    let host = if normalized == "127.0.0.1" || normalized == "::1" {
+        "localhost"
+    } else {
+        connect_host
+    };
+    format!("http://{}:{}", host, port)
 }
 
 fn is_default_visible(service: &LocalServiceDto) -> bool {
@@ -776,7 +787,7 @@ mod tests {
 
     use core_engine::LocalTcpListener;
 
-    use super::{attribute_listener, command_preview, path_contains, ServiceRoot};
+    use super::{attribute_listener, browser_url, command_preview, path_contains, ServiceRoot};
 
     #[test]
     fn descendant_path_matches_parent_root() {
@@ -830,6 +841,16 @@ mod tests {
         assert_eq!(
             command_preview(&["node".into(), "API_TOKEN=abc".into()]).as_deref(),
             Some("node [redacted]")
+        );
+    }
+
+    #[test]
+    fn browser_url_uses_localhost_for_loopback_services() {
+        assert_eq!(browser_url("127.0.0.1", 3030), "http://localhost:3030");
+        assert_eq!(browser_url("::1", 3030), "http://localhost:3030");
+        assert_eq!(
+            browser_url("192.168.1.10", 3030),
+            "http://192.168.1.10:3030"
         );
     }
 }
