@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Button,
   ChevronRight,
@@ -21,6 +21,7 @@ import { buildDiffGroupPath, type DiffChangeGroupKind } from "@/features/diff/li
 import { DiffFileTree } from "@/features/diff/components/DiffFileTree";
 import { DiffFilePathLabel } from "@/features/diff/components/DiffFilePathLabel";
 import { sortByDiffTreePath } from "@/features/diff/lib/diff-file-order";
+import { useOverflowAwareDecorationVisibility } from "@/shared/hooks/use-overflow-aware-decoration-visibility";
 
 function stopActionEvent(
   event:
@@ -54,107 +55,15 @@ type ConfirmableMinusActionArgs = {
 };
 
 function useShouldHideChangeCounts(measurementKey: string) {
-  const labelRef = useRef<HTMLSpanElement | null>(null);
-  const fileNameRef = useRef<HTMLSpanElement | null>(null);
-  const countsRef = useRef<HTMLDivElement | null>(null);
-  const measurementCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [shouldHideCounts, setShouldHideCounts] = useState(false);
-
-  useLayoutEffect(() => {
-    const labelElement = labelRef.current;
-    const fileNameElement = fileNameRef.current;
-    if (!labelElement || !fileNameElement) return;
-
-    const measureTextWidth = () => {
-      const text = fileNameElement.textContent ?? "";
-      if (!text) return 0;
-
-      const style = window.getComputedStyle(fileNameElement);
-      const canvas =
-        measurementCanvasRef.current ?? document.createElement("canvas");
-      measurementCanvasRef.current = canvas;
-      const context = canvas.getContext("2d");
-      if (!context) return fileNameElement.scrollWidth;
-
-      context.font =
-        style.font ||
-        `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-      return context.measureText(text).width;
-    };
-
-    let animationFrame: number | null = null;
-    const measureNow = () => {
-      animationFrame = null;
-      const countsElement = countsRef.current;
-      const previousDisplay = countsElement?.style.display;
-      const previousVisibility = countsElement?.style.visibility;
-      if (countsElement) {
-        countsElement.style.display = "flex";
-        countsElement.style.visibility = "hidden";
-      }
-
-      const labelRect = labelElement.getBoundingClientRect();
-      const fileNameRect = fileNameElement.getBoundingClientRect();
-      const visibleFileNameWidth = Math.max(
-        0,
-        Math.min(fileNameRect.right, labelRect.right) -
-          Math.max(fileNameRect.left, labelRect.left),
-      );
-      const availableWidthWithCounts = Math.max(
-        0,
-        visibleFileNameWidth,
-      );
-      const next =
-        fileNameElement.scrollWidth > availableWidthWithCounts + 1 ||
-        measureTextWidth() > availableWidthWithCounts + 1;
-
-      if (countsElement) {
-        countsElement.style.display = previousDisplay ?? "";
-        countsElement.style.visibility = previousVisibility ?? "";
-      }
-
-      setShouldHideCounts((current) => (current === next ? current : next));
-    };
-    const measure = () => {
-      if (animationFrame !== null) {
-        cancelAnimationFrame(animationFrame);
-      }
-
-      if (typeof requestAnimationFrame === "undefined") {
-        measureNow();
-        return;
-      }
-
-      animationFrame = requestAnimationFrame(measureNow);
-    };
-
-    measure();
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(measure);
-    resizeObserver?.observe(labelElement);
-    resizeObserver?.observe(fileNameElement);
-    if (countsRef.current) {
-      resizeObserver?.observe(countsRef.current);
-    }
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("resize", measure);
-    }
-
-    return () => {
-      if (animationFrame !== null) {
-        cancelAnimationFrame(animationFrame);
-      }
-      resizeObserver?.disconnect();
-      if (typeof window !== "undefined") {
-        window.removeEventListener("resize", measure);
-      }
-    };
-  }, [measurementKey, shouldHideCounts]);
-
+  const {
+    containerRef: labelRef,
+    textRef: fileNameRef,
+    decorationRef: countsRef,
+    shouldHideDecoration: shouldHideCounts,
+  } = useOverflowAwareDecorationVisibility({
+    measurementKey,
+    measureWithinContainer: true,
+  });
   return { labelRef, fileNameRef, countsRef, shouldHideCounts };
 }
 

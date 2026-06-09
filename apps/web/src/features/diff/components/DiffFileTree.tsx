@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { getFileIconProps } from "@workspace/ui";
 import { cn } from "@/shared/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
+import { useOverflowAwareDecorationVisibility } from "@/shared/hooks/use-overflow-aware-decoration-visibility";
 
 export interface DiffFileTreeItem {
   path: string;
@@ -284,95 +285,11 @@ function FileIcon({ name }: { name: string }) {
 }
 
 function useShouldHideTreeChangeCounts(measurementKey: string) {
-  const nameRef = useRef<HTMLSpanElement | null>(null);
-  const countsRef = useRef<HTMLDivElement | null>(null);
-  const measurementCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [shouldHideCounts, setShouldHideCounts] = useState(false);
-
-  useLayoutEffect(() => {
-    const nameElement = nameRef.current;
-    if (!nameElement) return;
-
-    const measureTextWidth = () => {
-      const text = nameElement.textContent ?? "";
-      if (!text) return 0;
-
-      const style = window.getComputedStyle(nameElement);
-      const canvas =
-        measurementCanvasRef.current ?? document.createElement("canvas");
-      measurementCanvasRef.current = canvas;
-      const context = canvas.getContext("2d");
-      if (!context) return nameElement.scrollWidth;
-
-      context.font =
-        style.font ||
-        `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-      return context.measureText(text).width;
-    };
-
-    let animationFrame: number | null = null;
-    const measureNow = () => {
-      animationFrame = null;
-      const countsElement = countsRef.current;
-      const previousDisplay = countsElement?.style.display;
-      const previousVisibility = countsElement?.style.visibility;
-      if (countsElement) {
-        countsElement.style.display = "flex";
-        countsElement.style.visibility = "hidden";
-      }
-
-      const availableWidth = nameElement.getBoundingClientRect().width;
-      const next =
-        nameElement.scrollWidth > availableWidth + 1 ||
-        measureTextWidth() > availableWidth + 1;
-
-      if (countsElement) {
-        countsElement.style.display = previousDisplay ?? "";
-        countsElement.style.visibility = previousVisibility ?? "";
-      }
-
-      setShouldHideCounts((current) => (current === next ? current : next));
-    };
-
-    const measure = () => {
-      if (animationFrame !== null) {
-        cancelAnimationFrame(animationFrame);
-      }
-
-      if (typeof requestAnimationFrame === "undefined") {
-        measureNow();
-        return;
-      }
-
-      animationFrame = requestAnimationFrame(measureNow);
-    };
-
-    measure();
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(measure);
-    resizeObserver?.observe(nameElement);
-    if (countsRef.current) {
-      resizeObserver?.observe(countsRef.current);
-    }
-
-    if (typeof window !== "undefined") {
-      window.addEventListener("resize", measure);
-    }
-
-    return () => {
-      if (animationFrame !== null) {
-        cancelAnimationFrame(animationFrame);
-      }
-      resizeObserver?.disconnect();
-      if (typeof window !== "undefined") {
-        window.removeEventListener("resize", measure);
-      }
-    };
-  }, [measurementKey, shouldHideCounts]);
-
+  const {
+    textRef: nameRef,
+    decorationRef: countsRef,
+    shouldHideDecoration: shouldHideCounts,
+  } = useOverflowAwareDecorationVisibility({ measurementKey });
   return { nameRef, countsRef, shouldHideCounts };
 }
 
