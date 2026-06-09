@@ -1,0 +1,41 @@
+apps/web/src/app-shell/PanelLayout.tsx
+  s_4e02b756729926::t_85bfc8eedbea0f 18-20,25,69,271-278,321-324,396,401,404,406,415-417
+apps/web/src/app-shell/use-welcome-overlay-state.ts
+  s_4e02b756729926::t_5ed675ae9b90e4 1-55,69-89
+  s_4e02b756729926::t_bf0112b9cc070c 56-57,60-62,65
+  s_4e02b756729926::t_4c1a1aa6c568b6 58-59,63-64,66-68
+crates/core-service/src/service/local_services/classification.rs
+  s_4e02b756729926::t_03f12426361644 1-236
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  s_4e02b756729926::t_8d9893792b0d09 24,58-66
+  s_4e02b756729926::t_0b6b43a9a66e28 3
+crates/core-service/src/service/local_services/dto.rs
+  s_4e02b756729926::t_1cb29432cf9091 1-92
+apps/web/src/app-shell/SidebarPeekShell.tsx
+  s_4e02b756729926::t_ba082515bf899b 1-188
+apps/web/src/shared/hooks/use-overflow-aware-decoration-visibility.ts
+  s_4e02b756729926::t_0cd5f5b8f33d44 1-131
+crates/core-service/src/service/local_services.rs
+  s_4e02b756729926::t_6c729bfdba84df 1,6,13-18,20,130,254
+  s_4e02b756729926::t_67523d0331408a 19
+apps/web/src/features/diff/components/DiffFileTree.tsx
+  s_4e02b756729926::t_16884fad6d1673 3,8,288-292
+crates/core-service/src/service/local_services/ownership.rs
+  s_4e02b756729926::t_47a1ee2ccdca09 1-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "a8e506bbb194a28ebd1ef15d835f858784afacb2",
+  "prompts": {},
+  "sessions": {
+    "s_4e02b756729926": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea9ae-4ccc-7fe2-89aa-0d4fb6e03ed6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
