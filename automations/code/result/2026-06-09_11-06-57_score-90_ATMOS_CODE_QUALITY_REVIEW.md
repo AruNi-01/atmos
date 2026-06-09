@@ -94,7 +94,7 @@
 - 未触发。原因：本次总分为 90（>=90），按规则无需自动修复流程。
 
 ## 10. 结果文件
-- 本次结果文件：`/Users/lurunrun/own_space/OpenSource/atmos/automations/code/result/2026-06-09_11-06-57_score-90_ATMOS_CODE_QUALITY_REVIEW.md`
+- 本次结果文件：`automations/code/result/2026-06-09_11-06-57_score-90_ATMOS_CODE_QUALITY_REVIEW.md`
 
 ## 11. 结果提交与推送
 - 结果文件已按规则写入。
