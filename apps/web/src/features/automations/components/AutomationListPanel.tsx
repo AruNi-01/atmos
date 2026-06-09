@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
   Input,
   ScrollArea,
+  Switch,
   Tabs,
   TabsList,
   TabsTab,
@@ -43,7 +44,10 @@ import {
   formatDateTime,
   formatScheduleLabel,
   formatTarget,
+  isAutomationEnabled,
+  isAutomationPaused,
   statusMeta,
+  supportsAutomationEnabledToggle,
 } from "@/features/automations/lib/automation-format";
 import type {
   AutomationAgentCapability,
@@ -77,6 +81,7 @@ export function AutomationListPanel({
   onTargetFilterChange,
   onSearchQueryChange,
   onRunAction,
+  onToggleEnabled,
 }: {
   automations: AutomationSummary[];
   agents: AutomationAgentCapability[];
@@ -95,6 +100,7 @@ export function AutomationListPanel({
   onTargetFilterChange: (value: AutomationTargetFilter) => void;
   onSearchQueryChange: (value: string) => void;
   onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
+  onToggleEnabled: (automation: AutomationSummary, enabled: boolean) => Promise<void>;
 }) {
   const [deleteTarget, setDeleteTarget] = React.useState<AutomationSummary | null>(null);
   const agentById = React.useMemo(
@@ -245,6 +251,7 @@ export function AutomationListPanel({
                       onHistory={() => onOpenHistory(automation.guid)}
                       onEdit={() => onEdit(automation.guid)}
                       onDelete={() => setDeleteTarget(automation)}
+                      onToggleEnabled={(enabled) => void onToggleEnabled(automation, enabled)}
                     />
                   ))}
                 </AnimatePresence>
@@ -297,6 +304,7 @@ function AutomationListRow({
   onHistory,
   onEdit,
   onDelete,
+  onToggleEnabled,
 }: {
   automation: AutomationSummary;
   agent: AutomationAgentCapability | null;
@@ -307,11 +315,18 @@ function AutomationListRow({
   onHistory: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleEnabled: (enabled: boolean) => void;
 }) {
   const status = statusMeta(automation.last_status);
   const scheduleLabel = formatScheduleLabel(automation);
   const targetLabel = formatTarget(automation, projects);
+  const enabled = isAutomationEnabled(automation);
+  const canToggleEnabled = supportsAutomationEnabledToggle(automation);
   const runBusy = busyAction === `run:${automation.guid}`;
+  const toggleBusy =
+    busyAction === `toggle:${automation.guid}` ||
+    busyAction === `pause:${automation.guid}` ||
+    busyAction === `resume:${automation.guid}`;
   const deleteBusy = busyAction === `delete:${automation.guid}`;
 
   return (
@@ -332,7 +347,7 @@ function AutomationListRow({
             <h3 className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
               {automation.display_name}
             </h3>
-            {automation.schedule_paused ? <Badge variant="outline">Paused</Badge> : null}
+            {isAutomationPaused(automation) ? <Badge variant="outline">Paused</Badge> : null}
             {status ? <StatusBadge status={status.status} /> : <Badge variant="secondary">Never run</Badge>}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -364,6 +379,14 @@ function AutomationListRow({
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-2 pl-14 lg:pl-4">
+        {canToggleEnabled ? (
+          <Switch
+            checked={enabled}
+            disabled={toggleBusy}
+            aria-label={`${enabled ? "Disable" : "Enable"} automation ${automation.display_name}`}
+            onCheckedChange={(checked) => onToggleEnabled(Boolean(checked))}
+          />
+        ) : null}
         <Button variant="outline" size="sm" disabled={runBusy} onClick={onRun}>
           {runBusy ? <LoaderCircle className="size-4 animate-spin" /> : <Play className="size-4" />}
           Run Now

@@ -81,6 +81,24 @@ export function formatScheduleLabel(automation: AutomationSummary) {
     : capitalize(automation.schedule_kind);
 }
 
+export function supportsAutomationEnabledToggle(automation: AutomationSummary) {
+  return automation.trigger_kind === "github" || automation.schedule_enabled;
+}
+
+export function isAutomationEnabled(automation: AutomationSummary) {
+  if (automation.trigger_kind === "github") {
+    return automation.trigger_enabled && automation.trigger_status === "active";
+  }
+  if (automation.schedule_enabled) {
+    return !automation.schedule_paused;
+  }
+  return true;
+}
+
+export function isAutomationPaused(automation: AutomationSummary) {
+  return automation.schedule_paused || automation.trigger_status === "paused";
+}
+
 export function artifactLabel(kind: AutomationArtifactKind) {
   switch (kind) {
     case "final":

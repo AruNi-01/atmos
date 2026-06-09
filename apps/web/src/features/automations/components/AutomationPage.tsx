@@ -135,6 +135,7 @@ export function AutomationPage() {
               onTargetFilterChange={(value) => void state.setTargetFilter(value)}
               onSearchQueryChange={(value) => void state.setSearchQuery(value)}
               onRunAction={state.handleDefinitionAction}
+              onToggleEnabled={state.handleToggleEnabled}
             />
           </motion.div>
         )}

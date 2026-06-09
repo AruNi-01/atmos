@@ -10,9 +10,9 @@ import { useAutomationRunHistoryState } from "@/features/automations/hooks/use-a
 import { useAutomationWebsocketSync } from "@/features/automations/hooks/use-automation-websocket-sync";
 import { formatShortId } from "@/features/automations/lib/automation-format";
 import { deleteAutomationWithGithubRoute } from "@/features/automations/lib/github-route-lifecycle";
+import { parseGithubTriggerConfig } from "@/features/automations/lib/github-trigger-relay";
 import type { SetupMode } from "@/features/automations/components/AutomationSetup";
 import type {
-  AutomationArtifactKind,
   AutomationCreateRequest,
   AutomationDetail,
   AutomationRunSummary,
@@ -271,6 +271,7 @@ export function useAutomationPageState() {
       setAutomationParam,
       setPageView,
       setRunParam,
+      setRuns,
       upsertAutomation,
     ],
   );
@@ -391,6 +392,66 @@ export function useAutomationPageState() {
       setAutomationParam,
       setPageView,
       setRunParam,
+      setRuns,
+      setSelectedRun,
+      upsertAutomation,
+    ],
+  );
+
+  const handleToggleEnabled = React.useCallback(
+    async (automation: AutomationSummary, enabled: boolean) => {
+      setBusyAction(`toggle:${automation.guid}`);
+      try {
+        let detail: AutomationDetail;
+        if (automation.trigger_kind === "github") {
+          const githubConfig = parseGithubTriggerConfig(
+            automation.trigger_config_json,
+          );
+          if (!githubConfig) {
+            throw new Error(
+              "GitHub trigger setup is incomplete. Open Edit to finish the route setup first.",
+            );
+          }
+          detail = await updateAutomation({
+            automation_guid: automation.guid,
+            trigger: {
+              kind: "github",
+              enabled,
+              status: enabled ? "active" : "paused",
+              config: githubConfig,
+            },
+          });
+        } else if (automation.schedule_enabled) {
+          detail = enabled
+            ? await resumeAutomation(automation.guid)
+            : await pauseAutomation(automation.guid);
+        } else {
+          return;
+        }
+
+        upsertAutomation(detail);
+        if (automation.guid === selectedAutomationGuidRef.current) {
+          setSelectedDetail(detail);
+        }
+        toastManager.add({
+          title: enabled ? "Automation enabled" : "Automation disabled",
+          description: automation.display_name,
+          type: enabled ? "success" : "info",
+        });
+      } catch (err) {
+        toastManager.add({
+          title: enabled ? "Enable failed" : "Disable failed",
+          description: err instanceof Error ? err.message : "Unknown error",
+          type: "error",
+        });
+      } finally {
+        setBusyAction(null);
+      }
+    },
+    [
+      pauseAutomation,
+      resumeAutomation,
+      updateAutomation,
       upsertAutomation,
     ],
   );
@@ -429,7 +490,7 @@ export function useAutomationPageState() {
         setBusyAction(null);
       }
     },
-    [cancelRun, loadRuns, refreshAutomation, selectedAutomationGuid],
+    [cancelRun, loadRuns, refreshAutomation, selectedAutomationGuid, setRuns, setSelectedRun],
   );
 
   const handleContinueInTerminal = React.useCallback(
@@ -592,6 +653,7 @@ export function useAutomationPageState() {
     handleCreate,
     handleUpdate,
     handleDefinitionAction,
+    handleToggleEnabled,
     handleCancelRun,
     handleArtifactFetch,
     handleContinueInTerminal,

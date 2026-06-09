@@ -22,6 +22,7 @@ export function AutomationPageShell({
   onTargetFilterChange,
   onSearchQueryChange,
   onRunAction,
+  onToggleEnabled,
 }: {
   automations: AutomationSummary[];
   agents: AutomationAgentCapability[];
@@ -38,6 +39,7 @@ export function AutomationPageShell({
   onTargetFilterChange: (value: AutomationTargetFilter) => void;
   onSearchQueryChange: (value: string) => void;
   onRunAction: (action: "run" | "pause" | "resume" | "delete", automation: AutomationSummary) => Promise<void>;
+  onToggleEnabled: (automation: AutomationSummary, enabled: boolean) => Promise<void>;
 }) {
   const supportedAgentCount = agents.filter((agent) => agent.automation_supported).length;
   const newAutomationDisabled = loading || supportedAgentCount === 0;
@@ -61,6 +63,7 @@ export function AutomationPageShell({
       onTargetFilterChange={onTargetFilterChange}
       onSearchQueryChange={onSearchQueryChange}
       onRunAction={onRunAction}
+      onToggleEnabled={onToggleEnabled}
     />
   );
 }
