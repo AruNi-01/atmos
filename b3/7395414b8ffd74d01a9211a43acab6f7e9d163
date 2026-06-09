@@ -1,0 +1,29 @@
+apps/web/src/features/automations/lib/automation-format.ts
+  s_680ecdf6e3efcf::t_4fd06ad74af3b2 84-101
+apps/web/src/features/automations/hooks/use-automation-page-state.ts
+  s_680ecdf6e3efcf::t_4fd06ad74af3b2 13,401-454,656
+  s_680ecdf6e3efcf::t_0074ff0a13ac84 274,395-396,493
+apps/web/src/features/automations/components/AutomationListPanel.tsx
+  s_680ecdf6e3efcf::t_155afc28d8eb39 382-389
+  s_680ecdf6e3efcf::t_4fd06ad74af3b2 19,47-48,50,84,103,254,307,318,323-324,326-329,350
+apps/web/src/features/automations/components/AutomationPageShell.tsx
+  s_680ecdf6e3efcf::t_4fd06ad74af3b2 25,42,66
+apps/web/src/features/automations/components/AutomationPage.tsx
+  s_680ecdf6e3efcf::t_4fd06ad74af3b2 138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b37395414b8ffd74d01a9211a43acab6f7e9d163",
+  "prompts": {},
+  "sessions": {
+    "s_680ecdf6e3efcf": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaaf9-f791-7762-ad08-ae94f670bc47",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
