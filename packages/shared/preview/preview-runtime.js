@@ -238,45 +238,6 @@
       return button;
     }
 
-    function createToolbarIconButton(path, title) {
-      const button = createButtonBase();
-      button.title = title;
-      button.style.width = '34px';
-      button.style.minWidth = '34px';
-      button.style.borderRadius = '9px';
-      button.style.background = 'transparent';
-      button.style.color = '#f5f5f7';
-      button.appendChild(createSvgIcon(path, 17));
-      button.addEventListener('mouseenter', function () {
-        button.style.background = 'rgba(255, 255, 255, 0.08)';
-      });
-      button.addEventListener('mouseleave', function () {
-        button.style.background = 'transparent';
-      });
-      return button;
-    }
-
-    function createToolbarTextButton(iconPath, label, title) {
-      const button = createButtonBase();
-      button.title = title || label;
-      button.style.padding = '0 12px';
-      button.style.borderRadius = '10px';
-      button.style.background = 'transparent';
-      button.style.color = '#f5f5f7';
-      button.style.fontWeight = '600';
-      button.appendChild(createSvgIcon(iconPath, 17));
-      const text = doc.createElement('span');
-      text.textContent = label;
-      button.appendChild(text);
-      button.addEventListener('mouseenter', function () {
-        button.style.background = 'rgba(255, 255, 255, 0.08)';
-      });
-      button.addEventListener('mouseleave', function () {
-        button.style.background = 'transparent';
-      });
-      return button;
-    }
-
     function createFooterButton(label, variant, iconPath) {
       const button = createButtonBase();
       button.style.padding = '0 15px';
@@ -305,25 +266,6 @@
       return button;
     }
 
-    const toolbar = doc.createElement('div');
-    toolbar.dataset.atmosPreviewOverlay = 'true';
-    toolbar.style.position = 'fixed';
-    toolbar.style.display = 'none';
-    toolbar.style.alignItems = 'center';
-    toolbar.style.gap = '3px';
-    toolbar.style.padding = '4px';
-    toolbar.style.borderRadius = '12px';
-    toolbar.style.border = '1px solid rgba(255, 255, 255, 0.14)';
-    toolbar.style.background = 'rgba(23, 23, 27, 0.96)';
-    toolbar.style.boxShadow = '0 14px 36px rgba(0, 0, 0, 0.28)';
-    toolbar.style.pointerEvents = 'auto';
-    toolbar.style.backdropFilter = 'blur(16px)';
-    toolbar.style.webkitBackdropFilter = 'blur(16px)';
-    toolbar.style.zIndex = '2147483647';
-    toolbar.style.width = 'auto';
-    toolbar.style.whiteSpace = 'nowrap';
-    doc.documentElement.appendChild(toolbar);
-
     const detailsCard = doc.createElement('div');
     detailsCard.dataset.atmosPreviewOverlay = 'true';
     detailsCard.style.position = 'fixed';
@@ -340,28 +282,12 @@
     detailsCard.style.zIndex = '2147483647';
     doc.documentElement.appendChild(detailsCard);
 
-    [toolbar, detailsCard].forEach(function (node) {
-      node.addEventListener('mousedown', stopPropagation);
-      node.addEventListener('mouseup', stopPropagation);
-      node.addEventListener('click', stopPropagation);
-      node.addEventListener('dblclick', stopPropagation);
-    });
+    detailsCard.addEventListener('mousedown', stopPropagation);
+    detailsCard.addEventListener('mouseup', stopPropagation);
+    detailsCard.addEventListener('click', stopPropagation);
+    detailsCard.addEventListener('dblclick', stopPropagation);
 
-    const cancelIconPath = '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>';
     const copyIconPath = '<rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>';
-    const chevronDownIconPath = '<path d="m6 9 6 6 6-6"></path>';
-
-    const topCancelButton = createToolbarTextButton(cancelIconPath, 'Cancel', 'Cancel selection');
-    const quickCopyButton = createToolbarIconButton(copyIconPath, 'Copy for AI');
-    const expandButton = createToolbarIconButton(chevronDownIconPath, 'Add note');
-    var expandIcon = expandButton.firstChild;
-    if (expandIcon) {
-      expandIcon.style.transition = 'transform 200ms ease';
-      expandIcon.style.transformOrigin = '50% 50%';
-    }
-    toolbar.appendChild(topCancelButton);
-    toolbar.appendChild(quickCopyButton);
-    toolbar.appendChild(expandButton);
 
     const sourceSummary = doc.createElement('div');
     sourceSummary.style.color = '#b9b9c2';
@@ -452,22 +378,10 @@
     footer.appendChild(footerCancelButton);
     footer.appendChild(footerCopyButton);
 
-    let expanded = false;
     let currentMeta = null;
     let currentRect = null;
     let cancelHandler = null;
     let copyHandler = null;
-
-    function setExpanded(nextExpanded) {
-      expanded = !!nextExpanded;
-      if (expandIcon) {
-        expandIcon.style.transform = expanded ? 'rotate(180deg)' : 'rotate(0deg)';
-      }
-      detailsCard.style.display = expanded ? 'block' : 'none';
-      if (currentRect) {
-        placeToolbar(currentRect);
-      }
-    }
 
     function applyConfidence(confidence) {
       if (confidence === 'high') {
@@ -518,7 +432,6 @@
 
     function placeToolbar(rect) {
       if (!options || !options.showSelectionToolbar) {
-        toolbar.style.display = 'none';
         detailsCard.style.display = 'none';
         return;
       }
@@ -526,34 +439,21 @@
       currentRect = rect;
       renderSelectionMeta();
 
-      toolbar.style.width = 'auto';
-      toolbar.style.visibility = 'hidden';
-      toolbar.style.display = 'inline-flex';
-      var toolbarWidth = Math.max(156, Math.ceil(toolbar.getBoundingClientRect().width));
-      var toolbarHeight = 42;
       var detailsWidth = Math.min(480, Math.max(280, win.innerWidth - 16));
-      var detailsHeight = expanded ? 260 : 0;
-      var gap = expanded ? 10 : 0;
-      var totalHeight = toolbarHeight + detailsHeight + gap;
+      var detailsHeight = 260;
       var centerX = rect.x + Math.min(rect.width, 220) / 2;
       var belowTop = rect.y + rect.height + 12;
-      var aboveTop = rect.y - totalHeight - 12;
+      var aboveTop = rect.y - detailsHeight - 12;
       var top =
-        belowTop + totalHeight <= win.innerHeight - 8
+        belowTop + detailsHeight <= win.innerHeight - 8
           ? belowTop
           : Math.max(8, aboveTop);
-      var toolbarLeft = clamp(centerX - toolbarWidth / 2, 8, Math.max(8, win.innerWidth - toolbarWidth - 8));
       var detailsLeft = clamp(centerX - detailsWidth / 2, 8, Math.max(8, win.innerWidth - detailsWidth - 8));
 
-      toolbar.style.left = toolbarLeft + 'px';
-      toolbar.style.top = top + 'px';
-      toolbar.style.visibility = 'visible';
-      toolbar.style.display = 'inline-flex';
-
       detailsCard.style.left = detailsLeft + 'px';
-      detailsCard.style.top = (top + toolbarHeight + gap) + 'px';
+      detailsCard.style.top = top + 'px';
       detailsCard.style.width = detailsWidth + 'px';
-      detailsCard.style.display = expanded ? 'block' : 'none';
+      detailsCard.style.display = 'block';
     }
 
     function eventTargetInside(event, node) {
@@ -571,16 +471,6 @@
       }
     }
 
-    function quickCopyFromEvent(event) {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      if (copyHandler) {
-        copyHandler('', event);
-      }
-    }
-
     function copyWithNoteFromEvent(event) {
       if (event) {
         event.preventDefault();
@@ -591,45 +481,17 @@
       }
     }
 
-    let lastExpandPointerAt = 0;
-    function toggleExpandedFromEvent(event) {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      setExpanded(!expanded);
-      if (expanded) {
-        win.setTimeout(function () {
-          noteInput.focus();
-        }, 0);
-      }
-    }
-
     function handleOverlayButtonPointerDown(event) {
-      if (eventTargetInside(event, expandButton)) {
-        lastExpandPointerAt = Date.now();
-        toggleExpandedFromEvent(event);
-      } else if (eventTargetInside(event, topCancelButton) || eventTargetInside(event, footerCancelButton)) {
+      if (eventTargetInside(event, footerCancelButton)) {
         cancelFromEvent(event);
-      } else if (eventTargetInside(event, quickCopyButton)) {
-        quickCopyFromEvent(event);
       } else if (eventTargetInside(event, footerCopyButton)) {
         copyWithNoteFromEvent(event);
       }
     }
 
     function handleOverlayButtonClick(event) {
-      if (eventTargetInside(event, expandButton)) {
-        if (Date.now() - lastExpandPointerAt < 350) {
-          event.preventDefault();
-          event.stopPropagation();
-          return;
-        }
-        toggleExpandedFromEvent(event);
-      } else if (eventTargetInside(event, topCancelButton) || eventTargetInside(event, footerCancelButton)) {
+      if (eventTargetInside(event, footerCancelButton)) {
         cancelFromEvent(event);
-      } else if (eventTargetInside(event, quickCopyButton)) {
-        quickCopyFromEvent(event);
       } else if (eventTargetInside(event, footerCopyButton)) {
         copyWithNoteFromEvent(event);
       }
@@ -638,22 +500,8 @@
     win.addEventListener('pointerdown', handleOverlayButtonPointerDown, true);
     win.addEventListener('click', handleOverlayButtonClick, true);
 
-    topCancelButton.addEventListener('click', cancelFromEvent);
     footerCancelButton.addEventListener('click', cancelFromEvent);
-    quickCopyButton.addEventListener('click', quickCopyFromEvent);
     footerCopyButton.addEventListener('click', copyWithNoteFromEvent);
-    expandButton.addEventListener('pointerdown', function (event) {
-      lastExpandPointerAt = Date.now();
-      toggleExpandedFromEvent(event);
-    });
-    expandButton.addEventListener('click', function (event) {
-      if (Date.now() - lastExpandPointerAt < 350) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-      toggleExpandedFromEvent(event);
-    });
 
     function place(box, label, rect, text) {
       var thickness = 2;
@@ -714,17 +562,21 @@
           currentMeta = meta;
         }
         place(lockedBox, lockedLabel, rect, label);
+        // Always show the input card directly on selection.
         placeToolbar(rect);
+        if (meta) {
+          win.setTimeout(function () {
+            try { noteInput.focus(); } catch (_) {}
+          }, 0);
+        }
       },
       clearLocked() {
         clearBox(lockedBox);
         lockedLabel.style.display = 'none';
-        toolbar.style.display = 'none';
         detailsCard.style.display = 'none';
         noteInput.value = '';
         currentMeta = null;
         currentRect = null;
-        setExpanded(false);
       },
       onCancel(handler) {
         cancelHandler = handler;
@@ -735,7 +587,6 @@
       destroy() {
         win.removeEventListener('pointerdown', handleOverlayButtonPointerDown, true);
         win.removeEventListener('click', handleOverlayButtonClick, true);
-        toolbar.remove();
         detailsCard.remove();
         hoverBox.segments.forEach(function (segment) { segment.remove(); });
         lockedBox.segments.forEach(function (segment) { segment.remove(); });
