@@ -33,7 +33,10 @@ export async function connectDesktopPreviewTransport(
       });
     }),
     listenDesktopPreviewBridge('desktop-preview:toolbar-action', (payload) => {
-      if (payload.sessionId !== options.sessionId || payload.action !== 'copy') return;
+      if (
+        payload.sessionId !== options.sessionId ||
+        (payload.action !== 'copy' && payload.action !== 'add')
+      ) return;
       options.onToolbarAction?.(payload.action, payload.note);
     }),
     listenDesktopPreviewBridge('desktop-preview:cleared', (payload) => {

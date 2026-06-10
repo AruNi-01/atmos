@@ -4,8 +4,10 @@ import React from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Copy,
   ExternalLink,
   Home,
+  MessageCirclePlus,
   Monitor,
   PictureInPicture2,
   Puzzle,
@@ -58,6 +60,7 @@ interface PreviewToolbarProps {
   normalizedActiveUrl: string;
   preferredTransportMode: ResolvedTransportMode;
   savingFavorite: boolean;
+  selectionAnnotationCount: number;
   shouldHideToolbarExternalActions: boolean;
   shouldHideToolbarNavigation: boolean;
   shouldHideToolbarStatus: boolean;
@@ -79,6 +82,7 @@ interface PreviewToolbarProps {
   handleGoBack: () => void;
   handleGoForward: () => void;
   handleGoHome: () => void;
+  handleCopySelectionAnnotations: () => Promise<void>;
   handleRefresh: () => void;
   handleRecheckExtension: () => Promise<void>;
   handleToggleDesktopPreviewDetached: () => Promise<void>;
@@ -120,6 +124,7 @@ export function PreviewToolbar({
   normalizedActiveUrl,
   preferredTransportMode,
   savingFavorite,
+  selectionAnnotationCount,
   shouldHideToolbarExternalActions,
   shouldHideToolbarNavigation,
   shouldHideToolbarStatus,
@@ -141,6 +146,7 @@ export function PreviewToolbar({
   handleGoBack,
   handleGoForward,
   handleGoHome,
+  handleCopySelectionAnnotations,
   handleRefresh,
   handleRecheckExtension,
   handleToggleDesktopPreviewDetached,
@@ -373,6 +379,35 @@ export function PreviewToolbar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+            {selectionAnnotationCount > 0 ? (
+              <TooltipProvider delayDuration={150}>
+                <Tooltip disableHoverableContent>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleCopySelectionAnnotations();
+                      }}
+                      className="group relative flex h-6 w-[66px] cursor-pointer items-center justify-center overflow-hidden border-l border-border/60 px-2 text-[11px] font-medium leading-none text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                      aria-label={`Copy ${selectionAnnotationCount} preview annotation${selectionAnnotationCount === 1 ? "" : "s"}`}
+                    >
+                      <span className="absolute inset-0 inline-flex items-center justify-center gap-1 tabular-nums transition-all duration-150 ease-out group-hover:-translate-y-1 group-hover:opacity-0">
+                        <MessageCirclePlus className="size-3" />
+                        <span>{selectionAnnotationCount}</span>
+                      </span>
+                      <span className="absolute inset-0 inline-flex translate-y-1 items-center justify-center gap-1 opacity-0 transition-all duration-150 ease-out group-hover:translate-y-0 group-hover:opacity-100">
+                        <Copy className="size-3" />
+                        <span>Copy</span>
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+                    Copy {selectionAnnotationCount} queued preview annotation{selectionAnnotationCount === 1 ? "" : "s"}.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : null}
 
             {preferredTransportMode === "desktop-native" ? (
               <TooltipProvider delayDuration={150}>

@@ -726,7 +726,7 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
               activeTab !== "review" && "hidden",
             )}
           >
-            {hasWorkingContext ? (
+            {activeTab !== "review" ? null : hasWorkingContext ? (
               <ReviewContextProvider
                 target={reviewTarget}
                 filePath={filePath}

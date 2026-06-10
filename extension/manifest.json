@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Atmos Inspector",
   "description": "Cross-port preview element selection bridge for Atmos.",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "permissions": [],
   "host_permissions": [
     "http://localhost/*",

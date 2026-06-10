@@ -1,7 +1,12 @@
 import { getAvailableSourceLocatorCapabilities, locateSourceForElement } from '../source-locators/registry';
 import { createPreviewHelperBridge } from './bridge';
 import { buildElementSelector, getPreviewElementRect, inspectPreviewElement } from './dom-inspector';
-import { createPreviewOverlay } from './overlay';
+import {
+  PREVIEW_PICKER_HOVER_COLOR,
+  PREVIEW_PICKER_LOCKED_COLOR,
+  createPreviewOverlay,
+  createPreviewPickerCursor,
+} from './overlay';
 import { createPreviewSelectionState } from './selection-state';
 import type { PreviewHelperCapability, PreviewHelperPayload } from './types';
 
@@ -53,6 +58,8 @@ export function installPreviewHelper(
   const elementCtor = doc.defaultView?.Element ?? Element;
   const overlay = createPreviewOverlay(doc);
   const state = createPreviewSelectionState();
+  const hoverCursor = createPreviewPickerCursor(PREVIEW_PICKER_HOVER_COLOR);
+  const lockedCursor = createPreviewPickerCursor(PREVIEW_PICKER_LOCKED_COLOR);
   let parentOrigin = '*';
   try {
     parentOrigin = win.parent.location.origin;
@@ -69,6 +76,7 @@ export function installPreviewHelper(
     state.locked = null;
     overlay.clearLocked();
     overlay.clearHover();
+    overlay.setCursor(state.enabled ? hoverCursor : 'default');
     if (notifyHost) {
       options.onCleared?.();
       bridge.cleared();
@@ -77,6 +85,7 @@ export function installPreviewHelper(
       // overlays do not reappear after the selection is removed.
       state.enabled = false;
       state.hovered = null;
+      overlay.setCursor('default');
     }
   };
 
@@ -85,6 +94,7 @@ export function installPreviewHelper(
     const elementContext = inspectPreviewElement(element);
     const sourceLocation = locateSourceForElement(element, win);
     overlay.lock(rect, sourceLocation?.componentName || buildElementSelector(element));
+    overlay.setCursor(lockedCursor);
     const payload = {
       pageUrl: win.location.href,
       rect,
@@ -99,31 +109,44 @@ export function installPreviewHelper(
     if (!state.enabled) return;
     if (state.locked) {
       overlay.clearHover();
+      overlay.setCursor(lockedCursor);
       return;
     }
     const target = event.target;
     if (!isInspectableElement(target, elementCtor) || isIgnoredElement(target)) {
       overlay.clearHover();
+      overlay.setCursor(hoverCursor);
       state.hovered = null;
       return;
     }
     state.hovered = target;
+    overlay.setCursor(hoverCursor);
     const rect = getPreviewElementRect(target);
     overlay.updateHover(rect, buildElementSelector(target));
     bridge.hover(rect);
   };
 
+  const isOverlayTarget = (target: EventTarget | null) => {
+    return isInspectableElement(target, elementCtor) && Boolean(target.closest('[data-atmos-preview-overlay="true"]'));
+  };
+
+  const blockPagePointerEvent = (event: Event) => {
+    if (!state.enabled) return;
+    if (isOverlayTarget(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const handleClick = (event: MouseEvent) => {
     if (!state.enabled) return;
+    if (isOverlayTarget(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
     if (state.locked) {
-      event.preventDefault();
-      event.stopPropagation();
       return;
     }
     const target = event.target;
     if (!isInspectableElement(target, elementCtor) || isIgnoredElement(target)) return;
-    event.preventDefault();
-    event.stopPropagation();
     state.locked = target;
     overlay.clearHover();
     emitSelection(target);
@@ -135,7 +158,12 @@ export function installPreviewHelper(
   };
 
   doc.addEventListener('mousemove', handleMouseMove, true);
+  doc.addEventListener('pointerdown', blockPagePointerEvent, true);
+  doc.addEventListener('mousedown', blockPagePointerEvent, true);
+  doc.addEventListener('mouseup', blockPagePointerEvent, true);
   doc.addEventListener('click', handleClick, true);
+  doc.addEventListener('dblclick', blockPagePointerEvent, true);
+  doc.addEventListener('contextmenu', blockPagePointerEvent, true);
   win.addEventListener('keydown', handleKeyDown, true);
 
   let lastKnownPath = win.location.pathname + win.location.hash;
@@ -199,6 +227,7 @@ export function installPreviewHelper(
   return {
     enterPickMode() {
       state.enabled = true;
+      overlay.setCursor(hoverCursor);
     },
     exitPickMode() {
       state.enabled = false;
@@ -206,11 +235,17 @@ export function installPreviewHelper(
       state.hovered = null;
       overlay.clearLocked();
       overlay.clearHover();
+      overlay.setCursor('default');
     },
     clearSelection,
     destroy() {
       doc.removeEventListener('mousemove', handleMouseMove, true);
+      doc.removeEventListener('pointerdown', blockPagePointerEvent, true);
+      doc.removeEventListener('mousedown', blockPagePointerEvent, true);
+      doc.removeEventListener('mouseup', blockPagePointerEvent, true);
       doc.removeEventListener('click', handleClick, true);
+      doc.removeEventListener('dblclick', blockPagePointerEvent, true);
+      doc.removeEventListener('contextmenu', blockPagePointerEvent, true);
       win.removeEventListener('keydown', handleKeyDown, true);
       win.removeEventListener('popstate', handlePopState);
       titleObserver?.disconnect();

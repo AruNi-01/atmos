@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Copy, ChevronDown, Check, Paperclip, X } from 'lucide-react';
+import { Copy, ChevronDown, Check, Paperclip, Plus } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -44,6 +44,7 @@ interface SelectionPopoverProps {
   positioning?: 'absolute' | 'fixed';
   onCopied?: (payload: SelectionCopiedPayload) => void;
   onAttach?: (payload: SelectionAttachedPayload) => Promise<void> | void;
+  onAddAnnotation?: (selectionInfo: SelectionInfo, note?: string) => void;
 }
 
 export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
@@ -59,6 +60,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   positioning = 'absolute',
   onCopied,
   onAttach,
+  onAddAnnotation,
 }) => {
   const [userNote, setUserNote] = useState('');
   const [copied, setCopied] = useState(false);
@@ -68,6 +70,7 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   const [lastSelectionInfo, setLastSelectionInfo] = useState<SelectionInfo | null>(null);
   const animationFrameRef = useRef<number>(0);
   const canAttach = type === 'wiki' && typeof onAttach === 'function';
+  const canAddPreviewAnnotation = type === 'preview' && typeof onAddAnnotation === 'function';
 
   // Use the prop if available (active state), otherwise use cached version (exit animation state)
   const displayInfo = selectionInfo || lastSelectionInfo;
@@ -185,6 +188,13 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     handleCopy(true);
   }, [handleCopy]);
 
+  const handleAddAnnotation = useCallback(() => {
+    if (!displayInfo || !onAddAnnotation) return;
+    onAddAnnotation(displayInfo, userNote);
+    setCopied(false);
+    setUserNote('');
+  }, [displayInfo, onAddAnnotation, userNote]);
+
   if (!shouldRender || !displayInfo) {
     return null;
   }
@@ -207,6 +217,131 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       : previewSourceConfidence === 'low'
         ? 'border-destructive/30 bg-destructive/10 text-destructive'
         : 'border-border bg-muted/40 text-muted-foreground';
+
+  const detailsContent = (
+    <div className="space-y-3">
+      <div className="text-xs text-muted-foreground flex items-center gap-1 min-w-0 w-full">
+        <span 
+          className="font-mono flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" 
+          title={displayInfo.filePath}
+          style={{ direction: 'rtl', textAlign: 'left' }}
+        >
+          <bdi>{displayInfo.filePath}</bdi>
+        </span>
+        {lineRange && (
+          <>
+            <span className="shrink-0">·</span>
+            <span className="shrink-0">{lineRange}</span>
+          </>
+        )}
+        {displayInfo.changeType && (
+          <>
+            <span className="shrink-0">·</span>
+            <span className={cn(
+              'shrink-0',
+              displayInfo.changeType === 'addition' && 'text-green-500',
+              displayInfo.changeType === 'deletion' && 'text-red-500',
+            )}>
+              {displayInfo.changeType}
+            </span>
+          </>
+        )}
+        {previewFrameworkLabel && (
+          <>
+            <span className="shrink-0">·</span>
+            <span className="shrink-0 capitalize">{previewFrameworkLabel}</span>
+          </>
+        )}
+        {previewComponentLabel && (
+          <>
+            <span className="shrink-0">·</span>
+            <span
+              className="max-w-[140px] shrink overflow-hidden text-ellipsis whitespace-nowrap font-medium text-foreground"
+              title={previewComponentLabel}
+            >
+              {previewComponentLabel}
+            </span>
+          </>
+        )}
+      </div>
+
+      <Textarea
+        placeholder="Add a note for the AI agent... (optional)"
+        value={userNote}
+        onChange={(e) => setUserNote(e.target.value)}
+        className="min-h-[80px] text-sm resize-none"
+        autoFocus
+      />
+
+      {previewDebugSignals.length > 0 || previewSourceConfidence ? (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-medium text-muted-foreground">
+              Source Code Confidence
+            </div>
+            {previewSourceConfidence ? (
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]',
+                  previewConfidenceLabelClassName,
+                )}
+              >
+                {previewSourceConfidence}
+              </span>
+            ) : null}
+          </div>
+          {previewDebugSignals.length > 0 ? (
+            <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
+              {previewDebugSignals.join(', ')}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDismiss}
+        >
+          Cancel
+        </Button>
+        {canAttach ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void handleAttach(true)}
+            disabled={attaching}
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+            {attaching ? 'Attaching...' : 'Attach'}
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          onClick={canAddPreviewAnnotation ? handleAddAnnotation : handleCopyWithNote}
+          disabled={attaching}
+        >
+          {canAddPreviewAnnotation ? (
+            <>
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </>
+          ) : copied ? (
+            <>
+              <Check className="h-3.5 w-3.5" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="h-3.5 w-3.5" />
+              Copy for AI
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -231,7 +366,15 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
       onMouseUp={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <Popover
+      {type === 'preview' ? (
+        <div
+          data-selection-popover
+          className="w-80 rounded-md border border-border bg-popover p-3 shadow-md"
+        >
+          {detailsContent}
+        </div>
+      ) : (
+        <Popover
         open={isExpanded}
         onOpenChange={(open) => {
           if (open) {
@@ -240,29 +383,19 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
             onDismiss();
           }
         }}
-      >
-        <PopoverAnchor asChild>
-          <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
-            {type === 'preview' ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={onDismiss}
-                title="Cancel selection"
-              >
-                <X className="h-3.5 w-3.5" />
-                Cancel
-              </Button>
-            ) : null}
+        >
+          <PopoverAnchor asChild>
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-popover p-0.5 shadow-md">
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={handleQuickCopy}
-              title="Copy for AI"
+              onClick={canAddPreviewAnnotation ? handleAddAnnotation : handleQuickCopy}
+              title={canAddPreviewAnnotation ? "Add annotation" : "Copy for AI"}
             >
-              {copied ? (
+              {canAddPreviewAnnotation ? (
+                <Plus className="h-3.5 w-3.5" />
+              ) : copied ? (
                 <Check className="h-3.5 w-3.5 text-green-500" />
               ) : (
                 <Copy className="h-3.5 w-3.5" />
@@ -306,125 +439,10 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
             e.preventDefault();
           }}
         >
-          <div className="space-y-3">
-            <div className="text-xs text-muted-foreground flex items-center gap-1 min-w-0 w-full">
-              <span 
-                className="font-mono flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" 
-                title={displayInfo.filePath}
-                style={{ direction: 'rtl', textAlign: 'left' }}
-              >
-                <bdi>{displayInfo.filePath}</bdi>
-              </span>
-              {lineRange && (
-                <>
-                  <span className="shrink-0">·</span>
-                  <span className="shrink-0">{lineRange}</span>
-                </>
-              )}
-              {displayInfo.changeType && (
-                <>
-                  <span className="shrink-0">·</span>
-                  <span className={cn(
-                    'shrink-0',
-                    displayInfo.changeType === 'addition' && 'text-green-500',
-                    displayInfo.changeType === 'deletion' && 'text-red-500',
-                  )}>
-                    {displayInfo.changeType}
-                  </span>
-                </>
-              )}
-              {previewFrameworkLabel && (
-                <>
-                  <span className="shrink-0">·</span>
-                  <span className="shrink-0 capitalize">{previewFrameworkLabel}</span>
-                </>
-              )}
-              {previewComponentLabel && (
-                <>
-                  <span className="shrink-0">·</span>
-                  <span
-                    className="max-w-[140px] shrink overflow-hidden text-ellipsis whitespace-nowrap font-medium text-foreground"
-                    title={previewComponentLabel}
-                  >
-                    {previewComponentLabel}
-                  </span>
-                </>
-              )}
-            </div>
-
-            <Textarea
-              placeholder="Add a note for the AI agent... (optional)"
-              value={userNote}
-              onChange={(e) => setUserNote(e.target.value)}
-              className="min-h-[80px] text-sm resize-none"
-              autoFocus
-            />
-
-            {previewDebugSignals.length > 0 || previewSourceConfidence ? (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-[11px] font-medium text-muted-foreground">
-                    Source Code Confidence
-                  </div>
-                  {previewSourceConfidence ? (
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]',
-                        previewConfidenceLabelClassName,
-                      )}
-                    >
-                      {previewSourceConfidence}
-                    </span>
-                  ) : null}
-                </div>
-                {previewDebugSignals.length > 0 ? (
-                  <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
-                    {previewDebugSignals.join(', ')}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onDismiss}
-              >
-                Cancel
-              </Button>
-              {canAttach ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleAttach(true)}
-                  disabled={attaching}
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                  {attaching ? 'Attaching...' : 'Attach'}
-                </Button>
-              ) : null}
-              <Button
-                size="sm"
-                onClick={handleCopyWithNote}
-                disabled={attaching}
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3.5 w-3.5" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3.5 w-3.5" />
-                    Copy for AI
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          {detailsContent}
         </PopoverContent>
       </Popover>
+      )}
     </div>
   );
 };

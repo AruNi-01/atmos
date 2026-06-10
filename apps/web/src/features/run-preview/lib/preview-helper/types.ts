@@ -77,7 +77,7 @@ export type PreviewHelperMessage =
       type: 'atmos-preview:toolbar-action';
       sessionId: string;
       pageUrl: string;
-      action: 'copy';
+      action: 'copy' | 'add';
       note?: string;
     }
   | {

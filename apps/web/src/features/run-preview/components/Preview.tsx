@@ -228,8 +228,11 @@ export const Preview: React.FC<PreviewProps> = ({
   });
   const {
     dismissSelectionPopover,
+    handleAddSelectionAnnotation,
+    handleCopySelectionAnnotations,
     handleDesktopToolbarCopy,
     handleSelectedPayload,
+    selectionAnnotationCount,
     selectionInfo,
     selectionPopoverExpanded,
     selectionPopoverPosition,
@@ -395,9 +398,11 @@ export const Preview: React.FC<PreviewProps> = ({
       handleSelectedPayload(mode, payload);
       extraHandlers?.onSelected?.(payload);
     },
-    onToolbarAction: (action: 'copy', note?: string) => {
+    onToolbarAction: (action: 'copy' | 'add', note?: string) => {
       if (mode === 'desktop-native' && action === 'copy') {
         void handleDesktopToolbarCopy(note);
+      } else if (mode === 'desktop-native' && action === 'add') {
+        handleAddSelectionAnnotation(note);
       }
       extraHandlers?.onToolbarAction?.(action, note);
     },
@@ -470,6 +475,7 @@ export const Preview: React.FC<PreviewProps> = ({
     },
   }), [
     dismissSelectionPopover,
+    handleAddSelectionAnnotation,
     handleDesktopToolbarCopy,
     handleSelectedPayload,
     pushHistoryEntry,
@@ -886,6 +892,7 @@ export const Preview: React.FC<PreviewProps> = ({
     normalizedActiveUrl,
     preferredTransportMode,
     savingFavorite,
+    selectionAnnotationCount,
     shouldHideToolbarExternalActions,
     shouldHideToolbarNavigation,
     shouldHideToolbarStatus,
@@ -907,6 +914,7 @@ export const Preview: React.FC<PreviewProps> = ({
     handleGoBack,
     handleGoForward,
     handleGoHome,
+    handleCopySelectionAnnotations,
     handleRefresh,
     handleRecheckExtension,
     handleToggleDesktopPreviewDetached,
@@ -945,6 +953,7 @@ export const Preview: React.FC<PreviewProps> = ({
     requestedIframeUrl,
     resolvedTransportMode,
     selectionInfo,
+    onAddSelectionAnnotation: (selectionInfo, note) => handleAddSelectionAnnotation(note, selectionInfo),
     selectionPopoverExpanded,
     selectionPopoverPosition,
     selectionPopoverRef,

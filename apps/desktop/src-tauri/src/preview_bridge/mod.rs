@@ -93,10 +93,14 @@ fn desktop_bridge_script() -> String {
     if (!sid) return;
     var t = ev.target;
     if (!(t instanceof Element)) return;
-    var c = '';
-    try {{ c = window.getComputedStyle(t).cursor || ''; }} catch(_) {{}}
-    var next = c || 'default';
-    if (next === 'auto') next = resolveAutoCursor(t);
+    var override = window.__ATMOS_PREVIEW_PICK_CURSOR__;
+    var next = override || '';
+    if (!next) {{
+      var c = '';
+      try {{ c = window.getComputedStyle(t).cursor || ''; }} catch(_) {{}}
+      next = c || 'default';
+      if (next === 'auto') next = resolveAutoCursor(t);
+    }}
     if (next === lastSyncedCursor) return;
     lastSyncedCursor = next;
     invoke('preview_bridge_event', {{ payload: {{

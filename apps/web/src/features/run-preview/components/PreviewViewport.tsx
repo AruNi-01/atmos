@@ -26,6 +26,7 @@ type PreviewViewportProps = {
   iframeSrc: string;
   isPreviewLoading: boolean;
   onCloseFavoritesList: () => void;
+  onAddSelectionAnnotation: (selectionInfo: SelectionInfo, note?: string) => void;
   onDismissElementPickerTooltip: () => void;
   preferredTransportMode: PreviewTransportMode | "unavailable";
   projectId?: string | null;
@@ -57,6 +58,7 @@ export function PreviewViewport({
   iframeSrc,
   isPreviewLoading,
   onCloseFavoritesList,
+  onAddSelectionAnnotation,
   onDismissElementPickerTooltip,
   preferredTransportMode,
   projectId,
@@ -92,6 +94,7 @@ export function PreviewViewport({
           type="preview"
           popoverRef={selectionPopoverRef}
           positioning="fixed"
+          onAddAnnotation={onAddSelectionAnnotation}
         />
       ) : null}
       {favoritesListOpen ? (

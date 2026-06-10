@@ -151,6 +151,9 @@ const Header: React.FC = () => {
   const currentWorkspace = currentProject?.workspaces.find(
     w => w.id === currentWorkspaceId
   );
+  const currentProjectIdForContext = currentProject?.id ?? null;
+  const currentProjectMainFilePath = currentProject?.mainFilePath ?? null;
+  const currentWorkspaceLocalPath = currentWorkspace?.localPath ?? null;
   const currentWorkspaceSetupProgress = currentWorkspaceId ? setupProgress[currentWorkspaceId] : null;
   const isSettingUp = isWorkspaceSetupBlocking(currentWorkspaceSetupProgress);
 
@@ -245,8 +248,8 @@ const Header: React.FC = () => {
 
   // Sync context when project/workspace changes
   useEffect(() => {
-    if (currentProject) {
-      const effectivePath = currentWorkspace?.localPath || currentProject.mainFilePath;
+    if (currentProjectIdForContext && currentProjectMainFilePath) {
+      const effectivePath = currentWorkspaceLocalPath || currentProjectMainFilePath;
       if (currentWorkspaceId) {
         if (isSettingUp) {
           // Clear context while setting up to avoid showing stale info from previous workspace
@@ -254,7 +257,7 @@ const Header: React.FC = () => {
           setCurrentProjectPath(null);
         } else {
           setCurrentContext(
-            currentProject.id,
+            currentProjectIdForContext,
             currentWorkspaceId,
             effectivePath
           );
@@ -263,7 +266,7 @@ const Header: React.FC = () => {
         }
       } else {
         // Main dev mode
-        setCurrentContext(currentProject.id, null, effectivePath);
+        setCurrentContext(currentProjectIdForContext, null, effectivePath);
         setCurrentProjectPath(effectivePath);
       }
     } else {
@@ -271,7 +274,15 @@ const Header: React.FC = () => {
       setCurrentContext(null, null, null);
       setCurrentProjectPath(null);
     }
-  }, [currentProject, currentWorkspaceId, currentWorkspace?.localPath, isSettingUp, setCurrentContext, setCurrentProjectPath]);
+  }, [
+    currentProjectIdForContext,
+    currentProjectMainFilePath,
+    currentWorkspaceId,
+    currentWorkspaceLocalPath,
+    isSettingUp,
+    setCurrentContext,
+    setCurrentProjectPath,
+  ]);
 
   // Fetch available branches when project/workspace changes
   useEffect(() => {

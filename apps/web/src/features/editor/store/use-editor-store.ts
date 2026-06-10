@@ -67,7 +67,10 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
 
       setWorkspaceId: (id) => set({ currentWorkspaceId: id }),
 
-      setCurrentProjectPath: (path) => set({ currentProjectPath: path }),
+      setCurrentProjectPath: (path) =>
+        set((state) =>
+          state.currentProjectPath === path ? state : { currentProjectPath: path },
+        ),
 
       requestFileTreeReveal: (path, workspaceId) =>
         set((state) => ({

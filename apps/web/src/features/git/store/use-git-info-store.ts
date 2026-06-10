@@ -85,10 +85,20 @@ export const useGitInfoStore = create<GitInfoStore>((set, get) => ({
   ...initialState,
 
   setCurrentContext: (projectId, workspaceId, projectPath) => {
-    set({
-      currentProjectId: projectId,
-      currentWorkspaceId: workspaceId,
-      currentProjectPath: projectPath,
+    set((state) => {
+      if (
+        state.currentProjectId === projectId &&
+        state.currentWorkspaceId === workspaceId &&
+        state.currentProjectPath === projectPath
+      ) {
+        return state;
+      }
+
+      return {
+        currentProjectId: projectId,
+        currentWorkspaceId: workspaceId,
+        currentProjectPath: projectPath,
+      };
     });
   },
 

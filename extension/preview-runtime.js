@@ -11,7 +11,21 @@
 (function () {
   if (window.__ATMOS_PREVIEW_RUNTIME__) return;
 
-  var EXTENSION_VERSION = '0.1.2';
+  var EXTENSION_VERSION = '0.1.5';
+  var PICKER_HOVER_COLOR = '#2563eb';
+  var PICKER_LOCKED_COLOR = '#f97316';
+
+  function createPreviewPickerCursor(color) {
+    var svg = [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="25" height="27" viewBox="0 0 50 54" fill="none">',
+      '<g filter="url(#atmos_picker_cursor_shadow)">',
+      '<path d="M42.6817 41.1495L27.5103 6.79925C26.7269 5.02557 24.2082 5.02558 23.3927 6.79925L7.59814 41.1495C6.75833 42.9759 8.52712 44.8902 10.4125 44.1954L24.3757 39.0496C24.8829 38.8627 25.4385 38.8627 25.9422 39.0496L39.8121 44.1954C41.6849 44.8902 43.4884 42.9759 42.6817 41.1495Z" fill="' + color + '"/>',
+      '</g>',
+      '<defs><filter id="atmos_picker_cursor_shadow" x="0.602397" y="0.952444" width="49.0584" height="52.428" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset dy="2.25825"/><feGaussianBlur stdDeviation="2.25825"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.08 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/><feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/></filter></defs>',
+      '</svg>',
+    ].join('');
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 13 14, auto';
+  }
 
   function truncateText(value, limit) {
     const normalized = (value || '').replace(/\s+/g, ' ').trim();
@@ -143,6 +157,10 @@
   }
 
   function createPreviewOverlay(win, doc, options) {
+    var cursorStyle = doc.createElement('style');
+    cursorStyle.dataset.atmosPreviewOverlay = 'true';
+    doc.head.appendChild(cursorStyle);
+
     const root = doc.createElement('div');
     root.dataset.atmosPreviewOverlay = 'true';
     root.style.position = 'fixed';
@@ -189,8 +207,8 @@
       return label;
     }
 
-    const hoverBox = createBox('#2563eb');
-    const lockedBox = createBox('#f97316');
+    const hoverBox = createBox(PICKER_HOVER_COLOR);
+    const lockedBox = createBox(PICKER_LOCKED_COLOR);
     const hoverLabel = createLabel();
     const lockedLabel = createLabel();
     const chromeRoot = doc.createElement('div');
@@ -266,7 +284,7 @@
       button.style.padding = '0 18px';
       button.style.borderRadius = '16px';
       button.style.fontWeight = '600';
-      button.style.minWidth = label === 'Cancel' ? '116px' : '232px';
+      button.style.minWidth = label === 'Cancel' ? '116px' : label === 'Add' ? '124px' : '232px';
       if (variant === 'primary') {
         button.style.background = '#f4f4f6';
         button.style.color = '#1f1f24';
@@ -309,7 +327,7 @@
     detailsCard.addEventListener('click', stopPropagation);
     detailsCard.addEventListener('dblclick', stopPropagation);
 
-    const copyIconPath = '<rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>';
+    const addIconPath = '<path d="M5 12h14"></path><path d="M12 5v14"></path>';
 
     const sourceSummary = doc.createElement('div');
     sourceSummary.style.color = '#b9b9c2';
@@ -396,7 +414,7 @@
     detailsCard.appendChild(footer);
 
     const footerCancelButton = createFooterButton('Cancel', 'ghost');
-    const footerCopyButton = createFooterButton('Copy for AI', 'primary', copyIconPath);
+    const footerCopyButton = createFooterButton('Add', 'primary', addIconPath);
     footer.appendChild(footerCancelButton);
     footer.appendChild(footerCopyButton);
 
@@ -540,6 +558,14 @@
     return {
       setCursor(cursor) {
         var nextCursor = cursor || 'default';
+        win.__ATMOS_PREVIEW_PICK_CURSOR__ = nextCursor === 'default' ? '' : nextCursor;
+        if (nextCursor === 'default') {
+          cursorStyle.textContent = '';
+        } else {
+          cursorStyle.textContent =
+            'html, body, body * { cursor: ' + nextCursor + ' !important; }' +
+            '[data-atmos-preview-overlay="true"], [data-atmos-preview-overlay="true"] * { cursor: revert !important; }';
+        }
         root.style.cursor = nextCursor;
         hoverBox.style.cursor = nextCursor;
         lockedBox.style.cursor = nextCursor;
@@ -581,6 +607,8 @@
         copyHandler = handler;
       },
       destroy() {
+        cursorStyle.remove();
+        win.__ATMOS_PREVIEW_PICK_CURSOR__ = '';
         win.removeEventListener('pointerdown', handleOverlayButtonPointerDown, true);
         win.removeEventListener('click', handleOverlayButtonClick, true);
         detailsCard.remove();
@@ -1064,6 +1092,9 @@
     var overlay = createPreviewOverlay(win, doc, {
       showSelectionToolbar: !!config.showSelectionToolbar,
     });
+    var hoverCursor = createPreviewPickerCursor(PICKER_HOVER_COLOR);
+    var lockedCursor = createPreviewPickerCursor(PICKER_LOCKED_COLOR);
+    var lastPickerCursor = '';
     var state = {
       enabled: false,
       hovered: null,
@@ -1077,6 +1108,17 @@
         sessionId: state.sessionId,
         pageUrl: win.location.href,
       }, message));
+    }
+
+    function setPickerCursor(cursor) {
+      var nextCursor = cursor || 'default';
+      overlay.setCursor(nextCursor);
+      if (nextCursor === lastPickerCursor) return;
+      lastPickerCursor = nextCursor;
+      emit({
+        type: 'atmos-preview:cursor-changed',
+        cursor: nextCursor,
+      });
     }
 
     function getPageTitle() {
@@ -1106,7 +1148,7 @@
       state.locked = null;
       overlay.clearLocked();
       overlay.clearHover();
-      overlay.setCursor('default');
+      setPickerCursor(state.enabled ? hoverCursor : 'default');
       if (notifyHost) {
         emit({ type: 'atmos-preview:cleared' });
       } else {
@@ -1114,6 +1156,7 @@
         // overlays do not reappear after the selection is removed.
         state.enabled = false;
         state.hovered = null;
+        setPickerCursor('default');
       }
     }
 
@@ -1130,6 +1173,7 @@
           label: buildElementSelector(element),
         }
       );
+      setPickerCursor(lockedCursor);
       emit({
         type: 'atmos-preview:selected',
         rect: rect,
@@ -1142,29 +1186,37 @@
       if (!state.enabled) return;
       if (state.locked) {
         overlay.clearHover();
+        setPickerCursor(lockedCursor);
         return;
       }
       var target = event.target;
       if (!(target instanceof Element) || isIgnoredElement(target)) {
         overlay.clearHover();
-        overlay.setCursor('default');
+        setPickerCursor(hoverCursor);
         state.hovered = null;
         return;
       }
       state.hovered = target;
-      var computedCursor = '';
-      try {
-        computedCursor = win.getComputedStyle(target).cursor || '';
-      } catch (_) {}
-      overlay.setCursor(computedCursor);
+      setPickerCursor(hoverCursor);
       var rect = getPreviewElementRect(target);
       overlay.updateHover(rect, buildElementSelector(target));
+    }
+
+    function isOverlayEventTarget(target) {
+      return target instanceof Element && target.closest && target.closest('[data-atmos-preview-overlay="true"]');
+    }
+
+    function blockPagePointerEvent(event) {
+      if (!state.enabled) return;
+      if (isOverlayEventTarget(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
     }
 
     function handleClick(event) {
       if (!state.enabled) return;
       var target = event.target;
-      if (target instanceof Element && target.closest && target.closest('[data-atmos-preview-overlay="true"]')) return;
+      if (isOverlayEventTarget(target)) return;
       event.preventDefault();
       event.stopPropagation();
       if (state.locked) return;
@@ -1190,7 +1242,12 @@
     }
 
     doc.addEventListener('mousemove', handleMouseMove, true);
+    doc.addEventListener('pointerdown', blockPagePointerEvent, true);
+    doc.addEventListener('mousedown', blockPagePointerEvent, true);
+    doc.addEventListener('mouseup', blockPagePointerEvent, true);
     doc.addEventListener('click', handleClick, true);
+    doc.addEventListener('dblclick', blockPagePointerEvent, true);
+    doc.addEventListener('contextmenu', blockPagePointerEvent, true);
     win.addEventListener('keydown', handleKeyDown, true);
     win.addEventListener('scroll', syncLockedOverlay, true);
     win.addEventListener('resize', syncLockedOverlay, true);
@@ -1210,7 +1267,7 @@
       if (!state.locked) return;
       emit({
         type: 'atmos-preview:toolbar-action',
-        action: 'copy',
+        action: 'add',
         note: note || undefined,
       });
     });
@@ -1270,6 +1327,7 @@
       enterPickMode: function (sessionId) {
         state.sessionId = sessionId;
         state.enabled = true;
+        setPickerCursor(hoverCursor);
         emit({
           type: 'atmos-preview:ready',
           capabilities: getCapabilities(win),
@@ -1284,12 +1342,19 @@
         state.hovered = null;
         overlay.clearLocked();
         overlay.clearHover();
-        overlay.setCursor('default');
+        setPickerCursor('default');
       },
       destroy: function () {
+        setPickerCursor('default');
         state.enabled = false;
+        lastPickerCursor = '';
         doc.removeEventListener('mousemove', handleMouseMove, true);
+        doc.removeEventListener('pointerdown', blockPagePointerEvent, true);
+        doc.removeEventListener('mousedown', blockPagePointerEvent, true);
+        doc.removeEventListener('mouseup', blockPagePointerEvent, true);
         doc.removeEventListener('click', handleClick, true);
+        doc.removeEventListener('dblclick', blockPagePointerEvent, true);
+        doc.removeEventListener('contextmenu', blockPagePointerEvent, true);
         win.removeEventListener('keydown', handleKeyDown, true);
         win.removeEventListener('scroll', syncLockedOverlay, true);
         win.removeEventListener('resize', syncLockedOverlay, true);

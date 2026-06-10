@@ -93,6 +93,8 @@ export const useGitStore = create<GitStore>((set, get) => ({
 
   // 设置当前仓库路径
   setCurrentRepoPath: (path) => {
+    if (get().currentRepoPath === path) return;
+
     set({ currentRepoPath: path });
     if (path) {
       void get().refreshRepositoryState({ fetchRemote: true });

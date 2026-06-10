@@ -150,6 +150,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
     const [isSecondColumnPinnedExpanded, setIsSecondColumnPinnedExpanded] = useState(true);
     const [isSecondColumnWorkspacesExpanded, setIsSecondColumnWorkspacesExpanded] = useState(true);
     const [secondColumnKanbanCardProperties, setSecondColumnKanbanCardProperties] = useState<KanbanCardProperties>(DEFAULT_KANBAN_CARD_PROPERTIES);
+    const persistedGroupingModeRef = useRef<SidebarGroupingMode>('project');
+    const persistedPinnedSectionCollapsedRef = useRef(false);
 
     const isInitialProjectsLoading = useInitialProjectsLoading();
 
@@ -175,13 +177,20 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         useFunctionSettingsStore.getState().load()
             .then((settings) => {
                 const groupingModeSetting = settings.workspace_sidebar?.grouping_mode;
+                let nextGroupingMode: SidebarGroupingMode = 'project';
                 if (groupingModeSetting === 'project' || groupingModeSetting === 'status' || groupingModeSetting === 'time') {
-                    setGroupingMode(groupingModeSetting);
+                    nextGroupingMode = groupingModeSetting;
                 }
+                persistedGroupingModeRef.current = nextGroupingMode;
+                setGroupingMode(nextGroupingMode);
+
                 const pinnedSectionCollapsed = settings.workspace_sidebar?.pinned_section_collapsed;
+                let nextPinnedSectionCollapsed = false;
                 if (typeof pinnedSectionCollapsed === 'boolean') {
-                    setIsPinnedSectionCollapsed(pinnedSectionCollapsed);
+                    nextPinnedSectionCollapsed = pinnedSectionCollapsed;
                 }
+                persistedPinnedSectionCollapsedRef.current = nextPinnedSectionCollapsed;
+                setIsPinnedSectionCollapsed(nextPinnedSectionCollapsed);
             })
             .finally(() => {
                 setIsGroupingSettingsReady(true);
@@ -190,11 +199,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
 
     useEffect(() => {
         if (!isGroupingSettingsReady) return;
+        if (persistedGroupingModeRef.current === groupingMode) return;
+        persistedGroupingModeRef.current = groupingMode;
         void functionSettingsApi.update('workspace_sidebar', 'grouping_mode', groupingMode);
     }, [groupingMode, isGroupingSettingsReady]);
 
     useEffect(() => {
         if (!isGroupingSettingsReady) return;
+        if (persistedPinnedSectionCollapsedRef.current === isPinnedSectionCollapsed) return;
+        persistedPinnedSectionCollapsedRef.current = isPinnedSectionCollapsed;
         void functionSettingsApi.update('workspace_sidebar', 'pinned_section_collapsed', isPinnedSectionCollapsed);
     }, [isPinnedSectionCollapsed, isGroupingSettingsReady]);
 
