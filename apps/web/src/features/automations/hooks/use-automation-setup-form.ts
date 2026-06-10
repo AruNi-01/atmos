@@ -10,6 +10,10 @@ import type {
   AutomationTargetKind,
 } from "@/features/automations/types";
 import {
+  parseRunConfigJson,
+  type TerminalAgentRunConfigInput,
+} from "@/features/agent/lib/terminal-agent-run-config";
+import {
   buildScheduleInput,
   DAY_OPTIONS,
   parseSchedule,
@@ -61,6 +65,9 @@ export function useAutomationSetupForm({
   const [dayOfWeek, setDayOfWeek] = React.useState(1);
   const [dayOfMonth, setDayOfMonth] = React.useState(1);
   const [cronExpr, setCronExpr] = React.useState("0 9 * * *");
+  const [agentRunConfigs, setAgentRunConfigs] = React.useState<
+    Record<string, TerminalAgentRunConfigInput | null>
+  >({});
   const [preview, setPreview] =
     React.useState<AutomationSchedulePreviewResponse | null>(null);
   const [previewError, setPreviewError] = React.useState<string | null>(null);
@@ -102,6 +109,14 @@ export function useAutomationSetupForm({
       setTargetKind(initialAutomation.target_kind);
       setProjectGuid(initialAutomation.project_guid ?? "");
       setWorkspaceGuid(initialAutomation.workspace_guid ?? "");
+      setAgentRunConfigs(
+        initialAutomation.agent_id
+          ? {
+              [initialAutomation.agent_id]:
+                parseRunConfigJson(initialAutomation.agent_config_json) ?? null,
+            }
+          : {},
+      );
       const parsed = parseSchedule(initialAutomation);
       setTimezone(parsed.timezone);
       setTrigger(parsed.trigger);
@@ -248,6 +263,21 @@ export function useAutomationSetupForm({
     setSubmitError(null);
   }, []);
 
+  const selectedAgentRunConfig = React.useMemo(
+    () => agentRunConfigs[agentId] ?? null,
+    [agentId, agentRunConfigs],
+  );
+
+  const setAgentRunConfig = React.useCallback(
+    (nextAgentId: string, value: TerminalAgentRunConfigInput | null) => {
+      setAgentRunConfigs((current) => ({
+        ...current,
+        [nextAgentId]: value,
+      }));
+    },
+    [],
+  );
+
   return {
     timezone,
     displayName,
@@ -268,7 +298,9 @@ export function useAutomationSetupForm({
     submitError,
     submitting,
     workspaces,
+    agentRunConfigs,
     selectedAgent,
+    selectedAgentRunConfig,
     selectedTargetProject,
     targetValid,
     environmentLabel,
@@ -294,6 +326,7 @@ export function useAutomationSetupForm({
     setDayOfWeek,
     setDayOfMonth,
     setCronExpr,
+    setAgentRunConfig,
   };
 }
 

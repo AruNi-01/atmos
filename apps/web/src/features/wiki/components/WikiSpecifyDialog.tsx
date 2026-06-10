@@ -24,6 +24,7 @@ import { WIKI_LANGUAGE_OPTIONS } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 const PROJECT_WIKI_SPECIFY_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-specify";
 
@@ -67,6 +68,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
 }) => {
   const [topic, setTopic] = useState("");
   const [agentId, setAgentId] = useState<AgentId>("claude");
+  const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [language, setLanguage] = useState("en");
   const [customLanguage, setCustomLanguage] = useState("");
   const [isRunning, setIsRunning] = useState(false);
@@ -75,6 +77,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
   const [isInstalling, setIsInstalling] = useState(false);
+  const currentAgentRunConfig = agentRunConfigs[agentId] ?? null;
 
   const checkSystemSkill = useCallback(async () => {
     setSkillLoading(true);
@@ -169,7 +172,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
     }
 
     const prompt = buildSpecifyPrompt(trimmed, language, customLanguage);
-    const command = buildCommand(agentId, prompt);
+    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
 
     setIsRunning(true);
     try {
@@ -189,7 +192,7 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [topic, agentId, language, customLanguage, workspaceId, doRunSpecify]);
+  }, [topic, agentId, currentAgentRunConfig, language, customLanguage, workspaceId, doRunSpecify]);
 
   const handleConfirmReplaceAndRun = useCallback(async () => {
     const cmd = pendingCommand;
@@ -290,7 +293,18 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
                 ))}
               </div>
             </div>
-            <AgentSelect value={agentId} onValueChange={setAgentId} />
+            <AgentSelect
+              value={agentId}
+              onValueChange={setAgentId}
+              enableRunConfig
+              runConfig={currentAgentRunConfig}
+              onRunConfigChange={(nextValue) => {
+                setAgentRunConfigs((prev) => ({
+                  ...prev,
+                  [agentId]: nextValue,
+                }));
+              }}
+            />
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
                 Article language

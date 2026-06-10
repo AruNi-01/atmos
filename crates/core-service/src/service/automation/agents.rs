@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::env;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use crate::error::{Result, ServiceError};
 
@@ -12,7 +17,102 @@ pub struct AutomationAgentCapability {
     pub label: String,
     pub installed: bool,
     pub automation_supported: bool,
+    pub model_input_mode: AutomationAgentModelInputMode,
+    pub reasoning_mode: AutomationAgentReasoningMode,
+    pub supports_extra_args: bool,
     pub unavailable_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalAgentModelOption {
+    pub id: String,
+    pub label: String,
+    #[serde(default)]
+    pub group: Option<String>,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TerminalAgentModelCatalogStatus {
+    Ok,
+    Unsupported,
+    AuthRequired,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TerminalAgentModelCatalogSource {
+    Live,
+    Cache,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalAgentModelCatalog {
+    pub agent_id: String,
+    pub status: TerminalAgentModelCatalogStatus,
+    pub models: Vec<TerminalAgentModelOption>,
+    pub message: Option<String>,
+    pub source: TerminalAgentModelCatalogSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AutomationAgentRunConfig {
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub reasoning: Option<AutomationAgentReasoningSelection>,
+    #[serde(default)]
+    pub extra_args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationAgentReasoningSelection {
+    pub mode: AutomationAgentReasoningMode,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AutomationAgentReasoningSupport {
+    #[serde(default)]
+    pub mode: AutomationAgentReasoningMode,
+    #[serde(default)]
+    pub arg: Option<String>,
+    #[serde(default)]
+    pub options: Vec<String>,
+    #[serde(default)]
+    pub placeholder: Option<String>,
+    #[serde(default, rename = "valueStyle")]
+    pub value_style: AutomationAgentReasoningValueStyle,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AutomationAgentModelInputMode {
+    #[default]
+    None,
+    Manual,
+    Catalog,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AutomationAgentReasoningMode {
+    #[default]
+    None,
+    Enum,
+    Manual,
+    EncodedInModel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AutomationAgentReasoningValueStyle {
+    #[default]
+    Value,
+    FlagOnly,
 }
 
 #[derive(Debug, Clone)]
@@ -117,6 +217,35 @@ struct TerminalAgentDefinition {
     stdout_parser: StdoutParser,
     #[serde(default, rename = "useEcho")]
     use_echo: bool,
+    #[serde(default, rename = "modelSupport")]
+    model_support: AutomationAgentModelInputMode,
+    #[serde(default, rename = "reasoningSupport")]
+    reasoning_support: AutomationAgentReasoningSupport,
+    #[serde(default, rename = "modelList")]
+    model_list: Option<TerminalAgentModelListSpec>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct TerminalAgentModelListSpec {
+    #[serde(default)]
+    supported: bool,
+    #[serde(default)]
+    command: Vec<String>,
+    #[serde(default)]
+    parser: TerminalAgentModelListParser,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum TerminalAgentModelListParser {
+    LineList,
+    KiroJson,
+}
+
+impl Default for TerminalAgentModelListParser {
+    fn default() -> Self {
+        Self::LineList
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -151,7 +280,21 @@ struct ResolvedTerminalAgent {
     interactive_flags: String,
     prompt_strategy: PromptStrategy,
     stdout_parser: StdoutParser,
+    model_support: AutomationAgentModelInputMode,
+    reasoning_support: AutomationAgentReasoningSupport,
+    model_list: Option<TerminalAgentModelListSpec>,
     enabled: bool,
+}
+
+const MODEL_CATALOG_TTL: Duration = Duration::from_secs(300);
+const MODEL_CATALOG_ERROR_TTL: Duration = Duration::from_secs(30);
+
+static MODEL_CATALOG_CACHE: OnceLock<Mutex<HashMap<String, CachedModelCatalog>>> = OnceLock::new();
+
+#[derive(Debug, Clone)]
+struct CachedModelCatalog {
+    stored_at: Instant,
+    catalog: TerminalAgentModelCatalog,
 }
 
 pub fn automation_agent_capabilities() -> Result<Vec<AutomationAgentCapability>> {
@@ -164,6 +307,9 @@ pub fn automation_agent_capabilities() -> Result<Vec<AutomationAgentCapability>>
                 label: agent.label,
                 installed: support.installed,
                 automation_supported: support.supported,
+                model_input_mode: agent.model_support,
+                reasoning_mode: agent.reasoning_support.mode,
+                supports_extra_args: true,
                 unavailable_reason: support.unavailable_reason,
             }
         })
@@ -171,6 +317,13 @@ pub fn automation_agent_capabilities() -> Result<Vec<AutomationAgentCapability>>
 }
 
 pub fn resolve_automation_agent(agent_id: &str) -> Result<AutomationAgentCommandSpec> {
+    resolve_automation_agent_with_config(agent_id, None)
+}
+
+pub fn resolve_automation_agent_with_config(
+    agent_id: &str,
+    run_config: Option<&AutomationAgentRunConfig>,
+) -> Result<AutomationAgentCommandSpec> {
     let agent = resolved_terminal_agents()?
         .into_iter()
         .find(|agent| agent.id == agent_id)
@@ -186,6 +339,8 @@ pub fn resolve_automation_agent(agent_id: &str) -> Result<AutomationAgentCommand
                 .unwrap_or_else(|| "unsupported automation command".to_string())
         )));
     }
+    let mut args = parse_flag_args(&agent.flags)?;
+    args.extend(build_run_config_args(&agent, run_config)?);
     Ok(AutomationAgentCommandSpec {
         agent_id: agent.id,
         label: agent.label,
@@ -194,13 +349,20 @@ pub fn resolve_automation_agent(agent_id: &str) -> Result<AutomationAgentCommand
             .unwrap_or_else(|| PathBuf::from(&agent.cmd))
             .to_string_lossy()
             .to_string(),
-        args: parse_flag_args(&agent.flags)?,
+        args,
         prompt_strategy: agent.prompt_strategy,
         stdout_parser: agent.stdout_parser,
     })
 }
 
 pub fn resolve_interactive_automation_agent(agent_id: &str) -> Result<AutomationAgentCommandSpec> {
+    resolve_interactive_automation_agent_with_config(agent_id, None)
+}
+
+pub fn resolve_interactive_automation_agent_with_config(
+    agent_id: &str,
+    run_config: Option<&AutomationAgentRunConfig>,
+) -> Result<AutomationAgentCommandSpec> {
     let agent = resolved_terminal_agents()?
         .into_iter()
         .find(|agent| agent.id == agent_id)
@@ -216,14 +378,65 @@ pub fn resolve_interactive_automation_agent(agent_id: &str) -> Result<Automation
                 .unwrap_or_else(|| "agent executable is unavailable".to_string())
         )));
     }
+    let mut args = parse_flag_args(&agent.interactive_flags)?;
+    args.extend(build_run_config_args(&agent, run_config)?);
     Ok(AutomationAgentCommandSpec {
         agent_id: agent.id,
         label: agent.label,
         executable: terminal_executable_for_agent(&agent.cmd, support.executable_path.as_deref()),
-        args: parse_flag_args(&agent.interactive_flags)?,
+        args,
         prompt_strategy: agent.prompt_strategy,
         stdout_parser: StdoutParser::Plain,
     })
+}
+
+pub fn validate_agent_run_config(
+    agent_id: &str,
+    run_config: Option<&AutomationAgentRunConfig>,
+) -> Result<()> {
+    resolve_automation_agent_with_config(agent_id, run_config).map(|_| ())
+}
+
+pub fn terminal_agent_model_catalog(
+    agent_id: &str,
+    refresh: bool,
+) -> Result<TerminalAgentModelCatalog> {
+    let cache = MODEL_CATALOG_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if !refresh {
+        if let Some(cached) = cache
+            .lock()
+            .map_err(|_| ServiceError::Processing("Terminal agent model cache is poisoned.".to_string()))?
+            .get(agent_id)
+            .cloned()
+        {
+            let ttl = if matches!(
+                cached.catalog.status,
+                TerminalAgentModelCatalogStatus::Ok
+            ) {
+                MODEL_CATALOG_TTL
+            } else {
+                MODEL_CATALOG_ERROR_TTL
+            };
+            if cached.stored_at.elapsed() <= ttl {
+                let mut catalog = cached.catalog.clone();
+                catalog.source = TerminalAgentModelCatalogSource::Cache;
+                return Ok(catalog);
+            }
+        }
+    }
+
+    let catalog = probe_terminal_agent_model_catalog(agent_id)?;
+    cache
+        .lock()
+        .map_err(|_| ServiceError::Processing("Terminal agent model cache is poisoned.".to_string()))?
+        .insert(
+            agent_id.to_string(),
+            CachedModelCatalog {
+                stored_at: Instant::now(),
+                catalog: catalog.clone(),
+            },
+        );
+    Ok(catalog)
 }
 
 fn resolved_terminal_agents() -> Result<Vec<ResolvedTerminalAgent>> {
@@ -271,6 +484,9 @@ fn resolve_terminal_agents_with_settings(
             interactive_flags,
             prompt_strategy,
             stdout_parser,
+            model_support: definition.model_support,
+            reasoning_support: definition.reasoning_support,
+            model_list: definition.model_list,
             enabled: override_entry
                 .and_then(|entry| entry.enabled)
                 .unwrap_or(true),
@@ -295,11 +511,137 @@ fn resolve_terminal_agents_with_settings(
             interactive_flags: entry.flags,
             prompt_strategy: entry.prompt_strategy.unwrap_or(PromptStrategy::Arg),
             stdout_parser: entry.stdout_parser.unwrap_or_default(),
+            model_support: AutomationAgentModelInputMode::None,
+            reasoning_support: AutomationAgentReasoningSupport::default(),
+            model_list: None,
             enabled: entry.enabled.unwrap_or(true),
         });
     }
 
     resolved
+}
+
+fn probe_terminal_agent_model_catalog(agent_id: &str) -> Result<TerminalAgentModelCatalog> {
+    let Some(agent) = resolved_terminal_agents()?
+        .into_iter()
+        .find(|agent| agent.id == agent_id)
+    else {
+        return Ok(build_model_catalog(
+            agent_id,
+            TerminalAgentModelCatalogStatus::Unsupported,
+            Vec::new(),
+            Some(format!("Agent `{agent_id}` is not configured.")),
+            TerminalAgentModelCatalogSource::Live,
+        ));
+    };
+
+    let Some(model_list) = agent.model_list.clone().filter(|spec| spec.supported) else {
+        return Ok(build_model_catalog(
+            &agent.id,
+            TerminalAgentModelCatalogStatus::Unsupported,
+            Vec::new(),
+            Some(format!(
+                "Agent `{}` does not expose a live model list.",
+                agent.id
+            )),
+            TerminalAgentModelCatalogSource::Live,
+        ));
+    };
+
+    let support = automation_support(&agent);
+    let Some(executable_path) = support.executable_path else {
+        return Ok(build_model_catalog(
+            &agent.id,
+            TerminalAgentModelCatalogStatus::Error,
+            Vec::new(),
+            Some(
+                support.unavailable_reason.unwrap_or_else(|| {
+                    format!("{} is not installed or is not executable.", agent.cmd)
+                }),
+            ),
+            TerminalAgentModelCatalogSource::Live,
+        ));
+    };
+
+    let args = if model_list.command.len() > 1 {
+        model_list.command[1..].to_vec()
+    } else {
+        Vec::new()
+    };
+
+    let output = match Command::new(&executable_path).args(&args).output() {
+        Ok(output) => output,
+        Err(error) => {
+            return Ok(build_model_catalog(
+                &agent.id,
+                TerminalAgentModelCatalogStatus::Error,
+                Vec::new(),
+                Some(format!("Failed to run model list command: {error}")),
+                TerminalAgentModelCatalogSource::Live,
+            ));
+        }
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined = format!("{}\n{}", stdout, stderr).trim().to_string();
+
+    if !output.status.success() {
+        let status = if looks_like_auth_required(&combined) {
+            TerminalAgentModelCatalogStatus::AuthRequired
+        } else {
+            TerminalAgentModelCatalogStatus::Error
+        };
+        let fallback = if matches!(status, TerminalAgentModelCatalogStatus::AuthRequired) {
+            "Authentication is required before models can be listed.".to_string()
+        } else {
+            format!(
+                "Model listing exited with status {}.",
+                output
+                    .status
+                    .code()
+                    .map(|code| code.to_string())
+                    .unwrap_or_else(|| "unknown".to_string())
+            )
+        };
+        return Ok(build_model_catalog(
+            &agent.id,
+            status,
+            Vec::new(),
+            Some(non_empty(&combined).unwrap_or(fallback)),
+            TerminalAgentModelCatalogSource::Live,
+        ));
+    }
+
+    let models = match parse_model_catalog_output(&stdout, model_list.parser) {
+        Ok(models) if !models.is_empty() => models,
+        Ok(_) => {
+            return Ok(build_model_catalog(
+                &agent.id,
+                TerminalAgentModelCatalogStatus::Error,
+                Vec::new(),
+                Some("Model list command returned no models.".to_string()),
+                TerminalAgentModelCatalogSource::Live,
+            ));
+        }
+        Err(error) => {
+            return Ok(build_model_catalog(
+                &agent.id,
+                TerminalAgentModelCatalogStatus::Error,
+                Vec::new(),
+                Some(error),
+                TerminalAgentModelCatalogSource::Live,
+            ));
+        }
+    };
+
+    Ok(build_model_catalog(
+        &agent.id,
+        TerminalAgentModelCatalogStatus::Ok,
+        models,
+        None,
+        TerminalAgentModelCatalogSource::Live,
+    ))
 }
 
 fn load_builtin_terminal_agents() -> Result<Vec<TerminalAgentDefinition>> {
@@ -343,6 +685,141 @@ fn terminal_code_agent_path() -> PathBuf {
 fn non_empty(value: &str) -> Option<String> {
     let value = value.trim();
     (!value.is_empty()).then(|| value.to_string())
+}
+
+fn build_model_catalog(
+    agent_id: &str,
+    status: TerminalAgentModelCatalogStatus,
+    models: Vec<TerminalAgentModelOption>,
+    message: Option<String>,
+    source: TerminalAgentModelCatalogSource,
+) -> TerminalAgentModelCatalog {
+    TerminalAgentModelCatalog {
+        agent_id: agent_id.to_string(),
+        status,
+        models,
+        message,
+        source,
+    }
+}
+
+fn parse_model_catalog_output(
+    output: &str,
+    parser: TerminalAgentModelListParser,
+) -> std::result::Result<Vec<TerminalAgentModelOption>, String> {
+    let models = match parser {
+        TerminalAgentModelListParser::LineList => parse_line_model_catalog(output),
+        TerminalAgentModelListParser::KiroJson => parse_json_model_catalog(output)?,
+    };
+    Ok(dedupe_model_options(models))
+}
+
+fn parse_line_model_catalog(output: &str) -> Vec<TerminalAgentModelOption> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+            let lower = trimmed.to_ascii_lowercase();
+            if lower.contains("available model") || lower == "models" || lower == "model" {
+                return None;
+            }
+            let normalized = trimmed
+                .trim_start_matches(|ch: char| matches!(ch, '-' | '*' | '•' | ' '))
+                .trim();
+            if normalized.is_empty() || normalized.ends_with(':') {
+                return None;
+            }
+            Some(TerminalAgentModelOption {
+                id: normalized.to_string(),
+                label: normalized.to_string(),
+                group: None,
+                is_default: false,
+            })
+        })
+        .collect()
+}
+
+fn parse_json_model_catalog(output: &str) -> std::result::Result<Vec<TerminalAgentModelOption>, String> {
+    let value: Value = serde_json::from_str(output)
+        .map_err(|error| format!("Failed to parse model catalog JSON: {error}"))?;
+    Ok(parse_json_model_catalog_value(&value))
+}
+
+fn parse_json_model_catalog_value(value: &Value) -> Vec<TerminalAgentModelOption> {
+    match value {
+        Value::Array(items) => items.iter().filter_map(model_option_from_json).collect(),
+        Value::Object(map) => ["models", "items", "data"]
+            .iter()
+            .find_map(|key| map.get(*key))
+            .map(parse_json_model_catalog_value)
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+fn model_option_from_json(value: &Value) -> Option<TerminalAgentModelOption> {
+    match value {
+        Value::String(model) => non_empty(model).map(|id| TerminalAgentModelOption {
+            label: id.clone(),
+            id,
+            group: None,
+            is_default: false,
+        }),
+        Value::Object(map) => {
+            let id = ["id", "name", "model", "value"]
+                .iter()
+                .find_map(|key| map.get(*key)?.as_str())
+                .and_then(non_empty)?;
+            let label = ["display_name", "label", "name", "id", "model"]
+                .iter()
+                .find_map(|key| map.get(*key)?.as_str())
+                .and_then(non_empty)
+                .unwrap_or_else(|| id.clone());
+            let group = ["group", "provider"]
+                .iter()
+                .find_map(|key| map.get(*key)?.as_str())
+                .and_then(non_empty);
+            let is_default = ["is_default", "default"]
+                .iter()
+                .find_map(|key| map.get(*key)?.as_bool())
+                .unwrap_or(false);
+            Some(TerminalAgentModelOption {
+                id,
+                label,
+                group,
+                is_default,
+            })
+        }
+        _ => None,
+    }
+}
+
+fn dedupe_model_options(models: Vec<TerminalAgentModelOption>) -> Vec<TerminalAgentModelOption> {
+    let mut deduped: Vec<TerminalAgentModelOption> = Vec::with_capacity(models.len());
+    for model in models {
+        if !deduped.iter().any(|existing| existing.id == model.id) {
+            deduped.push(model);
+        }
+    }
+    deduped
+}
+
+fn looks_like_auth_required(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    [
+        "auth",
+        "login",
+        "sign in",
+        "sign-in",
+        "unauthorized",
+        "forbidden",
+        "api key",
+    ]
+    .iter()
+    .any(|pattern| lower.contains(pattern))
 }
 
 struct AutomationSupport {
@@ -511,6 +988,150 @@ fn is_executable(path: &Path) -> bool {
     }
 }
 
+fn build_run_config_args(
+    agent: &ResolvedTerminalAgent,
+    run_config: Option<&AutomationAgentRunConfig>,
+) -> Result<Vec<String>> {
+    let Some(run_config) = run_config else {
+        return Ok(Vec::new());
+    };
+    let mut args = Vec::new();
+    let model = run_config.model.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let reasoning = run_config.reasoning.as_ref().filter(|value| !value.value.trim().is_empty());
+
+    let extra_args = run_config
+        .extra_args
+        .iter()
+        .map(|item| item.trim())
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+
+    let reserved_flags = reserved_flags_for_agent(agent)?;
+    if let Some(conflict) = extra_args
+        .iter()
+        .find(|item| reserved_flags.iter().any(|reserved| reserved == *item))
+    {
+        return Err(ServiceError::Validation(format!(
+            "Extra args cannot override reserved Atmos flags such as {conflict} for agent `{}`.",
+            agent.id
+        )));
+    }
+
+    if let Some(model_flag) = model_flag_for_agent(&agent.id) {
+        if model.is_some() && extra_args.iter().any(|item| item == model_flag) {
+            return Err(ServiceError::Validation(format!(
+                "Extra args already include {model_flag} for agent `{}`.",
+                agent.id
+            )));
+        }
+    }
+
+    if let Some(reasoning) = reasoning {
+        if reasoning.mode != agent.reasoning_support.mode {
+            return Err(ServiceError::Validation(format!(
+                "Agent `{}` does not support structured reasoning mode `{}`.",
+                agent.id,
+                serde_json::to_string(&reasoning.mode).unwrap_or_else(|_| "\"unknown\"".to_string())
+            )));
+        }
+        if let Some(reasoning_flag) = reasoning_arg_for_agent(agent) {
+            if extra_args.iter().any(|item| item == reasoning_flag) {
+                return Err(ServiceError::Validation(format!(
+                    "Extra args already include {reasoning_flag} for agent `{}`.",
+                    agent.id
+                )));
+            }
+        }
+    }
+
+    if let Some(model) = model {
+        match model_flag_for_agent(&agent.id) {
+            Some(flag) => {
+                args.push(flag.to_string());
+                args.push(model.to_string());
+            }
+            None => {
+                return Err(ServiceError::Validation(format!(
+                    "Agent `{}` does not support structured model selection.",
+                    agent.id
+                )));
+            }
+        }
+    }
+
+    if let Some(reasoning) = reasoning {
+        match agent.reasoning_support.mode {
+            AutomationAgentReasoningMode::None | AutomationAgentReasoningMode::EncodedInModel => {
+                return Err(ServiceError::Validation(format!(
+                    "Agent `{}` does not support separate structured reasoning controls.",
+                    agent.id
+                )));
+            }
+            AutomationAgentReasoningMode::Enum | AutomationAgentReasoningMode::Manual => {
+                let flag = reasoning_arg_for_agent(agent).ok_or_else(|| {
+                    ServiceError::Validation(format!(
+                        "Agent `{}` is missing a structured reasoning flag definition.",
+                        agent.id
+                    ))
+                })?;
+                args.push(flag.to_string());
+                if agent.reasoning_support.value_style != AutomationAgentReasoningValueStyle::FlagOnly {
+                    args.push(reasoning.value.trim().to_string());
+                }
+            }
+        }
+    }
+
+    args.extend(extra_args);
+    Ok(args)
+}
+
+fn model_flag_for_agent(agent_id: &str) -> Option<&'static str> {
+    match agent_id {
+        "claude"
+        | "codex"
+        | "gemini"
+        | "devin"
+        | "droid"
+        | "cursor"
+        | "kilocode"
+        | "kiro"
+        | "commandcode"
+        | "pi"
+        | "opencode"
+        | "kimi" => Some("--model"),
+        _ => None,
+    }
+}
+
+fn reasoning_arg_for_agent(agent: &ResolvedTerminalAgent) -> Option<&str> {
+    match agent.reasoning_support.mode {
+        AutomationAgentReasoningMode::Enum | AutomationAgentReasoningMode::Manual => agent
+            .reasoning_support
+            .arg
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        AutomationAgentReasoningMode::None | AutomationAgentReasoningMode::EncodedInModel => None,
+    }
+}
+
+fn reserved_flags_for_agent(agent: &ResolvedTerminalAgent) -> Result<Vec<String>> {
+    let mut reserved = Vec::new();
+    for flags in [&agent.flags, &agent.interactive_flags] {
+        for token in parse_flag_args(flags)?
+            .into_iter()
+            .filter(|token| token.starts_with('-'))
+        {
+            if !reserved.iter().any(|existing| existing == &token) {
+                reserved.push(token);
+            }
+        }
+    }
+    Ok(reserved)
+}
+
 fn parse_flag_args(flags: &str) -> Result<Vec<String>> {
     split_shell_words(flags).map_err(|message| ServiceError::Validation(message))
 }
@@ -676,6 +1297,9 @@ mod tests {
                 prompt_strategy: Some(PromptStrategy::Arg),
                 stdout_parser: StdoutParser::CodexJsonl,
                 use_echo: false,
+                model_support: AutomationAgentModelInputMode::Manual,
+                reasoning_support: AutomationAgentReasoningSupport::default(),
+                model_list: None,
             }],
             TerminalCodeAgentFile {
                 agents: vec![

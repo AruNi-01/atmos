@@ -731,6 +731,10 @@ impl WsMessageService {
                 self.handle_function_settings_update(parse_request(request.data)?)
                     .await
             }
+            WsAction::TerminalAgentModelsGet => {
+                self.handle_terminal_agent_models_get(parse_request(request.data)?)
+                    .await
+            }
             WsAction::WorkspaceGitignoreDirsGet => self.handle_workspace_gitignore_dirs_get().await,
             WsAction::WorkspaceGitignoreDirsUpdate => {
                 self.handle_workspace_gitignore_dirs_update(parse_request(request.data)?)

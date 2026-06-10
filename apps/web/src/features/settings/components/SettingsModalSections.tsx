@@ -23,8 +23,10 @@ import { SettingsAboutSection } from '@/features/settings/components/SettingsAbo
 import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
 import type { SettingsSectionId } from '@/features/settings/components/settings-modal-sidebar';
+import type { TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
+type AgentOption = { id: string; label: string };
 
 interface SettingsModalSectionsProps {
   activeSection: SettingsSectionId;
@@ -56,13 +58,17 @@ interface SettingsModalSectionsProps {
   customAgents: CodeAgentCustomEntry[];
   customAgentsExpanded: boolean;
   idleSessionTimeoutMins: number;
+  runConfigAgentOptions: AgentOption[];
+  runConfigsLoading: boolean;
   removingCustomAgentIds: Record<string, boolean>;
+  savedRunConfigs: TerminalAgentSavedRunConfig[];
   savedAgentCustomSettings: BuiltInAgentSettings;
   savedCustomAgents: CodeAgentCustomEntry[];
   savedIdleSessionTimeoutMins: number;
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
   savingIdleTimeout: boolean;
+  savingRunConfigs: boolean;
   syncingBuiltInEnabledIds: Record<string, boolean>;
   syncingCustomEnabledIds: Record<string, boolean>;
   onAddCustomAgent: () => void;
@@ -74,6 +80,7 @@ interface SettingsModalSectionsProps {
   onSaveBuiltInAgent: (agentId: string) => void;
   onSaveCustomAgent: (id: string) => void;
   onSaveIdleTimeout: () => void;
+  onSaveRunConfigs: (configs: TerminalAgentSavedRunConfig[]) => Promise<void>;
   setBuiltInAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setBuiltInAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   setCustomAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -158,13 +165,17 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           customAgents={props.customAgents}
           customAgentsExpanded={props.customAgentsExpanded}
           idleSessionTimeoutMins={props.idleSessionTimeoutMins}
+          runConfigAgentOptions={props.runConfigAgentOptions}
+          runConfigsLoading={props.runConfigsLoading}
           removingCustomAgentIds={props.removingCustomAgentIds}
+          savedRunConfigs={props.savedRunConfigs}
           savedAgentCustomSettings={props.savedAgentCustomSettings}
           savedCustomAgents={props.savedCustomAgents}
           savedIdleSessionTimeoutMins={props.savedIdleSessionTimeoutMins}
           savingBuiltInAgentIds={props.savingBuiltInAgentIds}
           savingCustomAgentIds={props.savingCustomAgentIds}
           savingIdleTimeout={props.savingIdleTimeout}
+          savingRunConfigs={props.savingRunConfigs}
           syncingBuiltInEnabledIds={props.syncingBuiltInEnabledIds}
           syncingCustomEnabledIds={props.syncingCustomEnabledIds}
           onAddCustomAgent={props.onAddCustomAgent}
@@ -176,6 +187,7 @@ export function SettingsModalSections(props: SettingsModalSectionsProps) {
           onSaveBuiltInAgent={props.onSaveBuiltInAgent}
           onSaveCustomAgent={props.onSaveCustomAgent}
           onSaveIdleTimeout={props.onSaveIdleTimeout}
+          onSaveRunConfigs={props.onSaveRunConfigs}
           setBuiltInAgentOpen={props.setBuiltInAgentOpen}
           setBuiltInAgentsExpanded={props.setBuiltInAgentsExpanded}
           setCustomAgentOpen={props.setCustomAgentOpen}

@@ -485,6 +485,7 @@ mod tests {
             automation_guid: "automation-123".to_string(),
             agent_id: Some("codex".to_string()),
             agent_label: Some("Codex".to_string()),
+            agent_config_json: None,
             trigger_kind: "manual".to_string(),
             trigger_source_json: None,
             status: "running".to_string(),

@@ -11,6 +11,10 @@ import {
   type SkillInfo,
 } from "@/api/ws-api";
 import {
+  sanitizeRunConfig,
+  type TerminalAgentRunConfigInput,
+} from "@/features/agent/lib/terminal-agent-run-config";
+import {
   type ComposerHandle,
 } from "@/features/welcome/components/PromptComposer";
 import { useWelcomeAgentOptions } from "@/features/welcome/hooks/use-welcome-agent-options";
@@ -122,6 +126,9 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const [workflowStatus, setWorkflowStatus] =
     React.useState<WorkspaceWorkflowStatus>("in_progress");
   const [selectedLabels, setSelectedLabels] = React.useState<WorkspaceLabel[]>([]);
+  const [agentRunConfigs, setAgentRunConfigs] = React.useState<
+    Record<string, TerminalAgentRunConfigInput | null>
+  >({});
 
   const {
     availableAgents,
@@ -137,8 +144,6 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
   const branchInputRef = React.useRef<HTMLInputElement | null>(null);
   const prevProjectIdsRef = React.useRef<string[]>([]);
   const waitingForNewProjectRef = React.useRef(false);
-
-
   React.useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -538,11 +543,13 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
       queueAgentRun({
         workspaceId,
         prompt: resolvedPrompt.trim() || finalDisplayName || finalBranch,
+        agentRunConfig: selectedAgent ? sanitizeRunConfig(agentRunConfigs[selectedAgent.id]) : null,
         agent: selectedAgent
           ? {
               id: selectedAgent.id,
               label: selectedAgent.label,
               command: selectedAgent.launchCommand,
+              launchCommand: selectedAgent.launchCommand,
               iconType: selectedAgent.iconType,
             }
           : undefined,
@@ -728,8 +735,16 @@ const WelcomePage: React.FC<WelcomePageProps> = ({
             <WelcomeAgentSelector
               availableAgents={availableAgents}
               onConnectAgent={onConnectAgent}
-              selectedAgent={selectedAgent}
               selectedAgentId={selectedAgentId}
+              runConfigByAgentId={agentRunConfigs}
+              onRunConfigChange={(agentId, nextValue) => {
+                setAgentRunConfigs((current) => ({
+                  ...current,
+                  [agentId]: nextValue,
+                }));
+                setSelectedAgentId(agentId);
+              }}
+              purpose="interactive"
               onSelectAgent={(agentId) => {
                 setSelectedAgentId(agentId);
                 functionSettingsApi

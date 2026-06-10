@@ -188,6 +188,7 @@ impl AutomationService {
                 automation_guid: automation.guid.clone(),
                 agent_id: Some(automation.agent_id.clone()),
                 agent_label,
+                agent_config_json: automation.agent_config_json.clone(),
                 trigger_kind: AutomationTriggerKind::Scheduled.as_str().to_string(),
                 trigger_source_json: None,
                 status: AutomationRunStatus::Running.as_str().to_string(),

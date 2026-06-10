@@ -71,7 +71,13 @@ impl AutomationService {
             .ok_or_else(|| {
                 ServiceError::NotFound(format!("Automation {} not found", run.automation_guid))
             })?;
-        let agent = agents::resolve_interactive_automation_agent(&automation.agent_id)?;
+        let run_config = run
+            .agent_config_json
+            .as_deref()
+            .or(automation.agent_config_json.as_deref())
+            .and_then(parse_run_config);
+        let agent =
+            agents::resolve_interactive_automation_agent_with_config(&automation.agent_id, run_config.as_ref())?;
 
         let prompt_path = PathBuf::from(&run.run_dir).join(runner::CONTINUE_PROMPT_FILE);
         let prompt = build_continue_prompt(&automation, &run);
@@ -158,7 +164,14 @@ impl AutomationService {
             return Err(ServiceError::Validation("already_running".to_string()));
         }
 
-        let agent_command = agents::resolve_automation_agent(&automation.agent_id)?;
+        let run_config = automation
+            .agent_config_json
+            .as_deref()
+            .and_then(parse_run_config);
+        let agent_command = agents::resolve_automation_agent_with_config(
+            &automation.agent_id,
+            run_config.as_ref(),
+        )?;
         let instructions = artifacts::read_instructions(&automation.instructions_path)?;
         let target = self.resolve_target(&automation).await?;
         let prepared = runner::prepare_run_files(
@@ -193,6 +206,7 @@ impl AutomationService {
                 automation_guid: automation.guid.clone(),
                 agent_id: Some(agent_command.agent_id.clone()),
                 agent_label: Some(agent_command.label.clone()),
+                agent_config_json: automation.agent_config_json.clone(),
                 trigger_kind: trigger_kind.as_str().to_string(),
                 trigger_source_json,
                 status: AutomationRunStatus::Running.as_str().to_string(),
@@ -273,6 +287,10 @@ impl AutomationService {
             .await;
         });
     }
+}
+
+fn parse_run_config(raw: &str) -> Option<agents::AutomationAgentRunConfig> {
+    serde_json::from_str(raw).ok()
 }
 
 fn build_continue_prompt(automation: &automation::Model, run: &automation_run::Model) -> String {

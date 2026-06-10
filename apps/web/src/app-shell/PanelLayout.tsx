@@ -12,7 +12,6 @@ import { cn } from "@/shared/lib/utils";
 import { useAppStorage } from "@atmos/shared";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
-import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { logSidebarLayout } from "@/app-shell/sidebar-layout-debug";
 import {
   getSidebarPeekOverlayWidthPx,
@@ -22,7 +21,6 @@ import {
   DEFAULT_LEFT_SIDEBAR_SIZE,
   ROOT_SIDEBAR_LAYOUT_AUTO_SAVE_ID,
 } from "@/app-shell/sidebar-layout-constants";
-import { useWelcomeOverlayState } from "@/app-shell/use-welcome-overlay-state";
 
 const DEFAULT_RIGHT_SIDEBAR_SIZE = 20;
 
@@ -65,8 +63,6 @@ export function PanelLayout({
   const [rightOverlaySize, setRightOverlaySize] = useState(DEFAULT_RIGHT_SIDEBAR_SIZE);
   const isDividerDraggingRef = useRef(false);
   const pendingLeftSidebarSizeRef = useRef<number | null>(null);
-  const [liveLeftSidebarSize, setLiveLeftSidebarSize] = useState(leftSidebarSize);
-  const welcomeOverlay = useWelcomeOverlayState();
 
   useEffect(() => {
     const node = layoutRootRef.current;
@@ -173,17 +169,6 @@ export function PanelLayout({
   ]);
 
   React.useEffect(() => {
-    if (isDividerDraggingRef.current) {
-      return;
-    }
-
-    logSidebarLayout("ROOT_CONTEXT_SIZE", "Context left sidebar size changed", {
-      leftSidebarSize,
-    });
-    setLiveLeftSidebarSize(leftSidebarSize);
-  }, [leftSidebarSize]);
-
-  React.useEffect(() => {
     setToggleRightSidebar(() => {
       if (!showRightSidebar) return;
       if (isRightCollapsed) {
@@ -220,7 +205,6 @@ export function PanelLayout({
         size,
         dragging: isDividerDraggingRef.current,
       });
-      setLiveLeftSidebarSize(size);
       if (size > 0.5) {
         setLeftOverlaySize(size);
       }
@@ -245,7 +229,6 @@ export function PanelLayout({
         return;
       }
 
-      setLiveLeftSidebarSize(nextLeftSize);
       if (nextLeftSize > 0.5) {
         setLeftOverlaySize(nextLeftSize);
       }
@@ -293,7 +276,6 @@ export function PanelLayout({
           previousLeftSidebarSize: leftSidebarSize,
         });
         setIsLeftCollapsed(true);
-        setLiveLeftSidebarSize(0);
         setLeftSidebarSize(0);
       }}
       onExpand={() => {
@@ -318,11 +300,6 @@ export function PanelLayout({
     </Panel>
   );
 
-  const shouldHideLeftDivider =
-    welcomeOverlay.isVisible &&
-    welcomeOverlay.animationState === "visible" &&
-    !welcomeOverlay.isClosing;
-
   return (
     <div ref={layoutRootRef} className="relative flex-1 flex min-h-0 overflow-hidden">
       <PanelGroup
@@ -339,9 +316,7 @@ export function PanelLayout({
         <ResizeHandle
           onDragging={handleDividerDragging}
           hitAreaMargins={{ fine: 2, coarse: 4 }}
-          className={cn(
-            (shouldHideLeftDivider || isLeftCollapsed) && "bg-transparent hover:bg-transparent",
-          )}
+          className={cn(isLeftCollapsed && "bg-transparent hover:bg-transparent")}
         />
 
         {/* Center Stage */}
@@ -392,32 +367,6 @@ export function PanelLayout({
           </>
         ) : null}
       </PanelGroup>
-
-      {welcomeOverlay.isVisible && (
-        <div
-          className={cn(
-            "absolute inset-y-0 right-0 z-40",
-            !isLeftCollapsed && liveLeftSidebarSize > 0.5 && "border-l border-border",
-            welcomeOverlay.animationState === "visible" || welcomeOverlay.isClosing
-              ? "transition-transform duration-350 ease-in-out"
-              : "",
-            welcomeOverlay.isClosing
-              ? "translate-y-full"
-              : welcomeOverlay.animationState === "visible"
-                ? "translate-y-0"
-                : "translate-y-full",
-          )}
-          style={{
-            left: `${liveLeftSidebarSize}%`,
-          }}
-        >
-          <HostedWelcomeGate
-            onAddProject={welcomeOverlay.openCreateProject}
-            onConnectAgent={welcomeOverlay.connectAgent}
-            onClose={welcomeOverlay.close}
-          />
-        </div>
-      )}
     </div>
   );
 }

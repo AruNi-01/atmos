@@ -14,7 +14,6 @@ import {
 } from "@workspace/ui";
 import {
   ArrowBigUp,
-  Bot,
   Check,
   ChevronDown,
   Clapperboard,
@@ -28,7 +27,6 @@ import type {
   WorkspacePriority,
   WorkspaceWorkflowStatus,
 } from "@/shared/types/domain";
-import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import {
   WorkspaceLabelDots,
   WorkspaceLabelPicker,
@@ -36,76 +34,38 @@ import {
   WorkspaceStatusSelect,
 } from "@/app-shell/sidebar/workspace-metadata-controls";
 import type { AgentMenuOption } from "@/features/welcome/lib/welcome-page-helpers";
+import { TerminalAgentSelectorWithRunConfig } from "@/features/agent/components/TerminalAgentSelectorWithRunConfig";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 export function WelcomeAgentSelector({
   availableAgents,
   onConnectAgent,
   onSelectAgent,
-  selectedAgent,
   selectedAgentId,
+  runConfigByAgentId,
+  onRunConfigChange,
+  purpose,
 }: {
   availableAgents: AgentMenuOption[];
   onConnectAgent?: () => void;
   onSelectAgent: (agentId: string) => void;
-  selectedAgent: AgentMenuOption | undefined;
   selectedAgentId: string;
+  runConfigByAgentId: Record<string, TerminalAgentRunConfigInput | null | undefined>;
+  onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
+  purpose?: "interactive" | "automation";
 }) {
   return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="absolute -left-3 -top-3 z-20 inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-border/60 bg-background text-foreground/90 shadow-[0_6px_20px_rgba(0,0,0,0.18)] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
-          aria-label="Select agent"
-        >
-          {selectedAgent?.iconType === "built-in" ? (
-            <AgentIcon registryId={selectedAgent.id} name={selectedAgent.label} size={18} />
-          ) : (
-            <Bot className="size-4 text-muted-foreground" />
-          )}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-56">
-        {availableAgents.length > 0 ? (
-          availableAgents.map((agent) => {
-            const disabledReason = agent.disabledReason?.trim();
-            return (
-            <DropdownMenuItem
-              key={agent.id}
-              disabled={!!disabledReason}
-              onClick={() => {
-                if (!disabledReason) {
-                  onSelectAgent(agent.id);
-                }
-              }}
-              className="cursor-pointer justify-between gap-3"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                {agent.iconType === "built-in" ? (
-                  <AgentIcon registryId={agent.id} name={agent.label} size={16} />
-                ) : (
-                  <Bot className="size-4 text-muted-foreground" />
-                )}
-                <span className="min-w-0">
-                  <span className="block truncate">{agent.label}</span>
-                  {agent.description || disabledReason ? (
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {agent.description ?? disabledReason}
-                    </span>
-                  ) : null}
-                </span>
-              </span>
-              {agent.id === selectedAgentId ? <Check className="size-4 text-foreground" /> : null}
-            </DropdownMenuItem>
-            );
-          })
-        ) : (
-          <DropdownMenuItem onClick={onConnectAgent} className="cursor-pointer">
-            Connect agents
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <TerminalAgentSelectorWithRunConfig
+      variant="floating"
+      options={availableAgents}
+      value={selectedAgentId}
+      onValueChange={onSelectAgent}
+      runConfigByAgentId={runConfigByAgentId}
+      onRunConfigChange={onRunConfigChange}
+      onEmptyAction={onConnectAgent}
+      emptyActionLabel="Connect agents"
+      purpose={purpose}
+    />
   );
 }
 

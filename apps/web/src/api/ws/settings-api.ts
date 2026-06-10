@@ -1,8 +1,13 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
+import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
 
 export interface FunctionSettings {
+  agent_cli?: {
+    center_fix_terminal_default_agent?: string;
+    saved_run_configs?: TerminalAgentSavedRunConfig[];
+  };
   editor?: {
     auto_save?: boolean;
     line_wrap?: boolean;

@@ -74,6 +74,9 @@ export function RunDetailPanel({
         label: runAgentLabel,
         installed: false,
         automation_supported: false,
+        model_input_mode: "none",
+        reasoning_mode: "none",
+        supports_extra_args: true,
         unavailable_reason: null,
       };
     }

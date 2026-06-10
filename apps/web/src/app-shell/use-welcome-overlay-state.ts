@@ -19,9 +19,18 @@ export function useWelcomeOverlayState() {
     useState<WelcomeOverlayAnimationState>("idle");
   const prevNewWorkspaceRef = useRef(false);
   const previousFocusRef = useRef<Element | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
   const setCreateProjectOpen = useDialogStore((s) => s.setCreateProjectOpen);
   const router = useAppRouter();
   const isVisible = Boolean(newWorkspace || isClosing);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current == null) return;
+    window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  }, []);
+
+  useEffect(() => clearCloseTimer, [clearCloseTimer]);
 
   useEffect(() => {
     if (isVisible && !isClosing) {
@@ -30,43 +39,59 @@ export function useWelcomeOverlayState() {
   }, [isVisible, isClosing]);
 
   const close = useCallback(() => {
+    if (isClosing) return;
+    clearCloseTimer();
     setIsClosing(true);
     const savedEl = previousFocusRef.current;
-    setTimeout(() => {
+    void setNewWorkspace(false);
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
       setIsClosing(false);
       setAnimationState("idle");
-      void setNewWorkspace(false);
       if (savedEl instanceof HTMLElement && savedEl.isConnected) {
         savedEl.focus();
       }
       previousFocusRef.current = null;
     }, 350);
-  }, [setNewWorkspace]);
+  }, [clearCloseTimer, isClosing, setNewWorkspace]);
 
   const openCreateProject = useCallback(() => {
     setCreateProjectOpen(true);
   }, [setCreateProjectOpen]);
 
   const connectAgent = useCallback(() => {
+    clearCloseTimer();
+    setIsClosing(false);
+    setAnimationState("idle");
     void setNewWorkspace(false);
     router.push("/agents");
-  }, [router, setNewWorkspace]);
+  }, [clearCloseTimer, router, setNewWorkspace]);
 
   useEffect(() => {
     if (!newWorkspace) {
       prevNewWorkspaceRef.current = false;
       return;
     }
+    if (isClosing) {
+      clearCloseTimer();
+      prevNewWorkspaceRef.current = true;
+      const raf = requestAnimationFrame(() => {
+        setIsClosing(false);
+        setAnimationState("visible");
+      });
+      return () => cancelAnimationFrame(raf);
+    }
     if (prevNewWorkspaceRef.current) {
       return;
     }
 
+    clearCloseTimer();
     const raf = requestAnimationFrame(() => {
       prevNewWorkspaceRef.current = true;
       setAnimationState("entering");
     });
     return () => cancelAnimationFrame(raf);
-  }, [newWorkspace]);
+  }, [clearCloseTimer, isClosing, newWorkspace]);
 
   useEffect(() => {
     if (animationState !== "entering") return;

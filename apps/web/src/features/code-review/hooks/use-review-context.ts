@@ -17,6 +17,7 @@ import { useDialogStore } from "@/app-shell/state/use-dialog-store";
 import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
 import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 import {
   isOpenReviewCommentStatus,
   sortReviewSessions,
@@ -69,14 +70,26 @@ export function useReviewContext({
   );
   const [comments, setComments] = useState<ReviewCommentDto[]>([]);
   const terminalAgentId = (storedReviewAgentId ?? "codex") as AgentId;
+  const [terminalAgentRunConfigs, setTerminalAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactPreview, setArtifactPreview] = useState<ArtifactPreview | null>(null);
+  const terminalAgentRunConfig = terminalAgentRunConfigs[terminalAgentId] ?? null;
 
   const setTerminalAgentId = useCallback(
     (value: AgentId) => {
       setStoredReviewAgentId(value);
     },
     [setStoredReviewAgentId],
+  );
+
+  const setTerminalAgentRunConfig = useCallback(
+    (agentId: AgentId, value: TerminalAgentRunConfigInput | null) => {
+      setTerminalAgentRunConfigs((prev) => ({
+        ...prev,
+        [agentId]: value,
+      }));
+    },
+    [],
   );
 
   const loadSessions = useCallback(async () => {
@@ -647,14 +660,19 @@ export function useReviewContext({
   );
 
   const handleRunAgentInTerminal = useCallback(
-    async (selectedCommentGuids?: string[], agentIdOverride?: AgentId) => {
+    async (
+      selectedCommentGuids?: string[],
+      agentIdOverride?: AgentId,
+      runConfigOverride?: TerminalAgentRunConfigInput | null,
+    ) => {
       setIsCreatingAgentRun(true);
       try {
         const result = await createAgentRun("fix", "terminal_cli", null, selectedCommentGuids);
         if (!result) return;
         setSelectedRevisionGuid(result.revision.guid);
         const agentId = agentIdOverride ?? terminalAgentId;
-        const command = buildCommand(agentId, result.prompt);
+        const runConfig = runConfigOverride ?? terminalAgentRunConfigs[agentId] ?? null;
+        const command = buildCommand(agentId, result.prompt, runConfig);
         const label = `Review Fix ${filePath.split("/").pop() || "Run"}`;
         if (terminalRunner) {
           await terminalRunner(command, label);
@@ -683,7 +701,7 @@ export function useReviewContext({
         setIsCreatingAgentRun(false);
       }
     },
-    [createAgentRun, filePath, loadSessions, setSelectedRevisionGuid, terminalAgentId, terminalRunner],
+    [createAgentRun, filePath, loadSessions, setSelectedRevisionGuid, terminalAgentId, terminalAgentRunConfigs, terminalRunner],
   );
 
   const handleRunAgentReview = useCallback(
@@ -820,12 +838,14 @@ export function useReviewContext({
     selectedSessionGuid,
     selectedRevisionGuid,
     terminalAgentId,
+    terminalAgentRunConfig,
     autoLoadedSummaryRunRef,
     // Setters
     setSelectedSessionGuid,
     setSelectedRevisionGuid,
     setArtifactPreview,
     setTerminalAgentId,
+    setTerminalAgentRunConfig,
     // Handlers
     loadSessions,
     loadComments,

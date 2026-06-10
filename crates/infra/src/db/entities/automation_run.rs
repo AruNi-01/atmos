@@ -14,6 +14,7 @@ pub struct Model {
     pub automation_guid: String,
     pub agent_id: Option<String>,
     pub agent_label: Option<String>,
+    pub agent_config_json: Option<String>,
     pub trigger_kind: String,
     pub trigger_source_json: Option<String>,
     pub status: String,

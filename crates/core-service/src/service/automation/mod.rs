@@ -40,6 +40,11 @@ pub(crate) use agents::{
     resolve_automation_agent, AutomationAgentInvocation, AutomationCommandInput, PromptDelivery,
     StdoutParser,
 };
+pub use agents::{
+    AutomationAgentModelInputMode, AutomationAgentReasoningMode,
+    AutomationAgentReasoningSelection, AutomationAgentRunConfig, TerminalAgentModelCatalog,
+    TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
+};
 pub use events::{AutomationDefinitionChange, AutomationEvent};
 pub use external_trigger::{
     ExternalTriggerOutcome, ExternalTriggerRejectReason, ExternalTriggerRejection,
@@ -214,6 +219,8 @@ pub struct AutomationCreateReq {
     pub display_name: String,
     pub instructions: String,
     pub agent_id: String,
+    #[serde(default)]
+    pub agent_config: Option<AutomationAgentRunConfig>,
     pub target: AutomationTargetInput,
     #[serde(default)]
     pub attachments: Vec<WorkspaceAttachmentPayload>,
@@ -234,6 +241,8 @@ pub struct AutomationUpdateReq {
     pub attachments: Vec<WorkspaceAttachmentPayload>,
     #[serde(default)]
     pub agent_id: Option<String>,
+    #[serde(default)]
+    pub agent_config: Option<AutomationAgentRunConfig>,
     #[serde(default)]
     pub target: Option<AutomationTargetInput>,
     #[serde(default)]
@@ -321,6 +330,7 @@ pub struct AutomationSummary {
     pub guid: String,
     pub display_name: String,
     pub agent_id: String,
+    pub agent_config_json: Option<String>,
     pub target_kind: String,
     pub project_guid: Option<String>,
     pub workspace_guid: Option<String>,
@@ -351,6 +361,7 @@ pub struct AutomationRunSummary {
     pub automation_guid: String,
     pub agent_id: Option<String>,
     pub agent_label: Option<String>,
+    pub agent_config_json: Option<String>,
     pub trigger_kind: String,
     pub trigger_source_json: Option<String>,
     pub status: String,
@@ -457,6 +468,7 @@ impl AutomationService {
     pub async fn create_automation(&self, req: AutomationCreateReq) -> Result<AutomationDetail> {
         let display_name = validate_display_name(req.display_name)?;
         self.validate_agent(&req.agent_id)?;
+        agents::validate_agent_run_config(&req.agent_id, req.agent_config.as_ref())?;
         self.validate_target(&req.target).await?;
         let normalized_schedule = req
             .schedule
@@ -474,11 +486,22 @@ impl AutomationService {
         )?;
 
         let repo = AutomationRepo::new(&self.db);
+        let agent_config_json = req
+            .agent_config
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()
+            .map_err(|error| {
+                ServiceError::Validation(format!(
+                    "Failed to serialize automation agent config: {error}"
+                ))
+            })?;
         let model = match repo
             .create_automation(CreateAutomationRecord {
                 guid: automation_guid.clone(),
                 display_name,
                 agent_id: req.agent_id,
+                agent_config_json,
                 target_kind: req.target.target_kind.as_str().to_string(),
                 project_guid: req.target.project_guid,
                 workspace_guid: req.target.workspace_guid,
@@ -536,6 +559,15 @@ impl AutomationService {
         if let Some(agent_id) = req.agent_id.as_deref() {
             self.validate_agent(agent_id)?;
         }
+        if let Some(agent_id) = req.agent_id.as_deref() {
+            agents::validate_agent_run_config(agent_id, req.agent_config.as_ref())?;
+        } else {
+            let existing_config = existing
+                .agent_config_json
+                .as_deref()
+                .and_then(|raw| serde_json::from_str::<AutomationAgentRunConfig>(raw).ok());
+            agents::validate_agent_run_config(&existing.agent_id, req.agent_config.as_ref().or(existing_config.as_ref()))?;
+        }
         if let Some(target) = req.target.as_ref() {
             self.validate_target(target).await?;
         }
@@ -564,6 +596,17 @@ impl AutomationService {
         let update = UpdateAutomationRecord {
             display_name,
             agent_id: req.agent_id,
+            agent_config_json: Some(
+                req.agent_config
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()
+                    .map_err(|error| {
+                        ServiceError::Validation(format!(
+                            "Failed to serialize automation agent config: {error}"
+                        ))
+                    })?,
+            ),
             target_kind: req
                 .target
                 .as_ref()
@@ -727,6 +770,14 @@ impl AutomationService {
         automation_agent_capabilities()
     }
 
+    pub async fn terminal_agent_model_catalog(
+        &self,
+        agent_id: &str,
+        refresh: bool,
+    ) -> Result<TerminalAgentModelCatalog> {
+        agents::terminal_agent_model_catalog(agent_id, refresh)
+    }
+
     fn detail_from_model(&self, model: automation::Model) -> Result<AutomationDetail> {
         let instructions = artifacts::read_instructions(&model.instructions_path)?;
         Ok(AutomationDetail {
@@ -880,6 +931,7 @@ impl From<automation::Model> for AutomationSummary {
             guid: model.guid,
             display_name: model.display_name,
             agent_id: model.agent_id,
+            agent_config_json: model.agent_config_json,
             target_kind: model.target_kind,
             project_guid: model.project_guid,
             workspace_guid: model.workspace_guid,
@@ -960,6 +1012,7 @@ impl From<automation_run::Model> for AutomationRunSummary {
             automation_guid: model.automation_guid,
             agent_id: model.agent_id,
             agent_label: model.agent_label,
+            agent_config_json: model.agent_config_json,
             trigger_kind: model.trigger_kind,
             trigger_source_json: model.trigger_source_json,
             status: model.status,

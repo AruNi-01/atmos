@@ -48,12 +48,12 @@ import { CodeReviewDialog } from "@/features/code-review";
 import { useReviewSnapshotStore } from "@/features/code-review/store/review-snapshot-store";
 import { usePrewarmCodeLanguages } from "@/shared/hooks/use-prewarm-code-languages";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
+import { buildInteractiveAgentCommand } from "@/features/agent/lib/terminal-agent-run-config";
 import { useWorkspaceCreationStore } from "@/features/workspace/store/workspace-creation-store";
 import { useExperimentSettingsStore } from "@/features/settings/store/experiment-settings-store";
 import {
   FIXED_TABS,
   isTerminalCenterTabValue,
-  shellQuote,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
 import { CenterStageTabBar } from "@/app-shell/CenterStageTabBar";
@@ -551,10 +551,14 @@ const CenterStage: React.FC = () => {
     if (!selectedAgent) return;
 
     const prompt = pending.prompt.trim();
-    const command = pending.command?.trim()
-      || (prompt
-        ? `${selectedAgent.command.trim()} ${shellQuote(prompt)}`
-        : selectedAgent.command.trim());
+    const command =
+      pending.command?.trim() ||
+      buildInteractiveAgentCommand({
+        agentId: selectedAgent.agent.id,
+        launchCommand: selectedAgent.command.trim(),
+        prompt,
+        runConfig: pending.agentRunConfig,
+      });
 
     const targetTerminalTabId = ensureRunnableTerminalTab();
     if (!targetTerminalTabId) return;

@@ -3,6 +3,7 @@ import type {
   AutomationTriggerKind,
   AutomationTriggerStatus,
 } from "@/api/ws/automation-dtos";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 export type {
   AutomationTriggerInput,
@@ -50,6 +51,7 @@ export interface AutomationSummary {
   guid: string;
   display_name: string;
   agent_id: string;
+  agent_config_json: string | null;
   target_kind: AutomationTargetKind;
   project_guid: string | null;
   workspace_guid: string | null;
@@ -81,6 +83,9 @@ export interface AutomationAgentCapability {
   label: string;
   installed: boolean;
   automation_supported: boolean;
+  model_input_mode: "none" | "manual" | "catalog";
+  reasoning_mode: "none" | "enum" | "manual" | "encoded_in_model";
+  supports_extra_args: boolean;
   unavailable_reason: string | null;
 }
 
@@ -108,6 +113,7 @@ export interface AutomationCreateRequest {
   display_name: string;
   instructions: string;
   agent_id: string;
+  agent_config?: TerminalAgentRunConfigInput | null;
   target: AutomationTargetInput;
   schedule: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
@@ -119,6 +125,7 @@ export interface AutomationUpdateRequest {
   display_name?: string;
   instructions?: string;
   agent_id?: string;
+  agent_config?: TerminalAgentRunConfigInput | null;
   target?: AutomationTargetInput;
   schedule?: AutomationScheduleInput | null;
   trigger?: AutomationTriggerInput | null;
@@ -136,6 +143,7 @@ export interface AutomationRunSummary {
   automation_guid: string;
   agent_id: string | null;
   agent_label: string | null;
+  agent_config_json: string | null;
   trigger_kind: AutomationTriggerKind;
   trigger_source_json: string | null;
   status: AutomationRunStatus;

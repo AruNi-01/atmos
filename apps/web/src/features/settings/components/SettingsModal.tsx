@@ -17,14 +17,17 @@ import {
   agentBehaviourSettingsApi,
   codeAgentCustomApi,
   type CodeAgentCustomEntry,
+  functionSettingsApi,
   llmProvidersApi,
   type LlmProvidersFile,
 } from '@/api/ws-api';
+import { readSavedRunConfigs, type TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
 import { LlmProviderEditorDialog } from '@/app-shell/LlmProvidersModal';
 import { buildLocalAgentOptions } from '@/app-shell/llm-providers-modal-utils';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
 import { useNotificationSettingsStore } from '@/features/settings/store/notification-settings-store';
+import { useFunctionSettingsStore } from '@/features/settings/store/function-settings-store';
 import {
   requestBrowserNotificationPermission,
   sendBrowserNotification,
@@ -99,6 +102,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [idleSessionTimeoutMins, setIdleSessionTimeoutMins] = useState<number>(30);
   const [savedIdleSessionTimeoutMins, setSavedIdleSessionTimeoutMins] = useState<number>(30);
   const [savingIdleTimeout, setSavingIdleTimeout] = useState(false);
+  const [savedRunConfigs, setSavedRunConfigs] = useState<TerminalAgentSavedRunConfig[]>([]);
+  const [runConfigsLoading, setRunConfigsLoading] = useState(false);
+  const [savingRunConfigs, setSavingRunConfigs] = useState(false);
   const {
     fileLinkOpenMode,
     fileLinkOpenApp,
@@ -121,8 +127,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // Load agent custom settings when modal opens
   const loadAgentSettings = React.useCallback(async () => {
     setAgentSettingsLoading(true);
+    setRunConfigsLoading(true);
     try {
-      const customData = await codeAgentCustomApi.get();
+      const [customData, behaviourData, functionSettings] = await Promise.all([
+        codeAgentCustomApi.get(),
+        agentBehaviourSettingsApi.get(),
+        useFunctionSettingsStore.getState().load(),
+      ]);
       const allAgents = dedupeCodeAgentEntries(
         Array.isArray(customData?.agents) ? customData.agents : [],
       );
@@ -139,14 +150,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setBuiltInAgentOpen({});
       setCustomAgentOpen({});
 
-      const behaviourData = await agentBehaviourSettingsApi.get();
       const timeout = behaviourData?.idle_session_timeout_mins ?? 30;
       setIdleSessionTimeoutMins(timeout);
       setSavedIdleSessionTimeoutMins(timeout);
+
+      const agentCli = (functionSettings as Record<string, unknown>)?.agent_cli as
+        | Record<string, unknown>
+        | undefined;
+      setSavedRunConfigs(readSavedRunConfigs(agentCli?.saved_run_configs));
     } catch {
       // ignore
     } finally {
       setAgentSettingsLoading(false);
+      setRunConfigsLoading(false);
     }
   }, []);
 
@@ -466,6 +482,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ]),
     [savedAgentCustomSettings, savedCustomAgents],
   );
+  const runConfigAgentOptions = React.useMemo(() => {
+    const builtIns = AGENT_OPTIONS.map((agent) => ({ id: agent.id, label: agent.label }));
+    const customs = customAgents
+      .filter((agent) => agent.label.trim())
+      .map((agent) => ({ id: agent.id, label: agent.label.trim() }));
+    const merged = [...builtIns];
+    for (const agent of customs) {
+      if (!merged.some((item) => item.id === agent.id)) {
+        merged.push(agent);
+      }
+    }
+    for (const config of savedRunConfigs) {
+      if (!merged.some((item) => item.id === config.agent_id)) {
+        merged.push({ id: config.agent_id, label: config.agent_id });
+      }
+    }
+    return merged;
+  }, [customAgents, savedRunConfigs]);
+
+  const handleSaveRunConfigs = React.useCallback(async (configs: TerminalAgentSavedRunConfig[]) => {
+    setSavingRunConfigs(true);
+    try {
+      await functionSettingsApi.update('agent_cli', 'saved_run_configs', configs);
+      setSavedRunConfigs(configs);
+      useFunctionSettingsStore.getState().invalidate();
+      void useFunctionSettingsStore.getState().load();
+    } catch (error) {
+      toastManager.add({
+        title: 'Failed to save run configs',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      });
+      throw error;
+    } finally {
+      setSavingRunConfigs(false);
+    }
+  }, []);
 
   const handleProviderEnabledChange = React.useCallback(async (providerId: string, enabled: boolean) => {
     if (!llmConfig?.providers?.[providerId]) return;
@@ -670,13 +723,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     customAgents={customAgents}
                     customAgentsExpanded={customAgentsExpanded}
                     idleSessionTimeoutMins={idleSessionTimeoutMins}
+                    runConfigAgentOptions={runConfigAgentOptions}
+                    runConfigsLoading={runConfigsLoading}
                     removingCustomAgentIds={removingCustomAgentIds}
+                    savedRunConfigs={savedRunConfigs}
                     savedAgentCustomSettings={savedAgentCustomSettings}
                     savedCustomAgents={savedCustomAgents}
                     savedIdleSessionTimeoutMins={savedIdleSessionTimeoutMins}
                     savingBuiltInAgentIds={savingBuiltInAgentIds}
                     savingCustomAgentIds={savingCustomAgentIds}
                     savingIdleTimeout={savingIdleTimeout}
+                    savingRunConfigs={savingRunConfigs}
                     syncingBuiltInEnabledIds={syncingBuiltInEnabledIds}
                     syncingCustomEnabledIds={syncingCustomEnabledIds}
                     onAddCustomAgent={handleAddCustomAgent}
@@ -698,6 +755,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onSaveIdleTimeout={() => {
                       void handleSaveIdleTimeout();
                     }}
+                    onSaveRunConfigs={handleSaveRunConfigs}
                     setBuiltInAgentOpen={setBuiltInAgentOpen}
                     setBuiltInAgentsExpanded={setBuiltInAgentsExpanded}
                     setCustomAgentOpen={setCustomAgentOpen}

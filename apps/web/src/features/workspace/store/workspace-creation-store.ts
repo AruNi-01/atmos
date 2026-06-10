@@ -2,6 +2,8 @@
 
 import { create } from 'zustand';
 
+import type { TerminalAgentRunConfigInput } from '@/features/agent/lib/terminal-agent-run-config';
+
 type WorkspaceCreationPhase = 'creating' | 'opening';
 
 export interface PendingWorkspaceAgentRun {
@@ -9,10 +11,12 @@ export interface PendingWorkspaceAgentRun {
   projectId?: string | null;
   prompt: string;
   command?: string;
+  agentRunConfig?: TerminalAgentRunConfigInput | null;
   agent?: {
     id: string;
     label: string;
     command: string;
+    launchCommand?: string;
     iconType: "built-in" | "custom";
   };
   createdAt: number;
@@ -47,7 +51,7 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
       phase: 'opening',
       pendingWorkspaceId: workspaceId,
     }),
-  queueAgentRun: ({ workspaceId, projectId, prompt, command, agent }) =>
+  queueAgentRun: ({ workspaceId, projectId, prompt, command, agent, agentRunConfig }) =>
     set({
       pendingAgentRun: {
         workspaceId,
@@ -55,6 +59,7 @@ export const useWorkspaceCreationStore = create<WorkspaceCreationState>((set) =>
         prompt,
         command,
         agent,
+        agentRunConfig,
         createdAt: Date.now(),
       },
     }),

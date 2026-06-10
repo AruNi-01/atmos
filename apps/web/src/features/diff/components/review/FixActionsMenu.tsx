@@ -2,26 +2,27 @@
 
 import React from "react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Loader2,
 } from "@workspace/ui";
-import { ChevronDown, Check, Copy, Bot } from "lucide-react";
+import { ChevronDown, Copy, Bot } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
-import { AGENT_OPTIONS, type AgentId } from "@/features/wiki/components/AgentSelect";
+import { type AgentId } from "@/features/wiki/components/AgentSelect";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { ReviewAgentRunModel } from "@/api/ws-api";
+import { TerminalAgentSelectorWithRunConfig } from "@/features/agent/components/TerminalAgentSelectorWithRunConfig";
+import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 interface FixActionsMenuProps {
   disabled: boolean;
   isLoading: boolean;
   activeRun: ReviewAgentRunModel | null;
   agentId: AgentId;
+  runConfig: TerminalAgentRunConfigInput | null;
   onAgentChange: (agentId: AgentId) => void;
-  onFix: (agentId: AgentId) => void | Promise<void>;
+  onRunConfigChange: (value: TerminalAgentRunConfigInput | null) => void;
+  onFix: (agentId: AgentId, runConfig: TerminalAgentRunConfigInput | null) => void | Promise<void>;
   onCopyPrompt: () => void | Promise<void>;
   onMarkFailed: (run: ReviewAgentRunModel) => void | Promise<void>;
   onOpenAgentReview: () => void;
@@ -41,7 +42,9 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
   isLoading,
   activeRun,
   agentId,
+  runConfig,
   onAgentChange,
+  onRunConfigChange,
   onFix,
   onCopyPrompt,
   onMarkFailed,
@@ -53,7 +56,7 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
       <button
         type="button"
         disabled={disabled || isLoading}
-        onClick={() => void onFix(agentId)}
+        onClick={() => void onFix(agentId, runConfig)}
         className={cn(
           "inline-flex items-center justify-center gap-1.5 px-2.5 text-[13px] font-medium flex-1 min-w-0 h-full",
           "text-foreground hover:bg-sidebar-accent/30",
@@ -69,9 +72,16 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
         )}
         <span className="truncate min-w-0">{activeRun ? formatAgentRunStatus(activeRun.status) : "Fix"}</span>
       </button>
-      <div className="w-px self-stretch bg-sidebar-border/40 shrink-0" />
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+        <div className="w-px self-stretch bg-sidebar-border/40 shrink-0" />
+      <TerminalAgentSelectorWithRunConfig
+        variant="menu"
+        options={AGENT_OPTIONS}
+        value={agentId}
+        onValueChange={onAgentChange}
+        runConfig={runConfig}
+        onRunConfigChange={onRunConfigChange}
+        purpose="interactive"
+        trigger={
           <button
             type="button"
             disabled={(!isRunActive && disabled) || isLoading}
@@ -85,8 +95,8 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
           >
             <ChevronDown className="size-3.5" />
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[12rem]">
+        }
+        menuHeader={
           <DropdownMenuItem
             onClick={() => onOpenAgentReview()}
             className="flex items-center gap-2 text-xs"
@@ -94,44 +104,30 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
             <Bot className="size-4" />
             <span>Agent Review</span>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {AGENT_OPTIONS.map((opt) => {
-            const isActive = opt.id === agentId;
-            return (
-              <DropdownMenuItem
-                key={opt.id}
-                onClick={() => onAgentChange(opt.id)}
-                className="flex items-center gap-2 text-xs"
-                disabled={isRunActive}
-              >
-                <AgentIcon registryId={opt.id} name={opt.label} size={16} />
-                <span className="flex-1">{opt.label}</span>
-                {isActive && <Check className="size-3.5 text-foreground shrink-0" />}
-              </DropdownMenuItem>
-            );
-          })}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => void onCopyPrompt()}
-            className="flex items-center gap-2 text-xs"
-            disabled={disabled || isLoading || isRunActive}
-          >
-            <Copy className="size-4" />
-            <span>Copy Prompt</span>
-          </DropdownMenuItem>
-          {activeRun && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => void onMarkFailed(activeRun)}
-                className="flex items-center gap-2 text-xs"
-              >
-                Mark failed
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        }
+        menuFooter={
+          <>
+            <DropdownMenuItem
+              onClick={() => void onCopyPrompt()}
+              className="flex items-center gap-2 text-xs"
+              disabled={disabled || isLoading || isRunActive}
+            >
+              <Copy className="size-4" />
+              <span>Copy Prompt</span>
+            </DropdownMenuItem>
+            {activeRun ? (
+              <>
+                <DropdownMenuItem
+                  onClick={() => void onMarkFailed(activeRun)}
+                  className="flex items-center gap-2 text-xs"
+                >
+                  Mark failed
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </>
+        }
+      />
     </div>
   );
 };

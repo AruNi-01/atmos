@@ -509,6 +509,8 @@ pub enum WsAction {
     FunctionSettingsGet,
     /// Update a field in ~/.atmos/function_settings.json
     FunctionSettingsUpdate,
+    /// Probe a terminal agent's live model catalog
+    TerminalAgentModelsGet,
     /// Read the merged GitIgnore-dirs compensation config (built-ins + user customs)
     WorkspaceGitignoreDirsGet,
     /// Overwrite the GitIgnore-dirs compensation config
@@ -790,6 +792,13 @@ pub struct FunctionSettingsUpdateRequest {
     pub function_name: String,
     pub key: String,
     pub value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalAgentModelsGetRequest {
+    pub agent_id: String,
+    #[serde(default)]
+    pub refresh: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

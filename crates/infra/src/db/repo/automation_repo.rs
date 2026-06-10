@@ -105,6 +105,7 @@ impl<'a> AutomationRepo<'a> {
             is_deleted: Set(base.is_deleted),
             display_name: Set(input.display_name),
             agent_id: Set(input.agent_id),
+            agent_config_json: Set(input.agent_config_json),
             target_kind: Set(input.target_kind),
             project_guid: Set(input.project_guid),
             workspace_guid: Set(input.workspace_guid),
@@ -145,6 +146,9 @@ impl<'a> AutomationRepo<'a> {
         }
         if let Some(value) = input.agent_id {
             active.agent_id = Set(value);
+        }
+        if let Some(value) = input.agent_config_json {
+            active.agent_config_json = Set(value);
         }
         if let Some(value) = input.target_kind {
             active.target_kind = Set(value);
@@ -300,6 +304,7 @@ impl<'a> AutomationRepo<'a> {
             automation_guid: Set(input.automation_guid),
             agent_id: Set(input.agent_id),
             agent_label: Set(input.agent_label),
+            agent_config_json: Set(input.agent_config_json),
             trigger_kind: Set(input.trigger_kind),
             trigger_source_json: Set(input.trigger_source_json),
             status: Set(input.status),
@@ -606,6 +611,7 @@ pub struct CreateAutomationRecord {
     pub guid: String,
     pub display_name: String,
     pub agent_id: String,
+    pub agent_config_json: Option<String>,
     pub target_kind: String,
     pub project_guid: Option<String>,
     pub workspace_guid: Option<String>,
@@ -626,6 +632,7 @@ pub struct CreateAutomationRecord {
 pub struct UpdateAutomationRecord {
     pub display_name: Option<String>,
     pub agent_id: Option<String>,
+    pub agent_config_json: Option<Option<String>>,
     pub target_kind: Option<String>,
     pub project_guid: Option<Option<String>>,
     pub workspace_guid: Option<Option<String>>,
@@ -646,6 +653,7 @@ pub struct CreateAutomationRunRecord {
     pub automation_guid: String,
     pub agent_id: Option<String>,
     pub agent_label: Option<String>,
+    pub agent_config_json: Option<String>,
     pub trigger_kind: String,
     pub trigger_source_json: Option<String>,
     pub status: String,

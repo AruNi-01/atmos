@@ -33,6 +33,7 @@ mod m20260526_000026_drop_agent_chat_session;
 mod m20260527_000027_add_automation_trigger_metadata;
 mod m20260606_000028_drop_automation_run_output_path;
 mod m20260607_000029_add_automation_run_agent_snapshot;
+mod m20260609_000030_add_automation_agent_config;
 
 pub struct Migrator;
 
@@ -68,6 +69,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260527_000027_add_automation_trigger_metadata::Migration),
             Box::new(m20260606_000028_drop_automation_run_output_path::Migration),
             Box::new(m20260607_000029_add_automation_run_agent_snapshot::Migration),
+            Box::new(m20260609_000030_add_automation_agent_config::Migration),
         ]
     }
 }

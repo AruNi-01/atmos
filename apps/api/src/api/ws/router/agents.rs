@@ -112,4 +112,15 @@ impl WsMessageService {
         let path = self.agent_service.get_manifest_path()?;
         Ok(json!({ "path": path }))
     }
+
+    pub(super) async fn handle_terminal_agent_models_get(
+        &self,
+        req: TerminalAgentModelsGetRequest,
+    ) -> Result<Value> {
+        let catalog = self
+            .automation_service
+            .terminal_agent_model_catalog(&req.agent_id, req.refresh.unwrap_or(false))
+            .await?;
+        Ok(json!(catalog))
+    }
 }

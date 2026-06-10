@@ -6,7 +6,19 @@
     "params": "--dangerously-skip-permissions --print --output-format stream-json --verbose --include-partial-messages",
     "interactiveParams": "--dangerously-skip-permissions",
     "promptStrategy": "arg",
-    "stdoutParser": "claude_stream_json"
+    "stdoutParser": "claude_stream_json",
+    "modelSupport": "manual",
+    "reasoningSupport": {
+      "mode": "enum",
+      "arg": "--effort",
+      "options": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
+    }
   },
   {
     "id": "codex",
@@ -15,7 +27,11 @@
     "params": "exec --json --dangerously-bypass-approvals-and-sandbox",
     "interactiveParams": "--dangerously-bypass-approvals-and-sandbox",
     "promptStrategy": "arg",
-    "stdoutParser": "codex_jsonl"
+    "stdoutParser": "codex_jsonl",
+    "modelSupport": "manual",
+    "reasoningSupport": {
+      "mode": "none"
+    }
   },
   {
     "id": "gemini",
@@ -24,7 +40,11 @@
     "params": "--yolo --output-format stream-json --prompt",
     "interactiveParams": "--yolo",
     "promptStrategy": "prompt_flag",
-    "stdoutParser": "cursor_stream_json"
+    "stdoutParser": "cursor_stream_json",
+    "modelSupport": "manual",
+    "reasoningSupport": {
+      "mode": "none"
+    }
   },
   {
     "id": "devin",
@@ -32,7 +52,11 @@
     "cmd": "devin",
     "params": "--permission-mode dangerous --print",
     "interactiveParams": "--permission-mode dangerous --",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "modelSupport": "manual",
+    "reasoningSupport": {
+      "mode": "none"
+    }
   },
   {
     "id": "amp",
@@ -41,7 +65,13 @@
     "params": "--dangerously-allow-all --execute",
     "interactiveParams": "--dangerously-allow-all",
     "promptStrategy": "arg",
-    "useEcho": true
+    "useEcho": true,
+    "modelSupport": "none",
+    "reasoningSupport": {
+      "mode": "manual",
+      "arg": "--effort",
+      "placeholder": "e.g. high"
+    }
   },
   {
     "id": "droid",
@@ -49,7 +79,13 @@
     "cmd": "droid",
     "params": "exec --skip-permissions-unsafe",
     "interactiveParams": "",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "modelSupport": "manual",
+    "reasoningSupport": {
+      "mode": "manual",
+      "arg": "--reasoning-effort",
+      "placeholder": "e.g. high"
+    }
   },
   {
     "id": "opencode",
@@ -58,7 +94,11 @@
     "params": "run --format json --dangerously-skip-permissions",
     "interactiveParams": "",
     "promptStrategy": "arg",
-    "stdoutParser": "opencode_json"
+    "stdoutParser": "opencode_json",
+    "modelSupport": "manual",
+    "reasoningSupport": {
+      "mode": "none"
+    }
   },
   {
     "id": "kimi",
@@ -66,7 +106,16 @@
     "cmd": "kimi",
     "params": "--print -p",
     "interactiveParams": "",
-    "promptStrategy": "prompt_flag"
+    "promptStrategy": "prompt_flag",
+    "modelSupport": "manual",
+    "reasoningSupport": {
+      "mode": "enum",
+      "arg": "--thinking",
+      "options": [
+        "thinking"
+      ],
+      "valueStyle": "flag_only"
+    }
   },
   {
     "id": "cursor",
@@ -75,7 +124,19 @@
     "params": "--force --print --trust --output-format stream-json --stream-partial-output",
     "interactiveParams": "--force",
     "promptStrategy": "arg",
-    "stdoutParser": "cursor_stream_json"
+    "stdoutParser": "cursor_stream_json",
+    "modelSupport": "catalog",
+    "reasoningSupport": {
+      "mode": "encoded_in_model"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "agent",
+        "--list-models"
+      ],
+      "parser": "line_list"
+    }
   },
   {
     "id": "kilocode",
@@ -84,14 +145,41 @@
     "params": "run --auto --format json",
     "interactiveParams": "",
     "promptStrategy": "arg",
-    "stdoutParser": "opencode_json"
+    "stdoutParser": "opencode_json",
+    "modelSupport": "catalog",
+    "reasoningSupport": {
+      "mode": "none"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "kilo",
+        "models"
+      ],
+      "parser": "line_list"
+    }
   },
   {
     "id": "kiro",
     "label": "Kiro",
     "cmd": "kiro-cli",
     "params": "chat --agent atmos --trust-all-tools",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "modelSupport": "catalog",
+    "reasoningSupport": {
+      "mode": "none"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "kiro-cli",
+        "chat",
+        "--list-models",
+        "--format",
+        "json"
+      ],
+      "parser": "kiro_json"
+    }
   },
   {
     "id": "commandcode",
@@ -99,7 +187,19 @@
     "cmd": "cmd",
     "params": "--trust --yolo --skip-onboarding --print",
     "interactiveParams": "--trust --yolo --skip-onboarding",
-    "promptStrategy": "arg"
+    "promptStrategy": "arg",
+    "modelSupport": "catalog",
+    "reasoningSupport": {
+      "mode": "none"
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "cmd",
+        "--list-models"
+      ],
+      "parser": "line_list"
+    }
   },
   {
     "id": "pi",
@@ -107,7 +207,28 @@
     "cmd": "pi",
     "params": "-p",
     "interactiveParams": "",
-    "promptStrategy": "prompt_flag"
+    "promptStrategy": "prompt_flag",
+    "modelSupport": "catalog",
+    "reasoningSupport": {
+      "mode": "enum",
+      "arg": "--thinking",
+      "options": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "modelList": {
+      "supported": true,
+      "command": [
+        "pi",
+        "--list-models"
+      ],
+      "parser": "line_list"
+    }
   },
   {
     "id": "openclaw",
@@ -115,7 +236,11 @@
     "cmd": "openclaw",
     "params": "agent --agent main --local --json --message",
     "interactiveParams": "agent --agent main --local",
-    "promptStrategy": "prompt_flag"
+    "promptStrategy": "prompt_flag",
+    "modelSupport": "none",
+    "reasoningSupport": {
+      "mode": "none"
+    }
   },
   {
     "id": "hermes",
@@ -123,6 +248,10 @@
     "cmd": "hermes",
     "params": "--yolo --accept-hooks --oneshot",
     "interactiveParams": "chat --yolo",
-    "promptStrategy": "prompt_flag"
+    "promptStrategy": "prompt_flag",
+    "modelSupport": "none",
+    "reasoningSupport": {
+      "mode": "none"
+    }
   }
 ]

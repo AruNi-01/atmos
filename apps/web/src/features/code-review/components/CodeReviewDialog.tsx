@@ -26,6 +26,7 @@ import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
 import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui";
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 // ===== Skill 定义 =====
 
@@ -154,6 +155,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     resolveStoredSkillId(CODE_REVIEW_SKILLS),
   );
   const [agentId, setAgentId] = useState<AgentId>(() => resolveStoredAgentId());
+  const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [acpAgentId, setAcpAgentId] = useState<string>("");
   const [executionMode, setExecutionMode] = useState<"acp" | "cli">("acp");
   const [installedAcpAgents, setInstalledAcpAgents] = useState<RegistryAgent[]>([]);
@@ -252,6 +254,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
     setAgentId(value);
     setCodeReviewDefaults({ defaultAgentId: value });
   }, [setCodeReviewDefaults]);
+  const currentAgentRunConfig = agentRunConfigs[agentId] ?? null;
 
   const createReviewAgentRun = useCallback(
     async (mode: "copy_prompt" | "agent_chat") => {
@@ -311,8 +314,8 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       try {
         const reviewRun = await createReviewAgentRun("copy_prompt");
         const command = reviewRun
-          ? buildCommand(agentId, reviewRun.prompt)
-          : buildCodeReviewCommand(agentId, skillId, buildReportPath());
+          ? buildCommand(agentId, reviewRun.prompt, currentAgentRunConfig)
+          : buildCommand(agentId, buildCodeReviewPrompt(skillId, buildReportPath()), currentAgentRunConfig);
         onStartTerminalMode(command);
         onOpenChange(false);
         toastManager.add({
@@ -332,7 +335,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         setIsStarting(false);
       }
     },
-    [isStarting, buildReportPath, agentId, skillId, onStartTerminalMode, onOpenChange, createReviewAgentRun]
+    [isStarting, buildReportPath, agentId, currentAgentRunConfig, skillId, onStartTerminalMode, onOpenChange, createReviewAgentRun]
   );
 
   const handleReplace = useCallback(
@@ -342,8 +345,8 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
       try {
         const reviewRun = await createReviewAgentRun("copy_prompt");
         const command = reviewRun
-          ? buildCommand(agentId, reviewRun.prompt)
-          : buildCodeReviewCommand(agentId, skillId, buildReportPath());
+          ? buildCommand(agentId, reviewRun.prompt, currentAgentRunConfig)
+          : buildCommand(agentId, buildCodeReviewPrompt(skillId, buildReportPath()), currentAgentRunConfig);
         await onReplaceTerminalAndRun(command);
         onOpenChange(false);
       } catch (err) {
@@ -356,7 +359,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
         setIsStarting(false);
       }
     },
-    [isStarting, buildReportPath, agentId, skillId, onReplaceTerminalAndRun, onOpenChange, createReviewAgentRun]
+    [isStarting, buildReportPath, agentId, currentAgentRunConfig, skillId, onReplaceTerminalAndRun, onOpenChange, createReviewAgentRun]
   );
 
   const handleStartInAgent = useCallback(async () => {
@@ -602,6 +605,14 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
               <AgentSelect
                 value={agentId}
                 onValueChange={handleAgentChange}
+                enableRunConfig
+                runConfig={currentAgentRunConfig}
+                onRunConfigChange={(nextValue) => {
+                  setAgentRunConfigs((prev) => ({
+                    ...prev,
+                    [agentId]: nextValue,
+                  }));
+                }}
                 helperText="Any installed Code Agent CLI works. Prefer a reasoning-capable model (e.g. Claude, Gemini, GPT) for deeper architectural and security findings."
               />
             </TabsContent>

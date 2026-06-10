@@ -15,9 +15,12 @@ import { AGENT_OPTIONS, getInteractiveAgentParams } from "@/features/wiki/compon
 import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import type { CodeAgentCustomEntry } from "@/api/ws-api";
 import { AgentHookStatusCard } from "@/features/settings/components/AgentHookStatusCard";
+import { CodeAgentRunConfigSettingsSection } from "@/features/settings/components/CodeAgentRunConfigSettingsSection";
 import { SaveActionButton } from "@/features/settings/components/settings/SaveActionButton";
+import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;
+type AgentOption = { id: string; label: string };
 
 interface CodeAgentSettingsSectionProps {
   agentCustomSettings: BuiltInAgentSettings;
@@ -28,13 +31,17 @@ interface CodeAgentSettingsSectionProps {
   customAgents: CodeAgentCustomEntry[];
   customAgentsExpanded: boolean;
   idleSessionTimeoutMins: number;
+  runConfigAgentOptions: AgentOption[];
+  runConfigsLoading: boolean;
   removingCustomAgentIds: Record<string, boolean>;
+  savedRunConfigs: TerminalAgentSavedRunConfig[];
   savedAgentCustomSettings: BuiltInAgentSettings;
   savedCustomAgents: CodeAgentCustomEntry[];
   savedIdleSessionTimeoutMins: number;
   savingBuiltInAgentIds: Record<string, boolean>;
   savingCustomAgentIds: Record<string, boolean>;
   savingIdleTimeout: boolean;
+  savingRunConfigs: boolean;
   syncingBuiltInEnabledIds: Record<string, boolean>;
   syncingCustomEnabledIds: Record<string, boolean>;
   onAddCustomAgent: () => void;
@@ -46,6 +53,7 @@ interface CodeAgentSettingsSectionProps {
   onSaveBuiltInAgent: (agentId: string) => void;
   onSaveCustomAgent: (id: string) => void;
   onSaveIdleTimeout: () => void;
+  onSaveRunConfigs: (configs: TerminalAgentSavedRunConfig[]) => Promise<void>;
   setBuiltInAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   setBuiltInAgentsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   setCustomAgentOpen: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -62,13 +70,17 @@ export function CodeAgentSettingsSection({
   customAgents,
   customAgentsExpanded,
   idleSessionTimeoutMins,
+  runConfigAgentOptions,
+  runConfigsLoading,
   removingCustomAgentIds,
+  savedRunConfigs,
   savedAgentCustomSettings,
   savedCustomAgents,
   savedIdleSessionTimeoutMins,
   savingBuiltInAgentIds,
   savingCustomAgentIds,
   savingIdleTimeout,
+  savingRunConfigs,
   syncingBuiltInEnabledIds,
   syncingCustomEnabledIds,
   onAddCustomAgent,
@@ -80,6 +92,7 @@ export function CodeAgentSettingsSection({
   onSaveBuiltInAgent,
   onSaveCustomAgent,
   onSaveIdleTimeout,
+  onSaveRunConfigs,
   setBuiltInAgentOpen,
   setBuiltInAgentsExpanded,
   setCustomAgentOpen,
@@ -335,6 +348,14 @@ export function CodeAgentSettingsSection({
           )}
         </CollapsibleContent>
       </Collapsible>
+
+      <CodeAgentRunConfigSettingsSection
+        agentOptions={runConfigAgentOptions}
+        loading={runConfigsLoading}
+        runConfigs={savedRunConfigs}
+        saving={savingRunConfigs}
+        onSaveRunConfigs={onSaveRunConfigs}
+      />
 
       <AgentHookStatusCard />
 

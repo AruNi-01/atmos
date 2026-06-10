@@ -1,16 +1,13 @@
 "use client";
 
 import React from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui";
 import { shellQuote } from "@/shared/lib/shell-quote";
-import { AgentIcon } from "@/features/agent/components/AgentIcon";
 import { TERMINAL_AGENT_DEFINITIONS } from "@/features/agent/lib/terminal-agent-definitions";
+import { TerminalAgentSelectorWithRunConfig } from "@/features/agent/components/TerminalAgentSelectorWithRunConfig";
+import {
+  buildStructuredRunConfigArgs,
+  type TerminalAgentRunConfigInput,
+} from "@/features/agent/lib/terminal-agent-run-config";
 
 export const AGENT_OPTIONS = TERMINAL_AGENT_DEFINITIONS;
 
@@ -47,31 +44,36 @@ function isNonInteractivePromptFlagsWithoutPrompt(agentId: string, flags: string
 
 export function buildCommand(
   agentId: AgentId,
-  prompt: string
+  prompt: string,
+  runConfig?: TerminalAgentRunConfigInput | null,
 ): string {
   const agent = AGENT_OPTIONS.find((a) => a.id === agentId);
   if (!agent) return "";
 
-  const quoted = shellQuote(prompt);
   const strategy = agent.promptStrategy ?? (agent.useEcho ? "stdin" : "arg");
-  const params = agent.params ? ` ${agent.params}` : "";
+  const structuredArgs = buildStructuredRunConfigArgs(agentId, runConfig).map((item) =>
+    shellQuote(item),
+  );
 
   if (prompt.trim() === "") {
     const interactiveParams = getInteractiveAgentParams(agent);
-    return [agent.cmd, interactiveParams].filter(Boolean).join(" ");
+    return [agent.cmd, interactiveParams, ...structuredArgs].filter(Boolean).join(" ");
   }
 
+  const quoted = shellQuote(prompt);
+
   if (strategy === "stdin") {
-    return `echo ${quoted} | ${agent.cmd}${params}`;
+    const params = agent.params ? ` ${agent.params}` : "";
+    return `echo ${quoted} | ${[`${agent.cmd}${params}`, ...structuredArgs].filter(Boolean).join(" ")}`;
   }
 
   const parts: string[] = [agent.cmd];
 
   if (agent.params) {
-    parts.push(agent.params, quoted);
-  } else {
-    parts.push(quoted);
+    parts.push(agent.params);
   }
+
+  parts.push(...structuredArgs, quoted);
 
   return parts.join(" ");
 }
@@ -86,6 +88,9 @@ interface AgentSelectProps {
    * pass their own copy so we don't mention "wiki content" outside of wiki dialogs.
    */
   helperText?: React.ReactNode;
+  enableRunConfig?: boolean;
+  runConfig?: TerminalAgentRunConfigInput | null;
+  onRunConfigChange?: (value: TerminalAgentRunConfigInput | null) => void;
 }
 
 export const AgentSelect: React.FC<AgentSelectProps> = ({
@@ -93,30 +98,38 @@ export const AgentSelect: React.FC<AgentSelectProps> = ({
   onValueChange,
   className,
   helperText = "Prefer models with strong text editing capabilities (e.g. Claude, Gemini, GPT). Coding-focused models may produce lower quality wiki content.",
+  enableRunConfig = false,
+  runConfig = null,
+  onRunConfigChange,
 }) => {
+  if (enableRunConfig && onRunConfigChange) {
+    return (
+      <TerminalAgentSelectorWithRunConfig
+        variant="field"
+        className={className}
+        options={AGENT_OPTIONS}
+        value={value}
+        onValueChange={onValueChange}
+        runConfig={runConfig}
+        onRunConfigChange={onRunConfigChange}
+        helperText={helperText}
+        purpose="interactive"
+      />
+    );
+  }
+
   return (
-    <div className={className}>
-      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-2">
-        Code Agent
-      </label>
-      <Select value={value} onValueChange={(v) => onValueChange(v as AgentId)}>
-        <SelectTrigger className="w-full cursor-pointer">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {AGENT_OPTIONS.map((opt) => (
-            <SelectItem key={opt.id} value={opt.id}>
-              <div className="flex items-center gap-2">
-                <AgentIcon registryId={opt.id} name={opt.label} size={16} />
-                {opt.label}
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {helperText ? (
-        <p className="text-[11px] text-muted-foreground mt-1.5">{helperText}</p>
-      ) : null}
-    </div>
+    <TerminalAgentSelectorWithRunConfig
+      variant="field"
+      className={className}
+      options={AGENT_OPTIONS}
+      value={value}
+      onValueChange={onValueChange}
+      runConfig={null}
+      onRunConfigChange={() => {}}
+      showRunConfig={false}
+      helperText={helperText}
+      purpose="interactive"
+    />
   );
 };

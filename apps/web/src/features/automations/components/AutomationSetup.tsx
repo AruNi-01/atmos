@@ -4,6 +4,9 @@ import React from "react";
 import { useQueryState } from "nuqs";
 import { Button, TooltipProvider } from "@workspace/ui";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
+import {
+  sanitizeRunConfig,
+} from "@/features/agent/lib/terminal-agent-run-config";
 
 import { AutomationAttachmentPreviewDialog } from "@/features/automations/components/AutomationAttachmentPreviewDialog";
 import {
@@ -147,7 +150,9 @@ export function AutomationSetup({
     submitError,
     submitting,
     workspaces,
+    agentRunConfigs,
     selectedAgent,
+    selectedAgentRunConfig,
     selectedTargetProject,
     targetValid,
     environmentLabel,
@@ -172,6 +177,7 @@ export function AutomationSetup({
     setDayOfWeek,
     setDayOfMonth,
     setCronExpr,
+    setAgentRunConfig,
   } = useAutomationSetupForm({
     mode,
     initialAutomation,
@@ -190,17 +196,14 @@ export function AutomationSetup({
         launchCommand: "",
         iconType: "built-in",
         description: agent.automation_supported
-          ? "Ready for non-interactive runs"
-          : agent.unavailable_reason,
+          ? "Automation-ready"
+          : "Unavailable",
         disabledReason: agent.automation_supported
           ? null
           : (agent.unavailable_reason ??
             "Agent is not available for automations."),
       })),
     [agents],
-  );
-  const selectedAgentOption = agentOptions.find(
-    (agent) => agent.id === agentId,
   );
   const { filteredAgents, filteredProjects, filteredSkills, isSkillsLoading } =
     useWelcomeSlashSearch({
@@ -403,6 +406,7 @@ export function AutomationSetup({
             display_name: displayName.trim(),
             instructions: resolvedInstructions.trim(),
             agent_id: agentId,
+            agent_config: sanitizeRunConfig(selectedAgentRunConfig),
             target,
             schedule: requestSchedule,
             trigger: triggerInputForSubmit(trigger, githubConfig, false),
@@ -421,6 +425,7 @@ export function AutomationSetup({
             display_name: displayName.trim(),
             instructions: resolvedInstructions.trim(),
             agent_id: agentId,
+            agent_config: sanitizeRunConfig(selectedAgentRunConfig),
             target,
             schedule: requestSchedule,
             attachments: attachmentPayload,
@@ -500,8 +505,14 @@ export function AutomationSetup({
             <div className="relative">
               <WelcomeAgentSelector
                 availableAgents={agentOptions}
-                selectedAgent={selectedAgentOption}
                 selectedAgentId={agentId}
+                runConfigByAgentId={agentRunConfigs}
+                onRunConfigChange={(nextAgentId, nextValue) => {
+                  setAgentRunConfig(nextAgentId, nextValue);
+                  setAgentId(nextAgentId);
+                  clearSubmitError();
+                }}
+                purpose="automation"
                 onSelectAgent={(nextAgentId) => {
                   setAgentId(nextAgentId);
                   clearSubmitError();

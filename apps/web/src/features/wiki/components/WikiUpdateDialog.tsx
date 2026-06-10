@@ -16,6 +16,7 @@ import { systemApi } from "@/api/rest-api";
 import { skillsApi } from "@/api/ws-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import { AgentSelect, buildCommand, type AgentId } from "./AgentSelect";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 const PROJECT_WIKI_UPDATE_SKILL_PATH = "~/.atmos/skills/.system/project-wiki-update";
 
@@ -55,12 +56,14 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
   onComplete,
 }) => {
   const [agentId, setAgentId] = useState<AgentId>("claude");
+  const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [isRunning, setIsRunning] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingCommand, setPendingCommand] = useState<string | null>(null);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
   const [isInstalling, setIsInstalling] = useState(false);
+  const currentAgentRunConfig = agentRunConfigs[agentId] ?? null;
 
   const checkSystemSkill = useCallback(async () => {
     setSkillLoading(true);
@@ -145,7 +148,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
 
   const handleRunUpdate = useCallback(async () => {
     const prompt = buildUpdatePrompt(catalogCommit, currentCommit);
-    const command = buildCommand(agentId, prompt);
+    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
 
     setIsRunning(true);
     try {
@@ -165,7 +168,7 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
     } finally {
       setIsRunning(false);
     }
-  }, [agentId, catalogCommit, currentCommit, workspaceId, doRunUpdate]);
+  }, [agentId, currentAgentRunConfig, catalogCommit, currentCommit, workspaceId, doRunUpdate]);
 
   const handleConfirmReplaceAndRun = useCallback(async () => {
     const cmd = pendingCommand;
@@ -246,7 +249,18 @@ export const WikiUpdateDialog: React.FC<WikiUpdateDialogProps> = ({
                 )}
               </div>
             )}
-            <AgentSelect value={agentId} onValueChange={setAgentId} />
+            <AgentSelect
+              value={agentId}
+              onValueChange={setAgentId}
+              enableRunConfig
+              runConfig={currentAgentRunConfig}
+              onRunConfigChange={(nextValue) => {
+                setAgentRunConfigs((prev) => ({
+                  ...prev,
+                  [agentId]: nextValue,
+                }));
+              }}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRunning}>

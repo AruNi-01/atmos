@@ -24,6 +24,7 @@ import { WIKI_LANGUAGE_OPTIONS } from "../lib/wiki-languages";
 import { systemApi } from "@/api/rest-api";
 import type { TerminalGridHandle } from "@/features/terminal/components/TerminalGrid";
 import { skillsApi } from "@/api/ws-api";
+import type { TerminalAgentRunConfigInput } from "@/features/agent/lib/terminal-agent-run-config";
 
 const PROJECT_WIKI_SKILL_PATH = "~/.atmos/skills/.system/project-wiki";
 
@@ -65,6 +66,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   onRetryCheck,
 }) => {
   const [agentId, setAgentId] = useState<AgentId>("claude");
+  const [agentRunConfigs, setAgentRunConfigs] = useState<Record<string, TerminalAgentRunConfigInput | null>>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [systemHasSkill, setSystemHasSkill] = useState<boolean | null>(null);
   const [skillLoading, setSkillLoading] = useState(true);
@@ -73,6 +75,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
   const [isInstalling, setIsInstalling] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingCommand, setPendingCommand] = useState<string | null>(null);
+  const currentAgentRunConfig = agentRunConfigs[agentId] ?? null;
 
   const checkSystemSkill = useCallback(async () => {
     setSkillLoading(true);
@@ -119,14 +122,14 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
 
   const handleCopyPrompt = useCallback(() => {
     const prompt = buildPrompt(language, customLanguage);
-    const command = buildCommand(agentId, prompt);
+    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
     navigator.clipboard.writeText(command);
     toastManager.add({
       title: "Copied to clipboard",
       description: "Paste and run this command in your Code Agent terminal.",
       type: "success",
     });
-  }, [agentId, language, customLanguage]);
+  }, [agentId, currentAgentRunConfig, language, customLanguage]);
 
   const doRunGenerate = useCallback(
     (command: string) => {
@@ -170,7 +173,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     }
 
     const prompt = buildPrompt(language, customLanguage);
-    const command = buildCommand(agentId, prompt);
+    const command = buildCommand(agentId, prompt, currentAgentRunConfig);
 
     setIsGenerating(true);
     try {
@@ -190,7 +193,7 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [effectivePath, workspaceId, agentId, language, customLanguage, doRunGenerate]);
+  }, [effectivePath, workspaceId, agentId, currentAgentRunConfig, language, customLanguage, doRunGenerate]);
 
   const handleConfirmReplaceAndGenerate = useCallback(async () => {
     const cmd = pendingCommand;
@@ -283,7 +286,18 @@ export const WikiSetup: React.FC<WikiSetupProps> = ({
         {skillLoading && <Skeleton className="h-4 w-3/4" />}
 
         {/* Code Agent */}
-        <AgentSelect value={agentId} onValueChange={setAgentId} />
+        <AgentSelect
+          value={agentId}
+          onValueChange={setAgentId}
+          enableRunConfig
+          runConfig={currentAgentRunConfig}
+          onRunConfigChange={(nextValue) => {
+            setAgentRunConfigs((prev) => ({
+              ...prev,
+              [agentId]: nextValue,
+            }));
+          }}
+        />
 
         {/* Language */}
         <div>

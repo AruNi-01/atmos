@@ -13,6 +13,7 @@ pub struct Model {
     pub is_deleted: bool,
     pub display_name: String,
     pub agent_id: String,
+    pub agent_config_json: Option<String>,
     pub target_kind: String,
     pub project_guid: Option<String>,
     pub workspace_guid: Option<String>,

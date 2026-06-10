@@ -12,6 +12,7 @@ import { PanelLayout } from "@/app-shell/PanelLayout";
 import { DocumentTitle } from "@/app-shell/DocumentTitle";
 import { SidebarLayoutProvider } from "@/app-shell/SidebarLayoutContext";
 import { WorkspaceCreationOverlay } from "@/app-shell/WorkspaceCreationOverlay";
+import { NewWorkspaceWelcomeOverlay } from "@/app-shell/NewWorkspaceWelcomeOverlay";
 import { CanvasOverlay } from "@/features/canvas/components/CanvasOverlay";
 import { ConnectionBootstrapper } from "@/app-shell/bootstrap/ConnectionBootstrapper";
 import { DiffWorkerPoolProvider } from "@/features/diff/components/DiffWorkerPoolProvider";
@@ -61,6 +62,8 @@ export default async function AppLayout({ children, params }: Props) {
             />
 
             <Footer />
+
+            <NewWorkspaceWelcomeOverlay />
 
             <GlobalSearch />
 
