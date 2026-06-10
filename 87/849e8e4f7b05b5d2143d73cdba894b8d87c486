@@ -1,0 +1,195 @@
+specs/APP/APP-024_terminal-agent-run-config/TECH.md
+  s_e5f22c8d453600::t_9f410d9f3273f1 28,57-60
+  s_e5f22c8d453600::t_86b14a3cca187d 7,9-13,15-16,21-24,26-27,38-39,49,53,66,68-69,72-76,78,83-87,91,93-97,99,101-104,116,172,174-182,220-221,226-231,239-242,247,311-346,348-350,352-369,376,392-468,470-498,500-502,508-509,521,542-544,566-567,574,643,645,647-668,670,672-675,677,679,681-685,687,689-694,696,698-699,701-707,711,713-717,719,733-739,752-759,814-818,822,832-834,840,843-848,852,857,864,876-878,884-886
+  s_e5f22c8d453600::t_f25b39752d397b 55-56
+  s_e5f22c8d453600::t_ae95ea59aaf884 1-6,8,14,17-20,25,29-37,40-48,50-52,54,61-65,67,70-71,77,79,88-90,92,98,100,105-115,117-143,146,163-171,173,183-219,222-225,232-238,243-246,248-288,290-310,347,351,370-375,377-391,469,499,503-507,510-520,522-541,545-562,564-565,568-573,575-642,644,646,669,671,676,678,680,686,688,695,697,700,708-710,712,718,720-732,740-751,760-813,819-821,823-831,835-839,841-842,849-851,853-856,858-863,865-875,879-883
+  s_e5f22c8d453600::t_a5f3438dd32aaf 80-82,144-145,147-162,289,563
+apps/web/src/features/code-review/components/CodeReviewDialog.tsx
+  s_e5f22c8d453600::t_ee153886d94ad5 29,158,257,317-318,338,348-349,362,608-615
+apps/web/src/features/settings/components/SettingsModal.tsx
+  s_e5f22c8d453600::t_08d3fd52b4e4a8 130,132-136,156-160,165
+  s_e5f22c8d453600::t_8b5a089fb4525a 726-727,729,736,758
+  s_e5f22c8d453600::t_8f3a9739445545 20,24,30,105-107
+  s_e5f22c8d453600::t_4e963ebeb93458 485-521
+crates/core-service/src/service/automation/scheduler_service.rs
+  s_e5f22c8d453600::t_a8309ee1b2dbbb 191
+apps/web/src/features/settings/components/CodeAgentSettingsSection.tsx
+  s_e5f22c8d453600::t_a38ae67285e3e5 18,20,23,34-35,37,44,56,73-74,76,83,95,352-358
+apps/web/src/features/automations/components/RunDetailPanel.tsx
+  s_e5f22c8d453600::t_9f0b0c89c076b6 77-79
+apps/web/src/features/settings/components/SettingsModalSections.tsx
+  s_e5f22c8d453600::t_63cbf71d12e8ea 26,29,61-62,64,71,83,168-169,171,178,190
+apps/web/src/features/wiki/components/WikiUpdateDialog.tsx
+  s_e5f22c8d453600::t_01939627b455ba 19,59,66,151,171,252-263
+apps/web/src/features/diff/components/review/ReviewContextProvider.tsx
+  s_e5f22c8d453600::t_2e6fdcb4125775 44,46
+apps/api/src/api/ws/message.rs
+  s_e5f22c8d453600::t_ebe52058a0ba02 512-513
+  s_e5f22c8d453600::t_9605a018da7431 798-803
+apps/web/src/features/connection/hooks/use-websocket.ts
+  s_e5f22c8d453600::t_d1dd1c5248548d 147
+apps/web/src/features/automations/types.ts
+  s_e5f22c8d453600::t_bfede221da5786 87
+  s_e5f22c8d453600::t_65e5a5b9eb4f03 6,54,86,88,116,128,146
+apps/api/src/api/ws/router/agents.rs
+  s_e5f22c8d453600::t_46c18442894f89 115-125
+apps/web/src/features/agent/lib/terminal-agent-run-config.ts
+  s_e5f22c8d453600::t_ea02a73c04319b 100,317-322,332-354
+  s_e5f22c8d453600::t_0957a79bb078d5 282
+  s_e5f22c8d453600::t_24a124910694f3 199
+  s_e5f22c8d453600::t_734d3cb09451d4 32-63
+  s_e5f22c8d453600::t_bfede221da5786 5,10,66,95,101,241,243-246,277,281,285-294,296,312,328-331
+  s_e5f22c8d453600::t_8a030fa7104529 1-4,6-9,11-31,64-65,67-94,96-99,102-198,200-240,242,247-276,278-280,283-284,295,297-311,313-316,323-327,355
+apps/web/src/features/agent/components/TerminalAgentRunConfigDialog.tsx
+  s_e5f22c8d453600::t_c7a00761dfcc74 36,463
+  s_e5f22c8d453600::t_0eac45db25a0be 60,67,226,229,232
+  s_e5f22c8d453600::t_7b44a850a4b52a 62-63,69-70,233,247,250,256-262,278,299,410-419
+  s_e5f22c8d453600::t_0f301fcb3a0097 64,71,190-216
+  s_e5f22c8d453600::t_e7e5315063dd6e 94,97-99,111-112
+  s_e5f22c8d453600::t_88288e9f28b054 168
+  s_e5f22c8d453600::t_0957a79bb078d5 31,170
+  s_e5f22c8d453600::t_87c8354c9a8c76 43,50-59,61,65-66,68,119,234-246,248-249,251-254,264-277,279-298,300-348,353-358,360,362-364,367,369-390,392-399,401-409,420-457
+  s_e5f22c8d453600::t_a2be82e518141f 4,37,73-80,225,227-228,230
+  s_e5f22c8d453600::t_0a20f5d8a5faa6 93,113
+  s_e5f22c8d453600::t_2427582cfc0b96 35,120-124,126-132
+  s_e5f22c8d453600::t_bfede221da5786 106,115,118,125,143,155,160,221,464-465
+  s_e5f22c8d453600::t_164cd21f82eb87 1-3,5-30,32-34,39-40,42,44-49,72,81-92,95-96,100-105,107-110,114,116-117,133-142,144-154,156-159,161-167,169,171-189,217-220,222-224,231,255,263,349-352,359,361,365-366,368,391,400,458-462,466-468
+  s_e5f22c8d453600::t_35f559382d93dd 41
+  s_e5f22c8d453600::t_7a263ea6abede0 38
+crates/infra/src/db/entities/automation_run.rs
+  s_e5f22c8d453600::t_9e1acbab2757a8 17
+specs/APP/APP-024_terminal-agent-run-config/BRAINSTORM.md
+  s_e5f22c8d453600::t_ae95ea59aaf884 1-6,8-10,13,15,17,19,21,28-30,32-34,37,39-43,45-52,54-55,57,59,61-62,65,67-71,74-79,81-99,105-107,112-122,126-135,138
+  s_e5f22c8d453600::t_86b14a3cca187d 7,11-12,14,16,18,20,22-27,31,35-36,38,44,53,56,58,60,63-64,66,72-73,80,100-104,108-111,123-125,136-137,139
+crates/core-service/src/service/automation/lifecycle.rs
+  s_e5f22c8d453600::t_974b7c2e5fef80 74-80,167-174,209,292-293
+crates/infra/src/db/migration/m20260609_000030_add_automation_agent_config.rs
+  s_e5f22c8d453600::t_a8883d88133be9 1-85
+apps/web/src/features/wiki/components/WikiSetup.tsx
+  s_e5f22c8d453600::t_01939627b455ba 27,69,78,125,132,176,196,289-300
+apps/web/src/app/[locale]/(app)/layout.tsx
+  s_43ef9bde510da0::t_00905bd54cb01c 15,66
+specs/README.md
+  s_e5f22c8d453600::t_ae95ea59aaf884 104
+specs/APP/APP-024_terminal-agent-run-config/TEST.md
+  s_e5f22c8d453600::t_ae95ea59aaf884 1-2,4-6,8,10,12-17,24,30-32,34,46,50,52-54,56-57,61-62,66-69,71-76,88,90-91,94-95,97,100,102-104,107-111,113-122,124-126,128-137,139-144,146,149-152,154,156-161,167-169,171-172
+  s_e5f22c8d453600::t_f25b39752d397b 60,148
+  s_e5f22c8d453600::t_9f410d9f3273f1 65
+  s_e5f22c8d453600::t_86b14a3cca187d 3,7,9,11,18-23,25-29,33,35-45,47-49,51,55,58-59,63-64,70,77-87,89,92-93,96,98-99,101,105-106,112,123,127,138,145,147,153,155,162-166,170
+apps/web/src/features/welcome/components/WelcomeComposerControls.tsx
+  s_e5f22c8d453600::t_b895da1d834a5d 38,45-47,53-55,63-64,67
+  s_e5f22c8d453600::t_43e9082ce92685 37,58-62,65-66,68
+crates/core-service/src/service/automation/agents.rs
+  s_e5f22c8d453600::t_d50268e289f728 320-326,342-343,352,359-365,381-382,387,393-397
+  s_e5f22c8d453600::t_e74398c9224cb1 1300,1302
+  s_e5f22c8d453600::t_2e37eea08918b5 77-90,105-106,108-115,223,284,311,515,1031-1038,1064-1065,1067-1068,1070-1081,1108-1116
+  s_e5f22c8d453600::t_27dec3f9a480f2 20-22,61-76,91-104,107,116-117,220-222,283
+  s_e5f22c8d453600::t_5dc7200d7008d6 2-3,6-8,26-60,224-248,285,289-299,398-439,489,516,524-646,690-800,802-824,1009-1019,1117-1130,1132
+  s_e5f22c8d453600::t_fbac1fda4f8d8a 801
+  s_e5f22c8d453600::t_4dd8985bc8071a 991-1008,1020-1030,1039-1063,1066,1069,1082-1107,1131,1133-1134
+  s_e5f22c8d453600::t_275cf2480d912c 1301
+  s_e5f22c8d453600::t_6f71d06942def4 310,312,487-488,514
+crates/core-service/src/service/automation/output_rendering.rs
+  s_e5f22c8d453600::t_11d181f0924042 488
+apps/web/src/features/welcome/components/WelcomePage.tsx
+  s_e5f22c8d453600::t_472f6fcd98a4c5 14-16,129-131,546,552
+  s_e5f22c8d453600::t_e4570f2a3ec3d6 739-747
+apps/web/src/features/agent/hooks/use-terminal-agent-model-catalog.ts
+  s_e5f22c8d453600::t_616b678b9b7dee 1-79
+crates/core-service/src/service/automation/mod.rs
+  s_e5f22c8d453600::t_5f8b30366b78e7 43-44,47,222-223,245-246,333,364
+  s_e5f22c8d453600::t_0c46cddb2f1d6b 45-46,773-778
+  s_e5f22c8d453600::t_920c4a3725d2ee 471,489-498,504,562-570,599-609,934,1015
+apps/web/src/features/diff/components/review/ReviewActions.tsx
+  s_e5f22c8d453600::t_2e6fdcb4125775 53,55,493,495-496
+crates/infra/src/db/entities/automation.rs
+  s_e5f22c8d453600::t_d72a7a1449d9de 16
+apps/web/src/api/ws/settings-api.ts
+  s_e5f22c8d453600::t_e6330d73771fdc 4,7-10
+apps/web/src/features/agent/lib/terminal-agent-definitions.ts
+  s_e5f22c8d453600::t_bfede221da5786 5-14,41,43-44,47,68,70-87,89-124
+  s_e5f22c8d453600::t_8a030fa7104529 25-31,42,45-46,57-58,62-67,69,88,130-131
+  s_e5f22c8d453600::t_e85ac8e6841177 4,40,59-61
+specs/APP/APP-024_terminal-agent-run-config/PRD.md
+  s_e5f22c8d453600::t_86b14a3cca187d 7,9,19-20,27-36,48-51,60,69-70,79-88,92-93,100-102,105-112,114-118,120-122,127,131,146-147,156,163,166,174,178-179
+  s_e5f22c8d453600::t_ae95ea59aaf884 1-6,8,10-18,21-26,37-47,53-59,61-68,71-78,94-99,103-104,113,119,123-124,126,128-130,132-133,143-145,148-155,157-162,164-165,167-173,175-177
+  s_e5f22c8d453600::t_02bfec01bf0216 52,134-142
+  s_e5f22c8d453600::t_f25b39752d397b 89,125
+  s_e5f22c8d453600::t_9f410d9f3273f1 90-91
+resources/terminal-agents/builtin_agents.json
+  s_e5f22c8d453600::t_209f3295627780 10,31,44,56,83,98,110,128,149,153-154,159-160,168,191,211
+  s_e5f22c8d453600::t_0ccde9b0d13ea0 11-21,32-34,45-47,57-59,70-74,84-88,99-101,111-118,129-131,134-137,150-152,155-158,169-171,174-180,192-194,197-200,212-223,226-229,241-243,253-255
+  s_e5f22c8d453600::t_5df681c2947d39 9,30,43,55,68-69,82,97,109,127,132-133,138-139,148,167,172-173,181-182,190,195-196,201-202,210,224-225,230-231,239-240,251-252
+apps/web/src/app-shell/CenterStage.tsx
+  s_e5f22c8d453600::t_6fbfbe0a159670 51,554-561
+crates/infra/src/db/migration/mod.rs
+  s_e5f22c8d453600::t_03d9a604e40dfd 36,72
+apps/web/src/features/workspace/store/workspace-creation-store.ts
+  s_e5f22c8d453600::t_3112583d320d9f 5-6,14,19,54,62
+apps/web/src/features/code-review/hooks/use-review-context.ts
+  s_e5f22c8d453600::t_2e6fdcb4125775 20,73,76,85-94,663-667,674-675,704,841,848
+apps/web/src/features/automations/hooks/use-automation-setup-form.ts
+  s_e5f22c8d453600::t_d9f3e7510794e1 301
+  s_e5f22c8d453600::t_3859f4c7efc421 13-15,68-70,112-119,266-279,303,329
+apps/web/src/features/diff/components/review/FixActionsMenu.tsx
+  s_e5f22c8d453600::t_4ef73a9ea1c45a 8,10,13-15,75-84,98-99,107-129
+  s_e5f22c8d453600::t_2e6fdcb4125775 22,24-25,45,47,59,130
+apps/api/src/api/ws/router/mod.rs
+  s_e5f22c8d453600::t_4e07bc66bf9714 734-737
+crates/core-service/src/lib.rs
+  s_e5f22c8d453600::t_88499944420833 10-13
+apps/web/src/app-shell/use-welcome-overlay-state.ts
+  s_43ef9bde510da0::t_7d405e214b0e7d 22,27-34,42-43,46-48,56,63-65,68,75-77,88,94
+  s_43ef9bde510da0::t_203f24455b1e4e 78-82
+apps/web/src/app-shell/NewWorkspaceWelcomeOverlay.tsx
+  s_43ef9bde510da0::t_bb82a78c12ac65 1-38
+apps/web/src/features/wiki/components/AgentSelect.tsx
+  s_e5f22c8d453600::t_358bfa0374cce8 6,105-119,122-129,131-133
+  s_e5f22c8d453600::t_ef33bfa455ed9c 7-10,47-48,54-56,60,63-64,66-67,73,76-77,91-93,101-103,120
+  s_e5f22c8d453600::t_9ae5ab9d2af435 130
+apps/web/src/features/settings/components/CodeAgentRunConfigSettingsSection.tsx
+  s_e5f22c8d453600::t_7b44a850a4b52a 4-5,9-22,25,140-154,184-194,196-216,221-237,244-266,268-276,306-317,319-320,333-334
+  s_e5f22c8d453600::t_01af2513ecfb75 65,130,217-220,238-243
+  s_e5f22c8d453600::t_49b5cac0aa9dda 1-3,24,27-64,67-129,131-139,155-156,162,177-182,277-294,299-305,321-332,336-337
+  s_e5f22c8d453600::t_0f301fcb3a0097 6-8,23,26,66,157-161,163-176,183,195,267,295-298,318,335
+crates/infra/src/db/repo/automation_repo.rs
+  s_e5f22c8d453600::t_eda72074953fc7 108,150-152,307,614,635,656
+apps/web/src/features/agent/components/TerminalAgentSelectorWithRunConfig.tsx
+  s_e5f22c8d453600::t_dae7ac91b76aca 1-95,97-98,100-106,111-156,158-159,161-228,230,233-271,274-297,299-316,320-405
+  s_e5f22c8d453600::t_5c0f09049687d3 99,157,160,232
+  s_e5f22c8d453600::t_5e2898f40d2924 229,231
+  s_e5f22c8d453600::t_0eac45db25a0be 96,107-110,272-273,298,317-319
+apps/web/src/features/wiki/components/WikiSpecifyDialog.tsx
+  s_e5f22c8d453600::t_01939627b455ba 27,71,80,175,195,296-307
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_e5f22c8d453600::t_17bd0346e122ed 153
+  s_e5f22c8d453600::t_328e70dd4c26bd 7-9,155,180,409,428
+  s_e5f22c8d453600::t_fbf9593c3f200b 509-515
+  s_e5f22c8d453600::t_46b08de51f3e8e 199-200
+apps/web/src/app-shell/PanelLayout.tsx
+  s_43ef9bde510da0::t_c71143b0934338 319
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "87849e8e4f7b05b5d2143d73cdba894b8d87c486",
+  "prompts": {},
+  "sessions": {
+    "s_43ef9bde510da0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb07a-43ce-7fc1-85f6-1fc86d019928",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e5f22c8d453600": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaac8-d2a6-73c3-b916-7716fcc0c08a",
+        "model": "gpt-5.4"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
