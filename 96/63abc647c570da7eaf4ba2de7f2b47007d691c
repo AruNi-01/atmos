@@ -1,0 +1,95 @@
+apps/web/src/features/run-preview/lib/preview-transports/extension-transport.ts
+  s_504bc7eb69ad08::t_fbcdf701044a5a 127,147,150
+apps/web/src/features/run-preview/lib/preview-helper/types.ts
+  s_504bc7eb69ad08::t_1cbf6812185a5a 42,70,77,92
+  s_6214003b01a601::t_3e3c4b34a8ee02 83-84
+packages/shared/preview/preview-runtime.js
+  s_6214003b01a601::t_5d79fb6c70518b 11,20
+  s_6214003b01a601::t_07beb4e3befe27 311,439-444,446,450-452,805,832-833,835,844-845,847,857-861,865
+  s_6214003b01a601::t_530ac4534d7a57 678
+  s_504bc7eb69ad08::t_cad15dff9cbc03 1492-1515,1532,1668,1680,1682,1687,1697-1698,1700,1704,1734
+  s_6214003b01a601::t_d924280e27c062 532,535,538,557,670
+  s_6214003b01a601::t_1b2586dbea4b48 12,16
+  s_6214003b01a601::t_b64200f0d834cc 794-799,810-823,825,836-837,848-849,862-864
+  s_6214003b01a601::t_a9362641d8198f 447
+  s_6214003b01a601::t_b8df7429fff300 866-867,965-966,970-976
+  s_6214003b01a601::t_a12d6eadf318b6 505,508-517,519,524-525,537,539-547,554-556
+  s_6214003b01a601::t_ec4755fd2d9555 518,520-521,523,691
+  s_6214003b01a601::t_23c040086d62c7 312,448,453-454,459-461
+  s_6214003b01a601::t_f8e5cf29c3a164 936-937
+  s_6214003b01a601::t_d2b15d8ed747d0 1652,1657,1660-1661
+  s_6214003b01a601::t_8be8f3ceb6edce 499-504,506-507,522,526-531,533-534,536,548-553,558-669,671-677,679-690,692-722
+  s_6214003b01a601::t_2c1f30696be2c4 353-356,361-368,371-383,389-392,407-417,419,427-430,458,481-497,746-747,753-754
+  s_6214003b01a601::t_6f0ff03e42db6c 1560
+  s_6214003b01a601::t_3e44b06a9ceedc 266
+apps/web/src/features/run-preview/lib/preview-helper/overlay.ts
+  s_6214003b01a601::t_5d79fb6c70518b 17,26
+  s_6214003b01a601::t_1b2586dbea4b48 18,22
+apps/web/src/features/run-preview/lib/preview-helper/bridge.ts
+  s_504bc7eb69ad08::t_2ba773566189b2 16,23,56,62,65,71
+apps/web/src/features/run-preview/lib/preview-transports/desktop-transport.ts
+  s_6214003b01a601::t_f445fa3b19892d 38-43,45
+  s_504bc7eb69ad08::t_b5d1410ec2f237 24,57,61
+apps/web/src/features/run-preview/lib/preview-helper/bootstrap.ts
+  s_504bc7eb69ad08::t_41f16496109547 197,214,226-228,230,257
+  s_504bc7eb69ad08::t_8dea3a8cb2346f 19,24-25,54-78,201-203,212,215-216,255,258-259
+apps/web/src/features/run-preview/components/Preview.tsx
+  s_504bc7eb69ad08::t_19360495910491 55,78,127,138,385,396-398,408,459,476-478,484,486,488-491
+  s_6214003b01a601::t_82ed4df4879be7 238,242,414-418,422-426,428,506,509
+  s_6214003b01a601::t_1f84adfaac4b1a 235,240,243,985-986,988-990
+apps/web/src/features/run-preview/components/PreviewBrowserTabBar.tsx
+  s_504bc7eb69ad08::t_fcdd2b3d9354ce 110
+  s_504bc7eb69ad08::t_5d5e34fd800389 112
+  s_504bc7eb69ad08::t_890e1564ca6bfd 21,106,109,111,113-121
+apps/web/src/features/run-preview/lib/preview-bridge/types.ts
+  s_504bc7eb69ad08::t_43e5be6552c6ff 54,64-65
+  s_6214003b01a601::t_3e3c4b34a8ee02 57-61
+apps/web/src/features/run-preview/components/PreviewViewport.tsx
+  s_6214003b01a601::t_ab243e708b1fa2 4,10,32,34-35,41-42,69,71-72,78-79,96-99,102-106,124-129,131,185-191,193-199,201-202,205-219,222-230
+  s_6214003b01a601::t_98eb6c808b2186 92-95,100-101
+  s_6214003b01a601::t_52f06aff36a08e 200,203,220
+  s_6214003b01a601::t_b8a2069c9d2b13 204,221
+  s_6214003b01a601::t_c05873599dbae0 164-169,177,180,231
+  s_6214003b01a601::t_bdebf35194238e 192
+apps/web/src/features/run-preview/hooks/use-preview-selection.ts
+  s_6214003b01a601::t_fa42ef85bb6935 17,22-28,184,194,211-228,233-237,244-248,286,291
+  s_6214003b01a601::t_65be589b8243dd 73,83-86,238,249
+  s_6214003b01a601::t_e3bd6c8297f111 16,34,69,91,149,152,229-232,239-243,250-259,284,289,292
+apps/web/src/features/selection/components/SelectionPopover.tsx
+  s_6214003b01a601::t_cfedbd7adf572d 48-50,67-69,81,94,96,208-214,355-364,403-404
+  s_6214003b01a601::t_c7319e95723ef5 76,93,295-322,324-332,334-335,338-341,343
+  s_6214003b01a601::t_6899393053a870 376-385,388,391,399
+apps/web/src/features/run-preview/components/RunPreviewPanel.tsx
+  s_504bc7eb69ad08::t_1b3e6c24634e6d 44,88-89
+apps/web/src/shared/lib/desktop-preview-bridge.ts
+  s_504bc7eb69ad08::t_156347f3074190 10
+  s_6214003b01a601::t_f76193ea24c4c5 11-12
+apps/web/src/features/run-preview/hooks/use-preview-browser-state.ts
+  s_504bc7eb69ad08::t_beace50f31b6fa 40,115,245,302,307-308,318,343-359,412
+apps/web/src/shared/lib/format-selection-for-ai.ts
+  s_6214003b01a601::t_4698b389a4987e 29-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9663abc647c570da7eaf4ba2de7f2b47007d691c",
+  "prompts": {},
+  "sessions": {
+    "s_504bc7eb69ad08": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb5cd-3a0e-7c81-b834-bed1f7895eb8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_6214003b01a601": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb57c-b9a6-7692-b911-deea9081c60d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
