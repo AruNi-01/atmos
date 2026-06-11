@@ -1,0 +1,45 @@
+apps/web/src/features/wiki/components/WikiUpdateDialog.tsx
+  s_acd7ec808554f2::t_bc170d5b380387 257-258,261,263
+apps/web/src/features/diff/components/review/ReviewActions.tsx
+  s_acd7ec808554f2::t_c12dfbd5b80ea2 53,495,497-500
+apps/web/src/features/diff/components/review/FixActionsMenu.tsx
+  s_acd7ec808554f2::t_4ab15f9ec724d6 23,25,47,84
+apps/web/src/features/wiki/components/WikiSpecifyDialog.tsx
+  s_acd7ec808554f2::t_89f8fde6433a13 301-302,305,307
+apps/web/src/features/diff/components/review/ReviewContextProvider.tsx
+  s_acd7ec808554f2::t_dfd634d161cd01 44
+apps/web/src/features/agent/components/TerminalAgentRunConfigDialog.tsx
+  s_acd7ec808554f2::t_94396355f1b20a 163-165,180-183,185,187-190,204-213,216-221
+apps/web/src/features/wiki/components/WikiSetup.tsx
+  s_acd7ec808554f2::t_876751914cf4ec 294-295,298,300
+apps/web/src/features/code-review/hooks/use-review-context.ts
+  s_acd7ec808554f2::t_ac752ccec801d8 841
+apps/web/src/features/settings/store/function-settings-store.ts
+  s_acd7ec808554f2::t_aa7bab5cdfa4b3 4
+apps/web/src/features/agent/components/TerminalAgentSelectorWithRunConfig.tsx
+  s_acd7ec808554f2::t_01ebe3cfb3d0b2 69-70,78-79,131-134
+  s_acd7ec808554f2::t_0db866b73aa36d 119
+  s_acd7ec808554f2::t_6e3defdb033a96 142
+  s_acd7ec808554f2::t_5eab5bdac2527f 48
+apps/web/src/features/code-review/components/CodeReviewDialog.tsx
+  s_acd7ec808554f2::t_32e2fa32ceeb56 610-611,614,616
+  s_acd7ec808554f2::t_0d59084f210d95 550
+apps/web/src/features/wiki/components/AgentSelect.tsx
+  s_acd7ec808554f2::t_0e7e5c97758de9 93-94,104,116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "0b3f681b949ac851fcd376d502a169b85108cdee",
+  "prompts": {},
+  "sessions": {
+    "s_acd7ec808554f2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb3fb-969d-70c1-9e2f-6b8e70e06158",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
