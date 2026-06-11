@@ -114,7 +114,7 @@
   - `bun --filter web lint` 已执行，但被既有非本次范围问题阻塞；代表性文件包括 `apps/web/src/app-shell/HostedAppShellGate.tsx`、`apps/web/src/features/canvas/components/CanvasAgentIsland.tsx`、`apps/web/src/features/diff/components/ChangesCodeView.tsx`、`apps/web/src/features/github/hooks/use-github.ts`、`apps/web/src/features/settings/hooks/use-updater.ts`、`apps/web/src/features/welcome/components/HostedWelcomeGate.tsx`。
 - PR 标签：
   - `codex-automation` label 不存在，跳过。
-  - `codex` label 添加时 GitHub GraphQL 返回 EOF，已重试仍失败；PR 已创建且分支已推送。
+  - `codex` label 已添加。
 - 剩余风险：全量 lint 的历史失败未在本 PR 中治理；本 PR 主要依赖 typecheck 和 diff check 覆盖触及范围。
 
 ## 10. 结果文件
