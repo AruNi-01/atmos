@@ -1,0 +1,19 @@
+apps/web/src/features/agent/components/TerminalAgentRunConfigDialog.tsx
+  s_acd7ec808554f2::t_3eade8f92db08c 94,112,218,224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "729b95e7adf0000396533a17ed58c3998f1171dc",
+  "prompts": {},
+  "sessions": {
+    "s_acd7ec808554f2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb3fb-969d-70c1-9e2f-6b8e70e06158",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
