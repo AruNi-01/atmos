@@ -1,7 +1,19 @@
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+use core_service::service::workspace::WorkspaceLabelDto;
+use core_service::WorkspaceDto;
+use infra::db::entities::project;
 
 use super::{GithubIssuePayload, GithubPrPayload};
 pub use core_service::WorkspaceAttachmentPayload;
+
+#[derive(Serialize)]
+pub struct ProjectWorkspaceBootstrapResponse {
+    pub projects: Vec<project::Model>,
+    pub workspace_labels: Vec<WorkspaceLabelDto>,
+    pub workspaces_by_project: BTreeMap<String, Vec<WorkspaceDto>>,
+}
 
 /// 工作区设置进度通知数据
 #[derive(Debug, Clone, Serialize, Deserialize)]

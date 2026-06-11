@@ -6,17 +6,69 @@ use llm::{
 };
 
 impl WsMessageService {
-    pub(super) async fn handle_function_settings_get(&self) -> Result<Value> {
+    fn read_function_settings() -> Result<Value> {
         let path = function_settings_path();
         if path.exists() {
             let content = std::fs::read_to_string(&path).map_err(|e| {
                 ServiceError::Validation(format!("Failed to read function_settings.json: {}", e))
             })?;
-            let val: Value = serde_json::from_str(&content).unwrap_or(json!({}));
-            Ok(val)
+            Ok(serde_json::from_str(&content).unwrap_or(json!({})))
         } else {
             Ok(json!({}))
         }
+    }
+
+    fn read_code_agent_custom() -> Result<Value> {
+        let path = terminal_code_agent_path();
+        if path.exists() {
+            let content = std::fs::read_to_string(&path).map_err(|e| {
+                ServiceError::Validation(format!("Failed to read terminal_code_agent.json: {}", e))
+            })?;
+            Ok(serde_json::from_str(&content).unwrap_or(json!({ "agents": [] })))
+        } else {
+            Ok(json!({ "agents": [] }))
+        }
+    }
+
+    fn read_agent_behaviour_settings() -> Result<Value> {
+        let path = terminal_code_agent_path();
+        let val: Value = if path.exists() {
+            let content = std::fs::read_to_string(&path).map_err(|e| {
+                ServiceError::Validation(format!("Failed to read terminal_code_agent.json: {}", e))
+            })?;
+            serde_json::from_str(&content).unwrap_or(json!({}))
+        } else {
+            json!({})
+        };
+        let timeout = val
+            .get("idle_session_timeout_mins")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(30);
+        Ok(json!({ "idle_session_timeout_mins": timeout }))
+    }
+
+    fn read_llm_providers() -> Result<Value> {
+        let store = FileLlmConfigStore::new()
+            .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
+        let config = store.load().map_err(|e| {
+            ServiceError::Validation(format!("Failed to read llm providers: {}", e))
+        })?;
+        serde_json::to_value(config).map_err(|e| {
+            ServiceError::Validation(format!("Failed to serialize llm providers: {}", e))
+        })
+    }
+
+    pub(super) async fn handle_settings_bootstrap_get(&self) -> Result<Value> {
+        Ok(json!({
+            "function_settings": Self::read_function_settings()?,
+            "llm_providers": Self::read_llm_providers()?,
+            "code_agent_custom": Self::read_code_agent_custom()?,
+            "agent_behaviour_settings": Self::read_agent_behaviour_settings()?,
+        }))
+    }
+
+    pub(super) async fn handle_function_settings_get(&self) -> Result<Value> {
+        Self::read_function_settings()
     }
 
     pub(super) async fn handle_function_settings_update(
@@ -69,16 +121,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_code_agent_custom_get(&self) -> Result<Value> {
-        let path = terminal_code_agent_path();
-        if path.exists() {
-            let content = std::fs::read_to_string(&path).map_err(|e| {
-                ServiceError::Validation(format!("Failed to read terminal_code_agent.json: {}", e))
-            })?;
-            let val: Value = serde_json::from_str(&content).unwrap_or(json!({ "agents": [] }));
-            Ok(val)
-        } else {
-            Ok(json!({ "agents": [] }))
-        }
+        Self::read_code_agent_custom()
     }
 
     pub(super) async fn handle_code_agent_custom_update(
@@ -121,20 +164,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_agent_behaviour_settings_get(&self) -> Result<Value> {
-        let path = terminal_code_agent_path();
-        let val: Value = if path.exists() {
-            let content = std::fs::read_to_string(&path).map_err(|e| {
-                ServiceError::Validation(format!("Failed to read terminal_code_agent.json: {}", e))
-            })?;
-            serde_json::from_str(&content).unwrap_or(json!({}))
-        } else {
-            json!({})
-        };
-        let timeout = val
-            .get("idle_session_timeout_mins")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(30);
-        Ok(json!({ "idle_session_timeout_mins": timeout }))
+        Self::read_agent_behaviour_settings()
     }
 
     pub(super) async fn handle_agent_behaviour_settings_update(
@@ -165,14 +195,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_llm_providers_get(&self) -> Result<Value> {
-        let store = FileLlmConfigStore::new()
-            .map_err(|e| ServiceError::Validation(format!("Failed to locate llm config: {}", e)))?;
-        let config = store.load().map_err(|e| {
-            ServiceError::Validation(format!("Failed to read llm providers: {}", e))
-        })?;
-        serde_json::to_value(config).map_err(|e| {
-            ServiceError::Validation(format!("Failed to serialize llm providers: {}", e))
-        })
+        Self::read_llm_providers()
     }
 
     pub(super) async fn handle_llm_providers_update(

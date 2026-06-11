@@ -1,4 +1,6 @@
+use futures_util::future::join_all;
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::support::WorkspaceDeleteSettings;
@@ -8,8 +10,8 @@ use core_service::{Result, ServiceError};
 use super::{
     GithubIssuePayload, GithubPrPayload, ProjectCreateRequest, ProjectDeleteProgressNotification,
     ProjectDeleteRequest, ProjectUpdateOrderRequest, ProjectUpdateRequest,
-    ProjectUpdateTargetBranchRequest, ScriptGetRequest, ScriptSaveRequest, WsEvent, WsManager,
-    WsMessage, WsMessageService,
+    ProjectUpdateTargetBranchRequest, ProjectWorkspaceBootstrapResponse, ScriptGetRequest,
+    ScriptSaveRequest, WsEvent, WsManager, WsMessage, WsMessageService,
 };
 
 impl WsMessageService {
@@ -112,6 +114,56 @@ impl WsMessageService {
     pub(super) async fn handle_project_list(&self) -> Result<Value> {
         let projects = self.project_service.list_projects().await?;
         Ok(json!(projects))
+    }
+
+    pub(super) async fn handle_project_workspace_bootstrap(&self) -> Result<Value> {
+        let (projects_result, labels_result) = tokio::join!(
+            self.project_service.list_projects(),
+            self.workspace_service.list_labels(false),
+        );
+
+        let projects = projects_result?;
+        let workspace_labels = match labels_result {
+            Ok(labels) => labels,
+            Err(error) => {
+                tracing::warn!("Failed to fetch workspace labels during bootstrap: {error}");
+                Vec::new()
+            }
+        };
+
+        let workspace_service = Arc::clone(&self.workspace_service);
+        let workspace_results = join_all(projects.iter().map(|project| {
+            let workspace_service = Arc::clone(&workspace_service);
+            let project_guid = project.guid.clone();
+            async move {
+                let result = workspace_service
+                    .list_by_project(project_guid.clone(), false)
+                    .await;
+                (project_guid, result)
+            }
+        }))
+        .await;
+
+        let mut workspaces_by_project = BTreeMap::new();
+        for (project_guid, result) in workspace_results {
+            match result {
+                Ok(workspaces) => {
+                    workspaces_by_project.insert(project_guid, workspaces);
+                }
+                Err(error) => {
+                    tracing::warn!(
+                        "Failed to fetch workspaces for project {project_guid} during bootstrap: {error}"
+                    );
+                    workspaces_by_project.insert(project_guid, Vec::new());
+                }
+            }
+        }
+
+        Ok(json!(ProjectWorkspaceBootstrapResponse {
+            projects,
+            workspace_labels,
+            workspaces_by_project,
+        }))
     }
 
     pub(super) async fn handle_project_create(&self, req: ProjectCreateRequest) -> Result<Value> {

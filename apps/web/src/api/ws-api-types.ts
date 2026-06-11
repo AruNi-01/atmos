@@ -113,6 +113,12 @@ export interface ProjectModel {
   is_deleted: boolean;
 }
 
+export interface ProjectWorkspaceBootstrapResponse {
+  projects: ProjectModel[];
+  workspace_labels: WorkspaceLabelModel[];
+  workspaces_by_project: Record<string, WorkspaceModel[]>;
+}
+
 // Git 状态响应
 export interface GitStatusResponse {
   has_uncommitted_changes: boolean;

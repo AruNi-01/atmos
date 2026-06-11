@@ -256,6 +256,7 @@ impl WsMessageService {
             }
 
             // Project
+            WsAction::ProjectWorkspaceBootstrap => self.handle_project_workspace_bootstrap().await,
             WsAction::ProjectList => self.handle_project_list().await,
             WsAction::ProjectCreate => {
                 self.handle_project_create(parse_request(request.data)?)
@@ -726,6 +727,7 @@ impl WsMessageService {
             }
 
             // Function settings
+            WsAction::SettingsBootstrapGet => self.handle_settings_bootstrap_get().await,
             WsAction::FunctionSettingsGet => self.handle_function_settings_get().await,
             WsAction::FunctionSettingsUpdate => {
                 self.handle_function_settings_update(parse_request(request.data)?)

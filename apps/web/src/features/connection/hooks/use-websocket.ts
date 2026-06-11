@@ -69,6 +69,7 @@ export type WsAction =
   | "usage_delete_provider_api_key"
   | "usage_set_auto_refresh"
   // Project 操作
+  | "project_workspace_bootstrap"
   | "project_list"
   | "project_create"
   | "project_update"
@@ -142,6 +143,7 @@ export type WsAction =
   | "sync_single_system_skill"
   | "skills_system_sync"
   // Function settings
+  | "settings_bootstrap_get"
   | "function_settings_get"
   | "function_settings_update"
   | "terminal_agent_models_get"

@@ -23,6 +23,7 @@ import type {
   GitGenerateCommitMessageResponse,
   GitPatchChunkResponse,
   GitStatusResponse,
+  ProjectWorkspaceBootstrapResponse,
   ProjectModel,
   WorkspaceAttachmentPayload,
   WorkspaceImportGithubIssuesResult,
@@ -52,6 +53,7 @@ export type {
   GitGenerateCommitMessageResponse,
   GitPatchChunkResponse,
   GitStatusResponse,
+  ProjectWorkspaceBootstrapResponse,
   ProjectModel,
   SearchMatch,
   WorkspaceAttachmentPayload,
@@ -491,6 +493,13 @@ export const gitApi = {
 // ===== Project API =====
 
 export const wsProjectApi = {
+  /**
+   * 获取项目/标签/工作区启动数据
+   */
+  bootstrap: async (): Promise<ProjectWorkspaceBootstrapResponse> => {
+    return wsRequest<ProjectWorkspaceBootstrapResponse>("project_workspace_bootstrap");
+  },
+
   /**
    * 获取所有项目
    */

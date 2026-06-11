@@ -54,19 +54,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // 确保 WebSocket 连接
       await waitForConnection();
       
-      // 获取所有项目；标签失败不应阻断侧边栏主数据加载。
-      const [projects, labels] = await Promise.all([
-        wsProjectApi.list(),
-        wsWorkspaceApi.listLabels().catch((error) => {
-          console.warn('Failed to fetch workspace labels:', error);
-          return [];
-        }),
-      ]);
+      const bootstrap = await wsProjectApi.bootstrap();
       if (get().connectionEpoch !== epoch) {
         return;
       }
       set({
-        workspaceLabels: labels.map(label => ({
+        workspaceLabels: bootstrap.workspace_labels.map(label => ({
           id: label.guid,
           name: label.name,
           color: label.color,
@@ -75,20 +68,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         })),
       });
 
-      // 为每个项目获取 Workspaces
-      const projectsWithWorkspaces = await Promise.all(
-        projects.map(async (p) => {
-          try {
-            const workspaces = await wsWorkspaceApi.listByProject(p.guid);
-            const mappedWorkspaces = workspaces.map(mapWorkspaceModel);
-            const sortedWorkspaces = sortWorkspaces(mappedWorkspaces);
-            return mapProjectModel(p, sortedWorkspaces);
-          } catch (error) {
-            console.warn(`Failed to fetch workspaces for project ${p.guid}:`, error);
-            return mapProjectModel(p, []);
-          }
-        })
-      );
+      const projectsWithWorkspaces = bootstrap.projects.map((p) => {
+        const workspaces = bootstrap.workspaces_by_project[p.guid] ?? [];
+        const mappedWorkspaces = workspaces.map(mapWorkspaceModel);
+        const sortedWorkspaces = sortWorkspaces(mappedWorkspaces);
+        return mapProjectModel(p, sortedWorkspaces);
+      });
 
       // 按 sidebarOrder 排序
       projectsWithWorkspaces.sort((a, b) => a.sidebarOrder - b.sidebarOrder);

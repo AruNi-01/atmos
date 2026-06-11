@@ -1,5 +1,11 @@
 import { useState, useCallback, useEffect, useRef, startTransition } from 'react';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
+import {
+  getCachedBranchPrs,
+  getRepoPrSeedForBranch,
+  setCachedBranchPrs,
+  type BranchPr,
+} from '@/features/github/lib/github-pr-cache';
 
 export interface GithubContext {
   owner?: string;
@@ -15,18 +21,37 @@ export function useGithubPRList({
   state,
   emitBranchStatusRefresh = false,
   enabled = true,
+  preferRepoCache = false,
 }: GithubContext & {
   state?: string;
   emitBranchStatusRefresh?: boolean;
   enabled?: boolean;
+  preferRepoCache?: boolean;
 }) {
   const send = useWebSocketStore(s => s.send);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (options?: { force?: boolean }) => {
     if (!enabled || !owner || !repo || !branch) return;
+    if (!options?.force) {
+      const cached = getCachedBranchPrs({ owner, repo, branch, state });
+      if (cached) {
+        setData(cached);
+        return;
+      }
+
+      if (preferRepoCache) {
+        const seeded = getRepoPrSeedForBranch({ owner, repo, branch, state });
+        if (seeded) {
+          setCachedBranchPrs({ owner, repo, branch, state }, seeded);
+          setData(seeded);
+          return;
+        }
+      }
+    }
+
     setLoading(true);
     try {
       const result = await send('github_pr_list', {
@@ -36,6 +61,9 @@ export function useGithubPRList({
         state,
         emit_branch_status_refresh: emitBranchStatusRefresh,
       });
+      if (Array.isArray(result)) {
+        setCachedBranchPrs({ owner, repo, branch, state }, result as BranchPr[]);
+      }
       setData(result);
     } catch (e) {
       console.error(e);
@@ -43,14 +71,16 @@ export function useGithubPRList({
     } finally {
       setLoading(false);
     }
-  }, [owner, repo, branch, state, send, emitBranchStatusRefresh, enabled]);
+  }, [owner, repo, branch, state, send, emitBranchStatusRefresh, enabled, preferRepoCache]);
 
   useEffect(() => { 
     if (!enabled) return;
     fetch(); 
   }, [enabled, fetch]);
 
-  return { data, loading, refresh: fetch };
+  const refresh = useCallback(() => fetch({ force: true }), [fetch]);
+
+  return { data, loading, refresh };
 }
 
 // CI 状态（in_progress 时自动轮询）
@@ -130,7 +160,6 @@ export function useGithubPRTimeline(prNumber: number, owner?: string, repo?: str
     if (!owner || !repo || !prNumber) return;
     setIsLoading(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await send('github_pr_timeline_page', {
         owner,
         repo,
@@ -195,16 +224,23 @@ export function useGithubPRFiles(prNumber: number, owner?: string, repo?: string
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setFiles([]);
     if (!enabled || !owner || !repo || !prNumber) return;
     let cancelled = false;
-    setLoading(true);
-    send('github_pr_files', { owner, repo, pr_number: prNumber })
-      .then((result) => {
+
+    const loadFiles = async () => {
+      setFiles([]);
+      setLoading(true);
+      try {
+        const result = await send('github_pr_files', { owner, repo, pr_number: prNumber });
         if (!cancelled) setFiles(Array.isArray(result) ? result as PrFile[] : []);
-      })
-      .catch(console.error)
-      .finally(() => { if (!cancelled) setLoading(false); });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void loadFiles();
     return () => { cancelled = true; };
   }, [prNumber, owner, repo, enabled, send]);
 
@@ -286,7 +322,7 @@ export function useGithubActionsList({ owner, repo, branch, enabled = true }: Gi
       isMounted = false;
       if (timer) clearTimeout(timer); 
     };
-  }, [fetch, enabled]); // Dependencies owner, repo, branch are in fetch
+  }, [fetch, enabled, owner, repo, branch]);
 
   return { data, loading, refresh: () => fetch() };
 }

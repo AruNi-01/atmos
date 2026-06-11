@@ -15,10 +15,15 @@ import {
   issueListCache,
   issueToBranchName,
   issueToWorkspaceName,
-  prListCache,
   prToWorkspaceName,
   type RepoContext,
 } from "@/features/welcome/lib/welcome-page-helpers";
+import {
+  clearCachedRepoPrs,
+  fetchRepoPrsWithCache,
+  getCachedRepoPrs,
+  setCachedRepoPrs,
+} from "@/features/github/lib/github-pr-cache";
 
 type LinkType = "none" | "issue" | "pr";
 
@@ -74,6 +79,8 @@ export function useWelcomeProjectContext({
   const [isBaseBranchesLoading, setIsBaseBranchesLoading] = React.useState(false);
   const [isIssuesLoading, setIsIssuesLoading] = React.useState(false);
   const [isIssuePreviewLoading, setIsIssuePreviewLoading] = React.useState(false);
+  const [loadedIssueRepoKey, setLoadedIssueRepoKey] = React.useState<string | null>(null);
+  const issueLoadSeqRef = React.useRef(0);
 
   React.useEffect(() => {
     if (linkType !== "none") setDisplayedLinkType(linkType);
@@ -93,6 +100,9 @@ export function useWelcomeProjectContext({
       setIssuePreview(null);
       setSelectedIssueNumber("");
       setIssueUrl("");
+      issueLoadSeqRef.current += 1;
+      setLoadedIssueRepoKey(null);
+      setIsIssuesLoading(false);
       setPrs([]);
       setPrPreview(null);
       setSelectedPrNumber("");
@@ -113,7 +123,12 @@ export function useWelcomeProjectContext({
       generatedBranchRef.current = null;
 
       try {
-        const fetchedRemoteBranches = await gitApi.listRemoteBranches(selectedProjectPath);
+        const [fetchedRemoteBranches, scripts, status] = await Promise.all([
+          gitApi.listRemoteBranches(selectedProjectPath),
+          wsScriptApi.get(selectedProjectId),
+          gitApi.getStatus(selectedProjectPath),
+        ]);
+
         if (!cancelled) {
           const nextRemoteBranches = fetchedRemoteBranches.sort();
           setRemoteBranches(nextRemoteBranches);
@@ -124,14 +139,9 @@ export function useWelcomeProjectContext({
           } else {
             setBaseBranch("main");
           }
-        }
-
-        const scripts = await wsScriptApi.get(selectedProjectId);
-        if (!cancelled) {
           setHasSetupScript(typeof scripts.setup === "string" && scripts.setup.trim().length > 0);
         }
 
-        const status = await gitApi.getStatus(selectedProjectPath);
         if (cancelled) return;
 
         if (status.github_owner && status.github_repo) {
@@ -141,34 +151,18 @@ export function useWelcomeProjectContext({
           };
           setRepoContext(nextContext);
 
-          const cacheKey = `${nextContext.owner}/${nextContext.repo}`;
-          const cachedIssues = issueListCache.get(cacheKey);
-          if (cachedIssues && cachedIssues.expiresAt > Date.now()) {
-            setIssues(cachedIssues.issues);
-          } else {
-            setIsIssuesLoading(true);
-            const fetchedIssues = await wsGithubApi.listIssues(nextContext);
-            if (cancelled) return;
-            setIssues(fetchedIssues);
-            issueListCache.set(cacheKey, {
-              expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
-              issues: fetchedIssues,
-            });
-          }
-
-          const cachedPrs = prListCache.get(cacheKey);
-          if (cachedPrs && cachedPrs.expiresAt > Date.now()) {
-            setPrs(cachedPrs.prs);
+          const cachedPrs = getCachedRepoPrs(nextContext);
+          if (cachedPrs) {
+            setPrs(cachedPrs);
           } else {
             setIsPrsLoading(true);
             try {
-              const fetchedPrs = await wsGithubApi.listPrs(nextContext);
+              const fetchedPrs = await fetchRepoPrsWithCache(nextContext, () =>
+                wsGithubApi.listPrs(nextContext),
+              );
               if (cancelled) return;
               setPrs(fetchedPrs);
-              prListCache.set(cacheKey, {
-                expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
-                prs: fetchedPrs,
-              });
+              setCachedRepoPrs(nextContext, fetchedPrs);
             } catch (error) {
               if (!cancelled) {
                 setPrError(
@@ -185,7 +179,6 @@ export function useWelcomeProjectContext({
       } finally {
         if (!cancelled) {
           setIsBaseBranchesLoading(false);
-          setIsIssuesLoading(false);
           setIsPrsLoading(false);
         }
       }
@@ -263,6 +256,48 @@ export function useWelcomeProjectContext({
     setAutoExtractTodos(false);
   }, []);
 
+  const loadIssues = React.useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!repoContext) return;
+
+      const cacheKey = `${repoContext.owner}/${repoContext.repo}`;
+      if (!options?.force) {
+        const cachedIssues = issueListCache.get(cacheKey);
+        if (cachedIssues && cachedIssues.expiresAt > Date.now()) {
+          setIssues(cachedIssues.issues);
+          setLoadedIssueRepoKey(cacheKey);
+          return;
+        }
+        if (loadedIssueRepoKey === cacheKey) return;
+      }
+
+      setIsIssuesLoading(true);
+      setIssueError(null);
+      const loadSeq = issueLoadSeqRef.current;
+      try {
+        if (options?.force) {
+          issueListCache.delete(cacheKey);
+        }
+        const fetchedIssues = await wsGithubApi.listIssues(repoContext);
+        if (loadSeq !== issueLoadSeqRef.current) return;
+        setIssues(fetchedIssues);
+        setLoadedIssueRepoKey(cacheKey);
+        issueListCache.set(cacheKey, {
+          expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
+          issues: fetchedIssues,
+        });
+      } catch (error) {
+        if (loadSeq !== issueLoadSeqRef.current) return;
+        setIssueError(error instanceof Error ? error.message : "Failed to load GitHub issues");
+      } finally {
+        if (loadSeq === issueLoadSeqRef.current) {
+          setIsIssuesLoading(false);
+        }
+      }
+    },
+    [loadedIssueRepoKey, repoContext],
+  );
+
   const handleSelectLinkType = React.useCallback(
     (next: "issue" | "pr") => {
       if (linkType === next) {
@@ -272,11 +307,19 @@ export function useWelcomeProjectContext({
         return;
       }
       setLinkType(next);
-      if (next === "issue") clearPrSelection();
-      else clearIssueSelection();
+      if (next === "issue") {
+        clearPrSelection();
+      } else {
+        clearIssueSelection();
+      }
     },
     [clearIssueSelection, clearPrSelection, linkType],
   );
+
+  React.useEffect(() => {
+    if (linkType !== "issue" || !repoContext) return;
+    void loadIssues();
+  }, [linkType, loadIssues, repoContext]);
 
   const handleSelectIssue = React.useCallback(
     (value: string) => {
@@ -342,14 +385,13 @@ export function useWelcomeProjectContext({
     setIsPrsLoading(true);
     setPrError(null);
     try {
-      const cacheKey = `${repoContext.owner}/${repoContext.repo}`;
-      prListCache.delete(cacheKey);
-      const fetchedPrs = await wsGithubApi.listPrs(repoContext);
+      clearCachedRepoPrs(repoContext);
+      const fetchedPrs = await fetchRepoPrsWithCache(
+        { ...repoContext, force: true },
+        () => wsGithubApi.listPrs(repoContext),
+      );
       setPrs(fetchedPrs);
-      prListCache.set(cacheKey, {
-        expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
-        prs: fetchedPrs,
-      });
+      setCachedRepoPrs(repoContext, fetchedPrs);
     } catch (error) {
       setPrError(error instanceof Error ? error.message : "Failed to refresh GitHub PRs");
     } finally {
@@ -391,24 +433,8 @@ export function useWelcomeProjectContext({
   }, [clearPrSelection, issueUrl, repoContext, setBranchError, setSubmitError]);
 
   const handleRefreshIssues = React.useCallback(async () => {
-    if (!repoContext) return;
-    setIsIssuesLoading(true);
-    setIssueError(null);
-    try {
-      const cacheKey = `${repoContext.owner}/${repoContext.repo}`;
-      issueListCache.delete(cacheKey);
-      const fetchedIssues = await wsGithubApi.listIssues(repoContext);
-      setIssues(fetchedIssues);
-      issueListCache.set(cacheKey, {
-        expiresAt: Date.now() + ISSUE_CACHE_TTL_MS,
-        issues: fetchedIssues,
-      });
-    } catch (error) {
-      setIssueError(error instanceof Error ? error.message : "Failed to refresh GitHub issues");
-    } finally {
-      setIsIssuesLoading(false);
-    }
-  }, [repoContext]);
+    await loadIssues({ force: true });
+  }, [loadIssues]);
 
   return {
     autoExtractTodos,

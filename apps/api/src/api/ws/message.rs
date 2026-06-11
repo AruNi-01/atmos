@@ -265,6 +265,8 @@ pub enum WsAction {
     UsageSetAutoRefresh,
 
     // ===== Project 操作 =====
+    /// 获取项目/标签/工作区启动数据
+    ProjectWorkspaceBootstrap,
     /// 获取所有项目
     ProjectList,
     /// 创建项目
@@ -505,6 +507,8 @@ pub enum WsAction {
     GithubPrFiles,
 
     // ===== Function Settings =====
+    /// Read settings needed by the Settings UI in one payload
+    SettingsBootstrapGet,
     /// Read ~/.atmos/function_settings.json
     FunctionSettingsGet,
     /// Update a field in ~/.atmos/function_settings.json

@@ -10,6 +10,11 @@ import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
 import type { ComposerAttachment } from "@/features/welcome/components/AttachmentBar";
 import { formatAppshotPrompt } from "@/features/appshot/lib/appshot-protocol";
 import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
+import {
+  clearCachedRepoPrs,
+  getCachedRepoPrs,
+  setCachedRepoPrs,
+} from "@/features/github/lib/github-pr-cache";
 
 export interface RepoContext {
   owner: string;
@@ -56,7 +61,24 @@ export const issueListCache = new Map<
   string,
   { expiresAt: number; issues: GithubIssuePayload[] }
 >();
-export const prListCache = new Map<string, { expiresAt: number; prs: GithubPrPayload[] }>();
+export const prListCache = {
+  get(cacheKey: string): { expiresAt: number; prs: GithubPrPayload[] } | undefined {
+    const [owner, repo] = cacheKey.split("/");
+    if (!owner || !repo) return undefined;
+    const prs = getCachedRepoPrs({ owner, repo });
+    return prs ? { expiresAt: Date.now() + ISSUE_CACHE_TTL_MS, prs } : undefined;
+  },
+  set(cacheKey: string, entry: { expiresAt?: number; prs: GithubPrPayload[] }) {
+    const [owner, repo] = cacheKey.split("/");
+    if (!owner || !repo) return;
+    setCachedRepoPrs({ owner, repo }, entry.prs);
+  },
+  delete(cacheKey: string) {
+    const [owner, repo] = cacheKey.split("/");
+    if (!owner || !repo) return;
+    clearCachedRepoPrs({ owner, repo });
+  },
+};
 
 export const WELCOME_HEADLINES: WelcomeHeadline[] = [
   "come_alive",

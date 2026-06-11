@@ -1,6 +1,7 @@
 "use client";
 
 import { wsRequest } from "@/api/ws/request";
+import { settingsBootstrapCache } from "@/api/ws/settings-bootstrap-cache";
 import type { TerminalAgentSavedRunConfig } from "@/features/agent/lib/terminal-agent-run-config";
 
 export interface FunctionSettings {
@@ -110,7 +111,7 @@ export interface LlmProviderTestResponse {
 
 export const functionSettingsApi = {
   get: async (): Promise<FunctionSettings> => {
-    return wsRequest<FunctionSettings>("function_settings_get");
+    return settingsBootstrapCache.getFunctionSettings();
   },
 
   update: async (
@@ -118,11 +119,15 @@ export const functionSettingsApi = {
     key: string,
     value: unknown,
   ): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("function_settings_update", {
+    const result = await wsRequest<{ ok: boolean }>("function_settings_update", {
       function_name: functionName,
       key,
       value,
     });
+    if (result.ok) {
+      settingsBootstrapCache.patchFunctionSetting(functionName, key, value);
+    }
+    return result;
   },
 };
 
@@ -154,11 +159,15 @@ export const workspaceGitignoreDirsApi = {
 
 export const llmProvidersApi = {
   get: async (): Promise<LlmProvidersFile> => {
-    return wsRequest<LlmProvidersFile>("llm_providers_get");
+    return settingsBootstrapCache.getLlmProviders();
   },
 
   update: async (config: LlmProvidersFile): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("llm_providers_update", { config });
+    const result = await wsRequest<{ ok: boolean }>("llm_providers_update", { config });
+    if (result.ok) {
+      settingsBootstrapCache.setLlmProviders(config);
+    }
+    return result;
   },
 
   testProvider: async (params: {
@@ -178,13 +187,23 @@ export interface CodeAgentCustomEntry {
   enabled?: boolean;
 }
 
+export interface CodeAgentCustomPayload {
+  agents: CodeAgentCustomEntry[];
+  [key: string]: unknown;
+}
+
 export const codeAgentCustomApi = {
-  get: async (): Promise<{ agents: CodeAgentCustomEntry[] }> => {
-    return wsRequest<{ agents: CodeAgentCustomEntry[] }>("code_agent_custom_get");
+  get: async (): Promise<CodeAgentCustomPayload> => {
+    return settingsBootstrapCache.getCodeAgentCustom();
   },
 
   update: async (agents: CodeAgentCustomEntry[]): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("code_agent_custom_update", { agents });
+    const result = await wsRequest<{ ok: boolean }>("code_agent_custom_update", { agents });
+    if (result.ok) {
+      settingsBootstrapCache.setCodeAgentCustom({ agents });
+      settingsBootstrapCache.invalidateAgentBehaviourSettings();
+    }
+    return result;
   },
 };
 
@@ -194,9 +213,13 @@ export interface AgentBehaviourSettings {
 
 export const agentBehaviourSettingsApi = {
   get: async (): Promise<AgentBehaviourSettings> => {
-    return wsRequest<AgentBehaviourSettings>("agent_behaviour_settings_get");
+    return settingsBootstrapCache.getAgentBehaviourSettings();
   },
   update: async (settings: AgentBehaviourSettings): Promise<{ ok: boolean }> => {
-    return wsRequest<{ ok: boolean }>("agent_behaviour_settings_update", settings);
+    const result = await wsRequest<{ ok: boolean }>("agent_behaviour_settings_update", settings);
+    if (result.ok) {
+      settingsBootstrapCache.setAgentBehaviourSettings(settings);
+    }
+    return result;
   },
 };
