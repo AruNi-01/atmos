@@ -21,7 +21,7 @@ export async function connectDesktopPreviewTransport(
   const unlisteners = await Promise.all([
     listenDesktopPreviewBridge('desktop-preview:ready', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
-      options.onReady?.((payload.capabilities as never[]) ?? [], undefined, payload.pageTitle, payload.faviconUrl);
+      options.onReady?.((payload.capabilities as never[]) ?? [], undefined, payload.pageTitle, payload.faviconUrl, payload.pageUrl);
     }),
     listenDesktopPreviewBridge('desktop-preview:selected', (payload) => {
       if (payload.sessionId !== options.sessionId || !payload.rect || !payload.elementContext) return;
@@ -58,7 +58,7 @@ export async function connectDesktopPreviewTransport(
     }),
     listenDesktopPreviewBridge('desktop-preview:title-changed', (payload) => {
       if (payload.sessionId !== options.sessionId || typeof payload.pageTitle !== 'string') return;
-      options.onTitleChanged?.(payload.pageTitle, payload.faviconUrl);
+      options.onTitleChanged?.(payload.pageTitle, payload.faviconUrl, payload.pageUrl);
     }),
     listenDesktopPreviewBridge('desktop-preview:cursor-changed', (payload) => {
       if (payload.sessionId !== options.sessionId) return;

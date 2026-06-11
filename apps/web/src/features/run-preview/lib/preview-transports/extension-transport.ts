@@ -125,6 +125,7 @@ export function connectExtensionPreviewTransport(
           event.data.extensionVersion,
           event.data.pageTitle,
           event.data.faviconUrl,
+          event.data.pageUrl,
         );
         if (pickModeDesired) {
           post({
@@ -147,7 +148,7 @@ export function connectExtensionPreviewTransport(
         options.onNavigationChanged?.(event.data.pageUrl, event.data.pageTitle, event.data.faviconUrl);
         break;
       case 'atmos-preview:title-changed':
-        options.onTitleChanged?.(event.data.pageTitle, event.data.faviconUrl);
+        options.onTitleChanged?.(event.data.pageTitle, event.data.faviconUrl, event.data.pageUrl);
         break;
       case 'atmos-preview:pong':
         break;

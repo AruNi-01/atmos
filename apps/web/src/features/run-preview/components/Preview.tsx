@@ -34,6 +34,7 @@ import {
   PREVIEW_SELECTION_UNAVAILABLE_MESSAGE,
   canonicalizeUrl,
   isLocalPreviewTarget,
+  normalizePreviewPageTitle,
   parseTransportLoadError,
   splitDisplayUrl,
   type PreviewLoadError,
@@ -152,6 +153,9 @@ export const Preview: React.FC<PreviewProps> = ({
   const normalizedActiveUrl = useMemo(() => canonicalizeUrl(activeUrl), [activeUrl]);
   const normalizedActiveUrlRef = useRef(normalizedActiveUrl);
   normalizedActiveUrlRef.current = normalizedActiveUrl;
+  const setNormalizedCurrentPageTitle = useCallback((pageTitle: string, pageUrl?: string) => {
+    setCurrentPageTitle(normalizePreviewPageTitle(pageTitle, pageUrl ?? normalizedActiveUrlRef.current));
+  }, []);
   const normalizedDraftUrl = useMemo(() => canonicalizeUrl(url ?? ""), [url]);
   const displayUrlParts = useMemo(() => splitDisplayUrl(url ?? ""), [url]);
   const displayPageTitle = useMemo(
@@ -356,7 +360,7 @@ export const Preview: React.FC<PreviewProps> = ({
     }
 
     const title = access.frameDocument.title?.trim() ?? "";
-    setCurrentPageTitle(title);
+    setNormalizedCurrentPageTitle(title, access.frameWindow.location.href);
     setTransportState((previous) => ({
       ...previous,
       mode: 'same-origin',
@@ -365,7 +369,7 @@ export const Preview: React.FC<PreviewProps> = ({
     }));
 
     return access;
-  }, [getIframeAccess, preferredTransportMode]);
+  }, [getIframeAccess, preferredTransportMode, setNormalizedCurrentPageTitle]);
 
   const createPreviewSessionId = useCallback(() => {
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -383,6 +387,7 @@ export const Preview: React.FC<PreviewProps> = ({
       extensionVersion?: string,
       pageTitle?: string,
       faviconUrl?: string,
+      pageUrl?: string,
     ) => {
       if (extensionVersion) {
         extensionVersionRef.current = extensionVersion;
@@ -391,7 +396,7 @@ export const Preview: React.FC<PreviewProps> = ({
         extensionConnectingRef.current = false;
       }
       if (pageTitle !== undefined) {
-        setCurrentPageTitle(pageTitle);
+        setNormalizedCurrentPageTitle(pageTitle, pageUrl);
       }
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
@@ -405,7 +410,7 @@ export const Preview: React.FC<PreviewProps> = ({
       if (mode === 'desktop-native') {
         setIsPreviewLoading(false);
       }
-      extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl);
+      extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl, pageUrl);
     },
     onSelected: (payload: PreviewHelperPayload) => {
       handleSelectedPayload(mode, payload);
@@ -471,7 +476,7 @@ export const Preview: React.FC<PreviewProps> = ({
       setUrl(nextUrl);
       setActiveUrl(nextUrl);
       if (pageTitle !== undefined) {
-        setCurrentPageTitle(pageTitle);
+        setNormalizedCurrentPageTitle(pageTitle, nextUrl);
       }
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
@@ -483,12 +488,12 @@ export const Preview: React.FC<PreviewProps> = ({
       }
       extraHandlers?.onNavigationChanged?.(nextUrl, pageTitle, faviconUrl);
     },
-    onTitleChanged: (pageTitle: string, faviconUrl?: string) => {
-      setCurrentPageTitle(pageTitle);
+    onTitleChanged: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => {
+      setNormalizedCurrentPageTitle(pageTitle, pageUrl);
       if (faviconUrl !== undefined) {
         onPageIconChangeRef.current?.(faviconUrl);
       }
-      extraHandlers?.onTitleChanged?.(pageTitle, faviconUrl);
+      extraHandlers?.onTitleChanged?.(pageTitle, faviconUrl, pageUrl);
     },
     onCursorChange: (cursor: string) => {
       const viewport = desktopViewportRef.current;
@@ -509,6 +514,7 @@ export const Preview: React.FC<PreviewProps> = ({
     handleUpdateSelectionAnnotation,
     pushHistoryEntry,
     setActiveUrl,
+    setNormalizedCurrentPageTitle,
     setUrl,
     skipExternalHistorySyncRef,
   ]);
@@ -700,7 +706,7 @@ export const Preview: React.FC<PreviewProps> = ({
     preferredTransportMode,
     pushHistoryEntry,
     setActiveUrl,
-    setCurrentPageTitle,
+    setCurrentPageTitle: setNormalizedCurrentPageTitle,
     setIsPreviewLoading,
     setPreviewLoadError,
     setUrl,

@@ -52,6 +52,7 @@ export interface PreviewBridgeEventHandlers {
     extensionVersion?: string,
     pageTitle?: string,
     faviconUrl?: string,
+    pageUrl?: string,
   ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
   onToolbarAction?: (
@@ -62,7 +63,7 @@ export interface PreviewBridgeEventHandlers {
   onCleared?: () => void;
   onError?: (message: string) => void;
   onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
-  onTitleChanged?: (pageTitle: string, faviconUrl?: string) => void;
+  onTitleChanged?: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => void;
   onCursorChange?: (cursor: string) => void;
 }
 

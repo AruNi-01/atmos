@@ -17,12 +17,13 @@ interface InstallPreviewHelperOptions {
     extensionVersion?: string,
     pageTitle?: string,
     faviconUrl?: string,
+    pageUrl?: string,
   ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
   onCleared?: () => void;
   onError?: (message: string) => void;
   onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
-  onTitleChanged?: (pageTitle: string, faviconUrl?: string) => void;
+  onTitleChanged?: (pageTitle: string, faviconUrl?: string, pageUrl?: string) => void;
 }
 
 export interface PreviewHelperController {
@@ -199,7 +200,7 @@ export function installPreviewHelper(
   const originalReplaceState = win.history.replaceState.bind(win.history);
   const emitTitleChange = (pageTitle: string) => {
     const faviconUrl = getPageFaviconUrl(win);
-    options.onTitleChanged?.(pageTitle, faviconUrl);
+    options.onTitleChanged?.(pageTitle, faviconUrl, win.location.href);
     bridge.titleChanged(pageTitle, faviconUrl);
   };
 
@@ -255,7 +256,7 @@ export function installPreviewHelper(
   const initialFaviconUrl = getPageFaviconUrl(win);
   lastKnownTitle = initialTitle;
   lastKnownFaviconUrl = initialFaviconUrl;
-  options.onReady?.(capabilities, undefined, initialTitle, initialFaviconUrl);
+  options.onReady?.(capabilities, undefined, initialTitle, initialFaviconUrl, win.location.href);
   bridge.ready(capabilities, initialTitle, initialFaviconUrl);
 
   return {

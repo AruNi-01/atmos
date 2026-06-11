@@ -1526,6 +1526,7 @@
       state.sessionId = sessionId;
       emit({
         type: 'atmos-preview:ready',
+        pageUrl: win.location.href,
         capabilities: getCapabilities(win),
         extensionVersion: EXTENSION_VERSION,
         pageTitle: getPageTitle(),
@@ -1700,6 +1701,7 @@
         lastKnownFaviconUrl = nextFaviconUrl;
         emit({
           type: 'atmos-preview:title-changed',
+          pageUrl: win.location.href,
           pageTitle: nextTitle,
           faviconUrl: nextFaviconUrl,
         });

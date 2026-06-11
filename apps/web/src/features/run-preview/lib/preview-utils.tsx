@@ -110,6 +110,31 @@ export const deriveFavoriteName = (title: string, url: string): string => {
   }
 };
 
+const ATMOS_WORKSPACE_ROUTE_PATTERN = /^\/(?:[a-z]{2}(?:-[A-Z]{2})?\/)?workspace(?:\/|$)/;
+const ATMOS_TITLE_SUFFIX_PATTERN = /\s+[–-]\s+ATMOS$/;
+
+export const normalizePreviewPageTitle = (title: string, pageUrl: string): string => {
+  const trimmedTitle = title.trim();
+  if (!trimmedTitle) return "";
+
+  try {
+    const parsedUrl = new URL(pageUrl);
+    if (!ATMOS_WORKSPACE_ROUTE_PATTERN.test(parsedUrl.pathname)) {
+      return trimmedTitle;
+    }
+  } catch {
+    return trimmedTitle;
+  }
+
+  const [workspaceLabel, ...titleParts] = trimmedTitle.split(" · ");
+  const remainingTitle = titleParts.join(" · ").trim();
+  if (!workspaceLabel?.includes("/") || !remainingTitle || !ATMOS_TITLE_SUFFIX_PATTERN.test(remainingTitle)) {
+    return trimmedTitle;
+  }
+
+  return remainingTitle;
+};
+
 export const splitDisplayUrl = (value: string): { protocol: string; address: string } => {
   const normalized = normalizeUrl(value);
   if (!normalized) {
