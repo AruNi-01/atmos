@@ -45,7 +45,7 @@ function AgentGlyph({
 }
 
 type SharedProps = {
-  options: TerminalAgentSelectorOption[];
+  options: readonly TerminalAgentSelectorOption[];
   value: string;
   onValueChange: (value: string) => void;
   purpose?: "interactive" | "automation";
@@ -66,7 +66,8 @@ type FieldProps = SharedProps & {
   helperText?: React.ReactNode;
   showRunConfig?: boolean;
   runConfig: TerminalAgentRunConfigInput | null | undefined;
-  onRunConfigChange: (value: TerminalAgentRunConfigInput | null) => void;
+  runConfigByAgentId?: Record<string, TerminalAgentRunConfigInput | null | undefined>;
+  onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
 };
 
 type MenuProps = SharedProps & {
@@ -74,7 +75,8 @@ type MenuProps = SharedProps & {
   trigger: React.ReactNode;
   disabled?: boolean;
   runConfig: TerminalAgentRunConfigInput | null | undefined;
-  onRunConfigChange: (value: TerminalAgentRunConfigInput | null) => void;
+  runConfigByAgentId?: Record<string, TerminalAgentRunConfigInput | null | undefined>;
+  onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
   menuHeader?: React.ReactNode;
   menuFooter?: React.ReactNode;
   contentClassName?: string;
@@ -114,7 +116,7 @@ export function TerminalAgentSelectorWithRunConfig(
   }, [open]);
 
   const savedRunConfigs = React.useMemo(
-    () => readSavedRunConfigs(settings?.function_settings?.code_agent_cli?.saved_run_configs),
+    () => readSavedRunConfigs(settings?.agent_cli?.saved_run_configs),
     [settings],
   );
 
@@ -126,7 +128,10 @@ export function TerminalAgentSelectorWithRunConfig(
       if (props.variant === "floating") {
         return props.runConfigByAgentId[agentId] ?? null;
       }
-      return props.runConfig ?? null;
+      if (props.runConfigByAgentId) {
+        return props.runConfigByAgentId[agentId] ?? null;
+      }
+      return agentId === props.value ? (props.runConfig ?? null) : null;
     },
     [props],
   );
@@ -134,11 +139,7 @@ export function TerminalAgentSelectorWithRunConfig(
   const handleApply = React.useCallback(
     (value: TerminalAgentRunConfigInput | null) => {
       if (!configuringAgentId) return;
-      if (props.variant === "floating") {
-        props.onRunConfigChange(configuringAgentId, value);
-      } else {
-        props.onRunConfigChange(value);
-      }
+      props.onRunConfigChange(configuringAgentId, value);
       setView("agent_list");
       setConfiguringAgentId(null);
     },

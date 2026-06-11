@@ -90,7 +90,8 @@ interface AgentSelectProps {
   helperText?: React.ReactNode;
   enableRunConfig?: boolean;
   runConfig?: TerminalAgentRunConfigInput | null;
-  onRunConfigChange?: (value: TerminalAgentRunConfigInput | null) => void;
+  runConfigByAgentId?: Record<string, TerminalAgentRunConfigInput | null | undefined>;
+  onRunConfigChange?: (agentId: AgentId, value: TerminalAgentRunConfigInput | null) => void;
 }
 
 export const AgentSelect: React.FC<AgentSelectProps> = ({
@@ -100,6 +101,7 @@ export const AgentSelect: React.FC<AgentSelectProps> = ({
   helperText = "Prefer models with strong text editing capabilities (e.g. Claude, Gemini, GPT). Coding-focused models may produce lower quality wiki content.",
   enableRunConfig = false,
   runConfig = null,
+  runConfigByAgentId,
   onRunConfigChange,
 }) => {
   if (enableRunConfig && onRunConfigChange) {
@@ -111,6 +113,7 @@ export const AgentSelect: React.FC<AgentSelectProps> = ({
         value={value}
         onValueChange={onValueChange}
         runConfig={runConfig}
+        runConfigByAgentId={runConfigByAgentId}
         onRunConfigChange={onRunConfigChange}
         helperText={helperText}
         purpose="interactive"

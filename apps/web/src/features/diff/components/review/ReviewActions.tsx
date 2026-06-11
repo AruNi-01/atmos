@@ -50,6 +50,7 @@ export const ReviewActions: React.FC = () => {
     isCreating,
     isCreatingAgentRun,
     terminalAgentId,
+    terminalAgentRunConfigs,
     terminalAgentRunConfig,
     setTerminalAgentId,
     setTerminalAgentRunConfig,
@@ -491,8 +492,12 @@ export const ReviewActions: React.FC = () => {
           activeRun={activeFixRun}
           agentId={terminalAgentId}
           runConfig={terminalAgentRunConfig}
+          runConfigByAgentId={terminalAgentRunConfigs}
           onAgentChange={setTerminalAgentId}
-          onRunConfigChange={(nextValue) => setTerminalAgentRunConfig(terminalAgentId, nextValue)}
+          onRunConfigChange={(nextAgentId, nextValue) => {
+            setTerminalAgentRunConfig(nextAgentId, nextValue);
+            setTerminalAgentId(nextAgentId);
+          }}
           onFix={(agentId, runConfig) => handleRunAgentInTerminal(undefined, agentId, runConfig)}
           onCopyPrompt={() => handleCopyAgentPrompt()}
           onMarkFailed={(run) => handleMarkAgentRunFailed(run)}

@@ -298,11 +298,13 @@ export const WikiSpecifyDialog: React.FC<WikiSpecifyDialogProps> = ({
               onValueChange={setAgentId}
               enableRunConfig
               runConfig={currentAgentRunConfig}
-              onRunConfigChange={(nextValue) => {
+              runConfigByAgentId={agentRunConfigs}
+              onRunConfigChange={(nextAgentId, nextValue) => {
                 setAgentRunConfigs((prev) => ({
                   ...prev,
-                  [agentId]: nextValue,
+                  [nextAgentId]: nextValue,
                 }));
+                setAgentId(nextAgentId);
               }}
             />
             <div>

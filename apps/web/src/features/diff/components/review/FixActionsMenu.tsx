@@ -20,8 +20,9 @@ interface FixActionsMenuProps {
   activeRun: ReviewAgentRunModel | null;
   agentId: AgentId;
   runConfig: TerminalAgentRunConfigInput | null;
+  runConfigByAgentId: Record<string, TerminalAgentRunConfigInput | null | undefined>;
   onAgentChange: (agentId: AgentId) => void;
-  onRunConfigChange: (value: TerminalAgentRunConfigInput | null) => void;
+  onRunConfigChange: (agentId: AgentId, value: TerminalAgentRunConfigInput | null) => void;
   onFix: (agentId: AgentId, runConfig: TerminalAgentRunConfigInput | null) => void | Promise<void>;
   onCopyPrompt: () => void | Promise<void>;
   onMarkFailed: (run: ReviewAgentRunModel) => void | Promise<void>;
@@ -43,6 +44,7 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
   activeRun,
   agentId,
   runConfig,
+  runConfigByAgentId,
   onAgentChange,
   onRunConfigChange,
   onFix,
@@ -79,6 +81,7 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
         value={agentId}
         onValueChange={onAgentChange}
         runConfig={runConfig}
+        runConfigByAgentId={runConfigByAgentId}
         onRunConfigChange={onRunConfigChange}
         purpose="interactive"
         trigger={

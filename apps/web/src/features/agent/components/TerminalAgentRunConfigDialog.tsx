@@ -160,7 +160,9 @@ export function TerminalAgentRunConfigContent({
     [capability.reasoningSupport, filteredSavedConfigs, value],
   );
 
-  const handleApply = React.useCallback(() => {
+  const buildDraftRunConfig = React.useCallback(():
+    | { config: TerminalAgentRunConfigInput | null; error: null }
+    | { config: null; error: string } => {
     try {
       const nextConfig = sanitizeRunConfig({
         model: canConfigureModel && modelEnabled ? modelValue : null,
@@ -175,12 +177,17 @@ export function TerminalAgentRunConfigContent({
       });
       const conflicts = runConfigConflicts(agentId, nextConfig);
       if (conflicts.length > 0) {
-        setError(`Remove conflicting extra args: ${conflicts.join(", ")}.`);
-        return;
+        return {
+          config: null,
+          error: `Remove conflicting extra args: ${conflicts.join(", ")}.`,
+        };
       }
-      onApply(nextConfig);
+      return { config: nextConfig, error: null };
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Invalid extra args.");
+      return {
+        config: null,
+        error: nextError instanceof Error ? nextError.message : "Invalid extra args.",
+      };
     }
   }, [
     agentId,
@@ -189,38 +196,29 @@ export function TerminalAgentRunConfigContent({
     extraArgsText,
     modelEnabled,
     modelValue,
-    onApply,
     reasoningEnabled,
     reasoningSupport.mode,
     reasoningValue,
   ]);
 
+  const handleApply = React.useCallback(() => {
+    const draft = buildDraftRunConfig();
+    if (draft.error) {
+      setError(draft.error);
+      return;
+    }
+    setError(null);
+    onApply(draft.config);
+  }, [buildDraftRunConfig, onApply]);
+
   React.useEffect(() => {
     if (!liveApply) return;
-    const nextConfig = sanitizeRunConfig({
-      model: canConfigureModel && modelEnabled ? modelValue : null,
-      reasoning:
-        canConfigureReasoning && reasoningEnabled
-          ? {
-              mode: reasoningSupport.mode as TerminalAgentReasoningMode,
-              value: reasoningValue,
-            }
-          : null,
-      extra_args: parseExtraArgsText(extraArgsText),
-    });
-    onApply(nextConfig);
-  }, [
-    canConfigureModel,
-    canConfigureReasoning,
-    extraArgsText,
-    liveApply,
-    modelEnabled,
-    modelValue,
-    onApply,
-    reasoningEnabled,
-    reasoningSupport.mode,
-    reasoningValue,
-  ]);
+    const draft = buildDraftRunConfig();
+    setError(draft.error);
+    if (!draft.error) {
+      onApply(draft.config);
+    }
+  }, [buildDraftRunConfig, liveApply, onApply]);
 
   const handleOpenCodeAgentSettings = React.useCallback(() => {
     onManageConfigs?.();

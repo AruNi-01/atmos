@@ -838,6 +838,7 @@ export function useReviewContext({
     selectedSessionGuid,
     selectedRevisionGuid,
     terminalAgentId,
+    terminalAgentRunConfigs,
     terminalAgentRunConfig,
     autoLoadedSummaryRunRef,
     // Setters
