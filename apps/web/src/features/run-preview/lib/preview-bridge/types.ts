@@ -51,13 +51,18 @@ export interface PreviewBridgeEventHandlers {
     capabilities: PreviewHelperCapability[],
     extensionVersion?: string,
     pageTitle?: string,
+    faviconUrl?: string,
   ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
-  onToolbarAction?: (action: 'copy' | 'add', note?: string) => void;
+  onToolbarAction?: (
+    action: 'copy' | 'add' | 'update' | 'delete',
+    note?: string,
+    annotationId?: string,
+  ) => void;
   onCleared?: () => void;
   onError?: (message: string) => void;
-  onNavigationChanged?: (url: string, pageTitle?: string) => void;
-  onTitleChanged?: (pageTitle: string) => void;
+  onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
+  onTitleChanged?: (pageTitle: string, faviconUrl?: string) => void;
   onCursorChange?: (cursor: string) => void;
 }
 

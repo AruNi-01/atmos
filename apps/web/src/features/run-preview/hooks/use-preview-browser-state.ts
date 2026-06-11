@@ -37,6 +37,7 @@ function createBrowserTab(
     url: normalizedUrl,
     activeUrl: normalizedUrl,
     title: "",
+    faviconUrl: "",
     lastAccessedAt,
   };
 }
@@ -111,6 +112,7 @@ function normalizeBrowserContext(
             url: tab.url,
             activeUrl: tab.activeUrl,
             title: typeof tab.title === "string" ? tab.title : "",
+            faviconUrl: typeof tab.faviconUrl === "string" ? tab.faviconUrl : "",
             lastAccessedAt: getFiniteAccessedAt(
               tab.lastAccessedAt,
               now - (sourceTabs.length - index),
@@ -240,6 +242,7 @@ export function usePreviewBrowserState({
                 url: nextUrl,
                 activeUrl: nextUrl,
                 title: "",
+                faviconUrl: "",
                 lastAccessedAt: Date.now(),
               }
             : tab,
@@ -296,11 +299,13 @@ export function usePreviewBrowserState({
         const shouldClearTitle =
           previousUrl && nextCanonicalUrl && previousUrl !== nextCanonicalUrl;
         const nextTitle = shouldClearTitle ? "" : tab.title;
+        const nextFaviconUrl = shouldClearTitle ? "" : tab.faviconUrl;
 
         if (
           tab.url === nextUrl &&
           tab.activeUrl === nextUrl &&
-          tab.title === nextTitle
+          tab.title === nextTitle &&
+          tab.faviconUrl === nextFaviconUrl
         ) {
           return tab;
         }
@@ -310,6 +315,7 @@ export function usePreviewBrowserState({
           url: nextUrl,
           activeUrl: nextUrl,
           title: nextTitle,
+          faviconUrl: nextFaviconUrl,
           lastAccessedAt: now,
         };
       });
@@ -328,6 +334,23 @@ export function usePreviewBrowserState({
           : {
               ...tab,
               title: trimmedTitle,
+            },
+      );
+    },
+    [updateBrowserTab],
+  );
+
+  const handlePreviewIconChange = useCallback(
+    (tabId: string, faviconUrl: string) => {
+      const trimmedFaviconUrl = faviconUrl.trim();
+      if (!trimmedFaviconUrl) return;
+
+      updateBrowserTab(tabId, (tab) =>
+        tab.faviconUrl === trimmedFaviconUrl
+          ? tab
+          : {
+              ...tab,
+              faviconUrl: trimmedFaviconUrl,
             },
       );
     },
@@ -386,6 +409,7 @@ export function usePreviewBrowserState({
     handleAddBrowserTab,
     handleCloseBrowserTab,
     handlePreviewTitleChange,
+    handlePreviewIconChange,
     handleSelectBrowserTab,
     previewTabsToRender,
     setBrowserTabActivePreviewUrl,

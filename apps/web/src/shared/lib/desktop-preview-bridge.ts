@@ -7,7 +7,9 @@ interface PreviewBridgeEventPayload {
   sessionId: string;
   pageUrl: string;
   pageTitle?: string;
-  action?: 'copy' | 'add';
+  faviconUrl?: string;
+  action?: 'copy' | 'add' | 'update' | 'delete';
+  annotationId?: string;
   note?: string;
   capabilities?: string[];
   rect?: {

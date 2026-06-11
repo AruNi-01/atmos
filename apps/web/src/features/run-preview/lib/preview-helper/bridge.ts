@@ -13,13 +13,14 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
   };
 
   return {
-    ready(capabilities: PreviewHelperCapability[], pageTitle?: string) {
+    ready(capabilities: PreviewHelperCapability[], pageTitle?: string, faviconUrl?: string) {
       post({
         type: 'atmos-preview:ready',
         sessionId: options.sessionId,
         pageUrl: options.pageUrl,
         capabilities,
         pageTitle,
+        faviconUrl,
       });
     },
     hover(rect: PreviewHelperPayload['rect']) {
@@ -52,20 +53,22 @@ export function createPreviewHelperBridge(win: Window, options: PreviewBridgeOpt
         error,
       });
     },
-    navigationChanged(pageUrl: string, pageTitle?: string) {
+    navigationChanged(pageUrl: string, pageTitle?: string, faviconUrl?: string) {
       post({
         type: 'atmos-preview:navigation-changed',
         sessionId: options.sessionId,
         pageUrl,
         pageTitle,
+        faviconUrl,
       });
     },
-    titleChanged(pageTitle: string) {
+    titleChanged(pageTitle: string, faviconUrl?: string) {
       post({
         type: 'atmos-preview:title-changed',
         sessionId: options.sessionId,
         pageUrl: win.location.href,
         pageTitle,
+        faviconUrl,
       });
     },
   };

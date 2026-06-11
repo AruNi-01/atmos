@@ -16,12 +16,13 @@ interface InstallPreviewHelperOptions {
     capabilities: PreviewHelperCapability[],
     extensionVersion?: string,
     pageTitle?: string,
+    faviconUrl?: string,
   ) => void;
   onSelected?: (payload: PreviewHelperPayload) => void;
   onCleared?: () => void;
   onError?: (message: string) => void;
-  onNavigationChanged?: (url: string, pageTitle?: string) => void;
-  onTitleChanged?: (pageTitle: string) => void;
+  onNavigationChanged?: (url: string, pageTitle?: string, faviconUrl?: string) => void;
+  onTitleChanged?: (pageTitle: string, faviconUrl?: string) => void;
 }
 
 export interface PreviewHelperController {
@@ -48,6 +49,31 @@ function isIgnoredElement(element: Element): boolean {
 
 function getPageTitle(win: Window): string {
   return win.document.title?.trim() ?? '';
+}
+
+function getPageFaviconUrl(win: Window): string {
+  const selectors = [
+    'link[rel~="icon"][href]',
+    'link[rel="shortcut icon"][href]',
+    'link[rel="apple-touch-icon"][href]',
+    'link[rel="apple-touch-icon-precomposed"][href]',
+  ];
+
+  for (const selector of selectors) {
+    const href = win.document.querySelector<HTMLLinkElement>(selector)?.href;
+    if (!href) continue;
+    try {
+      return new URL(href, win.location.href).href;
+    } catch {
+      return href;
+    }
+  }
+
+  try {
+    return new URL('/favicon.ico', win.location.origin).href;
+  } catch {
+    return '';
+  }
 }
 
 export function installPreviewHelper(
@@ -168,11 +194,13 @@ export function installPreviewHelper(
 
   let lastKnownPath = win.location.pathname + win.location.hash;
   let lastKnownTitle = getPageTitle(win);
+  let lastKnownFaviconUrl = getPageFaviconUrl(win);
   const originalPushState = win.history.pushState.bind(win.history);
   const originalReplaceState = win.history.replaceState.bind(win.history);
   const emitTitleChange = (pageTitle: string) => {
-    options.onTitleChanged?.(pageTitle);
-    bridge.titleChanged(pageTitle);
+    const faviconUrl = getPageFaviconUrl(win);
+    options.onTitleChanged?.(pageTitle, faviconUrl);
+    bridge.titleChanged(pageTitle, faviconUrl);
   };
 
   const checkUrlChange = () => {
@@ -181,9 +209,11 @@ export function installPreviewHelper(
       lastKnownPath = currentPath;
       const currentUrl = win.location.href;
       const currentTitle = getPageTitle(win);
+      const currentFaviconUrl = getPageFaviconUrl(win);
       lastKnownTitle = currentTitle;
-      options.onNavigationChanged?.(currentUrl, currentTitle);
-      bridge.navigationChanged(currentUrl, currentTitle);
+      lastKnownFaviconUrl = currentFaviconUrl;
+      options.onNavigationChanged?.(currentUrl, currentTitle, currentFaviconUrl);
+      bridge.navigationChanged(currentUrl, currentTitle, currentFaviconUrl);
     }
   };
 
@@ -193,9 +223,11 @@ export function installPreviewHelper(
   const titleObserver =
     titleObserverTarget && typeof MutationObserver === 'function'
       ? new MutationObserver(() => {
-          const nextTitle = getPageTitle(win);
-          if (nextTitle === lastKnownTitle) return;
+        const nextTitle = getPageTitle(win);
+          const nextFaviconUrl = getPageFaviconUrl(win);
+          if (nextTitle === lastKnownTitle && nextFaviconUrl === lastKnownFaviconUrl) return;
           lastKnownTitle = nextTitle;
+          lastKnownFaviconUrl = nextFaviconUrl;
           emitTitleChange(nextTitle);
         })
       : null;
@@ -220,9 +252,11 @@ export function installPreviewHelper(
     ...getAvailableSourceLocatorCapabilities(win) as PreviewHelperCapability[],
   ];
   const initialTitle = getPageTitle(win);
+  const initialFaviconUrl = getPageFaviconUrl(win);
   lastKnownTitle = initialTitle;
-  options.onReady?.(capabilities, undefined, initialTitle);
-  bridge.ready(capabilities, initialTitle);
+  lastKnownFaviconUrl = initialFaviconUrl;
+  options.onReady?.(capabilities, undefined, initialTitle, initialFaviconUrl);
+  bridge.ready(capabilities, initialTitle, initialFaviconUrl);
 
   return {
     enterPickMode() {

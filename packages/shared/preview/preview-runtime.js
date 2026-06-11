@@ -8,14 +8,16 @@
 
   function createPreviewPickerCursor(color) {
     var svg = [
-      '<svg xmlns="http://www.w3.org/2000/svg" width="25" height="27" viewBox="0 0 50 54" fill="none">',
+      '<svg xmlns="http://www.w3.org/2000/svg" width="37" height="37" viewBox="-5 -8 74 74" fill="none">',
+      '<g transform="translate(7 1) rotate(-45 25 27)">',
       '<g filter="url(#atmos_picker_cursor_shadow)">',
       '<path d="M42.6817 41.1495L27.5103 6.79925C26.7269 5.02557 24.2082 5.02558 23.3927 6.79925L7.59814 41.1495C6.75833 42.9759 8.52712 44.8902 10.4125 44.1954L24.3757 39.0496C24.8829 38.8627 25.4385 38.8627 25.9422 39.0496L39.8121 44.1954C41.6849 44.8902 43.4884 42.9759 42.6817 41.1495Z" fill="' + color + '"/>',
+      '</g>',
       '</g>',
       '<defs><filter id="atmos_picker_cursor_shadow" x="0.602397" y="0.952444" width="49.0584" height="52.428" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/><feOffset dy="2.25825"/><feGaussianBlur stdDeviation="2.25825"/><feComposite in2="hardAlpha" operator="out"/><feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.08 0"/><feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/><feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/></filter></defs>',
       '</svg>',
     ].join('');
-    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 13 14, auto';
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 11 11, auto';
   }
 
   function truncateText(value, limit) {
@@ -261,7 +263,7 @@
       button.style.padding = '0 15px';
       button.style.borderRadius = '12px';
       button.style.fontWeight = '600';
-      button.style.minWidth = label === 'Cancel' ? '88px' : label === 'Add' ? '96px' : '152px';
+      button.style.minWidth = label === 'Cancel' ? '88px' : label === 'Add' || label === 'Copy' || label === 'Update' ? '96px' : '152px';
       if (variant === 'primary') {
         button.style.background = '#f4f4f6';
         button.style.color = '#1f1f24';
@@ -306,6 +308,8 @@
     detailsCard.addEventListener('dblclick', stopPropagation);
 
     const addIconPath = '<path d="M5 12h14"></path><path d="M12 5v14"></path>';
+    const copyIconPath = '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>';
+    const annotationIconPath = '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path><path d="M8 12h8"></path><path d="M12 8v8"></path>';
 
     const sourceSummary = doc.createElement('div');
     sourceSummary.style.color = '#b9b9c2';
@@ -346,20 +350,46 @@
     confidenceSection.style.marginBottom = '18px';
     detailsCard.appendChild(confidenceSection);
 
-    const confidenceHeader = doc.createElement('div');
+    const confidenceHeader = doc.createElement('button');
+    confidenceHeader.type = 'button';
+    confidenceHeader.dataset.atmosPreviewOverlay = 'true';
+    confidenceHeader.setAttribute('aria-expanded', 'false');
     confidenceHeader.style.display = 'flex';
     confidenceHeader.style.alignItems = 'center';
     confidenceHeader.style.justifyContent = 'space-between';
     confidenceHeader.style.gap = '12px';
-    confidenceHeader.style.marginBottom = '10px';
+    confidenceHeader.style.width = '100%';
+    confidenceHeader.style.margin = '0';
+    confidenceHeader.style.padding = '0';
+    confidenceHeader.style.border = '0';
+    confidenceHeader.style.background = 'transparent';
+    confidenceHeader.style.cursor = 'pointer';
+    confidenceHeader.style.fontFamily = 'ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif';
+    confidenceHeader.style.textAlign = 'left';
     confidenceSection.appendChild(confidenceHeader);
+
+    const confidenceTitleGroup = doc.createElement('span');
+    confidenceTitleGroup.style.display = 'inline-flex';
+    confidenceTitleGroup.style.alignItems = 'center';
+    confidenceTitleGroup.style.gap = '6px';
+    confidenceTitleGroup.style.minWidth = '0';
+    confidenceHeader.appendChild(confidenceTitleGroup);
+
+    const confidenceChevron = createSvgIcon('<path d="m6 9 6 6 6-6"></path>', 16);
+    confidenceChevron.style.color = '#8e8e98';
+    confidenceChevron.style.flex = '0 0 auto';
+    confidenceChevron.style.transition = 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)';
+    confidenceTitleGroup.appendChild(confidenceChevron);
 
     const confidenceTitle = doc.createElement('div');
     confidenceTitle.textContent = 'Source Code Confidence';
     confidenceTitle.style.color = '#b9b9c2';
     confidenceTitle.style.fontSize = '12px';
     confidenceTitle.style.fontWeight = '600';
-    confidenceHeader.appendChild(confidenceTitle);
+    confidenceTitle.style.whiteSpace = 'nowrap';
+    confidenceTitle.style.overflow = 'hidden';
+    confidenceTitle.style.textOverflow = 'ellipsis';
+    confidenceTitleGroup.appendChild(confidenceTitle);
 
     const confidenceBadge = doc.createElement('span');
     confidenceBadge.style.display = 'inline-flex';
@@ -374,7 +404,19 @@
     confidenceBadge.style.letterSpacing = '0.12em';
     confidenceHeader.appendChild(confidenceBadge);
 
+    const confidenceSignalsWrap = doc.createElement('div');
+    confidenceSignalsWrap.style.display = 'grid';
+    confidenceSignalsWrap.style.gridTemplateRows = '0fr';
+    confidenceSignalsWrap.style.transition = 'grid-template-rows 200ms cubic-bezier(0.22, 1, 0.36, 1)';
+    confidenceSection.appendChild(confidenceSignalsWrap);
+
+    const confidenceSignalsInner = doc.createElement('div');
+    confidenceSignalsInner.style.minHeight = '0';
+    confidenceSignalsInner.style.overflow = 'hidden';
+    confidenceSignalsWrap.appendChild(confidenceSignalsInner);
+
     const confidenceSignals = doc.createElement('div');
+    confidenceSignals.style.marginTop = '10px';
     confidenceSignals.style.borderRadius = '12px';
     confidenceSignals.style.border = '1px solid rgba(255, 255, 255, 0.1)';
     confidenceSignals.style.background = 'rgba(35, 35, 41, 0.85)';
@@ -382,7 +424,10 @@
     confidenceSignals.style.color = '#b9b9c2';
     confidenceSignals.style.fontSize = '12px';
     confidenceSignals.style.lineHeight = '1.45';
-    confidenceSection.appendChild(confidenceSignals);
+    confidenceSignals.style.opacity = '0';
+    confidenceSignals.style.transform = 'translateY(-4px)';
+    confidenceSignals.style.transition = 'opacity 200ms cubic-bezier(0.22, 1, 0.36, 1), transform 200ms cubic-bezier(0.22, 1, 0.36, 1)';
+    confidenceSignalsInner.appendChild(confidenceSignals);
 
     const footer = doc.createElement('div');
     footer.style.display = 'flex';
@@ -391,13 +436,29 @@
     footer.style.gap = '12px';
     detailsCard.appendChild(footer);
 
+    const footerActions = doc.createElement('div');
+    footerActions.style.display = 'flex';
+    footerActions.style.alignItems = 'center';
+    footerActions.style.justifyContent = 'flex-end';
+    footerActions.style.gap = '10px';
+
     const footerCancelButton = createFooterButton('Cancel', 'ghost');
-    const footerCopyButton = createFooterButton('Add', 'primary', addIconPath);
+    const footerAddButton = createFooterButton('Add', 'primary', addIconPath);
+    const footerCopyButton = createFooterButton('Copy', 'primary', copyIconPath);
+    const footerUpdateButton = createFooterButton('Update', 'primary');
     footer.appendChild(footerCancelButton);
-    footer.appendChild(footerCopyButton);
+    footer.appendChild(footerActions);
+    footerActions.appendChild(footerAddButton);
+    footerActions.appendChild(footerCopyButton);
+    footerActions.appendChild(footerUpdateButton);
+    footerUpdateButton.style.display = 'none';
 
     let currentMeta = null;
     let currentRect = null;
+    let confidenceExpanded = false;
+    let currentEditingAnnotation = null;
+    let nextAnnotationIndex = 1;
+    const annotations = [];
     let cancelHandler = null;
     let copyHandler = null;
 
@@ -415,6 +476,248 @@
         confidenceBadge.style.background = 'rgba(121, 44, 44, 0.26)';
         confidenceBadge.style.border = '1px solid rgba(241, 139, 139, 0.34)';
       }
+    }
+
+    function syncConfidenceDisclosure() {
+      confidenceHeader.setAttribute('aria-expanded', confidenceExpanded ? 'true' : 'false');
+      confidenceChevron.style.transform = confidenceExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+      confidenceSignalsWrap.style.gridTemplateRows = confidenceExpanded ? '1fr' : '0fr';
+      confidenceSignals.style.opacity = confidenceExpanded ? '1' : '0';
+      confidenceSignals.style.transform = confidenceExpanded ? 'translateY(0)' : 'translateY(-4px)';
+    }
+
+    confidenceHeader.addEventListener('mousedown', function (event) {
+      event.stopPropagation();
+    });
+    confidenceHeader.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      confidenceExpanded = !confidenceExpanded;
+      syncConfidenceDisclosure();
+    });
+
+    function createAnnotationId() {
+      return 'annotation-' + Date.now().toString(36) + '-' + (nextAnnotationIndex++);
+    }
+
+    function createAnnotationActionButton(label) {
+      const button = doc.createElement('button');
+      var isDelete = label === 'Delete';
+      button.type = 'button';
+      button.dataset.atmosPreviewOverlay = 'true';
+      button.innerHTML =
+        '<span style="display:inline-flex;width:12px;height:12px;align-items:center;justify-content:center;">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        (isDelete
+          ? '<path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path>'
+          : '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path>') +
+        '</svg></span><span>' + label + '</span>';
+      button.style.display = 'inline-flex';
+      button.style.alignItems = 'center';
+      button.style.justifyContent = 'center';
+      button.style.flex = '1 1 0';
+      button.style.gap = '4px';
+      button.style.height = '100%';
+      button.style.padding = '0';
+      button.style.border = '0';
+      button.style.borderRadius = '0';
+      button.style.background = 'transparent';
+      button.style.color = '#e5e7eb';
+      button.style.fontSize = '11px';
+      button.style.fontWeight = '700';
+      button.style.lineHeight = '1';
+      button.style.cursor = 'pointer';
+      button.style.pointerEvents = 'auto';
+      button.style.fontFamily = 'ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif';
+      button.style.transition = 'background 150ms ease, color 150ms ease';
+      button.addEventListener('mousedown', function (event) {
+        event.stopPropagation();
+        button.style.background = isDelete ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.15)';
+      });
+      button.addEventListener('mouseup', function () {
+        button.style.background = isDelete ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+      });
+      button.addEventListener('mouseenter', function () {
+        button.style.background = isDelete ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.1)';
+        button.style.color = isDelete ? '#fee2e2' : '#ffffff';
+      });
+      button.addEventListener('mouseleave', function () {
+        button.style.background = 'transparent';
+        button.style.color = '#e5e7eb';
+      });
+      return button;
+    }
+
+    function setAnnotationMarkerExpanded(annotation, expanded) {
+      var ui = annotation && annotation.ui;
+      if (!ui) return;
+      ui.marker.style.width = expanded ? '124px' : '26px';
+      ui.marker.style.background = expanded ? 'rgba(15, 23, 42, 0.96)' : 'rgba(34, 197, 94, 0.92)';
+      ui.marker.style.borderColor = expanded ? 'rgba(52, 211, 153, 0.5)' : 'rgba(255, 255, 255, 0.72)';
+      ui.marker.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.28)';
+      ui.compactIcon.style.opacity = expanded ? '0' : '1';
+      ui.compactIcon.style.transform = expanded ? 'scale(0.84)' : 'scale(1)';
+      ui.actions.style.opacity = expanded ? '1' : '0';
+      ui.actions.style.transform = expanded ? 'translateX(0)' : 'translateX(-4px)';
+      ui.actions.style.pointerEvents = expanded ? 'auto' : 'none';
+    }
+
+    function syncAnnotationOverlay(annotation) {
+      if (!annotation || !annotation.ui || !annotation.element || !doc.contains(annotation.element)) {
+        if (annotation && annotation.ui) {
+          annotation.ui.box.style.display = 'none';
+          annotation.ui.marker.style.display = 'none';
+        }
+        return;
+      }
+      var rect = getPreviewElementRect(annotation.element);
+      annotation.rect = rect;
+      var width = Math.max(2, rect.width);
+      var height = Math.max(2, rect.height);
+      annotation.ui.box.style.display = 'block';
+      annotation.ui.box.style.left = rect.x + 'px';
+      annotation.ui.box.style.top = rect.y + 'px';
+      annotation.ui.box.style.width = width + 'px';
+      annotation.ui.box.style.height = height + 'px';
+      annotation.ui.marker.style.display = 'inline-flex';
+      annotation.ui.marker.style.left = clamp(rect.x - 6, 6, Math.max(6, win.innerWidth - 124)) + 'px';
+      annotation.ui.marker.style.top = clamp(rect.y - 14, 6, Math.max(6, win.innerHeight - 28)) + 'px';
+    }
+
+    function syncAnnotationOverlays() {
+      annotations.forEach(syncAnnotationOverlay);
+    }
+
+    function updateFooterMode(mode) {
+      var isEdit = mode === 'edit';
+      footerAddButton.style.display = isEdit ? 'none' : 'inline-flex';
+      footerCopyButton.style.display = isEdit ? 'none' : 'inline-flex';
+      footerUpdateButton.style.display = isEdit ? 'inline-flex' : 'none';
+    }
+
+    function beginEditAnnotation(annotation, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (!annotation) return;
+      currentEditingAnnotation = annotation;
+      currentMeta = annotation.meta || {};
+      noteInput.value = annotation.note || '';
+      placeToolbar(annotation.rect || getPreviewElementRect(annotation.element));
+      updateFooterMode('edit');
+      win.setTimeout(function () {
+        try { noteInput.focus(); } catch (_) {}
+      }, 0);
+    }
+
+    function removeAnnotation(annotationId, emitDelete, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      var index = annotations.findIndex(function (annotation) {
+        return annotation.id === annotationId;
+      });
+      if (index < 0) return;
+      var annotation = annotations[index];
+      annotations.splice(index, 1);
+      if (annotation.ui) {
+        annotation.ui.box.remove();
+        annotation.ui.marker.remove();
+      }
+      if (currentEditingAnnotation && currentEditingAnnotation.id === annotationId) {
+        currentEditingAnnotation = null;
+        detailsCard.style.display = 'none';
+      }
+      if (emitDelete && copyHandler) {
+        copyHandler('delete', '', event, annotationId);
+      }
+    }
+
+    function addAnnotationFromCurrent(note) {
+      var element = currentMeta && currentMeta.element;
+      if (!element || !doc.contains(element)) return null;
+      var annotation = {
+        id: createAnnotationId(),
+        element: element,
+        meta: currentMeta,
+        note: note || '',
+        rect: getPreviewElementRect(element),
+        ui: null,
+      };
+
+      const box = doc.createElement('div');
+      box.dataset.atmosPreviewOverlay = 'true';
+      box.style.position = 'fixed';
+      box.style.pointerEvents = 'none';
+      box.style.border = '2px solid #22c55e';
+      box.style.background = 'rgba(34, 197, 94, 0.08)';
+      box.style.boxShadow = '0 0 0 1px rgba(34, 197, 94, 0.18)';
+      box.style.borderRadius = '6px';
+      box.style.zIndex = '2147483644';
+      doc.documentElement.appendChild(box);
+
+      const marker = doc.createElement('div');
+      marker.dataset.atmosPreviewOverlay = 'true';
+      marker.style.position = 'fixed';
+      marker.style.display = 'inline-flex';
+      marker.style.alignItems = 'center';
+      marker.style.justifyContent = 'center';
+      marker.style.width = '26px';
+      marker.style.height = '26px';
+      marker.style.overflow = 'hidden';
+      marker.style.borderRadius = '6px';
+      marker.style.border = '1px solid rgba(255, 255, 255, 0.72)';
+      marker.style.background = 'rgba(34, 197, 94, 0.92)';
+      marker.style.color = '#ffffff';
+      marker.style.boxShadow = '0 10px 24px rgba(15, 23, 42, 0.28)';
+      marker.style.pointerEvents = 'auto';
+      marker.style.cursor = 'default';
+      marker.style.zIndex = '2147483647';
+      marker.style.transition = 'width 180ms cubic-bezier(0.22, 1, 0.36, 1), background 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 180ms ease';
+      doc.documentElement.appendChild(marker);
+
+      const compactIcon = createSvgIcon(annotationIconPath, 15);
+      compactIcon.style.transition = 'opacity 140ms ease, transform 140ms ease';
+      marker.appendChild(compactIcon);
+
+      const actions = doc.createElement('div');
+      actions.style.position = 'absolute';
+      actions.style.inset = '0';
+      actions.style.display = 'inline-flex';
+      actions.style.alignItems = 'center';
+      actions.style.justifyContent = 'center';
+      actions.style.gap = '0';
+      actions.style.opacity = '0';
+      actions.style.transform = 'translateX(-4px)';
+      actions.style.pointerEvents = 'none';
+      actions.style.transition = 'opacity 140ms ease, transform 140ms ease';
+      marker.appendChild(actions);
+
+      const editButton = createAnnotationActionButton('Edit');
+      const deleteButton = createAnnotationActionButton('Delete');
+      actions.appendChild(editButton);
+      actions.appendChild(deleteButton);
+
+      annotation.ui = { box: box, marker: marker, compactIcon: compactIcon, actions: actions };
+      annotations.push(annotation);
+      syncAnnotationOverlay(annotation);
+
+      marker.addEventListener('mouseenter', function () {
+        setAnnotationMarkerExpanded(annotation, true);
+      });
+      marker.addEventListener('mouseleave', function () {
+        setAnnotationMarkerExpanded(annotation, false);
+      });
+      editButton.addEventListener('click', function (event) {
+        beginEditAnnotation(annotation, event);
+      });
+      deleteButton.addEventListener('click', function (event) {
+        removeAnnotation(annotation.id, true, event);
+      });
+
+      return annotation;
     }
 
     function renderSelectionMeta() {
@@ -440,11 +743,15 @@
 
       if (confidence || signals.length > 0) {
         confidenceSection.style.display = 'block';
+        confidenceExpanded = false;
+        syncConfidenceDisclosure();
         confidenceBadge.textContent = (confidence || 'low').toUpperCase();
         applyConfidence(confidence || 'low');
         confidenceSignals.textContent = signals.length > 0 ? signals.join(', ') : 'No extra debug signals';
       } else {
         confidenceSection.style.display = 'none';
+        confidenceExpanded = false;
+        syncConfidenceDisclosure();
       }
     }
 
@@ -484,34 +791,62 @@
         event.preventDefault();
         event.stopPropagation();
       }
+      if (currentEditingAnnotation) {
+        currentEditingAnnotation = null;
+        detailsCard.style.display = 'none';
+        updateFooterMode('select');
+        return;
+      }
       if (cancelHandler) {
         cancelHandler(event);
       }
     }
 
-    function copyWithNoteFromEvent(event) {
+    function toolbarActionFromEvent(action, event) {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
+      var annotationId = null;
+      if (action === 'add') {
+        var annotation = addAnnotationFromCurrent((noteInput.value || '').trim());
+        if (!annotation) return;
+        annotationId = annotation.id;
+        detailsCard.style.display = 'none';
+      } else if (action === 'update') {
+        if (!currentEditingAnnotation) return;
+        currentEditingAnnotation.note = (noteInput.value || '').trim();
+        annotationId = currentEditingAnnotation.id;
+        currentEditingAnnotation = null;
+        detailsCard.style.display = 'none';
+        updateFooterMode('select');
+      }
       if (copyHandler) {
-        copyHandler((noteInput.value || '').trim(), event);
+        copyHandler(action, (noteInput.value || '').trim(), event, annotationId);
       }
     }
 
     function handleOverlayButtonPointerDown(event) {
       if (eventTargetInside(event, footerCancelButton)) {
         cancelFromEvent(event);
+      } else if (eventTargetInside(event, footerAddButton)) {
+        toolbarActionFromEvent('add', event);
       } else if (eventTargetInside(event, footerCopyButton)) {
-        copyWithNoteFromEvent(event);
+        toolbarActionFromEvent('copy', event);
+      } else if (eventTargetInside(event, footerUpdateButton)) {
+        toolbarActionFromEvent('update', event);
       }
     }
 
     function handleOverlayButtonClick(event) {
       if (eventTargetInside(event, footerCancelButton)) {
         cancelFromEvent(event);
+      } else if (eventTargetInside(event, footerAddButton)) {
+        toolbarActionFromEvent('add', event);
       } else if (eventTargetInside(event, footerCopyButton)) {
-        copyWithNoteFromEvent(event);
+        toolbarActionFromEvent('copy', event);
+      } else if (eventTargetInside(event, footerUpdateButton)) {
+        toolbarActionFromEvent('update', event);
       }
     }
 
@@ -519,7 +854,17 @@
     win.addEventListener('click', handleOverlayButtonClick, true);
 
     footerCancelButton.addEventListener('click', cancelFromEvent);
-    footerCopyButton.addEventListener('click', copyWithNoteFromEvent);
+    footerAddButton.addEventListener('click', function (event) {
+      toolbarActionFromEvent('add', event);
+    });
+    footerCopyButton.addEventListener('click', function (event) {
+      toolbarActionFromEvent('copy', event);
+    });
+    footerUpdateButton.addEventListener('click', function (event) {
+      toolbarActionFromEvent('update', event);
+    });
+    win.addEventListener('scroll', syncAnnotationOverlays, true);
+    win.addEventListener('resize', syncAnnotationOverlays, true);
 
     function place(box, label, rect, text) {
       var thickness = 2;
@@ -588,6 +933,8 @@
       lock(rect, label, meta) {
         if (meta) {
           currentMeta = meta;
+          currentEditingAnnotation = null;
+          updateFooterMode('select');
         }
         place(lockedBox, lockedLabel, rect, label);
         // Always show the input card directly on selection.
@@ -615,9 +962,18 @@
       destroy() {
         cursorStyle.remove();
         win.__ATMOS_PREVIEW_PICK_CURSOR__ = '';
+        win.removeEventListener('scroll', syncAnnotationOverlays, true);
+        win.removeEventListener('resize', syncAnnotationOverlays, true);
         win.removeEventListener('pointerdown', handleOverlayButtonPointerDown, true);
         win.removeEventListener('click', handleOverlayButtonClick, true);
         detailsCard.remove();
+        annotations.forEach(function (annotation) {
+          if (annotation.ui) {
+            annotation.ui.box.remove();
+            annotation.ui.marker.remove();
+          }
+        });
+        annotations.length = 0;
         hoverBox.segments.forEach(function (segment) { segment.remove(); });
         lockedBox.segments.forEach(function (segment) { segment.remove(); });
         hoverLabel.remove();
@@ -1133,6 +1489,30 @@
       return (doc.title || '').trim();
     }
 
+    function getPageFaviconUrl() {
+      var selectors = [
+        'link[rel~="icon"][href]',
+        'link[rel="shortcut icon"][href]',
+        'link[rel="apple-touch-icon"][href]',
+        'link[rel="apple-touch-icon-precomposed"][href]',
+      ];
+      for (var i = 0; i < selectors.length; i += 1) {
+        var node = doc.querySelector(selectors[i]);
+        var href = node && node.href;
+        if (!href) continue;
+        try {
+          return new URL(href, win.location.href).href;
+        } catch (_) {
+          return href;
+        }
+      }
+      try {
+        return new URL('/favicon.ico', win.location.origin).href;
+      } catch (_) {
+        return '';
+      }
+    }
+
     function isIgnoredElement(element) {
       if (!element || !element.closest) return true;
       if (element.closest('[data-atmos-preview-overlay="true"]')) return true;
@@ -1149,6 +1529,7 @@
         capabilities: getCapabilities(win),
         extensionVersion: EXTENSION_VERSION,
         pageTitle: getPageTitle(),
+        faviconUrl: getPageFaviconUrl(),
       });
     }
 
@@ -1176,6 +1557,7 @@
         rect,
         (sourceLocation && sourceLocation.componentName) || buildElementSelector(element),
         {
+          element: element,
           pageUrl: win.location.href,
           sourceLocation: sourceLocation,
           label: buildElementSelector(element),
@@ -1267,21 +1649,23 @@
       }
       clearSelection(true);
     });
-    overlay.onCopy(function (note, event) {
+    overlay.onCopy(function (action, note, event, annotationId) {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
-      if (!state.locked) return;
+      if ((action === 'copy' || action === 'add') && !state.locked) return;
       emit({
         type: 'atmos-preview:toolbar-action',
-        action: 'add',
+        action: action === 'copy' || action === 'update' || action === 'delete' ? action : 'add',
+        annotationId: annotationId || undefined,
         note: note || undefined,
       });
     });
 
     var lastKnownPath = win.location.pathname + win.location.hash;
     var lastKnownTitle = getPageTitle();
+    var lastKnownFaviconUrl = getPageFaviconUrl();
     var originalPushState = win.history.pushState.bind(win.history);
     var originalReplaceState = win.history.replaceState.bind(win.history);
     var titleObserverTarget = doc.head || doc.documentElement;
@@ -1293,11 +1677,14 @@
         lastKnownPath = currentPath;
         var currentUrl = win.location.href;
         var currentTitle = getPageTitle();
+        var currentFaviconUrl = getPageFaviconUrl();
         lastKnownTitle = currentTitle;
+        lastKnownFaviconUrl = currentFaviconUrl;
         emit({
           type: 'atmos-preview:navigation-changed',
           pageUrl: currentUrl,
           pageTitle: currentTitle,
+          faviconUrl: currentFaviconUrl,
         });
       }
     }
@@ -1307,11 +1694,14 @@
     if (titleObserverTarget && typeof win.MutationObserver === 'function') {
       titleObserver = new win.MutationObserver(function () {
         var nextTitle = getPageTitle();
-        if (nextTitle === lastKnownTitle) return;
+        var nextFaviconUrl = getPageFaviconUrl();
+        if (nextTitle === lastKnownTitle && nextFaviconUrl === lastKnownFaviconUrl) return;
         lastKnownTitle = nextTitle;
+        lastKnownFaviconUrl = nextFaviconUrl;
         emit({
           type: 'atmos-preview:title-changed',
           pageTitle: nextTitle,
+          faviconUrl: nextFaviconUrl,
         });
       });
       titleObserver.observe(titleObserverTarget, {
@@ -1341,6 +1731,7 @@
           capabilities: getCapabilities(win),
           extensionVersion: EXTENSION_VERSION,
           pageTitle: getPageTitle(),
+          faviconUrl: getPageFaviconUrl(),
         });
       },
       clearSelection: clearSelection,

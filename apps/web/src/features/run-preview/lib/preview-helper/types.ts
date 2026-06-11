@@ -39,6 +39,7 @@ export type PreviewHelperMessage =
       capabilities: PreviewHelperCapability[];
       extensionVersion?: string;
       pageTitle?: string;
+      faviconUrl?: string;
     }
   | {
       type: 'atmos-preview:hover';
@@ -66,18 +67,21 @@ export type PreviewHelperMessage =
       sessionId: string;
       pageUrl: string;
       pageTitle?: string;
+      faviconUrl?: string;
     }
   | {
       type: 'atmos-preview:title-changed';
       sessionId: string;
       pageUrl: string;
       pageTitle: string;
+      faviconUrl?: string;
     }
   | {
       type: 'atmos-preview:toolbar-action';
       sessionId: string;
       pageUrl: string;
-      action: 'copy' | 'add';
+      action: 'copy' | 'add' | 'update' | 'delete';
+      annotationId?: string;
       note?: string;
     }
   | {
@@ -85,4 +89,5 @@ export type PreviewHelperMessage =
       sessionId: string;
       pageUrl: string;
       pageTitle?: string;
+      faviconUrl?: string;
     };

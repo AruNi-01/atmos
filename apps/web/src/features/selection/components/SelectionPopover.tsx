@@ -45,6 +45,9 @@ interface SelectionPopoverProps {
   onCopied?: (payload: SelectionCopiedPayload) => void;
   onAttach?: (payload: SelectionAttachedPayload) => Promise<void> | void;
   onAddAnnotation?: (selectionInfo: SelectionInfo, note?: string) => void;
+  onUpdateAnnotation?: (selectionInfo: SelectionInfo, note?: string) => void;
+  annotationMode?: 'add' | 'edit';
+  initialNote?: string;
 }
 
 export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
@@ -61,16 +64,21 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   onCopied,
   onAttach,
   onAddAnnotation,
+  onUpdateAnnotation,
+  annotationMode = 'add',
+  initialNote = '',
 }) => {
   const [userNote, setUserNote] = useState('');
   const [copied, setCopied] = useState(false);
   const [attaching, setAttaching] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
+  const [isConfidenceOpen, setIsConfidenceOpen] = useState(false);
   const [lastSelectionInfo, setLastSelectionInfo] = useState<SelectionInfo | null>(null);
   const animationFrameRef = useRef<number>(0);
   const canAttach = type === 'wiki' && typeof onAttach === 'function';
   const canAddPreviewAnnotation = type === 'preview' && typeof onAddAnnotation === 'function';
+  const isEditingPreviewAnnotation = type === 'preview' && annotationMode === 'edit';
 
   // Use the prop if available (active state), otherwise use cached version (exit animation state)
   const displayInfo = selectionInfo || lastSelectionInfo;
@@ -82,8 +90,10 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   useEffect(() => {
     if (selectionInfo) {
       setLastSelectionInfo(selectionInfo);
+      setIsConfidenceOpen(false);
+      setUserNote(initialNote);
     }
-  }, [selectionInfo]);
+  }, [initialNote, selectionInfo]);
 
   useEffect(() => {
     if (isActive) {
@@ -195,6 +205,13 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     setUserNote('');
   }, [displayInfo, onAddAnnotation, userNote]);
 
+  const handleUpdateAnnotation = useCallback(() => {
+    if (!displayInfo || !onUpdateAnnotation) return;
+    onUpdateAnnotation(displayInfo, userNote);
+    setCopied(false);
+    setUserNote('');
+  }, [displayInfo, onUpdateAnnotation, userNote]);
+
   if (!shouldRender || !displayInfo) {
     return null;
   }
@@ -275,26 +292,55 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
 
       {previewDebugSignals.length > 0 || previewSourceConfidence ? (
         <div className="space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[11px] font-medium text-muted-foreground">
-              Source Code Confidence
-            </div>
-            {previewSourceConfidence ? (
-              <span
+          <button
+            type="button"
+            aria-expanded={isConfidenceOpen}
+            onClick={() => setIsConfidenceOpen((open) => !open)}
+            className="group flex w-full items-center justify-between gap-2 rounded-md py-0.5 text-left transition-colors hover:text-foreground"
+          >
+            <div className="flex min-w-0 items-center gap-1.5">
+              <ChevronDown
                 className={cn(
-                  'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]',
-                  previewConfidenceLabelClassName,
+                  'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out motion-reduce:transition-none',
+                  isConfidenceOpen && 'rotate-180',
+                )}
+              />
+              <div className="truncate text-[11px] font-medium text-muted-foreground group-hover:text-foreground">
+                Source Code Confidence
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {previewSourceConfidence ? (
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]',
+                    previewConfidenceLabelClassName,
+                  )}
+                >
+                  {previewSourceConfidence}
+                </span>
+              ) : null}
+            </div>
+          </button>
+          <div
+            className={cn(
+              'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+              isConfidenceOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+            )}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div
+                className={cn(
+                  'rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                  isConfidenceOpen ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0',
                 )}
               >
-                {previewSourceConfidence}
-              </span>
-            ) : null}
-          </div>
-          {previewDebugSignals.length > 0 ? (
-            <div className="rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
-              {previewDebugSignals.join(', ')}
+                {previewDebugSignals.length > 0
+                  ? previewDebugSignals.join(', ')
+                  : 'No extra debug signals'}
+              </div>
             </div>
-          ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -306,6 +352,16 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
         >
           Cancel
         </Button>
+        {isEditingPreviewAnnotation ? (
+          <Button
+            size="sm"
+            onClick={handleUpdateAnnotation}
+            disabled={attaching}
+          >
+            Update
+          </Button>
+        ) : (
+          <>
         {canAttach ? (
           <Button
             variant="outline"
@@ -317,17 +373,22 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
             {attaching ? 'Attaching...' : 'Attach'}
           </Button>
         ) : null}
+        {canAddPreviewAnnotation ? (
+          <Button
+            size="sm"
+            onClick={handleAddAnnotation}
+            disabled={attaching}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </Button>
+        ) : null}
         <Button
           size="sm"
-          onClick={canAddPreviewAnnotation ? handleAddAnnotation : handleCopyWithNote}
+          onClick={handleCopyWithNote}
           disabled={attaching}
         >
-          {canAddPreviewAnnotation ? (
-            <>
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </>
-          ) : copied ? (
+          {copied ? (
             <>
               <Check className="h-3.5 w-3.5" />
               Copied
@@ -335,10 +396,12 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
           ) : (
             <>
               <Copy className="h-3.5 w-3.5" />
-              Copy for AI
+              {canAddPreviewAnnotation ? 'Copy' : 'Copy for AI'}
             </>
           )}
         </Button>
+          </>
+        )}
       </div>
     </div>
   );

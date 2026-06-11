@@ -52,6 +52,7 @@ interface PreviewProps {
   projectId?: string;
   setIsMaximized?: React.Dispatch<React.SetStateAction<boolean>>;
   onPageTitleChange?: (title: string) => void;
+  onPageIconChange?: (faviconUrl: string) => void;
   browserTabBarProps?: Omit<PreviewBrowserTabBarProps, "chromeControls">;
 }
 
@@ -74,6 +75,7 @@ export const Preview: React.FC<PreviewProps> = ({
   projectId,
   setIsMaximized: controlledSetIsMaximized,
   onPageTitleChange,
+  onPageIconChange,
   browserTabBarProps,
 }) => {
   const headerHasOpenOverlay = useDialogStore(s => s.headerHasOpenOverlay);
@@ -122,6 +124,7 @@ export const Preview: React.FC<PreviewProps> = ({
   const extensionVersionRef = useRef<string | null>(null);
   const extensionConnectingRef = useRef(false);
   const onPageTitleChangeRef = useRef(onPageTitleChange);
+  const onPageIconChangeRef = useRef(onPageIconChange);
   const {
     isMaximized,
     needsDesktopPreviewSafeInset,
@@ -132,6 +135,7 @@ export const Preview: React.FC<PreviewProps> = ({
   });
   isDesktopPreviewDetachedRef.current = isDesktopPreviewDetached;
   onPageTitleChangeRef.current = onPageTitleChange;
+  onPageIconChangeRef.current = onPageIconChange;
 
   React.useEffect(() => {
     onPageTitleChangeRef.current?.(currentPageTitle);
@@ -228,10 +232,15 @@ export const Preview: React.FC<PreviewProps> = ({
   });
   const {
     dismissSelectionPopover,
+    editingAnnotationId,
     handleAddSelectionAnnotation,
     handleCopySelectionAnnotations,
+    handleDeleteSelectionAnnotation,
     handleDesktopToolbarCopy,
+    handleEditSelectionAnnotation,
     handleSelectedPayload,
+    handleUpdateSelectionAnnotation,
+    selectionAnnotations,
     selectionAnnotationCount,
     selectionInfo,
     selectionPopoverExpanded,
@@ -373,6 +382,7 @@ export const Preview: React.FC<PreviewProps> = ({
       capabilities: PreviewHelperCapability[],
       extensionVersion?: string,
       pageTitle?: string,
+      faviconUrl?: string,
     ) => {
       if (extensionVersion) {
         extensionVersionRef.current = extensionVersion;
@@ -383,6 +393,9 @@ export const Preview: React.FC<PreviewProps> = ({
       if (pageTitle !== undefined) {
         setCurrentPageTitle(pageTitle);
       }
+      if (faviconUrl !== undefined) {
+        onPageIconChangeRef.current?.(faviconUrl);
+      }
       setTransportState({
         mode,
         connected: true,
@@ -392,19 +405,27 @@ export const Preview: React.FC<PreviewProps> = ({
       if (mode === 'desktop-native') {
         setIsPreviewLoading(false);
       }
-      extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle);
+      extraHandlers?.onReady?.(capabilities, extensionVersion, pageTitle, faviconUrl);
     },
     onSelected: (payload: PreviewHelperPayload) => {
       handleSelectedPayload(mode, payload);
       extraHandlers?.onSelected?.(payload);
     },
-    onToolbarAction: (action: 'copy' | 'add', note?: string) => {
+    onToolbarAction: (
+      action: 'copy' | 'add' | 'update' | 'delete',
+      note?: string,
+      annotationId?: string,
+    ) => {
       if (mode === 'desktop-native' && action === 'copy') {
         void handleDesktopToolbarCopy(note);
       } else if (mode === 'desktop-native' && action === 'add') {
-        handleAddSelectionAnnotation(note);
+        handleAddSelectionAnnotation(note, undefined, annotationId);
+      } else if (mode === 'desktop-native' && action === 'update') {
+        handleUpdateSelectionAnnotation(annotationId, note);
+      } else if (mode === 'desktop-native' && action === 'delete') {
+        handleDeleteSelectionAnnotation(annotationId);
       }
-      extraHandlers?.onToolbarAction?.(action, note);
+      extraHandlers?.onToolbarAction?.(action, note, annotationId);
     },
     onCleared: () => {
       dismissSelectionPopover(false);
@@ -435,7 +456,7 @@ export const Preview: React.FC<PreviewProps> = ({
       }));
       extraHandlers?.onError?.(message);
     },
-    onNavigationChanged: (nextUrl: string, pageTitle?: string) => {
+    onNavigationChanged: (nextUrl: string, pageTitle?: string, faviconUrl?: string) => {
       if (mode === 'desktop-native') {
         const canonicalUrl = canonicalizeUrl(nextUrl);
         desktopPreviewUrlRef.current = canonicalUrl;
@@ -452,16 +473,22 @@ export const Preview: React.FC<PreviewProps> = ({
       if (pageTitle !== undefined) {
         setCurrentPageTitle(pageTitle);
       }
+      if (faviconUrl !== undefined) {
+        onPageIconChangeRef.current?.(faviconUrl);
+      }
       if (skipExternalHistorySyncRef.current) {
         skipExternalHistorySyncRef.current = false;
       } else {
         pushHistoryEntry(nextUrl);
       }
-      extraHandlers?.onNavigationChanged?.(nextUrl, pageTitle);
+      extraHandlers?.onNavigationChanged?.(nextUrl, pageTitle, faviconUrl);
     },
-    onTitleChanged: (pageTitle: string) => {
+    onTitleChanged: (pageTitle: string, faviconUrl?: string) => {
       setCurrentPageTitle(pageTitle);
-      extraHandlers?.onTitleChanged?.(pageTitle);
+      if (faviconUrl !== undefined) {
+        onPageIconChangeRef.current?.(faviconUrl);
+      }
+      extraHandlers?.onTitleChanged?.(pageTitle, faviconUrl);
     },
     onCursorChange: (cursor: string) => {
       const viewport = desktopViewportRef.current;
@@ -476,8 +503,10 @@ export const Preview: React.FC<PreviewProps> = ({
   }), [
     dismissSelectionPopover,
     handleAddSelectionAnnotation,
+    handleDeleteSelectionAnnotation,
     handleDesktopToolbarCopy,
     handleSelectedPayload,
+    handleUpdateSelectionAnnotation,
     pushHistoryEntry,
     setActiveUrl,
     setUrl,
@@ -953,7 +982,12 @@ export const Preview: React.FC<PreviewProps> = ({
     requestedIframeUrl,
     resolvedTransportMode,
     selectionInfo,
+    selectionAnnotations,
+    editingAnnotationId,
     onAddSelectionAnnotation: (selectionInfo, note) => handleAddSelectionAnnotation(note, selectionInfo),
+    onDeleteSelectionAnnotation: handleDeleteSelectionAnnotation,
+    onEditSelectionAnnotation: handleEditSelectionAnnotation,
+    onUpdateSelectionAnnotation: (_selectionInfo, note) => handleUpdateSelectionAnnotation(editingAnnotationId ?? undefined, note),
     selectionPopoverExpanded,
     selectionPopoverPosition,
     selectionPopoverRef,

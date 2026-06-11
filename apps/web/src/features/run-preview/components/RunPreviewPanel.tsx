@@ -41,6 +41,7 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
     browserState,
     handleAddBrowserTab,
     handleCloseBrowserTab,
+    handlePreviewIconChange,
     handlePreviewTitleChange,
     handleSelectBrowserTab,
     previewTabsToRender,
@@ -83,6 +84,9 @@ export const RunPreviewPanel: React.FC<RunPreviewPanelProps> = ({
                   projectId={projectId}
                   onPageTitleChange={(title) =>
                     handlePreviewTitleChange(tab.id, title)
+                  }
+                  onPageIconChange={(faviconUrl) =>
+                    handlePreviewIconChange(tab.id, faviconUrl)
                   }
                   browserTabBarProps={{
                     tabs: browserState.tabs,

@@ -21,7 +21,7 @@ export async function connectDesktopPreviewTransport(
   const unlisteners = await Promise.all([
     listenDesktopPreviewBridge('desktop-preview:ready', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
-      options.onReady?.((payload.capabilities as never[]) ?? [], undefined, payload.pageTitle);
+      options.onReady?.((payload.capabilities as never[]) ?? [], undefined, payload.pageTitle, payload.faviconUrl);
     }),
     listenDesktopPreviewBridge('desktop-preview:selected', (payload) => {
       if (payload.sessionId !== options.sessionId || !payload.rect || !payload.elementContext) return;
@@ -35,9 +35,14 @@ export async function connectDesktopPreviewTransport(
     listenDesktopPreviewBridge('desktop-preview:toolbar-action', (payload) => {
       if (
         payload.sessionId !== options.sessionId ||
-        (payload.action !== 'copy' && payload.action !== 'add')
+        (
+          payload.action !== 'copy' &&
+          payload.action !== 'add' &&
+          payload.action !== 'update' &&
+          payload.action !== 'delete'
+        )
       ) return;
-      options.onToolbarAction?.(payload.action, payload.note);
+      options.onToolbarAction?.(payload.action, payload.note, payload.annotationId);
     }),
     listenDesktopPreviewBridge('desktop-preview:cleared', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
@@ -49,11 +54,11 @@ export async function connectDesktopPreviewTransport(
     }),
     listenDesktopPreviewBridge('desktop-preview:navigation-changed', (payload) => {
       if (payload.sessionId !== options.sessionId) return;
-      options.onNavigationChanged?.(payload.pageUrl, payload.pageTitle);
+      options.onNavigationChanged?.(payload.pageUrl, payload.pageTitle, payload.faviconUrl);
     }),
     listenDesktopPreviewBridge('desktop-preview:title-changed', (payload) => {
       if (payload.sessionId !== options.sessionId || typeof payload.pageTitle !== 'string') return;
-      options.onTitleChanged?.(payload.pageTitle);
+      options.onTitleChanged?.(payload.pageTitle, payload.faviconUrl);
     }),
     listenDesktopPreviewBridge('desktop-preview:cursor-changed', (payload) => {
       if (payload.sessionId !== options.sessionId) return;

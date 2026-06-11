@@ -26,6 +26,12 @@ export interface SelectionInfo {
   sourceConfidence?: 'high' | 'medium' | 'low';
   sourceDebugSignals?: string[];
   transportMode?: 'same-origin' | 'extension' | 'desktop-native';
+  previewRect?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
   // Wiki-specific
   sectionTitle?: string;
   pageTitle?: string;

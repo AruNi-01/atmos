@@ -18,6 +18,7 @@ export interface PreviewBrowserTab {
   url: string;
   activeUrl: string;
   title?: string;
+  faviconUrl?: string;
   lastAccessedAt?: number;
 }
 
@@ -102,8 +103,22 @@ export function PreviewBrowserTabBar({
                   className={cn(
                     "size-3.5 shrink-0",
                     isActive ? "text-primary" : "text-muted-foreground/70",
+                    tab.faviconUrl && "hidden",
                   )}
                 />
+                {tab.faviconUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- Dynamic external favicons are tiny and may not be configured for next/image domains.
+                  <img
+                    key={tab.faviconUrl}
+                    src={tab.faviconUrl}
+                    alt=""
+                    className="size-3.5 shrink-0 rounded-[2px]"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                      event.currentTarget.previousElementSibling?.classList.remove("hidden");
+                    }}
+                  />
+                ) : null}
                 <span className="min-w-0 truncate text-[11px] font-medium">{label}</span>
               </button>
 

@@ -13,9 +13,17 @@ interface UsePreviewSelectionParams {
   transportControllerRef: MutableRefObject<PreviewBridgeController | null>;
 }
 
-interface PreviewSelectionAnnotation {
+export interface PreviewSelectionAnnotation {
+  id: string;
   info: SelectionInfo;
   note?: string;
+}
+
+function createPreviewAnnotationId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `annotation-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function cloneSelectionInfo(info: SelectionInfo): SelectionInfo {
@@ -23,6 +31,7 @@ function cloneSelectionInfo(info: SelectionInfo): SelectionInfo {
     ...info,
     componentChain: info.componentChain ? [...info.componentChain] : undefined,
     sourceDebugSignals: info.sourceDebugSignals ? [...info.sourceDebugSignals] : undefined,
+    previewRect: info.previewRect ? { ...info.previewRect } : undefined,
   };
 }
 
@@ -57,9 +66,11 @@ export function usePreviewSelection({
   const [selectionPopoverPosition, setSelectionPopoverPosition] = useState({ x: 0, y: 0 });
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null);
   const [selectionAnnotations, setSelectionAnnotations] = useState<PreviewSelectionAnnotation[]>([]);
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const selectionPopoverRef = useRef<HTMLDivElement | null>(null);
   const selectionInfoRef = useRef<SelectionInfo | null>(null);
   const selectionAnnotationsRef = useRef<PreviewSelectionAnnotation[]>([]);
+  const editingAnnotationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     selectionInfoRef.current = selectionInfo;
@@ -69,10 +80,15 @@ export function usePreviewSelection({
     selectionAnnotationsRef.current = selectionAnnotations;
   }, [selectionAnnotations]);
 
+  useEffect(() => {
+    editingAnnotationIdRef.current = editingAnnotationId;
+  }, [editingAnnotationId]);
+
   const dismissSelectionPopover = useCallback((resetPreviewSelection: boolean = true) => {
     setSelectionPopoverVisible(false);
     setSelectionPopoverExpanded(false);
     setSelectionInfo(null);
+    setEditingAnnotationId(null);
     if (resetPreviewSelection) {
       void Promise.resolve(transportControllerRef.current?.clearSelection(false));
       if (isElementPickerEnabledRef.current) {
@@ -130,8 +146,10 @@ export function usePreviewSelection({
       sourceConfidence: payload.sourceLocation?.confidence,
       sourceDebugSignals: payload.sourceLocation?.debug,
       transportMode: mode,
+      previewRect: { ...payload.rect },
     };
 
+    setEditingAnnotationId(null);
     setSelectionInfo(nextSelectionInfo);
     if (mode === 'desktop-native') {
       setSelectionPopoverVisible(false);
@@ -163,7 +181,7 @@ export function usePreviewSelection({
     }
   }, [dismissSelectionPopover]);
 
-  const handleAddSelectionAnnotation = useCallback((userNote?: string, explicitInfo?: SelectionInfo) => {
+  const handleAddSelectionAnnotation = useCallback((userNote?: string, explicitInfo?: SelectionInfo, annotationId?: string) => {
     const info = explicitInfo ?? selectionInfoRef.current;
     if (!info) return;
 
@@ -173,6 +191,7 @@ export function usePreviewSelection({
       const nextAnnotations = [
         ...previous,
         {
+          id: annotationId || createPreviewAnnotationId(),
           info: cloneSelectionInfo(info),
           note,
         },
@@ -188,6 +207,55 @@ export function usePreviewSelection({
     });
     dismissSelectionPopover();
   }, [dismissSelectionPopover]);
+
+  const handleUpdateSelectionAnnotation = useCallback((annotationId?: string, userNote?: string) => {
+    if (!annotationId) return;
+    const note = userNote?.trim() || undefined;
+    setSelectionAnnotations((previous) =>
+      previous.map((annotation) =>
+        annotation.id === annotationId
+          ? {
+              ...annotation,
+              note,
+            }
+          : annotation,
+      ),
+    );
+    toastManager.add({
+      title: 'Annotation updated',
+      description: 'Preview annotation note updated',
+      type: 'success',
+    });
+    setSelectionPopoverVisible(false);
+    setSelectionPopoverExpanded(false);
+    setSelectionInfo(null);
+    setEditingAnnotationId(null);
+  }, []);
+
+  const handleDeleteSelectionAnnotation = useCallback((annotationId?: string) => {
+    if (!annotationId) return;
+    setSelectionAnnotations((previous) => previous.filter((annotation) => annotation.id !== annotationId));
+    if (editingAnnotationIdRef.current === annotationId) {
+      setSelectionPopoverVisible(false);
+      setSelectionPopoverExpanded(false);
+      setSelectionInfo(null);
+      setEditingAnnotationId(null);
+    }
+    toastManager.add({
+      title: 'Annotation deleted',
+      description: 'Preview annotation removed',
+      type: 'success',
+    });
+  }, []);
+
+  const handleEditSelectionAnnotation = useCallback((annotation: PreviewSelectionAnnotation) => {
+    const rect = annotation.info.previewRect ?? { x: 0, y: 0, width: 0, height: 0 };
+    setEditingAnnotationId(annotation.id);
+    setSelectionInfo(annotation.info);
+    setSelectionPopoverPosition(getPopoverPositionFromRect(rect));
+    setSelectionPopoverVisible(true);
+    setSelectionPopoverExpanded(false);
+  }, [getPopoverPositionFromRect]);
 
   const handleCopySelectionAnnotations = useCallback(async () => {
     const annotations = selectionAnnotationsRef.current;
@@ -213,10 +281,15 @@ export function usePreviewSelection({
 
   return {
     dismissSelectionPopover,
+    editingAnnotationId,
     handleAddSelectionAnnotation,
+    handleDeleteSelectionAnnotation,
     handleCopySelectionAnnotations,
     handleDesktopToolbarCopy,
+    handleEditSelectionAnnotation,
     handleSelectedPayload,
+    handleUpdateSelectionAnnotation,
+    selectionAnnotations,
     selectionAnnotationCount: selectionAnnotations.length,
     selectionInfo,
     selectionPopoverExpanded,
