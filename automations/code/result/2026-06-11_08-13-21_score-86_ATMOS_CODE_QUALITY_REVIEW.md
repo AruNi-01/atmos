@@ -123,7 +123,7 @@
 
 ## 11. 结果提交与推送
 
-- 结果文件提交 hash：`待补充`
+- 结果文件提交 hash：`89f8dbc19e7813294e992555134fbe7def43afb3`
 - 推送目标分支：`origin/codex/quality-fix/2026-06-10`
 - PR URL：`https://github.com/AruNi-01/atmos/pull/125`
 - 说明：低分自动修复场景下，结果文件随修复分支进入同一个 PR。
