@@ -91,6 +91,7 @@ export function TerminalAgentRunConfigContent({
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<string>("__none__");
   const [error, setError] = React.useState<string | null>(null);
   const [automationTooltipOpen, setAutomationTooltipOpen] = React.useState(false);
+  const [hydratedAgentId, setHydratedAgentId] = React.useState<string | null>(null);
   const lastInitializedAgentIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -108,6 +109,7 @@ export function TerminalAgentRunConfigContent({
     setExtraArgsText(joinExtraArgsText(config?.extra_args));
     setSelectedTemplateId("__none__");
     setError(null);
+    setHydratedAgentId(agentId);
     lastInitializedAgentIdRef.current = agentId;
   }, [agentId, capability.reasoningSupport, liveApply, value]);
 
@@ -213,12 +215,13 @@ export function TerminalAgentRunConfigContent({
 
   React.useEffect(() => {
     if (!liveApply) return;
+    if (hydratedAgentId !== agentId) return;
     const draft = buildDraftRunConfig();
     setError(draft.error);
     if (!draft.error) {
       onApply(draft.config);
     }
-  }, [buildDraftRunConfig, liveApply, onApply]);
+  }, [agentId, buildDraftRunConfig, hydratedAgentId, liveApply, onApply]);
 
   const handleOpenCodeAgentSettings = React.useCallback(() => {
     onManageConfigs?.();
