@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { functionSettingsApi, type FunctionSettings } from '@/api/ws-api';
+import { functionSettingsApi, type FunctionSettings } from '@/api/ws/settings-api';
 
 interface FunctionSettingsStoreState {
   settings: FunctionSettings | null;

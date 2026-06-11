@@ -41,6 +41,7 @@ export const ReviewContextProvider: React.FC<ReviewContextProviderProps> = ({
     ctx.selectedSessionGuid,
     ctx.selectedRevisionGuid,
     ctx.terminalAgentId,
+    ctx.terminalAgentRunConfigs,
     ctx.terminalAgentRunConfig,
     ctx.handleCreateSession,
     ctx.setTerminalAgentRunConfig,

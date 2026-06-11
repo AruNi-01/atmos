@@ -547,7 +547,7 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
               </div>
               <div className="pt-2 border-t border-border/50 text-[10px] text-muted-foreground/80 flex items-center justify-between gap-2">
                 <span className="flex-1">
-                  Built-in skills don't fit? Click <span className="font-medium text-foreground/80">Create</span> to scaffold your own.
+                  Built-in skills do not fit? Click <span className="font-medium text-foreground/80">Create</span> to scaffold your own.
                 </span>
                 <Button
                   variant="outline"
@@ -607,11 +607,13 @@ export const CodeReviewDialog: React.FC<CodeReviewDialogProps> = ({
                 onValueChange={handleAgentChange}
                 enableRunConfig
                 runConfig={currentAgentRunConfig}
-                onRunConfigChange={(nextValue) => {
+                runConfigByAgentId={agentRunConfigs}
+                onRunConfigChange={(nextAgentId, nextValue) => {
                   setAgentRunConfigs((prev) => ({
                     ...prev,
-                    [agentId]: nextValue,
+                    [nextAgentId]: nextValue,
                   }));
+                  handleAgentChange(nextAgentId);
                 }}
                 helperText="Any installed Code Agent CLI works. Prefer a reasoning-capable model (e.g. Claude, Gemini, GPT) for deeper architectural and security findings."
               />
