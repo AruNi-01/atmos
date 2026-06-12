@@ -117,7 +117,8 @@
   - `git diff --check`：通过。
   - `rustfmt --edition 2021 --check apps/api/src/api/ws/router/project.rs`：通过。
   - `cargo fmt --check`：失败，失败文件位于 `crates/core-service/src/service/automation/*` 与 `crates/infra/src/db/migration/*`，不是本次改动文件；已用文件级 rustfmt 检查覆盖本次 Rust 修改。
-- PR URL：待创建后补充。
+- PR URL：https://github.com/AruNi-01/atmos/pull/126
+- PR label：已添加 `codex`；仓库中未找到 `codex-automation` label，已按规则跳过。
 
 ## 10. 结果文件
 
@@ -125,6 +126,8 @@
 
 ## 11. 结果提交与推送
 
-- 结果文件提交 hash：待提交后补充。
+- 结果文件初始提交 hash：`f184fdd1ae871f447239b6f347bb3a9529852e8f`
 - 推送目标分支：`origin/codex/quality-fix/2026-06-11`
-- PR URL：待创建后补充。
+- 推送状态：已推送。
+- PR URL：https://github.com/AruNi-01/atmos/pull/126
+- PR label：已添加 `codex`；仓库中未找到 `codex-automation` label，已按规则跳过。
