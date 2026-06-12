@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Copy, ChevronDown, Check, Paperclip, Plus } from 'lucide-react';
+import { Copy, ChevronDown, Check, Paperclip } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
   PopoverAnchor,
   PopoverTrigger,
   Button,
-  Textarea,
   cn,
   toastManager,
 } from '@workspace/ui';
@@ -19,6 +18,7 @@ import {
   formatPreviewSelectionForAI,
   formatWikiSelectionForAI,
 } from '@/shared/lib/format-selection-for-ai';
+import { SelectionPopoverDetails } from './SelectionPopoverDetails';
 
 export type SelectionType = 'editor' | 'diff' | 'wiki' | 'preview';
 
@@ -73,7 +73,6 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   const [attaching, setAttaching] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
   const [isAnimatingIn, setIsAnimatingIn] = useState(false);
-  const [isConfidenceOpen, setIsConfidenceOpen] = useState(false);
   const [lastSelectionInfo, setLastSelectionInfo] = useState<SelectionInfo | null>(null);
   const animationFrameRef = useRef<number>(0);
   const canAttach = type === 'wiki' && typeof onAttach === 'function';
@@ -90,7 +89,6 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
   useEffect(() => {
     if (selectionInfo) {
       setLastSelectionInfo(selectionInfo);
-      setIsConfidenceOpen(false);
       setUserNote(initialNote);
     }
   }, [initialNote, selectionInfo]);
@@ -216,194 +214,23 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
     return null;
   }
 
-  const lineRange = displayInfo.startLine > 0
-    ? (displayInfo.startLine === displayInfo.endLine
-      ? `L${displayInfo.startLine}`
-      : `L${displayInfo.startLine}-L${displayInfo.endLine}`)
-    : null;
-  const previewComponentLabel = type === 'preview' ? displayInfo.componentName?.trim() : null;
-  const previewFrameworkLabel = type === 'preview' ? displayInfo.framework?.trim() : null;
-  const previewDebugSignals = type === 'preview'
-    ? (displayInfo.sourceDebugSignals?.filter(Boolean) ?? [])
-    : [];
-  const previewSourceConfidence = type === 'preview' ? displayInfo.sourceConfidence : null;
-  const previewConfidenceLabelClassName = previewSourceConfidence === 'high'
-    ? 'border-success/30 bg-success/10 text-success'
-    : previewSourceConfidence === 'medium'
-      ? 'border-warning/30 bg-warning/10 text-warning'
-      : previewSourceConfidence === 'low'
-        ? 'border-destructive/30 bg-destructive/10 text-destructive'
-        : 'border-border bg-muted/40 text-muted-foreground';
-
   const detailsContent = (
-    <div className="space-y-3">
-      <div className="text-xs text-muted-foreground flex items-center gap-1 min-w-0 w-full">
-        <span 
-          className="font-mono flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap" 
-          title={displayInfo.filePath}
-          style={{ direction: 'rtl', textAlign: 'left' }}
-        >
-          <bdi>{displayInfo.filePath}</bdi>
-        </span>
-        {lineRange && (
-          <>
-            <span className="shrink-0">·</span>
-            <span className="shrink-0">{lineRange}</span>
-          </>
-        )}
-        {displayInfo.changeType && (
-          <>
-            <span className="shrink-0">·</span>
-            <span className={cn(
-              'shrink-0',
-              displayInfo.changeType === 'addition' && 'text-green-500',
-              displayInfo.changeType === 'deletion' && 'text-red-500',
-            )}>
-              {displayInfo.changeType}
-            </span>
-          </>
-        )}
-        {previewFrameworkLabel && (
-          <>
-            <span className="shrink-0">·</span>
-            <span className="shrink-0 capitalize">{previewFrameworkLabel}</span>
-          </>
-        )}
-        {previewComponentLabel && (
-          <>
-            <span className="shrink-0">·</span>
-            <span
-              className="max-w-[140px] shrink overflow-hidden text-ellipsis whitespace-nowrap font-medium text-foreground"
-              title={previewComponentLabel}
-            >
-              {previewComponentLabel}
-            </span>
-          </>
-        )}
-      </div>
-
-      <Textarea
-        placeholder="Add a note for the AI agent... (optional)"
-        value={userNote}
-        onChange={(e) => setUserNote(e.target.value)}
-        className="min-h-[80px] text-sm resize-none"
-        autoFocus
-      />
-
-      {previewDebugSignals.length > 0 || previewSourceConfidence ? (
-        <div className="space-y-1">
-          <button
-            type="button"
-            aria-expanded={isConfidenceOpen}
-            onClick={() => setIsConfidenceOpen((open) => !open)}
-            className="group flex w-full items-center justify-between gap-2 rounded-md py-0.5 text-left transition-colors hover:text-foreground"
-          >
-            <div className="flex min-w-0 items-center gap-1.5">
-              <ChevronDown
-                className={cn(
-                  'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out motion-reduce:transition-none',
-                  isConfidenceOpen && 'rotate-180',
-                )}
-              />
-              <div className="truncate text-[11px] font-medium text-muted-foreground group-hover:text-foreground">
-                Source Code Confidence
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {previewSourceConfidence ? (
-                <span
-                  className={cn(
-                    'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em]',
-                    previewConfidenceLabelClassName,
-                  )}
-                >
-                  {previewSourceConfidence}
-                </span>
-              ) : null}
-            </div>
-          </button>
-          <div
-            className={cn(
-              'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
-              isConfidenceOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-            )}
-          >
-            <div className="min-h-0 overflow-hidden">
-              <div
-                className={cn(
-                  'rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
-                  isConfidenceOpen ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0',
-                )}
-              >
-                {previewDebugSignals.length > 0
-                  ? previewDebugSignals.join(', ')
-                  : 'No extra debug signals'}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDismiss}
-        >
-          Cancel
-        </Button>
-        {isEditingPreviewAnnotation ? (
-          <Button
-            size="sm"
-            onClick={handleUpdateAnnotation}
-            disabled={attaching}
-          >
-            Update
-          </Button>
-        ) : (
-          <>
-        {canAttach ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void handleAttach(true)}
-            disabled={attaching}
-          >
-            <Paperclip className="h-3.5 w-3.5" />
-            {attaching ? 'Attaching...' : 'Attach'}
-          </Button>
-        ) : null}
-        {canAddPreviewAnnotation ? (
-          <Button
-            size="sm"
-            onClick={handleAddAnnotation}
-            disabled={attaching}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add
-          </Button>
-        ) : null}
-        <Button
-          size="sm"
-          onClick={handleCopyWithNote}
-          disabled={attaching}
-        >
-          {copied ? (
-            <>
-              <Check className="h-3.5 w-3.5" />
-              Copied
-            </>
-          ) : (
-            <>
-              <Copy className="h-3.5 w-3.5" />
-              {canAddPreviewAnnotation ? 'Copy' : 'Copy for AI'}
-            </>
-          )}
-        </Button>
-          </>
-        )}
-      </div>
-    </div>
+    <SelectionPopoverDetails
+      displayInfo={displayInfo}
+      type={type}
+      userNote={userNote}
+      copied={copied}
+      attaching={attaching}
+      canAttach={canAttach}
+      canAddPreviewAnnotation={canAddPreviewAnnotation}
+      isEditingPreviewAnnotation={isEditingPreviewAnnotation}
+      onUserNoteChange={setUserNote}
+      onDismiss={onDismiss}
+      onAttachWithNote={() => void handleAttach(true)}
+      onAddAnnotation={handleAddAnnotation}
+      onCopyWithNote={handleCopyWithNote}
+      onUpdateAnnotation={handleUpdateAnnotation}
+    />
   );
 
   return (
@@ -453,12 +280,10 @@ export const SelectionPopover: React.FC<SelectionPopoverProps> = ({
               variant="ghost"
               size="icon"
               className="h-7 w-7"
-              onClick={canAddPreviewAnnotation ? handleAddAnnotation : handleQuickCopy}
-              title={canAddPreviewAnnotation ? "Add annotation" : "Copy for AI"}
+              onClick={handleQuickCopy}
+              title="Copy for AI"
             >
-              {canAddPreviewAnnotation ? (
-                <Plus className="h-3.5 w-3.5" />
-              ) : copied ? (
+              {copied ? (
                 <Check className="h-3.5 w-3.5 text-green-500" />
               ) : (
                 <Copy className="h-3.5 w-3.5" />
