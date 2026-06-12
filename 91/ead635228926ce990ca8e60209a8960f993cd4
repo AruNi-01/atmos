@@ -1,0 +1,28 @@
+apps/web/src/features/selection/components/SelectionPopoverDetails.tsx
+  s_57bd1db0742c2d::t_e31344bc5fba4a 1-220
+apps/web/src/features/selection/components/SelectionPopover.tsx
+  s_57bd1db0742c2d::t_e31344bc5fba4a 4,21,218-233,283-284,286
+apps/web/src/features/run-preview/lib/preview-transports/extension-transport.ts
+  s_57bd1db0742c2d::t_028fa04ff345c4 153-155
+apps/web/src/features/welcome/hooks/use-welcome-project-context.ts
+  s_57bd1db0742c2d::t_028fa04ff345c4 274-275
+apps/api/src/api/ws/router/project.rs
+  s_57bd1db0742c2d::t_8609da65e92c93 137-141
+  s_57bd1db0742c2d::t_028fa04ff345c4 1,17-18,150-151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "91ead635228926ce990ca8e60209a8960f993cd4",
+  "prompts": {},
+  "sessions": {
+    "s_57bd1db0742c2d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb922-08a1-74b1-8284-213017b42524",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
