@@ -37,6 +37,7 @@ export interface ChangeSectionProps {
   title: string;
   files: GitChangedFile[];
   defaultOpen?: boolean;
+  readOnly?: boolean;
   onStage?: (files: string[]) => void;
   onUnstage?: (files: string[]) => void;
   onDiscard?: (files: string[]) => void;
@@ -86,6 +87,7 @@ interface ChangeFileRowProps {
   renderConfirmableMinusAction: (
     args: ConfirmableMinusActionArgs,
   ) => React.ReactNode;
+  readOnly?: boolean;
 }
 
 function ChangeFileRow({
@@ -102,6 +104,7 @@ function ChangeFileRow({
   openDiffFile,
   runAction,
   renderConfirmableMinusAction,
+  readOnly = false,
 }: ChangeFileRowProps) {
   const fileName = file.path.split("/").pop() || file.path;
   const { labelRef, fileNameRef, countsRef, shouldHideCounts } =
@@ -109,16 +112,20 @@ function ChangeFileRow({
   const hasActiveRowAction =
     confirmingActionKey?.includes(`:${file.path}:`) ||
     runningActionKey?.includes(`:${file.path}:`);
+  const hasRowActions =
+    !readOnly &&
+    Boolean(onStage || (kind === "staged" && onUnstage) || isDestructiveSection);
 
   return (
     <div
-      onClick={() => openDiffFile(file.path, true)}
-      onDoubleClick={() => openDiffFile(file.path, false)}
+      onClick={readOnly ? undefined : () => openDiffFile(file.path, true)}
+      onDoubleClick={readOnly ? undefined : () => openDiffFile(file.path, false)}
       className={cn(
-        "group flex items-center px-2 py-1.5 cursor-pointer transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
+        "group flex items-center px-2 py-1.5 transition-colors ease-out duration-200 w-full relative rounded-sm gap-2",
+        readOnly ? "cursor-default" : "cursor-pointer",
         isSelected
           ? "bg-sidebar-accent text-sidebar-foreground"
-          : "hover:bg-sidebar-accent/50",
+          : !readOnly && "hover:bg-sidebar-accent/50",
       )}
     >
       <DiffFilePathLabel
@@ -126,7 +133,10 @@ function ChangeFileRow({
         labelRef={labelRef}
         fileNameRef={fileNameRef}
         className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
-        fileNameClassName="min-w-0 truncate text-[13px] text-muted-foreground group-hover:text-sidebar-foreground font-medium"
+        fileNameClassName={cn(
+          "min-w-0 truncate text-[13px] text-muted-foreground font-medium",
+          !readOnly && "group-hover:text-sidebar-foreground",
+        )}
         dirPathClassName="text-[11px] text-muted-foreground/40 whitespace-nowrap truncate min-w-0 flex-1 text-left"
       />
 
@@ -134,7 +144,8 @@ function ChangeFileRow({
         <div
           className={cn(
             "flex items-center gap-2 text-[11px] font-mono tabular-nums justify-end",
-            hasActiveRowAction ? "invisible" : "group-hover:invisible",
+            hasRowActions &&
+              (hasActiveRowAction ? "invisible" : "group-hover:invisible"),
           )}
         >
           {file.status !== "?" && (
@@ -173,65 +184,67 @@ function ChangeFileRow({
           </span>
         </div>
 
-        <div
-          className={cn(
-            "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
-            hasActiveRowAction
-              ? "opacity-100 pointer-events-auto"
-              : "opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
-          )}
-        >
-          {onStage && (
-            <button
-              type="button"
-              onPointerDown={stopActionEvent}
-              onMouseDown={stopActionEvent}
-              onDoubleClick={stopActionEvent}
-              onClick={(e) => {
-                stopActionEvent(e);
-                void runAction(`${kind}:${file.path}:stage`, () =>
-                  onStage([file.path]),
-                );
-              }}
-              title={stageLabel}
-              className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Plus className="size-3.5" />
-            </button>
-          )}
-          {kind === "staged" && onUnstage && (
-            <button
-              type="button"
-              onPointerDown={stopActionEvent}
-              onMouseDown={stopActionEvent}
-              onDoubleClick={stopActionEvent}
-              onClick={(e) => {
-                stopActionEvent(e);
-                void runAction(`${kind}:${file.path}:unstage`, () =>
-                  onUnstage([file.path]),
-                );
-              }}
-              title="Unstage Changes"
-              className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Minus className="size-3.5" />
-            </button>
-          )}
-          {isDestructiveSection
-            ? renderConfirmableMinusAction({
-                actionKey: `${kind}:${file.path}:discard`,
-                onConfirm: () => onDiscard?.([file.path]),
-                title:
-                  kind === "untracked"
-                    ? `Delete "${fileName}"?`
-                    : `Discard changes in "${fileName}"?`,
-                description:
-                  kind === "untracked"
-                    ? "This removes the untracked file from disk."
-                    : "This restores the file to its last committed state.",
-              })
-            : null}
-        </div>
+        {hasRowActions ? (
+          <div
+            className={cn(
+              "absolute right-2 z-10 flex items-center gap-1 rounded-md bg-sidebar-accent/95 transition-opacity",
+              hasActiveRowAction
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100",
+            )}
+          >
+            {onStage && (
+              <button
+                type="button"
+                onPointerDown={stopActionEvent}
+                onMouseDown={stopActionEvent}
+                onDoubleClick={stopActionEvent}
+                onClick={(e) => {
+                  stopActionEvent(e);
+                  void runAction(`${kind}:${file.path}:stage`, () =>
+                    onStage([file.path]),
+                  );
+                }}
+                title={stageLabel}
+                className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Plus className="size-3.5" />
+              </button>
+            )}
+            {kind === "staged" && onUnstage && (
+              <button
+                type="button"
+                onPointerDown={stopActionEvent}
+                onMouseDown={stopActionEvent}
+                onDoubleClick={stopActionEvent}
+                onClick={(e) => {
+                  stopActionEvent(e);
+                  void runAction(`${kind}:${file.path}:unstage`, () =>
+                    onUnstage([file.path]),
+                  );
+                }}
+                title="Unstage Changes"
+                className="p-1 rounded-md cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Minus className="size-3.5" />
+              </button>
+            )}
+            {isDestructiveSection
+              ? renderConfirmableMinusAction({
+                  actionKey: `${kind}:${file.path}:discard`,
+                  onConfirm: () => onDiscard?.([file.path]),
+                  title:
+                    kind === "untracked"
+                      ? `Delete "${fileName}"?`
+                      : `Discard changes in "${fileName}"?`,
+                  description:
+                    kind === "untracked"
+                      ? "This removes the untracked file from disk."
+                      : "This restores the file to its last committed state.",
+                })
+              : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -242,6 +255,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   title,
   files,
   defaultOpen = true,
+  readOnly = false,
   onStage,
   onUnstage,
   onDiscard,
@@ -256,6 +270,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   const [runningActionKey, setRunningActionKey] = useState<string | null>(null);
   const groupPath = buildDiffGroupPath(kind as DiffChangeGroupKind);
   const selectedDiffFilePath = useEditorStore((s) => {
+    if (readOnly) return undefined;
     if (!workspaceId) return undefined;
     const active = s.workspaceStates[workspaceId]?.activeFilePath;
     if (active !== groupPath) return undefined;
@@ -272,6 +287,9 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   const stageLabel = kind === "untracked" ? "Stage Files" : "Stage Changes";
   const hasActiveSectionAction =
     confirmingActionKey !== null || runningActionKey !== null;
+  const hasSectionActions =
+    !readOnly &&
+    Boolean(onStageAll || (kind === "staged" && onUnstageAll) || isDestructiveSection);
   const runAction = async (
     actionKey: string,
     action?: () => void | Promise<void>,
@@ -398,58 +416,60 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
           </span>
         </CollapsibleTrigger>
 
-        <div
-          className={cn(
-            "absolute top-1/2 right-2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
-            hasActiveSectionAction
-              ? "opacity-100 pointer-events-auto"
-              : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
-          )}
-        >
-          {onStageAll && (
-            <button
-              type="button"
-              onPointerDown={stopActionEvent}
-              onMouseDown={stopActionEvent}
-              onDoubleClick={stopActionEvent}
-              onClick={(e) => {
-                stopActionEvent(e);
-                void runAction(`${kind}-bulk-stage`, onStageAll);
-              }}
-              title="Stage All"
-              className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
-            >
-              <Plus className="size-3.5" />
-            </button>
-          )}
-          {kind === "staged" && onUnstageAll && (
-            <button
-              type="button"
-              onPointerDown={stopActionEvent}
-              onMouseDown={stopActionEvent}
-              onDoubleClick={stopActionEvent}
-              onClick={(e) => {
-                stopActionEvent(e);
-                void runAction(`${kind}-bulk-unstage`, onUnstageAll);
-              }}
-              title="Unstage All"
-              className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
-            >
-              <Minus className="size-3.5" />
-            </button>
-          )}
-          {isDestructiveSection
-            ? renderConfirmableMinusAction({
-                actionKey: `${kind}-bulk-discard`,
-                onConfirm: onDiscardAll,
-                title: kind === "untracked" ? "Delete all untracked files?" : "Discard all unstaged changes?",
-                description:
-                  kind === "untracked"
-                    ? "This will permanently delete every untracked file in this section."
-                    : "This will discard every unstaged change in this section.",
-              })
-            : null}
-        </div>
+        {hasSectionActions ? (
+          <div
+            className={cn(
+              "absolute top-1/2 right-2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-sm bg-sidebar-accent/95 transition-opacity",
+              hasActiveSectionAction
+                ? "opacity-100 pointer-events-auto"
+                : "pointer-events-none opacity-0 group-hover/header:pointer-events-auto group-hover/header:opacity-100",
+            )}
+          >
+            {onStageAll && (
+              <button
+                type="button"
+                onPointerDown={stopActionEvent}
+                onMouseDown={stopActionEvent}
+                onDoubleClick={stopActionEvent}
+                onClick={(e) => {
+                  stopActionEvent(e);
+                  void runAction(`${kind}-bulk-stage`, onStageAll);
+                }}
+                title="Stage All"
+                className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+              >
+                <Plus className="size-3.5" />
+              </button>
+            )}
+            {kind === "staged" && onUnstageAll && (
+              <button
+                type="button"
+                onPointerDown={stopActionEvent}
+                onMouseDown={stopActionEvent}
+                onDoubleClick={stopActionEvent}
+                onClick={(e) => {
+                  stopActionEvent(e);
+                  void runAction(`${kind}-bulk-unstage`, onUnstageAll);
+                }}
+                title="Unstage All"
+                className="p-1 hover:bg-sidebar-accent rounded-sm cursor-pointer hover:text-foreground text-muted-foreground transition-colors"
+              >
+                <Minus className="size-3.5" />
+              </button>
+            )}
+            {isDestructiveSection
+              ? renderConfirmableMinusAction({
+                  actionKey: `${kind}-bulk-discard`,
+                  onConfirm: onDiscardAll,
+                  title: kind === "untracked" ? "Delete all untracked files?" : "Discard all unstaged changes?",
+                  description:
+                    kind === "untracked"
+                      ? "This will permanently delete every untracked file in this section."
+                      : "This will discard every unstaged change in this section.",
+                })
+              : null}
+          </div>
+        ) : null}
       </div>
 
       <CollapsibleContent>
@@ -466,7 +486,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
               ariaLabel={`${title} tree`}
               className=""
               indentOffset={28}
-              isFileActionActive={(path) =>
+              isFileActionActive={readOnly ? undefined : (path) =>
                 confirmingActionKey === `${kind}:file:${path}:stage` ||
                 confirmingActionKey === `${kind}:file:${path}:unstage` ||
                 confirmingActionKey === `${kind}:file:${path}:discard` ||
@@ -474,7 +494,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 runningActionKey === `${kind}:file:${path}:unstage` ||
                 runningActionKey === `${kind}:file:${path}:discard`
               }
-              isDirectoryActionActive={(items) => {
+              isDirectoryActionActive={readOnly ? undefined : (items) => {
                 const paths = items.map((item) => item.path);
                 const key = paths.join("|");
                 return (
@@ -486,7 +506,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   runningActionKey === `${kind}:dir:${key}:discard`
                 );
               }}
-              renderFileActions={(file) => {
+              renderFileActions={readOnly ? undefined : (file) => {
                 const fileName = file.path.split("/").pop() || file.path;
 
                 return (
@@ -544,7 +564,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   </>
                 );
               }}
-              renderDirectoryActions={(items) => {
+              renderDirectoryActions={readOnly ? undefined : (items) => {
                 const paths = items.map((item) => item.path);
                 const label = `${paths.length} files`;
                 const key = paths.join("|");
@@ -604,8 +624,8 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                   </>
                 );
               }}
-              onSelectFile={(path) => openDiffFile(path, true)}
-              onDoubleClickFile={(path) => openDiffFile(path, false)}
+              onSelectFile={readOnly ? () => {} : (path) => openDiffFile(path, true)}
+              onDoubleClickFile={readOnly ? undefined : (path) => openDiffFile(path, false)}
             />
           </div>
         ) : (
@@ -626,6 +646,7 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
                 openDiffFile={openDiffFile}
                 runAction={runAction}
                 renderConfirmableMinusAction={renderConfirmableMinusAction}
+                readOnly={readOnly}
               />
             ))}
           </div>

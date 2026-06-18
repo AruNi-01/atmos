@@ -606,6 +606,13 @@ const Header: React.FC = () => {
           isUsagePopoverOpen={isUsagePopoverOpen}
           layout={layout}
           managementAgentsEnabled={managementAgentsEnabled}
+          currentProjectName={currentProject?.name}
+          currentWorkspaceDisplayName={currentWorkspace?.displayName}
+          currentWorkspaceName={currentWorkspace?.name}
+          headerProjectId={currentProjectIdForContext}
+          headerWorkspaceId={currentWorkspaceId}
+          headerContextId={currentWorkspaceId || currentProjectIdFromUrl || null}
+          headerEffectivePath={currentWorkspaceLocalPath || currentProjectMainFilePath}
           onCloseAutoFocusPrevent={onCloseAutoFocusPrevent}
           onOpenDesktopWeb={handleOpenDesktopWeb}
           refreshDesktopWebStatus={refreshDesktopWebStatus}

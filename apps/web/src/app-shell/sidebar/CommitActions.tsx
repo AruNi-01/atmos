@@ -30,7 +30,13 @@ import {
   PopoverTrigger,
   toastManager,
 } from "@workspace/ui";
-import { CloudSync, MessageCircleReply, Sparkles } from "lucide-react";
+import {
+  CloudSync,
+  FileText,
+  GitBranch,
+  MessageCircleReply,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useEditorStore, EDITOR_CONFLICT_RESOLVE_ALL_PATH } from "@/features/editor/store/use-editor-store";
 import { useGitStore } from "@/features/git/store/use-git-store";
@@ -47,6 +53,7 @@ import { useWebSocketStore } from "@/features/connection/hooks/use-websocket";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import type { QueuedAgentPrompt } from "@/app-shell/state/use-dialog-store";
 import { agentCliRouteLabel } from "@/app-shell/llm-providers-modal-utils";
+import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
 
 export function resolveGitCommitLlmProvider(
   config: LlmProvidersFile,
@@ -82,7 +89,11 @@ interface WorkspaceLike {
   localPath?: string | null;
 }
 
+type CommitActionsVariant = "sidebar" | "panel";
+
 export interface CommitActionsProps {
+  className?: string;
+  variant?: CommitActionsVariant;
   currentProjectPath: string | null;
   currentProject: ProjectLike | undefined;
   currentWorkspace: WorkspaceLike | undefined;
@@ -91,6 +102,7 @@ export interface CommitActionsProps {
 
   stagedFiles: GitChangedFile[];
   unstagedFiles: GitChangedFile[];
+  untrackedFiles?: GitChangedFile[];
   isBranchPublished: boolean;
   gitStatus: GitStatusResponse | null;
   hasChanges: boolean;
@@ -112,6 +124,8 @@ export interface CommitActionsProps {
 }
 
 export const CommitActions: React.FC<CommitActionsProps> = ({
+  className,
+  variant = "sidebar",
   currentProjectPath,
   currentProject,
   currentWorkspace,
@@ -119,6 +133,7 @@ export const CommitActions: React.FC<CommitActionsProps> = ({
   projectId,
   stagedFiles,
   unstagedFiles,
+  untrackedFiles = [],
   isBranchPublished,
   gitStatus,
   hasChanges,
@@ -578,257 +593,398 @@ Report back which files were resolved and whether any conflicts still need user 
     isGlobalActionLoading ||
     (hasMergeConflicts && conflictedFiles.length === 0) ||
     (!hasMergeConflicts && !hasPrimaryGitAction && isCommitDisabled);
+  const isPanel = variant === "panel";
+  const repositoryLabel =
+    currentWorkspace?.name?.trim() ||
+    currentProject?.name?.trim() ||
+    currentProjectPath?.split("/").filter(Boolean).pop() ||
+    "Repository";
+  const branchLabel = gitStatus?.current_branch || "No branch";
+  const panelChangedFiles = [
+    ...stagedFiles,
+    ...unstagedFiles,
+    ...untrackedFiles,
+  ];
+  const totalAdditions = panelChangedFiles.reduce((sum, file) => sum + file.additions, 0);
+  const totalDeletions = panelChangedFiles.reduce((sum, file) => sum + file.deletions, 0);
+  const panelStats = [
+    {
+      label: "changed",
+      value: gitStatus?.uncommitted_count ?? panelChangedFiles.length,
+      className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      valueClassName: "text-amber-800 dark:text-amber-200",
+    },
+    {
+      label: "staged",
+      value: stagedFiles.length,
+      className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+      valueClassName: "text-sky-800 dark:text-sky-200",
+    },
+    {
+      label: "new",
+      value: untrackedFiles.length,
+      className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+      valueClassName: "text-emerald-800 dark:text-emerald-200",
+    },
+    {
+      label: "unpushed",
+      value: gitStatus?.unpushed_count ?? 0,
+      className: "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+      valueClassName: "text-violet-800 dark:text-violet-200",
+    },
+  ];
 
   return (
-    <div className="p-3 border-t border-sidebar-border shrink-0 space-y-3  backdrop-blur-sm">
-      {/* Input with AI generate button */}
-      <div className="relative">
-        <textarea
-          ref={commitMessageTextareaRef}
-          placeholder={
-            isGeneratingCommitMessage
-              ? ""
-              : "Message (⌘+Enter to commit)"
-          }
-          value={
-            isGeneratingCommitMessage && !commitMessage
-              ? "Generating commit message..."
-              : commitMessage
-          }
-          onChange={(e) => {
-            if (isGeneratingCommitMessage) return;
-            setCommitMessage(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            if (isGeneratingCommitMessage) {
-              e.preventDefault();
-              return;
-            }
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              handleCommit();
-            }
-          }}
-          readOnly={isGeneratingCommitMessage}
-          disabled={isGeneratingCommitMessage}
-          className={cn(
-            "w-full min-h-[60px] p-2.5 pr-8 bg-sidebar-accent/50 border-transparent focus:border-sidebar-border/50 focus:bg-sidebar-accent rounded-md text-sidebar-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 transition-all ease-out duration-200 text-xs resize-none",
-            isGeneratingCommitMessage &&
-              "cursor-wait animate-pulse text-muted-foreground",
-          )}
-        />
-        <Popover open={aiPopoverOpen} onOpenChange={setAiPopoverOpen}>
-          <PopoverTrigger asChild>
-            <button
-              onClick={handleGenerateCommitMessage}
-              onMouseEnter={() => {
-                refreshGitCommitLlmProvider();
-                if (aiPopoverTimer.current)
-                  clearTimeout(aiPopoverTimer.current);
-                aiPopoverTimer.current = setTimeout(
-                  () => setAiPopoverOpen(true),
-                  400,
-                );
+    <div
+      className={cn(
+        isPanel
+          ? "flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border bg-background"
+          : "shrink-0 space-y-3 border-t border-sidebar-border p-3 backdrop-blur-sm",
+        className,
+      )}
+    >
+      {isPanel ? (
+        <div className="flex shrink-0 items-center justify-between gap-4 px-4 pb-3 pt-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">{repositoryLabel}</p>
+            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              <GitBranch className="size-3.5 shrink-0" />
+              <span className="truncate">{branchLabel}</span>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+            {panelStats.map((item) => (
+              <span
+                key={item.label}
+                className={cn(
+                  "rounded-md border px-2 py-1 text-[11px]",
+                  item.className,
+                )}
+              >
+                <span className={cn("font-mono", item.valueClassName)}>{item.value}</span> {item.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          isPanel
+            ? "flex min-h-0 flex-1 gap-4 overflow-hidden px-4 pb-4"
+            : "space-y-3",
+        )}
+      >
+        <div
+          className={cn(isPanel ? "order-2 flex min-h-0 flex-none flex-col gap-3" : "space-y-3")}
+          style={isPanel ? { width: "calc(40% - 0.5rem)" } : undefined}
+        >
+          <div className={cn("relative", isPanel && "min-h-0 flex-1")}>
+            <textarea
+              ref={commitMessageTextareaRef}
+              placeholder={
+                isGeneratingCommitMessage
+                  ? ""
+                  : "Message (⌘+Enter to commit)"
+              }
+              value={
+                isGeneratingCommitMessage && !commitMessage
+                  ? "Generating commit message..."
+                  : commitMessage
+              }
+              onChange={(e) => {
+                if (isGeneratingCommitMessage) return;
+                setCommitMessage(e.target.value);
               }}
-              onMouseLeave={() => {
-                if (aiPopoverTimer.current) {
-                  clearTimeout(aiPopoverTimer.current);
-                  aiPopoverTimer.current = null;
+              onKeyDown={(e) => {
+                if (isGeneratingCommitMessage) {
+                  e.preventDefault();
+                  return;
                 }
-                aiPopoverTimer.current = setTimeout(
-                  () => setAiPopoverOpen(false),
-                  300,
-                );
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleCommit();
+                }
               }}
-              disabled={!hasChanges || isGeneratingCommitMessage}
+              readOnly={isGeneratingCommitMessage}
+              disabled={isGeneratingCommitMessage}
               className={cn(
-                "absolute top-1.5 right-1.5 p-1 rounded-sm transition-colors",
-                hasChanges && !isGeneratingCommitMessage
-                  ? "text-muted-foreground hover:text-foreground cursor-pointer"
-                  : "text-muted-foreground/30 cursor-not-allowed",
+                "w-full resize-none focus:outline-none focus:ring-0 transition-all ease-out duration-200",
+                isPanel
+                  ? "h-full min-h-[220px] rounded-lg border border-border/70 bg-muted/30 p-3 pr-10 text-sm leading-6 text-foreground placeholder:text-muted-foreground/60 focus:border-border focus:bg-background"
+                  : "min-h-[60px] rounded-md border-transparent bg-sidebar-accent/50 p-2.5 pr-8 text-xs text-sidebar-foreground placeholder:text-muted-foreground/50 focus:border-sidebar-border/50 focus:bg-sidebar-accent",
+                isGeneratingCommitMessage &&
+                  "cursor-wait animate-pulse text-muted-foreground",
+              )}
+            />
+            <Popover open={aiPopoverOpen} onOpenChange={setAiPopoverOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  onClick={handleGenerateCommitMessage}
+                  onMouseEnter={() => {
+                    refreshGitCommitLlmProvider();
+                    if (aiPopoverTimer.current)
+                      clearTimeout(aiPopoverTimer.current);
+                    aiPopoverTimer.current = setTimeout(
+                      () => setAiPopoverOpen(true),
+                      400,
+                    );
+                  }}
+                  onMouseLeave={() => {
+                    if (aiPopoverTimer.current) {
+                      clearTimeout(aiPopoverTimer.current);
+                      aiPopoverTimer.current = null;
+                    }
+                    aiPopoverTimer.current = setTimeout(
+                      () => setAiPopoverOpen(false),
+                      300,
+                    );
+                  }}
+                  disabled={!hasChanges || isGeneratingCommitMessage}
+                  className={cn(
+                    "absolute rounded-sm transition-colors",
+                    isPanel ? "right-2.5 top-2.5 p-1.5" : "right-1.5 top-1.5 p-1",
+                    hasChanges && !isGeneratingCommitMessage
+                      ? "text-muted-foreground hover:text-foreground cursor-pointer"
+                      : "text-muted-foreground/30 cursor-not-allowed",
+                  )}
+                >
+                  <Sparkles
+                    className={cn(
+                      isPanel ? "size-4" : "size-3.5",
+                      isGeneratingCommitMessage && "animate-pulse",
+                    )}
+                  />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                side="top"
+                align="end"
+                className="w-56 p-1"
+                onMouseEnter={() => {
+                  if (aiPopoverTimer.current) {
+                    clearTimeout(aiPopoverTimer.current);
+                    aiPopoverTimer.current = null;
+                  }
+                }}
+                onMouseLeave={() => {
+                  aiPopoverTimer.current = setTimeout(
+                    () => setAiPopoverOpen(false),
+                    300,
+                  );
+                }}
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                {gitCommitLlmProviderLabel ? (
+                  <p className="px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                    LLM Provider is enabled for git commit generation.
+                    <span className="block pt-1 text-foreground/80">
+                      Click to generate directly here with{" "}
+                      {gitCommitLlmProviderLabel}.
+                    </span>
+                  </p>
+                ) : (
+                  <>
+                    <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                      No LLM Provider is enabled for git commit
+                      generation.
+                      <span className="block pt-1">
+                        Configure one in LLM Providers to generate
+                        directly in this input.
+                      </span>
+                    </p>
+                    <div className="border-t border-border mx-1.5 my-1" />
+                    <div className="flex items-center justify-between gap-3 rounded-sm px-2.5 py-2 hover:bg-muted transition-colors">
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <label
+                              htmlFor="acp-new-session"
+                              className="text-xs font-medium text-popover-foreground cursor-help select-none"
+                            >
+                              New ACP Session
+                            </label>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            className="max-w-[200px] text-xs"
+                          >
+                            Starts a fresh ACP session each time, which
+                            may take ~10s to initialize.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <Switch
+                        id="acp-new-session"
+                        checked={acpNewSession}
+                        onCheckedChange={handleAcpNewSessionToggle}
+                        className="scale-80 shrink-0"
+                      />
+                    </div>
+                    <div className="border-t border-border mx-1.5 my-1" />
+                    <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                      Fallback mode uses ACP Agent to generate the commit
+                      message and commit locally.
+                    </p>
+                  </>
+                )}
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className={cn("flex w-full items-stretch gap-px shadow-sm group", isPanel ? "h-10" : "h-8")}>
+            <button
+              onClick={
+                hasMergeConflicts
+                  ? () => void handleOpenConflictResolver()
+                  : showPublishButton
+                  ? handlePublish
+                  : showSyncPushButton
+                    ? () => handleGlobalAction(syncChanges, "Failed to sync and push")
+                    : showPushButton
+                    ? () => handleGlobalAction(pushChanges, "Failed to push changes")
+                    : handleCommit
+              }
+              disabled={isPrimaryButtonDisabled}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 transition-all font-semibold select-none",
+                isPanel ? "rounded-l-lg text-sm" : "rounded-l-md text-xs",
+                isPrimaryButtonDisabled
+                  ? "bg-muted text-muted-foreground cursor-not-allowed"
+                  : showSyncPushButton || showPushButton
+                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90",
               )}
             >
-              <Sparkles
-                className={cn(
-                  "size-3.5",
-                  isGeneratingCommitMessage && "animate-pulse",
-                )}
-              />
+              {(isCommitting || isGlobalActionLoading) && (
+                <Loader2 className="size-3.5 animate-spin" />
+              )}
+              <span>
+                {hasMergeConflicts
+                  ? "Need Resolve Conflicts"
+                  : showPublishButton
+                  ? isGlobalActionLoading
+                    ? "Publishing..."
+                    : "Publish Branch"
+                  : showSyncPushButton
+                    ? isGlobalActionLoading
+                      ? "Syncing..."
+                      : `Sync & Push${gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : ""}${(gitStatus?.upstream_behind_count ?? 0) > 0 ? ` ↓${gitStatus?.upstream_behind_count}` : ""}`
+                  : showPushButton
+                    ? isGlobalActionLoading
+                      ? "Pushing..."
+                      : `Push ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ""}`
+                    : isCommitting
+                      ? "Committing..."
+                      : "Commit"}
+              </span>
             </button>
-          </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="end"
-            className="w-56 p-1"
-            onMouseEnter={() => {
-              if (aiPopoverTimer.current) {
-                clearTimeout(aiPopoverTimer.current);
-                aiPopoverTimer.current = null;
-              }
-            }}
-            onMouseLeave={() => {
-              aiPopoverTimer.current = setTimeout(
-                () => setAiPopoverOpen(false),
-                300,
-              );
-            }}
-            onOpenAutoFocus={(e) => e.preventDefault()}
-          >
-            {gitCommitLlmProviderLabel ? (
-              <p className="px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                LLM Provider is enabled for git commit generation.
-                <span className="block pt-1 text-foreground/80">
-                  Click to generate directly here with{" "}
-                  {gitCommitLlmProviderLabel}.
-                </span>
-              </p>
+
+            {hasMergeConflicts ? (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyConflictPrompt()}
+                      className={cn(
+                        "flex h-full items-center justify-center border-l border-l-blue-500/40 bg-blue-500/10 text-blue-300 transition-colors hover:text-blue-200",
+                        isPanel ? "rounded-r-lg px-3" : "rounded-r-md px-2",
+                      )}
+                    >
+                      <MessageCircleReply className="size-3.5 text-blue-400" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    Ask Agent to resolve this conflict
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
-              <>
-                <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                  No LLM Provider is enabled for git commit
-                  generation.
-                  <span className="block pt-1">
-                    Configure one in LLM Providers to generate
-                    directly in this input.
-                  </span>
-                </p>
-                <div className="border-t border-border mx-1.5 my-1" />
-                <div className="flex items-center justify-between gap-3 rounded-sm px-2.5 py-2 hover:bg-muted transition-colors">
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <label
-                          htmlFor="acp-new-session"
-                          className="text-xs font-medium text-popover-foreground cursor-help select-none"
-                        >
-                          New ACP Session
-                        </label>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="top"
-                        className="max-w-[200px] text-xs"
-                      >
-                        Starts a fresh ACP session each time, which
-                        may take ~10s to initialize.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <Switch
-                    id="acp-new-session"
-                    checked={acpNewSession}
-                    onCheckedChange={handleAcpNewSessionToggle}
-                    className="scale-80 shrink-0"
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "flex items-center justify-center border-l transition-colors",
+                      isPanel ? "rounded-r-lg px-3" : "rounded-r-md px-2",
+                      isPrimaryButtonDisabled
+                        ? "bg-muted text-muted-foreground border-l-transparent"
+                        : showSyncPushButton || showPushButton
+                          ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
+                    )}
+                    disabled={isPrimaryButtonDisabled}
+                  >
+                    <ChevronDown className="size-3.5 opacity-80" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, "Failed to pull changes")}>
+                    <ArrowDown className="mr-2 size-4" /> Pull
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, "Failed to push changes")}>
+                    <Upload className="mr-2 size-4" /> Push
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
+                    <RotateCw className="mr-2 size-4" /> Fetch
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
+                    <CloudSync className="mr-2 size-4" /> Sync with Remote
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+
+        {isPanel ? (
+          <aside
+            className="order-1 flex min-h-0 flex-none flex-col overflow-hidden rounded-lg border border-border/70 bg-muted/25"
+            style={{ width: "calc(60% - 0.5rem)" }}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <FileText className="size-3.5" />
+                Changes
+              </div>
+              <span className="font-mono text-[11px]">
+                <span className="text-emerald-600 dark:text-emerald-400">+{totalAdditions}</span>
+                <span className="ml-2 text-red-600 dark:text-red-400">-{totalDeletions}</span>
+              </span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              {panelChangedFiles.length > 0 ? (
+                <div className="space-y-1">
+                  <ChangeSection
+                    kind="staged"
+                    title="Staged Changes"
+                    files={stagedFiles}
+                    workspaceId={workspaceId ?? null}
+                    readOnly
+                  />
+                  <ChangeSection
+                    kind="unstaged"
+                    title="Unstaged Changes"
+                    files={unstagedFiles}
+                    workspaceId={workspaceId ?? null}
+                    readOnly
+                  />
+                  <ChangeSection
+                    kind="untracked"
+                    title="Untracked Changes"
+                    files={untrackedFiles}
+                    workspaceId={workspaceId ?? null}
+                    readOnly
                   />
                 </div>
-                <div className="border-t border-border mx-1.5 my-1" />
-                <p className="px-2.5 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                  Fallback mode uses ACP Agent to generate the commit
-                  message and commit locally.
-                </p>
-              </>
-            )}
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      {/* Main Button with Dropdown */}
-      <div className="flex items-stretch gap-px h-8 w-full group shadow-sm">
-        <button
-          onClick={
-            hasMergeConflicts
-              ? () => void handleOpenConflictResolver()
-              : showPublishButton
-              ? handlePublish
-              : showSyncPushButton
-                ? () => handleGlobalAction(syncChanges, "Failed to sync and push")
-                : showPushButton
-                ? () => handleGlobalAction(pushChanges, "Failed to push changes")
-                : handleCommit
-          }
-          disabled={isPrimaryButtonDisabled}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 rounded-l-md transition-all text-xs font-semibold select-none",
-            isPrimaryButtonDisabled
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : showSyncPushButton || showPushButton
-                ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-sidebar-border"
-                : "bg-primary text-primary-foreground hover:bg-primary/90",
-          )}
-        >
-          {(isCommitting || isGlobalActionLoading) && (
-            <Loader2 className="size-3.5 animate-spin" />
-          )}
-          <span>
-            {hasMergeConflicts
-              ? "Need Resolve Conflicts"
-              : showPublishButton
-              ? isGlobalActionLoading
-                ? "Publishing..."
-                : "Publish Branch"
-              : showSyncPushButton
-                ? isGlobalActionLoading
-                  ? "Syncing..."
-                  : `Sync & Push${gitStatus?.unpushed_count ? ` ↑${gitStatus.unpushed_count}` : ""}${(gitStatus?.upstream_behind_count ?? 0) > 0 ? ` ↓${gitStatus?.upstream_behind_count}` : ""}`
-              : showPushButton
-                ? isGlobalActionLoading
-                  ? "Pushing..."
-                  : `Push ${gitStatus?.unpushed_count ? `↑${gitStatus.unpushed_count}` : ""}`
-                : isCommitting
-                  ? "Committing..."
-                  : "Commit"}
-          </span>
-        </button>
-
-        {hasMergeConflicts ? (
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => void handleCopyConflictPrompt()}
-                  className="h-full px-2 flex items-center justify-center rounded-r-md border-l border-l-blue-500/40 bg-blue-500/10 text-blue-300 hover:text-blue-200 transition-colors"
-                >
-                  <MessageCircleReply className="size-3.5 text-blue-400" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                Ask Agent to resolve this conflict
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className={cn(
-                  "px-2 flex items-center justify-center rounded-r-md border-l transition-colors",
-                  isPrimaryButtonDisabled
-                    ? "bg-muted text-muted-foreground border-l-transparent"
-                    : showSyncPushButton || showPushButton
-                      ? "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-y border-r border-sidebar-border border-l-sidebar-border/50"
-                      : "bg-primary text-primary-foreground hover:bg-primary/90 border-l-primary-foreground/10",
-                )}
-                disabled={isPrimaryButtonDisabled}
-              >
-                <ChevronDown className="size-3.5 opacity-80" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => handleGlobalAction(pullChanges, "Failed to pull changes")}>
-                <ArrowDown className="mr-2 size-4" /> Pull
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGlobalAction(pushChanges, "Failed to push changes")}>
-                <Upload className="mr-2 size-4" /> Push
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGlobalAction(fetchChanges, "Failed to fetch changes")}>
-                <RotateCw className="mr-2 size-4" /> Fetch
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleGlobalAction(syncChanges, "Failed to sync with remote")}>
-                <CloudSync className="mr-2 size-4" /> Sync with Remote
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+              ) : (
+                <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">
+                  No changed files.
+                </div>
+              )}
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   );

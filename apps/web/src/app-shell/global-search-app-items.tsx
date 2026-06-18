@@ -6,6 +6,7 @@ import {
   BrainCircuit,
   ChartColumnBig,
   FolderPlus,
+  GitCommit,
   Gauge,
   Layers,
   Laptop,
@@ -16,6 +17,7 @@ import {
   Plus,
   Settings,
   SquareKanban,
+  StickyNote,
   Sun,
   Terminal,
   Timer,
@@ -77,7 +79,7 @@ interface BuildGlobalSearchItemsParams {
   setIsLeftCollapsed: (collapsed: boolean) => void;
   setActiveSettingTab: (tab: SettingsModalTab) => void;
   setSettingsOpen: (open: boolean) => void;
-  setSubView: (view: "todo" | "usage") => void;
+  setSubView: (view: "todo" | "note" | "commit" | "usage") => void;
   showCreating: () => void;
   showOpening: (workspaceId: string) => void;
   clearWorkspaceCreationOverlay: () => void;
@@ -494,19 +496,43 @@ export function buildGlobalSearchItems({
     });
   });
 
-  if (currentWorkspaceId || currentProject) {
+  if ((currentWorkspaceId || currentProject) && currentEffectivePath) {
     const todoLabel = currentWorkspace ? currentWorkspace.name : currentProject?.name;
-    items.push({
-      id: "todo-current-workspace",
-      type: "todo",
-      title: "Workspace TODOs",
-      description: todoLabel ? `${todoLabel} — View tasks` : "View current tasks",
-      keywords: ["todo", "task", "tasks", "checklist", "workspace", "project", "overview", "plan"],
-      icon: <ListTodo className="size-4 text-muted-foreground" />,
-      action: () => {
-        setSubView("todo");
+    items.push(
+      {
+        id: "todo-current-workspace",
+        type: "todo",
+        title: "Workspace TODOs",
+        description: todoLabel ? `${todoLabel} — View tasks` : "View current tasks",
+        keywords: ["todo", "task", "tasks", "checklist", "workspace", "project", "overview", "plan"],
+        icon: <ListTodo className="size-4 text-muted-foreground" />,
+        action: () => {
+          setSubView("todo");
+        },
       },
-    });
+      {
+        id: "note-current-workspace",
+        type: "note",
+        title: "Workspace Note",
+        description: todoLabel ? `${todoLabel} — Preview and edit notes` : "Preview and edit notes",
+        keywords: ["note", "notes", "markdown", "memo", "workspace", "project", "preview", "edit"],
+        icon: <StickyNote className="size-4 text-muted-foreground" />,
+        action: () => {
+          setSubView("note");
+        },
+      },
+      {
+        id: "commit-current-workspace",
+        type: "commit",
+        title: "Commit & Push",
+        description: todoLabel ? `${todoLabel} — Commit and push changes` : "Commit and push changes",
+        keywords: ["commit", "push", "git", "changes", "sync", "publish", "workspace", "project"],
+        icon: <GitCommit className="size-4 text-muted-foreground" />,
+        action: () => {
+          setSubView("commit");
+        },
+      },
+    );
   }
 
   items.push({

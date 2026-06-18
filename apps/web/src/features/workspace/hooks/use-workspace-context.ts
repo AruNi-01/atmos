@@ -16,6 +16,7 @@ export interface Task {
 interface WorkspaceContextState {
   requirement: string | null;
   tasks: Task[];
+  note: string | null;
 }
 
 interface WorkspaceContextStore {
@@ -25,6 +26,7 @@ interface WorkspaceContextStore {
   // Loading 状态
   requirementLoading: boolean;
   tasksLoading: boolean;
+  noteLoading: boolean;
 
   // Requirement 相关
   loadRequirement: (workspaceId: string, projectPath: string) => Promise<void>;
@@ -37,9 +39,14 @@ interface WorkspaceContextStore {
   updateTaskContent: (workspaceId: string, projectPath: string, taskIndex: number, content: string) => Promise<void>;
   deleteTask: (workspaceId: string, projectPath: string, taskIndex: number) => Promise<void>;
 
+  // Note 相关
+  loadNote: (workspaceId: string, projectPath: string) => Promise<void>;
+  saveNote: (workspaceId: string, projectPath: string, content: string) => Promise<void>;
+
   // 辅助方法
   getRequirement: (workspaceId: string) => string | null;
   getTasks: (workspaceId: string) => Task[];
+  getNote: (workspaceId: string) => string | null;
 }
 
 // ===== Task 解析工具函数 =====
@@ -114,15 +121,21 @@ function getTaskPath(projectPath: string): string {
   return `${projectPath}/.atmos/context/task.md`;
 }
 
+function getNotePath(projectPath: string): string {
+  return `${projectPath}/.atmos/context/note.md`;
+}
+
 // ===== Store 实现 =====
 
 let _loadRequirementId = 0;
 let _loadTasksId = 0;
+let _loadNoteId = 0;
 
 export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, get) => ({
   workspaceStates: {},
   requirementLoading: false,
   tasksLoading: false,
+  noteLoading: false,
 
   getRequirement: (workspaceId: string) => {
     return get().workspaceStates[workspaceId]?.requirement ?? null;
@@ -130,6 +143,10 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
 
   getTasks: (workspaceId: string) => {
     return get().workspaceStates[workspaceId]?.tasks ?? [];
+  },
+
+  getNote: (workspaceId: string) => {
+    return get().workspaceStates[workspaceId]?.note ?? null;
   },
 
   loadRequirement: async (workspaceId: string, projectPath: string) => {
@@ -149,6 +166,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
           ...state.workspaceStates[workspaceId],
           requirement: response.exists ? response.content : null,
           tasks: state.workspaceStates[workspaceId]?.tasks ?? [],
+          note: state.workspaceStates[workspaceId]?.note ?? null,
         },
       },
     }));
@@ -165,6 +183,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
           ...state.workspaceStates[workspaceId],
           requirement: content,
           tasks: state.workspaceStates[workspaceId]?.tasks ?? [],
+          note: state.workspaceStates[workspaceId]?.note ?? null,
         },
       },
     }));
@@ -187,6 +206,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
         [workspaceId]: {
           requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
           tasks,
+          note: state.workspaceStates[workspaceId]?.note ?? null,
         },
       },
     }));
@@ -210,6 +230,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
         [workspaceId]: {
           requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
           tasks: updatedTasks,
+          note: state.workspaceStates[workspaceId]?.note ?? null,
         },
       },
     }));
@@ -240,6 +261,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
         [workspaceId]: {
           requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
           tasks: updatedTasks,
+          note: state.workspaceStates[workspaceId]?.note ?? null,
         },
       },
     }));
@@ -270,6 +292,7 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
         [workspaceId]: {
           requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
           tasks: updatedTasks,
+          note: state.workspaceStates[workspaceId]?.note ?? null,
         },
       },
     }));
@@ -290,6 +313,45 @@ export const useWorkspaceContextStore = create<WorkspaceContextStore>()((set, ge
         [workspaceId]: {
           requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
           tasks: updatedTasks,
+          note: state.workspaceStates[workspaceId]?.note ?? null,
+        },
+      },
+    }));
+  },
+
+  loadNote: async (workspaceId: string, projectPath: string) => {
+    const requestId = ++_loadNoteId;
+    set({ noteLoading: true });
+
+    const filePath = getNotePath(projectPath);
+    const response = await fsApi.readFile(filePath);
+
+    if (requestId !== _loadNoteId) return;
+
+    set((state) => ({
+      noteLoading: false,
+      workspaceStates: {
+        ...state.workspaceStates,
+        [workspaceId]: {
+          requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
+          tasks: state.workspaceStates[workspaceId]?.tasks ?? [],
+          note: response.exists ? response.content ?? '' : '',
+        },
+      },
+    }));
+  },
+
+  saveNote: async (workspaceId: string, projectPath: string, content: string) => {
+    const filePath = getNotePath(projectPath);
+    await fsApi.writeFile(filePath, content);
+
+    set((state) => ({
+      workspaceStates: {
+        ...state.workspaceStates,
+        [workspaceId]: {
+          requirement: state.workspaceStates[workspaceId]?.requirement ?? null,
+          tasks: state.workspaceStates[workspaceId]?.tasks ?? [],
+          note: content,
         },
       },
     }));
@@ -306,6 +368,8 @@ export function useWorkspaceContext(workspaceId: string | null) {
     requirementLoading: store.requirementLoading,
     tasks: workspaceId ? store.getTasks(workspaceId) : [],
     tasksLoading: store.tasksLoading,
+    note: workspaceId ? store.getNote(workspaceId) : null,
+    noteLoading: store.noteLoading,
     
     loadRequirement: (projectPath: string) => 
       workspaceId ? store.loadRequirement(workspaceId, projectPath) : Promise.resolve(),
@@ -322,5 +386,9 @@ export function useWorkspaceContext(workspaceId: string | null) {
       workspaceId ? store.updateTaskContent(workspaceId, projectPath, taskIndex, content) : Promise.resolve(),
     deleteTask: (projectPath: string, taskIndex: number) => 
       workspaceId ? store.deleteTask(workspaceId, projectPath, taskIndex) : Promise.resolve(),
+    loadNote: (projectPath: string) =>
+      workspaceId ? store.loadNote(workspaceId, projectPath) : Promise.resolve(),
+    saveNote: (projectPath: string, content: string) =>
+      workspaceId ? store.saveNote(workspaceId, projectPath, content) : Promise.resolve(),
   };
 }

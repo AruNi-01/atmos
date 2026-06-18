@@ -343,10 +343,6 @@ function DiffFileTreeRow({
           changeCountsRef: countsRef,
         })
       : null;
-  const rightPadding = actions || directoryActions
-    ? "pr-12"
-    : "pr-2";
-
   return (
     <div
       role="treeitem"
@@ -356,7 +352,6 @@ function DiffFileTreeRow({
       }
       className={cn(
         "group/file relative flex h-7 min-w-0 items-center gap-1 rounded-md px-2 text-[13px] outline-none transition-colors",
-        rightPadding,
         file ? "cursor-pointer" : "cursor-default",
         isSelected
           ? "bg-sidebar-accent text-sidebar-foreground"

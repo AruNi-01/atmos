@@ -69,6 +69,8 @@ import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 import { LocalModelDownloadProgress } from "@/app-shell/LocalModelDownloadProgress";
 import { UsagePopover } from "./UsagePopover";
 import { TunnelItem } from "./header-parts";
+import { HeaderWorkspaceSummaryButton } from "./header-workspace-widgets";
+import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 
 type DesktopWebStatus = "checking" | "ready" | "unavailable";
 
@@ -87,6 +89,13 @@ type HeaderActionControlsProps = {
   isUsagePopoverOpen: boolean;
   layout: { opacity: number };
   managementAgentsEnabled: boolean;
+  currentProjectName?: string | null;
+  currentWorkspaceDisplayName?: string | null;
+  currentWorkspaceName?: string | null;
+  headerProjectId?: string | null;
+  headerWorkspaceId?: string | null;
+  headerContextId: string | null;
+  headerEffectivePath?: string | null;
   onCloseAutoFocusPrevent: (event: Event) => void;
   onOpenDesktopWeb: () => Promise<void> | void;
   refreshDesktopWebStatus: () => Promise<unknown> | unknown;
@@ -536,6 +545,13 @@ export function HeaderActionControls({
   isUsagePopoverOpen,
   layout,
   managementAgentsEnabled,
+  currentProjectName,
+  currentWorkspaceDisplayName,
+  currentWorkspaceName,
+  headerProjectId,
+  headerWorkspaceId,
+  headerContextId,
+  headerEffectivePath,
   onCloseAutoFocusPrevent,
   onOpenDesktopWeb,
   refreshDesktopWebStatus,
@@ -558,10 +574,28 @@ export function HeaderActionControls({
   toggleRightSidebar,
   updateLayout,
 }: HeaderActionControlsProps) {
+  const showHeaderSummary = useLayoutSettingsStore((state) => state.showHeaderSummary);
+  const loadLayoutSettings = useLayoutSettingsStore((state) => state.loadSettings);
+
+  React.useEffect(() => {
+    void loadLayoutSettings();
+  }, [loadLayoutSettings]);
+
   return (
     <div className="relative z-10 flex items-center space-x-3 justify-end">
       {isDesktopRuntime ? <AppshotCapturePreview /> : null}
       <LocalModelDownloadProgress />
+      {showHeaderSummary ? (
+        <HeaderWorkspaceSummaryButton
+          contextId={headerContextId}
+          currentProjectName={currentProjectName}
+          currentWorkspaceDisplayName={currentWorkspaceDisplayName}
+          currentWorkspaceName={currentWorkspaceName}
+          projectId={headerProjectId}
+          workspaceId={headerWorkspaceId}
+          effectivePath={headerEffectivePath}
+        />
+      ) : null}
       <button
         aria-label="Search"
         className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"

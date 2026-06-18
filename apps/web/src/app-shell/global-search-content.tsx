@@ -12,12 +12,14 @@ import {
   CommandList,
   CornerDownLeft,
   File,
+  GitCommit,
   Gauge,
   Layers,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  StickyNote,
   Tabs,
   TabsList,
   TabsTab,
@@ -25,6 +27,8 @@ import {
 import type { SearchMatch } from "@/api/ws-api";
 import type { Task } from "@/features/workspace/hooks/use-workspace-context";
 import { TaskListPanel } from "@/features/workspace/components/TaskListPanel";
+import { WorkspaceNotePanel } from "@/features/workspace/components/WorkspaceNotePanel";
+import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
 import { UsagePopover } from "@/app-shell/UsagePopover";
 import {
   CodePreviewTooltip,
@@ -34,14 +38,17 @@ import {
   type SearchTab,
 } from "@/app-shell/global-search-parts";
 
-type SubView = "todo" | "usage";
+type SubView = "todo" | "note" | "commit" | "usage";
 
 interface SearchProjectSummary {
+  id: string;
   name: string;
 }
 
 interface SearchWorkspaceSummary {
+  id: string;
   name: string;
+  localPath?: string | null;
 }
 
 interface GlobalSearchSubViewFrameProps {
@@ -154,6 +161,78 @@ export function TodoSubView({
   );
 }
 
+interface NoteSubViewProps {
+  contextId: string | null;
+  currentProject?: SearchProjectSummary;
+  currentWorkspace?: SearchWorkspaceSummary;
+  currentEffectivePath?: string | null;
+  onBack: () => void;
+}
+
+export function NoteSubView({
+  contextId,
+  currentProject,
+  currentWorkspace,
+  currentEffectivePath,
+  onBack,
+}: NoteSubViewProps) {
+  return (
+    <GlobalSearchSubViewFrame
+      icon={<StickyNote className="size-4 shrink-0 text-muted-foreground" />}
+      title={currentWorkspace?.name || currentProject?.name || "Note"}
+      onBack={onBack}
+    >
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <WorkspaceNotePanel
+          contextId={contextId}
+          effectivePath={currentEffectivePath}
+          title="NOTE"
+          compact
+          className="h-full rounded-none border-0 bg-background"
+        />
+      </div>
+    </GlobalSearchSubViewFrame>
+  );
+}
+
+interface CommitSubViewProps {
+  currentProject?: SearchProjectSummary;
+  currentWorkspace?: SearchWorkspaceSummary;
+  currentEffectivePath?: string | null;
+  projectId?: string | null;
+  workspaceId?: string | null;
+  onBack: () => void;
+}
+
+export function CommitSubView({
+  currentProject,
+  currentWorkspace,
+  currentEffectivePath,
+  projectId,
+  workspaceId,
+  onBack,
+}: CommitSubViewProps) {
+  return (
+    <GlobalSearchSubViewFrame
+      icon={<GitCommit className="size-4 shrink-0 text-muted-foreground" />}
+      title="Commit & Push"
+      onBack={onBack}
+    >
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <CommitActionsContainer
+          variant="panel"
+          currentProjectPath={currentEffectivePath ?? null}
+          currentProject={currentProject}
+          currentWorkspace={currentWorkspace}
+          workspaceId={workspaceId}
+          projectId={projectId}
+          className="h-full rounded-none border-0"
+        />
+      </div>
+    </GlobalSearchSubViewFrame>
+  );
+}
+
 interface UsageSubViewProps {
   onBack: () => void;
 }
@@ -209,6 +288,8 @@ const APP_GROUPS: Array<{ key: AppSearchItem["type"]; heading: string; showDescr
   { key: "management", heading: "Management Center", showDescription: true },
   { key: "modal", heading: "Open Modal", showDescription: true },
   { key: "todo", heading: "TODO", showDescription: true },
+  { key: "note", heading: "NOTE", showDescription: true },
+  { key: "commit", heading: "Commit & Push", showDescription: true },
   { key: "usage", heading: "Usage", showDescription: true },
   { key: "new-workspace", heading: "New Workspace", showDescription: true },
   { key: "quick-open", heading: "Quick Open", showDescription: true },

@@ -48,14 +48,12 @@ import { useGitInfoStore } from "@/features/git/store/use-git-info-store";
 import { PRPanel, type PRPanelHandle } from "@/features/github/components/PRPanel";
 import { CommitsPanel } from "@/features/github/components/CommitsPanel";
 import { ActionsPanel } from "@/features/github/components/ActionsPanel";
-import { useAgentChatUrl } from "@/features/agent/hooks/use-agent-chat-url";
-import { useAgentChatStatusStore } from "@/features/agent/store/agent-chat-status-store";
 import { isWorkspaceSetupBlocking } from "@/features/workspace/lib/workspace-setup";
 import { useLayoutSettingsStore } from "@/features/settings/store/layout-settings-store";
 import { FileTreePanel } from "@/features/files/components/FileTreePanel";
 
 import { ChangeSection } from "@/app-shell/sidebar/ChangeSection";
-import { CommitActions } from "@/app-shell/sidebar/CommitActions";
+import { CommitActionsContainer } from "@/app-shell/sidebar/CommitActionsContainer";
 import { RightSidebarDialogs } from "@/app-shell/sidebar/RightSidebarDialogs";
 import { ReviewContextProvider } from "@/features/diff/components/review/ReviewContextProvider";
 import type { ReviewTarget } from "@/api/ws-api";
@@ -127,12 +125,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
   const contextId = workspaceId || projectIdFromUrl;
   const filePath = (contextId && getActiveFilePath(contextId)) || "";
   const projects = useProjectStore((s) => s.projects);
-  const { enqueueAgentChatPrompt, setPendingAgentChatMode } = useDialogStore();
-  const [, setAgentChatOpen] = useAgentChatUrl();
-  const agentHasAgents = useAgentChatStatusStore((s) => s.hasInstalledAgents);
-  const agentIsConnected = useAgentChatStatusStore((s) => s.isConnected);
-  const agentIsBusy = useAgentChatStatusStore((s) => s.isBusy);
-
   // Layout settings
   const projectFilesSide = useLayoutSettingsStore((s) => s.projectFilesSide);
   const loadLayoutSettings = useLayoutSettingsStore((s) => s.loadSettings);
@@ -177,9 +169,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     compareRef,
     setCurrentRepoPath,
     refreshRepositoryState,
-    isBranchPublished,
-    commitChanges,
-    pushChanges,
     stageFiles,
     unstageFiles,
     discardUnstagedChanges,
@@ -189,9 +178,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     unstageAll,
     discardAllUnstaged,
     discardAllUntracked,
-    pullChanges,
-    fetchChanges,
-    syncChanges,
     compareAgainstDefaultBranch,
     resetCompareMode,
     isLoading,
@@ -244,10 +230,6 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
     (workspaceId || projectIdFromUrl)
   );
 
-  const hasChanges =
-    stagedFiles.length > 0 ||
-    unstagedFiles.length > 0 ||
-    untrackedFiles.length > 0;
   const compareStatsByPath = useMemo(
     () => new Map(compareFiles.map((file) => [file.path, file])),
     [compareFiles],
@@ -577,29 +559,12 @@ const RightSidebar: React.FC<RightSidebarProps> = () => {
 
                 {/* Commit Actions (Sticky Bottom) - only on Files sub-tab */}
                 {changesSubTab !== "commits" && (
-                  <CommitActions
+                  <CommitActionsContainer
                     currentProjectPath={currentProjectPath}
                     currentProject={currentProject}
                     currentWorkspace={currentWorkspace}
                     workspaceId={workspaceId}
                     projectId={projectIdFromUrl}
-                    stagedFiles={stagedFiles}
-                    unstagedFiles={unstagedFiles}
-                    isBranchPublished={isBranchPublished}
-                    gitStatus={gitStatus}
-                    hasChanges={hasChanges}
-                    commitChanges={commitChanges}
-                    pushChanges={pushChanges}
-                    stageAllUnstaged={stageAllUnstaged}
-                    pullChanges={pullChanges}
-                    fetchChanges={fetchChanges}
-                    syncChanges={syncChanges}
-                    agentHasAgents={agentHasAgents}
-                    agentIsConnected={agentIsConnected}
-                    agentIsBusy={agentIsBusy}
-                    enqueueAgentChatPrompt={enqueueAgentChatPrompt}
-                    setPendingAgentChatMode={setPendingAgentChatMode}
-                    setAgentChatOpen={setAgentChatOpen}
                   />
                 )}
               </>

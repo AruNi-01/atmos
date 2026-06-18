@@ -20,7 +20,7 @@ export type SearchTab = "app" | "files" | "code";
 
 export interface AppSearchItem {
   id: string;
-  type: "workspace" | "theme" | "project" | "new-workspace" | "quick-open" | "management" | "modal" | "todo" | "usage";
+  type: "workspace" | "theme" | "project" | "new-workspace" | "quick-open" | "management" | "modal" | "todo" | "note" | "commit" | "usage";
   title: string;
   description?: string;
   keywords: string[];
