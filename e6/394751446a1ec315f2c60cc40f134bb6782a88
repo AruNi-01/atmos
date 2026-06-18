@@ -1,0 +1,32 @@
+apps/web/src/app-shell/NewWorkspaceWelcomeOverlay.tsx
+  s_91795abe6f5c6b::t_b229de3d4e073a 5,12-14,37
+  s_91795abe6f5c6b::t_27209fd07a9acb 4,11,26,28,36,38
+scripts/desktop/build-web-static.mjs
+  s_936c653330e506::t_399da3788344a2 41-44,117-134,136-137
+apps/web/src/shared/hooks/use-app-router.ts
+  s_936c653330e506::t_399da3788344a2 10-17,71,76,82,87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "e6394751446a1ec315f2c60cc40f134bb6782a88",
+  "prompts": {},
+  "sessions": {
+    "s_91795abe6f5c6b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eda2f-6be4-7a92-9620-8079d0191dd1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_936c653330e506": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed9ae-cd80-7d80-b0bc-1ee767f4eeb9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
