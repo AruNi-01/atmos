@@ -4,9 +4,16 @@ import {
   useRouter as useNextRouter,
   useParams,
   usePathname,
-  useSearchParams,
 } from "next/navigation";
 import { useCallback, useMemo } from "react";
+
+function currentBrowserLocation(fallbackPathname: string): string {
+  if (typeof window === "undefined") {
+    return fallbackPathname;
+  }
+
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
 
 /**
  * Locale-aware router that auto-prefixes navigation paths with the current
@@ -19,7 +26,6 @@ export function useAppRouter() {
   const router = useNextRouter();
   const params = useParams();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const locale = (params?.locale as string) || "en";
 
   const normalizePath = useCallback(
@@ -59,31 +65,26 @@ export function useAppRouter() {
     [locale],
   );
 
-  const currentLocation = useMemo(() => {
-    const query = searchParams.toString();
-    return `${pathname}${query ? `?${query}` : ""}`;
-  }, [pathname, searchParams]);
-
   const push = useCallback(
     (path: string) => {
       const nextPath = normalizePath(path);
-      if (nextPath === currentLocation) {
+      if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
       router.push(nextPath);
     },
-    [currentLocation, normalizePath, router],
+    [normalizePath, pathname, router],
   );
 
   const replace = useCallback(
     (path: string) => {
       const nextPath = normalizePath(path);
-      if (nextPath === currentLocation) {
+      if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
       router.replace(nextPath);
     },
-    [currentLocation, normalizePath, router],
+    [normalizePath, pathname, router],
   );
 
   return useMemo(

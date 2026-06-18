@@ -38,7 +38,10 @@ function run(rootDir, command, args, extraEnv = {}) {
   });
 
   if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+    const status = result.status ?? 1;
+    const error = new Error(`${command} ${args.join(" ")} exited with code ${status}`);
+    error.exitCode = status;
+    throw error;
   }
 }
 
@@ -111,18 +114,26 @@ const isMain = process.argv[1] === fileURLToPath(import.meta.url);
 
 if (isMain) {
   const rootDir = process.argv[2] ? resolve(process.argv[2]) : defaultRootDir;
-  if (process.env.ATMOS_DESKTOP_SKIP_WEB_BUILD === "1") {
-    const webOut = join(rootDir, "apps/web/out");
-    if (!existsSync(webOut)) {
-      console.error(
-        "error: ATMOS_DESKTOP_SKIP_WEB_BUILD=1 but apps/web/out is missing — run without skip or build web first",
-      );
-      process.exit(1);
+  try {
+    if (process.env.ATMOS_DESKTOP_SKIP_WEB_BUILD === "1") {
+      const webOut = join(rootDir, "apps/web/out");
+      if (!existsSync(webOut)) {
+        console.error(
+          "error: ATMOS_DESKTOP_SKIP_WEB_BUILD=1 but apps/web/out is missing — run without skip or build web first",
+        );
+        process.exit(1);
+      }
+      console.log("⏭️  Skipping web build (ATMOS_DESKTOP_SKIP_WEB_BUILD=1)");
+      copyWebStaticToSidecar(rootDir, webOut);
+    } else {
+      const webOut = buildWebStaticForDesktop(rootDir);
+      copyWebStaticToSidecar(rootDir, webOut);
     }
-    console.log("⏭️  Skipping web build (ATMOS_DESKTOP_SKIP_WEB_BUILD=1)");
-    copyWebStaticToSidecar(rootDir, webOut);
-  } else {
-    const webOut = buildWebStaticForDesktop(rootDir);
-    copyWebStaticToSidecar(rootDir, webOut);
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    console.error(`error: ${error.message}`);
+    process.exit(error.exitCode ?? 1);
   }
 }
