@@ -1,4 +1,4 @@
-use futures_util::future::join_all;
+use futures_util::{stream, StreamExt};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -13,6 +13,8 @@ use super::{
     ProjectUpdateTargetBranchRequest, ProjectWorkspaceBootstrapResponse, ScriptGetRequest,
     ScriptSaveRequest, WsEvent, WsManager, WsMessage, WsMessageService,
 };
+
+const WORKSPACE_BOOTSTRAP_CONCURRENCY: usize = 8;
 
 impl WsMessageService {
     async fn send_project_delete_progress(
@@ -132,9 +134,12 @@ impl WsMessageService {
         };
 
         let workspace_service = Arc::clone(&self.workspace_service);
-        let workspace_results = join_all(projects.iter().map(|project| {
+        let project_guids = projects
+            .iter()
+            .map(|project| project.guid.clone())
+            .collect::<Vec<_>>();
+        let workspace_results = stream::iter(project_guids.into_iter().map(|project_guid| {
             let workspace_service = Arc::clone(&workspace_service);
-            let project_guid = project.guid.clone();
             async move {
                 let result = workspace_service
                     .list_by_project(project_guid.clone(), false)
@@ -142,6 +147,8 @@ impl WsMessageService {
                 (project_guid, result)
             }
         }))
+        .buffer_unordered(WORKSPACE_BOOTSTRAP_CONCURRENCY)
+        .collect::<Vec<_>>()
         .await;
 
         let mut workspaces_by_project = BTreeMap::new();

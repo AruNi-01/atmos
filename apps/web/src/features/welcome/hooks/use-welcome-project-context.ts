@@ -271,9 +271,10 @@ export function useWelcomeProjectContext({
         if (loadedIssueRepoKey === cacheKey) return;
       }
 
+      const loadSeq = issueLoadSeqRef.current + 1;
+      issueLoadSeqRef.current = loadSeq;
       setIsIssuesLoading(true);
       setIssueError(null);
-      const loadSeq = issueLoadSeqRef.current;
       try {
         if (options?.force) {
           issueListCache.delete(cacheKey);
