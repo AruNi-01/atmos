@@ -585,17 +585,6 @@ export function HeaderActionControls({
     <div className="relative z-10 flex items-center space-x-3 justify-end">
       {isDesktopRuntime ? <AppshotCapturePreview /> : null}
       <LocalModelDownloadProgress />
-      {showHeaderSummary ? (
-        <HeaderWorkspaceSummaryButton
-          contextId={headerContextId}
-          currentProjectName={currentProjectName}
-          currentWorkspaceDisplayName={currentWorkspaceDisplayName}
-          currentWorkspaceName={currentWorkspaceName}
-          projectId={headerProjectId}
-          workspaceId={headerWorkspaceId}
-          effectivePath={headerEffectivePath}
-        />
-      ) : null}
       <button
         aria-label="Search"
         className="desktop-no-drag flex items-center gap-3 px-3 py-1.5 h-8 min-w-[180px] bg-muted/40 hover:bg-muted/60 text-muted-foreground text-[12px] rounded-md border border-transparent hover:border-border transition-colors ease-out duration-200 cursor-pointer"
@@ -608,6 +597,17 @@ export function HeaderActionControls({
           <span className="text-xs">K</span>
         </kbd>
       </button>
+      {showHeaderSummary ? (
+        <HeaderWorkspaceSummaryButton
+          contextId={headerContextId}
+          currentProjectName={currentProjectName}
+          currentWorkspaceDisplayName={currentWorkspaceDisplayName}
+          currentWorkspaceName={currentWorkspaceName}
+          projectId={headerProjectId}
+          workspaceId={headerWorkspaceId}
+          effectivePath={headerEffectivePath}
+        />
+      ) : null}
 
       <div className="desktop-no-drag flex items-center justify-end gap-2">
         {isDesktopRuntime ? (
