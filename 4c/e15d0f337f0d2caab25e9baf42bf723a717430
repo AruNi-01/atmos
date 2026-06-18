@@ -1,0 +1,19 @@
+apps/web/src/app-shell/header-action-controls.tsx
+  s_6eb4875df6ace7::t_fabf94e442c122 600-610
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "4ce15d0f337f0d2caab25e9baf42bf723a717430",
+  "prompts": {},
+  "sessions": {
+    "s_6eb4875df6ace7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed8ac-fdae-7510-9ccb-0441936ae2b1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
