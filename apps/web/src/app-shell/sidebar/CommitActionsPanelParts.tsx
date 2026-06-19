@@ -4,6 +4,7 @@ import { FileText, GitBranch } from 'lucide-react';
 import type { GitChangedFile, GitStatusResponse } from '@/api/ws-api';
 import { cn } from '@/shared/lib/utils';
 import { ChangeSection } from '@/app-shell/sidebar/ChangeSection';
+import { basenameFromPath } from '@/app-shell/sidebar/commit-actions-paths';
 
 interface CommitActionsPanelHeaderProps {
   currentProjectName?: string;
@@ -34,7 +35,7 @@ export function CommitActionsPanelHeader({
   const repositoryLabel =
     currentWorkspaceName?.trim() ||
     currentProjectName?.trim() ||
-    currentProjectPath?.split('/').filter(Boolean).pop() ||
+    basenameFromPath(currentProjectPath) ||
     'Repository';
   const branchLabel = gitStatus?.current_branch || 'No branch';
   const changedFiles = [

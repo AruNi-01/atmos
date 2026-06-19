@@ -55,6 +55,7 @@ import {
   CommitActionsPanelChanges,
   CommitActionsPanelHeader,
 } from "@/app-shell/sidebar/CommitActionsPanelParts";
+import { basenameFromPath } from "@/app-shell/sidebar/commit-actions-paths";
 
 export function resolveGitCommitLlmProvider(
   config: LlmProvidersFile,
@@ -542,7 +543,7 @@ Report back which files were resolved and whether any conflicts still need user 
     const skillPath = "~/.atmos/skills/.system/git-commit/SKILL.md";
     const prompt = `Read the skill instructions at ${skillPath} and follow the full workflow: analyze the diff, generate a conventional commit message, and execute the git commit. Do not ask for confirmation.`;
     const contextName =
-      currentWorkspace?.localPath?.split("/").pop() ??
+      basenameFromPath(currentWorkspace?.localPath) ??
       currentProject?.name ??
       "Project";
     const now = new Date();
