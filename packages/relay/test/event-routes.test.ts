@@ -142,6 +142,38 @@ describe("GitHub event routes", () => {
     expect(routeMatchesEvent(route, event)).toBe(true);
   });
 
+  test("matches issue label filters case-insensitively", () => {
+    const route = baseRoute({
+      event_name: "issues",
+      action: "labeled",
+      filters_json: JSON.stringify({ label: "Atmos-Judge-Approve" }),
+    });
+    const event = baseEvent({
+      eventName: "issues",
+      action: "labeled",
+      issueNumber: 42,
+      labelName: "atmos-judge-approve",
+    });
+
+    expect(routeMatchesEvent(route, event)).toBe(true);
+    expect(routeMatchesEvent(route, { ...event, labelName: "bug" })).toBe(false);
+  });
+
+  test("matches issue opened routes without label filters", () => {
+    const route = baseRoute({
+      event_name: "issues",
+      action: "opened",
+      filters_json: "{}",
+    });
+    const event = baseEvent({
+      eventName: "issues",
+      action: "opened",
+      issueNumber: 42,
+    });
+
+    expect(routeMatchesEvent(route, event)).toBe(true);
+  });
+
   test("matches repository id before full name so repo renames still route", () => {
     const route = baseRoute({ repository_full_name: "Atmos/OldName" });
     const event = baseEvent({ repositoryFullName: "Atmos/NewName" });
@@ -205,6 +237,29 @@ describe("GitHub event routes", () => {
     expect(event?.action).toBe("created");
     expect(event?.pullRequestNumber).toBe(42);
     expect(event?.untrustedTextExcerpt).toContain("/atmos review");
+  });
+
+  test("normalizes ordinary issue events", () => {
+    const event = normalizeGithubEvent("issues", "delivery_1", {
+      action: "labeled",
+      installation: { id: 1 },
+      repository: { id: 100, full_name: "Atmos/Repo" },
+      sender: { login: "alice" },
+      issue: {
+        number: 42,
+        html_url: "https://github.com/Atmos/Repo/issues/42",
+        title: "Implement issue automation",
+        body: "Run from a trusted issue label.",
+      },
+      label: { name: "atmos-judge-approve" },
+    });
+
+    expect(event?.eventName).toBe("issues");
+    expect(event?.action).toBe("labeled");
+    expect(event?.issueNumber).toBe(42);
+    expect(event?.labelName).toBe("atmos-judge-approve");
+    expect(event?.sourceUrl).toBe("https://github.com/Atmos/Repo/issues/42");
+    expect(event?.untrustedTextExcerpt).toContain("Implement issue automation");
   });
 
   test("setup session read is non-mutating before final claim", async () => {

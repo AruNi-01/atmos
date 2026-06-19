@@ -199,6 +199,7 @@ function githubConfigEquals(left: GithubTriggerConfig | null, right: GithubTrigg
     stringArrayEquals(normalizeStringArray(left.actions), normalizeStringArray(right.actions)) &&
     normalizeNullableString(left.filters.branch) === normalizeNullableString(right.filters.branch) &&
     normalizeNullableString(left.filters.comment_contains) === normalizeNullableString(right.filters.comment_contains) &&
+    normalizeNullableString(left.filters.label) === normalizeNullableString(right.filters.label) &&
     stringArrayEquals(
       normalizeStringArray(left.filters.sender_logins, true),
       normalizeStringArray(right.filters.sender_logins, true),

@@ -40,6 +40,8 @@ export function useGithubTriggerSetup({
   const [githubInstallationId, setGithubInstallationId] = React.useState<GithubInt64 | null>(null);
   const [githubRepositoryFullName, setGithubRepositoryFullName] = React.useState("");
   const [githubEventFamily, setGithubEventFamily] = React.useState<GithubEventFamily>("pull_request");
+  const [githubIssueAction, setGithubIssueAction] = React.useState("labeled");
+  const [githubIssueLabel, setGithubIssueLabel] = React.useState("atmos-judge-approve");
   const [githubPullRequestAction, setGithubPullRequestAction] = React.useState("opened");
   const [githubBranchFilter, setGithubBranchFilter] = React.useState("main");
   const [githubCommentContains, setGithubCommentContains] = React.useState("");
@@ -83,6 +85,8 @@ export function useGithubTriggerSetup({
       setGithubInstallationId(null);
       setGithubRepositoryFullName("");
       setGithubEventFamily("pull_request");
+      setGithubIssueAction("labeled");
+      setGithubIssueLabel("atmos-judge-approve");
       setGithubPullRequestAction("opened");
       setGithubBranchFilter("main");
       setGithubCommentContains("");
@@ -94,6 +98,8 @@ export function useGithubTriggerSetup({
     setGithubInstallationId(initialGithubConfig.installation_id);
     setGithubRepositoryFullName(initialGithubConfig.repository_full_name);
     setGithubEventFamily(initialGithubConfig.event_family);
+    setGithubIssueAction(initialGithubConfig.actions[0] ?? "labeled");
+    setGithubIssueLabel(initialGithubConfig.filters.label ?? "atmos-judge-approve");
     setGithubPullRequestAction(initialGithubConfig.actions[0] ?? "opened");
     setGithubBranchFilter(initialGithubConfig.filters.branch ?? "main");
     setGithubCommentContains(initialGithubConfig.filters.comment_contains ?? "");
@@ -193,6 +199,13 @@ export function useGithubTriggerSetup({
       if (githubCommentContains.trim()) {
         filters.comment_contains = githubCommentContains.trim();
       }
+    }
+    if (githubEventFamily === "issues" && githubIssueAction === "labeled") {
+      if (githubIssueLabel.trim()) {
+        filters.label = githubIssueLabel.trim();
+      }
+    }
+    if (githubEventFamily === "pull_request_comment" || githubEventFamily === "issues") {
       const senderLogins = githubSenderLogins
         .split(",")
         .map((value) => value.trim())
@@ -213,17 +226,21 @@ export function useGithubTriggerSetup({
       actions:
         githubEventFamily === "pull_request"
           ? [githubPullRequestAction]
-          : githubEventFamily === "pull_request_comment"
-            ? ["created"]
-            : githubEventFamily === "workflow_run"
-              ? ["completed"]
-              : [],
+          : githubEventFamily === "issues"
+            ? [githubIssueAction]
+            : githubEventFamily === "pull_request_comment"
+              ? ["created"]
+              : githubEventFamily === "workflow_run"
+                ? ["completed"]
+                : [],
       filters,
     };
   }, [
     githubBranchFilter,
     githubCommentContains,
     githubEventFamily,
+    githubIssueAction,
+    githubIssueLabel,
     githubInstallationId,
     githubPullRequestAction,
     githubRepositoryFullName,
@@ -288,6 +305,8 @@ export function useGithubTriggerSetup({
     githubInstallationId,
     githubRepositoryFullName,
     githubEventFamily,
+    githubIssueAction,
+    githubIssueLabel,
     githubPullRequestAction,
     githubBranchFilter,
     githubCommentContains,
@@ -299,6 +318,8 @@ export function useGithubTriggerSetup({
     setGithubInstallationId,
     setGithubRepositoryFullName,
     setGithubEventFamily,
+    setGithubIssueAction,
+    setGithubIssueLabel,
     setGithubPullRequestAction,
     setGithubBranchFilter,
     setGithubCommentContains,

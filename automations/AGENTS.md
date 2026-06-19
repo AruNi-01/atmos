@@ -6,6 +6,17 @@ This directory contains repository-owned automation instructions and automation 
 
 ```text
 automations/
+├── issue/
+│   ├── judge/
+│   │   ├── INSTRUCTION.md
+│   │   ├── HUMAN.md
+│   │   ├── references/
+│   │   └── result/YYYY-MM-DD/
+│   └── implementation/
+│       ├── INSTRUCTION.md
+│       ├── HUMAN.md
+│       ├── references/
+│       └── result/YYYY-MM-DD/
 ├── review/
 │   ├── quality/
 │   │   ├── INSTRUCTION.md
@@ -33,5 +44,10 @@ automations/
 
 - `review/quality/INSTRUCTION.md` runs the daily main-branch code quality review and writes daily reports under `review/quality/result/YYYY-MM/`.
 - `review/comment-fix/INSTRUCTION.md` responds to trusted GitHub review-agent comments and writes event-driven reports under `review/comment-fix/result/YYYY-MM-DD/`.
+
+## Issue Automations
+
+- `issue/judge/INSTRUCTION.md` responds to GitHub Issue `opened` triggers, judges whether the issue should be implemented, labels it with `atmos-judge-approve`, `atmos-judge-needs-human-review`, or `atmos-judge-reject`, and closes rejected issues. Reports live under `issue/judge/result/YYYY-MM-DD/`.
+- `issue/implementation/INSTRUCTION.md` responds only to GitHub Issue `labeled` triggers where the label is `atmos-judge-approve`, then delivers issue implementations through a branch and PR. Reports live under `issue/implementation/result/YYYY-MM-DD/`.
 
 When configuring Atmos App automations, point the automation instructions at the workflow-specific `INSTRUCTION.md`, not this guide.

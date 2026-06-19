@@ -300,6 +300,8 @@ export function AutomationSetup({
     githubInstallationId,
     githubRepositoryFullName,
     githubEventFamily,
+    githubIssueAction,
+    githubIssueLabel,
     githubPullRequestAction,
     githubBranchFilter,
     githubCommentContains,
@@ -311,6 +313,8 @@ export function AutomationSetup({
     setGithubInstallationId,
     setGithubRepositoryFullName,
     setGithubEventFamily,
+    setGithubIssueAction,
+    setGithubIssueLabel,
     setGithubPullRequestAction,
     setGithubBranchFilter,
     setGithubCommentContains,
@@ -635,6 +639,8 @@ export function AutomationSetup({
                       githubInstallationId,
                       githubRepositoryFullName,
                       githubEventFamily,
+                      githubIssueAction,
+                      githubIssueLabel,
                       githubPullRequestAction,
                       githubBranchFilter,
                       githubCommentContains,
@@ -666,8 +672,16 @@ export function AutomationSetup({
                       },
                       onGithubEventFamilyChange: (family) => {
                         setGithubEventFamily(family);
+                        if (family === "issues") {
+                          setGithubIssueAction("labeled");
+                          if (!githubIssueLabel.trim()) {
+                            setGithubIssueLabel("atmos-judge-approve");
+                          }
+                        }
                         clearSubmitError();
                       },
+                      onGithubIssueActionChange: setGithubIssueAction,
+                      onGithubIssueLabelChange: setGithubIssueLabel,
                       onGithubPullRequestActionChange:
                         setGithubPullRequestAction,
                       onGithubBranchFilterChange: setGithubBranchFilter,

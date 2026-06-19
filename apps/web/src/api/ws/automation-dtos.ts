@@ -4,6 +4,7 @@ export type AutomationTriggerStatus = "active" | "needs_setup" | "paused" | "err
 
 export type GithubEventFamily =
   | "pull_request"
+  | "issues"
   | "pull_request_comment"
   | "push"
   | "workflow_run";
@@ -13,6 +14,7 @@ export type GithubInt64 = string;
 export interface GithubTriggerFilters {
   branch?: string | null;
   comment_contains?: string | null;
+  label?: string | null;
   sender_logins?: string[];
   workflow_conclusions?: string[];
 }
@@ -90,6 +92,7 @@ function normalizeGithubTriggerFilters(value: unknown): GithubTriggerFilters {
   return {
     branch: typeof filters.branch === "string" ? filters.branch : null,
     comment_contains: typeof filters.comment_contains === "string" ? filters.comment_contains : null,
+    label: typeof filters.label === "string" ? filters.label : null,
     sender_logins: Array.isArray(filters.sender_logins)
       ? filters.sender_logins.filter((login): login is string => typeof login === "string")
       : [],
@@ -100,5 +103,11 @@ function normalizeGithubTriggerFilters(value: unknown): GithubTriggerFilters {
 }
 
 function isGithubEventFamily(value: unknown): value is GithubEventFamily {
-  return value === "pull_request" || value === "pull_request_comment" || value === "push" || value === "workflow_run";
+  return (
+    value === "pull_request" ||
+    value === "issues" ||
+    value === "pull_request_comment" ||
+    value === "push" ||
+    value === "workflow_run"
+  );
 }

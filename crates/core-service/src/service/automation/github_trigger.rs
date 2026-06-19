@@ -9,6 +9,7 @@ use crate::error::{Result, ServiceError};
 #[serde(rename_all = "snake_case")]
 pub enum GithubEventFamily {
     PullRequest,
+    Issues,
     PullRequestComment,
     Push,
     WorkflowRun,
@@ -36,6 +37,8 @@ pub struct GithubTriggerFilters {
     #[serde(default)]
     pub comment_contains: Option<String>,
     #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
     pub sender_logins: Vec<String>,
     #[serde(default, alias = "conclusions")]
     pub workflow_conclusions: Vec<String>,
@@ -57,6 +60,8 @@ pub struct GithubTriggerEvent {
     #[serde(default)]
     pub source_url: Option<String>,
     #[serde(default)]
+    pub issue_number: Option<i64>,
+    #[serde(default)]
     pub pull_request_number: Option<i64>,
     #[serde(default)]
     pub branch: Option<String>,
@@ -64,6 +69,8 @@ pub struct GithubTriggerEvent {
     pub workflow_name: Option<String>,
     #[serde(default)]
     pub conclusion: Option<String>,
+    #[serde(default)]
+    pub label_name: Option<String>,
     #[serde(default)]
     pub untrusted_text_excerpt: Option<String>,
     pub received_at: NaiveDateTime,
@@ -127,6 +134,7 @@ impl GithubTriggerFilters {
         self.comment_contains = self
             .comment_contains
             .and_then(|value| non_empty_trimmed(&value));
+        self.label = self.label.and_then(|value| non_empty_trimmed(&value));
         self.sender_logins = normalize_sender_logins(&self.sender_logins)?;
         self.workflow_conclusions = normalize_workflow_conclusions(&self.workflow_conclusions)?;
         Ok(self)
@@ -163,6 +171,7 @@ impl GithubTriggerEvent {
         self.conclusion = self
             .conclusion
             .and_then(|value| normalize_optional_token(&value));
+        self.label_name = self.label_name.and_then(|value| non_empty_trimmed(&value));
         self.untrusted_text_excerpt = self
             .untrusted_text_excerpt
             .and_then(|value| non_empty_trimmed(&value));
@@ -194,12 +203,16 @@ pub fn build_github_trigger_context(event: &GithubTriggerEvent) -> String {
         lines.push(format!("Repository ID: {repository_id}"));
     }
     push_optional(&mut lines, "Source URL", event.source_url.as_deref());
+    if let Some(number) = event.issue_number {
+        lines.push(format!("Issue: #{number}"));
+    }
     if let Some(number) = event.pull_request_number {
         lines.push(format!("Pull Request: #{number}"));
     }
     push_optional(&mut lines, "Branch", event.branch.as_deref());
     push_optional(&mut lines, "Workflow", event.workflow_name.as_deref());
     push_optional(&mut lines, "Conclusion", event.conclusion.as_deref());
+    push_optional(&mut lines, "Label", event.label_name.as_deref());
     lines.push(format!("Received at: {}", event.received_at));
 
     if let Some(excerpt) = event
@@ -247,6 +260,7 @@ fn repository_matches(
 fn event_family_matches(family: &GithubEventFamily, event_name: &str) -> bool {
     match family {
         GithubEventFamily::PullRequest => event_name == "pull_request",
+        GithubEventFamily::Issues => event_name == "issues",
         GithubEventFamily::PullRequestComment => {
             matches!(event_name, "issue_comment" | "pull_request_review_comment")
         }
@@ -275,6 +289,7 @@ fn filters_match(filters: &GithubTriggerFilters, event: &GithubTriggerEvent) -> 
             filters.comment_contains.as_deref(),
             event.untrusted_text_excerpt.as_deref(),
         )
+        && label_matches(filters.label.as_deref(), event.label_name.as_deref())
         && conclusion_matches(&filters.workflow_conclusions, event.conclusion.as_deref())
 }
 
@@ -314,6 +329,16 @@ fn comment_matches(required: Option<&str>, excerpt: Option<&str>) -> bool {
     excerpt
         .map(|value| value.contains(required))
         .unwrap_or(false)
+}
+
+fn label_matches(required: Option<&str>, label_name: Option<&str>) -> bool {
+    let Some(required) = required.map(str::trim).filter(|value| !value.is_empty()) else {
+        return true;
+    };
+    let Some(label_name) = label_name.map(str::trim).filter(|value| !value.is_empty()) else {
+        return false;
+    };
+    normalize_token(required) == normalize_token(label_name)
 }
 
 fn conclusion_matches(allowed: &[String], conclusion: Option<&str>) -> bool {
@@ -455,7 +480,12 @@ fn normalize_event_name(value: &str) -> Result<String> {
     };
     if matches!(
         value.as_str(),
-        "pull_request" | "issue_comment" | "pull_request_review_comment" | "push" | "workflow_run"
+        "pull_request"
+            | "issues"
+            | "issue_comment"
+            | "pull_request_review_comment"
+            | "push"
+            | "workflow_run"
     ) {
         Ok(value)
     } else {
@@ -490,6 +520,10 @@ fn is_allowed_action(family: &GithubEventFamily, action: &str) -> bool {
         GithubEventFamily::PullRequest => matches!(
             action,
             "opened" | "reopened" | "ready_for_review" | "closed" | "merged"
+        ),
+        GithubEventFamily::Issues => matches!(
+            action,
+            "opened" | "reopened" | "labeled" | "assigned" | "edited" | "closed"
         ),
         GithubEventFamily::PullRequestComment => matches!(action, "created" | "edited" | "deleted"),
         GithubEventFamily::Push => action == "pushed",
@@ -599,10 +633,12 @@ mod tests {
             action: Some("created".to_string()),
             sender_login: Some("alice".to_string()),
             source_url: Some("https://github.com/owner/repo/pull/1#comment".to_string()),
+            issue_number: None,
             pull_request_number: Some(1),
             branch: Some("main".to_string()),
             workflow_name: None,
             conclusion: None,
+            label_name: None,
             untrusted_text_excerpt: Some("/atmos review".to_string()),
             received_at: NaiveDate::from_ymd_opt(2026, 5, 27)
                 .unwrap()
@@ -623,12 +659,46 @@ mod tests {
             filters: GithubTriggerFilters {
                 branch: Some("main".to_string()),
                 comment_contains: Some("/atmos".to_string()),
+                label: None,
                 sender_logins: vec!["alice".to_string()],
                 workflow_conclusions: vec![],
             },
         };
 
         assert!(config.matches_event(&event()));
+    }
+
+    #[test]
+    fn github_trigger_matches_issue_label_events() {
+        let config = GithubTriggerConfig {
+            route_id: "route-1".to_string(),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
+            repository_full_name: "owner/repo".to_string(),
+            event_family: GithubEventFamily::Issues,
+            actions: vec!["labeled".to_string()],
+            filters: GithubTriggerFilters {
+                label: Some("Atmos-Judge-Approve".to_string()),
+                sender_logins: vec!["alice".to_string()],
+                ..Default::default()
+            },
+        };
+        let mut event = event();
+        event.event_name = "issues".to_string();
+        event.action = Some("labeled".to_string());
+        event.source_url = Some("https://github.com/owner/repo/issues/42".to_string());
+        event.issue_number = Some(42);
+        event.pull_request_number = None;
+        event.branch = None;
+        event.label_name = Some("atmos-judge-approve".to_string());
+        event.untrusted_text_excerpt = Some("Implement GitHub issue automation".to_string());
+
+        assert!(config.matches_event(&event));
+        let context = build_github_trigger_context(&event);
+        assert!(context.contains("Issue: #42"));
+        assert!(context.contains("Label: atmos-judge-approve"));
+        event.label_name = Some("bug".to_string());
+        assert!(!config.matches_event(&event));
     }
 
     #[test]

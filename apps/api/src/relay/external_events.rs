@@ -26,6 +26,8 @@ struct RelayGithubTriggerEvent {
     #[serde(default)]
     source_url: Option<String>,
     #[serde(default)]
+    issue_number: Option<i64>,
+    #[serde(default)]
     pull_request_number: Option<i64>,
     #[serde(default)]
     branch: Option<String>,
@@ -33,6 +35,8 @@ struct RelayGithubTriggerEvent {
     workflow_name: Option<String>,
     #[serde(default)]
     conclusion: Option<String>,
+    #[serde(default)]
+    label_name: Option<String>,
     #[serde(default)]
     untrusted_text_excerpt: Option<String>,
     received_at: i64,
@@ -126,10 +130,12 @@ fn parse_github_trigger_event(body: &str) -> Result<GithubTriggerEvent, String> 
         action: raw.action,
         sender_login: raw.sender_login,
         source_url: raw.source_url,
+        issue_number: raw.issue_number,
         pull_request_number: raw.pull_request_number,
         branch: raw.branch,
         workflow_name: raw.workflow_name,
         conclusion: raw.conclusion,
+        label_name: raw.label_name,
         untrusted_text_excerpt: raw.untrusted_text_excerpt,
         received_at,
     }

@@ -46,6 +46,12 @@ const EVENT_OPTIONS: Array<{
     Icon: GitPullRequest,
   },
   {
+    value: "issues",
+    label: "Issue",
+    description: "Opened, labeled, assigned, or updated",
+    Icon: CircleDot,
+  },
+  {
     value: "pull_request_comment",
     label: "PR comment",
     description: "Issue comments on pull requests",
@@ -68,6 +74,15 @@ const PR_ACTIONS = [
   { value: "merged", label: "Merged", Icon: GitMerge },
 ];
 
+const ISSUE_ACTIONS = [
+  { value: "labeled", label: "Labeled", Icon: CircleDot },
+  { value: "assigned", label: "Assigned", Icon: CircleDot },
+  { value: "opened", label: "Opened", Icon: GitPullRequest },
+  { value: "reopened", label: "Reopened", Icon: RotateCcw },
+  { value: "edited", label: "Edited", Icon: Eye },
+  { value: "closed", label: "Closed", Icon: XCircle },
+];
+
 const WORKFLOW_CONCLUSIONS = [
   { value: "any", label: "Any conclusion", Icon: CircleDot },
   { value: "success", label: "Success", Icon: CheckCircle2 },
@@ -86,6 +101,8 @@ export function AutomationGithubTriggerPanel({
   selectedInstallationId,
   selectedRepositoryFullName,
   eventFamily,
+  issueAction,
+  issueLabel,
   pullRequestAction,
   branchFilter,
   commentContains,
@@ -96,6 +113,8 @@ export function AutomationGithubTriggerPanel({
   onInstallationChange,
   onRepositoryChange,
   onEventFamilyChange,
+  onIssueActionChange,
+  onIssueLabelChange,
   onPullRequestActionChange,
   onBranchFilterChange,
   onCommentContainsChange,
@@ -112,6 +131,8 @@ export function AutomationGithubTriggerPanel({
   selectedInstallationId: GithubInt64 | null;
   selectedRepositoryFullName: string;
   eventFamily: GithubEventFamily;
+  issueAction: string;
+  issueLabel: string;
   pullRequestAction: string;
   branchFilter: string;
   commentContains: string;
@@ -122,6 +143,8 @@ export function AutomationGithubTriggerPanel({
   onInstallationChange: (installationId: GithubInt64) => void;
   onRepositoryChange: (fullName: string) => void;
   onEventFamilyChange: (family: GithubEventFamily) => void;
+  onIssueActionChange: (action: string) => void;
+  onIssueLabelChange: (value: string) => void;
   onPullRequestActionChange: (action: string) => void;
   onBranchFilterChange: (value: string) => void;
   onCommentContainsChange: (value: string) => void;
@@ -234,6 +257,31 @@ export function AutomationGithubTriggerPanel({
               options={PR_ACTIONS}
               onChange={onPullRequestActionChange}
             />
+          ) : null}
+
+          {eventFamily === "issues" ? (
+            <div className="grid gap-2">
+              <SelectField
+                label="Action"
+                value={issueAction}
+                options={ISSUE_ACTIONS}
+                onChange={onIssueActionChange}
+              />
+              {issueAction === "labeled" ? (
+                <TextField
+                  label="Issue label"
+                  value={issueLabel}
+                  placeholder="atmos-judge-approve"
+                  onChange={onIssueLabelChange}
+                />
+              ) : null}
+              <TextField
+                label="Sender logins"
+                value={senderLogins}
+                placeholder="alice,octocat"
+                onChange={onSenderLoginsChange}
+              />
+            </div>
           ) : null}
 
           {eventFamily === "pull_request_comment" ? (

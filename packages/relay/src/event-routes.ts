@@ -17,6 +17,7 @@ const DEFAULT_SETUP_RETURN_ORIGINS = [
 ];
 const SUPPORTED_EVENTS = new Set([
   "pull_request",
+  "issues",
   "issue_comment",
   "push",
   "workflow_run",
@@ -31,10 +32,12 @@ export interface NormalizedGithubEvent {
   action?: string;
   senderLogin?: string;
   sourceUrl?: string;
+  issueNumber?: number;
   pullRequestNumber?: number;
   branch?: string;
   workflowName?: string;
   conclusion?: string;
+  labelName?: string;
   untrustedTextExcerpt?: string;
   receivedAt: number;
 }
@@ -56,6 +59,7 @@ interface RouteFilters {
   branch?: string;
   branches?: string[];
   comment_contains?: string;
+  label?: string;
   sender_logins?: string[];
   conclusions?: string[];
   conclusion?: string;
@@ -496,10 +500,12 @@ export function toGithubTriggerEnvelope(
     action: event.action,
     sender_login: event.senderLogin,
     source_url: event.sourceUrl,
+    issue_number: event.issueNumber,
     pull_request_number: event.pullRequestNumber,
     branch: event.branch,
     workflow_name: event.workflowName,
     conclusion: event.conclusion,
+    label_name: event.labelName,
     untrusted_text_excerpt: event.untrustedTextExcerpt,
     received_at: event.receivedAt,
   };
@@ -605,6 +611,11 @@ export function routeMatchesEvent(
     return false;
   }
 
+  const label = normalizeTokenString(filters.label);
+  if (label && normalizeTokenString(event.labelName) !== label) {
+    return false;
+  }
+
   const conclusions = normalizeTokenArray(filters.conclusions);
   const singleConclusion = normalizeTokenString(filters.conclusion);
   if (singleConclusion) {
@@ -703,6 +714,10 @@ function normalizeRouteFilters(filters: Record<string, unknown>): RouteFilters {
   const commentContains = normalizeOptionalString(filters.comment_contains);
   if (commentContains) {
     normalized.comment_contains = commentContains;
+  }
+  const label = normalizeOptionalString(filters.label);
+  if (label) {
+    normalized.label = label;
   }
   const senderLogins = normalizeTokenArray(filters.sender_logins);
   if (senderLogins.length > 0) {
