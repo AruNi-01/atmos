@@ -20,6 +20,7 @@ interface UseLeftSidebarDragHandlersParams {
   projects: Project[];
   reorderProjects: (projects: Project[]) => Promise<void>;
   reorderWorkspaces: (projectId: string, workspaces: Workspace[]) => Promise<void>;
+  shouldApplyWorkspaceFilter: boolean;
 }
 
 export function useLeftSidebarDragHandlers({
@@ -28,6 +29,7 @@ export function useLeftSidebarDragHandlers({
   projects,
   reorderProjects,
   reorderWorkspaces,
+  shouldApplyWorkspaceFilter,
 }: UseLeftSidebarDragHandlersParams) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const isAnyProjectDragging = activeId !== null && projects.some(p => p.id === activeId);
@@ -74,7 +76,7 @@ export function useLeftSidebarDragHandlers({
 
       if (activeWorkspaceIndex === -1 || overWorkspaceIndex === -1) continue;
 
-      if (activeKanbanFilterCount > 0) {
+      if (shouldApplyWorkspaceFilter) {
         const visibleWorkspaceIds = new Set(
           filteredFlattenedWorkspaces
             .filter((entry) => entry.projectId === project.id)

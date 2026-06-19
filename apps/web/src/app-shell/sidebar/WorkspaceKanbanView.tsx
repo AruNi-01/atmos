@@ -276,6 +276,10 @@ export function WorkspaceKanbanView({
       const loadedHiddenColumns = Array.isArray(filters.hidden_columns)
         ? filters.hidden_columns.filter((item): item is WorkspaceWorkflowStatus => availableStatusSet.has(item as WorkspaceWorkflowStatus))
         : [];
+      const loadedShowAutomationWorkspaces =
+        typeof filters.show_automation_workspaces === "boolean"
+          ? filters.show_automation_workspaces
+          : false;
       const loadedShowIssueOnly = typeof state.show_issue_only === 'boolean' ? state.show_issue_only : false;
 
       const nextCardProperties = resolveKanbanCardProperties(state);
@@ -289,6 +293,7 @@ export function WorkspaceKanbanView({
         priorities: loadedPriorities,
         labelIds: loadedLabelIds,
         projectIds: loadedProjectIds,
+        showAutomationWorkspaces: loadedShowAutomationWorkspaces,
       });
       setHiddenColumns(loadedHiddenColumns);
       setCardProperties(nextCardProperties);
@@ -302,6 +307,7 @@ export function WorkspaceKanbanView({
           priorities: [],
           labelIds: [],
           projectIds: [],
+          showAutomationWorkspaces: false,
         });
         setHiddenColumns([]);
         setCardProperties(DEFAULT_KANBAN_CARD_PROPERTIES);
@@ -332,6 +338,7 @@ export function WorkspaceKanbanView({
         label_ids: filters.labelIds,
         project_ids: filters.projectIds,
         hidden_columns: hiddenColumns,
+        show_automation_workspaces: filters.showAutomationWorkspaces,
       },
       properties: cardProperties,
       show_issue_only: showIssueOnly,
@@ -363,6 +370,7 @@ export function WorkspaceKanbanView({
       project.workspaces.forEach((workspace) => {
         // Filter out issue_only workspaces unless showIssueOnly is true
         if (!showIssueOnly && workspace.createSource === 'issue_only') return;
+        if (!filters.showAutomationWorkspaces && workspace.createSource === 'automation') return;
         if (filters.projectIds.length > 0 && !filters.projectIds.includes(project.id)) return;
         if (filters.statuses.length > 0 && !filters.statuses.includes(workspace.workflowStatus)) return;
         if (filters.priorities.length > 0 && !filters.priorities.includes(workspace.priority)) return;
