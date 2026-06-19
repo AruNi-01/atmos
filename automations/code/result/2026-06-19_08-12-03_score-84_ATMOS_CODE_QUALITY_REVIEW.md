@@ -71,8 +71,9 @@
   - `bun --filter web typecheck`：通过
   - `git diff --check`：通过
   - `bun --filter web lint`：失败，失败来自本次未改文件的既有问题，例如 `apps/web/src/app-shell/HostedAppShellGate.tsx`、`apps/web/src/features/canvas/components/CanvasAgentIsland.tsx`、`apps/web/src/features/diff/components/ChangesCodeView.tsx`、`apps/web/src/features/github/components/PRFilesTab.tsx`、`apps/web/src/features/settings/hooks/use-updater.ts`
-- 修复提交 hash：待提交
-- PR URL：待创建
+- 修复提交 hash：`6cadb3c3`
+- PR URL：https://github.com/AruNi-01/atmos/pull/127
+- PR labels：已添加 `codex`；仓库当前没有 `codex-automation` label，已跳过
 
 ## 10. 结果文件
 
@@ -80,6 +81,6 @@
 
 ## 11. 结果提交与推送
 
-- 结果文件提交 hash：待提交
+- 结果文件提交 hash：`6cadb3c3`（初始结果文件随修复提交进入分支；PR URL 补写会随本 PR 分支最新提交推送）
 - 推送目标分支：`codex/quality-fix/2026-06-18`
-- PR URL：待创建
+- PR URL：https://github.com/AruNi-01/atmos/pull/127
