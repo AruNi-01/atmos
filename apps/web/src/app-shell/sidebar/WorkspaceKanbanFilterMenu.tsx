@@ -4,6 +4,7 @@ import React from "react";
 import {
   Button,
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -355,17 +356,21 @@ export function WorkspaceKanbanFilterMenu({
           </>
         ) : null}
 
-        <div className="flex items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground">
-          <span className="flex min-w-0 flex-1 items-center gap-2">
-            <Timer className="size-4 text-muted-foreground" />
-            <span className="truncate">Automation Workspace</span>
-          </span>
+        <DropdownMenuCheckboxItem
+          checked={filters.showAutomationWorkspaces}
+          onCheckedChange={(checked) => toggleAutomationWorkspaces(Boolean(checked))}
+          onSelect={(e) => e.preventDefault()}
+          className="cursor-pointer pl-2 [&>span:first-child]:hidden"
+        >
+          <Timer className="size-4 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">Automation Workspace</span>
           <Switch
             checked={filters.showAutomationWorkspaces}
-            onCheckedChange={(checked) => toggleAutomationWorkspaces(Boolean(checked))}
-            aria-label="Automation Workspace"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="pointer-events-none ml-auto"
           />
-        </div>
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

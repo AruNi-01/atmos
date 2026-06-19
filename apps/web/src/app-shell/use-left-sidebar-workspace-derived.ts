@@ -61,10 +61,10 @@ export function useLeftSidebarWorkspaceDerived({
     );
     const projectModeProjects = useMemo(
         () => getProjectModeProjects(projects, filteredFlattenedWorkspaces, {
-            hideProjectsWithoutVisibleWorkspaces: activeKanbanFilterCount > 0,
+            hideProjectsWithoutVisibleWorkspaces: shouldApplyWorkspaceFilter,
             shouldApplyWorkspaceFilter,
         }),
-        [activeKanbanFilterCount, filteredFlattenedWorkspaces, projects, shouldApplyWorkspaceFilter],
+        [filteredFlattenedWorkspaces, projects, shouldApplyWorkspaceFilter],
     );
     const pinnedWorkspaces = useMemo(
         () => getPinnedWorkspaceEntries(filteredFlattenedWorkspaces),
