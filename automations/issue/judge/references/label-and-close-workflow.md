@@ -8,7 +8,7 @@
 - `needs-human-review` -> `atmos-judge-needs-human-review`
 - `reject` -> `atmos-judge-reject`
 
-三个 judge 标签互斥。设置目标标签前，尽量移除其他两个 judge 标签；如果移除失败但目标标签可添加，继续并在报告中说明。
+三个 judge 标签互斥。设置目标标签前，必须先移除其他两个 judge 标签，并确认它们已经不在 issue 当前 labels 中。只要任一冲突 judge 标签无法移除或仍然存在，就停止并写 `blocked`；不要继续添加目标标签，也不要把判定伪装成已完成。
 
 ## 标签准备
 
