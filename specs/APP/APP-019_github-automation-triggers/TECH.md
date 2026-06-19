@@ -428,10 +428,12 @@ pub struct GithubTriggerEvent {
     pub action: Option<String>,
     pub sender_login: Option<String>,
     pub source_url: Option<String>,
+    pub issue_number: Option<i64>,
     pub pull_request_number: Option<i64>,
     pub branch: Option<String>,
     pub workflow_name: Option<String>,
     pub conclusion: Option<String>,
+    pub label_name: Option<String>,
     pub untrusted_text_excerpt: Option<String>,
     pub received_at: chrono::NaiveDateTime,
 }
@@ -567,13 +569,14 @@ Repository permissions:
 
 - Metadata: required by GitHub.
 - Pull requests: read-only.
-- Issues: read-only, for issue comments on PRs.
+- Issues: read-only, for issue events and issue comments on PRs.
 - Actions: read-only, for `workflow_run`.
 - Contents: read-only, for push/repository metadata.
 
 Webhook events:
 
 - `pull_request`
+- `issues`
 - `issue_comment`
 - `pull_request_review`
 - `pull_request_review_comment`
@@ -605,10 +608,12 @@ interface GithubTriggerEnvelope {
   action?: string;
   sender_login?: string;
   source_url?: string;
+  issue_number?: number;
   pull_request_number?: number;
   branch?: string;
   workflow_name?: string;
   conclusion?: string;
+  label_name?: string;
   untrusted_text_excerpt?: string;
   received_at: number;
 }

@@ -23,19 +23,24 @@ function comparePinnedWorkspaceEntries<T extends PinnedWorkspaceComparable>(a: T
 export function getProjectModeProjects(
     projects: Project[],
     filteredFlattenedWorkspaces: FlattenedWorkspaceEntry[],
-    activeKanbanFilterCount: number,
+    options: {
+        hideProjectsWithoutVisibleWorkspaces: boolean;
+        shouldApplyWorkspaceFilter: boolean;
+    },
 ): Project[] {
-    if (activeKanbanFilterCount === 0) return projects;
+    if (!options.shouldApplyWorkspaceFilter) return projects;
 
     const visibleWorkspaceIds = new Set(
         filteredFlattenedWorkspaces.map((entry) => entry.workspace.id),
     );
-    return projects
-        .map((project) => ({
-            ...project,
-            workspaces: project.workspaces.filter((workspace) => visibleWorkspaceIds.has(workspace.id)),
-        }))
-        .filter((project) => project.workspaces.length > 0);
+    const filteredProjects = projects.map((project) => ({
+        ...project,
+        workspaces: project.workspaces.filter((workspace) => visibleWorkspaceIds.has(workspace.id)),
+    }));
+
+    if (!options.hideProjectsWithoutVisibleWorkspaces) return filteredProjects;
+
+    return filteredProjects.filter((project) => project.workspaces.length > 0);
 }
 
 export function getPinnedWorkspaceEntries(

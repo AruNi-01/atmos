@@ -481,6 +481,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         selectedProjectForSidebar,
         selectedProjectPinnedEntries,
         selectedProjectUnpinnedWorkspaces,
+        shouldApplyWorkspaceFilter,
         shouldShowGlobalPinnedSection,
     } = useLeftSidebarWorkspaceDerived({
         currentProjectId,
@@ -509,6 +510,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = () => {
         projects,
         reorderProjects,
         reorderWorkspaces,
+        shouldApplyWorkspaceFilter,
     });
     const {
         currentTwoColumnPrimarySize,

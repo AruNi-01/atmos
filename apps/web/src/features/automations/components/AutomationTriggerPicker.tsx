@@ -75,6 +75,8 @@ export function AutomationTriggerPicker({
   githubInstallationId,
   githubRepositoryFullName,
   githubEventFamily,
+  githubIssueAction,
+  githubIssueLabel,
   githubPullRequestAction,
   githubBranchFilter,
   githubCommentContains,
@@ -92,6 +94,8 @@ export function AutomationTriggerPicker({
   onGithubInstallationChange,
   onGithubRepositoryChange,
   onGithubEventFamilyChange,
+  onGithubIssueActionChange,
+  onGithubIssueLabelChange,
   onGithubPullRequestActionChange,
   onGithubBranchFilterChange,
   onGithubCommentContainsChange,
@@ -119,6 +123,8 @@ export function AutomationTriggerPicker({
   githubInstallationId: GithubInt64 | null;
   githubRepositoryFullName: string;
   githubEventFamily: GithubEventFamily;
+  githubIssueAction: string;
+  githubIssueLabel: string;
   githubPullRequestAction: string;
   githubBranchFilter: string;
   githubCommentContains: string;
@@ -136,6 +142,8 @@ export function AutomationTriggerPicker({
   onGithubInstallationChange: (installationId: GithubInt64) => void;
   onGithubRepositoryChange: (fullName: string) => void;
   onGithubEventFamilyChange: (family: GithubEventFamily) => void;
+  onGithubIssueActionChange: (action: string) => void;
+  onGithubIssueLabelChange: (value: string) => void;
   onGithubPullRequestActionChange: (action: string) => void;
   onGithubBranchFilterChange: (value: string) => void;
   onGithubCommentContainsChange: (value: string) => void;
@@ -218,6 +226,8 @@ export function AutomationTriggerPicker({
           selectedInstallationId={githubInstallationId}
           selectedRepositoryFullName={githubRepositoryFullName}
           eventFamily={githubEventFamily}
+          issueAction={githubIssueAction}
+          issueLabel={githubIssueLabel}
           pullRequestAction={githubPullRequestAction}
           branchFilter={githubBranchFilter}
           commentContains={githubCommentContains}
@@ -228,6 +238,8 @@ export function AutomationTriggerPicker({
           onInstallationChange={onGithubInstallationChange}
           onRepositoryChange={onGithubRepositoryChange}
           onEventFamilyChange={onGithubEventFamilyChange}
+          onIssueActionChange={onGithubIssueActionChange}
+          onIssueLabelChange={onGithubIssueLabelChange}
           onPullRequestActionChange={onGithubPullRequestActionChange}
           onBranchFilterChange={onGithubBranchFilterChange}
           onCommentContainsChange={onGithubCommentContainsChange}

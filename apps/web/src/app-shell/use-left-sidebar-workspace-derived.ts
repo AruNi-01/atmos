@@ -11,6 +11,7 @@ import {
 import {
     filterWorkspaceKanbanEntries,
     getActiveWorkspaceKanbanFilterCount,
+    shouldApplyWorkspaceKanbanVisibilityFilter,
     type WorkspaceKanbanFilters,
 } from '@/app-shell/sidebar/WorkspaceKanbanFilterMenu';
 import {
@@ -53,13 +54,17 @@ export function useLeftSidebarWorkspaceDerived({
 }: UseLeftSidebarWorkspaceDerivedParams) {
     const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
     const activeKanbanFilterCount = getActiveWorkspaceKanbanFilterCount(kanbanFilters);
+    const shouldApplyWorkspaceFilter = shouldApplyWorkspaceKanbanVisibilityFilter(kanbanFilters);
     const filteredFlattenedWorkspaces = filterWorkspaceKanbanEntries(
         flattenedWorkspaces,
         kanbanFilters,
     );
     const projectModeProjects = useMemo(
-        () => getProjectModeProjects(projects, filteredFlattenedWorkspaces, activeKanbanFilterCount),
-        [activeKanbanFilterCount, filteredFlattenedWorkspaces, projects],
+        () => getProjectModeProjects(projects, filteredFlattenedWorkspaces, {
+            hideProjectsWithoutVisibleWorkspaces: shouldApplyWorkspaceFilter,
+            shouldApplyWorkspaceFilter,
+        }),
+        [filteredFlattenedWorkspaces, projects, shouldApplyWorkspaceFilter],
     );
     const pinnedWorkspaces = useMemo(
         () => getPinnedWorkspaceEntries(filteredFlattenedWorkspaces),
@@ -168,5 +173,6 @@ export function useLeftSidebarWorkspaceDerived({
         selectedProjectPinnedEntries,
         selectedProjectUnpinnedWorkspaces,
         shouldShowGlobalPinnedSection,
+        shouldApplyWorkspaceFilter,
     };
 }

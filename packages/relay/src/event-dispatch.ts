@@ -14,10 +14,12 @@ export interface GithubTriggerEnvelope {
   action?: string;
   sender_login?: string;
   source_url?: string;
+  issue_number?: number;
   pull_request_number?: number;
   branch?: string;
   workflow_name?: string;
   conclusion?: string;
+  label_name?: string;
   untrusted_text_excerpt?: string;
   received_at: number;
 }

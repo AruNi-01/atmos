@@ -162,6 +162,8 @@ function githubEventName(family: GithubEventFamily): string {
   switch (family) {
     case "pull_request":
       return "pull_request";
+    case "issues":
+      return "issues";
     case "pull_request_comment":
       return "issue_comment";
     case "push":
@@ -178,6 +180,9 @@ function relayFilters(config: GithubTriggerConfig): Record<string, unknown> {
   }
   if (config.filters.comment_contains?.trim()) {
     filters.comment_contains = config.filters.comment_contains.trim();
+  }
+  if (config.filters.label?.trim()) {
+    filters.label = config.filters.label.trim();
   }
   if (config.filters.sender_logins?.length) {
     filters.sender_logins = config.filters.sender_logins;

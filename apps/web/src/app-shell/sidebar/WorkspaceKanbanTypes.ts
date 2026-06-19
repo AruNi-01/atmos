@@ -118,6 +118,7 @@ export type WorkspaceKanbanViewSavedState = {
     label_ids: string[];
     project_ids: string[];
     hidden_columns: WorkspaceWorkflowStatus[];
+    show_automation_workspaces?: boolean;
   };
   properties: KanbanCardProperties;
   show_issue_only?: boolean;

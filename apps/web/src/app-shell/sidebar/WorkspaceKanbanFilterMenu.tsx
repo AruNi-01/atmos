@@ -4,6 +4,7 @@ import React from "react";
 import {
   Button,
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -13,10 +14,12 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Input,
+  Switch,
   cn,
 } from "@workspace/ui";
 import type {
   Project,
+  WorkspaceCreateSource,
   WorkspaceLabel,
   WorkspacePriority,
   WorkspaceWorkflowStatus,
@@ -36,6 +39,7 @@ import {
   Folder,
   ListFilter,
   Tags,
+  Timer,
 } from "lucide-react";
 
 export type WorkspaceKanbanFilters = {
@@ -43,6 +47,7 @@ export type WorkspaceKanbanFilters = {
   priorities: WorkspacePriority[];
   labelIds: string[];
   projectIds: string[];
+  showAutomationWorkspaces: boolean;
 };
 
 export const EMPTY_WORKSPACE_KANBAN_FILTERS: WorkspaceKanbanFilters = {
@@ -50,10 +55,15 @@ export const EMPTY_WORKSPACE_KANBAN_FILTERS: WorkspaceKanbanFilters = {
   priorities: [],
   labelIds: [],
   projectIds: [],
+  showAutomationWorkspaces: false,
 };
 
 export function getActiveWorkspaceKanbanFilterCount(filters: WorkspaceKanbanFilters) {
   return filters.statuses.length + filters.priorities.length + filters.labelIds.length + filters.projectIds.length;
+}
+
+export function shouldApplyWorkspaceKanbanVisibilityFilter(filters: WorkspaceKanbanFilters) {
+  return getActiveWorkspaceKanbanFilterCount(filters) > 0 || !filters.showAutomationWorkspaces;
 }
 
 export function filterWorkspaceKanbanEntries<T extends {
@@ -62,9 +72,11 @@ export function filterWorkspaceKanbanEntries<T extends {
     workflowStatus: WorkspaceWorkflowStatus;
     priority: WorkspacePriority;
     labels: WorkspaceLabel[];
+    createSource?: WorkspaceCreateSource;
   };
 }>(items: T[], filters: WorkspaceKanbanFilters): T[] {
   return items.filter((item) => {
+    if (!filters.showAutomationWorkspaces && item.workspace.createSource === "automation") return false;
     if (filters.projectIds.length > 0 && !filters.projectIds.includes(item.projectId)) return false;
     if (filters.statuses.length > 0 && !filters.statuses.includes(item.workspace.workflowStatus)) return false;
     if (filters.priorities.length > 0 && !filters.priorities.includes(item.workspace.priority)) return false;
@@ -151,6 +163,12 @@ export function WorkspaceKanbanFilterMenu({
       projectIds: filters.projectIds.includes(value)
         ? filters.projectIds.filter((item) => item !== value)
         : [...filters.projectIds, value],
+    });
+
+  const toggleAutomationWorkspaces = (value: boolean) =>
+    onFiltersChange({
+      ...filters,
+      showAutomationWorkspaces: value,
     });
 
   const clearAllFilters = () => onFiltersChange(EMPTY_WORKSPACE_KANBAN_FILTERS);
@@ -337,6 +355,22 @@ export function WorkspaceKanbanFilterMenu({
             </DropdownMenuItem>
           </>
         ) : null}
+
+        <DropdownMenuCheckboxItem
+          checked={filters.showAutomationWorkspaces}
+          onCheckedChange={(checked) => toggleAutomationWorkspaces(Boolean(checked))}
+          onSelect={(e) => e.preventDefault()}
+          className="cursor-pointer pl-2 [&>span:first-child]:hidden"
+        >
+          <Timer className="size-4 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">Automation Workspace</span>
+          <Switch
+            checked={filters.showAutomationWorkspaces}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="pointer-events-none ml-auto"
+          />
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

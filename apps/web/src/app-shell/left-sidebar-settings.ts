@@ -46,6 +46,9 @@ export function parseWorkspaceKanbanFilters(settings: FunctionSettingsSnapshot):
     projectIds: Array.isArray(filters.project_ids)
       ? filters.project_ids.filter((item): item is string => typeof item === "string")
       : [],
+    showAutomationWorkspaces: typeof filters.show_automation_workspaces === "boolean"
+      ? filters.show_automation_workspaces
+      : false,
   };
 }
 

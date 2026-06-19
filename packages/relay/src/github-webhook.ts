@@ -208,6 +208,22 @@ export function normalizeGithubEvent(
     };
   }
 
+  if (eventName === "issues") {
+    const issue = asRecord(payload.issue);
+    if (!issue || asRecord(issue.pull_request)) {
+      return null;
+    }
+    const label = asRecord(payload.label);
+    return {
+      ...base,
+      action: asString(payload.action) ?? undefined,
+      sourceUrl: asString(issue.html_url),
+      issueNumber: asNumber(issue.number),
+      labelName: asString(label?.name),
+      untrustedTextExcerpt: excerpt(issueText(asString(issue.title), asString(issue.body))),
+    };
+  }
+
   if (eventName === "issue_comment" || eventName === "pull_request_review_comment") {
     const issue = asRecord(payload.issue);
     const pullRequest = asRecord(payload.pull_request);
@@ -284,6 +300,10 @@ function excerpt(value: string | undefined): string | undefined {
     return undefined;
   }
   return value.slice(0, EXCERPT_LIMIT);
+}
+
+function issueText(title: string | undefined, body: string | undefined): string | undefined {
+  return [title, body].filter(Boolean).join("\n\n") || undefined;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
