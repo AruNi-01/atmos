@@ -77,173 +77,120 @@ function readHeaderLayout(layout: Record<string, unknown> | undefined): HeaderLa
   };
 }
 
-export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => ({
-  projectFilesSide: 'left',
-  workspaceSidebarTwoColumn: false,
-  workspaceSidebarTwoColumnShowPinned: false,
-  workspaceSidebarSecondColumnKanban: false,
-  workspaceSidebarTimeTwoColumn: false,
-  workspaceSidebarStatusTwoColumn: false,
-  showWsConnection: true,
-  showLocalServices: true,
-  showUsageCarousel: true,
-  showAgentStatus: true,
-  showHeaderSummary: true,
-  showHeaderSummaryTask: true,
-  showHeaderSummaryNote: true,
-  showHeaderSummaryCommit: true,
-  loaded: false,
-
-  loadSettings: async (force = false) => {
-    if (!force && get().loaded) return;
+export const useLayoutSettingsStore = create<LayoutSettingsState>((set, get) => {
+  const updateLayoutSetting = async (
+    patch: Partial<LayoutSettingsState>,
+    key: string,
+    value: unknown,
+  ) => {
+    set(patch);
     try {
-      if (force) {
-        useFunctionSettingsStore.getState().invalidate();
+      await functionSettingsApi.update('layout', key, value);
+    } catch {
+      await get().loadSettings(true);
+    }
+  };
+
+  return {
+    projectFilesSide: 'left',
+    workspaceSidebarTwoColumn: false,
+    workspaceSidebarTwoColumnShowPinned: false,
+    workspaceSidebarSecondColumnKanban: false,
+    workspaceSidebarTimeTwoColumn: false,
+    workspaceSidebarStatusTwoColumn: false,
+    showWsConnection: true,
+    showLocalServices: true,
+    showUsageCarousel: true,
+    showAgentStatus: true,
+    showHeaderSummary: true,
+    showHeaderSummaryTask: true,
+    showHeaderSummaryNote: true,
+    showHeaderSummaryCommit: true,
+    loaded: false,
+
+    loadSettings: async (force = false) => {
+      if (!force && get().loaded) return;
+      try {
+        if (force) {
+          useFunctionSettingsStore.getState().invalidate();
+        }
+        const settings = await useFunctionSettingsStore.getState().load();
+        const layout = settings.layout as Record<string, unknown> | undefined;
+        const side = layout?.project_files_side;
+        const footer = readFooterLayout(layout);
+        const header = readHeaderLayout(layout);
+        set({
+          projectFilesSide: side === 'right' ? 'right' : 'left',
+          workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
+          workspaceSidebarTwoColumnShowPinned: layout?.workspace_sidebar_two_column_show_pinned === true,
+          workspaceSidebarSecondColumnKanban: layout?.workspace_sidebar_second_column_kanban === true,
+          workspaceSidebarTimeTwoColumn: layout?.workspace_sidebar_time_two_column === true,
+          workspaceSidebarStatusTwoColumn: layout?.workspace_sidebar_status_two_column === true,
+          ...footer,
+          ...header,
+          loaded: true,
+        });
+      } catch {
+        set({ loaded: true });
       }
-      const settings = await useFunctionSettingsStore.getState().load();
-      const layout = settings.layout as Record<string, unknown> | undefined;
-      const side = layout?.project_files_side;
-      const footer = readFooterLayout(layout);
-      const header = readHeaderLayout(layout);
-      set({
-        projectFilesSide: side === 'right' ? 'right' : 'left',
-        workspaceSidebarTwoColumn: layout?.workspace_sidebar_two_column === true,
-        workspaceSidebarTwoColumnShowPinned: layout?.workspace_sidebar_two_column_show_pinned === true,
-        workspaceSidebarSecondColumnKanban: layout?.workspace_sidebar_second_column_kanban === true,
-        workspaceSidebarTimeTwoColumn: layout?.workspace_sidebar_time_two_column === true,
-        workspaceSidebarStatusTwoColumn: layout?.workspace_sidebar_status_two_column === true,
-        ...footer,
-        ...header,
-        loaded: true,
-      });
-    } catch {
-      set({ loaded: true });
-    }
-  },
+    },
 
-  setProjectFilesSide: async (value) => {
-    set({ projectFilesSide: value });
-    try {
-      await functionSettingsApi.update('layout', 'project_files_side', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setProjectFilesSide: (value) =>
+      updateLayoutSetting({ projectFilesSide: value }, 'project_files_side', value),
 
-  setWorkspaceSidebarTwoColumn: async (value) => {
-    set({ workspaceSidebarTwoColumn: value });
-    try {
-      await functionSettingsApi.update('layout', 'workspace_sidebar_two_column', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setWorkspaceSidebarTwoColumn: (value) =>
+      updateLayoutSetting({ workspaceSidebarTwoColumn: value }, 'workspace_sidebar_two_column', value),
 
-  setWorkspaceSidebarTwoColumnShowPinned: async (value) => {
-    set({ workspaceSidebarTwoColumnShowPinned: value });
-    try {
-      await functionSettingsApi.update('layout', 'workspace_sidebar_two_column_show_pinned', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setWorkspaceSidebarTwoColumnShowPinned: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarTwoColumnShowPinned: value },
+        'workspace_sidebar_two_column_show_pinned',
+        value,
+      ),
 
-  setWorkspaceSidebarSecondColumnKanban: async (value) => {
-    set({ workspaceSidebarSecondColumnKanban: value });
-    try {
-      await functionSettingsApi.update('layout', 'workspace_sidebar_second_column_kanban', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setWorkspaceSidebarSecondColumnKanban: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarSecondColumnKanban: value },
+        'workspace_sidebar_second_column_kanban',
+        value,
+      ),
 
-  setWorkspaceSidebarTimeTwoColumn: async (value) => {
-    set({ workspaceSidebarTimeTwoColumn: value });
-    try {
-      await functionSettingsApi.update('layout', 'workspace_sidebar_time_two_column', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setWorkspaceSidebarTimeTwoColumn: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarTimeTwoColumn: value },
+        'workspace_sidebar_time_two_column',
+        value,
+      ),
 
-  setWorkspaceSidebarStatusTwoColumn: async (value) => {
-    set({ workspaceSidebarStatusTwoColumn: value });
-    try {
-      await functionSettingsApi.update('layout', 'workspace_sidebar_status_two_column', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setWorkspaceSidebarStatusTwoColumn: (value) =>
+      updateLayoutSetting(
+        { workspaceSidebarStatusTwoColumn: value },
+        'workspace_sidebar_status_two_column',
+        value,
+      ),
 
-  setFooterShowWsConnection: async (value) => {
-    set({ showWsConnection: value });
-    try {
-      await functionSettingsApi.update('layout', 'footer_show_ws_connection', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setFooterShowWsConnection: (value) =>
+      updateLayoutSetting({ showWsConnection: value }, 'footer_show_ws_connection', value),
 
-  setFooterShowLocalServices: async (value) => {
-    set({ showLocalServices: value });
-    try {
-      await functionSettingsApi.update('layout', 'footer_show_local_services', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setFooterShowLocalServices: (value) =>
+      updateLayoutSetting({ showLocalServices: value }, 'footer_show_local_services', value),
 
-  setFooterShowUsageCarousel: async (value) => {
-    set({ showUsageCarousel: value });
-    try {
-      await functionSettingsApi.update('layout', 'footer_show_usage_carousel', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setFooterShowUsageCarousel: (value) =>
+      updateLayoutSetting({ showUsageCarousel: value }, 'footer_show_usage_carousel', value),
 
-  setFooterShowAgentStatus: async (value) => {
-    set({ showAgentStatus: value });
-    try {
-      await functionSettingsApi.update('layout', 'footer_show_agent_status', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setFooterShowAgentStatus: (value) =>
+      updateLayoutSetting({ showAgentStatus: value }, 'footer_show_agent_status', value),
 
-  setHeaderShowSummary: async (value) => {
-    set({ showHeaderSummary: value });
-    try {
-      await functionSettingsApi.update('layout', 'header_summary_enabled', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setHeaderShowSummary: (value) =>
+      updateLayoutSetting({ showHeaderSummary: value }, 'header_summary_enabled', value),
 
-  setHeaderShowSummaryTask: async (value) => {
-    set({ showHeaderSummaryTask: value });
-    try {
-      await functionSettingsApi.update('layout', 'header_summary_show_task', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setHeaderShowSummaryTask: (value) =>
+      updateLayoutSetting({ showHeaderSummaryTask: value }, 'header_summary_show_task', value),
 
-  setHeaderShowSummaryNote: async (value) => {
-    set({ showHeaderSummaryNote: value });
-    try {
-      await functionSettingsApi.update('layout', 'header_summary_show_note', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
+    setHeaderShowSummaryNote: (value) =>
+      updateLayoutSetting({ showHeaderSummaryNote: value }, 'header_summary_show_note', value),
 
-  setHeaderShowSummaryCommit: async (value) => {
-    set({ showHeaderSummaryCommit: value });
-    try {
-      await functionSettingsApi.update('layout', 'header_summary_show_commit', value);
-    } catch {
-      await get().loadSettings(true);
-    }
-  },
-}));
+    setHeaderShowSummaryCommit: (value) =>
+      updateLayoutSetting({ showHeaderSummaryCommit: value }, 'header_summary_show_commit', value),
+  };
+});

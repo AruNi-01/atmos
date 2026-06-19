@@ -10,10 +10,11 @@ import {
   Switch,
   cn,
 } from '@workspace/ui';
-import { ChevronDown, Columns2, GitCommit, ListTodo, PanelBottom, PanelTop, StickyNote } from 'lucide-react';
+import { ChevronDown, Columns2, PanelBottom } from 'lucide-react';
 import { useExperimentSettingsStore } from '@/features/settings/store/experiment-settings-store';
 import { useLayoutSettingsStore } from '@/features/settings/store/layout-settings-store';
 import { settingsModalParams } from '@/shared/lib/nuqs/searchParams';
+import { HeaderLayoutSettingsSection } from '@/features/settings/components/HeaderLayoutSettingsSection';
 
 export function LayoutSettingsSection() {
   const {
@@ -57,8 +58,6 @@ export function LayoutSettingsSection() {
     workspaceSidebarTwoColumn || workspaceSidebarTimeTwoColumn || workspaceSidebarStatusTwoColumn;
   const footerEnabledCount =
     Number(showWsConnection) + Number(showLocalServices) + Number(showUsageCarousel) + Number(showAgentStatus);
-  const headerEnabledCount =
-    Number(showHeaderSummaryTask) + Number(showHeaderSummaryNote) + Number(showHeaderSummaryCommit);
 
   React.useEffect(() => {
     loadSettings();
@@ -221,112 +220,18 @@ export function LayoutSettingsSection() {
         </CollapsibleContent>
       </Collapsible>
 
-      <Collapsible
-        open={headerLayoutExpanded}
-        onOpenChange={setHeaderLayoutExpanded}
-        className="overflow-hidden rounded-2xl border border-border"
-      >
-        <div className="flex items-start justify-between gap-4 px-6 py-5">
-          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
-            <div className="flex items-start gap-3">
-              <span className="relative mt-0.5 size-5 shrink-0">
-                <PanelTop className="absolute inset-0 size-5 transition-opacity duration-150 group-hover:opacity-0" />
-                <ChevronDown className="absolute inset-0 size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-base font-medium text-foreground">Header layout</p>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Choose which workspace utilities appear to the left of global search.
-                </p>
-              </div>
-            </div>
-          </CollapsibleTrigger>
-          <div className="pt-1 text-xs text-muted-foreground">
-            {showHeaderSummary ? `${headerEnabledCount} enabled` : 'Hidden'}
-          </div>
-        </div>
-
-        <CollapsibleContent>
-          <div className="border-t border-border px-4">
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Workspace summary button</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Show one compact icon button before global search with project, task, note, and commit shortcuts.
-                  </p>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch
-                    checked={showHeaderSummary}
-                    onCheckedChange={(checked) => void setHeaderShowSummary(!!checked)}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div className="flex gap-3">
-                  <ListTodo className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">TASK section</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Show task counts in the summary popover and expose the full task panel as a nested popover.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch
-                    checked={showHeaderSummaryTask}
-                    disabled={!showHeaderSummary}
-                    onCheckedChange={(checked) => void setHeaderShowSummaryTask(!!checked)}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-border px-2 py-4 last:border-b-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div className="flex gap-3">
-                  <StickyNote className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">NOTE section</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Show a note preview row and expose the markdown editor/preview as a nested popover.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch
-                    checked={showHeaderSummaryNote}
-                    disabled={!showHeaderSummary}
-                    onCheckedChange={(checked) => void setHeaderShowSummaryNote(!!checked)}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="px-2 py-4">
-              <div className="grid grid-cols-[minmax(0,1fr)_100px] gap-8">
-                <div className="flex gap-3">
-                  <GitCommit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Commit & Push section</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Show repository change status and expose the shared Commit & Push controls as a nested popover.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-end">
-                  <Switch
-                    checked={showHeaderSummaryCommit}
-                    disabled={!showHeaderSummary}
-                    onCheckedChange={(checked) => void setHeaderShowSummaryCommit(!!checked)}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+      <HeaderLayoutSettingsSection
+        expanded={headerLayoutExpanded}
+        onExpandedChange={setHeaderLayoutExpanded}
+        showHeaderSummary={showHeaderSummary}
+        showHeaderSummaryTask={showHeaderSummaryTask}
+        showHeaderSummaryNote={showHeaderSummaryNote}
+        showHeaderSummaryCommit={showHeaderSummaryCommit}
+        setHeaderShowSummary={setHeaderShowSummary}
+        setHeaderShowSummaryTask={setHeaderShowSummaryTask}
+        setHeaderShowSummaryNote={setHeaderShowSummaryNote}
+        setHeaderShowSummaryCommit={setHeaderShowSummaryCommit}
+      />
 
       <Collapsible
         open={footerLayoutExpanded}
