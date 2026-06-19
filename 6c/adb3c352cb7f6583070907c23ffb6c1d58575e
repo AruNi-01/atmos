@@ -1,0 +1,30 @@
+automations/code/result/2026-06-19_08-12-03_score-84_ATMOS_CODE_QUALITY_REVIEW.md
+  s_b813391245f1d2::t_5ef78a25981e60 1-85
+apps/web/src/features/settings/components/LayoutSettingsSection.tsx
+  s_b813391245f1d2::t_6b39560b087873 13,17,223-234
+apps/web/src/features/settings/store/layout-settings-store.ts
+  s_b813391245f1d2::t_2d931a03f19262 80-86,88,92,94-109,138-139,141-142,144-149,151-156,158-163,165-170,172-173,175-176,178-179,181-182,184-185,187-196
+  s_b813391245f1d2::t_3c8d5c2d0900f7 111-136
+apps/web/src/features/settings/components/HeaderLayoutSettingsSection.tsx
+  s_b813391245f1d2::t_2ed6b72e67fa3d 1-149
+apps/web/src/app-shell/sidebar/CommitActions.tsx
+  s_b813391245f1d2::t_30fb6c555f4402 54-57,609-617,890-895
+apps/web/src/app-shell/sidebar/CommitActionsPanelParts.tsx
+  s_b813391245f1d2::t_cd320b43463e4b 1-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "6cadb3c352cb7f6583070907c23ffb6c1d58575e",
+  "prompts": {},
+  "sessions": {
+    "s_b813391245f1d2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019edd2f-4ef3-72a2-9069-8513be8a5610",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
