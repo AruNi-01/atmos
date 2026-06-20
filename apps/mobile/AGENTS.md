@@ -12,6 +12,7 @@
 - **Typecheck**: `bun --filter @atmos/mobile typecheck`
 - **Doctor**: `apps/mobile/script/build_and_run.sh --doctor`
 - **Fresh machine setup**: [agents/references/mobile-dev-setup.md](../../agents/references/mobile-dev-setup.md)
+- **iOS Simulator keyboard**: If a `TextInput` accepts Mac keyboard input but the on-screen keyboard does not appear, follow [references/ios-simulator-keyboard.md](references/ios-simulator-keyboard.md) before changing mobile input code.
 
 Use `expo run:ios` / `expo run:android` for acceptance smoke because the app uses native modules and `expo-dev-client`. Expo Go is useful for quick checks only when native module coverage is not under test.
 
@@ -38,6 +39,7 @@ apps/mobile/
 │   ├── stores/
 │   ├── theme/
 │   └── ui/                  # Expo UI wrappers and small layout helpers
+├── references/              # Mobile-local troubleshooting notes
 ├── script/build_and_run.sh
 ├── app.json
 └── package.json
