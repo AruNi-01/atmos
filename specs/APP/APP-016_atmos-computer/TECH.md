@@ -632,3 +632,30 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 ---
 
 *本文档随实现迭代；与 PRD 冲突时以 PRD 为准并回写本文。*
+
+---
+
+## Implementation Delta - 2026-06-20
+
+Commit: `ce924107`.
+
+Relay terminology is now the source of truth in code and docs. The legacy non-Relay vocabulary was removed from the Atmos Computer relay surface.
+
+Final public names:
+
+- CLI: `atmos computer register --relay <url> --token <register_token>` and `atmos computer start --relay <url> --token <register_token>`.
+- CLI/private relay secret: `--relay-secret-key` or `ATMOS_RELAY_SECRET_KEY`.
+- Runtime/server env: `ATMOS_RELAY_URL`, `ATMOS_RELAY_SECRET_KEY`, `ATMOS_REGISTER_TOKEN`.
+- Web env: `NEXT_PUBLIC_ATMOS_RELAY_URL`.
+- Local client settings: `~/.atmos/computer-client.json` stores `access_token`, optional `relay_url`, and optional `relay_secret_key`.
+- Server identity: `~/.atmos/relay_identity.json` stores `relay_url` and `relay_ws_url`.
+- API fields: `relay_url` and `relay_secret_key`.
+
+Private Relay authentication was added as an optional outer gate for self-hosted relays:
+
+- `packages/relay` reads `RELAY_SECRET_KEY`.
+- Protected Relay REST routes require `X-Atmos-Relay-Secret` when `RELAY_SECRET_KEY` is set.
+- The official `https://relay.atmos.land` path continues to require no Relay secret.
+- The Relay secret is not placed in WebSocket URLs.
+
+D1 note: the Worker binding still uses the configured `database_id`; the database display name in `wrangler.toml` is not a data migration and does not change the schema.

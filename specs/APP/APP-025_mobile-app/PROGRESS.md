@@ -140,3 +140,26 @@ The app builds and launches as an Expo dev client on both iOS and Android. Works
 - `packages/relay`: mobile client session and terminal stream transport.
 - `apps/api`: relay terminal stream and terminal candidate action.
 - `packages/shared`: terminal core helpers.
+
+## Post-Implementation Update - 2026-06-20
+
+Commit: `ce924107` (`Refine mobile settings and relay terminology`).
+
+Implementation delta:
+
+- Mobile Settings was expanded from a shallow sheet into native-style Settings routes with grouped second-level pages, including Computer management, Access Token actions, Relay URL, and private Relay secret configuration.
+- Mobile Relay client naming now matches the product vocabulary: `relay-client.ts`, `use-relay-client.ts`, `relayUrl`, and `relaySecretKey`; legacy non-Relay file names and store fields were removed.
+- Dashboard and Settings retain the black/white Atmos visual direction while using native/Expo UI controls where practical.
+- APP-025 now depends on APP-016/APP-020's private Relay secret behavior for self-hosted relays; the official `relay.atmos.land` path continues to work with an empty secret.
+
+Verification recorded for this commit:
+
+- `bun --filter @atmos/mobile typecheck` - pass.
+- `bun --filter @atmos/mobile test` - pass, 48 tests.
+- `bun --filter @atmos/relay typecheck` - pass.
+- `bun --filter @atmos/relay test` - pass, 24 tests.
+- `bun --filter web typecheck` - pass.
+- `cargo check -p runtime-manager`, `cargo check -p api`, `cargo check -p atmos` - pass.
+- `git diff --check` - pass.
+
+Known gap remains unchanged: full interactive mobile terminal acceptance still requires smoke testing against a deployed Relay/API pair that supports the `/ws/terminal` path.

@@ -342,3 +342,23 @@ Error codes:
 
 - [ ] Should Settings display the stable `tenant_id` for support/debugging?
 - [ ] Should rotation history be a separate table in v1 or only `rotated_at` on `tenants`?
+
+## Implementation Delta - 2026-06-20
+
+Commit: `ce924107`.
+
+Private Relay secret support was implemented as an additional relay-level authentication gate without changing APP-020 stable tenant identity semantics.
+
+Design impact:
+
+- Access Token remains the tenant credential and still maps to `tenants.access_token_hash -> tenants.tenant_id`.
+- `RELAY_SECRET_KEY` is a self-hosted relay operator secret, not a tenant identity and not a replacement for Access Token auth.
+- When configured, protected Relay REST routes require both the normal route credential and `X-Atmos-Relay-Secret`.
+- Access Token rotation does not rotate or derive the Relay secret.
+- Local settings now persist optional `relay_secret_key` next to `relay_url`; this is client configuration for the selected private relay.
+
+Compatibility:
+
+- Official Relay users leave the Relay secret empty.
+- Existing registered Computers remain compatible because `server_id` and `server_secret` are unchanged.
+- No D1 schema change was required for the Relay secret gate.

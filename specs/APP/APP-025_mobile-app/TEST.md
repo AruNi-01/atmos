@@ -314,3 +314,24 @@ M1 spans a new Expo app plus existing Relay / Atmos WebSocket surfaces. We use u
 - Physical-device keyboard and IME edge cases are manual-only in this plan because simulator behavior is not authoritative.
 - Tablet-specific layout is Nice to Have and not part of M1 acceptance.
 - Organization/team Computer sharing is Nice to Have and not part of M1 acceptance.
+
+## Implementation Coverage Update - 2026-06-20
+
+Commit: `ce924107`.
+
+Additional implemented coverage:
+
+- Relay client/session tests now cover mobile `RelayClient` naming and private Relay secret headers.
+- Mobile settings tests cover Relay URL normalization/save readiness, Access Token switching, and Computer list filtering.
+- Mobile integration tests reached 48 passing tests across API clients, WS clients, terminal shortcuts/batching, workspace readiness, project import, Git changed-file grouping, and inline diff generation.
+
+Regression gates run for this update:
+
+- `bun --filter @atmos/mobile typecheck` - pass.
+- `bun --filter @atmos/mobile test` - pass, 48 tests.
+- `bun --filter web typecheck` - pass.
+- `bun --filter @atmos/relay typecheck` - pass.
+- `bun --filter @atmos/relay test` - pass, 24 tests.
+- `cargo check -p api` - pass with the existing unrelated `resolve_interactive_automation_agent` warning in `core-service`.
+
+Coverage still not claimed: the manual S19/S20 terminal input/output scenarios remain blocked until a deployed Relay/API pair with `/ws/terminal` is smoke-tested.

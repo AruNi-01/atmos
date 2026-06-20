@@ -264,3 +264,18 @@ When something in `specs/` ships and stabilizes, migrate the enduring parts into
 - [ ] PRD states scope *and* non-scope; includes **diagrams as needed** (business flows, user-visible states — see §6 Diagrams).
 - [ ] TECH lists risks; includes **diagrams as needed** (architecture, flows, sequences, persistence ER/schema — see §6 Diagrams).
 - [ ] TEST lists acceptance criteria.
+
+---
+
+## 9. Post-Implementation Spec Sync
+
+After implementing or pushing APP work, update the corresponding spec files before closing the task. Prefer append-only updates so the spec remains a historical record instead of a rewritten story.
+
+Rules:
+
+- Identify the affected spec directories from the changed code paths and feature scope.
+- Append a dated implementation note to `PROGRESS.md`, `REVIEW.md`, `IMPROVEMENT.md`, `TECH.md`, or `TEST.md` as appropriate.
+- Do not rewrite settled requirements just to match the current code. If behavior changed, append an "Implementation Delta" / "Post-Implementation Update" section with the reason, affected files, commit, and verification.
+- Record verification commands and known gaps, not long command output.
+- If the change is a rename or terminology migration, append the final vocabulary and public API/CLI/env names so future work does not resurrect old names.
+- If no existing optional log file fits, append a short dated section to the relevant `TECH.md` or `TEST.md`.

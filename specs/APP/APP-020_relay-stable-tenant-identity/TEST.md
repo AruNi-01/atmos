@@ -163,3 +163,20 @@
 - Lost-token recovery is not covered because v1 intentionally requires the current token.
 - Hosted login/JWT migration is not covered.
 - Per-Computer `server_secret` rotation is not covered.
+
+## Implementation Coverage Update - 2026-06-20
+
+Commit: `ce924107`.
+
+Additional Relay-secret regression coverage:
+
+- `packages/relay/test/relay-secret.test.ts` verifies health checks remain unauthenticated when `RELAY_SECRET_KEY` is set.
+- Protected Relay routes reject missing `X-Atmos-Relay-Secret` before touching D1.
+- Protected Relay routes reject an invalid Relay secret before touching D1.
+- Computer registration also requires the Relay secret when the Worker is configured with `RELAY_SECRET_KEY`.
+
+Commands run:
+
+- `bun --filter @atmos/relay test` - pass, 24 tests.
+- `bun --filter @atmos/relay typecheck` - pass.
+- `cargo check -p runtime-manager`, `cargo check -p api`, `cargo check -p atmos` - pass.
