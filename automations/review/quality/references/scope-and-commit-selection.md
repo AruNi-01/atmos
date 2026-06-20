@@ -13,7 +13,6 @@
 审查提交列表时，忽略 automation 自己生成的结果文件提交，例如：
 
 - 只改动 `automations/review/quality/result/` 月份目录下结果文件的提交。
-- 历史上只改动 `automations/code/result/` 的提交（历史归档目录）。
 - 提交信息形如 `docs: add code quality review result ...` 的提交。
 
 这类提交只用于结果归档，不参与当天代码质量评分。
