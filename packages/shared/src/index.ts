@@ -5,3 +5,6 @@ export * from "./utils";
 export * from "./hooks";
 // Storage
 export * from "./utils/storage";
+
+// Terminal core
+export * from "./terminal";

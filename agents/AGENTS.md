@@ -15,6 +15,7 @@ This directory contains cross-cutting references and guidelines that apply acros
 | `references/keyboard-shortcuts.md` | When implementing keyboard shortcuts, global hotkeys, or overlay focus management |
 | `references/debug-logging.md` | When adding debug logging or instrumenting lifecycle flows |
 | `references/compact-instructions.md` | When compressing context or creating coding handoff summaries |
+| `references/mobile-dev-setup.md` | When setting up or debugging the Expo mobile native dev environment |
 
 ## Directory Structure
 
@@ -24,7 +25,8 @@ agents/
 └── references/            # Cross-cutting references
     ├── keyboard-shortcuts.md  # Keyboard shortcuts and overlay focus
     ├── debug-logging.md        # Debug logging infrastructure
-    └── compact-instructions.md # Context compression and handoff summaries
+    ├── compact-instructions.md # Context compression and handoff summaries
+    └── mobile-dev-setup.md     # Expo mobile native dev environment setup
 ```
 
 ## Architecture pointers (not loaded by default)

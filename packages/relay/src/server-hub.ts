@@ -30,6 +30,7 @@ interface RelayEnvelope {
   v: number;
   stream?: string;
   kind: string;
+  client_type?: string;
   from?: string;
   to?: string;
   request_id?: string;
@@ -58,7 +59,7 @@ interface ExternalEventAckBody {
 
 export type PeerMeta =
   | { role: "server"; server_id: string }
-  | { role: "client"; sid: string };
+  | { role: "client"; sid: string; stream?: "app" | "terminal"; client_type?: string };
 
 type PendingHttp = {
   resolve: (response: Response) => void;
@@ -161,7 +162,14 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         (raw as PeerMeta).role === "client" &&
         typeof (raw as { sid?: string }).sid === "string"
       ) {
-        return { role: "client", sid: (raw as { sid: string }).sid };
+        const stream = (raw as { stream?: string }).stream;
+        const clientType = (raw as { client_type?: string }).client_type;
+        return {
+          role: "client",
+          sid: (raw as { sid: string }).sid,
+          stream: stream === "terminal" ? "terminal" : "app",
+          client_type: typeof clientType === "string" && clientType.trim() ? clientType.trim() : undefined,
+        };
       }
       return null;
     } catch {
@@ -236,6 +244,8 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
 
     if (role === "client") {
       const sid = url.searchParams.get("sid");
+      const stream = url.searchParams.get("stream") === "terminal" ? "terminal" : "app";
+      const clientType = url.searchParams.get("client_type")?.trim() || undefined;
       if (!sid) {
         return new Response("Missing sid", { status: 400 });
       }
@@ -249,7 +259,7 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         }
       }
 
-      workerSide.serializeAttachment({ role: "client", sid } satisfies PeerMeta);
+      workerSide.serializeAttachment({ role: "client", sid, stream, client_type: clientType } satisfies PeerMeta);
       this.ctx.acceptWebSocket(workerSide, [TAG_CLIENT_ALL, tagForClient(sid)]);
 
       return new Response(null, { status: 101, webSocket: clientSide });
@@ -487,8 +497,9 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
 
       const envelope: RelayEnvelope = {
         v: 1,
-        stream: "app",
+        stream: meta.stream ?? "app",
         kind: "frame",
+        client_type: meta.client_type,
         from: `client:${meta.sid}`,
         to: "server",
         body: payload,
@@ -538,8 +549,24 @@ export class ServerHub extends DurableObject<ServerHubEnv> {
         this.broadcastServerOffline();
       }
     }
-    // For client roles we don't need to do anything — getClientSocket walks
-    // the live tag list each time, so a closed socket is simply absent.
+    if (meta?.role === "client") {
+      const up = this.getServerSocket();
+      if (up) {
+        try {
+          up.send(
+            JSON.stringify({
+              v: 1,
+              stream: meta.stream ?? "app",
+              kind: "close",
+              from: `client:${meta.sid}`,
+              to: "server",
+            } satisfies RelayEnvelope),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+    }
   }
 
   async webSocketError(ws: WebSocket, _error: unknown) {

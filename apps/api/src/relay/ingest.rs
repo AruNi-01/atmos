@@ -28,6 +28,7 @@ use crate::api::ws::handlers::push_latest_messages;
 use crate::app_state::AppState;
 use crate::relay::external_events;
 use crate::relay::http_gateway;
+use crate::relay::terminal::{self, TerminalRelaySessions};
 
 /// Interval between server-initiated WS protocol pings.
 /// Picked below the typical NAT/firewall idle timeout (commonly 2–10 min) so the
@@ -40,6 +41,8 @@ struct RelayEnvelope {
     #[serde(default)]
     stream: Option<String>,
     kind: String,
+    #[serde(default)]
+    client_type: Option<String>,
     from: Option<String>,
     #[allow(dead_code)]
     to: Option<String>,
@@ -203,6 +206,7 @@ pub async fn run(
     });
 
     let sessions: Arc<RwLock<HashMap<String, Session>>> = Arc::new(RwLock::new(HashMap::new()));
+    let terminal_sessions: Arc<TerminalRelaySessions> = Arc::new(RwLock::new(HashMap::new()));
 
     let outcome = loop {
         let next = tokio::select! {
@@ -306,6 +310,16 @@ pub async fn run(
                     continue;
                 }
 
+                if env.stream.as_deref() == Some("terminal") && env.kind == "close" {
+                    if let Some(from) = env.from.clone() {
+                        if let Some(sid) = from.strip_prefix("client:") {
+                            terminal::handle_terminal_client_close(&state, &terminal_sessions, sid)
+                                .await;
+                        }
+                    }
+                    continue;
+                }
+
                 if env.kind != "frame" {
                     continue;
                 }
@@ -319,7 +333,32 @@ pub async fn run(
 
                 let body = env.body.unwrap_or_default();
 
-                let conn_id = match ensure_session(&state, &sessions, sid.clone(), &out_tx).await {
+                if env.stream.as_deref() == Some("terminal") {
+                    terminal::handle_terminal_frame(
+                        &state,
+                        &terminal_sessions,
+                        &sid,
+                        &body,
+                        &out_tx,
+                    )
+                    .await;
+                    continue;
+                }
+
+                let client_type = env
+                    .client_type
+                    .as_deref()
+                    .map(ClientType::parse)
+                    .unwrap_or(ClientType::Web);
+                let conn_id = match ensure_session(
+                    &state,
+                    &sessions,
+                    sid.clone(),
+                    client_type,
+                    &out_tx,
+                )
+                .await
+                {
                     Ok(id) => id,
                     Err(e) => {
                         warn!(target: "atmos_relay", error = %e, "ensure_session failed");
@@ -380,6 +419,15 @@ pub async fn run(
         s._push_abort.abort();
         state.ws_service.unregister(&s.conn_id).await;
     }
+    drop(locked);
+
+    let mut terminal_locked = terminal_sessions.write().await;
+    for (_sid, s) in terminal_locked.drain() {
+        s.output_task.abort();
+        if !s.destroy_requested {
+            let _ = state.terminal_service.close_session(&s.session_id).await;
+        }
+    }
 
     lifecycle.clear_connected();
     outcome
@@ -389,6 +437,7 @@ async fn ensure_session(
     state: &AppState,
     sessions: &Arc<RwLock<HashMap<String, Session>>>,
     sid: String,
+    client_type: ClientType,
     relay_out: &mpsc::UnboundedSender<Message>,
 ) -> Result<String, String> {
     let mut locked = sessions.write().await;
@@ -398,7 +447,7 @@ async fn ensure_session(
     }
 
     let (tx, mut rx) = mpsc::channel::<String>(32);
-    let conn_id = state.ws_service.register(ClientType::Web, tx.clone()).await;
+    let conn_id = state.ws_service.register(client_type, tx.clone()).await;
 
     let relay_out_clone = relay_out.clone();
     let sid_for_task = sid.clone();

@@ -9,7 +9,9 @@
     "./types/*": "./src/types/*.ts",
     "./utils/*": "./src/utils/*.ts",
     "./hooks/*": "./src/hooks/*.ts",
-    "./debug/*": "./src/debug/*.ts"
+    "./debug/*": "./src/debug/*.ts",
+    "./terminal": "./src/terminal/index.ts",
+    "./terminal/*": "./src/terminal/*.ts"
   },
   "scripts": {
 

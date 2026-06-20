@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Atmos",
+    "slug": "atmos-mobile",
+    "scheme": "atmos",
+    "version": "0.1.0",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "primaryColor": "#0A0A0B",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "land.atmos.mobile"
+    },
+    "android": {
+      "package": "land.atmos.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F7F7",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-dev-client",
+        {
+          "skipOnboarding": true,
+          "toolsButton": false,
+          "showMenuAtLaunch": false,
+          "ios": {
+            "skipOnboarding": true,
+            "toolsButton": false,
+            "showMenuAtLaunch": false
+          },
+          "android": {
+            "skipOnboarding": true,
+            "toolsButton": false,
+            "showMenuAtLaunch": false
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "bun --filter web dev",
     "dev:web": "bun --filter web dev",
+    "dev:mobile": "bun --filter @atmos/mobile start",
     "dev:landing": "bun --filter landing dev",
     "dev:docs": "bun --filter docs dev",
     "build": "bun run build:packages && bun run build:apps",
@@ -21,6 +22,7 @@
     "lint": "bun --filter '*' lint",
     "lint:web": "bun --filter web lint",
     "typecheck": "bun --filter '*' typecheck",
+    "typecheck:mobile": "bun --filter @atmos/mobile typecheck",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
   },
   "catalog": {
@@ -46,6 +48,7 @@
   },
   "overrides": {
     "@codemirror/state": "6.5.4",
+    "lightningcss": "1.30.1",
     "tailwindcss": "4.3.0",
     "@tailwindcss/postcss": "4.3.0",
     "@tailwindcss/node": "4.3.0",

@@ -1,6 +1,6 @@
 # AI Agent Guide
 
-> **⏱ 60-Second Architecture Overview**: Multi-layered monorepo with Rust backend (infra/engine/service layers) and Next.js/Tauri frontend.
+> **⏱ 60-Second Architecture Overview**: Multi-layered monorepo with Rust backend (infra/engine/service layers), Next.js/Tauri frontend, and Expo mobile app.
 
 ---
 
@@ -23,6 +23,7 @@
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Desktop** (Tauri + shared local API) | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
+| **Mobile** (Expo / React Native) | [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md) |
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
@@ -55,6 +56,7 @@ atmos/
 │   ├── api/                   # Rust/Axum API Entry
 │   ├── web/                   # Next.js Web Application
 │   ├── desktop/               # Tauri Desktop App
+│   ├── mobile/                # Expo / React Native Mobile App
 │   ├── cli/                   # Rust CLI (atmos)
 │   ├── docs/                  # Documentation Site
 │   └── landing/               # Marketing Landing Page
@@ -95,6 +97,9 @@ atmos/
 ### Frontend Change Flow
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
 
+### Mobile Change Flow
+`apps/mobile/src/api` (Relay/control-plane/WS clients) → `apps/mobile/src/stores` (session/UI state) → `apps/mobile/src/features` (Expo UI screens). Fresh-machine native setup lives in [agents/references/mobile-dev-setup.md](agents/references/mobile-dev-setup.md).
+
 ### Specs Flow
 Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-NNN_<title>/` with four standard planning files: `BRAINSTORM.md` → `PRD.md` → `TECH.md` → `TEST.md`. Optional sibling logs such as `PROGRESS.md`, `REVIEW.md`, and `IMPROVEMENT.md` can track implementation handoff, post-implementation review fixes, and post-ship learnings without becoming requirements sources. The lifecycle is: brainstorm → PRD → TECH → test plan → implementation → test run. Each stage has a dedicated skill in [`.agents/skills/`](.agents/skills/):
 
@@ -130,6 +135,7 @@ One **`apps/api` process** per machine is the default **Atmos Server**. Desktop,
 ## 🎨 Component Conventions
 
 - **UI Components**: Use `@workspace/ui/components/ui/*` for atomic parts
+- **Mobile UI**: Use Expo UI native controls in `apps/mobile` where practical; do not import `@workspace/ui` into mobile.
 - **Backend Access**: Each app manages its own `api/client.ts` and `types/api.ts`
 - **Rust Services**: Inject `core-service` into `apps/api` via `AppState`; HTTP and browser WebSocket protocols are owned by `apps/api`
 
@@ -162,10 +168,13 @@ just                    # List all available commands
 bun install             # Install frontend dependencies
 just dev-api            # Start API server (writes runtime_manifest.json)
 just dev-web            # Start web app
+just dev-mobile         # Start Expo mobile dev server
 just dev-desktop        # Desktop (rebuilds web static + prepare-sidecar + tauri dev --no-watch)
 just test               # Run all tests
 just lint               # Run all linters
 ```
+
+For a fresh iOS/Android mobile environment, follow [agents/references/mobile-dev-setup.md](agents/references/mobile-dev-setup.md) before running native dev builds.
 
 ---
 

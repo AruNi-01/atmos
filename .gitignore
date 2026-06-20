@@ -135,6 +135,9 @@ scripts/open-source/
 .augment/
 .claude/
 .codex/
+!apps/mobile/.codex/
+!apps/mobile/.codex/environments/
+!apps/mobile/.codex/environments/environment.toml
 .cursor/
 .factory/
 .gemini-clipboard/

@@ -19,6 +19,7 @@ mod git;
 mod github;
 mod review;
 mod skills;
+mod terminal;
 mod workspace;
 
 pub use agents::*;
@@ -27,6 +28,7 @@ pub use git::*;
 pub use github::*;
 pub use review::*;
 pub use skills::*;
+pub use terminal::*;
 pub use workspace::*;
 
 /// WebSocket 消息协议
@@ -343,6 +345,10 @@ pub enum WsAction {
     WorkspaceConfirmTodos,
     /// 检查项目是否可以删除（从归档模态）
     ProjectCheckCanDelete,
+
+    // ===== Terminal 操作 =====
+    /// 列出指定 Workspace 的可附着 terminal/tmux window 候选
+    TerminalWorkspaceCandidates,
 
     // ===== Review 操作 =====
     /// 列出 Workspace 下的 review sessions

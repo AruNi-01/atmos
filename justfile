@@ -69,6 +69,10 @@ dev-landing-portless:
 dev-docs:
     bun --filter docs dev
 
+# 启动 Mobile Expo 开发服务器
+dev-mobile:
+    cd apps/mobile && bun run start
+
 # 启动 Desktop (Tauri) 开发环境
 # prepare-sidecar 会先 next build 最新 web 静态包，再由 sidecar 提供 UI（无需 just dev-web）
 # --no-dev-server-wait 不等待 localhost:3030；--no-watch 避免改 Rust 时反复重启
@@ -419,6 +423,7 @@ alias ddb := dev-desktop-backend
 alias dl := dev-landing
 alias dlp := dev-landing-portless
 alias d-d := dev-docs
+alias dm := dev-mobile
 alias da := dev-api
 alias t := test
 alias ta := test-api

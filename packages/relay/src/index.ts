@@ -6,6 +6,7 @@ import {
   matchGatewayPath,
   validateGatewayAccess,
 } from "./http-gateway";
+import { buildClientSessionUrls } from "./client-session";
 import {
   createGithubSetupSession,
   disableGithubEventRoute,
@@ -74,7 +75,12 @@ export default {
       path === "/v1/client" ||
       path === "/v1/machine/client"
     ) {
-      const res = await handleClientWebSocket(request, env, url);
+      const res = await handleClientWebSocket(request, env, url, "app");
+      return withCorsWs(res);
+    }
+
+    if (path === "/ws/terminal") {
+      const res = await handleClientWebSocket(request, env, url, "terminal");
       return withCorsWs(res);
     }
 
@@ -715,19 +721,19 @@ async function handleApi(
         .bind(tokenHash, serverId, tenant, expiresAt, now)
         .run();
 
-      const cp = httpOrigin(url);
-      const wsUrl = `${wsOrigin(cp)}/ws/client?server_id=${encodeURIComponent(
-        serverId,
-      )}&token=${encodeURIComponent(clientToken)}&client_type=${encodeURIComponent(
+      const sessionUrls = buildClientSessionUrls({
         clientKind,
-      )}`;
-      const gatewayUrl = gatewayBaseUrl(cp, serverId);
+        clientToken,
+        controlPlaneOrigin: httpOrigin(url),
+        serverId,
+      });
 
       return json({
         client_token: clientToken,
         expires_at: expiresAt,
-        ws_url: wsUrl,
-        gateway_url: gatewayUrl,
+        ws_url: sessionUrls.wsUrl,
+        terminal_ws_url: sessionUrls.terminalWsUrl,
+        gateway_url: sessionUrls.gatewayUrl,
       });
     }
   } catch (e) {
@@ -846,6 +852,7 @@ async function handleClientWebSocket(
   request: Request,
   env: Env,
   outerUrl: URL,
+  stream: "app" | "terminal",
 ): Promise<Response> {
   if (request.headers.get("Upgrade") !== "websocket") {
     return new Response("Expected WebSocket Upgrade", { status: 426 });
@@ -853,6 +860,7 @@ async function handleClientWebSocket(
 
   const serverId = outerUrl.searchParams.get("server_id");
   const token = outerUrl.searchParams.get("token")?.trim() ?? "";
+  const clientType = outerUrl.searchParams.get("client_type")?.trim() || "web";
 
   if (!serverId || !token) {
     return json({ error: "missing_client_params" }, 400);
@@ -888,6 +896,8 @@ async function handleClientWebSocket(
   const inner = new URL(request.url);
   inner.searchParams.set("role", "client");
   inner.searchParams.set("sid", sid);
+  inner.searchParams.set("stream", stream);
+  inner.searchParams.set("client_type", clientType);
   const forward = new Request(inner.toString(), request);
   return stub.fetch(forward);
 }

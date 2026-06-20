@@ -15,6 +15,7 @@ mod review;
 mod settings;
 mod skills;
 mod support;
+mod terminal;
 mod usage;
 mod workspace;
 mod workspace_cleanup;
@@ -390,6 +391,12 @@ impl WsMessageService {
             }
             WsAction::ProjectCheckCanDelete => {
                 self.handle_project_check_can_delete(parse_request(request.data)?)
+                    .await
+            }
+
+            // Terminal
+            WsAction::TerminalWorkspaceCandidates => {
+                self.handle_terminal_workspace_candidates(parse_request(request.data)?)
                     .await
             }
 
