@@ -1,9 +1,9 @@
 /**
  * Cached registration code (register_token) for Settings → Remote computer.
- * Tied to the current access key + control plane; reused until server expiry.
+ * Tied to the current access key + relay + relay secret; reused until server expiry.
  */
 
-import { resolveControlPlaneUrl } from '@/features/connection/lib/atmos-computer-store';
+import { resolveRelayUrl } from '@/features/connection/lib/atmos-computer-store';
 import { globalKey, readJson, removeKey, writeJson } from '@/shared/lib/browser-store';
 
 const CACHE_KEY = globalKey('remote-computer-register-token');
@@ -14,12 +14,13 @@ export interface RemoteComputerRegisterTokenCache {
   expires_at: number;
   /** When this code was issued (unix seconds, client clock). */
   created_at: number;
-  control_plane_url: string;
+  relay_url: string;
   access_token_fingerprint: string;
+  relay_secret_fingerprint?: string;
 }
 
-async function accessTokenFingerprint(accessToken: string): Promise<string> {
-  const trimmed = accessToken.trim();
+async function secretFingerprint(secret: string): Promise<string> {
+  const trimmed = secret.trim();
   if (trimmed.length === 0) {
     return '';
   }
@@ -33,14 +34,16 @@ async function accessTokenFingerprint(accessToken: string): Promise<string> {
 export function isRemoteComputerRegisterTokenCacheValid(
   cache: RemoteComputerRegisterTokenCache,
   accessToken: string,
-  controlPlaneUrl: string,
+  relayUrl: string,
   accessTokenFingerprintHex: string,
+  relaySecretFingerprintHex = '',
   nowSec = Math.floor(Date.now() / 1000),
 ): boolean {
-  const cp = resolveControlPlaneUrl(controlPlaneUrl);
+  const relayOrigin = resolveRelayUrl(relayUrl);
   return (
     cache.access_token_fingerprint === accessTokenFingerprintHex &&
-    cache.control_plane_url === cp &&
+    (cache.relay_secret_fingerprint ?? '') === relaySecretFingerprintHex &&
+    cache.relay_url === relayOrigin &&
     cache.register_token.trim().length > 0 &&
     cache.expires_at > nowSec
   );
@@ -48,16 +51,24 @@ export function isRemoteComputerRegisterTokenCacheValid(
 
 export async function loadRemoteComputerRegisterTokenCache(
   accessToken: string,
-  controlPlaneUrl: string,
+  relayUrl: string,
+  relaySecretKey = '',
 ): Promise<RemoteComputerRegisterTokenCache | null> {
-  const fp = await accessTokenFingerprint(accessToken);
+  const fp = await secretFingerprint(accessToken);
   if (!fp) {
     return null;
   }
+  const relayFp = await secretFingerprint(relaySecretKey);
   const cache = readJson<RemoteComputerRegisterTokenCache | null>(CACHE_KEY, null);
   if (
     !cache ||
-    !isRemoteComputerRegisterTokenCacheValid(cache, accessToken, controlPlaneUrl, fp)
+    !isRemoteComputerRegisterTokenCacheValid(
+      cache,
+      accessToken,
+      relayUrl,
+      fp,
+      relayFp,
+    )
   ) {
     return null;
   }
@@ -66,17 +77,20 @@ export async function loadRemoteComputerRegisterTokenCache(
 
 export async function saveRemoteComputerRegisterTokenCache(
   accessToken: string,
-  controlPlaneUrl: string,
+  relayUrl: string,
+  relaySecretKey: string,
   registerToken: string,
   expiresAt: number,
 ): Promise<void> {
-  const fp = await accessTokenFingerprint(accessToken);
+  const fp = await secretFingerprint(accessToken);
+  const relayFp = await secretFingerprint(relaySecretKey);
   const entry: RemoteComputerRegisterTokenCache = {
     register_token: registerToken,
     expires_at: expiresAt,
     created_at: Math.floor(Date.now() / 1000),
-    control_plane_url: resolveControlPlaneUrl(controlPlaneUrl),
+    relay_url: resolveRelayUrl(relayUrl),
     access_token_fingerprint: fp,
+    relay_secret_fingerprint: relayFp,
   };
   writeJson(CACHE_KEY, entry);
 }

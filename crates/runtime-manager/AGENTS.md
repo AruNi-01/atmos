@@ -20,7 +20,7 @@ crates/runtime-manager/src/
 ├── manifest.rs      # ~/.atmos/runtime_manifest.json
 ├── client_session.rs  # ~/.atmos/client-session.json (relay target; absent in local mode)
 ├── identity.rs      # ~/.atmos/relay_identity.json
-├── register.rs      # POST control plane /v1/computers/register
+├── register.rs      # POST relay /v1/computers/register
 └── supervisor.rs    # ensure / stop / status (feature supervisor)
 ```
 
@@ -41,7 +41,7 @@ crates/runtime-manager/src/
 
 ### `relay_identity.json`
 
-- Written by `register_computer()` after successful control-plane registration.
+- Written by `register_computer()` after successful relay registration.
 - Read by `apps/api` `relay/` module for outbound WSS to `packages/relay`.
 
 ### Supervisor
@@ -80,4 +80,4 @@ crates/runtime-manager/src/
 
 - Spec: [specs/APP/APP-016_atmos-computer/TECH.md](../../specs/APP/APP-016_atmos-computer/TECH.md) §1.4
 - [apps/api/AGENTS.md](../../apps/api/AGENTS.md) — `relay/`
-- [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md) — control plane
+- [packages/relay/AGENTS.md](../../packages/relay/AGENTS.md) — relay

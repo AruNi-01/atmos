@@ -42,7 +42,7 @@
 - **Then**: Relay stores a generated stable `tenant_id` and a unique `access_token_hash`.
 - **Signals**: `tenants.tenant_id` has the stable id format; `tenants.access_token_hash` matches the token hash; no raw token is stored.
 
-### S3 - Existing control-plane endpoints resolve stable tenant id
+### S3 - Existing relay endpoints resolve stable tenant id
 
 - **Level**: Relay integration
 - **Given**: a tenant with stable `tenant_id` and an Access Token credential.
@@ -146,7 +146,7 @@
 - [ ] Legacy D1 migration is tested against seeded APP-016 rows.
 - [ ] Rotation endpoint is atomic: collision/failure leaves the old token and rows intact.
 - [ ] Settings distinguishes "rotate token" from "switch identity."
-- [ ] APP-016 control-plane endpoints continue to pass existing tests.
+- [ ] APP-016 relay endpoints continue to pass existing tests.
 - [ ] APP-019 TECH references stable tenant identity instead of cross-token row copying.
 
 ## Manual verification steps

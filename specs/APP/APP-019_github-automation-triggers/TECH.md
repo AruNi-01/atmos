@@ -34,7 +34,7 @@ External dependencies:
 - GitHub App registration owned by Atmos.
 - GitHub webhooks signed with the App webhook secret.
 - GitHub App private key for installation validation and repository listing.
-- Existing APP-016 Relay control plane and outbound Computer WebSocket.
+- Existing APP-016 Relay and outbound Computer WebSocket.
 
 ## Product decisions resolved in TECH
 
@@ -208,7 +208,7 @@ Use REST in Relay because GitHub calls public HTTPS webhooks and setup callbacks
 
 #### Control-plane identity and setup flow
 
-APP-016 distinguishes the server socket credential from the user control-plane token. APP-019 must keep that boundary:
+APP-016 distinguishes the server socket credential from the user relay token. APP-019 must keep that boundary:
 
 - Browser/Desktop owns the user's Atmos Relay Access Token, usually from Settings or the existing Computer connection flow.
 - The Access Token authenticates the stable Relay tenant identity from APP-020 for registered Computers, GitHub App installations, setup sessions, repository listing, and event routes. APP-019 must not introduce a second GitHub-specific Atmos identity.
@@ -388,7 +388,7 @@ Repository updates:
 Route sync flow:
 
 1. Save the local automation first with `trigger_enabled = false` and `trigger_status = "needs_setup"` if Relay registration, GitHub installation, or route sync is incomplete.
-2. Create or update the Relay route through the user-token control plane.
+2. Create or update the Relay route through the user-token relay.
 3. After Relay confirms the route is active, update the local automation to `trigger_enabled = true`, `trigger_status = "active"`, and store the `route_id`.
 4. If route sync fails, keep the automation locally saved but disabled with a retry action in the UI/header. Do not leave Relay as the only source of truth for a trigger that local service cannot validate.
 
@@ -522,7 +522,7 @@ type AutomationGithubRepositoriesResponse = {
 };
 ```
 
-`apps/api` may call Relay control-plane REST from a service/helper because repository installation data lives in Relay D1 and GitHub. This is a bootstrap/settings-style exception; automation create/update/run remains WebSocket-first. These proxied calls must use the user's Atmos Relay Access Token, never the Computer `server_secret`.
+`apps/api` may call Relay REST from a service/helper because repository installation data lives in Relay D1 and GitHub. This is a bootstrap/settings-style exception; automation create/update/run remains WebSocket-first. These proxied calls must use the user's Atmos Relay Access Token, never the Computer `server_secret`.
 
 ### apps/web
 

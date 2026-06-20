@@ -33,7 +33,7 @@ The main quality risks are tenant ownership drift, stale Relay routes, untrusted
 
 ### Finding
 
-GitHub route creation, update, and deletion are control-plane operations. They must be authorized by the user's Relay Access Token and scoped to the stable APP-020 tenant. A route id supplied by a client must never let one tenant update or disable another tenant's route.
+GitHub route creation, update, and deletion are relay operations. They must be authorized by the user's Relay Access Token and scoped to the stable APP-020 tenant. A route id supplied by a client must never let one tenant update or disable another tenant's route.
 
 ### Fix Strategy
 

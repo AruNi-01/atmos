@@ -16,7 +16,7 @@ args:
 
 Atmos-specific standalone CLI release workflow.
 
-Use this skill when publishing the `atmos` CLI as an independent control-plane artifact for agents, scripts, Desktop, Web, and Local Runtime integrations.
+Use this skill when publishing the `atmos` CLI as an independent relay artifact for agents, scripts, Desktop, Web, and Local Runtime integrations.
 
 ## What this skill owns
 

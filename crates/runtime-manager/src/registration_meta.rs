@@ -1,4 +1,4 @@
-//! JSON blob stored on control-plane `computers.registration_meta` and local `relay_identity.json`.
+//! JSON blob stored on relay `computers.registration_meta` and local `relay_identity.json`.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

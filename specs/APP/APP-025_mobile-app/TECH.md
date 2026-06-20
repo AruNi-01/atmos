@@ -25,7 +25,7 @@ Explicitly out of scope for M1:
 | Mobile terminal layout | Show exactly one active terminal at a time. Do not implement Web-style terminal tabs containing multiple mosaic windows. |
 | Terminal over Relay | Add a dedicated relay terminal stream. Do not rely on the existing `/ws/terminal/{session_id}` direct URL in remote mode. |
 | App data transport | Reuse APP-016 `/ws/client` for normal Atmos WS actions. Add no mobile-only business REST routes. |
-| Control plane | Reuse existing Relay control-plane REST for Access Token registration, register tokens, Computer list, and client sessions. |
+| Relay | Reuse existing Relay REST for Access Token registration, register tokens, Computer list, and client sessions. |
 | Token storage | Store long-lived Access Token in `expo-secure-store`; keep short-lived relay `client_token` in memory and recreate it on app launch. |
 | Workspace home | Workspace list is the first post-auth screen. Settings, Computer selection, and Access Token switching live in a settings drawer. |
 | Project import | Remote server filesystem path selection through existing FS/project validation actions. |
@@ -43,7 +43,7 @@ Why WebView for the terminal: terminal emulation is its own browser-grade render
 flowchart LR
   Mobile["apps/mobile · Expo / React Native"]
   SecureStore["expo-secure-store · Access Token"]
-  CP["packages/relay · Control Plane REST"]
+  CP["packages/relay · Relay REST"]
   Hub["packages/relay · ServerHub DO"]
   API["apps/api · Atmos Server"]
   Service["crates/core-service"]
@@ -66,7 +66,7 @@ apps/mobile
   ├─ main app WS client       -> Relay /ws/client       -> apps/api ws_service
   ├─ terminal WS client       -> Relay /ws/terminal     -> apps/api TerminalService
   ├─ terminal WebView island  -> local xterm renderer only
-  └─ control-plane client     -> Relay REST /v1/...     -> D1 / ServerHub
+  └─ relay client     -> Relay REST /v1/...     -> D1 / ServerHub
 ```
 
 No new server-side product state is introduced. Projects, workspaces, terminal sessions, and tmux state remain owned by the selected Atmos Server.
@@ -92,7 +92,7 @@ apps/mobile/
     workspace/[workspaceId].tsx
   src/
     api/
-      control-plane-client.ts
+      relay-client.ts
       mobile-ws-client.ts
       terminal-ws-client.ts
       ws-actions.ts
@@ -178,7 +178,7 @@ Screens:
   - Computer list/switching.
   - Computer rename and revoke.
   - Access Token switch/rotate/reset.
-  - Control plane URL override for dev/staging.
+  - Relay URL override for dev/staging.
 - `app/workspace/[workspaceId].tsx`
   - Terminal-first workspace screen.
   - Terminal picker/switcher.
@@ -434,7 +434,7 @@ Do not add mobile-only duplicates for project/workspace/import/Git flows. If mob
 
 ```ts
 type MobileSessionState = {
-  controlPlaneUrl: string;
+  relayUrl: string;
   accessTokenStored: boolean;
   selectedServerId: string | null;
   activeClientSession: RelayClientSession | null;
@@ -458,7 +458,7 @@ type MobileUiPrefs = {
 Storage:
 
 - Access Token: `expo-secure-store`.
-- `controlPlaneUrl`, `selectedServerId`, UI prefs: AsyncStorage through Zustand persist.
+- `relayUrl`, `selectedServerId`, UI prefs: AsyncStorage through Zustand persist.
 - `activeClientSession.clientToken` and `activeClientSession.terminalWsUrl`: memory only; create a new client session on cold launch or server switch. `terminalWsUrl` is read only by `terminal-ws-client.ts` and is never injected into WebView.
 
 ### Project import and workspace create
@@ -642,7 +642,7 @@ Rules:
 
 ### Control-plane REST
 
-These are existing APP-016 control-plane routes, with one additive response field:
+These are existing APP-016 relay routes, with one additive response field:
 
 | Method | Route | Mobile use |
 |--------|-------|------------|
@@ -666,7 +666,7 @@ type ClientSessionResponse = {
 };
 ```
 
-REST justification: these are existing APP-016 control-plane routes for bootstrap/session issuance. Business workflows remain WS-first.
+REST justification: these are existing APP-016 relay routes for bootstrap/session issuance. Business workflows remain WS-first.
 
 ### Main app WebSocket
 
@@ -850,7 +850,7 @@ Non-goals:
 ## Rollout plan
 
 1. Scaffold `apps/mobile` with Expo Router, TypeScript, Expo UI, NativeWind, Query provider, and empty auth/app/settings/workspace routes.
-2. Implement Access Token generation/storage and control-plane client using existing `/v1/tenants`, `/v1/register_tokens`, `/v1/computers`, and `/v1/computers/:id/client_sessions`.
+2. Implement Access Token generation/storage and relay client using existing `/v1/tenants`, `/v1/register_tokens`, `/v1/computers`, and `/v1/computers/:id/client_sessions`.
 3. Add `client_kind=mobile` support and additive `terminal_ws_url` response in `packages/relay/src/index.ts`.
 4. Add `/ws/terminal` stream routing in `packages/relay/src/index.ts` and `packages/relay/src/server-hub.ts`.
 5. Extract shared terminal stream handling from `apps/api/src/api/ws/terminal_handler.rs`; add relay terminal handling in `apps/api/src/relay/terminal.rs` and `apps/api/src/relay/ingest.rs`.

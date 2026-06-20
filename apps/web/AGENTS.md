@@ -49,7 +49,7 @@ imports and feature store writes.
 | **Browser dev** | `NEXT_PUBLIC_API_PORT` (default `30303`) via `desktop-runtime.ts` |
 | **Tauri Desktop** | `get_api_config` invoke → `{ host, port }` — **no token** by default |
 | **Desktop prod** | Same-origin `window.location` when served from API static export |
-| **Relay mode** | Control plane `client_token` + `relay_ws_url` (Settings → Atmos Computer) |
+| **Relay mode** | Relay `client_token` + `relay_ws_url` (Settings → Atmos Computer) |
 
 Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host guesses in features.
 
@@ -70,7 +70,8 @@ Use `getRuntimeApiConfig()` / `httpBase()` / `wsBase()` — not raw `fetch` host
 - **Settings** → `AtmosComputerSection.tsx`, `atmos-access-token.ts`
 - Frontend location: `src/features/atmos-computer/`,
   `src/features/tunnel-connector/`, and `src/features/connection/`
-- User-created **Access Token** (Bearer) for control plane — not a shared CP key.
+- User-created **Access Token** (Bearer) for relay — not a shared CP key.
+- Optional **Relay Secret Key** belongs to Atmos Computer relay settings and is sent as `X-Atmos-Relay-Secret` only for self-hosted/private relays.
 - Register token flow for remote computers: copy CLI / env `ATMOS_REGISTER_TOKEN`.
 
 Spec: [specs/APP/APP-016_atmos-computer/](../../specs/APP/APP-016_atmos-computer/)

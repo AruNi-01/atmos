@@ -220,7 +220,7 @@ function AtmosComputerPopoverContent({
     accessToken,
     computers,
     connectionMode,
-    controlPlaneUrl,
+    relayUrl,
     localServerId,
     relayWebSocketUrl,
     selectedServerId,
@@ -248,7 +248,7 @@ function AtmosComputerPopoverContent({
       setError(null);
       try {
         const state = useAtmosComputerStore.getState();
-        const rows = await listHostedRemoteComputers(state.controlPlaneUrl, trimmed);
+        const rows = await listHostedRemoteComputers(state.relayUrl, trimmed);
         setComputers(rows);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not load computers.");
@@ -277,7 +277,7 @@ function AtmosComputerPopoverContent({
       if (serverId === localServerId) {
         await activateCurrentLocalConnection();
       } else {
-        const session = await createHostedRemoteSession(controlPlaneUrl, accessToken, serverId);
+        const session = await createHostedRemoteSession(relayUrl, accessToken, serverId);
         await activateHostedRemoteConnection(serverId, session);
       }
       toastManager.add({ title: "Connected", type: "success" });

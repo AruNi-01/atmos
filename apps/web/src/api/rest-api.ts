@@ -277,7 +277,7 @@ export interface RuntimeInfoResponse {
   relay: {
     registered: boolean;
     server_id: string | null;
-    control_plane_url: string | null;
+    relay_url: string | null;
     connected: boolean;
   };
 }

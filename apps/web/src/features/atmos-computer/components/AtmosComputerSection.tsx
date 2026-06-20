@@ -20,6 +20,7 @@ import {
   FlaskConical,
   KeyRound,
   Laptop,
+  Link2,
   LoaderCircle,
   Plus,
   RotateCw,
@@ -28,7 +29,7 @@ import {
 } from 'lucide-react';
 import { automationApi } from '@/api/ws/automation-api';
 import {
-  cpFetchWithAccessToken,
+  relayFetchWithAccessToken,
   generateAccessToken,
   registerAccessTokenOnRelay,
   rotateAccessTokenOnRelay,
@@ -46,13 +47,18 @@ import {
   type LocalComputerStatus,
 } from '@/features/connection/lib/atmos-computer-local';
 import { buildRegistrationMeta } from '@/features/connection/lib/registration-meta';
-import { useAtmosComputerStore, type ComputerRow } from '@/features/connection/lib/atmos-computer-store';
+import {
+  resolveRelayUrl,
+  useAtmosComputerStore,
+  type ComputerRow,
+} from '@/features/connection/lib/atmos-computer-store';
 import {
   ensureComputerClientSettingsHydrated,
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
 import { ComputerDetailsDialog } from '@/features/atmos-computer/components/ComputerDetailsDialog';
 import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
+import { clearRemoteComputerRegisterTokenCache } from '@/features/connection/lib/remote-computer-register-token-cache';
 
 function SettingsBlock({
   title,
@@ -60,6 +66,8 @@ function SettingsBlock({
   icon,
   headerAction,
   headerEnd,
+  collapsible = false,
+  defaultOpen = true,
   children,
 }: {
   title: string;
@@ -67,8 +75,48 @@ function SettingsBlock({
   icon: ReactNode;
   headerAction?: ReactNode;
   headerEnd?: ReactNode;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
   children: ReactNode;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  if (collapsible) {
+    return (
+      <Collapsible
+        open={open}
+        onOpenChange={setOpen}
+        className="overflow-hidden rounded-2xl border border-border"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 py-5">
+          <CollapsibleTrigger className="group min-w-0 flex-1 cursor-pointer text-left">
+            <div className="flex min-w-0 gap-3">
+              <span className="relative flex h-6 w-5 shrink-0 items-center justify-center">
+                <span className="absolute flex size-5 items-center justify-center transition-opacity duration-150 group-hover:opacity-0 [&_svg]:size-5">
+                  {icon}
+                </span>
+                <ChevronDown className="absolute size-5 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-medium leading-6 text-foreground">{title}</h3>
+                  {headerAction}
+                </div>
+                {description ? (
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
+                ) : null}
+              </div>
+            </div>
+          </CollapsibleTrigger>
+          {headerEnd ? <div className="shrink-0 pt-0.5">{headerEnd}</div> : null}
+        </div>
+        <CollapsibleContent>
+          <div className="space-y-4 border-t border-border px-6 py-5">{children}</div>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  }
+
   return (
     <section className="overflow-hidden rounded-2xl border border-border">
       <div className="border-b border-border/60 px-6 py-5">
@@ -108,19 +156,24 @@ function SettingsBlock({
 export function AtmosComputerSection() {
   const {
     connectionMode,
-    controlPlaneUrl,
+    relayUrl,
+    relaySecretKey,
     accessToken,
     computers,
     selectedServerId,
     relayWebSocketUrl,
     localServerId,
     setAccessToken,
+    setRelayUrl,
     setComputers,
     setLocalServerId,
+    setRelaySecretKey,
   } = useAtmosComputerStore();
 
   const [busy, setBusy] = useState<string | null>(null);
   const [listRefreshing, setListRefreshing] = useState(false);
+  const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
+  const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
   const [tokenDraft, setTokenDraft] = useState(accessToken);
   const [tokenCopied, setTokenCopied] = useState(false);
   const [tokenReveal, setTokenReveal] = useState<string | null>(null);
@@ -148,14 +201,15 @@ export function AtmosComputerSection() {
 
   const refreshComputerListFor = useCallback(async (
     token: string,
-    url: string = controlPlaneUrl,
+    url: string = relayUrl,
+    secret: string = relaySecretKey,
   ) => {
     if (token.trim().length < 32) {
       return;
     }
     setListRefreshing(true);
     try {
-      const res = await cpFetchWithAccessToken(url, token, '/v1/computers');
+      const res = await relayFetchWithAccessToken(url, token, '/v1/computers', undefined, secret);
       const data = (await res.json().catch(() => null)) as { computers?: ComputerRow[] } | null;
       if (res.ok && data?.computers) {
         setComputers(data.computers);
@@ -163,11 +217,11 @@ export function AtmosComputerSection() {
     } finally {
       setListRefreshing(false);
     }
-  }, [controlPlaneUrl, setComputers]);
+  }, [relayUrl, relaySecretKey, setComputers]);
 
   const refreshComputerList = useCallback(async () => {
-    await refreshComputerListFor(accessToken, controlPlaneUrl);
-  }, [accessToken, controlPlaneUrl, refreshComputerListFor]);
+    await refreshComputerListFor(accessToken, relayUrl);
+  }, [accessToken, relayUrl, refreshComputerListFor]);
 
   const onRelayReconnect = useCallback(async () => {
     setBusy('relay-sync');
@@ -219,12 +273,23 @@ export function AtmosComputerSection() {
   }, [accessToken]);
 
   useEffect(() => {
+    setRelayUrlDraft(relayUrl);
+  }, [relayUrl]);
+
+  useEffect(() => {
+    setRelaySecretDraft(relaySecretKey);
+  }, [relaySecretKey]);
+
+  useEffect(() => {
     setTokenCopied(false);
   }, [tokenDraft]);
 
   useEffect(() => {
     void ensureComputerClientSettingsHydrated().then(() => {
-      setTokenDraft(useAtmosComputerStore.getState().accessToken);
+      const settings = useAtmosComputerStore.getState();
+      setTokenDraft(settings.accessToken);
+      setRelayUrlDraft(settings.relayUrl);
+      setRelaySecretDraft(settings.relaySecretKey);
     });
   }, []);
 
@@ -284,7 +349,11 @@ export function AtmosComputerSection() {
     };
   }, [hasKey, localStatus, localServerId, refreshComputerList]);
 
-  async function ensureAccessTokenReady(token: string): Promise<boolean> {
+  async function ensureAccessTokenReady(
+    token: string,
+    url: string = relayUrl,
+    secret: string = relaySecretKey,
+  ): Promise<boolean> {
     if (token.trim().length < 32) {
       toastManager.add({
         title: 'Access key is too short',
@@ -293,7 +362,7 @@ export function AtmosComputerSection() {
       });
       return false;
     }
-    const reg = await registerAccessTokenOnRelay(controlPlaneUrl, token);
+    const reg = await registerAccessTokenOnRelay(url, token, secret);
     if (!reg.ok) {
       toastManager.add({
         title: 'Could not save access key',
@@ -323,6 +392,40 @@ export function AtmosComputerSection() {
     }
   }
 
+  async function onSaveRelaySettings({
+    successTitle = 'Private Relay settings saved',
+    urlDraft = relayUrlDraft,
+    secretDraft = relaySecretDraft,
+  }: {
+    successTitle?: string;
+    urlDraft?: string;
+    secretDraft?: string;
+  } = {}) {
+    const nextUrl = resolveRelayUrl(urlDraft);
+    const nextSecret = secretDraft.trim();
+    setBusy('relay-settings');
+    try {
+      setRelayUrl(nextUrl);
+      setRelaySecretKey(nextSecret);
+      clearRemoteComputerRegisterTokenCache();
+      const persisted = await saveComputerClientSettingsToDisk(
+        accessToken,
+        nextUrl,
+        nextSecret,
+      );
+      toastManager.add({
+        title: persisted ? successTitle : 'Saved for this session',
+        description: persisted
+          ? undefined
+          : 'Could not save on this computer. Ensure Atmos is running locally.',
+        type: persisted ? 'success' : 'warning',
+      });
+      await refreshComputerListFor(accessToken, nextUrl, nextSecret);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function teardownLocalRelayIdentity() {
     setLocalServerId(null);
     setLocalStatus(prev =>
@@ -344,8 +447,10 @@ export function AtmosComputerSection() {
     setBusy('token-save');
     try {
       const token = tokenDraft.trim();
+      const nextUrl = resolveRelayUrl(relayUrlDraft);
+      const nextSecret = relaySecretDraft.trim();
       const switchingIdentity = hasKey && token !== accessToken.trim();
-      if (!(await ensureAccessTokenReady(token))) {
+      if (!(await ensureAccessTokenReady(token, nextUrl, nextSecret))) {
         return;
       }
       let githubAutomationsMarked = 0;
@@ -382,9 +487,11 @@ export function AtmosComputerSection() {
 
         await teardownLocalRelayIdentity();
       }
+      setRelayUrl(nextUrl);
+      setRelaySecretKey(nextSecret);
       setAccessToken(token);
       setTokenReveal(null);
-      const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
+      const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
       if (!persisted) {
         toastManager.add({
           title: switchingIdentity ? 'Identity switched for this session' : 'Saved for this session',
@@ -403,7 +510,7 @@ export function AtmosComputerSection() {
           type: 'success',
         });
       }
-      await refreshComputerListFor(token, controlPlaneUrl);
+      await refreshComputerListFor(token, nextUrl, nextSecret);
     } finally {
       setBusy(null);
     }
@@ -423,7 +530,12 @@ export function AtmosComputerSection() {
     setBusy('token-rotate');
     try {
       const nextToken = generateAccessToken();
-      const rotated = await rotateAccessTokenOnRelay(controlPlaneUrl, currentToken, nextToken);
+      const rotated = await rotateAccessTokenOnRelay(
+        relayUrl,
+        currentToken,
+        nextToken,
+        relaySecretKey,
+      );
       if (!rotated.ok) {
         toastManager.add({
           title: 'Could not rotate access key',
@@ -433,7 +545,11 @@ export function AtmosComputerSection() {
         return;
       }
 
-      const persisted = await saveComputerClientSettingsToDisk(nextToken, controlPlaneUrl);
+      const persisted = await saveComputerClientSettingsToDisk(
+        nextToken,
+        relayUrl,
+        relaySecretKey,
+      );
       setTokenDraft(nextToken);
       setAccessToken(nextToken);
       setTokenReveal(nextToken);
@@ -445,7 +561,7 @@ export function AtmosComputerSection() {
           : 'Relay accepted the rotation, but Atmos could not save locally. Copy the new key now.',
         type: persisted ? 'success' : 'warning',
       });
-      await refreshComputerListFor(nextToken, controlPlaneUrl);
+      await refreshComputerListFor(nextToken, relayUrl);
     } finally {
       setBusy(null);
     }
@@ -455,13 +571,17 @@ export function AtmosComputerSection() {
     setBusy('token-generate');
     try {
       const token = generateAccessToken();
-      if (!(await ensureAccessTokenReady(token))) {
+      const nextUrl = resolveRelayUrl(relayUrlDraft);
+      const nextSecret = relaySecretDraft.trim();
+      if (!(await ensureAccessTokenReady(token, nextUrl, nextSecret))) {
         return;
       }
+      setRelayUrl(nextUrl);
+      setRelaySecretKey(nextSecret);
       setTokenDraft(token);
       setAccessToken(token);
       setTokenReveal(token);
-      const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
+      const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
       toastManager.add({
         title: 'Access key created',
         description: persisted
@@ -469,7 +589,7 @@ export function AtmosComputerSection() {
           : 'Copy it now — could not save on this computer. Ensure Atmos is running locally.',
         type: persisted ? 'success' : 'warning',
       });
-      await refreshComputerListFor(token, controlPlaneUrl);
+      await refreshComputerListFor(token, nextUrl, nextSecret);
     } finally {
       setBusy(null);
     }
@@ -491,8 +611,8 @@ export function AtmosComputerSection() {
         const displayName =
           localStatus?.computer_name ?? localStatus?.hostname ?? 'My Computer';
 
-        const tokenRes = await cpFetchWithAccessToken(
-          controlPlaneUrl,
+        const tokenRes = await relayFetchWithAccessToken(
+          relayUrl,
           accessToken,
           '/v1/register_tokens',
           { method: 'POST', body: JSON.stringify({}) },
@@ -513,6 +633,8 @@ export function AtmosComputerSection() {
         const reg = await registerLocalComputer(
           tokenData.register_token,
           displayName,
+          relayUrl,
+          relaySecretKey,
           await buildRegistrationMeta(),
         );
         setLocalServerId(reg.server_id);
@@ -523,8 +645,8 @@ export function AtmosComputerSection() {
           relay_connected: reg.relay_connected ?? false,
           relay_last_error: reg.relay_last_error ?? null,
           server_id: reg.server_id,
-          control_plane_url:
-            prev?.control_plane_url ?? localStatus?.control_plane_url ?? controlPlaneUrl,
+          relay_url:
+            prev?.relay_url ?? localStatus?.relay_url ?? relayUrl,
           relay_ws_url: prev?.relay_ws_url ?? localStatus?.relay_ws_url ?? null,
           shell_env: prev?.shell_env ?? localStatus?.shell_env,
         }));
@@ -550,8 +672,8 @@ export function AtmosComputerSection() {
 
       const serverId = localStatus?.server_id ?? localServerId;
       if (serverId) {
-        await cpFetchWithAccessToken(
-          controlPlaneUrl,
+        await relayFetchWithAccessToken(
+          relayUrl,
           accessToken,
           `/v1/computers/${encodeURIComponent(serverId)}/revoke`,
           { method: 'POST', body: '{}' },
@@ -604,7 +726,7 @@ export function AtmosComputerSection() {
     }
     setBusy(`connect-${serverId}`);
     try {
-      const session = await createHostedRemoteSession(controlPlaneUrl, accessToken, serverId);
+      const session = await createHostedRemoteSession(relayUrl, accessToken, serverId);
       await activateHostedRemoteConnection(serverId, session);
       toastManager.add({ title: 'Connected', type: 'success' });
     } catch (err) {
@@ -624,8 +746,8 @@ export function AtmosComputerSection() {
     }
     setBusy(`remove-${serverId}`);
     try {
-      const res = await cpFetchWithAccessToken(
-        controlPlaneUrl,
+      const res = await relayFetchWithAccessToken(
+        relayUrl,
         accessToken,
         `/v1/computers/${encodeURIComponent(serverId)}/revoke`,
         { method: 'POST', body: '{}' },
@@ -657,7 +779,7 @@ export function AtmosComputerSection() {
   const isLocalRegistered = Boolean(
     localStatus?.registered && currentServerId,
   ) || Boolean(localServerId && currentServerId === localServerId);
-  /** Local API is authoritative; control-plane `online` is a fallback while relay is reconnecting. */
+  /** Local API is authoritative; relay `online` is a fallback while relay is reconnecting. */
   const isCurrentRelayReachable =
     Boolean(localStatus?.relay_connected) || Boolean(currentComputerRow?.online);
   const relayLastError = localStatus?.relay_last_error?.trim() || null;
@@ -668,6 +790,10 @@ export function AtmosComputerSection() {
     'This computer';
   const tokenDraftTrimmed = tokenDraft.trim();
   const tokenDraftChanged = tokenDraftTrimmed !== accessToken.trim();
+  const relayUrlDraftResolved = resolveRelayUrl(relayUrlDraft);
+  const relaySecretDraftTrimmed = relaySecretDraft.trim();
+  const relayUrlChanged = relayUrlDraftResolved !== resolveRelayUrl(relayUrl);
+  const relaySecretChanged = relaySecretDraftTrimmed !== relaySecretKey.trim();
   const isSwitchingIdentity = hasKey && tokenDraftChanged;
   const canSaveTokenDraft = Boolean(tokenDraftTrimmed) && (!hasKey || tokenDraftChanged);
 
@@ -682,6 +808,87 @@ export function AtmosComputerSection() {
           </p>
         </div>
       </div>
+
+      <SettingsBlock
+        title="Private Relay"
+        icon={<Link2 className="size-5" />}
+        description="Use the official relay by default, or point this app at a private relay."
+        collapsible
+        defaultOpen={false}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
+              Relay URL
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                id="private-relay-url"
+                value={relayUrlDraft}
+                onChange={e => setRelayUrlDraft(e.target.value)}
+                placeholder="https://relay.atmos.land"
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={busy !== null || !relayUrlChanged}
+                onClick={() =>
+                  void onSaveRelaySettings({
+                    successTitle: 'Private Relay URL saved',
+                    urlDraft: relayUrlDraft,
+                    secretDraft: relaySecretKey,
+                  })
+                }
+              >
+                {busy === 'relay-settings' ? (
+                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Save
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-token">
+              Token
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                id="private-relay-token"
+                type="password"
+                value={relaySecretDraft}
+                onChange={e => setRelaySecretDraft(e.target.value)}
+                placeholder="Required for private relay authentication"
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={busy !== null || !relaySecretChanged}
+                onClick={() =>
+                  void onSaveRelaySettings({
+                    successTitle: 'Private Relay token saved',
+                    urlDraft: relayUrl,
+                    secretDraft: relaySecretDraft,
+                  })
+                }
+              >
+                {busy === 'relay-settings' ? (
+                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Leave Token empty for the official Atmos relay. Self-hosted relays can set{' '}
+          <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
+          and require this value on Relay requests.
+        </p>
+      </SettingsBlock>
 
       <SettingsBlock
         title="Access Key"
@@ -831,8 +1038,9 @@ export function AtmosComputerSection() {
             <RemoteComputerSetupBlock
               active={remoteComputerExpanded}
               hasAccessToken={hasKey}
-              controlPlaneUrl={controlPlaneUrl}
+              relayUrl={relayUrl}
               accessToken={accessToken}
+              relaySecretKey={relaySecretKey}
               busy={busy !== null}
             />
           </div>

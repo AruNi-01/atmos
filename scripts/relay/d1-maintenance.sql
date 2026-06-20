@@ -1,5 +1,5 @@
 -- Atmos relay D1 maintenance (run manually in Cloudflare D1 console or wrangler d1 execute)
--- Database name: atmos-computer-cp (see packages/relay/wrangler.toml)
+-- Database name: atmos-computer-relay (see packages/relay/wrangler.toml)
 --
 -- Prerequisites:
 --   1. Apply migrations through packages/relay/migrations/0006 when needed.
@@ -8,12 +8,12 @@
 --      30 days for webhook delivery logs).
 --
 -- Example (from repo root):
---   npx wrangler d1 execute atmos-computer-cp --remote \
+--   npx wrangler d1 execute atmos-computer-relay --remote \
 --     --config packages/relay/wrangler.toml \
 --     --file=scripts/relay/d1-maintenance.sql
 --
 -- Or from packages/relay:
---   npx wrangler d1 execute atmos-computer-cp --remote \
+--   npx wrangler d1 execute atmos-computer-relay --remote \
 --     --file=../../scripts/relay/d1-maintenance.sql
 
 -- ---------------------------------------------------------------------------

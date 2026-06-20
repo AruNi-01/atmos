@@ -1,10 +1,10 @@
 /**
- * User Access Token + control plane URL live in `~/.atmos/computer-client.json`.
+ * User Access Token + relay settings live in `~/.atmos/computer-client.json`.
  * Web (loopback) and Desktop share this file via the local Atmos Server API.
  */
 
 import {
-  resolveControlPlaneUrl,
+  resolveRelayUrl,
   useAtmosComputerStore,
 } from '@/features/connection/lib/atmos-computer-store';
 import { getLoopbackHttpBase, isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
@@ -13,7 +13,8 @@ export interface ComputerClientSettingsDisk {
   path: string;
   configured: boolean;
   access_token: string;
-  control_plane_url: string;
+  relay_url: string;
+  relay_secret_key?: string;
 }
 
 function apiTokenHeader(): Record<string, string> {
@@ -64,7 +65,8 @@ export async function loadComputerClientSettingsFromDisk(): Promise<ComputerClie
 
 export async function saveComputerClientSettingsToDisk(
   accessToken: string,
-  controlPlaneUrl: string,
+  relayUrl: string,
+  relaySecretKey = '',
 ): Promise<boolean> {
   if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
     return false;
@@ -83,7 +85,8 @@ export async function saveComputerClientSettingsToDisk(
     },
     body: JSON.stringify({
       access_token: accessToken.trim(),
-      control_plane_url: resolveControlPlaneUrl(controlPlaneUrl),
+      relay_url: resolveRelayUrl(relayUrl),
+      relay_secret_key: relaySecretKey.trim(),
     }),
   });
   if (!res.ok) {
@@ -132,13 +135,23 @@ export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
   const store = useAtmosComputerStore.getState();
 
   if (disk?.configured && disk.access_token.trim().length >= 32) {
+    store.setRelayUrl(disk.relay_url);
+    store.setRelaySecretKey(disk.relay_secret_key ?? '');
     store.setAccessToken(disk.access_token);
-    store.setControlPlaneUrl(disk.control_plane_url);
     return;
+  }
+
+  if (disk) {
+    store.setRelayUrl(disk.relay_url);
+    store.setRelaySecretKey(disk.relay_secret_key ?? '');
   }
 
   const legacy = store.accessToken.trim();
   if (legacy.length >= 32) {
-    await saveComputerClientSettingsToDisk(legacy, store.controlPlaneUrl);
+    await saveComputerClientSettingsToDisk(
+      legacy,
+      store.relayUrl,
+      store.relaySecretKey,
+    );
   }
 }

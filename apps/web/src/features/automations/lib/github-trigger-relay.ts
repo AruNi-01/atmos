@@ -20,8 +20,9 @@ export interface GithubRepository {
 }
 
 export interface GithubRelayPrerequisites {
-  controlPlaneUrl: string;
+  relayUrl: string;
   accessToken: string;
+  relaySecretKey: string;
   serverId: string | null;
 }
 
@@ -33,7 +34,7 @@ export interface GithubRouteUpsertResult {
 
 export function hasGithubRelayPrerequisites(prereqs: GithubRelayPrerequisites): boolean {
   return (
-    prereqs.controlPlaneUrl.trim().length > 0 &&
+    prereqs.relayUrl.trim().length > 0 &&
     prereqs.accessToken.trim().length >= 32 &&
     Boolean(prereqs.serverId?.trim())
   );
@@ -147,8 +148,9 @@ async function githubRelayRequest<T>(
     throw new Error("Atmos Relay Access Token is missing.");
   }
   return wsRequest<T>(action, {
-    control_plane_url: prereqs.controlPlaneUrl,
+    relay_url: prereqs.relayUrl,
     access_token: prereqs.accessToken.trim(),
+    relay_secret_key: prereqs.relaySecretKey.trim() || null,
     ...payload,
   });
 }

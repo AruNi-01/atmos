@@ -21,7 +21,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
-          <Stack.Screen name="settings" options={{ presentation: "modal" }} />
+          <Stack.Screen name="settings" options={{ headerShown: false, presentation: "modal" }} />
           <Stack.Screen
             name="computer-connect"
             options={{

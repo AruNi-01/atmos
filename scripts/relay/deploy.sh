@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the Atmos Computer relay Worker (control plane + ServerHub DO).
+# Deploy the Atmos Computer relay Worker (relay + ServerHub DO).
 #
 # Usage (from repo root):
 #   scripts/relay/deploy.sh
@@ -30,5 +30,11 @@ if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
 fi
 
 echo "==> Deploying Worker from ${RELAY_ROOT}"
+if [[ -n "${RELAY_SECRET_KEY:-}" ]]; then
+  echo "==> Writing RELAY_SECRET_KEY to Cloudflare Worker secrets"
+  printf '%s' "$RELAY_SECRET_KEY" | bunx wrangler secret put RELAY_SECRET_KEY
+else
+  echo "==> RELAY_SECRET_KEY not set; deployed relay will not require relay-secret auth"
+fi
 bunx wrangler deploy
 echo "==> Deploy finished (relay.atmos.land)"

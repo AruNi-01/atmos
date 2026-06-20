@@ -20,7 +20,7 @@ Atmos 1.2.0-beta.2 includes the complete 1.1.0 feature set — Kanban board with
 
 ## New Features
 
-- **Atmos Computer (APP-016)** — Remote access to your Atmos workspace through the relay control plane, with computer registration, access token management, and unified local runtime manifest. VPS setup commands are available in settings, and `computer start --daemon` enables background relay operation. ([#115](https://github.com/AruNi-01/atmos/pull/115))
+- **Atmos Computer (APP-016)** — Remote access to your Atmos workspace through the relay, with computer registration, access token management, and unified local runtime manifest. VPS setup commands are available in settings, and `computer start --daemon` enables background relay operation. ([#115](https://github.com/AruNi-01/atmos/pull/115))
 
 - **Workspace Kanban Board** — A new Kanban board view with drag-and-drop, labels, priority, and per-status columns. Create workspaces directly from a Kanban column, pin workspaces with stable ordering, and group your sidebar by manual workflow status. ([#77](https://github.com/AruNi-01/atmos/pull/77))
 
@@ -114,7 +114,7 @@ Atmos 1.2.0-beta.2 includes the complete 1.1.0 feature set — Kanban board with
 
 - **Performance & Stability** — Optimized local model manifest fetching and build pipeline, repackaged official llama runtime releases, and fixed a number of stale closures, destructive drains, and missing rename broadcasts uncovered in review.
 
-- **Atmos Computer** — Isolated browser UI preferences by connection instance, proxied control-plane HTTP requests via local API for improved security, and merged sidebar grouping into filter popover for better UX. ([#115](https://github.com/AruNi-01/atmos/pull/115))
+- **Atmos Computer** — Isolated browser UI preferences by connection instance, proxied relay HTTP requests via local API for improved security, and merged sidebar grouping into filter popover for better UX. ([#115](https://github.com/AruNi-01/atmos/pull/115))
 
 - **UI Theme** — Default UI theme now defaults to dark instead of system for consistent experience.
 

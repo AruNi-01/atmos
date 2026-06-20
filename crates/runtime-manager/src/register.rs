@@ -1,28 +1,28 @@
-//! Register this host as an Atmos Computer on the relay control plane.
+//! Register this host as an Atmos Computer on the relay.
 
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::identity::{write_server_identity, ServerIdentity};
 
-const DEFAULT_CONTROL_PLANE_URL: &str = "https://relay.atmos.land";
+const DEFAULT_RELAY_URL: &str = "https://relay.atmos.land";
 
 #[derive(Debug, Deserialize)]
 struct RegisterResponse {
     server_id: String,
     server_secret: String,
     relay_ws_url: String,
-    control_plane_url: String,
+    relay_url: String,
     #[allow(dead_code)]
     display_name: Option<String>,
     #[serde(default)]
     registration_meta: Option<Value>,
 }
 
-pub fn normalize_control_plane_url(raw: &str) -> String {
+pub fn normalize_relay_url(raw: &str) -> String {
     let t = raw.trim().trim_end_matches('/');
     if t.is_empty() {
-        return DEFAULT_CONTROL_PLANE_URL.to_string();
+        return DEFAULT_RELAY_URL.to_string();
     }
     if t.starts_with("http://") || t.starts_with("https://") {
         t.to_string()
@@ -32,8 +32,9 @@ pub fn normalize_control_plane_url(raw: &str) -> String {
 }
 
 pub async fn register_computer(
-    control_plane_url: &str,
+    relay_url: &str,
     register_token: &str,
+    relay_secret_key: Option<&str>,
     display_name: Option<&str>,
     registration_meta: Option<Value>,
 ) -> Result<ServerIdentity, String> {
@@ -42,7 +43,7 @@ pub async fn register_computer(
         return Err("register token is empty".into());
     }
 
-    let cp = normalize_control_plane_url(control_plane_url);
+    let relay_origin = normalize_relay_url(relay_url);
     let mut body = serde_json::json!({ "register_token": token });
     if let Some(name) = display_name.filter(|s| !s.trim().is_empty()) {
         body["display_name"] = serde_json::Value::String(name.trim().to_string());
@@ -51,11 +52,13 @@ pub async fn register_computer(
         body["registration_meta"] = meta;
     }
 
-    let url = format!("{cp}/v1/computers/register");
+    let url = format!("{relay_origin}/v1/computers/register");
     let client = reqwest::Client::new();
-    let res = client
-        .post(&url)
-        .json(&body)
+    let mut request = client.post(&url).json(&body);
+    if let Some(secret) = relay_secret_key.map(str::trim).filter(|s| !s.is_empty()) {
+        request = request.header("X-Atmos-Relay-Secret", secret);
+    }
+    let res = request
         .send()
         .await
         .map_err(|e| format!("register request failed: {e}"))?;
@@ -67,7 +70,7 @@ pub async fn register_computer(
         .map_err(|e| format!("register response read: {e}"))?;
 
     if !status.is_success() {
-        return Err(format!("control plane register failed ({status}): {raw}"));
+        return Err(format!("relay register failed ({status}): {raw}"));
     }
 
     let parsed: RegisterResponse =
@@ -77,7 +80,7 @@ pub async fn register_computer(
         server_id: parsed.server_id,
         server_secret: parsed.server_secret,
         relay_ws_url: parsed.relay_ws_url,
-        control_plane_url: Some(parsed.control_plane_url),
+        relay_url: Some(parsed.relay_url),
         registration_meta: parsed.registration_meta,
     };
 
@@ -85,6 +88,6 @@ pub async fn register_computer(
     Ok(identity)
 }
 
-pub fn default_control_plane_url() -> &'static str {
-    DEFAULT_CONTROL_PLANE_URL
+pub fn default_relay_url() -> &'static str {
+    DEFAULT_RELAY_URL
 }

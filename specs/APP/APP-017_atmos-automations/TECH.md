@@ -754,7 +754,7 @@ type AutomationRunSummary = {
 
 ## Security & permissions
 
-- Automation state is local to the connected Atmos Server. Relay mode only changes transport; it does not move data to the control plane.
+- Automation state is local to the connected Atmos Server. Relay mode only changes transport; it does not move data to the relay.
 - Validate every project/workspace GUID through `ProjectService`/`WorkspaceService` before writing definitions or running.
 - Artifact paths must be built from the automation/run GUIDs, then canonicalized under `~/.atmos/automations/`. Reject paths that escape that root.
 - Definition files and run artifacts should be created with user-only permissions where the platform supports it (`0600` for files, `0700` for directories on Unix).

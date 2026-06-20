@@ -1,4 +1,4 @@
-//! `~/.atmos/computer-client.json` — user Access Token + control plane URL (shared by Web/Desktop).
+//! `~/.atmos/computer-client.json` — user Access Token + relay settings (shared by Web/Desktop).
 
 use std::fs;
 use std::io::Write;
@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::manifest::atmos_home_dir;
-use crate::register::default_control_plane_url;
+use crate::register::default_relay_url;
 
 pub const COMPUTER_CLIENT_SETTINGS_VERSION: u32 = 1;
 pub const COMPUTER_CLIENT_SETTINGS_FILE_NAME: &str = "computer-client.json";
@@ -18,7 +18,9 @@ pub struct ComputerClientSettings {
     #[serde(default)]
     pub access_token: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub control_plane_url: Option<String>,
+    pub relay_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relay_secret_key: Option<String>,
 }
 
 impl Default for ComputerClientSettings {
@@ -26,17 +28,19 @@ impl Default for ComputerClientSettings {
         Self {
             version: COMPUTER_CLIENT_SETTINGS_VERSION,
             access_token: String::new(),
-            control_plane_url: None,
+            relay_url: None,
+            relay_secret_key: None,
         }
     }
 }
 
 impl ComputerClientSettings {
-    pub fn new(access_token: impl Into<String>, control_plane_url: Option<String>) -> Self {
+    pub fn new(access_token: impl Into<String>, relay_url: Option<String>) -> Self {
         Self {
             version: COMPUTER_CLIENT_SETTINGS_VERSION,
             access_token: access_token.into(),
-            control_plane_url,
+            relay_url,
+            relay_secret_key: None,
         }
     }
 }
@@ -65,11 +69,18 @@ pub fn read_computer_client_settings() -> Result<Option<ComputerClientSettings>,
         ));
     }
     if parsed
-        .control_plane_url
+        .relay_url
         .as_ref()
         .is_some_and(|s| s.trim().is_empty())
     {
-        parsed.control_plane_url = None;
+        parsed.relay_url = None;
+    }
+    if parsed
+        .relay_secret_key
+        .as_ref()
+        .is_some_and(|s| s.trim().is_empty())
+    {
+        parsed.relay_secret_key = None;
     }
     Ok(Some(parsed))
 }
@@ -104,13 +115,13 @@ pub fn clear_computer_client_settings() -> Result<bool, String> {
     Ok(true)
 }
 
-pub fn resolved_control_plane_url(settings: &ComputerClientSettings) -> String {
+pub fn resolved_relay_url(settings: &ComputerClientSettings) -> String {
     settings
-        .control_plane_url
+        .relay_url
         .as_deref()
         .filter(|s| !s.trim().is_empty())
-        .map(crate::register::normalize_control_plane_url)
-        .unwrap_or_else(|| default_control_plane_url().to_string())
+        .map(crate::register::normalize_relay_url)
+        .unwrap_or_else(|| default_relay_url().to_string())
 }
 
 fn write_restricted_file(path: &Path, contents: &str) -> Result<(), String> {

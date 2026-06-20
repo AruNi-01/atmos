@@ -1,7 +1,7 @@
 /**
  * APP-016 — Atmos Computer UI state.
  *
- * Access Token + control plane URL: `~/.atmos/computer-client.json` (loopback API).
+ * Access Token + relay settings: `~/.atmos/computer-client.json` (loopback API).
  * Local connection prefs: browser `atmos:v1:inst:local:connection`.
  * Relay session fields: memory only.
  */
@@ -20,7 +20,8 @@ import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs'
 
 interface AtmosComputerData {
   connectionMode: AtmosComputerConnectionMode;
-  controlPlaneUrl: string;
+  relayUrl: string;
+  relaySecretKey: string;
   accessToken: string;
   computers: ComputerRow[];
   selectedServerId: string | null;
@@ -35,7 +36,8 @@ interface AtmosComputerData {
 
 interface AtmosComputerStore extends AtmosComputerData {
   setConnectionMode: (m: AtmosComputerConnectionMode) => void;
-  setControlPlaneUrl: (url: string) => void;
+  setRelayUrl: (url: string) => void;
+  setRelaySecretKey: (secretKey: string) => void;
   setAccessToken: (s: string) => void;
   setComputers: (rows: ComputerRow[]) => void;
   setSelectedServerId: (id: string | null) => void;
@@ -50,20 +52,20 @@ interface AtmosComputerStore extends AtmosComputerData {
   hydrateLocalConnectionPrefs: () => void;
 }
 
-const envCp =
-  typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ATMOS_CP_URL ?? '' : '';
+const envRelayUrl =
+  typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_ATMOS_RELAY_URL ?? '' : '';
 
-export const DEFAULT_CONTROL_PLANE_URL = 'https://relay.atmos.land';
+export const DEFAULT_RELAY_URL = 'https://relay.atmos.land';
 
-export function resolveControlPlaneUrl(raw?: string | null): string {
+export function resolveRelayUrl(raw?: string | null): string {
   const trimmed = (raw ?? '').trim();
   if (trimmed) {
-    return normalizedControlPlaneOrigin(trimmed);
+    return normalizedRelayOrigin(trimmed);
   }
-  if (envCp.trim()) {
-    return normalizedControlPlaneOrigin(envCp);
+  if (envRelayUrl.trim()) {
+    return normalizedRelayOrigin(envRelayUrl);
   }
-  return DEFAULT_CONTROL_PLANE_URL;
+  return DEFAULT_RELAY_URL;
 }
 
 function loadLocalConnectionPrefs(): Pick<
@@ -116,7 +118,8 @@ const localPrefs = loadLocalConnectionPrefs();
 
 export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   connectionMode: 'local',
-  controlPlaneUrl: envCp || DEFAULT_CONTROL_PLANE_URL,
+  relayUrl: envRelayUrl || DEFAULT_RELAY_URL,
+  relaySecretKey: '',
   accessToken: '',
   computers: localPrefs.computers,
   selectedServerId: localPrefs.selectedServerId,
@@ -139,7 +142,8 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   },
 
   setConnectionMode: connectionMode => set({ connectionMode }),
-  setControlPlaneUrl: controlPlaneUrl => set({ controlPlaneUrl }),
+  setRelayUrl: relayUrl => set({ relayUrl }),
+  setRelaySecretKey: relaySecretKey => set({ relaySecretKey }),
   setAccessToken: accessToken => set({ accessToken }),
 
   setComputers: computers => {
@@ -180,7 +184,7 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   },
 }));
 
-export function normalizedControlPlaneOrigin(raw: string): string {
+export function normalizedRelayOrigin(raw: string): string {
   const t = raw.trim().replace(/\/+$/, '');
   if (!t) {
     return '';

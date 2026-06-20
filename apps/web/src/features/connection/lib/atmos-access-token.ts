@@ -2,9 +2,14 @@
  * User access token helpers (APP-016) — possession = tenant, no account login.
  */
 
-import { proxyControlPlaneRequest } from '@/features/connection/lib/atmos-computer-local';
-import { resolveControlPlaneUrl } from '@/features/connection/lib/atmos-computer-store';
+import { proxyRelayRequest } from '@/features/connection/lib/atmos-computer-local';
+import {
+  resolveRelayUrl,
+  useAtmosComputerStore,
+} from '@/features/connection/lib/atmos-computer-store';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
+
+const RELAY_SECRET_HEADER = 'X-Atmos-Relay-Secret';
 
 export function generateAccessToken(): string {
   const raw = crypto.getRandomValues(new Uint8Array(32));
@@ -23,17 +28,20 @@ function formatFetchError(err: unknown): string {
   return message;
 }
 
-/** Register token hash on the control plane (idempotent on 409). */
+/** Register token hash on the relay (idempotent on 409). */
 export async function registerAccessTokenOnRelay(
-  controlPlaneUrl: string,
+  relayUrl: string,
   accessToken: string,
+  relaySecretKey?: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const base = resolveControlPlaneUrl(controlPlaneUrl);
+  const base = resolveRelayUrl(relayUrl);
   const payload = JSON.stringify({ token: accessToken.trim() });
+  const relaySecret = resolveRelaySecretKey(relaySecretKey);
 
   try {
-    const proxied = await proxyControlPlaneRequest(base, 'POST', '/v1/tenants', {
+    const proxied = await proxyRelayRequest(base, 'POST', '/v1/tenants', {
       body: payload,
+      relaySecretKey: relaySecret,
     });
     if (proxied) {
       if (proxied.status === 201 || proxied.status === 409) {
@@ -57,7 +65,7 @@ export async function registerAccessTokenOnRelay(
 
     const res = await fetch(`${base}/v1/tenants`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: relayHeaders(relaySecret),
       body: payload,
     });
 
@@ -73,9 +81,10 @@ export async function registerAccessTokenOnRelay(
 }
 
 export async function rotateAccessTokenOnRelay(
-  controlPlaneUrl: string,
+  relayUrl: string,
   currentAccessToken: string,
   newAccessToken: string,
+  relaySecretKey?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const currentToken = currentAccessToken.trim();
   const nextToken = newAccessToken.trim();
@@ -91,14 +100,15 @@ export async function rotateAccessTokenOnRelay(
   }
 
   try {
-    const res = await cpFetchWithAccessToken(
-      controlPlaneUrl,
+    const res = await relayFetchWithAccessToken(
+      relayUrl,
       currentToken,
       '/v1/tenants/rotate_token',
       {
         method: 'POST',
         body: JSON.stringify({ new_token: nextToken }),
       },
+      relaySecretKey,
     );
     if (res.ok) {
       return { ok: true };
@@ -117,14 +127,16 @@ export async function rotateAccessTokenOnRelay(
   }
 }
 
-export async function cpFetchWithAccessToken(
-  controlPlaneUrl: string,
+export async function relayFetchWithAccessToken(
+  relayUrl: string,
   accessToken: string,
   path: string,
   init?: RequestInit,
+  relaySecretKey?: string,
 ): Promise<Response> {
-  const base = resolveControlPlaneUrl(controlPlaneUrl);
+  const base = resolveRelayUrl(relayUrl);
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const relaySecret = resolveRelaySecretKey(relaySecretKey);
   const method = (init?.method ?? 'GET').toUpperCase();
   const body =
     typeof init?.body === 'string'
@@ -133,9 +145,10 @@ export async function cpFetchWithAccessToken(
         ? JSON.stringify(init.body)
         : undefined;
 
-  const proxied = await proxyControlPlaneRequest(base, method, normalizedPath, {
+  const proxied = await proxyRelayRequest(base, method, normalizedPath, {
     accessToken,
     body,
+    relaySecretKey: relaySecret,
   });
   if (proxied) {
     return new Response(proxied.body, {
@@ -152,10 +165,23 @@ export async function cpFetchWithAccessToken(
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
   headers.set('Authorization', `Bearer ${accessToken.trim()}`);
+  if (relaySecret) {
+    headers.set(RELAY_SECRET_HEADER, relaySecret);
+  }
   return fetch(url, {
     ...init,
     method,
     headers,
     body: init?.body,
   });
+}
+
+function resolveRelaySecretKey(relaySecretKey?: string): string {
+  return (relaySecretKey ?? useAtmosComputerStore.getState().relaySecretKey).trim();
+}
+
+function relayHeaders(relaySecretKey: string): HeadersInit {
+  return relaySecretKey
+    ? { 'Content-Type': 'application/json', [RELAY_SECRET_HEADER]: relaySecretKey }
+    : { 'Content-Type': 'application/json' };
 }

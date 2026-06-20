@@ -228,7 +228,7 @@
 - [ ] Manual and scheduled APP-017 automations still work without Relay.
 - [ ] Relay route mutations verify tenant ownership of `server_id`.
 - [ ] Setup sessions are single-use, short-lived, and bound to tenant plus `server_id`.
-- [ ] Route/control-plane mutations use the user's Atmos Relay Access Token, not `server_secret`.
+- [ ] Route/relay mutations use the user's Atmos Relay Access Token, not `server_secret`.
 - [ ] Replacing the local Access Token is treated as an identity switch, while authorized token rotation preserves existing Computers and GitHub routes.
 
 ## Acceptance criteria

@@ -2,7 +2,7 @@
 
 Single Cloudflare Worker that provides:
 
-- **Control plane (D1)** — register tokens, computer registration, listing, client session issuance
+- **Relay (D1)** — register tokens, computer registration, listing, client session issuance
 - **Relay (Durable Objects)** — one `ServerHub` DO per `server_id`; browser and Rust `apps/api` connect as WebSocket peers
 - **Provider ingress** — GitHub App webhook verification, route matching, delivery dedupe, and dispatch to an online Computer
 
@@ -47,7 +47,7 @@ The ID is not a password; it only selects which account receives the deploy.
 
    ```bash
    cd packages/relay
-   npx wrangler d1 create atmos-computer-cp
+   npx wrangler d1 create atmos-computer-relay
    ```
 
    Put the returned `database_id` into `wrangler.toml` (replace `REPLACE_WITH_D1_ID`).
@@ -55,21 +55,37 @@ The ID is not a password; it only selects which account receives the deploy.
 2. Run migrations (in order):
 
    ```bash
-   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0001_init.sql
-   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0002_computers_updated_at.sql
-   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0003_computers_registration_meta.sql
-   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0004_stable_tenant_identity.sql
-   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0005_github_automation_triggers.sql
-   npx wrangler d1 execute atmos-computer-cp --remote --file=./migrations/0006_github_route_tenant_integrity.sql
+   npx wrangler d1 execute atmos-computer-relay --remote --file=./migrations/0001_init.sql
+   npx wrangler d1 execute atmos-computer-relay --remote --file=./migrations/0002_computers_updated_at.sql
+   npx wrangler d1 execute atmos-computer-relay --remote --file=./migrations/0003_computers_registration_meta.sql
+   npx wrangler d1 execute atmos-computer-relay --remote --file=./migrations/0004_stable_tenant_identity.sql
+   npx wrangler d1 execute atmos-computer-relay --remote --file=./migrations/0005_github_automation_triggers.sql
+   npx wrangler d1 execute atmos-computer-relay --remote --file=./migrations/0006_github_route_tenant_integrity.sql
    ```
 
-   Or: `npx wrangler d1 migrations apply atmos-computer-cp --remote`
+   Or: `npx wrangler d1 migrations apply atmos-computer-relay --remote`
 
    For local dev, omit `--remote` or follow `wrangler d1` docs for the local DB file.
 
    Manual retention SQL (expired tokens, stale computers): [scripts/relay/d1-maintenance.sql](../../scripts/relay/d1-maintenance.sql)
 
-No Worker-wide admin secret is required. Each C-end user registers their own **access token** via `POST /v1/tenants` (see HTTP API). Operator maintenance uses the D1 dashboard directly.
+### Private relay secret
+
+By default, no Worker-wide secret is required. Each end user registers their own **access token** via `POST /v1/tenants` (see HTTP API). Operator maintenance uses the D1 dashboard directly.
+
+For a private/self-hosted relay, set a Worker secret to prevent unrelated users from creating tenants or client sessions on your relay:
+
+```bash
+wrangler secret put RELAY_SECRET_KEY
+```
+
+When `RELAY_SECRET_KEY` is configured, protected relay REST requests must include:
+
+```http
+X-Atmos-Relay-Secret: <your secret>
+```
+
+This includes `POST /v1/computers/register`; the Atmos CLI/API read `ATMOS_RELAY_SECRET_KEY` and send it as the relay-secret header during registration.
 
 ### GitHub App secrets
 
@@ -110,7 +126,14 @@ bun run deploy:relay
 bunx wrangler deploy
 ```
 
-Use that HTTPS origin (production: **`https://relay.atmos.land`**) for **`NEXT_PUBLIC_ATMOS_CP_URL`** and as the base for `wss://` WebSocket URLs.
+For a private relay, provide `RELAY_SECRET_KEY` before using the deploy script; it will write the Cloudflare Worker secret before deploying:
+
+```bash
+export RELAY_SECRET_KEY="your-private-relay-secret"
+scripts/relay/deploy.sh
+```
+
+Use that HTTPS origin (production: **`https://relay.atmos.land`**) for **`NEXT_PUBLIC_ATMOS_RELAY_URL`** and as the base for `wss://` WebSocket URLs.
 
 Validate a bundle without uploading:
 
@@ -124,7 +147,7 @@ This repo sets **`relay.atmos.land`** in `wrangler.toml` (`routes` + `custom_dom
 
 To use a different hostname, edit `routes` in `wrangler.toml` and redeploy.
 
-You can still hit the default **`*.workers.dev`** URL until the custom hostname is active. For **`NEXT_PUBLIC_ATMOS_CP_URL`** and URLs returned by the control plane, prefer **`https://relay.atmos.land`** in production so clients don’t depend on `workers.dev`.
+You can still hit the default **`*.workers.dev`** URL until the custom hostname is active. For **`NEXT_PUBLIC_ATMOS_RELAY_URL`** and URLs returned by the relay, prefer **`https://relay.atmos.land`** in production so clients don’t depend on `workers.dev`.
 
 **Alternative:** **Dashboard** → **Workers &amp; Pages** → this Worker → **Domains &amp; Routes** → **Add** Custom Domain (same effect as `routes` in config).
 
@@ -141,18 +164,18 @@ D1 schema migrations are **not** auto-run in CI; apply SQL manually when you cha
 
 ## HTTP API (M1)
 
-All JSON. CORS `*` for dev.
+All JSON. CORS `*` for dev. If `RELAY_SECRET_KEY` is configured, protected relay routes also require `X-Atmos-Relay-Secret`.
 
 | Method | Path | Auth | Notes |
 |--------|------|------|--------|
 | POST | `/v1/tenants` | _(none, rate-limited)_ | Body `{ "token": "<user access token ≥32 chars>" }`; registers tenant with stable `tenant_id` (`409` if token exists) |
 | POST | `/v1/tenants/rotate_token` | Bearer **current user access token** | Body `{ "new_token": "<new access token ≥32 chars>" }`; preserves Computers, revokes register/client sessions |
 | POST | `/v1/register_tokens` | Bearer **user access token** | `{ register_token, expires_at, register_command }` |
-| POST | `/v1/computers/register` | _(register_token only)_ | Body `{ register_token, display_name? }` |
+| POST | `/v1/computers/register` | `register_token` + relay secret when configured | Body `{ register_token, display_name? }` |
 | GET | `/v1/computers` | Bearer user token | Lists **your** computers only |
 | POST | `/v1/computers/:id/revoke` | Bearer user token | Revokes |
 | POST | `/v1/computers/:id/client_sessions` | Bearer user token | `{ client_token, expires_at, ws_url, gateway_url }` |
-| * | `/v1/computers/:id/proxy/*` | Bearer `client_token` or user access token | HTTP gateway to remote `apps/api` (requires Server outbound WS) |
+| * | `/v1/computers/:id/proxy/*` | Bearer `client_token` or user access token | HTTP gateway to remote `apps/api` (requires Server outbound WS); user-token fallback also needs `X-Atmos-Relay-Secret` when private relay secret is configured |
 | POST | `/v1/github/webhook` | GitHub `X-Hub-Signature-256` | Verifies GitHub App webhooks, matches active routes, dedupes by `delivery_id + route_id`, dispatches to ServerHub |
 | POST | `/v1/github/setup_sessions` | Bearer user access token | Creates a 10-minute setup state and returns a GitHub App install URL |
 | GET | `/v1/github/callback` | GitHub OAuth callback + setup state | Validates setup state, verifies installation visibility to the OAuth user, and stores the installation |
@@ -188,10 +211,10 @@ The server replies with `stream: "system"` / `kind: "external_event_ack"` and a 
 
 ## `apps/web`
 
-Set **`NEXT_PUBLIC_ATMOS_CP_URL`** to your Worker HTTPS origin (optional default for Settings → Atmos Computer). Users **generate or import** their own access token in Settings (never a shared operator key).
+Set **`NEXT_PUBLIC_ATMOS_RELAY_URL`** to your Worker HTTPS origin (optional default for Settings → Atmos Computer). Users **generate or import** their own access token in Settings (never a shared operator key).
 
 ## `apps/api` (relay outbound)
 
-Place `~/.atmos/relay_identity.json` (written by registering with the control plane) or set **`ATMOS_SERVER_IDENTITY_PATH`**. One-shot register on startup: **`ATMOS_REGISTER_TOKEN`** + optional **`ATMOS_CONTROL_PLANE_URL`**. Disabled with **`ATMOS_RELAY_DISABLE=1`**.
+Place `~/.atmos/relay_identity.json` (written by registering with the relay) or set **`ATMOS_SERVER_IDENTITY_PATH`**. One-shot register on startup: **`ATMOS_REGISTER_TOKEN`** + optional **`ATMOS_RELAY_URL`** + optional **`ATMOS_RELAY_SECRET_KEY`** for private relays. Disabled with **`ATMOS_RELAY_DISABLE=1`**.
 
 When present, API opens an outbound WebSocket and multiplexes relay client sessions through the existing `WsService` / `WsMessageService`.

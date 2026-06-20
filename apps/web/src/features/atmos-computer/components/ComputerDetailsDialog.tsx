@@ -160,10 +160,10 @@ function RuntimeTabContent({ runtimeInfo }: { runtimeInfo: RuntimeInfoResponse }
               value={<span className="font-mono text-xs">{relay.server_id}</span>}
             />
           ) : null}
-          {relay.control_plane_url ? (
+          {relay.relay_url ? (
             <DetailRow
               label="Relay address"
-              value={<span className="font-mono text-xs">{relay.control_plane_url}</span>}
+              value={<span className="font-mono text-xs">{relay.relay_url}</span>}
             />
           ) : null}
           <DetailRow

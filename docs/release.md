@@ -10,13 +10,13 @@ Atmos has three independent release lines:
 
 | Release line | Tag | GitHub Actions | Artifacts | Purpose |
 | --- | --- | --- | --- | --- |
-| CLI | `cli-v<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the control plane for agents and scripts |
+| CLI | `cli-v<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the relay for agents and scripts |
 | Local Runtime | `local-web-runtime-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` + `@atmos/local-web-runtime` | Local Web runtime package containing API, static Web assets, system skills, and a bundled CLI |
 | Desktop | `desktop-v<version>` | `.github/workflows/release-desktop.yml` | Tauri desktop installers and updater manifest | Desktop application distribution |
 
 Core principles:
 
-- CLI is an independent control plane that can be called by agents, Desktop, and Local Runtime.
+- CLI is an independent relay that can be called by agents, Desktop, and Local Runtime.
 - Local Runtime and Desktop may bundle the CLI, but they do not own the CLI release cadence.
 - The three release lines do not need to share the same version number.
 - Local Runtime records `bundled_cli_version`; Desktop records a bundled CLI manifest for traceability.

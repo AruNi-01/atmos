@@ -37,7 +37,7 @@ apps/cli/
 |---------|---------|
 | `atmos runtime` | **Preferred** — ensure/stop/status local API via `runtime-manager::supervisor` |
 | `atmos local` | Back-compat wrapper around `runtime` |
-| `atmos computer` | Register on control plane (`register_token`) + `ensure` API on this host |
+| `atmos computer` | Register on relay (`register_token`) + `ensure` API on this host |
 | `atmos canvas` | Agent canvas control — resolves API URL via `resolve_api_base_url()` |
 | `atmos review` | HTTP client to `/api/review/*` (same API base resolution as canvas) |
 

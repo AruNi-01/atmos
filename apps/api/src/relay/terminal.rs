@@ -460,8 +460,8 @@ mod tests {
             panic!("expected text relay envelope");
         };
         let envelope: Value = serde_json::from_str(&text).expect("parse relay envelope");
-        let body: Value =
-            serde_json::from_str(envelope["body"].as_str().expect("body string")).expect("parse terminal body");
+        let body: Value = serde_json::from_str(envelope["body"].as_str().expect("body string"))
+            .expect("parse terminal body");
 
         assert_eq!(envelope["v"], 1);
         assert_eq!(envelope["stream"], "terminal");

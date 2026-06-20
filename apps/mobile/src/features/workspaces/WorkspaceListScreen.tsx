@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { getAutoConnectComputerId, selectableOnlineComputers } from "@/features/computers/computer-selection";
-import { useControlPlaneClient } from "@/hooks/use-control-plane-client";
+import { useRelayClient } from "@/hooks/use-relay-client";
 import { getStoredAccessToken } from "@/lib/access-token";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useComputerStore } from "@/stores/computer-store";
@@ -22,11 +22,11 @@ const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
 
 export function WorkspaceListScreen() {
   const router = useRouter();
-  const controlPlaneClient = useControlPlaneClient();
+  const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
   const accessTokenLoaded = useSessionStore((state) => state.accessTokenLoaded);
   const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
-  const controlPlaneUrl = useSessionStore((state) => state.controlPlaneUrl);
+  const relayUrl = useSessionStore((state) => state.relayUrl);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const activeClientSession = useSessionStore((state) => state.activeClientSession);
   const selectServer = useSessionStore((state) => state.selectServer);
@@ -35,12 +35,12 @@ export function WorkspaceListScreen() {
   const lastAutoSessionAttemptRef = useRef<string | null>(null);
 
   const computersQuery = useQuery({
-    queryKey: ["computers", controlPlaneUrl],
+    queryKey: ["computers", relayUrl],
     enabled: accessTokenLoaded && hasAccessToken,
     queryFn: async () => {
       const token = await getStoredAccessToken();
       if (!token) return [];
-      const computers = await controlPlaneClient.listComputers(token);
+      const computers = await relayClient.listComputers(token);
       setComputers(computers);
       return computers;
     },
@@ -56,7 +56,7 @@ export function WorkspaceListScreen() {
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
       if (!token) throw new Error("Access Token is not available.");
-      return controlPlaneClient.createClientSession(token, serverId);
+      return relayClient.createClientSession(token, serverId);
     },
     onSuccess: (session, serverId) => {
       selectServer(serverId);

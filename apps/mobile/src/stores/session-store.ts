@@ -2,16 +2,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { ClientSessionResponse } from "@/api/types";
-import { getDefaultControlPlaneUrl, normalizeRelayUrl } from "@/lib/relay-url";
+import { getDefaultRelayUrl, normalizeRelayUrl } from "@/lib/relay-url";
 
 type SessionState = {
   accessTokenLoaded: boolean;
   hasAccessToken: boolean;
-  controlPlaneUrl: string;
+  relayUrl: string;
+  relaySecretKey: string;
   selectedServerId: string | null;
   activeClientSession: ClientSessionResponse | null;
   setAccessTokenLoaded: (hasAccessToken: boolean) => void;
-  setControlPlaneUrl: (url: string) => void;
+  setRelayUrl: (url: string) => void;
+  setRelaySecretKey: (secretKey: string) => void;
   selectServer: (serverId: string | null) => void;
   setClientSession: (session: ClientSessionResponse | null) => void;
   clearClientSession: () => void;
@@ -23,7 +25,8 @@ export const useSessionStore = create<SessionState>()(
     (set) => ({
       accessTokenLoaded: false,
       hasAccessToken: false,
-      controlPlaneUrl: getDefaultControlPlaneUrl(),
+      relayUrl: getDefaultRelayUrl(),
+      relaySecretKey: "",
       selectedServerId: null,
       activeClientSession: null,
       setAccessTokenLoaded: (hasAccessToken) =>
@@ -31,9 +34,13 @@ export const useSessionStore = create<SessionState>()(
           accessTokenLoaded: true,
           hasAccessToken,
         }),
-      setControlPlaneUrl: (url) =>
+      setRelayUrl: (url) =>
         set({
-          controlPlaneUrl: normalizeRelayUrl(url),
+          relayUrl: normalizeRelayUrl(url),
+        }),
+      setRelaySecretKey: (relaySecretKey) =>
+        set({
+          relaySecretKey: relaySecretKey.trim(),
         }),
       selectServer: (serverId) =>
         set({
@@ -57,7 +64,8 @@ export const useSessionStore = create<SessionState>()(
     {
       name: "atmos.mobile.session",
       partialize: (state) => ({
-        controlPlaneUrl: state.controlPlaneUrl,
+        relayUrl: state.relayUrl,
+        relaySecretKey: state.relaySecretKey,
         selectedServerId: state.selectedServerId,
       }),
       storage: createJSONStorage(() => AsyncStorage),

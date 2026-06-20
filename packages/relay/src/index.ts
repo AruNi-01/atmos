@@ -1,4 +1,4 @@
-/** APP-016: Worker — control-plane REST + WebSocket + HTTP gateway to ServerHub DO. */
+/** APP-016: Worker — relay REST + WebSocket + HTTP gateway to ServerHub DO. */
 
 import {
   collectForwardHeaders,
@@ -21,6 +21,7 @@ import { ServerHub } from "./server-hub";
 export interface Env {
   SERVER_HUB: DurableObjectNamespace<ServerHub>;
   DB: D1Database;
+  RELAY_SECRET_KEY?: string;
   GITHUB_APP_ID?: string;
   GITHUB_APP_SLUG?: string;
   GITHUB_APP_PRIVATE_KEY?: string;
@@ -39,6 +40,7 @@ const GITHUB_CONTROL_RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 60;
 /** Minimum access token length (characters). */
 const MIN_ACCESS_TOKEN_LEN = 32;
+const RELAY_SECRET_HEADER = "X-Atmos-Relay-Secret";
 
 type TenantAuth = {
   tenantId: string;
@@ -127,7 +129,7 @@ function withCors(res: Response): Response {
   );
   h.set(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Request-Id, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256",
+    `Content-Type, Authorization, X-Request-Id, ${RELAY_SECRET_HEADER}, X-GitHub-Event, X-GitHub-Delivery, X-Hub-Signature-256`,
   );
   return new Response(res.body, { status: res.status, headers: h });
 }
@@ -273,14 +275,20 @@ async function handleApi(
   env: Env,
   url: URL,
 ): Promise<Response> {
-  const tenantAuth = await tenantAuthFromRequest(request, env);
-  const tenant = tenantAuth?.tenantId ?? null;
   const path = normalizedPath(url.pathname);
 
   try {
     if (path === "/healthz" && request.method === "GET") {
       return json({ ok: true });
     }
+
+    const relaySecretError = await requireRelaySecret(request, env);
+    if (relaySecretError) {
+      return relaySecretError;
+    }
+
+    const tenantAuth = await tenantAuthFromRequest(request, env);
+    const tenant = tenantAuth?.tenantId ?? null;
 
     if (path === "/v1/tenants" && request.method === "POST") {
       const ip = clientIp(request);
@@ -499,8 +507,11 @@ async function handleApi(
         .bind(tokenHash, tenant, expiresAt, now)
         .run();
 
-      const cp = httpOrigin(url);
-      const registerCommand = `atmos computer register --control-plane ${cp} --token ${registerToken}`;
+      const relayOrigin = httpOrigin(url);
+      const relaySecret = request.headers.get(RELAY_SECRET_HEADER)?.trim() ?? "";
+      const registerCommand = relaySecret
+        ? `ATMOS_RELAY_SECRET_KEY=${shellQuote(relaySecret)} atmos computer register --relay ${shellQuote(relayOrigin)} --token ${shellQuote(registerToken)}`
+        : `atmos computer register --relay ${shellQuote(relayOrigin)} --token ${shellQuote(registerToken)}`;
 
       return json({
         register_token: registerToken,
@@ -576,14 +587,14 @@ async function handleApi(
         )
         .run();
 
-      const cp = httpOrigin(url);
-      const relayWs = `${wsOrigin(cp)}/ws/server`;
+      const relayOrigin = httpOrigin(url);
+      const relayWs = `${wsOrigin(relayOrigin)}/ws/server`;
 
       return json({
         server_id: serverId,
         server_secret: serverSecret,
         relay_ws_url: relayWs,
-        control_plane_url: cp,
+        relay_url: relayOrigin,
         display_name: displayName,
         registration_meta: parseRegistrationMeta(registrationMetaJson),
       });
@@ -724,7 +735,7 @@ async function handleApi(
       const sessionUrls = buildClientSessionUrls({
         clientKind,
         clientToken,
-        controlPlaneOrigin: httpOrigin(url),
+        relayOrigin: httpOrigin(url),
         serverId,
       });
 
@@ -737,11 +748,40 @@ async function handleApi(
       });
     }
   } catch (e) {
-    console.error("control plane request failed", e);
+    console.error("relay request failed", e);
     return json({ error: "internal_server_error" }, 500);
   }
 
   return json({ error: "not_found", path }, 404);
+}
+
+async function requireRelaySecret(
+  request: Request,
+  env: Env,
+): Promise<Response | null> {
+  const configuredSecret = env.RELAY_SECRET_KEY?.trim();
+  if (!configuredSecret) {
+    return null;
+  }
+
+  const providedSecret = request.headers.get(RELAY_SECRET_HEADER)?.trim() ?? "";
+  if (!providedSecret) {
+    return json({ error: "relay_secret_required" }, 401);
+  }
+
+  const [configuredHash, providedHash] = await Promise.all([
+    secretHash(configuredSecret),
+    secretHash(providedSecret),
+  ]);
+  if (configuredHash !== providedHash) {
+    return json({ error: "invalid_relay_secret" }, 403);
+  }
+
+  return null;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 async function handleHttpGatewayProxy(

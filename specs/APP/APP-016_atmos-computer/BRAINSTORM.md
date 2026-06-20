@@ -13,7 +13,7 @@
 ### 1.2 非目标（本 spec 刻意不包含）
 
 - **不包含 [APP-012](../APP-012_tunnel-connector/TECH.md) 的 tunnel-connector 能力**：tunnel-connector 解决的是「如何把本机 API 暴露到公网/LAN」这一层；本 spec 的 **Relay 是另一条独立路径**（出站 + 云端路由）。两者可并存，但 **设计决策互不依赖**。
-- **不把 OpenCode 式「单二进制内嵌 serve+web」当作目标**：Atmos 保持 `api` / `web` / `desktop` / `cli` 分仓发布；Relay 只解决 **跨进程、跨机器的控制面与数据面连接**。
+- **不把 OpenCode 式「单二进制内嵌 serve+web」当作目标**：Atmos 保持 `api` / `web` / `desktop` / `cli` 分仓发布；Relay 只解决 **跨进程、跨机器的Relay与数据面连接**。
 
 ## 2. 参考产品形态（类比，非实现约束）
 
@@ -29,7 +29,7 @@
 ### 3.1 为什么用「出站 WS」而不是「入站 API」
 
 - Server 部署在用户机、内网、随机端口时，**入站公网地址不稳定**。
-- **Cloudflare Durable Objects（DO）** 适合维护「每 `server_id` 一个 hub」的长连接与会话状态；Worker + D1 适合 **控制面**（账号、**Computer** 列表、配对码、令牌签发）。
+- **Cloudflare Durable Objects（DO）** 适合维护「每 `server_id` 一个 hub」的长连接与会话状态；Worker + D1 适合 **Relay**（账号、**Computer** 列表、配对码、令牌签发）。
 - 用户明确要求使用 **Cloudflare DO 提供 replay**（事件缓冲与断线重放语义），与「仅转发」可分期实现。
 
 ### 3.2 备选方案（记录取舍）
@@ -50,7 +50,7 @@
 
 ## 5. 开放问题（需在 PRD/TECH 迭代中收敛）
 
-1. **控制面域名与多环境**：`staging` / `prod` Relay 是否分 Worker，还是单 Worker + 环境头？
+1. **Relay域名与多环境**：`staging` / `prod` Relay 是否分 Worker，还是单 Worker + 环境头？
 2. **身份模型**：M1 是否仅「单用户拥有多台 **Computer**」，还是预留组织/工作区共享？
 3. **Replay 语义**：与现有 WS「请求-响应」混用时，**幂等键**（`request_id` / `client_seq`）的规范。
 4. **合规与审计**：Relay 是否持久化消息内容，还是仅元数据 + 短期环形缓冲？

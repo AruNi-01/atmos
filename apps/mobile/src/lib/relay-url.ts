@@ -1,12 +1,12 @@
-const DEFAULT_CONTROL_PLANE_URL = "https://relay.atmos.land";
+const DEFAULT_RELAY_URL = "https://relay.atmos.land";
 
-export function getDefaultControlPlaneUrl() {
-  return normalizeRelayUrl(process.env.EXPO_PUBLIC_RELAY_CONTROL_PLANE_URL ?? DEFAULT_CONTROL_PLANE_URL);
+export function getDefaultRelayUrl() {
+  return normalizeRelayUrl(process.env.EXPO_PUBLIC_RELAY_RELAY_URL ?? DEFAULT_RELAY_URL);
 }
 
 export function normalizeRelayUrl(value: string) {
   const trimmed = value.trim();
-  if (!trimmed) return DEFAULT_CONTROL_PLANE_URL;
+  if (!trimmed) return DEFAULT_RELAY_URL;
 
   const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   return withProtocol.replace(/\/+$/, "");

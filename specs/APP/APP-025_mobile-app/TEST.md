@@ -6,7 +6,7 @@
 
 M1 spans a new Expo app plus existing Relay / Atmos WebSocket surfaces. We use unit/integration tests for pure API clients, DTO parsing, stores, and diff view-model logic; service-level tests for additive Relay session and terminal stream behavior; Expo/React Native component tests for mobile screens where practical; and simulator smoke checks for native UI, WebView terminal, SecureStore, and platform behavior.
 
-- **Unit / integration**: mobile access-token storage wrapper, control-plane client request construction, WS action helpers, Zustand stores, terminal shortcut sequences, changed-file grouping, diff view-model generation.
+- **Unit / integration**: mobile access-token storage wrapper, relay client request construction, WS action helpers, Zustand stores, terminal shortcut sequences, changed-file grouping, diff view-model generation.
 - **Service-level**: Relay client-session response shape, `/ws/client` mobile kind routing, `/ws/terminal` relay stream routing, existing `apps/api` Git WS action compatibility.
 - **End-to-end / scripted**: Expo app launched against a test Atmos Server/Relay, onboarding, workspace list, project import, workspace create, terminal attach/create, Changes & Commit.
 - **Manual-only**: real iOS/Android keyboard and IME behavior, Expo UI native feel, WebView terminal rendering on physical devices. These depend on native runtime behavior and should be checked before public release even if simulator smoke passes.
@@ -76,7 +76,7 @@ M1 spans a new Expo app plus existing Relay / Atmos WebSocket surfaces. We use u
 - **Given**: an authenticated user has no online Computers.
 - **When**: onboarding requests register-token guidance.
 - **Then**: the app shows server startup/register instructions and continues polling/listing Computers.
-- **Signals**: register-token control-plane request, setup instruction block visible, Computer list remains empty state.
+- **Signals**: register-token relay request, setup instruction block visible, Computer list remains empty state.
 
 ### S6 — Onboarding blocks normal entry until a Computer is available
 
@@ -99,13 +99,13 @@ M1 spans a new Expo app plus existing Relay / Atmos WebSocket surfaces. We use u
 - **Level**: Component integration
 - **Given**: the user is on the workspace list.
 - **When**: the user opens settings.
-- **Then**: Computer selection, Computer rename/revoke, Access Token switching, and control-plane dev settings are available outside the primary list flow.
+- **Then**: Computer selection, Computer rename/revoke, Access Token switching, and relay dev settings are available outside the primary list flow.
 - **Signals**: settings route/sheet visible, controls present, workspace list remains the home route.
 
 ### S9 — Computer switch creates a new mobile client session
 
 - **Level**: Integration
-- **Given**: two online Computers are returned by the control plane.
+- **Given**: two online Computers are returned by the relay.
 - **When**: the user selects the second Computer.
 - **Then**: the app creates a fresh client session for that Computer and reconnects the main app WS using the new `ws_url` / `client_token`.
 - **Signals**: `POST /v1/computers/:id/client_sessions`, selected Computer store update, old WS closes, new WS opens.
@@ -287,7 +287,7 @@ M1 spans a new Expo app plus existing Relay / Atmos WebSocket surfaces. We use u
 - [ ] `apps/mobile` is a real Expo app with Expo Router routes and no PWA/web-shell primary client.
 - [ ] Access Token storage uses `expo-secure-store`; short-lived relay client sessions remain in memory.
 - [ ] Workspace list, project import, workspace create, terminal attach/create, terminal shortcuts, and Changes & Commit are reachable from mobile UI.
-- [ ] Main app business workflows use existing WS actions; control-plane bootstrap uses APP-016 REST only.
+- [ ] Main app business workflows use existing WS actions; relay bootstrap uses APP-016 REST only.
 - [ ] Terminal rendering shows exactly one active terminal at a time.
 - [ ] Changes & Commit supports changed-file list, single-file diff, whole-file stage/unstage, commit, push, and refresh only.
 - [ ] Disconnected state is visible and prevents silent queued work.

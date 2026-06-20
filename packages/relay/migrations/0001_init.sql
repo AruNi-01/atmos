@@ -1,4 +1,4 @@
--- APP-016/019 control plane: stable tenant identity + registered computers.
+-- APP-016/019 relay: stable tenant identity + registered computers.
 -- Associations are logical: *_id columns are indexed and validated in Worker code,
 -- but no physical foreign keys are created.
 

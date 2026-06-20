@@ -1,6 +1,6 @@
 # TECH · APP-016：Atmos Computer
 
-> **命名**：用户向功能名 **Atmos Computer**（`server_id`）；其上 `**apps/api` 进程**为 **Atmos Server**。下文 **Relay / DO / Control Plane** 为连接与控制面实现。
+> **命名**：用户向功能名 **Atmos Computer**（`server_id`）；其上 `**apps/api` 进程**为 **Atmos Server**。下文 **Relay / DO / Relay** 为连接与Relay实现。
 >
 > 技术设计：**如何实现**。产品范围见 `PRD.md`。**本文不依赖 [APP-012](../APP-012_tunnel-connector/TECH.md) tunnel-connector。**
 
@@ -28,7 +28,7 @@ flowchart TB
   end
   subgraph edge ["Cloudflare Edge · packages/relay"]
     WK["Worker · TLS / 路由"]
-    CP["Control Plane · REST + D1"]
+    CP["Relay · REST + D1"]
     DO["Durable Object · ServerHub"]
     WK --> CP
     WK --> DO
@@ -100,7 +100,7 @@ flowchart TB
 ```mermaid
 sequenceDiagram
   participant U as 用户/UI
-  participant CP as Control Plane
+  participant CP as Relay
   participant S as Atmos Server
   participant R as Relay Worker/DO
 
@@ -155,7 +155,7 @@ stateDiagram-v2
 | ------------------ | ------------------------------------------------------------------------------------------- | ------------------------------- |
 | **Atmos Computer** | 用户可选中的一台计算环境（产品对象）；由 `server_id` 标识；**一台 Computer 上运行一个 Atmos Server**                      | 用户本机 / **云端 VPS** / Desktop 侧车等 |
 | **Atmos Server**   | 现有 `apps/api`：HTTP + WS、业务逻辑、终端、Canvas relay 等                                              | 驻留在某台 **Computer** 内            |
-| **Control Plane**  | 账号、**Computer** 注册、配对码、访问令牌签发、**Computer** 元数据                                              | Cloudflare Worker + D1（或等价持久化）  |
+| **Relay**  | 账号、**Computer** 注册、配对码、访问令牌签发、**Computer** 元数据                                              | Cloudflare Worker + D1（或等价持久化）  |
 | **Relay Hub（DO）**  | 每个 `server_id` 一个 DO 实例：维护 **1 条 Server 出站 WS** + **N 条 Client WS**；路由、限流、（M2+）事件缓冲与 replay | Cloudflare Durable Object       |
 | **Client**         | `apps/web`、`apps/desktop`；可选「经 Relay 的 CLI」                                                 | 用户浏览器 / 本机应用                    |
 
@@ -194,7 +194,7 @@ stateDiagram-v2
 | `apps/web` `useWebSocket` | **连接 URL 与握手参数**变化；消息编解码尽量不变。                                                                                                                                                                                                                       |
 | `apps/desktop`            | 启动时 **`runtime-manager::supervisor::ensure_running`**（与 CLI / `npx @atmos/local-web-runtime` 共用同一 API 进程）；**不再**使用 Tauri sidecar + 每实例 `ATMOS_LOCAL_TOKEN`。退出 Desktop **不**终止共享 API。 |
 | `apps/cli`                | CLI 为 **client**：`canvas` / `review` 等 **HTTP 能力**的 **API 基址 = 当前所选 Atmos Computer**（与 Web/Desktop 同源，见 §8）；`atmos runtime ensure|stop|status` 管理本机 API；`atmos local` 为兼容别名。**Review** 不得以 CLI 内 `infra::DbConnection` + `ReviewService` 为数据平面（见 §8.2）。 |
-| `crates/runtime-manager`  | **本机 Runtime 库**：`runtime_manifest.json`（仅 host/port/ws_url，**无 token**）、`relay_identity.json`、控制面 `register_computer`；feature `supervisor` 供 CLI/Desktop 拉起 `~/.atmos/runtime/current` 或打包布局中的 `bin/api`。 |
+| `crates/runtime-manager`  | **本机 Runtime 库**：`runtime_manifest.json`（仅 host/port/ws_url，**无 token**）、`relay_identity.json`、Relay `register_computer`；feature `supervisor` 供 CLI/Desktop 拉起 `~/.atmos/runtime/current` 或打包布局中的 `bin/api`。 |
 
 
 ### 1.4 统一本机 Runtime（M1 已实现）
@@ -226,12 +226,12 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 
 | 字段                  | 说明                                                                                |
 | ------------------- | --------------------------------------------------------------------------------- |
-| `server_id`         | UUID；全局唯一；**注册成功时**由 Control Plane 分配。 |
+| `server_id`         | UUID；全局唯一；**注册成功时**由 Relay 分配。 |
 | `server_secret`     | 高熵密钥；**仅注册响应中出现一次**；持久化于 Server 本机 `~/.atmos/relay_identity.json`；用于 Relay 出站 WS（§3.3）。 |
 | `register_token`    | 高熵、**单次**、短时效（§2.4）；仅用于 `POST /v1/computers/register`，**不得**长期存放在 Server。 |
-| `client_token`      | 高熵、短时效；由控制面签发；浏览器/Desktop 连 Relay 时使用（§2.4、§3.3）。 |
+| `client_token`      | 高熵、短时效；由Relay签发；浏览器/Desktop 连 Relay 时使用（§2.4、§3.3）。 |
 | `client_session_id` | Relay 为每条 Client WS 分配；用于信封路由与审计。 |
-| `tenant_id`         | 控制面租户键；**M1 实现**为 `sha256(user_access_token)`（用户在 Settings 创建 **Access Token**）。**M2+** 映射为 `user_id` / `workspace_id`（见 §2.4.6）。 |
+| `tenant_id`         | Relay租户键；**M1 实现**为 `sha256(user_access_token)`（用户在 Settings 创建 **Access Token**）。**M2+** 映射为 `user_id` / `workspace_id`（见 §2.4.6）。 |
 
 
 ### 2.2 本机文件（Computer / Server 侧）
@@ -243,7 +243,7 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
   "server_id": "uuid",
   "server_secret": "opaque-high-entropy",
   "relay_ws_url": "wss://relay.atmos.land/ws/server",
-  "control_plane_url": "https://relay.atmos.land"
+  "relay_url": "https://relay.atmos.land"
 }
 ```
 
@@ -261,7 +261,7 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 
 ### 2.3 Computer 列表缓存（Nice to Have · 未实现）
 
-若 Desktop 需要离线展示最近连过的 Computer，可用明确命名如 `~/.atmos/computers-cache.json`（**禁止**使用 `contexts` 这种泛称）。权威列表仍以 Control Plane 为准；浏览器侧亦可继续用 `localStorage`（`atmos-computer` store）。
+若 Desktop 需要离线展示最近连过的 Computer，可用明确命名如 `~/.atmos/computers-cache.json`（**禁止**使用 `contexts` 这种泛称）。权威列表仍以 Relay 为准；浏览器侧亦可继续用 `localStorage`（`atmos-computer` store）。
 
 ### 2.4 注册与连接（定稿架构 · 上线前）
 
@@ -272,8 +272,8 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 
 | 原则 | 说明 |
 |------|------|
-| **职责分离** | **控制面密钥**只存在于「能管理 fleet 的客户端」（Web Settings、运维脚本）；**Server 永不长期持有**控制面密钥。 |
-| **注册凭证一次性** | Server 只用 **`register_token`**（高熵、单次、短 TTL）完成注册；不用 8 位码、不把控制面密钥写入 VPS。 |
+| **职责分离** | **Relay密钥**只存在于「能管理 fleet 的客户端」（Web Settings、运维脚本）；**Server 永不长期持有**Relay密钥。 |
+| **注册凭证一次性** | Server 只用 **`register_token`**（高熵、单次、短 TTL）完成注册；不用 8 位码、不把Relay密钥写入 VPS。 |
 | **连接凭证短期** | Client 用 **`client_token`**（高熵、短 TTL）连 Relay；与 `server_secret` 生命周期分离。 |
 | **云端目录** | D1 维护 **`computers`** 表 = 权威 Computer 列表（产品对象）；Client **不**靠记 IP。 |
 | **数据面最小暴露** | `POST /v1/computers/register` 可公网可达，但 **无有效 register_token 则无法注册**；对 register 做 **IP 限速**。 |
@@ -283,19 +283,19 @@ Tauri 资源映射为 `runtime/current`；开发机需先执行 `prepare-sidecar
 | 凭据 | 谁持有 | 用途 | 寿命 |
 |------|--------|------|------|
 | **Access Token**（Bearer） | 用户在 Web Settings 创建；`tenant_id = sha256(token)` | 签发 `register_token`、列 Computer、吊销、`client_session` | 用户可轮换/吊销 |
-| **`CONTROL_PLANE_KEY`**（已废弃） | — | 原单租户运维密钥模型 | 由 Access Token 替代 |
+| **`RELAY_KEY`**（已废弃） | — | 原单租户运维密钥模型 | 由 Access Token 替代 |
 | **`register_token`** | 一次性交给 VPS（env/CLI） | 仅 `POST /v1/computers/register` | 建议 **15 分钟**、**单次** |
 | **`server_secret`** | 仅该 Server 本机 `relay_identity.json` | Relay 出站 `GET /ws/server` | 长期；可随吊销失效 |
 | **`client_token`** | 浏览器/Desktop 内存 | Relay `GET /ws/client` | 建议 **24h** 或可配置更短 |
 
-`tenant_id`：M1 = `sha256(access_token)` 的定长十六进制（每用户 Access Token 一个租户）。**禁止**用 `CONTROL_PLANE_KEY` 计算用户 `tenant_id`；该密钥仅用于系统/运维管理面（若仍配置）。
+`tenant_id`：M1 = `sha256(access_token)` 的定长十六进制（每用户 Access Token 一个租户）。**禁止**用 `RELAY_KEY` 计算用户 `tenant_id`；该密钥仅用于系统/运维管理面（若仍配置）。
 
 #### 2.4.3 端到端流程
 
 ```mermaid
 sequenceDiagram
   participant UI as Web Settings
-  participant CP as Control Plane
+  participant CP as Relay
   participant S as Atmos Server
   participant R as Relay DO
 
@@ -315,14 +315,14 @@ sequenceDiagram
 
 **本机 loopback 模式**：不经过上述流程；`connectionMode=local` + `runtime_manifest.json`（与 Relay 正交）。
 
-#### 2.4.4 控制面 REST（定稿）
+#### 2.4.4 Relay REST（定稿）
 
 基址：`https://relay.atmos.land`（生产）。所有 JSON；CORS 按现有 Worker。
 
 | 方法 | 路径 | 鉴权 | 请求体 | 响应（要点） |
 |------|------|------|--------|----------------|
 | `POST` | `/v1/register_tokens` | Bearer **Access Token** | `{}` 或 `{ "display_name_hint": "..." }` | `{ "register_token", "expires_at", "register_command" }` |
-| `POST` | `/v1/computers/register` | **无**（凭 token） | `{ "register_token", "display_name"?: string }` | `{ "server_id", "server_secret", "relay_ws_url", "control_plane_url", "display_name" }` |
+| `POST` | `/v1/computers/register` | **无**（凭 token） | `{ "register_token", "display_name"?: string }` | `{ "server_id", "server_secret", "relay_ws_url", "relay_url", "display_name" }` |
 | `GET` | `/v1/computers` | Bearer **Access Token** | — | `{ "computers": [{ server_id, display_name, revoked, created_at, online? }] }` |
 | `POST` | `/v1/computers/{server_id}/revoke` | Bearer **Access Token** | `{}` | `{ "ok": true }`；Relay 断开该 hub |
 | `POST` | `/v1/computers/{server_id}/client_sessions` | Bearer **Access Token** | `{ "client_kind"?: "web" \| "desktop" \| "cli" }` | `{ "client_token", "expires_at", "ws_url" }` |
@@ -331,7 +331,7 @@ sequenceDiagram
 
 ```bash
 atmos computer register \
-  --control-plane https://relay.atmos.land \
+  --relay https://relay.atmos.land \
   --token <register_token>
 ```
 
@@ -348,7 +348,7 @@ atmos computer register \
 
 Server 连接成功后，DO 登记 `active_server_transport`；Client 连接绑定 `client_session_id`；业务帧仍走 §4 信封。
 
-`online`（列表可选字段）：Control Plane 可查询 DO 或由 Server 心跳更新 `last_seen_at`（实现二选一，M1 可仅 `last_seen_at` 来自 relay 连接事件写 D1）。
+`online`（列表可选字段）：Relay 可查询 DO 或由 Server 心跳更新 `last_seen_at`（实现二选一，M1 可仅 `last_seen_at` 来自 relay 连接事件写 D1）。
 
 #### 2.4.6 D1  schema（定稿，替代 `pair_codes`）
 
@@ -399,7 +399,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 | 组件 | 变更 |
 |------|------|
-| `packages/relay` | 新 REST + D1 迁移；删除 `pair_codes` / `client_ws_token` 旧路径；Wrangler secret 改名为 **`CONTROL_PLANE_KEY`** |
+| `packages/relay` | 新 REST + D1 迁移；删除 `pair_codes` / `client_ws_token` 旧路径；Wrangler secret 改名为 **`RELAY_KEY`** |
 | `apps/api` | 读 `relay_identity.json`；启动时可选消费 `ATMOS_REGISTER_TOKEN`；`relay/ingest` 用 `server_secret` 连 `/ws/server` |
 | `apps/web` | Settings：**Add computer** → `register_tokens` → 展示命令；选 Computer → `client_sessions` → `useWebSocket` 用返回的 `ws_url` |
 | `apps/cli`（可选 M1） | `atmos computer register --token` |
@@ -408,7 +408,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 - Atmos 用户登录 / JWT 替换 CP key（**M2+**）。
 - E2EE / QR 内嵌公钥（**M5**）。
-- 8 位配对码、`POST /v1/pair_codes`、Server 长期保存 `CONTROL_PLANE_KEY`。
+- 8 位配对码、`POST /v1/pair_codes`、Server 长期保存 `RELAY_KEY`。
 - Client 通过 VPS IP 连接 Relay（仅 **local loopback** 或 **Relay** 二选一）。
 
 #### 2.4.10 后续扩展（仅占位）
@@ -420,7 +420,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 
 ---
 
-## 3. 控制面（Control Plane）协议（逻辑）
+## 3. Relay（Relay）协议（逻辑）
 
 > **权威定义见 §2.4.4**（路径、鉴权、请求/响应）。本节仅保留与数据面衔接的要点。
 
@@ -429,7 +429,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 - **`register_token`**：≥ 32 字节随机（建议 base64url 43 字符）；TTL **15 分钟**；**原子** `used_at` 写入；D1 只存 `token_hash`。
 - **`server_secret` / `client_token`**：≥ 32 字节随机；`server_secret` **仅**注册响应明文一次；DB 只存 hash。
 - **`POST /v1/computers/register`**：按 IP **限速**（如 30 次/分钟）；连续失败可临时封禁。
-- **`CONTROL_PLANE_KEY`**：仅 Wrangler secret + 可信管理端；**禁止**写入公开前端构建产物（Web 可继续「运维粘贴」模式直至 M2 服务端代理）。
+- **`RELAY_KEY`**：仅 Wrangler secret + 可信管理端；**禁止**写入公开前端构建产物（Web 可继续「运维粘贴」模式直至 M2 服务端代理）。
 
 ### 3.2 Server → Relay 认证（出站）
 
@@ -513,7 +513,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 职责：
 
 1. 读取 `relay_identity.json`；无则跳过（纯本地模式）。
-2. 向 Control Plane 刷新令牌（若采用 JWT）。
+2. 向 Relay 刷新令牌（若采用 JWT）。
 3. 维护与 Relay 的 **单连接**（每 Server 进程一条）；自动重连带指数退避。
 4. 从 Relay 收到的 `body` **写入** 现有 `WsMessageService` 的「虚拟连接」入口，等价于本地 TCP client 的第一条消息之后的行为。
 
@@ -534,16 +534,16 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 ### 7.1 连接 URL
 
 - **本地模式**：`ws://127.0.0.1:<port>/...`（现有）。
-- **Relay 模式**：`wss://relay.../v1/client?server_id=...&token=...`（token 可为短期，见 Control Plane）。
+- **Relay 模式**：`wss://relay.../v1/client?server_id=...&token=...`（token 可为短期，见 Relay）。
 
 ### 7.2 UI
 
-- **Server 选择器**：**Computer** 列表来自 Control Plane；当前选中项写入本地偏好。
-- **配对入口**：展示配对码或二维码（内容由 Control Plane 返回）。
+- **Server 选择器**：**Computer** 列表来自 Relay；当前选中项写入本地偏好。
+- **配对入口**：展示配对码或二维码（内容由 Relay 返回）。
 
 ### 7.3 Web 开发环境
 
-- Next 继续可代理 `runtime_manifest` 用于 **本地 API 端口**；Relay 模式下 **以 Control Plane 返回的 `relay_ws_url` 为准**。
+- Next 继续可代理 `runtime_manifest` 用于 **本地 API 端口**；Relay 模式下 **以 Relay 返回的 `relay_ws_url` 为准**。
 
 ---
 
@@ -591,10 +591,10 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 
 | 阶段     | 交付物                                                                                                                                                                                                 |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **M1** | 控制面 **register_token + client_session** 流程（§2.4）；Relay Worker + `ServerHub` DO；Server 出站；Web 完成列表/注册/建连；`**atmos review` 经 API（§8.2）**（可与本项并行，PRD **M1-7**）。 |
-| **M2** | DO `ring` + `relay_seq` + replay；离线 Computer 策略；**用户登录**替换 `CONTROL_PLANE_KEY`（§2.4.10）。 |
+| **M1** | Relay **register_token + client_session** 流程（§2.4）；Relay Worker + `ServerHub` DO；Server 出站；Web 完成列表/注册/建连；`**atmos review` 经 API（§8.2）**（可与本项并行，PRD **M1-7**）。 |
+| **M2** | DO `ring` + `relay_seq` + replay；离线 Computer 策略；**用户登录**替换 `RELAY_KEY`（§2.4.10）。 |
 | **M3** | 多 Client 广播语义、Canvas/终端事件分类白名单。                                                                                                                                                                     |
-| **M4** | 云端拉起 **VPS/虚拟机** 与控制面对接；镜像内预置 `relay_identity.json` 或启动时 pair。                                                                                                                                      |
+| **M4** | 云端拉起 **VPS/虚拟机** 与Relay对接；镜像内预置 `relay_identity.json` 或启动时 pair。                                                                                                                                      |
 | **M5** | 组织权限、审计、配额、E2EE 可选模块。                                                                                                                                                                               |
 
 
@@ -615,7 +615,7 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 ## 11. 安全清单（摘要）
 
 - TLS 全链路；HSTS（Worker 侧）。
-- **控制面**：轮换 `CONTROL_PLANE_KEY`、禁止入库；`register_token` / `client_token` 单次或短 TTL；`register` 端点 IP 限速（§2.4）。
+- **Relay**：轮换 `RELAY_KEY`、禁止入库；`register_token` / `client_token` 单次或短 TTL；`register` 端点 IP 限速（§2.4）。
 - 速率限制：每 `tenant_id` / 每 `server_id` / 每 IP。
 - 日志：**默认不记录 body**；如需调试，脱敏 + 采样。
 - **隐私**：M1 Relay 载荷对边缘 **技术上可读**；产品承诺为不解析业务 JSON + 不落库 body；E2EE 见 M5（§2.4.3）。
@@ -625,9 +625,9 @@ M1 **不强制**实现「笔记本 CLI 不经显式 URL 即连远端 **Computer*
 ## 12. 开放实现项（实现前闭环）
 
 1. `body` 使用 **文本**（与现有 WS JSON 一致）还是 **二进制**（CBOR）；网关统一。
-2. Control Plane 与 Relay **是否共享密钥**验证 Server（HMAC vs JWT）。
+2. Relay 与 Relay **是否共享密钥**验证 Server（HMAC vs JWT）。
 3. Desktop 与 Web **谁先交付 M1**（PRD 已要求至少一端）。
-4. **M2 控制面**：Atmos JWT 签发方、与现有 Web/Desktop 会话的集成点（§2.4.4）。
+4. **M2 Relay**：Atmos JWT 签发方、与现有 Web/Desktop 会话的集成点（§2.4.4）。
 
 ---
 

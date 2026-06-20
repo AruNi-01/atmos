@@ -3,6 +3,7 @@
 import type { Env } from "./index";
 
 const GATEWAY_PATH_RE = /^\/v1\/computers\/([^/]+)\/proxy(\/.*)?$/;
+const RELAY_SECRET_HEADER = "X-Atmos-Relay-Secret";
 
 export type GatewayRoute = {
   serverId: string;
@@ -20,8 +21,8 @@ export function matchGatewayPath(pathname: string): GatewayRoute | null {
   return { serverId, upstreamPath };
 }
 
-export function gatewayBaseUrl(controlPlaneOrigin: string, serverId: string): string {
-  const base = controlPlaneOrigin.replace(/\/$/, "");
+export function gatewayBaseUrl(relayOrigin: string, serverId: string): string {
+  const base = relayOrigin.replace(/\/$/, "");
   return `${base}/v1/computers/${encodeURIComponent(serverId)}/proxy`;
 }
 
@@ -53,6 +54,21 @@ export async function validateGatewayAccess(
 
   if (session) {
     return true;
+  }
+
+  const relaySecret = env.RELAY_SECRET_KEY?.trim();
+  if (relaySecret) {
+    const providedSecret = request.headers.get(RELAY_SECRET_HEADER)?.trim() ?? "";
+    if (!providedSecret) {
+      return false;
+    }
+    const [relaySecretHash, providedSecretHash] = await Promise.all([
+      secretHash(relaySecret),
+      secretHash(providedSecret),
+    ]);
+    if (relaySecretHash !== providedSecretHash) {
+      return false;
+    }
   }
 
   const tenant = await tenantFromBearer(request, env);

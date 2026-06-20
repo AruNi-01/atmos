@@ -64,15 +64,17 @@ function CommandBlock({
 export function RemoteComputerSetupBlock({
   active = true,
   hasAccessToken,
-  controlPlaneUrl,
+  relayUrl,
   accessToken,
+  relaySecretKey = '',
   busy,
 }: {
   /** When false (collapsed), skip loading cached registration codes. */
   active?: boolean;
   hasAccessToken: boolean;
-  controlPlaneUrl: string;
+  relayUrl: string;
   accessToken: string;
+  relaySecretKey?: string;
   busy: boolean;
 }) {
   const installCommand = buildRemoteComputerInstallCommand();
@@ -104,14 +106,19 @@ export function RemoteComputerSetupBlock({
     }
     setLoadingToken(true);
     try {
-      const data = await fetchRegisterToken(controlPlaneUrl, accessToken);
+      const data = await fetchRegisterToken(relayUrl, accessToken, relaySecretKey);
       await saveRemoteComputerRegisterTokenCache(
         accessToken,
-        controlPlaneUrl,
+        relayUrl,
+        relaySecretKey,
         data.register_token,
         data.expires_at,
       );
-      const cached = await loadRemoteComputerRegisterTokenCache(accessToken, controlPlaneUrl);
+      const cached = await loadRemoteComputerRegisterTokenCache(
+        accessToken,
+        relayUrl,
+        relaySecretKey,
+      );
       if (cached) {
         applyCache(cached);
       } else {
@@ -135,8 +142,9 @@ export function RemoteComputerSetupBlock({
     accessToken,
     applyCache,
     clearRegistrationState,
-    controlPlaneUrl,
+    relayUrl,
     hasAccessToken,
+    relaySecretKey,
   ]);
 
   useEffect(() => {
@@ -151,7 +159,11 @@ export function RemoteComputerSetupBlock({
 
     let cancelled = false;
     void (async () => {
-      const cached = await loadRemoteComputerRegisterTokenCache(accessToken, controlPlaneUrl);
+      const cached = await loadRemoteComputerRegisterTokenCache(
+        accessToken,
+        relayUrl,
+        relaySecretKey,
+      );
       if (cancelled) {
         return;
       }
@@ -170,13 +182,14 @@ export function RemoteComputerSetupBlock({
     accessToken,
     applyCache,
     clearRegistrationState,
-    controlPlaneUrl,
+    relayUrl,
     hasAccessToken,
+    relaySecretKey,
   ]);
 
   const startCommand =
     registerToken != null
-      ? buildRemoteComputerStartCommand({ registerToken, controlPlaneUrl })
+      ? buildRemoteComputerStartCommand({ registerToken, relayUrl, relaySecretKey })
       : 'export PATH="$HOME/.atmos/bin:$PATH"\natmos computer start --token <registration_code> --daemon';
 
   const tokenExpired = expiresAt != null && expiresAt * 1000 < Date.now();

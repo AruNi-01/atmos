@@ -43,7 +43,7 @@
 - **M2 · Token as credential**: Access Tokens authenticate a tenant by matching `access_token_hash`; the token hash is not used as the tenant primary key.
 - **M3 · Rotation API**: Users can rotate the current Access Token by presenting the current token and a new token. The rotation preserves the stable tenant id.
 - **M4 · Ownership preservation**: Rotation preserves tenant-owned rows, including registered Computers, server secrets, client-visible Computer metadata, and APP-019 GitHub installations/routes.
-- **M5 · Old token revocation**: After successful rotation, the old Access Token can no longer access the tenant control plane.
+- **M5 · Old token revocation**: After successful rotation, the old Access Token can no longer access the tenant relay.
 - **M6 · Local atomic update**: Web/Desktop updates local `~/.atmos/computer-client.json` only after Relay confirms rotation. On failure, the old token remains configured.
 - **M7 · Identity switch distinction**: Replacing the local token without the rotation flow is treated as an identity switch and does not transfer old Computers or GitHub routes.
 - **M8 · Lost token boundary**: If the user cannot present the current token, Relay does not provide automatic migration or transfer for tenant-owned rows.
@@ -66,7 +66,7 @@
 ## Success Metrics
 
 - **Leading**: A rotated token can list the same Computers immediately after rotation.
-- **Leading**: The old token receives `401 unauthorized` for control-plane actions after rotation.
+- **Leading**: The old token receives `401 unauthorized` for relay actions after rotation.
 - **Leading**: APP-019 GitHub routes remain associated with the same tenant after rotation.
 - **Quality**: No raw Access Tokens appear in logs, D1 rows, or error payloads.
 

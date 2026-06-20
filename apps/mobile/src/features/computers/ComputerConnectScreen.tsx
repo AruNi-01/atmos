@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ComputerRow } from "@/api/types";
-import { useControlPlaneClient } from "@/hooks/use-control-plane-client";
+import { useRelayClient } from "@/hooks/use-relay-client";
 import { getStoredAccessToken } from "@/lib/access-token";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
@@ -13,8 +13,8 @@ import { colors, radii } from "@/theme/colors";
 export function ComputerConnectScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const controlPlaneClient = useControlPlaneClient();
-  const controlPlaneUrl = useSessionStore((state) => state.controlPlaneUrl);
+  const relayClient = useRelayClient();
+  const relayUrl = useSessionStore((state) => state.relayUrl);
   const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
@@ -22,12 +22,12 @@ export function ComputerConnectScreen() {
   const setComputers = useComputerStore((state) => state.setComputers);
 
   const computersQuery = useQuery({
-    queryKey: ["computers", controlPlaneUrl],
+    queryKey: ["computers", relayUrl],
     enabled: hasAccessToken,
     queryFn: async () => {
       const token = await getStoredAccessToken();
       if (!token) return [];
-      const computers = await controlPlaneClient.listComputers(token);
+      const computers = await relayClient.listComputers(token);
       setComputers(computers);
       return computers;
     },
@@ -37,7 +37,7 @@ export function ComputerConnectScreen() {
     mutationFn: async (serverId: string) => {
       const token = await getStoredAccessToken();
       if (!token) throw new Error("Access Token is not available.");
-      return controlPlaneClient.createClientSession(token, serverId);
+      return relayClient.createClientSession(token, serverId);
     },
     onSuccess: (session, serverId) => {
       selectServer(serverId);

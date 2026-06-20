@@ -2,7 +2,7 @@
   "name": "@atmos/relay",
   "private": true,
   "version": "0.1.0",
-  "description": "Atmos Computer control plane + Cloudflare Relay",
+  "description": "Atmos Computer relay + Cloudflare Relay",
   "scripts": {
     "dev": "wrangler dev",
     "test": "bun test",
@@ -10,7 +10,7 @@
     "deploy:dry-run": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
     "deploy:relay": "bash ../../scripts/relay/deploy.sh",
-    "db:create": "wrangler d1 create atmos-computer-cp",
+    "db:create": "wrangler d1 create atmos-computer-relay",
     "cf-typegen": "wrangler types"
   },
   "devDependencies": {

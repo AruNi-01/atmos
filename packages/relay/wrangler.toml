@@ -1,7 +1,7 @@
-# Atmos relay + minimal control plane on Cloudflare (`packages/relay`).
+# Atmos relay + minimal relay on Cloudflare (`packages/relay`).
 # After first deploy: bind a real D1 id (run `pnpm db:create`) and paste below.
 #
-#   wrangler d1 execute atmos-computer-cp --file=./migrations/0001_init.sql
+#   wrangler d1 execute atmos-computer-relay --file=./migrations/0001_init.sql
 #
 # Optional `account_id`: Cloudflare dashboard → any Workers overview → Account ID in the sidebar.
 # Wrangler usually infers the account from `wrangler login` or from a single-account API token; set
@@ -25,7 +25,7 @@ new_sqlite_classes = ["ServerHub"]
 
 [[d1_databases]]
 binding = "DB"
-database_name = "atmos-computer-cp"
+database_name = "atmos-computer-relay"
 database_id = "3f6112cc-7982-448e-89ba-0513ab4c64da"
 
 [vars]

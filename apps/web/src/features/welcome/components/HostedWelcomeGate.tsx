@@ -31,7 +31,10 @@ import { AtmosWordmark } from '@/shared/components/ui/AtmosWordmark';
 import { HostedSloganShimmer } from '@/shared/components/ui/HostedSloganShimmer';
 import { RemoteComputerSetupBlock } from '@/features/atmos-computer/components/RemoteComputerSetupBlock';
 import { useHostedConnectionStore } from '@/features/connection/store/hosted-connection-store';
-import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
+import {
+  resolveRelayUrl,
+  useAtmosComputerStore,
+} from '@/features/connection/lib/atmos-computer-store';
 import {
   createHostedRemoteSession,
   ensureHostedAccessTokenReady,
@@ -142,16 +145,21 @@ function HostedConnectionOnboarding() {
   );
   const {
     accessToken,
-    controlPlaneUrl,
+    relayUrl,
+    relaySecretKey,
     computers,
     selectedServerId,
     connectionMode,
     relayWebSocketUrl,
     setAccessToken,
     setComputers,
+    setRelayUrl,
+    setRelaySecretKey,
   } = useAtmosComputerStore();
 
   const [activeTab, setActiveTab] = useState<'local' | 'remote'>('local');
+  const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
+  const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
   const [tokenDraft, setTokenDraft] = useState(accessToken);
   const [listRefreshing, setListRefreshing] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -167,15 +175,27 @@ function HostedConnectionOnboarding() {
     setTokenDraft(accessToken);
   }, [accessToken]);
 
+  useEffect(() => {
+    setRelayUrlDraft(relayUrl);
+  }, [relayUrl]);
+
+  useEffect(() => {
+    setRelaySecretDraft(relaySecretKey);
+  }, [relaySecretKey]);
+
   const refreshRemoteList = useCallback(
-    async (token = tokenDraft): Promise<void> => {
+    async (
+      token = tokenDraft,
+      relayUrl = relayUrlDraft,
+      secretKey = relaySecretDraft,
+    ): Promise<void> => {
       const trimmed = token.trim();
       if (trimmed.length < 32) {
         return;
       }
       setListRefreshing(true);
       try {
-        const rows = await listHostedRemoteComputers(controlPlaneUrl, trimmed);
+        const rows = await listHostedRemoteComputers(relayUrl, trimmed, secretKey);
         setComputers(rows);
         setRemoteError(null);
       } catch (err) {
@@ -190,23 +210,31 @@ function HostedConnectionOnboarding() {
         setListRefreshing(false);
       }
     },
-    [controlPlaneUrl, setComputers, setRemoteError, tokenDraft],
+    [relaySecretDraft, relayUrlDraft, setComputers, setRemoteError, tokenDraft],
   );
 
   useEffect(() => {
     if (!accessToken.trim()) {
       return;
     }
-    void refreshRemoteList(accessToken);
-  }, [accessToken, refreshRemoteList]);
+    void refreshRemoteList(accessToken, relayUrl, relaySecretKey);
+  }, [accessToken, relayUrl, refreshRemoteList, relaySecretKey]);
 
   const onSaveToken = async () => {
     const token = tokenDraft.trim();
+    const nextRelayUrl = resolveRelayUrl(relayUrlDraft);
+    const nextRelaySecret = relaySecretDraft.trim();
     setBusyAction('save-token');
     try {
-      await ensureHostedAccessTokenReady(controlPlaneUrl, token);
+      await ensureHostedAccessTokenReady(nextRelayUrl, token, nextRelaySecret);
+      setRelayUrl(nextRelayUrl);
+      setRelaySecretKey(nextRelaySecret);
       setAccessToken(token);
-      const persisted = await saveComputerClientSettingsToDisk(token, controlPlaneUrl);
+      const persisted = await saveComputerClientSettingsToDisk(
+        token,
+        nextRelayUrl,
+        nextRelaySecret,
+      );
       toastManager.add({
         title: persisted ? 'Access key saved' : 'Saved for this session',
         description: persisted
@@ -214,7 +242,7 @@ function HostedConnectionOnboarding() {
           : 'Could not persist locally. Keep this tab open if you need the key again.',
         type: persisted ? 'success' : 'warning',
       });
-      await refreshRemoteList(token);
+      await refreshRemoteList(token, nextRelayUrl, nextRelaySecret);
     } catch (err) {
       toastManager.add({
         title: 'Could not save access key',
@@ -262,12 +290,21 @@ function HostedConnectionOnboarding() {
 
   const onConnectRemote = async (serverId: string) => {
     const token = tokenDraft.trim();
+    const nextRelayUrl = resolveRelayUrl(relayUrlDraft);
+    const nextRelaySecret = relaySecretDraft.trim();
     setBusyAction(`connect-${serverId}`);
     try {
-      const session = await createHostedRemoteSession(controlPlaneUrl, token, serverId);
+      setRelayUrl(nextRelayUrl);
+      setRelaySecretKey(nextRelaySecret);
+      const session = await createHostedRemoteSession(
+        nextRelayUrl,
+        token,
+        serverId,
+        nextRelaySecret,
+      );
       if (token && token !== accessToken) {
         setAccessToken(token);
-        void saveComputerClientSettingsToDisk(token, controlPlaneUrl);
+        void saveComputerClientSettingsToDisk(token, nextRelayUrl, nextRelaySecret);
       }
       await activateHostedRemoteConnection(serverId, session);
       setConnected('relay');
@@ -425,7 +462,33 @@ function HostedConnectionOnboarding() {
                         </div>
                       </div>
 
-                      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                      <div className="mt-5 grid gap-3 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Relay URL
+                          </span>
+                          <Input
+                            value={relayUrlDraft}
+                            onChange={event => setRelayUrlDraft(event.target.value)}
+                            placeholder="https://relay.atmos.land"
+                            autoComplete="off"
+                          />
+                        </label>
+                        <label className="space-y-2">
+                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Relay Secret
+                          </span>
+                          <Input
+                            type="password"
+                            value={relaySecretDraft}
+                            onChange={event => setRelaySecretDraft(event.target.value)}
+                            placeholder="For private relays"
+                            autoComplete="off"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                         <Input
                           type="password"
                           value={tokenDraft}
@@ -516,8 +579,9 @@ function HostedConnectionOnboarding() {
                           <RemoteComputerSetupBlock
                             active={activeTab === 'remote'}
                             hasAccessToken={hasKey}
-                            controlPlaneUrl={controlPlaneUrl}
+                            relayUrl={relayUrlDraft}
                             accessToken={tokenDraft.trim()}
+                            relaySecretKey={relaySecretDraft}
                             busy={busyAction !== null}
                           />
                         </div>

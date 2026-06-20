@@ -2,14 +2,13 @@
 
 use clap::{Args, Subcommand};
 use runtime_manager::{
-    normalize_control_plane_url, read_server_identity, register_computer,
-    resolve_server_identity_path,
+    normalize_relay_url, read_server_identity, register_computer, resolve_server_identity_path,
     supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_HOST, DEFAULT_PORT},
     RegistrationMeta,
 };
 use serde_json::{json, Value};
 
-const DEFAULT_CONTROL_PLANE: &str = "https://relay.atmos.land";
+const DEFAULT_RELAY: &str = "https://relay.atmos.land";
 
 pub async fn execute(command: ComputerCommand) -> Result<Value, String> {
     match command {
@@ -31,7 +30,9 @@ pub struct RegisterArgs {
     #[arg(long)]
     pub token: Option<String>,
     #[arg(long)]
-    pub control_plane: Option<String>,
+    pub relay: Option<String>,
+    #[arg(long)]
+    pub relay_secret_key: Option<String>,
     #[arg(long)]
     pub display_name: Option<String>,
 }
@@ -41,7 +42,9 @@ pub struct ComputerStartArgs {
     #[arg(long)]
     pub token: Option<String>,
     #[arg(long)]
-    pub control_plane: Option<String>,
+    pub relay: Option<String>,
+    #[arg(long)]
+    pub relay_secret_key: Option<String>,
     #[arg(long)]
     pub display_name: Option<String>,
     #[arg(long, default_value_t = DEFAULT_PORT)]
@@ -59,13 +62,15 @@ pub struct ComputerStartArgs {
 
 async fn register(args: RegisterArgs) -> Result<Value, String> {
     let register_token = resolve_register_token(args.token.as_deref())?;
-    let control_plane = resolve_control_plane(args.control_plane.as_deref());
+    let relay = resolve_relay(args.relay.as_deref());
+    let relay_secret_key = resolve_relay_secret_key(args.relay_secret_key.as_deref());
     let display_name = resolve_display_name(args.display_name);
 
     let meta = RegistrationMeta::new("cli", Some(env!("CARGO_PKG_VERSION"))).to_value();
     let identity = register_computer(
-        &control_plane,
+        &relay,
         &register_token,
+        relay_secret_key.as_deref(),
         Some(display_name.as_str()),
         Some(meta),
     )
@@ -85,7 +90,7 @@ async fn register(args: RegisterArgs) -> Result<Value, String> {
         "action": "registered",
         "server_id": identity.server_id,
         "display_name": display_name,
-        "control_plane_url": identity.control_plane_url,
+        "relay_url": identity.relay_url,
         "relay_ws_url": identity.relay_ws_url,
         "identity_path": path.display().to_string(),
         "local_api_running": api_running,
@@ -117,12 +122,14 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
     let mut register_result: Option<Value> = None;
 
     if let Some(token) = optional_register_token(args.token.as_deref())? {
-        let control_plane = resolve_control_plane(args.control_plane.as_deref());
+        let relay = resolve_relay(args.relay.as_deref());
+        let relay_secret_key = resolve_relay_secret_key(args.relay_secret_key.as_deref());
         let display_name = resolve_display_name(args.display_name);
         let meta = RegistrationMeta::new("cli", Some(env!("CARGO_PKG_VERSION"))).to_value();
         let identity = register_computer(
-            &control_plane,
+            &relay,
             &token,
+            relay_secret_key.as_deref(),
             Some(display_name.as_str()),
             Some(meta),
         )
@@ -176,7 +183,7 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
         "register": register_result,
         "relay_connected": relay_synced,
         "daemon": args.daemon,
-        "control_plane_url": normalize_control_plane_url(&resolve_control_plane(args.control_plane.as_deref())),
+        "relay_url": normalize_relay_url(&resolve_relay(args.relay.as_deref())),
         "runtime": status,
         "hint": hint,
     }))
@@ -203,15 +210,25 @@ fn optional_register_token(cli: Option<&str>) -> Result<Option<String>, String> 
         .map(|s| s.trim().to_string()))
 }
 
-fn resolve_control_plane(cli: Option<&str>) -> String {
+fn resolve_relay(cli: Option<&str>) -> String {
     if let Some(url) = cli.filter(|s| !s.trim().is_empty()) {
-        return normalize_control_plane_url(url);
+        return normalize_relay_url(url);
     }
-    std::env::var("ATMOS_CONTROL_PLANE_URL")
+    std::env::var("ATMOS_RELAY_URL")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .map(|s| normalize_control_plane_url(&s))
-        .unwrap_or_else(|| DEFAULT_CONTROL_PLANE.to_string())
+        .map(|s| normalize_relay_url(&s))
+        .unwrap_or_else(|| DEFAULT_RELAY.to_string())
+}
+
+fn resolve_relay_secret_key(cli: Option<&str>) -> Option<String> {
+    if let Some(secret) = cli.filter(|s| !s.trim().is_empty()) {
+        return Some(secret.trim().to_string());
+    }
+    std::env::var("ATMOS_RELAY_SECRET_KEY")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.trim().to_string())
 }
 
 fn resolve_display_name(cli: Option<String>) -> String {

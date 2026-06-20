@@ -16,12 +16,12 @@ export interface LocalComputerStatus {
   /** Last relay connect failure from the local API, if any. */
   relay_last_error?: string | null;
   server_id: string | null;
-  control_plane_url: string;
+  relay_url: string;
   relay_ws_url: string | null;
   shell_env?: ShellEnvInfo;
 }
 
-const DEFAULT_CONTROL_PLANE = 'https://relay.atmos.land';
+const DEFAULT_RELAY = 'https://relay.atmos.land';
 
 interface ApiEnvelope {
   success?: boolean;
@@ -132,7 +132,7 @@ export async function loadLocalComputerStatus(
     relay_connected: false,
     relay_last_error: null,
     server_id: knownServerId ?? null,
-    control_plane_url: DEFAULT_CONTROL_PLANE,
+    relay_url: DEFAULT_RELAY,
     relay_ws_url: null,
     shell_env: overview?.shell_env,
   };
@@ -145,6 +145,8 @@ export async function fetchLocalComputerStatus(): Promise<LocalComputerStatus> {
 export async function registerLocalComputer(
   registerToken: string,
   displayName: string,
+  relayUrl?: string,
+  relaySecretKey?: string,
   registrationMeta?: Record<string, unknown>,
 ): Promise<{
   server_id: string;
@@ -157,6 +159,8 @@ export async function registerLocalComputer(
     body: JSON.stringify({
       register_token: registerToken,
       display_name: displayName,
+      relay_url: relayUrl?.trim() || null,
+      relay_secret_key: relaySecretKey?.trim() || null,
       ...(registrationMeta ? { registration_meta: registrationMeta } : {}),
     }),
   });
@@ -179,30 +183,31 @@ export async function syncRelayConnection(): Promise<RelaySyncResult> {
   });
 }
 
-export interface ControlPlaneProxyResult {
+export interface RelayProxyResult {
   status: number;
   body: string;
 }
 
 /**
- * Proxy control-plane HTTPS via loopback Atmos Server (Desktop + local browser).
+ * Proxy relay HTTPS via loopback Atmos Server (Desktop + local browser).
  * Returns null when the local API is unreachable — caller may fall back to direct fetch.
  */
-export async function proxyControlPlaneRequest(
-  controlPlaneUrl: string,
+export async function proxyRelayRequest(
+  relayUrl: string,
   method: string,
   path: string,
-  opts?: { accessToken?: string; body?: string },
-): Promise<ControlPlaneProxyResult | null> {
+  opts?: { accessToken?: string; body?: string; relaySecretKey?: string },
+): Promise<RelayProxyResult | null> {
   try {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    return await localFetch<ControlPlaneProxyResult>('/api/system/computer/control-plane', {
+    return await localFetch<RelayProxyResult>('/api/system/computer/relay', {
       method: 'POST',
       body: JSON.stringify({
-        control_plane_url: controlPlaneUrl.replace(/\/+$/, ''),
+        relay_url: relayUrl.replace(/\/+$/, ''),
         method: method.toUpperCase(),
         path: normalizedPath,
         access_token: opts?.accessToken?.trim() || null,
+        relay_secret_key: opts?.relaySecretKey?.trim() || null,
         body: opts?.body ?? null,
       }),
     });

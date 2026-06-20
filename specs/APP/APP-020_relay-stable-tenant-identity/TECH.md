@@ -4,7 +4,7 @@
 
 ## Scope summary
 
-APP-020 changes the Relay control-plane identity model from `tenant_id = sha256(access_token)` to stable opaque tenant ids with Access Tokens stored as credentials. It addresses PRD M1-M10. It does not add login accounts, lost-token recovery, or per-Computer server secret rotation. APP-019 GitHub routes should depend on this model rather than carrying their own token-transfer logic.
+APP-020 changes the Relay identity model from `tenant_id = sha256(access_token)` to stable opaque tenant ids with Access Tokens stored as credentials. It addresses PRD M1-M10. It does not add login accounts, lost-token recovery, or per-Computer server secret rotation. APP-019 GitHub routes should depend on this model rather than carrying their own token-transfer logic.
 
 ## Architecture overview
 
@@ -237,7 +237,7 @@ Client flow:
 
 ### crates/runtime-manager
 
-`computer_client_settings.rs` remains the local source for Access Token and control-plane URL. If rotation is performed through local API/Desktop, expose an atomic write helper:
+`computer_client_settings.rs` remains the local source for Access Token and relay URL. If rotation is performed through local API/Desktop, expose an atomic write helper:
 
 ```rust
 pub fn replace_access_token_after_rotation(new_token: String) -> Result<ComputerClientSettings>;
@@ -245,7 +245,7 @@ pub fn replace_access_token_after_rotation(new_token: String) -> Result<Computer
 
 The helper should:
 
-- Preserve the control-plane URL.
+- Preserve the relay URL.
 - Write only after Relay rotation succeeds.
 - Avoid logging the old or new token.
 
@@ -285,7 +285,7 @@ tenant_id is stable and is the only value referenced by tenant-owned rows.
 
 ## Transport
 
-Relay uses REST because this is the public control plane, not an Atmos app business WebSocket flow.
+Relay uses REST because this is the public relay, not an Atmos app business WebSocket flow.
 
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
@@ -315,7 +315,7 @@ Error codes:
 ## Rollout plan
 
 1. Add D1 migration for stable `tenants.tenant_id` and table rebuilds for APP-016 tenant-scoped tables.
-2. Update `tenantFromRequest` and all control-plane queries to use stable `tenant_id`.
+2. Update `tenantFromRequest` and all relay queries to use stable `tenant_id`.
 3. Update `POST /v1/tenants` to generate stable tenant ids.
 4. Add `POST /v1/tenants/rotate_token` with cleanup of short-lived rows.
 5. Update `packages/relay/README.md` and `packages/relay/AGENTS.md`.
@@ -336,7 +336,7 @@ Error codes:
 - Updates APP-016 Relay identity model.
 - Blocks APP-019 production GitHub route storage if token rotation support is required before GitHub launch.
 - Existing registered Computers remain compatible because `server_id` and `server_secret` are unchanged.
-- Existing local `~/.atmos/computer-client.json` remains compatible because it stores the raw Access Token and control-plane URL, not `tenant_id`.
+- Existing local `~/.atmos/computer-client.json` remains compatible because it stores the raw Access Token and relay URL, not `tenant_id`.
 
 ## Open questions
 

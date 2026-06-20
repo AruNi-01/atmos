@@ -6,10 +6,10 @@ use axum::extract::State;
 use axum::Json;
 use runtime_manager::{
     clear_computer_client_settings, clear_server_identity, computer_client_settings_path,
-    default_control_plane_url, local_computer_display_name, local_computer_display_name_opt,
-    normalize_control_plane_url, read_computer_client_settings, read_runtime_manifest,
-    read_server_identity, register_computer, resolved_control_plane_url,
-    write_computer_client_settings, ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
+    default_relay_url, local_computer_display_name, local_computer_display_name_opt,
+    normalize_relay_url, read_computer_client_settings, read_runtime_manifest,
+    read_server_identity, register_computer, resolved_relay_url, write_computer_client_settings,
+    ComputerClientSettings, COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -42,10 +42,10 @@ pub async fn get_computer_status(
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
         "server_id": identity.as_ref().map(|i| i.server_id.clone()),
-        "control_plane_url": identity
+        "relay_url": identity
             .as_ref()
-            .and_then(|i| i.control_plane_url.clone())
-            .unwrap_or_else(|| default_control_plane_url().to_string()),
+            .and_then(|i| i.relay_url.clone())
+            .unwrap_or_else(|| default_relay_url().to_string()),
         "relay_ws_url": identity.as_ref().map(|i| i.relay_ws_url.clone()),
     });
 
@@ -82,10 +82,10 @@ pub async fn get_runtime_info(
         "relay": {
             "registered": identity.is_some(),
             "server_id": identity.as_ref().map(|i| i.server_id.clone()),
-            "control_plane_url": identity
+            "relay_url": identity
                 .as_ref()
-                .and_then(|i| i.control_plane_url.clone())
-                .unwrap_or_else(|| default_control_plane_url().to_string()),
+                .and_then(|i| i.relay_url.clone())
+                .unwrap_or_else(|| default_relay_url().to_string()),
             "connected": relay_connected,
         },
     }))))
@@ -95,12 +95,16 @@ pub async fn get_runtime_info(
 pub struct RegisterComputerPayload {
     pub register_token: String,
     #[serde(default)]
+    pub relay_url: Option<String>,
+    #[serde(default)]
+    pub relay_secret_key: Option<String>,
+    #[serde(default)]
     pub display_name: Option<String>,
     #[serde(default)]
     pub registration_meta: Option<Value>,
 }
 
-/// POST /api/system/computer/register — register this Server with the control plane.
+/// POST /api/system/computer/register — register this Server with the relay.
 pub async fn register_local_computer(
     State(state): State<AppState>,
     Json(payload): Json<RegisterComputerPayload>,
@@ -117,10 +121,23 @@ pub async fn register_local_computer(
         .filter(|s| !s.is_empty())
         .map(str::to_string)
         .unwrap_or_else(local_computer_display_name);
+    let relay_url = payload
+        .relay_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(normalize_relay_url)
+        .unwrap_or_else(|| default_relay_url().to_string());
+    let relay_secret_key = payload
+        .relay_secret_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
 
     let identity = register_computer(
-        default_control_plane_url(),
+        &relay_url,
         token,
+        relay_secret_key,
         Some(&display_name),
         payload.registration_meta,
     )
@@ -128,7 +145,7 @@ pub async fn register_local_computer(
     .map_err(ApiError::BadRequest)?;
 
     let server_id = identity.server_id.clone();
-    let control_plane_url = identity.control_plane_url.clone();
+    let relay_url = identity.relay_url.clone();
     let relay_ws_url = identity.relay_ws_url.clone();
 
     state.relay_supervisor.start(state.clone(), identity).await;
@@ -142,7 +159,7 @@ pub async fn register_local_computer(
         "ok": true,
         "server_id": server_id,
         "display_name": display_name,
-        "control_plane_url": control_plane_url,
+        "relay_url": relay_url,
         "relay_ws_url": relay_ws_url,
         "relay_connected": relay_connected,
         "relay_last_error": relay_last_error,
@@ -172,14 +189,16 @@ pub async fn get_computer_client_settings() -> ApiResult<Json<ApiResponse<Value>
             "path": path.display().to_string(),
             "configured": false,
             "access_token": "",
-            "control_plane_url": default_control_plane_url(),
+            "relay_url": default_relay_url(),
+            "relay_secret_key": "",
         }))));
     };
     Ok(Json(ApiResponse::success(json!({
         "path": path.display().to_string(),
         "configured": !settings.access_token.trim().is_empty(),
         "access_token": settings.access_token,
-        "control_plane_url": resolved_control_plane_url(&settings),
+        "relay_url": resolved_relay_url(&settings),
+        "relay_secret_key": settings.relay_secret_key.unwrap_or_default(),
     }))))
 }
 
@@ -190,7 +209,9 @@ pub struct PutComputerClientSettingsPayload {
     #[serde(default)]
     pub access_token: Option<String>,
     #[serde(default)]
-    pub control_plane_url: Option<String>,
+    pub relay_url: Option<String>,
+    #[serde(default)]
+    pub relay_secret_key: Option<String>,
 }
 
 /// PUT /api/system/computer-client-settings — write or clear `~/.atmos/computer-client.json`.
@@ -212,52 +233,62 @@ pub async fn put_computer_client_settings(
         .as_ref()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .ok_or_else(|| ApiError::BadRequest("access_token is required".into()))?;
+        .unwrap_or("");
 
-    let control_plane_url = payload
-        .control_plane_url
+    let relay_url = payload
+        .relay_url
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .map(normalize_control_plane_url);
+        .map(normalize_relay_url);
+    let relay_secret_key = payload
+        .relay_secret_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
 
     let settings = ComputerClientSettings {
         version: COMPUTER_CLIENT_SETTINGS_VERSION,
         access_token: access_token.to_string(),
-        control_plane_url,
+        relay_url,
+        relay_secret_key,
     };
     let written = write_computer_client_settings(&settings).map_err(ApiError::BadRequest)?;
     Ok(Json(ApiResponse::success(json!({
         "ok": true,
         "action": "written",
         "path": written.display().to_string(),
-        "control_plane_url": resolved_control_plane_url(&settings),
+        "relay_url": resolved_relay_url(&settings),
+        "relay_secret_key": settings.relay_secret_key.unwrap_or_default(),
     }))))
 }
 
 #[derive(Deserialize)]
-pub struct ControlPlaneProxyPayload {
+pub struct RelayProxyPayload {
     #[serde(default)]
-    pub control_plane_url: Option<String>,
+    pub relay_url: Option<String>,
     pub method: String,
     pub path: String,
     #[serde(default)]
     pub access_token: Option<String>,
     #[serde(default)]
+    pub relay_secret_key: Option<String>,
+    #[serde(default)]
     pub body: Option<String>,
 }
 
-/// POST /api/system/computer/control-plane — proxy HTTPS to the relay control plane (loopback only).
-pub async fn proxy_control_plane(
-    Json(payload): Json<ControlPlaneProxyPayload>,
+/// POST /api/system/computer/relay — proxy HTTPS to the relay (loopback only).
+pub async fn proxy_relay(
+    Json(payload): Json<RelayProxyPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let base = payload
-        .control_plane_url
+        .relay_url
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .map(normalize_control_plane_url)
-        .unwrap_or_else(|| default_control_plane_url().to_string());
+        .map(normalize_relay_url)
+        .unwrap_or_else(|| default_relay_url().to_string());
 
     let path = if payload.path.starts_with('/') {
         payload.path.clone()
@@ -288,13 +319,21 @@ pub async fn proxy_control_plane(
     {
         builder = builder.header("Authorization", format!("Bearer {token}"));
     }
+    if let Some(secret) = payload
+        .relay_secret_key
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        builder = builder.header("X-Atmos-Relay-Secret", secret);
+    }
     if let Some(body) = payload.body.filter(|s| !s.is_empty()) {
         builder = builder.body(body);
     }
 
     let res = builder.send().await.map_err(|e| {
         ApiError::BadRequest(format!(
-            "Cannot reach control plane at {base} ({e}). Check network and firewall settings."
+            "Cannot reach relay at {base} ({e}). Check network and firewall settings."
         ))
     })?;
 
@@ -302,7 +341,7 @@ pub async fn proxy_control_plane(
     let body = res
         .text()
         .await
-        .map_err(|e| ApiError::BadRequest(format!("Failed to read control plane response: {e}")))?;
+        .map_err(|e| ApiError::BadRequest(format!("Failed to read relay response: {e}")))?;
 
     Ok(Json(ApiResponse::success(json!({
         "status": status,

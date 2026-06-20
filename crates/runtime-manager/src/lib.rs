@@ -1,6 +1,6 @@
 //! Local Atmos runtime: manifest discovery, relay identity, optional process supervisor.
 //!
-//! - **`client`**: `runtime_manifest.json`, `relay_identity.json`, control-plane registration.
+//! - **`client`**: `runtime_manifest.json`, `relay_identity.json`, relay registration.
 //! - **`supervisor`**: install layout, ensure/stop/status for `~/.atmos/runtime/current/bin/api`.
 
 mod client_session;
@@ -20,7 +20,7 @@ pub use client_session::{
 };
 pub use computer_client_settings::{
     clear_computer_client_settings, computer_client_settings_path, read_computer_client_settings,
-    resolved_control_plane_url, write_computer_client_settings, ComputerClientSettings,
+    resolved_relay_url, write_computer_client_settings, ComputerClientSettings,
     COMPUTER_CLIENT_SETTINGS_FILE_NAME, COMPUTER_CLIENT_SETTINGS_VERSION,
 };
 pub use computer_name::{local_computer_display_name, local_computer_display_name_opt};
@@ -34,5 +34,5 @@ pub use manifest::{
     resolve_api_bearer_token, runtime_manifest_path, write_runtime_manifest, ApiEndpoint,
     RuntimeManifest, RUNTIME_MANIFEST_FILE_NAME, RUNTIME_MANIFEST_VERSION,
 };
-pub use register::{default_control_plane_url, normalize_control_plane_url, register_computer};
+pub use register::{default_relay_url, normalize_relay_url, register_computer};
 pub use registration_meta::RegistrationMeta;

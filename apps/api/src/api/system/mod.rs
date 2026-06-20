@@ -94,8 +94,5 @@ pub fn destructive_routes() -> Router<AppState> {
             "/computer/relay-sync",
             post(computer::sync_relay_connection),
         )
-        .route(
-            "/computer/control-plane",
-            post(computer::proxy_control_plane),
-        )
+        .route("/computer/relay", post(computer::proxy_relay))
 }

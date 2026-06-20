@@ -217,7 +217,7 @@ impl RelaySupervisor {
             false,
             self.last_error().await.or_else(|| {
                 Some(format!(
-                    "Relay did not connect within {} seconds. Check network access to the control plane.",
+                    "Relay did not connect within {} seconds. Check network access to the relay.",
                     timeout.as_secs()
                 ))
             }),

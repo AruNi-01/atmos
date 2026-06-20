@@ -9,7 +9,7 @@
  * loopback API is still configured to proxy to the remote Computer.
  *
  * We derive `relayWebSocketUrl` from `api_base_url` (the gateway URL on the
- * relay), since both are issued by the control plane at session creation
+ * relay), since both are issued by the relay at session creation
  * time and the token is the same value (`gateway_token === client_token`).
  */
 

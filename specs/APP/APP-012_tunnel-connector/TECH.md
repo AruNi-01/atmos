@@ -10,7 +10,7 @@ Issue #26 需要解决的不是“桌面端能不能启动 web 服务”这一�
 新的技术方案应满足以下目标：
 1. 把隧道连接器定义为统一平台能力，而不是桌面端 UI 上的几个离散按钮。
 2. 让浏览器成为默认 client，不要求隧道连接器端必须安装桌面应用。
-3. 让桌面端负责 host/control plane：启动、管理、诊断和关闭隧道连接器。
+3. 让桌面端负责 host/relay：启动、管理、诊断和关闭隧道连接器。
 4. 不直接暴露现有 sidecar，避免把当前本地信任模型带到公网/跨设备场景。
 5. 对 Tailscale、Cloudflare、ngrok 提供统一抽象，减少用户手动配置和心智负担。
 6. 为后续 CLI、daemon 或其他宿主复用预留清晰边界。
@@ -44,7 +44,7 @@ Issue #26 需要解决的不是“桌面端能不能启动 web 服务”这一�
 * 管理宿主态状态和生命周期
 * 通过 Tauri commands 向前端暴露状态、URL、错误与操作入口
 * 处理桌面端特有的恢复、日志和系统集成逻辑
-这样桌面端只是控制面，不是隧道连接器能力本身。
+这样桌面端只是Relay，不是隧道连接器能力本身。
 ### 四、`apps/api` 继续作为内部应用层
 `apps/api` 不应成为隧道连接器的宿主编排层，也不应直接承担远程发布边界。它只保留内部应用服务职责，并做两类配合性改动：
 * 把 sidecar 收紧为 loopback-only 或至少默认 loopback-only
@@ -153,7 +153,7 @@ Gateway 的作用就是把这些问题统一收口。
 * 支持 HTTP + WebSocket 代理
 * 接入 Tailscale Serve（私有访问）
 * 接入 Cloudflare Quick Tunnel（临时公网分享）
-* 在桌面端提供基础 Tunnel Connector 控制面
+* 在桌面端提供基础 Tunnel Connector Relay
 这版已经能覆盖“跨设备访问自己”和“快速生成临时外链”两个核心场景。
 ### Phase 2：增强版
 在边界稳定后继续增强：
@@ -170,4 +170,4 @@ Gateway 的作用就是把这些问题统一收口。
 * CLI 或 daemon 宿主复用 `crates/tunnel-connector`
 * 审计日志与长期分享入口
 ## 推荐结论
-推荐把该 issue 收敛为一个独立的“Tunnel Connector 子系统”，并以 `crates/tunnel-connector` 作为核心载体。浏览器是默认 client，桌面端只是第一种宿主控制面。`apps/api` 继续作为内部应用层，不直接承担远程发布边界；`apps/desktop` 只负责宿主编排；真正跨端可复用的 Gateway、Session、Proxy 与 provider 抽象统一沉淀到新 crate 中。首版优先做 Tailscale Serve + Cloudflare Quick Tunnel，在最少配置下验证价值，同时保留 ngrok、Cloudflare Named Tunnel 和其他宿主扩展空间。
+推荐把该 issue 收敛为一个独立的“Tunnel Connector 子系统”，并以 `crates/tunnel-connector` 作为核心载体。浏览器是默认 client，桌面端只是第一种宿主Relay。`apps/api` 继续作为内部应用层，不直接承担远程发布边界；`apps/desktop` 只负责宿主编排；真正跨端可复用的 Gateway、Session、Proxy 与 provider 抽象统一沉淀到新 crate 中。首版优先做 Tailscale Serve + Cloudflare Quick Tunnel，在最少配置下验证价值，同时保留 ngrok、Cloudflare Named Tunnel 和其他宿主扩展空间。

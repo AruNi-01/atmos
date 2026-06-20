@@ -6,7 +6,7 @@ describe("client session URLs", () => {
     const urls = buildClientSessionUrls({
       clientKind: "mobile",
       clientToken: "token/with+chars",
-      controlPlaneOrigin: "https://relay.atmos.land",
+      relayOrigin: "https://relay.atmos.land",
       serverId: "server id/with spaces",
     });
 
@@ -19,11 +19,11 @@ describe("client session URLs", () => {
     });
   });
 
-  test("uses ws on non-tls local control plane origins", () => {
+  test("uses ws on non-tls local relay origins", () => {
     const urls = buildClientSessionUrls({
       clientKind: "desktop",
       clientToken: "client-token",
-      controlPlaneOrigin: "http://127.0.0.1:8787",
+      relayOrigin: "http://127.0.0.1:8787",
       serverId: "server",
     });
 

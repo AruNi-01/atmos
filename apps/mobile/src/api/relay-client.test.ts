@@ -1,6 +1,6 @@
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { afterEach, describe, expect, test } from "bun:test";
-import { ControlPlaneClient, ControlPlaneError } from "./control-plane-client";
+import { RelayClient, RelayError } from "./relay-client";
 
 const originalFetch = globalThis.fetch;
 
@@ -8,7 +8,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-describe("ControlPlaneClient", () => {
+describe("RelayClient", () => {
   test("requests mobile client sessions with terminal websocket URLs", async () => {
     let requestBody: unknown;
     globalThis.fetch = (async (_input, init) => {
@@ -25,11 +25,26 @@ describe("ControlPlaneClient", () => {
       );
     }) as typeof fetch;
 
-    const client = new ControlPlaneClient("https://relay.example");
+    const client = new RelayClient("https://relay.example");
     const session = await client.createClientSession("access-token", "server");
 
     expect(requestBody).toEqual({ client_kind: "mobile" });
     expect(session.terminal_ws_url).toBe("wss://relay.example/ws/terminal");
+  });
+
+  test("sends relay secret headers when configured", async () => {
+    let requestHeaders: HeadersInit | undefined;
+    globalThis.fetch = (async (_input, init) => {
+      requestHeaders = init?.headers;
+      return new Response(JSON.stringify({ computers: [] }), { status: 200 });
+    }) as typeof fetch;
+
+    const client = new RelayClient("https://relay.example", " relay-secret ");
+    await client.listComputers("access-token");
+
+    const headers = new Headers(requestHeaders);
+    expect(headers.get("Authorization")).toBe("Bearer access-token");
+    expect(headers.get("X-Atmos-Relay-Secret")).toBe("relay-secret");
   });
 
   test("derives terminal websocket URLs for relay sessions created before the explicit field shipped", async () => {
@@ -44,7 +59,7 @@ describe("ControlPlaneClient", () => {
         { status: 200 },
       )) as typeof fetch;
 
-    const client = new ControlPlaneClient("https://relay.example");
+    const client = new RelayClient("https://relay.example");
     const session = await client.createClientSession("access-token", "server");
 
     expect(session.terminal_ws_url).toBe("wss://relay.example/ws/terminal?server_id=server&token=client-token");
@@ -62,11 +77,11 @@ describe("ControlPlaneClient", () => {
         { status: 200 },
       )) as typeof fetch;
 
-    const client = new ControlPlaneClient("https://relay.example");
+    const client = new RelayClient("https://relay.example");
 
     await expect(client.createClientSession("access-token", "server")).rejects.toMatchObject({
       code: "invalid_client_session_response",
       status: 502,
-    } satisfies Partial<ControlPlaneError>);
+    } satisfies Partial<RelayError>);
   });
 });

@@ -6,7 +6,7 @@
 - react-state
 
 ## Role in the Project
-前端应用是用户与 Atmos 交互的窗口。基于 Next.js 和 Zustand，它提供了一个类似 IDE 的复杂界面，包括多终端管理、文件浏览器、项目控制面板和集成 Wiki 系统。
+前端应用是用户与 Atmos 交互的窗口。基于 Next.js 和 Zustand，它提供了一个类似 IDE 的复杂界面，包括多终端管理、文件浏览器、项目Relay板和集成 Wiki 系统。
 
 ## Relevant Git History
 - e1ee52e: feat(wiki): add specify-wiki section and enhance validation

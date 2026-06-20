@@ -7,21 +7,21 @@ function wsOrigin(http: string): string {
 export function buildClientSessionUrls({
   clientKind,
   clientToken,
-  controlPlaneOrigin,
+  relayOrigin,
   serverId,
 }: {
   clientKind: string;
   clientToken: string;
-  controlPlaneOrigin: string;
+  relayOrigin: string;
   serverId: string;
 }) {
-  const wsBase = wsOrigin(controlPlaneOrigin);
+  const wsBase = wsOrigin(relayOrigin);
   const query = `server_id=${encodeURIComponent(serverId)}&token=${encodeURIComponent(
     clientToken,
   )}&client_type=${encodeURIComponent(clientKind)}`;
 
   return {
-    gatewayUrl: gatewayBaseUrl(controlPlaneOrigin, serverId),
+    gatewayUrl: gatewayBaseUrl(relayOrigin, serverId),
     terminalWsUrl: `${wsBase}/ws/terminal?${query}`,
     wsUrl: `${wsBase}/ws/client?${query}`,
   };

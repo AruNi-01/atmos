@@ -6,7 +6,7 @@
 
 Atmos already has the ingredients for long-running autonomous work: an `apps/api` Atmos Server per Computer, terminal-agent CLI integrations, project/workspace context, terminal and filesystem capabilities, a Desktop/Web/CLI surface, and APP-016's Relay path for reaching remote Computers. The missing product layer is a durable way to say "run this agentic task later or repeatedly, with this context, on this Computer, and show me what happened."
 
-After follow-up product direction, APP-017 should converge toward **local-per-Computer automations**. If a user wants an automation on a remote VPS, they connect to that remote Atmos Computer and create the automation there; the automation metadata and files live on that Computer. No cloud scheduler/control-plane dependency is needed for M1.
+After follow-up product direction, APP-017 should converge toward **local-per-Computer automations**. If a user wants an automation on a remote VPS, they connect to that remote Atmos Computer and create the automation there; the automation metadata and files live on that Computer. No cloud scheduler/relay dependency is needed for M1.
 
 ## Goals (draft)
 

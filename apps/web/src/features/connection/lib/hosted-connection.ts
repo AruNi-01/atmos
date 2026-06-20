@@ -2,7 +2,7 @@
 
 import type { ComputerRow } from '@/features/connection/lib/connection-ui-prefs';
 import { fetchRelayRuntimeInfo } from '@/api/relay';
-import { cpFetchWithAccessToken, registerAccessTokenOnRelay } from '@/features/connection/lib/atmos-access-token';
+import { relayFetchWithAccessToken, registerAccessTokenOnRelay } from '@/features/connection/lib/atmos-access-token';
 import {
   getHostedLoopbackCandidates,
   httpBase,
@@ -92,25 +92,33 @@ export async function detectHostedLocalServer(): Promise<{
 }
 
 export async function ensureHostedAccessTokenReady(
-  controlPlaneUrl: string,
+  relayUrl: string,
   accessToken: string,
+  relaySecretKey?: string,
 ): Promise<void> {
   const token = accessToken.trim();
   if (token.length < 32) {
     throw new Error('Access key is too short.');
   }
-  const result = await registerAccessTokenOnRelay(controlPlaneUrl, token);
+  const result = await registerAccessTokenOnRelay(relayUrl, token, relaySecretKey);
   if (!result.ok) {
     throw new Error(result.error ?? 'Could not save access key.');
   }
 }
 
 export async function listHostedRemoteComputers(
-  controlPlaneUrl: string,
+  relayUrl: string,
   accessToken: string,
+  relaySecretKey?: string,
 ): Promise<ComputerRow[]> {
-  await ensureHostedAccessTokenReady(controlPlaneUrl, accessToken);
-  const res = await cpFetchWithAccessToken(controlPlaneUrl, accessToken, '/v1/computers');
+  await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
+  const res = await relayFetchWithAccessToken(
+    relayUrl,
+    accessToken,
+    '/v1/computers',
+    undefined,
+    relaySecretKey,
+  );
   const data = (await res.json().catch(() => null)) as { computers?: ComputerRow[]; error?: string } | null;
   if (!res.ok) {
     throw new Error(data?.error ?? `HTTP ${res.status}`);
@@ -119,16 +127,18 @@ export async function listHostedRemoteComputers(
 }
 
 export async function createHostedRemoteSession(
-  controlPlaneUrl: string,
+  relayUrl: string,
   accessToken: string,
   serverId: string,
+  relaySecretKey?: string,
 ): Promise<HostedRemoteSession> {
-  await ensureHostedAccessTokenReady(controlPlaneUrl, accessToken);
-  const res = await cpFetchWithAccessToken(
-    controlPlaneUrl,
+  await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
+  const res = await relayFetchWithAccessToken(
+    relayUrl,
     accessToken,
     `/v1/computers/${encodeURIComponent(serverId)}/client_sessions`,
     { method: 'POST', body: JSON.stringify({ client_kind: 'web' }) },
+    relaySecretKey,
   );
   const data = (await res.json().catch(() => null)) as Partial<HostedRemoteSession> & {
     error?: string;

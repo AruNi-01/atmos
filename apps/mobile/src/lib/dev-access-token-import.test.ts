@@ -37,7 +37,8 @@ describe("dev access token import", () => {
           success: true,
           data: {
             access_token: "a".repeat(64),
-            control_plane_url: "https://relay.atmos.land/",
+            relay_url: "https://relay.atmos.land/",
+            relay_secret_key: "local-relay-secret",
           },
         }),
       );
@@ -46,7 +47,8 @@ describe("dev access token import", () => {
     expect(fetchCalls).toEqual(["http://127.0.0.1:3030/settings"]);
     expect(imported).toEqual({
       accessToken: "a".repeat(64),
-      controlPlaneUrl: "https://relay.atmos.land",
+      relayUrl: "https://relay.atmos.land",
+      relaySecretKey: "local-relay-secret",
     });
   });
 
@@ -60,7 +62,7 @@ describe("dev access token import", () => {
           success: true,
           data: {
             access_token: "short",
-            control_plane_url: "https://relay.atmos.land",
+            relay_url: "https://relay.atmos.land",
           },
         }),
       );

@@ -4,7 +4,7 @@
 
 ## Context
 
-APP-016 currently models a Relay tenant as `tenant_id = sha256(access_token)`. That worked for the first Atmos Computer control plane because possession of the Access Token was the only identity signal. APP-019 GitHub Automation Triggers adds long-lived GitHub installations and event routes under the same tenant, which makes direct token replacement risky: a new token becomes a different tenant, and a lost token cannot prove ownership.
+APP-016 currently models a Relay tenant as `tenant_id = sha256(access_token)`. That worked for the first Atmos Computer relay because possession of the Access Token was the only identity signal. APP-019 GitHub Automation Triggers adds long-lived GitHub installations and event routes under the same tenant, which makes direct token replacement risky: a new token becomes a different tenant, and a lost token cannot prove ownership.
 
 Users normally still have the current token locally in `~/.atmos/computer-client.json`. That means Atmos can support a safe rotation flow: the old token authorizes the change, and the new token becomes the credential for the same logical tenant.
 

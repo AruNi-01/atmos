@@ -4,14 +4,14 @@ import type {
   RegisterTokenResponse,
 } from "@/api/types";
 
-export class ControlPlaneError extends Error {
+export class RelayError extends Error {
   constructor(
     message: string,
     public readonly status: number,
     public readonly code?: string,
   ) {
     super(message);
-    this.name = "ControlPlaneError";
+    this.name = "RelayError";
   }
 }
 
@@ -21,8 +21,11 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PATCH";
 };
 
-export class ControlPlaneClient {
-  constructor(private readonly baseUrl: string) {}
+export class RelayClient {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly relaySecretKey: string = "",
+  ) {}
 
   async registerTenant(token: string) {
     try {
@@ -31,7 +34,7 @@ export class ControlPlaneClient {
         body: { token },
       });
     } catch (error) {
-      if (error instanceof ControlPlaneError && error.status === 409 && error.code === "tenant_exists") {
+      if (error instanceof RelayError && error.status === 409 && error.code === "tenant_exists") {
         return { ok: true as const };
       }
       throw error;
@@ -100,6 +103,7 @@ export class ControlPlaneClient {
       headers: {
         "Content-Type": "application/json",
         ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
+        ...(this.relaySecretKey.trim() ? { "X-Atmos-Relay-Secret": this.relaySecretKey.trim() } : {}),
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
@@ -110,7 +114,7 @@ export class ControlPlaneClient {
     };
 
     if (!response.ok) {
-      throw new ControlPlaneError(
+      throw new RelayError(
         payload.message ?? payload.error ?? `Relay request failed with ${response.status}`,
         response.status,
         payload.error,
@@ -168,7 +172,7 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function invalidClientSessionResponse() {
-  return new ControlPlaneError(
+  return new RelayError(
     "Relay returned an invalid mobile client session.",
     502,
     "invalid_client_session_response",

@@ -122,7 +122,7 @@ The migration disables foreign keys while rebuilding tables, which is pragmatic 
 
 - Seeded migration test: row counts match for tenants, Computers, register tokens, and client sessions.
 - Orphaned reference test: migration fails before dropping legacy tables.
-- Post-migration control-plane test: old token still resolves to the same stable tenant until rotation occurs.
+- Post-migration relay test: old token still resolves to the same stable tenant until rotation occurs.
 - APP-019 schema test: GitHub tables reference stable `tenant_id` values.
 
 ### Fix Log

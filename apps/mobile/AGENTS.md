@@ -30,7 +30,7 @@ apps/mobile/
 │   ├── import-project.tsx
 │   └── workspace/[workspaceId].tsx
 ├── src/
-│   ├── api/                 # Mobile-owned Relay/control-plane/WS clients
+│   ├── api/                 # Mobile-owned Relay/relay/WS clients
 │   ├── features/            # Product screens: onboarding, workspaces, terminal, git
 │   ├── hooks/
 │   ├── lib/
@@ -50,7 +50,7 @@ Generated native folders `ios/` and `android/` are managed by Expo prebuild and 
 ## Product Shape
 
 - Mobile is a lightweight client for a remote Atmos Computer. It never starts or requires a local Atmos Server on the phone.
-- Access Token and Relay control-plane bootstrap follow APP-016.
+- Access Token and Relay bootstrap follow APP-016.
 - Primary post-auth screen is the workspace list.
 - Workspace development is terminal-first and shows exactly one terminal renderer at a time.
 - The only Web right-sidebar-derived M1 surface is Changes & Commit.
@@ -80,7 +80,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 
 ## API & Transport
 
-- App bootstrap/session issuance uses the existing Relay control plane REST routes.
+- App bootstrap/session issuance uses the existing Relay REST routes.
 - Business workflows use the main app WebSocket through `src/api/mobile-ws-client.ts` and `src/api/ws-actions.ts`.
 - Terminal transport uses the native-owned terminal WebSocket through `src/api/terminal-ws-client.ts`.
 - The terminal WebView must not receive Access Token, `client_token`, Relay URLs, or `terminal_ws_url`.
@@ -104,7 +104,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - For environment/setup work, follow [agents/references/mobile-dev-setup.md](../../agents/references/mobile-dev-setup.md).
 - For navigation/header/title work, follow [agents/references/mobile-native-navigation.md](../../agents/references/mobile-native-navigation.md).
 - Smoke iOS and Android dev builds before claiming platform readiness.
-- Keep Control Plane URL overrides and token switching in settings, outside the primary workspace list flow.
+- Keep Relay URL overrides and token switching in settings, outside the primary workspace list flow.
 
 ---
 

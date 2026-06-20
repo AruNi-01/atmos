@@ -14,7 +14,8 @@ import { colors } from "@/theme/colors";
 export function AppProviders({ children }: PropsWithChildren) {
   const queryClient = useMemo(() => createAtmosQueryClient(), []);
   const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
-  const setControlPlaneUrl = useSessionStore((state) => state.setControlPlaneUrl);
+  const setRelayUrl = useSessionStore((state) => state.setRelayUrl);
+  const setRelaySecretKey = useSessionStore((state) => state.setRelaySecretKey);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,8 +30,11 @@ export function AppProviders({ children }: PropsWithChildren) {
       const imported = await loadDevAccessTokenImport();
       if (imported) {
         await storeAccessToken(imported.accessToken);
-        if (imported.controlPlaneUrl) {
-          setControlPlaneUrl(imported.controlPlaneUrl);
+        if (imported.relayUrl) {
+          setRelayUrl(imported.relayUrl);
+        }
+        if (imported.relaySecretKey) {
+          setRelaySecretKey(imported.relaySecretKey);
         }
         if (!cancelled) setAccessTokenLoaded(true);
         return;
@@ -46,7 +50,7 @@ export function AppProviders({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [setAccessTokenLoaded, setControlPlaneUrl]);
+  }, [setAccessTokenLoaded, setRelayUrl, setRelaySecretKey]);
 
   useEffect(() => {
     void SystemUI.setBackgroundColorAsync(colors.background);

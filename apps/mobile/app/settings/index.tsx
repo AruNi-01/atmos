@@ -1,11 +1,11 @@
 import { Stack } from "expo-router";
-import { SettingsScreen } from "@/features/settings/SettingsScreen";
+import { SettingsIndexScreen } from "@/features/settings/SettingsScreen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 
 export default function SettingsRoute() {
   return (
     <>
-      <SettingsScreen />
+      <SettingsIndexScreen />
       <Stack.Screen options={nativeLargeTitleOptions("Settings")} />
     </>
   );

@@ -9,7 +9,7 @@ import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
 import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { ComputerPicker } from "@/features/computers/ComputerPicker";
-import { useControlPlaneClient } from "@/hooks/use-control-plane-client";
+import { useRelayClient } from "@/hooks/use-relay-client";
 import {
   generateAccessToken,
   getStoredAccessToken,
@@ -28,10 +28,10 @@ type FormValues = z.infer<typeof schema>;
 
 export function OnboardingScreen() {
   const router = useRouter();
-  const client = useControlPlaneClient();
+  const client = useRelayClient();
   const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
   const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
-  const controlPlaneUrl = useSessionStore((state) => state.controlPlaneUrl);
+  const relayUrl = useSessionStore((state) => state.relayUrl);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
   const setClientSession = useSessionStore((state) => state.setClientSession);
@@ -62,7 +62,7 @@ export function OnboardingScreen() {
   });
 
   const computersQuery = useQuery({
-    queryKey: ["onboarding-computers", controlPlaneUrl, hasAccessToken],
+    queryKey: ["onboarding-computers", relayUrl, hasAccessToken],
     enabled: hasAccessToken,
     refetchInterval: 5000,
     queryFn: async () => {

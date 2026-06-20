@@ -7,17 +7,26 @@ import type { GithubRelayPrerequisites } from "@/features/automations/lib/github
 
 export function useGithubRelayPrerequisites(): GithubRelayPrerequisites {
   const connectionMode = useAtmosComputerStore((state) => state.connectionMode);
-  const controlPlaneUrl = useAtmosComputerStore((state) => state.controlPlaneUrl);
+  const relayUrl = useAtmosComputerStore((state) => state.relayUrl);
   const accessToken = useAtmosComputerStore((state) => state.accessToken);
+  const relaySecretKey = useAtmosComputerStore((state) => state.relaySecretKey);
   const localServerId = useAtmosComputerStore((state) => state.localServerId);
   const selectedServerId = useAtmosComputerStore((state) => state.selectedServerId);
 
   return React.useMemo(() => {
     const activeServerId = connectionMode === "relay" ? selectedServerId : localServerId;
     return {
-      controlPlaneUrl,
+      relayUrl,
       accessToken: accessToken.trim(),
+      relaySecretKey: relaySecretKey.trim(),
       serverId: activeServerId?.trim() || null,
     };
-  }, [accessToken, connectionMode, controlPlaneUrl, localServerId, selectedServerId]);
+  }, [
+    accessToken,
+    connectionMode,
+    relayUrl,
+    localServerId,
+    relaySecretKey,
+    selectedServerId,
+  ]);
 }

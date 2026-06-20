@@ -16,7 +16,7 @@ pub struct ServerIdentity {
     pub server_secret: String,
     pub relay_ws_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub control_plane_url: Option<String>,
+    pub relay_url: Option<String>,
     /// How this Computer was registered (client channel + optional client version).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub registration_meta: Option<Value>,

@@ -7,13 +7,15 @@ type SettingsResponse = {
   success?: boolean;
   data?: {
     access_token?: string | null;
-    control_plane_url?: string | null;
+    relay_url?: string | null;
+    relay_secret_key?: string | null;
   } | null;
 };
 
 export type DevAccessTokenImport = {
   accessToken: string;
-  controlPlaneUrl: string | null;
+  relayUrl: string | null;
+  relaySecretKey: string | null;
 };
 
 function isReactNativeDev() {
@@ -44,12 +46,14 @@ export async function loadDevAccessTokenImport(
     return null;
   }
 
-  const controlPlaneUrl = payload.data?.control_plane_url?.trim()
-    ? normalizeRelayUrl(payload.data.control_plane_url)
+  const relayUrl = payload.data?.relay_url?.trim()
+    ? normalizeRelayUrl(payload.data.relay_url)
     : null;
+  const relaySecretKey = payload.data?.relay_secret_key?.trim() || null;
 
   return {
     accessToken,
-    controlPlaneUrl,
+    relayUrl,
+    relaySecretKey,
   };
 }

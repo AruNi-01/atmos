@@ -6,7 +6,7 @@
 
 - **Problem**: APP-017 automations can run manually or on a schedule, but users cannot tell Atmos to react when work happens in GitHub, such as a PR opening, a comment arriving, a branch receiving a push, or a workflow failing.
 - **Why now**: APP-016 provides a Relay path to reach a registered Atmos Computer without exposing the user's local server publicly. APP-017 provides durable automation definitions, terminal execution, run history, and notifications.
-- **Product direction**: GitHub webhook triggers are cloud ingress triggers. They require the target Atmos Computer to be registered with Atmos Relay. Execution, artifacts, prompts, and run history remain local to that Computer. Relay setup and route management use the same Atmos Relay Access Token that manages the user's registered Computers; the Computer's `server_secret` is not a control-plane write credential.
+- **Product direction**: GitHub webhook triggers are cloud ingress triggers. They require the target Atmos Computer to be registered with Atmos Relay. Execution, artifacts, prompts, and run history remain local to that Computer. Relay setup and route management use the same Atmos Relay Access Token that manages the user's registered Computers; the Computer's `server_secret` is not a relay write credential.
 - **Related specs**: [APP-016 Atmos Computer](../APP-016_atmos-computer/TECH.md), [APP-017 Atmos Automations](../APP-017_atmos-automations/TECH.md), [APP-020 Relay Stable Tenant Identity](../APP-020_relay-stable-tenant-identity/TECH.md), [APP-005 GitHub Integration](../APP-005_github-integration/PRD.md).
 
 ## Goals

@@ -27,19 +27,21 @@ export function NativeList({
   onRefresh?: () => Promise<void>;
 }) {
   return (
-    <Host colorScheme="light" useViewportSizeMeasurement {...neutralHostProps}>
+    <Host colorScheme="light" matchContents {...neutralHostProps}>
       <List onRefresh={onRefresh}>{children}</List>
     </Host>
   );
 }
 
 export function NativeListItem({
+  leading,
   title,
   supportingText,
   trailing,
   onPress,
   testID,
 }: {
+  leading?: ReactNode;
   title: string;
   supportingText?: string | ReactNode;
   trailing?: ReactNode;
@@ -48,6 +50,7 @@ export function NativeListItem({
 }) {
   return (
     <ListItem
+      leading={leading}
       onPress={onPress}
       supportingText={supportingText}
       trailing={trailing}

@@ -1,6 +1,6 @@
 # PRD · APP-016：Atmos Computer
 
-> **命名**：**Atmos Computer** 是用户可见的一台计算环境（例如在 **VPS** 上启动一台、在笔记本上再连过去）；控制面以 `server_id` 标识；其上运行的 **`apps/api` 进程**仍称 **Atmos Server**。**Cloudflare Relay + Durable Objects** 为连接与传输层，见 `TECH.md`。
+> **命名**：**Atmos Computer** 是用户可见的一台计算环境（例如在 **VPS** 上启动一台、在笔记本上再连过去）；Relay以 `server_id` 标识；其上运行的 **`apps/api` 进程**仍称 **Atmos Server**。**Cloudflare Relay + Durable Objects** 为连接与传输层，见 `TECH.md`。
 >
 > 产品需求：**做什么、为谁、成功长什么样**。技术协议见 `TECH.md`。与 [APP-012](../APP-012_tunnel-connector/TECH.md) **无依赖关系**（见下文「范围外」）。
 
@@ -27,7 +27,7 @@
 ## 3. 用户故事（Must 优先）
 
 1. 作为用户，我希望在 **Desktop/Web 中看到我已添加的 Atmos Computer 列表**，并能 **切换当前 Computer**，以便明确「我现在操作的是哪台机器」。
-2. 作为用户，我希望通过 **一次性注册命令**（Web 生成高熵 `register_token`，在 VPS 上执行即可）把一台新的 **Computer** 加入列表，而无需在 Server 上配置控制面主密钥或公网 IP。
+2. 作为用户，我希望通过 **一次性注册命令**（Web 生成高熵 `register_token`，在 VPS 上执行即可）把一台新的 **Computer** 加入列表，而无需在 Server 上配置Relay主密钥或公网 IP。
 3. 作为用户，我希望 **`atmos` CLI 默认使用与 Web/Desktop 相同的「当前所选 Atmos Computer」的 `apps/api` 基址**（含 `canvas`、`review` 等 HTTP 能力），**无需**依赖手抄 `ATMOS_API_URL` 才能与 UI 对齐；当我选中本机 **Computer** 时可用本机发现（如 `runtime_manifest`）自动落到 loopback，当我选中云端 **Computer** 时 CLI 也应对准该 **Computer**（经 Relay gateway 等，分期见 TECH），避免「UI 看 A、终端改 B」。
 4. 作为用户，我希望在 **网络闪断后** 客户端能 **自动恢复** 与当前 **Computer** 的会话，并 **尽量不丢失** 进行中的操作上下文（依赖 Relay 的 replay 能力，分期目标需可验收）。
 5. 作为用户，我希望 **Relay 不知道我的业务消息明文语义**（至少 M1 以「不解析业务 body」为产品承诺），以降低对云端的信任假设（技术约束见 TECH）。
@@ -40,7 +40,7 @@
 | ID | 需求 |
 |----|------|
 | **M1-1** | 定义并文档化 **Atmos Computer 身份**（`server_id`）与 **客户端身份**（`client_id` / 会话 id），在用户切换 **Computer** 时，**Web / Desktop / CLI** 状态与连接目标一致；其中 **CLI 的 `apps/api` HTTP 基址**须绑定 **当前所选 Computer**，与 UI 同源（解析与降级见 TECH §8）。 |
-| **M1-2** | **控制面**：`register_token` 注册 Server、`GET /v1/computers` 列表、`client_sessions` 连 Relay、吊销；**无** 8 位配对码。用户持 **Access Token**（Bearer）；`tenant_id = sha256(access_token)`；用于签发 `register_token`、列 Computer、建 `client_session`、吊销（见 `TECH.md` §2.4）。`CONTROL_PLANE_KEY` 仅保留给系统/运维管理，**不**作为终端用户鉴权。 |
+| **M1-2** | **Relay**：`register_token` 注册 Server、`GET /v1/computers` 列表、`client_sessions` 连 Relay、吊销；**无** 8 位配对码。用户持 **Access Token**（Bearer）；`tenant_id = sha256(access_token)`；用于签发 `register_token`、列 Computer、建 `client_session`、吊销（见 `TECH.md` §2.4）。`RELAY_KEY` 仅保留给系统/运维管理，**不**作为终端用户鉴权。 |
 | **M1-3** | **Relay 数据面**：**Computer** 上的 Atmos **Server** 进程启动后建立 **出站 WSS** 至 Relay；客户端经 Relay **订阅指定 `server_id`**；双向帧可送达。 |
 | **M1-4** | **信封路由**：Relay 仅根据信封字段路由，**不依赖**解析 Atmos 现有 WS 业务 JSON 结构（与 TECH 一致）。 |
 | **M1-5** | **Desktop / Web** 至少一端完成「**Computer** 列表 + 切换 + 经 Relay 建连」的端到端体验（另一端可为后续迭代，但需在 TECH 标明）。 |
@@ -52,7 +52,7 @@
 | ID | 需求 |
 |----|------|
 | **M2-1** | Relay 侧 **事件环形缓冲 + replay**：客户端重连时可带 `last_event_id` 或等价游标，补发缺失事件（与现有 WS 请求/响应模型兼容策略见 TECH）。 |
-| **M2-2** | **云端拉起 VPS/虚拟机**（新 **Atmos Computer**）：控制面触发计算环境创建（如云厂商 API、自建编排），注入配对或预置 `server_secret`；**不叫 Droid**——Droid 为 Factory 旗下 Agent/产品名；本 spec 用户向功能称 **Atmos Computer**。 |
+| **M2-2** | **云端拉起 VPS/虚拟机**（新 **Atmos Computer**）：Relay触发计算环境创建（如云厂商 API、自建编排），注入配对或预置 `server_secret`；**不叫 Droid**——Droid 为 Factory 旗下 Agent/产品名；本 spec 用户向功能称 **Atmos Computer**。 |
 | **M2-3** | **多客户端同时连接同一 Atmos Computer**：Relay 将 **Server** 产生的下行事件按策略广播/过滤（TECH 定义）。 |
 
 ### 4.3 Nice to Have
@@ -91,7 +91,7 @@
 ## 8. 文档关系
 
 - `BRAINSTORM.md`：为何选 Relay、与 tunnel-connector 的边界；**Atmos Computer** 命名与痛点。
-- `TECH.md`：控制面 API、Relay 路由、DO 状态、与现有 `apps/api` WS 集成方式。
+- `TECH.md`：Relay API、Relay 路由、DO 状态、与现有 `apps/api` WS 集成方式。
 - `TEST.md`：验收场景与回归清单。
 
 ---

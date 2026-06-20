@@ -24,7 +24,7 @@ import {
  *
  * Order matters:
  *   1. Local connection prefs from `localStorage` (`computers`, `selectedServerId`).
- *   2. Computer-client settings (access token / control-plane URL) from the loopback API.
+ *   2. Computer-client settings (access token / relay URL) from the loopback API.
  *   3. Relay session from `~/.atmos/client-session.json`: if present, flips
  *      `connectionMode` to `'relay'` *before* the app-level target lifecycle
  *      runs so the WebSocket layer picks the relay target on the very first connect.
@@ -65,7 +65,7 @@ export function ConnectionBootstrapper() {
 
           const {
             accessToken,
-            controlPlaneUrl,
+            relayUrl,
             selectedServerId,
           } = useAtmosComputerStore.getState();
 
@@ -76,7 +76,7 @@ export function ConnectionBootstrapper() {
           ) {
             try {
               const session = await createHostedRemoteSession(
-                controlPlaneUrl,
+                relayUrl,
                 accessToken,
                 selectedServerId,
               );

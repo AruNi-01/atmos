@@ -1,8 +1,9 @@
-import { Platform } from "react-native";
+import { Platform, Pressable } from "react-native";
 import { Stack, type NativeStackHeaderItem, useRouter } from "expo-router";
+import type { SFSymbol } from "sf-symbols-typescript";
 import { WorkspaceListScreen } from "@/features/workspaces/WorkspaceListScreen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
-import { NativeButton } from "@/ui/primitives/native-controls";
+import { SettingsIcon } from "@/ui/icons/lucide-native";
 import { colors } from "@/theme/colors";
 
 export default function IndexRoute() {
@@ -17,7 +18,7 @@ export default function IndexRoute() {
           headerRight:
             Platform.OS === "ios"
               ? undefined
-              : () => <NativeButton label="Settings" onPress={() => router.push("/settings")} variant="text" />,
+              : () => <DashboardSettingsButton onPress={() => router.push("/settings")} />,
           unstable_headerRightItems:
             Platform.OS === "ios"
               ? () => buildHeaderRightItems({ onPressSettings: () => router.push("/settings") })
@@ -36,6 +37,7 @@ function buildHeaderRightItems({
   return [
     {
       accessibilityLabel: "Settings",
+      icon: sfSymbol("gearshape"),
       identifier: "dashboard-settings",
       label: "Settings",
       onPress: onPressSettings,
@@ -44,4 +46,22 @@ function buildHeaderRightItems({
       variant: "plain",
     },
   ];
+}
+
+function DashboardSettingsButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityLabel="Settings"
+      accessibilityRole="button"
+      hitSlop={12}
+      onPress={onPress}
+      style={{ paddingHorizontal: 12, paddingVertical: 8 }}
+    >
+      <SettingsIcon color={colors.label} size={22} strokeWidth={2.4} />
+    </Pressable>
+  );
+}
+
+function sfSymbol(name: SFSymbol) {
+  return { name, type: "sfSymbol" as const };
 }

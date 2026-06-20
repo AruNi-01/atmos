@@ -17,15 +17,15 @@
 
 ### S1：配对注册
 
-- **Given** 用户已在 Control Plane 登录  
+- **Given** 用户已通过 Relay 准备好访问令牌
 - **When** 用户申请配对码并在 **Computer**（其 Server）上执行注册  
-- **Then** Control Plane 返回 `server_id` 与 `server_secret`；**Computer** 本地写入 `relay_identity.json`；用户 **Computer** 列表中出现新条目
+- **Then** Relay 返回 `server_id` 与 `server_secret`；**Computer** 本地写入 `relay_identity.json`；用户 **Computer** 列表中出现新条目
 
 ### S2：Computer 上 Server 出站连接 Relay
 
 - **Given** 有效 `relay_identity.json` 与网络可达 Relay
 - **When** **Computer** 上 Server 进程启动出站客户端  
-- **Then** DO 进入 `READY`（或等价）；Control Plane/诊断接口显示该 **Computer** **在线**  
+- **Then** DO 进入 `READY`（或等价）；Relay/诊断接口显示该 **Computer** **在线**
 
 ### S3：Client 经 Relay 订阅 Computer
 

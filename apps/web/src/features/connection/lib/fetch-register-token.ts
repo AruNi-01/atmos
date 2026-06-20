@@ -1,4 +1,4 @@
-import { cpFetchWithAccessToken } from '@/features/connection/lib/atmos-access-token';
+import { relayFetchWithAccessToken } from '@/features/connection/lib/atmos-access-token';
 
 export interface RegisterTokenResponse {
   register_token: string;
@@ -7,13 +7,20 @@ export interface RegisterTokenResponse {
 }
 
 export async function fetchRegisterToken(
-  controlPlaneUrl: string,
+  relayUrl: string,
   accessToken: string,
+  relaySecretKey?: string,
 ): Promise<RegisterTokenResponse> {
-  const res = await cpFetchWithAccessToken(controlPlaneUrl, accessToken, '/v1/register_tokens', {
-    method: 'POST',
-    body: JSON.stringify({}),
-  });
+  const res = await relayFetchWithAccessToken(
+    relayUrl,
+    accessToken,
+    '/v1/register_tokens',
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    relaySecretKey,
+  );
   const data = (await res.json().catch(() => null)) as
     | (RegisterTokenResponse & { error?: string })
     | null;

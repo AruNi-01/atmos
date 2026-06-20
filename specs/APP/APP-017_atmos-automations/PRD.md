@@ -124,7 +124,7 @@ flowchart LR
 
 ## Out of Scope
 
-- **Hosted automation scheduler** — v1 runs on the selected Atmos Computer; no cloud scheduler/control-plane dispatch is required.
+- **Hosted automation scheduler** — v1 runs on the selected Atmos Computer; no cloud scheduler/relay dispatch is required.
 - **Cross-Computer synchronization** — automations do not automatically copy between local and remote Computers.
 - **Team-owned service identity** — v1 uses the user's local Computer environment and configured agent credentials.
 - **Full integration platform** — Slack, Linear, Sentry, PagerDuty, and similar event/action integrations are future scope.

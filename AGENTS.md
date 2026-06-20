@@ -27,7 +27,7 @@
 | **Frontend: UI Library** (@workspace/ui) | [packages/ui/AGENTS.md](packages/ui/AGENTS.md) |
 | **Terminal agent built-ins** (shared Rust/TS manifest) | [resources/terminal-agents/AGENTS.md](resources/terminal-agents/AGENTS.md) |
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
-| **Relay control plane** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
+| **Relay** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
 | **Write/Edit Specs** (planning + optional logs) | [specs/AGENTS.md](specs/AGENTS.md) |
 
 ---
@@ -66,7 +66,7 @@ atmos/
 │   ├── shared/                # @atmos/shared (Hooks/Utils)
 │   ├── config/                # @atmos/config (TS Config)
 │   ├── i18n/                  # @workspace/i18n (Translations)
-│   └── relay/                 # Atmos Computer control plane + Relay (Workers / D1)
+│   └── relay/                 # Atmos Computer relay + Relay (Workers / D1)
 │
 ├── resources/                 # 📄 Cross-runtime product manifests
 │   └── terminal-agents/       # Built-in terminal agent defaults shared by Rust + TS
@@ -98,7 +98,7 @@ atmos/
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
 
 ### Mobile Change Flow
-`apps/mobile/src/api` (Relay/control-plane/WS clients) → `apps/mobile/src/stores` (session/UI state) → `apps/mobile/src/features` (Expo UI screens). Fresh-machine native setup lives in [agents/references/mobile-dev-setup.md](agents/references/mobile-dev-setup.md).
+`apps/mobile/src/api` (Relay/relay/WS clients) → `apps/mobile/src/stores` (session/UI state) → `apps/mobile/src/features` (Expo UI screens). Fresh-machine native setup lives in [agents/references/mobile-dev-setup.md](agents/references/mobile-dev-setup.md).
 
 ### Specs Flow
 Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-NNN_<title>/` with four standard planning files: `BRAINSTORM.md` → `PRD.md` → `TECH.md` → `TEST.md`. Optional sibling logs such as `PROGRESS.md`, `REVIEW.md`, and `IMPROVEMENT.md` can track implementation handoff, post-implementation review fixes, and post-ship learnings without becoming requirements sources. The lifecycle is: brainstorm → PRD → TECH → test plan → implementation → test run. Each stage has a dedicated skill in [`.agents/skills/`](.agents/skills/):
@@ -128,7 +128,7 @@ One **`apps/api` process** per machine is the default **Atmos Server**. Desktop,
 
 **Loopback auth**: `ATMOS_LOCAL_TOKEN` is optional hardening only — not written to the manifest and not required for Desktop/Web dev.
 
-**Atmos Computer (remote)**: Spec [APP-016](specs/APP/APP-016_atmos-computer/TECH.md); Worker code in `packages/relay`; user **Access Token** (Bearer) on the control plane.
+**Atmos Computer (remote)**: Spec [APP-016](specs/APP/APP-016_atmos-computer/TECH.md); Worker code in `packages/relay`; user **Access Token** (Bearer) on the relay.
 
 ---
 
