@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   Keyboard,
   Pressable,
@@ -6,20 +6,12 @@ import {
   StyleSheet,
   Text,
   View,
-  type KeyboardEvent,
-  type KeyboardEventName,
 } from "react-native";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { terminalShortcuts, type TerminalShortcut } from "@/features/terminal/terminal-shortcuts";
 import { colors } from "@/theme/colors";
-
-type KeyboardAccessoryState = {
-  bottom: number;
-  visible: boolean;
-};
-
-const MIN_KEYBOARD_HEIGHT_FOR_ACCESSORY = 120;
 
 export function TerminalShortcutBar({
   enabled = true,
@@ -28,41 +20,8 @@ export function TerminalShortcutBar({
   enabled?: boolean;
   onShortcut: (shortcut: TerminalShortcut) => void;
 }) {
-  const containerRef = useRef<View>(null);
-  const [keyboardState, setKeyboardState] = useState<KeyboardAccessoryState>({
-    bottom: 0,
-    visible: false,
-  });
+  const insets = useSafeAreaInsets();
   const shortcutsById = useMemo(() => new Map(terminalShortcuts.map((shortcut) => [shortcut.id, shortcut])), []);
-
-  useEffect(() => {
-    const showEvent: KeyboardEventName = process.env.EXPO_OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const changeEvent: KeyboardEventName = process.env.EXPO_OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent: KeyboardEventName = process.env.EXPO_OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const show = (event: KeyboardEvent) => {
-      if (!enabled) return;
-      Keyboard.scheduleLayoutAnimation(event);
-      updateKeyboardPosition(containerRef.current, event, setKeyboardState);
-    };
-    const hide = (event: KeyboardEvent) => {
-      Keyboard.scheduleLayoutAnimation(event);
-      setKeyboardState((state) => ({ ...state, visible: false }));
-    };
-
-    const subscriptions = Array.from(new Set([showEvent, changeEvent])).map((eventName) =>
-      Keyboard.addListener(eventName, show),
-    );
-    subscriptions.push(Keyboard.addListener(hideEvent, hide));
-
-    return () => subscriptions.forEach((subscription) => subscription.remove());
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) {
-      setKeyboardState({ bottom: 0, visible: false });
-    }
-  }, [enabled]);
 
   const fireShortcut = (shortcutId: string) => {
     const shortcut = shortcutsById.get(shortcutId);
@@ -71,45 +30,43 @@ export function TerminalShortcutBar({
 
   const handleMenuAction = (actionId: string) => fireShortcut(actionId);
 
-  if (!enabled || !keyboardState.visible) {
+  if (!enabled) {
     return null;
   }
 
   return (
-    <View ref={containerRef} pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.overlay]}>
-      <View pointerEvents="box-none" style={[styles.accessoryFrame, { bottom: keyboardState.bottom }]}>
-        <GlassPanel
-          fallbackStyle={styles.fallback}
-          glassEffectStyle={{ style: "regular", animate: true }}
-          interactive
-          style={styles.root}
-          tintColor="rgba(9, 9, 11, 0.78)"
-        >
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
-            <ShortcutMenuButton
-              actions={CTRL_ACTIONS}
-              label="Ctrl"
-              onAction={handleMenuAction}
-            />
-            <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
-            <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
-            <ShortcutButton label="Paste" onPress={() => fireShortcut("paste")} />
-            <ShortcutButton label="History" onPress={() => fireShortcut("up")} />
-            <ShortcutMenuButton
-              actions={DIRECTION_ACTIONS}
-              label="Move"
-              onAction={handleMenuAction}
-              openOnLongPress
-            />
-            <ShortcutMenuButton
-              actions={AGENT_ACTIONS}
-              label="Agent"
-              onAction={handleMenuAction}
-            />
-            <ShortcutButton label="Keyboard" onPress={() => Keyboard.dismiss()} />
-          </ScrollView>
-        </GlassPanel>
-      </View>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <GlassPanel
+        fallbackStyle={styles.fallback}
+        glassEffectStyle={{ style: "regular", animate: true }}
+        interactive
+        style={styles.root}
+        tintColor="rgba(9, 9, 11, 0.78)"
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
+          <ShortcutMenuButton
+            actions={CTRL_ACTIONS}
+            label="Ctrl"
+            onAction={handleMenuAction}
+          />
+          <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
+          <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
+          <ShortcutButton label="Paste" onPress={() => fireShortcut("paste")} />
+          <ShortcutButton label="History" onPress={() => fireShortcut("up")} />
+          <ShortcutMenuButton
+            actions={DIRECTION_ACTIONS}
+            label="Move"
+            onAction={handleMenuAction}
+            openOnLongPress
+          />
+          <ShortcutMenuButton
+            actions={AGENT_ACTIONS}
+            label="Agent"
+            onAction={handleMenuAction}
+          />
+          <ShortcutButton label="Keyboard" onPress={() => Keyboard.dismiss()} />
+        </ScrollView>
+      </GlassPanel>
     </View>
   );
 }
@@ -164,36 +121,6 @@ function ShortcutMenuButton({
   );
 }
 
-function updateKeyboardPosition(
-  container: View | null,
-  event: KeyboardEvent,
-  setKeyboardState: (state: KeyboardAccessoryState) => void,
-) {
-  if (event.endCoordinates.height < MIN_KEYBOARD_HEIGHT_FOR_ACCESSORY) {
-    setKeyboardState({ bottom: 0, visible: false });
-    return;
-  }
-
-  const fallbackBottom = Math.max(8, event.endCoordinates.height + 8);
-
-  if (!container) {
-    setKeyboardState({ bottom: fallbackBottom, visible: true });
-    return;
-  }
-
-  requestAnimationFrame(() => {
-    container.measureInWindow((_x, y, _width, height) => {
-      const containerBottom = y + height;
-      const keyboardTop = event.endCoordinates.screenY;
-      const bottom = Math.max(8, containerBottom - keyboardTop + 8);
-      setKeyboardState({
-        bottom: Number.isFinite(bottom) ? bottom : fallbackBottom,
-        visible: true,
-      });
-    });
-  });
-}
-
 const CTRL_ACTIONS: MenuAction[] = [
   { id: "ctrl-c", title: "Ctrl-C" },
   { id: "ctrl-d", title: "Ctrl-D" },
@@ -218,15 +145,10 @@ const AGENT_ACTIONS: MenuAction[] = [
 ];
 
 const styles = StyleSheet.create({
-  accessoryFrame: {
-    left: 10,
-    position: "absolute",
-    right: 10,
-    zIndex: 20,
-  },
-  overlay: {
-    elevation: 20,
-    zIndex: 20,
+  container: {
+    backgroundColor: colors.terminalBg,
+    paddingHorizontal: 10,
+    paddingTop: 8,
   },
   root: {
     backgroundColor: colors.terminalBg,

@@ -5,8 +5,13 @@ import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { getTerminalDisplayMeta } from "@atmos/shared/terminal";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { TerminalWebView, type TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
 import { createTerminalOutputBatcher } from "@/features/terminal/terminal-output-batcher";
+import {
+  MOBILE_TERMINAL_AGENTS,
+  type MobileTerminalAgent,
+} from "@/features/terminal/mobile-terminal-agents";
 import { resolveActiveTerminalEntry } from "@/features/terminal/terminal-selection";
 import {
   getTerminalPasteInput,
@@ -18,7 +23,8 @@ import { TerminalWsClient, type TerminalWsState } from "@/api/terminal-ws-client
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore, type MobileTerminalEntry } from "@/stores/terminal-store";
-import { colors, radii } from "@/theme/colors";
+import { colors } from "@/theme/colors";
+import { BotIcon, TerminalIcon } from "@/ui/icons/lucide-native";
 
 type TerminalConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
@@ -121,7 +127,7 @@ export function TerminalScreen({
 
   const activeEntry = resolveActiveTerminalEntry(ensuredEntries, activeEntryId);
   const activeSessionId = activeEntry ? activeEntry.sessionId ?? activeEntry.id : null;
-  const activeDisplayTitle = activeEntry ? getMobileTerminalDisplayTitle(activeEntry) : "";
+  const activeDisplayMeta = activeEntry ? getMobileTerminalDisplayMeta(activeEntry) : null;
 
   const createTerminalEntry = useCallback(() => {
     const id = `${workspaceId}:mobile-${Date.now()}`;
@@ -139,7 +145,7 @@ export function TerminalScreen({
 
     onHeaderControlsChange({
       activeEntryId: activeEntry?.id ?? null,
-      entries: ensuredEntries.map((entry) => ({ id: entry.id, label: getMobileTerminalDisplayTitle(entry) })),
+      entries: ensuredEntries.map((entry) => ({ id: entry.id, label: getMobileTerminalDisplayMeta(entry).displayTitle })),
       onCreateEntry: createTerminalEntry,
       onSelectEntry: (entryId) => setActiveEntry(workspaceId, entryId),
     });
@@ -396,7 +402,11 @@ export function TerminalScreen({
       ) : null}
       {activeEntry && activeSessionId ? (
         <View style={styles.terminalShell}>
-          <MobileTerminalHeader connectionState={connectionState} title={activeDisplayTitle} />
+          <MobileTerminalHeader
+            connectionState={connectionState}
+            title={activeDisplayMeta?.displayTitle ?? ""}
+            toolbarAgent={activeDisplayMeta?.toolbarAgent}
+          />
           <TerminalWebView
             key={activeEntry.id}
             ref={webViewRef}
@@ -423,25 +433,34 @@ export function TerminalScreen({
   );
 }
 
-function getMobileTerminalDisplayTitle(entry: MobileTerminalEntry) {
+function getMobileTerminalDisplayMeta(entry: MobileTerminalEntry) {
   return getTerminalDisplayMeta({
     baseTitle: entry.label,
+    configuredAgents: MOBILE_TERMINAL_AGENTS,
     dynamicTitle: entry.dynamicTitle,
-  }).displayTitle;
+  });
 }
 
 function MobileTerminalHeader({
   connectionState,
   title,
+  toolbarAgent,
 }: {
   connectionState: TerminalConnectionState;
   title: string;
+  toolbarAgent?: MobileTerminalAgent;
 }) {
   const statusLabel = connectionState === "connected" ? null : terminalConnectionStatusLabel(connectionState);
 
   return (
     <View style={styles.terminalHeader}>
-      <Text style={styles.terminalIcon}>{"›_"}</Text>
+      {toolbarAgent?.iconType === "built-in" ? (
+        <MobileAgentIcon agentId={toolbarAgent.id} size={18} />
+      ) : toolbarAgent?.iconType === "custom" ? (
+        <BotIcon color={colors.terminalMuted} size={18} strokeWidth={2.4} />
+      ) : (
+        <TerminalIcon color={colors.terminalMuted} size={18} strokeWidth={2.2} />
+      )}
       <Text style={styles.terminalTitle} numberOfLines={1}>
         {title || "Terminal"}
       </Text>
@@ -541,32 +560,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   root: {
+    backgroundColor: colors.terminalBg,
     flex: 1,
-    gap: 10,
   },
   terminalHeader: {
     alignItems: "center",
     backgroundColor: colors.terminalBg,
-    borderBottomColor: "rgba(244, 244, 245, 0.08)",
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 8,
     minHeight: 42,
     paddingHorizontal: 14,
   },
-  terminalIcon: {
-    color: colors.terminalMuted,
-    fontFamily: "Menlo",
-    fontSize: 18,
-    fontWeight: "700",
-    lineHeight: 22,
-  },
   terminalShell: {
     backgroundColor: colors.terminalBg,
-    borderCurve: "continuous",
-    borderRadius: radii.card,
     flex: 1,
-    minHeight: 360,
     overflow: "hidden",
   },
   terminalStatusPill: {

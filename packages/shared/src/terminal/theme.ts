@@ -11,6 +11,7 @@ export type TerminalThemeTokens = {
   brightWhite: string;
   brightYellow: string;
   cursor: string;
+  cursorAccent: string;
   cyan: string;
   foreground: string;
   green: string;
@@ -33,7 +34,8 @@ export const terminalTheme: TerminalThemeTokens = {
   brightRed: "#fca5a5",
   brightWhite: "#f8fafc",
   brightYellow: "#fde68a",
-  cursor: "#7dd3fc",
+  cursor: "#f8fafc",
+  cursorAccent: "#0b0f14",
   cyan: "#22d3ee",
   foreground: "#d8dee9",
   green: "#34d399",
@@ -43,4 +45,3 @@ export const terminalTheme: TerminalThemeTokens = {
   white: "#e5e7eb",
   yellow: "#fbbf24",
 };
-

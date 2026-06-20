@@ -26,8 +26,8 @@ export const colors = {
   yellow: "#a16207",
   yellowSurface: "rgba(161, 98, 7, 0.10)",
   yellowBorder: "rgba(161, 98, 7, 0.22)",
-  terminalBg: "#09090b",
-  terminalFg: "#f4f4f5",
+  terminalBg: "#0b0f14",
+  terminalFg: "#d8dee9",
   terminalMuted: "#a1a1aa",
 };
 

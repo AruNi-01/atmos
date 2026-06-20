@@ -7,6 +7,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@atmos/resources/*": [
+        "../../resources/*"
       ]
     }
   },
