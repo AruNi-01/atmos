@@ -10,7 +10,6 @@ import {
 import { colors } from "@/theme/colors";
 
 export { NativeButton } from "./native-button";
-export { NativeBottomSheet } from "./native-bottom-sheet";
 export { NativeIcon, selectNativeIcon } from "./native-icon";
 export type { NativeIconName } from "./native-icon";
 export { NativeMenuButton } from "./native-menu-button";

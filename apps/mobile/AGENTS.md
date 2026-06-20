@@ -64,6 +64,10 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - Use Expo UI native controls where practical for app chrome, buttons, lists, forms, menus, sheets, dialogs, and settings.
 - Import shared mobile controls from `src/ui/primitives/native-controls`; add new Expo UI wrappers under `src/ui/primitives`.
 - Keep route-level layout helpers under `src/ui/layout`.
+- Page titles, headers, navigation bars, and header buttons must follow [agents/references/mobile-native-navigation.md](../../agents/references/mobile-native-navigation.md). Do not hand-roll page titles or native-looking header chrome.
+- Stack routes must set titles through `Stack.Screen` options, using `src/ui/navigation/native-screen-options.ts` helpers. Do not render page titles as normal `<Text>` inside the screen body.
+- Large-title pages must let the native stack own the header: the route's first rendered screen content must be an `AppScreen`/`ScrollView` with `contentInsetAdjustmentBehavior="automatic"`, and large-title routes must not force `headerTransparent: false` or a custom `headerStyle.backgroundColor`.
+- Compact workspace/detail screens should use compact native-stack titles and native header actions/menus; do not create custom back buttons, fake centered titles, or extra header bars in the page body.
 - Use NativeWind for layout, spacing, and surfaces that Expo UI does not own.
 - Do not import `@workspace/ui` shadcn components into mobile.
 - Keep screens simple and phone-focused. Do not port desktop Center Stage, RightSidebar shell, terminal mosaic panes, Canvas pinning, or Web editor chrome into mobile.
@@ -95,6 +99,7 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 
 - Run `bun --filter @atmos/mobile typecheck` after mobile code changes.
 - For environment/setup work, follow [agents/references/mobile-dev-setup.md](../../agents/references/mobile-dev-setup.md).
+- For navigation/header/title work, follow [agents/references/mobile-native-navigation.md](../../agents/references/mobile-native-navigation.md).
 - Smoke iOS and Android dev builds before claiming platform readiness.
 - Keep Control Plane URL overrides and token switching in settings, outside the primary workspace list flow.
 

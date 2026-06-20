@@ -1,5 +1,6 @@
 import { Stack, useRouter } from "expo-router";
 import { WorkspaceListScreen } from "@/features/workspaces/WorkspaceListScreen";
+import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { NativeButton } from "@/ui/primitives/native-controls";
 
 export default function IndexRoute() {
@@ -7,15 +8,15 @@ export default function IndexRoute() {
 
   return (
     <>
+      <WorkspaceListScreen />
       <Stack.Screen
         options={{
-          title: "Atmos",
+          ...nativeLargeTitleOptions("Atmos"),
           headerRight: () => (
             <NativeButton label="Settings" onPress={() => router.push("/settings")} variant="text" />
           ),
         }}
       />
-      <WorkspaceListScreen />
     </>
   );
 }

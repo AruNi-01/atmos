@@ -8,8 +8,10 @@ import "@xterm/xterm/css/xterm.css";
 import {
   base64ToBytes,
   buildTerminalSnapshotRestorePayload,
+  extractCommandName,
   isTerminalSnapshot,
   isUsableTerminalGrid,
+  shortenPath,
   terminalTheme,
   type TerminalSnapshot,
 } from "@atmos/shared/terminal";
@@ -26,12 +28,12 @@ export type TerminalDomHandle = {
 };
 
 type Props = {
-  title: string;
   connected: boolean;
   onInput: (data: string) => Promise<void>;
   onResize: (cols: number, rows: number) => Promise<void>;
   onReady: (cols: number, rows: number) => Promise<void>;
   onRendererError: (message: string) => Promise<void>;
+  onTitleChange: (title: string) => Promise<void>;
   ref?: React.Ref<TerminalDomHandle>;
   dom?: DOMProps;
 };
@@ -39,20 +41,22 @@ type Props = {
 type DomJsonValue = boolean | number | string | null | DomJsonValue[] | { [key: string]: DomJsonValue | undefined };
 
 export default function TerminalDomView({
-  title,
   connected,
   onInput,
   onReady,
   onRendererError,
   onResize,
+  onTitleChange,
   ref,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const callbacksRef = useRef({ onInput, onReady, onRendererError, onResize });
+  const callbacksRef = useRef({ onInput, onReady, onRendererError, onResize, onTitleChange });
+  const cmdStartTimerRef = useRef<number | null>(null);
+  const lastTitleRef = useRef<string | null>(null);
 
-  callbacksRef.current = { onInput, onReady, onRendererError, onResize };
+  callbacksRef.current = { onInput, onReady, onRendererError, onResize, onTitleChange };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -78,6 +82,15 @@ export default function TerminalDomView({
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
+    const focusTerminal = () => {
+      terminal.focus();
+    };
+    const focusOptions = { capture: true };
+    const passiveFocusOptions = { capture: true, passive: true };
+    mount.addEventListener("pointerdown", focusTerminal, focusOptions);
+    mount.addEventListener("touchstart", focusTerminal, passiveFocusOptions);
+    mount.addEventListener("click", focusTerminal, focusOptions);
+
     const reportError = (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       void callbacksRef.current.onRendererError(message);
@@ -99,6 +112,44 @@ export default function TerminalDomView({
       void callbacksRef.current.onResize(cols, rows).catch(reportError);
     });
 
+    const CMD_START_DELAY_MS = 150;
+    terminal.parser.registerOscHandler(9999, (data: string) => {
+      const colonIdx = data.indexOf(":");
+      if (colonIdx === -1) return true;
+
+      const metaType = data.substring(0, colonIdx);
+      const payload = data.substring(colonIdx + 1);
+
+      if (metaType === "CMD_START") {
+        const nextTitle = extractCommandName(payload);
+        if (cmdStartTimerRef.current) {
+          window.clearTimeout(cmdStartTimerRef.current);
+        }
+        cmdStartTimerRef.current = window.setTimeout(() => {
+          cmdStartTimerRef.current = null;
+          if (nextTitle !== lastTitleRef.current) {
+            lastTitleRef.current = nextTitle;
+            void callbacksRef.current.onTitleChange(nextTitle).catch(reportError);
+          }
+        }, CMD_START_DELAY_MS);
+        return true;
+      }
+
+      if (metaType === "CMD_END") {
+        if (cmdStartTimerRef.current) {
+          window.clearTimeout(cmdStartTimerRef.current);
+          cmdStartTimerRef.current = null;
+        }
+        const nextTitle = shortenPath(payload);
+        if (nextTitle !== lastTitleRef.current) {
+          lastTitleRef.current = nextTitle;
+          void callbacksRef.current.onTitleChange(nextTitle).catch(reportError);
+        }
+      }
+
+      return true;
+    });
+
     const resizeObserver =
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(() => window.requestAnimationFrame(fitAndReport))
@@ -106,12 +157,17 @@ export default function TerminalDomView({
     resizeObserver?.observe(mount);
     window.requestAnimationFrame(() => {
       fitAndReport();
-      terminal.focus();
-      terminal.write(`\x1b[2mAtmos mobile terminal · ${title}\x1b[0m\r\n`);
       void callbacksRef.current.onReady(terminal.cols, terminal.rows).catch(reportError);
     });
 
     return () => {
+      if (cmdStartTimerRef.current) {
+        window.clearTimeout(cmdStartTimerRef.current);
+        cmdStartTimerRef.current = null;
+      }
+      mount.removeEventListener("pointerdown", focusTerminal, focusOptions);
+      mount.removeEventListener("touchstart", focusTerminal, passiveFocusOptions);
+      mount.removeEventListener("click", focusTerminal, focusOptions);
       resizeObserver?.disconnect();
       onData.dispose();
       onResizeDisposable.dispose();
@@ -194,11 +250,12 @@ export default function TerminalDomView({
         }
         .terminal {
           height: 100%;
+          touch-action: manipulation;
           width: 100%;
         }
         .xterm {
           height: 100%;
-          padding: 12px;
+          padding: 10px 12px 12px;
         }
         .xterm-viewport {
           background: transparent !important;

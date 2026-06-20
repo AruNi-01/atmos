@@ -3,8 +3,8 @@ import { StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
+import { getTerminalDisplayMeta } from "@atmos/shared/terminal";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
-import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
 import { TerminalWebView, type TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
 import { createTerminalOutputBatcher } from "@/features/terminal/terminal-output-batcher";
 import { resolveActiveTerminalEntry } from "@/features/terminal/terminal-selection";
@@ -18,7 +18,7 @@ import { TerminalWsClient, type TerminalWsState } from "@/api/terminal-ws-client
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore, type MobileTerminalEntry } from "@/stores/terminal-store";
-import { colors } from "@/theme/colors";
+import { colors, radii } from "@/theme/colors";
 
 type TerminalConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
@@ -31,13 +31,17 @@ export type TerminalHeaderControls = {
   onSelectEntry: (entryId: string) => void;
 };
 
+export type TerminalShortcutHandler = (shortcut: TerminalShortcut) => void;
+
 export function TerminalScreen({
   onHeaderControlsChange,
+  onShortcutHandlerChange,
   projectName,
   workspaceId,
   workspaceName,
 }: {
   onHeaderControlsChange?: (controls: TerminalHeaderControls | null) => void;
+  onShortcutHandlerChange?: (handler: TerminalShortcutHandler | null) => void;
   projectName?: string | null;
   workspaceId: string;
   workspaceName: string;
@@ -76,7 +80,6 @@ export function TerminalScreen({
         label: candidate.label,
         sessionId: candidate.session_id ?? undefined,
         tmuxWindowName: candidate.tmux_window_name ?? undefined,
-        dynamicTitle: candidate.terminal_name ?? undefined,
         isNew: false,
       })) ?? [];
 
@@ -118,6 +121,7 @@ export function TerminalScreen({
 
   const activeEntry = resolveActiveTerminalEntry(ensuredEntries, activeEntryId);
   const activeSessionId = activeEntry ? activeEntry.sessionId ?? activeEntry.id : null;
+  const activeDisplayTitle = activeEntry ? getMobileTerminalDisplayTitle(activeEntry) : "";
 
   const createTerminalEntry = useCallback(() => {
     const id = `${workspaceId}:mobile-${Date.now()}`;
@@ -135,7 +139,7 @@ export function TerminalScreen({
 
     onHeaderControlsChange({
       activeEntryId: activeEntry?.id ?? null,
-      entries: ensuredEntries.map((entry) => ({ id: entry.id, label: entry.label })),
+      entries: ensuredEntries.map((entry) => ({ id: entry.id, label: getMobileTerminalDisplayTitle(entry) })),
       onCreateEntry: createTerminalEntry,
       onSelectEntry: (entryId) => setActiveEntry(workspaceId, entryId),
     });
@@ -193,6 +197,14 @@ export function TerminalScreen({
       }
     },
     [activeSessionId],
+  );
+
+  const handleTitleChange = useCallback(
+    (nextTitle: string) => {
+      if (!activeEntry) return;
+      updateEntry(workspaceId, activeEntry.id, { dynamicTitle: nextTitle });
+    },
+    [activeEntry?.id, updateEntry, workspaceId],
   );
 
   useEffect(() => {
@@ -285,7 +297,6 @@ export function TerminalScreen({
         if (message.snapshot) {
           webViewRef.current?.restoreSnapshot(message.snapshot);
         }
-        webViewRef.current?.focus();
         return;
       }
 
@@ -330,31 +341,42 @@ export function TerminalScreen({
     workspaceName,
   ]);
 
-  const handleShortcut = (shortcut: TerminalShortcut) => {
-    const input = getTerminalShortcutInput(shortcut);
-    if (input !== null) {
-      sendTerminalInput(input);
-      return;
-    }
-
-    if (shortcut.kind === "action") {
-      if (shortcut.action === "paste") {
-        void getTerminalPasteInput(() => Clipboard.getStringAsync())
-          .then((pasteInput) => {
-            if (pasteInput) {
-              sendTerminalInput(pasteInput);
-              return;
-            }
-            setTerminalError("Clipboard is empty.");
-          })
-          .catch(() => setTerminalError("Could not read clipboard."));
+  const handleShortcut = useCallback(
+    (shortcut: TerminalShortcut) => {
+      const input = getTerminalShortcutInput(shortcut);
+      if (input !== null) {
+        sendTerminalInput(input);
         return;
       }
-      if (shortcut.action === "workspace-list") router.push("/");
-      if (shortcut.action === "switch-terminal") setTerminalError("Use the terminal menu in the header.");
-      if (shortcut.action === "new-terminal") createTerminalEntry();
-    }
-  };
+
+      if (shortcut.kind === "action") {
+        if (shortcut.action === "paste") {
+          void getTerminalPasteInput(() => Clipboard.getStringAsync())
+            .then((pasteInput) => {
+              if (pasteInput) {
+                sendTerminalInput(pasteInput);
+                return;
+              }
+              setTerminalError("Clipboard is empty.");
+            })
+            .catch(() => setTerminalError("Could not read clipboard."));
+          return;
+        }
+        if (shortcut.action === "workspace-list") router.push("/");
+        if (shortcut.action === "switch-terminal") setTerminalError("Use the terminal menu in the header.");
+        if (shortcut.action === "new-terminal") createTerminalEntry();
+      }
+    },
+    [createTerminalEntry, router, sendTerminalInput],
+  );
+
+  useEffect(() => {
+    if (!onShortcutHandlerChange) return undefined;
+
+    onShortcutHandlerChange(handleShortcut);
+
+    return () => onShortcutHandlerChange(null);
+  }, [handleShortcut, onShortcutHandlerChange]);
 
   return (
     <View style={styles.root}>
@@ -373,17 +395,20 @@ export function TerminalScreen({
         </GlassPanel>
       ) : null}
       {activeEntry && activeSessionId ? (
-        <TerminalWebView
-          key={activeEntry.id}
-          ref={webViewRef}
-          connected={connectionState === "connected"}
-          onInput={sendTerminalInput}
-          onReady={(size) => sendTerminalResize(size.cols, size.rows)}
-          onRendererError={setTerminalError}
-          onResize={(size) => sendTerminalResize(size.cols, size.rows)}
-          sessionId={activeSessionId}
-          title={activeEntry.label}
-        />
+        <View style={styles.terminalShell}>
+          <MobileTerminalHeader connectionState={connectionState} title={activeDisplayTitle} />
+          <TerminalWebView
+            key={activeEntry.id}
+            ref={webViewRef}
+            connected={connectionState === "connected"}
+            onInput={sendTerminalInput}
+            onReady={(size) => sendTerminalResize(size.cols, size.rows)}
+            onRendererError={setTerminalError}
+            onResize={(size) => sendTerminalResize(size.cols, size.rows)}
+            onTitleChange={handleTitleChange}
+            sessionId={activeSessionId}
+          />
+        </View>
       ) : (
         <GlassPanel style={styles.choiceState}>
           <Text selectable style={styles.choiceTitle}>
@@ -394,9 +419,45 @@ export function TerminalScreen({
           </Text>
         </GlassPanel>
       )}
-      <TerminalShortcutBar onShortcut={handleShortcut} />
     </View>
   );
+}
+
+function getMobileTerminalDisplayTitle(entry: MobileTerminalEntry) {
+  return getTerminalDisplayMeta({
+    baseTitle: entry.label,
+    dynamicTitle: entry.dynamicTitle,
+  }).displayTitle;
+}
+
+function MobileTerminalHeader({
+  connectionState,
+  title,
+}: {
+  connectionState: TerminalConnectionState;
+  title: string;
+}) {
+  const statusLabel = connectionState === "connected" ? null : terminalConnectionStatusLabel(connectionState);
+
+  return (
+    <View style={styles.terminalHeader}>
+      <Text style={styles.terminalIcon}>{"›_"}</Text>
+      <Text style={styles.terminalTitle} numberOfLines={1}>
+        {title || "Terminal"}
+      </Text>
+      {statusLabel ? (
+        <View style={styles.terminalStatusPill}>
+          <Text style={styles.terminalStatusText}>{statusLabel}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function terminalConnectionStatusLabel(connectionState: TerminalConnectionState) {
+  if (connectionState === "connecting") return "Connecting";
+  if (connectionState === "reconnecting") return "Reconnecting";
+  return "Disconnected";
 }
 
 function terminalConnectionStateFromWs(state: TerminalWsState): TerminalConnectionState {
@@ -482,5 +543,49 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     gap: 10,
+  },
+  terminalHeader: {
+    alignItems: "center",
+    backgroundColor: colors.terminalBg,
+    borderBottomColor: "rgba(244, 244, 245, 0.08)",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 42,
+    paddingHorizontal: 14,
+  },
+  terminalIcon: {
+    color: colors.terminalMuted,
+    fontFamily: "Menlo",
+    fontSize: 18,
+    fontWeight: "700",
+    lineHeight: 22,
+  },
+  terminalShell: {
+    backgroundColor: colors.terminalBg,
+    borderCurve: "continuous",
+    borderRadius: radii.card,
+    flex: 1,
+    minHeight: 360,
+    overflow: "hidden",
+  },
+  terminalStatusPill: {
+    backgroundColor: "rgba(244, 244, 245, 0.10)",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  terminalStatusText: {
+    color: colors.terminalMuted,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  terminalTitle: {
+    color: colors.terminalFg,
+    flex: 1,
+    fontFamily: "Menlo",
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 20,
   },
 });

@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
-import { ComputerConnectSheet } from "@/features/computers/ComputerConnectSheet";
 import { getAutoConnectComputerId, selectableOnlineComputers } from "@/features/computers/computer-selection";
-import { WorkspacePickerSheet } from "@/features/workspaces/WorkspacePickerSheet";
 import { useControlPlaneClient } from "@/hooks/use-control-plane-client";
 import { getStoredAccessToken } from "@/lib/access-token";
 import { useMobileWs } from "@/providers/MobileWsProvider";
@@ -14,7 +12,6 @@ import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
-import { NativeButton } from "@/ui/primitives/native-controls";
 import { colors } from "@/theme/colors";
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
@@ -35,8 +32,6 @@ export function WorkspaceListScreen() {
   const selectServer = useSessionStore((state) => state.selectServer);
   const setClientSession = useSessionStore((state) => state.setClientSession);
   const setComputers = useComputerStore((state) => state.setComputers);
-  const [computerSheetOpen, setComputerSheetOpen] = useState(false);
-  const [workspaceSheetOpen, setWorkspaceSheetOpen] = useState(false);
   const lastAutoSessionAttemptRef = useRef<string | null>(null);
 
   const computersQuery = useQuery({
@@ -100,11 +95,6 @@ export function WorkspaceListScreen() {
   const workspaceError = bootstrapQuery.error instanceof Error ? bootstrapQuery.error.message : null;
   const sessionError = createSession.error instanceof Error ? createSession.error.message : null;
 
-  const openTokenSetup = () => {
-    setComputerSheetOpen(false);
-    router.push("/onboarding");
-  };
-
   return (
     <AppScreen>
       <View style={styles.dashboard}>
@@ -122,7 +112,7 @@ export function WorkspaceListScreen() {
             value={selectedComputer?.display_name ?? (hasAccessToken ? `${onlineComputers.length} online` : "Token")}
             meta={computerCardMeta(hasAccessToken, computers.length, wsState)}
             status={hasAccessToken && onlineComputers.length > 0 ? "Ready" : "Setup"}
-            onPress={() => setComputerSheetOpen(true)}
+            onPress={() => router.push("/computer-connect")}
           />
           <DashboardCard
             actionLabel="Open"
@@ -130,55 +120,12 @@ export function WorkspaceListScreen() {
             value={canOpenWorkspaceData ? String(workspaceCount) : "Locked"}
             meta={canOpenWorkspaceData ? `${projectCount} projects` : "Connect first"}
             status={workspaceCardStatus(hasAccessToken, wsState, workspaceCount)}
-            onPress={() => setWorkspaceSheetOpen(true)}
+            onPress={() => router.push("/workspaces")}
           />
         </View>
 
         <InlineError message={sessionError ?? computersError ?? workspaceError} />
       </View>
-
-      <ComputerConnectSheet
-        computers={computers}
-        error={computersError ?? sessionError}
-        hasAccessToken={hasAccessToken}
-        isConnecting={createSession.isPending}
-        isPresented={computerSheetOpen}
-        isRefreshing={computersQuery.isFetching}
-        onDismiss={() => setComputerSheetOpen(false)}
-        onOpenTokenSetup={openTokenSetup}
-        onRefresh={() => void computersQuery.refetch()}
-        onSelect={(serverId) => createSession.mutate(serverId)}
-        selectedServerId={selectedServerId}
-      />
-
-      <WorkspacePickerSheet
-        error={!hasAccessToken ? null : workspaceError}
-        hasAccessToken={hasAccessToken}
-        isLoading={bootstrapQuery.isLoading}
-        isPresented={workspaceSheetOpen}
-        onCreateWorkspace={() => {
-          setWorkspaceSheetOpen(false);
-          router.push("/create-workspace");
-        }}
-        onDismiss={() => setWorkspaceSheetOpen(false)}
-        onImportProject={() => {
-          setWorkspaceSheetOpen(false);
-          router.push("/import-project");
-        }}
-        onOpenComputerConnect={() => {
-          setWorkspaceSheetOpen(false);
-          setComputerSheetOpen(true);
-        }}
-        onOpenWorkspace={(workspaceId) => {
-          setWorkspaceSheetOpen(false);
-          requestAnimationFrame(() => {
-            router.push(`/workspace/${workspaceId}`);
-          });
-        }}
-        projects={bootstrap.projects}
-        workspacesByProject={bootstrap.workspaces_by_project}
-        wsState={wsState}
-      />
     </AppScreen>
   );
 }
@@ -217,7 +164,9 @@ function DashboardCard({
           <Text style={styles.cardMeta} numberOfLines={1}>
             {meta}
           </Text>
-          <NativeButton label={actionLabel} onPress={onPress} />
+          <View style={styles.cardAction}>
+            <Text style={styles.cardActionText}>{actionLabel}</Text>
+          </View>
         </View>
       </GlassPanel>
     </Pressable>
@@ -302,6 +251,20 @@ const styles = StyleSheet.create({
     gap: 18,
     minHeight: 156,
     padding: 18,
+  },
+  cardAction: {
+    alignItems: "center",
+    backgroundColor: colors.label,
+    borderRadius: 8,
+    justifyContent: "center",
+    minHeight: 42,
+    minWidth: 92,
+    paddingHorizontal: 16,
+  },
+  cardActionText: {
+    color: colors.labelInverse,
+    fontSize: 16,
+    fontWeight: "700",
   },
   cardFallback: {
     backgroundColor: colors.glassFallbackStrong,

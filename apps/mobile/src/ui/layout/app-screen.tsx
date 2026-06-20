@@ -13,16 +13,17 @@ export function AppScreen({ children, footer }: AppScreenProps) {
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
 
   return (
-    <GlassContainer spacing={10} style={styles.root}>
-      <View pointerEvents="none" style={styles.backgroundWash} />
+    <>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.scrollContent, footer ? styles.scrollContentWithFooter : null]}
       >
-        {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
-        {children}
+        <GlassContainer spacing={10} style={styles.content}>
+          {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
+          {children}
+        </GlassContainer>
       </ScrollView>
       {footer ? (
         <GlassPanel
@@ -34,7 +35,7 @@ export function AppScreen({ children, footer }: AppScreenProps) {
           {footer}
         </GlassPanel>
       ) : null}
-    </GlassContainer>
+    </>
   );
 }
 
@@ -104,25 +105,20 @@ export function InlineError({ message }: { message: string | null | undefined })
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   scroll: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   content: {
     gap: 18,
     padding: 16,
     paddingBottom: 36,
   },
-  backgroundWash: {
-    backgroundColor: "rgba(10, 10, 11, 0.018)",
-    bottom: 0,
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 96,
+  scrollContent: {
+    backgroundColor: colors.background,
+  },
+  scrollContentWithFooter: {
+    paddingBottom: 8,
   },
   footer: {
     borderBottomWidth: 0,

@@ -14,46 +14,53 @@ export default function RootLayout() {
       <AppProviders>
         <Stack
           screenOptions={{
-            headerLargeTitle: isIos,
-            headerTransparent: isIos,
             headerShadowVisible: false,
-            headerStyle: { backgroundColor: isIos ? "transparent" : colors.background },
             headerTintColor: colors.label,
-            headerTitleStyle: { color: colors.label, fontWeight: "700" },
-            headerLargeTitleStyle: { color: colors.label, fontWeight: "800" },
             contentStyle: { backgroundColor: colors.background },
           }}
         >
-          <Stack.Screen name="index" options={{ title: "Atmos" }} />
-          <Stack.Screen name="onboarding" options={{ title: "Connect Atmos" }} />
-          <Stack.Screen name="settings" options={{ title: "Settings", presentation: "modal" }} />
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="settings" options={{ presentation: "modal" }} />
+          <Stack.Screen
+            name="computer-connect"
+            options={{
+              presentation: sheetPresentation,
+              sheetGrabberVisible: isIos,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          />
+          <Stack.Screen
+            name="workspaces"
+            options={{
+              presentation: sheetPresentation,
+              sheetGrabberVisible: isIos,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          />
           <Stack.Screen
             name="import-project"
             options={{
-              title: "Import Project",
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: isIos ? "transparent" : colors.background },
+              contentStyle: { backgroundColor: colors.background },
             }}
           />
           <Stack.Screen
             name="create-workspace"
             options={{
-              title: "New Workspace",
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: isIos ? "transparent" : colors.background },
+              contentStyle: { backgroundColor: colors.background },
             }}
           />
           <Stack.Screen
             name="workspace/[workspaceId]"
             options={{
-              title: "Workspace",
               headerBackButtonDisplayMode: "minimal",
-              headerLargeTitle: false,
             }}
           />
-          <Stack.Screen name="+not-found" options={{ title: "Not Found" }} />
+          <Stack.Screen name="+not-found" />
         </Stack>
         <StatusBar style="dark" />
       </AppProviders>

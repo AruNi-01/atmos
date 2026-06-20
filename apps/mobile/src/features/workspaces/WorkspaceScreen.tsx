@@ -1,15 +1,21 @@
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { GlassContainer } from "expo-glass-effect";
 import { Stack } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState, InlineError } from "@/ui/layout/app-screen";
+import { nativeCompactTitleOptions } from "@/ui/navigation/native-screen-options";
 import { NativeMenuButton, selectNativeIcon } from "@/ui/primitives/native-controls";
 import type { NativeMenuAction } from "@/ui/primitives/native-controls";
 import { ChangesScreen } from "@/features/git/ChangesScreen";
-import { TerminalScreen, type TerminalHeaderControls } from "@/features/terminal/TerminalScreen";
+import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
+import {
+  TerminalScreen,
+  type TerminalHeaderControls,
+  type TerminalShortcutHandler,
+} from "@/features/terminal/TerminalScreen";
 import { WorkspaceTabs } from "@/features/workspaces/WorkspaceTabs";
 import type { WorkspaceTab, WorkspaceTabItem } from "@/features/workspaces/WorkspaceTabs.types";
 import { WorkspaceOverview } from "@/features/workspaces/WorkspaceOverview";
@@ -31,6 +37,11 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const [tab, setTab] = useState<WorkspaceTab>("terminal");
   const [terminalHeaderControls, setTerminalHeaderControls] = useState<TerminalHeaderControls | null>(null);
+  const [terminalShortcutHandler, setTerminalShortcutHandler] = useState<TerminalShortcutHandler | null>(null);
+
+  const handleTerminalShortcutHandlerChange = useCallback((handler: TerminalShortcutHandler | null) => {
+    setTerminalShortcutHandler(() => handler);
+  }, []);
 
   const bootstrap = useQuery({
     queryKey: ["workspace-bootstrap", selectedServerId, state],
@@ -54,13 +65,12 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       <>
         <Stack.Screen
           options={{
+            ...nativeCompactTitleOptions("Workspace"),
             headerBackButtonDisplayMode: "minimal",
-            headerLargeTitle: false,
             headerRight: undefined,
-            title: "Workspace",
           }}
         />
-        <WorkspaceStateScreen topInset={workspaceContentTopInset(insets.top)}>
+        <WorkspaceStateScreen>
           <EmptyState title="Loading workspace" message="Fetching from Computer." />
         </WorkspaceStateScreen>
       </>
@@ -72,13 +82,12 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       <>
         <Stack.Screen
           options={{
+            ...nativeCompactTitleOptions("Workspace"),
             headerBackButtonDisplayMode: "minimal",
-            headerLargeTitle: false,
             headerRight: undefined,
-            title: "Workspace",
           }}
         />
-        <WorkspaceStateScreen topInset={workspaceContentTopInset(insets.top)}>
+        <WorkspaceStateScreen>
           <EmptyState title="Workspace unavailable" message="Select an online Computer." />
           <InlineError message={bootstrap.error instanceof Error ? bootstrap.error.message : null} />
         </WorkspaceStateScreen>
@@ -97,6 +106,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
         <View style={styles.content}>
           <TerminalScreen
             onHeaderControlsChange={setTerminalHeaderControls}
+            onShortcutHandlerChange={handleTerminalShortcutHandlerChange}
             projectName={project?.name ?? null}
             workspaceId={workspace.guid}
             workspaceName={workspace.name}
@@ -137,15 +147,20 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
     <>
       <Stack.Screen
         options={{
-          headerLargeTitle: false,
+          ...nativeCompactTitleOptions(workspaceTitle),
           headerBackButtonDisplayMode: "minimal",
           headerRight: () =>
             tab === "terminal" ? <TerminalHeaderMenu controls={terminalHeaderControls} /> : null,
-          title: workspaceTitle,
         }}
       />
-      <GlassContainer spacing={12} style={[styles.root, { paddingTop: workspaceContentTopInset(insets.top) }]}>
+      <GlassContainer spacing={12} style={styles.root}>
         <WorkspaceTabs bottomInset={insets.bottom} items={tabItems} onSelectTab={setTab} selectedTab={tab} />
+        {terminalShortcutHandler ? (
+          <TerminalShortcutBar
+            enabled={tab === "terminal"}
+            onShortcut={terminalShortcutHandler}
+          />
+        ) : null}
       </GlassContainer>
     </>
   );
@@ -153,13 +168,11 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
 
 function WorkspaceStateScreen({
   children,
-  topInset,
 }: {
   children: ReactNode;
-  topInset: number;
 }) {
   return (
-    <GlassContainer spacing={12} style={[styles.root, { paddingTop: topInset }]}>
+    <GlassContainer spacing={12} style={styles.root}>
       <View style={styles.stateContent}>{children}</View>
     </GlassContainer>
   );
@@ -214,10 +227,6 @@ function terminalMenuLabel(label: string) {
   const maxLength = 18;
   if (label.length <= maxLength) return label;
   return `${label.slice(0, maxLength - 3)}...`;
-}
-
-function workspaceContentTopInset(safeAreaTop: number) {
-  return process.env.EXPO_OS === "ios" ? safeAreaTop + 52 : 10;
 }
 
 const styles = StyleSheet.create({
