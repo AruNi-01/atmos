@@ -267,25 +267,34 @@ export default function TerminalDomView({
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
+        return true;
       },
-      clear: () => terminalRef.current?.clear(),
+      clear: () => {
+        terminalRef.current?.clear();
+        return true;
+      },
       fit: () => {
         fitAddonRef.current?.fit();
         if (terminalRef.current) {
           scrollTerminalToBottom(terminalRef.current);
         }
+        return true;
       },
-      focus: () => terminalRef.current?.focus(),
+      focus: () => {
+        terminalRef.current?.focus();
+        return true;
+      },
       insertText: (...args: DomJsonValue[]) => {
         const text = typeof args[0] === "string" ? args[0] : "";
         const submit = args[1] === true;
         const data = `${text}${submit ? "\r" : ""}`;
         terminalRef.current?.input(data, false);
+        return true;
       },
       restoreSnapshot: (...args: DomJsonValue[]) => {
         const snapshot = args[0] as TerminalSnapshot;
         const terminal = terminalRef.current;
-        if (!terminal || !isTerminalSnapshot(snapshot)) return;
+        if (!terminal || !isTerminalSnapshot(snapshot)) return true;
         const { payload, useAlternateScreen } = buildTerminalSnapshotRestorePayload(snapshot);
         terminal.reset();
         if (isUsableTerminalGrid(snapshot.cols, snapshot.rows)) {
@@ -294,25 +303,29 @@ export default function TerminalDomView({
         terminal.write(payload, () => {
           if (!useAlternateScreen) terminal.scrollToBottom();
         });
+        return true;
       },
       sendSequence: (...args: DomJsonValue[]) => {
         const sequence = typeof args[0] === "string" ? args[0] : "";
         terminalRef.current?.input(sequence, false);
+        return true;
       },
       writeBase64: (...args: DomJsonValue[]) => {
         const chunks = Array.isArray(args[0]) ? args[0].filter((chunk): chunk is string => typeof chunk === "string") : [];
         const terminal = terminalRef.current;
-        if (!terminal) return;
+        if (!terminal) return true;
         for (const [index, chunk] of chunks.entries()) {
           terminal.write(
             base64ToBytes(chunk),
             index === chunks.length - 1 ? () => scrollTerminalToBottom(terminal) : undefined,
           );
         }
+        return true;
       },
       writeText: (...args: DomJsonValue[]) => {
         const text = typeof args[0] === "string" ? args[0] : "";
         terminalRef.current?.write(text);
+        return true;
       },
     }),
     [],
