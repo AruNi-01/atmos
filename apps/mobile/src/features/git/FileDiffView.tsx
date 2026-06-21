@@ -2,31 +2,38 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { GitFileDiffResponse } from "@/api/types";
 import { createInlineDiff } from "@/features/git/diff";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function FileDiffView({ diff }: { diff: GitFileDiffResponse | null }) {
+  const theme = useMobileTheme();
+
   if (!diff) return null;
 
   const lines = createInlineDiff(diff.old_content, diff.new_content);
 
   return (
-    <View style={styles.root}>
-      <Text selectable style={styles.title} numberOfLines={1}>
+    <View style={[styles.root, { borderTopColor: theme.colors.separator }]}>
+      <Text selectable style={[styles.title, { color: theme.colors.label }]} numberOfLines={1}>
         {diff.file_path}
       </Text>
-      <ScrollView horizontal={false} style={styles.body} contentContainerStyle={styles.content}>
+      <ScrollView
+        horizontal={false}
+        style={[styles.body, { backgroundColor: theme.colors.cardSubtle }]}
+        contentContainerStyle={styles.content}
+      >
         {lines.slice(0, 500).map((line, index) => (
           <View
             key={`${line.kind}:${index}`}
             style={[
               styles.line,
-              line.kind === "added" && styles.added,
-              line.kind === "removed" && styles.removed,
+              line.kind === "added" && { backgroundColor: theme.colors.greenSurface },
+              line.kind === "removed" && { backgroundColor: theme.colors.redSurface },
             ]}
           >
-            <Text selectable style={styles.lineNumber}>
+            <Text selectable style={[styles.lineNumber, { color: theme.colors.tertiaryLabel }]}>
               {line.oldLineNumber ?? line.newLineNumber ?? ""}
             </Text>
-            <Text selectable style={styles.code}>
+            <Text selectable style={[styles.code, { color: theme.colors.label }]}>
               {line.kind === "added" ? "+ " : line.kind === "removed" ? "- " : "  "}
               {line.content || " "}
             </Text>

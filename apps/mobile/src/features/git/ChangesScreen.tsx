@@ -12,12 +12,14 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { wsActions } from "@/api/ws-actions";
 import type { GitChangedFile } from "@/api/types";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function ChangesScreen({
   repoPath,
 }: {
   repoPath: string | null;
 }) {
+  const theme = useMobileTheme();
   const { client, state: wsState } = useMobileWs();
   const stagedFiles = useGitStore((state) => state.stagedFiles);
   const unstagedFiles = useGitStore((state) => state.unstagedFiles);
@@ -146,7 +148,7 @@ export function ChangesScreen({
       <Section label="Changes">
         <View style={styles.toolbar}>
           {!isConnected ? (
-            <Text selectable style={styles.disconnected}>
+            <Text selectable style={[styles.disconnected, { color: theme.colors.red }]}>
               {unavailableMessage}
             </Text>
           ) : null}

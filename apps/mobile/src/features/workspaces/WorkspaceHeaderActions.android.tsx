@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import {
   handleTerminalAction,
   isWorkspaceTab,
@@ -14,6 +15,7 @@ export function WorkspaceHeaderActions({
   tabs,
   terminalControls,
 }: WorkspaceHeaderActionsProps) {
+  const theme = useMobileTheme();
   const activeTab = tabs.find((tab) => tab.value === selectedTab) ?? tabs[0];
   const viewActions: MenuAction[] = tabs.map((tab) => ({
     id: tab.value,
@@ -43,7 +45,12 @@ export function WorkspaceHeaderActions({
       ];
 
   return (
-    <View style={styles.group}>
+    <View
+      style={[
+        styles.group,
+        { backgroundColor: theme.colors.glassFallbackStrong, borderColor: theme.colors.glassBorder },
+      ]}
+    >
       <MenuView
         actions={viewActions}
         onPressAction={(event) => {
@@ -52,16 +59,16 @@ export function WorkspaceHeaderActions({
         }}
       >
         <Pressable hitSlop={8} style={styles.action}>
-          {activeTab ? <Image source={activeTab.androidIcon} style={styles.icon} /> : null}
+          {activeTab ? <Image source={activeTab.androidIcon} style={[styles.icon, { tintColor: theme.colors.label }]} /> : null}
         </Pressable>
       </MenuView>
-      <View style={styles.separator} />
+      <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />
       <MenuView
         actions={terminalActions}
         onPressAction={(event) => handleTerminalAction(event.nativeEvent.event, terminalControls)}
       >
         <Pressable disabled={!terminalControls} hitSlop={8} style={[styles.action, !terminalControls && styles.disabled]}>
-          <Text style={styles.ellipsis}>...</Text>
+          <Text style={[styles.ellipsis, { color: theme.colors.label }]}>...</Text>
         </Pressable>
       </MenuView>
     </View>

@@ -8,6 +8,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { NativeButton } from "@/ui/primitives/native-controls";
 import { colors, radii } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function WorkspacePickerScreen() {
   const router = useRouter();
@@ -120,14 +121,21 @@ function GuideSection({
 }
 
 function WorkspaceRow({ onPress, workspace }: { onPress: () => void; workspace: WorkspaceModel }) {
+  const theme = useMobileTheme();
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.workspaceRowPressed]}>
-      <View style={styles.workspaceRow}>
+      <View
+        style={[
+          styles.workspaceRow,
+          { backgroundColor: theme.colors.cardElevated, borderColor: theme.colors.separator },
+        ]}
+      >
         <View style={styles.workspaceText}>
-          <Text style={styles.workspaceTitle} numberOfLines={1}>
+          <Text style={[styles.workspaceTitle, { color: theme.colors.label }]} numberOfLines={1}>
             {workspace.display_name ?? workspace.name}
           </Text>
-          <Text style={styles.workspaceMeta} numberOfLines={1}>
+          <Text style={[styles.workspaceMeta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
             {workspace.branch || "No branch"}
           </Text>
         </View>

@@ -8,7 +8,8 @@ import {
   TextButton,
 } from "@expo/ui/jetpack-compose";
 import { padding } from "@expo/ui/jetpack-compose/modifiers";
-import { colors, radii } from "@/theme/colors";
+import { radii, type MobileThemeColors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeButtonProps } from "./native-button.types";
 
 export function NativeButton({
@@ -18,11 +19,12 @@ export function NativeButton({
   tone = "default",
   variant = "filled",
 }: NativeButtonProps) {
-  const color = buttonColorByVariant(tone)[variant];
+  const theme = useMobileTheme();
+  const color = buttonColorByVariant(tone, theme.colors)[variant];
 
   if (variant === "outlined") {
     return (
-      <Host matchContents colorScheme="light" seedColor={colors.label}>
+      <Host matchContents colorScheme={theme.colorScheme} seedColor={theme.colors.label}>
         <Surface
           border={{ color: color.border, width: 1 }}
           color={color.background}
@@ -36,7 +38,7 @@ export function NativeButton({
             verticalAlignment="center"
             modifiers={[padding(14, 8, 14, 8)]}
           >
-            <Text color={disabled ? colors.tertiaryLabel : color.text} style={{ typography: "labelLarge" }}>
+            <Text color={disabled ? theme.colors.tertiaryLabel : color.text} style={{ typography: "labelLarge" }}>
               {label}
             </Text>
           </Row>
@@ -48,20 +50,20 @@ export function NativeButton({
   const ButtonComponent = buttonComponentByVariant[variant];
 
   return (
-    <Host matchContents colorScheme="light" seedColor={colors.label}>
+    <Host matchContents colorScheme={theme.colorScheme} seedColor={theme.colors.label}>
       <ButtonComponent
         colors={{
           containerColor: color.background,
           contentColor: color.text,
-          disabledContainerColor: colors.cardSubtle,
-          disabledContentColor: colors.tertiaryLabel,
+          disabledContainerColor: theme.colors.cardSubtle,
+          disabledContentColor: theme.colors.tertiaryLabel,
         }}
         contentPadding={buttonPaddingByVariant[variant]}
         enabled={!disabled}
         onClick={disabled ? undefined : onPress}
         shape={Shape.RoundedCorner({ cornerRadii: controlCornerRadii })}
       >
-        <Text color={disabled ? colors.tertiaryLabel : color.text} style={{ typography: "labelLarge" }}>
+        <Text color={disabled ? theme.colors.tertiaryLabel : color.text} style={{ typography: "labelLarge" }}>
           {label}
         </Text>
       </ButtonComponent>
@@ -81,23 +83,26 @@ const buttonComponentByVariant = {
   text: TextButton,
 };
 
-function buttonColorByVariant(tone: NonNullable<NativeButtonProps["tone"]>) {
+function buttonColorByVariant(
+  tone: NonNullable<NativeButtonProps["tone"]>,
+  themeColors: MobileThemeColors,
+) {
   const isInverse = tone === "inverse";
   return {
     filled: {
-      background: isInverse ? colors.labelInverse : colors.label,
+      background: isInverse ? themeColors.labelInverse : themeColors.label,
       border: "transparent",
-      text: isInverse ? colors.label : colors.labelInverse,
+      text: isInverse ? themeColors.label : themeColors.labelInverse,
     },
     outlined: {
-      background: isInverse ? "transparent" : colors.labelInverse,
-      border: isInverse ? colors.labelInverse : colors.label,
-      text: isInverse ? colors.labelInverse : colors.label,
+      background: isInverse ? "transparent" : themeColors.labelInverse,
+      border: isInverse ? themeColors.labelInverse : themeColors.label,
+      text: isInverse ? themeColors.labelInverse : themeColors.label,
     },
     text: {
       background: "transparent",
       border: "transparent",
-      text: isInverse ? colors.labelInverse : colors.label,
+      text: isInverse ? themeColors.labelInverse : themeColors.label,
     },
   };
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Keyboard, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -23,7 +23,8 @@ import { TerminalWsClient, type TerminalWsState } from "@/api/terminal-ws-client
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { useTerminalStore, type MobileTerminalEntry } from "@/stores/terminal-store";
-import { colors } from "@/theme/colors";
+import { colors, type MobileThemeColors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import { BotIcon, TerminalIcon } from "@/ui/icons/lucide-native";
 
 type TerminalConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
@@ -38,20 +39,24 @@ export type TerminalHeaderControls = {
 };
 
 export type TerminalShortcutHandler = (shortcut: TerminalShortcut) => void;
+export type TerminalKeyboardDismissHandler = () => void;
 
 export function TerminalScreen({
   onHeaderControlsChange,
+  onKeyboardDismissHandlerChange,
   onShortcutHandlerChange,
   projectName,
   workspaceId,
   workspaceName,
 }: {
   onHeaderControlsChange?: (controls: TerminalHeaderControls | null) => void;
+  onKeyboardDismissHandlerChange?: (handler: TerminalKeyboardDismissHandler | null) => void;
   onShortcutHandlerChange?: (handler: TerminalShortcutHandler | null) => void;
   projectName?: string | null;
   workspaceId: string;
   workspaceName: string;
 }) {
+  const theme = useMobileTheme();
   const router = useRouter();
   const { client: appWsClient, state: appWsState } = useMobileWs();
   const entries = useTerminalStore((state) => state.entriesByWorkspaceId[workspaceId] ?? EMPTY_TERMINAL_ENTRIES);
@@ -204,6 +209,19 @@ export function TerminalScreen({
     },
     [activeSessionId],
   );
+
+  const dismissKeyboard = useCallback(() => {
+    webViewRef.current?.blur();
+    Keyboard.dismiss();
+  }, []);
+
+  useEffect(() => {
+    if (!onKeyboardDismissHandlerChange) return undefined;
+
+    onKeyboardDismissHandlerChange(dismissKeyboard);
+
+    return () => onKeyboardDismissHandlerChange(null);
+  }, [dismissKeyboard, onKeyboardDismissHandlerChange]);
 
   const handleTitleChange = useCallback(
     (nextTitle: string) => {
@@ -385,25 +403,34 @@ export function TerminalScreen({
   }, [handleShortcut, onShortcutHandlerChange]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: theme.colors.terminalBg }]}>
       {candidates.error ? (
-        <GlassPanel fallbackStyle={styles.noticeFallback} glassEffectStyle="clear" style={styles.notice}>
-          <Text selectable style={styles.noticeText}>
+        <GlassPanel
+          fallbackStyle={[styles.noticeFallback, { backgroundColor: theme.colors.yellowSurface }]}
+          glassEffectStyle="clear"
+          style={[styles.notice, { borderColor: theme.colors.yellowBorder }]}
+        >
+          <Text selectable style={[styles.noticeText, { color: theme.colors.secondaryLabel }]}>
             {candidates.error instanceof Error ? candidates.error.message : "Could not load terminal list."}
           </Text>
         </GlassPanel>
       ) : null}
       {terminalError ? (
-        <GlassPanel fallbackStyle={styles.errorFallback} glassEffectStyle="clear" style={styles.error}>
-          <Text selectable style={styles.errorText}>
+        <GlassPanel
+          fallbackStyle={[styles.errorFallback, { backgroundColor: theme.colors.redSurface }]}
+          glassEffectStyle="clear"
+          style={[styles.error, { borderColor: theme.colors.redBorder }]}
+        >
+          <Text selectable style={[styles.errorText, { color: theme.colors.red }]}>
             {terminalError}
           </Text>
         </GlassPanel>
       ) : null}
       {activeEntry && activeSessionId ? (
-        <View style={styles.terminalShell}>
+        <View style={[styles.terminalShell, { backgroundColor: theme.colors.terminalBg }]}>
           <MobileTerminalHeader
             connectionState={connectionState}
+            colors={theme.colors}
             title={activeDisplayMeta?.displayTitle ?? ""}
             toolbarAgent={activeDisplayMeta?.toolbarAgent}
           />
@@ -420,11 +447,11 @@ export function TerminalScreen({
           />
         </View>
       ) : (
-        <GlassPanel style={styles.choiceState}>
-          <Text selectable style={styles.choiceTitle}>
+        <GlassPanel style={[styles.choiceState, { backgroundColor: theme.colors.card }]}>
+          <Text selectable style={[styles.choiceTitle, { color: theme.colors.label }]}>
             Choose a terminal
           </Text>
-          <Text selectable style={styles.choiceText}>
+          <Text selectable style={[styles.choiceText, { color: theme.colors.secondaryLabel }]}>
             This workspace has multiple terminal candidates. Pick one above before attaching.
           </Text>
         </GlassPanel>
@@ -443,30 +470,32 @@ function getMobileTerminalDisplayMeta(entry: MobileTerminalEntry) {
 
 function MobileTerminalHeader({
   connectionState,
+  colors: themeColors,
   title,
   toolbarAgent,
 }: {
   connectionState: TerminalConnectionState;
+  colors: MobileThemeColors;
   title: string;
   toolbarAgent?: MobileTerminalAgent;
 }) {
   const statusLabel = connectionState === "connected" ? null : terminalConnectionStatusLabel(connectionState);
 
   return (
-    <View style={styles.terminalHeader}>
+    <View style={[styles.terminalHeader, { backgroundColor: themeColors.terminalBg }]}>
       {toolbarAgent?.iconType === "built-in" ? (
         <MobileAgentIcon agentId={toolbarAgent.id} size={18} />
       ) : toolbarAgent?.iconType === "custom" ? (
-        <BotIcon color={colors.terminalMuted} size={18} strokeWidth={2.4} />
+        <BotIcon color={themeColors.terminalMuted} size={18} strokeWidth={2.4} />
       ) : (
-        <TerminalIcon color={colors.terminalMuted} size={18} strokeWidth={2.2} />
+        <TerminalIcon color={themeColors.terminalMuted} size={18} strokeWidth={2.2} />
       )}
-      <Text style={styles.terminalTitle} numberOfLines={1}>
+      <Text style={[styles.terminalTitle, { color: themeColors.terminalFg }]} numberOfLines={1}>
         {title || "Terminal"}
       </Text>
       {statusLabel ? (
-        <View style={styles.terminalStatusPill}>
-          <Text style={styles.terminalStatusText}>{statusLabel}</Text>
+        <View style={[styles.terminalStatusPill, { backgroundColor: themeColors.mutedPressed }]}>
+          <Text style={[styles.terminalStatusText, { color: themeColors.terminalMuted }]}>{statusLabel}</Text>
         </View>
       ) : null}
     </View>
@@ -562,6 +591,8 @@ const styles = StyleSheet.create({
   root: {
     backgroundColor: colors.terminalBg,
     flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
   },
   terminalHeader: {
     alignItems: "center",
@@ -574,6 +605,7 @@ const styles = StyleSheet.create({
   terminalShell: {
     backgroundColor: colors.terminalBg,
     flex: 1,
+    minHeight: 0,
     overflow: "hidden",
   },
   terminalStatusPill: {

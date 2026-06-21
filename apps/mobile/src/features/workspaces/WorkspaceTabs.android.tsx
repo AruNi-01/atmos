@@ -1,7 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { Host, Icon, NavigationBar, NavigationBarItem, Text } from "@expo/ui/jetpack-compose";
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { WorkspaceTabsProps } from "./WorkspaceTabs.types";
 
 export function WorkspaceTabs({
@@ -10,22 +10,30 @@ export function WorkspaceTabs({
   onSelectTab,
   selectedTab,
 }: WorkspaceTabsProps) {
+  const theme = useMobileTheme();
   const activeItem = items.find((item) => item.value === selectedTab) ?? items[0];
+  const navigationItemColors = {
+    selectedIconColor: theme.colors.label,
+    selectedIndicatorColor: theme.colors.mutedPressed,
+    selectedTextColor: theme.colors.label,
+    unselectedIconColor: theme.colors.secondaryLabel,
+    unselectedTextColor: theme.colors.secondaryLabel,
+  };
 
   return (
     <View style={styles.root}>
       <View style={styles.content}>{activeItem?.children}</View>
       <View style={[styles.navigationFrame, { paddingBottom: Math.max(bottomInset, 8) }]}>
-        <Host colorScheme="light" matchContents={{ vertical: true }} seedColor={colors.label} style={styles.host}>
+        <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} seedColor={theme.colors.label} style={styles.host}>
           <NavigationBar
-            containerColor="rgba(255, 255, 255, 0.92)"
-            contentColor={colors.label}
+            containerColor={theme.colors.glassFallbackStrong}
+            contentColor={theme.colors.label}
             modifiers={[fillMaxWidth()]}
             tonalElevation={0}
           >
             {items.map((item) => {
               const selected = item.value === selectedTab;
-              const itemColor = selected ? colors.label : colors.secondaryLabel;
+              const itemColor = selected ? theme.colors.label : theme.colors.secondaryLabel;
               return (
                 <NavigationBarItem
                   colors={navigationItemColors}
@@ -50,14 +58,6 @@ export function WorkspaceTabs({
     </View>
   );
 }
-
-const navigationItemColors = {
-  selectedIconColor: colors.label,
-  selectedIndicatorColor: "rgba(10, 10, 11, 0.1)",
-  selectedTextColor: colors.label,
-  unselectedIconColor: colors.secondaryLabel,
-  unselectedTextColor: colors.secondaryLabel,
-};
 
 const styles = StyleSheet.create({
   content: {

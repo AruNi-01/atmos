@@ -9,6 +9,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { NativeButton } from "@/ui/primitives/native-controls";
 import { colors, radii } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function ComputerConnectScreen() {
   const router = useRouter();
@@ -121,6 +122,7 @@ function ComputerRowItem({
   isSelected: boolean;
   onPress: () => void;
 }) {
+  const theme = useMobileTheme();
   const disabled = !computer.online || isConnecting;
 
   return (
@@ -129,20 +131,37 @@ function ComputerRowItem({
       onPress={onPress}
       style={({ pressed }) => [
         styles.computerRow,
+        {
+          backgroundColor: theme.colors.cardElevated,
+          borderColor: theme.colors.separator,
+        },
         disabled && styles.computerRowDisabled,
         pressed && styles.computerRowPressed,
       ]}
     >
       <View style={styles.computerText}>
-        <Text style={styles.computerTitle} numberOfLines={1}>
+        <Text style={[styles.computerTitle, { color: theme.colors.label }]} numberOfLines={1}>
           {computer.display_name ?? computer.server_id}
         </Text>
-        <Text style={styles.computerMeta} numberOfLines={1}>
+        <Text style={[styles.computerMeta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
           {computer.server_id}
         </Text>
       </View>
-      <View style={[styles.computerStatus, computer.online && styles.computerStatusOnline]}>
-        <Text style={[styles.computerStatusText, computer.online && styles.computerStatusTextOnline]}>
+      <View
+        style={[
+          styles.computerStatus,
+          {
+            borderColor: computer.online ? theme.colors.label : theme.colors.separatorStrong,
+            backgroundColor: computer.online ? theme.colors.label : "transparent",
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.computerStatusText,
+            { color: computer.online ? theme.colors.labelInverse : theme.colors.secondaryLabel },
+          ]}
+        >
           {isSelected ? "Selected" : computer.online ? "Online" : "Offline"}
         </Text>
       </View>

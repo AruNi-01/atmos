@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { GlassContainer } from "expo-glass-effect";
 import { useUiStore } from "@/stores/ui-store";
 import { colors, radii } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 
 type AppScreenProps = PropsWithChildren<{
@@ -10,6 +11,7 @@ type AppScreenProps = PropsWithChildren<{
 }>;
 
 export function AppScreen({ children, footer }: AppScreenProps) {
+  const theme = useMobileTheme();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
 
   return (
@@ -17,8 +19,12 @@ export function AppScreen({ children, footer }: AppScreenProps) {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, footer ? styles.scrollContentWithFooter : null]}
+        style={[styles.scroll, { backgroundColor: theme.colors.background }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { backgroundColor: theme.colors.background },
+          footer ? styles.scrollContentWithFooter : null,
+        ]}
       >
         <GlassContainer spacing={10} style={styles.content}>
           {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
@@ -27,10 +33,10 @@ export function AppScreen({ children, footer }: AppScreenProps) {
       </ScrollView>
       {footer ? (
         <GlassPanel
-          fallbackStyle={styles.footerFallback}
+          fallbackStyle={[styles.footerFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
           glassEffectStyle={{ style: "regular", animate: true }}
           interactive
-          style={styles.footer}
+          style={[styles.footer, { borderTopColor: theme.colors.glassBorder }]}
         >
           {footer}
         </GlassPanel>
@@ -40,12 +46,18 @@ export function AppScreen({ children, footer }: AppScreenProps) {
 }
 
 function ConnectionBanner({ message }: { message: string }) {
+  const theme = useMobileTheme();
+
   return (
-    <GlassPanel fallbackStyle={styles.connectionFallback} glassEffectStyle="clear" style={styles.connectionBanner}>
-      <Text selectable style={styles.connectionTitle}>
+    <GlassPanel
+      fallbackStyle={[styles.connectionFallback, { backgroundColor: theme.colors.redSurface }]}
+      glassEffectStyle="clear"
+      style={[styles.connectionBanner, { borderColor: theme.colors.redBorder }]}
+    >
+      <Text selectable style={[styles.connectionTitle, { color: theme.colors.label }]}>
         Disconnected
       </Text>
-      <Text selectable style={styles.connectionMessage}>
+      <Text selectable style={[styles.connectionMessage, { color: theme.colors.secondaryLabel }]}>
         {message}
       </Text>
     </GlassPanel>
@@ -58,11 +70,13 @@ export function Section({
 }: PropsWithChildren<{
   label?: string;
 }>) {
+  const theme = useMobileTheme();
+
   return (
     <View style={styles.section}>
-      {label ? <Text style={styles.sectionLabel}>{label}</Text> : null}
+      {label ? <Text style={[styles.sectionLabel, { color: theme.colors.secondaryLabel }]}>{label}</Text> : null}
       <GlassPanel
-        fallbackStyle={styles.cardFallback}
+        fallbackStyle={[styles.cardFallback, { backgroundColor: theme.colors.glassFallback }]}
         glassEffectStyle={{ style: "regular", animate: true }}
         interactive
         style={styles.card}
@@ -80,12 +94,14 @@ export function EmptyState({
   title: string;
   message: string;
 }) {
+  const theme = useMobileTheme();
+
   return (
     <View style={styles.empty}>
-      <Text selectable style={styles.emptyTitle}>
+      <Text selectable style={[styles.emptyTitle, { color: theme.colors.label }]}>
         {title}
       </Text>
-      <Text selectable style={styles.emptyMessage}>
+      <Text selectable style={[styles.emptyMessage, { color: theme.colors.secondaryLabel }]}>
         {message}
       </Text>
     </View>
@@ -93,11 +109,17 @@ export function EmptyState({
 }
 
 export function InlineError({ message }: { message: string | null | undefined }) {
+  const theme = useMobileTheme();
+
   if (!message) return null;
 
   return (
-    <GlassPanel fallbackStyle={styles.errorFallback} glassEffectStyle="clear" style={styles.error}>
-      <Text selectable style={styles.errorText}>
+    <GlassPanel
+      fallbackStyle={[styles.errorFallback, { backgroundColor: theme.colors.redSurface }]}
+      glassEffectStyle="clear"
+      style={[styles.error, { borderColor: theme.colors.redBorder }]}
+    >
+      <Text selectable style={[styles.errorText, { color: theme.colors.red }]}>
         {message}
       </Text>
     </GlassPanel>

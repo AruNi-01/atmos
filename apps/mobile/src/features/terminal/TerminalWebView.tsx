@@ -1,10 +1,12 @@
 import { forwardRef, useImperativeHandle, useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import TerminalDomView, { type TerminalDomHandle } from "@/features/terminal/TerminalDomView";
-import type { TerminalSnapshot } from "@atmos/shared/terminal";
+import { terminalDarkTheme, terminalLightTheme, type TerminalSnapshot } from "@atmos/shared/terminal";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export type NativeToTerminal =
+  | { type: "blur" }
   | { type: "send_sequence"; sequence: string }
   | { type: "insert_text"; text: string; submit?: boolean }
   | { type: "write_b64"; chunks: string[] }
@@ -14,6 +16,7 @@ export type NativeToTerminal =
   | { type: "clear" };
 
 export type TerminalWebViewHandle = {
+  blur: () => void;
   send: (message: NativeToTerminal) => void;
   focus: () => void;
   writeBase64: (chunks: string[]) => void;
@@ -32,6 +35,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
   { connected, onInput, onReady, onRendererError, onResize, onTitleChange, sessionId },
   ref,
 ) {
+  const isIos = process.env.EXPO_OS === "ios";
+  const theme = useMobileTheme();
+  const terminalTheme = theme.colorScheme === "dark" ? terminalDarkTheme : terminalLightTheme;
   const domRef = useRef<TerminalDomHandle>(null);
   const pendingBase64ChunksRef = useRef<string[]>([]);
   const pendingSnapshotRef = useRef<TerminalSnapshot | null>(null);
@@ -95,6 +101,9 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
     }
 
     switch (message.type) {
+      case "blur":
+        terminal.blur?.();
+        break;
       case "clear":
         terminal.clear?.();
         break;
@@ -122,6 +131,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
   useImperativeHandle(
     ref,
     () => ({
+      blur: () => domRef.current?.blur?.(),
       focus: () => domRef.current?.focus?.(),
       restoreSnapshot,
       send,
@@ -131,7 +141,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
   );
 
   return (
-    <View style={styles.frame} testID={`terminal-frame-${sessionId}`}>
+    <View style={[styles.frame, { backgroundColor: theme.colors.terminalBg }]} testID={`terminal-frame-${sessionId}`}>
       <TerminalDomView
         ref={domRef}
         connected={connected}
@@ -142,13 +152,14 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
         }}
         onRendererError={async (message) => onRendererError?.(message)}
         onResize={async (cols, rows) => onResize?.({ cols, rows })}
+        theme={terminalTheme}
         onTitleChange={async (nextTitle) => onTitleChange?.(nextTitle)}
         dom={{
           contentInsetAdjustmentBehavior: "never",
           keyboardDisplayRequiresUserAction: false,
           scrollEnabled: false,
-          style: styles.dom,
-          useExpoDOMWebView: true,
+          style: [styles.dom, { backgroundColor: theme.colors.terminalBg }],
+          ...(isIos ? { hideKeyboardAccessoryView: true, useExpoDOMWebView: false } : { useExpoDOMWebView: true }),
         }}
       />
     </View>
@@ -165,6 +176,7 @@ const styles = StyleSheet.create({
   frame: {
     backgroundColor: colors.terminalBg,
     flex: 1,
-    minHeight: 360,
+    minHeight: 0,
+    overflow: "hidden",
   },
 });

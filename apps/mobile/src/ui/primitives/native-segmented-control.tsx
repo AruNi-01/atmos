@@ -1,5 +1,6 @@
 import { StyleSheet, View } from "react-native";
 import { colors, radii } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import { NativeButton } from "./native-button";
 import type { NativeSegmentedControlProps } from "./native-segmented-control.types";
 
@@ -8,8 +9,10 @@ export function NativeSegmentedControl<T extends string>({
   options,
   selectedValue,
 }: NativeSegmentedControlProps<T>) {
+  const theme = useMobileTheme();
+
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: theme.colors.glassFallback, borderColor: theme.colors.separator }]}>
       {options.map((option) => {
         const selected = option.value === selectedValue;
         return (

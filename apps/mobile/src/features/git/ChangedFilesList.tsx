@@ -5,6 +5,7 @@ import { EmptyState } from "@/ui/layout/app-screen";
 import { NativeButton } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function ChangedFilesList({
   stagedFiles,
@@ -65,11 +66,13 @@ function FileSection({
   onOpenFile: (file: GitChangedFile) => void;
   actionsDisabled?: boolean;
 }) {
+  const theme = useMobileTheme();
+
   if (files.length === 0) return null;
 
   return (
     <View>
-      <Text selectable style={styles.groupLabel}>
+      <Text selectable style={[styles.groupLabel, { color: theme.colors.secondaryLabel }]}>
         {title}
       </Text>
       {files.map((file, index) => (

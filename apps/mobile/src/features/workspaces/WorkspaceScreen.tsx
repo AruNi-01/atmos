@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Keyboard,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type KeyboardEvent,
+} from "react-native";
 import { Stack, type NativeStackHeaderItem } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +18,7 @@ import { TerminalShortcutBar } from "@/features/terminal/TerminalShortcutBar";
 import {
   TerminalScreen,
   type TerminalHeaderControls,
+  type TerminalKeyboardDismissHandler,
   type TerminalShortcutHandler,
 } from "@/features/terminal/TerminalScreen";
 import type { WorkspaceTab, WorkspaceTabItem } from "@/features/workspaces/WorkspaceTabs.types";
@@ -19,14 +27,23 @@ import { WorkspaceOverview } from "@/features/workspaces/WorkspaceOverview";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
-import { colors } from "@/theme/colors";
+import { colors, type MobileThemeColors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
+  const theme = useMobileTheme();
   const { client, state } = useMobileWs();
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const [tab, setTab] = useState<WorkspaceTab>("terminal");
   const [terminalHeaderControls, setTerminalHeaderControls] = useState<TerminalHeaderControls | null>(null);
+  const [terminalKeyboardDismissHandler, setTerminalKeyboardDismissHandler] =
+    useState<TerminalKeyboardDismissHandler | null>(null);
   const [terminalShortcutHandler, setTerminalShortcutHandler] = useState<TerminalShortcutHandler | null>(null);
+  const { keyboardInset, onKeyboardInsetTargetLayout, keyboardInsetTargetRef } = useKeyboardInset();
+
+  const handleTerminalKeyboardDismissHandlerChange = useCallback((handler: TerminalKeyboardDismissHandler | null) => {
+    setTerminalKeyboardDismissHandler(() => handler);
+  }, []);
 
   const handleTerminalShortcutHandlerChange = useCallback((handler: TerminalShortcutHandler | null) => {
     setTerminalShortcutHandler(() => handler);
@@ -54,7 +71,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       <>
         <Stack.Screen
           options={{
-            ...nativeCompactTitleOptions("Workspace"),
+            ...nativeCompactTitleOptions("Workspace", theme.colors),
             headerBackButtonDisplayMode: "minimal",
             headerRight: undefined,
           }}
@@ -71,7 +88,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       <>
         <Stack.Screen
           options={{
-            ...nativeCompactTitleOptions("Workspace"),
+            ...nativeCompactTitleOptions("Workspace", theme.colors),
             headerBackButtonDisplayMode: "minimal",
             headerRight: undefined,
           }}
@@ -95,6 +112,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
         <View style={styles.terminalContent}>
           <TerminalScreen
             onHeaderControlsChange={setTerminalHeaderControls}
+            onKeyboardDismissHandlerChange={handleTerminalKeyboardDismissHandlerChange}
             onShortcutHandlerChange={handleTerminalShortcutHandlerChange}
             projectName={project?.name ?? null}
             workspaceId={workspace.guid}
@@ -138,6 +156,7 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
       {terminalShortcutHandler ? (
         <TerminalShortcutBar
           enabled={tab === "terminal"}
+          onDismissKeyboard={terminalKeyboardDismissHandler ?? undefined}
           onShortcut={terminalShortcutHandler}
         />
       ) : null}
@@ -148,9 +167,9 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
     <>
       <Stack.Screen
         options={{
-          ...nativeCompactTitleOptions(workspaceTitle),
+          ...nativeCompactTitleOptions(workspaceTitle, theme.colors),
           contentStyle: {
-            backgroundColor: tab === "terminal" ? colors.terminalBg : colors.background,
+            backgroundColor: tab === "terminal" ? theme.colors.terminalBg : theme.colors.background,
           },
           headerBackButtonDisplayMode: "minimal",
           headerRight:
@@ -181,20 +200,22 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
                       value,
                     })),
                     terminalControls: terminalHeaderControls,
+                    colors: theme.colors,
                   })
               : undefined,
         }}
       />
       {tab === "terminal" ? (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "height" : undefined}
-          keyboardVerticalOffset={0}
-          style={[styles.root, styles.terminalRoot]}
+        <View
+          ref={keyboardInsetTargetRef}
+          collapsable={false}
+          onLayout={onKeyboardInsetTargetLayout}
+          style={[styles.root, styles.terminalRoot, { backgroundColor: theme.colors.terminalBg, paddingBottom: keyboardInset }]}
         >
           {content}
-        </KeyboardAvoidingView>
+        </View>
       ) : (
-        <View style={[styles.root, styles.defaultRoot]}>{content}</View>
+        <View style={[styles.root, styles.defaultRoot, { backgroundColor: theme.colors.background }]}>{content}</View>
       )}
     </>
   );
@@ -205,7 +226,9 @@ function buildHeaderRightItems({
   selectedTab,
   tabs,
   terminalControls,
+  colors: themeColors = colors,
 }: {
+  colors?: MobileThemeColors;
   onSelectTab: (tab: WorkspaceTab) => void;
   selectedTab: WorkspaceTab;
   tabs: Array<{ iosSystemImage: SFSymbol; label: string; value: WorkspaceTab }>;
@@ -214,7 +237,7 @@ function buildHeaderRightItems({
   const activeTab = tabs.find((tab) => tab.value === selectedTab) ?? tabs[0];
   const sharedButtonProps = {
     sharesBackground: true,
-    tintColor: colors.label,
+    tintColor: themeColors.label,
     variant: "plain" as const,
   };
 
@@ -278,13 +301,72 @@ function sfSymbol(name: SFSymbol) {
   return { name, type: "sfSymbol" as const };
 }
 
+function useKeyboardInset() {
+  const targetRef = useRef<View>(null);
+  const keyboardFrameRef = useRef<KeyboardEvent["endCoordinates"] | null>(null);
+  const targetFrameRef = useRef<{ height: number; y: number } | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+
+  const applyKeyboardFrame = useCallback((keyboardFrame: KeyboardEvent["endCoordinates"]) => {
+    const targetFrame = targetFrameRef.current;
+    if (!targetFrame) return;
+
+    setKeyboardInset(Math.max(0, Math.round(targetFrame.y + targetFrame.height - keyboardFrame.screenY)));
+  }, []);
+
+  const measureTarget = useCallback(() => {
+    targetRef.current?.measureInWindow((_x, y, _width, height) => {
+      targetFrameRef.current = { height, y };
+      if (keyboardFrameRef.current) {
+        applyKeyboardFrame(keyboardFrameRef.current);
+      }
+    });
+  }, [applyKeyboardFrame]);
+
+  const handleTargetLayout = useCallback(() => {
+    requestAnimationFrame(measureTarget);
+  }, [measureTarget]);
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return undefined;
+
+    const updateInset = (event: KeyboardEvent) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      keyboardFrameRef.current = event.endCoordinates;
+      measureTarget();
+      applyKeyboardFrame(event.endCoordinates);
+    };
+    const resetInset = (event: KeyboardEvent) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      keyboardFrameRef.current = null;
+      setKeyboardInset(0);
+    };
+
+    const changeSubscription = Keyboard.addListener("keyboardWillChangeFrame", updateInset);
+    const hideSubscription = Keyboard.addListener("keyboardWillHide", resetInset);
+
+    return () => {
+      changeSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [applyKeyboardFrame, measureTarget]);
+
+  return {
+    keyboardInset,
+    keyboardInsetTargetRef: targetRef,
+    onKeyboardInsetTargetLayout: handleTargetLayout,
+  };
+}
+
 function WorkspaceStateScreen({
   children,
 }: {
   children: ReactNode;
 }) {
+  const theme = useMobileTheme();
+
   return (
-    <View style={[styles.root, styles.defaultRoot]}>
+    <View style={[styles.root, styles.defaultRoot, { backgroundColor: theme.colors.background }]}>
       <View style={styles.stateContent}>{children}</View>
     </View>
   );
@@ -308,6 +390,7 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
+    minHeight: 0,
   },
   stateContent: {
     flex: 1,
@@ -316,6 +399,8 @@ const styles = StyleSheet.create({
   },
   terminalContent: {
     flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
   },
   terminalRoot: {
     backgroundColor: colors.terminalBg,

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function Row({
   title,
@@ -15,26 +16,31 @@ export function Row({
   onPress?: () => void;
   children?: ReactNode;
 }) {
+  const theme = useMobileTheme();
   const content = (
     <View style={styles.row}>
       <View style={styles.titleRow}>
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={[styles.title, { color: theme.colors.label }]} numberOfLines={2}>
           {title}
         </Text>
         {children}
         {onPress && !children ? (
-          <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Text
+            style={[styles.chevron, { color: theme.colors.tertiaryLabel }]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             ›
           </Text>
         ) : null}
       </View>
       {meta ? (
-        <Text style={styles.meta} numberOfLines={1}>
+        <Text style={[styles.meta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
           {meta}
         </Text>
       ) : null}
       {subtitle ? (
-        <Text style={styles.subtitle} numberOfLines={2}>
+        <Text style={[styles.subtitle, { color: theme.colors.secondaryLabel }]} numberOfLines={2}>
           {subtitle}
         </Text>
       ) : null}
@@ -51,7 +57,8 @@ export function Row({
 }
 
 export function Separator() {
-  return <View style={styles.separator} />;
+  const theme = useMobileTheme();
+  return <View style={[styles.separator, { backgroundColor: theme.colors.separator }]} />;
 }
 
 const styles = StyleSheet.create({

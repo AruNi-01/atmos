@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
 import type { GlassViewProps } from "expo-glass-effect";
 import { colors, radii } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 type GlassPanelProps = PropsWithChildren<{
   fallbackStyle?: StyleProp<ViewStyle>;
@@ -19,31 +20,50 @@ export function GlassPanel({
   glassEffectStyle = "regular",
   interactive,
   style,
-  tintColor = colors.glassTint,
+  tintColor,
 }: GlassPanelProps) {
+  const theme = useMobileTheme();
   const shouldUseLiquidGlass = isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
-  const panelStyle = [styles.panel, style];
+  const resolvedTintColor = tintColor ?? theme.colors.glassTint;
+  const panelStyle = [styles.panel, { borderColor: theme.colors.glassBorder }, style];
 
   if (shouldUseLiquidGlass) {
     return (
       <GlassView
-        colorScheme="light"
+        colorScheme={theme.colorScheme}
         glassEffectStyle={glassEffectStyle}
         isInteractive={interactive}
-        style={panelStyle}
-        tintColor={tintColor}
+        style={[theme.isDark ? styles.darkShadow : styles.lightShadow, panelStyle]}
+        tintColor={resolvedTintColor}
       >
         {children}
       </GlassView>
     );
   }
 
-  return <View style={[styles.fallback, fallbackStyle, panelStyle]}>{children}</View>;
+  return (
+    <View
+      style={[
+        styles.fallback,
+        theme.isDark ? styles.darkShadow : styles.lightShadow,
+        { backgroundColor: theme.colors.glassFallback },
+        fallbackStyle,
+        panelStyle,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  darkShadow: {
+    boxShadow: "0 14px 42px rgba(0, 0, 0, 0.24)",
+  },
   fallback: {
     backgroundColor: colors.glassFallback,
+  },
+  lightShadow: {
     boxShadow: "0 14px 42px rgba(10, 10, 11, 0.07)",
   },
   panel: {

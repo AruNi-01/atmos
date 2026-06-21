@@ -1,6 +1,7 @@
 import { Image, StyleSheet, Text, View } from "react-native";
 import { MenuView } from "@expo/ui/community/menu";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeMenuButtonProps } from "./native-menu-button.types";
 
 export function NativeMenuButton({
@@ -12,6 +13,8 @@ export function NativeMenuButton({
   onAction,
   title,
 }: NativeMenuButtonProps) {
+  const theme = useMobileTheme();
+
   return (
     <MenuView
       actions={disabled ? actions.map((action) => ({ ...action, attributes: { ...action.attributes, disabled: true } })) : actions}
@@ -19,15 +22,39 @@ export function NativeMenuButton({
       shouldOpenOnLongPress={false}
       title={title}
     >
-      <View style={[styles.trigger, iconOnly && styles.iconOnlyTrigger, disabled && styles.triggerDisabled]}>
+      <View
+        style={[
+          styles.trigger,
+          {
+            backgroundColor: theme.colors.glassFallbackStrong,
+            borderColor: theme.colors.glassBorder,
+          },
+          iconOnly && styles.iconOnlyTrigger,
+          disabled && styles.triggerDisabled,
+        ]}
+      >
         {iconOnly && androidIcon ? (
-          <Image source={androidIcon} style={[styles.icon, disabled && styles.iconDisabled]} />
+          <Image
+            source={androidIcon}
+            style={[
+              styles.icon,
+              { tintColor: disabled ? theme.colors.tertiaryLabel : theme.colors.label },
+            ]}
+          />
         ) : (
-          <Text style={[styles.label, disabled && styles.labelDisabled]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.label,
+              { color: disabled ? theme.colors.tertiaryLabel : theme.colors.label },
+            ]}
+            numberOfLines={1}
+          >
             {label}
           </Text>
         )}
-        {iconOnly ? null : <Text style={[styles.chevron, disabled && styles.labelDisabled]}>⌄</Text>}
+        {iconOnly ? null : (
+          <Text style={[styles.chevron, { color: disabled ? theme.colors.tertiaryLabel : theme.colors.label }]}>⌄</Text>
+        )}
       </View>
     </MenuView>
   );
@@ -45,9 +72,6 @@ const styles = StyleSheet.create({
     tintColor: colors.label,
     width: 19,
   },
-  iconDisabled: {
-    tintColor: colors.tertiaryLabel,
-  },
   iconOnlyTrigger: {
     minWidth: 44,
     paddingHorizontal: 10,
@@ -57,9 +81,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     maxWidth: 150,
-  },
-  labelDisabled: {
-    color: colors.tertiaryLabel,
   },
   trigger: {
     alignItems: "center",

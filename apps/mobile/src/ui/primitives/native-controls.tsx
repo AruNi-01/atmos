@@ -7,7 +7,7 @@ import {
   Picker,
   Switch,
 } from "@expo/ui";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export { NativeButton } from "./native-button";
 export { NativeIcon, selectNativeIcon } from "./native-icon";
@@ -17,8 +17,6 @@ export type { NativeMenuAction } from "./native-menu-button.types";
 export { NativeSegmentedControl } from "./native-segmented-control";
 export { NativeTextInput } from "./native-text-input";
 
-const neutralHostProps = Platform.OS === "android" ? { seedColor: colors.label } : {};
-
 export function NativeList({
   children,
   onRefresh,
@@ -26,8 +24,11 @@ export function NativeList({
   children: ReactNode;
   onRefresh?: () => Promise<void>;
 }) {
+  const theme = useMobileTheme();
+  const neutralHostProps = Platform.OS === "android" ? { seedColor: theme.colors.label } : {};
+
   return (
-    <Host colorScheme="light" matchContents {...neutralHostProps}>
+    <Host colorScheme={theme.colorScheme} matchContents {...neutralHostProps}>
       <List onRefresh={onRefresh}>{children}</List>
     </Host>
   );
@@ -72,8 +73,11 @@ export function NativePicker<T extends string | number>({
   options: Array<{ label: string; value: T }>;
   enabled?: boolean;
 }) {
+  const theme = useMobileTheme();
+  const neutralHostProps = Platform.OS === "android" ? { seedColor: theme.colors.label } : {};
+
   return (
-    <Host colorScheme="light" matchContents {...neutralHostProps}>
+    <Host colorScheme={theme.colorScheme} matchContents {...neutralHostProps}>
       <Picker selectedValue={selectedValue} onValueChange={onValueChange} enabled={enabled}>
         {options.map((option) => (
           <Picker.Item key={String(option.value)} label={option.label} value={option.value} />
@@ -94,8 +98,11 @@ export function NativeSwitch({
   onValueChange: (value: boolean) => void;
   value: boolean;
 }) {
+  const theme = useMobileTheme();
+  const neutralHostProps = Platform.OS === "android" ? { seedColor: theme.colors.label } : {};
+
   return (
-    <Host colorScheme="light" matchContents {...neutralHostProps}>
+    <Host colorScheme={theme.colorScheme} matchContents {...neutralHostProps}>
       <Switch disabled={disabled} label={label} onValueChange={onValueChange} value={value} />
     </Host>
   );

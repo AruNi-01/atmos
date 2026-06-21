@@ -2,7 +2,8 @@ import { Button as ExpoButton, Host } from "@expo/ui";
 import type { UniversalStyle } from "@expo/ui";
 import type { ModifierConfig } from "@expo/ui/swift-ui/modifiers";
 import { border, buttonBorderShape, clipShape, tint } from "@expo/ui/swift-ui/modifiers";
-import { colors, radii } from "@/theme/colors";
+import { radii, type MobileThemeColors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeButtonProps } from "./native-button.types";
 
 export function NativeButton({
@@ -12,14 +13,15 @@ export function NativeButton({
   tone = "default",
   variant = "filled",
 }: NativeButtonProps) {
+  const theme = useMobileTheme();
   const nativeVariant = variant === "outlined" ? "text" : variant;
 
   return (
-    <Host matchContents colorScheme="light">
+    <Host matchContents colorScheme={theme.colorScheme}>
       <ExpoButton
         disabled={disabled}
         label={label}
-        modifiers={buttonModifiersByVariant(tone)[variant]}
+        modifiers={buttonModifiersByVariant(tone, theme.colors)[variant]}
         onPress={disabled ? undefined : onPress}
         style={buttonStyleByVariant[variant]}
         variant={nativeVariant}
@@ -30,8 +32,9 @@ export function NativeButton({
 
 function buttonModifiersByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
+  themeColors: MobileThemeColors,
 ): Record<NonNullable<NativeButtonProps["variant"]>, ModifierConfig[]> {
-  const tintColor = tone === "inverse" ? colors.labelInverse : colors.label;
+  const tintColor = tone === "inverse" ? themeColors.labelInverse : themeColors.label;
   return {
     filled: [buttonBorderShape("roundedRectangle", radii.control), tint(tintColor)],
     outlined: [

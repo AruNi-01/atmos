@@ -22,7 +22,7 @@ export type TerminalThemeTokens = {
   yellow: string;
 };
 
-export const terminalTheme: TerminalThemeTokens = {
+export const terminalDarkTheme: TerminalThemeTokens = {
   background: "#0b0f14",
   black: "#0b0f14",
   blue: "#7dd3fc",
@@ -45,3 +45,29 @@ export const terminalTheme: TerminalThemeTokens = {
   white: "#e5e7eb",
   yellow: "#fbbf24",
 };
+
+export const terminalLightTheme: TerminalThemeTokens = {
+  background: "#f8fafc",
+  black: "#111827",
+  blue: "#2563eb",
+  brightBlack: "#64748b",
+  brightBlue: "#1d4ed8",
+  brightCyan: "#0e7490",
+  brightGreen: "#15803d",
+  brightMagenta: "#a21caf",
+  brightRed: "#b91c1c",
+  brightWhite: "#0f172a",
+  brightYellow: "#a16207",
+  cursor: "#111827",
+  cursorAccent: "#f8fafc",
+  cyan: "#0891b2",
+  foreground: "#111827",
+  green: "#16a34a",
+  magenta: "#c026d3",
+  red: "#dc2626",
+  selectionBackground: "#cbd5e1",
+  white: "#334155",
+  yellow: "#ca8a04",
+};
+
+export const terminalTheme = terminalLightTheme;

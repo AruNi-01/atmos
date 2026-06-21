@@ -13,6 +13,7 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { isWorkspaceSetupProgressNotification, wsActions } from "@/api/ws-actions";
 import type { WorkspaceModel, WorkspaceSetupProgressNotification, WsNotification } from "@/api/types";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 const PRIORITY_OPTIONS = [
   { label: "No priority", value: "no_priority" },
@@ -42,6 +43,7 @@ type SetupSnapshot = {
 
 export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGuid?: string | null }) {
   const router = useRouter();
+  const theme = useMobileTheme();
   const { client, state } = useMobileWs();
   const isConnected = Boolean(client && state === "open");
   const [projectGuid, setProjectGuid] = useState("");
@@ -297,7 +299,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
             }}
           />
           {!createdWorkspace && createReadiness.reason ? (
-            <Text selectable style={styles.footerHint}>
+            <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {createReadiness.reason}
             </Text>
           ) : null}
@@ -428,7 +430,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                   ))}
                 </View>
               ) : (
-                <Text selectable style={styles.help}>
+                <Text selectable style={[styles.help, { color: theme.colors.secondaryLabel }]}>
                   No workspace labels are available on this Computer yet.
                 </Text>
               )}
@@ -440,15 +442,20 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
       {setupProgress ? (
         <Section label="Setup">
           <View style={styles.progressBlock}>
-            <Text selectable style={styles.progressTitle}>
+            <Text selectable style={[styles.progressTitle, { color: theme.colors.label }]}>
               {setupProgress.step_title}
             </Text>
-            <Text selectable style={styles.progressMeta}>
+            <Text selectable style={[styles.progressMeta, { color: theme.colors.secondaryLabel }]}>
               {formatSetupStatus(setupProgress)}
             </Text>
             {setupOutputPreview ? (
-              <View style={styles.outputBox}>
-                <Text selectable style={styles.outputText}>
+              <View
+                style={[
+                  styles.outputBox,
+                  { backgroundColor: theme.colors.cardElevated, borderColor: theme.colors.separator },
+                ]}
+              >
+                <Text selectable style={[styles.outputText, { color: theme.colors.label }]}>
                   {setupOutputPreview}
                 </Text>
               </View>

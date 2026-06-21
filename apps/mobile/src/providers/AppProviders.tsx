@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 import { useEffect, useMemo } from "react";
-import { AppState } from "react-native";
+import { AppState, Appearance } from "react-native";
 import * as Network from "expo-network";
 import * as SystemUI from "expo-system-ui";
 import { QueryClientProvider, focusManager, onlineManager } from "@tanstack/react-query";
@@ -9,9 +9,10 @@ import { MobileWsProvider } from "@/providers/MobileWsProvider";
 import { getStoredAccessToken, storeAccessToken } from "@/lib/access-token";
 import { loadDevAccessTokenImport } from "@/lib/dev-access-token-import";
 import { useSessionStore } from "@/stores/session-store";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function AppProviders({ children }: PropsWithChildren) {
+  const theme = useMobileTheme();
   const queryClient = useMemo(() => createAtmosQueryClient(), []);
   const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
   const setRelayUrl = useSessionStore((state) => state.setRelayUrl);
@@ -53,8 +54,9 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, [setAccessTokenLoaded, setRelayUrl, setRelaySecretKey]);
 
   useEffect(() => {
-    void SystemUI.setBackgroundColorAsync(colors.background);
-  }, []);
+    Appearance.setColorScheme(theme.preference === "system" ? "unspecified" : theme.preference);
+    void SystemUI.setBackgroundColorAsync(theme.colors.background);
+  }, [theme.colors.background, theme.preference]);
 
   useEffect(() => {
     const updateNetwork = async () => {

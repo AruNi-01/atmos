@@ -10,9 +10,11 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { wsActions } from "@/api/ws-actions";
 import type { FsEntry } from "@/api/types";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function ImportProjectScreen() {
   const router = useRouter();
+  const theme = useMobileTheme();
   const queryClient = useQueryClient();
   const { client, state } = useMobileWs();
   const [path, setPath] = useState("");
@@ -140,7 +142,7 @@ export function ImportProjectScreen() {
             onPress={() => createProject.mutate()}
           />
           {readiness.reason ? (
-            <Text selectable style={styles.footerHint}>
+            <Text selectable style={[styles.footerHint, { color: theme.colors.secondaryLabel }]}>
               {readiness.reason}
             </Text>
           ) : null}
@@ -161,7 +163,7 @@ export function ImportProjectScreen() {
             onPress={() => validate.mutate()}
             disabled={!isConnected || !path.trim() || validate.isPending}
           />
-          <Text selectable style={styles.help}>
+          <Text selectable style={[styles.help, { color: theme.colors.secondaryLabel }]}>
             Mobile import selects a path on the remote Atmos Computer. It does not clone from this phone.
           </Text>
         </View>
@@ -170,7 +172,7 @@ export function ImportProjectScreen() {
       <Section label="Browse Remote Computer">
         <View style={styles.block}>
           <View style={styles.pathRow}>
-            <Text selectable style={styles.currentDir} numberOfLines={1}>
+            <Text selectable style={[styles.currentDir, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
               {currentDir || "Loading home directory..."}
             </Text>
             <NativeButton

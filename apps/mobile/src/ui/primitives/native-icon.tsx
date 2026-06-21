@@ -1,5 +1,6 @@
 import { Host, Icon } from "@expo/ui";
 import type { IconName, IconSelectSpec } from "@expo/ui";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export type NativeIconName = IconName;
 
@@ -14,8 +15,10 @@ export function NativeIcon({
   name: NativeIconName;
   size?: number;
 }) {
+  const theme = useMobileTheme();
+
   return (
-    <Host colorScheme="light" matchContents>
+    <Host colorScheme={theme.colorScheme} matchContents>
       <Icon color={color} name={name} size={size} />
     </Host>
   );

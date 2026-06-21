@@ -1,11 +1,14 @@
 import { StyleSheet, View } from "react-native";
 import { Host, RNHostView, TabView } from "@expo/ui/swift-ui";
 import { tabViewStyle } from "@expo/ui/swift-ui/modifiers";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { WorkspaceTab, WorkspaceTabsProps } from "./WorkspaceTabs.types";
 
 export function WorkspaceTabs({ items, onSelectTab, selectedTab }: WorkspaceTabsProps) {
+  const theme = useMobileTheme();
+
   return (
-    <Host colorScheme="light" style={styles.host}>
+    <Host colorScheme={theme.colorScheme} style={styles.host}>
       <TabView
         modifiers={[tabViewStyle({ type: "automatic" })]}
         onSelectionChange={(value) => {

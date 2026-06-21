@@ -4,8 +4,8 @@ import { useRouter } from "expo-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ComputerRow } from "@/api/types";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
-import { ChevronRightIcon, LaptopIcon } from "@/ui/icons/lucide-native";
+import { NativeButton, NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
+import { ChevronRightIcon, LaptopIcon, SunMoonIcon } from "@/ui/icons/lucide-native";
 import { getAccessTokenSwitchReadiness } from "@/features/settings/access-token-settings";
 import { activeSettingsComputers } from "@/features/settings/computer-settings";
 import { getRelayUrlSaveState } from "@/features/settings/relay-url-settings";
@@ -14,6 +14,7 @@ import { clearAccessToken, generateAccessToken, getStoredAccessToken, storeAcces
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { colors } from "@/theme/colors";
+import { themePreferenceOptions, useMobileTheme, type MobileThemePreference } from "@/theme/theme-store";
 
 type SettingsRoute = "/settings/computers";
 
@@ -32,6 +33,7 @@ export function SettingsScreen() {
 
 export function SettingsIndexScreen() {
   const router = useRouter();
+  const theme = useMobileTheme();
   const settings = useMobileSettingsController();
   const selectedComputer = settings.selectedComputer;
   const computerSummary = selectedComputer
@@ -53,6 +55,34 @@ export function SettingsIndexScreen() {
 
   return (
     <AppScreen>
+      <Section label="Preferences">
+        <View style={styles.block}>
+          <View style={styles.preferenceHeader}>
+            <View
+              style={[
+                styles.iconWell,
+                { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator },
+              ]}
+            >
+              <SunMoonIcon color={theme.colors.label} size={18} strokeWidth={2.4} />
+            </View>
+            <View style={styles.settingsRowText}>
+              <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.colors.label }]}>
+                Theme
+              </Text>
+              <Text numberOfLines={2} style={[styles.rowDescription, { color: theme.colors.secondaryLabel }]}>
+                {theme.preference === "system" ? "Follow system appearance" : `${theme.preference === "dark" ? "Dark" : "Light"} mode`}
+              </Text>
+            </View>
+          </View>
+          <NativeSegmentedControl<MobileThemePreference>
+            onValueChange={theme.setPreference}
+            options={themePreferenceOptions}
+            selectedValue={theme.preference}
+          />
+        </View>
+      </Section>
+
       <Section label="System & Integration">
         <View style={styles.list}>
           {systemEntries.map((entry) => (
@@ -71,6 +101,7 @@ export function SettingsIndexScreen() {
 }
 
 export function SettingsComputersScreen() {
+  const theme = useMobileTheme();
   const settings = useMobileSettingsController();
   const tokenSwitchReadiness = getAccessTokenSwitchReadiness({
     isSaving: settings.switchAccessToken.isPending,
@@ -162,11 +193,11 @@ export function SettingsComputersScreen() {
             disabled={!settings.hasAccessToken || settings.createRegisterCommand.isPending}
           />
           {settings.registerCommand ? (
-            <View style={styles.commandBlock}>
-              <Text selectable style={styles.commandIntro}>
+            <View style={[styles.commandBlock, { backgroundColor: theme.colors.terminalBg }]}>
+              <Text selectable style={[styles.commandIntro, { color: theme.colors.terminalMuted }]}>
                 Run this once on the machine that hosts Atmos Server.
               </Text>
-              <Text selectable style={styles.commandText}>
+              <Text selectable style={[styles.commandText, { color: theme.colors.terminalFg }]}>
                 {settings.registerCommand}
               </Text>
             </View>
@@ -475,32 +506,41 @@ function SettingsListItem({
   entry: SettingsEntry;
   onPress: () => void;
 }) {
+  const theme = useMobileTheme();
   const Icon = entry.icon;
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.settingsRow, pressed ? styles.pressedRow : null]}
+      style={({ pressed }) => [
+        styles.settingsRow,
+        pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
+      ]}
     >
       <View style={styles.settingsRowLeading}>
-        <View style={styles.iconWell}>
-          <Icon color={colors.label} size={18} strokeWidth={2.4} />
+        <View
+          style={[
+            styles.iconWell,
+            { backgroundColor: theme.colors.cardSubtle, borderColor: theme.colors.separator },
+          ]}
+        >
+          <Icon color={theme.colors.label} size={18} strokeWidth={2.4} />
         </View>
         <View style={styles.settingsRowText}>
-          <Text numberOfLines={1} style={styles.rowTitle}>
+          <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.colors.label }]}>
             {entry.title}
           </Text>
-          <Text numberOfLines={2} style={styles.rowDescription}>
+          <Text numberOfLines={2} style={[styles.rowDescription, { color: theme.colors.secondaryLabel }]}>
             {entry.description}
           </Text>
         </View>
       </View>
       <View style={styles.trailing}>
-        <Text numberOfLines={1} style={styles.trailingText}>
+        <Text numberOfLines={1} style={[styles.trailingText, { color: theme.colors.secondaryLabel }]}>
           {entry.summary}
         </Text>
-        <ChevronRightIcon color={colors.tertiaryLabel} size={18} strokeWidth={2.6} />
+        <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
       </View>
     </Pressable>
   );
@@ -515,17 +555,22 @@ function ComputerListItem({
   onPress: () => void;
   selectedServerId: string | null;
 }) {
+  const theme = useMobileTheme();
+
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.settingsRow, pressed ? styles.pressedRow : null]}
+      style={({ pressed }) => [
+        styles.settingsRow,
+        pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
+      ]}
     >
       <View style={styles.settingsRowText}>
-        <Text numberOfLines={1} style={styles.rowTitle}>
+        <Text numberOfLines={1} style={[styles.rowTitle, { color: theme.colors.label }]}>
           {computer.display_name ?? computer.server_id}
         </Text>
-        <Text numberOfLines={1} style={styles.rowDescription}>
+        <Text numberOfLines={1} style={[styles.rowDescription, { color: theme.colors.secondaryLabel }]}>
           {computer.server_id}
         </Text>
       </View>
@@ -541,10 +586,21 @@ function ComputerStatus({
   computer: ComputerRow;
   selectedServerId: string | null;
 }) {
+  const theme = useMobileTheme();
+
   return (
     <View style={styles.computerStatus}>
-      {computer.server_id === selectedServerId ? <Text style={styles.selectedText}>Selected</Text> : null}
-      <Text style={[styles.statusPill, computer.online ? styles.onlinePill : styles.offlinePill]}>
+      {computer.server_id === selectedServerId ? (
+        <Text style={[styles.selectedText, { color: theme.colors.label }]}>Selected</Text>
+      ) : null}
+      <Text
+        style={[
+          styles.statusPill,
+          computer.online
+            ? { backgroundColor: theme.colors.greenSurface, color: theme.colors.green }
+            : { backgroundColor: theme.colors.mutedPressed, color: theme.colors.secondaryLabel },
+        ]}
+      >
         {computer.online ? "Online" : "Offline"}
       </Text>
     </View>
@@ -552,16 +608,18 @@ function ComputerStatus({
 }
 
 function SelectedComputerSummary({ computer }: { computer: ComputerRow | null }) {
+  const theme = useMobileTheme();
+
   if (!computer) {
     return <SettingsHint message="Select a Computer before renaming or revoking it." />;
   }
 
   return (
     <View style={styles.summary}>
-      <Text numberOfLines={1} style={styles.summaryTitle}>
+      <Text numberOfLines={1} style={[styles.summaryTitle, { color: theme.colors.label }]}>
         {computer.display_name ?? computer.server_id}
       </Text>
-      <Text numberOfLines={1} style={styles.summaryText}>
+      <Text numberOfLines={1} style={[styles.summaryText, { color: theme.colors.secondaryLabel }]}>
         {computer.server_id}
       </Text>
     </View>
@@ -569,8 +627,10 @@ function SelectedComputerSummary({ computer }: { computer: ComputerRow | null })
 }
 
 function SettingsHint({ message }: { message: string }) {
+  const theme = useMobileTheme();
+
   return (
-    <Text selectable style={styles.hint}>
+    <Text selectable style={[styles.hint, { color: theme.colors.secondaryLabel }]}>
       {message}
     </Text>
   );
@@ -637,6 +697,11 @@ const styles = StyleSheet.create({
   },
   pressedRow: {
     backgroundColor: colors.mutedPressed,
+  },
+  preferenceHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
   },
   rowDescription: {
     color: colors.secondaryLabel,

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Keyboard,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,18 +11,37 @@ import {
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { TerminalKeyboardDismissButton } from "@/features/terminal/TerminalKeyboardDismissButton";
 import { terminalShortcuts, type TerminalShortcut } from "@/features/terminal/terminal-shortcuts";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function TerminalShortcutBar({
   enabled = true,
+  onDismissKeyboard,
   onShortcut,
 }: {
   enabled?: boolean;
+  onDismissKeyboard?: () => void;
   onShortcut: (shortcut: TerminalShortcut) => void;
 }) {
+  const theme = useMobileTheme();
   const insets = useSafeAreaInsets();
+  const [keyboardVisible, setKeyboardVisible] = useState(() => Keyboard.isVisible());
   const shortcutsById = useMemo(() => new Map(terminalShortcuts.map((shortcut) => [shortcut.id, shortcut])), []);
+  const bottomPadding = keyboardVisible ? 4 : Math.max(insets.bottom, 4);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const fireShortcut = (shortcutId: string) => {
     const shortcut = shortcutsById.get(shortcutId);
@@ -35,38 +55,42 @@ export function TerminalShortcutBar({
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-      <GlassPanel
-        fallbackStyle={styles.fallback}
-        glassEffectStyle={{ style: "regular", animate: true }}
-        interactive
-        style={styles.root}
-        tintColor="rgba(9, 9, 11, 0.78)"
-      >
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
-          <ShortcutMenuButton
-            actions={CTRL_ACTIONS}
-            label="Ctrl"
-            onAction={handleMenuAction}
-          />
-          <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
-          <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
-          <ShortcutButton label="Paste" onPress={() => fireShortcut("paste")} />
-          <ShortcutButton label="History" onPress={() => fireShortcut("up")} />
-          <ShortcutMenuButton
-            actions={DIRECTION_ACTIONS}
-            label="Move"
-            onAction={handleMenuAction}
-            openOnLongPress
-          />
-          <ShortcutMenuButton
-            actions={AGENT_ACTIONS}
-            label="Agent"
-            onAction={handleMenuAction}
-          />
-          <ShortcutButton label="Keyboard" onPress={() => Keyboard.dismiss()} />
-        </ScrollView>
-      </GlassPanel>
+    <View style={[styles.container, { backgroundColor: theme.colors.terminalBg, paddingBottom: bottomPadding }]}>
+      <View style={styles.row}>
+        <GlassPanel
+          fallbackStyle={[styles.fallback, { backgroundColor: theme.isDark ? "rgba(9, 9, 11, 0.92)" : "rgba(255, 255, 255, 0.72)" }]}
+          glassEffectStyle={{ style: "regular", animate: true }}
+          interactive
+          style={[styles.root, { backgroundColor: theme.colors.terminalBg, borderColor: theme.colors.glassBorder }]}
+          tintColor={theme.isDark ? "rgba(9, 9, 11, 0.78)" : "rgba(255, 255, 255, 0.58)"}
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
+            <ShortcutMenuButton
+              actions={CTRL_ACTIONS}
+              label="Ctrl"
+              onAction={handleMenuAction}
+            />
+            <ShortcutButton label="Esc" onPress={() => fireShortcut("esc")} />
+            <ShortcutButton label="Tab" onPress={() => fireShortcut("tab")} />
+            <ShortcutButton label="Paste" onPress={() => fireShortcut("paste")} />
+            <ShortcutButton label="History" onPress={() => fireShortcut("up")} />
+            <ShortcutMenuButton
+              actions={DIRECTION_ACTIONS}
+              label="Move"
+              onAction={handleMenuAction}
+              openOnLongPress
+            />
+            <ShortcutMenuButton
+              actions={AGENT_ACTIONS}
+              label="Agent"
+              onAction={handleMenuAction}
+            />
+          </ScrollView>
+        </GlassPanel>
+        {keyboardVisible && onDismissKeyboard ? (
+          <TerminalKeyboardDismissButton onPress={onDismissKeyboard} />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -78,10 +102,22 @@ function ShortcutButton({
   label: string;
   onPress?: () => void;
 }) {
+  const theme = useMobileTheme();
+  const keycapStyle = {
+    backgroundColor: theme.isDark ? "rgba(248, 250, 252, 0.10)" : "rgba(244, 244, 245, 0.93)",
+    borderColor: theme.isDark ? theme.colors.glassBorder : theme.colors.separator,
+  };
+  const keycapPressedStyle = {
+    backgroundColor: theme.isDark ? "rgba(248, 250, 252, 0.16)" : "rgba(228, 228, 231, 0.96)",
+  };
+  const keycapTextStyle = {
+    color: theme.isDark ? theme.colors.label : "#111827",
+  };
+
   if (!onPress) {
     return (
-      <View accessibilityRole="button" style={styles.keycap}>
-        <Text style={styles.keycapText}>{label}</Text>
+      <View accessibilityRole="button" style={[styles.keycap, keycapStyle]}>
+        <Text style={[styles.keycapText, keycapTextStyle]}>{label}</Text>
       </View>
     );
   }
@@ -90,9 +126,9 @@ function ShortcutButton({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.keycap, pressed && styles.keycapPressed]}
+      style={({ pressed }) => [styles.keycap, keycapStyle, pressed && keycapPressedStyle]}
     >
-      <Text style={styles.keycapText}>{label}</Text>
+      <Text style={[styles.keycapText, keycapTextStyle]}>{label}</Text>
     </Pressable>
   );
 }
@@ -147,42 +183,49 @@ const AGENT_ACTIONS: MenuAction[] = [
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.terminalBg,
-    paddingHorizontal: 10,
-    paddingTop: 8,
+    paddingHorizontal: 8,
+    paddingTop: 4,
   },
   root: {
     backgroundColor: colors.terminalBg,
     borderColor: "rgba(255, 255, 255, 0.12)",
-    borderRadius: 30,
+    borderRadius: 23,
+    flex: 1,
+    minWidth: 0,
+  },
+  row: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 7,
   },
   content: {
     alignItems: "center",
-    gap: 8,
-    minHeight: 56,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   fallback: {
     backgroundColor: "rgba(9, 9, 11, 0.92)",
   },
   keycap: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(244, 244, 245, 0.93)",
+    borderColor: colors.separator,
     borderCurve: "continuous",
-    borderRadius: 16,
+    borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: "center",
-    minHeight: 42,
-    minWidth: 54,
-    paddingHorizontal: 13,
+    minHeight: 36,
+    minWidth: 46,
+    paddingHorizontal: 10,
   },
   keycapPressed: {
-    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "rgba(228, 228, 231, 0.96)",
   },
   keycapText: {
-    color: colors.terminalFg,
-    fontSize: 14,
+    color: "#111827",
+    fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0,
   },

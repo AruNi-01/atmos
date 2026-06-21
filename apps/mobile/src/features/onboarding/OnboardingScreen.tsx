@@ -19,6 +19,7 @@ import {
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 const schema = z.object({
   token: z.string().refine(isPlausibleAccessToken, "Access Token must be at least 32 characters."),
@@ -28,6 +29,7 @@ type FormValues = z.infer<typeof schema>;
 
 export function OnboardingScreen() {
   const router = useRouter();
+  const theme = useMobileTheme();
   const client = useRelayClient();
   const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
   const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
@@ -127,12 +129,17 @@ export function OnboardingScreen() {
       <Section label="Access Token">
         <View style={styles.formBlock}>
           <View style={styles.tokenSummary}>
-            <View style={[styles.statusDot, hasAccessToken ? styles.statusDotOk : null]} />
-            <Text selectable style={styles.statusText}>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: hasAccessToken ? theme.colors.label : theme.colors.tertiaryLabel },
+              ]}
+            />
+            <Text selectable style={[styles.statusText, { color: theme.colors.secondaryLabel }]}>
               {hasAccessToken ? "Token saved on this device" : "Token required before selecting a Computer"}
             </Text>
           </View>
-          <Text selectable style={styles.bodyText}>
+          <Text selectable style={[styles.bodyText, { color: theme.colors.secondaryLabel }]}>
             Mobile connects through Relay. Atmos Server still runs on your Mac or remote machine.
           </Text>
           <Controller
@@ -168,11 +175,11 @@ export function OnboardingScreen() {
 
       <Section label="Start Atmos Server">
         {registerCommand ? (
-          <View style={styles.commandBlock}>
-            <Text selectable style={styles.commandIntro}>
+          <View style={[styles.commandBlock, { backgroundColor: theme.colors.terminalBg }]}>
+            <Text selectable style={[styles.commandIntro, { color: theme.colors.terminalMuted }]}>
               Run this once on the machine that hosts Atmos Server.
             </Text>
-            <Text selectable style={styles.commandText}>
+            <Text selectable style={[styles.commandText, { color: theme.colors.terminalFg }]}>
               {registerCommand}
             </Text>
           </View>
@@ -200,10 +207,16 @@ export function OnboardingScreen() {
 }
 
 function TokenSavedStatus() {
+  const theme = useMobileTheme();
+
   return (
-    <GlassPanel fallbackStyle={styles.savedStatusFallback} glassEffectStyle="clear" style={styles.savedStatus}>
-      <View style={[styles.statusDot, styles.statusDotOk]} />
-      <Text style={styles.savedStatusText}>Access Token saved</Text>
+    <GlassPanel
+      fallbackStyle={[styles.savedStatusFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
+      glassEffectStyle="clear"
+      style={[styles.savedStatus, { borderColor: theme.colors.glassBorder }]}
+    >
+      <View style={[styles.statusDot, { backgroundColor: theme.colors.label }]} />
+      <Text style={[styles.savedStatusText, { color: theme.colors.label }]}>Access Token saved</Text>
     </GlassPanel>
   );
 }
@@ -217,16 +230,18 @@ function Step({
   index: string;
   title: string;
 }) {
+  const theme = useMobileTheme();
+
   return (
     <View style={styles.step}>
-      <View style={styles.stepIndex}>
-        <Text style={styles.stepIndexText}>{index}</Text>
+      <View style={[styles.stepIndex, { backgroundColor: theme.colors.label }]}>
+        <Text style={[styles.stepIndexText, { color: theme.colors.labelInverse }]}>{index}</Text>
       </View>
       <View style={styles.stepCopy}>
-        <Text selectable style={styles.stepTitle}>
+        <Text selectable style={[styles.stepTitle, { color: theme.colors.label }]}>
           {title}
         </Text>
-        <Text selectable style={styles.stepBody}>
+        <Text selectable style={[styles.stepBody, { color: theme.colors.secondaryLabel }]}>
           {body}
         </Text>
       </View>

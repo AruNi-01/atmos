@@ -3,6 +3,7 @@ import { InlineError } from "@/ui/layout/app-screen";
 import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { colors, radii } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function CommitSheet({
   message,
@@ -27,6 +28,8 @@ export function CommitSheet({
   canCommit?: boolean;
   canPush?: boolean;
 }) {
+  const theme = useMobileTheme();
+
   return (
     <View style={styles.root}>
       <NativeTextInput
@@ -49,8 +52,12 @@ export function CommitSheet({
         />
       </View>
       {successMessage ? (
-        <GlassPanel fallbackStyle={styles.successFallback} glassEffectStyle="clear" style={styles.success}>
-          <Text selectable style={styles.successText}>
+        <GlassPanel
+          fallbackStyle={[styles.successFallback, { backgroundColor: theme.colors.greenSurface }]}
+          glassEffectStyle="clear"
+          style={[styles.success, { borderColor: theme.colors.greenBorder }]}
+        >
+          <Text selectable style={[styles.successText, { color: theme.colors.green }]}>
             {successMessage}
           </Text>
         </GlassPanel>

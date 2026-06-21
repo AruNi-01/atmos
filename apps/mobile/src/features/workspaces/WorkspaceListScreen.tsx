@@ -13,6 +13,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, InlineError } from "@/ui/layout/app-screen";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
   projects: [],
@@ -22,6 +23,7 @@ const EMPTY_BOOTSTRAP: ProjectWorkspaceBootstrapResponse = {
 
 export function WorkspaceListScreen() {
   const router = useRouter();
+  const theme = useMobileTheme();
   const relayClient = useRelayClient();
   const { client: wsClient, state: wsState } = useMobileWs();
   const accessTokenLoaded = useSessionStore((state) => state.accessTokenLoaded);
@@ -100,7 +102,7 @@ export function WorkspaceListScreen() {
       <View style={styles.dashboard}>
         <View style={styles.statusRail}>
           <StatusPill label={workspaceListConnectionLabel(wsState)} active={wsState === "open"} />
-          <Text style={styles.statusText} numberOfLines={1}>
+          <Text style={[styles.statusText, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
             {selectedComputer?.display_name ?? selectedServerId ?? "No Computer"}
           </Text>
         </View>
@@ -145,27 +147,31 @@ function DashboardCard({
   title: string;
   value: string;
 }) {
+  const theme = useMobileTheme();
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.cardPressed]}>
       <GlassPanel
-        fallbackStyle={styles.cardFallback}
+        fallbackStyle={[styles.cardFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
         glassEffectStyle={{ style: "regular", animate: true }}
         interactive
         style={styles.card}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardStatus}>{status}</Text>
+          <Text style={[styles.cardTitle, { color: theme.colors.secondaryLabel }]}>{title}</Text>
+          <Text style={[styles.cardStatus, { borderColor: theme.colors.separatorStrong, color: theme.colors.label }]}>
+            {status}
+          </Text>
         </View>
-        <Text style={styles.cardValue} numberOfLines={1}>
+        <Text style={[styles.cardValue, { color: theme.colors.label }]} numberOfLines={1}>
           {value}
         </Text>
         <View style={styles.cardFooter}>
-          <Text style={styles.cardMeta} numberOfLines={1}>
+          <Text style={[styles.cardMeta, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
             {meta}
           </Text>
-          <View style={styles.cardAction}>
-            <Text style={styles.cardActionText}>{actionLabel}</Text>
+          <View style={[styles.cardAction, { backgroundColor: theme.colors.label }]}>
+            <Text style={[styles.cardActionText, { color: theme.colors.labelInverse }]}>{actionLabel}</Text>
           </View>
         </View>
       </GlassPanel>
@@ -174,10 +180,17 @@ function DashboardCard({
 }
 
 function StatusPill({ active, label }: { active: boolean; label: string }) {
+  const theme = useMobileTheme();
+
   return (
-    <View style={styles.statusPill}>
-      <View style={[styles.statusDot, active && styles.statusDotActive]} />
-      <Text style={styles.statusPillText}>{label}</Text>
+    <View style={[styles.statusPill, { backgroundColor: theme.colors.label }]}>
+      <View
+        style={[
+          styles.statusDot,
+          { backgroundColor: active ? theme.colors.labelInverse : theme.colors.tertiaryLabel },
+        ]}
+      />
+      <Text style={[styles.statusPillText, { color: theme.colors.labelInverse }]}>{label}</Text>
     </View>
   );
 }

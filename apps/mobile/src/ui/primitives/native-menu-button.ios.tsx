@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Button, Host, Menu, Section } from "@expo/ui/swift-ui";
 import { disabled as disabledModifier, labelStyle, tint } from "@expo/ui/swift-ui/modifiers";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeMenuAction, NativeMenuButtonProps } from "./native-menu-button.types";
 
 export function NativeMenuButton({
@@ -13,14 +13,15 @@ export function NativeMenuButton({
   systemImage,
   title,
 }: NativeMenuButtonProps) {
+  const theme = useMobileTheme();
   const items = actions.map((action) => renderAction(action, onAction));
   const menuModifiers = [
-    tint(disabled ? colors.tertiaryLabel : colors.label),
+    tint(disabled ? theme.colors.tertiaryLabel : theme.colors.label),
     ...(iconOnly ? [labelStyle("iconOnly")] : []),
   ];
 
   return (
-    <Host colorScheme="light" matchContents>
+    <Host colorScheme={theme.colorScheme} matchContents>
       <Menu
         label={label}
         modifiers={menuModifiers}

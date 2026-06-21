@@ -2,7 +2,8 @@ import { useCallback, useEffect } from "react";
 import type { KeyboardTypeOptions, ReturnKeyTypeOptions } from "react-native";
 import { Host, OutlinedTextField, Shape, Text, useNativeState } from "@expo/ui/jetpack-compose";
 import { fillMaxWidth, height } from "@expo/ui/jetpack-compose/modifiers";
-import { colors, radii } from "@/theme/colors";
+import { radii, type MobileThemeColors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeTextInputProps } from "./native-text-input.types";
 
 function mapKeyboardType(value: KeyboardTypeOptions | undefined) {
@@ -66,12 +67,15 @@ export function NativeTextInput({
   onFocus,
   onSubmitEditing,
   placeholder,
-  placeholderTextColor = colors.secondaryLabel,
+  placeholderTextColor,
   returnKeyType,
   secureTextEntry,
   value,
 }: NativeTextInputProps) {
+  const theme = useMobileTheme();
   const nativeValue = useNativeState(value ?? defaultValue ?? "");
+  const resolvedPlaceholderColor = placeholderTextColor ?? theme.colors.secondaryLabel;
+  const textFieldColors = getTextFieldColors(theme.colors);
 
   useEffect(() => {
     if (value !== undefined && nativeValue.value !== value) {
@@ -106,7 +110,7 @@ export function NativeTextInput({
   );
 
   return (
-    <Host colorScheme="light" matchContents={{ vertical: true }} seedColor={colors.label} style={{ width: "100%" }}>
+    <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} seedColor={theme.colors.label} style={{ width: "100%" }}>
       <OutlinedTextField
         colors={textFieldColors}
         enabled={editable !== false}
@@ -133,11 +137,11 @@ export function NativeTextInput({
         shape={Shape.RoundedCorner({ cornerRadii: controlCornerRadii })}
         singleLine={!multiline}
         textSelectionColors={{
-          backgroundColor: colors.selection,
-          handleColor: colors.label,
+          backgroundColor: theme.colors.selection,
+          handleColor: theme.colors.label,
         }}
         textStyle={{
-          color: colors.label,
+          color: theme.colors.label,
           fontSize: 16,
         }}
         value={nativeValue}
@@ -145,7 +149,7 @@ export function NativeTextInput({
       >
         {placeholder ? (
           <OutlinedTextField.Placeholder>
-            <Text color={String(placeholderTextColor)}>{placeholder}</Text>
+            <Text color={String(resolvedPlaceholderColor)}>{placeholder}</Text>
           </OutlinedTextField.Placeholder>
         ) : null}
       </OutlinedTextField>
@@ -160,21 +164,23 @@ const controlCornerRadii = {
   topStart: radii.control,
 };
 
-const textFieldColors = {
-  cursorColor: colors.label,
-  disabledContainerColor: colors.cardElevated,
-  disabledIndicatorColor: colors.separatorStrong,
-  disabledLabelColor: colors.tertiaryLabel,
-  disabledPlaceholderColor: colors.tertiaryLabel,
-  disabledTextColor: colors.tertiaryLabel,
-  focusedContainerColor: colors.cardElevated,
-  focusedIndicatorColor: colors.label,
-  focusedLabelColor: colors.label,
-  focusedPlaceholderColor: colors.secondaryLabel,
-  focusedTextColor: colors.label,
-  unfocusedContainerColor: colors.cardElevated,
-  unfocusedIndicatorColor: colors.separatorStrong,
-  unfocusedLabelColor: colors.secondaryLabel,
-  unfocusedPlaceholderColor: colors.secondaryLabel,
-  unfocusedTextColor: colors.label,
-};
+function getTextFieldColors(themeColors: MobileThemeColors) {
+  return {
+    cursorColor: themeColors.label,
+    disabledContainerColor: themeColors.cardElevated,
+    disabledIndicatorColor: themeColors.separatorStrong,
+    disabledLabelColor: themeColors.tertiaryLabel,
+    disabledPlaceholderColor: themeColors.tertiaryLabel,
+    disabledTextColor: themeColors.tertiaryLabel,
+    focusedContainerColor: themeColors.cardElevated,
+    focusedIndicatorColor: themeColors.label,
+    focusedLabelColor: themeColors.label,
+    focusedPlaceholderColor: themeColors.secondaryLabel,
+    focusedTextColor: themeColors.label,
+    unfocusedContainerColor: themeColors.cardElevated,
+    unfocusedIndicatorColor: themeColors.separatorStrong,
+    unfocusedLabelColor: themeColors.secondaryLabel,
+    unfocusedPlaceholderColor: themeColors.secondaryLabel,
+    unfocusedTextColor: themeColors.label,
+  };
+}

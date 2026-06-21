@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ProjectModel, WorkspaceModel } from "@/api/types";
 import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { colors, radii } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export function WorkspaceOverview({
   project,
@@ -10,16 +11,26 @@ export function WorkspaceOverview({
   project: ProjectModel | null;
   workspace: WorkspaceModel;
 }) {
+  const theme = useMobileTheme();
+
   return (
     <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="never">
-      <GlassPanel fallbackStyle={styles.panelFallback} glassEffectStyle={{ style: "regular", animate: true }} style={styles.panel}>
+      <GlassPanel
+        fallbackStyle={[styles.panelFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
+        glassEffectStyle={{ style: "regular", animate: true }}
+        style={styles.panel}
+      >
         <InfoRow label="Workspace" value={workspace.display_name ?? workspace.name} />
         <InfoRow label="Project" value={project?.name ?? "Unknown"} />
         <InfoRow label="Branch" value={workspace.branch || "None"} />
         <InfoRow label="Path" value={workspace.local_path} selectable />
       </GlassPanel>
 
-      <GlassPanel fallbackStyle={styles.panelFallback} glassEffectStyle={{ style: "regular", animate: true }} style={styles.panel}>
+      <GlassPanel
+        fallbackStyle={[styles.panelFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
+        glassEffectStyle={{ style: "regular", animate: true }}
+        style={styles.panel}
+      >
         <InfoRow label="Status" value={workspace.workflow_status} />
         <InfoRow label="Priority" value={workspace.priority} />
         <InfoRow label="Base" value={workspace.base_branch || "None"} />
@@ -27,16 +38,20 @@ export function WorkspaceOverview({
       </GlassPanel>
 
       {workspace.github_issue || workspace.github_pr || workspace.labels.length > 0 ? (
-        <GlassPanel fallbackStyle={styles.panelFallback} glassEffectStyle={{ style: "regular", animate: true }} style={styles.panel}>
+        <GlassPanel
+          fallbackStyle={[styles.panelFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
+          glassEffectStyle={{ style: "regular", animate: true }}
+          style={styles.panel}
+        >
           {workspace.github_issue ? <InfoRow label="Issue" value={`#${workspace.github_issue.number} ${workspace.github_issue.title}`} /> : null}
           {workspace.github_pr ? <InfoRow label="PR" value={`#${workspace.github_pr.number} ${workspace.github_pr.title}`} /> : null}
           {workspace.labels.length > 0 ? (
             <View style={styles.labelBlock}>
-              <Text style={styles.rowLabel}>Labels</Text>
+              <Text style={[styles.rowLabel, { color: theme.colors.secondaryLabel }]}>Labels</Text>
               <View style={styles.chips}>
                 {workspace.labels.map((label) => (
-                  <View key={label.guid} style={styles.chip}>
-                    <Text style={styles.chipText}>{label.name}</Text>
+                  <View key={label.guid} style={[styles.chip, { backgroundColor: theme.colors.label }]}>
+                    <Text style={[styles.chipText, { color: theme.colors.labelInverse }]}>{label.name}</Text>
                   </View>
                 ))}
               </View>
@@ -57,10 +72,16 @@ function InfoRow({
   selectable?: boolean;
   value: string;
 }) {
+  const theme = useMobileTheme();
+
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text selectable={selectable} style={styles.rowValue} numberOfLines={label === "Path" ? 2 : 1}>
+    <View style={[styles.row, { borderBottomColor: theme.colors.separator }]}>
+      <Text style={[styles.rowLabel, { color: theme.colors.secondaryLabel }]}>{label}</Text>
+      <Text
+        selectable={selectable}
+        style={[styles.rowValue, { color: theme.colors.label }]}
+        numberOfLines={label === "Path" ? 2 : 1}
+      >
         {value}
       </Text>
     </View>

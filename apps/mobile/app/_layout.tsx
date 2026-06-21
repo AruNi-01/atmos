@@ -3,20 +3,21 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppProviders } from "@/providers/AppProviders";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export default function RootLayout() {
+  const theme = useMobileTheme();
   const isIos = process.env.EXPO_OS === "ios";
   const sheetPresentation = isIos ? "formSheet" : "modal";
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <AppProviders>
         <Stack
           screenOptions={{
             headerShadowVisible: false,
-            headerTintColor: colors.label,
-            contentStyle: { backgroundColor: colors.background },
+            headerTintColor: theme.colors.label,
+            contentStyle: { backgroundColor: theme.colors.background },
           }}
         >
           <Stack.Screen name="index" />
@@ -27,7 +28,7 @@ export default function RootLayout() {
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: theme.colors.background },
             }}
           />
           <Stack.Screen
@@ -35,7 +36,7 @@ export default function RootLayout() {
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: theme.colors.background },
             }}
           />
           <Stack.Screen
@@ -43,7 +44,7 @@ export default function RootLayout() {
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: theme.colors.background },
             }}
           />
           <Stack.Screen
@@ -51,7 +52,7 @@ export default function RootLayout() {
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: colors.background },
+              contentStyle: { backgroundColor: theme.colors.background },
             }}
           />
           <Stack.Screen
@@ -62,7 +63,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="+not-found" />
         </Stack>
-        <StatusBar style="dark" />
+        <StatusBar style={theme.statusBarStyle} />
       </AppProviders>
     </GestureHandlerRootView>
   );

@@ -4,24 +4,28 @@ import type { SFSymbol } from "sf-symbols-typescript";
 import { WorkspaceListScreen } from "@/features/workspaces/WorkspaceListScreen";
 import { nativeLargeTitleOptions } from "@/ui/navigation/native-screen-options";
 import { SettingsIcon } from "@/ui/icons/lucide-native";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export default function IndexRoute() {
   const router = useRouter();
+  const theme = useMobileTheme();
 
   return (
     <>
       <WorkspaceListScreen />
       <Stack.Screen
         options={{
-          ...nativeLargeTitleOptions("Atmos"),
+          ...nativeLargeTitleOptions("Atmos", theme.colors),
           headerRight:
             Platform.OS === "ios"
               ? undefined
               : () => <DashboardSettingsButton onPress={() => router.push("/settings")} />,
           unstable_headerRightItems:
             Platform.OS === "ios"
-              ? () => buildHeaderRightItems({ onPressSettings: () => router.push("/settings") })
+              ? () => buildHeaderRightItems({
+                  onPressSettings: () => router.push("/settings"),
+                  tintColor: theme.colors.label,
+                })
               : undefined,
         }}
       />
@@ -31,8 +35,10 @@ export default function IndexRoute() {
 
 function buildHeaderRightItems({
   onPressSettings,
+  tintColor,
 }: {
   onPressSettings: () => void;
+  tintColor: string;
 }): NativeStackHeaderItem[] {
   return [
     {
@@ -41,7 +47,7 @@ function buildHeaderRightItems({
       identifier: "dashboard-settings",
       label: "Settings",
       onPress: onPressSettings,
-      tintColor: colors.label,
+      tintColor,
       type: "button",
       variant: "plain",
     },
@@ -49,6 +55,8 @@ function buildHeaderRightItems({
 }
 
 function DashboardSettingsButton({ onPress }: { onPress: () => void }) {
+  const theme = useMobileTheme();
+
   return (
     <Pressable
       accessibilityLabel="Settings"
@@ -57,7 +65,7 @@ function DashboardSettingsButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={{ paddingHorizontal: 12, paddingVertical: 8 }}
     >
-      <SettingsIcon color={colors.label} size={22} strokeWidth={2.4} />
+      <SettingsIcon color={theme.colors.label} size={22} strokeWidth={2.4} />
     </Pressable>
   );
 }

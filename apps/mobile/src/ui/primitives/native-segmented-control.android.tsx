@@ -1,6 +1,6 @@
 import { Host, SegmentedButton, SingleChoiceSegmentedButtonRow, Text } from "@expo/ui/jetpack-compose";
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeSegmentedControlProps } from "./native-segmented-control.types";
 
 export function NativeSegmentedControl<T extends string>({
@@ -9,8 +9,19 @@ export function NativeSegmentedControl<T extends string>({
   selectedValue,
   style,
 }: NativeSegmentedControlProps<T>) {
+  const theme = useMobileTheme();
+  const colors = theme.colors;
+  const segmentedColors = {
+    activeBorderColor: colors.label,
+    activeContainerColor: colors.label,
+    activeContentColor: colors.labelInverse,
+    inactiveBorderColor: colors.separatorStrong,
+    inactiveContainerColor: colors.glassFallback,
+    inactiveContentColor: colors.label,
+  };
+
   return (
-    <Host colorScheme="light" matchContents={{ vertical: true }} seedColor={colors.label} style={[{ width: "100%" }, style]}>
+    <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} seedColor={colors.label} style={[{ width: "100%" }, style]}>
       <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
         {options.map((option) => {
           const selected = option.value === selectedValue;
@@ -39,12 +50,3 @@ export function NativeSegmentedControl<T extends string>({
 }
 
 export const nativeSegmentedControlHeight = 40;
-
-const segmentedColors = {
-  activeBorderColor: colors.label,
-  activeContainerColor: colors.label,
-  activeContentColor: colors.labelInverse,
-  inactiveBorderColor: colors.separatorStrong,
-  inactiveContainerColor: colors.glassFallback,
-  inactiveContentColor: colors.label,
-};

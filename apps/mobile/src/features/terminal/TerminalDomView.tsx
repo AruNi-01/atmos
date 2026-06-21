@@ -14,11 +14,12 @@ import {
   isTerminalSnapshot,
   isUsableTerminalGrid,
   shortenPath,
-  terminalTheme,
   type TerminalSnapshot,
+  type TerminalThemeTokens,
 } from "@atmos/shared/terminal";
 
 export type TerminalDomHandle = {
+  blur: () => void;
   focus: () => void;
   fit: () => void;
   writeBase64: (chunks: string[]) => void;
@@ -37,6 +38,7 @@ type Props = {
   onRendererError: (message: string) => Promise<void>;
   onTitleChange: (title: string) => Promise<void>;
   ref?: React.Ref<TerminalDomHandle>;
+  theme: TerminalThemeTokens;
   dom?: DOMProps;
 };
 
@@ -51,6 +53,16 @@ const MOBILE_TERMINAL_FONT_FAMILY =
 const NERD_FONT_TEST_GLYPH = "\uE0B6";
 
 let terminalFontLoadPromise: Promise<void> | null = null;
+
+function scrollTerminalToBottom(terminal: Terminal) {
+  window.requestAnimationFrame(() => {
+    try {
+      terminal.scrollToBottom();
+    } catch {
+      // The terminal may have been disposed between scheduling and the next frame.
+    }
+  });
+}
 
 async function ensureMobileTerminalFontsLoaded() {
   if (typeof document === "undefined" || typeof FontFace === "undefined") return;
@@ -100,6 +112,7 @@ export default function TerminalDomView({
   onReady,
   onRendererError,
   onResize,
+  theme,
   onTitleChange,
   ref,
 }: Props) {
@@ -152,7 +165,7 @@ export default function TerminalDomView({
         minimumContrastRatio: 1,
         rescaleOverlappingGlyphs: true,
         scrollback: 10000,
-        theme: terminalTheme,
+        theme,
       });
       const fitAddon = new FitAddon();
       const unicode11Addon = new Unicode11Addon();
@@ -193,6 +206,7 @@ export default function TerminalDomView({
       const fitAndReport = () => {
         try {
           fitAddon.fit();
+          scrollTerminalToBottom(terminal);
           void callbacksRef.current.onResize(terminal.cols, terminal.rows);
         } catch (error) {
           reportError(error);
@@ -285,11 +299,28 @@ export default function TerminalDomView({
     }
   }, [connected]);
 
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.theme = theme;
+    }
+  }, [theme]);
+
   useDOMImperativeHandle(
     (ref ?? null) as Ref<DOMImperativeFactory>,
     () => ({
+      blur: () => {
+        terminalRef.current?.blur();
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      },
       clear: () => terminalRef.current?.clear(),
-      fit: () => fitAddonRef.current?.fit(),
+      fit: () => {
+        fitAddonRef.current?.fit();
+        if (terminalRef.current) {
+          scrollTerminalToBottom(terminalRef.current);
+        }
+      },
       focus: () => terminalRef.current?.focus(),
       insertText: (...args: DomJsonValue[]) => {
         const text = typeof args[0] === "string" ? args[0] : "";
@@ -318,8 +349,11 @@ export default function TerminalDomView({
         const chunks = Array.isArray(args[0]) ? args[0].filter((chunk): chunk is string => typeof chunk === "string") : [];
         const terminal = terminalRef.current;
         if (!terminal) return;
-        for (const chunk of chunks) {
-          terminal.write(base64ToBytes(chunk));
+        for (const [index, chunk] of chunks.entries()) {
+          terminal.write(
+            base64ToBytes(chunk),
+            index === chunks.length - 1 ? () => scrollTerminalToBottom(terminal) : undefined,
+          );
         }
       },
       writeText: (...args: DomJsonValue[]) => {
@@ -336,7 +370,7 @@ export default function TerminalDomView({
       {!connected ? <div className="status">Disconnected</div> : null}
       <style>{`
         html, body, #root {
-          background: #0b0f14;
+          background: ${theme.background};
           height: 100%;
           margin: 0;
           overflow: hidden;
@@ -368,7 +402,7 @@ export default function TerminalDomView({
         }
         * { box-sizing: border-box; }
         .shell {
-          background: #0b0f14;
+          background: ${theme.background};
           height: 100%;
           overflow: hidden;
           padding: 8px 6px;
@@ -376,29 +410,29 @@ export default function TerminalDomView({
           width: 100%;
         }
         .terminal {
-          caret-color: #f8fafc;
+          caret-color: ${theme.cursor};
           height: 100%;
           touch-action: manipulation;
           width: 100%;
         }
         .xterm {
-          background: #0b0f14 !important;
-          caret-color: #f8fafc;
+          background: ${theme.background} !important;
+          caret-color: ${theme.cursor};
           font-feature-settings: "liga" 0;
           height: 100%;
           padding: 0 !important;
           -webkit-font-smoothing: antialiased;
         }
         .xterm .xterm-helper-textarea {
-          caret-color: #f8fafc !important;
+          caret-color: ${theme.cursor} !important;
         }
         .xterm-viewport {
-          background: #0b0f14 !important;
+          background: ${theme.background} !important;
           overflow-y: hidden !important;
           overscroll-behavior: contain;
         }
         .xterm-screen {
-          background: #0b0f14 !important;
+          background: ${theme.background} !important;
           padding: 0 !important;
         }
         .xterm-scrollable-element {
@@ -435,7 +469,7 @@ export default function TerminalDomView({
         .status {
           align-items: center;
           backdrop-filter: blur(16px);
-          background: rgba(11, 15, 20, 0.72);
+          background: ${theme.background}cc;
           color: #fca5a5;
           display: flex;
           font: 600 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;

@@ -1,5 +1,6 @@
 import { Image, type ImageSourcePropType, StyleSheet, View } from "react-native";
 import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 import { BotIcon } from "@/ui/icons/lucide-native";
 
 const AGENT_ICON_ALIASES: Record<string, string[]> = {
@@ -70,13 +71,14 @@ export function MobileAgentIcon({
   agentId: string;
   size?: number;
 }) {
+  const theme = useMobileTheme();
   const iconName = resolveAgentIconName(agentId);
   const source = iconName ? AGENT_ICON_ASSETS[iconName] : undefined;
 
   if (!source) {
     return (
       <View style={[styles.fallback, { height: size, width: size }]}>
-        <BotIcon color={colors.terminalMuted} size={size} strokeWidth={2.4} />
+        <BotIcon color={theme.colors.terminalMuted} size={size} strokeWidth={2.4} />
       </View>
     );
   }
@@ -89,7 +91,7 @@ export function MobileAgentIcon({
       style={[
         styles.icon,
         { height: size, width: size },
-        shouldTintForDarkHeader(agentId, resolvedIconName) ? styles.iconTinted : null,
+        shouldTintForDarkHeader(agentId, resolvedIconName) ? { tintColor: theme.colors.terminalFg } : null,
       ]}
     />
   );

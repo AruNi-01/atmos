@@ -1,13 +1,15 @@
 import { Stack } from "expo-router";
-import { colors } from "@/theme/colors";
+import { useMobileTheme } from "@/theme/theme-store";
 
 export default function SettingsLayout() {
+  const theme = useMobileTheme();
+
   return (
     <Stack
       screenOptions={{
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
         headerShadowVisible: false,
-        headerTintColor: colors.label,
+        headerTintColor: theme.colors.label,
       }}
     />
   );
