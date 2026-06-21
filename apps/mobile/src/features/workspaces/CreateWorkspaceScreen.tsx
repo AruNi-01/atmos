@@ -10,6 +10,7 @@ import {
   selectCreateWorkspaceProjectGuid,
 } from "@/features/workspaces/create-workspace-readiness";
 import { useMobileWs } from "@/providers/MobileWsProvider";
+import { useSessionStore } from "@/stores/session-store";
 import { isWorkspaceSetupProgressNotification, wsActions } from "@/api/ws-actions";
 import type { WorkspaceModel, WorkspaceSetupProgressNotification, WsNotification } from "@/api/types";
 import { colors } from "@/theme/colors";
@@ -45,6 +46,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
   const router = useRouter();
   const theme = useMobileTheme();
   const { client, state } = useMobileWs();
+  const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const isConnected = Boolean(client && state === "open");
   const [projectGuid, setProjectGuid] = useState("");
   const [title, setTitle] = useState("");
@@ -68,7 +70,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
   const setupSnapshotsRef = useRef(new Map<string, SetupSnapshot>());
 
   const bootstrap = useQuery({
-    queryKey: ["workspace-bootstrap", state],
+    queryKey: ["workspace-bootstrap", selectedServerId, state],
     enabled: isConnected,
     queryFn: () => wsActions.projectWorkspaceBootstrap(client!),
   });

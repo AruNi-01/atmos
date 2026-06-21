@@ -7,6 +7,7 @@ import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
 import { getProjectImportReadiness, validationMatchesPath } from "@/features/projects/import-project-validation";
 import { useMobileWs } from "@/providers/MobileWsProvider";
+import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
 import type { FsEntry } from "@/api/types";
 import { colors } from "@/theme/colors";
@@ -17,6 +18,7 @@ export function ImportProjectScreen() {
   const theme = useMobileTheme();
   const queryClient = useQueryClient();
   const { client, state } = useMobileWs();
+  const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const [path, setPath] = useState("");
   const [name, setName] = useState("");
   const [currentDir, setCurrentDir] = useState("");
@@ -25,7 +27,7 @@ export function ImportProjectScreen() {
   const isConnected = Boolean(client && state === "open");
 
   const home = useQuery({
-    queryKey: ["fs-home", state],
+    queryKey: ["fs-home", selectedServerId, state],
     enabled: isConnected,
     queryFn: () => wsActions.fsGetHomeDir(client!),
   });
@@ -37,14 +39,14 @@ export function ImportProjectScreen() {
   }, [currentDir, home.data?.path]);
 
   const directory = useQuery({
-    queryKey: ["fs-list-dir", currentDir, state],
+    queryKey: ["fs-list-dir", selectedServerId, currentDir, state],
     enabled: Boolean(isConnected && currentDir),
     queryFn: () => wsActions.fsListDir(client!, currentDir, true),
   });
 
   const trimmedSearch = search.trim();
   const searchResults = useQuery({
-    queryKey: ["fs-search-dirs", currentDir, trimmedSearch, state],
+    queryKey: ["fs-search-dirs", selectedServerId, currentDir, trimmedSearch, state],
     enabled: Boolean(isConnected && currentDir && trimmedSearch.length >= 2),
     queryFn: () => wsActions.fsSearchDirs(client!, currentDir, trimmedSearch),
   });

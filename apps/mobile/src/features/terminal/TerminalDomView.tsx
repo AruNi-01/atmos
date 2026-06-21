@@ -17,6 +17,12 @@ import {
   type TerminalSnapshot,
   type TerminalThemeTokens,
 } from "@atmos/shared/terminal";
+import {
+  ensureMobileTerminalFontsLoaded,
+  MOBILE_TERMINAL_FONT_FAMILY,
+  MOBILE_TERMINAL_FONT_SIZE,
+} from "@/features/terminal/mobile-terminal-fonts";
+import { buildTerminalDomCss } from "@/features/terminal/terminal-dom-css";
 
 export type TerminalDomHandle = {
   blur: () => void;
@@ -44,16 +50,6 @@ type Props = {
 
 type DomJsonValue = boolean | number | string | null | DomJsonValue[] | { [key: string]: DomJsonValue | undefined };
 
-const terminalFontRegularUrl = require("../../../assets/fonts/HackNerdFontMono-Regular.ttf") as string;
-const terminalFontBoldUrl = require("../../../assets/fonts/HackNerdFontMono-Bold.ttf") as string;
-
-const MOBILE_TERMINAL_FONT_SIZE = 12;
-const MOBILE_TERMINAL_FONT_FAMILY =
-  '"Hack Nerd Font Mono", "Hack Nerd Font", "Hack", "JetBrains Mono NL", "JetBrains Mono", "Fira Code", "SF Mono", Monaco, "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace';
-const NERD_FONT_TEST_GLYPH = "\uE0B6";
-
-let terminalFontLoadPromise: Promise<void> | null = null;
-
 function scrollTerminalToBottom(terminal: Terminal) {
   window.requestAnimationFrame(() => {
     try {
@@ -62,48 +58,6 @@ function scrollTerminalToBottom(terminal: Terminal) {
       // The terminal may have been disposed between scheduling and the next frame.
     }
   });
-}
-
-async function ensureMobileTerminalFontsLoaded() {
-  if (typeof document === "undefined" || typeof FontFace === "undefined") return;
-
-  if (!terminalFontLoadPromise) {
-    terminalFontLoadPromise = (async () => {
-      const faces = [
-        new FontFace("Hack Nerd Font Mono", `url("${terminalFontRegularUrl}")`, {
-          style: "normal",
-          weight: "400",
-        }),
-        new FontFace("Hack Nerd Font Mono", `url("${terminalFontBoldUrl}")`, {
-          style: "normal",
-          weight: "700",
-        }),
-        new FontFace("Hack Nerd Font", `url("${terminalFontRegularUrl}")`, {
-          style: "normal",
-          weight: "400",
-        }),
-        new FontFace("Hack Nerd Font", `url("${terminalFontBoldUrl}")`, {
-          style: "normal",
-          weight: "700",
-        }),
-      ];
-
-      const results = await Promise.allSettled(faces.map((face) => face.load()));
-      for (const result of results) {
-        if (result.status === "fulfilled" && !document.fonts.has(result.value)) {
-          document.fonts.add(result.value);
-        }
-      }
-
-      await Promise.allSettled([
-        document.fonts.load(`${MOBILE_TERMINAL_FONT_SIZE}px "Hack Nerd Font Mono"`, NERD_FONT_TEST_GLYPH),
-        document.fonts.load(`${MOBILE_TERMINAL_FONT_SIZE}px "Hack Nerd Font"`, NERD_FONT_TEST_GLYPH),
-        document.fonts.ready,
-      ]);
-    })();
-  }
-
-  return terminalFontLoadPromise;
 }
 
 export default function TerminalDomView({
@@ -368,118 +322,7 @@ export default function TerminalDomView({
     <div className="shell" data-connected={connected ? "true" : "false"}>
       <div ref={mountRef} className="terminal" />
       {!connected ? <div className="status">Disconnected</div> : null}
-      <style>{`
-        html, body, #root {
-          background: ${theme.background};
-          height: 100%;
-          margin: 0;
-          overflow: hidden;
-          width: 100%;
-        }
-        @font-face {
-          font-family: "Hack Nerd Font Mono";
-          font-style: normal;
-          font-weight: 400;
-          src: url("${terminalFontRegularUrl}") format("truetype");
-        }
-        @font-face {
-          font-family: "Hack Nerd Font Mono";
-          font-style: normal;
-          font-weight: 700;
-          src: url("${terminalFontBoldUrl}") format("truetype");
-        }
-        @font-face {
-          font-family: "Hack Nerd Font";
-          font-style: normal;
-          font-weight: 400;
-          src: url("${terminalFontRegularUrl}") format("truetype");
-        }
-        @font-face {
-          font-family: "Hack Nerd Font";
-          font-style: normal;
-          font-weight: 700;
-          src: url("${terminalFontBoldUrl}") format("truetype");
-        }
-        * { box-sizing: border-box; }
-        .shell {
-          background: ${theme.background};
-          height: 100%;
-          overflow: hidden;
-          padding: 8px 6px;
-          position: relative;
-          width: 100%;
-        }
-        .terminal {
-          caret-color: ${theme.cursor};
-          height: 100%;
-          touch-action: manipulation;
-          width: 100%;
-        }
-        .xterm {
-          background: ${theme.background} !important;
-          caret-color: ${theme.cursor};
-          font-feature-settings: "liga" 0;
-          height: 100%;
-          padding: 0 !important;
-          -webkit-font-smoothing: antialiased;
-        }
-        .xterm .xterm-helper-textarea {
-          caret-color: ${theme.cursor} !important;
-        }
-        .xterm-viewport {
-          background: ${theme.background} !important;
-          overflow-y: hidden !important;
-          overscroll-behavior: contain;
-        }
-        .xterm-screen {
-          background: ${theme.background} !important;
-          padding: 0 !important;
-        }
-        .xterm-scrollable-element {
-          overscroll-behavior: contain;
-          position: relative;
-        }
-        .xterm-scrollable-element > .scrollbar.vertical,
-        .xterm-scrollable-element > .visible.scrollbar.vertical,
-        .xterm-scrollable-element > .invisible.scrollbar.vertical {
-          bottom: 0 !important;
-          left: auto !important;
-          position: absolute !important;
-          right: 0 !important;
-          top: 0 !important;
-        }
-        .xterm .xterm-scroll-area ~ .xterm-decoration-container + div,
-        .xterm-scrollbar,
-        .xterm .scrollbar {
-          opacity: 0.6 !important;
-          right: 2px !important;
-          transition: opacity 0.2s ease, width 0.2s ease !important;
-          width: 6px !important;
-        }
-        .xterm .xterm-scroll-area ~ .xterm-decoration-container + div > div,
-        .xterm-scrollbar > div,
-        .xterm .scrollbar.vertical > div.slider,
-        .xterm .invisible.scrollbar > div {
-          background: rgba(161, 161, 170, 0.34) !important;
-          border-radius: 9999px !important;
-          opacity: 1 !important;
-          transition: opacity 0.2s ease !important;
-          width: 6px !important;
-        }
-        .status {
-          align-items: center;
-          backdrop-filter: blur(16px);
-          background: ${theme.background}cc;
-          color: #fca5a5;
-          display: flex;
-          font: 600 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-          inset: 0;
-          justify-content: center;
-          letter-spacing: 0;
-          pointer-events: none;
-          position: absolute;
-        }
-      `}</style>
+      <style>{buildTerminalDomCss(theme)}</style>
     </div>
   );
 }

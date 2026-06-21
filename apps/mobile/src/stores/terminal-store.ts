@@ -6,6 +6,7 @@ export type MobileTerminalEntry = {
   workspaceId: string;
   label: string;
   tmuxWindowName?: string;
+  tmuxWindowIndex?: number;
   sessionId?: string;
   agentLabel?: string;
   dynamicTitle?: string;

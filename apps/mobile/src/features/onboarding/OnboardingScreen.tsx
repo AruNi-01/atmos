@@ -34,6 +34,7 @@ export function OnboardingScreen() {
   const setAccessTokenLoaded = useSessionStore((state) => state.setAccessTokenLoaded);
   const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
   const relayUrl = useSessionStore((state) => state.relayUrl);
+  const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
   const setClientSession = useSessionStore((state) => state.setClientSession);
@@ -64,7 +65,7 @@ export function OnboardingScreen() {
   });
 
   const computersQuery = useQuery({
-    queryKey: ["onboarding-computers", relayUrl, hasAccessToken],
+    queryKey: ["onboarding-computers", relayUrl, relayAuthRevision, hasAccessToken],
     enabled: hasAccessToken,
     refetchInterval: 5000,
     queryFn: async () => {

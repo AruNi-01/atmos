@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use core_engine::GitEngine;
 use core_service::{
     AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, TerminalResponse,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, warn};
 
@@ -29,6 +29,7 @@ enum RelayTerminalClientMessage {
         workspace_id: String,
         attach: Option<bool>,
         tmux_window_name: Option<String>,
+        tmux_window_index: Option<u32>,
         cwd: Option<String>,
         project_name: Option<String>,
         workspace_name: Option<String>,
@@ -97,6 +98,7 @@ pub async fn handle_terminal_frame(
             workspace_id,
             attach,
             tmux_window_name,
+            tmux_window_index,
             cwd,
             project_name,
             workspace_name,
@@ -116,6 +118,7 @@ pub async fn handle_terminal_frame(
                     workspace_id,
                     attach: attach.unwrap_or(false),
                     tmux_window_name,
+                    tmux_window_index,
                     cwd,
                     project_name,
                     workspace_name,
@@ -194,6 +197,7 @@ struct TerminalOpenConfig {
     workspace_id: String,
     attach: bool,
     tmux_window_name: Option<String>,
+    tmux_window_index: Option<u32>,
     cwd: Option<String>,
     project_name: Option<String>,
     workspace_name: Option<String>,
@@ -218,6 +222,7 @@ async fn open_terminal(
         workspace_id,
         attach,
         tmux_window_name,
+        tmux_window_index,
         cwd,
         project_name,
         workspace_name,
@@ -256,12 +261,12 @@ async fn open_terminal(
             })
             .await
             .map(|rx| (rx, None, false))
-    } else if attach && tmux_window_name.is_some() {
+    } else if attach && (tmux_window_index.is_some() || tmux_window_name.is_some()) {
         terminal_service
             .attach_session(AttachSessionParams {
                 session_id: session_id.clone(),
                 workspace_id: workspace_id.clone(),
-                tmux_window_index: None,
+                tmux_window_index,
                 tmux_window_name,
                 cols,
                 rows,

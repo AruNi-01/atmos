@@ -16,6 +16,7 @@ export function ComputerConnectScreen() {
   const queryClient = useQueryClient();
   const relayClient = useRelayClient();
   const relayUrl = useSessionStore((state) => state.relayUrl);
+  const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const selectServer = useSessionStore((state) => state.selectServer);
@@ -23,7 +24,7 @@ export function ComputerConnectScreen() {
   const setComputers = useComputerStore((state) => state.setComputers);
 
   const computersQuery = useQuery({
-    queryKey: ["computers", relayUrl],
+    queryKey: ["computers", relayUrl, relayAuthRevision],
     enabled: hasAccessToken,
     queryFn: async () => {
       const token = await getStoredAccessToken();

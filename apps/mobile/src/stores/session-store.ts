@@ -9,6 +9,7 @@ type SessionState = {
   hasAccessToken: boolean;
   relayUrl: string;
   relaySecretKey: string;
+  relayAuthRevision: number;
   selectedServerId: string | null;
   activeClientSession: ClientSessionResponse | null;
   setAccessTokenLoaded: (hasAccessToken: boolean) => void;
@@ -27,6 +28,7 @@ export const useSessionStore = create<SessionState>()(
       hasAccessToken: false,
       relayUrl: getDefaultRelayUrl(),
       relaySecretKey: "",
+      relayAuthRevision: 0,
       selectedServerId: null,
       activeClientSession: null,
       setAccessTokenLoaded: (hasAccessToken) =>
@@ -39,8 +41,16 @@ export const useSessionStore = create<SessionState>()(
           relayUrl: normalizeRelayUrl(url),
         }),
       setRelaySecretKey: (relaySecretKey) =>
-        set({
-          relaySecretKey: relaySecretKey.trim(),
+        set((state) => {
+          const nextRelaySecretKey = relaySecretKey.trim();
+          if (state.relaySecretKey === nextRelaySecretKey) {
+            return {};
+          }
+
+          return {
+            relaySecretKey: nextRelaySecretKey,
+            relayAuthRevision: state.relayAuthRevision + 1,
+          };
         }),
       selectServer: (serverId) =>
         set({
@@ -65,9 +75,22 @@ export const useSessionStore = create<SessionState>()(
       name: "atmos.mobile.session",
       partialize: (state) => ({
         relayUrl: state.relayUrl,
-        relaySecretKey: state.relaySecretKey,
         selectedServerId: state.selectedServerId,
       }),
+      merge: (persisted, current) => {
+        const persistedState = persisted as Partial<SessionState> | null;
+        return {
+          ...current,
+          relayUrl:
+            typeof persistedState?.relayUrl === "string"
+              ? normalizeRelayUrl(persistedState.relayUrl)
+              : current.relayUrl,
+          selectedServerId:
+            typeof persistedState?.selectedServerId === "string"
+              ? persistedState.selectedServerId
+              : null,
+        };
+      },
       storage: createJSONStorage(() => AsyncStorage),
     },
   ),

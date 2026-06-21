@@ -16,6 +16,7 @@ export type TerminalOpenMessage = {
   workspace_id: string;
   attach?: boolean;
   tmux_window_name?: string;
+  tmux_window_index?: number;
   cwd?: string;
   project_name?: string;
   workspace_name?: string;
@@ -44,4 +45,3 @@ export type TerminalRendererEvent =
   | { type: "write_b64"; session_id: string; chunks: string[] }
   | { type: "terminal_error"; session_id?: string; error: string }
   | { type: "terminal_closed"; session_id: string };
-

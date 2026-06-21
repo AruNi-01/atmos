@@ -220,9 +220,6 @@ const styles = StyleSheet.create({
     minWidth: 46,
     paddingHorizontal: 10,
   },
-  keycapPressed: {
-    backgroundColor: "rgba(228, 228, 231, 0.96)",
-  },
   keycapText: {
     color: "#111827",
     fontSize: 12,

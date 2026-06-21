@@ -1,7 +1,9 @@
 const DEFAULT_RELAY_URL = "https://relay.atmos.land";
 
 export function getDefaultRelayUrl() {
-  return normalizeRelayUrl(process.env.EXPO_PUBLIC_RELAY_RELAY_URL ?? DEFAULT_RELAY_URL);
+  return normalizeRelayUrl(
+    process.env.EXPO_PUBLIC_RELAY_URL ?? process.env.EXPO_PUBLIC_RELAY_RELAY_URL ?? DEFAULT_RELAY_URL,
+  );
 }
 
 export function normalizeRelayUrl(value: string) {

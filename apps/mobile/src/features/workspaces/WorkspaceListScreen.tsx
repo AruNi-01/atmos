@@ -29,6 +29,7 @@ export function WorkspaceListScreen() {
   const accessTokenLoaded = useSessionStore((state) => state.accessTokenLoaded);
   const hasAccessToken = useSessionStore((state) => state.hasAccessToken);
   const relayUrl = useSessionStore((state) => state.relayUrl);
+  const relayAuthRevision = useSessionStore((state) => state.relayAuthRevision);
   const selectedServerId = useSessionStore((state) => state.selectedServerId);
   const activeClientSession = useSessionStore((state) => state.activeClientSession);
   const selectServer = useSessionStore((state) => state.selectServer);
@@ -37,7 +38,7 @@ export function WorkspaceListScreen() {
   const lastAutoSessionAttemptRef = useRef<string | null>(null);
 
   const computersQuery = useQuery({
-    queryKey: ["computers", relayUrl],
+    queryKey: ["computers", relayUrl, relayAuthRevision],
     enabled: accessTokenLoaded && hasAccessToken,
     queryFn: async () => {
       const token = await getStoredAccessToken();
@@ -241,9 +242,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 7,
     width: 7,
-  },
-  statusDotActive: {
-    backgroundColor: colors.labelInverse,
   },
   statusPillText: {
     color: colors.labelInverse,

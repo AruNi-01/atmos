@@ -8,6 +8,7 @@ import { createAtmosQueryClient } from "@/providers/query-client";
 import { MobileWsProvider } from "@/providers/MobileWsProvider";
 import { getStoredAccessToken, storeAccessToken } from "@/lib/access-token";
 import { loadDevAccessTokenImport } from "@/lib/dev-access-token-import";
+import { clearRelaySecretKey, getStoredRelaySecretKey, storeRelaySecretKey } from "@/lib/relay-secret-key";
 import { useSessionStore } from "@/stores/session-store";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -24,6 +25,7 @@ export function AppProviders({ children }: PropsWithChildren) {
     const loadAccessToken = async () => {
       const storedToken = await getStoredAccessToken();
       if (storedToken) {
+        setRelaySecretKey((await getStoredRelaySecretKey()) ?? "");
         if (!cancelled) setAccessTokenLoaded(true);
         return;
       }
@@ -35,12 +37,18 @@ export function AppProviders({ children }: PropsWithChildren) {
           setRelayUrl(imported.relayUrl);
         }
         if (imported.relaySecretKey) {
+          await storeRelaySecretKey(imported.relaySecretKey);
           setRelaySecretKey(imported.relaySecretKey);
+        } else {
+          await clearRelaySecretKey();
+          setRelaySecretKey("");
         }
         if (!cancelled) setAccessTokenLoaded(true);
         return;
       }
 
+      await clearRelaySecretKey();
+      setRelaySecretKey("");
       if (!cancelled) setAccessTokenLoaded(false);
     };
 
