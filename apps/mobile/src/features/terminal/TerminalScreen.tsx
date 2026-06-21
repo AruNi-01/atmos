@@ -3,7 +3,6 @@ import { Keyboard, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { getTerminalDisplayMeta } from "@atmos/shared/terminal";
-import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { MobileAgentIcon } from "@/features/terminal/MobileAgentIcon";
 import { TerminalWebView, type TerminalWebViewHandle } from "@/features/terminal/TerminalWebView";
 import {
@@ -200,26 +199,28 @@ export function TerminalScreen({
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.terminalBg }]}>
       {candidates.error ? (
-        <GlassPanel
-          fallbackStyle={[styles.noticeFallback, { backgroundColor: theme.colors.yellowSurface }]}
-          glassEffectStyle="clear"
-          style={[styles.notice, { borderColor: theme.colors.yellowBorder }]}
+        <View
+          style={[
+            styles.notice,
+            { backgroundColor: theme.colors.yellowSurface, borderColor: theme.colors.yellowBorder },
+          ]}
         >
           <Text selectable style={[styles.noticeText, { color: theme.colors.secondaryLabel }]}>
             {candidates.error instanceof Error ? candidates.error.message : "Could not load terminal list."}
           </Text>
-        </GlassPanel>
+        </View>
       ) : null}
       {terminalError ? (
-        <GlassPanel
-          fallbackStyle={[styles.errorFallback, { backgroundColor: theme.colors.redSurface }]}
-          glassEffectStyle="clear"
-          style={[styles.error, { borderColor: theme.colors.redBorder }]}
+        <View
+          style={[
+            styles.error,
+            { backgroundColor: theme.colors.redSurface, borderColor: theme.colors.redBorder },
+          ]}
         >
           <Text selectable style={[styles.errorText, { color: theme.colors.red }]}>
             {terminalError}
           </Text>
-        </GlassPanel>
+        </View>
       ) : null}
       {activeEntry && activeSessionId ? (
         <View style={[styles.terminalShell, { backgroundColor: theme.colors.terminalBg }]}>
@@ -242,14 +243,14 @@ export function TerminalScreen({
           />
         </View>
       ) : (
-        <GlassPanel style={[styles.choiceState, { backgroundColor: theme.colors.card }]}>
+        <View style={[styles.choiceState, { backgroundColor: theme.colors.cardElevated }]}>
           <Text selectable style={[styles.choiceTitle, { color: theme.colors.label }]}>
             Choose a terminal
           </Text>
           <Text selectable style={[styles.choiceText, { color: theme.colors.secondaryLabel }]}>
             This workspace has multiple terminal candidates. Pick one above before attaching.
           </Text>
-        </GlassPanel>
+        </View>
       )}
     </View>
   );
@@ -306,7 +307,7 @@ function terminalConnectionStatusLabel(connectionState: TerminalConnectionState)
 const styles = StyleSheet.create({
   choiceState: {
     alignItems: "center",
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardElevated,
     flex: 1,
     gap: 8,
     justifyContent: "center",
@@ -325,13 +326,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   error: {
+    backgroundColor: colors.redSurface,
     borderColor: colors.redBorder,
     borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  errorFallback: {
-    backgroundColor: colors.redSurface,
   },
   errorText: {
     color: colors.red,
@@ -339,13 +339,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   notice: {
+    backgroundColor: colors.yellowSurface,
     borderColor: colors.yellowBorder,
     borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  noticeFallback: {
-    backgroundColor: colors.yellowSurface,
   },
   noticeText: {
     color: colors.secondaryLabel,

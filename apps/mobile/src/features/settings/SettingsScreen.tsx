@@ -2,8 +2,20 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { ComputerRow } from "@/api/types";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
-import { NativeButton, NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
-import { ChevronRightIcon, LaptopIcon, SunMoonIcon } from "@/ui/icons/lucide-native";
+import { Separator } from "@/ui/layout/row";
+import { NativeSegmentedControl, NativeTextInput } from "@/ui/primitives/native-controls";
+import { GlassPanel } from "@/ui/primitives/glass-panel";
+import {
+  ChevronRightIcon,
+  KeyIcon,
+  LaptopIcon,
+  PencilIcon,
+  RadioIcon,
+  RefreshIcon,
+  RotateIcon,
+  SunMoonIcon,
+  TrashIcon,
+} from "@/ui/icons/lucide-native";
 import { getAccessTokenSwitchReadiness } from "@/features/settings/access-token-settings";
 import { useMobileSettingsController } from "@/features/settings/use-mobile-settings-controller";
 import { colors } from "@/theme/colors";
@@ -16,7 +28,6 @@ type SettingsEntry = {
   icon: typeof LaptopIcon;
   id: string;
   route: SettingsRoute;
-  summary: string;
   title: string;
 };
 
@@ -27,13 +38,6 @@ export function SettingsScreen() {
 export function SettingsIndexScreen() {
   const router = useRouter();
   const theme = useMobileTheme();
-  const settings = useMobileSettingsController();
-  const selectedComputer = settings.selectedComputer;
-  const computerSummary = selectedComputer
-    ? `${selectedComputer.display_name ?? selectedComputer.server_id} · ${selectedComputer.online ? "Online" : "Offline"}`
-    : settings.activeComputers.length > 0
-      ? `${settings.activeComputers.length} Computers`
-      : "No Computers";
 
   const systemEntries: SettingsEntry[] = [
     {
@@ -41,13 +45,12 @@ export function SettingsIndexScreen() {
       icon: LaptopIcon,
       id: "atmos-computer",
       route: "/settings/computers",
-      summary: computerSummary,
       title: "Atmos Computer",
     },
   ];
 
   return (
-    <AppScreen>
+    <AppScreen surface="sheet">
       <Section label="Preferences">
         <View style={styles.block}>
           <View style={styles.preferenceHeader}>
@@ -87,8 +90,6 @@ export function SettingsIndexScreen() {
           ))}
         </View>
       </Section>
-
-      <InlineError message={settings.error} />
     </AppScreen>
   );
 }
@@ -100,11 +101,12 @@ export function SettingsComputersScreen() {
     isSaving: settings.switchAccessToken.isPending,
     token: settings.tokenDraft,
   });
+  const relayChanged = settings.canSaveRelaySettings;
 
   return (
-    <AppScreen>
+    <AppScreen surface="sheet">
       <Section label="Access Token">
-        <View style={styles.block}>
+        <View style={styles.settingsBlock}>
           <NativeTextInput
             autoCapitalize="none"
             autoCorrect={false}
@@ -116,7 +118,8 @@ export function SettingsComputersScreen() {
             secureTextEntry
             value={settings.tokenDraft}
           />
-          <NativeButton
+          <SettingsActionButton
+            icon={KeyIcon}
             label={settings.switchAccessToken.isPending ? "Switching..." : "Switch Access Token"}
             onPress={() => settings.switchAccessToken.mutate()}
             disabled={!tokenSwitchReadiness.canSwitch}
@@ -126,22 +129,29 @@ export function SettingsComputersScreen() {
           ) : (
             <SettingsHint message="This token owns the Computers listed below." />
           )}
-          <NativeButton
-            label={settings.rotateToken.isPending ? "Rotating..." : "Rotate Access Token"}
-            onPress={() => settings.rotateToken.mutate()}
-            disabled={settings.rotateToken.isPending}
-          />
-          <NativeButton
-            label={settings.resetToken.isPending ? "Resetting..." : "Reset This Phone"}
-            onPress={settings.confirmResetPhone}
-            disabled={settings.resetToken.isPending}
-          />
-          <SettingsHint message="Resetting this phone removes the local Access Token. Other devices keep working." />
+          <View style={styles.actionRow}>
+            <SettingsActionButton
+              icon={RotateIcon}
+              label={settings.rotateToken.isPending ? "Rotating..." : "Rotate"}
+              onPress={() => settings.rotateToken.mutate()}
+              disabled={settings.rotateToken.isPending}
+              tone="secondary"
+              grow
+            />
+            <SettingsActionButton
+              icon={TrashIcon}
+              label={settings.resetToken.isPending ? "Resetting..." : "Reset Phone"}
+              onPress={settings.confirmResetPhone}
+              disabled={settings.resetToken.isPending}
+              tone="danger"
+              grow
+            />
+          </View>
         </View>
       </Section>
 
       <Section label="Relay">
-        <View style={styles.block}>
+        <View style={styles.settingsBlock}>
           <NativeTextInput
             autoCapitalize="none"
             autoCorrect={false}
@@ -163,10 +173,12 @@ export function SettingsComputersScreen() {
             secureTextEntry
             value={settings.relaySecretDraft}
           />
-          <NativeButton
+          <SettingsActionButton
+            icon={RadioIcon}
             label={settings.saveRelaySettings.isPending ? "Saving..." : "Save Relay"}
             onPress={() => settings.saveRelaySettings.mutate()}
             disabled={!settings.canSaveRelaySettings || settings.saveRelaySettings.isPending}
+            tone={relayChanged ? "primary" : "secondary"}
           />
           <SettingsHint
             message={
@@ -179,8 +191,9 @@ export function SettingsComputersScreen() {
       </Section>
 
       <Section label="Register Computer">
-        <View style={styles.block}>
-          <NativeButton
+        <View style={styles.settingsBlock}>
+          <SettingsActionButton
+            icon={LaptopIcon}
             label={settings.createRegisterCommand.isPending ? "Creating..." : "Create Register Command"}
             onPress={() => settings.createRegisterCommand.mutate()}
             disabled={!settings.hasAccessToken || settings.createRegisterCommand.isPending}
@@ -208,51 +221,181 @@ export function SettingsComputersScreen() {
               message="Register an Atmos Server or refresh after an existing Computer reconnects."
             />
             <View style={styles.blockTopless}>
-              <NativeButton
+              <SettingsActionButton
+                icon={RefreshIcon}
                 label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh Computers"}
                 onPress={() => void settings.computersQuery.refetch()}
                 disabled={settings.computersQuery.isFetching}
+                tone="secondary"
               />
             </View>
           </View>
         ) : (
-          <View style={styles.list}>
-            {settings.activeComputers.map((computer) => (
-              <ComputerListItem
-                key={computer.server_id}
-                computer={computer}
-                selectedServerId={settings.selectedServerId}
-                onPress={() => settings.selectComputer(computer)}
-              />
+          <View>
+            {settings.activeComputers.map((computer, index) => (
+              <View key={computer.server_id}>
+                <ComputerListItem
+                  computer={computer}
+                  selectedServerId={settings.selectedServerId}
+                  onPress={() => settings.selectComputer(computer)}
+                />
+                {index < settings.activeComputers.length - 1 ? <Separator /> : null}
+              </View>
             ))}
+            <View style={styles.listFooter}>
+              <SettingsActionButton
+                icon={RefreshIcon}
+                label={settings.computersQuery.isFetching ? "Refreshing..." : "Refresh"}
+                onPress={() => void settings.computersQuery.refetch()}
+                disabled={settings.computersQuery.isFetching}
+                tone="text"
+              />
+            </View>
           </View>
         )}
       </Section>
 
       <Section label="Selected Computer">
-        <View style={styles.block}>
+        <View style={styles.settingsBlock}>
           <SelectedComputerSummary computer={settings.selectedComputer} />
           <NativeTextInput
             onChangeText={settings.setRenameValue}
             placeholder="New Computer name"
             value={settings.renameValue}
           />
-          <NativeButton
-            label={settings.rename.isPending ? "Renaming..." : "Rename"}
-            onPress={() => settings.rename.mutate()}
-            disabled={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()}
-          />
-          <NativeButton
-            label={settings.revoke.isPending ? "Revoking..." : "Revoke Selected Computer"}
-            onPress={settings.confirmRevokeSelectedComputer}
-            disabled={!settings.selectedServerId || settings.revoke.isPending}
-          />
+          <View style={styles.actionRow}>
+            <SettingsActionButton
+              icon={PencilIcon}
+              label={settings.rename.isPending ? "Renaming..." : "Rename"}
+              onPress={() => settings.rename.mutate()}
+              disabled={!settings.selectedServerId || settings.rename.isPending || !settings.renameValue.trim()}
+              grow
+            />
+            <SettingsActionButton
+              icon={TrashIcon}
+              label={settings.revoke.isPending ? "Revoking..." : "Revoke"}
+              onPress={settings.confirmRevokeSelectedComputer}
+              disabled={!settings.selectedServerId || settings.revoke.isPending}
+              tone="danger"
+              grow
+            />
+          </View>
         </View>
       </Section>
 
       <InlineError message={settings.error} />
     </AppScreen>
   );
+}
+
+function SettingsActionButton({
+  disabled,
+  grow,
+  icon: Icon,
+  label,
+  onPress,
+  tone = "primary",
+}: {
+  disabled?: boolean;
+  grow?: boolean;
+  icon?: typeof LaptopIcon;
+  label: string;
+  onPress?: () => void;
+  tone?: "primary" | "secondary" | "danger" | "text";
+}) {
+  const theme = useMobileTheme();
+  const color = getActionButtonColors({ disabled: Boolean(disabled), tone, theme });
+  const isText = tone === "text";
+
+  return (
+    <GlassPanel
+      fallbackStyle={{ backgroundColor: color.background }}
+      glassEffectStyle="clear"
+      interactive={!disabled}
+      shadow={false}
+      style={[
+        styles.actionButtonFrame,
+        grow ? styles.actionButtonGrow : null,
+        isText ? styles.actionButtonTextFrame : null,
+        {
+          backgroundColor: color.background,
+          borderColor: color.border,
+        },
+      ]}
+      tintColor={color.tint}
+    >
+      <Pressable
+        accessibilityRole="button"
+        disabled={disabled}
+        onPress={disabled ? undefined : onPress}
+        style={({ pressed }) => [
+          styles.actionButtonContent,
+          isText ? styles.actionButtonTextContent : null,
+          {
+            opacity: pressed ? 0.72 : 1,
+          },
+        ]}
+      >
+        {Icon ? <Icon color={color.text} size={17} strokeWidth={2.4} /> : null}
+        <Text style={[styles.actionButtonLabel, { color: color.text }]} numberOfLines={1}>
+          {label}
+        </Text>
+      </Pressable>
+    </GlassPanel>
+  );
+}
+
+function getActionButtonColors({
+  disabled,
+  theme,
+  tone,
+}: {
+  disabled: boolean;
+  theme: ReturnType<typeof useMobileTheme>;
+  tone: "primary" | "secondary" | "danger" | "text";
+}) {
+  if (disabled) {
+    return {
+      background: tone === "text" ? "transparent" : theme.colors.controlDisabled,
+      border: tone === "text" ? "transparent" : theme.colors.separator,
+      text: theme.colors.tertiaryLabel,
+      tint: tone === "text" ? "transparent" : theme.colors.controlGlassTint,
+    };
+  }
+
+  if (tone === "danger") {
+    return {
+      background: theme.colors.redSurface,
+      border: theme.colors.redBorder,
+      text: theme.colors.red,
+      tint: theme.colors.redSurface,
+    };
+  }
+
+  if (tone === "secondary") {
+    return {
+      background: theme.colors.control,
+      border: theme.colors.controlBorder,
+      text: theme.colors.label,
+      tint: theme.colors.controlGlassTint,
+    };
+  }
+
+  if (tone === "text") {
+    return {
+      background: "transparent",
+      border: "transparent",
+      text: theme.colors.label,
+      tint: "transparent",
+    };
+  }
+
+  return {
+    background: theme.colors.controlElevated,
+    border: theme.colors.controlBorder,
+    text: theme.colors.label,
+    tint: theme.colors.controlGlassTint,
+  };
 }
 
 function SettingsListItem({
@@ -293,9 +436,6 @@ function SettingsListItem({
         </View>
       </View>
       <View style={styles.trailing}>
-        <Text numberOfLines={1} style={[styles.trailingText, { color: theme.colors.secondaryLabel }]}>
-          {entry.summary}
-        </Text>
         <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.6} />
       </View>
     </Pressable>
@@ -393,6 +533,42 @@ function SettingsHint({ message }: { message: string }) {
 }
 
 const styles = StyleSheet.create({
+  actionButtonContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 7,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 16,
+  },
+  actionButtonFrame: {
+    borderCurve: "continuous",
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 46,
+  },
+  actionButtonGrow: {
+    flex: 1,
+  },
+  actionButtonLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 18,
+  },
+  actionButtonTextContent: {
+    alignSelf: "flex-start",
+    minHeight: 36,
+    paddingHorizontal: 2,
+  },
+  actionButtonTextFrame: {
+    alignSelf: "flex-start",
+    borderWidth: 0,
+    minHeight: 36,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
   block: {
     gap: 12,
     padding: 16,
@@ -405,7 +581,7 @@ const styles = StyleSheet.create({
   commandBlock: {
     backgroundColor: colors.terminalBg,
     borderCurve: "continuous",
-    borderRadius: 10,
+    borderRadius: 18,
     gap: 10,
     overflow: "hidden",
     padding: 14,
@@ -427,20 +603,25 @@ const styles = StyleSheet.create({
   },
   hint: {
     color: colors.secondaryLabel,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
   },
   iconWell: {
     alignItems: "center",
     backgroundColor: colors.cardSubtle,
     borderColor: colors.separator,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    height: 34,
+    height: 38,
     justifyContent: "center",
-    width: 34,
+    width: 38,
   },
   list: {
+    paddingVertical: 4,
+  },
+  listFooter: {
+    alignItems: "flex-start",
+    paddingHorizontal: 16,
     paddingVertical: 4,
   },
   preferenceHeader: {
@@ -451,13 +632,13 @@ const styles = StyleSheet.create({
   rowDescription: {
     color: colors.secondaryLabel,
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "400",
     lineHeight: 17,
   },
   rowTitle: {
     color: colors.label,
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "600",
     lineHeight: 21,
   },
   selectedText: {
@@ -469,8 +650,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 78,
-    paddingHorizontal: 14,
+    minHeight: 74,
+    paddingHorizontal: 16,
     paddingVertical: 12,
   },
   settingsRowLeading: {
@@ -484,6 +665,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
     minWidth: 0,
+  },
+  settingsBlock: {
+    gap: 14,
+    padding: 16,
   },
   statusPill: {
     borderRadius: 999,
@@ -510,12 +695,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     gap: 4,
-    maxWidth: 150,
-  },
-  trailingText: {
-    color: colors.secondaryLabel,
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: "600",
   },
 });

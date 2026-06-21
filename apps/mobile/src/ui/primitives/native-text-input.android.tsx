@@ -59,7 +59,7 @@ export function NativeTextInput({
   editable,
   keyboardType,
   maxLength,
-  minHeight = 48,
+  minHeight = 56,
   multiline,
   numberOfLines,
   onBlur,
@@ -138,7 +138,7 @@ export function NativeTextInput({
         singleLine={!multiline}
         textSelectionColors={{
           backgroundColor: theme.colors.selection,
-          handleColor: theme.colors.label,
+          handleColor: theme.colors.accent,
         }}
         textStyle={{
           color: theme.colors.label,
@@ -166,19 +166,19 @@ const controlCornerRadii = {
 
 function getTextFieldColors(themeColors: MobileThemeColors) {
   return {
-    cursorColor: themeColors.label,
-    disabledContainerColor: themeColors.cardElevated,
-    disabledIndicatorColor: themeColors.separatorStrong,
+    cursorColor: themeColors.accent,
+    disabledContainerColor: themeColors.controlDisabled,
+    disabledIndicatorColor: themeColors.separator,
     disabledLabelColor: themeColors.tertiaryLabel,
     disabledPlaceholderColor: themeColors.tertiaryLabel,
     disabledTextColor: themeColors.tertiaryLabel,
-    focusedContainerColor: themeColors.cardElevated,
-    focusedIndicatorColor: themeColors.label,
+    focusedContainerColor: themeColors.control,
+    focusedIndicatorColor: themeColors.controlBorder,
     focusedLabelColor: themeColors.label,
     focusedPlaceholderColor: themeColors.secondaryLabel,
     focusedTextColor: themeColors.label,
-    unfocusedContainerColor: themeColors.cardElevated,
-    unfocusedIndicatorColor: themeColors.separatorStrong,
+    unfocusedContainerColor: themeColors.control,
+    unfocusedIndicatorColor: themeColors.controlBorder,
     unfocusedLabelColor: themeColors.secondaryLabel,
     unfocusedPlaceholderColor: themeColors.secondaryLabel,
     unfocusedTextColor: themeColors.label,

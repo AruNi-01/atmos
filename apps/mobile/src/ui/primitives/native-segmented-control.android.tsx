@@ -15,8 +15,8 @@ export function NativeSegmentedControl<T extends string>({
     activeBorderColor: colors.label,
     activeContainerColor: colors.label,
     activeContentColor: colors.labelInverse,
-    inactiveBorderColor: colors.separatorStrong,
-    inactiveContainerColor: colors.glassFallback,
+    inactiveBorderColor: colors.controlBorder,
+    inactiveContainerColor: colors.control,
     inactiveContentColor: colors.label,
   };
 

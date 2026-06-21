@@ -91,7 +91,9 @@ Rules:
 
 ## Shapes
 
-Atmos uses modest radius. The system root radius is 10px, but operational UI should usually stay tighter.
+Web/Desktop Atmos uses modest radius. The system root radius is 10px, but operational Web/Desktop UI should usually stay tighter.
+
+Mobile is explicitly different: `mobile.md` overrides this section for `apps/mobile` and allows ChatGPT-style large rounded surfaces, pill controls, and bottom prompt docks.
 
 Radius scale:
 
@@ -104,9 +106,9 @@ Radius scale:
 
 Rules:
 
-- Prefer `rounded-md` for buttons, inputs, toolbar controls, rows, and compact cards.
-- Use pill radius only for badges, chips, avatars, and true circular icon buttons.
-- Avoid large rounded marketing cards in the app shell.
+- Prefer `rounded-md` for Web/Desktop buttons, inputs, toolbar controls, rows, and compact cards.
+- Use pill radius on Web/Desktop only for badges, chips, avatars, and true circular icon buttons.
+- Avoid large rounded marketing cards in the Web/Desktop app shell.
 - Splitters, terminal panes, editor areas, and canvas surfaces should feel precise and rectangular.
 
 ## Motion
@@ -119,4 +121,3 @@ Rules:
 - Large layout transitions can use 300-500ms.
 - Motion must not cause layout jumps.
 - Loading and agent activity animations should be clear but restrained.
-

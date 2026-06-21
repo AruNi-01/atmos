@@ -1,6 +1,5 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { GlassContainer } from "expo-glass-effect";
 import { useUiStore } from "@/stores/ui-store";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
@@ -8,35 +7,44 @@ import { GlassPanel } from "@/ui/primitives/glass-panel";
 
 type AppScreenProps = PropsWithChildren<{
   footer?: ReactNode;
+  surface?: "screen" | "sheet";
 }>;
 
-export function AppScreen({ children, footer }: AppScreenProps) {
+export function AppScreen({ children, footer, surface = "screen" }: AppScreenProps) {
   const theme = useMobileTheme();
   const disconnectedReason = useUiStore((state) => state.disconnectedReason);
+  const backgroundColor = surface === "sheet" ? theme.colors.sheetBackground : theme.colors.background;
 
   return (
     <>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        style={[styles.scroll, { backgroundColor: theme.colors.background }]}
+        style={[styles.scroll, { backgroundColor }]}
         contentContainerStyle={[
           styles.scrollContent,
-          { backgroundColor: theme.colors.background },
+          { backgroundColor },
           footer ? styles.scrollContentWithFooter : null,
         ]}
       >
-        <GlassContainer spacing={10} style={styles.content}>
+        <View style={styles.content}>
           {disconnectedReason ? <ConnectionBanner message={disconnectedReason} /> : null}
           {children}
-        </GlassContainer>
+        </View>
       </ScrollView>
       {footer ? (
         <GlassPanel
           fallbackStyle={[styles.footerFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
           glassEffectStyle={{ style: "regular", animate: true }}
-          interactive
-          style={[styles.footer, { borderTopColor: theme.colors.glassBorder }]}
+          shadow={false}
+          style={[
+            styles.footer,
+            {
+              backgroundColor: theme.colors.glassFallbackStrong,
+              borderTopColor: theme.colors.glassBorder,
+            },
+          ]}
+          tintColor={theme.colors.glassTint}
         >
           {footer}
         </GlassPanel>
@@ -49,10 +57,11 @@ function ConnectionBanner({ message }: { message: string }) {
   const theme = useMobileTheme();
 
   return (
-    <GlassPanel
-      fallbackStyle={[styles.connectionFallback, { backgroundColor: theme.colors.redSurface }]}
-      glassEffectStyle="clear"
-      style={[styles.connectionBanner, { borderColor: theme.colors.redBorder }]}
+    <View
+      style={[
+        styles.connectionBanner,
+        { backgroundColor: theme.colors.redSurface, borderColor: theme.colors.redBorder },
+      ]}
     >
       <Text selectable style={[styles.connectionTitle, { color: theme.colors.label }]}>
         Disconnected
@@ -60,7 +69,7 @@ function ConnectionBanner({ message }: { message: string }) {
       <Text selectable style={[styles.connectionMessage, { color: theme.colors.secondaryLabel }]}>
         {message}
       </Text>
-    </GlassPanel>
+    </View>
   );
 }
 
@@ -75,14 +84,17 @@ export function Section({
   return (
     <View style={styles.section}>
       {label ? <Text style={[styles.sectionLabel, { color: theme.colors.secondaryLabel }]}>{label}</Text> : null}
-      <GlassPanel
-        fallbackStyle={[styles.cardFallback, { backgroundColor: theme.colors.glassFallback }]}
-        glassEffectStyle={{ style: "regular", animate: true }}
-        interactive
-        style={styles.card}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: theme.colors.cardElevated,
+            borderColor: theme.colors.glassBorder,
+          },
+        ]}
       >
         {children}
-      </GlassPanel>
+      </View>
     </View>
   );
 }
@@ -114,15 +126,11 @@ export function InlineError({ message }: { message: string | null | undefined })
   if (!message) return null;
 
   return (
-    <GlassPanel
-      fallbackStyle={[styles.errorFallback, { backgroundColor: theme.colors.redSurface }]}
-      glassEffectStyle="clear"
-      style={[styles.error, { borderColor: theme.colors.redBorder }]}
-    >
+    <View style={[styles.error, { backgroundColor: theme.colors.redSurface, borderColor: theme.colors.redBorder }]}>
       <Text selectable style={[styles.errorText, { color: theme.colors.red }]}>
         {message}
       </Text>
-    </GlassPanel>
+    </View>
   );
 }
 
@@ -132,8 +140,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    gap: 18,
-    padding: 16,
+    gap: 20,
+    padding: 18,
     paddingBottom: 36,
   },
   scrollContent: {
@@ -148,32 +156,38 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     borderRightWidth: 0,
     borderTopColor: colors.glassBorder,
-    padding: 16,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 16,
+  },
+  footerFallback: {
+    backgroundColor: colors.glassFallbackStrong,
   },
   section: {
-    gap: 7,
+    gap: 8,
   },
   sectionLabel: {
     color: colors.secondaryLabel,
-    fontSize: 12,
-    fontWeight: "800",
-    paddingHorizontal: 2,
-    textTransform: "uppercase",
+    fontSize: 13,
+    fontWeight: "600",
+    paddingHorizontal: 4,
   },
   card: {
+    backgroundColor: colors.cardElevated,
+    borderColor: colors.glassBorder,
+    borderCurve: "continuous",
+    borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
     minHeight: 1,
-  },
-  cardFallback: {
-    backgroundColor: colors.glassFallback,
+    overflow: "hidden",
   },
   connectionBanner: {
+    backgroundColor: colors.redSurface,
     borderColor: colors.redBorder,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: radii.card,
     gap: 4,
     padding: 12,
-  },
-  connectionFallback: {
-    backgroundColor: colors.redSurface,
   },
   connectionMessage: {
     color: colors.red,
@@ -203,19 +217,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   error: {
+    backgroundColor: colors.redSurface,
     borderColor: colors.redBorder,
     borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 12,
-  },
-  errorFallback: {
-    backgroundColor: colors.redSurface,
   },
   errorText: {
     color: colors.red,
     fontSize: 14,
     lineHeight: 20,
-  },
-  footerFallback: {
-    backgroundColor: colors.glassFallbackStrong,
   },
 });

@@ -287,6 +287,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
 
   return (
     <AppScreen
+      surface="sheet"
       footer={
         <View style={styles.footer}>
           <NativeButton
@@ -427,6 +428,7 @@ export function CreateWorkspaceScreen({ initialProjectGuid }: { initialProjectGu
                         onPress={() => {
                           setSelectedLabelGuids((current) => current.filter((guid) => guid !== label.guid));
                         }}
+                        variant="text"
                       />
                     </Row>
                   ))}

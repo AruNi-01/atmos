@@ -1,14 +1,13 @@
 import { useCallback, useEffect } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Host, TextInput as ExpoTextInput, useNativeState } from "@expo/ui";
 import type { TextInputProps as ExpoTextInputProps } from "@expo/ui";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
-import { GlassPanel } from "./glass-panel";
 import type { NativeTextInputProps } from "./native-text-input.types";
 
 export function NativeTextInput({
-  minHeight = 44,
+  minHeight = 56,
   onChangeText,
   placeholderTextColor,
   style,
@@ -26,6 +25,7 @@ export function NativeTextInput({
     textStyle,
   ]) as ExpoTextInputProps["textStyle"];
   const resolvedPlaceholderColor = placeholderTextColor ?? theme.colors.secondaryLabel;
+  const controlBackground = theme.colors.control;
 
   useEffect(() => {
     if (value !== undefined && nativeValue.value !== value) {
@@ -42,16 +42,20 @@ export function NativeTextInput({
   );
 
   return (
-    <GlassPanel
-      fallbackStyle={[styles.inputFallback, { backgroundColor: theme.colors.glassFallback }]}
-      glassEffectStyle="clear"
-      style={[styles.inputFrame, { borderColor: theme.colors.separatorStrong, minHeight }]}
-      tintColor={theme.colors.glassTint}
+    <View
+      style={[
+        styles.inputFrame,
+        {
+          backgroundColor: controlBackground,
+          borderColor: theme.colors.controlBorder,
+          minHeight,
+        },
+      ]}
     >
       <Host colorScheme={theme.colorScheme} style={{ minHeight, width: "100%" }}>
         <ExpoTextInput
           {...(props as ExpoTextInputProps)}
-          cursorColor={theme.colors.label}
+          cursorColor={theme.colors.accent}
           onChangeText={handleChangeText}
           placeholderTextColor={resolvedPlaceholderColor}
           selectionColor={theme.colors.selection}
@@ -60,15 +64,13 @@ export function NativeTextInput({
           value={nativeValue}
         />
       </Host>
-    </GlassPanel>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  inputFallback: {
-    backgroundColor: colors.glassFallback,
-  },
   inputFrame: {
+    backgroundColor: colors.control,
     borderColor: colors.separatorStrong,
     borderRadius: radii.control,
     borderWidth: StyleSheet.hairlineWidth,
@@ -76,8 +78,8 @@ const styles = StyleSheet.create({
   },
   textInput: {
     backgroundColor: "transparent",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     width: "100%",
   },
   textInputText: {

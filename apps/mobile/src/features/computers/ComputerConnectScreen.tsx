@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Stack, type NativeStackHeaderItem, useRouter } from "expo-router";
+import type { SFSymbol } from "sf-symbols-typescript";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ComputerRow } from "@/api/types";
 import { useRelayClient } from "@/hooks/use-relay-client";
@@ -7,12 +8,15 @@ import { getStoredAccessToken } from "@/lib/access-token";
 import { useComputerStore } from "@/stores/computer-store";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
+import { Separator } from "@/ui/layout/row";
 import { NativeButton } from "@/ui/primitives/native-controls";
-import { colors, radii } from "@/theme/colors";
+import { RefreshIcon } from "@/ui/icons/lucide-native";
+import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
 export function ComputerConnectScreen() {
   const router = useRouter();
+  const theme = useMobileTheme();
   const queryClient = useQueryClient();
   const relayClient = useRelayClient();
   const relayUrl = useSessionStore((state) => state.relayUrl);
@@ -59,7 +63,7 @@ export function ComputerConnectScreen() {
 
   return (
     <>
-      <AppScreen>
+      <AppScreen surface="sheet">
         {!hasAccessToken ? (
           <Section>
             <View style={styles.emptyBlock}>
@@ -81,15 +85,17 @@ export function ComputerConnectScreen() {
           </Section>
         ) : (
           <Section label={`${activeComputers.length} Computers`}>
-            <View style={styles.rows}>
-              {activeComputers.map((computer) => (
-                <ComputerRowItem
-                  computer={computer}
-                  isConnecting={connect.isPending}
-                  isSelected={computer.server_id === selectedServerId}
-                  key={computer.server_id}
-                  onPress={() => connect.mutate(computer.server_id)}
-                />
+            <View>
+              {activeComputers.map((computer, index) => (
+                <View key={computer.server_id}>
+                  <ComputerRowItem
+                    computer={computer}
+                    isConnecting={connect.isPending}
+                    isSelected={computer.server_id === selectedServerId}
+                    onPress={() => connect.mutate(computer.server_id)}
+                  />
+                  {index < activeComputers.length - 1 ? <Separator /> : null}
+                </View>
               ))}
             </View>
           </Section>
@@ -98,18 +104,82 @@ export function ComputerConnectScreen() {
       </AppScreen>
       <Stack.Screen
         options={{
-          headerRight: () => (
-            <NativeButton
-              disabled={!hasAccessToken || computersQuery.isFetching}
-              label={computersQuery.isFetching ? "Refreshing" : "Refresh"}
-              onPress={() => void computersQuery.refetch()}
-              variant="text"
-            />
-          ),
+          headerRight:
+            Platform.OS === "ios"
+              ? undefined
+              : () => (
+                  <HeaderIconButton
+                    accessibilityLabel="Refresh Computers"
+                    disabled={!hasAccessToken || computersQuery.isFetching}
+                    onPress={() => void computersQuery.refetch()}
+                  />
+                ),
+          unstable_headerRightItems:
+            Platform.OS === "ios"
+              ? () =>
+                  buildHeaderRightItems({
+                    disabled: !hasAccessToken || computersQuery.isFetching,
+                    onRefresh: () => void computersQuery.refetch(),
+                    tintColor: theme.colors.label,
+                  })
+              : undefined,
         }}
       />
     </>
   );
+}
+
+function buildHeaderRightItems({
+  disabled,
+  onRefresh,
+  tintColor,
+}: {
+  disabled: boolean;
+  onRefresh: () => void;
+  tintColor: string;
+}): NativeStackHeaderItem[] {
+  return [
+    {
+      accessibilityLabel: "Refresh Computers",
+      disabled,
+      icon: sfSymbol("arrow.clockwise"),
+      identifier: "computer-connect-refresh",
+      label: "Refresh",
+      onPress: onRefresh,
+      tintColor,
+      type: "button",
+      variant: "plain",
+    },
+  ];
+}
+
+function HeaderIconButton({
+  accessibilityLabel,
+  disabled,
+  onPress,
+}: {
+  accessibilityLabel: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useMobileTheme();
+
+  return (
+    <Pressable
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      disabled={disabled}
+      hitSlop={12}
+      onPress={disabled ? undefined : onPress}
+      style={[styles.headerIconButton, disabled ? styles.headerIconButtonDisabled : null]}
+    >
+      <RefreshIcon color={theme.colors.label} size={21} strokeWidth={2.4} />
+    </Pressable>
+  );
+}
+
+function sfSymbol(name: SFSymbol) {
+  return { name, type: "sfSymbol" as const };
 }
 
 function ComputerRowItem({
@@ -132,12 +202,8 @@ function ComputerRowItem({
       onPress={onPress}
       style={({ pressed }) => [
         styles.computerRow,
-        {
-          backgroundColor: theme.colors.cardElevated,
-          borderColor: theme.colors.separator,
-        },
         disabled && styles.computerRowDisabled,
-        pressed && styles.computerRowPressed,
+        pressed ? { backgroundColor: theme.colors.mutedPressed } : null,
       ]}
     >
       <View style={styles.computerText}>
@@ -188,21 +254,14 @@ const styles = StyleSheet.create({
   },
   computerRow: {
     alignItems: "center",
-    backgroundColor: colors.cardElevated,
-    borderColor: colors.separator,
-    borderCurve: "continuous",
-    borderRadius: radii.card,
-    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 12,
     minHeight: 66,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   computerRowDisabled: {
     opacity: 0.46,
-  },
-  computerRowPressed: {
-    opacity: 0.68,
   },
   computerStatus: {
     borderColor: colors.separatorStrong,
@@ -236,8 +295,13 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
   },
-  rows: {
-    gap: 10,
-    padding: 12,
+  headerIconButton: {
+    alignItems: "center",
+    height: 38,
+    justifyContent: "center",
+    width: 42,
+  },
+  headerIconButtonDisabled: {
+    opacity: 0.42,
   },
 });

@@ -2,8 +2,10 @@ import { Button as ExpoButton, Host } from "@expo/ui";
 import type { UniversalStyle } from "@expo/ui";
 import type { ModifierConfig } from "@expo/ui/swift-ui/modifiers";
 import { border, buttonBorderShape, clipShape, tint } from "@expo/ui/swift-ui/modifiers";
+import { StyleSheet, type ViewStyle } from "react-native";
 import { radii, type MobileThemeColors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
+import { GlassPanel } from "./glass-panel";
 import type { NativeButtonProps } from "./native-button.types";
 
 export function NativeButton({
@@ -14,19 +16,38 @@ export function NativeButton({
   variant = "filled",
 }: NativeButtonProps) {
   const theme = useMobileTheme();
-  const nativeVariant = variant === "outlined" ? "text" : variant;
+  const frameColors = buttonFrameColorsByVariant(tone, theme.colors, Boolean(disabled))[variant];
 
   return (
-    <Host matchContents colorScheme={theme.colorScheme}>
-      <ExpoButton
-        disabled={disabled}
-        label={label}
-        modifiers={buttonModifiersByVariant(tone, theme.colors)[variant]}
-        onPress={disabled ? undefined : onPress}
-        style={buttonStyleByVariant[variant]}
-        variant={nativeVariant}
-      />
-    </Host>
+    <GlassPanel
+      fallbackStyle={[
+        styles.fallback,
+        { backgroundColor: frameColors.background },
+      ]}
+      glassEffectStyle={variant === "filled" ? "regular" : "clear"}
+      interactive={!disabled}
+      shadow={false}
+      style={[
+        styles.frame,
+        buttonFrameStyleByVariant[variant],
+        {
+          backgroundColor: frameColors.background,
+          borderColor: frameColors.border,
+        },
+      ]}
+      tintColor={frameColors.tint}
+    >
+      <Host matchContents colorScheme={theme.colorScheme}>
+        <ExpoButton
+          disabled={disabled}
+          label={label}
+          modifiers={buttonModifiersByVariant(tone, theme.colors)[variant]}
+          onPress={disabled ? undefined : onPress}
+          style={buttonStyleByVariant[variant]}
+          variant="text"
+        />
+      </Host>
+    </GlassPanel>
   );
 }
 
@@ -34,9 +55,10 @@ function buttonModifiersByVariant(
   tone: NonNullable<NativeButtonProps["tone"]>,
   themeColors: MobileThemeColors,
 ): Record<NonNullable<NativeButtonProps["variant"]>, ModifierConfig[]> {
+  const filledTintColor = tone === "inverse" ? themeColors.label : themeColors.labelInverse;
   const tintColor = tone === "inverse" ? themeColors.labelInverse : themeColors.label;
   return {
-    filled: [buttonBorderShape("roundedRectangle", radii.control), tint(tintColor)],
+    filled: [buttonBorderShape("roundedRectangle", radii.control), tint(filledTintColor)],
     outlined: [
       buttonBorderShape("roundedRectangle", radii.control),
       tint(tintColor),
@@ -47,16 +69,54 @@ function buttonModifiersByVariant(
   };
 }
 
+function buttonBorderColorByVariant(
+  tone: NonNullable<NativeButtonProps["tone"]>,
+  themeColors: MobileThemeColors,
+): Record<NonNullable<NativeButtonProps["variant"]>, string> {
+  const tintColor = tone === "inverse" ? themeColors.labelInverse : themeColors.controlBorder;
+  return {
+    filled: "transparent",
+    outlined: tintColor,
+    text: "transparent",
+  };
+}
+
+function buttonFrameColorsByVariant(
+  tone: NonNullable<NativeButtonProps["tone"]>,
+  themeColors: MobileThemeColors,
+  disabled: boolean,
+): Record<NonNullable<NativeButtonProps["variant"]>, { background: string; border: string; tint: string }> {
+  const borderColor = buttonBorderColorByVariant(tone, themeColors);
+  const filledBackground = tone === "inverse" ? themeColors.labelInverse : themeColors.label;
+  return {
+    filled: {
+      background: disabled ? themeColors.controlDisabled : filledBackground,
+      border: disabled ? themeColors.separator : borderColor.filled,
+      tint: themeColors.controlGlassTint,
+    },
+    outlined: {
+      background: disabled ? themeColors.controlDisabled : themeColors.control,
+      border: disabled ? themeColors.separator : borderColor.outlined,
+      tint: themeColors.controlGlassTint,
+    },
+    text: {
+      background: "transparent",
+      border: "transparent",
+      tint: "transparent",
+    },
+  };
+}
+
 const buttonStyleByVariant: Record<NonNullable<NativeButtonProps["variant"]>, UniversalStyle> = {
   filled: {
     borderRadius: radii.control,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
   },
   outlined: {
     borderRadius: radii.control,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
   },
   text: {
     borderRadius: radii.control,
@@ -64,3 +124,28 @@ const buttonStyleByVariant: Record<NonNullable<NativeButtonProps["variant"]>, Un
     paddingVertical: 7,
   },
 };
+
+const buttonFrameStyleByVariant: Record<NonNullable<NativeButtonProps["variant"]>, ViewStyle> = {
+  filled: {
+    minHeight: 52,
+  },
+  outlined: {
+    minHeight: 52,
+  },
+  text: {
+    minHeight: 38,
+  },
+};
+
+const styles = StyleSheet.create({
+  fallback: {
+    backgroundColor: "transparent",
+  },
+  frame: {
+    alignSelf: "flex-start",
+    borderCurve: "continuous",
+    borderRadius: radii.control,
+    borderWidth: StyleSheet.hairlineWidth,
+    minWidth: 1,
+  },
+});

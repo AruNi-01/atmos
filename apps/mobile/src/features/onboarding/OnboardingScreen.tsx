@@ -7,7 +7,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AppScreen, InlineError, Section } from "@/ui/layout/app-screen";
 import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
-import { GlassPanel } from "@/ui/primitives/glass-panel";
+import { TerminalIcon } from "@/ui/icons/lucide-native";
 import { ComputerPicker } from "@/features/computers/ComputerPicker";
 import { useRelayClient } from "@/hooks/use-relay-client";
 import {
@@ -127,6 +127,16 @@ export function OnboardingScreen() {
         </View>
       }
     >
+      <View style={styles.hero}>
+        <View style={[styles.heroMark, { backgroundColor: theme.colors.label }]}>
+          <TerminalIcon color={theme.colors.labelInverse} size={28} strokeWidth={2.2} />
+        </View>
+        <Text style={[styles.heroTitle, { color: theme.colors.label }]}>Connect Atmos</Text>
+        <Text style={[styles.heroSubtitle, { color: theme.colors.secondaryLabel }]}>
+          Use your phone as a quiet native client for a remote Atmos Computer.
+        </Text>
+      </View>
+
       <Section label="Access Token">
         <View style={styles.formBlock}>
           <View style={styles.tokenSummary}>
@@ -211,14 +221,18 @@ function TokenSavedStatus() {
   const theme = useMobileTheme();
 
   return (
-    <GlassPanel
-      fallbackStyle={[styles.savedStatusFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
-      glassEffectStyle="clear"
-      style={[styles.savedStatus, { borderColor: theme.colors.glassBorder }]}
+    <View
+      style={[
+        styles.savedStatus,
+        {
+          backgroundColor: theme.colors.cardElevated,
+          borderColor: theme.colors.glassBorder,
+        },
+      ]}
     >
       <View style={[styles.statusDot, { backgroundColor: theme.colors.label }]} />
       <Text style={[styles.savedStatusText, { color: theme.colors.label }]}>Access Token saved</Text>
-    </GlassPanel>
+    </View>
   );
 }
 
@@ -279,6 +293,34 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
   },
+  hero: {
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 28,
+  },
+  heroMark: {
+    alignItems: "center",
+    backgroundColor: colors.label,
+    borderRadius: 999,
+    height: 58,
+    justifyContent: "center",
+    width: 58,
+  },
+  heroSubtitle: {
+    color: colors.secondaryLabel,
+    fontSize: 16,
+    lineHeight: 22,
+    maxWidth: 320,
+    textAlign: "center",
+  },
+  heroTitle: {
+    color: colors.label,
+    fontSize: 28,
+    fontWeight: "700",
+    lineHeight: 34,
+    textAlign: "center",
+  },
   inlineAction: {
     alignItems: "flex-start",
   },
@@ -287,13 +329,11 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     borderColor: colors.glassBorder,
     borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 8,
     minHeight: 42,
     paddingHorizontal: 14,
-  },
-  savedStatusFallback: {
-    backgroundColor: colors.glassFallbackStrong,
   },
   savedStatusText: {
     color: colors.label,

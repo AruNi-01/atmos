@@ -63,10 +63,10 @@ export function Separator() {
 
 const styles = StyleSheet.create({
   row: {
-    gap: 5,
-    minHeight: 60,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    gap: 4,
+    minHeight: 64,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
   titleRow: {
     alignItems: "center",
@@ -77,14 +77,14 @@ const styles = StyleSheet.create({
   title: {
     color: colors.label,
     flex: 1,
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 20,
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 21,
   },
   subtitle: {
     color: colors.secondaryLabel,
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   meta: {
     color: colors.secondaryLabel,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     marginLeft: -4,
   },
   pressed: {
-    opacity: 0.55,
+    opacity: 0.62,
   },
   separator: {
     backgroundColor: colors.separator,

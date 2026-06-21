@@ -87,6 +87,7 @@ function FileSection({
                 label={actionLabel}
                 onPress={() => onAction(file)}
                 disabled={actionsDisabled}
+                variant="text"
               />
             </View>
           </Row>

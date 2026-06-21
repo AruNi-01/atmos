@@ -80,6 +80,12 @@ export const wsActions = {
       markdown,
     });
   },
+  workspaceUpdateWorkflowStatus(client: MobileWsClient, guid: string, workflowStatus: string) {
+    return client.request<{ success: boolean }>("workspace_update_workflow_status", {
+      guid,
+      workflow_status: workflowStatus,
+    });
+  },
   workspaceRetrySetup(
     client: MobileWsClient,
     payload: {

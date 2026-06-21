@@ -10,6 +10,7 @@ type GlassPanelProps = PropsWithChildren<{
   fallbackStyle?: StyleProp<ViewStyle>;
   glassEffectStyle?: GlassViewProps["glassEffectStyle"];
   interactive?: boolean;
+  shadow?: boolean;
   style?: StyleProp<ViewStyle>;
   tintColor?: string;
 }>;
@@ -19,6 +20,7 @@ export function GlassPanel({
   fallbackStyle,
   glassEffectStyle = "regular",
   interactive,
+  shadow = true,
   style,
   tintColor,
 }: GlassPanelProps) {
@@ -33,7 +35,7 @@ export function GlassPanel({
         colorScheme={theme.colorScheme}
         glassEffectStyle={glassEffectStyle}
         isInteractive={interactive}
-        style={[theme.isDark ? styles.darkShadow : styles.lightShadow, panelStyle]}
+        style={[shadow ? (theme.isDark ? styles.darkShadow : styles.lightShadow) : null, panelStyle]}
         tintColor={resolvedTintColor}
       >
         {children}
@@ -45,7 +47,7 @@ export function GlassPanel({
     <View
       style={[
         styles.fallback,
-        theme.isDark ? styles.darkShadow : styles.lightShadow,
+        shadow ? (theme.isDark ? styles.darkShadow : styles.lightShadow) : null,
         { backgroundColor: theme.colors.glassFallback },
         fallbackStyle,
         panelStyle,

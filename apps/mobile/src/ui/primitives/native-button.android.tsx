@@ -55,7 +55,7 @@ export function NativeButton({
         colors={{
           containerColor: color.background,
           contentColor: color.text,
-          disabledContainerColor: theme.colors.cardSubtle,
+          disabledContainerColor: theme.colors.controlDisabled,
           disabledContentColor: theme.colors.tertiaryLabel,
         }}
         contentPadding={buttonPaddingByVariant[variant]}
@@ -95,8 +95,8 @@ function buttonColorByVariant(
       text: isInverse ? themeColors.label : themeColors.labelInverse,
     },
     outlined: {
-      background: isInverse ? "transparent" : themeColors.labelInverse,
-      border: isInverse ? themeColors.labelInverse : themeColors.label,
+      background: isInverse ? "transparent" : themeColors.control,
+      border: isInverse ? themeColors.labelInverse : themeColors.controlBorder,
       text: isInverse ? themeColors.labelInverse : themeColors.label,
     },
     text: {
@@ -109,16 +109,16 @@ function buttonColorByVariant(
 
 const buttonPaddingByVariant = {
   filled: {
-    bottom: 8,
-    end: 14,
-    start: 14,
-    top: 8,
+    bottom: 12,
+    end: 20,
+    start: 20,
+    top: 12,
   },
   outlined: {
-    bottom: 8,
-    end: 14,
-    start: 14,
-    top: 8,
+    bottom: 12,
+    end: 20,
+    start: 20,
+    top: 12,
   },
   text: {
     bottom: 7,

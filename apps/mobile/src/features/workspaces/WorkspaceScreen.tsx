@@ -25,6 +25,7 @@ import type { WorkspaceTab, WorkspaceTabItem } from "@/features/workspaces/Works
 import { WorkspaceHeaderActions } from "@/features/workspaces/WorkspaceHeaderActions";
 import { WorkspaceOverview } from "@/features/workspaces/WorkspaceOverview";
 import { useMobileWs } from "@/providers/MobileWsProvider";
+import { useRecentWorkspacesStore } from "@/stores/recent-workspaces-store";
 import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
 import { colors, type MobileThemeColors } from "@/theme/colors";
@@ -33,6 +34,7 @@ import { useMobileTheme } from "@/theme/theme-store";
 export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
   const theme = useMobileTheme();
   const { client, state } = useMobileWs();
+  const recordWorkspaceVisit = useRecentWorkspacesStore((store) => store.recordWorkspaceVisit);
   const selectedServerId = useSessionStore((store) => store.selectedServerId);
   const [tab, setTab] = useState<WorkspaceTab>("terminal");
   const [terminalHeaderControls, setTerminalHeaderControls] = useState<TerminalHeaderControls | null>(null);
@@ -65,6 +67,11 @@ export function WorkspaceScreen({ workspaceId }: { workspaceId: string }) {
     if (!workspace) return null;
     return bootstrap.data?.projects.find((candidate) => candidate.guid === workspace.project_guid) ?? null;
   }, [bootstrap.data, workspace]);
+
+  useEffect(() => {
+    if (!workspace) return;
+    recordWorkspaceVisit({ project, serverId: selectedServerId, workspace });
+  }, [project, recordWorkspaceVisit, selectedServerId, workspace]);
 
   if (!workspace && bootstrap.isLoading) {
     return (

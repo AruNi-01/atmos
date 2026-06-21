@@ -1,7 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { InlineError } from "@/ui/layout/app-screen";
 import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
-import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -52,15 +51,16 @@ export function CommitSheet({
         />
       </View>
       {successMessage ? (
-        <GlassPanel
-          fallbackStyle={[styles.successFallback, { backgroundColor: theme.colors.greenSurface }]}
-          glassEffectStyle="clear"
-          style={[styles.success, { borderColor: theme.colors.greenBorder }]}
+        <View
+          style={[
+            styles.success,
+            { backgroundColor: theme.colors.greenSurface, borderColor: theme.colors.greenBorder },
+          ]}
         >
           <Text selectable style={[styles.successText, { color: theme.colors.green }]}>
             {successMessage}
           </Text>
-        </GlassPanel>
+        </View>
       ) : null}
       <InlineError message={error} />
     </View>
@@ -76,12 +76,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   success: {
+    backgroundColor: colors.greenSurface,
     borderColor: colors.greenBorder,
     borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 12,
-  },
-  successFallback: {
-    backgroundColor: colors.greenSurface,
   },
   successText: {
     color: colors.green,

@@ -63,6 +63,9 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 
 ## UI Conventions
 
+- Mobile visual design follows [agents/references/design/mobile.md](../../agents/references/design/mobile.md): ChatGPT-style native screens with sparse white/black surfaces, plain grouped cards, large rounded filled inputs, glass buttons/segmented controls, icon-only headers, light grouped lists, and bottom-anchored primary actions.
+- In dark mode, render cards and text inputs as plain filled surfaces that are visibly lighter than the black page background. Reserve glass/Liquid Glass for segmented controls, switches, pill action buttons, header/floating chrome, and bottom action controls.
+- Form-sheet screens should use `theme.colors.sheetBackground` at the route `contentStyle` level and render `AppScreen surface="sheet"` so dark sheets separate from the dimmed page behind them.
 - Use Expo UI native controls where practical for app chrome, buttons, lists, forms, menus, sheets, dialogs, and settings.
 - Use `lucide-react-native` for mobile business/content icons that should match web Lucide icons. Import icons through the narrow wrapper in `src/ui/icons/lucide-native.ts`; do not import from the `lucide-react-native` package root in feature files, because its full type surface can make mobile typecheck unstable.
 - Use `src/features/terminal/MobileAgentIcon.tsx` for built-in/custom terminal agent icons. Do not reuse web `AgentIcon`; it depends on Next/Image and DOM behavior.

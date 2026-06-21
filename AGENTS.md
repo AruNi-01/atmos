@@ -12,6 +12,7 @@
 |------|-------|
 | **Cross-Cutting References** (Shortcuts, Debug, etc.) | [agents/AGENTS.md](agents/AGENTS.md) |
 | **Design System / UI Visual Language** | [DESIGN.md](DESIGN.md) |
+| **Marketing Creative Production** (video/audio/social assets) | [marketing/AGENTS.md](marketing/AGENTS.md) |
 | **Rust crates index** (layer map) | [crates/AGENTS.md](crates/AGENTS.md) |
 | **Backend: Infrastructure** (DB, Cache, Queue, Jobs) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
 | **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
@@ -61,6 +62,10 @@ atmos/
 │   ├── cli/                   # Rust CLI (atmos)
 │   ├── docs/                  # Documentation Site
 │   └── landing/               # Marketing Landing Page
+│
+├── marketing/                 # 🎬 Creative production and distribution assets
+│   ├── creative/              # Source projects, renders, channel exports
+│   └── distribution/          # Social copy, launch plans, channel notes
 │
 ├── packages/                  # 📦 Shared JS/TS Packages
 │   ├── ui/                    # @workspace/ui (shadcn/ui)

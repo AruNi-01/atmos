@@ -9,6 +9,8 @@ export default function RootLayout() {
   const theme = useMobileTheme();
   const isIos = process.env.EXPO_OS === "ios";
   const sheetPresentation = isIos ? "formSheet" : "modal";
+  const screenContentStyle = { backgroundColor: theme.colors.background };
+  const sheetContentStyle = { backgroundColor: theme.colors.sheetBackground };
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -17,18 +19,28 @@ export default function RootLayout() {
           screenOptions={{
             headerShadowVisible: false,
             headerTintColor: theme.colors.label,
-            contentStyle: { backgroundColor: theme.colors.background },
+            contentStyle: screenContentStyle,
           }}
         >
           <Stack.Screen name="index" />
           <Stack.Screen name="onboarding" />
-          <Stack.Screen name="settings" options={{ headerShown: false, presentation: "modal" }} />
+          <Stack.Screen
+            name="settings"
+            options={{
+              contentStyle: sheetContentStyle,
+              headerShown: false,
+              presentation: sheetPresentation,
+              sheetCornerRadius: 32,
+              sheetGrabberVisible: isIos,
+              sheetLargestUndimmedDetentIndex: "none",
+            }}
+          />
           <Stack.Screen
             name="computer-connect"
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: theme.colors.background },
+              contentStyle: sheetContentStyle,
             }}
           />
           <Stack.Screen
@@ -36,7 +48,7 @@ export default function RootLayout() {
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: theme.colors.background },
+              contentStyle: sheetContentStyle,
             }}
           />
           <Stack.Screen
@@ -44,7 +56,7 @@ export default function RootLayout() {
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: theme.colors.background },
+              contentStyle: sheetContentStyle,
             }}
           />
           <Stack.Screen
@@ -52,7 +64,7 @@ export default function RootLayout() {
             options={{
               presentation: sheetPresentation,
               sheetGrabberVisible: isIos,
-              contentStyle: { backgroundColor: theme.colors.background },
+              contentStyle: sheetContentStyle,
             }}
           />
           <Stack.Screen

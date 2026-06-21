@@ -136,6 +136,7 @@ export function ImportProjectScreen() {
 
   return (
     <AppScreen
+      surface="sheet"
       footer={
         <View style={styles.footer}>
           <NativeButton
@@ -234,8 +235,8 @@ export function ImportProjectScreen() {
                   meta={entry.is_git_repo ? "Git" : undefined}
                 >
                   <View style={styles.entryActions}>
-                    <NativeButton label="Open" onPress={() => openDirectory(entry)} />
-                    <NativeButton label="Use" onPress={() => chooseEntry(entry)} />
+                    <NativeButton label="Open" onPress={() => openDirectory(entry)} variant="text" />
+                    <NativeButton label="Use" onPress={() => chooseEntry(entry)} variant="text" />
                   </View>
                 </Row>
                 {index < visibleEntries.length - 1 ? <Separator /> : null}

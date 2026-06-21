@@ -1,6 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ProjectModel, WorkspaceModel } from "@/api/types";
-import { GlassPanel } from "@/ui/primitives/glass-panel";
 import { colors, radii } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -15,33 +14,27 @@ export function WorkspaceOverview({
 
   return (
     <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="never">
-      <GlassPanel
-        fallbackStyle={[styles.panelFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
-        glassEffectStyle={{ style: "regular", animate: true }}
-        style={styles.panel}
+      <View
+        style={[styles.panel, { backgroundColor: theme.colors.cardElevated, borderColor: theme.colors.glassBorder }]}
       >
         <InfoRow label="Workspace" value={workspace.display_name ?? workspace.name} />
         <InfoRow label="Project" value={project?.name ?? "Unknown"} />
         <InfoRow label="Branch" value={workspace.branch || "None"} />
         <InfoRow label="Path" value={workspace.local_path} selectable />
-      </GlassPanel>
+      </View>
 
-      <GlassPanel
-        fallbackStyle={[styles.panelFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
-        glassEffectStyle={{ style: "regular", animate: true }}
-        style={styles.panel}
+      <View
+        style={[styles.panel, { backgroundColor: theme.colors.cardElevated, borderColor: theme.colors.glassBorder }]}
       >
         <InfoRow label="Status" value={workspace.workflow_status} />
         <InfoRow label="Priority" value={workspace.priority} />
         <InfoRow label="Base" value={workspace.base_branch || "None"} />
         <InfoRow label="Source" value={workspace.create_source} />
-      </GlassPanel>
+      </View>
 
       {workspace.github_issue || workspace.github_pr || workspace.labels.length > 0 ? (
-        <GlassPanel
-          fallbackStyle={[styles.panelFallback, { backgroundColor: theme.colors.glassFallbackStrong }]}
-          glassEffectStyle={{ style: "regular", animate: true }}
-          style={styles.panel}
+        <View
+          style={[styles.panel, { backgroundColor: theme.colors.cardElevated, borderColor: theme.colors.glassBorder }]}
         >
           {workspace.github_issue ? <InfoRow label="Issue" value={`#${workspace.github_issue.number} ${workspace.github_issue.title}`} /> : null}
           {workspace.github_pr ? <InfoRow label="PR" value={`#${workspace.github_pr.number} ${workspace.github_pr.title}`} /> : null}
@@ -57,7 +50,7 @@ export function WorkspaceOverview({
               </View>
             </View>
           ) : null}
-        </GlassPanel>
+        </View>
       ) : null}
     </ScrollView>
   );
@@ -94,11 +87,13 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   panel: {
+    backgroundColor: colors.cardElevated,
+    borderColor: colors.glassBorder,
+    borderCurve: "continuous",
     borderRadius: radii.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
     padding: 14,
-  },
-  panelFallback: {
-    backgroundColor: colors.glassFallbackStrong,
   },
   row: {
     alignItems: "center",

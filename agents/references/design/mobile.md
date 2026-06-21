@@ -1,6 +1,22 @@
 # Mobile Design
 
-Mobile has its own design system branch. It should feel like Atmos, but it should behave and render like a native iOS or Android app.
+Mobile has its own design system branch. It should feel like a native, ChatGPT-style iOS/Android companion for Atmos: quiet white/black surfaces, generous rounded controls, bottom-anchored primary actions, and linear task flows.
+
+## Reference Priority
+
+When a mobile decision conflicts with general Atmos Web/Desktop design guidance, this file wins for `apps/mobile`.
+
+Use the ChatGPT iOS app as the mobile visual reference:
+
+- mostly white or near-white screens in light mode;
+- black primary actions;
+- large pill-shaped text inputs and primary buttons;
+- bottom prompt/action docks as the primary action anchor;
+- sparse hero/empty states with centered copy;
+- light grouped surfaces for lists and settings;
+- native navigation headers and native menus instead of custom app chrome.
+
+Do not force Web/Desktop density, modest radius, border-heavy hierarchy, or dashboard-card composition onto mobile.
 
 ## Product Shape
 
@@ -37,9 +53,49 @@ Implementation should use the mobile native-control layer under `apps/mobile/src
 
 Never import `@workspace/ui` shadcn components into mobile.
 
+## Mobile Tokens
+
+The implementation source of truth is `apps/mobile/src/theme/colors.ts`.
+
+Current token direction:
+
+- light page background: `#f4f4f6`;
+- light sheet background: `#f8f8f9`;
+- light grouped surfaces: `#ffffff`;
+- light subtle fills: `rgba(10, 10, 11, 0.05)`;
+- dark page background: `#000000`;
+- dark sheet background: `#1c1c1e`;
+- dark grouped surfaces: `#2c2c2e`;
+- dark subtle fills: `rgba(255, 255, 255, 0.08)`;
+- dark text input fills: `#2c2c2e`, matching the ChatGPT dark form fields;
+- dark raised control fills: `#3a3a3c`;
+- dark disabled controls: `#343436` with disabled text color, not whole-control opacity;
+- dark control border: `rgba(255, 255, 255, 0.035)` so text fields read as filled pills, not outlined boxes;
+- dark control glass tint: `rgba(58, 58, 60, 0.38)`;
+- dark glass fallback: `rgba(44, 44, 46, 0.94)` and `rgba(58, 58, 60, 0.92)`;
+- dark glass tint: `rgba(58, 58, 60, 0.28)`;
+- dark glass border: `rgba(255, 255, 255, 0.08)`;
+- input cursor and text selection accent: iOS blue `#0a84ff`;
+- foreground: black/near-black in light mode and `#f5f5f7` in dark mode;
+- secondary text: mid gray (`#52525b` light, `#8e8e93` dark), used generously to keep hierarchy quiet;
+- card/surface radius: about 24px;
+- controls: about 28px radius, often visually pill-shaped;
+- text inputs: at least 56px tall;
+- primary buttons: at least 52px tall, black fill, white label;
+- prompt docks: pill-shaped, bottom anchored, with a black circular send/action affordance.
+- terminal background: always match Web terminal dark surface `#09090b`; terminal does not use the ChatGPT-style card/input gray ladder.
+
+Mobile token choices do not need to match Web/Desktop values. They should match the ChatGPT-style native phone experience while preserving Atmos' black/white operational tone.
+
+Dark mode should use the iOS-style deep gray surface ladder from the reference app: black page backdrop, dark gray sheets, and visibly lighter grouped cards. Cards should be plain `View`/`Pressable` surfaces using `card*` colors, not Liquid Glass wrappers.
+
+Text inputs, segmented controls, and pill action buttons should use the `control*` token family instead of reusing ad hoc colors. Text inputs are plain filled rounded fields, not `GlassPanel` wrappers. Disabled buttons should use disabled control colors; do not make the entire wrapper translucent with opacity.
+
+Form-sheet routes should use `theme.colors.sheetBackground` for route `contentStyle` and `AppScreen surface="sheet"`. Dark sheets need a slight lift from the pure-black page background so the sheet edge and dimmed backdrop remain visible.
+
 ## iOS
 
-iOS should follow Apple's current native design language, including Liquid Glass where the system and Expo/native APIs provide it.
+iOS should follow Apple's current native design language with ChatGPT-like restraint. Use Liquid Glass where the system and Expo/native APIs provide it, especially for navigation and floating chrome.
 
 Rules:
 
@@ -48,8 +104,13 @@ Rules:
 - Use compact native titles for workspace, terminal, and other detail surfaces.
 - Use native header items and native menus for route-level actions.
 - Use SF Symbols for iOS header and menu icons when possible.
-- Use system Liquid Glass surfaces for navigation, grouped header controls, tab bars, sheets, and floating chrome where the platform owns the material.
+- Use system Liquid Glass surfaces for navigation, grouped header controls, tab bars, sheets, floating chrome, buttons, segmented controls, and switches where the platform or `expo-glass-effect` can own the material.
 - Prefer system-provided Liquid Glass or `expo-glass-effect` `GlassView` over custom translucent React Native views.
+- Treat mobile as glass-first for controls on iOS, but keep grouped content cards plain and visibly separated from the page background.
+- For grouped content, settings sections, dashboard cards, info panels, and list containers, use a plain `View` or `Pressable` with `backgroundColor: theme.colors.cardElevated`, `borderColor: theme.colors.glassBorder`, and the standard large card radius. Do not wrap these cards in `GlassPanel`.
+- Controls that should feel glass, including segmented controls and secondary action buttons, should still use `GlassPanel`; make the material subtle instead of replacing it with a plain `View`.
+- Text input frames must be plain rounded filled fields using `theme.colors.control` and `theme.colors.controlBorder`; do not wrap text inputs in `GlassPanel`.
+- Pill action buttons should use `theme.colors.control`, `controlElevated`, `controlDisabled`, `controlBorder`, and `controlGlassTint` so they read as controls inside dark cards.
 - Provide fallback solid or tinted surfaces when Liquid Glass APIs are unavailable.
 - Respect accessibility settings such as reduced transparency and increased contrast by relying on native controls and system materials.
 
@@ -69,27 +130,46 @@ Rules:
 
 ## Mobile Visual Language
 
-Mobile should be calmer and more linear than Web/Desktop:
+Mobile should be calmer and more linear than Web/Desktop, with the ChatGPT iOS app as the primary visual reference:
 
 - use stacked screens instead of multi-pane layouts;
 - use native navigation bars instead of custom header rows;
-- use sections and grouped lists instead of dense sidebars;
-- keep cards shallow and purposeful;
+- use white or near-white screens with sparse typography and very light gray grouped surfaces;
+- use large rounded text inputs, primary buttons, and bottom action bars;
+- use bottom-anchored primary actions for creation, connection, and prompt-like entry points;
+- use sections and grouped lists instead of dense sidebars or dashboard cards;
+- keep cards shallow, large-radius, and purposeful; in dark mode they should be deep gray surfaces visibly lifted from the black background, not border-only black panels or heavy medium-gray slabs;
+- use icon-only header actions and compact text labels where the platform already gives context;
+- prefer a single primary action per screen, usually in the bottom dock/footer;
+- make secondary actions text-like or menu-based instead of filled buttons in every row;
 - keep terminal controls outside the terminal renderer;
 - use larger touch targets than Web/Desktop;
 - avoid hover-only interactions;
 - avoid tiny metadata clusters that require desktop pointer precision.
 
-Mobile may use the mobile theme tokens in `apps/mobile/src/theme/colors.ts`, including `glassFallback`, `glassTint`, `glassBorder`, platform terminal colors, and mobile-specific card colors. These tokens do not need to match Web/Desktop values exactly; they should preserve Atmos' neutral, operational tone while supporting native platform materials.
+Avoid these older mobile patterns:
+
+- KPI-style dashboard cards for navigation;
+- multiple filled buttons inside list rows;
+- uppercase metadata labels everywhere;
+- dense desktop-style status clusters;
+- custom translucent views that imitate glass instead of using `expo-glass-effect`;
+- boxed page sections that make every screen feel like a settings form.
 
 ## Component Rules
 
-- Buttons should use the native `NativeButton` wrapper and platform-specific variants.
+- Buttons should use the native `NativeButton` wrapper and platform-specific variants; on iOS the wrapper should prefer interactive `GlassView` when available.
+- Filled `NativeButton` is the primary black pill action. Use it sparingly.
+- `variant="text"` is preferred for row-level and secondary actions.
 - Menus should use `NativeMenuButton` and native menu actions.
-- Segmented controls should use native segmented-control wrappers.
+- Segmented controls should use mobile wrappers. On iOS, the track should be `GlassPanel`/Liquid Glass and the selected value should be a low-lift pill; do not use a plain non-glass `View` for settings theme controls.
 - Text input should use native Expo UI text input wrappers; Android may use Jetpack Compose `OutlinedTextField`.
+- Text input frames should be large plain filled rounded fields, not glass panels, compact desktop inputs, or high-contrast outlined boxes.
 - List and settings rows should be native list-style rows or mobile layout helpers, not Web cards.
+- Grouped list sections should use plain large-radius surfaces with a visible white or deep-gray fill. Do not use `GlassPanel` for cards, grouped settings sections, dashboard cards, info panels, or list containers.
+- Workspace list rows show workflow status as the same Linear-style circular icon family used on Web, placed at the trailing edge of the branch/subtitle line. Tapping the icon opens a native menu to change status; do not render workflow status as row text.
+- Home and creation flows should use prompt-like bottom action docks when a single next action dominates.
 - Sheets should use native route presentation where possible, especially iOS `formSheet`.
-- Header buttons should be native navigation/header items, not custom body-positioned glass buttons.
+- Header buttons must be icon-only. On iOS use native-stack `unstable_headerRightItems` / `unstable_headerLeftItems` with SF Symbols. Do not put `NativeButton`, text buttons such as `Refresh`, `New`, or `Import`, custom `GlassPanel`, or hand-built capsules in `headerRight`.
+- Android header fallbacks should also be icon buttons unless a native menu requires a text title inside the menu.
 - Business/content icons may use `lucide-react-native` through `src/ui/icons/lucide-native.ts`.
-
