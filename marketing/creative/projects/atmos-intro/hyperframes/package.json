@@ -1,0 +1,22 @@
+{
+  "name": "@atmos/creative-atmos-intro",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.6.118 preview",
+    "lint": "npx --yes hyperframes@0.6.118 lint",
+    "validate": "npx --yes hyperframes@0.6.118 validate",
+    "inspect": "npx --yes hyperframes@0.6.118 inspect",
+    "check:scripts": "node --check scripts/generate-audio.mjs && node --check scripts/render-video.mjs",
+    "check": "npm run lint && npm run check:scripts",
+    "check:full": "npm run lint && npm run validate && npm run inspect",
+    "audio": "node scripts/generate-audio.mjs",
+    "render": "node scripts/render-video.mjs",
+    "render:hyperframes": "npx --yes hyperframes@0.6.118 render",
+    "publish": "npx --yes hyperframes@0.6.118 publish"
+  },
+  "devDependencies": {
+    "gsap": "^3.15.0",
+    "playwright": "^1.61.0"
+  }
+}

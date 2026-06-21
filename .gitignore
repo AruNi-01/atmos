@@ -116,6 +116,8 @@ scripts/open-source/
 !.agents/skills/atmos-cli-release/**
 !.agents/skills/atmos-audio-gen/
 !.agents/skills/atmos-audio-gen/**
+!.agents/skills/atmos-video-gen/
+!.agents/skills/atmos-video-gen/**
 !.agents/skills/atmos-local-web-release/
 !.agents/skills/atmos-local-web-release/**
 !.agents/skills/atmos-specs-brainstorm/

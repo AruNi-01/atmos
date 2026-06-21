@@ -14,9 +14,23 @@ Create restrained, continuous app-promo soundtracks for Atmos videos. Pair this 
 1. Inspect the video timeline: total duration, scene/cue starts, visual energy, and whether the user wants pure music or music under voice.
 2. Build one full-duration audio bed. Do not create separate audio clips per scene unless the user explicitly asks for source-editing of existing music.
 3. Model scene changes with a cue map and smooth parameter interpolation: chord, pad, arp density, drum density, sub pulse, and shimmer.
-4. Generate a WAV at the exact video duration, usually from `<video-project>/scripts/generate-audio.mjs` to `<video-project>/assets/audio/*.wav`.
-5. Mux the WAV into the existing MP4 with video stream copy when visuals are already correct.
-6. Verify duration, codec, mid-track continuity, and absence of transition stinger code before reporting completion.
+4. Read `references/audio-project-files.md` before creating or revising project audio files.
+5. For a new generated soundtrack, use `scripts/create-continuous-audio-script.mjs` to create the project-local `generate-audio.mjs` template, then edit the cue map to match the video.
+6. Generate a WAV at the exact video duration, usually from `<creative-project>/hyperframes/scripts/generate-audio.mjs` to `<creative-project>/artifacts/audio/*.wav`.
+7. Mux the WAV into the existing MP4 with video stream copy when visuals are already correct.
+8. Verify duration, codec, mid-track continuity, and absence of transition stinger code before reporting completion.
+
+## Skill Resources
+
+- `references/audio-project-files.md` is the source of truth for project audio file responsibilities, output paths, script reuse boundaries, package script updates, and verification commands.
+- `scripts/create-continuous-audio-script.mjs` creates a project-local continuous soundtrack generator and patches `hyperframes/package.json` with `npm run audio`.
+- This skill intentionally has no `assets/` directory. Do not bundle samples, loops, or fixed brand sound files into the skill; generate synthetic audio locally or use user-provided source files from the project's `source/` folder.
+
+Template example:
+
+```bash
+node .agents/skills/atmos-audio-gen/scripts/create-continuous-audio-script.mjs marketing/creative/projects/feature-tour --duration 30 --output-name feature-tour-soundtrack.wav
+```
 
 ## Sound Design Rules
 
@@ -56,11 +70,12 @@ Keep stinger-like layers out of the mix. If a layer only exists to fire around `
 
 ## Atmos Project Conventions
 
-- Put synthetic audio scripts beside the HyperFrames project, for example `apps/landing/hyperframes/<video>/scripts/generate-audio.mjs`.
-- Output generated audio into `apps/landing/hyperframes/<video>/assets/audio/`.
+- Put synthetic audio scripts inside the creative project's HyperFrames app, for example `marketing/creative/projects/<project>/hyperframes/scripts/generate-audio.mjs`.
+- Output the canonical generated audio into the creative project's artifacts folder, for example `marketing/creative/projects/<project>/artifacts/audio/`.
+- If the HyperFrames composition contains an `<audio>` element, mirror the WAV into the HyperFrames app, for example `marketing/creative/projects/<project>/hyperframes/assets/audio/`, because HyperFrames lint/preview only resolves media inside the composition project.
 - Add or use an `npm run audio` script for repeatable regeneration.
-- When working in this repo, use `apps/landing/hyperframes/atmos-intro/scripts/generate-audio.mjs` as the current baseline for a continuous synthetic soundtrack.
-- Publish final landing-page videos under `apps/landing/public/videos/`.
+- When working in this repo, use `marketing/creative/projects/atmos-intro/hyperframes/scripts/generate-audio.mjs` as the current baseline for a continuous synthetic soundtrack.
+- Keep generated video, image, and audio outputs under `marketing/creative/projects/<project>/artifacts/`, and deployable landing copies under `apps/landing/public/videos/`.
 
 ## Muxing
 

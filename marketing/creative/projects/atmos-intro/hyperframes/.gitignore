@@ -1,0 +1,3 @@
+node_modules/
+.render-frames/
+assets/audio/*.wav

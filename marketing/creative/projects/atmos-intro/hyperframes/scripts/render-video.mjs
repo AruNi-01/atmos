@@ -5,11 +5,21 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 
 const __filename = fileURLToPath(import.meta.url);
-const projectDir = path.resolve(path.dirname(__filename), "..");
-const indexPath = path.join(projectDir, "index.html");
-const framesDir = path.join(projectDir, ".render-frames");
-const outputPath = path.resolve(projectDir, "../../public/videos/atmos-intro.mp4");
-const posterPath = path.resolve(projectDir, "../../public/videos/atmos-intro-poster.jpg");
+const hyperframesDir = path.resolve(path.dirname(__filename), "..");
+const projectDir = path.resolve(hyperframesDir, "..");
+const repoRoot = path.resolve(projectDir, "../../../..");
+const indexPath = path.join(hyperframesDir, "index.html");
+const framesDir = path.join(hyperframesDir, ".render-frames");
+const outputPath = path.join(projectDir, "artifacts/videos/atmos-intro-16x9-1080p.mp4");
+const posterPath = path.join(projectDir, "artifacts/images/atmos-intro-16x9-1080p-poster.jpg");
+const musicPath = path.join(projectDir, "artifacts/audio/atmos-ambient.wav");
+const consumerTargets = [
+  {
+    name: "landing public",
+    video: path.join(repoRoot, "apps/landing/public/videos/atmos-intro.mp4"),
+    poster: path.join(repoRoot, "apps/landing/public/videos/atmos-intro-poster.jpg"),
+  },
+];
 
 const width = 1920;
 const height = 1080;
@@ -60,6 +70,7 @@ async function captureFrames() {
   await fs.rm(framesDir, { recursive: true, force: true });
   await fs.mkdir(framesDir, { recursive: true });
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.mkdir(path.dirname(posterPath), { recursive: true });
 
   const browser = await chromium.launch({
     headless: true,
@@ -109,12 +120,23 @@ async function captureFrames() {
 
 async function encodeVideo() {
   await fs.copyFile(path.join(framesDir, "frame-0037.jpg"), posterPath);
-  await run("ffmpeg", [
+  const hasMusic = await fs
+    .access(musicPath)
+    .then(() => true)
+    .catch(() => false);
+  const args = [
     "-y",
     "-framerate",
     String(fps),
     "-i",
     path.join(framesDir, "frame-%04d.jpg"),
+  ];
+
+  if (hasMusic) {
+    args.push("-i", musicPath);
+  }
+
+  args.push(
     "-c:v",
     "libx264",
     "-preset",
@@ -123,15 +145,48 @@ async function encodeVideo() {
     "18",
     "-pix_fmt",
     "yuv420p",
+  );
+
+  if (hasMusic) {
+    args.push(
+      "-map",
+      "0:v:0",
+      "-map",
+      "1:a:0",
+      "-shortest",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "160k",
+      "-af",
+      "afade=t=in:st=0:d=1.2,afade=t=out:st=28.2:d=1.8,alimiter=limit=0.86",
+    );
+  }
+
+  args.push(
     "-movflags",
     "+faststart",
     outputPath,
-  ]);
+  );
+
+  await run("ffmpeg", args);
+}
+
+async function syncConsumerTargets() {
+  for (const target of consumerTargets) {
+    await fs.mkdir(path.dirname(target.video), { recursive: true });
+    await fs.mkdir(path.dirname(target.poster), { recursive: true });
+    await fs.copyFile(outputPath, target.video);
+    await fs.copyFile(posterPath, target.poster);
+    console.log(`synced ${target.name} video ${target.video}`);
+    console.log(`synced ${target.name} poster ${target.poster}`);
+  }
 }
 
 try {
   await captureFrames();
   await encodeVideo();
+  await syncConsumerTargets();
   await fs.rm(framesDir, { recursive: true, force: true });
   console.log(`wrote ${outputPath}`);
   console.log(`wrote ${posterPath}`);

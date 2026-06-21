@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atmos Video Gen"
+  short_description: "Generate Atmos marketing videos"
+  default_prompt: "Use $atmos-video-gen to create a HyperFrames marketing video for Atmos, asking whether to generate matching audio if it is not specified."

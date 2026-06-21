@@ -32,6 +32,8 @@ apps/landing/
 ├── messages/                # Translation files
 │   ├── en.json              # English
 │   └── zh.json              # Chinese
+├── public/
+│   └── videos/              # Deployable copies synced from marketing/creative
 └── package.json
 ```
 
@@ -64,6 +66,11 @@ apps/landing/
 ### Styling
 - Uses same design system as main app for visual consistency
 
+### Marketing Media
+- Source projects for generated videos, audio, and social assets live under `marketing/creative/`.
+- `public/videos/` contains deployable copies only. If a source project exists, update it under `marketing/creative`, generate artifacts there, then copy or sync the needed landing files into `public/videos/`.
+- Do not create HyperFrames source projects inside `apps/landing`.
+
 ---
 
 ## Safety Rails
@@ -75,4 +82,3 @@ apps/landing/
 ### ALWAYS
 - Use shared UI components from `@workspace/ui`
 - Keep content translations in sync
-
