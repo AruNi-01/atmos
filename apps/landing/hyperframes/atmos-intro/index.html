@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="assets/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      @font-face {
+        font-family: "Geist Pixel Square";
+        src: url("assets/fonts/GeistPixel-Square.woff2") format("woff2");
+        font-weight: 400 900;
+        font-style: normal;
+        font-display: block;
+      }
+
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("assets/fonts/GeistMono-Variable.woff2") format("woff2");
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: block;
+      }
+
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #070a12;
+      }
+
+      body {
+        color: #f6f3ea;
+        font-family: "Geist Mono", monospace;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #070a12;
+      }
+
+      #root::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background:
+          linear-gradient(90deg, rgba(110, 168, 255, 0.07) 1px, rgba(110, 168, 255, 0) 1px),
+          linear-gradient(rgba(115, 217, 159, 0.055) 1px, rgba(115, 217, 159, 0) 1px);
+        background-size: 192px 192px;
+        opacity: 0.4;
+      }
+
+      #root::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 78% 18%, rgba(110, 168, 255, 0.13), rgba(110, 168, 255, 0) 27%),
+          radial-gradient(circle at 18% 78%, rgba(115, 217, 159, 0.08), rgba(115, 217, 159, 0) 24%),
+          linear-gradient(180deg, rgba(7, 10, 18, 0.05), rgba(7, 10, 18, 0.56)),
+          linear-gradient(90deg, rgba(7, 10, 18, 0.18), rgba(7, 10, 18, 0));
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #070a12;
+        will-change: transform, opacity, filter;
+      }
+
+      .scene:not(#scene1) {
+        opacity: 0;
+      }
+
+      .scene-content {
+        position: relative;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        padding: 104px 120px;
+        gap: 28px;
+      }
+
+      .rule {
+        position: absolute;
+        z-index: 4;
+        left: 120px;
+        right: 120px;
+        height: 1px;
+        background: #263653;
+      }
+
+      .rule.top {
+        top: 72px;
+      }
+
+      .rule.bottom {
+        bottom: 72px;
+      }
+
+      .mark {
+        width: 82px;
+        height: 82px;
+        color: #f6f3ea;
+      }
+
+      .mark svg {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      .mark circle {
+        fill: none;
+        stroke: currentColor;
+      }
+
+      .wordmark {
+        color: #f6f3ea;
+        font-family: "Geist Pixel Square", monospace;
+        font-weight: 900;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .kicker {
+        color: #6ea8ff;
+        font-size: 22px;
+        font-weight: 560;
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .headline {
+        max-width: 1040px;
+        color: #f6f3ea;
+        font-size: 76px;
+        font-weight: 520;
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      .headline.large {
+        font-size: 104px;
+        line-height: 1;
+      }
+
+      .body {
+        max-width: 760px;
+        color: #c6ced8;
+        font-size: 30px;
+        font-weight: 390;
+        line-height: 1.35;
+        letter-spacing: 0;
+      }
+
+      .caption {
+        color: #9aa8ba;
+        font-size: 18px;
+        font-weight: 480;
+        line-height: 1;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .quiet {
+        color: #9aa8ba;
+      }
+
+      .accent {
+        color: #e6b86a;
+      }
+
+      .sage {
+        color: #73d99f;
+      }
+
+      .product-frame {
+        position: absolute;
+        z-index: 3;
+        overflow: hidden;
+        border: 1px solid rgba(110, 168, 255, 0.28);
+        border-radius: 8px;
+        background: #0f1724;
+        box-shadow: 0 34px 105px rgba(0, 0, 0, 0.42);
+        will-change: transform, opacity;
+      }
+
+      .product-frame img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .product-frame.feature img {
+        object-position: center center;
+      }
+
+      .product-frame.workspace img {
+        object-position: left center;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        max-width: 760px;
+      }
+
+      .meta-row span {
+        border: 1px solid rgba(115, 217, 159, 0.35);
+        border-radius: 999px;
+        padding: 11px 15px;
+        background: rgba(15, 23, 36, 0.76);
+        color: #c6ced8;
+        font-size: 19px;
+        font-weight: 470;
+        letter-spacing: 0;
+      }
+
+      .thin-panel {
+        border: 1px solid rgba(38, 54, 83, 0.95);
+        border-radius: 8px;
+        background: rgba(15, 23, 36, 0.74);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+      }
+
+      #scene1 .scene-content,
+      #scene7 .scene-content {
+        align-items: center;
+        text-align: center;
+      }
+
+      #scene1 .mark {
+        width: 90px;
+        height: 90px;
+      }
+
+      #scene1 .wordmark {
+        margin-top: 24px;
+        font-size: 124px;
+        line-height: 0.92;
+      }
+
+      #scene1 .subline {
+        margin-top: 8px;
+        color: #c6ced8;
+        font-size: 31px;
+        line-height: 1.25;
+        letter-spacing: 0;
+      }
+
+      #scene1 .brand-line {
+        margin-top: 26px;
+        width: 420px;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(110, 168, 255, 0), #6ea8ff, #73d99f, rgba(230, 184, 106, 0));
+      }
+
+      #scene2 .scene-content,
+      #scene3 .scene-content,
+      #scene5 .scene-content {
+        max-width: 810px;
+      }
+
+      #scene2 .product-frame {
+        right: 120px;
+        top: 148px;
+        width: 1000px;
+        height: 660px;
+      }
+
+      #scene2 .headline {
+        max-width: 730px;
+      }
+
+      #scene2 .note-strip {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        width: 720px;
+        margin-top: 10px;
+      }
+
+      #scene2 .note-strip span {
+        min-height: 72px;
+        padding: 18px;
+        color: #c6ced8;
+        font-size: 20px;
+        line-height: 1.18;
+      }
+
+      #scene3 .product-frame {
+        right: 120px;
+        top: 168px;
+        width: 850px;
+        height: 562px;
+      }
+
+      #scene3 .meta-row {
+        margin-top: 8px;
+      }
+
+      #scene3 .headline {
+        max-width: 760px;
+        font-size: 68px;
+      }
+
+      #scene3 .body {
+        max-width: 720px;
+        font-size: 27px;
+      }
+
+      #scene3 .agent-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        width: 760px;
+        margin-top: 4px;
+      }
+
+      .agent-pill {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        min-height: 56px;
+        padding: 0 13px;
+        color: #f6f3ea;
+        font-size: 16px;
+        font-weight: 560;
+        line-height: 1.05;
+      }
+
+      .agent-pill.featured {
+        border-color: rgba(110, 168, 255, 0.48);
+        background: rgba(20, 35, 58, 0.76);
+      }
+
+      .agent-pill.more {
+        color: #73d99f;
+        border-color: rgba(115, 217, 159, 0.52);
+        background: rgba(16, 42, 32, 0.74);
+      }
+
+      .agent-icon {
+        display: block;
+        width: 25px;
+        height: 25px;
+        flex: 0 0 25px;
+        object-fit: contain;
+      }
+
+      .agent-icon.native {
+        border-radius: 999px;
+      }
+
+      .agent-icon.devin {
+        filter: invert(1);
+      }
+
+      .agent-plus {
+        display: grid;
+        width: 25px;
+        height: 25px;
+        flex: 0 0 25px;
+        place-items: center;
+        border: 1px solid rgba(115, 217, 159, 0.5);
+        border-radius: 999px;
+        color: #73d99f;
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      #scene4 .scene-content {
+        justify-content: center;
+      }
+
+      #scene4 .headline {
+        max-width: 1120px;
+      }
+
+      .lanes {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        width: 1680px;
+        margin-top: 18px;
+        perspective: 1100px;
+      }
+
+      .lane {
+        min-height: 304px;
+        padding: 24px;
+      }
+
+      .lane .status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #9aa8ba;
+        font-size: 17px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .lane-agent {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .lane-icon {
+        width: 19px;
+        height: 19px;
+        flex: 0 0 19px;
+        object-fit: contain;
+      }
+
+      .lane-icon.devin {
+        filter: invert(1);
+      }
+
+      .lane h3 {
+        margin-top: 44px;
+        color: #f6f3ea;
+        font-size: 31px;
+        font-weight: 540;
+        line-height: 1.14;
+      }
+
+      .lane p {
+        margin-top: 16px;
+        color: #c6ced8;
+        font-size: 20px;
+        line-height: 1.3;
+      }
+
+      .lane .progress {
+        position: relative;
+        height: 5px;
+        margin-top: 34px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(38, 54, 83, 0.9);
+      }
+
+      .lane .progress span {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 72%;
+        border-radius: 999px;
+        background: #6ea8ff;
+      }
+
+      .lane:nth-child(2) .progress span {
+        width: 54%;
+        background: #73d99f;
+      }
+
+      .lane:nth-child(3) .progress span {
+        width: 82%;
+      }
+
+      .lane:nth-child(4) .progress span {
+        width: 42%;
+        background: #73d99f;
+      }
+
+      #scene5 .product-frame {
+        right: 120px;
+        top: 134px;
+        width: 1024px;
+        height: 676px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+        width: 640px;
+        margin-top: 6px;
+      }
+
+      .stack-row {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        align-items: center;
+        min-height: 72px;
+        padding: 0 22px;
+        color: #f6f3ea;
+        font-size: 22px;
+      }
+
+      .stack-row span:first-child {
+        color: #6ea8ff;
+        font-variant-numeric: tabular-nums;
+      }
+
+      #scene6 .scene-content {
+        align-items: flex-end;
+        padding-left: 1250px;
+      }
+
+      #scene6 .headline {
+        max-width: 540px;
+        font-size: 62px;
+      }
+
+      #scene6 .body {
+        max-width: 520px;
+        font-size: 26px;
+      }
+
+      #scene6 .product-frame {
+        left: 120px;
+        top: 126px;
+        width: 1080px;
+        height: 713px;
+      }
+
+      .review-list {
+        display: grid;
+        gap: 12px;
+        width: 520px;
+        margin-top: 4px;
+      }
+
+      .review-item {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 14px;
+        align-items: center;
+        min-height: 58px;
+        padding: 0 18px;
+        color: #c6ced8;
+        font-size: 21px;
+      }
+
+      .review-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #73d99f;
+      }
+
+      #scene7 .mark {
+        width: 76px;
+        height: 76px;
+      }
+
+      #scene7 .wordmark {
+        margin-top: 22px;
+        font-size: 102px;
+        line-height: 0.92;
+      }
+
+      #scene7 .body {
+        max-width: 820px;
+        margin-top: 12px;
+      }
+
+      #scene7 .cta-row {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        justify-content: center;
+        margin-top: 18px;
+      }
+
+      #scene7 .cta {
+        border: 1px solid rgba(110, 168, 255, 0.42);
+        border-radius: 999px;
+        padding: 15px 22px;
+        color: #f6f3ea;
+        background: rgba(15, 23, 36, 0.72);
+        font-size: 21px;
+        letter-spacing: 0;
+      }
+
+      #scene7 .cta.primary {
+        border-color: rgba(115, 217, 159, 0.48);
+        color: #73d99f;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="30" data-width="1920" data-height="1080">
+      <section id="scene1" class="scene">
+        <div class="rule top"></div>
+        <div class="rule bottom"></div>
+        <div class="scene-content">
+          <div class="mark">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="16" cy="16" r="7" stroke-width="2.5"></circle>
+              <circle class="orbit-a" cx="16" cy="16" r="11" stroke-width="1.5" opacity="0.66"></circle>
+              <circle class="orbit-b" cx="16" cy="16" r="15" stroke-width="0.5" opacity="0.42" stroke-dasharray="4 4"></circle>
+            </svg>
+          </div>
+          <div class="wordmark">ATMOS</div>
+          <div class="subline">Atmosphere for Agentic Builders</div>
+          <div class="brand-line"></div>
+        </div>
+      </section>
+
+      <section id="scene2" class="scene">
+        <div class="rule top"></div>
+        <div class="rule bottom"></div>
+        <div class="product-frame">
+          <img src="assets/atmos_preview.png" alt="Atmos product interface" />
+        </div>
+        <div class="scene-content">
+          <div class="kicker">Context</div>
+          <h2 class="headline large">Agentic coding is becoming parallel.</h2>
+          <p class="body">The workflow around it is still fragmented across terminals, branches, previews, and reviews.</p>
+          <div class="note-strip">
+            <span class="thin-panel">More agents</span>
+            <span class="thin-panel">More branches</span>
+            <span class="thin-panel">More context to track</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="scene3" class="scene">
+        <div class="rule top"></div>
+        <div class="rule bottom"></div>
+        <div class="product-frame feature">
+          <img src="assets/atmos_preview_feature.png" alt="Atmos workspace with agent sessions" />
+        </div>
+        <div class="scene-content">
+          <div class="kicker">Agent surface</div>
+          <h2 class="headline">Build with the agents you already use.</h2>
+          <p class="body">Atmos gives Codex, Claude Code, Cursor, Gemini, OpenCode, and more a shared workspace.</p>
+          <div class="agent-grid">
+            <div class="agent-pill thin-panel featured"><img class="agent-icon" src="assets/agents/claude-code.svg" alt="" />Claude Code</div>
+            <div class="agent-pill thin-panel featured"><img class="agent-icon" src="assets/agents/codex.svg" alt="" />Codex</div>
+            <div class="agent-pill thin-panel featured"><img class="agent-icon" src="assets/agents/cursor.svg" alt="" />Cursor Agent</div>
+            <div class="agent-pill thin-panel featured"><img class="agent-icon" src="assets/agents/gemini.svg" alt="" />Gemini</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/opencode.svg" alt="" />OpenCode</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon devin" src="assets/agents/devin.svg" alt="" />Devin</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/amp.svg" alt="" />Amp</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/droid.svg" alt="" />Droid</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/kilo.svg" alt="" />Kilo Code</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/kiro-cli.svg" alt="" />Kiro</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/kimi.svg" alt="" />Kimi</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/pi.svg" alt="" />Pi</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon native" src="assets/agents/openclaw.jpg" alt="" />OpenClaw</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon native" src="assets/agents/hermes-agent.png" alt="" />Hermes</div>
+            <div class="agent-pill thin-panel"><img class="agent-icon" src="assets/agents/command-code.svg" alt="" />CommandCode</div>
+            <div class="agent-pill thin-panel more"><span class="agent-plus">+</span>More agents</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="scene4" class="scene">
+        <div class="rule top"></div>
+        <div class="rule bottom"></div>
+        <div class="scene-content">
+          <div class="kicker">Parallel work</div>
+          <h2 class="headline">Run multiple agents side by side without losing the shape of the work.</h2>
+          <div class="lanes">
+            <div class="lane thin-panel">
+              <div class="status"><span class="lane-agent"><img class="lane-icon" src="assets/agents/codex.svg" alt="" />Codex</span><span>main + ui</span></div>
+              <h3>Refine the landing page</h3>
+              <p>Keep the task isolated while the page stays previewable.</p>
+              <div class="progress"><span></span></div>
+            </div>
+            <div class="lane thin-panel">
+              <div class="status"><span class="lane-agent"><img class="lane-icon" src="assets/agents/claude-code.svg" alt="" />Claude Code</span><span>docs</span></div>
+              <h3>Draft release notes</h3>
+              <p>Leave the session open for review and follow-up edits.</p>
+              <div class="progress"><span></span></div>
+            </div>
+            <div class="lane thin-panel">
+              <div class="status"><span class="lane-agent"><img class="lane-icon" src="assets/agents/gemini.svg" alt="" />Gemini</span><span>tests</span></div>
+              <h3>Check regression paths</h3>
+              <p>Move from output to evidence without switching context.</p>
+              <div class="progress"><span></span></div>
+            </div>
+            <div class="lane thin-panel">
+              <div class="status"><span class="lane-agent"><img class="lane-icon" src="assets/agents/opencode.svg" alt="" />OpenCode</span><span>fix</span></div>
+              <h3>Patch a focused issue</h3>
+              <p>Inspect the branch, terminal, and diff from one surface.</p>
+              <div class="progress"><span></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="scene5" class="scene">
+        <div class="rule top"></div>
+        <div class="rule bottom"></div>
+        <div class="product-frame workspace">
+          <img src="assets/atmos_preview_2.png" alt="Atmos terminal and workspace view" />
+        </div>
+        <div class="scene-content">
+          <div class="kicker">Worktree + terminal</div>
+          <h2 class="headline">Each task gets a real place to live.</h2>
+          <p class="body">Atmos keeps branches, terminals, and session context attached to the work.</p>
+          <div class="stack">
+            <div class="stack-row thin-panel"><span>01</span><span>Isolated worktrees</span></div>
+            <div class="stack-row thin-panel"><span>02</span><span>Persistent terminals</span></div>
+            <div class="stack-row thin-panel"><span>03</span><span>Resumable agent sessions</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="scene6" class="scene">
+        <div class="rule top"></div>
+        <div class="rule bottom"></div>
+        <div class="product-frame">
+          <img src="assets/atmos_preview.png" alt="Atmos review and preview workflow" />
+        </div>
+        <div class="scene-content">
+          <div class="kicker">Review + preview</div>
+          <h2 class="headline">Inspect the result where the work happened.</h2>
+          <p class="body">Diffs, previews, terminals, and review notes stay close to the code.</p>
+          <div class="review-list">
+            <div class="review-item thin-panel"><span class="review-dot"></span><span>Open the preview</span></div>
+            <div class="review-item thin-panel"><span class="review-dot"></span><span>Read the diff</span></div>
+            <div class="review-item thin-panel"><span class="review-dot"></span><span>Return to the agent session</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="scene7" class="scene">
+        <div class="rule top"></div>
+        <div class="rule bottom"></div>
+        <div class="scene-content">
+          <div class="mark">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="16" cy="16" r="7" stroke-width="2.5"></circle>
+              <circle class="orbit-a" cx="16" cy="16" r="11" stroke-width="1.5" opacity="0.66"></circle>
+              <circle class="orbit-b" cx="16" cy="16" r="15" stroke-width="0.5" opacity="0.42" stroke-dasharray="4 4"></circle>
+            </svg>
+          </div>
+          <div class="wordmark">ATMOS</div>
+          <p class="body">Open-source workspace for agentic builders.</p>
+          <div class="cta-row">
+            <div class="cta primary">https://atmos.land</div>
+            <div class="cta">github.com/AruNi-01/atmos</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      const tl = gsap.timeline({ paused: true, defaults: { ease: "power2.out" } });
+
+      function enterCommon(scene, start) {
+        tl.from(`${scene} .rule.top`, { scaleX: 0, transformOrigin: "left center", duration: 0.72, ease: "power3.out" }, start + 0.12);
+        tl.from(`${scene} .rule.bottom`, { y: 8, opacity: 0, duration: 0.58, ease: "sine.out" }, start + 0.18);
+      }
+
+      function focusTransition(outScene, inScene, time) {
+        tl.set(inScene, { zIndex: 8, opacity: 0, scale: 1.012, filter: "blur(10px)", x: 0, y: 0 }, time);
+        tl.to(outScene, { opacity: 0.18, scale: 0.994, filter: "blur(8px)", duration: 0.68, ease: "sine.inOut" }, time);
+        tl.to(inScene, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.68, ease: "sine.inOut" }, time);
+        tl.set(outScene, { opacity: 0, scale: 1, filter: "blur(0px)", x: 0, y: 0, zIndex: 1 }, time + 0.7);
+        tl.set(inScene, { zIndex: 5 }, time + 0.7);
+      }
+
+      function pushTransition(outScene, inScene, time, direction) {
+        tl.set(inScene, { zIndex: 8, opacity: 0, x: direction * 92, y: 0, scale: 1, filter: "blur(2px)" }, time);
+        tl.to(outScene, { x: direction * -70, opacity: 0.22, filter: "blur(4px)", duration: 0.52, ease: "power3.inOut" }, time);
+        tl.to(inScene, { x: 0, opacity: 1, filter: "blur(0px)", duration: 0.58, ease: "expo.out" }, time + 0.04);
+        tl.set(outScene, { opacity: 0, x: 0, y: 0, scale: 1, filter: "blur(0px)", zIndex: 1 }, time + 0.62);
+        tl.set(inScene, { zIndex: 5 }, time + 0.62);
+      }
+
+      function verticalTransition(outScene, inScene, time) {
+        tl.set(inScene, { zIndex: 8, opacity: 0, y: 78, x: 0, scale: 1, filter: "blur(4px)" }, time);
+        tl.to(outScene, { y: -54, opacity: 0.2, scale: 0.992, duration: 0.58, ease: "power2.inOut" }, time);
+        tl.to(inScene, { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.62, ease: "power4.out" }, time + 0.06);
+        tl.set(outScene, { opacity: 0, x: 0, y: 0, scale: 1, filter: "blur(0px)", zIndex: 1 }, time + 0.68);
+        tl.set(inScene, { zIndex: 5 }, time + 0.68);
+      }
+
+      function zoomTransition(outScene, inScene, time) {
+        tl.set(inScene, { zIndex: 8, opacity: 0, scale: 0.94, x: 0, y: 0, filter: "blur(5px)" }, time);
+        tl.to(outScene, { opacity: 0.2, scale: 1.045, filter: "blur(4px)", duration: 0.62, ease: "power3.inOut" }, time);
+        tl.to(inScene, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.68, ease: "expo.out" }, time + 0.04);
+        tl.set(outScene, { opacity: 0, x: 0, y: 0, scale: 1, filter: "blur(0px)", zIndex: 1 }, time + 0.72);
+        tl.set(inScene, { zIndex: 5 }, time + 0.72);
+      }
+
+      enterCommon("#scene1", 0);
+      tl.from("#scene1 .mark", { y: 18, opacity: 0, scale: 0.9, duration: 0.7, ease: "power3.out" }, 0.24);
+      tl.from("#scene1 .wordmark", { y: 26, opacity: 0, duration: 0.72, ease: "expo.out" }, 0.58);
+      tl.from("#scene1 .subline", { y: 18, opacity: 0, duration: 0.58, ease: "sine.out" }, 1.02);
+      tl.from("#scene1 .brand-line", { scaleX: 0, opacity: 0, duration: 0.74, ease: "power2.out" }, 1.26);
+      tl.to("#scene1 .orbit-b", { rotation: -26, transformOrigin: "50% 50%", duration: 3.1, ease: "sine.inOut" }, 0.38);
+
+      focusTransition("#scene1", "#scene2", 3.55);
+      enterCommon("#scene2", 3.55);
+      tl.from("#scene2 .product-frame", { x: 44, opacity: 0, scale: 0.985, duration: 0.86, ease: "power3.out" }, 4.12);
+      tl.from("#scene2 .kicker", { x: -22, opacity: 0, duration: 0.42, ease: "power2.out" }, 4.24);
+      tl.from("#scene2 .headline", { y: 34, opacity: 0, duration: 0.68, ease: "power3.out" }, 4.46);
+      tl.from("#scene2 .body", { y: 22, opacity: 0, duration: 0.5, ease: "sine.out" }, 4.9);
+      tl.from("#scene2 .note-strip span", { x: (i) => (i - 1) * 18, opacity: 0, duration: 0.46, stagger: { amount: 0.22, from: "center" }, ease: "power2.out" }, 5.32);
+      tl.to("#scene2 .product-frame", { y: -10, duration: 3.0, ease: "sine.inOut" }, 4.6);
+
+      pushTransition("#scene2", "#scene3", 7.62, 1);
+      enterCommon("#scene3", 7.62);
+      tl.from("#scene3 .product-frame", { x: 58, opacity: 0, scale: 0.97, duration: 0.78, ease: "power4.out" }, 8.08);
+      tl.from("#scene3 .kicker", { x: -28, opacity: 0, duration: 0.38, ease: "circ.out" }, 8.18);
+      tl.from("#scene3 .headline", { y: 22, opacity: 0, scale: 0.985, duration: 0.64, ease: "expo.out" }, 8.38);
+      tl.from("#scene3 .body", { x: -20, opacity: 0, duration: 0.44, ease: "power2.out" }, 8.8);
+      tl.from("#scene3 .agent-pill", { y: (i) => (i % 2 === 0 ? 18 : -12), opacity: 0, scale: 0.86, rotation: (i) => (i % 2 === 0 ? -1.2 : 1.2), duration: 0.46, stagger: { amount: 0.52, from: "center" }, ease: "back.out(1.35)" }, 9.2);
+      tl.from("#scene3 .agent-icon, #scene3 .agent-plus", { scale: 0.45, opacity: 0, duration: 0.32, stagger: { amount: 0.4, from: "edges" }, ease: "power4.out" }, 9.34);
+      tl.to("#scene3 .product-frame", { y: -8, duration: 3.2, ease: "sine.inOut" }, 8.9);
+
+      verticalTransition("#scene3", "#scene4", 12.0);
+      enterCommon("#scene4", 12.0);
+      tl.from("#scene4 .kicker", { x: -24, opacity: 0, duration: 0.38, ease: "power2.out" }, 12.56);
+      tl.from("#scene4 .headline", { y: 26, opacity: 0, duration: 0.7, ease: "expo.out" }, 12.78);
+      tl.from("#scene4 .lane", { y: 34, opacity: 0, rotationX: -8, transformOrigin: "50% 100%", duration: 0.58, stagger: { amount: 0.38, from: "start" }, ease: "power3.out" }, 13.34);
+      tl.from("#scene4 .lane-icon", { scale: 0.5, opacity: 0, duration: 0.3, stagger: 0.08, ease: "back.out(1.8)" }, 13.52);
+      tl.from("#scene4 .progress span", { scaleX: 0, transformOrigin: "left center", duration: 0.78, stagger: 0.09, ease: "circ.out" }, 13.9);
+
+      zoomTransition("#scene4", "#scene5", 16.34);
+      enterCommon("#scene5", 16.34);
+      tl.from("#scene5 .product-frame", { x: 42, opacity: 0, scale: 1.025, duration: 0.82, ease: "power3.out" }, 16.88);
+      tl.from("#scene5 .kicker", { x: -22, opacity: 0, duration: 0.38, ease: "circ.out" }, 17.02);
+      tl.from("#scene5 .headline", { y: 26, opacity: 0, duration: 0.66, ease: "expo.out" }, 17.24);
+      tl.from("#scene5 .body", { x: -18, opacity: 0, duration: 0.44, ease: "power2.out" }, 17.64);
+      tl.from("#scene5 .stack-row", { x: -28, opacity: 0, duration: 0.46, stagger: 0.11, ease: "power3.out" }, 18.04);
+      tl.to("#scene5 .product-frame", { y: -9, duration: 3.0, ease: "sine.inOut" }, 17.32);
+
+      pushTransition("#scene5", "#scene6", 20.72, -1);
+      enterCommon("#scene6", 20.72);
+      tl.from("#scene6 .product-frame", { x: -44, opacity: 0, scale: 0.99, duration: 0.82, ease: "power4.out" }, 21.24);
+      tl.from("#scene6 .kicker", { x: 22, opacity: 0, duration: 0.38, ease: "circ.out" }, 21.4);
+      tl.from("#scene6 .headline", { y: 24, opacity: 0, duration: 0.62, ease: "expo.out" }, 21.62);
+      tl.from("#scene6 .body", { x: 18, opacity: 0, duration: 0.44, ease: "power2.out" }, 22.02);
+      tl.from("#scene6 .review-item", { x: 30, opacity: 0, duration: 0.44, stagger: 0.1, ease: "power3.out" }, 22.42);
+      tl.from("#scene6 .review-dot", { scale: 0, duration: 0.32, stagger: 0.1, ease: "back.out(1.9)" }, 22.5);
+      tl.to("#scene6 .product-frame", { y: -8, duration: 3.0, ease: "sine.inOut" }, 21.66);
+
+      focusTransition("#scene6", "#scene7", 25.22);
+      enterCommon("#scene7", 25.22);
+      tl.from("#scene7 .mark", { y: 18, opacity: 0, scale: 0.92, duration: 0.62, ease: "power3.out" }, 25.76);
+      tl.from("#scene7 .wordmark", { y: 24, opacity: 0, duration: 0.62, ease: "expo.out" }, 26.08);
+      tl.from("#scene7 .body", { y: 18, opacity: 0, duration: 0.5, ease: "sine.out" }, 26.48);
+      tl.from("#scene7 .cta", { y: 18, opacity: 0, duration: 0.48, stagger: 0.08, ease: "power2.out" }, 26.84);
+      tl.to("#scene7 .orbit-b", { rotation: -22, transformOrigin: "50% 50%", duration: 3.1, ease: "sine.inOut" }, 25.76);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

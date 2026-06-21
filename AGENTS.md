@@ -11,6 +11,7 @@
 | Task | Go To |
 |------|-------|
 | **Cross-Cutting References** (Shortcuts, Debug, etc.) | [agents/AGENTS.md](agents/AGENTS.md) |
+| **Design System / UI Visual Language** | [DESIGN.md](DESIGN.md) |
 | **Rust crates index** (layer map) | [crates/AGENTS.md](crates/AGENTS.md) |
 | **Backend: Infrastructure** (DB, Cache, Queue, Jobs) | [crates/infra/AGENTS.md](crates/infra/AGENTS.md) |
 | **Backend: Core Engine** (PTY, Git, FS) | [crates/core-engine/AGENTS.md](crates/core-engine/AGENTS.md) |
@@ -19,7 +20,7 @@
 | **Backend: AI Usage Tracking** | [crates/ai-usage/AGENTS.md](crates/ai-usage/AGENTS.md) |
 | **Backend: Token Usage Tracking** | [crates/token-usage/AGENTS.md](crates/token-usage/AGENTS.md) |
 | **Backend: LLM Integration** | [crates/llm/AGENTS.md](crates/llm/AGENTS.md) |
-| **Local runtime** (manifest, supervisor, relay identity) | [crates/runtime-manager/AGENTS.md](crates/runtime-manager/AGENTS.md) |
+| **Local runtime** (manifest, supervisor, relay identity) | [agents/references/runtime/AGENTS.md](agents/references/runtime/AGENTS.md) |
 | **API Entry**: HTTP/WS Handlers & DTOs | [apps/api/AGENTS.md](apps/api/AGENTS.md) |
 | **Frontend: Web App** (Next.js 16) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
 | **Desktop** (Tauri + shared local API) | [apps/desktop/AGENTS.md](apps/desktop/AGENTS.md) |
@@ -98,7 +99,7 @@ atmos/
 `packages/ui` (Styles) → `apps/web/src/api` (API Client) → `apps/web` (Feature)
 
 ### Mobile Change Flow
-`apps/mobile/src/api` (Relay/relay/WS clients) → `apps/mobile/src/stores` (session/UI state) → `apps/mobile/src/features` (Expo UI screens). Fresh-machine native setup lives in [agents/references/mobile-dev-setup.md](agents/references/mobile-dev-setup.md).
+`apps/mobile/src/api` (Relay/relay/WS clients) → `apps/mobile/src/stores` (session/UI state) → `apps/mobile/src/features` (Expo UI screens). Fresh-machine native setup lives in [agents/references/mobile/dev-setup.md](agents/references/mobile/dev-setup.md).
 
 ### Specs Flow
 Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-NNN_<title>/` with four standard planning files: `BRAINSTORM.md` → `PRD.md` → `TECH.md` → `TEST.md`. Optional sibling logs such as `PROGRESS.md`, `REVIEW.md`, and `IMPROVEMENT.md` can track implementation handoff, post-implementation review fixes, and post-ship learnings without becoming requirements sources. The lifecycle is: brainstorm → PRD → TECH → test plan → implementation → test run. Each stage has a dedicated skill in [`.agents/skills/`](.agents/skills/):
@@ -112,23 +113,6 @@ Every feature that needs planning lives under `specs/<APP|Landing|Docs>/<ZONE>-N
 - `atmos-specs-review` — review implemented specs, write/update `REVIEW.md` findings for functional completeness and code quality
 
 Full conventions (zones, naming, the 4-file rule, optional spec logs, review checklist) live in [specs/AGENTS.md](specs/AGENTS.md). Read it before creating or editing a spec.
-
----
-
-## 🖥 Unified local runtime (Atmos Server on loopback)
-
-One **`apps/api` process** per machine is the default **Atmos Server**. Desktop, CLI, and `npx @atmos/local-web-runtime` are **entry points**, not separate API products.
-
-| Piece | Location |
-|-------|----------|
-| Discovery | `~/.atmos/runtime_manifest.json` — `host` / `port` / `url` / `ws_url` (**no auth token**) |
-| Relay credentials | `~/.atmos/relay_identity.json` — after `atmos computer register` or `ATMOS_REGISTER_TOKEN` |
-| Process supervisor | `crates/runtime-manager` feature `supervisor` — `atmos runtime ensure`, Desktop `runtime.rs` |
-| API self-describe | `apps/api` writes manifest on bind; optional `relay/` outbound WS when identity exists |
-
-**Loopback auth**: `ATMOS_LOCAL_TOKEN` is optional hardening only — not written to the manifest and not required for Desktop/Web dev.
-
-**Atmos Computer (remote)**: Spec [APP-016](specs/APP/APP-016_atmos-computer/TECH.md); Worker code in `packages/relay`; user **Access Token** (Bearer) on the relay.
 
 ---
 
@@ -174,7 +158,7 @@ just test               # Run all tests
 just lint               # Run all linters
 ```
 
-For a fresh iOS/Android mobile environment, follow [agents/references/mobile-dev-setup.md](agents/references/mobile-dev-setup.md) before running native dev builds.
+For a fresh iOS/Android mobile environment, follow [agents/references/mobile/dev-setup.md](agents/references/mobile/dev-setup.md) before running native dev builds.
 
 ---
 

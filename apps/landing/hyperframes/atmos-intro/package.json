@@ -1,0 +1,16 @@
+{
+  "name": "atmos-intro",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.6.118 preview",
+    "check": "npx --yes hyperframes@0.6.118 lint && npx --yes hyperframes@0.6.118 validate && npx --yes hyperframes@0.6.118 inspect",
+    "render": "npx --yes hyperframes@0.6.118 render",
+    "render:local": "node scripts/render-video.mjs",
+    "publish": "npx --yes hyperframes@0.6.118 publish"
+  },
+  "devDependencies": {
+    "gsap": "^3.15.0",
+    "playwright": "^1.61.0"
+  }
+}

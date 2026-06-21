@@ -11,7 +11,7 @@
 - **Android dev build**: `cd apps/mobile && bun run android`
 - **Typecheck**: `bun --filter @atmos/mobile typecheck`
 - **Doctor**: `apps/mobile/script/build_and_run.sh --doctor`
-- **Fresh machine setup**: [agents/references/mobile-dev-setup.md](../../agents/references/mobile-dev-setup.md)
+- **Fresh machine setup**: [agents/references/mobile/dev-setup.md](../../agents/references/mobile/dev-setup.md)
 - **iOS Simulator keyboard**: If a `TextInput` accepts Mac keyboard input but the on-screen keyboard does not appear, follow [references/ios-simulator-keyboard.md](references/ios-simulator-keyboard.md) before changing mobile input code.
 
 Use `expo run:ios` / `expo run:android` for acceptance smoke because the app uses native modules and `expo-dev-client`. Expo Go is useful for quick checks only when native module coverage is not under test.
@@ -68,8 +68,8 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 - Use `src/features/terminal/MobileAgentIcon.tsx` for built-in/custom terminal agent icons. Do not reuse web `AgentIcon`; it depends on Next/Image and DOM behavior.
 - Import shared mobile controls from `src/ui/primitives/native-controls`; add new Expo UI wrappers under `src/ui/primitives`.
 - Keep route-level layout helpers under `src/ui/layout`.
-- Page titles, headers, navigation bars, and header buttons must follow [agents/references/mobile-native-navigation.md](../../agents/references/mobile-native-navigation.md). Do not hand-roll page titles or native-looking header chrome.
-- iOS grouped header menus must use native-stack header items (`unstable_headerRightItems` / `unstable_headerLeftItems`) as documented in [agents/references/mobile-native-navigation.md](../../agents/references/mobile-native-navigation.md); do not put Expo UI SwiftUI `ControlGroup` or custom glass capsules in `headerRight`.
+- Page titles, headers, navigation bars, and header buttons must follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md). Do not hand-roll page titles or native-looking header chrome.
+- iOS grouped header menus must use native-stack header items (`unstable_headerRightItems` / `unstable_headerLeftItems`) as documented in [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md); do not put Expo UI SwiftUI `ControlGroup` or custom glass capsules in `headerRight`.
 - Stack routes must set titles through `Stack.Screen` options, using `src/ui/navigation/native-screen-options.ts` helpers. Do not render page titles as normal `<Text>` inside the screen body.
 - Large-title pages must let the native stack own the header: the route's first rendered screen content must be an `AppScreen`/`ScrollView` with `contentInsetAdjustmentBehavior="automatic"`, and large-title routes must not force `headerTransparent: false` or a custom `headerStyle.backgroundColor`.
 - Compact workspace/detail screens should use compact native-stack titles and native header actions/menus; do not create custom back buttons, fake centered titles, or extra header bars in the page body.
@@ -103,8 +103,8 @@ Spec: [specs/APP/APP-025_mobile-app](../../specs/APP/APP-025_mobile-app/)
 ### ALWAYS
 
 - Run `bun --filter @atmos/mobile typecheck` after mobile code changes.
-- For environment/setup work, follow [agents/references/mobile-dev-setup.md](../../agents/references/mobile-dev-setup.md).
-- For navigation/header/title work, follow [agents/references/mobile-native-navigation.md](../../agents/references/mobile-native-navigation.md).
+- For environment/setup work, follow [agents/references/mobile/dev-setup.md](../../agents/references/mobile/dev-setup.md).
+- For navigation/header/title work, follow [agents/references/mobile/native-navigation.md](../../agents/references/mobile/native-navigation.md).
 - Smoke iOS and Android dev builds before claiming platform readiness.
 - Keep Relay URL overrides and token switching in settings, outside the primary workspace list flow.
 
