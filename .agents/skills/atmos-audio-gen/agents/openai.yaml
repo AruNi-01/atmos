@@ -1,0 +1,4 @@
+interface:
+  display_name: "Atmos Audio Gen"
+  short_description: "Generate clean continuous promo audio"
+  default_prompt: "Use $atmos-audio-gen to create a continuous soundtrack for this HyperFrames promo video."
