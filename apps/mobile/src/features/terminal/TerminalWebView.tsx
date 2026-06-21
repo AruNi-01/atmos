@@ -156,7 +156,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, {
         onTitleChange={async (nextTitle) => onTitleChange?.(nextTitle)}
         dom={{
           contentInsetAdjustmentBehavior: "never",
-          keyboardDisplayRequiresUserAction: false,
+          keyboardDisplayRequiresUserAction: true,
           scrollEnabled: false,
           style: [styles.dom, { backgroundColor: theme.colors.terminalBg }],
           ...(isIos ? { hideKeyboardAccessoryView: true, useExpoDOMWebView: false } : { useExpoDOMWebView: true }),

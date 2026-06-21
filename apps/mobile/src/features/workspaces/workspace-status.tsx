@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import Svg, { Circle, Path } from "react-native-svg";
+import type { SFSymbol } from "sf-symbols-typescript";
 import type { MobileThemeColors } from "@/theme/colors";
 
 export type WorkspaceWorkflowStatus =
@@ -17,45 +18,53 @@ export type WorkspaceStatusIconProps = {
 };
 
 type WorkspaceWorkflowStatusMeta = {
-  value: WorkspaceWorkflowStatus;
-  label: string;
   Icon: ComponentType<WorkspaceStatusIconProps>;
+  label: string;
+  menuSystemImage: SFSymbol;
+  value: WorkspaceWorkflowStatus;
 };
 
 const WORKSPACE_WORKFLOW_STATUS_META: Record<WorkspaceWorkflowStatus, WorkspaceWorkflowStatusMeta> = {
   backlog: {
     value: "backlog",
     label: "Backlog",
+    menuSystemImage: "circle.dashed",
     Icon: StatusBacklogIcon,
   },
   todo: {
     value: "todo",
     label: "To Do",
+    menuSystemImage: "circle",
     Icon: StatusTodoIcon,
   },
   in_progress: {
     value: "in_progress",
     label: "In Progress",
+    menuSystemImage: "circle.lefthalf.filled",
     Icon: StatusInProgressIcon,
   },
   in_review: {
     value: "in_review",
     label: "In Review",
+    menuSystemImage: "eye.circle",
     Icon: StatusInReviewIcon,
   },
   blocked: {
     value: "blocked",
     label: "Blocked",
+    menuSystemImage: "minus.circle",
     Icon: StatusBlockedIcon,
   },
   completed: {
     value: "completed",
     label: "Completed",
+    menuSystemImage: "checkmark.circle",
     Icon: StatusCompletedIcon,
   },
   canceled: {
     value: "canceled",
     label: "Canceled",
+    menuSystemImage: "xmark.circle",
     Icon: StatusCanceledIcon,
   },
 };

@@ -11,9 +11,11 @@ export function NativeMenuButton({
   iconOnly,
   label,
   onAction,
+  tintColor,
   title,
 }: NativeMenuButtonProps) {
   const theme = useMobileTheme();
+  const resolvedTintColor = disabled ? theme.colors.tertiaryLabel : (tintColor ?? theme.colors.label);
 
   return (
     <MenuView
@@ -38,14 +40,14 @@ export function NativeMenuButton({
             source={androidIcon}
             style={[
               styles.icon,
-              { tintColor: disabled ? theme.colors.tertiaryLabel : theme.colors.label },
+              { tintColor: resolvedTintColor },
             ]}
           />
         ) : (
           <Text
             style={[
               styles.label,
-              { color: disabled ? theme.colors.tertiaryLabel : theme.colors.label },
+              { color: resolvedTintColor },
             ]}
             numberOfLines={1}
           >

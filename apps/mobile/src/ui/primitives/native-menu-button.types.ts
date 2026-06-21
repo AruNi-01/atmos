@@ -11,5 +11,6 @@ export type NativeMenuButtonProps = {
   label: string;
   onAction: (actionId: string) => void;
   systemImage?: string;
+  tintColor?: string;
   title?: string;
 };

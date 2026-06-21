@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, Host, Menu, Section } from "@expo/ui/swift-ui";
+import { Button, Host, Menu, Section, Toggle } from "@expo/ui/swift-ui";
 import { disabled as disabledModifier, labelStyle, tint } from "@expo/ui/swift-ui/modifiers";
 import { useMobileTheme } from "@/theme/theme-store";
 import type { NativeMenuAction, NativeMenuButtonProps } from "./native-menu-button.types";
@@ -11,12 +11,13 @@ export function NativeMenuButton({
   label,
   onAction,
   systemImage,
+  tintColor,
   title,
 }: NativeMenuButtonProps) {
   const theme = useMobileTheme();
   const items = actions.map((action) => renderAction(action, onAction));
   const menuModifiers = [
-    tint(disabled ? theme.colors.tertiaryLabel : theme.colors.label),
+    tint(disabled ? theme.colors.tertiaryLabel : (tintColor ?? theme.colors.label)),
     ...(iconOnly ? [labelStyle("iconOnly")] : []),
   ];
 
@@ -37,7 +38,7 @@ function renderAction(action: NativeMenuAction, onAction: (actionId: string) => 
   if (action.attributes?.hidden) return null;
 
   const actionId = action.id ?? action.title;
-  const systemImage = action.state === "on" ? "checkmark" : typeof action.image === "string" ? action.image : undefined;
+  const systemImage = typeof action.image === "string" ? action.image : undefined;
   const modifiers = action.attributes?.disabled ? [disabledModifier(true)] : undefined;
 
   if (action.subactions?.length) {
@@ -53,6 +54,19 @@ function renderAction(action: NativeMenuAction, onAction: (actionId: string) => 
       <Menu key={actionId} label={action.title} systemImage={systemImage}>
         {children}
       </Menu>
+    );
+  }
+
+  if (action.state === "on" || action.state === "off") {
+    return (
+      <Toggle
+        key={actionId}
+        label={action.title}
+        modifiers={modifiers}
+        onIsOnChange={() => onAction(actionId)}
+        isOn={action.state === "on"}
+        systemImage={systemImage}
+      />
     );
   }
 

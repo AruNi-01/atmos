@@ -11,17 +11,23 @@ export function NativeSegmentedControl<T extends string>({
 }: NativeSegmentedControlProps<T>) {
   const theme = useMobileTheme();
   const colors = theme.colors;
+  const trackColor = theme.isDark ? "#1c1c1e" : "rgba(10, 10, 11, 0.055)";
   const segmentedColors = {
-    activeBorderColor: colors.label,
-    activeContainerColor: colors.label,
-    activeContentColor: colors.labelInverse,
+    activeBorderColor: theme.isDark ? "rgba(255, 255, 255, 0.075)" : "rgba(10, 10, 11, 0.07)",
+    activeContainerColor: colors.controlElevated,
+    activeContentColor: colors.label,
     inactiveBorderColor: colors.controlBorder,
-    inactiveContainerColor: colors.control,
-    inactiveContentColor: colors.label,
+    inactiveContainerColor: trackColor,
+    inactiveContentColor: colors.secondaryLabel,
   };
 
   return (
-    <Host colorScheme={theme.colorScheme} matchContents={{ vertical: true }} seedColor={colors.label} style={[{ width: "100%" }, style]}>
+    <Host
+      colorScheme={theme.colorScheme}
+      matchContents={{ vertical: true }}
+      seedColor={colors.label}
+      style={[{ minHeight: nativeSegmentedControlHeight, width: "100%" }, style]}
+    >
       <SingleChoiceSegmentedButtonRow modifiers={[fillMaxWidth()]}>
         {options.map((option) => {
           const selected = option.value === selectedValue;
@@ -49,4 +55,4 @@ export function NativeSegmentedControl<T extends string>({
   );
 }
 
-export const nativeSegmentedControlHeight = 40;
+export const nativeSegmentedControlHeight = 48;

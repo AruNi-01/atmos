@@ -162,12 +162,13 @@ Avoid these older mobile patterns:
 - Filled `NativeButton` is the primary black pill action. Use it sparingly.
 - `variant="text"` is preferred for row-level and secondary actions.
 - Menus should use `NativeMenuButton` and native menu actions.
-- Segmented controls should use mobile wrappers. On iOS, the track should be `GlassPanel`/Liquid Glass and the selected value should be a low-lift pill; do not use a plain non-glass `View` for settings theme controls.
+- On iOS, inline menu buttons should be SwiftUI `Menu` triggers with string/SF Symbol labels through `NativeMenuButton`; do not use `MenuView` with an `RNHostView`/React Native child as the trigger for row controls.
+- Segmented controls should use mobile wrappers. On iOS, use the native Expo UI segmented control directly so the system owns the sliding selection animation, press-drag selection behavior, and Liquid Glass/native material. Do not add a second visible `GlassPanel` track around it, and do not replace it with custom `Pressable` segments for settings theme controls.
 - Text input should use native Expo UI text input wrappers; Android may use Jetpack Compose `OutlinedTextField`.
 - Text input frames should be large plain filled rounded fields, not glass panels, compact desktop inputs, or high-contrast outlined boxes.
 - List and settings rows should be native list-style rows or mobile layout helpers, not Web cards.
 - Grouped list sections should use plain large-radius surfaces with a visible white or deep-gray fill. Do not use `GlassPanel` for cards, grouped settings sections, dashboard cards, info panels, or list containers.
-- Workspace list rows show workflow status as the same Linear-style circular icon family used on Web, placed at the trailing edge of the branch/subtitle line. Tapping the icon opens a native menu to change status; do not render workflow status as row text.
+- Workspace list rows show workflow status as the same Linear-style circular icon family used on Web, placed at the trailing edge of the branch/subtitle line. Tapping the icon opens a native menu to change status; menu actions must also show the corresponding status icon. Do not render workflow status as row text, and do not position the status trigger as an overlay on top of the row press target.
 - Home and creation flows should use prompt-like bottom action docks when a single next action dominates.
 - Sheets should use native route presentation where possible, especially iOS `formSheet`.
 - Header buttons must be icon-only. On iOS use native-stack `unstable_headerRightItems` / `unstable_headerLeftItems` with SF Symbols. Do not put `NativeButton`, text buttons such as `Refresh`, `New`, or `Import`, custom `GlassPanel`, or hand-built capsules in `headerRight`.

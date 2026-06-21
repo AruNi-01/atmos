@@ -9,8 +9,8 @@ import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { Separator } from "@/ui/layout/row";
-import { NativeButton } from "@/ui/primitives/native-controls";
-import { ChevronRightIcon, DownloadIcon, PlusIcon } from "@/ui/icons/lucide-native";
+import { NativeButton, NativeMenuButton } from "@/ui/primitives/native-controls";
+import { DownloadIcon, PlusIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
 import {
   getWorkspaceWorkflowStatusColor,
@@ -185,12 +185,9 @@ function WorkspaceRow({
         onPress={onPress}
         style={({ pressed }) => [styles.workspaceOpenArea, pressed ? styles.rowPressed : null]}
       >
-        <View style={styles.workspaceTitleRow}>
-          <Text style={[styles.workspaceTitle, { color: theme.colors.label }]} numberOfLines={2}>
-            {title}
-          </Text>
-          <ChevronRightIcon color={theme.colors.tertiaryLabel} size={18} strokeWidth={2.5} />
-        </View>
+        <Text style={[styles.workspaceTitle, { color: theme.colors.label }]} numberOfLines={2}>
+          {title}
+        </Text>
         <Text style={[styles.workspaceBranch, { color: theme.colors.secondaryLabel }]} numberOfLines={1}>
           {branch}
         </Text>
@@ -215,11 +212,28 @@ function WorkspaceStatusMenu({
   const meta = getWorkspaceWorkflowStatusMeta(normalizedStatus);
   const statusColor = getWorkspaceWorkflowStatusColor(normalizedStatus, theme.colors);
   const StatusIcon = meta.Icon;
+  const actions = buildStatusMenuActions(normalizedStatus, theme.colors);
+
+  if (Platform.OS === "ios") {
+    return (
+      <View style={styles.statusMenu}>
+        <NativeMenuButton
+          actions={actions}
+          iconOnly
+          label={meta.label}
+          onAction={(actionId) => onStatusChange(actionId as WorkspaceWorkflowStatus)}
+          systemImage={meta.menuSystemImage}
+          tintColor={statusColor}
+          title="Workspace status"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.statusMenu}>
       <MenuView
-        actions={buildStatusMenuActions(normalizedStatus)}
+        actions={actions}
         onPressAction={(event) => onStatusChange(event.nativeEvent.event as WorkspaceWorkflowStatus)}
         shouldOpenOnLongPress={false}
         title="Workspace status"
@@ -238,12 +252,20 @@ function WorkspaceStatusMenu({
   );
 }
 
-function buildStatusMenuActions(status: WorkspaceWorkflowStatus): MenuAction[] {
-  return WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => ({
-    id: option.value,
-    title: option.label,
-    state: option.value === status ? "on" : "off",
-  }));
+function buildStatusMenuActions(
+  status: WorkspaceWorkflowStatus,
+  themeColors: ReturnType<typeof useMobileTheme>["colors"],
+): MenuAction[] {
+  return WORKSPACE_WORKFLOW_STATUS_OPTIONS.map((option) => {
+    const statusColor = getWorkspaceWorkflowStatusColor(option.value, themeColors);
+    return {
+      id: option.value,
+      image: option.menuSystemImage,
+      imageColor: statusColor,
+      state: option.value === status ? "on" : "off",
+      title: option.label,
+    };
+  });
 }
 
 function buildHeaderRightItems({
@@ -438,36 +460,29 @@ const styles = StyleSheet.create({
     minWidth: 44,
   },
   statusMenu: {
-    bottom: 4,
-    position: "absolute",
-    right: 8,
-    zIndex: 1,
+    alignSelf: "flex-end",
+    marginBottom: 4,
+    marginRight: 8,
   },
   workspaceBranch: {
     fontSize: 13,
     lineHeight: 19,
-    paddingRight: 44,
   },
   workspaceOpenArea: {
+    flex: 1,
     paddingHorizontal: 18,
-    paddingRight: 52,
+    paddingRight: 8,
     paddingVertical: 12,
   },
   workspaceRow: {
+    alignItems: "stretch",
+    flexDirection: "row",
     minHeight: 68,
-    position: "relative",
   },
   workspaceTitle: {
-    flex: 1,
     fontSize: 16,
     fontWeight: "600",
     lineHeight: 21,
-  },
-  workspaceTitleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "space-between",
     marginBottom: 4,
   },
 });
