@@ -146,7 +146,8 @@
   - `cargo test --locked -p api terminal_` 通过
 - 未完全修复：
   - creative/audio scaffold 的长模板字符串拆分需要较大结构调整，已保留为 PR review 重点，避免在自动修复中引入高风险重构。
-- PR URL：待创建
+- PR URL：`https://github.com/AruNi-01/atmos/pull/129`
+- PR 标签：已添加 `codex`；仓库未找到 `codex-automation`，因此跳过该标签。
 
 ## 10. 结果文件
 
@@ -154,6 +155,6 @@
 
 ## 11. 结果提交与推送
 
-- 结果文件提交 hash：待生成（见本次 Git 提交）
+- 结果文件初始提交 hash：`26bbea10`
 - 推送目标分支：`codex/quality-fix/2026-06-22`
-- PR URL：待创建
+- PR URL：`https://github.com/AruNi-01/atmos/pull/129`
