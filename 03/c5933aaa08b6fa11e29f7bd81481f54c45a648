@@ -1,0 +1,25 @@
+apps/desktop/src-tauri/Cargo.toml
+  s_8df73d09d5b379::t_b55cee928bb0e5 3
+apps/desktop/package.json
+  s_8df73d09d5b379::t_b55cee928bb0e5 3
+apps/desktop/src-tauri/tauri.conf.json
+  s_8df73d09d5b379::t_b55cee928bb0e5 4,74
+"releasenotes/Atmos Desktop 1.2.0-beta.15.md"
+  s_8df73d09d5b379::t_0cfc9f40b4d202 11-274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "03c5933aaa08b6fa11e29f7bd81481f54c45a648",
+  "prompts": {},
+  "sessions": {
+    "s_8df73d09d5b379": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eef72-e35c-74f2-bd48-9ffd083c680c",
+        "model": "gpt-5.3-codex-spark"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
