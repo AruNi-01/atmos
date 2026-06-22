@@ -6,7 +6,10 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        if !manager.has_column(AUTOMATION_TABLE, "agent_config_json").await? {
+        if !manager
+            .has_column(AUTOMATION_TABLE, "agent_config_json")
+            .await?
+        {
             manager
                 .alter_table(
                     Table::alter()

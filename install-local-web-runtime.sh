@@ -116,6 +116,17 @@ download_url() {
   fi
 }
 
+curl_to_file() {
+  local url="$1"
+  local output="$2"
+  curl -fsSL --retry 3 --retry-delay 1 --retry-all-errors --connect-timeout 10 "$url" -o "$output"
+}
+
+curl_to_stdout() {
+  local url="$1"
+  curl -fsSL --retry 3 --retry-delay 1 --retry-all-errors --connect-timeout 10 "$url"
+}
+
 download_with_fallback() {
   local asset="$1"
   local version="$2"
@@ -124,18 +135,18 @@ download_with_fallback() {
 
   if [[ "$USE_GITHUB_SOURCE" -eq 1 ]]; then
     echo "Downloading from GitHub: ${github_url}"
-    curl -fsSL "$github_url" -o "$ARCHIVE_FILE"
+    curl_to_file "$github_url" "$ARCHIVE_FILE"
     return 0
   fi
 
   echo "Downloading from custom domain: ${custom_url}"
-  if curl -fsSL "$custom_url" -o "$ARCHIVE_FILE"; then
+  if curl_to_file "$custom_url" "$ARCHIVE_FILE"; then
     return 0
   fi
 
   echo "Failed to download from custom domain, trying GitHub as fallback..."
   echo "Downloading from GitHub: ${github_url}"
-  curl -fsSL "$github_url" -o "$ARCHIVE_FILE"
+  curl_to_file "$github_url" "$ARCHIVE_FILE"
 }
 
 download_latest_with_fallback() {
@@ -145,7 +156,7 @@ download_latest_with_fallback() {
 
   if [[ "$USE_GITHUB_SOURCE" -eq 0 ]]; then
     echo "Trying to download from custom domain latest path: ${latest_path}"
-    if curl -fsSL "$latest_url" -o "$ARCHIVE_FILE"; then
+    if curl_to_file "$latest_url" "$ARCHIVE_FILE"; then
       echo "Successfully downloaded from latest path"
       RESOLVED_VERSION="latest"
       return 0
@@ -153,8 +164,7 @@ download_latest_with_fallback() {
   fi
 
   echo "Latest path not available, falling back to GitHub API to resolve version..."
-  RESOLVED_VERSION="$(resolve_release_tag)"
-  if [[ -z "$RESOLVED_VERSION" ]]; then
+  if ! RESOLVED_VERSION="$(resolve_release_tag)" || [[ -z "$RESOLVED_VERSION" ]]; then
     echo "Unable to resolve a local runtime release tag from GitHub releases." >&2
     exit 1
   fi
@@ -231,11 +241,23 @@ resolve_release_tag() {
     return 0
   fi
 
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
+  local releases_json
+  if ! releases_json="$(curl_to_stdout "https://api.github.com/repos/${REPO}/releases?per_page=100")"; then
+    echo "Failed to query GitHub releases. Try again, or pass --version local-web-runtime-v0.2.1." >&2
+    return 1
+  fi
+
+  local resolved_tag
+  if ! resolved_tag="$(printf '%s' "$releases_json" | python3 -c '
 import json
 import sys
 
-releases = json.load(sys.stdin)
+try:
+    releases = json.load(sys.stdin)
+except Exception as error:
+    print(f"Invalid GitHub releases response: {error}", file=sys.stderr)
+    sys.exit(1)
+
 for release in releases:
     tag = str(release.get("tag_name") or "")
     if release.get("draft"):
@@ -245,7 +267,16 @@ for release in releases:
     if tag.startswith("local-web-runtime-v"):
         print(tag)
         break
-' | head -n 1
+')"; then
+    return 1
+  fi
+
+  if [[ -z "$resolved_tag" ]]; then
+    echo "No published local-web-runtime release was found." >&2
+    return 1
+  fi
+
+  echo "$resolved_tag"
 }
 
 TARGET="$(detect_target)"

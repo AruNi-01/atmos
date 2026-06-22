@@ -118,13 +118,16 @@ pub async fn ensure_running(options: EnsureOptions) -> Result<EnsureOutcome, Str
         &options.extra_env,
     )?;
     let health_attempts = if options.daemon { 6 } else { 20 };
-    wait_for_health(
+    if let Err(error) = wait_for_health(
         &options.host,
         options.port,
         health_attempts,
         Some(launched_pid),
     )
-    .await?;
+    .await
+    {
+        return Err(error_with_recent_log(error, &log_path));
+    }
     let pid = resolve_api_process_id(&layout.api_bin_path, options.port).unwrap_or(launched_pid);
 
     let manifest = RuntimeManifest::new(&options.host, options.port, Some(pid), "runtime-manager");
@@ -535,6 +538,30 @@ fn runtime_log_path() -> Result<PathBuf, String> {
         .join("runtime")
         .join("logs")
         .join("api.log"))
+}
+
+fn error_with_recent_log(error: String, log_path: &Path) -> String {
+    let mut message = format!("{error}\nLog: {}", log_path.display());
+
+    let Ok(content) = fs::read_to_string(log_path) else {
+        return message;
+    };
+    let recent = content
+        .lines()
+        .rev()
+        .take(12)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    if !recent.trim().is_empty() {
+        message.push_str("\n\nRecent API log:\n");
+        message.push_str(&recent);
+    }
+
+    message
 }
 
 fn ensure_runtime_installed(layout: &RuntimeLayout) -> Result<(), String> {
