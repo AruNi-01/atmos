@@ -387,9 +387,9 @@ function HostedConnectionOnboarding() {
                 <ScrollArea className="flex-1 min-h-0 rounded-[inherit]" scrollbarGutter>
                   <div className="min-h-full space-y-4 pe-2 pb-4">
                     <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
-                      <div className="flex flex-wrap items-start gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                             <h2 className="text-base font-medium text-foreground">Local Atmos Server</h2>
                             {localProbeState === 'available' ? (
                               <Badge variant="secondary" className="gap-1">
@@ -405,31 +405,31 @@ function HostedConnectionOnboarding() {
                               <Badge variant="secondary">Not found</Badge>
                             )}
                           </div>
-                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            We first check whether Atmos Local Runtime is available on this device.
-                            If it is already running, you can connect to it directly here.
-                          </p>
-                          {localProbeState === 'unavailable' && localError ? (
-                            <p className="mt-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
-                              {localError}
-                            </p>
-                          ) : null}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="ml-auto shrink-0"
+                            onClick={() => void onRefreshLocal()}
+                            disabled={localProbeState === 'checking' || busyAction !== null}
+                          >
+                            {localProbeState === 'checking' ? (
+                              <LoaderCircle className="mr-2 size-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="mr-2 size-4" />
+                            )}
+                            Check again
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="ml-auto shrink-0"
-                          onClick={() => void onRefreshLocal()}
-                          disabled={localProbeState === 'checking' || busyAction !== null}
-                        >
-                          {localProbeState === 'checking' ? (
-                            <LoaderCircle className="mr-2 size-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="mr-2 size-4" />
-                          )}
-                          Check again
-                        </Button>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          We first check whether Atmos Local Runtime is available on this device.
+                          If it is already running, you can connect to it directly here.
+                        </p>
+                        {localProbeState === 'unavailable' && localError ? (
+                          <p className="mt-3 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-6 text-muted-foreground">
+                            {localError}
+                          </p>
+                        ) : null}
                       </div>
 
                       {localProbeState === 'available' ? (
