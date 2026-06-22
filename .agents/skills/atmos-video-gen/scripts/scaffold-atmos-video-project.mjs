@@ -316,7 +316,7 @@ function indexHtml({ projectName, width, height, duration }) {
         <div class="body">Use $hyperframes for composition and follow the project DESIGN.md and SCRIPT.md.</div>
       </main>
     </div>
-    <script src="./node_modules/gsap/dist/gsap.min.js"></script>
+    <script src="assets/gsap.min.js"></script>
     <script>
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
@@ -355,6 +355,8 @@ const framesDir = path.join(hyperframesDir, ".render-frames");
 const outputPath = path.join(projectDir, "artifacts/videos/${videoName}");
 const posterPath = path.join(projectDir, "artifacts/images/${posterName}");
 const musicPath = path.join(projectDir, "artifacts/audio/${soundtrackName}");
+const gsapSourcePath = path.join(hyperframesDir, "node_modules/gsap/dist/gsap.min.js");
+const gsapAssetPath = path.join(hyperframesDir, "assets/gsap.min.js");
 const consumerTargets = [${landingTarget}
 ];
 
@@ -377,6 +379,18 @@ function run(command, args, options = {}) {
       else reject(new Error(\`\${command} exited with code \${code}\`));
     });
   });
+}
+
+async function syncRuntimeAssets() {
+  await fs.mkdir(path.dirname(gsapAssetPath), { recursive: true });
+  try {
+    await fs.copyFile(gsapSourcePath, gsapAssetPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error("Missing GSAP runtime. Run npm install before rendering.");
+    }
+    throw error;
+  }
 }
 
 async function ensureReady(page) {
@@ -405,6 +419,7 @@ async function ensureReady(page) {
 }
 
 async function captureFrames() {
+  await syncRuntimeAssets();
   await fs.rm(framesDir, { recursive: true, force: true });
   await fs.mkdir(framesDir, { recursive: true });
   await fs.mkdir(path.dirname(outputPath), { recursive: true });

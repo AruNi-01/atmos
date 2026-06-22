@@ -135,7 +135,7 @@
 - 修复分支：`codex/quality-fix/2026-06-22`
 - 已修复：
   - 同步 `Cargo.lock` 中 `atmos-desktop` 版本到 `1.2.0-beta.14`
-  - 将 video scaffold 默认 GSAP 加载从 CDN 改为本地 `node_modules/gsap/dist/gsap.min.js`
+  - 将 video scaffold 默认 GSAP 加载从 CDN 改为本地 `assets/gsap.min.js`，并由生成的 render 脚本在截帧前从 npm dependency 复制该 runtime asset
   - 清理 `git diff --check` 报出的新增空白问题
 - 验证：
   - `git diff --check` 通过
@@ -143,6 +143,7 @@
   - `node --check .agents/skills/atmos-audio-gen/scripts/create-continuous-audio-script.mjs` 通过
   - `node --check marketing/creative/projects/atmos-intro/hyperframes/scripts/generate-audio.mjs` 通过
   - `node --check marketing/creative/projects/atmos-intro/hyperframes/scripts/render-video.mjs` 通过
+  - 临时执行 `scaffold-atmos-video-project.mjs review-smoke --consumer landing --force` 后，对生成的 `scripts/render-video.mjs` 执行 `node --check` 通过，并确认生成的 `index.html` 引用 `assets/gsap.min.js`
   - `cargo test --locked -p api terminal_` 通过
 - 未完全修复：
   - creative/audio scaffold 的长模板字符串拆分需要较大结构调整，已保留为 PR review 重点，避免在自动修复中引入高风险重构。
