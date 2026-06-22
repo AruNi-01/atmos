@@ -221,11 +221,13 @@ function packageJson(projectName) {
       private: true,
       type: "module",
       scripts: {
-        dev: "npx --yes hyperframes@0.6.118 preview",
-        lint: "npx --yes hyperframes@0.6.118 lint",
-        validate: "npx --yes hyperframes@0.6.118 validate",
-        inspect: "npx --yes hyperframes@0.6.118 inspect",
-        "check:scripts": "node --check scripts/render-video.mjs",
+        "sync:runtime": "node scripts/sync-runtime-assets.mjs",
+        dev: "npm run sync:runtime && npx --yes hyperframes@0.6.118 preview",
+        lint: "npm run sync:runtime && npx --yes hyperframes@0.6.118 lint",
+        validate: "npm run sync:runtime && npx --yes hyperframes@0.6.118 validate",
+        inspect: "npm run sync:runtime && npx --yes hyperframes@0.6.118 inspect",
+        "check:scripts":
+          "node --check scripts/sync-runtime-assets.mjs && node --check scripts/render-video.mjs",
         check: "npm run lint && npm run check:scripts",
         "check:full": "npm run lint && npm run validate && npm run inspect",
         render: "node scripts/render-video.mjs",
@@ -330,6 +332,40 @@ function indexHtml({ projectName, width, height, duration }) {
 `;
 }
 
+function syncRuntimeAssetsScript() {
+  return `import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const hyperframesDir = path.resolve(path.dirname(__filename), "..");
+const gsapSourcePath = path.join(hyperframesDir, "node_modules/gsap/dist/gsap.min.js");
+const gsapAssetPath = path.join(hyperframesDir, "assets/gsap.min.js");
+
+export async function syncRuntimeAssets() {
+  await fs.mkdir(path.dirname(gsapAssetPath), { recursive: true });
+  try {
+    await fs.copyFile(gsapSourcePath, gsapAssetPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error("Missing GSAP runtime. Run npm install before previewing or rendering.");
+    }
+    throw error;
+  }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  try {
+    await syncRuntimeAssets();
+    console.log("synced assets/gsap.min.js");
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+}
+`;
+}
+
 function renderScript({ projectName, width, height, fps, duration, consumer }) {
   const aspect = aspectSlug(width, height);
   const videoName = `${projectName}-${aspect}-${height}p.mp4`;
@@ -345,6 +381,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
+import { syncRuntimeAssets } from "./sync-runtime-assets.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const hyperframesDir = path.resolve(path.dirname(__filename), "..");
@@ -355,8 +392,6 @@ const framesDir = path.join(hyperframesDir, ".render-frames");
 const outputPath = path.join(projectDir, "artifacts/videos/${videoName}");
 const posterPath = path.join(projectDir, "artifacts/images/${posterName}");
 const musicPath = path.join(projectDir, "artifacts/audio/${soundtrackName}");
-const gsapSourcePath = path.join(hyperframesDir, "node_modules/gsap/dist/gsap.min.js");
-const gsapAssetPath = path.join(hyperframesDir, "assets/gsap.min.js");
 const consumerTargets = [${landingTarget}
 ];
 
@@ -379,18 +414,6 @@ function run(command, args, options = {}) {
       else reject(new Error(\`\${command} exited with code \${code}\`));
     });
   });
-}
-
-async function syncRuntimeAssets() {
-  await fs.mkdir(path.dirname(gsapAssetPath), { recursive: true });
-  try {
-    await fs.copyFile(gsapSourcePath, gsapAssetPath);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      throw new Error("Missing GSAP runtime. Run npm install before rendering.");
-    }
-    throw error;
-  }
 }
 
 async function ensureReady(page) {
@@ -570,7 +593,7 @@ await writeFileOnce(
 );
 await writeFileOnce(
   path.join(hyperframesDir, ".gitignore"),
-  "node_modules/\n.render-frames/\nassets/audio/*.wav\n",
+  "node_modules/\n.render-frames/\nassets/audio/*.wav\nassets/gsap.min.js\n",
   options.force,
 );
 await writeFileOnce(
@@ -601,6 +624,11 @@ await writeFileOnce(
 await writeFileOnce(
   path.join(hyperframesDir, "scripts/render-video.mjs"),
   renderScript(options),
+  options.force,
+);
+await writeFileOnce(
+  path.join(hyperframesDir, "scripts/sync-runtime-assets.mjs"),
+  syncRuntimeAssetsScript(),
   options.force,
 );
 

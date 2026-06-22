@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
+import { syncRuntimeAssets } from "./sync-runtime-assets.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const hyperframesDir = path.resolve(path.dirname(__filename), "..");
@@ -67,6 +68,7 @@ async function ensureReady(page) {
 }
 
 async function captureFrames() {
+  await syncRuntimeAssets();
   await fs.rm(framesDir, { recursive: true, force: true });
   await fs.mkdir(framesDir, { recursive: true });
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
