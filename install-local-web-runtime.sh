@@ -140,12 +140,16 @@ download_with_fallback() {
 
 download_latest_with_fallback() {
   local asset="$1"
-  local latest_url="${DOWNLOAD_BASE}/local-web-runtime/latest/${asset}"
+  local latest_path="${DOWNLOAD_BASE}/local-web-runtime/latest/${asset}"
+  local latest_url="${latest_path}?v=$(date +%s)"
 
-  echo "Trying to download from custom domain latest path: ${latest_url}"
-  if curl -fsSL "$latest_url" -o "$ARCHIVE_FILE"; then
-    echo "Successfully downloaded from latest path"
-    return 0
+  if [[ "$USE_GITHUB_SOURCE" -eq 0 ]]; then
+    echo "Trying to download from custom domain latest path: ${latest_path}"
+    if curl -fsSL "$latest_url" -o "$ARCHIVE_FILE"; then
+      echo "Successfully downloaded from latest path"
+      RESOLVED_VERSION="latest"
+      return 0
+    fi
   fi
 
   echo "Latest path not available, falling back to GitHub API to resolve version..."
