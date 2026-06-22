@@ -1,0 +1,31 @@
+marketing/creative/projects/atmos-intro/hyperframes/.gitignore
+  s_4d9deee474fe60::t_d7a9bb9cd7252f 4
+marketing/creative/projects/atmos-intro/hyperframes/scripts/render-video.mjs
+  s_4d9deee474fe60::t_d7a9bb9cd7252f 71
+  s_4d9deee474fe60::t_85784064abf41c 6
+marketing/creative/projects/atmos-intro/hyperframes/package.json
+  s_4d9deee474fe60::t_85784064abf41c 6-11,16-17
+.agents/skills/atmos-video-gen/scripts/scaffold-atmos-video-project.mjs
+  s_4d9deee474fe60::t_d7a9bb9cd7252f 596
+  s_4d9deee474fe60::t_85784064abf41c 224-230,335-368,384,629-631
+marketing/creative/projects/atmos-intro/hyperframes/scripts/sync-runtime-assets.mjs
+  s_4d9deee474fe60::t_85784064abf41c 1-30
+automations/review/quality/result/2026-06/06-22_score-89_RESULT.md
+  s_4d9deee474fe60::t_2a696bca12ef36 138,146-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "1bc03600bc9d8c1ecd05cc2b7a2e813545507a6a",
+  "prompts": {},
+  "sessions": {
+    "s_4d9deee474fe60": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eed1a-e069-7c10-ba7d-e206d025a5e4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
