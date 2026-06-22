@@ -1,0 +1,19 @@
+packages/local-installer/package.json
+  s_c18c73ea871669::t_e6a673bd4dc772 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "ab28ac51a46212eada0f7e3801eb7da8cf514bd7",
+  "prompts": {},
+  "sessions": {
+    "s_c18c73ea871669": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eef72-282b-71a1-9896-cb8a6277b524",
+        "model": "gpt-5.3-codex-spark"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
