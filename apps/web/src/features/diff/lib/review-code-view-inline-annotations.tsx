@@ -70,13 +70,13 @@ export function InlineCommentComposer({
       : `L${draft.startLine}-L${draft.endLine}`;
 
   return (
-    <div className="mx-3 my-2 rounded-lg border border-primary/20 bg-background/95 p-3 shadow-sm">
+    <div className="mx-3 my-2 rounded-md border border-border/70 bg-popover/95 p-3 font-sans shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-foreground">
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium leading-5 text-foreground">
             Comment on {lineLabel}
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs leading-4 text-muted-foreground">
             Add a review comment directly on this diff.
           </p>
         </div>
@@ -105,12 +105,17 @@ export function InlineCommentComposer({
           }
         }}
         placeholder="Describe the issue or expected change..."
-        className="mt-3 min-h-24 bg-background"
+        className="mt-3 min-h-20 resize-y rounded-md border-border/70 bg-muted/20 font-sans text-sm leading-5 focus:bg-background"
       />
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button size="sm" onClick={onSubmit} disabled={isSubmitting}>
+            <Button
+              size="sm"
+              className="h-8 rounded-md px-2.5 text-xs font-medium"
+              onClick={onSubmit}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
               ) : null}
@@ -127,7 +132,12 @@ export function InlineCommentComposer({
             </div>
           </TooltipContent>
         </Tooltip>
-        <Button size="sm" variant="outline" onClick={onCancel}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 rounded-md px-2.5 text-xs font-medium"
+          onClick={onCancel}
+        >
           Cancel
         </Button>
       </div>
@@ -188,7 +198,7 @@ export function InlineReviewCommentAnnotation({
   return (
     <div
       className={cn(
-        'mx-3 my-2 rounded-lg border p-3 shadow-sm',
+        'mx-3 my-2 rounded-md border p-3 font-sans shadow-sm',
         comment.status === 'fixed'
           ? 'border-emerald-500/25 bg-emerald-500/5'
           : comment.status === 'agent_fixed'
@@ -205,7 +215,7 @@ export function InlineReviewCommentAnnotation({
       <button
         type="button"
         onClick={() => onToggleExpanded(comment.guid)}
-        className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-left"
+        className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-left font-sans"
         aria-label={expanded ? 'Collapse comment' : 'Expand comment'}
       >
         <ChevronRight
@@ -215,7 +225,7 @@ export function InlineReviewCommentAnnotation({
           )}
         />
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{title}</p>
+          <p className="truncate text-sm font-medium leading-5 text-foreground">{title}</p>
         </div>
         <span
           className={cn(
@@ -260,11 +270,12 @@ export function InlineReviewCommentAnnotation({
             ))}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {canEdit ? (
               <Button
                 size="sm"
                 variant="outline"
+                className="h-8 rounded-md px-2.5 text-xs font-medium"
                 onClick={() => onReplyToggle(comment.guid)}
               >
                 Reply
@@ -275,6 +286,7 @@ export function InlineReviewCommentAnnotation({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="h-8 rounded-md px-2.5 text-xs font-medium"
                   onClick={() =>
                     void onUpdateCommentStatus(
                       comment.guid,
@@ -288,6 +300,7 @@ export function InlineReviewCommentAnnotation({
                   <Button
                     size="sm"
                     variant="outline"
+                    className="h-8 rounded-md px-2.5 text-xs font-medium"
                     onClick={() =>
                       void onUpdateCommentStatus(comment.guid, 'dismissed')
                     }
@@ -300,16 +313,17 @@ export function InlineReviewCommentAnnotation({
           </div>
 
           {replyDraftCommentGuid === comment.guid ? (
-            <div className="mt-3 rounded-md border border-border/60 bg-background/80 p-3">
+            <div className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3">
               <Textarea
                 value={replyBody}
                 onChange={(event) => onReplyBodyChange(event.target.value)}
                 placeholder="Write a reply..."
-                className="min-h-20 bg-background"
+                className="min-h-20 rounded-md border-border/70 bg-background font-sans text-sm leading-5"
               />
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
+                  className="h-8 rounded-md px-2.5 text-xs font-medium"
                   onClick={onReplySubmit}
                   disabled={isSubmittingReply}
                 >
@@ -318,7 +332,12 @@ export function InlineReviewCommentAnnotation({
                   ) : null}
                   Send Reply
                 </Button>
-                <Button size="sm" variant="outline" onClick={onReplyCancel}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 rounded-md px-2.5 text-xs font-medium"
+                  onClick={onReplyCancel}
+                >
                   Cancel
                 </Button>
               </div>

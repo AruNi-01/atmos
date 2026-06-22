@@ -103,13 +103,13 @@ export function DiffViewerReviewAnnotation({
   if (annotation.metadata?.kind === 'composer') {
     if (!inlineCommentDraft) return null;
     return (
-      <div className="mx-3 my-2 rounded-lg border border-primary/20 bg-background/95 p-3 shadow-sm">
+      <div className="mx-3 my-2 rounded-md border border-border/70 bg-popover/95 p-3 font-sans shadow-sm">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium leading-5 text-foreground">
               Comment on {inlineCommentDraft.startLine === inlineCommentDraft.endLine ? `L${inlineCommentDraft.startLine}` : `L${inlineCommentDraft.startLine}-L${inlineCommentDraft.endLine}`}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs leading-4 text-muted-foreground">
               Add a review comment directly on this diff.
             </p>
           </div>
@@ -138,12 +138,17 @@ export function DiffViewerReviewAnnotation({
             }
           }}
           placeholder="Describe the issue or expected change..."
-          className="mt-3 min-h-24 bg-background"
+          className="mt-3 min-h-20 resize-y rounded-md border-border/70 bg-muted/20 font-sans text-sm leading-5 focus:bg-background"
         />
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="sm" onClick={onInlineCommentSubmit} disabled={isSubmittingInlineComment}>
+              <Button
+                size="sm"
+                className="h-8 rounded-md px-2.5 text-xs font-medium"
+                onClick={onInlineCommentSubmit}
+                disabled={isSubmittingInlineComment}
+              >
                 {isSubmittingInlineComment ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 Add Comment
               </Button>
@@ -161,6 +166,7 @@ export function DiffViewerReviewAnnotation({
           <Button
             size="sm"
             variant="outline"
+            className="h-8 rounded-md px-2.5 text-xs font-medium"
             onClick={onInlineCommentCancel}
           >
             Cancel
@@ -184,7 +190,7 @@ export function DiffViewerReviewAnnotation({
     }`;
   return (
     <div className={cn(
-      'mx-3 my-2 rounded-lg border p-3 shadow-sm',
+      'mx-3 my-2 rounded-md border p-3 font-sans shadow-sm',
       comment.status === 'fixed'
         ? 'border-emerald-500/25 bg-emerald-500/5'
         : comment.status === 'agent_fixed'
@@ -201,7 +207,7 @@ export function DiffViewerReviewAnnotation({
       <button
         type="button"
         onClick={() => onToggleInlineCommentExpanded(comment.guid)}
-        className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-left"
+        className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-left font-sans"
         aria-label={expanded ? "Collapse comment" : "Expand comment"}
       >
         <ChevronRight
@@ -211,7 +217,7 @@ export function DiffViewerReviewAnnotation({
           )}
         />
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">
+          <p className="truncate text-sm font-medium leading-5 text-foreground">
             {title}
           </p>
         </div>
@@ -258,7 +264,7 @@ export function DiffViewerReviewAnnotation({
             ))}
           </div>
           {canEditReview && replyDraftCommentGuid === comment.guid && (
-            <div className="mt-3 rounded-md border border-border bg-background p-2">
+            <div className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3">
               <Textarea
                 value={replyBody}
                 onChange={(event) => onReplyBodyChange(event.target.value)}
@@ -274,13 +280,14 @@ export function DiffViewerReviewAnnotation({
                   }
                 }}
                 placeholder="Reply to this comment..."
-                className="min-h-20 bg-background text-sm"
+                className="min-h-20 rounded-md border-border/70 bg-background font-sans text-sm leading-5"
                 autoFocus
               />
-              <div className="mt-2 flex justify-end gap-2">
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <Button
                   size="sm"
                   variant="outline"
+                  className="h-8 rounded-md px-2.5 text-xs font-medium"
                   disabled={isSubmittingReply}
                   onClick={onReplyCancel}
                 >
@@ -291,6 +298,7 @@ export function DiffViewerReviewAnnotation({
                   <TooltipTrigger asChild>
                     <Button
                       size="sm"
+                      className="h-8 rounded-md px-2.5 text-xs font-medium"
                       disabled={!replyBody.trim() || isSubmittingReply}
                       onClick={() => onReplySubmit(comment)}
                     >
@@ -316,6 +324,7 @@ export function DiffViewerReviewAnnotation({
               <Button
                 size="sm"
                 variant="outline"
+                className="h-8 rounded-md px-2.5 text-xs font-medium"
                 onClick={() => onToggleReplyDraft(comment.guid)}
               >
                 <MessageSquareReply className="mr-1.5 size-3.5" />

@@ -82,7 +82,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-background/80 p-3">
+    <div className="rounded-md border border-border/70 bg-popover/80 p-3 font-sans shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-2">
           <button
@@ -103,7 +103,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             onClick={() => onNavigate?.(comment)}
             className="min-w-0 flex-1 cursor-pointer text-left"
           >
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate text-sm font-medium leading-5 text-foreground">
               {commentTitle(comment)}
             </p>
           </button>
@@ -158,7 +158,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
           </div>
 
           {canEdit && replyOpen && (
-            <div className="mt-3 rounded-md border border-border bg-background p-2">
+            <div className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3">
               <Textarea
                 value={replyBody}
                 onChange={(event) => setReplyBody(event.target.value)}
@@ -174,13 +174,14 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   }
                 }}
                 placeholder="Reply to this comment..."
-                className="min-h-20 bg-background text-sm"
+                className="min-h-20 rounded-md border-border/70 bg-background font-sans text-sm leading-5"
                 autoFocus
               />
-              <div className="mt-2 flex justify-end gap-2">
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
                 <Button
                   size="sm"
                   variant="outline"
+                  className="h-8 rounded-md px-2.5 text-xs font-medium"
                   disabled={isSubmittingReply}
                   onClick={() => {
                     setReplyOpen(false);
@@ -194,6 +195,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                   <TooltipTrigger asChild>
                     <Button
                       size="sm"
+                      className="h-8 rounded-md px-2.5 text-xs font-medium"
                       disabled={!replyBody.trim() || isSubmittingReply}
                       onClick={() => void handleSubmitReply()}
                     >
@@ -219,6 +221,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             <Button
               size="sm"
               variant="outline"
+              className="h-8 rounded-md px-2.5 text-xs font-medium"
               disabled={!canEdit}
               onClick={() => setReplyOpen((value) => !value)}
             >
@@ -230,7 +233,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-emerald-500/40! bg-emerald-500/10! text-emerald-600 hover:bg-emerald-500/20 hover:text-emerald-700"
+                  className="h-8 rounded-md border-emerald-500/40! bg-emerald-500/10! px-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 hover:text-emerald-700"
                   disabled={!canEdit}
                   onClick={() => onUpdateStatus(comment.guid, "fixed")}
                 >
@@ -240,7 +243,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-muted-foreground/30! bg-muted! text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  className="h-8 rounded-md border-muted-foreground/30! bg-muted! px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                   disabled={!canEdit}
                   onClick={() => onUpdateStatus(comment.guid, "dismissed")}
                 >
@@ -254,7 +257,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-emerald-500/40! bg-emerald-500/10! text-emerald-600 hover:bg-emerald-500/20 hover:text-emerald-700"
+                  className="h-8 rounded-md border-emerald-500/40! bg-emerald-500/10! px-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 hover:text-emerald-700"
                   disabled={!canEdit}
                   onClick={() => onUpdateStatus(comment.guid, "fixed")}
                 >
@@ -264,7 +267,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-blue-500/40! bg-blue-500/10! text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
+                  className="h-8 rounded-md border-blue-500/40! bg-blue-500/10! px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
                   disabled={!canEdit}
                   onClick={() => onUpdateStatus(comment.guid, "open")}
                 >
@@ -274,7 +277,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-muted-foreground/30! bg-muted! text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  className="h-8 rounded-md border-muted-foreground/30! bg-muted! px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                   disabled={!canEdit}
                   onClick={() => onUpdateStatus(comment.guid, "dismissed")}
                 >
@@ -287,7 +290,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="border-blue-500/40! bg-blue-500/10! text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
+                className="h-8 rounded-md border-blue-500/40! bg-blue-500/10! px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
                 disabled={!canEdit}
                 onClick={() => onUpdateStatus(comment.guid, "open")}
               >
@@ -299,7 +302,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="border-blue-500/40! bg-blue-500/10! text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
+                className="h-8 rounded-md border-blue-500/40! bg-blue-500/10! px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-500/20 hover:text-blue-700"
                 disabled={!canEdit}
                 onClick={() => onUpdateStatus(comment.guid, "open")}
               >

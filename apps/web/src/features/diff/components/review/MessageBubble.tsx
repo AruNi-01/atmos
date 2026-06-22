@@ -57,7 +57,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, action, o
   return (
     <div
       className={cn(
-        "relative rounded-md border px-3 py-2 text-sm whitespace-normal",
+        "relative rounded-md border px-3 py-2 font-sans text-sm whitespace-normal",
         isUser
           ? "border-border bg-muted/50"
           : "border-sky-500/20 bg-sky-500/5",
