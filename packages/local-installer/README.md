@@ -8,7 +8,11 @@ Installer package for the local Atmos web runtime.
 curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 ```
 
-The npm package is kept for the release pipeline, but end-user installs should use the shell installer until npm publishing is enabled.
+You can also install through the npm entrypoint:
+
+```bash
+npx @atmos/local-web-runtime
+```
 
 ## What it does
 

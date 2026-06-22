@@ -127,7 +127,7 @@ jobs:
             fi
             require_tag_commit_on_main
             echo "create_release=true" >> "$GITHUB_OUTPUT"
-            echo "publish_npm=false" >> "$GITHUB_OUTPUT"
+            echo "publish_npm=true" >> "$GITHUB_OUTPUT"
             echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
             echo "release_version=${RELEASE_TAG#local-web-runtime-v}" >> "$GITHUB_OUTPUT"
             echo "checkout_ref=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
@@ -291,10 +291,37 @@ jobs:
             "${RUNNER_TEMP}/local-runtime/atmos-local-runtime-${{ matrix.target }}.tar.gz" \
             --clobber
 
-  publish-release:
-    if: always() && needs.resolve-release-config.outputs.create_release == 'true' && needs.build-runtime.result == 'success'
+  publish-npm:
+    if: always() && needs.resolve-release-config.outputs.publish_npm == 'true' && needs.build-runtime.result == 'success'
     runs-on: ubuntu-latest
-    needs: [resolve-release-config, build-runtime]
+    needs: [resolve-release-config, verify-versions, build-runtime]
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release-config.outputs.checkout_ref }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Verify local runtime versions
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release-config.outputs.release_tag }}
+        run: node ./scripts/release/check-local-runtime-version.mjs
+
+      - name: Publish npm installer
+        working-directory: packages/local-installer
+        run: npm publish --access public
+
+  publish-release:
+    if: always() && needs.resolve-release-config.outputs.create_release == 'true' && needs.build-runtime.result == 'success' && (needs['publish-npm'].result == 'success' || needs['publish-npm'].result == 'skipped')
+    runs-on: ubuntu-latest
+    needs: [resolve-release-config, build-runtime, publish-npm]
     steps:
       - uses: actions/checkout@v5
         with:
