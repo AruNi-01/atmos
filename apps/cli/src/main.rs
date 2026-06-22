@@ -1,14 +1,15 @@
 mod api_client;
 mod commands;
+mod output;
 
 use api_client::ApiClientArgs;
 use clap::{Parser, Subcommand};
 use commands::canvas::{execute as execute_canvas, CanvasCommand, CanvasOpts};
 use commands::computer::{execute as execute_computer, ComputerCommand};
-use commands::local::{execute as execute_local, LocalCommand};
 use commands::review::{execute as execute_review, ReviewCommand};
 use commands::runtime::{execute as execute_runtime, RuntimeCommand};
 use commands::update::{execute as execute_update, update_hint_if_needed, UpdateArgs};
+use output::{render_error, render_output, CommandKind};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -19,6 +20,9 @@ use commands::update::{execute as execute_update, update_hint_if_needed, UpdateA
 struct Cli {
     #[command(flatten)]
     api: ApiClientArgs,
+    /// Print machine-readable JSON output.
+    #[arg(long, global = true, default_value_t = false)]
+    json: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -29,11 +33,6 @@ enum Commands {
     Review {
         #[command(subcommand)]
         command: ReviewCommand,
-    },
-    /// Start, stop, and inspect the local Atmos API runtime.
-    Local {
-        #[command(subcommand)]
-        command: LocalCommand,
     },
     /// Ensure / stop / status for the local API (`runtime_manifest.json`).
     Runtime {
@@ -57,21 +56,43 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() {
+    if let Err(err) = run().await {
+        eprintln!("{}", render_error(&err));
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<(), String> {
     let cli = Cli::parse();
     let should_check_for_updates = !matches!(cli.command, Commands::Update(_));
+    let command_kind = CommandKind::from_command(&cli.command);
 
     let output = match cli.command {
         Commands::Review { command } => execute_review(cli.api, command).await,
-        Commands::Local { command } => execute_local(command).await,
         Commands::Runtime { command } => execute_runtime(command).await,
         Commands::Computer { command } => execute_computer(command).await,
         Commands::Canvas { canvas, command } => execute_canvas(cli.api, canvas, command).await,
         Commands::Update(args) => execute_update(args).await,
     }
-    .map_err(std::io::Error::other)?;
+    .map_err(|err| err.to_string())?;
 
-    println!("{}", serde_json::to_string_pretty(&output)?);
+    if cli.json || !command_kind.supports_human_output() {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|err| format!("Failed to serialize command output: {err}"))?
+        );
+    } else if let Some(rendered) = render_output(command_kind, &output) {
+        println!("{rendered}");
+    } else {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|err| format!("Failed to serialize command output: {err}"))?
+        );
+    }
+
     if should_check_for_updates {
         if let Some(hint) = update_hint_if_needed().await {
             eprintln!("{}", hint);

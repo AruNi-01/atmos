@@ -11,7 +11,7 @@ const DOWNLOAD_BASE = process.env.ATMOS_DOWNLOAD_BASE_URL || "https://install.at
 const USE_GITHUB_SOURCE = process.env.ATMOS_GITHUB_SOURCE === "1";
 
 function usage() {
-  console.log(`Usage: npx @atmos/local-web-runtime [options]
+  console.log(`Usage: atmos-local [options]
 
 Options:
   --version <tag>        Install a specific release tag instead of latest
@@ -101,21 +101,38 @@ function parseArgs(argv) {
 }
 
 function spawnChecked(command, args, options = {}) {
+  const { echo = true, ...spawnOptions } = options;
   const result = spawnSync(command, args, {
     encoding: "utf8",
     shell: process.platform === "win32",
-    ...options,
+    ...spawnOptions,
   });
-  if (result.stdout) {
+  if (echo && result.stdout) {
     process.stdout.write(result.stdout);
   }
-  if (result.stderr) {
+  if (echo && result.stderr) {
     process.stderr.write(result.stderr);
   }
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed`);
+    const details = [result.stderr?.trim(), result.stdout?.trim()].filter(Boolean).join("\n");
+    throw new Error(
+      details
+        ? `${command} ${args.join(" ")} failed\n${details}`
+        : `${command} ${args.join(" ")} failed`,
+    );
   }
   return result;
+}
+
+function startLocalRuntime(cliInstall, port) {
+  return spawnChecked(cliInstall, [
+    "--json",
+    "runtime",
+    "ensure",
+    "--force-restart",
+    "--port",
+    String(port),
+  ], { echo: false });
 }
 
 function downloadUrl(version, asset, useGitHubSource = false) {
@@ -273,17 +290,13 @@ async function main() {
 
     let actualUrl = `http://127.0.0.1:${options.port}`;
     if (!options.noStart) {
-      const startResult = spawnChecked(cliInstall, [
-        "local",
-        "start",
-        "--force-restart",
-        "--port",
-        String(options.port),
-      ]);
+      console.log("Starting Atmos local runtime...");
+      const startResult = startLocalRuntime(cliInstall, options.port);
       try {
         const payload = JSON.parse(startResult.stdout || "{}");
         actualUrl = payload?.status?.url || actualUrl;
       } catch {}
+      console.log(`Atmos local runtime is running: ${actualUrl}`);
       if (!options.noOpen) {
         openBrowser(actualUrl);
       }
@@ -292,6 +305,8 @@ async function main() {
     console.log(`Atmos CLI: ${cliInstall}`);
     console.log(`Installed release: ${resolvedVersion}`);
     console.log(`Local app URL: ${actualUrl}`);
+    console.log(`Start later with: ${cliInstall} runtime ensure`);
+    console.log(`Stop with: ${cliInstall} runtime stop`);
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }

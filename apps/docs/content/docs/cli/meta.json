@@ -3,5 +3,5 @@
   "description": "CLI reference",
   "icon": "Terminal",
   "root": true,
-  "pages": ["index", "runtime", "computer", "canvas", "review", "local", "update"]
+  "pages": ["index", "runtime", "computer", "canvas", "review", "update"]
 }

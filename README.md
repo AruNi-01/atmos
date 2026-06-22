@@ -50,20 +50,8 @@ For **Linux/Windows**, download the installer directly from GitHub Releases:
 
 ### Local Web Runtime
 
-#### Option 1: Install Script
-
 ```bash
 curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
-```
-
-#### Option 2: npm/bun Package
-
-```bash
-# Using npm
-npx @atmos/local-web-runtime
-
-# Using bun
-bunx @atmos/local-web-runtime
 ```
 
 ### Quick Use
@@ -76,7 +64,7 @@ bunx @atmos/local-web-runtime
 
 #### Local Web Runtime
 
-1. Install via install script or npm/bun package.
+1. Install via the install script.
 2. The runtime will start automatically (or run `~/.atmos/bin/atmos runtime ensure`).
 3. Open your browser to the displayed URL (default: `http://127.0.0.1:30303`).
 4. Create a workspace and start working with agents.

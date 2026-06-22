@@ -112,7 +112,7 @@ async fn status() -> Result<Value, String> {
         "local_api": local,
         "hint": match (&identity, local.running) {
             (None, _) => "Not registered. Create a register token in Settings, then: atmos computer register --token <token>",
-            (Some(_), false) => "Registered. Run: atmos computer start --token … (or atmos runtime ensure)",
+            (Some(_), false) => "Registered. Run: atmos computer start --token <token> (or atmos runtime ensure)",
             (Some(_), true) => "Registered and API is running. Connect from another device via Settings → Connect via relay",
         },
     }))

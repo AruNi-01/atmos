@@ -50,20 +50,8 @@ curl -fsSL https://install.atmos.land/install-desktop.sh | bash
 
 ### 本地 Web 运行时
 
-#### 方式一：安装脚本
-
 ```bash
 curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
-```
-
-#### 方式二：npm/bun 包
-
-```bash
-# 使用 npm
-npx @atmos/local-web-runtime
-
-# 使用 bun
-bunx @atmos/local-web-runtime
 ```
 
 ### 快速上手
@@ -76,7 +64,7 @@ bunx @atmos/local-web-runtime
 
 #### 本地 Web 运行时
 
-1. 通过安装脚本或 npm/bun 包安装。
+1. 通过安装脚本安装。
 2. 运行时会自动启动（或手动执行 `~/.atmos/bin/atmos runtime ensure`）。
 3. 在浏览器中打开显示的 URL（默认：`http://127.0.0.1:30303`）。
 4. 创建工作区，开始使用 Agent。

@@ -12,7 +12,7 @@ Cross-cutting runtime guidance for Atmos agents. Load this when work touches loc
 
 ## Unified Local Runtime
 
-One `apps/api` process per machine is the default Atmos Server. Desktop, CLI, and `npx @atmos/local-web-runtime` are entry points, not separate API products.
+One `apps/api` process per machine is the default Atmos Server. Desktop, CLI, and the local web runtime installer are entry points, not separate API products.
 
 | Piece | Location |
 |-------|----------|

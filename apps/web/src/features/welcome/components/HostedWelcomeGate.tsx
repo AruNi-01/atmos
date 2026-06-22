@@ -37,6 +37,7 @@ import {
 } from '@/features/connection/lib/atmos-computer-store';
 import {
   createHostedRemoteSession,
+  detectHostedLocalServer,
   ensureHostedAccessTokenReady,
   listHostedRemoteComputers,
 } from '@/features/connection/lib/hosted-connection';
@@ -130,7 +131,11 @@ function HostedConnectionOnboarding() {
     localStatus,
     localError,
     remoteError,
+    startChecking,
     setConnected,
+    setLocalAvailable,
+    setLocalUnavailable,
+    setOnboarding,
     setRemoteError,
   } = useHostedConnectionStore(
     useShallow((s) => ({
@@ -139,7 +144,11 @@ function HostedConnectionOnboarding() {
       localStatus: s.localStatus,
       localError: s.localError,
       remoteError: s.remoteError,
+      startChecking: s.startChecking,
       setConnected: s.setConnected,
+      setLocalAvailable: s.setLocalAvailable,
+      setLocalUnavailable: s.setLocalUnavailable,
+      setOnboarding: s.setOnboarding,
       setRemoteError: s.setRemoteError,
     })),
   );
@@ -269,6 +278,20 @@ function HostedConnectionOnboarding() {
     }
   };
 
+  const onRefreshLocal = async () => {
+    startChecking();
+    try {
+      const local = await detectHostedLocalServer();
+      setLocalAvailable(local.config, local.status);
+    } catch (err) {
+      setLocalUnavailable(
+        err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
+      );
+    } finally {
+      setOnboarding();
+    }
+  };
+
   const onConnectLocal = async () => {
     if (!localApiConfig) {
       return;
@@ -364,8 +387,8 @@ function HostedConnectionOnboarding() {
                 <ScrollArea className="flex-1 min-h-0 rounded-[inherit]" scrollbarGutter>
                   <div className="min-h-full space-y-4 pe-2 pb-4">
                     <section className="rounded-xl border border-border/70 bg-muted/15 p-5">
-                      <div>
-                        <div>
+                      <div className="flex flex-wrap items-start gap-3">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <h2 className="text-base font-medium text-foreground">Local Atmos Server</h2>
                             {localProbeState === 'available' ? (
@@ -392,6 +415,21 @@ function HostedConnectionOnboarding() {
                             </p>
                           ) : null}
                         </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="ml-auto shrink-0"
+                          onClick={() => void onRefreshLocal()}
+                          disabled={localProbeState === 'checking' || busyAction !== null}
+                        >
+                          {localProbeState === 'checking' ? (
+                            <LoaderCircle className="mr-2 size-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="mr-2 size-4" />
+                          )}
+                          Check again
+                        </Button>
                       </div>
 
                       {localProbeState === 'available' ? (
@@ -420,7 +458,7 @@ function HostedConnectionOnboarding() {
                             <p className="text-sm font-medium text-foreground">Install and start Atmos locally</p>
                             <p className="mt-1 text-sm text-muted-foreground">
                               Use the local web runtime installer below. It installs Atmos and starts the
-                              local server for you.
+                              local server for you. After it starts, check again here.
                             </p>
                           </div>
                           <div className="space-y-3">

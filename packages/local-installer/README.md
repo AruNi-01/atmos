@@ -1,18 +1,14 @@
 # `@atmos/local-web-runtime`
 
-Install and run the local Atmos web runtime on your machine.
+Installer package for the local Atmos web runtime.
 
 ## Usage
 
 ```bash
-npx @atmos/local-web-runtime
+curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 ```
 
-Or with Bun:
-
-```bash
-bunx @atmos/local-web-runtime
-```
+The npm package is kept for the release pipeline, but end-user installs should use the shell installer until npm publishing is enabled.
 
 ## What it does
 
@@ -25,5 +21,5 @@ bunx @atmos/local-web-runtime
 ## Options
 
 ```bash
-npx @atmos/local-web-runtime --help
+curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash -s -- --help
 ```

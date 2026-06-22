@@ -288,12 +288,13 @@ ensure_path_hint "${INSTALL_ROOT}/bin"
 echo "Installed Atmos local runtime to ${INSTALL_ROOT}/runtime/current"
 
 if [[ "$NO_START" -eq 0 ]]; then
-  START_OUTPUT="$("${INSTALL_ROOT}/bin/atmos" local start --force-restart --port "$PORT")"
-  printf '%s\n' "$START_OUTPUT"
+  echo "Starting Atmos local runtime..."
+  START_OUTPUT="$("${INSTALL_ROOT}/bin/atmos" --json runtime ensure --force-restart --port "$PORT")"
   ACTUAL_URL="$(printf '%s' "$START_OUTPUT" | parse_runtime_url)"
   if [[ -z "$ACTUAL_URL" ]]; then
     ACTUAL_URL="http://127.0.0.1:${PORT}"
   fi
+  echo "Atmos local runtime is running: ${ACTUAL_URL}"
   open_browser "$ACTUAL_URL"
 fi
 

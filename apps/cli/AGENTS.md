@@ -21,7 +21,6 @@ apps/cli/
 │   ├── main.rs
 │   └── commands/
 │       ├── runtime.rs     # atmos runtime ensure|stop|status
-│       ├── local.rs       # alias → runtime (legacy JSON shape)
 │       ├── computer.rs    # relay register + ensure API (APP-016)
 │       ├── canvas.rs      # HTTP → /api/canvas/agent/invoke
 │       ├── review.rs      # HTTP → /api/review/*
@@ -35,8 +34,7 @@ apps/cli/
 
 | Command | Purpose |
 |---------|---------|
-| `atmos runtime` | **Preferred** — ensure/stop/status local API via `runtime-manager::supervisor` |
-| `atmos local` | Back-compat wrapper around `runtime` |
+| `atmos runtime` | Ensure/stop/status local API via `runtime-manager::supervisor` |
 | `atmos computer` | Register on relay (`register_token`) + `ensure` API on this host |
 | `atmos canvas` | Agent canvas control — resolves API URL via `resolve_api_base_url()` |
 | `atmos review` | HTTP client to `/api/review/*` (same API base resolution as canvas) |
@@ -55,7 +53,7 @@ Token: `--api-token` → `ATMOS_API_TOKEN` → `ATMOS_LOCAL_TOKEN` → `client-s
 
 ## Coding Conventions
 
-- Subcommands return `serde_json::Value` printed from `main`.
+- Subcommands return `serde_json::Value`; `main` prints human-readable output for host operations by default and keeps `--json` for machine-readable output.
 - **Supervisor** spawns installed layout under `~/.atmos/runtime/current` (or dev paths) — same binary Desktop uses when bundled.
 - Do not embed `core-service` / `infra` — all review/canvas state goes through the API.
 

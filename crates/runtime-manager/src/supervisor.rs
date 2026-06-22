@@ -540,7 +540,7 @@ fn runtime_log_path() -> Result<PathBuf, String> {
 fn ensure_runtime_installed(layout: &RuntimeLayout) -> Result<(), String> {
     if !layout.api_bin_path.is_file() {
         return Err(format!(
-            "Atmos runtime is not installed (missing {}). Run `npx @atmos/local-web-runtime` or install Desktop.",
+            "Atmos runtime is not installed.\nMissing: {}\n\nInstall it with:\n  curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash\n\nOr install/open Atmos Desktop.",
             layout.api_bin_path.display()
         ));
     }

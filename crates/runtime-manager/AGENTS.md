@@ -56,7 +56,7 @@ crates/runtime-manager/src/
 | Crate / app | Features used |
 |-------------|----------------|
 | `apps/api` | `client` — manifest write, relay register env token, read identity |
-| `apps/cli` | `client` + `supervisor` — `atmos runtime`, `atmos local`, `atmos computer` |
+| `apps/cli` | `client` + `supervisor` — `atmos runtime`, `atmos computer` |
 | `apps/desktop` | `client` + `supervisor` — `src-tauri/src/runtime.rs` |
 
 ---
