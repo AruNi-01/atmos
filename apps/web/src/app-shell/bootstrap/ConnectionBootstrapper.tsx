@@ -49,18 +49,24 @@ export function ConnectionBootstrapper() {
         const preferredTarget = readHostedConnectionPreference();
 
         try {
+          let local: Awaited<ReturnType<typeof detectHostedLocalServer>> | null = null;
           try {
-            const local = await detectHostedLocalServer();
+            local = await detectHostedLocalServer();
             hostedStore.setLocalAvailable(local.config, local.status);
-            if (preferredTarget === 'local') {
-              await activateHostedLocalConnection(local.config);
-              hostedStore.setConnected('local');
-              return;
-            }
           } catch (err) {
             hostedStore.setLocalUnavailable(
               err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
             );
+          }
+
+          if (local && preferredTarget === 'local') {
+            try {
+              await activateHostedLocalConnection(local.config);
+              hostedStore.setConnected('local');
+              return;
+            } catch (err) {
+              console.warn('[ConnectionBootstrapper] hosted local reconnect failed:', err);
+            }
           }
 
           const {
