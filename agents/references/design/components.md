@@ -180,4 +180,3 @@ Rules:
 - Tell the user what will appear here.
 - Provide the next action when obvious.
 - Do not add marketing copy or illustrations.
-

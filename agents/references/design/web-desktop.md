@@ -58,4 +58,3 @@ Rules:
 - Keep scrollbars subtle.
 - Use color only for meaningful state.
 - Keep agent indicators visible but secondary to the tool.
-
