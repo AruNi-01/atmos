@@ -316,7 +316,7 @@ function indexHtml({ projectName, width, height, duration }) {
         <div class="body">Use $hyperframes for composition and follow the project DESIGN.md and SCRIPT.md.</div>
       </main>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <script src="./node_modules/gsap/dist/gsap.min.js"></script>
     <script>
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
