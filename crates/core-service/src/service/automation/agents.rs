@@ -1491,7 +1491,7 @@ mod tests {
             (
                 "hermes",
                 PromptStrategy::PromptFlag,
-                vec!["--yolo", "--accept-hooks", "--oneshot"],
+                vec!["chat", "--yolo", "-q"],
                 PromptDelivery::Arg,
                 StdoutParser::Plain,
             ),

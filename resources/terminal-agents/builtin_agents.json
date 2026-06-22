@@ -246,7 +246,7 @@
     "id": "hermes",
     "label": "Hermes Agent",
     "cmd": "hermes",
-    "params": "--yolo --accept-hooks --oneshot",
+    "params": "chat --yolo -q",
     "interactiveParams": "chat --yolo",
     "promptStrategy": "prompt_flag",
     "modelSupport": "none",

@@ -221,6 +221,16 @@ export function buildInteractiveAgentCommand(args: {
   if (strategy === "stdin") {
     return `echo ${quotedPrompt} | ${baseCommand}`;
   }
+  if (strategy === "prompt_flag" && definition?.params?.trim()) {
+    const promptedBaseCommand = [
+      definition.cmd,
+      definition.params,
+      ...structuredArgs.map((item) => shellQuote(item)),
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return `${promptedBaseCommand} ${quotedPrompt}`;
+  }
   return `${baseCommand} ${quotedPrompt}`;
 }
 
