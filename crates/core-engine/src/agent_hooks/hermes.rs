@@ -1,3 +1,4 @@
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use tracing::{debug, info};
@@ -274,12 +275,20 @@ fn remove_config_block(current: &str) -> String {
     next
 }
 
+#[cfg(unix)]
 fn make_executable(path: &std::path::Path) -> std::result::Result<(), String> {
     let mut perms = std::fs::metadata(path)
         .map_err(|error| error.to_string())?
         .permissions();
     perms.set_mode(perms.mode() | 0o700);
     std::fs::set_permissions(path, perms).map_err(|error| error.to_string())
+}
+
+#[cfg(not(unix))]
+fn make_executable(path: &std::path::Path) -> std::result::Result<(), String> {
+    std::fs::metadata(path)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 fn shell_quote_str(raw: &str) -> String {
