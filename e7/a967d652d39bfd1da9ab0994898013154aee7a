@@ -1,0 +1,26 @@
+apps/web/src/features/diff/lib/code-view-ui.tsx
+  s_5212fc77643368::t_abe768ad612a71 75,105,140
+  s_5212fc77643368::t_b9635b8fc6172a 21-23,25-39,41-68,70-71,73-74,76-78
+apps/web/src/features/diff/components/useDiffPromptStash.tsx
+  s_5212fc77643368::t_eedafeab9a141b 1-389
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  s_5212fc77643368::t_fb60147da1ac51 5,8,22-25
+  s_5212fc77643368::t_c0725e55879089 39,167-169
+  s_5212fc77643368::t_4fd60f29e03115 111,113-118,170-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "e7a967d652d39bfd1da9ab0994898013154aee7a",
+  "prompts": {},
+  "sessions": {
+    "s_5212fc77643368": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef1c7-3053-7db3-a534-78bea52aced3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
