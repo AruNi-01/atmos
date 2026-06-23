@@ -1,0 +1,26 @@
+apps/web/src/features/automations/hooks/use-github-trigger-setup.ts
+  s_4367601dbfa873::t_302b23bc97b580 134-137,139-140
+packages/relay/test/event-routes.test.ts
+  s_4367601dbfa873::t_51737b1ae4ad1a 10,311-342
+apps/web/src/features/automations/components/AutomationGithubTriggerPanel.tsx
+  s_4367601dbfa873::t_9dabe2b0f7b856 208
+  s_4367601dbfa873::t_302b23bc97b580 207,209
+packages/relay/src/event-routes.ts
+  s_4367601dbfa873::t_302b23bc97b580 220,222,568-584,794-815
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "b1e64b5a8142242198c045615e6385cefc49dc91",
+  "prompts": {},
+  "sessions": {
+    "s_4367601dbfa873": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef3d6-c81d-7993-972e-3b7833e6151e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
