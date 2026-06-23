@@ -1,3 +1,5 @@
+import { isHostedAtmosOrigin } from "@/shared/lib/desktop-runtime";
+
 interface TerminalWsUrlParams {
   cwd?: string;
   isNewPane?: boolean;
@@ -11,6 +13,9 @@ interface TerminalWsUrlParams {
 }
 
 function getTerminalWsBaseUrl() {
+  if (typeof window !== "undefined" && isHostedAtmosOrigin()) {
+    return `ws://127.0.0.1:${process.env.NEXT_PUBLIC_API_PORT || "30303"}`;
+  }
   if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
   if (process.env.NEXT_PUBLIC_API_PORT) {
     return `ws://localhost:${process.env.NEXT_PUBLIC_API_PORT}`;

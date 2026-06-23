@@ -21,7 +21,7 @@ import "@xterm/xterm/css/xterm.css";
 import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "../lib/theme";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
-import { getRuntimeApiConfig, isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { getRuntimeApiConfig, wsBase } from "@/shared/lib/desktop-runtime";
 import { createTerminalLinkProvider } from "../lib/terminal-link-routing";
 import {
   DISABLE_TUI_MOUSE_TRACKING,
@@ -559,14 +559,15 @@ const Terminal = ({
     const buildRuntimeWsUrl = async () => {
       let runtimeWsUrl = wsUrl;
       try {
-        const { host, port, token } = await getRuntimeApiConfig();
+        const cfg = await getRuntimeApiConfig();
         const urlObj = new URL(wsUrl);
-        if (port) {
-          urlObj.host = `${host}:${port}`;
-          urlObj.protocol = isTauriRuntime() ? "ws:" : urlObj.protocol;
+        if (cfg.port) {
+          const runtimeBase = new URL(wsBase(cfg));
+          urlObj.host = runtimeBase.host;
+          urlObj.protocol = runtimeBase.protocol;
         }
-        if (token) {
-          urlObj.searchParams.set("token", token);
+        if (cfg.token) {
+          urlObj.searchParams.set("token", cfg.token);
         }
         runtimeWsUrl = urlObj.toString();
       } catch {

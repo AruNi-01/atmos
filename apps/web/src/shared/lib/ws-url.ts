@@ -1,4 +1,8 @@
-import { getRuntimeApiConfig, isTauriRuntime } from "./desktop-runtime";
+import {
+  getRuntimeApiConfig,
+  isHostedAtmosOrigin,
+  wsBase,
+} from "./desktop-runtime";
 
 /**
  * Build a fully-qualified WebSocket URL, handling protocol detection,
@@ -10,20 +14,7 @@ export async function buildWsUrl(
 ): Promise<string> {
   const cfg = await getRuntimeApiConfig();
 
-  const protocol =
-    typeof window !== "undefined" && window.location.protocol === "https:"
-      ? "wss:"
-      : "ws:";
-
-  // Browser dev: WS must hit the API port directly (Next dev server does not proxy upgrades).
-  const base =
-    !isTauriRuntime() &&
-    typeof window !== "undefined" &&
-    process.env.NODE_ENV === "development"
-      ? `${protocol}//127.0.0.1:${cfg.port}`
-      : isTauriRuntime()
-        ? `ws://${cfg.host}:${cfg.port}`
-        : `${protocol}//${cfg.host}:${cfg.port}`;
+  const base = wsBase(cfg);
 
   const url = new URL(path, base);
 
@@ -50,6 +41,17 @@ export function buildWsUrlSync(
 ): string {
   if (typeof window === "undefined") {
     return `ws://localhost:30303${path}`;
+  }
+
+  if (isHostedAtmosOrigin()) {
+    const port = process.env.NEXT_PUBLIC_API_PORT || "30303";
+    const url = new URL(path, `ws://127.0.0.1:${port}`);
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        url.searchParams.set(key, value);
+      }
+    }
+    return url.toString();
   }
 
   const protocol =
