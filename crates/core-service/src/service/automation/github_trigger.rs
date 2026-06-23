@@ -40,6 +40,8 @@ pub struct GithubTriggerFilters {
     pub label: Option<String>,
     #[serde(default)]
     pub sender_logins: Vec<String>,
+    #[serde(default)]
+    pub workflow_name: Option<String>,
     #[serde(default, alias = "conclusions")]
     pub workflow_conclusions: Vec<String>,
 }
@@ -107,6 +109,14 @@ impl GithubTriggerConfig {
         self.repository_full_name = normalize_repository_full_name(&self.repository_full_name)?;
         self.actions = normalize_actions(&self.event_family, &self.actions)?;
         self.filters = self.filters.canonicalize()?;
+        if matches!(self.event_family, GithubEventFamily::WorkflowRun) {
+            let workflow_name = self.filters.workflow_name.as_deref().unwrap_or_default();
+            if workflow_name.trim().is_empty() || is_any(workflow_name) {
+                return Err(ServiceError::Validation(
+                    "Workflow name is required for workflow_run triggers.".to_string(),
+                ));
+            }
+        }
         Ok(self)
     }
 
@@ -136,6 +146,7 @@ impl GithubTriggerFilters {
             .and_then(|value| non_empty_trimmed(&value));
         self.label = self.label.and_then(|value| non_empty_trimmed(&value));
         self.sender_logins = normalize_sender_logins(&self.sender_logins)?;
+        self.workflow_name = self.workflow_name.and_then(|value| non_empty_trimmed(&value));
         self.workflow_conclusions = normalize_workflow_conclusions(&self.workflow_conclusions)?;
         Ok(self)
     }
@@ -290,6 +301,7 @@ fn filters_match(filters: &GithubTriggerFilters, event: &GithubTriggerEvent) -> 
             event.untrusted_text_excerpt.as_deref(),
         )
         && label_matches(filters.label.as_deref(), event.label_name.as_deref())
+        && workflow_name_matches(filters.workflow_name.as_deref(), event.workflow_name.as_deref())
         && conclusion_matches(&filters.workflow_conclusions, event.conclusion.as_deref())
 }
 
@@ -304,6 +316,16 @@ fn sender_matches(allowed: &[String], sender: Option<&str>) -> bool {
         .iter()
         .map(|value| normalize_token(value))
         .any(|value| value == sender)
+}
+
+fn workflow_name_matches(pattern: Option<&str>, workflow_name: Option<&str>) -> bool {
+    let Some(pattern) = pattern.map(str::trim).filter(|value| !value.is_empty()) else {
+        return true;
+    };
+    workflow_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some_and(|value| value == pattern)
 }
 
 fn branch_matches(pattern: Option<&str>, branch: Option<&str>) -> bool {
@@ -675,6 +697,7 @@ mod tests {
                 comment_contains: Some("/atmos".to_string()),
                 label: None,
                 sender_logins: vec!["alice".to_string()],
+                workflow_name: None,
                 workflow_conclusions: vec![],
             },
         };
@@ -713,6 +736,52 @@ mod tests {
         assert!(context.contains("Label: atmos-judge-approve"));
         event.label_name = Some("bug".to_string());
         assert!(!config.matches_event(&event));
+    }
+
+    #[test]
+    fn github_trigger_matches_workflow_name_filter() {
+        let config = GithubTriggerConfig {
+            route_id: "route-1".to_string(),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
+            repository_full_name: "owner/repo".to_string(),
+            event_family: GithubEventFamily::WorkflowRun,
+            actions: vec!["completed".to_string()],
+            filters: GithubTriggerFilters {
+                workflow_name: Some("CI".to_string()),
+                workflow_conclusions: vec!["failure".to_string()],
+                ..Default::default()
+            },
+        };
+        let mut event = event();
+        event.event_name = "workflow_run".to_string();
+        event.action = Some("completed".to_string());
+        event.workflow_name = Some("CI".to_string());
+        event.conclusion = Some("failure".to_string());
+
+        assert!(config.matches_event(&event));
+        event.workflow_name = Some("Release".to_string());
+        assert!(!config.matches_event(&event));
+    }
+
+    #[test]
+    fn github_trigger_requires_workflow_name_for_workflow_run() {
+        let error = GithubTriggerConfig {
+            route_id: "route-1".to_string(),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
+            repository_full_name: "owner/repo".to_string(),
+            event_family: GithubEventFamily::WorkflowRun,
+            actions: vec!["completed".to_string()],
+            filters: GithubTriggerFilters {
+                workflow_name: Some("*".to_string()),
+                ..Default::default()
+            },
+        }
+        .canonicalize()
+        .unwrap_err();
+
+        assert!(matches!(error, ServiceError::Validation(_)));
     }
 
     #[test]

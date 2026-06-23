@@ -16,6 +16,7 @@ export interface GithubTriggerFilters {
   comment_contains?: string | null;
   label?: string | null;
   sender_logins?: string[];
+  workflow_name?: string | null;
   workflow_conclusions?: string[];
 }
 
@@ -96,6 +97,7 @@ function normalizeGithubTriggerFilters(value: unknown): GithubTriggerFilters {
     sender_logins: Array.isArray(filters.sender_logins)
       ? filters.sender_logins.filter((login): login is string => typeof login === "string")
       : [],
+    workflow_name: typeof filters.workflow_name === "string" ? filters.workflow_name : null,
     workflow_conclusions: Array.isArray(filters.workflow_conclusions)
       ? filters.workflow_conclusions.filter((conclusion): conclusion is string => typeof conclusion === "string")
       : [],

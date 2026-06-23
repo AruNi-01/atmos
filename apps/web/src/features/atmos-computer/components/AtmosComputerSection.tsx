@@ -814,6 +814,7 @@ export function AtmosComputerSection() {
     hasConfiguredKey && Boolean(tokenDraftTrimmed) && (!hasBrowserKey || tokenDraftChanged);
   const canSaveTokenDraft =
     Boolean(tokenDraftTrimmed) && (!hasConfiguredKey || !hasBrowserKey || tokenDraftChanged);
+  const keyHiddenOnHostedWeb = hasConfiguredKey && !hasBrowserKey;
 
   return (
     <div className="space-y-4">
@@ -938,25 +939,31 @@ export function AtmosComputerSection() {
                 autoComplete="off"
                 value={tokenDraft}
                 onChange={e => setTokenDraft(e.target.value)}
-                placeholder="Paste your access key or generate a new one"
-                className="pr-10"
+                placeholder={
+                  keyHiddenOnHostedWeb
+                    ? 'Access key is saved on this Computer'
+                    : 'Paste your access key or generate a new one'
+                }
+                className={keyHiddenOnHostedWeb ? undefined : 'pr-10'}
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
-                disabled={busy !== null || !tokenDraft.trim()}
-                onClick={() => void onCopyToken()}
-                title={tokenCopied ? 'Copied' : 'Copy access key'}
-                aria-label={tokenCopied ? 'Copied' : 'Copy access key'}
-              >
-                {tokenCopied ? (
-                  <Check className="size-4 text-emerald-500" />
-                ) : (
-                  <Copy className="size-4" />
-                )}
-              </Button>
+              {keyHiddenOnHostedWeb ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
+                  disabled={busy !== null || !tokenDraft.trim()}
+                  onClick={() => void onCopyToken()}
+                  title={tokenCopied ? 'Copied' : 'Copy access key'}
+                  aria-label={tokenCopied ? 'Copied' : 'Copy access key'}
+                >
+                  {tokenCopied ? (
+                    <Check className="size-4 text-emerald-500" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                </Button>
+              )}
             </div>
             <Button
               type="button"
@@ -974,29 +981,23 @@ export function AtmosComputerSection() {
               )}
             </Button>
           </div>
-          {hasConfiguredKey && !hasBrowserKey ? (
+          {isSwitchingIdentity || keyHiddenOnHostedWeb || !hasConfiguredKey ? (
             <p className="text-xs leading-5 text-muted-foreground">
-              An access key is saved on this Computer. Hosted web keeps it hidden and asks this Computer
-              to sign Relay requests.
+              {isSwitchingIdentity
+                ? 'Switch Identity replaces the local key directly. Existing Computers and GitHub routes from the current key will not move.'
+                : keyHiddenOnHostedWeb
+                  ? 'An access key is saved on this Computer. Hosted web keeps it hidden; paste a new key only to replace it.'
+                  : 'Generate or paste an access key to create or use an Atmos Computer identity.'}
             </p>
           ) : null}
-          <p className="text-xs leading-5 text-muted-foreground">
-            {isSwitchingIdentity
-              ? 'Switch Identity replaces the local key directly. Existing Computers and GitHub routes from the current key will not move.'
-              : hasBrowserKey
-                ? 'Use Rotate Access Token below to replace this credential while keeping the same Computers and GitHub routes.'
-                : hasConfiguredKey
-                  ? 'An access key is saved on this Computer. It is hidden in hosted web; paste a new key only to replace it.'
-                : 'Generate or paste an access key to create or use an Atmos Computer identity.'}
-          </p>
         </div>
         {hasBrowserKey ? (
           <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">Rotate Access Token</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Uses the current local key to rotate credentials on Relay, then saves the new key
-                after Relay confirms.
+                Use rotation when the Relay access token may be exposed or you want a security refresh.
+                Existing Computers stay connected.
               </p>
             </div>
             <Button

@@ -283,6 +283,12 @@ export async function upsertGithubEventRoute(
   ) {
     return json({ error: "invalid_route" }, 400);
   }
+  if (
+    eventName === "workflow_run" &&
+    (!filters.workflow_name || isAny(normalizeToken(filters.workflow_name)))
+  ) {
+    return json({ error: "workflow_name_required" }, 400);
+  }
 
   const computer = await env.DB.prepare(
     `SELECT 1 AS ok FROM computers

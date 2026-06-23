@@ -307,6 +307,7 @@ export function AutomationSetup({
     githubBranchFilter,
     githubCommentContains,
     githubSenderLogins,
+    githubWorkflowName,
     githubWorkflowConclusion,
     githubSetupMessage,
     buildGithubConfig,
@@ -322,6 +323,7 @@ export function AutomationSetup({
     setGithubBranchFilter,
     setGithubCommentContains,
     setGithubSenderLogins,
+    setGithubWorkflowName,
     setGithubWorkflowConclusion,
   } = useGithubTriggerSetup({ mode, initialAutomation, trigger });
 
@@ -654,6 +656,7 @@ export function AutomationSetup({
                       githubBranchFilter,
                       githubCommentContains,
                       githubSenderLogins,
+                      githubWorkflowName,
                       githubWorkflowConclusion,
                       onTriggerChange: (nextTrigger) => {
                         setTrigger(nextTrigger);
@@ -684,9 +687,6 @@ export function AutomationSetup({
                         setGithubEventFamily(family);
                         if (family === "issues") {
                           setGithubIssueAction("labeled");
-                          if (!githubIssueLabel.trim()) {
-                            setGithubIssueLabel("atmos-judge-approve");
-                          }
                         }
                         clearSubmitError();
                       },
@@ -697,6 +697,7 @@ export function AutomationSetup({
                       onGithubBranchFilterChange: setGithubBranchFilter,
                       onGithubCommentContainsChange: setGithubCommentContains,
                       onGithubSenderLoginsChange: setGithubSenderLogins,
+                      onGithubWorkflowNameChange: setGithubWorkflowName,
                       onGithubWorkflowConclusionChange:
                         setGithubWorkflowConclusion,
                     }}

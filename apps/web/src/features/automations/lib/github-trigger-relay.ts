@@ -198,6 +198,9 @@ function relayFilters(config: GithubTriggerConfig): Record<string, unknown> {
   if (config.filters.workflow_conclusions?.length) {
     filters.conclusions = config.filters.workflow_conclusions;
   }
+  if (config.filters.workflow_name?.trim()) {
+    filters.workflow_name = config.filters.workflow_name.trim();
+  }
   return filters;
 }
 

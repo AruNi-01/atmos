@@ -109,6 +109,7 @@ export function AutomationGithubTriggerPanel({
   branchFilter,
   commentContains,
   senderLogins,
+  workflowName,
   workflowConclusion,
   onStartSetup,
   onRefreshInstallations,
@@ -122,6 +123,7 @@ export function AutomationGithubTriggerPanel({
   onBranchFilterChange,
   onCommentContainsChange,
   onSenderLoginsChange,
+  onWorkflowNameChange,
   onWorkflowConclusionChange,
 }: {
   relayReady: boolean;
@@ -141,6 +143,7 @@ export function AutomationGithubTriggerPanel({
   branchFilter: string;
   commentContains: string;
   senderLogins: string;
+  workflowName: string;
   workflowConclusion: string;
   onStartSetup: () => void;
   onRefreshInstallations: () => void;
@@ -154,6 +157,7 @@ export function AutomationGithubTriggerPanel({
   onBranchFilterChange: (value: string) => void;
   onCommentContainsChange: (value: string) => void;
   onSenderLoginsChange: (value: string) => void;
+  onWorkflowNameChange: (value: string) => void;
   onWorkflowConclusionChange: (value: string) => void;
 }) {
   return (
@@ -289,9 +293,9 @@ export function AutomationGithubTriggerPanel({
                 />
               ) : null}
               <TextField
-                label="Sender logins"
+                label="GitHub users"
                 value={senderLogins}
-                placeholder="alice,octocat"
+                placeholder="Triggering GitHub usernames"
                 onChange={onSenderLoginsChange}
               />
             </div>
@@ -306,9 +310,9 @@ export function AutomationGithubTriggerPanel({
                 onChange={onCommentContainsChange}
               />
               <TextField
-                label="Sender logins"
+                label="GitHub users"
                 value={senderLogins}
-                placeholder="alice,octocat"
+                placeholder="Triggering GitHub usernames"
                 onChange={onSenderLoginsChange}
               />
             </div>
@@ -324,12 +328,20 @@ export function AutomationGithubTriggerPanel({
           ) : null}
 
           {eventFamily === "workflow_run" ? (
-            <SelectField
-              label="Conclusion"
-              value={workflowConclusion}
-              options={WORKFLOW_CONCLUSIONS}
-              onChange={onWorkflowConclusionChange}
-            />
+            <div className="grid gap-2">
+              <TextField
+                label="Workflow name"
+                value={workflowName}
+                placeholder="CI"
+                onChange={onWorkflowNameChange}
+              />
+              <SelectField
+                label="Conclusion"
+                value={workflowConclusion}
+                options={WORKFLOW_CONCLUSIONS}
+                onChange={onWorkflowConclusionChange}
+              />
+            </div>
           ) : null}
         </>
       ) : null}

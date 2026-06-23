@@ -175,6 +175,26 @@ describe("GitHub event routes", () => {
     expect(routeMatchesEvent(route, event)).toBe(true);
   });
 
+  test("matches workflow run routes by workflow name", () => {
+    const route = baseRoute({
+      event_name: "workflow_run",
+      action: "completed",
+      filters_json: JSON.stringify({
+        workflow_name: "CI",
+        conclusions: ["failure"],
+      }),
+    });
+    const event = baseEvent({
+      eventName: "workflow_run",
+      action: "completed",
+      workflowName: "CI",
+      conclusion: "failure",
+    });
+
+    expect(routeMatchesEvent(route, event)).toBe(true);
+    expect(routeMatchesEvent(route, { ...event, workflowName: "Release" })).toBe(false);
+  });
+
   test("matches repository id before full name so repo renames still route", () => {
     const route = baseRoute({ repository_full_name: "Atmos/OldName" });
     const event = baseEvent({ repositoryFullName: "Atmos/NewName" });

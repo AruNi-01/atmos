@@ -43,11 +43,12 @@ export function useGithubTriggerSetup({
   const [githubRepositoryFullName, setGithubRepositoryFullName] = React.useState("");
   const [githubEventFamily, setGithubEventFamily] = React.useState<GithubEventFamily>("pull_request");
   const [githubIssueAction, setGithubIssueAction] = React.useState("labeled");
-  const [githubIssueLabel, setGithubIssueLabel] = React.useState("atmos-judge-approve");
+  const [githubIssueLabel, setGithubIssueLabel] = React.useState("");
   const [githubPullRequestAction, setGithubPullRequestAction] = React.useState("opened");
   const [githubBranchFilter, setGithubBranchFilter] = React.useState("main");
   const [githubCommentContains, setGithubCommentContains] = React.useState("");
   const [githubSenderLogins, setGithubSenderLogins] = React.useState("");
+  const [githubWorkflowName, setGithubWorkflowName] = React.useState("");
   const [githubWorkflowConclusion, setGithubWorkflowConclusion] = React.useState("failure");
   const [githubLoading, setGithubLoading] = React.useState(false);
   const [githubRepositoriesLoading, setGithubRepositoriesLoading] = React.useState(false);
@@ -73,12 +74,15 @@ export function useGithubTriggerSetup({
       ? "Choose an installation and repository. Relay stores route metadata only."
       : "Install or update the Atmos GitHub App for this Relay tenant."
     : "GitHub webhooks require a connected Atmos Computer with Relay configured.";
+  const githubWorkflowRunReady =
+    githubEventFamily !== "workflow_run" || githubWorkflowName.trim().length > 0;
   const githubRouteReady =
     trigger !== "github" ||
     (githubRelayReady &&
       !!githubInstallationId &&
       githubRepositoryFullName.trim().length > 0 &&
-      githubInstallations.length > 0);
+      githubInstallations.length > 0 &&
+      githubWorkflowRunReady);
 
   React.useEffect(() => {
     void ensureComputerClientSettingsHydrated();
@@ -99,11 +103,12 @@ export function useGithubTriggerSetup({
       setGithubRepositoryFullName("");
       setGithubEventFamily("pull_request");
       setGithubIssueAction("labeled");
-      setGithubIssueLabel("atmos-judge-approve");
+      setGithubIssueLabel("");
       setGithubPullRequestAction("opened");
       setGithubBranchFilter("main");
       setGithubCommentContains("");
       setGithubSenderLogins("");
+      setGithubWorkflowName("");
       setGithubWorkflowConclusion("failure");
       return;
     }
@@ -112,11 +117,12 @@ export function useGithubTriggerSetup({
     setGithubRepositoryFullName(initialGithubConfig.repository_full_name);
     setGithubEventFamily(initialGithubConfig.event_family);
     setGithubIssueAction(initialGithubConfig.actions[0] ?? "labeled");
-    setGithubIssueLabel(initialGithubConfig.filters.label ?? "atmos-judge-approve");
+    setGithubIssueLabel(initialGithubConfig.filters.label ?? "");
     setGithubPullRequestAction(initialGithubConfig.actions[0] ?? "opened");
     setGithubBranchFilter(initialGithubConfig.filters.branch ?? "main");
     setGithubCommentContains(initialGithubConfig.filters.comment_contains ?? "");
     setGithubSenderLogins((initialGithubConfig.filters.sender_logins ?? []).join(","));
+    setGithubWorkflowName(initialGithubConfig.filters.workflow_name ?? "");
     setGithubWorkflowConclusion(initialGithubConfig.filters.workflow_conclusions?.[0] ?? "failure");
   }, [initialGithubConfig, mode]);
 
@@ -226,6 +232,9 @@ export function useGithubTriggerSetup({
     if (!githubInstallationId || !githubRepositoryFullName.trim()) {
       return null;
     }
+    if (githubEventFamily === "workflow_run" && !githubWorkflowName.trim()) {
+      return null;
+    }
     const repositoryFullName = githubRepositoryFullName.trim();
     const preservedRepositoryId =
       initialGithubConfig?.installation_id === githubInstallationId &&
@@ -255,8 +264,13 @@ export function useGithubTriggerSetup({
         filters.sender_logins = senderLogins;
       }
     }
-    if (githubEventFamily === "workflow_run" && githubWorkflowConclusion !== "any") {
-      filters.workflow_conclusions = [githubWorkflowConclusion];
+    if (githubEventFamily === "workflow_run") {
+      if (githubWorkflowName.trim()) {
+        filters.workflow_name = githubWorkflowName.trim();
+      }
+      if (githubWorkflowConclusion !== "any") {
+        filters.workflow_conclusions = [githubWorkflowConclusion];
+      }
     }
     return {
       route_id: githubRouteId,
@@ -289,6 +303,7 @@ export function useGithubTriggerSetup({
     githubSelectedRepository?.id,
     githubSenderLogins,
     githubWorkflowConclusion,
+    githubWorkflowName,
     initialGithubConfig,
   ]);
 
@@ -361,6 +376,7 @@ export function useGithubTriggerSetup({
     githubBranchFilter,
     githubCommentContains,
     githubSenderLogins,
+    githubWorkflowName,
     githubWorkflowConclusion,
     githubSetupMessage,
     buildGithubConfig,
@@ -376,6 +392,7 @@ export function useGithubTriggerSetup({
     setGithubBranchFilter,
     setGithubCommentContains,
     setGithubSenderLogins,
+    setGithubWorkflowName,
     setGithubWorkflowConclusion,
   };
 }

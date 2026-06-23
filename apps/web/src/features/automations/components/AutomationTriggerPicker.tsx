@@ -82,6 +82,7 @@ export function AutomationTriggerPicker({
   githubBranchFilter,
   githubCommentContains,
   githubSenderLogins,
+  githubWorkflowName,
   githubWorkflowConclusion,
   onTriggerChange,
   onTimezoneChange,
@@ -102,6 +103,7 @@ export function AutomationTriggerPicker({
   onGithubBranchFilterChange,
   onGithubCommentContainsChange,
   onGithubSenderLoginsChange,
+  onGithubWorkflowNameChange,
   onGithubWorkflowConclusionChange,
   surface = "card",
 }: {
@@ -132,6 +134,7 @@ export function AutomationTriggerPicker({
   githubBranchFilter: string;
   githubCommentContains: string;
   githubSenderLogins: string;
+  githubWorkflowName: string;
   githubWorkflowConclusion: string;
   onTriggerChange: (trigger: TriggerChoice) => void;
   onTimezoneChange: (timezone: string) => void;
@@ -152,6 +155,7 @@ export function AutomationTriggerPicker({
   onGithubBranchFilterChange: (value: string) => void;
   onGithubCommentContainsChange: (value: string) => void;
   onGithubSenderLoginsChange: (value: string) => void;
+  onGithubWorkflowNameChange: (value: string) => void;
   onGithubWorkflowConclusionChange: (value: string) => void;
   surface?: "card" | "plain";
 }) {
@@ -237,6 +241,7 @@ export function AutomationTriggerPicker({
           branchFilter={githubBranchFilter}
           commentContains={githubCommentContains}
           senderLogins={githubSenderLogins}
+          workflowName={githubWorkflowName}
           workflowConclusion={githubWorkflowConclusion}
           onStartSetup={onGithubStartSetup}
           onRefreshInstallations={onGithubRefreshInstallations}
@@ -250,6 +255,7 @@ export function AutomationTriggerPicker({
           onBranchFilterChange={onGithubBranchFilterChange}
           onCommentContainsChange={onGithubCommentContainsChange}
           onSenderLoginsChange={onGithubSenderLoginsChange}
+          onWorkflowNameChange={onGithubWorkflowNameChange}
           onWorkflowConclusionChange={onGithubWorkflowConclusionChange}
         />
       ) : trigger !== "manual" ? (
