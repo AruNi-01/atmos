@@ -1,0 +1,21 @@
+crates/core-service/src/service/local_services/classification.rs
+  s_309a13032b6255::t_5bbff871bb21ae 27-36,227,246-251
+crates/core-service/src/service/local_services/dto.rs
+  s_309a13032b6255::t_d6a15f26cd1f2f 6,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "2d85dc79d805e8da239f9586f14c6d3db0ef2094",
+  "prompts": {},
+  "sessions": {
+    "s_309a13032b6255": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef26c-c2b3-7df0-aac3-34c8a78ae954",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
