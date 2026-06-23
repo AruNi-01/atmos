@@ -1,0 +1,56 @@
+apps/web/src/features/automations/hooks/use-github-trigger-setup.ts
+  s_4367601dbfa873::t_8365131fe5dc51 77-78,84-85,235
+  s_4367601dbfa873::t_8097b76782fd4c 46,106,120
+  s_4367601dbfa873::t_92198be23702af 51,111,125,267-273,306,379,395
+apps/web/src/api/ws/automation-dtos.ts
+  s_4367601dbfa873::t_0620c07c4533a9 19,100
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  s_ac0f793c0e9f4c::t_fb1b3a7382aab2 986-987,990,999-1000
+  s_ac0f793c0e9f4c::t_78bde0a664e9e3 817,942-947,949-966
+  s_ac0f793c0e9f4c::t_ce8023d04148b0 984,988-989
+apps/web/src/features/automations/lib/github-route-lifecycle.ts
+  s_4367601dbfa873::t_f34f7bd344e5aa 203
+crates/core-service/src/service/automation/github_trigger.rs
+  s_4367601dbfa873::t_96854c5a89cc3f 43-44,149,304,321-328
+  s_4367601dbfa873::t_ad0467af3ac8d8 765,768-786
+  s_4367601dbfa873::t_7c4592c36af5ba 112-119
+  s_4367601dbfa873::t_1847dfee8251f0 700,741-763,767
+apps/web/src/features/automations/components/AutomationGithubTriggerPanel.tsx
+  s_4367601dbfa873::t_c0c53a7aa528c3 313,315
+  s_4367601dbfa873::t_5f3a85839ac1e4 296,298
+  s_4367601dbfa873::t_66bae918dd0f26 112,126,146,160,331-344
+apps/web/src/features/automations/lib/github-trigger-relay.ts
+  s_4367601dbfa873::t_cdee1cafe35e54 201-203
+packages/relay/test/event-routes.test.ts
+  s_4367601dbfa873::t_a278da912b73ac 178-197
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_4367601dbfa873::t_b2aeea5c812496 310,326,659,700
+packages/relay/src/event-routes.ts
+  s_4367601dbfa873::t_bddf135e751d5e 286-291
+apps/web/src/features/automations/components/AutomationTriggerPicker.tsx
+  s_4367601dbfa873::t_cb89e722d6bc9e 85,106,137,158,244,258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "385cc313f72ec995d7e82e18101029ffde8016f6",
+  "prompts": {},
+  "sessions": {
+    "s_4367601dbfa873": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef3d6-c81d-7993-972e-3b7833e6151e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ac0f793c0e9f4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef46a-0d41-7fe1-a556-8eaee97fd919",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
