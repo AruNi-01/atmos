@@ -1,0 +1,34 @@
+packages/relay/src/index.ts
+  s_4367601dbfa873::t_cbcbd81d7ab3e0 13,108-111
+apps/web/src/features/automations/components/GithubSetupCompletionPage.tsx
+  s_4367601dbfa873::t_18681b4a8cc7e6 1-67
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_4367601dbfa873::t_18681b4a8cc7e6 461
+packages/relay/src/event-routes.ts
+  s_4367601dbfa873::t_18681b4a8cc7e6 18
+  s_4367601dbfa873::t_cbcbd81d7ab3e0 19,77-87,792
+apps/web/src/app/[locale]/github/setup/complete/page.tsx
+  s_4367601dbfa873::t_18681b4a8cc7e6 1-22
+packages/relay/test/github-setup-complete.test.ts
+  s_4367601dbfa873::t_dfbe1936c0e02b 23
+  s_4367601dbfa873::t_18681b4a8cc7e6 36
+  s_4367601dbfa873::t_cbcbd81d7ab3e0 1-22,24-35,37-39
+apps/web/src/features/automations/hooks/use-github-trigger-setup.ts
+  s_4367601dbfa873::t_18681b4a8cc7e6 27-30,57,87-92,265-307,309,319-321,324,329,334,345,353,391-414
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "b5f7019d8a2fb958b1a837bb9cb78418d0e91403",
+  "prompts": {},
+  "sessions": {
+    "s_4367601dbfa873": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef3d6-c81d-7993-972e-3b7833e6151e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
