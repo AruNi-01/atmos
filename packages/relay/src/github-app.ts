@@ -38,6 +38,10 @@ interface GithubUserInstallationsResponse {
   installations?: Array<{ id?: number | string }>;
 }
 
+interface GithubUserResponse {
+  login?: string;
+}
+
 interface GithubRepositoriesResponse {
   repositories?: Array<{
     id?: number | string;
@@ -63,11 +67,15 @@ export async function completeGithubInstallationSetup(
   installationId: string,
 ): Promise<GithubInstallationRecord> {
   const userToken = await exchangeOAuthCode(env, code);
-  const userCanSeeInstallation = await userHasInstallation(userToken, installationId);
-  if (!userCanSeeInstallation) {
+  const installation = await fetchInstallation(env, installationId);
+  const userCanAuthorizeInstallation = await canUserAuthorizeInstallation(
+    userToken,
+    installation,
+  );
+  if (!userCanAuthorizeInstallation) {
     throw new Error("installation_not_authorized_for_user");
   }
-  return fetchInstallation(env, installationId);
+  return installation;
 }
 
 export async function listInstallationRepositories(
@@ -86,6 +94,7 @@ export async function listInstallationRepositories(
       await githubJsonPage<GithubRepositoriesResponse>(
         path,
         {
+          errorCode: "github_repositories_request_failed",
           token: installationToken,
         },
       );
@@ -127,7 +136,7 @@ async function exchangeOAuthCode(env: Env, code: string): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error("github_oauth_exchange_failed");
+    throw new GithubRequestError("github_oauth_exchange_failed", response.status);
   }
 
   const data = (await response.json()) as GithubAccessTokenResponse;
@@ -149,7 +158,7 @@ async function userHasInstallation(
     const pageResult: { data: GithubUserInstallationsResponse; nextPath: string | null } =
       await githubJsonPage<GithubUserInstallationsResponse>(
         path,
-        { token: userToken },
+        { errorCode: "github_user_installations_request_failed", token: userToken },
       );
     const data = pageResult.data;
     const installations = data.installations ?? [];
@@ -161,6 +170,35 @@ async function userHasInstallation(
   return false;
 }
 
+async function canUserAuthorizeInstallation(
+  userToken: string,
+  installation: GithubInstallationRecord,
+): Promise<boolean> {
+  try {
+    if (await userHasInstallation(userToken, installation.installation_id)) {
+      return true;
+    }
+  } catch (error) {
+    if (installation.account_type !== "User") {
+      throw error;
+    }
+  }
+
+  if (installation.account_type !== "User" || !installation.account_login) {
+    return false;
+  }
+
+  const user = await fetchGithubUser(userToken);
+  return normalizeGithubLogin(user.login) === normalizeGithubLogin(installation.account_login);
+}
+
+async function fetchGithubUser(userToken: string): Promise<GithubUserResponse> {
+  return githubJson<GithubUserResponse>(
+    "/user",
+    { errorCode: "github_user_request_failed", token: userToken },
+  );
+}
+
 async function fetchInstallation(
   env: Env,
   installationId: string,
@@ -168,7 +206,7 @@ async function fetchInstallation(
   const jwt = await createAppJwt(env);
   const data = await githubJson<GithubInstallationResponse>(
     `/app/installations/${installationId}`,
-    { token: jwt },
+    { errorCode: "github_installation_lookup_failed", token: jwt },
   );
   return {
     installation_id: String(data.id),
@@ -186,7 +224,7 @@ async function createInstallationToken(
   const jwt = await createAppJwt(env);
   const data = await githubJson<GithubAccessTokenResponse>(
     `/app/installations/${installationId}/access_tokens`,
-    { method: "POST", token: jwt },
+    { errorCode: "github_installation_token_request_failed", method: "POST", token: jwt },
   );
   if (!data.access_token) {
     throw new Error("github_installation_token_failed");
@@ -319,7 +357,7 @@ function concatBytes(parts: Uint8Array[]): Uint8Array {
 
 async function githubJson<T>(
   path: string,
-  options: { method?: string; token: string },
+  options: { errorCode: string; method?: string; token: string },
 ): Promise<T> {
   const { data } = await githubJsonPage<T>(path, options);
   return data;
@@ -327,7 +365,7 @@ async function githubJson<T>(
 
 async function githubJsonPage<T>(
   path: string,
-  options: { method?: string; token: string },
+  options: { errorCode: string; method?: string; token: string },
 ): Promise<{ data: T; nextPath: string | null }> {
   const response = await fetch(`${GITHUB_API}${path}`, {
     method: options.method ?? "GET",
@@ -340,12 +378,23 @@ async function githubJsonPage<T>(
   });
 
   if (!response.ok) {
-    throw new Error("github_api_request_failed");
+    throw new GithubRequestError(options.errorCode, response.status);
   }
   return {
     data: await response.json() as T,
     nextPath: parseGithubNextPath(response.headers.get("Link")),
   };
+}
+
+class GithubRequestError extends Error {
+  constructor(code: string, status: number) {
+    super(`${code}_${status}`);
+    this.name = "GithubRequestError";
+  }
+}
+
+function normalizeGithubLogin(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? "";
 }
 
 export function parseGithubNextPath(linkHeader: string | null): string | null {

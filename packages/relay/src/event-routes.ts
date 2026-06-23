@@ -911,6 +911,9 @@ function githubErrorCode(error: unknown): string {
   ) {
     return message;
   }
+  if (/^github_[a-z_]+_failed_\d{3}$/.test(message)) {
+    return message;
+  }
   return "github_request_failed";
 }
 
