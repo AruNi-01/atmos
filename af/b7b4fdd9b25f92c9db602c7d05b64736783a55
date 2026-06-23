@@ -1,0 +1,19 @@
+apps/cli/Cargo.toml
+  s_542be5ae2b2082::t_5aea85da6b4e2d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "afb7b4fdd9b25f92c9db602c7d05b64736783a55",
+  "prompts": {},
+  "sessions": {
+    "s_542be5ae2b2082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef27b-0fbf-73e3-b382-1fad960442ce",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
