@@ -1,0 +1,21 @@
+packages/relay/src/github-app.ts
+  s_4367601dbfa873::t_70bd3fa0e4f28f 41-44,70-75,78,97,139,161,173-201,209,227,360,368,381,389-398
+packages/relay/src/event-routes.ts
+  s_4367601dbfa873::t_adbdce2032a203 914-916
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "0efdfaf21dbb9fdf730a87609318a0ed14d2481e",
+  "prompts": {},
+  "sessions": {
+    "s_4367601dbfa873": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef3d6-c81d-7993-972e-3b7833e6151e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
