@@ -178,15 +178,18 @@ export function useDiffPromptStash({
         return;
       }
 
-      void navigator.clipboard.writeText(prompt).catch(() =>
-        toastManager.add({
-          title: 'Failed to copy prompt',
-          type: 'error',
-        }),
+      void navigator.clipboard.writeText(prompt).then(
+        () => {
+          removeStashedPrompt(itemId, key);
+          removeDraftNote(key);
+          removeCopyAnnotation(itemId, key);
+        },
+        () =>
+          toastManager.add({
+            title: 'Failed to copy prompt',
+            type: 'error',
+          }),
       );
-      removeStashedPrompt(itemId, key);
-      removeDraftNote(key);
-      removeCopyAnnotation(itemId, key);
     },
     [
       buildPromptForAnnotation,
