@@ -1,0 +1,19 @@
+apps/web/src/features/diff/components/useDiffPromptStash.tsx
+  s_5212fc77643368::t_f4617d31da2c26 181-191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "943b8881f68428f3bf7840d26380d0a7afa3844d",
+  "prompts": {},
+  "sessions": {
+    "s_5212fc77643368": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef1c7-3053-7db3-a534-78bea52aced3",
+        "model": "gpt-5.3-codex-spark"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
