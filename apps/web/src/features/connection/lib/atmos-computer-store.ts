@@ -23,6 +23,7 @@ interface AtmosComputerData {
   relayUrl: string;
   relaySecretKey: string;
   accessToken: string;
+  accessTokenConfigured: boolean;
   computers: ComputerRow[];
   selectedServerId: string | null;
   relayWebSocketUrl: string | null;
@@ -39,6 +40,7 @@ interface AtmosComputerStore extends AtmosComputerData {
   setRelayUrl: (url: string) => void;
   setRelaySecretKey: (secretKey: string) => void;
   setAccessToken: (s: string) => void;
+  setAccessTokenConfigured: (configured: boolean) => void;
   setComputers: (rows: ComputerRow[]) => void;
   setSelectedServerId: (id: string | null) => void;
   setRelayWebSocketUrl: (url: string | null) => void;
@@ -121,6 +123,7 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   relayUrl: envRelayUrl || DEFAULT_RELAY_URL,
   relaySecretKey: '',
   accessToken: '',
+  accessTokenConfigured: false,
   computers: localPrefs.computers,
   selectedServerId: localPrefs.selectedServerId,
   relayWebSocketUrl: null,
@@ -145,6 +148,7 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   setRelayUrl: relayUrl => set({ relayUrl }),
   setRelaySecretKey: relaySecretKey => set({ relaySecretKey }),
   setAccessToken: accessToken => set({ accessToken }),
+  setAccessTokenConfigured: accessTokenConfigured => set({ accessTokenConfigured }),
 
   setComputers: computers => {
     set({ computers });

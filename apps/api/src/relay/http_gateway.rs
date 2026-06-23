@@ -116,6 +116,7 @@ pub async fn handle_http_envelope(body: &str) -> Option<String> {
             builder = builder.header(AUTHORIZATION, format!("Bearer {token}"));
         }
     }
+    builder = builder.header("X-Atmos-Relay-Gateway", "1");
 
     if let Some(b64) = req.body_b64.as_ref().filter(|s| !s.is_empty()) {
         match B64.decode(b64) {

@@ -3,6 +3,7 @@
 use std::time::Duration;
 
 use axum::extract::State;
+use axum::http::HeaderMap;
 use axum::Json;
 use runtime_manager::{
     clear_computer_client_settings, clear_server_identity, computer_client_settings_path,
@@ -18,6 +19,8 @@ use crate::api::dto::ApiResponse;
 use crate::api::system::diagnostics;
 use crate::app_state::AppState;
 use crate::error::{ApiError, ApiResult};
+
+const RELAY_GATEWAY_HEADER: &str = "x-atmos-relay-gateway";
 
 /// GET /api/system/computer — hostname + relay registration on this machine.
 pub async fn get_computer_status(
@@ -181,8 +184,11 @@ pub async fn sync_relay_connection(
 }
 
 /// GET /api/system/computer-client-settings — user Access Token from `~/.atmos/computer-client.json`.
-pub async fn get_computer_client_settings() -> ApiResult<Json<ApiResponse<Value>>> {
+pub async fn get_computer_client_settings(
+    headers: HeaderMap,
+) -> ApiResult<Json<ApiResponse<Value>>> {
     let path = computer_client_settings_path();
+    let expose_secrets = !is_relay_gateway_request(&headers) && !is_hosted_web_request(&headers);
     let settings = read_computer_client_settings().map_err(ApiError::BadRequest)?;
     let Some(settings) = settings else {
         return Ok(Json(ApiResponse::success(json!({
@@ -191,14 +197,31 @@ pub async fn get_computer_client_settings() -> ApiResult<Json<ApiResponse<Value>
             "access_token": "",
             "relay_url": default_relay_url(),
             "relay_secret_key": "",
+            "relay_secret_key_configured": false,
         }))));
+    };
+    let configured = !settings.access_token.trim().is_empty();
+    let relay_secret_key_configured = settings
+        .relay_secret_key
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let access_token = if expose_secrets {
+        settings.access_token.clone()
+    } else {
+        String::new()
+    };
+    let relay_secret_key = if expose_secrets {
+        settings.relay_secret_key.clone().unwrap_or_default()
+    } else {
+        String::new()
     };
     Ok(Json(ApiResponse::success(json!({
         "path": path.display().to_string(),
-        "configured": !settings.access_token.trim().is_empty(),
-        "access_token": settings.access_token,
+        "configured": configured,
+        "access_token": access_token,
         "relay_url": resolved_relay_url(&settings),
-        "relay_secret_key": settings.relay_secret_key.unwrap_or_default(),
+        "relay_secret_key": relay_secret_key,
+        "relay_secret_key_configured": relay_secret_key_configured,
     }))))
 }
 
@@ -216,51 +239,86 @@ pub struct PutComputerClientSettingsPayload {
 
 /// PUT /api/system/computer-client-settings — write or clear `~/.atmos/computer-client.json`.
 pub async fn put_computer_client_settings(
+    headers: HeaderMap,
     Json(payload): Json<PutComputerClientSettingsPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
     let path = computer_client_settings_path();
+    let expose_secrets = !is_relay_gateway_request(&headers) && !is_hosted_web_request(&headers);
     if payload.clear {
         let removed = clear_computer_client_settings().map_err(ApiError::BadRequest)?;
         return Ok(Json(ApiResponse::success(json!({
             "ok": true,
             "action": if removed { "cleared" } else { "absent" },
             "path": path.display().to_string(),
+            "configured": false,
+            "relay_secret_key_configured": false,
         }))));
     }
 
+    let existing = read_computer_client_settings().map_err(ApiError::BadRequest)?;
     let access_token = payload
         .access_token
         .as_ref()
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .unwrap_or("");
+        .map(str::to_string)
+        .or_else(|| {
+            existing
+                .as_ref()
+                .map(|settings| settings.access_token.clone())
+        })
+        .unwrap_or_default();
 
-    let relay_url = payload
-        .relay_url
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(normalize_relay_url);
-    let relay_secret_key = payload
-        .relay_secret_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
+    let relay_url = if payload.relay_url.is_some() {
+        payload
+            .relay_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(normalize_relay_url)
+    } else {
+        existing
+            .as_ref()
+            .and_then(|settings| settings.relay_url.clone())
+    };
+    let relay_secret_key = if payload.relay_secret_key.is_some() {
+        payload
+            .relay_secret_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    } else {
+        existing
+            .as_ref()
+            .and_then(|settings| settings.relay_secret_key.clone())
+    };
 
     let settings = ComputerClientSettings {
         version: COMPUTER_CLIENT_SETTINGS_VERSION,
-        access_token: access_token.to_string(),
+        access_token,
         relay_url,
         relay_secret_key,
     };
     let written = write_computer_client_settings(&settings).map_err(ApiError::BadRequest)?;
+    let configured = !settings.access_token.trim().is_empty();
+    let relay_secret_key_configured = settings
+        .relay_secret_key
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let relay_secret_key = if expose_secrets {
+        settings.relay_secret_key.clone().unwrap_or_default()
+    } else {
+        String::new()
+    };
     Ok(Json(ApiResponse::success(json!({
         "ok": true,
         "action": "written",
         "path": written.display().to_string(),
+        "configured": configured,
         "relay_url": resolved_relay_url(&settings),
-        "relay_secret_key": settings.relay_secret_key.unwrap_or_default(),
+        "relay_secret_key": relay_secret_key,
+        "relay_secret_key_configured": relay_secret_key_configured,
     }))))
 }
 
@@ -282,19 +340,62 @@ pub struct RelayProxyPayload {
 pub async fn proxy_relay(
     Json(payload): Json<RelayProxyPayload>,
 ) -> ApiResult<Json<ApiResponse<Value>>> {
-    let base = payload
-        .relay_url
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(normalize_relay_url)
-        .unwrap_or_else(|| default_relay_url().to_string());
-
     let path = if payload.path.starts_with('/') {
         payload.path.clone()
     } else {
         format!("/{}", payload.path)
     };
+    let payload_relay_url = payload
+        .relay_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(normalize_relay_url);
+    let payload_access_token = payload
+        .access_token
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let payload_relay_secret_key = payload
+        .relay_secret_key
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let use_settings_token = payload_access_token.is_none() && path != "/v1/tenants";
+    let settings = if payload_relay_url.is_none()
+        || payload_relay_secret_key.is_none()
+        || use_settings_token
+    {
+        read_computer_client_settings().map_err(ApiError::BadRequest)?
+    } else {
+        None
+    };
+    let settings_relay_url = settings.as_ref().map(resolved_relay_url);
+    let base = if use_settings_token {
+        settings_relay_url.or(payload_relay_url)
+    } else {
+        payload_relay_url.or(settings_relay_url)
+    }
+    .unwrap_or_else(|| default_relay_url().to_string());
+    let access_token = payload_access_token.or_else(|| {
+        if use_settings_token {
+            settings
+                .as_ref()
+                .map(|settings| settings.access_token.trim().to_string())
+                .filter(|value| !value.is_empty())
+        } else {
+            None
+        }
+    });
+    let relay_secret_key = payload_relay_secret_key.or_else(|| {
+        settings
+            .as_ref()
+            .and_then(|settings| settings.relay_secret_key.as_ref())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    });
     let url = format!("{base}{path}");
 
     let method = payload
@@ -311,20 +412,10 @@ pub async fn proxy_relay(
         .request(method, &url)
         .header("Content-Type", "application/json");
 
-    if let Some(token) = payload
-        .access_token
-        .as_ref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-    {
+    if let Some(token) = access_token.as_deref() {
         builder = builder.header("Authorization", format!("Bearer {token}"));
     }
-    if let Some(secret) = payload
-        .relay_secret_key
-        .as_ref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-    {
+    if let Some(secret) = relay_secret_key.as_deref() {
         builder = builder.header("X-Atmos-Relay-Secret", secret);
     }
     if let Some(body) = payload.body.filter(|s| !s.is_empty()) {
@@ -347,6 +438,22 @@ pub async fn proxy_relay(
         "status": status,
         "body": body,
     }))))
+}
+
+fn is_relay_gateway_request(headers: &HeaderMap) -> bool {
+    headers
+        .get(RELAY_GATEWAY_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value == "1")
+}
+
+fn is_hosted_web_request(headers: &HeaderMap) -> bool {
+    ["origin", "referer"].iter().any(|name| {
+        headers
+            .get(*name)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.starts_with("https://app.atmos.land"))
+    })
 }
 
 /// POST /api/system/computer/unregister — remove relay identity from this machine.

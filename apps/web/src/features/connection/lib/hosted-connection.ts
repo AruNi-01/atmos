@@ -111,7 +111,9 @@ export async function listHostedRemoteComputers(
   accessToken: string,
   relaySecretKey?: string,
 ): Promise<ComputerRow[]> {
-  await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
+  if (accessToken.trim().length >= 32) {
+    await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
+  }
   const res = await relayFetchWithAccessToken(
     relayUrl,
     accessToken,
@@ -132,7 +134,9 @@ export async function createHostedRemoteSession(
   serverId: string,
   relaySecretKey?: string,
 ): Promise<HostedRemoteSession> {
-  await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
+  if (accessToken.trim().length >= 32) {
+    await ensureHostedAccessTokenReady(relayUrl, accessToken, relaySecretKey);
+  }
   const res = await relayFetchWithAccessToken(
     relayUrl,
     accessToken,

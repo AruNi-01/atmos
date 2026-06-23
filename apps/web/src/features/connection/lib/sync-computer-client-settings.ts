@@ -15,6 +15,7 @@ export interface ComputerClientSettingsDisk {
   access_token: string;
   relay_url: string;
   relay_secret_key?: string;
+  relay_secret_key_configured?: boolean;
 }
 
 function apiTokenHeader(): Record<string, string> {
@@ -31,21 +32,41 @@ async function loopbackBase(): Promise<string | null> {
   }
 }
 
-export async function loadComputerClientSettingsFromDisk(): Promise<ComputerClientSettingsDisk | null> {
-  // Hosted web (app.atmos.land) cannot read ~/.atmos via loopback from the browser.
+async function computerClientSettingsTarget(): Promise<{
+  base: string;
+  headers: Record<string, string>;
+} | null> {
   if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
-    return null;
+    const store = useAtmosComputerStore.getState();
+    if (
+      store.connectionMode === 'relay' &&
+      store.relayGatewayHttpBase &&
+      store.relayClientToken
+    ) {
+      return {
+        base: store.relayGatewayHttpBase.replace(/\/$/, ''),
+        headers: { Authorization: `Bearer ${store.relayClientToken}` },
+      };
+    }
   }
 
   const base = await loopbackBase();
   if (!base) {
     return null;
   }
+  return { base, headers: apiTokenHeader() };
+}
+
+export async function loadComputerClientSettingsFromDisk(): Promise<ComputerClientSettingsDisk | null> {
+  const target = await computerClientSettingsTarget();
+  if (!target) {
+    return null;
+  }
 
   let res: Response;
   try {
-    res = await fetch(`${base}/api/system/computer-client-settings`, {
-      headers: apiTokenHeader(),
+    res = await fetch(`${target.base}/api/system/computer-client-settings`, {
+      headers: target.headers,
     });
   } catch {
     return null;
@@ -68,26 +89,29 @@ export async function saveComputerClientSettingsToDisk(
   relayUrl: string,
   relaySecretKey = '',
 ): Promise<boolean> {
-  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+  const target = await computerClientSettingsTarget();
+  if (!target) {
+    console.warn('[computer-client-settings] no Computer API — token not written to disk');
     return false;
   }
-
-  const base = await loopbackBase();
-  if (!base) {
-    console.warn('[computer-client-settings] no loopback API — token not written to disk');
-    return false;
+  const relaySecret = relaySecretKey.trim();
+  const body: Record<string, unknown> = {
+    relay_url: resolveRelayUrl(relayUrl),
+  };
+  if (relaySecret || !(typeof window !== 'undefined' && isHostedAtmosOrigin())) {
+    body.relay_secret_key = relaySecret;
   }
-  const res = await fetch(`${base}/api/system/computer-client-settings`, {
+  const token = accessToken.trim();
+  if (token) {
+    body.access_token = token;
+  }
+  const res = await fetch(`${target.base}/api/system/computer-client-settings`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      ...apiTokenHeader(),
+      ...target.headers,
     },
-    body: JSON.stringify({
-      access_token: accessToken.trim(),
-      relay_url: resolveRelayUrl(relayUrl),
-      relay_secret_key: relaySecretKey.trim(),
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -98,19 +122,15 @@ export async function saveComputerClientSettingsToDisk(
 }
 
 export async function clearComputerClientSettingsOnDisk(): Promise<void> {
-  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+  const target = await computerClientSettingsTarget();
+  if (!target) {
     return;
   }
-
-  const base = await loopbackBase();
-  if (!base) {
-    return;
-  }
-  await fetch(`${base}/api/system/computer-client-settings`, {
+  await fetch(`${target.base}/api/system/computer-client-settings`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      ...apiTokenHeader(),
+      ...target.headers,
     },
     body: JSON.stringify({ clear: true }),
   }).catch(() => undefined);
@@ -124,6 +144,9 @@ let hydrateOnce: Promise<void> | null = null;
 
 /** Idempotent: safe to call from WebSocket connect and settings UI. */
 export function ensureComputerClientSettingsHydrated(): Promise<void> {
+  if (typeof window !== 'undefined' && isHostedAtmosOrigin()) {
+    return hydrateComputerClientSettingsFromDisk();
+  }
   if (!hydrateOnce) {
     hydrateOnce = hydrateComputerClientSettingsFromDisk();
   }
@@ -133,6 +156,7 @@ export function ensureComputerClientSettingsHydrated(): Promise<void> {
 export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
   const disk = await loadComputerClientSettingsFromDisk();
   const store = useAtmosComputerStore.getState();
+  store.setAccessTokenConfigured(Boolean(disk?.configured || store.accessToken.trim().length >= 32));
 
   if (disk?.configured && disk.access_token.trim().length >= 32) {
     store.setRelayUrl(disk.relay_url);
@@ -148,10 +172,13 @@ export async function hydrateComputerClientSettingsFromDisk(): Promise<void> {
 
   const legacy = store.accessToken.trim();
   if (legacy.length >= 32) {
-    await saveComputerClientSettingsToDisk(
+    const persisted = await saveComputerClientSettingsToDisk(
       legacy,
       store.relayUrl,
       store.relaySecretKey,
     );
+    if (persisted) {
+      store.setAccessTokenConfigured(true);
+    }
   }
 }

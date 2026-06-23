@@ -72,6 +72,7 @@ export function AutomationTriggerPicker({
   githubLoading,
   githubRepositoriesLoading,
   githubError,
+  githubSetupRefreshAvailable,
   githubInstallationId,
   githubRepositoryFullName,
   githubEventFamily,
@@ -90,6 +91,7 @@ export function AutomationTriggerPicker({
   onDayOfMonthChange,
   onCronExprChange,
   onGithubStartSetup,
+  onGithubRefreshInstallations,
   onGithubOpenComputerSettings,
   onGithubInstallationChange,
   onGithubRepositoryChange,
@@ -120,6 +122,7 @@ export function AutomationTriggerPicker({
   githubLoading: boolean;
   githubRepositoriesLoading: boolean;
   githubError: string | null;
+  githubSetupRefreshAvailable: boolean;
   githubInstallationId: GithubInt64 | null;
   githubRepositoryFullName: string;
   githubEventFamily: GithubEventFamily;
@@ -138,6 +141,7 @@ export function AutomationTriggerPicker({
   onDayOfMonthChange: (value: number) => void;
   onCronExprChange: (value: string) => void;
   onGithubStartSetup: () => void;
+  onGithubRefreshInstallations: () => void;
   onGithubOpenComputerSettings: () => void;
   onGithubInstallationChange: (installationId: GithubInt64) => void;
   onGithubRepositoryChange: (fullName: string) => void;
@@ -223,6 +227,7 @@ export function AutomationTriggerPicker({
           loading={githubLoading}
           repositoriesLoading={githubRepositoriesLoading}
           error={githubError}
+          setupRefreshAvailable={githubSetupRefreshAvailable}
           selectedInstallationId={githubInstallationId}
           selectedRepositoryFullName={githubRepositoryFullName}
           eventFamily={githubEventFamily}
@@ -234,6 +239,7 @@ export function AutomationTriggerPicker({
           senderLogins={githubSenderLogins}
           workflowConclusion={githubWorkflowConclusion}
           onStartSetup={onGithubStartSetup}
+          onRefreshInstallations={onGithubRefreshInstallations}
           onOpenComputerSettings={onGithubOpenComputerSettings}
           onInstallationChange={onGithubInstallationChange}
           onRepositoryChange={onGithubRepositoryChange}

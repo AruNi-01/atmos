@@ -126,7 +126,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_automation_github_setup_session(&self, req: Value) -> Result<Value> {
-        let relay = RelayRequest::from_value(req)?;
+        let relay = RelayRequest::from_value_with_settings_fallback(req)?;
         let body = Value::Object(relay.payload);
         relay
             .client
@@ -135,7 +135,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_automation_github_installations(&self, req: Value) -> Result<Value> {
-        let relay = RelayRequest::from_value(req)?;
+        let relay = RelayRequest::from_value_with_settings_fallback(req)?;
         relay
             .client
             .json::<Value>(Method::GET, "/v1/github/installations", None)
@@ -143,7 +143,7 @@ impl WsMessageService {
     }
 
     pub(super) async fn handle_automation_github_repositories(&self, req: Value) -> Result<Value> {
-        let mut relay = RelayRequest::from_value(req)?;
+        let mut relay = RelayRequest::from_value_with_settings_fallback(req)?;
         let installation_id = take_required_int64_string(&mut relay.payload, "installation_id")?;
         relay
             .client
@@ -159,7 +159,7 @@ impl WsMessageService {
         &self,
         req: Value,
     ) -> Result<Value> {
-        let relay = RelayRequest::from_value(req)?;
+        let relay = RelayRequest::from_value_with_settings_fallback(req)?;
         let body = Value::Object(relay.payload);
         relay
             .client
@@ -171,7 +171,7 @@ impl WsMessageService {
         &self,
         req: Value,
     ) -> Result<Value> {
-        let mut relay = RelayRequest::from_value(req)?;
+        let mut relay = RelayRequest::from_value_with_settings_fallback(req)?;
         let route_id = take_required_string(&mut relay.payload, "route_id")?;
         relay
             .client

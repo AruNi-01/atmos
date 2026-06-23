@@ -135,6 +135,7 @@ export async function relayFetchWithAccessToken(
   relaySecretKey?: string,
 ): Promise<Response> {
   const base = resolveRelayUrl(relayUrl);
+  const token = accessToken.trim();
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const relaySecret = resolveRelaySecretKey(relaySecretKey);
   const method = (init?.method ?? 'GET').toUpperCase();
@@ -146,7 +147,7 @@ export async function relayFetchWithAccessToken(
         : undefined;
 
   const proxied = await proxyRelayRequest(base, method, normalizedPath, {
-    accessToken,
+    accessToken: token || undefined,
     body,
     relaySecretKey: relaySecret,
   });
@@ -160,11 +161,14 @@ export async function relayFetchWithAccessToken(
   if (isTauriRuntime()) {
     throw new Error('Cannot connect locally. Restart Atmos and try again.');
   }
+  if (!token) {
+    throw new Error('Relay access key is not available in this browser.');
+  }
 
   const url = `${base}${normalizedPath}`;
   const headers = new Headers(init?.headers);
   headers.set('Content-Type', 'application/json');
-  headers.set('Authorization', `Bearer ${accessToken.trim()}`);
+  headers.set('Authorization', `Bearer ${token}`);
   if (relaySecret) {
     headers.set(RELAY_SECRET_HEADER, relaySecret);
   }

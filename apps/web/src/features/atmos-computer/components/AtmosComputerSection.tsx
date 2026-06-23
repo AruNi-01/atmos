@@ -53,7 +53,7 @@ import {
   type ComputerRow,
 } from '@/features/connection/lib/atmos-computer-store';
 import {
-  ensureComputerClientSettingsHydrated,
+  hydrateComputerClientSettingsFromDisk,
   saveComputerClientSettingsToDisk,
 } from '@/features/connection/lib/sync-computer-client-settings';
 import { ComputerDetailsDialog } from '@/features/atmos-computer/components/ComputerDetailsDialog';
@@ -159,11 +159,13 @@ export function AtmosComputerSection() {
     relayUrl,
     relaySecretKey,
     accessToken,
+    accessTokenConfigured,
     computers,
     selectedServerId,
     relayWebSocketUrl,
     localServerId,
     setAccessToken,
+    setAccessTokenConfigured,
     setRelayUrl,
     setComputers,
     setLocalServerId,
@@ -183,7 +185,8 @@ export function AtmosComputerSection() {
   const [remoteComputerExpanded, setRemoteComputerExpanded] = useState(false);
   const relayAutoSyncAttemptedRef = useRef(false);
 
-  const hasKey = accessToken.trim().length >= 32;
+  const hasBrowserKey = accessToken.trim().length >= 32;
+  const hasConfiguredKey = hasBrowserKey || accessTokenConfigured;
   const activeComputers = computers.filter(c => !c.revoked);
   const connectedServerId =
     connectionMode === 'relay' && relayWebSocketUrl ? selectedServerId : null;
@@ -204,7 +207,7 @@ export function AtmosComputerSection() {
     url: string = relayUrl,
     secret: string = relaySecretKey,
   ) => {
-    if (token.trim().length < 32) {
+    if (token.trim().length < 32 && !accessTokenConfigured) {
       return;
     }
     setListRefreshing(true);
@@ -217,7 +220,7 @@ export function AtmosComputerSection() {
     } finally {
       setListRefreshing(false);
     }
-  }, [relayUrl, relaySecretKey, setComputers]);
+  }, [accessTokenConfigured, relayUrl, relaySecretKey, setComputers]);
 
   const refreshComputerList = useCallback(async () => {
     await refreshComputerListFor(accessToken, relayUrl);
@@ -285,7 +288,7 @@ export function AtmosComputerSection() {
   }, [tokenDraft]);
 
   useEffect(() => {
-    void ensureComputerClientSettingsHydrated().then(() => {
+    void hydrateComputerClientSettingsFromDisk().then(() => {
       const settings = useAtmosComputerStore.getState();
       setTokenDraft(settings.accessToken);
       setRelayUrlDraft(settings.relayUrl);
@@ -298,14 +301,14 @@ export function AtmosComputerSection() {
   }, [refreshLocalStatus]);
 
   useEffect(() => {
-    if (hasKey) {
+    if (hasConfiguredKey) {
       void refreshComputerList();
     }
-  }, [hasKey, refreshComputerList]);
+  }, [hasConfiguredKey, refreshComputerList]);
 
   /** After API restart, relay may still be connecting; sync once instead of showing a false offline state. */
   useEffect(() => {
-    if (!hasKey) {
+    if (!hasConfiguredKey) {
       relayAutoSyncAttemptedRef.current = false;
       return;
     }
@@ -347,7 +350,7 @@ export function AtmosComputerSection() {
     return () => {
       cancelled = true;
     };
-  }, [hasKey, localStatus, localServerId, refreshComputerList]);
+  }, [hasConfiguredKey, localStatus, localServerId, refreshComputerList]);
 
   async function ensureAccessTokenReady(
     token: string,
@@ -449,7 +452,7 @@ export function AtmosComputerSection() {
       const token = tokenDraft.trim();
       const nextUrl = resolveRelayUrl(relayUrlDraft);
       const nextSecret = relaySecretDraft.trim();
-      const switchingIdentity = hasKey && token !== accessToken.trim();
+      const switchingIdentity = hasConfiguredKey && token !== accessToken.trim();
       if (!(await ensureAccessTokenReady(token, nextUrl, nextSecret))) {
         return;
       }
@@ -490,6 +493,7 @@ export function AtmosComputerSection() {
       setRelayUrl(nextUrl);
       setRelaySecretKey(nextSecret);
       setAccessToken(token);
+      setAccessTokenConfigured(true);
       setTokenReveal(null);
       const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
       if (!persisted) {
@@ -552,6 +556,7 @@ export function AtmosComputerSection() {
       );
       setTokenDraft(nextToken);
       setAccessToken(nextToken);
+      setAccessTokenConfigured(true);
       setTokenReveal(nextToken);
       void activateCurrentLocalConnection().catch(() => undefined);
       toastManager.add({
@@ -580,6 +585,7 @@ export function AtmosComputerSection() {
       setRelaySecretKey(nextSecret);
       setTokenDraft(token);
       setAccessToken(token);
+      setAccessTokenConfigured(true);
       setTokenReveal(token);
       const persisted = await saveComputerClientSettingsToDisk(token, nextUrl, nextSecret);
       toastManager.add({
@@ -596,7 +602,7 @@ export function AtmosComputerSection() {
   }
 
   async function onRemoteToggle(enabled: boolean) {
-    if (!hasKey) {
+    if (!hasConfiguredKey) {
       toastManager.add({
         title: 'Save your access key first',
         description: 'Add and save an access key before registering this computer.',
@@ -704,9 +710,6 @@ export function AtmosComputerSection() {
   }
 
   async function onConnect(serverId: string) {
-    if (!(await ensureAccessTokenReady(accessToken))) {
-      return;
-    }
     const isLocalMachine = serverId === (localStatus?.server_id ?? localServerId);
     if (isLocalMachine) {
       setBusy(`connect-${serverId}`);
@@ -722,6 +725,14 @@ export function AtmosComputerSection() {
       } finally {
         setBusy(null);
       }
+      return;
+    }
+    if (!hasConfiguredKey) {
+      toastManager.add({
+        title: 'Save your access key first',
+        description: 'Add and save an access key before connecting to another computer.',
+        type: 'error',
+      });
       return;
     }
     setBusy(`connect-${serverId}`);
@@ -741,7 +752,12 @@ export function AtmosComputerSection() {
   }
 
   async function onRemove(serverId: string) {
-    if (!(await ensureAccessTokenReady(accessToken))) {
+    if (!hasConfiguredKey) {
+      toastManager.add({
+        title: 'Save your access key first',
+        description: 'Add and save an access key before removing computers.',
+        type: 'error',
+      });
       return;
     }
     setBusy(`remove-${serverId}`);
@@ -794,8 +810,10 @@ export function AtmosComputerSection() {
   const relaySecretDraftTrimmed = relaySecretDraft.trim();
   const relayUrlChanged = relayUrlDraftResolved !== resolveRelayUrl(relayUrl);
   const relaySecretChanged = relaySecretDraftTrimmed !== relaySecretKey.trim();
-  const isSwitchingIdentity = hasKey && tokenDraftChanged;
-  const canSaveTokenDraft = Boolean(tokenDraftTrimmed) && (!hasKey || tokenDraftChanged);
+  const isSwitchingIdentity =
+    hasConfiguredKey && Boolean(tokenDraftTrimmed) && (!hasBrowserKey || tokenDraftChanged);
+  const canSaveTokenDraft =
+    Boolean(tokenDraftTrimmed) && (!hasConfiguredKey || !hasBrowserKey || tokenDraftChanged);
 
   return (
     <div className="space-y-4">
@@ -895,7 +913,7 @@ export function AtmosComputerSection() {
         icon={<KeyRound className="size-5" />}
         description="Your access key registers new Computers (via registration codes) and lists all Computers on your account."
         headerAction={
-          !hasKey ? (
+          !hasConfiguredKey ? (
             <Button
               size="sm"
               variant="outline"
@@ -956,15 +974,23 @@ export function AtmosComputerSection() {
               )}
             </Button>
           </div>
+          {hasConfiguredKey && !hasBrowserKey ? (
+            <p className="text-xs leading-5 text-muted-foreground">
+              An access key is saved on this Computer. Hosted web keeps it hidden and asks this Computer
+              to sign Relay requests.
+            </p>
+          ) : null}
           <p className="text-xs leading-5 text-muted-foreground">
             {isSwitchingIdentity
               ? 'Switch Identity replaces the local key directly. Existing Computers and GitHub routes from the current key will not move.'
-              : hasKey
+              : hasBrowserKey
                 ? 'Use Rotate Access Token below to replace this credential while keeping the same Computers and GitHub routes.'
+                : hasConfiguredKey
+                  ? 'An access key is saved on this Computer. It is hidden in hosted web; paste a new key only to replace it.'
                 : 'Generate or paste an access key to create or use an Atmos Computer identity.'}
           </p>
         </div>
-        {hasKey ? (
+        {hasBrowserKey ? (
           <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-muted/15 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-medium text-foreground">Rotate Access Token</p>
@@ -1037,7 +1063,7 @@ export function AtmosComputerSection() {
           <div className="border-t border-border px-6 py-5">
             <RemoteComputerSetupBlock
               active={remoteComputerExpanded}
-              hasAccessToken={hasKey}
+              hasAccessToken={hasConfiguredKey}
               relayUrl={relayUrl}
               accessToken={accessToken}
               relaySecretKey={relaySecretKey}
@@ -1072,7 +1098,7 @@ export function AtmosComputerSection() {
               </div>
               <Switch
                 checked={isLocalRegistered}
-                disabled={busy === 'remote' || !hasKey}
+                disabled={busy === 'remote' || !hasConfiguredKey}
                 onCheckedChange={checked => void onRemoteToggle(checked)}
               />
             </div>
@@ -1104,7 +1130,7 @@ export function AtmosComputerSection() {
                 )}
               </div>
             ) : null}
-            {!hasKey ? (
+            {!hasConfiguredKey ? (
               <p className="text-xs text-muted-foreground">Save an access key above to register this computer.</p>
             ) : null}
         </div>
@@ -1118,7 +1144,7 @@ export function AtmosComputerSection() {
           <Button
             variant="ghost"
             size="sm"
-            disabled={!hasKey || busy !== null}
+            disabled={!hasConfiguredKey || busy !== null}
             onClick={() => void refreshComputerList()}
           >
             <RotateCw className={cn('mr-2 size-4', listRefreshing && 'animate-spin')} />
@@ -1126,7 +1152,7 @@ export function AtmosComputerSection() {
           </Button>
         }
       >
-        {!hasKey ? (
+        {!hasConfiguredKey ? (
           <p className="text-sm text-muted-foreground">Save an access key to see your computers.</p>
         ) : activeComputers.length === 0 ? (
           <p className="text-sm text-muted-foreground">

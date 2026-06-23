@@ -5,6 +5,7 @@
 import { systemApi } from '@/api/rest-api';
 import { getLoopbackHttpBase, isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import type { ShellEnvInfo } from '@/api/rest-api';
+import { useAtmosComputerStore } from '@/features/connection/lib/atmos-computer-store';
 
 export interface LocalComputerStatus {
   hostname: string | null;
@@ -61,14 +62,22 @@ async function tauriComputerDisplayName(): Promise<string | null> {
 }
 
 async function localFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = (await getLoopbackHttpBase()).replace(/\/$/, '');
+  const computer = useAtmosComputerStore.getState();
+  const usingRelayGateway =
+    computer.connectionMode === 'relay' &&
+    Boolean(computer.relayGatewayHttpBase && computer.relayClientToken);
+  const base = usingRelayGateway
+    ? computer.relayGatewayHttpBase!.replace(/\/$/, '')
+    : (await getLoopbackHttpBase()).replace(/\/$/, '');
   const token =
     typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_TOKEN : undefined;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
   };
-  if (token) {
+  if (usingRelayGateway && computer.relayClientToken) {
+    headers.Authorization = `Bearer ${computer.relayClientToken}`;
+  } else if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
   let res: Response;

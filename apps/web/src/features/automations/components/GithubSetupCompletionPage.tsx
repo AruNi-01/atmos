@@ -1,27 +1,12 @@
 "use client";
 
-import * as React from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@workspace/ui";
-import { CheckCircle2, ExternalLink, Github, X } from "lucide-react";
+import { CheckCircle2, Github } from "lucide-react";
 
-export function GithubSetupCompletionPage({ locale }: { locale: string }) {
+export function GithubSetupCompletionPage() {
   const searchParams = useSearchParams();
   const connected = searchParams.get("github_setup") === "connected";
   const installationId = searchParams.get("installation_id");
-  const query = searchParams.toString();
-  const automationsHref = `/${locale}/automations${query ? `?${query}` : ""}`;
-
-  React.useEffect(() => {
-    if (!connected) {
-      return;
-    }
-    const timeout = window.setTimeout(() => {
-      window.close();
-    }, 1200);
-    return () => window.clearTimeout(timeout);
-  }, [connected]);
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background px-6 text-foreground">
@@ -39,7 +24,7 @@ export function GithubSetupCompletionPage({ locale }: { locale: string }) {
               {connected ? "GitHub App connected" : "GitHub setup finished"}
             </h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Return to the Atmos window where you started setup. The GitHub trigger form will refresh the installation list.
+              Setup is complete. Return to Atmos to continue configuring your GitHub trigger.
             </p>
             {installationId ? (
               <div className="mt-4 rounded-md border border-border bg-muted/25 px-3 py-2 font-mono text-xs text-muted-foreground">
@@ -47,19 +32,6 @@ export function GithubSetupCompletionPage({ locale }: { locale: string }) {
               </div>
             ) : null}
           </div>
-        </div>
-
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-          <Button type="button" className="sm:flex-1" onClick={() => window.close()}>
-            <X className="size-4" />
-            Close tab
-          </Button>
-          <Button asChild type="button" variant="outline" className="sm:flex-1">
-            <Link href={automationsHref}>
-              <ExternalLink className="size-4" />
-              Open web app
-            </Link>
-          </Button>
         </div>
       </section>
     </main>

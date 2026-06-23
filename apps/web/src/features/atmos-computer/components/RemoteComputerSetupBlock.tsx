@@ -84,6 +84,7 @@ export function RemoteComputerSetupBlock({
   const [loadingToken, setLoadingToken] = useState(false);
   const [copiedInstall, setCopiedInstall] = useState(false);
   const [copiedStart, setCopiedStart] = useState(false);
+  const canCacheRegistrationCode = accessToken.trim().length >= 32;
 
   const applyCache = useCallback(
     (cache: { register_token: string; expires_at: number; created_at: number }) => {
@@ -107,20 +108,28 @@ export function RemoteComputerSetupBlock({
     setLoadingToken(true);
     try {
       const data = await fetchRegisterToken(relayUrl, accessToken, relaySecretKey);
-      await saveRemoteComputerRegisterTokenCache(
-        accessToken,
-        relayUrl,
-        relaySecretKey,
-        data.register_token,
-        data.expires_at,
-      );
-      const cached = await loadRemoteComputerRegisterTokenCache(
-        accessToken,
-        relayUrl,
-        relaySecretKey,
-      );
-      if (cached) {
-        applyCache(cached);
+      if (canCacheRegistrationCode) {
+        await saveRemoteComputerRegisterTokenCache(
+          accessToken,
+          relayUrl,
+          relaySecretKey,
+          data.register_token,
+          data.expires_at,
+        );
+        const cached = await loadRemoteComputerRegisterTokenCache(
+          accessToken,
+          relayUrl,
+          relaySecretKey,
+        );
+        if (cached) {
+          applyCache(cached);
+        } else {
+          applyCache({
+            register_token: data.register_token,
+            expires_at: data.expires_at,
+            created_at: Math.floor(Date.now() / 1000),
+          });
+        }
       } else {
         applyCache({
           register_token: data.register_token,
@@ -141,6 +150,7 @@ export function RemoteComputerSetupBlock({
   }, [
     accessToken,
     applyCache,
+    canCacheRegistrationCode,
     clearRegistrationState,
     relayUrl,
     hasAccessToken,
@@ -154,6 +164,10 @@ export function RemoteComputerSetupBlock({
       return;
     }
     if (!active) {
+      return;
+    }
+    if (!canCacheRegistrationCode) {
+      clearRegistrationState();
       return;
     }
 
@@ -181,6 +195,7 @@ export function RemoteComputerSetupBlock({
     active,
     accessToken,
     applyCache,
+    canCacheRegistrationCode,
     clearRegistrationState,
     relayUrl,
     hasAccessToken,

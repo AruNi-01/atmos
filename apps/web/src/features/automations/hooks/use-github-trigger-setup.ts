@@ -25,8 +25,6 @@ import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 const HOSTED_GITHUB_SETUP_COMPLETION_ORIGIN = "https://app.atmos.land";
-const GITHUB_SETUP_POLL_TIMEOUT_MS = 90_000;
-const GITHUB_SETUP_POLL_INTERVAL_MS = 2_000;
 
 export function useGithubTriggerSetup({
   mode,
@@ -54,7 +52,9 @@ export function useGithubTriggerSetup({
   const [githubLoading, setGithubLoading] = React.useState(false);
   const [githubRepositoriesLoading, setGithubRepositoriesLoading] = React.useState(false);
   const [githubError, setGithubError] = React.useState<string | null>(null);
-  const githubSetupPollGenerationRef = React.useRef(0);
+  const [githubSetupRefreshAvailable, setGithubSetupRefreshAvailable] = React.useState(false);
+  const githubInstallationIdRef = React.useRef<GithubInt64 | null>(githubInstallationId);
+  const githubRepositoryFullNameRef = React.useRef(githubRepositoryFullName);
 
   const githubRelayReady = hasGithubRelayPrerequisites(githubPrereqs);
   const initialGithubConfig = React.useMemo(
@@ -72,7 +72,7 @@ export function useGithubTriggerSetup({
     ? githubInstallations.length > 0
       ? "Choose an installation and repository. Relay stores route metadata only."
       : "Install or update the Atmos GitHub App for this Relay tenant."
-    : "GitHub webhooks require an Atmos Relay Access Token and a registered Computer.";
+    : "GitHub webhooks require a connected Atmos Computer with Relay configured.";
   const githubRouteReady =
     trigger !== "github" ||
     (githubRelayReady &&
@@ -85,10 +85,12 @@ export function useGithubTriggerSetup({
   }, []);
 
   React.useEffect(() => {
-    return () => {
-      githubSetupPollGenerationRef.current += 1;
-    };
-  }, []);
+    githubInstallationIdRef.current = githubInstallationId;
+  }, [githubInstallationId]);
+
+  React.useEffect(() => {
+    githubRepositoryFullNameRef.current = githubRepositoryFullName;
+  }, [githubRepositoryFullName]);
 
   React.useEffect(() => {
     if (mode !== "edit" || !initialGithubConfig) {
@@ -118,6 +120,38 @@ export function useGithubTriggerSetup({
     setGithubWorkflowConclusion(initialGithubConfig.filters.workflow_conclusions?.[0] ?? "failure");
   }, [initialGithubConfig, mode]);
 
+  const applyGithubInstallations = React.useCallback((installations: GithubInstallation[]) => {
+    setGithubInstallations(installations);
+    const selectedInstallationId = githubInstallationIdRef.current;
+    const selectedInstallationStillAvailable =
+      !!selectedInstallationId &&
+      installations.some((installation) => installation.installation_id === selectedInstallationId);
+    if (!selectedInstallationStillAvailable && installations[0]) {
+      setGithubInstallationId(installations[0].installation_id);
+    } else if (!selectedInstallationStillAvailable) {
+      setGithubInstallationId(null);
+    }
+  }, []);
+
+  const refreshGithubInstallations = React.useCallback(async () => {
+    if (!githubRelayReady) {
+      setGithubInstallations([]);
+      setGithubLoading(false);
+      return;
+    }
+    setGithubLoading(true);
+    setGithubError(null);
+    try {
+      const installations = await listGithubInstallations(githubPrereqs);
+      applyGithubInstallations(installations);
+    } catch (err) {
+      setGithubInstallations([]);
+      setGithubError(err instanceof Error ? err.message : "Failed to load GitHub installations");
+    } finally {
+      setGithubLoading(false);
+    }
+  }, [applyGithubInstallations, githubPrereqs, githubRelayReady]);
+
   React.useEffect(() => {
     if (trigger !== "github" || !githubRelayReady) {
       setGithubInstallations([]);
@@ -129,16 +163,7 @@ export function useGithubTriggerSetup({
     setGithubError(null);
     listGithubInstallations(githubPrereqs)
       .then((installations) => {
-        if (cancelled) return;
-        setGithubInstallations(installations);
-        const selectedInstallationStillAvailable =
-          !!githubInstallationId &&
-          installations.some((installation) => installation.installation_id === githubInstallationId);
-        if (!selectedInstallationStillAvailable && installations[0]) {
-          setGithubInstallationId(installations[0].installation_id);
-        } else if (!selectedInstallationStillAvailable) {
-          setGithubInstallationId(null);
-        }
+        if (!cancelled) applyGithubInstallations(installations);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -151,7 +176,7 @@ export function useGithubTriggerSetup({
     return () => {
       cancelled = true;
     };
-  }, [githubInstallationId, githubPrereqs, githubRelayReady, trigger]);
+  }, [applyGithubInstallations, githubPrereqs, githubRelayReady, trigger]);
 
   React.useEffect(() => {
     if (trigger !== "github" || !githubRelayReady || !githubInstallationId) {
@@ -166,11 +191,12 @@ export function useGithubTriggerSetup({
       .then((repositories) => {
         if (cancelled) return;
         setGithubRepositories(repositories);
-        if (!repositories.some((repo) => repo.full_name === githubRepositoryFullName)) {
+        const selectedRepositoryFullName = githubRepositoryFullNameRef.current;
+        if (!repositories.some((repo) => repo.full_name === selectedRepositoryFullName)) {
           const preserveExistingRepository =
             mode === "edit" &&
-            githubRepositoryFullName.trim().length > 0 &&
-            initialGithubConfig?.repository_full_name === githubRepositoryFullName;
+            selectedRepositoryFullName.trim().length > 0 &&
+            initialGithubConfig?.repository_full_name === selectedRepositoryFullName;
           if (!preserveExistingRepository) {
             setGithubRepositoryFullName(repositories[0]?.full_name ?? "");
           }
@@ -191,7 +217,6 @@ export function useGithubTriggerSetup({
     githubInstallationId,
     githubPrereqs,
     githubRelayReady,
-    githubRepositoryFullName,
     initialGithubConfig,
     mode,
     trigger,
@@ -267,49 +292,6 @@ export function useGithubTriggerSetup({
     initialGithubConfig,
   ]);
 
-  const pollGithubSetupCompletion = React.useCallback(
-    async (baselineInstallationIds: Set<string>) => {
-      const generation = ++githubSetupPollGenerationRef.current;
-      const deadline = Date.now() + GITHUB_SETUP_POLL_TIMEOUT_MS;
-
-      while (Date.now() < deadline && githubSetupPollGenerationRef.current === generation) {
-        await sleep(GITHUB_SETUP_POLL_INTERVAL_MS);
-        if (githubSetupPollGenerationRef.current !== generation) {
-          return;
-        }
-
-        try {
-          const installations = await listGithubInstallations(githubPrereqs);
-          if (githubSetupPollGenerationRef.current !== generation) {
-            return;
-          }
-          if (installations.length === 0) {
-            continue;
-          }
-
-          setGithubInstallations(installations);
-          const newInstallation = installations.find(
-            (installation) => !baselineInstallationIds.has(installation.installation_id),
-          );
-          const currentInstallationStillAvailable =
-            !!githubInstallationId &&
-            installations.some((installation) => installation.installation_id === githubInstallationId);
-          const nextInstallation = newInstallation ?? (currentInstallationStillAvailable ? null : installations[0]);
-          if (nextInstallation) {
-            setGithubInstallationId(nextInstallation.installation_id);
-          }
-
-          if (newInstallation || baselineInstallationIds.size === 0) {
-            return;
-          }
-        } catch {
-          // The setup window may still be in progress; keep polling until the timeout.
-        }
-      }
-    },
-    [githubInstallationId, githubPrereqs],
-  );
-
   const startGithubSetup = React.useCallback(
     async () => {
       setGithubError(null);
@@ -321,9 +303,6 @@ export function useGithubTriggerSetup({
       if (reservedBrowserWindow) {
         reservedBrowserWindow.opener = null;
       }
-      const baselineInstallationIds = new Set(
-        githubInstallations.map((installation) => installation.installation_id),
-      );
 
       try {
         const returnUrl = githubSetupCompletionReturnUrl();
@@ -331,12 +310,12 @@ export function useGithubTriggerSetup({
         const openedByDesktop = await openDesktopExternalUrl(session.install_url);
         if (openedByDesktop) {
           reservedBrowserWindow?.close();
-          void pollGithubSetupCompletion(baselineInstallationIds);
+          setGithubSetupRefreshAvailable(true);
           return;
         }
         if (reservedBrowserWindow && !reservedBrowserWindow.closed) {
           reservedBrowserWindow.location.href = session.install_url;
-          void pollGithubSetupCompletion(baselineInstallationIds);
+          setGithubSetupRefreshAvailable(true);
           return;
         }
         if (typeof window === "undefined") {
@@ -347,7 +326,7 @@ export function useGithubTriggerSetup({
           throw new Error("Browser blocked the GitHub setup window. Allow pop-ups for Atmos and try again.");
         }
         openedWindow.opener = null;
-        void pollGithubSetupCompletion(baselineInstallationIds);
+        setGithubSetupRefreshAvailable(true);
       } catch (err) {
         reservedBrowserWindow?.close();
         setGithubError(err instanceof Error ? err.message : "Failed to start GitHub setup");
@@ -355,8 +334,12 @@ export function useGithubTriggerSetup({
         setGithubLoading(false);
       }
     },
-    [githubInstallations, githubPrereqs, pollGithubSetupCompletion],
+    [githubPrereqs],
   );
+
+  const resetGithubSetupButton = React.useCallback(() => {
+    setGithubSetupRefreshAvailable(false);
+  }, []);
 
   return {
     githubPrereqs,
@@ -368,6 +351,7 @@ export function useGithubTriggerSetup({
     githubLoading,
     githubRepositoriesLoading,
     githubError,
+    githubSetupRefreshAvailable,
     githubInstallationId,
     githubRepositoryFullName,
     githubEventFamily,
@@ -380,6 +364,8 @@ export function useGithubTriggerSetup({
     githubWorkflowConclusion,
     githubSetupMessage,
     buildGithubConfig,
+    refreshGithubInstallations,
+    resetGithubSetupButton,
     startGithubSetup,
     setGithubInstallationId,
     setGithubRepositoryFullName,
@@ -412,8 +398,4 @@ function currentLocaleFromLocation(): "en" | "zh" {
   }
   const firstSegment = window.location.pathname.split("/").filter(Boolean)[0];
   return firstSegment === "zh" ? "zh" : "en";
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

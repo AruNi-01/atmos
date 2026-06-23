@@ -297,6 +297,7 @@ export function AutomationSetup({
     githubLoading,
     githubRepositoriesLoading,
     githubError,
+    githubSetupRefreshAvailable,
     githubInstallationId,
     githubRepositoryFullName,
     githubEventFamily,
@@ -309,6 +310,8 @@ export function AutomationSetup({
     githubWorkflowConclusion,
     githubSetupMessage,
     buildGithubConfig,
+    refreshGithubInstallations,
+    resetGithubSetupButton,
     startGithubSetup,
     setGithubInstallationId,
     setGithubRepositoryFullName,
@@ -598,6 +601,11 @@ export function AutomationSetup({
                       setDisplayName(value);
                       clearSubmitError();
                     }}
+                    onTriggerOpenChange={(open) => {
+                      if (!open) {
+                        resetGithubSetupButton();
+                      }
+                    }}
                     environmentPickerProps={{
                       targetKind,
                       projectGuid,
@@ -636,6 +644,7 @@ export function AutomationSetup({
                       githubLoading,
                       githubRepositoriesLoading,
                       githubError,
+                      githubSetupRefreshAvailable,
                       githubInstallationId,
                       githubRepositoryFullName,
                       githubEventFamily,
@@ -660,6 +669,7 @@ export function AutomationSetup({
                       onDayOfMonthChange: setDayOfMonth,
                       onCronExprChange: setCronExpr,
                       onGithubStartSetup: handleGithubStartSetup,
+                      onGithubRefreshInstallations: refreshGithubInstallations,
                       onGithubOpenComputerSettings: handleOpenComputerSettings,
                       onGithubInstallationChange: (installationId) => {
                         setGithubInstallationId(installationId);

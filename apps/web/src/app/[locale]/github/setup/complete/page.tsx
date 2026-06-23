@@ -16,7 +16,7 @@ export default async function GithubSetupCompleteRoute({ params }: Props) {
 
   return (
     <Suspense fallback={<div className="min-h-dvh bg-background" />}>
-      <GithubSetupCompletionPage locale={locale} />
+      <GithubSetupCompletionPage />
     </Suspense>
   );
 }

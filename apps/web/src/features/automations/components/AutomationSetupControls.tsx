@@ -46,6 +46,7 @@ export function AutomationSetupControls({
   triggerValid,
   submitError,
   onDisplayNameChange,
+  onTriggerOpenChange,
   environmentPickerProps,
   triggerPickerProps,
 }: {
@@ -57,10 +58,18 @@ export function AutomationSetupControls({
   triggerValid: boolean;
   submitError: string | null;
   onDisplayNameChange: (value: string) => void;
+  onTriggerOpenChange?: (open: boolean) => void;
   environmentPickerProps: EnvironmentPickerProps;
   triggerPickerProps: TriggerPickerProps;
 }) {
   const [openControl, setOpenControl] = React.useState<"environment" | "trigger" | null>(null);
+  const handleTriggerOpenChange = React.useCallback(
+    (open: boolean) => {
+      setOpenControl(open ? "trigger" : null);
+      onTriggerOpenChange?.(open);
+    },
+    [onTriggerOpenChange],
+  );
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -68,7 +77,7 @@ export function AutomationSetupControls({
         <Popover
           modal={false}
           open={openControl === "trigger"}
-          onOpenChange={(open) => setOpenControl(open ? "trigger" : null)}
+          onOpenChange={handleTriggerOpenChange}
         >
           <PopoverTrigger asChild>
             <ControlButton

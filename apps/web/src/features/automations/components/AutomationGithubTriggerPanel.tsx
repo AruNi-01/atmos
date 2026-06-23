@@ -24,6 +24,7 @@ import {
   Github,
   LoaderCircle,
   MessageSquare,
+  RefreshCw,
   RotateCcw,
   Workflow,
   XCircle,
@@ -98,6 +99,7 @@ export function AutomationGithubTriggerPanel({
   loading,
   repositoriesLoading,
   error,
+  setupRefreshAvailable,
   selectedInstallationId,
   selectedRepositoryFullName,
   eventFamily,
@@ -109,6 +111,7 @@ export function AutomationGithubTriggerPanel({
   senderLogins,
   workflowConclusion,
   onStartSetup,
+  onRefreshInstallations,
   onOpenComputerSettings,
   onInstallationChange,
   onRepositoryChange,
@@ -128,6 +131,7 @@ export function AutomationGithubTriggerPanel({
   loading: boolean;
   repositoriesLoading: boolean;
   error: string | null;
+  setupRefreshAvailable: boolean;
   selectedInstallationId: GithubInt64 | null;
   selectedRepositoryFullName: string;
   eventFamily: GithubEventFamily;
@@ -139,6 +143,7 @@ export function AutomationGithubTriggerPanel({
   senderLogins: string;
   workflowConclusion: string;
   onStartSetup: () => void;
+  onRefreshInstallations: () => void;
   onOpenComputerSettings: () => void;
   onInstallationChange: (installationId: GithubInt64) => void;
   onRepositoryChange: (fullName: string) => void;
@@ -166,12 +171,18 @@ export function AutomationGithubTriggerPanel({
             type="button"
             variant="outline"
             size="sm"
-            onClick={onStartSetup}
+            onClick={setupRefreshAvailable ? onRefreshInstallations : onStartSetup}
             disabled={loading}
             className="shrink-0"
           >
-            {loading ? <LoaderCircle className="size-4 animate-spin" /> : <ExternalLink className="size-4" />}
-            Connect
+            {loading ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : setupRefreshAvailable ? (
+              <RefreshCw className="size-4" />
+            ) : (
+              <ExternalLink className="size-4" />
+            )}
+            {setupRefreshAvailable ? "Refresh" : "Connect"}
           </Button>
         ) : (
           <Button

@@ -9,20 +9,24 @@ export function useGithubRelayPrerequisites(): GithubRelayPrerequisites {
   const connectionMode = useAtmosComputerStore((state) => state.connectionMode);
   const relayUrl = useAtmosComputerStore((state) => state.relayUrl);
   const accessToken = useAtmosComputerStore((state) => state.accessToken);
+  const accessTokenConfigured = useAtmosComputerStore((state) => state.accessTokenConfigured);
   const relaySecretKey = useAtmosComputerStore((state) => state.relaySecretKey);
   const localServerId = useAtmosComputerStore((state) => state.localServerId);
   const selectedServerId = useAtmosComputerStore((state) => state.selectedServerId);
 
   return React.useMemo(() => {
     const activeServerId = connectionMode === "relay" ? selectedServerId : localServerId;
+    const serverId = activeServerId?.trim() || null;
     return {
       relayUrl,
       accessToken: accessToken.trim(),
       relaySecretKey: relaySecretKey.trim(),
-      serverId: activeServerId?.trim() || null,
+      serverId,
+      serverCredentialsAvailable: Boolean(serverId) && accessTokenConfigured,
     };
   }, [
     accessToken,
+    accessTokenConfigured,
     connectionMode,
     relayUrl,
     localServerId,

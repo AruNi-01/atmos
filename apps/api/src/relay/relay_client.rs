@@ -3,6 +3,7 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 
 use core_service::{Result, ServiceError};
+use runtime_manager::{read_computer_client_settings, resolved_relay_url};
 
 pub struct RelayRequest {
     pub client: RelayClient,
@@ -17,15 +18,53 @@ pub struct RelayClient {
 }
 
 impl RelayRequest {
-    pub fn from_value(value: Value) -> Result<Self> {
+    pub fn from_value_with_settings_fallback(value: Value) -> Result<Self> {
         let Value::Object(mut payload) = value else {
             return Err(ServiceError::Validation(
                 "Expected relay request object.".to_string(),
             ));
         };
-        let relay_url = take_required_string(&mut payload, "relay_url")?;
-        let access_token = take_required_string(&mut payload, "access_token")?;
+
+        let relay_url = take_optional_string(&mut payload, "relay_url");
+        let access_token = take_optional_string(&mut payload, "access_token");
         let relay_secret_key = take_optional_string(&mut payload, "relay_secret_key");
+        let use_settings_credentials = access_token.is_none();
+
+        let settings = if relay_url.is_none() || use_settings_credentials {
+            read_computer_client_settings().map_err(|error| {
+                ServiceError::Processing(format!("Computer relay settings read failed: {error}"))
+            })?
+        } else {
+            None
+        };
+
+        let settings_relay_url = settings.as_ref().map(resolved_relay_url);
+        let relay_url = if use_settings_credentials {
+            settings_relay_url.or(relay_url)
+        } else {
+            relay_url.or(settings_relay_url)
+        }
+        .ok_or_else(|| ServiceError::Validation("relay_url is required.".to_string()))?;
+        let access_token = access_token
+            .or_else(|| {
+                settings
+                    .as_ref()
+                    .map(|settings| settings.access_token.trim().to_string())
+                    .filter(|value| !value.is_empty())
+            })
+            .ok_or_else(|| {
+                ServiceError::Validation(
+                    "Relay Access Token is not configured on this Computer. Save an Access Key in Atmos Computer settings from Desktop or localhost.".to_string(),
+                )
+            })?;
+        let relay_secret_key = relay_secret_key.or_else(|| {
+            settings
+                .as_ref()
+                .and_then(|settings| settings.relay_secret_key.as_ref())
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        });
+
         Ok(Self {
             client: RelayClient::new(&relay_url, &access_token, relay_secret_key.as_deref())?,
             payload,
@@ -112,13 +151,6 @@ impl RelayClient {
             )));
         }
         Ok(data)
-    }
-}
-
-fn take_required_string(payload: &mut Map<String, Value>, key: &str) -> Result<String> {
-    match payload.remove(key) {
-        Some(Value::String(value)) if !value.trim().is_empty() => Ok(value.trim().to_string()),
-        _ => Err(ServiceError::Validation(format!("{key} is required."))),
     }
 }
 

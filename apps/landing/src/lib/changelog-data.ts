@@ -34,6 +34,80 @@ export interface ChangelogItem {
 
 export const changelogData: ChangelogItem[] = [
   {
+    id: "desktop-v2.0.0",
+    title: {
+      zh: "Kanban 工作区 · Code Review · 远程连接 · 自动化 · 独立 CLI",
+      en: "Kanban Workspaces, Code Review, Remote Access, Automations & Standalone CLI",
+    },
+    description: {
+      zh: "Atmos Desktop 2.0.0 把 1.0.0 之后的大版本能力集中成一个稳定版：项目管理升级为可拖拽 Kanban 和 GitHub Issue 导入，Code Review 支持内联评论与 revision 线程，Atmos Computer 与 Hosted Web 带来远程连接，本地模型运行时、Canvas/Appshots、自动化和移动端 MVP 进入主线，同时 CLI 与 Local Web Runtime 解耦为独立安装和更新路径。",
+      en: "Atmos Desktop 2.0.0 stabilizes the major work since 1.0.0: project management now includes drag-and-drop Kanban and GitHub Issue import, Code Review adds inline comments and revision threads, Atmos Computer and Hosted Web bring remote access, local model runtime, Canvas/Appshots, automations, and the mobile MVP move into the main product line, and the CLI plus Local Web Runtime are decoupled into standalone install and update paths.",
+    },
+    date: "2026-06-23",
+    version: "2.0.0",
+    releaseUrl: "https://github.com/AruNi-01/atmos/releases/tag/desktop-v2.0.0",
+    tags: [
+      { zh: "工作区", en: "Workspace" },
+      { zh: "远程运行时", en: "Remote Runtime" },
+      { zh: "自动化", en: "Automations" },
+      { zh: "CLI", en: "CLI" },
+    ],
+    content: {
+      zh: {
+        features: [
+          "**Workspace Kanban 与创建流程** — 新增可拖拽 Kanban、GitHub Issue 导入、工作区创建向导、分组/置顶侧边栏，以及更完整的 issue/PR 关联流程，让项目管理直接进入 Atmos 工作区。",
+          "**Code Review 全面升级** — Review 支持 diff header/gutter 内联评论、跨 revision 继承的讨论线程、独立 Review 侧栏、revision 快照、终端修复 runner 和更清晰的 diff 树视图。",
+          "**Atmos Computer 与 Hosted Web** — 新增 relay 驱动的远程电脑连接、Cloudflare Pages 托管 Web 入口、本地/远程 Atmos Server 连接流程，以及更稳定的 relay keepalive 和重连体验。",
+          "**本地模型运行时与更多 Agent** — 引入托管的本地 llama 运行时、自定义 Hugging Face GGUF 导入、统一 `context_window` 截断策略，并扩展 Cursor、Gemini CLI、Factory Droid、Kiro、Devin、Windsurf 等 Agent 支持。",
+          "**Canvas、Appshots 与移动端 MVP** — Canvas Agent 获得活动流、布局命令和更稳定的 tldraw v5 基础；Appshots 打通桌面截图到 Web 历史；首个 Expo 移动端 MVP 支持通过 relay 访问工作区终端。",
+          "**本地自动化与 GitHub Issue Automation** — 新增本地自动化运行面板、计划/手动运行、终端 Agent 执行、运行产物、桌面/Web 通知，以及基于 GitHub issue label 的自动化评估与执行流程。",
+        ],
+        improvements: [
+          "**独立 CLI 与 Local Web Runtime 分发** — Desktop、Local Web Runtime 和直接 CLI 安装统一收敛到 `~/.atmos/bin/atmos`，并通过 R2 release manifest 获取最新兼容 CLI，减少对 GitHub API 的依赖。",
+          "**终端与连接可靠性** — Run terminal tabs 通过 tmux 持久化并切换到 control mode；终端 WebSocket URL 现在跟随 runtime config，跨 Desktop、Hosted Web 和本地 API 模式更稳定。",
+          "**首屏与 Hosted Web 体验** — 启动时预取 bootstrap、WebSocket、project/workspace 数据；欢迎页和侧边栏加入 skeleton loading，Hosted Web 的 onboarding 与连接恢复也更稳。",
+          "**导航与信息架构打磨** — 新增分组 center-stage tabs、全局搜索入口、AI Usage footer carousel、右侧栏/文件树布局设置、设置页入口扩展和更清晰的管理中心。",
+        ],
+        fixes: [
+          "**工作区与 Review 稳定性** — 修复 workspace setup 可能因 PTY EOF 缺失而挂起的问题，区分 PR/Issue setup 路径，并修复 Review、metadata、label source 和 workspace 导航相关回归。",
+          "**终端输入与重连问题** — 修复 Tauri paste、Shift+Enter、图片剪贴板、scrollback resync、隐藏关闭按钮和 reconnect 后 agent status 识别等终端问题。",
+          "**Canvas 与预览稳定性** — 修复 canvas 点击后视口空白、camera/zoom 异常、preview selection、fullscreen layering 和本地服务 loopback URL 相关问题。",
+          "**更新与本地服务探测** — CLI 更新改用 R2 manifest 并选择兼容平台资产；IPv6 本地服务探测 URL 正确加括号；Hosted/local 检测和 retry 布局也更可靠。",
+        ],
+        others: [
+          "本条目合并了 `desktop-v1.1.0-rc.*` 与 `desktop-v1.2.0-beta.*` 的主要稳定化成果，预发布版本不单独展示。",
+          "[完整变更对比](https://github.com/AruNi-01/atmos/compare/desktop-v1.0.0...desktop-v2.0.0)",
+        ],
+      },
+      en: {
+        features: [
+          "**Workspace Kanban & creation flow** — Added drag-and-drop Kanban, GitHub Issue import, the workspace creation wizard, grouped and pinned sidebars, and fuller issue/PR linking directly inside Atmos workspaces.",
+          "**Code Review overhaul** — Review now supports inline comments in diff headers and gutters, threaded conversations inherited across revisions, a dedicated Review sidebar, revision snapshots, a terminal fix runner, and clearer diff tree navigation.",
+          "**Atmos Computer & Hosted Web** — Added relay-powered remote computer access, a Cloudflare Pages hosted web entry point, local/remote Atmos Server connection flows, and more reliable relay keepalive and reconnect behavior.",
+          "**Local model runtime & more agents** — Introduced the managed local llama runtime, custom Hugging Face GGUF imports, a unified `context_window` truncation strategy, and expanded support for Cursor, Gemini CLI, Factory Droid, Kiro, Devin, and Windsurf.",
+          "**Canvas, Appshots & mobile MVP** — Canvas Agent gained activity feeds, layout commands, and a more stable tldraw v5 foundation; Appshots connects desktop captures to web history; the first Expo mobile MVP can reach workspace terminals through the relay.",
+          "**Local automations & GitHub Issue Automation** — Added local automation surfaces, scheduled and manual runs, terminal-agent execution, run artifacts, desktop/web notifications, and GitHub issue label based judging and execution.",
+        ],
+        improvements: [
+          "**Standalone CLI & Local Web Runtime distribution** — Desktop, Local Web Runtime, and direct CLI installs now converge on `~/.atmos/bin/atmos`, with R2 release manifests used to resolve the latest compatible CLI and reduce dependence on GitHub API availability.",
+          "**Terminal and connection reliability** — Run terminal tabs persist through tmux and use control mode; terminal WebSocket URLs now follow runtime config for steadier Desktop, Hosted Web, and local API connections.",
+          "**First-screen and Hosted Web experience** — Startup prefetches bootstrap, WebSocket, project, and workspace data while the splash screen is visible; the welcome surface and sidebar now show skeleton loading, and Hosted Web onboarding/recovery is less fragile.",
+          "**Navigation and information architecture polish** — Added grouped center-stage tabs, broader global search, the AI Usage footer carousel, right-sidebar/file-tree layout settings, expanded settings entries, and a clearer management center.",
+        ],
+        fixes: [
+          "**Workspace and Review stability** — Fixed workspace setup hangs caused by missing PTY EOF, clarified PR vs Issue setup paths, and addressed Review, metadata, label-source, and workspace navigation regressions.",
+          "**Terminal input and reconnect issues** — Fixed Tauri paste, Shift+Enter, clipboard image handling, scrollback resync, hidden close buttons, and agent status identification after reconnect.",
+          "**Canvas and preview stability** — Fixed canvas viewport blanking after clicks, camera/zoom recovery, preview selection, fullscreen layering, and local-service loopback URL handling.",
+          "**Updates and local service probing** — CLI updates now use the R2 manifest and choose compatible platform assets; IPv6 local-service probe URLs are bracketed correctly; hosted/local detection and retry layout are more reliable.",
+        ],
+        others: [
+          "This entry rolls up the major stabilization work from `desktop-v1.1.0-rc.*` and `desktop-v1.2.0-beta.*`; prereleases are intentionally not shown as separate landing changelog entries.",
+          "[Full changelog comparison](https://github.com/AruNi-01/atmos/compare/desktop-v1.0.0...desktop-v2.0.0)",
+        ],
+      },
+    },
+  },
+  {
     id: "desktop-v1.0.0",
     title: {
       zh: "首个正式大版本：隧道连接器 · Agent 实时同步 · 文件树 Git 状态",

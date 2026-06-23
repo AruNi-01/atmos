@@ -24,6 +24,7 @@ export interface GithubRelayPrerequisites {
   accessToken: string;
   relaySecretKey: string;
   serverId: string | null;
+  serverCredentialsAvailable: boolean;
 }
 
 export interface GithubRouteUpsertResult {
@@ -33,10 +34,11 @@ export interface GithubRouteUpsertResult {
 }
 
 export function hasGithubRelayPrerequisites(prereqs: GithubRelayPrerequisites): boolean {
+  const hasBrowserAccessToken = prereqs.accessToken.trim().length >= 32;
   return (
     prereqs.relayUrl.trim().length > 0 &&
-    prereqs.accessToken.trim().length >= 32 &&
-    Boolean(prereqs.serverId?.trim())
+    Boolean(prereqs.serverId?.trim()) &&
+    (hasBrowserAccessToken || prereqs.serverCredentialsAvailable)
   );
 }
 
@@ -144,15 +146,19 @@ async function githubRelayRequest<T>(
     | "automation_github_event_route_delete",
   payload: Record<string, unknown> = {},
 ): Promise<T> {
-  if (!prereqs.accessToken) {
+  const accessToken = prereqs.accessToken.trim();
+  if (!accessToken && !prereqs.serverCredentialsAvailable) {
     throw new Error("Atmos Relay Access Token is missing.");
   }
-  return wsRequest<T>(action, {
+  const relayPayload: Record<string, unknown> = {
     relay_url: prereqs.relayUrl,
-    access_token: prereqs.accessToken.trim(),
     relay_secret_key: prereqs.relaySecretKey.trim() || null,
     ...payload,
-  });
+  };
+  if (accessToken) {
+    relayPayload.access_token = accessToken;
+  }
+  return wsRequest<T>(action, relayPayload);
 }
 
 function isGithubRouteMissingError(err: unknown): boolean {
