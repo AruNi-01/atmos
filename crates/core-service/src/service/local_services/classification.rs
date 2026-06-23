@@ -24,6 +24,16 @@ pub(super) fn browser_url(connect_host: &str, port: u16) -> String {
     format!("http://{}:{}", host, port)
 }
 
+pub(super) fn probe_url(connect_host: &str, port: u16) -> String {
+    let normalized = connect_host.trim_matches(['[', ']']);
+    let host = if normalized.contains(':') {
+        format!("[{}]", normalized)
+    } else {
+        normalized.to_string()
+    };
+    format!("http://{}:{}", host, port)
+}
+
 pub(super) fn is_default_visible(service: &LocalServiceDto) -> bool {
     matches!(
         service.kind,
@@ -214,7 +224,7 @@ pub(super) fn service_kind_rank(service: &LocalServiceDto) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::{browser_url, command_preview};
+    use super::{browser_url, command_preview, probe_url};
 
     #[test]
     fn command_preview_redacts_secretish_values() {
@@ -232,5 +242,12 @@ mod tests {
             browser_url("192.168.1.10", 3030),
             "http://192.168.1.10:3030"
         );
+    }
+
+    #[test]
+    fn probe_url_brackets_ipv6_hosts() {
+        assert_eq!(probe_url("127.0.0.1", 3031), "http://127.0.0.1:3031");
+        assert_eq!(probe_url("::1", 5173), "http://[::1]:5173");
+        assert_eq!(probe_url("[::1]", 5173), "http://[::1]:5173");
     }
 }

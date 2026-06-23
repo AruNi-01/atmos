@@ -3,7 +3,7 @@ use core_engine::LocalServicesEngine;
 
 use super::classification::{
     browser_url, can_stop, command_preview, connect_host, display_path, is_protected_listener,
-    looks_like_container_proxy, looks_like_dependency, service_id,
+    looks_like_container_proxy, looks_like_dependency, probe_url, service_id,
 };
 use super::ownership::AttributedListener;
 use super::{LocalServiceDto, LocalServiceKind, LocalServiceOwnerDto, LocalServiceStatus};
@@ -17,7 +17,7 @@ pub(super) async fn build_service_dto(
     let dependency = looks_like_dependency(&listener);
     let container_proxy = looks_like_container_proxy(&listener);
     let connect_host = connect_host(&listener.local_addr);
-    let probe_url = format!("http://{}:{}", connect_host, listener.port);
+    let probe_url = probe_url(&connect_host, listener.port);
     let browser_url = browser_url(&connect_host, listener.port);
     let mut status = if protected {
         LocalServiceStatus::Protected
