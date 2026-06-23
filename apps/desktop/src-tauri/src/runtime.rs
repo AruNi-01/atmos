@@ -47,7 +47,7 @@ pub async fn ensure_desktop_runtime(
     extra_env.push(("LANG".to_string(), utf8_locale.clone()));
     extra_env.push(("LC_CTYPE".to_string(), utf8_locale));
     extra_env.push(("SHELL".to_string(), resolve_shell()));
-    if let Ok(path) = augmented_path(&runtime_dir) {
+    if let Ok(path) = augmented_path() {
         extra_env.push(("PATH".to_string(), path));
     }
 
@@ -104,10 +104,9 @@ fn resolve_bundled_runtime_dir(resource_dir: &Path) -> Result<PathBuf, String> {
     )
 }
 
-fn augmented_path(runtime_dir: &Path) -> Result<String, String> {
-    let mut paths = vec![runtime_dir.join("bin")];
+fn augmented_path() -> Result<String, String> {
+    let mut paths = Vec::new();
     let extra = ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"];
-    paths.extend(extra.iter().map(|p| PathBuf::from(*p)));
     if let Some(home) = dirs::home_dir() {
         paths.extend([
             home.join(".atmos").join("bin"),
@@ -121,6 +120,7 @@ fn augmented_path(runtime_dir: &Path) -> Result<String, String> {
             home.join("Library").join("pnpm"),
         ]);
     }
+    paths.extend(extra.iter().map(|p| PathBuf::from(*p)));
     paths.extend(
         std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()).collect::<Vec<_>>(),
     );

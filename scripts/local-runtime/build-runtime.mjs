@@ -3,7 +3,6 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const rootDir = resolve(import.meta.dirname, "../..");
-const cliCargoToml = join(rootDir, "apps/cli/Cargo.toml");
 const localInstallerPackageJson = join(rootDir, "packages/local-installer/package.json");
 const webEnvLocalPath = join(rootDir, "apps/web/.env.local");
 
@@ -106,15 +105,6 @@ function detectTargetTriple(input) {
   return hostLine.replace("host:", "").trim();
 }
 
-function readCliVersion() {
-  const cargoToml = readFileSync(cliCargoToml, "utf8");
-  const match = cargoToml.match(/^version\s*=\s*"([^"]+)"/m);
-  if (!match) {
-    fail(`Unable to resolve CLI version from ${cliCargoToml}`);
-  }
-  return match[1];
-}
-
 function readLocalRuntimeVersion() {
   const packageJson = JSON.parse(readFileSync(localInstallerPackageJson, "utf8"));
   const version = packageJson?.version;
@@ -187,7 +177,6 @@ function createArchive(runtimeDir, outputArchive) {
 const options = parseArgs(process.argv.slice(2));
 const targetTriple = detectTargetTriple(options.targetTriple);
 const runtimeVersion = resolveRuntimeVersion(options.version);
-const cliVersion = readCliVersion();
 const binExt = targetTriple.includes("windows") ? ".exe" : "";
 
 try {
@@ -204,22 +193,13 @@ run("cargo", ["build", "--release", "--bin", "api", "--target", targetTriple], {
   },
 });
 
-run("cargo", ["build", "--release", "--bin", "atmos", "--target", targetTriple], {
-  env: {
-    ...process.env,
-    ATMOS_LOG_LEVEL: process.env.ATMOS_LOG_LEVEL ?? "info",
-  },
-});
-
 const stageRoot = join(options.outputDir, `atmos-local-runtime-${targetTriple}`);
 const runtimeDir = join(stageRoot, "atmos-runtime");
 const apiSource = join(rootDir, `target/${targetTriple}/release/api${binExt}`);
-const cliSource = join(rootDir, `target/${targetTriple}/release/atmos${binExt}`);
 const webOut = join(rootDir, "apps/web/out");
 const skillsDir = join(rootDir, "skills");
 
 if (!existsSync(apiSource)) fail(`Missing built API binary: ${apiSource}`);
-if (!existsSync(cliSource)) fail(`Missing built CLI binary: ${cliSource}`);
 if (!existsSync(webOut)) fail(`Missing static web export: ${webOut}`);
 
 ensureRootIndex(webOut);
@@ -228,7 +208,6 @@ mkdirSync(join(runtimeDir, "bin"), { recursive: true });
 mkdirSync(join(runtimeDir, "web"), { recursive: true });
 
 cpSync(apiSource, join(runtimeDir, "bin", `api${binExt}`));
-cpSync(cliSource, join(runtimeDir, "bin", `atmos${binExt}`));
 cpSync(webOut, join(runtimeDir, "web"), { recursive: true });
 
 if (existsSync(skillsDir)) {
@@ -243,12 +222,10 @@ writeFileSync(
       schema_version: 1,
       product: "atmos-local-runtime",
       runtime_version: runtimeVersion,
-      bundled_cli_version: cliVersion,
       target_triple: targetTriple,
       built_at: new Date().toISOString(),
       layout: {
         api: `bin/api${binExt}`,
-        cli: `bin/atmos${binExt}`,
         web: "web",
         system_skills: "system-skills",
       },

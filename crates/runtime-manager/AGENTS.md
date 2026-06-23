@@ -47,7 +47,7 @@ crates/runtime-manager/src/
 ### Supervisor
 
 - Resolves install layout: `ATMOS_RUNTIME_DIR` or `~/.atmos/runtime/current` or bundled Desktop `runtime/current`.
-- Spawns `bin/api` with `ATMOS_STATIC_DIR`, `ATMOS_CLI_BIN`, optional `extra_env` (e.g. Desktop `ATMOS_DATA_DIR`).
+- Spawns `bin/api` with `ATMOS_STATIC_DIR` and optional `extra_env` (e.g. Desktop `ATMOS_DATA_DIR`). User-facing CLI resolution is always `~/.atmos/bin/atmos`.
 
 ---
 

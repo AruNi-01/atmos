@@ -20,7 +20,6 @@ pub const DEFAULT_PORT: u16 = 30303;
 pub struct RuntimeLayout {
     pub runtime_dir: PathBuf,
     pub api_bin_path: PathBuf,
-    pub cli_bin_path: PathBuf,
     pub web_dir: PathBuf,
     pub system_skills_dir: PathBuf,
     pub version_file_path: PathBuf,
@@ -200,11 +199,7 @@ pub async fn stop_running(force: bool) -> Result<bool, String> {
 
 async fn collect_status(layout: Option<&RuntimeLayout>) -> Result<RuntimeStatus, String> {
     let installed = layout
-        .map(|resolved| {
-            resolved.api_bin_path.is_file()
-                && resolved.cli_bin_path.is_file()
-                && resolved.web_dir.is_dir()
-        })
+        .map(|resolved| resolved.api_bin_path.is_file() && resolved.web_dir.is_dir())
         .unwrap_or(false);
 
     let manifest = read_runtime_manifest().ok().flatten();
@@ -305,7 +300,6 @@ fn spawn_detached_api(
             .env("SERVER_HOST", host)
             .env("ATMOS_PORT", port.to_string())
             .env("ATMOS_STATIC_DIR", &layout.web_dir)
-            .env("ATMOS_CLI_BIN", &layout.cli_bin_path)
             .env("ATMOS_LOCAL_API_BIN", &layout.api_bin_path)
             .env("ATMOS_LOCAL_PORT", port.to_string())
             .env("ATMOS_LOCAL_LOG_PATH", log_path)
@@ -360,7 +354,6 @@ fn spawn_detached_api(
             .env("SERVER_HOST", host)
             .env("ATMOS_PORT", port.to_string())
             .env("ATMOS_STATIC_DIR", &layout.web_dir)
-            .env("ATMOS_CLI_BIN", &layout.cli_bin_path)
             .env("PATH", local_process_path(layout)?);
         if layout.system_skills_dir.is_dir() {
             command.env("ATMOS_SYSTEM_SKILLS_DIR", &layout.system_skills_dir);
@@ -517,11 +510,8 @@ pub fn resolve_runtime_layout() -> Result<RuntimeLayout, String> {
     };
 
     let bin_name = if cfg!(windows) { "api.exe" } else { "api" };
-    let cli_name = if cfg!(windows) { "atmos.exe" } else { "atmos" };
-
     Ok(RuntimeLayout {
         api_bin_path: runtime_dir.join("bin").join(bin_name),
-        cli_bin_path: runtime_dir.join("bin").join(cli_name),
         web_dir: runtime_dir.join("web"),
         system_skills_dir: runtime_dir.join("system-skills"),
         version_file_path: runtime_dir.join("version.txt"),
@@ -580,8 +570,8 @@ fn ensure_runtime_installed(layout: &RuntimeLayout) -> Result<(), String> {
     Ok(())
 }
 
-fn local_process_path(layout: &RuntimeLayout) -> Result<String, String> {
-    let mut paths = vec![layout.runtime_dir.join("bin")];
+fn local_process_path(_layout: &RuntimeLayout) -> Result<String, String> {
+    let mut paths = Vec::new();
     if let Some(home) = dirs::home_dir() {
         paths.extend([
             home.join(".atmos").join("bin"),

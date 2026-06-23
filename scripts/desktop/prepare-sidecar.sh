@@ -11,7 +11,6 @@ if [[ "$TARGET_TRIPLE" == *"windows"* ]]; then
 fi
 
 cargo build --release --bin api --target "$TARGET_TRIPLE"
-cargo build --release --bin atmos --target "$TARGET_TRIPLE"
 
 mkdir -p apps/desktop/src-tauri/binaries
 cp "target/$TARGET_TRIPLE/release/api$BIN_EXT" \

@@ -2,21 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const rootDir = resolve(import.meta.dirname, "../..");
-const cliCargoToml = resolve(rootDir, "apps/cli/Cargo.toml");
 const installerPackageJson = resolve(rootDir, "packages/local-installer/package.json");
 
 function fail(message) {
   console.error(message);
   process.exit(1);
-}
-
-function readCliVersion() {
-  const content = readFileSync(cliCargoToml, "utf8");
-  const match = content.match(/^version\s*=\s*"([^"]+)"/m);
-  if (!match) {
-    fail(`Unable to resolve version from ${cliCargoToml}`);
-  }
-  return match[1];
 }
 
 function readInstallerVersion() {
@@ -46,12 +36,10 @@ function getReleaseTagFromArgs(argv) {
   return "";
 }
 
-const bundledCliVersion = readCliVersion();
 const runtimeVersion = readInstallerVersion();
 const releaseTag = getReleaseTagFromArgs(process.argv.slice(2));
 
 console.log(`packages/local-installer/package.json: ${runtimeVersion}`);
-console.log(`bundled CLI apps/cli/Cargo.toml: ${bundledCliVersion}`);
 
 if (releaseTag) {
   const expectedTag = `local-web-runtime-v${runtimeVersion}`;

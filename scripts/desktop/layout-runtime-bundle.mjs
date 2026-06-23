@@ -27,10 +27,8 @@ export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
   const runtimeRoot = join(binariesDir, "runtime/current");
 
   let apiSrc = join(rootDir, `target/${targetTriple}/release/api${binExt}`);
-  let cliSrc = join(rootDir, `target/${targetTriple}/release/atmos${binExt}`);
   if (!existsSync(apiSrc)) {
     apiSrc = join(rootDir, `target/${targetTriple}/debug/api${binExt}`);
-    cliSrc = join(rootDir, `target/${targetTriple}/debug/atmos${binExt}`);
   }
 
   const webSrc = join(binariesDir, "web-out");
@@ -45,9 +43,6 @@ export function layoutRuntimeBundle(rootDir, targetTriple, binExt = "") {
 
   mkdirSync(join(runtimeRoot, "bin"), { recursive: true });
   cpSync(apiSrc, join(runtimeRoot, "bin", `api${binExt}`));
-  if (existsSync(cliSrc)) {
-    cpSync(cliSrc, join(runtimeRoot, "bin", `atmos${binExt}`));
-  }
 
   if (existsSync(webSrc)) {
     rmSync(join(runtimeRoot, "web"), { recursive: true, force: true });

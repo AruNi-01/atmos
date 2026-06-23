@@ -225,7 +225,6 @@ jobs:
 
           Assets:
           - prebuilt local runtime archives for each supported platform
-          - bundled Atmos CLI binary for local runtime control
           - npm installer package: \`@atmos/local-web-runtime\`
           EOF
 

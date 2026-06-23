@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -135,6 +135,44 @@ function startLocalRuntime(cliInstall, port) {
   ], { echo: false });
 }
 
+function readCliVersion(cliPath) {
+  if (!existsSync(cliPath)) {
+    return "";
+  }
+  const result = spawnSync(cliPath, ["--version"], {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+  if (result.status !== 0) {
+    return "";
+  }
+  const parts = String(result.stdout || "").trim().split(/\s+/).filter(Boolean);
+  return parts[parts.length - 1] || "";
+}
+
+function versionParts(version) {
+  return String(version || "")
+    .split("+", 1)[0]
+    .split("-", 1)[0]
+    .split(".")
+    .map((part) => Number.parseInt(part, 10))
+    .map((part) => (Number.isFinite(part) ? part : 0));
+}
+
+function versionGte(candidate, baseline) {
+  const left = versionParts(candidate);
+  const right = versionParts(baseline);
+  const length = Math.max(left.length, right.length);
+  while (left.length < length) left.push(0);
+  while (right.length < length) right.push(0);
+  for (let index = 0; index < length; index += 1) {
+    if (left[index] !== right[index]) {
+      return left[index] > right[index];
+    }
+  }
+  return true;
+}
+
 function downloadUrl(version, asset, useGitHubSource = false) {
   if (useGitHubSource) {
     return `https://github.com/${REPO}/releases/download/${version}/${asset}`;
@@ -171,6 +209,105 @@ async function downloadWithFallback(version, asset, useGitHubSource = false) {
     throw new Error(`Download failed: ${response.status} ${response.statusText}`);
   }
   return Buffer.from(await response.arrayBuffer());
+}
+
+function cliManifestUrl() {
+  return process.env.ATMOS_CLI_UPDATE_MANIFEST_URL || `${DOWNLOAD_BASE}/cli/latest.json`;
+}
+
+function resolveCliAsset(manifest, target) {
+  const assets = Array.isArray(manifest?.assets) ? manifest.assets : [];
+  const match = assets.find((asset) => {
+    const name = String(asset?.name || "");
+    return asset?.target === target || (name.includes(target) && /\.(?:tar\.gz|tgz)$/.test(name));
+  });
+  if (!match) {
+    throw new Error(`No compatible Atmos CLI asset found for ${target}`);
+  }
+  let url = String(match.url || "");
+  if (!url) {
+    url = `cli/${manifest.tag}/${match.name}`;
+  }
+  if (!/^https?:\/\//.test(url)) {
+    url = url.startsWith("/") ? `${DOWNLOAD_BASE}${url}` : `${DOWNLOAD_BASE}/${url}`;
+  }
+  return {
+    version: String(manifest?.version || ""),
+    url,
+  };
+}
+
+function findFileNamed(root, fileName, depth = 5) {
+  if (depth <= 0 || !existsSync(root)) {
+    return "";
+  }
+  const entries = spawnSync(
+    process.platform === "win32" ? "cmd" : "find",
+    process.platform === "win32"
+      ? ["/c", "dir", "/b", "/s", root]
+      : [root, "-maxdepth", String(depth), "-type", "f", "-name", fileName],
+    { encoding: "utf8", shell: process.platform === "win32" },
+  );
+  if (entries.status !== 0) {
+    return "";
+  }
+  return String(entries.stdout || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.endsWith(fileName)) || "";
+}
+
+async function installLatestCliFromManifest(target, cliInstall, tempRoot) {
+  const manifestResponse = await fetch(cliManifestUrl());
+  if (!manifestResponse.ok) {
+    throw new Error(`CLI manifest request failed: ${manifestResponse.status} ${manifestResponse.statusText}`);
+  }
+  const manifest = await manifestResponse.json();
+  const asset = resolveCliAsset(manifest, target);
+
+  const installedVersion = readCliVersion(cliInstall);
+  if (installedVersion && asset.version && versionGte(installedVersion, asset.version)) {
+    console.log(`Keeping existing Atmos CLI ${installedVersion} at ${cliInstall}`);
+    return { source: "existing", version: installedVersion };
+  }
+
+  console.log(`Downloading latest Atmos CLI ${asset.version || "unknown"}: ${asset.url}`);
+  const archiveResponse = await fetch(asset.url);
+  if (!archiveResponse.ok) {
+    throw new Error(`CLI download failed: ${archiveResponse.status} ${archiveResponse.statusText}`);
+  }
+
+  const cliArchive = join(tempRoot, `atmos-cli-${target}.tar.gz`);
+  const cliExtract = join(tempRoot, "cli-latest");
+  await writeFile(cliArchive, Buffer.from(await archiveResponse.arrayBuffer()));
+  mkdirSync(cliExtract, { recursive: true });
+  spawnChecked("tar", ["-xzf", cliArchive, "-C", cliExtract]);
+
+  const binaryName = process.platform === "win32" ? "atmos.exe" : "atmos";
+  const extractedCli = findFileNamed(cliExtract, binaryName);
+  if (!extractedCli) {
+    throw new Error("Latest Atmos CLI archive did not contain the CLI binary");
+  }
+  cpSync(extractedCli, cliInstall);
+  chmodSync(cliInstall, 0o755);
+  console.log(`Installed Atmos CLI ${asset.version || "latest"} to ${cliInstall}`);
+  return { source: "download", version: asset.version };
+}
+
+async function installBestCli(target, cliInstall, tempRoot) {
+  try {
+    return await installLatestCliFromManifest(target, cliInstall, tempRoot);
+  } catch (error) {
+    console.log(`${error.message}.`);
+  }
+
+  const installedVersion = readCliVersion(cliInstall);
+  if (installedVersion) {
+    console.log(`Keeping existing Atmos CLI ${installedVersion} at ${cliInstall}.`);
+    return { source: "existing", version: installedVersion };
+  }
+
+  throw new Error(`Unable to install Atmos CLI. Check ${cliManifestUrl()} or install the standalone CLI first.`);
 }
 
 async function resolveReleaseTag(version) {
@@ -246,7 +383,7 @@ function openBrowser(url) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const target = detectTarget();
-  const resolvedVersion = await resolveReleaseTag(options.version);
+  const resolvedVersion = options.archive ? options.version : await resolveReleaseTag(options.version);
   const asset = `atmos-local-runtime-${target}.tar.gz`;
   const tempRoot = await mkdtemp(join(tmpdir(), "atmos-local-"));
   const archivePath = join(tempRoot, asset);
@@ -279,11 +416,11 @@ async function main() {
     cpSync(tempRuntime, currentRuntime, { recursive: true });
     rmSync(tempRuntime, { recursive: true, force: true });
 
-    const binDir = join(options.installDir, "bin");
+    const homeDir = process.env.HOME || process.env.USERPROFILE || options.installDir;
+    const binDir = join(homeDir, ".atmos", "bin");
     mkdirSync(binDir, { recursive: true });
-    const cliTarget = join(currentRuntime, "bin", process.platform === "win32" ? "atmos.exe" : "atmos");
     const cliInstall = join(binDir, process.platform === "win32" ? "atmos.exe" : "atmos");
-    cpSync(cliTarget, cliInstall);
+    await installBestCli(target, cliInstall, tempRoot);
     await ensurePathHint(binDir);
 
     console.log(`Installed Atmos local runtime to ${currentRuntime}`);

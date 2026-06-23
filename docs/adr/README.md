@@ -24,6 +24,7 @@ An Architecture Decision Record (ADR) is a document that captures an important a
 | [002](./002-agent-crate-positioning.md) | Agent Crate as Independent Vertical Module | ✅ Accepted | 2025-02-18 | - |
 | [003](./003-terminal-scrolling-and-resize.md) | 终端滚动与 Resize 架构优化 | 🔄 Superseded | 2026-03-17 | - |
 | [004](./004-terminal-tmux-control-mode.md) | 终端改为 tmux Control Mode Transport | ✅ Accepted | 2026-04-19 | Aaryn, Codex |
+| [005](./005-release-download-installation-architecture.md) | 发布、下载与安装架构 | ✅ Accepted | 2026-06-23 | Aaryn, Codex |
 
 ---
 

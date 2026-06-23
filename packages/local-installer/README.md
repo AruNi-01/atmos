@@ -17,9 +17,9 @@ npx @atmos/local-web-runtime
 ## What it does
 
 - detects your platform
-- downloads the matching `atmos-local-runtime-<target>.tar.gz` asset from GitHub Releases
+- downloads the matching `atmos-local-runtime-<target>.tar.gz` asset
 - installs the runtime under `~/.atmos/runtime/current`
-- installs the `atmos` CLI under `~/.atmos/bin/atmos`
+- installs or keeps the latest standalone `atmos` CLI under `~/.atmos/bin/atmos`
 - starts the local Atmos API + web runtime
 
 ## Options

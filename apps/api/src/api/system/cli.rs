@@ -163,6 +163,42 @@ pub async fn install_cli(
     })))
 }
 
+/// Ensure the canonical standalone CLI exists under `~/.atmos/bin`.
+///
+/// Desktop and local runtime both launch the same API. Keeping this startup path tied to the
+/// standalone install location prevents bundled runtime resources from becoming another CLI source.
+pub async fn ensure_standalone_cli_on_startup() -> Result<Option<String>, String> {
+    let cli_path = infra::utils::atmos_cli::installed_cli_path()
+        .ok_or_else(|| "Cannot determine CLI install path".to_string())?;
+
+    if let Some(bin_dir) = cli_path.parent() {
+        std::fs::create_dir_all(bin_dir)
+            .map_err(|error| format!("Failed to create {}: {}", bin_dir.display(), error))?;
+        let _ = modify_shell_config(bin_dir);
+    }
+
+    let release = fetch_latest_cli_release().await?;
+    let current_version = read_cli_version(&cli_path);
+    if let Some(current) = current_version.as_deref() {
+        if !version_gt(&release.version, current) {
+            return Ok(Some(current.to_string()));
+        }
+    }
+
+    let asset_url = release
+        .asset_url
+        .as_deref()
+        .ok_or_else(|| "No compatible CLI asset found for this platform".to_string())?;
+
+    info!(
+        "Installing standalone Atmos CLI {} to {}",
+        release.version,
+        cli_path.display()
+    );
+    download_and_install_cli(asset_url, &cli_path).await?;
+    Ok(read_cli_version(&cli_path))
+}
+
 async fn download_and_install_cli(asset_url: &str, cli_path: &Path) -> Result<(), String> {
     let target = current_target_triple()?;
     let client = reqwest::Client::builder()

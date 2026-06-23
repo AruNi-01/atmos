@@ -277,7 +277,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Err(error) = infra::utils::atmos_cli::ensure_atmos_cli_on_startup() {
         warn!(
-            "Non-critical startup task failed: Atmos CLI install: {}",
+            "Non-critical startup task failed: Atmos CLI PATH setup: {}",
+            error
+        );
+    }
+    if let Err(error) = api::system::cli::ensure_standalone_cli_on_startup().await {
+        warn!(
+            "Non-critical startup task failed: standalone Atmos CLI install: {}",
             error
         );
     }

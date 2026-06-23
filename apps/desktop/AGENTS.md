@@ -6,9 +6,9 @@
 
 ## Build And Test
 
-- **Dev**: `just dev-desktop` — `prepare-sidecar.sh` (rebuilds web static + API/CLI) then `tauri dev --no-dev-server-wait --no-watch` (no `dev-web` required)
+- **Dev**: `just dev-desktop` — `prepare-sidecar.sh` (rebuilds web static + API) then `tauri dev --no-dev-server-wait --no-watch` (no `dev-web` required)
 - **Build**: `just build-desktop`
-- **Prepare**: `bash ./scripts/desktop/prepare-sidecar.sh` (builds latest `apps/web/out`, API/CLI, lays out `binaries/runtime/current`)
+- **Prepare**: `bash ./scripts/desktop/prepare-sidecar.sh` (builds latest `apps/web/out`, API, lays out `binaries/runtime/current`)
 - **Faster re-run** (Rust-only): `ATMOS_DESKTOP_SKIP_WEB_BUILD=1 just dev-desktop`
 ---
 
@@ -22,7 +22,6 @@ On startup, `src-tauri/src/runtime.rs` calls `runtime-manager::supervisor::ensur
 ```text
 apps/desktop/src-tauri/binaries/runtime/current/
   bin/api
-  bin/atmos
   web/              # static export (production navigates to http://127.0.0.1:<port>)
   system-skills/
 ```

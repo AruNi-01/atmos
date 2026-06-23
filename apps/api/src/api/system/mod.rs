@@ -1,4 +1,4 @@
-mod cli;
+pub(crate) mod cli;
 mod client_session;
 mod computer;
 mod debug_log;

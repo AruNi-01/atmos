@@ -66,7 +66,6 @@
       "binaries/runtime/current": "runtime/current",
       "binaries/web-out": "web-out",
       "binaries/system-skills": "system-skills",
-      "binaries/atmos-cli": "atmos-cli",
       "icons/icon.icns": "AtmosSidecar.icns"
     },
     "windows": {

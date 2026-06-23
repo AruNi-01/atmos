@@ -11,15 +11,14 @@ Atmos has three independent release lines:
 | Release line | Tag | GitHub Actions | Artifacts | Purpose |
 | --- | --- | --- | --- | --- |
 | CLI | `cli-v<version>` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | Standalone `atmos` command, used as the relay for agents and scripts |
-| Local Runtime | `local-web-runtime-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` + `@atmos/local-web-runtime` | Local Web runtime package containing API, static Web assets, system skills, and a bundled CLI |
+| Local Runtime | `local-web-runtime-v<version>` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` + `@atmos/local-web-runtime` | Local Web runtime package containing API, static Web assets, and system skills |
 | Desktop | `desktop-v<version>` | `.github/workflows/release-desktop.yml` | Tauri desktop installers and updater manifest | Desktop application distribution |
 
 Core principles:
 
-- CLI is an independent relay that can be called by agents, Desktop, and Local Runtime.
-- Local Runtime and Desktop may bundle the CLI, but they do not own the CLI release cadence.
+- CLI is the single standalone command installed at `~/.atmos/bin/atmos`.
+- Local Runtime and Desktop do not bundle the CLI; installers and the API install or keep the standalone CLI from the CLI release channel.
 - The three release lines do not need to share the same version number.
-- Local Runtime records `bundled_cli_version`; Desktop records a bundled CLI manifest for traceability.
 - Stable tag-based releases must come from a commit already contained in `origin/main`.
 - Use workflow dispatch plus prerelease for real release-path testing from non-main branches.
 
@@ -210,8 +209,7 @@ Each archive contains:
 ```text
 atmos-runtime/
 ├── bin/
-│   ├── api
-│   └── atmos
+│   └── api
 ├── web/
 ├── system-skills/
 ├── version.txt
@@ -225,12 +223,11 @@ atmos-runtime/
   "schema_version": 1,
   "product": "atmos-local-runtime",
   "runtime_version": "0.1.0",
-  "bundled_cli_version": "0.1.0",
   "target_triple": "aarch64-apple-darwin"
 }
 ```
 
-`runtime_version` belongs to Local Runtime. `bundled_cli_version` records which CLI was bundled, but does not force Local Runtime and CLI to share the same version.
+`runtime_version` belongs to Local Runtime. The standalone CLI is resolved separately from `https://install.atmos.land/cli/latest.json`.
 
 ### Stable Local Runtime Release
 
@@ -320,18 +317,6 @@ Desktop bundles:
 - API sidecar
 - static Web output
 - system skills
-- bundled CLI resource
-
-The bundled CLI resource includes a manifest generated during build:
-
-```json
-{
-  "schema_version": 1,
-  "product": "atmos-cli",
-  "cli_version": "0.1.0",
-  "target_triple": "aarch64-apple-darwin"
-}
-```
 
 ### Stable Desktop Release
 
@@ -443,7 +428,7 @@ node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs <version> 
 node ./.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs <version>
 ```
 
-If Local Runtime or Desktop should embed this new CLI, cut their releases afterwards.
+Local Runtime and Desktop do not need their own releases for CLI-only changes; they resolve the standalone CLI from the CLI release channel.
 
 ### I changed local Web or API behavior
 
