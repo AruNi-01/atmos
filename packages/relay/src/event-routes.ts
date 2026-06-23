@@ -911,7 +911,9 @@ function githubErrorCode(error: unknown): string {
   ) {
     return message;
   }
-  if (/^github_[a-z_]+_failed_\d{3}$/.test(message)) {
+  if (
+    /^github_[a-z_]+_failed(?:_\d{3}|_network|_invalid_json|_missing_token)?$/.test(message)
+  ) {
     return message;
   }
   return "github_request_failed";

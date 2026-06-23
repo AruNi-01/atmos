@@ -121,27 +121,37 @@ async function exchangeOAuthCode(env: Env, code: string): Promise<string> {
     throw new Error("github_oauth_not_configured");
   }
 
-  const response = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": "Atmos-Relay",
-    },
-    body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Atmos-Relay",
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+      }),
+    });
+  } catch {
+    throw new Error("github_oauth_exchange_failed_network");
+  }
 
   if (!response.ok) {
     throw new GithubRequestError("github_oauth_exchange_failed", response.status);
   }
 
-  const data = (await response.json()) as GithubAccessTokenResponse;
+  let data: GithubAccessTokenResponse;
+  try {
+    data = await response.json() as GithubAccessTokenResponse;
+  } catch {
+    throw new Error("github_oauth_exchange_failed_invalid_json");
+  }
   if (!data.access_token) {
-    throw new Error("github_oauth_exchange_failed");
+    throw new Error("github_oauth_exchange_failed_missing_token");
   }
   return data.access_token;
 }
@@ -227,7 +237,7 @@ async function createInstallationToken(
     { errorCode: "github_installation_token_request_failed", method: "POST", token: jwt },
   );
   if (!data.access_token) {
-    throw new Error("github_installation_token_failed");
+    throw new Error("github_installation_token_failed_missing_token");
   }
   return data.access_token;
 }
@@ -247,13 +257,17 @@ async function createAppJwt(env: Env): Promise<string> {
     iss: appId,
   });
   const signingInput = `${header}.${payload}`;
-  const key = await importPrivateKey(privateKey);
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    new TextEncoder().encode(signingInput),
-  );
-  return `${signingInput}.${base64UrlBytes(new Uint8Array(signature))}`;
+  try {
+    const key = await importPrivateKey(privateKey);
+    const signature = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      key,
+      new TextEncoder().encode(signingInput),
+    );
+    return `${signingInput}.${base64UrlBytes(new Uint8Array(signature))}`;
+  } catch {
+    throw new Error("github_app_jwt_failed");
+  }
 }
 
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
@@ -367,21 +381,32 @@ async function githubJsonPage<T>(
   path: string,
   options: { errorCode: string; method?: string; token: string },
 ): Promise<{ data: T; nextPath: string | null }> {
-  const response = await fetch(`${GITHUB_API}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${options.token}`,
-      "User-Agent": "Atmos-Relay",
-      "X-GitHub-Api-Version": GITHUB_API_VERSION,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${GITHUB_API}${path}`, {
+      method: options.method ?? "GET",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${options.token}`,
+        "User-Agent": "Atmos-Relay",
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+    });
+  } catch {
+    throw new Error(`${options.errorCode}_network`);
+  }
 
   if (!response.ok) {
     throw new GithubRequestError(options.errorCode, response.status);
   }
+  let data: T;
+  try {
+    data = await response.json() as T;
+  } catch {
+    throw new Error(`${options.errorCode}_invalid_json`);
+  }
   return {
-    data: await response.json() as T,
+    data,
     nextPath: parseGithubNextPath(response.headers.get("Link")),
   };
 }
