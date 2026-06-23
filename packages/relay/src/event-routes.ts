@@ -217,8 +217,9 @@ export async function listGithubInstallations(
       updated_at: number;
     }>();
 
+  const installations = dedupeGithubInstallations(results ?? []);
   return json({
-    installations: (results ?? []).map((installation) => ({
+    installations: installations.map((installation) => ({
       ...installation,
       installation_id: String(installation.installation_id),
     })),
@@ -564,6 +565,23 @@ async function persistGithubInstallation(
       now,
     )
     .run();
+
+  if (installation.account_login) {
+    await env.DB.prepare(
+      `DELETE FROM github_app_installations
+       WHERE tenant_id = ?
+         AND account_login = ?
+         AND account_type IS ?
+         AND installation_id <> ?`,
+    )
+      .bind(
+        tenantId,
+        installation.account_login,
+        installation.account_type,
+        installation.installation_id,
+      )
+      .run();
+  }
 }
 
 async function findTenantInstallation(
@@ -771,6 +789,30 @@ function globMatch(pattern: string, value: string | undefined): boolean {
 
 function isRepositoryFullName(value: string): boolean {
   return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
+}
+
+function dedupeGithubInstallations<
+  T extends {
+    installation_id: string | number;
+    account_login: string | null;
+    account_type: string | null;
+  },
+>(installations: T[]): T[] {
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const installation of installations) {
+    const accountLogin = installation.account_login?.trim();
+    const accountType = installation.account_type?.trim();
+    const key = accountLogin
+      ? `${accountType ?? ""}:${accountLogin.toLowerCase()}`
+      : `installation:${String(installation.installation_id)}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(installation);
+  }
+  return deduped;
 }
 
 function normalizeInt64String(value: unknown): string | null {

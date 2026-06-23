@@ -7,6 +7,7 @@ import {
   claimGithubSetupSession,
   findMatchingGithubRoutes,
   getGithubSetupSession,
+  listGithubInstallations,
   routeMatchesEvent,
   type GithubEventRoute,
   type NormalizedGithubEvent,
@@ -305,6 +306,40 @@ describe("GitHub event routes", () => {
     expect(calls[0]?.args).toEqual([123, "state_hash", 123, "tenant_1", "server_1"]);
     expect(calls[0]?.op).toBe("run");
     expect(calls[1]?.op).toBe("first");
+  });
+
+  test("installation list hides stale duplicate account rows", async () => {
+    const { env } = captureQueryEnv({
+      results: [
+        {
+          installation_id: "new_installation",
+          account_login: "AruNi-01",
+          account_type: "User",
+          repository_selection: "all",
+          suspended_at: null,
+          created_at: 200,
+          updated_at: 200,
+        },
+        {
+          installation_id: "old_installation",
+          account_login: "AruNi-01",
+          account_type: "User",
+          repository_selection: "all",
+          suspended_at: null,
+          created_at: 100,
+          updated_at: 100,
+        },
+      ],
+    });
+
+    const response = await listGithubInstallations(env as never, "tenant_1");
+    const data = await response.json() as {
+      installations: Array<{ installation_id: string }>;
+    };
+
+    expect(data.installations.map((installation) => installation.installation_id)).toEqual([
+      "new_installation",
+    ]);
   });
 
   test("delivery ack updates are accepted from matched or dispatched only", async () => {

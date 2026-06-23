@@ -204,7 +204,9 @@ export function AutomationGithubTriggerPanel({
               <SelectContent>
                 {installations.map((installation) => (
                   <SelectItem key={installation.installation_id} value={String(installation.installation_id)}>
-                    {installation.account_login ?? `Installation ${installation.installation_id}`}
+                    {installation.account_login
+                      ? `${installation.account_login} (#${installation.installation_id})`
+                      : `Installation ${installation.installation_id}`}
                   </SelectItem>
                 ))}
               </SelectContent>

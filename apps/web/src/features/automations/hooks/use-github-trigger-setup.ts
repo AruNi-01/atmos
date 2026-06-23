@@ -131,8 +131,13 @@ export function useGithubTriggerSetup({
       .then((installations) => {
         if (cancelled) return;
         setGithubInstallations(installations);
-        if (!githubInstallationId && installations[0]) {
+        const selectedInstallationStillAvailable =
+          !!githubInstallationId &&
+          installations.some((installation) => installation.installation_id === githubInstallationId);
+        if (!selectedInstallationStillAvailable && installations[0]) {
           setGithubInstallationId(installations[0].installation_id);
+        } else if (!selectedInstallationStillAvailable) {
+          setGithubInstallationId(null);
         }
       })
       .catch((err) => {
