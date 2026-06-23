@@ -35,6 +35,7 @@ interface GithubAccessTokenResponse {
 }
 
 interface GithubInstallationTokenResponse {
+  access_token?: string;
   token?: string;
 }
 
@@ -240,10 +241,15 @@ async function createInstallationToken(
     `/app/installations/${installationId}/access_tokens`,
     { errorCode: "github_installation_token_request_failed", method: "POST", token: jwt },
   );
-  if (!data.token) {
+  const token = nonEmptyString(data.token) ?? nonEmptyString(data.access_token);
+  if (!token) {
+    console.warn("github_installation_token_missing", {
+      installation_id: installationId,
+      response_keys: safeJsonKeys(data),
+    });
     throw new Error("github_installation_token_failed_missing_token");
   }
-  return data.token;
+  return token;
 }
 
 async function createAppJwt(env: Env): Promise<string> {
@@ -424,6 +430,19 @@ class GithubRequestError extends Error {
 
 function normalizeGithubLogin(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? "";
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function safeJsonKeys(value: unknown): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+  return Object.keys(value as Record<string, unknown>)
+    .filter((key) => /^[a-zA-Z0-9_.-]{1,64}$/.test(key))
+    .slice(0, 20);
 }
 
 export function parseGithubNextPath(linkHeader: string | null): string | null {
