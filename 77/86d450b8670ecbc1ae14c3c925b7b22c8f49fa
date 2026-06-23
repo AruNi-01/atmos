@@ -1,0 +1,27 @@
+apps/web/src/features/terminal/components/Terminal.tsx
+  s_3ff6c72de80d4f::t_bef930eb6133b5 24,562,564-567,569-570
+apps/web/src/shared/lib/ws-url.ts
+  s_3ff6c72de80d4f::t_159ba73fd2484d 1-5,17,46-54
+apps/web/src/features/terminal/lib/terminal-ws-url.ts
+  s_3ff6c72de80d4f::t_605af984d70b05 16-18
+  s_3ff6c72de80d4f::t_38e9ea7cfaab6d 1-2
+apps/web/src/shared/lib/__tests__/ws-url.test.ts
+  s_3ff6c72de80d4f::t_aa0b9e3c8f9059 13,18,20,40-44,62-74
+  s_3ff6c72de80d4f::t_74ae832a5d1854 1-12,14-17,19,21-39,45-61,75-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "7786d450b8670ecbc1ae14c3c925b7b22c8f49fa",
+  "prompts": {},
+  "sessions": {
+    "s_3ff6c72de80d4f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef242-9baa-70e0-8817-13b815c0b34c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
