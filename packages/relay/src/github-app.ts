@@ -34,6 +34,10 @@ interface GithubAccessTokenResponse {
   access_token?: string;
 }
 
+interface GithubInstallationTokenResponse {
+  token?: string;
+}
+
 interface GithubUserInstallationsResponse {
   installations?: Array<{ id?: number | string }>;
 }
@@ -232,14 +236,14 @@ async function createInstallationToken(
   installationId: string,
 ): Promise<string> {
   const jwt = await createAppJwt(env);
-  const data = await githubJson<GithubAccessTokenResponse>(
+  const data = await githubJson<GithubInstallationTokenResponse>(
     `/app/installations/${installationId}/access_tokens`,
     { errorCode: "github_installation_token_request_failed", method: "POST", token: jwt },
   );
-  if (!data.access_token) {
+  if (!data.token) {
     throw new Error("github_installation_token_failed_missing_token");
   }
-  return data.access_token;
+  return data.token;
 }
 
 async function createAppJwt(env: Env): Promise<string> {
