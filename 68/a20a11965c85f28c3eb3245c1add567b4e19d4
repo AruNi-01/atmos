@@ -1,0 +1,114 @@
+apps/web/src/features/automations/components/GithubSetupCompletionPage.tsx
+  s_18a6acf75dea59::t_ff806fcd698538 4,6,27
+apps/web/src/features/automations/hooks/use-github-relay-prerequisites.ts
+  s_437535327e0199::t_15e6a2d374323f 19,24
+  s_437535327e0199::t_e175d0c8d679c3 12,25,29
+apps/web/src/features/automations/components/AutomationTriggerPicker.tsx
+  s_ac0f793c0e9f4c::t_0896deb28c580c 75,94,125,144,230,242
+apps/web/src/features/atmos-computer/components/RemoteComputerSetupBlock.tsx
+  s_437535327e0199::t_5a7ebfbfba4818 87,111-132,153,169-172,198
+apps/web/src/features/connection/lib/atmos-access-token.ts
+  s_437535327e0199::t_991bc1a753ae64 138,150,164-166,171
+apps/api/src/relay/http_gateway.rs
+  s_437535327e0199::t_51c2e7afad3439 119
+apps/landing/src/lib/changelog-data.ts
+  s_542be5ae2b2082::t_07f29217d2f833 39-40,43-44
+  s_542be5ae2b2082::t_51fcd5cce79185 37-38,41-42,45-109
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_ac0f793c0e9f4c::t_7dc1dd4ffcf050 300,313-314,604-608,647,672
+apps/api/src/relay/relay_client.rs
+  s_437535327e0199::t_acf1578ed79657 31,33,41-47
+  s_437535327e0199::t_fcf756646ec06d 6,21,27-29,32,37-40,48-67
+  s_437535327e0199::t_13907e4fdd8df1 34-36
+apps/api/src/api/system/computer.rs
+  s_437535327e0199::t_f8af0a16db70ab 6,23-24,187-189,200,203-217,220-221,223-224,258,264-270,299,345,348,353-371,373,375-398,415,418,443-447
+  s_437535327e0199::t_e1df0ba7974c7b 242,246,253-254,304-313,318,320-321,347
+  s_437535327e0199::t_8f4cd87f6a7974 280-282
+  s_437535327e0199::t_1ea14806573350 191,448-457
+  s_437535327e0199::t_bb67c683ba5dde 272-279,283-295
+apps/web/src/features/connection/lib/sync-computer-client-settings.ts
+  s_437535327e0199::t_92bb0f8533a141 159
+  s_437535327e0199::t_26230693d99712 103,147-149
+  s_437535327e0199::t_277a4474ddbf38 94,97,101-102
+  s_437535327e0199::t_66d32087707ca3 18,35-38,40-50,57-64,68-69,92-93,98-100,104-106,108,112,114,125-126,129,133
+  s_437535327e0199::t_76034024805736 175,180-182
+apps/web/src/features/connection/lib/atmos-computer-store.ts
+  s_437535327e0199::t_14572a8c327669 26,43,126,151
+apps/web/src/app/[locale]/github/setup/complete/page.tsx
+  s_18a6acf75dea59::t_ff806fcd698538 19
+apps/web/src/features/connection/lib/hosted-connection.ts
+  s_437535327e0199::t_230dd9abe635f0 114-116,137-139
+apps/web/src/features/automations/lib/github-trigger-relay.ts
+  s_437535327e0199::t_79c57770da8b4d 27,37,40-41,149-150,153,157-161
+apps/web/src/features/connection/lib/atmos-computer-local.ts
+  s_437535327e0199::t_b35b919d3ab20b 8,65-71,78-80
+apps/web/src/features/automations/components/AutomationGithubTriggerPanel.tsx
+  s_ac0f793c0e9f4c::t_1275e1ce9348bc 102,134
+  s_ac0f793c0e9f4c::t_8d923796aa65fc 27,114,146,174,178-185
+apps/web/src/features/automations/components/AutomationSetupControls.tsx
+  s_ac0f793c0e9f4c::t_795eadaa380876 49,61,66-72,80
+apps/api/src/api/ws/router/automation.rs
+  s_437535327e0199::t_d4d0afa49ec7e8 129,138,146,162,174
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  s_437535327e0199::t_4b245fb7e82695 210,223
+  s_437535327e0199::t_5e1c94c113e178 56
+  s_437535327e0199::t_378faee595768a 162,168
+  s_437535327e0199::t_45252ac6d1900a 291
+  s_437535327e0199::t_d05974fedcaaea 304,307,311,353,455,605,813-816,916,986,988-989,993,1066,1101,1133,1147,1155
+  s_437535327e0199::t_dea7279c42aa88 188-189
+  s_437535327e0199::t_2f8a34c36b734c 730-737,755-760
+  s_4367601dbfa873::t_5a21807fd47766 496,559,588
+  s_437535327e0199::t_caa6948d4eec1c 977-982
+apps/web/src/features/automations/hooks/use-github-trigger-setup.ts
+  s_437535327e0199::t_77d02192fccdd6 75
+  s_4367601dbfa873::t_a8bbbc96648f28 56-57,88-93,194-195,198-199
+  s_ac0f793c0e9f4c::t_b9e2fb34ab94df 55,123-154,166,179,313,318,329,337,340-343,354,367-368
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "68a20a11965c85f28c3eb3245c1add567b4e19d4",
+  "prompts": {},
+  "sessions": {
+    "s_18a6acf75dea59": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef445-68c8-71e2-914f-4cf523ae42ac",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_4367601dbfa873": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef3d6-c81d-7993-972e-3b7833e6151e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_437535327e0199": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef446-26fc-7d33-a780-0dc2af412744",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_542be5ae2b2082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef27b-0fbf-73e3-b382-1fad960442ce",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_ac0f793c0e9f4c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef46a-0d41-7fe1-a556-8eaee97fd919",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
