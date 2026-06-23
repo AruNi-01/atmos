@@ -11,6 +11,8 @@ use serde_json::{json, Value};
 const GITHUB_RELEASES_URL: &str = "https://api.github.com/repos/AruNi-01/atmos/releases";
 const GITHUB_RELEASES_ATOM_URL: &str = "https://github.com/AruNi-01/atmos/releases.atom";
 const GITHUB_TAGS_ATOM_URL: &str = "https://github.com/AruNi-01/atmos/tags.atom";
+const ATMOS_DOWNLOAD_BASE_URL: &str = "https://install.atmos.land";
+const UPDATE_MANIFEST_ENV: &str = "ATMOS_CLI_UPDATE_MANIFEST_URL";
 const CLI_RELEASE_TAG_PREFIX: &str = "cli-v";
 const ALT_CLI_RELEASE_TAG_PREFIX: &str = "atmos-cli-v";
 const CHECK_INTERVAL_HOURS: i64 = 24;
@@ -37,6 +39,25 @@ struct GithubRelease {
 struct GithubAsset {
     name: String,
     browser_download_url: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CliUpdateManifest {
+    version: Option<String>,
+    tag: String,
+    #[serde(default)]
+    release_url: Option<String>,
+    #[serde(default)]
+    assets: Vec<CliUpdateManifestAsset>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CliUpdateManifestAsset {
+    name: String,
+    #[serde(default)]
+    target: Option<String>,
+    #[serde(default)]
+    url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,24 +157,46 @@ pub async fn update_hint_if_needed() -> Option<String> {
 }
 
 async fn fetch_latest_cli_release() -> Result<LatestRelease, String> {
-    match fetch_latest_cli_release_from_api().await {
+    match fetch_latest_cli_release_from_manifest().await {
         Ok(release) => Ok(release),
-        Err(api_error) => {
-            match fetch_latest_cli_release_from_atom(GITHUB_RELEASES_ATOM_URL).await {
+        Err(manifest_error) => match fetch_latest_cli_release_from_api().await {
+            Ok(release) => Ok(release),
+            Err(api_error) => match fetch_latest_cli_release_from_atom(GITHUB_RELEASES_ATOM_URL)
+                .await
+            {
                 Ok(release) => Ok(release),
-                Err(releases_atom_error) => {
-                    fetch_latest_cli_release_from_atom(GITHUB_TAGS_ATOM_URL)
-                        .await
-                        .map_err(|tags_atom_error| {
-                            format!(
-                        "{}; releases feed fallback failed: {}; tags feed fallback failed: {}",
-                        api_error, releases_atom_error, tags_atom_error
-                    )
-                        })
-                }
-            }
-        }
+                Err(releases_atom_error) => fetch_latest_cli_release_from_atom(GITHUB_TAGS_ATOM_URL)
+                    .await
+                    .map_err(|tags_atom_error| {
+                        format!(
+                            "{}; GitHub API fallback failed: {}; releases feed fallback failed: {}; tags feed fallback failed: {}",
+                            manifest_error, api_error, releases_atom_error, tags_atom_error
+                        )
+                    }),
+            },
+        },
     }
+}
+
+async fn fetch_latest_cli_release_from_manifest() -> Result<LatestRelease, String> {
+    let manifest_url = update_manifest_url();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .user_agent("atmos-cli")
+        .build()
+        .map_err(|error| format!("Failed to create HTTP client: {}", error))?;
+    let manifest = client
+        .get(&manifest_url)
+        .send()
+        .await
+        .map_err(|error| format!("Failed to check Atmos update manifest: {}", error))?
+        .error_for_status()
+        .map_err(|error| format!("Failed to check Atmos update manifest: {}", error))?
+        .json::<CliUpdateManifest>()
+        .await
+        .map_err(|error| format!("Failed to parse Atmos update manifest: {}", error))?;
+
+    latest_release_from_manifest(manifest)
 }
 
 async fn fetch_latest_cli_release_from_api() -> Result<LatestRelease, String> {
@@ -317,6 +360,7 @@ fn current_target_triple() -> Result<String, String> {
         ("macos", "aarch64") => Ok("aarch64-apple-darwin".to_string()),
         ("macos", "x86_64") => Ok("x86_64-apple-darwin".to_string()),
         ("linux", "x86_64") => Ok("x86_64-unknown-linux-gnu".to_string()),
+        ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc".to_string()),
         (os, arch) => Err(format!(
             "Atmos updates are not available for {}-{}",
             os, arch
@@ -363,6 +407,79 @@ fn is_cli_asset_for_target(name: &str, target: &str) -> bool {
         && normalized.contains("cli")
         && normalized.contains(&target.to_ascii_lowercase())
         && (normalized.ends_with(".tar.gz") || normalized.ends_with(".tgz"))
+}
+
+fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestRelease, String> {
+    if !is_stable_cli_release_tag(&manifest.tag) {
+        return Err(format!(
+            "Atmos update manifest does not describe a stable CLI release: {}",
+            manifest.tag
+        ));
+    }
+
+    let target = current_target_triple().ok();
+    let asset_url = target.as_ref().and_then(|target| {
+        manifest
+            .assets
+            .iter()
+            .find(|asset| {
+                asset.target.as_deref() == Some(target)
+                    || is_cli_asset_for_target(&asset.name, target)
+            })
+            .map(|asset| manifest_asset_url(asset, &manifest.tag))
+    });
+
+    Ok(LatestRelease {
+        version: manifest
+            .version
+            .unwrap_or_else(|| release_version(&manifest.tag)),
+        tag: manifest.tag.clone(),
+        url: manifest.release_url.unwrap_or_else(|| {
+            format!(
+                "https://github.com/AruNi-01/atmos/releases/tag/{}",
+                manifest.tag
+            )
+        }),
+        asset_url,
+    })
+}
+
+fn manifest_asset_url(asset: &CliUpdateManifestAsset, tag: &str) -> String {
+    manifest_asset_url_with_base(asset, tag, &download_base_url())
+}
+
+fn manifest_asset_url_with_base(asset: &CliUpdateManifestAsset, tag: &str, base: &str) -> String {
+    if let Some(url) = asset
+        .url
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        if url.starts_with("http://") || url.starts_with("https://") {
+            return url.to_string();
+        }
+        if url.starts_with('/') {
+            return format!("{}{}", base, url);
+        }
+        return format!("{}/{}", base, url);
+    }
+    format!("{}/cli/{}/{}", base, tag, asset.name)
+}
+
+fn update_manifest_url() -> String {
+    std::env::var(UPDATE_MANIFEST_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| format!("{}/cli/latest.json", download_base_url()))
+}
+
+fn download_base_url() -> String {
+    std::env::var("ATMOS_DOWNLOAD_BASE_URL")
+        .ok()
+        .map(|value| value.trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| ATMOS_DOWNLOAD_BASE_URL.to_string())
 }
 
 fn find_extracted_cli_binary(root: &Path, target: &str) -> Option<PathBuf> {
@@ -503,4 +620,37 @@ fn version_parts(version: &str) -> Vec<u64> {
         .split('.')
         .map(|part| part.parse::<u64>().unwrap_or(0))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn manifest_asset_url_resolves_relative_paths() {
+        let asset = CliUpdateManifestAsset {
+            name: "atmos-cli-aarch64-apple-darwin.tar.gz".to_string(),
+            target: Some("aarch64-apple-darwin".to_string()),
+            url: Some("cli/cli-v0.2.1/atmos-cli-aarch64-apple-darwin.tar.gz".to_string()),
+        };
+
+        assert_eq!(
+            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "https://install.atmos.land"),
+            "https://install.atmos.land/cli/cli-v0.2.1/atmos-cli-aarch64-apple-darwin.tar.gz"
+        );
+    }
+
+    #[test]
+    fn manifest_without_asset_url_uses_tag_path() {
+        let asset = CliUpdateManifestAsset {
+            name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
+            target: Some("x86_64-unknown-linux-gnu".to_string()),
+            url: None,
+        };
+
+        assert_eq!(
+            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "https://install.atmos.land"),
+            "https://install.atmos.land/cli/cli-v0.2.1/atmos-cli-x86_64-unknown-linux-gnu.tar.gz"
+        );
+    }
 }

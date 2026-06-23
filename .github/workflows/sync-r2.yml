@@ -11,6 +11,7 @@ on:
 
 env:
   REPO: AruNi-01/atmos
+  PUBLIC_DOWNLOAD_BASE_URL: https://install.atmos.land
   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
   R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -52,6 +53,160 @@ jobs:
             exit 1
           }
           echo "Successfully uploaded install-local-web-runtime.sh"
+
+  sync-cli:
+    if: |
+      (github.event_name == 'release' && !github.event.release.prerelease && startsWith(github.event.release.tag_name, 'cli-v')) ||
+      (github.event_name == 'workflow_dispatch' && startsWith(github.event.inputs.release_tag, 'cli-v'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check if release is stable
+        if: github.event_name == 'release'
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            echo "Skipping prerelease: ${{ github.event.release.tag_name }}"
+            exit 1
+          fi
+          echo "Syncing stable release: ${{ github.event.release.tag_name }}"
+
+      - name: Download release assets
+        env:
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/assets
+          echo "Downloading CLI assets for tag: $TAG"
+          gh release download "$TAG" --dir /tmp/assets --pattern "atmos-cli-*.tar.gz"
+          echo "Downloaded files:"
+          ls -la /tmp/assets/
+
+      - name: Generate CLI update manifest
+        env:
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/manifest
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          tag = os.environ["TAG"]
+          repo = os.environ["REPO"]
+          base_url = os.environ["PUBLIC_DOWNLOAD_BASE_URL"].rstrip("/")
+          if tag.startswith("cli-v"):
+              version = tag[len("cli-v"):]
+          elif tag.startswith("atmos-cli-v"):
+              version = tag[len("atmos-cli-v"):]
+          else:
+              raise SystemExit(f"Unexpected CLI release tag: {tag}")
+
+          assets = []
+          for path in sorted(Path("/tmp/assets").glob("atmos-cli-*.tar.gz")):
+              name = path.name
+              target = name.removeprefix("atmos-cli-").removesuffix(".tar.gz")
+              assets.append({
+                  "target": target,
+                  "name": name,
+                  "url": f"{base_url}/cli/{tag}/{name}",
+              })
+
+          if not assets:
+              raise SystemExit("No CLI assets found for manifest")
+
+          payload = {
+              "schema_version": 1,
+              "product": "atmos-cli",
+              "version": version,
+              "tag": tag,
+              "release_url": f"https://github.com/{repo}/releases/tag/{tag}",
+              "assets": assets,
+          }
+          Path("/tmp/manifest/latest.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          cat /tmp/manifest/latest.json
+
+      - name: Configure AWS CLI for R2
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          aws configure set default.region auto
+          echo "Endpoint: $AWS_ENDPOINT_URL"
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          echo "Uploading CLI assets to R2 bucket: ${{ secrets.CLOUDFLARE_R2_BUCKET }}"
+          aws s3 cp /tmp/assets/ s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/cli/${TAG}/ \
+            --endpoint-url $AWS_ENDPOINT_URL \
+            --recursive
+          aws s3 cp /tmp/manifest/latest.json s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/cli/${TAG}/latest.json \
+            --endpoint-url $AWS_ENDPOINT_URL \
+            --content-type application/json \
+            --cache-control "no-cache"
+          echo "CLI release uploaded successfully"
+
+      - name: Upload to latest path
+        env:
+          AWS_ENDPOINT_URL: https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "Checking if this is the latest CLI release..."
+          LATEST_TAG=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/releases?per_page=100" | python3 -c '
+          import json
+          import re
+          import sys
+
+          def stable_cli_version(tag):
+              for prefix in ("cli-v", "atmos-cli-v"):
+                  if tag.startswith(prefix):
+                      version = tag[len(prefix):]
+                      if re.fullmatch(r"\d+\.\d+\.\d+", version):
+                          return tuple(map(int, version.split(".")))
+              return None
+
+          candidates = []
+          for release in json.load(sys.stdin):
+              tag = str(release.get("tag_name") or "")
+              version = stable_cli_version(tag)
+              if version and not release.get("draft") and not release.get("prerelease"):
+                  candidates.append((version, tag))
+          print(max(candidates)[1] if candidates else "")
+          ')
+
+          echo "Latest stable CLI release: ${LATEST_TAG}"
+          echo "Current release being synced: ${TAG}"
+
+          if [[ "$TAG" == "$LATEST_TAG" ]]; then
+            echo "This is the latest stable CLI release, updating latest path..."
+            for file in /tmp/assets/atmos-cli-*.tar.gz; do
+              aws s3 cp "$file" s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/cli/latest/$(basename "$file") \
+                --endpoint-url $AWS_ENDPOINT_URL
+            done
+            aws s3 cp /tmp/manifest/latest.json s3://${{ secrets.CLOUDFLARE_R2_BUCKET }}/cli/latest.json \
+              --endpoint-url $AWS_ENDPOINT_URL \
+              --content-type application/json \
+              --cache-control "no-cache"
+            echo "Successfully updated CLI latest files"
+          else
+            echo "This is not the latest stable CLI release, skipping latest path update"
+          fi
 
   sync-desktop:
     if: |

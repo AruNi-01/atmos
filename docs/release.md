@@ -79,7 +79,8 @@ The CLI release publishes the standalone `atmos` command. It is the stable autom
 - Skill: `.agents/skills/atmos-cli-release/SKILL.md`
 - Helper script: `.agents/skills/atmos-cli-release/scripts/atmos-cli-release.mjs`
 - Update checker: `apps/cli/src/commands/update.rs`
-- Settings API checker: `apps/api/src/api/system/handlers.rs`
+- Settings API checker: `apps/api/src/api/system/cli.rs`
+- R2 sync workflow: `.github/workflows/sync-r2.yml`
 
 ### What It Builds
 
@@ -101,6 +102,13 @@ atmos-cli-<target>/
 ```
 
 Windows archives contain `atmos.exe`.
+
+Stable CLI releases are also synced to Cloudflare R2 under:
+
+```text
+https://install.atmos.land/cli/<tag>/atmos-cli-<target>.tar.gz
+https://install.atmos.land/cli/latest.json
+```
 
 ### Stable CLI Release
 
@@ -375,6 +383,14 @@ gh run list --workflow sync-homebrew-tap.yml --limit 5
 
 `atmos update --check`, the automatic 24-hour CLI hint, and the Settings > About CLI check all look for stable CLI releases.
 
+The primary check path is the R2 manifest:
+
+```text
+https://install.atmos.land/cli/latest.json
+```
+
+GitHub Releases API and Atom feeds are fallback paths only.
+
 They accept:
 
 ```text
@@ -390,7 +406,7 @@ cli-v0.1.0-beta.1
 cli-v0.1.0-alpha.1
 ```
 
-The primary GitHub Releases API path filters out draft and prerelease releases. The fallback tags feed also rejects versions containing `-`, so prerelease tags are not treated as stable updates.
+The R2 manifest is only refreshed for the latest stable CLI release. GitHub fallback paths filter out draft and prerelease releases, and the tags feed rejects versions containing `-`, so prerelease tags are not treated as stable updates.
 
 ### Local Runtime Installer Checks
 

@@ -1,5 +1,6 @@
 use axum::Json;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -10,6 +11,8 @@ use crate::error::{ApiError, ApiResult};
 
 const CLI_RELEASES_API_URL: &str = "https://api.github.com/repos/AruNi-01/atmos/releases";
 const CLI_TAGS_ATOM_URL: &str = "https://github.com/AruNi-01/atmos/tags.atom";
+const CLI_UPDATE_MANIFEST_ENV: &str = "ATMOS_CLI_UPDATE_MANIFEST_URL";
+const ATMOS_DOWNLOAD_BASE_URL: &str = "https://install.atmos.land";
 const CLI_RELEASE_TAG_PREFIX: &str = "cli-v";
 const ALT_CLI_RELEASE_TAG_PREFIX: &str = "atmos-cli-v";
 const GITHUB_RELEASES_BASE_URL: &str = "https://github.com/AruNi-01/atmos/releases";
@@ -38,6 +41,25 @@ struct GithubRelease {
 struct GithubAsset {
     name: String,
     browser_download_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CliUpdateManifest {
+    version: Option<String>,
+    tag: String,
+    #[serde(default)]
+    release_url: Option<String>,
+    #[serde(default)]
+    assets: Vec<CliUpdateManifestAsset>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CliUpdateManifestAsset {
+    name: String,
+    #[serde(default)]
+    target: Option<String>,
+    #[serde(default)]
+    url: Option<String>,
 }
 
 /// GET /api/system/cli-version-check
@@ -80,7 +102,7 @@ pub struct CliInstallResponse {
 
 /// POST /api/system/cli-install
 ///
-/// Download and install the latest Atmos CLI from GitHub releases.
+/// Download and install the latest Atmos CLI from the Atmos release manifest.
 pub async fn install_cli(
     Json(payload): Json<InstallCliRequest>,
 ) -> ApiResult<Json<ApiResponse<CliInstallResponse>>> {
@@ -93,60 +115,19 @@ pub async fn install_cli(
         })?;
     }
 
-    let release = fetch_latest_cli_release_with_assets()
+    let release = fetch_latest_cli_release()
         .await
         .map_err(|e| ApiError::InternalError(format!("Failed to fetch CLI release: {}", e)))?;
 
-    let asset_url = get_platform_asset_url(&release.assets).ok_or_else(|| {
+    let asset_url = release.asset_url.clone().ok_or_else(|| {
         ApiError::InternalError("No compatible CLI asset found for this platform".to_string())
     })?;
 
     info!("Downloading CLI from: {}", asset_url);
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(300))
-        .user_agent("atmos-api")
-        .build()
-        .map_err(|e| ApiError::InternalError(format!("Failed to create HTTP client: {}", e)))?;
-
-    let response = client
-        .get(&asset_url)
-        .send()
+    download_and_install_cli(&asset_url, &cli_path)
         .await
-        .map_err(|e| ApiError::InternalError(format!("Failed to download CLI: {}", e)))?;
-
-    if !response.status().is_success() {
-        return Err(ApiError::InternalError(format!(
-            "Failed to download CLI: HTTP {}",
-            response.status()
-        )));
-    }
-
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| ApiError::InternalError(format!("Failed to read CLI bytes: {}", e)))?;
-
-    let temp_path = cli_path.with_extension("tmp");
-    tokio::fs::write(&temp_path, bytes)
-        .await
-        .map_err(|e| ApiError::InternalError(format!("Failed to write CLI to temp file: {}", e)))?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let metadata = std::fs::metadata(&temp_path)
-            .map_err(|e| ApiError::InternalError(format!("Failed to stat temp file: {}", e)))?;
-        let mut permissions = metadata.permissions();
-        permissions.set_mode(0o755);
-        std::fs::set_permissions(&temp_path, permissions).map_err(|e| {
-            ApiError::InternalError(format!("Failed to set executable permissions: {}", e))
-        })?;
-    }
-
-    tokio::fs::rename(&temp_path, &cli_path)
-        .await
-        .map_err(|e| ApiError::InternalError(format!("Failed to replace CLI: {}", e)))?;
+        .map_err(ApiError::InternalError)?;
 
     let new_version = read_cli_version(&cli_path);
 
@@ -182,29 +163,87 @@ pub async fn install_cli(
     })))
 }
 
-async fn fetch_latest_cli_release_with_assets() -> Result<GithubRelease, String> {
+async fn download_and_install_cli(asset_url: &str, cli_path: &Path) -> Result<(), String> {
+    let target = current_target_triple()?;
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(300))
         .user_agent("atmos-api")
         .build()
-        .map_err(|error| error.to_string())?;
-    let releases = client
-        .get(format!("{}?per_page=100", CLI_RELEASES_API_URL))
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .get(asset_url)
         .send()
         .await
-        .map_err(|error| error.to_string())?
-        .error_for_status()
-        .map_err(|error| error.to_string())?
-        .json::<Vec<GithubRelease>>()
-        .await
-        .map_err(|error| error.to_string())?;
+        .map_err(|e| format!("Failed to download CLI: {}", e))?;
 
-    releases
-        .into_iter()
-        .find(|release| {
-            !release.draft && !release.prerelease && is_cli_release_tag(&release.tag_name)
-        })
-        .ok_or_else(|| "No published Atmos CLI release was found".to_string())
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to download CLI: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read CLI bytes: {}", e))?;
+
+    let temp_root = std::env::temp_dir().join(format!(
+        "atmos-cli-install-{}-{}",
+        std::process::id(),
+        chrono::Utc::now().timestamp_millis()
+    ));
+    fs::create_dir_all(&temp_root)
+        .map_err(|error| format!("Failed to create {}: {}", temp_root.display(), error))?;
+
+    let archive_path = temp_root.join("atmos-cli.tar.gz");
+    tokio::fs::write(&archive_path, bytes)
+        .await
+        .map_err(|e| format!("Failed to write CLI archive: {}", e))?;
+
+    let status = Command::new("tar")
+        .args(["-xzf"])
+        .arg(&archive_path)
+        .arg("-C")
+        .arg(&temp_root)
+        .status()
+        .map_err(|error| format!("Failed to run tar: {}", error))?;
+    if !status.success() {
+        return Err("Failed to extract CLI archive".to_string());
+    }
+
+    let source = find_extracted_cli_binary(&temp_root, &target)
+        .ok_or_else(|| format!("CLI archive did not contain {}", binary_name()))?;
+    if !source.is_file() {
+        return Err(format!("CLI archive did not contain {}", source.display()));
+    }
+
+    let staged_path = cli_path.with_extension("tmp");
+    fs::copy(&source, &staged_path).map_err(|error| {
+        format!(
+            "Failed to copy {} to {}: {}",
+            source.display(),
+            staged_path.display(),
+            error
+        )
+    })?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata =
+            fs::metadata(&staged_path).map_err(|e| format!("Failed to stat temp file: {}", e))?;
+        let mut permissions = metadata.permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&staged_path, permissions)
+            .map_err(|e| format!("Failed to set executable permissions: {}", e))?;
+    }
+
+    tokio::fs::rename(&staged_path, cli_path)
+        .await
+        .map_err(|e| format!("Failed to replace CLI: {}", e))?;
+    let _ = fs::remove_dir_all(&temp_root);
+    Ok(())
 }
 
 fn get_platform_asset_url(assets: &[GithubAsset]) -> Option<String> {
@@ -258,6 +297,7 @@ struct LatestCliRelease {
     version: String,
     tag: String,
     url: String,
+    asset_url: Option<String>,
 }
 
 fn read_cli_version(path: &Path) -> Option<String> {
@@ -277,10 +317,33 @@ fn read_cli_version(path: &Path) -> Option<String> {
 }
 
 async fn fetch_latest_cli_release() -> Result<LatestCliRelease, String> {
-    match fetch_latest_cli_release_from_api().await {
+    match fetch_latest_cli_release_from_manifest().await {
         Ok(release) => Ok(release),
-        Err(_) => fetch_latest_cli_release_from_tags_feed().await,
+        Err(_) => match fetch_latest_cli_release_from_api().await {
+            Ok(release) => Ok(release),
+            Err(_) => fetch_latest_cli_release_from_tags_feed().await,
+        },
     }
+}
+
+async fn fetch_latest_cli_release_from_manifest() -> Result<LatestCliRelease, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .user_agent("atmos-api")
+        .build()
+        .map_err(|error| error.to_string())?;
+    let manifest = client
+        .get(update_manifest_url())
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .json::<CliUpdateManifest>()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    latest_release_from_manifest(manifest)
 }
 
 async fn fetch_latest_cli_release_from_api() -> Result<LatestCliRelease, String> {
@@ -306,6 +369,7 @@ async fn fetch_latest_cli_release_from_api() -> Result<LatestCliRelease, String>
             !release.draft && !release.prerelease && is_cli_release_tag(&release.tag_name)
         })
         .map(|release| LatestCliRelease {
+            asset_url: get_platform_asset_url(&release.assets),
             version: release_version(&release.tag_name),
             tag: release.tag_name,
             url: release.html_url,
@@ -335,7 +399,144 @@ async fn fetch_latest_cli_release_from_tags_feed() -> Result<LatestCliRelease, S
         version: release_version(&tag),
         url: format!("{}/tag/{}", GITHUB_RELEASES_BASE_URL, tag),
         tag,
+        asset_url: None,
     })
+}
+
+fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestCliRelease, String> {
+    if !is_stable_cli_release_tag(&manifest.tag) {
+        return Err(format!(
+            "Atmos update manifest does not describe a stable CLI release: {}",
+            manifest.tag
+        ));
+    }
+
+    let target = current_target_triple().ok();
+    let asset_url = target.as_ref().and_then(|target| {
+        manifest
+            .assets
+            .iter()
+            .find(|asset| {
+                asset.target.as_deref() == Some(target)
+                    || is_cli_asset_for_target(&asset.name, target)
+            })
+            .map(|asset| manifest_asset_url(asset, &manifest.tag))
+    });
+
+    Ok(LatestCliRelease {
+        version: manifest
+            .version
+            .unwrap_or_else(|| release_version(&manifest.tag)),
+        tag: manifest.tag.clone(),
+        url: manifest
+            .release_url
+            .unwrap_or_else(|| format!("{}/tag/{}", GITHUB_RELEASES_BASE_URL, manifest.tag)),
+        asset_url,
+    })
+}
+
+fn manifest_asset_url(asset: &CliUpdateManifestAsset, tag: &str) -> String {
+    if let Some(url) = asset
+        .url
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        if url.starts_with("http://") || url.starts_with("https://") {
+            return url.to_string();
+        }
+        let base = download_base_url();
+        if url.starts_with('/') {
+            return format!("{}{}", base, url);
+        }
+        return format!("{}/{}", base, url);
+    }
+    format!("{}/cli/{}/{}", download_base_url(), tag, asset.name)
+}
+
+fn update_manifest_url() -> String {
+    std::env::var(CLI_UPDATE_MANIFEST_ENV)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| format!("{}/cli/latest.json", download_base_url()))
+}
+
+fn download_base_url() -> String {
+    std::env::var("ATMOS_DOWNLOAD_BASE_URL")
+        .ok()
+        .map(|value| value.trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| ATMOS_DOWNLOAD_BASE_URL.to_string())
+}
+
+fn is_cli_asset_for_target(name: &str, target: &str) -> bool {
+    let normalized = name.to_ascii_lowercase();
+    normalized.contains("atmos")
+        && normalized.contains("cli")
+        && normalized.contains(&target.to_ascii_lowercase())
+        && (normalized.ends_with(".tar.gz") || normalized.ends_with(".tgz"))
+}
+
+fn current_target_triple() -> Result<String, String> {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("macos", "aarch64") => Ok("aarch64-apple-darwin".to_string()),
+        ("macos", "x86_64") => Ok("x86_64-apple-darwin".to_string()),
+        ("linux", "x86_64") => Ok("x86_64-unknown-linux-gnu".to_string()),
+        ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc".to_string()),
+        (os, arch) => Err(format!(
+            "Atmos CLI updates are not available for {}-{}",
+            os, arch
+        )),
+    }
+}
+
+fn binary_name() -> &'static str {
+    #[cfg(windows)]
+    {
+        "atmos.exe"
+    }
+    #[cfg(not(windows))]
+    {
+        "atmos"
+    }
+}
+
+fn find_extracted_cli_binary(root: &Path, target: &str) -> Option<PathBuf> {
+    let direct_candidates = [
+        root.join(binary_name()),
+        root.join("bin").join(binary_name()),
+        root.join(format!("atmos-cli-{}", target))
+            .join(binary_name()),
+        root.join(format!("atmos-cli-{}", target))
+            .join("bin")
+            .join(binary_name()),
+    ];
+    for candidate in direct_candidates {
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    find_file_named(root, binary_name(), 4)
+}
+
+fn find_file_named(dir: &Path, file_name: &str, depth: usize) -> Option<PathBuf> {
+    if depth == 0 {
+        return None;
+    }
+    let entries = fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.file_name().and_then(|name| name.to_str()) == Some(file_name) {
+            return Some(path);
+        }
+        if path.is_dir() {
+            if let Some(found) = find_file_named(&path, file_name, depth - 1) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }
 
 fn find_latest_cli_tag_in_atom(feed: &str) -> Option<String> {

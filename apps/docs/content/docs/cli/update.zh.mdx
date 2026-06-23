@@ -17,4 +17,5 @@ description: 更新 CLI 二进制文件。
 ## 使用建议
 
 - CLI 也可能在其他命令之后显示更新提示。
-- 如果更新失败，可以从 GitHub Releases 下载最新版本并重新安装。
+- 更新检查会优先读取 `https://install.atmos.land/cli/latest.json`。
+- 如果 manifest 暂时不可用，CLI 才会回退到 GitHub release feed。

@@ -17,4 +17,5 @@ Use it when the app or docs mention a new CLI feature, or when a command behaves
 ## Tips
 
 - The CLI may also show an update hint after other commands.
-- If update fails, download the latest release from GitHub Releases and reinstall from there.
+- Update checks use the Atmos download manifest at `https://install.atmos.land/cli/latest.json` first.
+- If the manifest is unavailable, the CLI falls back to GitHub release feeds.
