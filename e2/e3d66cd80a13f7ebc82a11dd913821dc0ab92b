@@ -1,0 +1,35 @@
+apps/docs/content/docs/cli/update.mdx
+  s_542be5ae2b2082::t_e73bc3c405f364 20-21
+apps/cli/src/commands/update.rs
+  s_542be5ae2b2082::t_a039733e25e00d 14-15,44-62,160,162-166,168-177,181-201,363,412-436,443-447,457-465,467-484,624-637,639-651,653-656
+  s_542be5ae2b2082::t_132ec7d0d7e5c7 437-442,452-456
+  s_542be5ae2b2082::t_140be767013ca6 448-451,466,638,652
+apps/cli/Cargo.toml
+  s_542be5ae2b2082::t_5d88956156dd13 3
+apps/api/src/api/system/cli.rs
+  s_542be5ae2b2082::t_304b6d6df45793 300,320,322-325,329-348,372,402,406-540
+  s_542be5ae2b2082::t_4ce2191c8a0603 3,14-15,46-64,105,118,122,128,130,166-167,169,172-175,178-188,190-192,195-214,216-246
+  s_542be5ae2b2082::t_dbac845e88516e 193-194
+apps/docs/content/docs/cli/update.zh.mdx
+  s_542be5ae2b2082::t_e73bc3c405f364 20-21
+docs/release.md
+  s_542be5ae2b2082::t_9bcf991293ec2d 82-83,106-112,386-393,409
+.github/workflows/sync-r2.yml
+  s_542be5ae2b2082::t_dd1344ae31b948 14,57-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "e2e3d66cd80a13f7ebc82a11dd913821dc0ab92b",
+  "prompts": {},
+  "sessions": {
+    "s_542be5ae2b2082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef27b-0fbf-73e3-b382-1fad960442ce",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
