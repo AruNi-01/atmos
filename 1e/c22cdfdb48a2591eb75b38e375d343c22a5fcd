@@ -1,0 +1,19 @@
+packages/local-installer/package.json
+  s_542be5ae2b2082::t_8a3e17995905a9 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "1ec22cdfdb48a2591eb75b38e375d343c22a5fcd",
+  "prompts": {},
+  "sessions": {
+    "s_542be5ae2b2082": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef27b-0fbf-73e3-b382-1fad960442ce",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
