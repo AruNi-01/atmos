@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
-import type { CodeViewItem, DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
+import type { CodeViewItem, SelectedLineRange } from '@pierre/diffs';
 import { parseDiffFromFile } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
-import { ChevronRight, Copy, Loader2, MessageSquareText } from 'lucide-react';
-import { getFileIconProps, toastManager } from '@workspace/ui';
+import { Loader2 } from 'lucide-react';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/features/git/store/use-git-store';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
@@ -20,17 +19,14 @@ import {
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
 import { DiffCodeViewSettingsMenu } from '@/features/diff/components/DiffCodeViewSettingsMenu';
 import { DiffCodeViewScaffold } from '@/features/diff/components/DiffCodeViewScaffold';
-import { DiffCopyAnnotation } from '@/features/diff/components/DiffCopyAnnotation';
+import {
+  useDiffPromptStash,
+  type LoadedDiffContents,
+} from '@/features/diff/components/useDiffPromptStash';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import {
   applyCollapseModeToItems,
-  buildDiffSelectionInfo,
-  filePathFromHeaderContext,
-  formatSelectedRangeLabel,
-  isCopyAnnotation,
   type CopyAnnotationMeta,
-  toggleItemCollapsed,
-  updateViewerDiffItem,
 } from '@/features/diff/lib/diff-code-view-shared';
 import {
   ATMOS_DIFF_THEME,
@@ -40,35 +36,15 @@ import {
 } from '@/features/diff/lib/diff-view-constants';
 import {
   findDiffItemIdForViewport,
+  renderDiffHeaderPrefix,
   scrollCodeViewToItem,
 } from '@/features/diff/lib/code-view-ui';
-import { formatDiffSelectionForAI } from '@/shared/lib/format-selection-for-ai';
-import { cn } from '@/shared/lib/utils';
 
 const CODE_VIEW_BATCH_SIZE = 25;
 
 function yieldToBrowser(): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
-
-type StashedDiffPrompt = {
-  itemId: string;
-  key: string;
-  prompt: string;
-};
-
-type StashedDiffPromptState = {
-  scope: string;
-  prompts: StashedDiffPrompt[];
-};
-
-type DraftPromptNoteState = {
-  scope: string;
-  notes: Record<string, string>;
-};
-
-const EMPTY_STASHED_PROMPTS: StashedDiffPrompt[] = [];
-const EMPTY_DRAFT_NOTES: Record<string, string> = {};
 
 interface ChangesCodeViewProps {
   repoPath: string;
@@ -105,30 +81,6 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     [],
   );
   const stashedPromptScope = `${repoPath}:${groupPath}`;
-  const [stashedPromptState, setStashedPromptState] =
-    useState<StashedDiffPromptState>(() => ({
-      scope: stashedPromptScope,
-      prompts: [],
-    }));
-  const stashedPrompts = useMemo(
-    () =>
-      stashedPromptState.scope === stashedPromptScope
-        ? stashedPromptState.prompts
-        : EMPTY_STASHED_PROMPTS,
-    [stashedPromptScope, stashedPromptState],
-  );
-  const [draftNoteState, setDraftNoteState] =
-    useState<DraftPromptNoteState>(() => ({
-      scope: stashedPromptScope,
-      notes: EMPTY_DRAFT_NOTES,
-    }));
-  const draftNotes = useMemo(
-    () =>
-      draftNoteState.scope === stashedPromptScope
-        ? draftNoteState.notes
-        : EMPTY_DRAFT_NOTES,
-    [draftNoteState, stashedPromptScope],
-  );
   const [pathByFileName, setPathByFileName] = useState<Map<string, string>>(
     () => new Map(),
   );
@@ -156,11 +108,14 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   const itemIdsRef = useRef<string[]>([]);
   const pendingAppendRef = useRef<CodeViewItem<CopyAnnotationMeta>[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
-  const loadedContentsRef = useRef<
-    Map<string, { oldContent: string; newContent: string }>
-  >(new Map());
-  const copyKeyRef = useRef(0);
+  const loadedContentsRef = useRef<Map<string, LoadedDiffContents>>(new Map());
   const collapseModeRef = useRef(collapseMode);
+  const { openCopyAnnotation, renderAnnotation, stashedPromptChip } =
+    useDiffPromptStash({
+      scope: stashedPromptScope,
+      viewerRef: codeViewRef,
+      loadedContentsRef,
+    });
 
   useEffect(() => {
     void loadDiffSettings();
@@ -209,350 +164,13 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   const groupLabel = getDiffGroupTabLabel(groupPath);
 
   const renderHeaderPrefix = useCallback(
-    (item: CodeViewItem<CopyAnnotationMeta>) => {
-      if (item.type !== 'diff') return null;
-      const filePath = filePathFromHeaderContext(item.fileDiff, pathByFileName);
-      const collapsed = item.collapsed === true;
-      const baseName = filePath.split('/').pop() || filePath;
-      const iconProps = getFileIconProps({
-        name: baseName,
-        isDir: false,
-        className: 'size-4 shrink-0',
-      });
-      const isEmptyDiff =
-        item.fileDiff.splitLineCount === 0 &&
-        item.fileDiff.unifiedLineCount === 0;
-
-      return (
-        <span className="inline-flex items-center gap-1">
-          <button
-            type="button"
-            disabled={isEmptyDiff}
-            aria-expanded={!isEmptyDiff && !collapsed}
-            aria-label={
-              isEmptyDiff
-                ? undefined
-                : collapsed
-                  ? 'Expand diff'
-                  : 'Collapse diff'
-            }
-            className={cn(
-              'inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors',
-              'hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50',
-            )}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              if (isEmptyDiff) return;
-              toggleItemCollapsed(codeViewRef, item.id);
-            }}
-          >
-            <ChevronRight
-              className={cn(
-                'size-4 transition-transform',
-                !isEmptyDiff && !collapsed && 'rotate-90',
-              )}
-            />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element -- file icons are local UI asset descriptors from getFileIconProps */}
-          <img {...iconProps} alt="" />
-        </span>
-      );
-    },
+    (item: CodeViewItem<CopyAnnotationMeta>) =>
+      renderDiffHeaderPrefix({
+        item,
+        viewerRef: codeViewRef,
+        pathByFileName,
+      }),
     [pathByFileName],
-  );
-
-  const removeCopyAnnotation = useCallback((itemId: string, key: string) => {
-    updateViewerDiffItem(codeViewRef.current, itemId, (item) => {
-      if (!item.annotations?.length) return false;
-      const next = item.annotations.filter((a) => a.metadata?.key !== key);
-      if (next.length === item.annotations.length) return false;
-      item.annotations = next;
-      return true;
-    });
-  }, []);
-
-  const removeStashedPrompt = useCallback(
-    (itemId: string, key: string) => {
-      setStashedPromptState((current) => {
-        if (current.scope !== stashedPromptScope) return current;
-        return {
-          scope: current.scope,
-          prompts: current.prompts.filter(
-            (entry) => entry.itemId !== itemId || entry.key !== key,
-          ),
-        };
-      });
-    },
-    [stashedPromptScope],
-  );
-
-  const removeDraftNote = useCallback(
-    (key: string) => {
-      setDraftNoteState((current) => {
-        if (current.scope !== stashedPromptScope || !(key in current.notes)) {
-          return current;
-        }
-        const notes = { ...current.notes };
-        delete notes[key];
-        return { scope: current.scope, notes };
-      });
-    },
-    [stashedPromptScope],
-  );
-
-  const handleDraftNoteChange = useCallback(
-    (key: string, note: string) => {
-      setDraftNoteState((current) => ({
-        scope: stashedPromptScope,
-        notes: {
-          ...(current.scope === stashedPromptScope ? current.notes : EMPTY_DRAFT_NOTES),
-          [key]: note,
-        },
-      }));
-    },
-    [stashedPromptScope],
-  );
-
-  const handleDismissAnnotation = useCallback(
-    (itemId: string, key: string) => {
-      removeStashedPrompt(itemId, key);
-      removeDraftNote(key);
-      removeCopyAnnotation(itemId, key);
-    },
-    [removeCopyAnnotation, removeDraftNote, removeStashedPrompt],
-  );
-
-  const buildPromptForAnnotation = useCallback(
-    (itemId: string, key: string, note: string) => {
-      const viewer = codeViewRef.current;
-      const item = viewer?.getItem(itemId);
-      const contents = loadedContentsRef.current.get(itemId);
-      if (item?.type !== 'diff' || !contents) return null;
-
-      const annotation = item.annotations?.find(
-        (a) => isCopyAnnotation(a) && a.metadata.key === key,
-      );
-      if (!annotation || !isCopyAnnotation(annotation)) return null;
-
-      const selectionInfo = buildDiffSelectionInfo({
-        filePath: annotation.metadata.filePath,
-        fileDiff: item.fileDiff,
-        contents,
-        range: annotation.metadata.range,
-      });
-      return selectionInfo
-        ? formatDiffSelectionForAI(selectionInfo, note)
-        : null;
-    },
-    [],
-  );
-
-  const handleCopyAnnotation = useCallback(
-    (itemId: string, key: string, note: string) => {
-      const prompt = buildPromptForAnnotation(itemId, key, note);
-      if (!prompt) {
-        toastManager.add({
-          title: 'Nothing to copy',
-          type: 'error',
-        });
-        return;
-      }
-
-      void navigator.clipboard.writeText(prompt).catch(() =>
-        toastManager.add({
-          title: 'Failed to copy prompt',
-          type: 'error',
-        }),
-      );
-      removeStashedPrompt(itemId, key);
-      removeDraftNote(key);
-      removeCopyAnnotation(itemId, key);
-    },
-    [
-      buildPromptForAnnotation,
-      removeCopyAnnotation,
-      removeDraftNote,
-      removeStashedPrompt,
-    ],
-  );
-
-  const handleStashAnnotation = useCallback(
-    (itemId: string, key: string, note: string) => {
-      const prompt = buildPromptForAnnotation(itemId, key, note);
-      if (!prompt) {
-        toastManager.add({
-          title: 'Nothing to stash',
-          type: 'error',
-        });
-        return;
-      }
-
-      setStashedPromptState((current) => ({
-        scope: stashedPromptScope,
-        prompts:
-          current.scope === stashedPromptScope
-            ? [
-                ...current.prompts.filter(
-                  (entry) => entry.itemId !== itemId || entry.key !== key,
-                ),
-                { itemId, key, prompt },
-              ]
-            : [{ itemId, key, prompt }],
-      }));
-    },
-    [buildPromptForAnnotation, stashedPromptScope],
-  );
-
-  const handleCopyStashedPrompts = useCallback(() => {
-    if (stashedPrompts.length === 0) return;
-    const prompt = stashedPrompts
-      .map((entry, index) => `# Comment ${index + 1}\n\n${entry.prompt}`)
-      .join('\n\n---\n\n');
-
-    void navigator.clipboard.writeText(prompt).then(
-      () => {
-        const copiedKeys = new Set(stashedPrompts.map((entry) => entry.key));
-        for (const entry of stashedPrompts) {
-          removeCopyAnnotation(entry.itemId, entry.key);
-        }
-        setDraftNoteState((current) => {
-          if (current.scope !== stashedPromptScope) return current;
-          return {
-            scope: current.scope,
-            notes: Object.fromEntries(
-              Object.entries(current.notes).filter(([key]) => !copiedKeys.has(key)),
-            ),
-          };
-        });
-        setStashedPromptState({ scope: stashedPromptScope, prompts: [] });
-      },
-      () =>
-        toastManager.add({
-          title: 'Failed to copy prompt',
-          type: 'error',
-        }),
-    );
-  }, [removeCopyAnnotation, stashedPromptScope, stashedPrompts]);
-
-  const stashedPromptChip = useMemo(() => {
-    if (stashedPrompts.length === 0) return null;
-    return (
-      <button
-        type="button"
-        onClick={handleCopyStashedPrompts}
-        className={cn(
-          'group/comment-chip inline-flex h-7 max-w-[58px] shrink-0 items-center justify-start overflow-hidden rounded-md border border-foreground bg-foreground px-2 text-xs font-semibold text-background shadow-sm',
-          'transition-[max-width,background-color,border-color,color,box-shadow] duration-300 ease-out hover:max-w-[132px] hover:bg-background hover:text-foreground hover:shadow-md',
-          'dark:border-foreground dark:bg-foreground dark:text-background dark:hover:bg-background dark:hover:text-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-        )}
-        aria-label={`Copy ${stashedPrompts.length} stashed prompt comment${stashedPrompts.length === 1 ? '' : 's'}`}
-        title="Copy Prompt"
-      >
-        <span className="relative mr-1.5 flex size-3.5 shrink-0 items-center justify-center">
-          <MessageSquareText className="absolute size-3.5 transition-all duration-300 ease-out group-hover/comment-chip:scale-75 group-hover/comment-chip:opacity-0" />
-          <Copy className="absolute size-3.5 scale-75 opacity-0 transition-all duration-300 ease-out group-hover/comment-chip:scale-100 group-hover/comment-chip:opacity-100" />
-        </span>
-        <span className="w-4 overflow-hidden text-center text-xs tabular-nums transition-[width,opacity,transform] duration-300 ease-out group-hover/comment-chip:w-0 group-hover/comment-chip:-translate-x-1 group-hover/comment-chip:opacity-0">
-          {stashedPrompts.length}
-        </span>
-        <span className="ml-0 max-w-0 whitespace-nowrap opacity-0 transition-[max-width,opacity,margin-left] duration-300 ease-out group-hover/comment-chip:max-w-24 group-hover/comment-chip:opacity-100">
-          Copy Prompt
-        </span>
-      </button>
-    );
-  }, [handleCopyStashedPrompts, stashedPrompts.length]);
-
-  const openCopyAnnotation = useCallback(
-    (itemId: string, range: SelectedLineRange) => {
-      const viewer = codeViewRef.current;
-      if (viewer == null) return;
-
-      const side = range.endSide ?? range.side;
-      if (!side) return;
-
-      const lineNumber = range.end;
-      const key = `copy-${copyKeyRef.current++}`;
-
-      updateViewerDiffItem(viewer, itemId, (item) => {
-        const removedEmptyKeys: string[] = [];
-        const stashedKeys = new Set(stashedPrompts.map((entry) => entry.key));
-        const existingAnnotations = (item.annotations ?? []).filter((annotation) => {
-          if (!isCopyAnnotation(annotation)) return true;
-          if (stashedKeys.has(annotation.metadata.key)) return true;
-          if ((draftNotes[annotation.metadata.key] ?? '').trim()) return true;
-          removedEmptyKeys.push(annotation.metadata.key);
-          return false;
-        });
-
-        const hasExistingRange = existingAnnotations.some((annotation) => {
-          if (!isCopyAnnotation(annotation)) return false;
-          const existingRange = annotation.metadata.range;
-          return (
-            annotation.side === side &&
-            existingRange.side === range.side &&
-            existingRange.endSide === range.endSide &&
-            existingRange.start === range.start &&
-            existingRange.end === range.end
-          );
-        });
-        if (hasExistingRange) return false;
-
-        const nextAnnotation: DiffLineAnnotation<CopyAnnotationMeta> = {
-          side,
-          lineNumber,
-          metadata: { kind: 'copy', key, filePath: itemId, range },
-        };
-        item.annotations = [...existingAnnotations, nextAnnotation];
-        if (removedEmptyKeys.length > 0) {
-          setDraftNoteState((current) => {
-            if (current.scope !== stashedPromptScope) return current;
-            const removed = new Set(removedEmptyKeys);
-            return {
-              scope: current.scope,
-              notes: Object.fromEntries(
-                Object.entries(current.notes).filter(([entryKey]) => !removed.has(entryKey)),
-              ),
-            };
-          });
-        }
-        return true;
-      });
-    },
-    [draftNotes, stashedPromptScope, stashedPrompts],
-  );
-
-  const renderAnnotation = useCallback(
-    (annotation: DiffLineAnnotation<CopyAnnotationMeta>) => {
-      if (!isCopyAnnotation(annotation)) return null;
-      const isStashed = stashedPrompts.some(
-        (entry) =>
-          entry.itemId === annotation.metadata.filePath &&
-          entry.key === annotation.metadata.key,
-      );
-      return (
-        <DiffCopyAnnotation
-          annotation={annotation}
-          itemId={annotation.metadata.filePath}
-          isStashed={isStashed}
-          note={draftNotes[annotation.metadata.key] ?? ''}
-          onNoteChange={handleDraftNoteChange}
-          onCopy={handleCopyAnnotation}
-          onStash={handleStashAnnotation}
-          onDismiss={handleDismissAnnotation}
-          lineLabel={formatSelectedRangeLabel(annotation.metadata.range)}
-        />
-      );
-    },
-    [
-      handleCopyAnnotation,
-      handleDismissAnnotation,
-      handleDraftNoteChange,
-      handleStashAnnotation,
-      draftNotes,
-      stashedPrompts,
-    ],
   );
 
   useEffect(() => {
