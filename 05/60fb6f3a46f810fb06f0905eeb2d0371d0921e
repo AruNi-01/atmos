@@ -1,0 +1,19 @@
+packages/relay/src/github-app.ts
+  s_4367601dbfa873::t_006547c8679e7d 38,244-249,252,435-446
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "0560fb6f3a46f810fb06f0905eeb2d0371d0921e",
+  "prompts": {},
+  "sessions": {
+    "s_4367601dbfa873": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef3d6-c81d-7993-972e-3b7833e6151e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
