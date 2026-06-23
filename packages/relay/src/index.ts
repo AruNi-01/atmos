@@ -10,6 +10,7 @@ import { buildClientSessionUrls } from "./client-session";
 import {
   createGithubSetupSession,
   disableGithubEventRoute,
+  githubSetupCompletionUrl,
   handleGithubCallback,
   listGithubInstallationRepositories,
   listGithubInstallations,
@@ -102,6 +103,12 @@ export default {
 
     if (path === "/v1/github/callback" && request.method === "GET") {
       return withCors(await handleGithubCallback(request, env, url));
+    }
+
+    if (path === "/github/setup/complete" && request.method === "GET") {
+      return withCors(
+        Response.redirect(githubSetupCompletionUrl(url.searchParams), 302),
+      );
     }
 
     return withCors(await handleApi(request, env, url));

@@ -24,6 +24,10 @@ import { ensureComputerClientSettingsHydrated } from "@/features/connection/lib/
 import { openDesktopExternalUrl } from "@/shared/lib/desktop-external-url";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
+const HOSTED_GITHUB_SETUP_COMPLETION_ORIGIN = "https://app.atmos.land";
+const GITHUB_SETUP_POLL_TIMEOUT_MS = 90_000;
+const GITHUB_SETUP_POLL_INTERVAL_MS = 2_000;
+
 export function useGithubTriggerSetup({
   mode,
   initialAutomation,
@@ -50,6 +54,7 @@ export function useGithubTriggerSetup({
   const [githubLoading, setGithubLoading] = React.useState(false);
   const [githubRepositoriesLoading, setGithubRepositoriesLoading] = React.useState(false);
   const [githubError, setGithubError] = React.useState<string | null>(null);
+  const githubSetupPollGenerationRef = React.useRef(0);
 
   const githubRelayReady = hasGithubRelayPrerequisites(githubPrereqs);
   const initialGithubConfig = React.useMemo(
@@ -77,6 +82,12 @@ export function useGithubTriggerSetup({
 
   React.useEffect(() => {
     void ensureComputerClientSettingsHydrated();
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      githubSetupPollGenerationRef.current += 1;
+    };
   }, []);
 
   React.useEffect(() => {
@@ -251,8 +262,51 @@ export function useGithubTriggerSetup({
     initialGithubConfig,
   ]);
 
+  const pollGithubSetupCompletion = React.useCallback(
+    async (baselineInstallationIds: Set<string>) => {
+      const generation = ++githubSetupPollGenerationRef.current;
+      const deadline = Date.now() + GITHUB_SETUP_POLL_TIMEOUT_MS;
+
+      while (Date.now() < deadline && githubSetupPollGenerationRef.current === generation) {
+        await sleep(GITHUB_SETUP_POLL_INTERVAL_MS);
+        if (githubSetupPollGenerationRef.current !== generation) {
+          return;
+        }
+
+        try {
+          const installations = await listGithubInstallations(githubPrereqs);
+          if (githubSetupPollGenerationRef.current !== generation) {
+            return;
+          }
+          if (installations.length === 0) {
+            continue;
+          }
+
+          setGithubInstallations(installations);
+          const newInstallation = installations.find(
+            (installation) => !baselineInstallationIds.has(installation.installation_id),
+          );
+          const currentInstallationStillAvailable =
+            !!githubInstallationId &&
+            installations.some((installation) => installation.installation_id === githubInstallationId);
+          const nextInstallation = newInstallation ?? (currentInstallationStillAvailable ? null : installations[0]);
+          if (nextInstallation) {
+            setGithubInstallationId(nextInstallation.installation_id);
+          }
+
+          if (newInstallation || baselineInstallationIds.size === 0) {
+            return;
+          }
+        } catch {
+          // The setup window may still be in progress; keep polling until the timeout.
+        }
+      }
+    },
+    [githubInstallationId, githubPrereqs],
+  );
+
   const startGithubSetup = React.useCallback(
-    async (returnUrl: string) => {
+    async () => {
       setGithubError(null);
       setGithubLoading(true);
       const reservedBrowserWindow =
@@ -262,16 +316,22 @@ export function useGithubTriggerSetup({
       if (reservedBrowserWindow) {
         reservedBrowserWindow.opener = null;
       }
+      const baselineInstallationIds = new Set(
+        githubInstallations.map((installation) => installation.installation_id),
+      );
 
       try {
+        const returnUrl = githubSetupCompletionReturnUrl();
         const session = await createGithubSetupSession(githubPrereqs, returnUrl);
         const openedByDesktop = await openDesktopExternalUrl(session.install_url);
         if (openedByDesktop) {
           reservedBrowserWindow?.close();
+          void pollGithubSetupCompletion(baselineInstallationIds);
           return;
         }
         if (reservedBrowserWindow && !reservedBrowserWindow.closed) {
           reservedBrowserWindow.location.href = session.install_url;
+          void pollGithubSetupCompletion(baselineInstallationIds);
           return;
         }
         if (typeof window === "undefined") {
@@ -282,6 +342,7 @@ export function useGithubTriggerSetup({
           throw new Error("Browser blocked the GitHub setup window. Allow pop-ups for Atmos and try again.");
         }
         openedWindow.opener = null;
+        void pollGithubSetupCompletion(baselineInstallationIds);
       } catch (err) {
         reservedBrowserWindow?.close();
         setGithubError(err instanceof Error ? err.message : "Failed to start GitHub setup");
@@ -289,7 +350,7 @@ export function useGithubTriggerSetup({
         setGithubLoading(false);
       }
     },
-    [githubPrereqs],
+    [githubInstallations, githubPrereqs, pollGithubSetupCompletion],
   );
 
   return {
@@ -326,4 +387,28 @@ export function useGithubTriggerSetup({
     setGithubSenderLogins,
     setGithubWorkflowConclusion,
   };
+}
+
+function githubSetupCompletionReturnUrl(): string {
+  const locale = currentLocaleFromLocation();
+  const path = `/${locale}/github/setup/complete`;
+  if (typeof window !== "undefined" && !isTauriRuntime()) {
+    const { origin, protocol } = window.location;
+    if (protocol === "http:" || protocol === "https:") {
+      return `${origin}${path}`;
+    }
+  }
+  return `${HOSTED_GITHUB_SETUP_COMPLETION_ORIGIN}${path}`;
+}
+
+function currentLocaleFromLocation(): "en" | "zh" {
+  if (typeof window === "undefined") {
+    return "en";
+  }
+  const firstSegment = window.location.pathname.split("/").filter(Boolean)[0];
+  return firstSegment === "zh" ? "zh" : "en";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

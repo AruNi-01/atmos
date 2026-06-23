@@ -458,7 +458,7 @@ export function AutomationSetup({
   };
 
   const handleGithubStartSetup = React.useCallback(() => {
-    void startGithubSetup(window.location.href);
+    void startGithubSetup();
   }, [startGithubSetup]);
 
   const handleOpenComputerSettings = React.useCallback(() => {

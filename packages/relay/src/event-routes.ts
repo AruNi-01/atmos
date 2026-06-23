@@ -15,6 +15,8 @@ const DEFAULT_SETUP_RETURN_ORIGINS = [
   "http://localhost:3030",
   "http://127.0.0.1:3030",
 ];
+const DEFAULT_SETUP_RETURN_URL = "https://app.atmos.land/en/github/setup/complete";
+const SETUP_COMPLETION_PARAMS = ["github_setup", "installation_id"] as const;
 const SUPPORTED_EVENTS = new Set([
   "pull_request",
   "issues",
@@ -70,6 +72,17 @@ export interface GithubSetupSessionClaim {
   tenant_id: string;
   server_id: string;
   return_url: string | null;
+}
+
+export function githubSetupCompletionUrl(searchParams?: URLSearchParams): string {
+  const url = new URL(DEFAULT_SETUP_RETURN_URL);
+  for (const param of SETUP_COMPLETION_PARAMS) {
+    const value = searchParams?.get(param);
+    if (value) {
+      url.searchParams.set(param, value);
+    }
+  }
+  return url.toString();
 }
 
 export function normalizeGithubRouteEventName(value: string | undefined): string | null {
@@ -776,7 +789,7 @@ function normalizeReturnUrl(
   fallbackOrigin: string,
   allowedOriginsConfig?: string,
 ): string {
-  const fallbackUrl = `${fallbackOrigin}/github/setup/complete`;
+  const fallbackUrl = githubSetupCompletionUrl();
   if (!value) {
     return fallbackUrl;
   }
