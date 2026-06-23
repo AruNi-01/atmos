@@ -18,55 +18,64 @@ export function createDiffHeaderPrefixRenderer<LAnnotation>(args: {
   return function renderDiffCodeViewHeaderPrefix(
     item: CodeViewItem<LAnnotation>,
   ) {
-    if (item.type !== 'diff') return null;
-    const fileDiff = item.fileDiff;
-    const filePath = filePathFromHeaderContext(fileDiff, args.pathByFileName);
-    const collapsed = item.collapsed === true;
-    const baseName = filePath.split('/').pop() || filePath;
-    const iconProps = getFileIconProps({
-      name: baseName,
-      isDir: false,
-      className: 'size-4 shrink-0',
-    });
-
-    const isEmptyDiff =
-      fileDiff.splitLineCount === 0 && fileDiff.unifiedLineCount === 0;
-
-    return (
-      <span className="inline-flex items-center gap-1">
-        <button
-          type="button"
-          disabled={isEmptyDiff}
-          aria-expanded={!isEmptyDiff && !collapsed}
-          aria-label={
-            isEmptyDiff
-              ? undefined
-              : collapsed
-                ? 'Expand diff'
-                : 'Collapse diff'
-          }
-          className={cn(
-            'inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors',
-            'hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50',
-          )}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (isEmptyDiff) return;
-            toggleItemCollapsed(args.viewerRef, item.id);
-          }}
-        >
-          <ChevronRight
-            className={cn(
-              'size-4 transition-transform',
-              !isEmptyDiff && !collapsed && 'rotate-90',
-            )}
-          />
-        </button>
-        <img {...iconProps} alt="" />
-      </span>
-    );
+    return renderDiffHeaderPrefix({ ...args, item });
   };
+}
+
+export function renderDiffHeaderPrefix<LAnnotation>(args: {
+  item: CodeViewItem<LAnnotation>;
+  viewerRef: MutableRefObject<CodeViewHandle<LAnnotation> | null>;
+  pathByFileName: Map<string, string>;
+}) {
+  if (args.item.type !== 'diff') return null;
+  const fileDiff = args.item.fileDiff;
+  const filePath = filePathFromHeaderContext(fileDiff, args.pathByFileName);
+  const collapsed = args.item.collapsed === true;
+  const baseName = filePath.split('/').pop() || filePath;
+  const iconProps = getFileIconProps({
+    name: baseName,
+    isDir: false,
+    className: 'size-4 shrink-0',
+  });
+
+  const isEmptyDiff =
+    fileDiff.splitLineCount === 0 && fileDiff.unifiedLineCount === 0;
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        disabled={isEmptyDiff}
+        aria-expanded={!isEmptyDiff && !collapsed}
+        aria-label={
+          isEmptyDiff
+            ? undefined
+            : collapsed
+              ? 'Expand diff'
+              : 'Collapse diff'
+        }
+        className={cn(
+          'inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors',
+          'hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50',
+        )}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (isEmptyDiff) return;
+          toggleItemCollapsed(args.viewerRef, args.item.id);
+        }}
+      >
+        <ChevronRight
+          className={cn(
+            'size-4 transition-transform',
+            !isEmptyDiff && !collapsed && 'rotate-90',
+          )}
+        />
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element -- file icons are local UI asset descriptors from getFileIconProps */}
+      <img {...iconProps} alt="" />
+    </span>
+  );
 }
 
 export function scrollCodeViewToItem<LAnnotation = undefined>(
@@ -93,7 +102,7 @@ export function scrollCodeViewToItem<LAnnotation = undefined>(
 }
 
 /** File whose diff occupies the viewport center, with a top-of-viewport fallback. */
-export function findDiffItemIdForViewport<LAnnotation>(
+export function findDiffItemIdForViewport(
   viewer: {
     getTopForItem(id: string): number | undefined;
     getWindowSpecs(): { top: number; bottom: number };
@@ -128,7 +137,7 @@ export function findDiffItemIdForViewport<LAnnotation>(
   return activeId ?? itemIds[0];
 }
 
-export function findDiffItemIdAtScrollTop<LAnnotation>(
+export function findDiffItemIdAtScrollTop(
   viewer: {
     getTopForItem(id: string): number | undefined;
     getWindowSpecs(): { top: number; bottom: number };
