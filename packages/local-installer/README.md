@@ -1,4 +1,4 @@
-# `@atmos/local-web-runtime`
+# `@atmos-land/local-web-runtime`
 
 Installer package for the local Atmos web runtime.
 
@@ -11,7 +11,7 @@ curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 You can also install through the npm entrypoint:
 
 ```bash
-npx @atmos/local-web-runtime
+npx @atmos-land/local-web-runtime
 ```
 
 ## What it does

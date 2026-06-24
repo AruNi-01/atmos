@@ -1,5 +1,5 @@
 {
-  "name": "@atmos/local-web-runtime",
+  "name": "@atmos-land/local-web-runtime",
   "version": "0.2.3",
   "private": false,
   "type": "module",

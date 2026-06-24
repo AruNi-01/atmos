@@ -33,7 +33,7 @@ on:
         description: "Release tag when create_release=true (example: local-web-runtime-v0.1.0)"
         required: false
       publish_npm:
-        description: "Publish @atmos/local-web-runtime to npm"
+        description: "Publish @atmos-land/local-web-runtime to npm"
         required: true
         default: false
         type: boolean
@@ -225,7 +225,7 @@ jobs:
 
           Assets:
           - prebuilt local runtime archives for each supported platform
-          - npm installer package: \`@atmos/local-web-runtime\`
+          - npm installer package: \`@atmos-land/local-web-runtime\`
           EOF
 
           EXTRA_ARGS=()

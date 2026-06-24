@@ -42,7 +42,7 @@ Atmos 采用 **三条独立发布线 + 一个 canonical CLI 安装路径 + R2 �
 | 发布线 | Tag | 版本源 | 主要 workflow | 产物 | 是否包含 CLI |
 | --- | --- | --- | --- | --- | --- |
 | CLI | `cli-v<version>` | `apps/cli/Cargo.toml` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | 是,这是唯一 CLI 发布线 |
-| Local Runtime | `local-web-runtime-v<version>` | `packages/local-installer/package.json` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz`, `@atmos/local-web-runtime` | 否 |
+| Local Runtime | `local-web-runtime-v<version>` | `packages/local-installer/package.json` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz`, `@atmos-land/local-web-runtime` | 否 |
 | Desktop | `desktop-v<version>` | `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/tauri.conf.json` | `.github/workflows/release-desktop.yml` | Tauri installers, updater metadata | 否 |
 
 稳定 tag-push release 必须来自已进入 `origin/main` 的 commit。分支验证和真实资产测试使用 workflow dispatch + prerelease tag,例如 `cli-v0.2.0-rc.1`。
@@ -112,7 +112,7 @@ curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 
 `--install-dir` 只改变 runtime 安装位置,不改变 CLI canonical path。Local Runtime archive 本身不包含 CLI。
 
-`@atmos/local-web-runtime` 是 npm 包装器。它同样安装 runtime archive,并使用 CLI manifest 安装或保留 `~/.atmos/bin/atmos`。用户传入 `--archive` 时只跳过 runtime 下载,不跳过 CLI canonical path 检查。
+`@atmos-land/local-web-runtime` 是 npm 包装器。它同样安装 runtime archive,并使用 CLI manifest 安装或保留 `~/.atmos/bin/atmos`。用户传入 `--archive` 时只跳过 runtime 下载,不跳过 CLI canonical path 检查。
 
 ### 3. Desktop
 
