@@ -271,6 +271,7 @@ async fn download_and_install_cli(
     target: &str,
     installed_path: &Path,
 ) -> Result<(), String> {
+    ensure_https_download_url(asset_url)?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(120))
         .user_agent("atmos-cli")
@@ -356,16 +357,23 @@ async fn install_from_git() -> Result<(), String> {
 }
 
 fn current_target_triple() -> Result<String, String> {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("macos", "aarch64") => Ok("aarch64-apple-darwin".to_string()),
-        ("macos", "x86_64") => Ok("x86_64-apple-darwin".to_string()),
-        ("linux", "x86_64") => Ok("x86_64-unknown-linux-gnu".to_string()),
-        ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc".to_string()),
-        (os, arch) => Err(format!(
-            "Atmos updates are not available for {}-{}",
-            os, arch
-        )),
-    }
+    target_triple_for(std::env::consts::OS, std::env::consts::ARCH).map(str::to_string)
+}
+
+fn target_triple_for(os: &str, arch: &str) -> Result<&'static str, String> {
+    Ok(match (os, arch) {
+        ("macos", "aarch64") => "aarch64-apple-darwin",
+        ("macos", "x86_64") => "x86_64-apple-darwin",
+        ("linux", "aarch64") => "aarch64-unknown-linux-gnu",
+        ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
+        ("windows", "x86_64") => "x86_64-pc-windows-msvc",
+        (os, arch) => {
+            return Err(format!(
+                "Atmos updates are not available for {}-{}",
+                os, arch
+            ))
+        }
+    })
 }
 
 fn installed_cli_path() -> Result<PathBuf, String> {
@@ -418,7 +426,7 @@ fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestRel
     }
 
     let target = current_target_triple().ok();
-    let asset_url = target.as_ref().and_then(|target| {
+    let asset_url = if let Some(target) = target.as_ref() {
         manifest
             .assets
             .iter()
@@ -427,7 +435,10 @@ fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestRel
                     || is_cli_asset_for_target(&asset.name, target)
             })
             .map(|asset| manifest_asset_url(asset, &manifest.tag))
-    });
+            .transpose()?
+    } else {
+        None
+    };
 
     Ok(LatestRelease {
         version: manifest
@@ -444,26 +455,36 @@ fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestRel
     })
 }
 
-fn manifest_asset_url(asset: &CliUpdateManifestAsset, tag: &str) -> String {
+fn manifest_asset_url(asset: &CliUpdateManifestAsset, tag: &str) -> Result<String, String> {
     manifest_asset_url_with_base(asset, tag, &download_base_url())
 }
 
-fn manifest_asset_url_with_base(asset: &CliUpdateManifestAsset, tag: &str, base: &str) -> String {
+fn manifest_asset_url_with_base(
+    asset: &CliUpdateManifestAsset,
+    tag: &str,
+    base: &str,
+) -> Result<String, String> {
     if let Some(url) = asset
         .url
         .as_ref()
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
     {
-        if url.starts_with("http://") || url.starts_with("https://") {
-            return url.to_string();
+        if is_absolute_url(url) {
+            ensure_https_download_url(url)?;
+            return Ok(url.to_string());
         }
-        if url.starts_with('/') {
-            return format!("{}{}", base, url);
-        }
-        return format!("{}/{}", base, url);
+        let resolved = if url.starts_with('/') {
+            format!("{}{}", base.trim_end_matches('/'), url)
+        } else {
+            format!("{}/{}", base.trim_end_matches('/'), url)
+        };
+        ensure_https_download_url(&resolved)?;
+        return Ok(resolved);
     }
-    format!("{}/cli/{}/{}", base, tag, asset.name)
+    let resolved = format!("{}/cli/{}/{}", base.trim_end_matches('/'), tag, asset.name);
+    ensure_https_download_url(&resolved)?;
+    Ok(resolved)
 }
 
 fn update_manifest_url() -> String {
@@ -480,6 +501,20 @@ fn download_base_url() -> String {
         .map(|value| value.trim_end_matches('/').to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| ATMOS_DOWNLOAD_BASE_URL.to_string())
+}
+
+fn is_absolute_url(value: &str) -> bool {
+    value.contains("://")
+}
+
+fn ensure_https_download_url(url: &str) -> Result<(), String> {
+    if url
+        .get(..8)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
+    {
+        return Ok(());
+    }
+    Err(format!("Atmos CLI asset downloads must use HTTPS: {}", url))
 }
 
 fn find_extracted_cli_binary(root: &Path, target: &str) -> Option<PathBuf> {
@@ -635,7 +670,8 @@ mod tests {
         };
 
         assert_eq!(
-            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "https://install.atmos.land"),
+            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "https://install.atmos.land")
+                .unwrap(),
             "https://install.atmos.land/cli/cli-v0.2.1/atmos-cli-aarch64-apple-darwin.tar.gz"
         );
     }
@@ -649,8 +685,45 @@ mod tests {
         };
 
         assert_eq!(
-            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "https://install.atmos.land"),
+            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "https://install.atmos.land")
+                .unwrap(),
             "https://install.atmos.land/cli/cli-v0.2.1/atmos-cli-x86_64-unknown-linux-gnu.tar.gz"
+        );
+    }
+
+    #[test]
+    fn manifest_asset_url_rejects_insecure_http_urls() {
+        let asset = CliUpdateManifestAsset {
+            name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
+            target: Some("x86_64-unknown-linux-gnu".to_string()),
+            url: Some("http://example.com/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
+        };
+
+        assert!(
+            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "https://install.atmos.land")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn manifest_asset_url_rejects_insecure_relative_base() {
+        let asset = CliUpdateManifestAsset {
+            name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
+            target: Some("x86_64-unknown-linux-gnu".to_string()),
+            url: Some("cli/cli-v0.2.1/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
+        };
+
+        assert!(
+            manifest_asset_url_with_base(&asset, "cli-v0.2.1", "http://install.atmos.land")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn linux_aarch64_target_is_supported() {
+        assert_eq!(
+            target_triple_for("linux", "aarch64").unwrap(),
+            "aarch64-unknown-linux-gnu"
         );
     }
 }
