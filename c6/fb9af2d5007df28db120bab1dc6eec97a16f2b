@@ -1,0 +1,66 @@
+packages/relay/src/index.ts
+  s_4a26cc374a812c::t_002c359e300a00 236-241,243-247,249-250,252-255,257-260
+  s_4a26cc374a812c::t_4bb24dfb96c43c 42,46,53
+  s_4a26cc374a812c::t_84138088c8385d 242
+  s_4a26cc374a812c::t_f11717e0469d14 54-55,248,251,256,582,600-607
+  s_4a26cc374a812c::t_42293cec3db768 570-571,580-581,583-585,608,632-633,643
+packages/relay/migrations/0008_computer_app_device_id.sql
+  s_4a26cc374a812c::t_d6c03e500ab7da 1-7
+packages/relay/test/computer-registration.test.ts
+  s_4a26cc374a812c::t_d7e1f94c166478 1-47,76-170
+  s_4a26cc374a812c::t_15e841f51f0da3 48-75
+packages/local-installer/package.json
+  s_4a26cc374a812c::t_fd11381fe2ffe6 3
+packages/relay/src/event-routes.ts
+  s_a139be79f38687::t_066415b1ff0b02 533,1122-1134
+  s_a139be79f38687::t_1122524775a38a 27-33,353-362,489-532
+  s_a139be79f38687::t_a0d30badbab189 466,473
+  s_a139be79f38687::t_bf797d1496183e 467
+packages/relay/src/github-webhook.ts
+  s_a139be79f38687::t_b60d174c25474d 6,22-26,67-83,89-90,93-99,105,139-140
+packages/relay/test/event-routes.test.ts
+  s_a139be79f38687::t_f47fae3b5343d2 307
+  s_a139be79f38687::t_7259d24b45ac95 534-606
+  s_a139be79f38687::t_35a60dace233a5 103-105
+  s_a139be79f38687::t_3d9785f6fd19c2 4-6,13,16,22,79
+  s_a139be79f38687::t_1161fb5b688a36 312-387
+crates/runtime-manager/Cargo.toml
+  s_4a26cc374a812c::t_458b388a01546a 17-19,21
+crates/runtime-manager/src/lib.rs
+  s_4a26cc374a812c::t_2e3159da27db35 10
+apps/cli/Cargo.toml
+  s_4a26cc374a812c::t_abfd27889d8b4e 3
+crates/runtime-manager/src/device_identity.rs
+  s_4a26cc374a812c::t_5fab654885f2f4 11
+  s_4a26cc374a812c::t_9852036f3029f0 1-10,12-46
+packages/relay/migrations/0007_github_trigger_coarse_limits.sql
+  s_a139be79f38687::t_fa06109ebf2509 1-24
+packages/relay/src/delivery-state.ts
+  s_a139be79f38687::t_7704a7b5311ddd 7-10,23,47,51,57,81-107,164-181
+crates/runtime-manager/src/register.rs
+  s_4a26cc374a812c::t_47f4bfb11500ac 6,55-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "c6fb9af2d5007df28db120bab1dc6eec97a16f2b",
+  "prompts": {},
+  "sessions": {
+    "s_4a26cc374a812c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef863-a620-7a80-b063-d980ee783016",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_a139be79f38687": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef775-c70a-7041-acc5-a906ada6218a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
