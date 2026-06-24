@@ -1,0 +1,29 @@
+apps/api/src/main.rs
+  s_f707e5c5dc2e17::t_ba7c3106df3242 284
+crates/runtime-manager/src/lib.rs
+  s_f707e5c5dc2e17::t_6829a4872b23ce 22
+  s_f707e5c5dc2e17::t_ba7c3106df3242 6,18-21
+crates/runtime-manager/Cargo.toml
+  s_f707e5c5dc2e17::t_3a91b4e6a9e269 19
+apps/api/src/api/system/cli.rs
+  s_f707e5c5dc2e17::t_ba7c3106df3242 2-5,13,34-44,66,68,74,81-84,93
+crates/runtime-manager/src/cli_update.rs
+  s_f707e5c5dc2e17::t_ba7c3106df3242 1-79,82-106,109-152,157-216,219-483,486-631,636-678
+  s_f707e5c5dc2e17::t_6829a4872b23ce 80-81,107-108,153-156,217-218,484-485,632-635
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "86e2054bf3c582595451c2c9c57d93b8585b195e",
+  "prompts": {},
+  "sessions": {
+    "s_f707e5c5dc2e17": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef6ee-7d7f-7c81-8b54-58f0aff65024",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
