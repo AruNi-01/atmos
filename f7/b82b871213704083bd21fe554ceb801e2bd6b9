@@ -1,0 +1,27 @@
+apps/web/src/features/settings/hooks/use-updater.ts
+  s_4a26cc374a812c::t_c479b4b3dcf1a1 26-30,197,200,220,224,228
+  s_4a26cc374a812c::t_721b3696cb9a2c 12-13,46-49,284-286
+apps/web/src/features/settings/components/SettingsAboutSection.tsx
+  s_4a26cc374a812c::t_399a4c9d3fa33e 8-12
+  s_4a26cc374a812c::t_c5216658915678 146-147,149-168
+apps/web/src/shared/hooks/__tests__/use-updater.test.ts
+  s_4a26cc374a812c::t_52d2e631e9baf4 7
+apps/web/src/app-shell/UpdateNotification.tsx
+  s_4a26cc374a812c::t_53cfae29d95fc5 38,68-73,75-101,103-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "f7b82b871213704083bd21fe554ceb801e2bd6b9",
+  "prompts": {},
+  "sessions": {
+    "s_4a26cc374a812c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef863-a620-7a80-b063-d980ee783016",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
