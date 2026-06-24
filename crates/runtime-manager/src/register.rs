@@ -3,6 +3,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::device_identity::derive_app_device_id;
 use crate::identity::{write_server_identity, ServerIdentity};
 
 const DEFAULT_RELAY_URL: &str = "https://relay.atmos.land";
@@ -51,6 +52,9 @@ pub async fn register_computer(
     if let Some(meta) = registration_meta {
         body["registration_meta"] = meta;
     }
+    body["device"] = serde_json::json!({
+        "app_device_id": derive_app_device_id()?,
+    });
 
     let url = format!("{relay_origin}/v1/computers/register");
     let client = reqwest::Client::new();

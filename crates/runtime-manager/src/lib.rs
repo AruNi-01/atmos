@@ -7,6 +7,7 @@ mod cli_update;
 mod client_session;
 mod computer_client_settings;
 mod computer_name;
+mod device_identity;
 mod identity;
 mod manifest;
 mod register;

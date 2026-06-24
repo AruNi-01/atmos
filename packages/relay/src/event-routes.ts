@@ -24,6 +24,13 @@ const SUPPORTED_EVENTS = new Set([
   "push",
   "workflow_run",
 ]);
+const ACTIVE_ROUTE_STATUS = "active";
+
+export const GITHUB_ROUTE_LIMITS = {
+  tenantActive: 50,
+  tenantTotal: 200,
+  installationActive: 200,
+} as const;
 
 export interface NormalizedGithubEvent {
   deliveryId: string;
@@ -343,6 +350,16 @@ export async function upsertGithubEventRoute(
   if (existing && existing.tenant_id !== tenantId) {
     return json({ error: "route_not_found" }, 404);
   }
+  const limitError = await validateGithubEventRouteLimits(env, {
+    tenantId,
+    routeId,
+    installationId,
+    enabled,
+    routeExists: Boolean(existing),
+  });
+  if (limitError) {
+    return json({ error: limitError }, 409);
+  }
 
   if (existing) {
     await env.DB.prepare(
@@ -446,13 +463,14 @@ export async function findMatchingGithubRoutes(
        ${repositoryPredicate}
        AND event_name = ?
        AND enabled = 1
-       AND route_status = 'active'
-      AND (action IS NULL OR action = ?)`,
+       AND route_status = ?
+       AND (action IS NULL OR action = ?)`,
   )
     .bind(
       event.installationId,
       ...repositoryArgs,
       event.eventName,
+      ACTIVE_ROUTE_STATUS,
       event.action ?? null,
     )
     .all<GithubEventRoute>();
@@ -466,6 +484,52 @@ export function validateGithubEventRoutePolicy(
   filters: Record<string, unknown>,
 ): string | null {
   return validateRoutePolicy(eventName, action, normalizeRouteFilters(filters));
+}
+
+export async function validateGithubEventRouteLimits(
+  env: Env,
+  route: {
+    tenantId: string;
+    routeId: string;
+    installationId: string;
+    enabled: number;
+    routeExists: boolean;
+  },
+): Promise<string | null> {
+  if (!route.routeExists) {
+    const total = await countGithubEventRoutes(
+      env,
+      "tenant_id = ?",
+      [route.tenantId],
+    );
+    if (total >= GITHUB_ROUTE_LIMITS.tenantTotal) {
+      return "github_trigger_total_limit_exceeded";
+    }
+  }
+
+  if (route.enabled !== 1) {
+    return null;
+  }
+
+  const tenantActive = await countGithubEventRoutes(
+    env,
+    `tenant_id = ? AND enabled = 1 AND route_status = ? AND route_id <> ?`,
+    [route.tenantId, ACTIVE_ROUTE_STATUS, route.routeId],
+  );
+  if (tenantActive >= GITHUB_ROUTE_LIMITS.tenantActive) {
+    return "github_trigger_active_limit_exceeded";
+  }
+
+  const installationActive = await countGithubEventRoutes(
+    env,
+    `installation_id = ? AND enabled = 1 AND route_status = ? AND route_id <> ?`,
+    [route.installationId, ACTIVE_ROUTE_STATUS, route.routeId],
+  );
+  if (installationActive >= GITHUB_ROUTE_LIMITS.installationActive) {
+    return "github_trigger_installation_active_limit_exceeded";
+  }
+
+  return null;
 }
 
 export async function getGithubSetupSession(
@@ -1053,6 +1117,19 @@ function githubErrorCode(error: unknown): string {
     return message;
   }
   return "github_request_failed";
+}
+
+async function countGithubEventRoutes(
+  env: Env,
+  predicate: string,
+  args: unknown[],
+): Promise<number> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS count FROM github_event_routes WHERE ${predicate}`,
+  )
+    .bind(...args)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
 }
 
 function json(data: unknown, status = 200): Response {

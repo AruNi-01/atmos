@@ -3,6 +3,7 @@ import {
   type ExternalDispatchResult,
 } from "./event-dispatch";
 import {
+  githubMonthlyDispatchLimitExceeded,
   insertDelivery,
   updateDeliveryDispatchStatus,
 } from "./delivery-state";
@@ -18,6 +19,11 @@ import type { Env } from "./index";
 const SIGNATURE_PREFIX = "sha256=";
 const EXCERPT_LIMIT = 4096;
 const MAX_INT64 = 9_223_372_036_854_775_807n;
+const GITHUB_WEBHOOK_FANOUT_LIMIT = 20;
+
+export function githubWebhookFanoutLimit(): number {
+  return GITHUB_WEBHOOK_FANOUT_LIMIT;
+}
 
 export async function handleGithubWebhook(
   request: Request,
@@ -58,18 +64,45 @@ export async function handleGithubWebhook(
   if (routes.length === 0) {
     return json({ ok: true, matched: 0 }, 202);
   }
+  if (routes.length > GITHUB_WEBHOOK_FANOUT_LIMIT) {
+    return json(
+      {
+        ok: true,
+        matched: routes.length,
+        dispatched: 0,
+        missed_offline: 0,
+        duplicates: 0,
+        errors: 0,
+        limited: routes.length,
+        limit_reasons: {
+          github_trigger_fanout_limit_exceeded: routes.length,
+        },
+      },
+      202,
+    );
+  }
 
   let dispatched = 0;
   let missedOffline = 0;
   let duplicates = 0;
   let errors = 0;
+  let limited = 0;
+  const limitReasons: Record<string, number> = {};
 
   for (const route of routes) {
+    const limitError = await githubMonthlyDispatchLimitExceeded(env, route, event.receivedAt);
+    if (limitError) {
+      limited += 1;
+      limitReasons[limitError] = (limitReasons[limitError] ?? 0) + 1;
+      continue;
+    }
+
     const inserted = await insertDelivery(env, {
       provider: "github",
       deliveryId: event.deliveryId,
       routeId: route.route_id,
       tenantId: route.tenant_id,
+      installationId: route.installation_id,
       serverId: route.server_id,
       automationGuid: route.automation_guid,
       eventName: event.eventName,
@@ -103,6 +136,8 @@ export async function handleGithubWebhook(
       missed_offline: missedOffline,
       duplicates,
       errors,
+      limited,
+      limit_reasons: limitReasons,
     },
     202,
   );

@@ -39,14 +39,20 @@ const TENANT_CREATE_RATE_LIMIT = 10;
 const GITHUB_WEBHOOK_RATE_LIMIT = 600;
 const GITHUB_CONTROL_RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 60;
+const COMPUTER_DEVICE_REGISTRATION_LIMIT = 10;
 /** Minimum access token length (characters). */
 const MIN_ACCESS_TOKEN_LEN = 32;
 const RELAY_SECRET_HEADER = "X-Atmos-Relay-Secret";
+const APP_DEVICE_ID_PATTERN = /^[a-f0-9]{64}$/;
 
 type TenantAuth = {
   tenantId: string;
   accessTokenHash: string;
 };
+
+type AppDeviceIdParseResult =
+  | { ok: true; appDeviceId: string }
+  | { ok: false; error: "app_device_id_required" | "invalid_app_device_id" };
 
 /** Per-isolate IP rate limits (M1). */
 const registerRateByIp = new Map<string, { count: number; windowStart: number }>();
@@ -225,6 +231,31 @@ async function randomUuidLike(): Promise<string> {
     16,
     20,
   )}-${hex.slice(20)}`;
+}
+
+function parseAppDeviceId(
+  body: { device?: unknown; app_device_id?: unknown } | null,
+): AppDeviceIdParseResult {
+  let raw: unknown = body?.app_device_id;
+  if (body?.device != null) {
+    if (typeof body.device !== "object" || Array.isArray(body.device)) {
+      return { ok: false, error: "invalid_app_device_id" };
+    }
+    raw = (body.device as { app_device_id?: unknown }).app_device_id;
+  }
+
+  if (raw == null) {
+    return { ok: false, error: "app_device_id_required" };
+  }
+  if (typeof raw !== "string") {
+    return { ok: false, error: "invalid_app_device_id" };
+  }
+
+  const appDeviceId = raw.trim().toLowerCase();
+  if (!APP_DEVICE_ID_PATTERN.test(appDeviceId)) {
+    return { ok: false, error: "invalid_app_device_id" };
+  }
+  return { ok: true, appDeviceId };
 }
 
 async function tableExists(env: Env, tableName: string): Promise<boolean> {
@@ -536,6 +567,8 @@ async function handleApi(
       const body = (await request.json().catch(() => null)) as {
         register_token?: string;
         display_name?: string;
+        device?: unknown;
+        app_device_id?: unknown;
         registration_meta?: Record<string, unknown> | null;
       } | null;
 
@@ -543,6 +576,12 @@ async function handleApi(
       if (!registerToken) {
         return json({ error: "invalid_register_token" }, 400);
       }
+
+      const parsedDeviceId = parseAppDeviceId(body);
+      if (!parsedDeviceId.ok) {
+        return json({ error: parsedDeviceId.error }, 400);
+      }
+      const appDeviceId = parsedDeviceId.appDeviceId;
 
       const now = Math.floor(Date.now() / 1000);
       const tokenHash = await secretHash(registerToken);
@@ -556,6 +595,16 @@ async function handleApi(
 
       if (!row) {
         return json({ error: "invalid_register_token" }, 400);
+      }
+
+      const deviceRegistration = await env.DB.prepare(
+        "SELECT COUNT(*) AS count FROM computers WHERE app_device_id = ?",
+      )
+        .bind(appDeviceId)
+        .first<{ count: number }>();
+
+      if ((deviceRegistration?.count ?? 0) >= COMPUTER_DEVICE_REGISTRATION_LIMIT) {
+        return json({ error: "computer_device_registration_limit_exceeded" }, 409);
       }
 
       const used = await env.DB.prepare(
@@ -580,8 +629,8 @@ async function handleApi(
           : null;
 
       await env.DB.prepare(
-        `INSERT INTO computers(server_id, tenant_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta)
-         VALUES (?, ?, ?, 0, ?, ?, NULL, ?, ?)`,
+        `INSERT INTO computers(server_id, tenant_id, secret_hash, revoked, display_name, created_at, last_seen_at, updated_at, registration_meta, app_device_id)
+         VALUES (?, ?, ?, 0, ?, ?, NULL, ?, ?, ?)`,
       )
         .bind(
           serverId,
@@ -591,6 +640,7 @@ async function handleApi(
           now,
           now,
           registrationMetaJson,
+          appDeviceId,
         )
         .run();
 

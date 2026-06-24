@@ -1,20 +1,25 @@
 import { describe, expect, test } from "bun:test";
 import {
   ackDelivery,
+  GITHUB_DELIVERY_LIMITS,
+  githubMonthlyDispatchLimitExceeded,
+  insertDelivery,
   updateDeliveryDispatchStatus,
 } from "../src/delivery-state";
 import {
   claimGithubSetupSession,
   findMatchingGithubRoutes,
   getGithubSetupSession,
+  GITHUB_ROUTE_LIMITS,
   listGithubInstallations,
   routeMatchesEvent,
+  validateGithubEventRouteLimits,
   validateGithubEventRoutePolicy,
   type GithubEventRoute,
   type NormalizedGithubEvent,
 } from "../src/event-routes";
 import { parseGithubNextPath } from "../src/github-app";
-import { normalizeGithubEvent } from "../src/github-webhook";
+import { githubWebhookFanoutLimit, normalizeGithubEvent } from "../src/github-webhook";
 
 function baseRoute(overrides: Partial<GithubEventRoute> = {}): GithubEventRoute {
   return {
@@ -71,7 +76,7 @@ function captureDbEnv() {
 
 function captureQueryEnv(options: {
   results?: unknown[];
-  first?: unknown;
+  first?: unknown | (() => unknown);
   changes?: number;
 } = {}) {
   const calls: Array<{ sql: string; args: unknown[]; op?: "run" | "first" | "all" }> = [];
@@ -95,7 +100,9 @@ function captureQueryEnv(options: {
                 },
                 async first() {
                   call.op = "first";
-                  return options.first ?? null;
+                  return typeof options.first === "function"
+                    ? options.first()
+                    : options.first ?? null;
                 },
                 async all() {
                   call.op = "all";
@@ -297,8 +304,85 @@ describe("GitHub event routes", () => {
       "100",
       "Atmos/NewName",
       "pull_request",
+      "active",
       "opened",
     ]);
+  });
+
+  test("blocks new routes once a tenant reaches the total route limit", async () => {
+    const counts = [{ count: GITHUB_ROUTE_LIMITS.tenantTotal }];
+    const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
+
+    const error = await validateGithubEventRouteLimits(env as never, {
+      tenantId: "tenant_1",
+      routeId: "route_1",
+      installationId: "installation_1",
+      enabled: 1,
+      routeExists: false,
+    });
+
+    expect(error).toBe("github_trigger_total_limit_exceeded");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.sql).toContain("COUNT(*)");
+    expect(calls[0]?.args).toEqual(["tenant_1"]);
+  });
+
+  test("blocks active routes once a tenant reaches the active route limit", async () => {
+    const counts = [
+      { count: 0 },
+      { count: GITHUB_ROUTE_LIMITS.tenantActive },
+    ];
+    const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
+
+    const error = await validateGithubEventRouteLimits(env as never, {
+      tenantId: "tenant_1",
+      routeId: "route_1",
+      installationId: "installation_1",
+      enabled: 1,
+      routeExists: false,
+    });
+
+    expect(error).toBe("github_trigger_active_limit_exceeded");
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.args).toEqual(["tenant_1", "active", "route_1"]);
+  });
+
+  test("blocks active routes once an installation reaches the active route limit", async () => {
+    const counts = [
+      { count: 0 },
+      { count: 0 },
+      { count: GITHUB_ROUTE_LIMITS.installationActive },
+    ];
+    const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
+
+    const error = await validateGithubEventRouteLimits(env as never, {
+      tenantId: "tenant_1",
+      routeId: "route_1",
+      installationId: "installation_1",
+      enabled: 1,
+      routeExists: false,
+    });
+
+    expect(error).toBe("github_trigger_installation_active_limit_exceeded");
+    expect(calls).toHaveLength(3);
+    expect(calls[2]?.args).toEqual(["installation_1", "active", "route_1"]);
+  });
+
+  test("does not count disabled routes against active route limits", async () => {
+    const counts = [{ count: 0 }];
+    const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
+
+    const error = await validateGithubEventRouteLimits(env as never, {
+      tenantId: "tenant_1",
+      routeId: "route_1",
+      installationId: "installation_1",
+      enabled: 0,
+      routeExists: false,
+    });
+
+    expect(error).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args).toEqual(["tenant_1"]);
   });
 
   test("normalizes review comments into the existing PR comment route family", () => {
@@ -444,6 +528,79 @@ describe("GitHub event routes", () => {
 
     expect(data.installations.map((installation) => installation.installation_id)).toEqual([
       "new_installation",
+    ]);
+  });
+
+  test("monthly dispatch limit blocks tenant dispatches first", async () => {
+    const now = Math.floor(Date.UTC(2026, 5, 24, 12, 0, 0) / 1000);
+    const monthStart = Math.floor(Date.UTC(2026, 5, 1, 0, 0, 0) / 1000);
+    const counts = [{ count: GITHUB_DELIVERY_LIMITS.monthlyDispatches }];
+    const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
+
+    const error = await githubMonthlyDispatchLimitExceeded(
+      env as never,
+      { tenant_id: "tenant_1", installation_id: "installation_1" },
+      now,
+    );
+
+    expect(error).toBe("github_trigger_monthly_limit_exceeded");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args).toEqual(["tenant_1", monthStart]);
+  });
+
+  test("monthly dispatch limit blocks installation dispatches after tenant room remains", async () => {
+    const now = Math.floor(Date.UTC(2026, 5, 24, 12, 0, 0) / 1000);
+    const monthStart = Math.floor(Date.UTC(2026, 5, 1, 0, 0, 0) / 1000);
+    const counts = [
+      { count: 0 },
+      { count: GITHUB_DELIVERY_LIMITS.monthlyDispatches },
+    ];
+    const { env, calls } = captureQueryEnv({ first: () => counts.shift() ?? { count: 0 } });
+
+    const error = await githubMonthlyDispatchLimitExceeded(
+      env as never,
+      { tenant_id: "tenant_1", installation_id: "installation_1" },
+      now,
+    );
+
+    expect(error).toBe("github_trigger_installation_monthly_limit_exceeded");
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.args).toEqual(["installation_1", monthStart]);
+  });
+
+  test("GitHub webhook fan-out limit is fixed at twenty matched routes", () => {
+    expect(githubWebhookFanoutLimit()).toBe(20);
+  });
+
+  test("delivery insert records the installation dimension for monthly limits", async () => {
+    const { env, calls } = captureDbEnv();
+
+    await insertDelivery(env as never, {
+      provider: "github",
+      deliveryId: "delivery_1",
+      routeId: "route_1",
+      tenantId: "tenant_1",
+      installationId: "installation_1",
+      serverId: "server_1",
+      automationGuid: "automation_1",
+      eventName: "issue_comment",
+      action: "created",
+      repositoryFullName: "Atmos/Repo",
+      receivedAt: 123,
+    });
+
+    expect(calls[0]?.sql).toContain("installation_id");
+    expect(calls[0]?.args).toEqual([
+      "delivery_1",
+      "route_1",
+      "tenant_1",
+      "installation_1",
+      "server_1",
+      "automation_1",
+      "issue_comment",
+      "created",
+      "Atmos/Repo",
+      123,
     ]);
   });
 

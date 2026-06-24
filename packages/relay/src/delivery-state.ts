@@ -4,6 +4,10 @@ export type DeliveryProvider = "github";
 export type DeliveryDispatchStatus = "dispatched" | "missed_offline" | "error";
 export type DeliveryAckStatus = "accepted" | "local_rejected" | "error";
 
+export const GITHUB_DELIVERY_LIMITS = {
+  monthlyDispatches: 5_000,
+} as const;
+
 export interface DeliveryIdentity {
   provider: DeliveryProvider;
   deliveryId: string;
@@ -16,6 +20,7 @@ export interface DeliveryInsert {
   deliveryId: string;
   routeId: string;
   tenantId: string;
+  installationId: string;
   serverId: string;
   automationGuid: string;
   eventName: string;
@@ -39,16 +44,17 @@ export async function insertDelivery(
 
   const inserted = await env.DB.prepare(
     `INSERT OR IGNORE INTO github_webhook_deliveries(
-       delivery_id, route_id, tenant_id, server_id, automation_guid,
+       delivery_id, route_id, tenant_id, installation_id, server_id, automation_guid,
        event_name, action, repository_full_name, status, duplicate_count,
        received_at, dispatched_at, error_code
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'matched', 0, ?, NULL, NULL)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'matched', 0, ?, NULL, NULL)`,
   )
     .bind(
       delivery.deliveryId,
       delivery.routeId,
       delivery.tenantId,
+      delivery.installationId,
       delivery.serverId,
       delivery.automationGuid,
       delivery.eventName,
@@ -70,6 +76,33 @@ export async function insertDelivery(
     .bind(delivery.deliveryId, delivery.routeId)
     .run();
   return { duplicate: true };
+}
+
+export async function githubMonthlyDispatchLimitExceeded(
+  env: Env,
+  route: { tenant_id: string; installation_id: string },
+  now: number,
+): Promise<string | null> {
+  const monthStart = utcMonthStartSeconds(now);
+  const tenantDispatches = await countGithubWebhookDeliveries(
+    env,
+    "tenant_id = ? AND received_at >= ?",
+    [route.tenant_id, monthStart],
+  );
+  if (tenantDispatches >= GITHUB_DELIVERY_LIMITS.monthlyDispatches) {
+    return "github_trigger_monthly_limit_exceeded";
+  }
+
+  const installationDispatches = await countGithubWebhookDeliveries(
+    env,
+    "installation_id = ? AND received_at >= ?",
+    [route.installation_id, monthStart],
+  );
+  if (installationDispatches >= GITHUB_DELIVERY_LIMITS.monthlyDispatches) {
+    return "github_trigger_installation_monthly_limit_exceeded";
+  }
+
+  return null;
 }
 
 export async function updateDeliveryDispatchStatus(
@@ -127,4 +160,22 @@ function assertGithubProvider(provider: DeliveryProvider): void {
   if (provider !== "github") {
     throw new Error("unsupported_delivery_provider");
   }
+}
+
+async function countGithubWebhookDeliveries(
+  env: Env,
+  predicate: string,
+  args: unknown[],
+): Promise<number> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS count FROM github_webhook_deliveries WHERE ${predicate}`,
+  )
+    .bind(...args)
+    .first<{ count: number }>();
+  return row?.count ?? 0;
+}
+
+function utcMonthStartSeconds(now: number): number {
+  const date = new Date(now * 1000);
+  return Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000);
 }
