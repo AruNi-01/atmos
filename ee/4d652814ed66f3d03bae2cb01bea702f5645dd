@@ -1,0 +1,29 @@
+.github/workflows/release-local-runtime.yml
+  s_4a26cc374a812c::t_daf622b556fcc2 36,228
+docs/release.md
+  s_4a26cc374a812c::t_daf622b556fcc2 14,185,250,271,283-284,398,412,514
+packages/local-installer/package.json
+  s_4a26cc374a812c::t_daf622b556fcc2 2
+packages/local-installer/README.md
+  s_4a26cc374a812c::t_daf622b556fcc2 1,14
+docs/adr/005-release-download-installation-architecture.md
+  s_4a26cc374a812c::t_daf622b556fcc2 45,115
+specs/APP/APP-016_atmos-computer/TECH.md
+  s_4a26cc374a812c::t_daf622b556fcc2 195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "ee4d652814ed66f3d03bae2cb01bea702f5645dd",
+  "prompts": {},
+  "sessions": {
+    "s_4a26cc374a812c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef863-a620-7a80-b063-d980ee783016",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
