@@ -136,6 +136,7 @@ pub async fn ensure_standalone_cli_on_startup() -> Result<Option<String>, String
 }
 
 async fn download_and_install_cli(asset_url: &str, cli_path: &Path) -> Result<(), String> {
+    ensure_https_download_url(asset_url)?;
     let target = current_target_triple()?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(300))
@@ -229,49 +230,11 @@ async fn install_cli_archive(
 }
 
 fn get_platform_asset_url(assets: &[GithubAsset]) -> Option<String> {
-    let (os, arch) = detect_platform();
-
-    let patterns = match (os.as_str(), arch.as_str()) {
-        ("darwin", "aarch64") | ("macos", "aarch64") => vec![
-            "aarch64-apple-darwin",
-            "arm64-apple-darwin",
-            "darwin-arm64",
-            "macos-arm64",
-        ],
-        ("darwin", "x86_64") | ("macos", "x86_64") => vec![
-            "x86_64-apple-darwin",
-            "darwin-amd64",
-            "macos-amd64",
-            "macos-x86_64",
-        ],
-        ("linux", "aarch64") => vec![
-            "aarch64-unknown-linux",
-            "arm64-unknown-linux",
-            "linux-arm64",
-        ],
-        ("linux", "x86_64") => vec![
-            "x86_64-unknown-linux",
-            "amd64-unknown-linux",
-            "linux-amd64",
-            "linux-x86_64",
-        ],
-        ("windows", "x86_64") => vec!["x86_64-pc-windows", "windows-amd64", "windows-x86_64"],
-        _ => return None,
-    };
-
-    for pattern in patterns {
-        if let Some(asset) = assets.iter().find(|asset| asset.name.contains(pattern)) {
-            return Some(asset.browser_download_url.clone());
-        }
-    }
-
-    None
-}
-
-fn detect_platform() -> (String, String) {
-    let os = std::env::consts::OS.to_string();
-    let arch = std::env::consts::ARCH.to_string();
-    (os, arch)
+    let target_aliases = current_target_aliases().ok()?;
+    assets
+        .iter()
+        .find(|asset| is_cli_asset_for_target_aliases(&asset.name, &target_aliases))
+        .map(|asset| asset.browser_download_url.clone())
 }
 
 pub fn read_cli_version(path: &Path) -> Option<String> {
@@ -386,7 +349,7 @@ fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestCli
     }
 
     let target = current_target_triple().ok();
-    let asset_url = target.as_ref().and_then(|target| {
+    let asset_url = if let Some(target) = target.as_ref() {
         manifest
             .assets
             .iter()
@@ -395,7 +358,10 @@ fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestCli
                     || is_cli_asset_for_target(&asset.name, target)
             })
             .map(|asset| manifest_asset_url(asset, &manifest.tag))
-    });
+            .transpose()?
+    } else {
+        None
+    };
 
     Ok(LatestCliRelease {
         version: manifest
@@ -409,23 +375,36 @@ fn latest_release_from_manifest(manifest: CliUpdateManifest) -> Result<LatestCli
     })
 }
 
-fn manifest_asset_url(asset: &CliUpdateManifestAsset, tag: &str) -> String {
+fn manifest_asset_url(asset: &CliUpdateManifestAsset, tag: &str) -> Result<String, String> {
+    manifest_asset_url_with_base(asset, tag, &download_base_url())
+}
+
+fn manifest_asset_url_with_base(
+    asset: &CliUpdateManifestAsset,
+    tag: &str,
+    base: &str,
+) -> Result<String, String> {
     if let Some(url) = asset
         .url
         .as_ref()
         .map(|value| value.trim())
         .filter(|value| !value.is_empty())
     {
-        if url.starts_with("http://") || url.starts_with("https://") {
-            return url.to_string();
+        if is_absolute_url(url) {
+            ensure_https_download_url(url)?;
+            return Ok(url.to_string());
         }
-        let base = download_base_url();
-        if url.starts_with('/') {
-            return format!("{}{}", base, url);
-        }
-        return format!("{}/{}", base, url);
+        let resolved = if url.starts_with('/') {
+            format!("{}{}", base.trim_end_matches('/'), url)
+        } else {
+            format!("{}/{}", base.trim_end_matches('/'), url)
+        };
+        ensure_https_download_url(&resolved)?;
+        return Ok(resolved);
     }
-    format!("{}/cli/{}/{}", download_base_url(), tag, asset.name)
+    let resolved = format!("{}/cli/{}/{}", base.trim_end_matches('/'), tag, asset.name);
+    ensure_https_download_url(&resolved)?;
+    Ok(resolved)
 }
 
 fn update_manifest_url() -> String {
@@ -445,24 +424,97 @@ fn download_base_url() -> String {
 }
 
 fn is_cli_asset_for_target(name: &str, target: &str) -> bool {
+    is_cli_asset_for_target_aliases(name, &[target])
+}
+
+fn is_cli_asset_for_target_aliases(name: &str, targets: &[&str]) -> bool {
     let normalized = name.to_ascii_lowercase();
     normalized.contains("atmos")
         && normalized.contains("cli")
-        && normalized.contains(&target.to_ascii_lowercase())
+        && targets
+            .iter()
+            .any(|target| normalized.contains(&target.to_ascii_lowercase()))
         && (normalized.ends_with(".tar.gz") || normalized.ends_with(".tgz"))
 }
 
 fn current_target_triple() -> Result<String, String> {
-    match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("macos", "aarch64") => Ok("aarch64-apple-darwin".to_string()),
-        ("macos", "x86_64") => Ok("x86_64-apple-darwin".to_string()),
-        ("linux", "x86_64") => Ok("x86_64-unknown-linux-gnu".to_string()),
-        ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc".to_string()),
-        (os, arch) => Err(format!(
-            "Atmos CLI updates are not available for {}-{}",
-            os, arch
-        )),
+    target_triple_for(std::env::consts::OS, std::env::consts::ARCH).map(str::to_string)
+}
+
+fn current_target_aliases() -> Result<Vec<&'static str>, String> {
+    target_aliases_for(std::env::consts::OS, std::env::consts::ARCH)
+}
+
+fn target_triple_for(os: &str, arch: &str) -> Result<&'static str, String> {
+    Ok(match (os, arch) {
+        ("macos", "aarch64") => "aarch64-apple-darwin",
+        ("macos", "x86_64") => "x86_64-apple-darwin",
+        ("linux", "aarch64") => "aarch64-unknown-linux-gnu",
+        ("linux", "x86_64") => "x86_64-unknown-linux-gnu",
+        ("windows", "x86_64") => "x86_64-pc-windows-msvc",
+        (os, arch) => {
+            return Err(format!(
+                "Atmos CLI updates are not available for {}-{}",
+                os, arch
+            ))
+        }
+    })
+}
+
+fn target_aliases_for(os: &str, arch: &str) -> Result<Vec<&'static str>, String> {
+    Ok(match (os, arch) {
+        ("macos", "aarch64") => vec![
+            "aarch64-apple-darwin",
+            "arm64-apple-darwin",
+            "darwin-arm64",
+            "macos-arm64",
+        ],
+        ("macos", "x86_64") => vec![
+            "x86_64-apple-darwin",
+            "darwin-amd64",
+            "macos-amd64",
+            "macos-x86_64",
+        ],
+        ("linux", "aarch64") => vec![
+            "aarch64-unknown-linux-gnu",
+            "aarch64-unknown-linux",
+            "arm64-unknown-linux",
+            "linux-arm64",
+        ],
+        ("linux", "x86_64") => vec![
+            "x86_64-unknown-linux-gnu",
+            "x86_64-unknown-linux",
+            "amd64-unknown-linux",
+            "linux-amd64",
+            "linux-x86_64",
+        ],
+        ("windows", "x86_64") => vec![
+            "x86_64-pc-windows-msvc",
+            "x86_64-pc-windows",
+            "windows-amd64",
+            "windows-x86_64",
+        ],
+        (os, arch) => {
+            return Err(format!(
+                "Atmos CLI updates are not available for {}-{}",
+                os, arch
+            ))
+        }
+    })
+}
+
+fn is_absolute_url(value: &str) -> bool {
+    value.contains("://")
+}
+
+fn ensure_https_download_url(url: &str) -> Result<(), String> {
+    if url
+        .get(..8)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"))
+    {
+        return Ok(());
     }
+    Err(format!("Atmos CLI asset downloads must use HTTPS: {}", url))
 }
 
 fn binary_name() -> &'static str {
@@ -674,5 +726,82 @@ fn get_shell_config_files(home: &Path, shell_name: &str) -> Vec<PathBuf> {
             xdg_config_home.join("bash/.bashrc"),
             xdg_config_home.join("bash/.bash_profile"),
         ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn github_release_asset_matching_requires_cli_archive() {
+        let aliases = ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux"];
+
+        assert!(is_cli_asset_for_target_aliases(
+            "atmos-cli-x86_64-unknown-linux-gnu.tar.gz",
+            &aliases
+        ));
+        assert!(!is_cli_asset_for_target_aliases(
+            "atmos-desktop-x86_64-unknown-linux-gnu.tar.gz",
+            &aliases
+        ));
+        assert!(!is_cli_asset_for_target_aliases(
+            "atmos-cli-x86_64-unknown-linux-gnu.zip",
+            &aliases
+        ));
+    }
+
+    #[test]
+    fn manifest_asset_url_rejects_insecure_http_urls() {
+        let asset = CliUpdateManifestAsset {
+            name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
+            target: Some("x86_64-unknown-linux-gnu".to_string()),
+            url: Some("http://example.com/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
+        };
+
+        assert!(
+            manifest_asset_url_with_base(&asset, "cli-v0.2.2", "https://install.atmos.land")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn manifest_asset_url_rejects_insecure_relative_base() {
+        let asset = CliUpdateManifestAsset {
+            name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
+            target: Some("x86_64-unknown-linux-gnu".to_string()),
+            url: Some("cli/cli-v0.2.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
+        };
+
+        assert!(
+            manifest_asset_url_with_base(&asset, "cli-v0.2.2", "http://install.atmos.land")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn manifest_asset_url_accepts_https_relative_paths() {
+        let asset = CliUpdateManifestAsset {
+            name: "atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string(),
+            target: Some("x86_64-unknown-linux-gnu".to_string()),
+            url: Some("cli/cli-v0.2.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz".to_string()),
+        };
+
+        assert_eq!(
+            manifest_asset_url_with_base(&asset, "cli-v0.2.2", "https://install.atmos.land")
+                .unwrap(),
+            "https://install.atmos.land/cli/cli-v0.2.2/atmos-cli-x86_64-unknown-linux-gnu.tar.gz"
+        );
+    }
+
+    #[test]
+    fn linux_aarch64_target_is_supported_consistently() {
+        assert_eq!(
+            target_triple_for("linux", "aarch64").unwrap(),
+            "aarch64-unknown-linux-gnu"
+        );
+        assert!(target_aliases_for("linux", "aarch64")
+            .unwrap()
+            .contains(&"aarch64-unknown-linux-gnu"));
     }
 }
