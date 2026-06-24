@@ -1,0 +1,23 @@
+apps/cli/src/commands/update.rs
+  s_f707e5c5dc2e17::t_5fe80c21fc2502 274,360-376,429,438-441,458,462-466,473-475,477-483,485-487,506-519,673-674,688-689,693-701,706-715,720-726,728
+  s_f707e5c5dc2e17::t_b01a73324e8a9c 702-705,716-719,727
+crates/runtime-manager/src/cli_update.rs
+  s_f707e5c5dc2e17::t_b01a73324e8a9c 762-765,776-779,791-792
+  s_f707e5c5dc2e17::t_5fe80c21fc2502 139,233-237,352,361-364,378-386,393-395,397-403,405-407,427-430,434-436,441-515,517,731-761,766-775,780-790,793-807
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "58b991927a8abc6b9275d4444e50ecafac48a01e",
+  "prompts": {},
+  "sessions": {
+    "s_f707e5c5dc2e17": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef6ee-7d7f-7c81-8b54-58f0aff65024",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
