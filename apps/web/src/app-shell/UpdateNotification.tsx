@@ -35,6 +35,7 @@ export default function UpdateNotification() {
 
   const isUpdating =
     status.stage === 'downloading' || status.stage === 'installing' || status.stage === 'done';
+  const releaseNotesUrl = getUpdateReleaseNotesUrl(updateInfo);
 
   return (
     <div
@@ -64,39 +65,58 @@ export default function UpdateNotification() {
         <p className="text-xs text-destructive mb-3">{status.message}</p>
       )}
 
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 text-xs"
-          asChild
-        >
-          <a
-            href={getUpdateReleaseNotesUrl(updateInfo)}
-            target="_blank"
-            rel="noopener noreferrer"
+      {updateInfo.manualDownloadOnly ? (
+        <div className="flex items-center justify-end">
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            asChild
           >
-            <ExternalLink className="size-3.5" />
-            What&apos;s New
-          </a>
-        </Button>
+            <a
+              href={releaseNotesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="size-3.5" />
+              Open GitHub
+            </a>
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs"
+            asChild
+          >
+            <a
+              href={releaseNotesUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="size-3.5" />
+              What&apos;s New
+            </a>
+          </Button>
 
-        <Button
-          size="sm"
-          className="gap-1.5 text-xs"
-          disabled={isUpdating}
-          onClick={handleUpdate}
-        >
-          <Download className="size-3.5" />
-          {status.stage === 'downloading'
-            ? 'Downloading…'
-            : status.stage === 'installing'
-              ? 'Installing…'
-              : status.stage === 'done'
-                ? 'Restarting…'
-                : 'Install'}
-        </Button>
-      </div>
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            disabled={isUpdating}
+            onClick={handleUpdate}
+          >
+            <Download className="size-3.5" />
+            {status.stage === 'downloading'
+              ? 'Downloading…'
+              : status.stage === 'installing'
+                ? 'Installing…'
+                : status.stage === 'done'
+                  ? 'Restarting…'
+                  : 'Install'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

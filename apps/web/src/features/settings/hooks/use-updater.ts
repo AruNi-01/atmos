@@ -9,6 +9,8 @@ export type UpdateInfo = {
   body?: string;
   currentVersion: string;
   date?: string;
+  releaseUrl?: string;
+  manualDownloadOnly?: boolean;
 };
 
 export type UpdateStatus =
@@ -20,6 +22,11 @@ export type UpdateStatus =
   | { stage: 'done' }
   | { stage: 'error'; message: string }
   | { stage: 'upToDate' };
+
+type GitHubRelease = {
+  tag_name: string;
+  prerelease: boolean;
+};
 
 const RELEASES_BASE_URL = 'https://github.com/AruNi-01/atmos/releases';
 
@@ -36,6 +43,10 @@ function toUpdateInfo(update: Update): UpdateInfo {
 }
 
 export function getUpdateReleaseNotesUrl(updateInfo?: UpdateInfo | null): string {
+  if (updateInfo?.releaseUrl) {
+    return updateInfo.releaseUrl;
+  }
+
   if (!updateInfo?.version) {
     return RELEASES_BASE_URL;
   }
@@ -183,10 +194,10 @@ async function getLatestReleaseForVersionType(
       throw new Error(`GitHub API returned error: ${response.status}`);
     }
 
-    const releases = await response.json();
+    const releases = (await response.json()) as GitHubRelease[];
 
     // Filter releases based on version type
-    const filteredReleases = releases.filter((release: any) => {
+    const filteredReleases = releases.filter((release) => {
       if (versionType === 'stable') {
         return !release.prerelease;
       } else if (versionType === 'rc') {
@@ -206,15 +217,15 @@ async function getLatestReleaseForVersionType(
     // Find the latest version that is greater than current version
     // Use smart version comparison instead of just published_at
     const latestRelease = filteredReleases
-      .map((release: any) => ({
+      .map((release) => ({
         ...release,
         tagName: release.tag_name,
       }))
-      .filter((release: any) => {
+      .filter((release) => {
         // Only consider versions that are greater than current version
         return compareVersions(release.tagName, currentVersion) > 0;
       })
-      .sort((a: any, b: any) => {
+      .sort((a, b) => {
         // Sort by version (descending)
         return compareVersions(b.tagName, a.tagName);
       })[0];
@@ -270,7 +281,9 @@ export async function checkForUpdate(
     const info: UpdateInfo = {
       version: latestVersion,
       currentVersion: versionInfo.version,
-      body: `A new ${versionInfo.version_type} version is available. Please download it from GitHub releases.`,
+      body: `A new ${versionInfo.version_type} version is available from GitHub releases.`,
+      releaseUrl: `${RELEASES_BASE_URL}/tag/${latestTag}`,
+      manualDownloadOnly: true,
     };
 
     onStatus?.({ stage: 'available', info });

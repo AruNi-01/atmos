@@ -5,7 +5,11 @@ import { Button } from "@workspace/ui";
 import { Download, ExternalLink, LoaderCircle, RotateCcw } from "lucide-react";
 
 import { AtmosWordmark } from "@/shared/components/ui/AtmosWordmark";
-import { getUpdateReleaseNotesUrl, type UpdateStatus } from "@/features/settings/hooks/use-updater";
+import {
+  getUpdateReleaseNotesUrl,
+  type UpdateInfo,
+  type UpdateStatus,
+} from "@/features/settings/hooks/use-updater";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
 
 interface SettingsAboutSectionProps {
@@ -139,9 +143,29 @@ export function SettingsAboutSection({
 }
 
 export function renderDesktopUpdateAvailableToast(
-  info: Parameters<typeof getUpdateReleaseNotesUrl>[0],
-  onInstall: () => void,
+  info: UpdateInfo,
+  onInstall?: () => void,
 ) {
+  if (info.manualDownloadOnly) {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          This prerelease version is available from GitHub releases.
+        </p>
+        <Button size="sm" asChild>
+          <a
+            href={getUpdateReleaseNotesUrl(info)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink className="mr-1.5 size-3.5" />
+            Open GitHub
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">

@@ -4,7 +4,7 @@
 
 // @ts-expect-error bun:test is available at runtime but not in tsconfig types
 import { describe, it, expect } from "bun:test";
-import { parseVersion, compareVersions } from "../use-updater";
+import { parseVersion, compareVersions } from "../../../features/settings/hooks/use-updater";
 
 describe("parseVersion", () => {
   it("parses stable version correctly", () => {
