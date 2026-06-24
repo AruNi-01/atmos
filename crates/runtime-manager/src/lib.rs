@@ -3,6 +3,7 @@
 //! - **`client`**: `runtime_manifest.json`, `relay_identity.json`, relay registration.
 //! - **`supervisor`**: install layout, ensure/stop/status for `~/.atmos/runtime/current/bin/api`.
 
+mod cli_update;
 mod client_session;
 mod computer_client_settings;
 mod computer_name;
@@ -14,6 +15,11 @@ mod registration_meta;
 #[cfg(feature = "supervisor")]
 pub mod supervisor;
 
+pub use cli_update::{
+    ensure_standalone_cli_on_startup, fetch_latest_cli_release, install_latest_cli,
+    installed_cli_path, modify_shell_config, read_cli_version, version_gt, CliInstallResult,
+    LatestCliRelease, ShellConfigResult,
+};
 pub use client_session::{
     clear_client_session, client_session_path, read_client_session, write_client_session,
     ClientSession, CLIENT_SESSION_FILE_NAME, CLIENT_SESSION_VERSION,
