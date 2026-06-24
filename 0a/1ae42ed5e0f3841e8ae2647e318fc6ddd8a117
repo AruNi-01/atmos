@@ -1,0 +1,56 @@
+apps/web/src/features/automations/hooks/use-github-trigger-setup.ts
+  s_a139be79f38687::t_7ebef5badf2347 134,442-448
+  s_a139be79f38687::t_79959ea909b83e 81-84,138,270-271,312,419-422,424-426,429,434,436,449-459
+  s_a139be79f38687::t_d4f9a2da7ff211 77-80,87-91,98-99,253-258,280-281,318,418,423,427-428,430-433,435,437-441
+  s_a139be79f38687::t_622014ef8e42a0 279
+packages/relay/test/event-routes.test.ts
+  s_a139be79f38687::t_a773417b62ae7f 228-250
+  s_a139be79f38687::t_9507ee7dc7eb41 251-260,349-369
+  s_a139be79f38687::t_b79db6a3f9da39 222-225
+  s_a139be79f38687::t_a95cf1e09f45c9 12,199-221,226-227,502
+apps/web/src/features/automations/components/AutomationSetup.tsx
+  s_a139be79f38687::t_e1d8937ed5f5f5 371-372,374-383,488-489
+packages/relay/src/event-routes.ts
+  s_a139be79f38687::t_3fbbaaf4ffce51 64,656,658-659,843,859-862,886-906
+  s_a139be79f38687::t_3f3f74979842ac 293-296,754-755,757-770,774,800-842
+  s_a139be79f38687::t_e01d2c3f97cbb3 463-470
+  s_a139be79f38687::t_789cc83bba300c 756,771-773,775-799
+apps/web/src/api/ws/automation-dtos.ts
+  s_a139be79f38687::t_1040f15c7828d5 17,97-99
+packages/relay/src/github-webhook.ts
+  s_a139be79f38687::t_7079fa42a1c60d 11,217-220,224
+apps/web/src/features/automations/components/AutomationGithubTriggerPanel.tsx
+  s_a139be79f38687::t_e7fe7961596d60 447,475
+  s_a139be79f38687::t_bf844233f610ed 5,14,32,301,306,308,367-446,448-474,476-513
+  s_a139be79f38687::t_be317c6048777d 304
+  s_a139be79f38687::t_8a67fba6dca3f5 307
+apps/web/src/features/automations/lib/github-route-lifecycle.ts
+  s_a139be79f38687::t_6511fc37d3d0cf 201-204,218-222
+apps/web/src/features/automations/lib/github-trigger-relay.ts
+  s_a139be79f38687::t_245a6b668d32d5 192-196
+crates/core-service/src/service/automation/github_trigger.rs
+  s_a139be79f38687::t_b6dafe18982b95 171-173,329-332
+  s_a139be79f38687::t_8dc846efebb5d6 40-41,168,325,375-377,381,385-393,643-648
+  s_a139be79f38687::t_c1d708a304d500 746,836,952,989-1008
+  s_a139be79f38687::t_74f88c3f67b416 602
+  s_a139be79f38687::t_6f468ea0416b96 837-875
+  s_a139be79f38687::t_c96fbe24c486be 953-970,1009
+  s_a139be79f38687::t_fc24f1cbcbc059 115
+  s_a139be79f38687::t_87f09fb4577a54 114,116-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "0a1ae42ed5e0f3841e8ae2647e318fc6ddd8a117",
+  "prompts": {},
+  "sessions": {
+    "s_a139be79f38687": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ef775-c70a-7041-acc5-a906ada6218a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
