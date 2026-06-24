@@ -266,13 +266,6 @@
         "react": "^18 || ^19",
       },
     },
-    "packages/local-installer": {
-      "name": "@atmos-land/local-web-runtime",
-      "version": "0.2.3",
-      "bin": {
-        "atmos-local": "bin/atmos-local.mjs",
-      },
-    },
     "packages/relay": {
       "name": "@atmos/relay",
       "version": "0.1.0",
@@ -403,8 +396,6 @@
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 
     "@antfu/install-pkg": ["@antfu/install-pkg@1.1.0", "https://registry.npmmirror.com/@antfu/install-pkg/-/install-pkg-1.1.0.tgz", { "dependencies": { "package-manager-detector": "^1.3.0", "tinyexec": "^1.0.1" } }, "sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ=="],
-
-    "@atmos-land/local-web-runtime": ["@atmos-land/local-web-runtime@workspace:packages/local-installer"],
 
     "@atmos/config": ["@atmos/config@workspace:packages/config"],
 

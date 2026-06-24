@@ -2,18 +2,18 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const rootDir = resolve(import.meta.dirname, "../..");
-const installerPackageJson = resolve(rootDir, "packages/local-installer/package.json");
+const localRuntimeVersionJson = resolve(rootDir, "resources/local-runtime/version.json");
 
 function fail(message) {
   console.error(message);
   process.exit(1);
 }
 
-function readInstallerVersion() {
-  const content = JSON.parse(readFileSync(installerPackageJson, "utf8"));
+function readLocalRuntimeVersion() {
+  const content = JSON.parse(readFileSync(localRuntimeVersionJson, "utf8"));
   const version = content?.version;
   if (!version) {
-    fail(`Unable to resolve version from ${installerPackageJson}`);
+    fail(`Unable to resolve version from ${localRuntimeVersionJson}`);
   }
   return String(version);
 }
@@ -36,10 +36,10 @@ function getReleaseTagFromArgs(argv) {
   return "";
 }
 
-const runtimeVersion = readInstallerVersion();
+const runtimeVersion = readLocalRuntimeVersion();
 const releaseTag = getReleaseTagFromArgs(process.argv.slice(2));
 
-console.log(`packages/local-installer/package.json: ${runtimeVersion}`);
+console.log(`resources/local-runtime/version.json: ${runtimeVersion}`);
 
 if (releaseTag) {
   const expectedTag = `local-web-runtime-v${runtimeVersion}`;

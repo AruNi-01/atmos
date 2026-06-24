@@ -39,7 +39,7 @@ Options:
 This script is Atmos-specific and assumes:
 - local runtime tag format: local-web-runtime-v<version>
 - version files:
-  - packages/local-installer/package.json
+  - resources/local-runtime/version.json
 - release workflow: .github/workflows/release-local-runtime.yml
 - runtime build script: scripts/local-runtime/build-runtime.mjs
 - version check script: scripts/release/check-local-runtime-version.mjs

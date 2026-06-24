@@ -42,7 +42,7 @@ Atmos 采用 **三条独立发布线 + 一个 canonical CLI 安装路径 + R2 �
 | 发布线 | Tag | 版本源 | 主要 workflow | 产物 | 是否包含 CLI |
 | --- | --- | --- | --- | --- | --- |
 | CLI | `cli-v<version>` | `apps/cli/Cargo.toml` | `.github/workflows/release-cli.yml` | `atmos-cli-<target>.tar.gz` | 是,这是唯一 CLI 发布线 |
-| Local Runtime | `local-web-runtime-v<version>` | `packages/local-installer/package.json` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz`, `@atmos-land/local-web-runtime` | 否 |
+| Local Runtime | `local-web-runtime-v<version>` | `resources/local-runtime/version.json` | `.github/workflows/release-local-runtime.yml` | `atmos-local-runtime-<target>.tar.gz` | 否 |
 | Desktop | `desktop-v<version>` | `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/tauri.conf.json` | `.github/workflows/release-desktop.yml` | Tauri installers, updater metadata | 否 |
 
 稳定 tag-push release 必须来自已进入 `origin/main` 的 commit。分支验证和真实资产测试使用 workflow dispatch + prerelease tag,例如 `cli-v0.2.0-rc.1`。
@@ -112,7 +112,7 @@ curl -fsSL https://install.atmos.land/install-local-web-runtime.sh | bash
 
 `--install-dir` 只改变 runtime 安装位置,不改变 CLI canonical path。Local Runtime archive 本身不包含 CLI。
 
-`@atmos-land/local-web-runtime` 是 npm 包装器。它同样安装 runtime archive,并使用 CLI manifest 安装或保留 `~/.atmos/bin/atmos`。用户传入 `--archive` 时只跳过 runtime 下载,不跳过 CLI canonical path 检查。
+不再发布 npm 包装器。Local Runtime 的公开安装入口是 shell installer,它安装 runtime archive,并使用 CLI manifest 安装或保留 `~/.atmos/bin/atmos`。用户传入 `--archive` 时只跳过 runtime 下载,不跳过 CLI canonical path 检查。
 
 ### 3. Desktop
 
@@ -254,7 +254,6 @@ R2 流量主要来自:
 - `crates/infra/src/utils/atmos_cli.rs`: canonical CLI path 固定为 `~/.atmos/bin/atmos`。
 - `apps/api/src/api/system/cli.rs`: API 启动和 Settings CLI install 共用 R2-first CLI release 解析。
 - `install-local-web-runtime.sh`: 安装 runtime 后从 CLI manifest 安装或保留 canonical CLI。
-- `packages/local-installer/bin/atmos-local.mjs`: npm wrapper 使用 canonical CLI path。
 - `install-desktop.sh`: Desktop 安装后从 CLI manifest 安装或保留 canonical CLI。
 - `.github/workflows/sync-r2.yml`: 同步 release assets、install scripts 和 CLI manifest 到 R2。
 
@@ -262,7 +261,7 @@ R2 流量主要来自:
 
 1. 将 Desktop updater metadata 也同步到 R2,并评估是否把 Tauri updater endpoint 切到 `install.atmos.land`。
 2. 给 API 启动时的 CLI 自愈增加本地缓存,减少频繁重启时的 manifest 读取。
-3. 为 Local Runtime 增加类似 CLI 的 stable `latest.json`,让 npm wrapper 解析 `latest` 时也完全避开 GitHub API。
+3. 为 Local Runtime 增加类似 CLI 的 stable `latest.json`,让 shell installer 解析 `latest` 时也完全避开 GitHub API。
 4. 为 `sync-r2.yml` 增加 release 后端到端 smoke check,验证 public R2 URL 可访问。
 
 ## 相关文件
@@ -270,7 +269,7 @@ R2 流量主要来自:
 | 文件 | 用途 |
 | --- | --- |
 | `.github/workflows/release-cli.yml` | 构建并发布 standalone CLI |
-| `.github/workflows/release-local-runtime.yml` | 构建 Local Runtime archive 和 npm wrapper |
+| `.github/workflows/release-local-runtime.yml` | 构建 Local Runtime archive |
 | `.github/workflows/release-desktop.yml` | 构建 Desktop app 和 updater artifacts |
 | `.github/workflows/sync-r2.yml` | 同步 GitHub Release assets 到 Cloudflare R2 |
 | `apps/cli/src/commands/update.rs` | CLI update/check 和 24 小时缓存 |
@@ -279,5 +278,4 @@ R2 流量主要来自:
 | `crates/runtime-manager/src/supervisor.rs` | Local Runtime 启停,不再持有 CLI binary path |
 | `install-local-web-runtime.sh` | shell Local Runtime installer |
 | `install-desktop.sh` | shell Desktop installer |
-| `packages/local-installer/bin/atmos-local.mjs` | npm Local Runtime installer |
 | `docs/release.md` | 操作型 release guide |

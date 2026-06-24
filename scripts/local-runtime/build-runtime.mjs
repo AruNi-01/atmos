@@ -3,7 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const rootDir = resolve(import.meta.dirname, "../..");
-const localInstallerPackageJson = join(rootDir, "packages/local-installer/package.json");
+const localRuntimeVersionJson = join(rootDir, "resources/local-runtime/version.json");
 const webEnvLocalPath = join(rootDir, "apps/web/.env.local");
 
 function fail(message) {
@@ -106,10 +106,10 @@ function detectTargetTriple(input) {
 }
 
 function readLocalRuntimeVersion() {
-  const packageJson = JSON.parse(readFileSync(localInstallerPackageJson, "utf8"));
-  const version = packageJson?.version;
+  const versionJson = JSON.parse(readFileSync(localRuntimeVersionJson, "utf8"));
+  const version = versionJson?.version;
   if (!version) {
-    fail(`Unable to resolve local runtime version from ${localInstallerPackageJson}`);
+    fail(`Unable to resolve local runtime version from ${localRuntimeVersionJson}`);
   }
   return String(version);
 }

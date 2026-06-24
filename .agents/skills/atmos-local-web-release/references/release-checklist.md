@@ -7,43 +7,36 @@ Use this file for:
 - release sign-off
 - quick recovery guidance
 
-Do not use this as the default verification reference after release publication. For that, use `post-release-verification.md`.
+For post-release health checks, use `post-release-verification.md`.
 
 ---
 
-## Release contract
+## Release Contract
 
 A correct Atmos local runtime release means these agree:
 
-1. CLI version
-2. npm installer version
-3. local runtime tag
-4. GitHub Release assets
-5. installer resolution behavior
+1. local runtime version file
+2. local runtime tag
+3. GitHub Release assets
+4. R2 sync state
+5. shell installer resolution behavior
 
 If any layer disagrees, the release is not complete.
 
 ---
 
-## Repository conventions
+## Repository Conventions
 
 - Tag format: `local-web-runtime-v<version>`
-- Version files:
-  - `apps/cli/Cargo.toml`
-  - `packages/local-installer/package.json`
-- Release workflow:
-  - `.github/workflows/release-local-runtime.yml`
-- Runtime build script:
-  - `scripts/local-runtime/build-runtime.mjs`
-- Version check script:
-  - `scripts/release/check-local-runtime-version.mjs`
-- Installer entrypoints:
-  - `install-local-web-runtime.sh`
-  - `@atmos/local-web-runtime`
+- Version file: `resources/local-runtime/version.json`
+- Release workflow: `.github/workflows/release-local-runtime.yml`
+- Runtime build script: `scripts/local-runtime/build-runtime.mjs`
+- Version check script: `scripts/release/check-local-runtime-version.mjs`
+- Installer entrypoint: `install-local-web-runtime.sh`
 
 ---
 
-## Pre-release checklist
+## Pre-Release Checklist
 
 ### Repository state
 - [ ] On the intended release branch
@@ -55,20 +48,20 @@ If any layer disagrees, the release is not complete.
 - [ ] Target version is correct
 - [ ] Version format is valid
 - [ ] Intended tag is clear, for example `local-web-runtime-v0.1.0`
+- [ ] `resources/local-runtime/version.json` version matches target version
 
 ### Access and secrets
 - [ ] Push permission is available
 - [ ] GitHub authentication works
-- [ ] `NPM_TOKEN` is configured for the workflow
+- [ ] GitHub Actions release asset secrets are configured
 
 ---
 
-## Version consistency checklist
+## Version Consistency Checklist
 
-Before tagging, confirm all of the following:
+Before tagging, confirm:
 
-- [ ] `apps/cli/Cargo.toml` version matches target version
-- [ ] `packages/local-installer/package.json` version matches target version
+- [ ] `resources/local-runtime/version.json` version matches target version
 - [ ] Release tag matches the same version
 
 Typical commands:
@@ -76,12 +69,12 @@ Typical commands:
 - `node ./.agents/skills/atmos-local-web-release/scripts/atmos-local-web-release.mjs <version> --dry-run`
 
 Example for `0.1.0`:
-- files = `0.1.0`
+- version file = `0.1.0`
 - tag = `local-web-runtime-v0.1.0`
 
 ---
 
-## Standard release checklist
+## Standard Release Checklist
 
 ### Prepare
 - [ ] Dry run reviewed if needed
@@ -97,17 +90,16 @@ Example for `0.1.0`:
 - [ ] `release-local-runtime.yml` started
 - [ ] `release-local-runtime.yml` passed
 - [ ] GitHub Release was created or updated
-- [ ] npm publish step passed
 
 ### Distribution
 - [ ] Expected runtime archives exist
 - [ ] Archive names match intended version line
-- [ ] npm package version is correct
-- [ ] Installer entrypoints resolve the intended release
+- [ ] R2 sync completed
+- [ ] Shell installer resolves the intended release
 
 ---
 
-## Minimum artifact checks
+## Minimum Artifact Checks
 
 For version `0.1.0`, expect:
 
@@ -124,42 +116,30 @@ If tag and runtime assets disagree, stop and treat the release as invalid.
 
 ---
 
-## Minimum npm checks
-
-Verify:
-- [ ] npm publish step succeeded
-- [ ] `npm view @atmos/local-web-runtime version` matches target version
-- [ ] npm package is consistent with the GitHub Release version
-
-If GitHub Release and npm version disagree, treat the release as invalid.
-
----
-
-## Minimum installer checks
+## Minimum Installer Checks
 
 Verify:
 - [ ] `install-local-web-runtime.sh` resolves the correct local release tag
-- [ ] `npx @atmos/local-web-runtime` resolves the correct local release tag
-- [ ] both entrypoints still download the published runtime asset set
+- [ ] the public R2 URL for the requested version returns 200 after sync
+- [ ] GitHub Release fallback remains available
 
-If installers resolve the wrong release, the distribution path is not healthy even if assets exist.
+If installer resolution is wrong, the distribution path is not healthy even if assets exist.
 
 ---
 
-## Sign-off checklist
+## Sign-Off Checklist
 
-- [ ] CLI version matches
-- [ ] npm installer version matches
-- [ ] tag matches version files
+- [ ] version file matches
+- [ ] tag matches version file
 - [ ] GitHub Release exists
 - [ ] expected runtime archives exist
-- [ ] npm package version matches
-- [ ] installer entrypoints resolve the release
+- [ ] R2 sync completed
+- [ ] shell installer resolves the release
 - [ ] safe to announce or treat as complete
 
 ---
 
-## Common failure cases
+## Common Failure Cases
 
 ### Version mismatch
 Symptoms:
@@ -167,7 +147,7 @@ Symptoms:
 - tag alignment check fails
 
 Action:
-- fix version files first
+- fix `resources/local-runtime/version.json` first
 - do not create or push the tag
 
 ### Tag already exists
@@ -187,15 +167,15 @@ Action:
 - fix the root cause
 - do not patch assets by hand
 
-### npm publish failed
+### R2 sync failed
 Symptoms:
-- release assets exist
-- npm version did not update
+- GitHub Release assets exist
+- `install.atmos.land` URLs still fail after sync should have completed
 
 Action:
-- inspect npm publish logs
-- verify `NPM_TOKEN`
-- reconcile release integrity before announcing success
+- inspect `.github/workflows/sync-r2.yml`
+- retry sync after fixing the root cause
+- verify public URL status
 
 ### Installer resolves wrong release
 Symptoms:
@@ -208,7 +188,7 @@ Action:
 
 ---
 
-## Quick command reminders
+## Quick Command Reminders
 
 Validation:
 - `node ./scripts/release/check-local-runtime-version.mjs --release-tag local-web-runtime-v<version>`
@@ -222,11 +202,5 @@ Monitoring:
 - `gh run list --workflow release-local-runtime.yml --limit 10`
 - `gh run view --web`
 
-npm:
-- `npm view @atmos/local-web-runtime version`
-
 Install path:
 - `bash ./install-local-web-runtime.sh --version <version> --no-start`
-- `npx @atmos/local-web-runtime --version <version> --no-start`
-
----

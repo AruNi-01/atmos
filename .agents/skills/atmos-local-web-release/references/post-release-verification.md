@@ -5,42 +5,41 @@ Use this reference only after a local runtime release exists and someone wants t
 Use it for:
 - release health checks
 - runtime archive verification
-- npm package verification
+- R2 sync verification
 - installer resolution verification
 
 Do not load this by default during normal release execution.
 
 ---
 
-## Verification contract
+## Verification Contract
 
 A local runtime release is fully verified only when these agree:
 
 1. `local-web-runtime-v<version>` tag
 2. GitHub Release
 3. runtime archive set
-4. npm package version
-5. real installer behavior
+4. public R2 URLs
+5. real shell installer behavior
 
 If one layer disagrees, the release is not fully verified.
 
 ---
 
-## When to use this
+## When To Use This
 
 Use this reference when the user asks to:
 
 - verify a release
 - check whether `local-web-runtime-vX.Y.Z` is good
 - confirm runtime archives
-- confirm npm publish
+- confirm R2 sync
 - confirm `install-local-web-runtime.sh`
-- confirm `npx @atmos/local-web-runtime` or `bunx @atmos/local-web-runtime`
 - investigate why installers still resolve the wrong version
 
 ---
 
-## Verification levels
+## Verification Levels
 
 ### Level 1: Release metadata
 Use when the user only wants to know whether the release exists and looks correct.
@@ -51,13 +50,13 @@ Check:
 - release is under the correct tag
 - release is prerelease only if intended
 
-### Level 2: Release + npm metadata
-Use when the user wants to know whether the GitHub Release and npm package are aligned.
+### Level 2: Release + public asset metadata
+Use when the user wants to know whether GitHub Release assets and R2 are aligned.
 
 Check:
 - all Level 1 items
-- npm version is correct
 - release assets exist for all supported targets
+- public R2 URLs return 200
 
 ### Level 3: Real installer verification
 Use when the user wants confidence that users can actually install the local runtime.
@@ -65,11 +64,10 @@ Use when the user wants confidence that users can actually install the local run
 Check:
 - all Level 1 and Level 2 items
 - `install-local-web-runtime.sh --version <version> --no-start`
-- `npx @atmos/local-web-runtime --version <version> --no-start`
 
 ---
 
-## Core checks
+## Core Checks
 
 ### 1. Confirm target
 Identify:
@@ -114,28 +112,19 @@ Fail if:
 - assets are uploaded under the wrong release
 - the asset set is incomplete
 
-### 4. Verify npm publish
+### 4. Verify R2 sync
 Check:
-- npm package exists
-- version matches the local runtime version
-- npm publish did not stop on an older version
+- `https://install.atmos.land/local-web-runtime/<tag>/atmos-local-runtime-<target>.tar.gz`
+- `https://install.atmos.land/local-web-runtime/latest/atmos-local-runtime-<target>.tar.gz` for latest stable releases
 
 Fail if:
-- npm is missing the target version
-- npm version differs from the release tag version
+- R2 returns 404 after sync
+- latest path points to the wrong stable release
+- Cloudflare cache still serves stale 404 after a reasonable purge/expiry window
 
 ### 5. Verify shell installer
 Run:
 - `bash ./install-local-web-runtime.sh --version <version> --no-start`
-
-Check:
-- it resolves the intended release tag
-- it selects the correct target archive
-- it completes download and install preparation without choosing the wrong release
-
-### 6. Verify npm installer
-Run:
-- `npx @atmos/local-web-runtime --version <version> --no-start`
 
 Check:
 - it resolves the intended release tag
@@ -150,27 +139,28 @@ Check:
 Use only when:
 - release exists
 - runtime archives are correct
-- npm version is correct
-- installer entrypoints resolve the intended release
+- R2 URLs are reachable
+- shell installer resolves the intended release
 
 ### Partially verified
 Use when some layers are correct but not all were tested.
 
 Examples:
-- release and npm version look correct, but installers were not tested
-- release assets exist, but npm publish was not checked
+- release assets exist, but installer was not tested
+- release assets exist, but R2 sync was not checked
 
 ### Not verified
 Use when a required layer is broken or inconsistent.
 
 Examples:
-- tag and npm version mismatch
+- tag and version file mismatch
 - missing runtime archive
 - installer still resolves an old release
+- R2 URL returns 404 after sync
 
 ---
 
-## Reporting template
+## Reporting Template
 
 # Atmos Local Runtime Release Verification
 
@@ -190,14 +180,13 @@ Examples:
 - x64 Linux archive present:
 - Archive verdict:
 
-## npm
-- Package version:
-- Version matches tag:
-- npm verdict:
+## R2
+- Version URL status:
+- Latest URL status:
+- R2 verdict:
 
-## Installers
+## Installer
 - `install-local-web-runtime.sh` result:
-- `npx @atmos/local-web-runtime` result:
 - Installer verdict:
 
 ## Overall Verdict
