@@ -8,6 +8,7 @@ import {
 } from "./delivery-state";
 import {
   findMatchingGithubRoutes,
+  isSupportedGithubEventAction,
   normalizeGithubRouteEventName,
   toGithubTriggerEnvelope,
   type NormalizedGithubEvent,
@@ -213,10 +214,14 @@ export function normalizeGithubEvent(
     if (!issue || asRecord(issue.pull_request)) {
       return null;
     }
+    const action = asString(payload.action) ?? undefined;
+    if (!isSupportedGithubEventAction(routeEventName, action)) {
+      return null;
+    }
     const label = asRecord(payload.label);
     return {
       ...base,
-      action: asString(payload.action) ?? undefined,
+      action,
       sourceUrl: asString(issue.html_url),
       issueNumber: asNumber(issue.number),
       labelName: asString(label?.name),

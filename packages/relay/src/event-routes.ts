@@ -61,6 +61,7 @@ interface RouteFilters {
   branch?: string;
   branches?: string[];
   comment_contains?: string;
+  comment_contains_any?: string[];
   label?: string;
   sender_logins?: string[];
   conclusions?: string[];
@@ -289,6 +290,10 @@ export async function upsertGithubEventRoute(
   ) {
     return json({ error: "workflow_name_required" }, 400);
   }
+  const policyError = validateRoutePolicy(eventName, action, filters);
+  if (policyError) {
+    return json({ error: policyError }, 400);
+  }
 
   const computer = await env.DB.prepare(
     `SELECT 1 AS ok FROM computers
@@ -453,6 +458,14 @@ export async function findMatchingGithubRoutes(
     .all<GithubEventRoute>();
 
   return (results ?? []).filter((route) => routeMatchesEvent(route, event));
+}
+
+export function validateGithubEventRoutePolicy(
+  eventName: string,
+  action: string | null,
+  filters: Record<string, unknown>,
+): string | null {
+  return validateRoutePolicy(eventName, action, normalizeRouteFilters(filters));
 }
 
 export async function getGithubSetupSession(
@@ -640,10 +653,10 @@ export function routeMatchesEvent(
     return false;
   }
 
-  const commentContains = normalizeOptionalString(filters.comment_contains);
+  const commentContainsValues = normalizeCommentContainsFilters(filters);
   if (
-    commentContains &&
-    !event.untrustedTextExcerpt?.includes(commentContains)
+    commentContainsValues.length > 0 &&
+    !commentContainsValues.some((value) => event.untrustedTextExcerpt?.includes(value))
   ) {
     return false;
   }
@@ -738,6 +751,97 @@ function normalizeRouteAction(
   return action;
 }
 
+function validateRoutePolicy(
+  eventName: string,
+  action: string | null,
+  filters: RouteFilters,
+): string | null {
+  if (eventName === "push" && !hasSpecificBranchFilter(filters)) {
+    return "github_trigger_push_branch_required";
+  }
+  if (eventName === "issue_comment" && !hasSpecificSenderFilter(filters)) {
+    return "github_trigger_comment_sender_required";
+  }
+  if (!branchFiltersAreValid(filters)) {
+    return "github_trigger_branch_filter_invalid";
+  }
+  if (!senderFiltersAreValid(filters)) {
+    return "github_trigger_sender_filter_invalid";
+  }
+  if (action && !routeActionIsAllowed(eventName, action)) {
+    return "github_trigger_action_invalid";
+  }
+  return null;
+}
+
+export function isSupportedGithubEventAction(
+  eventName: string,
+  action: string | undefined,
+): boolean {
+  const normalized = normalizeTokenString(action);
+  return !normalized || routeActionIsAllowed(eventName, normalized);
+}
+
+function routeActionIsAllowed(eventName: string, action: string): boolean {
+  switch (eventName) {
+    case "pull_request":
+      return ["opened", "reopened", "ready_for_review", "closed", "merged"].includes(action);
+    case "issues":
+      return ["opened", "reopened", "labeled", "closed"].includes(action);
+    case "issue_comment":
+      return ["created", "edited", "deleted"].includes(action);
+    case "push":
+      return action === "pushed";
+    case "workflow_run":
+      return ["completed", "requested", "in_progress"].includes(action);
+    default:
+      return false;
+  }
+}
+
+function hasSpecificBranchFilter(filters: RouteFilters): boolean {
+  const branches = normalizeStringArray(filters.branches);
+  const singleBranch = normalizeOptionalString(filters.branch);
+  if (singleBranch) {
+    branches.push(singleBranch);
+  }
+  return branches.some((branch) => !isAny(normalizeToken(branch)));
+}
+
+function hasSpecificSenderFilter(filters: RouteFilters): boolean {
+  const senderLogins = normalizeTokenArray(filters.sender_logins);
+  return senderLogins.length > 0 && !senderLogins.some(isAny);
+}
+
+function branchFiltersAreValid(filters: RouteFilters): boolean {
+  const branches = normalizeStringArray(filters.branches);
+  const singleBranch = normalizeOptionalString(filters.branch);
+  if (singleBranch) {
+    branches.push(singleBranch);
+  }
+  return branches.every(isValidBranchFilter);
+}
+
+function isValidBranchFilter(value: string): boolean {
+  const branch = value.trim();
+  return Boolean(branch) &&
+    branch.length <= 255 &&
+    branch.split("*").length <= 2 &&
+    (!branch.includes("*") || branch.endsWith("*"));
+}
+
+function senderFiltersAreValid(filters: RouteFilters): boolean {
+  return normalizeTokenArray(filters.sender_logins).every(isValidGithubLogin);
+}
+
+function isValidGithubLogin(value: string): boolean {
+  return Boolean(value) &&
+    value.length <= 100 &&
+    /^[a-z0-9](?:[a-z0-9-]|\[bot\])*$/.test(value) &&
+    !value.startsWith("-") &&
+    !value.endsWith("-");
+}
+
 function normalizeRouteFilters(filters: Record<string, unknown>): RouteFilters {
   const normalized: RouteFilters = {};
   const branch = normalizeOptionalString(filters.branch);
@@ -751,6 +855,10 @@ function normalizeRouteFilters(filters: Record<string, unknown>): RouteFilters {
   const commentContains = normalizeOptionalString(filters.comment_contains);
   if (commentContains) {
     normalized.comment_contains = commentContains;
+  }
+  const commentContainsAny = normalizeStringArray(filters.comment_contains_any);
+  if (commentContainsAny.length > 0) {
+    normalized.comment_contains_any = commentContainsAny;
   }
   const label = normalizeOptionalString(filters.label);
   if (label) {
@@ -773,6 +881,28 @@ function normalizeRouteFilters(filters: Record<string, unknown>): RouteFilters {
     normalized.workflow_name = workflowName;
   }
   return normalized;
+}
+
+function normalizeCommentContainsFilters(filters: RouteFilters): string[] {
+  const values = normalizeStringArray(filters.comment_contains_any);
+  const single = normalizeOptionalString(filters.comment_contains);
+  if (single) {
+    values.push(single);
+  }
+  return uniqueStrings(values);
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const value of values) {
+    if (seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    unique.push(value);
+  }
+  return unique;
 }
 
 function normalizeToken(value: string): string {

@@ -198,7 +198,10 @@ function githubConfigEquals(left: GithubTriggerConfig | null, right: GithubTrigg
     left.event_family === right.event_family &&
     stringArrayEquals(normalizeStringArray(left.actions), normalizeStringArray(right.actions)) &&
     normalizeNullableString(left.filters.branch) === normalizeNullableString(right.filters.branch) &&
-    normalizeNullableString(left.filters.comment_contains) === normalizeNullableString(right.filters.comment_contains) &&
+    stringArrayEquals(
+      normalizedCommentContainsValues(left),
+      normalizedCommentContainsValues(right),
+    ) &&
     normalizeNullableString(left.filters.label) === normalizeNullableString(right.filters.label) &&
     normalizeNullableString(left.filters.workflow_name) === normalizeNullableString(right.filters.workflow_name) &&
     stringArrayEquals(
@@ -210,6 +213,13 @@ function githubConfigEquals(left: GithubTriggerConfig | null, right: GithubTrigg
       normalizeStringArray(right.filters.workflow_conclusions),
     )
   );
+}
+
+function normalizedCommentContainsValues(config: GithubTriggerConfig) {
+  return normalizeStringArray([
+    ...(config.filters.comment_contains_any ?? []),
+    ...(config.filters.comment_contains ? [config.filters.comment_contains] : []),
+  ]);
 }
 
 function normalizeNullableId(value: string | number | null | undefined) {

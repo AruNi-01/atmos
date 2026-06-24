@@ -37,6 +37,8 @@ pub struct GithubTriggerFilters {
     #[serde(default)]
     pub comment_contains: Option<String>,
     #[serde(default)]
+    pub comment_contains_any: Vec<String>,
+    #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
     pub sender_logins: Vec<String>,
@@ -109,12 +111,31 @@ impl GithubTriggerConfig {
         self.repository_full_name = normalize_repository_full_name(&self.repository_full_name)?;
         self.actions = normalize_actions(&self.event_family, &self.actions)?;
         self.filters = self.filters.canonicalize()?;
-        if matches!(self.event_family, GithubEventFamily::WorkflowRun) {
-            let workflow_name = self.filters.workflow_name.as_deref().unwrap_or_default();
-            if workflow_name.trim().is_empty() || is_any(workflow_name) {
-                return Err(ServiceError::Validation(
-                    "Workflow name is required for workflow_run triggers.".to_string(),
-                ));
+        match self.event_family {
+            GithubEventFamily::PullRequest | GithubEventFamily::Issues => {}
+            GithubEventFamily::PullRequestComment => {
+                if self.filters.sender_logins.is_empty() {
+                    return Err(ServiceError::Validation(
+                        "At least one GitHub username is required for pull request comment triggers."
+                            .to_string(),
+                    ));
+                }
+            }
+            GithubEventFamily::Push => {
+                let branch = self.filters.branch.as_deref().unwrap_or_default();
+                if branch.trim().is_empty() || is_any(branch) {
+                    return Err(ServiceError::Validation(
+                        "Branch is required for push triggers.".to_string(),
+                    ));
+                }
+            }
+            GithubEventFamily::WorkflowRun => {
+                let workflow_name = self.filters.workflow_name.as_deref().unwrap_or_default();
+                if workflow_name.trim().is_empty() || is_any(workflow_name) {
+                    return Err(ServiceError::Validation(
+                        "Workflow name is required for workflow_run triggers.".to_string(),
+                    ));
+                }
             }
         }
         Ok(self)
@@ -144,9 +165,12 @@ impl GithubTriggerFilters {
         self.comment_contains = self
             .comment_contains
             .and_then(|value| non_empty_trimmed(&value));
+        self.comment_contains_any = normalize_comment_contains_values(&self.comment_contains_any);
         self.label = self.label.and_then(|value| non_empty_trimmed(&value));
         self.sender_logins = normalize_sender_logins(&self.sender_logins)?;
-        self.workflow_name = self.workflow_name.and_then(|value| non_empty_trimmed(&value));
+        self.workflow_name = self
+            .workflow_name
+            .and_then(|value| non_empty_trimmed(&value));
         self.workflow_conclusions = normalize_workflow_conclusions(&self.workflow_conclusions)?;
         Ok(self)
     }
@@ -298,10 +322,14 @@ fn filters_match(filters: &GithubTriggerFilters, event: &GithubTriggerEvent) -> 
         && branch_matches(filters.branch.as_deref(), event.branch.as_deref())
         && comment_matches(
             filters.comment_contains.as_deref(),
+            &filters.comment_contains_any,
             event.untrusted_text_excerpt.as_deref(),
         )
         && label_matches(filters.label.as_deref(), event.label_name.as_deref())
-        && workflow_name_matches(filters.workflow_name.as_deref(), event.workflow_name.as_deref())
+        && workflow_name_matches(
+            filters.workflow_name.as_deref(),
+            event.workflow_name.as_deref(),
+        )
         && conclusion_matches(&filters.workflow_conclusions, event.conclusion.as_deref())
 }
 
@@ -344,13 +372,25 @@ fn branch_matches(pattern: Option<&str>, branch: Option<&str>) -> bool {
     pattern == branch
 }
 
-fn comment_matches(required: Option<&str>, excerpt: Option<&str>) -> bool {
-    let Some(required) = required.map(str::trim).filter(|value| !value.is_empty()) else {
+fn comment_matches(single: Option<&str>, any: &[String], excerpt: Option<&str>) -> bool {
+    let required = comment_contains_values(single, any);
+    if required.is_empty() {
         return true;
     };
     excerpt
-        .map(|value| value.contains(required))
+        .map(|value| required.iter().any(|needle| value.contains(needle)))
         .unwrap_or(false)
+}
+
+fn comment_contains_values(single: Option<&str>, any: &[String]) -> Vec<String> {
+    let mut values = Vec::new();
+    for value in any.iter().filter_map(|value| non_empty_trimmed(value)) {
+        push_unique(&mut values, value);
+    }
+    if let Some(single) = single.and_then(non_empty_trimmed) {
+        push_unique(&mut values, single);
+    }
+    values
 }
 
 fn label_matches(required: Option<&str>, label_name: Option<&str>) -> bool {
@@ -559,7 +599,7 @@ fn is_allowed_action(family: &GithubEventFamily, action: &str) -> bool {
         ),
         GithubEventFamily::Issues => matches!(
             action,
-            "opened" | "reopened" | "labeled" | "assigned" | "edited" | "closed"
+            "opened" | "reopened" | "labeled" | "closed"
         ),
         GithubEventFamily::PullRequestComment => matches!(action, "created" | "edited" | "deleted"),
         GithubEventFamily::Push => action == "pushed",
@@ -598,6 +638,14 @@ fn normalize_sender_logins(values: &[String]) -> Result<Vec<String>> {
         push_unique(&mut normalized, value);
     }
     Ok(normalized)
+}
+
+fn normalize_comment_contains_values(values: &[String]) -> Vec<String> {
+    let mut normalized = Vec::new();
+    for value in values.iter().filter_map(|value| non_empty_trimmed(value)) {
+        push_unique(&mut normalized, value);
+    }
+    normalized
 }
 
 fn is_valid_github_login(value: &str) -> bool {
@@ -695,6 +743,7 @@ mod tests {
             filters: GithubTriggerFilters {
                 branch: Some("main".to_string()),
                 comment_contains: Some("/atmos".to_string()),
+                comment_contains_any: vec![],
                 label: None,
                 sender_logins: vec!["alice".to_string()],
                 workflow_name: None,
@@ -785,6 +834,46 @@ mod tests {
     }
 
     #[test]
+    fn github_trigger_requires_sender_for_pull_request_comments() {
+        let error = GithubTriggerConfig {
+            route_id: "route-1".to_string(),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
+            repository_full_name: "owner/repo".to_string(),
+            event_family: GithubEventFamily::PullRequestComment,
+            actions: vec!["created".to_string()],
+            filters: GithubTriggerFilters {
+                sender_logins: vec!["*".to_string()],
+                ..Default::default()
+            },
+        }
+        .canonicalize()
+        .unwrap_err();
+
+        assert!(matches!(error, ServiceError::Validation(_)));
+    }
+
+    #[test]
+    fn github_trigger_requires_branch_for_push() {
+        let error = GithubTriggerConfig {
+            route_id: "route-1".to_string(),
+            installation_id: "1".to_string(),
+            repository_id: Some("2".to_string()),
+            repository_full_name: "owner/repo".to_string(),
+            event_family: GithubEventFamily::Push,
+            actions: vec![],
+            filters: GithubTriggerFilters {
+                branch: Some("*".to_string()),
+                ..Default::default()
+            },
+        }
+        .canonicalize()
+        .unwrap_err();
+
+        assert!(matches!(error, ServiceError::Validation(_)));
+    }
+
+    #[test]
     fn github_context_keeps_label_metadata_single_line() {
         let mut event = event();
         event.event_name = "issues".to_string();
@@ -861,6 +950,25 @@ mod tests {
     }
 
     #[test]
+    fn github_trigger_rejects_low_value_issue_actions() {
+        for action in ["assigned", "edited"] {
+            let error = GithubTriggerConfig {
+                route_id: "route-1".to_string(),
+                installation_id: "1".to_string(),
+                repository_id: Some("2".to_string()),
+                repository_full_name: "owner/repo".to_string(),
+                event_family: GithubEventFamily::Issues,
+                actions: vec![action.to_string()],
+                filters: GithubTriggerFilters::default(),
+            }
+            .canonicalize()
+            .unwrap_err();
+
+            assert!(matches!(error, ServiceError::Validation(_)));
+        }
+    }
+
+    #[test]
     fn github_trigger_rejects_non_matching_comment_filter() {
         let config = GithubTriggerConfig {
             route_id: "route-1".to_string(),
@@ -876,6 +984,28 @@ mod tests {
         };
 
         assert!(!config.matches_event(&event()));
+    }
+
+    #[test]
+    fn github_trigger_matches_any_comment_filter() {
+        let config = GithubTriggerConfig {
+            route_id: "route-1".to_string(),
+            installation_id: "1".to_string(),
+            repository_id: None,
+            repository_full_name: "owner/repo".to_string(),
+            event_family: GithubEventFamily::PullRequestComment,
+            actions: vec!["created".to_string()],
+            filters: GithubTriggerFilters {
+                comment_contains_any: vec![
+                    "/atmos fix".to_string(),
+                    "/atmos review".to_string(),
+                ],
+                sender_logins: vec!["alice".to_string()],
+                ..Default::default()
+            },
+        };
+
+        assert!(config.matches_event(&event()));
     }
 
     #[test]

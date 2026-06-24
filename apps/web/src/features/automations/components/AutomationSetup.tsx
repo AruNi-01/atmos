@@ -368,16 +368,19 @@ export function AutomationSetup({
     event.preventDefault();
     setSubmitError(null);
 
-    if (!formValid || submitting) {
+    const githubTriggerValid = trigger !== "github" || githubRouteReady;
+    if (!formValid || !githubTriggerValid || submitting) {
       setSubmitError(
-        validationMessage({
-          displayName,
-          instructions,
-          selectedAgent,
-          targetValid,
-          scheduleValid,
-          previewError,
-        }),
+        githubTriggerValid
+          ? validationMessage({
+              displayName,
+              instructions,
+              selectedAgent,
+              targetValid,
+              scheduleValid,
+              previewError,
+            })
+          : "Choose a repository and required GitHub filters.",
       );
       return;
     }
@@ -482,7 +485,8 @@ export function AutomationSetup({
     );
   }
 
-  const disabledSubmit = !formValid || submitting;
+  const disabledSubmit =
+    !formValid || (trigger === "github" && !githubRouteReady) || submitting;
   const placeholder = selectedAgent?.label
     ? `What should ${selectedAgent.label} do when this automation runs?`
     : "What should this automation do when it runs?";

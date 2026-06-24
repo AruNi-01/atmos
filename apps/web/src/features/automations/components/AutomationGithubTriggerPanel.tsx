@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import {
+  Badge,
   Button,
   Input,
   Label,
@@ -10,6 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  cn,
 } from "@workspace/ui";
 import {
   CheckCircle2,
@@ -27,6 +29,7 @@ import {
   RefreshCw,
   RotateCcw,
   Workflow,
+  X,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -77,10 +80,8 @@ const PR_ACTIONS = [
 
 const ISSUE_ACTIONS = [
   { value: "labeled", label: "Labeled", Icon: CircleDot },
-  { value: "assigned", label: "Assigned", Icon: CircleDot },
   { value: "opened", label: "Opened", Icon: GitPullRequest },
   { value: "reopened", label: "Reopened", Icon: RotateCcw },
-  { value: "edited", label: "Edited", Icon: Eye },
   { value: "closed", label: "Closed", Icon: XCircle },
 ];
 
@@ -292,28 +293,23 @@ export function AutomationGithubTriggerPanel({
                   onChange={onIssueLabelChange}
                 />
               ) : null}
-              <TextField
-                label="GitHub users"
-                value={senderLogins}
-                placeholder="Triggering GitHub usernames"
-                onChange={onSenderLoginsChange}
-              />
             </div>
           ) : null}
 
           {eventFamily === "pull_request_comment" ? (
             <div className="grid gap-2">
-              <TextField
+              <TokenField
+                label="GitHub users"
+                value={senderLogins}
+                placeholder="alice, dependabot[bot]"
+                onChange={onSenderLoginsChange}
+                caseInsensitive
+              />
+              <TokenField
                 label="Comment contains"
                 value={commentContains}
                 placeholder="/atmos review"
                 onChange={onCommentContainsChange}
-              />
-              <TextField
-                label="GitHub users"
-                value={senderLogins}
-                placeholder="Triggering GitHub usernames"
-                onChange={onSenderLoginsChange}
               />
             </div>
           ) : null}
@@ -366,6 +362,154 @@ function TextField({
       <Input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
+}
+
+function TokenField({
+  label,
+  value,
+  placeholder,
+  onChange,
+  caseInsensitive = false,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+  caseInsensitive?: boolean;
+}) {
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const [draft, setDraft] = React.useState("");
+  const tokens = React.useMemo(
+    () => parseTokenInput(value, caseInsensitive),
+    [caseInsensitive, value],
+  );
+
+  const updateTokens = React.useCallback(
+    (nextTokens: string[]) => {
+      onChange(nextTokens.join(", "));
+    },
+    [onChange],
+  );
+  const commitDraft = React.useCallback(
+    (raw: string) => {
+      const nextTokens = mergeTokenLists(
+        tokens,
+        parseTokenInput(raw, caseInsensitive),
+        caseInsensitive,
+      );
+      if (nextTokens.length === tokens.length) {
+        setDraft("");
+        return;
+      }
+      updateTokens(nextTokens);
+      setDraft("");
+    },
+    [caseInsensitive, tokens, updateTokens],
+  );
+  const removeToken = React.useCallback(
+    (index: number) => {
+      updateTokens(tokens.filter((_, tokenIndex) => tokenIndex !== index));
+    },
+    [tokens, updateTokens],
+  );
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div
+        role="group"
+        className={cn(
+          "flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1 shadow-xs",
+          "transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
+        )}
+        onClick={() => inputRef.current?.focus()}
+      >
+        {tokens.map((token, index) => (
+          <Badge
+            key={`${token}:${index}`}
+            variant="secondary"
+            className="h-6 max-w-full gap-1 rounded-md px-2 text-xs font-normal"
+          >
+            <span className="truncate">{token}</span>
+            <button
+              type="button"
+              className="rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Remove ${token}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                removeToken(index);
+              }}
+            >
+              <X className="size-3" />
+            </button>
+          </Badge>
+        ))}
+        <input
+          ref={inputRef}
+          value={draft}
+          placeholder={tokens.length === 0 ? placeholder : ""}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === "," || (event.key === "Tab" && draft.trim())) {
+              event.preventDefault();
+              commitDraft(draft);
+              return;
+            }
+            if (event.key === "Backspace" && !draft && tokens.length > 0) {
+              event.preventDefault();
+              removeToken(tokens.length - 1);
+            }
+          }}
+          onBlur={() => {
+            if (draft.trim()) {
+              commitDraft(draft);
+            }
+          }}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData("text");
+            if (/[,\n]/.test(text)) {
+              event.preventDefault();
+              commitDraft(`${draft}${draft ? "," : ""}${text}`);
+            }
+          }}
+          className="h-7 min-w-[9rem] flex-1 border-0 bg-transparent px-1 py-0 text-sm outline-none placeholder:text-muted-foreground"
+        />
+      </div>
+    </div>
+  );
+}
+
+function parseTokenInput(value: string, caseInsensitive: boolean): string[] {
+  return mergeTokenLists(
+    [],
+    value
+      .split(/[,\n]+/)
+      .map((token) => token.trim())
+      .filter(Boolean),
+    caseInsensitive,
+  );
+}
+
+function mergeTokenLists(
+  existing: string[],
+  incoming: string[],
+  caseInsensitive: boolean,
+): string[] {
+  const seen = new Set(existing.map((token) => tokenKey(token, caseInsensitive)));
+  const merged = [...existing];
+  for (const token of incoming) {
+    const key = tokenKey(token, caseInsensitive);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    merged.push(token);
+  }
+  return merged;
+}
+
+function tokenKey(value: string, caseInsensitive: boolean): string {
+  return caseInsensitive ? value.toLowerCase() : value;
 }
 
 function SelectField({

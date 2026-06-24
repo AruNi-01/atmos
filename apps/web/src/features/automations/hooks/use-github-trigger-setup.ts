@@ -74,14 +74,29 @@ export function useGithubTriggerSetup({
       ? "Choose an installation and repository. Relay stores route metadata only."
       : "Install or update the Atmos GitHub App for this Relay tenant."
     : "GitHub webhooks require a connected Atmos Computer with Relay configured.";
+  const githubSenderLoginList = React.useMemo(
+    () => parseGithubSenderLogins(githubSenderLogins),
+    [githubSenderLogins],
+  );
+  const githubCommentContainsList = React.useMemo(
+    () => parseGithubTokenList(githubCommentContains, false),
+    [githubCommentContains],
+  );
   const githubWorkflowRunReady =
     githubEventFamily !== "workflow_run" || githubWorkflowName.trim().length > 0;
+  const githubPushReady =
+    githubEventFamily !== "push" ||
+    (githubBranchFilter.trim().length > 0 && !isAnyGithubToken(githubBranchFilter));
+  const githubCommentReady =
+    githubEventFamily !== "pull_request_comment" || githubSenderLoginList.length > 0;
   const githubRouteReady =
     trigger !== "github" ||
     (githubRelayReady &&
       !!githubInstallationId &&
       githubRepositoryFullName.trim().length > 0 &&
       githubInstallations.length > 0 &&
+      githubPushReady &&
+      githubCommentReady &&
       githubWorkflowRunReady);
 
   React.useEffect(() => {
@@ -116,11 +131,11 @@ export function useGithubTriggerSetup({
     setGithubInstallationId(initialGithubConfig.installation_id);
     setGithubRepositoryFullName(initialGithubConfig.repository_full_name);
     setGithubEventFamily(initialGithubConfig.event_family);
-    setGithubIssueAction(initialGithubConfig.actions[0] ?? "labeled");
+    setGithubIssueAction(normalizeGithubIssueAction(initialGithubConfig.actions[0]));
     setGithubIssueLabel(initialGithubConfig.filters.label ?? "");
     setGithubPullRequestAction(initialGithubConfig.actions[0] ?? "opened");
     setGithubBranchFilter(initialGithubConfig.filters.branch ?? "main");
-    setGithubCommentContains(initialGithubConfig.filters.comment_contains ?? "");
+    setGithubCommentContains(commentContainsInputValue(initialGithubConfig.filters));
     setGithubSenderLogins((initialGithubConfig.filters.sender_logins ?? []).join(","));
     setGithubWorkflowName(initialGithubConfig.filters.workflow_name ?? "");
     setGithubWorkflowConclusion(initialGithubConfig.filters.workflow_conclusions?.[0] ?? "failure");
@@ -235,6 +250,12 @@ export function useGithubTriggerSetup({
     if (githubEventFamily === "workflow_run" && !githubWorkflowName.trim()) {
       return null;
     }
+    if (githubEventFamily === "push" && (!githubBranchFilter.trim() || isAnyGithubToken(githubBranchFilter))) {
+      return null;
+    }
+    if (githubEventFamily === "pull_request_comment" && githubSenderLoginList.length === 0) {
+      return null;
+    }
     const repositoryFullName = githubRepositoryFullName.trim();
     const preservedRepositoryId =
       initialGithubConfig?.installation_id === githubInstallationId &&
@@ -246,8 +267,8 @@ export function useGithubTriggerSetup({
       filters.branch = githubBranchFilter.trim();
     }
     if (githubEventFamily === "pull_request_comment") {
-      if (githubCommentContains.trim()) {
-        filters.comment_contains = githubCommentContains.trim();
+      if (githubCommentContainsList.length > 0) {
+        filters.comment_contains_any = githubCommentContainsList;
       }
     }
     if (githubEventFamily === "issues" && githubIssueAction === "labeled") {
@@ -255,13 +276,9 @@ export function useGithubTriggerSetup({
         filters.label = githubIssueLabel.trim();
       }
     }
-    if (githubEventFamily === "pull_request_comment" || githubEventFamily === "issues") {
-      const senderLogins = githubSenderLogins
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-      if (senderLogins.length > 0) {
-        filters.sender_logins = senderLogins;
+    if (githubEventFamily === "pull_request_comment") {
+      if (githubSenderLoginList.length > 0) {
+        filters.sender_logins = githubSenderLoginList;
       }
     }
     if (githubEventFamily === "workflow_run") {
@@ -292,16 +309,17 @@ export function useGithubTriggerSetup({
     };
   }, [
     githubBranchFilter,
+    githubCommentContainsList,
     githubCommentContains,
     githubEventFamily,
     githubIssueAction,
     githubIssueLabel,
     githubInstallationId,
+    githubSenderLoginList,
     githubPullRequestAction,
     githubRepositoryFullName,
     githubRouteId,
     githubSelectedRepository?.id,
-    githubSenderLogins,
     githubWorkflowConclusion,
     githubWorkflowName,
     initialGithubConfig,
@@ -395,6 +413,49 @@ export function useGithubTriggerSetup({
     setGithubWorkflowName,
     setGithubWorkflowConclusion,
   };
+}
+
+function parseGithubSenderLogins(value: string): string[] {
+  return parseGithubTokenList(value, true);
+}
+
+function parseGithubTokenList(value: string, caseInsensitive: boolean): string[] {
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const token of value
+    .split(/[,\n]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)) {
+    const normalized = caseInsensitive ? token.toLowerCase() : token;
+    if (isAnyGithubToken(normalized) || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    tokens.push(token);
+  }
+  return tokens;
+}
+
+function isAnyGithubToken(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "*" || normalized === "any";
+}
+
+function normalizeGithubIssueAction(value: string | undefined): string {
+  const action = value?.trim().toLowerCase();
+  return action && ["opened", "reopened", "labeled", "closed"].includes(action)
+    ? action
+    : "labeled";
+}
+
+function commentContainsInputValue(filters: GithubTriggerConfig["filters"]): string {
+  return parseGithubTokenList(
+    [
+      ...(filters.comment_contains_any ?? []),
+      ...(filters.comment_contains ? [filters.comment_contains] : []),
+    ].join(", "),
+    false,
+  ).join(", ");
 }
 
 function githubSetupCompletionReturnUrl(): string {

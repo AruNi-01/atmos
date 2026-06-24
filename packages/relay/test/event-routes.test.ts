@@ -9,6 +9,7 @@ import {
   getGithubSetupSession,
   listGithubInstallations,
   routeMatchesEvent,
+  validateGithubEventRoutePolicy,
   type GithubEventRoute,
   type NormalizedGithubEvent,
 } from "../src/event-routes";
@@ -195,6 +196,68 @@ describe("GitHub event routes", () => {
     expect(routeMatchesEvent(route, { ...event, workflowName: "Release" })).toBe(false);
   });
 
+  test("requires issue comment routes to name at least one GitHub sender", () => {
+    expect(validateGithubEventRoutePolicy("issue_comment", "created", {})).toBe(
+      "github_trigger_comment_sender_required",
+    );
+    expect(validateGithubEventRoutePolicy("issue_comment", "created", {
+      sender_logins: ["*"],
+    })).toBe("github_trigger_comment_sender_required");
+    expect(validateGithubEventRoutePolicy("issue_comment", "created", {
+      sender_logins: ["Alice", "dependabot[bot]"],
+    })).toBeNull();
+  });
+
+  test("requires push routes to include a concrete branch filter", () => {
+    expect(validateGithubEventRoutePolicy("push", null, {})).toBe(
+      "github_trigger_push_branch_required",
+    );
+    expect(validateGithubEventRoutePolicy("push", null, { branch: "*" })).toBe(
+      "github_trigger_push_branch_required",
+    );
+    expect(validateGithubEventRoutePolicy("push", null, { branch: "main" })).toBeNull();
+    expect(validateGithubEventRoutePolicy("push", null, { branches: ["release/*"] })).toBeNull();
+  });
+
+  test("does not require a comment prefix for issue comment routes", () => {
+    expect(validateGithubEventRoutePolicy("issue_comment", "created", {
+      sender_logins: ["alice"],
+    })).toBeNull();
+  });
+
+  test("matches any configured comment contains token", () => {
+    const route = baseRoute({
+      event_name: "issue_comment",
+      action: "created",
+      filters_json: JSON.stringify({
+        comment_contains_any: ["/atmos fix", "/atmos review"],
+        sender_logins: ["alice"],
+      }),
+    });
+    const event = baseEvent({
+      eventName: "issue_comment",
+      action: "created",
+      senderLogin: "alice",
+      untrustedTextExcerpt: "/atmos review this pull request",
+    });
+
+    expect(routeMatchesEvent(route, event)).toBe(true);
+    expect(routeMatchesEvent(route, {
+      ...event,
+      untrustedTextExcerpt: "/not-atmos",
+    })).toBe(false);
+  });
+
+  test("rejects low-value issue assigned and edited actions", () => {
+    expect(validateGithubEventRoutePolicy("issues", "assigned", {})).toBe(
+      "github_trigger_action_invalid",
+    );
+    expect(validateGithubEventRoutePolicy("issues", "edited", {})).toBe(
+      "github_trigger_action_invalid",
+    );
+    expect(validateGithubEventRoutePolicy("issues", "opened", {})).toBeNull();
+  });
+
   test("matches repository id before full name so repo renames still route", () => {
     const route = baseRoute({ repository_full_name: "Atmos/OldName" });
     const event = baseEvent({ repositoryFullName: "Atmos/NewName" });
@@ -281,6 +344,28 @@ describe("GitHub event routes", () => {
     expect(event?.labelName).toBe("atmos-judge-approve");
     expect(event?.sourceUrl).toBe("https://github.com/Atmos/Repo/issues/42");
     expect(event?.untrustedTextExcerpt).toContain("Implement issue automation");
+  });
+
+  test("ignores low-value issue assigned and edited webhook actions", () => {
+    const basePayload = {
+      installation: { id: 1 },
+      repository: { id: 100, full_name: "Atmos/Repo" },
+      sender: { login: "alice" },
+      issue: {
+        number: 42,
+        html_url: "https://github.com/Atmos/Repo/issues/42",
+        title: "Implement issue automation",
+      },
+    };
+
+    expect(normalizeGithubEvent("issues", "delivery_1", {
+      ...basePayload,
+      action: "assigned",
+    })).toBeNull();
+    expect(normalizeGithubEvent("issues", "delivery_2", {
+      ...basePayload,
+      action: "edited",
+    })).toBeNull();
   });
 
   test("setup session read is non-mutating before final claim", async () => {
@@ -414,6 +499,7 @@ describe("GitHub event routes", () => {
       "route_1",
     ]);
   });
+
 });
 
 describe("GitHub pagination", () => {

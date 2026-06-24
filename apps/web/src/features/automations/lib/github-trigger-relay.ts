@@ -189,6 +189,11 @@ function relayFilters(config: GithubTriggerConfig): Record<string, unknown> {
   if (config.filters.comment_contains?.trim()) {
     filters.comment_contains = config.filters.comment_contains.trim();
   }
+  if (config.filters.comment_contains_any?.length) {
+    filters.comment_contains_any = config.filters.comment_contains_any
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
   if (config.filters.label?.trim()) {
     filters.label = config.filters.label.trim();
   }

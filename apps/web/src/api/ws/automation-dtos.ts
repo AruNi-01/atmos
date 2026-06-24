@@ -14,6 +14,7 @@ export type GithubInt64 = string;
 export interface GithubTriggerFilters {
   branch?: string | null;
   comment_contains?: string | null;
+  comment_contains_any?: string[];
   label?: string | null;
   sender_logins?: string[];
   workflow_name?: string | null;
@@ -93,6 +94,9 @@ function normalizeGithubTriggerFilters(value: unknown): GithubTriggerFilters {
   return {
     branch: typeof filters.branch === "string" ? filters.branch : null,
     comment_contains: typeof filters.comment_contains === "string" ? filters.comment_contains : null,
+    comment_contains_any: Array.isArray(filters.comment_contains_any)
+      ? filters.comment_contains_any.filter((value): value is string => typeof value === "string")
+      : [],
     label: typeof filters.label === "string" ? filters.label : null,
     sender_logins: Array.isArray(filters.sender_logins)
       ? filters.sender_logins.filter((login): login is string => typeof login === "string")
