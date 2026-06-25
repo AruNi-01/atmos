@@ -1,0 +1,19 @@
+apps/api/src/api/system/diagnostics.rs
+  s_aaaedc8b345554::t_f45d333c403151 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "f23e941f8f503da64ed6c74703ef1ebb22c5409d",
+  "prompts": {},
+  "sessions": {
+    "s_aaaedc8b345554": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efc14-5546-7863-a921-a0fc383e4b35",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
