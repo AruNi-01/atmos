@@ -1,0 +1,19 @@
+crates/core-engine/src/local_services/scanner.rs
+  s_aaaedc8b345554::t_7ede536487bd6e 140,301-302,440,454,471
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "4ab40737e411ee752a6626deb2a13946d21d346f",
+  "prompts": {},
+  "sessions": {
+    "s_aaaedc8b345554": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efc14-5546-7863-a921-a0fc383e4b35",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
