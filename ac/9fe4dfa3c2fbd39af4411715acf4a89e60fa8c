@@ -1,0 +1,180 @@
+apps/web/src/app-shell/header-workspace-widgets.tsx
+  s_e09fe7989f1e78::t_beed166f97a848 328-329
+apps/web/src/shared/stores/use-ui-pref-hooks.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 118-135
+apps/web/src/features/github/components/PRDetailModal.tsx
+  s_04f01ccc94d6fa::t_8d01a7259cdf92 528,535,544,651,674,949,1071
+  s_04f01ccc94d6fa::t_ec1e7074b1da7c 749,754
+  s_40d2b50d3936eb::t_92bb852edaddf6 54,56,86,111-146,187-191,823-827,1040-1044
+  s_04f01ccc94d6fa::t_7fde0ea9ddee46 779,781-782,790-792
+  s_04f01ccc94d6fa::t_1f6f0cc0beccb1 606
+  s_04f01ccc94d6fa::t_df51838d10e54a 738-742,747,771-778,780,783-789,793-805
+  s_04f01ccc94d6fa::t_601dade36438e8 1110-1115
+  s_04f01ccc94d6fa::t_11a5c1f6460322 158
+  s_04f01ccc94d6fa::t_bc7bbd8e066307 55,57,105,147-157,159-186
+apps/web/src/features/github/components/PRFilesTab.tsx
+  s_04f01ccc94d6fa::t_a39d6183c8997c 25-28,37,49-54,74-80,90,96-99,102-107,122-130,133-139,144-155,157,195-208,252-290,401-406,408,561-565
+  s_04f01ccc94d6fa::t_8317bfe759e2e1 100
+  s_04f01ccc94d6fa::t_3d91e346ae6643 131-132,140-143
+apps/web/src/features/agent-fix/types.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-49
+specs/APP/APP-026_agent-fix-launcher/PRD.md
+  s_40d2b50d3936eb::t_03d0b0cc8408f8 39,70,85,102-103,106,116-118,134
+  s_40d2b50d3936eb::t_f20ebc3affb923 1-38,40-69,71-84,86-101,104-105,107-115,119-133,135-141
+apps/web/src/features/github/lib/pr-detail-modal-parts.tsx
+  s_40d2b50d3936eb::t_92bb852edaddf6 38-39,371-377,431,438,440
+  s_40d2b50d3936eb::t_bac2c6f0a65f7e 407-409,412-417,462
+  s_04f01ccc94d6fa::t_35f9533e68ef4c 433,435-436,444-447
+  s_0c551f880bec5e::t_c81af26788924f 219-220,222
+  s_04f01ccc94d6fa::t_6c7326ab7d1c5e 144,147,174,461
+  s_0c551f880bec5e::t_5acb6de27b352a 221,223
+  s_04f01ccc94d6fa::t_af3a1e578b61a1 380,425-430,432,434,437,439,441-443,448-460
+  s_04f01ccc94d6fa::t_601eb4f2ca793f 410
+apps/web/src/features/agent-fix/hooks/use-agent-fix-config.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-130
+apps/web/src/features/terminal/store/use-terminal-store.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 24,141,148-150
+apps/web/src/shared/stores/use-ui-pref-store.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 13
+specs/README.md
+  s_40d2b50d3936eb::t_f20ebc3affb923 106
+apps/web/src/features/terminal/store/terminal-store-types.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 12-15,41
+apps/web/src/features/agent-fix/lib/agent-fix-prompt.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-36
+apps/web/src/features/github/components/ActionsDetailModal.tsx
+  s_04f01ccc94d6fa::t_2b3e47eb507a48 1,14-15,31-46,85-92,94,97-104,107-115,118-119,121-122,128,140-161,167-172,185-190,201,211-218,231-234,247-249,253,256,259-261,281-283,290-299,313-317,330-332,337-339,356-361,363-365,371,387-406,408-412,419-421,424,429-433,448-451,465-468,473-481,494-500,503-509,521,528-531,535-541,544-552,558-565,578-579,582-587,591-592,596,598-611,618-627,646-648,655-665,667-676,683-687,689-692,694-696,701-703,707-710,714-723,733,737-743,754-773,805-810,823-826,831,838-844,846-856,859-866,869,872-875,877,886-891,916-918,989-992,1006-1011,1016-1021,1033-1044,1049-1060
+  s_04f01ccc94d6fa::t_fca7a9fb90151a 307,320,700,745
+  s_40d2b50d3936eb::t_4c96e5055e9df5 513-515,519-520,522-525,640
+  s_40d2b50d3936eb::t_7da8d8b2359949 588
+  s_04f01ccc94d6fa::t_4b4e2a6339067a 580-581,593-595,597
+  s_40d2b50d3936eb::t_b556510c4c8899 93,116-117,120,123-125,252,254-255,257-258,262-273,575-577,589-590,631-637
+  s_40d2b50d3936eb::t_4437a3e1f12786 612-615,617,628-630
+  s_40d2b50d3936eb::t_385160d8270c88 222-224
+  s_04f01ccc94d6fa::t_4a7188c92e7aae 616
+apps/web/src/features/agent-fix/components/AgentFixToolbar.tsx
+  s_04f01ccc94d6fa::t_b48a09a4dff24c 55-57,79,102,108-109
+  s_04f01ccc94d6fa::t_bedf077bd547b8 90-91,98
+  s_40d2b50d3936eb::t_c443c16082dc8a 4
+  s_04f01ccc94d6fa::t_ba908c7484d2a6 42,58,71,74-75,80,83,88-89,94,107
+  s_04f01ccc94d6fa::t_add4e948f3478c 14,19,45-50,73,86-87,105-106
+  s_04f01ccc94d6fa::t_8a09e6ea5db244 72,84-85,93,103-104,112,114,116
+  s_04f01ccc94d6fa::t_71e4059f3bba3d 41,118
+  s_04f01ccc94d6fa::t_01b1e68c3d578a 43-44
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-3,5-13,15-18,20-40,51-54,59-70,76-78,81-82,92,95-97,99-101,110-111,113,115,117,119-122
+specs/APP/APP-026_agent-fix-launcher/BRAINSTORM.md
+  s_40d2b50d3936eb::t_f20ebc3affb923 1-13
+apps/web/src/features/agent-fix/store/agent-fix-launcher-store.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-18
+apps/web/src/features/diff/components/DiffCopyAnnotation.tsx
+  s_04f01ccc94d6fa::t_add572e7f21b92 3,37,41,48,76-87,98-103,122,126
+  s_40d2b50d3936eb::t_1e730da6ec33e1 9-10,21,33
+  s_04f01ccc94d6fa::t_bf489379bc84ac 5,36,40,42-46,54,65-75,104,109,113,120,123,127
+  s_04f01ccc94d6fa::t_0703ebdab6d21d 115
+  s_04f01ccc94d6fa::t_a7641a5ba1166b 38,47,97,106,108
+  s_04f01ccc94d6fa::t_85d639b97acfdb 121
+apps/web/src/features/agent/lib/terminal-agent-run-config.ts
+  s_04f01ccc94d6fa::t_792a398864e6a0 224-226
+apps/web/src/features/terminal/store/terminal-store-helpers.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 302-322
+apps/web/src/features/wiki/components/__tests__/agent-select.test.ts
+  s_04f01ccc94d6fa::t_789fa2baeca4ce 43-52
+apps/web/src/features/github/lib/agent-fix-prompts.ts
+  s_04f01ccc94d6fa::t_d342b71c413897 43-50,105-169
+  s_40d2b50d3936eb::t_ed1b1797537b1f 1-42,51-104,170-218
+apps/web/src/features/github/lib/__tests__/agent-fix-prompts.test.ts
+  s_04f01ccc94d6fa::t_64e114a4a09245 5,76-127
+  s_40d2b50d3936eb::t_ed1b1797537b1f 1-4,6-75,128-129
+specs/APP/APP-026_agent-fix-launcher/TEST.md
+  s_40d2b50d3936eb::t_4990213566c46a 154-178
+  s_40d2b50d3936eb::t_f20ebc3affb923 1-23,25-26,28-102,119-121,123-125,127-141,148-152
+  s_40d2b50d3936eb::t_04212a5636ba49 24
+  s_40d2b50d3936eb::t_03d0b0cc8408f8 27,103-118,122,126,142-147,153
+apps/web/src/app-shell/CenterStage.tsx
+  s_40d2b50d3936eb::t_c443c16082dc8a 26-27,617-679
+apps/web/src/features/agent-fix/hooks/use-agent-fix-actions.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-104
+apps/web/src/features/terminal/store/__tests__/terminal-store-new-tab.test.ts
+  s_40d2b50d3936eb::t_ecf953b0f5b334 196-233
+apps/web/src/features/agent-fix/components/AgentFixButton.tsx
+  s_04f01ccc94d6fa::t_8b18deec177c89 68,104
+  s_04f01ccc94d6fa::t_0d12a1c5e2912f 90,102
+  s_40d2b50d3936eb::t_fa81be3890ac85 26-27,54-62,82-83,87
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-12,14-15,17-18,20-21,23-24,28-45,63-64,75-79,84-86,93-100,107-120
+  s_04f01ccc94d6fa::t_90fda2d3b19ba3 13,19,46,66-67,69-71,88-89,91-92,101,103,105-106
+  s_40d2b50d3936eb::t_50ca31e5238a43 16,22,25,47-53,65,72-74,80-81
+apps/web/src/features/diff/components/useDiffPromptStash.tsx
+  s_04f01ccc94d6fa::t_f8bd39892f65df 266
+  s_04f01ccc94d6fa::t_a43b63c0bde3a5 12,272
+  s_40d2b50d3936eb::t_1e730da6ec33e1 15-16,25,51-60,72-82,193-197,199,229-245,250-263,265,267,281,283,367-390,395,399-400,402
+  s_04f01ccc94d6fa::t_3d4fd0a102a83d 274-275,277,279
+  s_04f01ccc94d6fa::t_36bfa37268b607 280
+  s_04f01ccc94d6fa::t_79b3d2b18de8a4 270-271
+  s_04f01ccc94d6fa::t_c55e655e64cccc 269,273,278
+  s_04f01ccc94d6fa::t_4931fb679ff00c 276
+apps/web/src/features/github/lib/__tests__/pr-review-thread-agent-fix.test.tsx
+  s_40d2b50d3936eb::t_6732bf9ba1650f 1-169,171-193,195-207,209-229
+  s_40d2b50d3936eb::t_89420431a56a0d 170,194,208
+apps/web/src/features/agent/components/TerminalAgentSelectorWithRunConfig.tsx
+  s_40d2b50d3936eb::t_54112d49807bbc 82-83,414-419
+  s_40d2b50d3936eb::t_3228358df68df8 52-53,99-100,102-104,106,108
+  s_40d2b50d3936eb::t_c0385eb54ddc36 101,105,107,167
+AGENTS.md
+  s_04f01ccc94d6fa::t_bee44877614360 130
+apps/web/src/features/agent-fix/AGENTS.md
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-8
+specs/APP/APP-026_agent-fix-launcher/TECH.md
+  s_40d2b50d3936eb::t_03d0b0cc8408f8 9,38-39,133-156,213-214,359-366,398,438-444,450
+  s_40d2b50d3936eb::t_04212a5636ba49 132
+  s_40d2b50d3936eb::t_f20ebc3affb923 1-8,10-37,40-131,157-212,215-358,367-397,399-437,445-449,451-465
+apps/web/src/features/agent-fix/components/AgentFixSettingsPopover.tsx
+  s_40d2b50d3936eb::t_ed1b1797537b1f 58
+  s_40d2b50d3936eb::t_eb24cba3afbc5d 14,16,28,30,47-48
+  s_40d2b50d3936eb::t_8cdc21881a4b32 23,37,56
+  s_40d2b50d3936eb::t_ecf953b0f5b334 1-13,17-18,20-22,24-27,31-32,34-36,38-44,49-55,57,59,61-71
+  s_40d2b50d3936eb::t_d16b83c0988bb0 15,19,29,33,45-46
+  s_04f01ccc94d6fa::t_9135f20f746c37 60
+apps/web/src/features/workspace/components/WorkspaceNotePanel.tsx
+  s_e09fe7989f1e78::t_30dcd2a281b0bd 25-26,36-37,56-57,59-60,62,189-194
+  s_e09fe7989f1e78::t_afaef79eaac375 46,58,61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "ac9fe4dfa3c2fbd39af4411715acf4a89e60fa8c",
+  "prompts": {},
+  "sessions": {
+    "s_04f01ccc94d6fa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efe81-7bd3-7732-87c0-c5488fcead4d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_0c551f880bec5e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efd52-1799-7222-9643-96938853c9f6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_40d2b50d3936eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efdda-955e-7a30-a977-e726dded38e3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e09fe7989f1e78": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efedf-4d37-7712-8d5d-5a129d09babe",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
