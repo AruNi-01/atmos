@@ -193,4 +193,42 @@ describe("createTerminalTabWithInitialPane", () => {
     );
     expect(saveCalls).toEqual(["workspace-1", "workspace-1"]);
   });
+
+  it("uses a preferred title for new non-fixed terminal tabs and de-duplicates it", () => {
+    const saveCalls: string[] = [];
+    useTerminalStore.setState({
+      loadedWorkspaces: new Set([getTerminalWorkspaceScopeKey("workspace-1", false)]),
+      workspaceContexts: {
+        "workspace-1": false,
+      },
+      workspaceTerminalTabs: {
+        "workspace-1": [
+          {
+            id: FIXED_TERMINAL_TAB_VALUE,
+            title: "Term",
+            closable: true,
+          },
+          {
+            id: `${TERMINAL_TAB_VALUE_PREFIX}existing`,
+            title: "Fix CI: test",
+            closable: true,
+          },
+        ],
+      },
+      persistedTerminalLayouts: {
+        [getTerminalWorkspaceScopeKey("workspace-1", false)]: null,
+      },
+      saveToBackend: (workspaceId) => {
+        saveCalls.push(workspaceId);
+      },
+    });
+
+    const created = useTerminalStore
+      .getState()
+      .createTerminalTab("workspace-1", { title: "  Fix CI: test  " });
+
+    expect(created.id.startsWith(TERMINAL_TAB_VALUE_PREFIX)).toBe(true);
+    expect(created.title).toBe("Fix CI: test 2");
+    expect(saveCalls).toEqual(["workspace-1"]);
+  });
 });

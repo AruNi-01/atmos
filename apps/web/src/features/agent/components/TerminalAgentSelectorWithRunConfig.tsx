@@ -49,6 +49,8 @@ type SharedProps = {
   value: string;
   onValueChange: (value: string) => void;
   purpose?: "interactive" | "automation";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type FloatingProps = SharedProps & {
@@ -77,6 +79,8 @@ type MenuProps = SharedProps & {
   runConfig: TerminalAgentRunConfigInput | null | undefined;
   runConfigByAgentId?: Record<string, TerminalAgentRunConfigInput | null | undefined>;
   onRunConfigChange: (agentId: string, value: TerminalAgentRunConfigInput | null) => void;
+  onCloseAutoFocus?: React.ComponentProps<typeof DropdownMenuContent>["onCloseAutoFocus"];
+  onPointerDownOutside?: React.ComponentProps<typeof DropdownMenuContent>["onPointerDownOutside"];
   menuHeader?: React.ReactNode;
   menuFooter?: React.ReactNode;
   contentClassName?: string;
@@ -92,7 +96,16 @@ type SelectorView = "agent_list" | "run_config";
 export function TerminalAgentSelectorWithRunConfig(
   props: TerminalAgentSelectorWithRunConfigProps,
 ) {
-  const [open, setOpen] = React.useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const open = props.open ?? uncontrolledOpen;
+  const onOpenChange = props.onOpenChange;
+  const setOpen = React.useCallback(
+    (nextOpen: boolean) => {
+      setUncontrolledOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [onOpenChange],
+  );
   const [view, setView] = React.useState<SelectorView>("agent_list");
   const [configuringAgentId, setConfiguringAgentId] = React.useState<string | null>(null);
   const preserveConfigViewOnCloseRef = React.useRef(false);
@@ -151,7 +164,7 @@ export function TerminalAgentSelectorWithRunConfig(
       props.onValueChange(agentId);
       setOpen(false);
     },
-    [props],
+    [props, setOpen],
   );
 
   const openRunConfig = React.useCallback((agentId: string) => {
@@ -398,7 +411,12 @@ export function TerminalAgentSelectorWithRunConfig(
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>{props.trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className={cn("p-1.5", props.contentClassName)}>
+      <DropdownMenuContent
+        align="end"
+        className={cn("p-1.5", props.contentClassName)}
+        onCloseAutoFocus={props.onCloseAutoFocus}
+        onPointerDownOutside={props.onPointerDownOutside}
+      >
         {overlayContent}
       </DropdownMenuContent>
     </DropdownMenu>

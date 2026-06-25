@@ -9,9 +9,11 @@ import {
 } from 'react';
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
 import type { CodeViewHandle } from '@pierre/diffs/react';
-import { Copy, MessageSquareText } from 'lucide-react';
+import { MessageSquareText } from 'lucide-react';
 import { toastManager } from '@workspace/ui';
 import { DiffCopyAnnotation } from '@/features/diff/components/DiffCopyAnnotation';
+import { AgentFixToolbar } from '@/features/agent-fix/components/AgentFixToolbar';
+import type { AgentFixContextRef, AgentFixPromptSource } from '@/features/agent-fix/types';
 import {
   buildDiffSelectionInfo,
   formatSelectedRangeLabel,
@@ -20,7 +22,7 @@ import {
   updateViewerDiffItem,
 } from '@/features/diff/lib/diff-code-view-shared';
 import { formatDiffSelectionForAI } from '@/shared/lib/format-selection-for-ai';
-import { cn } from '@/shared/lib/utils';
+import { useContextParams } from '@/shared/hooks/use-context-params';
 
 export type LoadedDiffContents = {
   oldContent: string;
@@ -46,6 +48,16 @@ type DraftPromptNoteState = {
 const EMPTY_STASHED_PROMPTS: StashedDiffPrompt[] = [];
 const EMPTY_DRAFT_NOTES: Record<string, string> = {};
 
+function basename(path: string) {
+  return path.split('/').filter(Boolean).pop() || path;
+}
+
+function formatMergedDiffPrompt(prompts: StashedDiffPrompt[]) {
+  return prompts
+    .map((entry, index) => `# Comment ${index + 1}\n\n${entry.prompt}`)
+    .join('\n\n---\n\n');
+}
+
 type UseDiffPromptStashArgs = {
   scope: string;
   viewerRef: MutableRefObject<CodeViewHandle<CopyAnnotationMeta> | null>;
@@ -57,6 +69,17 @@ export function useDiffPromptStash({
   viewerRef,
   loadedContentsRef,
 }: UseDiffPromptStashArgs) {
+  const { currentView, effectiveContextId } = useContextParams();
+  const agentFixContext = useMemo<AgentFixContextRef | null>(() => {
+    if (!effectiveContextId) return null;
+    if (currentView === 'workspace') {
+      return { contextId: effectiveContextId, scope: 'workspace' };
+    }
+    if (currentView === 'project') {
+      return { contextId: effectiveContextId, scope: 'project' };
+    }
+    return null;
+  }, [currentView, effectiveContextId]);
   const copyKeyRef = useRef(0);
   const [stashedPromptState, setStashedPromptState] =
     useState<StashedDiffPromptState>(() => ({
@@ -167,36 +190,13 @@ export function useDiffPromptStash({
     [loadedContentsRef, viewerRef],
   );
 
-  const handleCopyAnnotation = useCallback(
-    (itemId: string, key: string, note: string) => {
-      const prompt = buildPromptForAnnotation(itemId, key, note);
-      if (!prompt) {
-        toastManager.add({
-          title: 'Nothing to copy',
-          type: 'error',
-        });
-        return;
-      }
-
-      void navigator.clipboard.writeText(prompt).then(
-        () => {
-          removeStashedPrompt(itemId, key);
-          removeDraftNote(key);
-          removeCopyAnnotation(itemId, key);
-        },
-        () =>
-          toastManager.add({
-            title: 'Failed to copy prompt',
-            type: 'error',
-          }),
-      );
+  const cleanupAnnotationPrompt = useCallback(
+    (itemId: string, key: string) => {
+      removeStashedPrompt(itemId, key);
+      removeDraftNote(key);
+      removeCopyAnnotation(itemId, key);
     },
-    [
-      buildPromptForAnnotation,
-      removeCopyAnnotation,
-      removeDraftNote,
-      removeStashedPrompt,
-    ],
+    [removeCopyAnnotation, removeDraftNote, removeStashedPrompt],
   );
 
   const handleStashAnnotation = useCallback(
@@ -226,67 +226,61 @@ export function useDiffPromptStash({
     [buildPromptForAnnotation, scope],
   );
 
-  const handleCopyStashedPrompts = useCallback(() => {
-    if (stashedPrompts.length === 0) return;
-    const prompt = stashedPrompts
-      .map((entry, index) => `# Comment ${index + 1}\n\n${entry.prompt}`)
-      .join('\n\n---\n\n');
-
-    void navigator.clipboard.writeText(prompt).then(
-      () => {
-        const copiedKeys = new Set(stashedPrompts.map((entry) => entry.key));
-        for (const entry of stashedPrompts) {
-          removeCopyAnnotation(entry.itemId, entry.key);
-        }
-        setDraftNoteState((current) => {
-          if (current.scope !== scope) return current;
-          return {
-            scope: current.scope,
-            notes: Object.fromEntries(
-              Object.entries(current.notes).filter(
-                ([key]) => !copiedKeys.has(key),
-              ),
-            ),
-          };
-        });
-        setStashedPromptState({ scope, prompts: [] });
-      },
-      () =>
-        toastManager.add({
-          title: 'Failed to copy prompt',
-          type: 'error',
-        }),
-    );
+  const cleanupStashedPrompts = useCallback(() => {
+    const copiedKeys = new Set(stashedPrompts.map((entry) => entry.key));
+    for (const entry of stashedPrompts) {
+      removeCopyAnnotation(entry.itemId, entry.key);
+    }
+    setDraftNoteState((current) => {
+      if (current.scope !== scope) return current;
+      return {
+        scope: current.scope,
+        notes: Object.fromEntries(
+          Object.entries(current.notes).filter(
+            ([key]) => !copiedKeys.has(key),
+          ),
+        ),
+      };
+    });
+    setStashedPromptState({ scope, prompts: [] });
   }, [removeCopyAnnotation, scope, stashedPrompts]);
 
   const stashedPromptChip = useMemo(() => {
     if (stashedPrompts.length === 0) return null;
+    const source: AgentFixPromptSource = {
+      id: `diff-stashed:${scope}`,
+      family: 'diff',
+      context: agentFixContext,
+      label: `Fix ${stashedPrompts.length} diff comments`,
+      disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+      getPrompt: () => ({
+        prompt: formatMergedDiffPrompt(stashedPrompts),
+        terminalTabTitle: `Fix diff comments (${stashedPrompts.length})`,
+        terminalPaneLabel: 'Diff Comments Fix',
+      }),
+      onCopied: cleanupStashedPrompts,
+      onStarted: cleanupStashedPrompts,
+    };
     return (
-      <button
-        type="button"
-        onClick={handleCopyStashedPrompts}
-        className={cn(
-          'group/comment-chip inline-flex h-7 max-w-[58px] shrink-0 items-center justify-start overflow-hidden rounded-md border border-foreground bg-foreground px-2 text-xs font-semibold text-background shadow-sm',
-          'transition-[max-width,background-color,border-color,color,box-shadow] duration-300 ease-out hover:max-w-[132px] hover:bg-background hover:text-foreground hover:shadow-md',
-          'dark:border-foreground dark:bg-foreground dark:text-background dark:hover:bg-background dark:hover:text-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-        )}
-        aria-label={`Copy ${stashedPrompts.length} stashed prompt comment${stashedPrompts.length === 1 ? '' : 's'}`}
-        title="Copy Prompt"
+      <div
+        className="group/stashed-prompts relative z-10 inline-flex h-8 w-11 shrink-0 items-center rounded-md"
+        title={`${stashedPrompts.length} stashed prompt comment${stashedPrompts.length === 1 ? '' : 's'}`}
       >
-        <span className="relative mr-1.5 flex size-3.5 shrink-0 items-center justify-center">
-          <MessageSquareText className="absolute size-3.5 transition-all duration-300 ease-out group-hover/comment-chip:scale-75 group-hover/comment-chip:opacity-0" />
-          <Copy className="absolute size-3.5 scale-75 opacity-0 transition-all duration-300 ease-out group-hover/comment-chip:scale-100 group-hover/comment-chip:opacity-100" />
-        </span>
-        <span className="w-4 overflow-hidden text-center text-xs tabular-nums transition-[width,opacity,transform] duration-300 ease-out group-hover/comment-chip:w-0 group-hover/comment-chip:-translate-x-1 group-hover/comment-chip:opacity-0">
-          {stashedPrompts.length}
-        </span>
-        <span className="ml-0 max-w-0 whitespace-nowrap opacity-0 transition-[max-width,opacity,margin-left] duration-300 ease-out group-hover/comment-chip:max-w-24 group-hover/comment-chip:opacity-100">
-          Copy Prompt
-        </span>
-      </button>
+        <div className="absolute left-0 top-1/2 inline-flex h-6 w-11 -translate-y-1/2 items-center justify-center rounded-md border border-foreground bg-foreground px-1.5 text-[11px] font-semibold leading-none text-background transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:pointer-events-none group-hover/stashed-prompts:opacity-0 group-focus-within/stashed-prompts:pointer-events-none group-focus-within/stashed-prompts:opacity-0">
+          <MessageSquareText className="mr-1 size-3 shrink-0" />
+          <span className="w-3 text-center tabular-nums">{stashedPrompts.length}</span>
+        </div>
+        <div className="pointer-events-none absolute left-0 top-1/2 h-6 w-11 -translate-y-1/2 overflow-hidden rounded-md transition-[width] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:w-[208px] group-hover/stashed-prompts:pointer-events-auto group-focus-within/stashed-prompts:w-[208px] group-focus-within/stashed-prompts:pointer-events-auto">
+          <AgentFixToolbar
+            source={source}
+            size="xs"
+            variant="bottom"
+            className="h-full w-[208px] opacity-0 transition-opacity duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/stashed-prompts:opacity-100 group-focus-within/stashed-prompts:opacity-100"
+          />
+        </div>
+      </div>
     );
-  }, [handleCopyStashedPrompts, stashedPrompts.length]);
+  }, [agentFixContext, cleanupStashedPrompts, scope, stashedPrompts]);
 
   const openCopyAnnotation = useCallback(
     (itemId: string, range: SelectedLineRange) => {
@@ -367,19 +361,45 @@ export function useDiffPromptStash({
           isStashed={isStashed}
           note={draftNotes[annotation.metadata.key] ?? ''}
           onNoteChange={handleDraftNoteChange}
-          onCopy={handleCopyAnnotation}
           onStash={handleStashAnnotation}
           onDismiss={handleDismissAnnotation}
           lineLabel={formatSelectedRangeLabel(annotation.metadata.range)}
+          agentFixSource={{
+            id: `diff:${scope}:${annotation.metadata.key}`,
+            family: 'diff',
+            context: agentFixContext,
+            label: `Fix diff: ${basename(annotation.metadata.filePath)}`,
+            disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+            getPrompt: () => {
+              const prompt = buildPromptForAnnotation(
+                annotation.metadata.filePath,
+                annotation.metadata.key,
+                draftNotes[annotation.metadata.key] ?? '',
+              );
+              if (!prompt) {
+                throw new Error('No diff prompt could be built for this selection.');
+              }
+              return {
+                prompt,
+                terminalTabTitle: `Fix diff: ${basename(annotation.metadata.filePath)}`,
+                terminalPaneLabel: `Fix ${basename(annotation.metadata.filePath)}`,
+              };
+            },
+            onCopied: () => cleanupAnnotationPrompt(annotation.metadata.filePath, annotation.metadata.key),
+            onStarted: () => cleanupAnnotationPrompt(annotation.metadata.filePath, annotation.metadata.key),
+          }}
         />
       );
     },
     [
-      handleCopyAnnotation,
+      agentFixContext,
       handleDismissAnnotation,
       handleDraftNoteChange,
       handleStashAnnotation,
+      buildPromptForAnnotation,
+      cleanupAnnotationPrompt,
       draftNotes,
+      scope,
       stashedPrompts,
     ],
   );

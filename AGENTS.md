@@ -127,6 +127,7 @@ Full conventions (zones, naming, the 4-file rule, optional spec logs, review che
 - **Mobile UI**: Use Expo UI native controls in `apps/mobile` where practical; do not import `@workspace/ui` into mobile.
 - **Backend Access**: Each app manages its own `api/client.ts` and `types/api.ts`
 - **Rust Services**: Inject `core-service` into `apps/api` via `AppState`; HTTP and browser WebSocket protocols are owned by `apps/api`
+- **Inline Feedback Over Toasts**: Do not show success toasts for direct user actions when the initiating control or nearby UI can reflect the result, such as copy, save, toggle, stash, inline edit, or local state changes. Use inline button states, labels, counts, disabled states, or immediate UI transitions instead. Reserve toasts for errors, background work, cross-context outcomes, or unexpected fallbacks that the current UI cannot clearly show.
 
 ---
 

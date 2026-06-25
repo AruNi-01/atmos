@@ -221,6 +221,9 @@ export function buildInteractiveAgentCommand(args: {
   if (strategy === "stdin") {
     return `echo ${quotedPrompt} | ${baseCommand}`;
   }
+  if (args.agentId === "opencode") {
+    return `${baseCommand} --prompt ${quotedPrompt}`;
+  }
   if (strategy === "prompt_flag" && definition?.params?.trim()) {
     const promptedBaseCommand = [
       definition.cmd,

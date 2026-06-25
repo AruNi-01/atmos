@@ -325,6 +325,8 @@ export function HeaderWorkspaceSummaryButton({
                 effectivePath={effectivePath}
                 title="NOTE"
                 compact
+                defaultMode="preview"
+                previewFirst
                 className="h-[min(540px,76vh)] border-0 bg-popover"
               />
             </NestedSummaryPopover>

@@ -9,6 +9,10 @@ import type {
 import type { PersistedTerminalWorkspaceLayoutDocument } from "@/features/terminal/lib/terminal-layout-document";
 import type { TerminalCenterTab } from "@/features/terminal/store/terminal-store-helpers";
 
+export interface CreateTerminalTabOptions {
+  title?: string;
+}
+
 export interface TerminalStore {
   workspaceTerminalTabs: Record<string, TerminalCenterTab[]>;
   workspaceActiveTerminalTabIds: Record<string, string>;
@@ -34,7 +38,7 @@ export interface TerminalStore {
   getTerminalTabs: (workspaceId: string) => TerminalCenterTab[];
   getActiveTerminalTabId: (workspaceId: string) => string;
   setActiveTerminalTab: (workspaceId: string, terminalTabId: string) => void;
-  createTerminalTab: (workspaceId: string) => TerminalCenterTab;
+  createTerminalTab: (workspaceId: string, options?: CreateTerminalTabOptions) => TerminalCenterTab;
   createTerminalTabWithInitialPane: (workspaceId: string, contextScope?: TerminalContextScope) => Promise<{
     tab: TerminalCenterTab;
     paneId: string;

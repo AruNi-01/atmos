@@ -22,6 +22,10 @@ import {
   renderDiffHeaderPrefix,
   scrollCodeViewToItem,
 } from '@/features/diff/lib/code-view-ui';
+import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
+import type { AgentFixContextRef, AgentFixPromptSource } from '@/features/agent-fix/types';
+import { buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
+import { cn } from '@/shared/lib/utils';
 
 interface ReviewComment {
   id?: number;
@@ -30,6 +34,7 @@ interface ReviewComment {
   line?: number | null;
   original_line?: number | null;
   side?: string;
+  diff_hunk?: string;
   user?: { login?: string; avatar_url?: string };
   created_at?: string;
   in_reply_to_id?: number;
@@ -41,6 +46,12 @@ interface PRFilesTabProps {
   reviewComments?: ReviewComment[];
   owner: string;
   repo: string;
+  prNumber?: number | null;
+  title?: string | null;
+  headRefName?: string | null;
+  baseRefName?: string | null;
+  url?: string | null;
+  agentFixContext?: AgentFixContextRef | null;
   onCodeViewTopBoundaryWheel?: (deltaY: number) => void;
 }
 
@@ -60,7 +71,13 @@ function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComme
   return byPath;
 }
 
-function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
+function FileCommentThread({
+  agentFixSource,
+  thread,
+}: {
+  agentFixSource?: AgentFixPromptSource;
+  thread: ReviewComment[];
+}) {
   const first = thread[0];
   const firstLine = first?.line ?? first?.original_line ?? null;
   const firstLogin = first?.user?.login?.trim();
@@ -70,14 +87,24 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
       ? `https://github.com/${firstLogin.replace('[bot]', '')}.png?size=32`
       : undefined);
   const [collapsed, setCollapsed] = React.useState(false);
+  const [agentFixSettingsOpen, setAgentFixSettingsOpen] = React.useState(false);
   return (
     <div
       className="border border-border/50 rounded-lg overflow-hidden bg-background my-1 mx-2 text-[12px] block"
       style={{ contain: 'layout inline-size', containerType: 'inline-size', minWidth: 0, maxWidth: '100%' }}
     >
-      <button
-        className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex min-w-0 items-center gap-1.5 w-full text-left group cursor-pointer"
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        className="group/file-thread bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex min-w-0 items-center gap-1.5 w-full text-left cursor-pointer transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-muted/50"
         onClick={() => setCollapsed((v) => !v)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setCollapsed((value) => !value);
+          }
+        }}
       >
         {firstLogin && (
           <>
@@ -92,10 +119,42 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
             </span>
           </>
         )}
-        <span className="ml-auto shrink-0">
-          {firstLine != null ? `Line ${firstLine}` : 'Comment'}
+        <span
+          className={cn(
+            "relative ml-auto flex h-6 shrink-0 items-center justify-end",
+            agentFixSource ? "w-[126px]" : "w-auto",
+          )}
+        >
+          <span
+            className={cn(
+              agentFixSource &&
+                "group-hover/file-thread:opacity-0 group-focus-visible/file-thread:opacity-0",
+              agentFixSettingsOpen && "opacity-0",
+            )}
+          >
+            {firstLine != null ? `Line ${firstLine}` : 'Comment'}
+          </span>
+          {agentFixSource ? (
+            <span
+              className={cn(
+                "invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0",
+                "group-hover/file-thread:visible group-hover/file-thread:pointer-events-auto group-hover/file-thread:opacity-100",
+                "group-focus-visible/file-thread:visible group-focus-visible/file-thread:pointer-events-auto group-focus-visible/file-thread:opacity-100",
+                agentFixSettingsOpen && "visible pointer-events-auto opacity-100",
+              )}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <AgentFixButton
+                source={agentFixSource}
+                mode="label"
+                appearance="subtle"
+                onSettingsOpenChange={setAgentFixSettingsOpen}
+              />
+            </span>
+          ) : null}
         </span>
-      </button>
+      </div>
       {!collapsed && (
         <div className="overflow-x-hidden">
           {thread.map((c, i) => (
@@ -133,7 +192,20 @@ type PrAnnotationMeta = {
   path: string;
 };
 
-export function PRFilesTab({ files, loading, reviewComments = [], onCodeViewTopBoundaryWheel }: PRFilesTabProps) {
+export function PRFilesTab({
+  agentFixContext = null,
+  baseRefName,
+  files,
+  headRefName,
+  loading,
+  onCodeViewTopBoundaryWheel,
+  owner,
+  prNumber,
+  repo,
+  reviewComments = [],
+  title,
+  url,
+}: PRFilesTabProps) {
   const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -176,6 +248,45 @@ export function PRFilesTab({ files, loading, reviewComments = [], onCodeViewTopB
   const commentsByPath = useMemo(
     () => groupCommentsByPath(reviewComments),
     [reviewComments],
+  );
+  const buildFileThreadAgentFixSource = useCallback(
+    (thread: ReviewComment[]): AgentFixPromptSource | undefined => {
+      if (!prNumber) return undefined;
+      const first = thread[0];
+      const path = first?.path || '';
+      if (!path) return undefined;
+      const line = first?.line ?? first?.original_line ?? null;
+      const fileName = path.split('/').filter(Boolean).pop() || path;
+      return {
+        id: `pr-review-file:${owner}/${repo}#${prNumber}:${path}:${line ?? 'line'}:${first?.id ?? 'thread'}`,
+        family: 'pr_review',
+        context: agentFixContext,
+        label: `Fix PR review: ${fileName}`,
+        disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+        getPrompt: () => ({
+          prompt: buildPrReviewThreadFixPrompt(
+            {
+              owner,
+              repo,
+              prNumber,
+              title,
+              headRefName,
+              baseRefName,
+              url,
+            },
+            {
+              path,
+              line,
+              diffHunk: first?.diff_hunk || '',
+              comments: thread,
+            },
+          ),
+          terminalTabTitle: `PR #${prNumber} review fix`,
+          terminalPaneLabel: `Fix ${fileName}`,
+        }),
+      };
+    },
+    [agentFixContext, baseRefName, headRefName, owner, prNumber, repo, title, url],
   );
   const treeItems = useMemo(
     () =>
@@ -287,9 +398,14 @@ export function PRFilesTab({ files, loading, reviewComments = [], onCodeViewTopB
       );
       const thread = lineThreads[annotation.metadata.threadIndex];
       if (!thread) return null;
-      return <FileCommentThread thread={thread} />;
+      return (
+        <FileCommentThread
+          thread={thread}
+          agentFixSource={buildFileThreadAgentFixSource(thread)}
+        />
+      );
     },
-    [commentsByPath],
+    [buildFileThreadAgentFixSource, commentsByPath],
   );
 
   useEffect(() => {
@@ -442,7 +558,11 @@ export function PRFilesTab({ files, loading, reviewComments = [], onCodeViewTopB
             <div key={path} className="border-t border-border/30 px-2 py-1">
               <div className="text-[10px] text-muted-foreground px-2 py-1 font-mono truncate">{path}</div>
               {threads.map((thread, i) => (
-                <FileCommentThread key={i} thread={thread} />
+                <FileCommentThread
+                  key={i}
+                  thread={thread}
+                  agentFixSource={buildFileThreadAgentFixSource(thread)}
+                />
               ))}
             </div>
           ))}

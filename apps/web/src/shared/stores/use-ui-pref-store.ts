@@ -10,6 +10,7 @@ export type UiPrefSlice =
   | 'codeReview'
   | 'editor'
   | 'centerStage'
+  | 'agentFix'
   | 'runPreview'
   | 'previewBrowser'
   | 'canvas'

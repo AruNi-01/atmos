@@ -299,6 +299,27 @@ export function getNextTerminalTabTitle(existingTabs: TerminalCenterTab[]): stri
   return `Term - ${index}`;
 }
 
+export function getUniqueTerminalTabTitle(
+  existingTabs: TerminalCenterTab[],
+  preferredTitle: string,
+): string {
+  const baseTitle = preferredTitle.trim().replace(/\s+/g, " ").slice(0, 40).trim();
+  if (!baseTitle) {
+    return getNextTerminalTabTitle(existingTabs);
+  }
+
+  const usedTitles = new Set(existingTabs.map((tab) => tab.title));
+  if (!usedTitles.has(baseTitle)) {
+    return baseTitle;
+  }
+
+  let index = 2;
+  while (usedTitles.has(`${baseTitle} ${index}`)) {
+    index++;
+  }
+  return `${baseTitle} ${index}`;
+}
+
 export function hydratePersistedTab(
   workspaceId: string,
   tab: PersistedTerminalTabDocument,

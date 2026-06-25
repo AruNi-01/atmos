@@ -21,6 +21,7 @@ import {
   getAllDefaultPanesForWorkspace,
   getNextWindowName,
   getNextTerminalTabTitle,
+  getUniqueTerminalTabTitle,
   getScopeKey,
   getTerminalWorkspaceScopeKey,
   getUniqueAgentName,
@@ -137,14 +138,16 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     get().saveToBackend(workspaceId);
   },
 
-  createTerminalTab: (workspaceId) => {
+  createTerminalTab: (workspaceId, options) => {
     const state = get();
     const existingTabs = getWorkspaceTerminalTabs(state, workspaceId);
     const newTab: TerminalCenterTab = existingTabs.length === 0
       ? createFixedTerminalTab()
       : {
           id: `${TERMINAL_TAB_VALUE_PREFIX}${uuidv4()}`,
-          title: getNextTerminalTabTitle(existingTabs),
+          title: options?.title
+            ? getUniqueTerminalTabTitle(existingTabs, options.title)
+            : getNextTerminalTabTitle(existingTabs),
           closable: true,
         };
     const allPanes = getAllDefaultPanesForWorkspace(state, workspaceId);

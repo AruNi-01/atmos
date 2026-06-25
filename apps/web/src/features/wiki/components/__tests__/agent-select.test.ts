@@ -40,4 +40,14 @@ describe("getInteractiveAgentParams", () => {
       }),
     ).toBe("hermes chat --yolo -q 'fix this'");
   });
+
+  it("starts OpenCode workspace prompts with the interactive prompt flag", () => {
+    expect(
+      buildInteractiveAgentCommand({
+        agentId: "opencode",
+        launchCommand: "opencode",
+        prompt: "fix this",
+      }),
+    ).toBe("opencode --prompt 'fix this'");
+  });
 });

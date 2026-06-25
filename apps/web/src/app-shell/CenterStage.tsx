@@ -23,6 +23,8 @@ import type { TerminalPaneProps } from "@/features/terminal/types/index";
 import { useQueryStates } from "nuqs";
 import { centerStageParams } from "@/shared/lib/nuqs/searchParams";
 import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
+import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-launcher-store";
+import type { ResolvedAgentFixLaunchRequest } from "@/features/agent-fix/types";
 import type { FixedTab } from "@/shared/lib/nuqs/searchParams";
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -611,6 +613,70 @@ const CenterStage: React.FC = () => {
       useReviewTerminalRunnerStore.getState().setRunner(null);
     };
   }, [handleRunReviewInTerminal]);
+
+  const handleRunAgentFixInTerminal = React.useCallback(
+    async (request: ResolvedAgentFixLaunchRequest) => {
+      if (!effectiveContextId || effectiveContextId !== request.context.contextId) {
+        throw new Error("Agent Fix context is no longer active.");
+      }
+      if (
+        (request.context.scope === "workspace" && currentView !== "workspace") ||
+        (request.context.scope === "project" && currentView !== "project")
+      ) {
+        throw new Error("Agent Fix must run in its source workspace or project.");
+      }
+      if (activeFilePath) {
+        setActiveFile(null, effectiveContextId);
+      }
+
+      const nextTab = createTerminalTab(effectiveContextId, {
+        title: request.terminalTabTitle,
+      });
+      setActiveTerminalTab(effectiveContextId, nextTab.id);
+      setUrlParams({ tab: nextTab.id, wikiPage: null });
+
+      const command = buildInteractiveAgentCommand({
+        agentId: request.agent.id,
+        launchCommand: request.agent.launchCommand.trim(),
+        prompt: request.prompt,
+        runConfig: request.runConfig,
+      });
+
+      runWhenTerminalGridReady(
+        nextTab.id,
+        (grid) => {
+          void grid.createAndRunTerminal({
+            label: request.terminalPaneLabel,
+            command,
+            agent: {
+              id: request.agent.id,
+              label: request.agent.label,
+              command: request.agent.command,
+              iconType: request.agent.iconType,
+            },
+          });
+        },
+        40,
+      );
+    },
+    [
+      activeFilePath,
+      createTerminalTab,
+      currentView,
+      effectiveContextId,
+      runWhenTerminalGridReady,
+      setActiveFile,
+      setActiveTerminalTab,
+      setUrlParams,
+    ],
+  );
+
+  React.useEffect(() => {
+    useAgentFixLauncherStore.getState().setRunner(handleRunAgentFixInTerminal);
+    return () => {
+      useAgentFixLauncherStore.getState().setRunner(null);
+    };
+  }, [handleRunAgentFixInTerminal]);
 
   const handleCreateTerminalCenterTab = React.useCallback(() => {
     if (!effectiveContextId) return;

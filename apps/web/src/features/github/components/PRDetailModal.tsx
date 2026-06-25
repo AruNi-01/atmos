@@ -51,6 +51,10 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/shared/lib/utils';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
+import { useContextParams } from '@/shared/hooks/use-context-params';
+import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
+import type { AgentFixContextRef, AgentFixPromptSource } from '@/features/agent-fix/types';
+import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
 import { CommitList } from './CommitList';
 import { PRFilesTab } from './PRFilesTab';
 import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-modal-actions';
@@ -79,6 +83,7 @@ interface PRDetailModalProps {
 }
 
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
+  const { currentView, effectiveContextId } = useContextParams();
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
   const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
   const [activeMainTab, setActiveMainTab] = React.useState<'description' | 'discussion' | 'commits' | 'files'>('description');
@@ -97,11 +102,93 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>('merge');
   const [branchCopied, setBranchCopied] = React.useState(false);
+  const [openReviewAgentFixSourceId, setOpenReviewAgentFixSourceId] = React.useState<string | null>(null);
   const mainScrollRef = React.useRef<HTMLDivElement | null>(null);
   const prContextRef = React.useRef<HTMLDivElement | null>(null);
   const prContextHeightRef = React.useRef(64);
   const prContextVisibleRef = React.useRef(true);
   const lastMainScrollTopRef = React.useRef(0);
+  const agentFixContext = React.useMemo<AgentFixContextRef | null>(() => {
+    if (!effectiveContextId) return null;
+    if (currentView === 'workspace') {
+      return { contextId: effectiveContextId, scope: 'workspace' };
+    }
+    if (currentView === 'project') {
+      return { contextId: effectiveContextId, scope: 'project' };
+    }
+    return null;
+  }, [currentView, effectiveContextId]);
+
+  const buildThreadAgentFixSource = React.useCallback(
+    (thread: ReviewCommentThread): AgentFixPromptSource | undefined => {
+      if (!pr || !prNumber) return undefined;
+      const fileName = thread.path.split('/').filter(Boolean).pop() || thread.path;
+      return {
+        id: `pr-review:${owner}/${repo}#${prNumber}:${thread.path}:${thread.line ?? 'line'}`,
+        family: 'pr_review',
+        context: agentFixContext,
+        label: `Fix PR review: ${fileName}`,
+        disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+        getPrompt: () => ({
+          prompt: buildPrReviewThreadFixPrompt(
+            {
+              owner,
+              repo,
+              prNumber,
+              title: pr.title,
+              headRefName: pr.headRefName || branch,
+              baseRefName: pr.baseRefName,
+              url: pr.url,
+            },
+            thread,
+          ),
+          terminalTabTitle: `PR #${prNumber} review fix`,
+          terminalPaneLabel: `Fix ${fileName}`,
+        }),
+      };
+    },
+    [agentFixContext, branch, owner, pr, prNumber, repo],
+  );
+
+  const buildReviewAgentFixSource = React.useCallback(
+    (item: ConversationItem): AgentFixPromptSource | undefined => {
+      if (!pr || !prNumber || item.type !== 'review') return undefined;
+      const threads = item.reviewCommentThreads ?? [];
+      if (!item.body?.trim() && threads.length === 0) return undefined;
+      const reviewId = (item as unknown as Record<string, unknown>).id;
+      const author = item.author?.login || 'reviewer';
+      return {
+        id: `pr-review:${owner}/${repo}#${prNumber}:review:${String(reviewId ?? item.createdAt)}`,
+        family: 'pr_review',
+        context: agentFixContext,
+        label: `Fix ${author} review`,
+        disabledReason: agentFixContext ? null : 'Open a workspace or project to run Agent Fix.',
+        getPrompt: () => ({
+          prompt: buildPrReviewFixPrompt(
+            {
+              owner,
+              repo,
+              prNumber,
+              title: pr.title,
+              headRefName: pr.headRefName || branch,
+              baseRefName: pr.baseRefName,
+              url: pr.url,
+            },
+            {
+              author,
+              body: item.body,
+              createdAt: item.createdAt,
+              state: item.state,
+              threads,
+            },
+          ),
+          terminalTabTitle: `PR #${prNumber} review fix`,
+          terminalPaneLabel: `Fix ${author} review`,
+        }),
+      };
+    },
+    [agentFixContext, branch, owner, pr, prNumber, repo],
+  );
 
   const setPrContextVisible = React.useCallback((visible: boolean) => {
     if (prContextVisibleRef.current === visible) return;
@@ -438,14 +525,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
             {/* Modal Controls in Header - these will scroll away */}
             <div className="absolute right-0 top-6 flex items-center gap-1">
               <button
-                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors opacity-70 hover:opacity-100"
+                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
                 onClick={() => setIsSidebarCollapsed(v => !v)}
                 title={isSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
               >
                 {isSidebarCollapsed ? <PanelRightOpen className="size-3.5" /> : <PanelRightClose className="size-3.5" />}
               </button>
               <button
-                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors opacity-70 hover:opacity-100"
+                className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsFullscreen(!isFullscreen);
@@ -454,7 +541,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                 {isFullscreen ? <Shrink className="size-3.5" /> : <Expand className="size-3.5" />}
               </button>
               <DialogClose asChild>
-                <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors opacity-70 hover:opacity-100">
+                <button className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted/80 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-70 hover:opacity-100">
                   <X className="size-4" />
                 </button>
               </DialogClose>
@@ -516,7 +603,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             {pr.headRefName || branch}
                           </span>
                           <button
-                            className="text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
+                            className="text-muted-foreground/50 hover:text-muted-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] shrink-0"
                             onClick={() => {
                               navigator.clipboard.writeText(pr.headRefName || branch);
                               setBranchCopied(true);
@@ -561,7 +648,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                   <div className="flex flex-col gap-3 py-2">
                     {pr.state === 'OPEN' && (
                       <div className={cn(
-                        "flex items-start gap-4 p-4 border rounded-xl transition-all shadow-sm",
+                        "flex items-start gap-4 p-4 border rounded-xl transition-all duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-sm",
                         pr.mergeable === 'MERGEABLE' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-muted/30 border-border"
                       )}>
                         <div className={cn(
@@ -584,7 +671,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                 <button
                                   onClick={handleDraft}
                                   disabled={!!actionLoading}
-                                  className="hover:text-foreground transition-colors underline decoration-dotted underline-offset-4"
+                                  className="hover:text-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] underline decoration-dotted underline-offset-4"
                                 >
                                   Convert to draft
                                 </button>
@@ -648,18 +735,23 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                             const hasReviewThreads = item.reviewCommentThreads && item.reviewCommentThreads.length > 0;
                             const isMainComment = item.type === 'comment' || (item.type === 'review' && (item.body || hasReviewThreads));
                             const isBot = item.author?.is_bot || item.author?.login === 'cursor' || item.author?.login === 'vercel' || item.author?.login?.endsWith('[bot]');
+                            const reviewAgentFixSource = item.type === 'review'
+                              ? buildReviewAgentFixSource(item)
+                              : undefined;
+                            const reviewAgentFixSettingsOpen =
+                              !!reviewAgentFixSource && openReviewAgentFixSourceId === reviewAgentFixSource.id;
 
                             if (isMainComment) {
                               return (
                                 <div key={i} className="flex flex-col">
-                                  <div className="flex gap-4 items-start group">
+                                  <div className="flex gap-4 items-start group/review">
                                     <div className="relative z-10">
-                                      <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform group-hover:scale-105">
+                                      <Avatar className="size-8 shrink-0 border border-border/50 shadow-sm transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/review:scale-105">
                                         <AvatarImage src={item.author?.avatar_url || item.author?.avatarUrl || `https://github.com/${item.author?.login?.replace('[bot]', '')}.png?size=64`} />
                                         <AvatarFallback className="text-[10px]">{item.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
                                       </Avatar>
                                     </div>
-                                    <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-all hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
+                                    <div className="flex-1 min-w-0 flex flex-col border border-border/60 rounded-xl overflow-hidden bg-background shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] transition-shadow duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-[0_4px_15px_-4px_rgba(0,0,0,0.12)]">
                                       <div className="flex items-center gap-2 px-4 py-2 bg-muted/20 border-b border-border/40 text-xs text-muted-foreground">
                                         <span className="font-bold text-foreground">{item.author?.login}</span>
                                         {isBot && (
@@ -676,7 +768,41 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                             {item.reviewCommentThreads.length} file{item.reviewCommentThreads.length > 1 ? 's' : ''}
                                           </span>
                                         )}
-                                        <span className="opacity-60 ml-auto">{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}</span>
+                                        <span
+                                          className={cn(
+                                            "relative ml-auto flex h-6 items-center justify-end",
+                                            reviewAgentFixSource ? "w-[132px]" : "w-auto",
+                                          )}
+                                        >
+                                          <span
+                                            className={cn(
+                                              "opacity-60",
+                                              reviewAgentFixSource &&
+                                                "group-hover/review:opacity-0",
+                                              reviewAgentFixSettingsOpen && "opacity-0",
+                                            )}
+                                          >
+                                            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                                          </span>
+                                          {reviewAgentFixSource ? (
+                                            <span
+                                              className={cn(
+                                                "invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0",
+                                                "group-hover/review:visible group-hover/review:pointer-events-auto group-hover/review:opacity-100",
+                                                reviewAgentFixSettingsOpen && "visible pointer-events-auto opacity-100",
+                                              )}
+                                            >
+                                              <AgentFixButton
+                                                source={reviewAgentFixSource}
+                                                mode="label"
+                                                appearance="subtle"
+                                                onSettingsOpenChange={(open) => {
+                                                  setOpenReviewAgentFixSourceId(open ? reviewAgentFixSource.id : null);
+                                                }}
+                                              />
+                                            </span>
+                                          ) : null}
+                                        </span>
                                       </div>
                                       {item.body ? (
                                         <div className="p-4 bg-background">
@@ -694,7 +820,11 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                   {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
                                     <div className="flex flex-col gap-2 mt-1">
                                       {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
-                                        <ReviewCommentThreadView key={threadIdx} thread={thread} />
+                                        <ReviewCommentThreadView
+                                          key={threadIdx}
+                                          thread={thread}
+                                          agentFixSource={buildThreadAgentFixSource(thread)}
+                                        />
                                       ))}
                                     </div>
                                   )}
@@ -816,7 +946,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                         href={item.deployment_status.target_url}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="ml-2 px-1.5 py-0.5 bg-muted hover:bg-muted-foreground/20 rounded border border-border/40 transition-colors inline-flex items-center gap-1"
+                                        className="ml-2 px-1.5 py-0.5 bg-muted hover:bg-muted-foreground/20 rounded border border-border/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] inline-flex items-center gap-1"
                                       >
                                         View deployment <ExternalLink className="size-2.5" />
                                       </a>
@@ -907,7 +1037,11 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                                 {item.reviewCommentThreads && item.reviewCommentThreads.length > 0 && (
                                   <div className="flex flex-col gap-2 mt-1">
                                     {item.reviewCommentThreads.map((thread: ReviewCommentThread, threadIdx: number) => (
-                                      <ReviewCommentThreadView key={threadIdx} thread={thread} />
+                                      <ReviewCommentThreadView
+                                        key={threadIdx}
+                                        thread={thread}
+                                        agentFixSource={buildThreadAgentFixSource(thread)}
+                                      />
                                     ))}
                                   </div>
                                 )}
@@ -934,7 +1068,7 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                         <div className="mt-6 flex justify-center relative z-10">
                           <button
                             onClick={loadMoreTimeline}
-                            className="flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium text-muted-foreground border border-border/60 bg-muted/30 hover:bg-muted/60 hover:text-foreground transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 rounded-md text-[12px] font-medium text-muted-foreground border border-border/60 bg-muted/30 hover:bg-muted/60 hover:text-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]"
                           >
                             Load more timeline events
                           </button>
@@ -973,6 +1107,12 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
                       reviewComments={sidebarData?.review_comments ?? []}
                       owner={owner}
                       repo={repo}
+                      prNumber={prNumber}
+                      title={pr.title}
+                      headRefName={pr.headRefName || branch}
+                      baseRefName={pr.baseRefName}
+                      url={pr.url}
+                      agentFixContext={agentFixContext}
                       onCodeViewTopBoundaryWheel={handleFilesCodeViewTopBoundaryWheel}
                     />
                   </div>

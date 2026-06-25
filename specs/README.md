@@ -103,6 +103,7 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-023** | Local Run Server Manager | `specs/APP/APP-023_local-run-server-manager/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-024** | Terminal Agent Run Config | `specs/APP/APP-024_terminal-agent-run-config/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-025** | Mobile App | `specs/APP/APP-025_mobile-app/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **APP-026** | Agent Fix Launcher | `specs/APP/APP-026_agent-fix-launcher/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 
 ### Landing
 

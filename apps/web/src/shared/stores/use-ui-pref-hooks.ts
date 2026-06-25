@@ -115,6 +115,24 @@ export function useCodeReviewDefaults(): [
   return [prefs, patch => setPrefs(prev => ({ ...prev, ...patch }))];
 }
 
+// --- Agent Fix ---
+
+export interface AgentFixUiPrefs {
+  lastAgentId: string | null;
+}
+
+const DEFAULT_AGENT_FIX_PREFS: AgentFixUiPrefs = {
+  lastAgentId: null,
+};
+
+export function useAgentFixLastAgentId(): [string | null, (id: string) => void] {
+  const [prefs, setPrefs] = useInstanceSlice<AgentFixUiPrefs>('agentFix', DEFAULT_AGENT_FIX_PREFS);
+  return [
+    prefs.lastAgentId,
+    id => setPrefs({ lastAgentId: id || null }),
+  ];
+}
+
 // --- Sidebar view modes ---
 
 export interface SidebarUiPrefs {

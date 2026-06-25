@@ -22,6 +22,8 @@ interface WorkspaceNotePanelProps {
   className?: string;
   contentClassName?: string;
   compact?: boolean;
+  defaultMode?: 'edit' | 'preview';
+  previewFirst?: boolean;
 }
 
 export function WorkspaceNotePanel({
@@ -31,6 +33,8 @@ export function WorkspaceNotePanel({
   className,
   contentClassName,
   compact = false,
+  defaultMode = 'edit',
+  previewFirst = false,
 }: WorkspaceNotePanelProps) {
   const note = useWorkspaceContextStore((state) =>
     contextId ? state.workspaceStates[contextId]?.note ?? '' : '',
@@ -39,7 +43,7 @@ export function WorkspaceNotePanel({
   const loadNote = useWorkspaceContextStore((state) => state.loadNote);
   const saveNote = useWorkspaceContextStore((state) => state.saveNote);
 
-  const [mode, setMode] = React.useState<'edit' | 'preview'>('edit');
+  const [mode, setMode] = React.useState<'edit' | 'preview'>(defaultMode);
   const [draft, setDraft] = React.useState('');
   const [saveState, setSaveState] = React.useState<SaveState>('idle');
   const dirtyRef = React.useRef(false);
@@ -49,6 +53,13 @@ export function WorkspaceNotePanel({
   const contextRef = React.useRef({ contextId, effectivePath, saveNote });
 
   const canUseNotes = Boolean(contextId && effectivePath);
+  const modeOptions = React.useMemo(
+    () => {
+      const options: Array<'edit' | 'preview'> = ['edit', 'preview'];
+      return previewFirst ? [...options].reverse() : options;
+    },
+    [previewFirst],
+  );
 
   React.useEffect(() => {
     mountedRef.current = true;
@@ -175,14 +186,12 @@ export function WorkspaceNotePanel({
           className="shrink-0"
         >
           <TabsList className="h-8">
-            <TabsTab value="edit" className="h-7 px-2.5 text-xs sm:h-7 sm:text-xs">
-              <PencilLine className="size-3.5" />
-              Edit
-            </TabsTab>
-            <TabsTab value="preview" className="h-7 px-2.5 text-xs sm:h-7 sm:text-xs">
-              <Eye className="size-3.5" />
-              Preview
-            </TabsTab>
+            {modeOptions.map((option) => (
+              <TabsTab key={option} value={option} className="h-7 px-2.5 text-xs sm:h-7 sm:text-xs">
+                {option === 'edit' ? <PencilLine className="size-3.5" /> : <Eye className="size-3.5" />}
+                {option === 'edit' ? 'Edit' : 'Preview'}
+              </TabsTab>
+            ))}
           </TabsList>
         </Tabs>
       </div>

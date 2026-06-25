@@ -35,6 +35,8 @@ import {
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
 import { cn } from '@/shared/lib/utils';
 import type { CommitListItem } from '../components/CommitList';
+import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
+import type { AgentFixPromptSource } from '@/features/agent-fix/types';
 
 export interface StatusCheck {
   state?: string;
@@ -139,10 +141,10 @@ function CheckGroupItem({ groupName, checks }: { groupName: string, checks: Stat
   return (
     <div className="flex flex-col border-b border-border/40 last:border-0 overflow-hidden bg-background">
       <button
-        className="flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors w-full text-left"
+        className="flex items-center gap-2.5 px-4 py-3 hover:bg-muted/40 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] w-full text-left"
         onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
       >
-        <div className={cn("shrink-0 flex items-center justify-center size-3 text-muted-foreground/50 transition-transform duration-200", isOpen ? "rotate-90" : "rotate-0")}>
+        <div className={cn("shrink-0 flex items-center justify-center size-3 text-muted-foreground/50 transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]", isOpen ? "rotate-90" : "rotate-0")}>
           <ChevronRight className="size-3.5" />
         </div>
         <div className="flex-1 min-w-0 font-medium text-[13px] text-foreground truncate">
@@ -169,7 +171,7 @@ function CheckGroupItem({ groupName, checks }: { groupName: string, checks: Stat
                 const isSuccess = check.state === 'SUCCESS' || check.conclusion === 'SUCCESS';
 
                 return (
-                  <div key={idx} className="flex items-center justify-between text-[13px] px-4 py-2 pl-10 hover:bg-muted/40 group transition-colors">
+                  <div key={idx} className="flex items-center justify-between text-[13px] px-4 py-2 pl-10 hover:bg-muted/40 group transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="shrink-0 flex items-center justify-center">
                         {isFailure ? <XCircle className="size-3.5 text-red-500" /> :
@@ -214,11 +216,11 @@ export function PRDetailSkeleton() {
             </div>
           </div>
 
-          <div className="flex w-fit max-w-full gap-0 rounded-lg bg-muted/40 p-1">
-            <Skeleton className="h-8 w-24 rounded-md" />
-            <Skeleton className="h-8 w-28 rounded-md" />
-            <Skeleton className="h-8 w-24 rounded-md" />
-            <Skeleton className="h-8 w-32 rounded-md" />
+          <div className="flex w-fit max-w-full gap-1.5 rounded-lg bg-muted/35 p-1.5">
+            <Skeleton className="h-7 w-24 rounded-md" />
+            <Skeleton className="h-7 w-[7.5rem] rounded-md" />
+            <Skeleton className="h-7 w-24 rounded-md" />
+            <Skeleton className="h-7 w-[8.5rem] rounded-md" />
           </div>
         </div>
       </div>
@@ -366,9 +368,16 @@ export function SidebarSection({ title, icon, children }: { title: string; icon:
   );
 }
 
-export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({ thread }: { thread: ReviewCommentThread }) {
+export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadView({
+  agentFixSource,
+  thread,
+}: {
+  agentFixSource?: AgentFixPromptSource;
+  thread: ReviewCommentThread;
+}) {
   const { resolvedTheme } = useTheme();
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [agentFixSettingsOpen, setAgentFixSettingsOpen] = React.useState(false);
   const isMounted = React.useSyncExternalStore(
     () => () => { },
     () => true,
@@ -395,9 +404,17 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
 
   return (
     <div className="ml-12 mt-2 border border-border/60 rounded-lg overflow-hidden bg-muted/10 shadow-sm">
-      <button
-        className="flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 transition-colors border-b border-border/40"
+      <div
+        role="button"
+        tabIndex={0}
+        className="group/thread flex items-center gap-2 px-3 py-2 w-full text-left bg-muted/30 hover:bg-muted/50 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] border-b border-border/40"
         onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setIsExpanded((value) => !value);
+          }
+        }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img {...getFileIconProps({ name: thread.path.split('/').pop() || thread.path, isDir: false })} className="size-4 shrink-0" alt="" aria-hidden="true" />
@@ -405,9 +422,44 @@ export const ReviewCommentThreadView = React.memo(function ReviewCommentThreadVi
         {thread.line && (
           <span className="text-[10px] text-muted-foreground shrink-0">line {thread.line}</span>
         )}
-        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">{thread.comments.length} comment{thread.comments.length > 1 ? 's' : ''}</span>
-        <ChevronRight className={cn("size-3 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
-      </button>
+        <span
+          className={cn(
+            "relative ml-auto flex h-6 shrink-0 items-center justify-end",
+            agentFixSource ? "w-[126px]" : "w-auto",
+          )}
+        >
+          <span
+            className={cn(
+              "text-[10px] text-muted-foreground",
+              agentFixSource &&
+                "group-hover/thread:opacity-0 group-focus-visible/thread:opacity-0",
+              agentFixSettingsOpen && "opacity-0",
+            )}
+          >
+            {thread.comments.length} comment{thread.comments.length > 1 ? 's' : ''}
+          </span>
+          {agentFixSource ? (
+            <span
+              className={cn(
+                "invisible pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-0",
+                "group-hover/thread:visible group-hover/thread:pointer-events-auto group-hover/thread:opacity-100",
+                "group-focus-visible/thread:visible group-focus-visible/thread:pointer-events-auto group-focus-visible/thread:opacity-100",
+                agentFixSettingsOpen && "visible pointer-events-auto opacity-100",
+              )}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <AgentFixButton
+                source={agentFixSource}
+                mode="label"
+                appearance="subtle"
+                onSettingsOpenChange={setAgentFixSettingsOpen}
+              />
+            </span>
+          ) : null}
+        </span>
+        <ChevronRight className={cn("size-3 text-muted-foreground transition-transform duration-180 ease-[cubic-bezier(0.22,1,0.36,1)]", isExpanded && "rotate-90")} />
+      </div>
 
       <AnimatePresence initial={false}>
         {isExpanded && (
