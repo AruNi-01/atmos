@@ -194,39 +194,63 @@ function CheckGroupItem({ groupName, checks }: { groupName: string, checks: Stat
 
 export function PRDetailSkeleton() {
   return (
-    <div className="flex flex-col gap-6 animate-pulse p-2">
-      <div className="space-y-4 pb-6 border-b border-border/50">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-6 w-2/3 rounded-md" />
-          <Skeleton className="h-4 w-12 rounded-sm" />
-        </div>
-        <div className="flex items-center gap-3">
-          <Skeleton className="size-4 rounded-full" />
-          <Skeleton className="h-3 w-40 rounded-md" />
-          <Skeleton className="h-4 w-20 rounded-md" />
-          <Skeleton className="h-4 w-24 rounded-md" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Skeleton className="h-28 w-full rounded-xl border border-border/50" />
-        <Skeleton className="h-28 w-full rounded-xl border border-border/50" />
-      </div>
-
-      <div className="space-y-8 mt-4 relative">
-        <div className="absolute left-4 top-0 bottom-0 w-px bg-border/30 ml-[2px]" />
-        {[1, 2, 3].map(i => (
-          <div key={i} className="flex gap-4 items-start relative z-10">
-            <Skeleton className="size-8 rounded-full shrink-0 border border-background shadow-sm" />
-            <div className="flex-1 space-y-3">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-3.5 w-24 rounded-md" />
-                <Skeleton className="h-3 w-32 rounded-md" />
-              </div>
-              <Skeleton className="h-24 w-full rounded-lg border border-border/50" />
+    <div className="flex flex-col gap-4 animate-pulse">
+      <div className="border-b border-border/50 bg-background pb-3 pt-1">
+        <div className="flex min-w-0 flex-col gap-2.5">
+          <div className="min-w-0 space-y-2">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-[min(520px,70%)] rounded-md" />
+              <Skeleton className="h-4 w-12 rounded-sm" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Skeleton className="h-6 w-28 rounded-md" />
+              <Skeleton className="h-3 w-24 rounded-md" />
+              <Skeleton className="h-5 w-20 rounded-md" />
+              <Skeleton className="h-3 w-8 rounded-md" />
+              <Skeleton className="h-5 w-16 rounded-md" />
+              <Skeleton className="h-3 w-8 rounded-md" />
+              <Skeleton className="h-5 w-28 rounded-md" />
+              <Skeleton className="size-3 rounded-sm" />
             </div>
           </div>
-        ))}
+
+          <div className="flex w-fit max-w-full gap-0 rounded-lg bg-muted/40 p-1">
+            <Skeleton className="h-8 w-24 rounded-md" />
+            <Skeleton className="h-8 w-28 rounded-md" />
+            <Skeleton className="h-8 w-24 rounded-md" />
+            <Skeleton className="h-8 w-32 rounded-md" />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 pt-2">
+        <div className="rounded-md border border-border/50 p-4">
+          <div className="space-y-2.5">
+            <Skeleton className="h-3.5 w-2/3 rounded-md" />
+            <Skeleton className="h-3.5 w-full rounded-md" />
+            <Skeleton className="h-3.5 w-5/6 rounded-md" />
+            <Skeleton className="h-3.5 w-1/2 rounded-md" />
+          </div>
+        </div>
+
+        <div className="flex items-start gap-4 rounded-xl border border-border/50 bg-muted/30 p-4">
+          <Skeleton className="size-7 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-48 rounded-md" />
+            <Skeleton className="h-3 w-2/3 rounded-md" />
+          </div>
+        </div>
+
+        <div className="space-y-3 pt-1">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="flex items-center gap-3 rounded-md border border-border/40 px-3 py-2">
+              <Skeleton className="size-4 rounded-full" />
+              <Skeleton className="h-3.5 w-36 rounded-md" />
+              <Skeleton className="h-3.5 w-1/2 rounded-md" />
+              <Skeleton className="ml-auto h-3.5 w-20 rounded-md" />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

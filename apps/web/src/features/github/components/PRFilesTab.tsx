@@ -5,7 +5,7 @@ import { CodeView, type CodeViewHandle } from '@pierre/diffs/react';
 import type { CodeViewItem, DiffLineAnnotation } from '@pierre/diffs';
 import { processFile } from '@pierre/diffs';
 import { useTheme } from 'next-themes';
-import { Avatar, AvatarImage, AvatarFallback, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@workspace/ui';
+import { Avatar, AvatarImage, AvatarFallback } from '@workspace/ui';
 import { MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
@@ -18,8 +18,8 @@ import { applyCollapseModeToItems } from '@/features/diff/lib/diff-code-view-sha
 import { ATMOS_DIFF_THEME, buildSharedDiffViewOptions, CODE_VIEW_HOST_CLASS, getAtmosDiffThemeType } from '@/features/diff/lib/diff-view-constants';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import {
-  createDiffHeaderPrefixRenderer,
   findDiffItemIdAtScrollTop,
+  renderDiffHeaderPrefix,
   scrollCodeViewToItem,
 } from '@/features/diff/lib/code-view-ui';
 
@@ -41,6 +41,7 @@ interface PRFilesTabProps {
   reviewComments?: ReviewComment[];
   owner: string;
   repo: string;
+  onCodeViewTopBoundaryWheel?: (deltaY: number) => void;
 }
 
 function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComment[][]> {
@@ -61,6 +62,13 @@ function groupCommentsByPath(comments: ReviewComment[]): Map<string, ReviewComme
 
 function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
   const first = thread[0];
+  const firstLine = first?.line ?? first?.original_line ?? null;
+  const firstLogin = first?.user?.login?.trim();
+  const firstAvatarUrl =
+    first?.user?.avatar_url ??
+    (firstLogin
+      ? `https://github.com/${firstLogin.replace('[bot]', '')}.png?size=32`
+      : undefined);
   const [collapsed, setCollapsed] = React.useState(false);
   return (
     <div
@@ -68,28 +76,44 @@ function FileCommentThread({ thread }: { thread: ReviewComment[] }) {
       style={{ contain: 'layout inline-size', containerType: 'inline-size', minWidth: 0, maxWidth: '100%' }}
     >
       <button
-        className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex items-center gap-1.5 w-full text-left group cursor-pointer"
+        className="bg-muted/30 px-3 py-1.5 border-b border-border/30 text-[10px] text-muted-foreground flex min-w-0 items-center gap-1.5 w-full text-left group cursor-pointer"
         onClick={() => setCollapsed((v) => !v)}
       >
-        <MessageSquare className="size-3 shrink-0" />
-        {first?.line != null ? `Line ${first.line}` : 'Comment'}
+        {firstLogin && (
+          <>
+            <Avatar className="size-4 border border-border/50 shrink-0">
+              <AvatarImage src={firstAvatarUrl} />
+              <AvatarFallback className="text-[6px]">
+                {firstLogin.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="min-w-0 truncate text-[11px] font-semibold text-foreground/90">
+              {firstLogin}
+            </span>
+          </>
+        )}
+        <span className="ml-auto shrink-0">
+          {firstLine != null ? `Line ${firstLine}` : 'Comment'}
+        </span>
       </button>
       {!collapsed && (
         <div className="overflow-x-hidden">
           {thread.map((c, i) => (
             <div key={c.id ?? i} className="px-3 py-2 border-b border-border/50 last:border-0 min-w-0 overflow-hidden">
-              <div className="flex items-center gap-2 mb-1">
-                <Avatar className="size-4 border border-border/50 shrink-0">
-                  <AvatarImage src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`} />
-                  <AvatarFallback className="text-[6px]">{c.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <span className="font-semibold text-foreground/90 truncate">{c.user?.login}</span>
-                {c.created_at && (
-                  <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
-                    {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
-                  </span>
-                )}
-              </div>
+              {i > 0 && (
+                <div className="flex items-center gap-2 mb-1">
+                  <Avatar className="size-4 border border-border/50 shrink-0">
+                    <AvatarImage src={c.user?.avatar_url ?? `https://github.com/${c.user?.login}.png?size=32`} />
+                    <AvatarFallback className="text-[6px]">{c.user?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="font-semibold text-foreground/90 truncate">{c.user?.login}</span>
+                  {c.created_at && (
+                    <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
+                      {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="min-w-0 max-w-full overflow-x-auto overflow-y-hidden">
                 <MarkdownRenderer className="prose prose-sm dark:prose-invert max-w-none text-[12px] leading-relaxed [&_pre]:overflow-x-auto prose-p:my-0 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-1">
                   {c.body ?? ''}
@@ -109,7 +133,7 @@ type PrAnnotationMeta = {
   path: string;
 };
 
-export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }: PRFilesTabProps) {
+export function PRFilesTab({ files, loading, reviewComments = [], onCodeViewTopBoundaryWheel }: PRFilesTabProps) {
   const { resolvedTheme } = useTheme();
   const workerPoolReady = useDiffWorkerPoolReady();
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -132,6 +156,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   );
   const pathByFileNameRef = useRef<Map<string, string>>(new Map());
   const codeViewRef = useRef<CodeViewHandle<PrAnnotationMeta | undefined>>(null);
+  const codeViewScrollTopRef = useRef(0);
   const itemIdsRef = useRef<string[]>([]);
   const scrollActiveIdRef = useRef<string | null>(null);
 
@@ -221,13 +246,14 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     };
   }, [orderedFiles, commentsByPath]);
 
-  const renderHeaderPrefix = useMemo(
-    () =>
-      createDiffHeaderPrefixRenderer({
+  const renderHeaderPrefix = useCallback(
+    (item: CodeViewItem<PrAnnotationMeta | undefined>) =>
+      renderDiffHeaderPrefix({
+        item,
         viewerRef: codeViewRef,
         pathByFileName,
       }),
-    [codeViewMountKey, pathByFileName, viewerMounted],
+    [pathByFileName],
   );
 
   const codeViewOptions = useMemo(
@@ -271,17 +297,12 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     itemIdsRef.current = itemIds;
   }, [itemIds, pathByFileName]);
 
-  useEffect(() => {
-    if (codeViewItems.length === 0) {
-      setSelectedPath(null);
-      return;
+  const selectedCodeViewPath = useMemo(() => {
+    if (selectedPath && codeViewItems.some((item) => item.id === selectedPath)) {
+      return selectedPath;
     }
-    setSelectedPath((current) =>
-      current && codeViewItems.some((item) => item.id === current)
-        ? current
-        : codeViewItems[0]?.id ?? null,
-    );
-  }, [codeViewItems]);
+    return codeViewItems[0]?.id ?? null;
+  }, [codeViewItems, selectedPath]);
 
   const handleViewerRef = useCallback(
     (handle: CodeViewHandle<PrAnnotationMeta | undefined> | null) => {
@@ -294,8 +315,10 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
   useEffect(() => {
     const instance = codeViewRef.current?.getInstance();
     if (instance == null) return;
+    codeViewScrollTopRef.current = instance.getScrollTop();
 
     return instance.subscribeToScroll((scrollTop, viewer) => {
+      codeViewScrollTopRef.current = scrollTop;
       if (itemIdsRef.current.length === 0) return;
       const activeId = findDiffItemIdAtScrollTop(
         viewer,
@@ -321,6 +344,19 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     setSelectedPath(path);
     scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
   };
+
+  const handleCodeViewWheelCapture = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      const currentScrollTop =
+        codeViewRef.current?.getInstance()?.getScrollTop() ??
+        codeViewScrollTopRef.current;
+      if (event.deltaY >= -8 || currentScrollTop > 1) return;
+      onCodeViewTopBoundaryWheel?.(event.deltaY);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [onCodeViewTopBoundaryWheel],
+  );
 
   const toolbar = (
     <div className="flex items-center gap-2">
@@ -353,7 +389,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
       <div className="flex flex-col h-full min-h-0">
         <DiffCodeViewScaffold
           items={treeItems}
-          selectedPath={selectedPath ?? undefined}
+          selectedPath={selectedCodeViewPath ?? undefined}
           ariaLabel="PR changed files"
           toolbar={toolbar}
           loading
@@ -370,7 +406,7 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
     <div className="flex flex-col h-full min-h-0">
       <DiffCodeViewScaffold
         items={treeItems}
-        selectedPath={selectedPath ?? undefined}
+        selectedPath={selectedCodeViewPath ?? undefined}
         ariaLabel="PR changed files"
         toolbar={toolbar}
         renderFileInlineDecoration={(item) => {
@@ -386,15 +422,17 @@ export function PRFilesTab({ files, loading, reviewComments = [], owner, repo }:
         onSelectFile={handleSelect}
       >
           {workerPoolReady && codeViewItems.length > 0 ? (
-          <CodeView
-            key={codeViewMountKey}
-            ref={handleViewerRef}
-            initialItems={codeViewItems}
-            options={codeViewOptions}
-            renderAnnotation={renderAnnotation}
-            renderHeaderPrefix={renderHeaderPrefix}
-            className={CODE_VIEW_HOST_CLASS}
-          />
+          <div className="min-h-0 flex-1 overflow-hidden" onWheelCapture={handleCodeViewWheelCapture}>
+            <CodeView
+              key={codeViewMountKey}
+              ref={handleViewerRef}
+              initialItems={codeViewItems}
+              options={codeViewOptions}
+              renderAnnotation={renderAnnotation}
+              renderHeaderPrefix={renderHeaderPrefix}
+              className={CODE_VIEW_HOST_CLASS}
+            />
+          </div>
           ) : !loading ? (
             <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               No diff content

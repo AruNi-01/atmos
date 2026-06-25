@@ -97,6 +97,29 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>('merge');
   const [branchCopied, setBranchCopied] = React.useState(false);
+  const mainScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const prContextRef = React.useRef<HTMLDivElement | null>(null);
+  const prContextHeightRef = React.useRef(64);
+  const prContextVisibleRef = React.useRef(true);
+  const lastMainScrollTopRef = React.useRef(0);
+
+  const setPrContextVisible = React.useCallback((visible: boolean) => {
+    if (prContextVisibleRef.current === visible) return;
+    prContextVisibleRef.current = visible;
+    const element = prContextRef.current;
+    if (!element) return;
+    element.style.transform = visible
+      ? 'translate3d(0, 0, 0)'
+      : 'translate3d(0, calc(-100% - 1px), 0)';
+  }, []);
+
+  const getPrContextMetrics = React.useCallback(() => {
+    const contextHeight = prContextHeightRef.current;
+    return {
+      contextHeight,
+      hideThreshold: Math.max(48, contextHeight * 0.7),
+    };
+  }, []);
 
   // Reset tab state when modal opens/closes or PR changes
   React.useEffect(() => {
@@ -104,7 +127,10 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     setHasVisitedDiscussion(false);
     setHasVisitedCommits(false);
     setHasVisitedFiles(false);
-  }, [prNumber]);
+    setPrContextVisible(true);
+    lastMainScrollTopRef.current = 0;
+    mainScrollRef.current?.scrollTo({ top: 0 });
+  }, [prNumber, setPrContextVisible]);
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -112,8 +138,28 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       setHasVisitedDiscussion(false);
       setHasVisitedCommits(false);
       setHasVisitedFiles(false);
+      setPrContextVisible(true);
     }
-  }, [isOpen]);
+  }, [isOpen, setPrContextVisible]);
+
+  React.useEffect(() => {
+    const element = prContextRef.current;
+    if (!element) return;
+
+    const updateHeight = () => {
+      prContextHeightRef.current = element.getBoundingClientRect().height || 64;
+    };
+
+    updateHeight();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateHeight);
+      return () => window.removeEventListener('resize', updateHeight);
+    }
+
+    const resizeObserver = new ResizeObserver(updateHeight);
+    resizeObserver.observe(element);
+    return () => resizeObserver.disconnect();
+  }, [pr]);
 
   const reviewComments = sidebarData?.review_comments;
   const reviewCommentThreadsByReviewId = React.useMemo(() => {
@@ -309,6 +355,66 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     }
   };
 
+  const handleMainScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const nextTop = event.currentTarget.scrollTop;
+    const delta = nextTop - lastMainScrollTopRef.current;
+    const { hideThreshold } = getPrContextMetrics();
+
+    if (nextTop < 12) {
+      setPrContextVisible(true);
+    } else if (delta > 8 && nextTop > hideThreshold) {
+      setPrContextVisible(false);
+    } else if (delta < -8) {
+      setPrContextVisible(true);
+    }
+
+    lastMainScrollTopRef.current = nextTop;
+  }, [getPrContextMetrics, setPrContextVisible]);
+
+  const handleMainWheelCapture = React.useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const scrollTop = mainScrollRef.current?.scrollTop ?? 0;
+    const { contextHeight, hideThreshold } = getPrContextMetrics();
+
+    if (activeMainTab === 'files' && event.deltaY > 8 && scrollTop <= hideThreshold) {
+      const nextTop = Math.max(contextHeight, hideThreshold + 1);
+      mainScrollRef.current?.scrollTo({ top: nextTop });
+      lastMainScrollTopRef.current = nextTop;
+      setPrContextVisible(false);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (event.deltaY > 8 && scrollTop > hideThreshold) {
+      setPrContextVisible(false);
+    } else if (event.deltaY < -8) {
+      setPrContextVisible(true);
+    }
+  }, [activeMainTab, getPrContextMetrics, setPrContextVisible]);
+
+  const handleFilesCodeViewTopBoundaryWheel = React.useCallback((deltaY: number) => {
+    const scrollRoot = mainScrollRef.current;
+    if (!scrollRoot || deltaY >= 0) return;
+    const nextTop = Math.max(0, scrollRoot.scrollTop + deltaY);
+    scrollRoot.scrollTop = nextTop;
+    lastMainScrollTopRef.current = nextTop;
+    setPrContextVisible(true);
+  }, [setPrContextVisible]);
+
+  const handleMainTabChange = React.useCallback((value: string) => {
+    const tab = value as typeof activeMainTab;
+    setActiveMainTab(tab);
+    setPrContextVisible(true);
+    mainScrollRef.current?.scrollTo({ top: 0 });
+    lastMainScrollTopRef.current = 0;
+    if (tab === 'discussion') setHasVisitedDiscussion(true);
+    if (tab === 'commits') setHasVisitedCommits(true);
+    if (tab === 'files') {
+      setHasVisitedFiles(true);
+      setIsSidebarCollapsed(true);
+    }
+  }, [setPrContextVisible]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
@@ -362,77 +468,84 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
           ) : pr ? (
             <div className="flex gap-3 text-sm flex-1 min-h-0">
               {/* Left: main content */}
-              <div className={cn("flex-1 min-w-0 flex flex-col pr-1", activeMainTab === 'files' ? "overflow-hidden" : "overflow-y-auto pb-16")}>
-                {/* PR title + meta */}
-                <div className="shrink-0 pb-3 pt-1 border-b border-border/50">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-semibold text-foreground">{pr.title}</h3>
-                    {pr.isDraft && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground uppercase shrink-0">
-                        Draft
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
-                    <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
-                      <Avatar className="size-3.5 border border-border/50 shadow-inner">
-                        <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=28`} />
-                        <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <span className="font-semibold text-foreground/90">{pr.author?.login}</span>
-                      {(pr.author?.is_bot || pr.author?.login === 'cursor' || pr.author?.login === 'vercel' || pr.author?.login?.endsWith('[bot]')) && (
-                        <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
-                          bot
-                        </span>
-                      )}
-                    </div>
-                    <span>wants to merge</span>
-                    <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate min-w-[30px] shadow-sm">
-                      {pr.commits?.length || 0} commits
-                    </span>
-                    <span>into</span>
-                    <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate shadow-sm">
-                      {pr.baseRefName || 'main'}
-                    </span>
-                    <span>from</span>
-                    <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
-                      {pr.headRefName || branch}
-                    </span>
-                    <button
-                      className="text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
-                      onClick={() => {
-                        navigator.clipboard.writeText(pr.headRefName || branch);
-                        setBranchCopied(true);
-                        setTimeout(() => setBranchCopied(false), 1500);
-                      }}
-                      title="Copy branch name"
-                    >
-                      {branchCopied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Top-level tabs: Description / Discussion / Commits / Files */}
-                <Tabs
-                  value={activeMainTab}
-                  onValueChange={(v) => {
-                    const tab = v as typeof activeMainTab;
-                    setActiveMainTab(tab);
-                    if (tab === 'discussion') setHasVisitedDiscussion(true);
-                    if (tab === 'commits') setHasVisitedCommits(true);
-                    if (tab === 'files') { setHasVisitedFiles(true); setIsSidebarCollapsed(true); }
-                  }}
-                  className="shrink-0 pt-1"
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <div
+                  ref={mainScrollRef}
+                  className="h-full overflow-y-auto pr-1 pb-16"
+                  onScroll={handleMainScroll}
+                  onWheelCapture={handleMainWheelCapture}
                 >
-                  <TabsList className="w-fit gap-0">
-                    <TabsTab value="description" className="text-[12px] px-3 h-8">Description</TabsTab>
-                    <TabsTab value="discussion" className="text-[12px] px-3 h-8">
-                      {`Discussion${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
-                    </TabsTab>
-                    <TabsTab value="commits" className="text-[12px] px-3 h-8">Commits ({pr.commits?.length || 0})</TabsTab>
-                    <TabsTab value="files" className="text-[12px] px-3 h-8">Files changed ({pr.changedFiles ?? 0})</TabsTab>
-                  </TabsList>
-                </Tabs>
+                  <div
+                    ref={prContextRef}
+                    className="sticky top-0 z-20 transform-gpu border-b border-border/50 bg-background pb-3 pt-1 transition-transform duration-200 ease-out will-change-transform"
+                  >
+                    <div className="flex min-w-0 flex-col gap-2.5">
+                      {/* PR title + meta */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate text-base font-semibold text-foreground">{pr.title}</h3>
+                          {pr.isDraft && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground uppercase shrink-0">
+                              Draft
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground flex-wrap">
+                          <div className="flex items-center gap-1.5 bg-muted/50 px-1.5 py-0.5 rounded-md border border-border/50 shadow-sm shrink-0">
+                            <Avatar className="size-3.5 border border-border/50 shadow-inner">
+                              <AvatarImage src={pr.author?.avatar_url || pr.author?.avatarUrl || `https://github.com/${pr.author?.login?.replace('[bot]', '')}.png?size=28`} />
+                              <AvatarFallback className="text-[6px]">{pr.author?.login?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="font-semibold text-foreground/90">{pr.author?.login}</span>
+                            {(pr.author?.is_bot || pr.author?.login === 'cursor' || pr.author?.login === 'vercel' || pr.author?.login?.endsWith('[bot]')) && (
+                              <span className="text-[9px] px-1 rounded-sm border border-border bg-muted/50 text-muted-foreground font-medium py-0 leading-none h-3.5 flex items-center shrink-0">
+                                bot
+                              </span>
+                            )}
+                          </div>
+                          <span>wants to merge</span>
+                          <span className="bg-primary/10 text-primary px-1.5 py-px rounded font-mono truncate min-w-[30px] shadow-sm">
+                            {pr.commits?.length || 0} commits
+                          </span>
+                          <span>into</span>
+                          <span className="bg-secondary px-1.5 py-px text-secondary-foreground rounded font-mono truncate shadow-sm">
+                            {pr.baseRefName || 'main'}
+                          </span>
+                          <span>from</span>
+                          <span className="bg-sidebar-accent px-1.5 py-px text-sidebar-foreground rounded font-mono truncate max-w-[200px] shadow-sm">
+                            {pr.headRefName || branch}
+                          </span>
+                          <button
+                            className="text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0"
+                            onClick={() => {
+                              navigator.clipboard.writeText(pr.headRefName || branch);
+                              setBranchCopied(true);
+                              setTimeout(() => setBranchCopied(false), 1500);
+                            }}
+                            title="Copy branch name"
+                          >
+                            {branchCopied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Top-level tabs: Description / Discussion / Commits / Files */}
+                      <Tabs
+                        value={activeMainTab}
+                        onValueChange={handleMainTabChange}
+                        className="min-w-0 overflow-x-auto"
+                      >
+                        <TabsList className="w-fit min-w-max gap-0">
+                          <TabsTab value="description" className="text-[12px] px-3 h-8">Description</TabsTab>
+                          <TabsTab value="discussion" className="text-[12px] px-3 h-8">
+                            {`Discussion${sidebarData?.totalCommentsCount != null ? ` (${sidebarData.totalCommentsCount})` : ''}`}
+                          </TabsTab>
+                          <TabsTab value="commits" className="text-[12px] px-3 h-8">Commits ({pr.commits?.length || 0})</TabsTab>
+                          <TabsTab value="files" className="text-[12px] px-3 h-8">Files changed ({pr.changedFiles ?? 0})</TabsTab>
+                        </TabsList>
+                      </Tabs>
+                    </div>
+                  </div>
 
                 {/* Description tab */}
                 <div className={cn("pt-4 flex flex-col gap-4", activeMainTab !== 'description' && "hidden")}>
@@ -853,16 +966,18 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
 
                 {/* Files Changed tab */}
                 {hasVisitedFiles && (
-                  <div className={cn("pt-2 flex-1 min-h-0 overflow-hidden", activeMainTab !== 'files' && "hidden")} style={{ height: 'calc(100% - 120px)' }}>
+                  <div className={cn("min-h-[520px] overflow-hidden pt-2", activeMainTab !== 'files' && "hidden")} style={{ height: '100%' }}>
                     <PRFilesTab
                       files={prFiles}
                       loading={prFilesLoading}
                       reviewComments={sidebarData?.review_comments ?? []}
                       owner={owner}
                       repo={repo}
+                      onCodeViewTopBoundaryWheel={handleFilesCodeViewTopBoundaryWheel}
                     />
                   </div>
                 )}
+                </div>
               </div>
 
               <PRMetadataSidebar
