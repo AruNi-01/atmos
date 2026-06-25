@@ -733,6 +733,39 @@ impl WsMessageService {
 
         let mut result = json!({});
         if let Some(obj) = result.as_object_mut() {
+            let insert_first =
+                |obj: &mut serde_json::Map<String, Value>, key: &str, aliases: &[&str]| {
+                    for alias in aliases {
+                        if let Some(value) = api_output.get(*alias) {
+                            obj.insert(key.to_string(), value.clone());
+                            break;
+                        }
+                    }
+                };
+
+            insert_first(obj, "databaseId", &["databaseId", "database_id", "id"]);
+            insert_first(
+                obj,
+                "workflowName",
+                &["workflowName", "workflow_name", "name"],
+            );
+            insert_first(
+                obj,
+                "displayTitle",
+                &["displayTitle", "display_title", "name"],
+            );
+            insert_first(obj, "status", &["status"]);
+            insert_first(obj, "conclusion", &["conclusion"]);
+            insert_first(
+                obj,
+                "createdAt",
+                &["createdAt", "created_at", "run_started_at"],
+            );
+            insert_first(obj, "url", &["html_url", "url"]);
+            insert_first(obj, "event", &["event"]);
+            insert_first(obj, "headBranch", &["headBranch", "head_branch"]);
+            insert_first(obj, "headSha", &["headSha", "head_sha"]);
+
             if let Some(actor) = api_output.get("actor") {
                 obj.insert("actor".to_string(), actor.clone());
             }

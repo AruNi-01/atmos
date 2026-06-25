@@ -1,9 +1,9 @@
 import React from 'react';
 import { useGithubActionsList } from '@/features/github/hooks/use-github';
 import { ExternalLink, Search, Loader2, Workflow, CheckCircle2, XCircle, FileText, Rocket, Github, AlertCircle } from 'lucide-react';
-import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { cn } from '@/shared/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@workspace/ui';
+import { formatActionTimestamp, formatActionTimeAgo } from '@/features/github/lib/action-run-time';
 
 export interface ActionRun {
   databaseId: number;
@@ -140,6 +140,8 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
               const isSuccess = run.conclusion === 'success';
               const isFailure = run.conclusion === 'failure';
               const isCompleted = run.status === 'completed';
+              const createdAtTimeAgo = formatActionTimeAgo(run.createdAt);
+              const createdAtTimestamp = formatActionTimestamp(run.createdAt);
 
               return (
                 <div
@@ -187,11 +189,11 @@ export function ActionsPanel({ owner, repo, branch, onRunClick, refreshKey, enab
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="cursor-default">
-                            {formatDistanceToNow(parseISO(run.createdAt), { addSuffix: true })}
+                            {createdAtTimeAgo ?? 'Unknown time'}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-[11px]">
-                          {format(parseISO(run.createdAt), 'PPpp')}
+                          {createdAtTimestamp ?? 'Unknown start time'}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

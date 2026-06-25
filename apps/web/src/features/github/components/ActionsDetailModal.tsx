@@ -7,10 +7,6 @@ import {
   DialogDescription,
   Button,
   DialogClose,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   Avatar,
   AvatarImage,
   AvatarFallback,
@@ -18,26 +14,23 @@ import {
 } from '@workspace/ui';
 import { useWebSocketStore } from '@/features/connection/hooks/use-websocket';
 import {
-  Github,
   ExternalLink,
   XCircle,
   Expand,
   Shrink,
   Loader2,
   CheckCircle2,
-  AlertCircle,
   Rocket,
   X,
-  FileText,
   Clock,
-  PlayCircle,
   LoaderCircle,
   RotateCw,
   Box,
   HelpCircle,
+  ChevronDown,
 } from 'lucide-react';
-import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { useGithubActionsDetail } from '@/features/github/hooks/use-github';
+import { formatActionDuration, formatActionTimestamp, formatActionTimeAgo } from '@/features/github/lib/action-run-time';
 import { cn } from '@/shared/lib/utils';
 import { type ActionRun } from './ActionsPanel';
 
@@ -52,40 +45,68 @@ interface ActionsDetailModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface ActionStep {
+  name?: string;
+  status?: string;
+  conclusion?: string;
+  number?: number;
+  startedAt?: string;
+  started_at?: string;
+  completedAt?: string;
+  completed_at?: string;
+}
+
+interface ActionJob {
+  databaseId?: number;
+  id?: number;
+  name?: string;
+  status?: string;
+  conclusion?: string;
+  startedAt?: string;
+  started_at?: string;
+  completedAt?: string;
+  completed_at?: string;
+  url?: string;
+  html_url?: string;
+  steps?: ActionStep[];
+}
+
 export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChange }: ActionsDetailModalProps) {
   const send = useWebSocketStore(s => s.send);
   const [actionLoading, setActionLoading] = React.useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [expandedJobIds, setExpandedJobIds] = React.useState<Set<string>>(() => new Set());
+  const [selectedStepKey, setSelectedStepKey] = React.useState<string | null>(null);
 
   const effectiveRunId = runId ?? run?.databaseId;
   const { data: detail, loading: detailLoading } = useGithubActionsDetail(owner, repo, isOpen ? effectiveRunId : undefined);
+  const jobs = React.useMemo(() => Array.isArray(detail?.jobs) ? detail.jobs as ActionJob[] : [], [detail?.jobs]);
+
+  const toggleJob = React.useCallback((jobKey: string) => {
+    setExpandedJobIds(prev => {
+      const next = new Set(prev);
+      if (next.has(jobKey)) {
+        next.delete(jobKey);
+      } else {
+        next.add(jobKey);
+      }
+      return next;
+    });
+  }, []);
 
   // Merge: prefer the passed-in `run` object; fall back to `detail` (available after fetch on refresh)
   const effectiveRun: ActionRun | null = run ?? (detail ? {
-    databaseId: detail.databaseId ?? effectiveRunId!,
-    workflowName: detail.workflowName ?? detail.name ?? '',
-    displayTitle: detail.displayTitle ?? detail.name ?? '',
+    databaseId: detail.databaseId ?? detail.id ?? effectiveRunId!,
+    workflowName: detail.workflowName ?? detail.workflow_name ?? detail.name ?? '',
+    displayTitle: detail.displayTitle ?? detail.display_title ?? detail.name ?? '',
     status: detail.status ?? '',
     conclusion: detail.conclusion ?? '',
-    createdAt: detail.createdAt ?? '',
-    url: detail.url ?? '',
+    createdAt: detail.createdAt ?? detail.created_at ?? detail.run_started_at ?? '',
+    url: detail.url ?? detail.html_url ?? '',
     event: detail.event ?? '',
     headBranch: detail.headBranch ?? detail.head_branch ?? '',
     headSha: detail.headSha ?? detail.head_sha ?? '',
   } : null);
-
-  const handleOpenBrowser = async () => {
-    if (!effectiveRun) return;
-    setActionLoading(true);
-    try {
-      await send('github_ci_open_browser', { owner, repo, run_id: effectiveRun.databaseId });
-    } catch (e) {
-      console.log('Ignore error', e);
-      window.open(effectiveRun.url, '_blank');
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const handleRerunAll = async () => {
     if (!effectiveRun) return;
@@ -118,6 +139,22 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
     window.open(effectiveRun.url, '_blank');
   };
 
+  React.useEffect(() => {
+    if (!isOpen || !effectiveRunId || jobs.length === 0) {
+      setExpandedJobIds(new Set());
+      setSelectedStepKey(null);
+      return;
+    }
+
+    setExpandedJobIds(new Set(
+      jobs
+        .map((job, index) => ({ job, index }))
+        .filter(({ job }) => job.conclusion === 'failure')
+        .map(({ job, index }) => getActionJobKey(job, index)),
+    ));
+    setSelectedStepKey(null);
+  }, [effectiveRunId, isOpen, jobs]);
+
   // Still loading initial data on refresh — show dialog with loading skeleton
   if (!effectiveRun) {
     if (!isOpen) return null;
@@ -139,6 +176,8 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
   const isSuccess = effectiveRun.conclusion === 'success';
   const isFailure = effectiveRun.conclusion === 'failure';
   const isCompleted = effectiveRun.status === 'completed';
+  const createdAtTimestamp = formatActionTimestamp(effectiveRun.createdAt);
+  const createdAtTimeAgo = formatActionTimeAgo(effectiveRun.createdAt);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -252,8 +291,8 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
                       {isCompleted ? `${effectiveRun.conclusion} ` : `${effectiveRun.status} `}
                       <span className="text-[10px] text-muted-foreground font-normal normal-case flex items-center gap-1">
                         <Clock className="size-3" />
-                        {format(parseISO(effectiveRun.createdAt), 'PPpp')}
-                        ({formatDistanceToNow(parseISO(effectiveRun.createdAt), { addSuffix: true })})
+                        {createdAtTimestamp ?? 'Unknown start time'}
+                        {createdAtTimeAgo && ` (${createdAtTimeAgo})`}
                       </span>
                     </h5>
                     <p className="text-[11px] text-muted-foreground mt-0.5 flex flex-col gap-1">
@@ -300,17 +339,33 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
                         </div>
                       ))}
                     </div>
-                  ) : detail?.jobs && detail.jobs.length > 0 ? (
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    detail.jobs.map((job: any) => {
+                  ) : jobs.length > 0 ? (
+                    jobs.map((job, jobIndex) => {
+                      const jobKey = getActionJobKey(job, jobIndex);
+                      const steps = Array.isArray(job.steps) ? job.steps : [];
                       const jobSuccess = job.conclusion === 'success';
                       const jobFailure = job.conclusion === 'failure';
                       const jobSkipped = job.conclusion === 'skipped';
                       const jobCompleted = job.status === 'completed';
+                      const jobStartedAtTimeAgo = formatActionTimeAgo(getStartedAt(job));
+                      const isExpanded = expandedJobIds.has(jobKey);
+                      const canExpand = steps.length > 0;
 
                       return (
-                        <div key={job.databaseId || job.id} className="flex flex-col hover:bg-muted/30 transition-colors">
-                          <div className="px-4 py-3 flex items-center gap-3">
+                        <div key={jobKey} className="flex flex-col">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (canExpand) toggleJob(jobKey);
+                            }}
+                            aria-expanded={canExpand ? isExpanded : undefined}
+                            className={cn(
+                              "px-4 py-3 flex w-full items-center gap-3 text-left transition-colors",
+                              canExpand ? "cursor-pointer hover:bg-muted/30" : "cursor-default",
+                              isExpanded && "bg-muted/20",
+                            )}
+                          >
+                            <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground/60 transition-transform", !isExpanded && "-rotate-90", !canExpand && "opacity-0")} />
                             <div className="shrink-0 flex items-center justify-center">
                               {jobCompleted ? (
                                 jobSuccess ? <CheckCircle2 className="size-4 text-emerald-500" /> :
@@ -326,40 +381,100 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
                               {jobSkipped && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm shrink-0">skipped</span>}
                             </div>
 
-                            {/* Steps details (hidden on small view normally, shown as summary) */}
-                            {job.steps && job.steps.length > 0 && (
+                            {steps.length > 0 && (
                               <div className="hidden sm:flex text-[11px] text-muted-foreground/70 shrink-0 gap-1 opacity-70">
-                                <span>{job.steps.length} steps</span>
+                                <span>{steps.length} steps</span>
                               </div>
                             )}
 
-                            {jobCompleted && job.startedAt && job.completedAt && (
+                            {jobCompleted && jobStartedAtTimeAgo && (
                               <div className="text-[11px] text-muted-foreground/80 shrink-0 whitespace-nowrap tabular-nums">
-                                {formatDistanceToNow(parseISO(job.startedAt), { addSuffix: true })}
+                                {jobStartedAtTimeAgo}
                               </div>
                             )}
-                          </div>
+                          </button>
 
-                          {/* If Failed Job, expand to show steps */}
-                          {jobFailure && job.steps && job.steps.length > 0 && (
-                            <div className="pl-11 pr-4 pb-3 flex flex-col gap-1.5">
-                              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                              {job.steps.map((step: any, idx: number) => {
-                                const stepSuccess = step.conclusion === 'success';
-                                const stepFailure = step.conclusion === 'failure';
+                          {steps.length > 0 && (
+                            <div
+                              className={cn(
+                                "grid overflow-hidden transition-[grid-template-rows,opacity,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                                isExpanded ? "grid-rows-[1fr] border-t border-border/40 opacity-100" : "grid-rows-[0fr] border-t border-transparent opacity-0",
+                              )}
+                            >
+                              <div className="min-h-0 overflow-hidden">
+                                <div className="bg-muted/10 px-4 py-3">
+                                  <div className="ml-6 flex flex-col gap-1.5">
+                                    {steps.map((step, stepIndex) => {
+                                      const stepKey = getActionStepKey(jobKey, step, stepIndex);
+                                      const isSelected = selectedStepKey === stepKey;
+                                      const stepStatus = step.conclusion || step.status || 'unknown';
+                                      const stepStartedAt = getStartedAt(step);
+                                      const stepCompletedAt = getCompletedAt(step);
+                                      const stepStartedLabel = formatActionTimestamp(stepStartedAt);
+                                      const stepCompletedLabel = formatActionTimestamp(stepCompletedAt);
+                                      const stepDuration = formatActionDuration(stepStartedAt, stepCompletedAt);
 
-                                return (
-                                  <div key={idx} className={cn(
-                                    "flex items-start gap-2 text-xs",
-                                    stepFailure ? "text-red-500 font-medium" : "text-muted-foreground/80"
-                                  )}>
-                                    <div className="mt-0.5 shrink-0">
-                                      {stepFailure ? <XCircle className="size-3" /> : stepSuccess ? <CheckCircle2 className="size-3 opacity-50" /> : <div className="size-3" />}
-                                    </div>
-                                    <span className={cn("truncate flex-1 max-w-full", stepFailure && "whitespace-normal break-words")}>{step.name}</span>
+                                      return (
+                                        <div
+                                          key={stepKey}
+                                          role="button"
+                                          tabIndex={isExpanded ? 0 : -1}
+                                          onClick={() => setSelectedStepKey(isSelected ? null : stepKey)}
+                                          onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                              event.preventDefault();
+                                              setSelectedStepKey(isSelected ? null : stepKey);
+                                            }
+                                          }}
+                                          className={cn(
+                                            "group/step flex cursor-pointer items-start gap-2 rounded-md border px-2 py-2 text-xs transition-colors outline-none",
+                                            isSelected ? "border-border/70 bg-background shadow-sm" : "border-transparent text-muted-foreground/85 hover:bg-background/70 focus-visible:border-ring/40",
+                                          )}
+                                        >
+                                          <div className="mt-0.5 shrink-0">
+                                            <StepStatusIcon status={step.status} conclusion={step.conclusion} />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center justify-between gap-3">
+                                              <span className={cn("min-w-0 truncate font-medium", step.conclusion === 'failure' ? "text-red-500" : "text-foreground/90")}>
+                                                {step.name || `Step ${stepIndex + 1}`}
+                                              </span>
+                                              <div className="flex shrink-0 items-center gap-2">
+                                                {stepDuration && (
+                                                  <span className="hidden font-mono text-[10px] text-muted-foreground/70 sm:inline">
+                                                    {stepDuration}
+                                                  </span>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  aria-label={`Open ${step.name || 'step'} on GitHub`}
+                                                  tabIndex={isExpanded ? 0 : -1}
+                                                  onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    openActionStepInGitHub(owner, repo, effectiveRun.databaseId, job, step);
+                                                  }}
+                                                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover/step:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                                                >
+                                                  <ExternalLink className="size-3" />
+                                                </button>
+                                              </div>
+                                            </div>
+
+                                            {isSelected && (
+                                              <div className="mt-2 grid grid-cols-1 gap-1.5 rounded-md border border-border/40 bg-muted/20 p-2 sm:grid-cols-2">
+                                                <StepMeta label="Status" value={stepStatus} />
+                                                <StepMeta label="Duration" value={stepDuration ?? '-'} />
+                                                <StepMeta label="Started" value={stepStartedLabel ?? '-'} />
+                                                <StepMeta label="Completed" value={stepCompletedLabel ?? '-'} />
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
-                                );
-                              })}
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -378,41 +493,224 @@ export function ActionsDetailModal({ owner, repo, run, runId, isOpen, onOpenChan
           </div>
         </div>
 
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex sm:justify-between items-center bg-background/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-dashed border-border/80 shadow-xl gap-6">
-          <div className="flex gap-2.5">
-            <Button variant="outline" size="sm" onClick={handleNativeOpen} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
-              <ExternalLink className="mr-1.5 size-3.5" />
-              GitHub
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={() => window.open(`https://better-hub.com/${owner}/${repo}/actions/runs/${effectiveRun.databaseId}`, '_blank')} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
-              <ExternalLink className="mr-1.5 size-3.5" />
-              BetterHub
-            </Button>
-          </div>
-
-          {(isCompleted) && (
-            <div className="w-px h-5 bg-border/40 shrink-0 mx-1" />
-          )}
-
-          <div className="flex gap-2.5">
-            {isFailure && (
-              <Button variant="outline" size="sm" onClick={handleRerunFailed} disabled={actionLoading} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
-                {actionLoading ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
-                Re-run failed jobs
-              </Button>
-            )}
-
-            {(isCompleted) && (
-              <Button variant="default" size="sm" onClick={handleRerunAll} disabled={actionLoading} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
-                {actionLoading ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
-                Re-run all jobs
-              </Button>
-            )}
-          </div>
-        </div>
+        <ActionsActionBar
+          actionLoading={actionLoading}
+          isCompleted={isCompleted}
+          isFailure={isFailure}
+          onOpenGitHub={handleNativeOpen}
+          onOpenBetterHub={() => window.open(`https://better-hub.com/${owner}/${repo}/actions/runs/${effectiveRun.databaseId}`, '_blank')}
+          onRerunFailed={handleRerunFailed}
+          onRerunAll={handleRerunAll}
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function getStartedAt(value: { startedAt?: string; started_at?: string }) {
+  return value.startedAt ?? value.started_at ?? null;
+}
+
+function getCompletedAt(value: { completedAt?: string; completed_at?: string }) {
+  return value.completedAt ?? value.completed_at ?? null;
+}
+
+function getActionJobKey(job: ActionJob, index: number) {
+  return String(job.databaseId ?? job.id ?? `${job.name ?? 'job'}-${index}`);
+}
+
+function getActionStepKey(jobKey: string, step: ActionStep, index: number) {
+  return `${jobKey}:${step.number ?? step.name ?? index}`;
+}
+
+function openActionStepInGitHub(owner: string, repo: string, runId: number, job: ActionJob, step: ActionStep) {
+  const jobId = job.databaseId ?? job.id;
+  const rawJobUrl = job.html_url ?? (job.url && !job.url.includes('api.github.com') ? job.url : undefined);
+  const jobUrl = rawJobUrl ?? (jobId
+    ? `https://github.com/${owner}/${repo}/actions/runs/${runId}/job/${jobId}`
+    : `https://github.com/${owner}/${repo}/actions/runs/${runId}`);
+  const href = jobId && step.number ? `${jobUrl}#step:${step.number}:1` : jobUrl;
+  window.open(href, '_blank');
+}
+
+function StepStatusIcon({ status, conclusion }: { status?: string; conclusion?: string }) {
+  if (conclusion === 'success') {
+    return <CheckCircle2 className="size-3.5 text-emerald-500" />;
+  }
+  if (conclusion === 'failure') {
+    return <XCircle className="size-3.5 text-red-500" />;
+  }
+  if (conclusion === 'skipped') {
+    return <div className="size-3.5 rounded-full border-2 border-muted-foreground/40" />;
+  }
+  if (status === 'in_progress' || status === 'queued') {
+    return <Loader2 className="size-3.5 animate-spin text-blue-500" />;
+  }
+  return <HelpCircle className="size-3.5 text-muted-foreground" />;
+}
+
+function StepMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <span className="shrink-0 text-[10px] font-semibold uppercase text-muted-foreground/70">{label}</span>
+      <span className="min-w-0 truncate text-right font-mono text-[10px] text-foreground/80 capitalize">{value}</span>
+    </div>
+  );
+}
+
+function ActionsActionBar({
+  actionLoading,
+  isCompleted,
+  isFailure,
+  onOpenGitHub,
+  onOpenBetterHub,
+  onRerunFailed,
+  onRerunAll,
+}: {
+  actionLoading: boolean;
+  isCompleted: boolean;
+  isFailure: boolean;
+  onOpenGitHub: () => void;
+  onOpenBetterHub: () => void;
+  onRerunFailed: () => void;
+  onRerunAll: () => void;
+}) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(false);
+  const [isToolbarHovered, setIsToolbarHovered] = React.useState(false);
+  const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openFrameRef = React.useRef<number | null>(null);
+
+  const cancelClose = React.useCallback(() => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    if (openFrameRef.current != null) {
+      cancelAnimationFrame(openFrameRef.current);
+      openFrameRef.current = null;
+    }
+  }, []);
+
+  const scheduleOpenAfterMount = React.useCallback(() => {
+    openFrameRef.current = requestAnimationFrame(() => {
+      openFrameRef.current = requestAnimationFrame(() => {
+        setIsOpen(true);
+        openFrameRef.current = null;
+      });
+    });
+  }, []);
+
+  const openToolbar = React.useCallback(() => {
+    cancelClose();
+    if (shouldRenderToolbar) {
+      setIsOpen(true);
+      return;
+    }
+    setShouldRenderToolbar(true);
+    scheduleOpenAfterMount();
+  }, [cancelClose, scheduleOpenAfterMount, shouldRenderToolbar]);
+
+  const closeToolbar = React.useCallback(() => {
+    cancelClose();
+    setIsOpen(false);
+    closeTimeoutRef.current = setTimeout(() => {
+      setShouldRenderToolbar(false);
+      closeTimeoutRef.current = null;
+    }, 220);
+  }, [cancelClose]);
+
+  const scheduleClose = React.useCallback(() => {
+    closeToolbar();
+  }, [closeToolbar]);
+
+  React.useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+      if (openFrameRef.current != null) {
+        cancelAnimationFrame(openFrameRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 justify-center">
+      <div className="pointer-events-auto relative flex items-end justify-center">
+        {shouldRenderToolbar && (
+          <div
+            onMouseEnter={() => {
+              setIsToolbarHovered(true);
+              cancelClose();
+            }}
+            onMouseLeave={() => {
+              setIsToolbarHovered(false);
+              scheduleClose();
+            }}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget) && !isToolbarHovered) {
+                scheduleClose();
+              }
+            }}
+            aria-hidden={!isOpen}
+            className={cn(
+              "absolute bottom-full left-1/2 z-10 flex max-w-[calc(100vw-3rem)] -translate-x-1/2 items-center gap-6 whitespace-nowrap rounded-xl border border-dashed border-border/80 bg-background/90 px-4 py-2.5 shadow-xl backdrop-blur-md",
+              !isOpen
+                ? "pointer-events-none opacity-0 transition-opacity duration-220 ease-in"
+                : "pointer-events-auto opacity-100 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            )}
+          >
+            <div className="absolute left-1/2 top-full h-4 w-24 -translate-x-1/2" />
+            <div className="flex gap-2.5">
+              <Button variant="outline" size="sm" onClick={onOpenGitHub} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
+                <ExternalLink className="mr-1.5 size-3.5" />
+                GitHub
+              </Button>
+
+              <Button variant="outline" size="sm" onClick={onOpenBetterHub} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
+                <ExternalLink className="mr-1.5 size-3.5" />
+                BetterHub
+              </Button>
+            </div>
+
+            {isCompleted && (
+              <>
+                <div className="w-px h-5 bg-border/40 shrink-0 mx-1" />
+
+                <div className="flex gap-2.5">
+                  {isFailure && (
+                    <Button variant="outline" size="sm" onClick={onRerunFailed} disabled={actionLoading} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
+                      {actionLoading ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
+                      Re-run failed jobs
+                    </Button>
+                  )}
+
+                  <Button variant="default" size="sm" onClick={onRerunAll} disabled={actionLoading} className="shadow-sm hover:shadow-md transition-shadow h-8 text-[11px] px-3 font-medium">
+                    {actionLoading ? <LoaderCircle className="mr-1.5 size-3.5 animate-spin" /> : <RotateCw className="mr-1.5 size-3.5" />}
+                    Re-run all jobs
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <button
+          type="button"
+          aria-label="Show workflow actions"
+          onClick={openToolbar}
+          onFocus={openToolbar}
+          onMouseEnter={openToolbar}
+          className={cn(
+            "h-1.5 w-40 rounded-full border-0 bg-foreground/20 p-0 shadow-[0_1px_8px_rgba(0,0,0,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+            !isOpen
+              ? "pointer-events-auto opacity-100 transition-opacity duration-220 ease-in"
+              : "pointer-events-none opacity-0 transition-opacity duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          )}
+        />
+      </div>
+    </div>
   );
 }
 
