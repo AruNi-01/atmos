@@ -1,0 +1,32 @@
+apps/web/src/features/github/lib/action-run-time.ts
+  s_bff12d91c9cb03::t_137fc814e870b6 1-17
+  s_bff12d91c9cb03::t_25cc015f7d8126 18-32
+apps/web/src/features/github/components/ActionsDetailModal.tsx
+  s_bff12d91c9cb03::t_03d0aa16bfeba8 83,142-157,351,397-415,417-440,442-469,473-474,476
+  s_bff12d91c9cb03::t_0c4d02397da301 496-508,561-661,663-669,671-673,675-694,697-713
+  s_bff12d91c9cb03::t_25cc015f7d8126 30,33,48-73,78-79,85-95,342-345,350,352,355-368,384,386,395-396,441,470-472,477
+  s_bff12d91c9cb03::t_763b7f6379043a 510-512,514-544,548-560
+  s_bff12d91c9cb03::t_40f34a73f6d224 545-547
+  s_bff12d91c9cb03::t_137fc814e870b6 99-101,104-105,179-180,294-295,390,392
+apps/web/src/features/github/components/ActionsPanel.tsx
+  s_bff12d91c9cb03::t_137fc814e870b6 6,143-144,192,196
+apps/api/src/api/ws/router/github.rs
+  s_bff12d91c9cb03::t_2710276cd29aba 747-756,759-763
+  s_bff12d91c9cb03::t_137fc814e870b6 736-746,757-758,764-768
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "74a794240ae66e2fecab6891b6c599cfd5c95be1",
+  "prompts": {},
+  "sessions": {
+    "s_bff12d91c9cb03": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efd49-e0d2-72e2-9f29-a97ff5bb1b0a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
