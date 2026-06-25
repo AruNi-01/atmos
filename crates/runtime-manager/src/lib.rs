@@ -17,9 +17,9 @@ mod registration_meta;
 pub mod supervisor;
 
 pub use cli_update::{
-    ensure_standalone_cli_on_startup, fetch_latest_cli_release, install_latest_cli,
-    installed_cli_path, modify_shell_config, read_cli_version, version_gt, CliInstallResult,
-    LatestCliRelease, ShellConfigResult,
+    ensure_standalone_cli_on_startup, fetch_latest_cli_release, install_cli_release,
+    install_latest_cli, installed_cli_path, modify_shell_config, read_cli_version, version_gt,
+    CliInstallResult, LatestCliRelease, ShellConfigResult,
 };
 pub use client_session::{
     clear_client_session, client_session_path, read_client_session, write_client_session,

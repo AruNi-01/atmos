@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use clap::Args;
-use runtime_manager::{fetch_latest_cli_release, install_latest_cli, version_gt, LatestCliRelease};
+use runtime_manager::{
+    fetch_latest_cli_release, install_cli_release, version_gt, LatestCliRelease,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -53,16 +55,16 @@ pub async fn execute(args: UpdateArgs) -> Result<Value, String> {
         }));
     }
 
-    let install = install_latest_cli().await?;
+    let install = install_cli_release(&latest).await?;
 
     Ok(json!({
         "ok": true,
         "action": "updated",
         "from_version": CURRENT_VERSION,
-        "to_version": latest.version,
+        "to_version": install.version,
         "latest_tag": latest.tag,
         "installed_path": install.install_path.to_string_lossy(),
-        "install_method": "release_asset",
+        "install_method": install.install_method,
     }))
 }
 

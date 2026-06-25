@@ -90,7 +90,7 @@ pub async fn install_cli(
 
     Ok(Json(ApiResponse::success(CliInstallResponse {
         success: true,
-        version: install.version,
+        version: Some(install.version),
         message,
         path_modified: Some(path_modified),
         path_modified_file,
