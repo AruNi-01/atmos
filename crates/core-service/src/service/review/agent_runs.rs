@@ -1,9 +1,12 @@
 mod finalize_fix;
 mod revision;
 
+pub(in crate::service::review) use finalize_fix::FinalizeFixAgentRunInput;
+
 use std::collections::HashSet;
 
 use infra::db::entities::review_agent_run;
+use infra::db::repo::review_repo::CreateAgentRunParams;
 use infra::db::repo::ReviewRepo;
 use infra::utils::review_artifacts::{run_root_abs_path, write_text_atomic};
 
@@ -27,7 +30,7 @@ impl ReviewService {
             "running" => self
                 .mark_agent_run_running(input.run_guid)
                 .await
-                .map(|run| ReviewAgentRunStatusDto::Run { run }),
+                .map(|run| ReviewAgentRunStatusDto::Run { run: Box::new(run) }),
             "succeeded" => {
                 self.mark_agent_run_running(input.run_guid.clone()).await?;
                 if let Some(summary) = input.summary.filter(|value| !value.trim().is_empty()) {
@@ -36,12 +39,12 @@ impl ReviewService {
                 }
                 self.finalize_agent_run(input.run_guid, input.title)
                     .await
-                    .map(ReviewAgentRunStatusDto::Finalized)
+                    .map(|finalized| ReviewAgentRunStatusDto::Finalized(Box::new(finalized)))
             }
             "failed" => self
                 .mark_agent_run_failed(input.run_guid, input.message)
                 .await
-                .map(|run| ReviewAgentRunStatusDto::Run { run }),
+                .map(|run| ReviewAgentRunStatusDto::Run { run: Box::new(run) }),
             status => Err(ServiceError::Validation(format!(
                 "Invalid review agent run status: {}",
                 status
@@ -239,15 +242,15 @@ impl ReviewService {
         }
 
         let run = review_repo
-            .create_agent_run(
-                session.guid.clone(),
-                input.base_revision_guid.clone(),
-                input.run_kind.clone(),
-                input.execution_mode.clone(),
-                input.skill_id.clone(),
-                None,
-                input.created_by.clone(),
-            )
+            .create_agent_run(CreateAgentRunParams {
+                session_guid: session.guid.clone(),
+                base_revision_guid: input.base_revision_guid.clone(),
+                run_kind: input.run_kind.clone(),
+                execution_mode: input.execution_mode.clone(),
+                skill_id: input.skill_id.clone(),
+                prompt_rel_path: None,
+                created_by: input.created_by.clone(),
+            })
             .await
             .map_err(ServiceError::Infra)?;
         let revision = self
@@ -302,10 +305,7 @@ impl ReviewService {
             .await
             .map_err(ServiceError::Infra)?;
         review_repo
-            .update_agent_run_prompt_rel_path(
-                &run.guid,
-                &prompt_abs_path.to_string_lossy().to_string(),
-            )
+            .update_agent_run_prompt_rel_path(&run.guid, prompt_abs_path.to_string_lossy().as_ref())
             .await
             .map_err(ServiceError::Infra)?;
         if input.execution_mode != "copy_prompt" {

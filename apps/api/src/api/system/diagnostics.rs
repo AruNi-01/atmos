@@ -105,7 +105,7 @@ pub fn get_pty_process_summary() -> Vec<Value> {
                 .into_iter()
                 .map(|(cmd, devices)| (cmd, devices.len() as u32))
                 .collect();
-            sorted.sort_by(|a, b| b.1.cmp(&a.1));
+            sorted.sort_by_key(|item| std::cmp::Reverse(item.1));
             sorted.truncate(10);
 
             sorted
@@ -164,18 +164,6 @@ pub fn get_orphaned_processes() -> Vec<Value> {
             warn!("Failed to detect orphaned processes: {}", e);
             vec![]
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::normalized_shell_basename;
-
-    #[test]
-    fn normalizes_login_shell_basenames() {
-        assert_eq!(normalized_shell_basename("-bash --login"), "bash");
-        assert_eq!(normalized_shell_basename("/bin/-zsh -l"), "zsh");
-        assert_eq!(normalized_shell_basename("/usr/bin/fish"), "fish");
     }
 }
 
@@ -330,5 +318,17 @@ pub fn get_pty_device_details() -> Vec<Value> {
             warn!("Failed to get PTY device details: {}", e);
             vec![]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalized_shell_basename;
+
+    #[test]
+    fn normalizes_login_shell_basenames() {
+        assert_eq!(normalized_shell_basename("-bash --login"), "bash");
+        assert_eq!(normalized_shell_basename("/bin/-zsh -l"), "zsh");
+        assert_eq!(normalized_shell_basename("/usr/bin/fish"), "fish");
     }
 }

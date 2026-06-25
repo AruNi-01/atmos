@@ -130,7 +130,6 @@ mod tests {
     // ── S12: migration applies on fresh and seeded DB ─────────────────────────
 
     const REVIEW_SESSION_TABLE: &str = "review_session";
-    const OLD_WS_INDEX: &str = "idx-review_session-workspace-updated";
     const NEW_WS_INDEX: &str = "idx-review_session-workspace-status-updated";
     const NEW_PJ_INDEX: &str = "idx-review_session-project-status-updated";
 
@@ -139,7 +138,7 @@ mod tests {
         let db = Database::connect("sqlite::memory:").await?;
         let manager = SchemaManager::new(&db);
 
-        // Apply all migrations up to and including 000022
+        // Apply the baseline review schema before the no-op compatibility migration.
         m20260117_000001_create_test_message_table::Migration
             .up(&manager)
             .await?;
@@ -150,19 +149,13 @@ mod tests {
             .up(&manager)
             .await?;
 
-        // Old index should exist, new ones should not
         assert!(
             manager
-                .has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX)
-                .await?
-        );
-        assert!(
-            !manager
                 .has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX)
                 .await?
         );
         assert!(
-            !manager
+            manager
                 .has_index(REVIEW_SESSION_TABLE, NEW_PJ_INDEX)
                 .await?
         );
@@ -172,12 +165,7 @@ mod tests {
             .up(&manager)
             .await?;
 
-        // New indexes should exist, old one should be gone
-        assert!(
-            !manager
-                .has_index(REVIEW_SESSION_TABLE, OLD_WS_INDEX)
-                .await?
-        );
+        // New indexes should still exist after the no-op migration.
         assert!(
             manager
                 .has_index(REVIEW_SESSION_TABLE, NEW_WS_INDEX)

@@ -66,15 +66,11 @@ pub(super) fn validate_workspace_priority(value: Option<String>) -> Result<Optio
 }
 
 pub(super) fn is_valid_workspace_workflow_status(value: &str) -> bool {
-    WORKSPACE_WORKFLOW_STATUSES
-        .iter()
-        .any(|candidate| *candidate == value)
+    WORKSPACE_WORKFLOW_STATUSES.contains(&value)
 }
 
 pub(super) fn is_valid_workspace_priority(value: &str) -> bool {
-    WORKSPACE_PRIORITIES
-        .iter()
-        .any(|candidate| *candidate == value)
+    WORKSPACE_PRIORITIES.contains(&value)
 }
 
 /// Synthesize a GithubIssuePayload from a PR so the existing requirement/TODO

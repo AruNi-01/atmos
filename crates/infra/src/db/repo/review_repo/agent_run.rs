@@ -7,16 +7,20 @@ use crate::db::entities::base::BaseFields;
 use crate::db::entities::review_agent_run;
 use crate::error::{InfraError, Result};
 
+pub struct CreateAgentRunParams {
+    pub session_guid: String,
+    pub base_revision_guid: String,
+    pub run_kind: String,
+    pub execution_mode: String,
+    pub skill_id: Option<String>,
+    pub prompt_rel_path: Option<String>,
+    pub created_by: Option<String>,
+}
+
 impl<'a> ReviewRepo<'a> {
     pub async fn create_agent_run(
         &self,
-        session_guid: String,
-        base_revision_guid: String,
-        run_kind: String,
-        execution_mode: String,
-        skill_id: Option<String>,
-        prompt_rel_path: Option<String>,
-        created_by: Option<String>,
+        params: CreateAgentRunParams,
     ) -> Result<review_agent_run::Model> {
         let base = BaseFields::new();
         let model = review_agent_run::ActiveModel {
@@ -24,21 +28,21 @@ impl<'a> ReviewRepo<'a> {
             created_at: Set(base.created_at),
             updated_at: Set(base.updated_at),
             is_deleted: Set(false),
-            session_guid: Set(session_guid),
-            base_revision_guid: Set(base_revision_guid),
+            session_guid: Set(params.session_guid),
+            base_revision_guid: Set(params.base_revision_guid),
             result_revision_guid: Set(None),
-            run_kind: Set(run_kind),
-            execution_mode: Set(execution_mode),
+            run_kind: Set(params.run_kind),
+            execution_mode: Set(params.execution_mode),
             status: Set("pending".to_string()),
-            skill_id: Set(skill_id),
-            prompt_rel_path: Set(prompt_rel_path),
+            skill_id: Set(params.skill_id),
+            prompt_rel_path: Set(params.prompt_rel_path),
             result_rel_path: Set(None),
             patch_rel_path: Set(None),
             summary_rel_path: Set(None),
             agent_session_ref: Set(None),
             finalize_attempts: Set(0),
             failure_reason: Set(None),
-            created_by: Set(created_by),
+            created_by: Set(params.created_by),
             started_at: Set(None),
             finished_at: Set(None),
         };

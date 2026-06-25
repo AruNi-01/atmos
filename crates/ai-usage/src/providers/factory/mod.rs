@@ -622,38 +622,6 @@ fn normalize_factory_timestamp(raw: i64) -> Option<u64> {
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{
-        factory_bearer_from_cookie_header, filter_cookie_header, is_method_not_allowed_error,
-    };
-    use crate::models::ProviderError;
-
-    #[test]
-    fn extracts_factory_bearer_from_cookie_header() {
-        let header = "foo=bar; access-token=abc.def.ghi; session=xyz";
-        assert_eq!(
-            factory_bearer_from_cookie_header(header).as_deref(),
-            Some("abc.def.ghi")
-        );
-    }
-
-    #[test]
-    fn filters_stale_factory_cookie_names() {
-        let header = "foo=bar; access-token=abc; __recent_auth=1; session=xyz";
-        assert_eq!(
-            filter_cookie_header(header, &["access-token", "__recent_auth"]),
-            "foo=bar; session=xyz"
-        );
-    }
-
-    #[test]
-    fn detects_method_not_allowed_error() {
-        let error = ProviderError::Fetch("Factory endpoint returned 405 Method Not Allowed".into());
-        assert!(is_method_not_allowed_error(&error));
-    }
-}
-
 fn format_short_date(timestamp: u64) -> String {
     let Some(date) = time::OffsetDateTime::from_unix_timestamp(timestamp as i64).ok() else {
         return timestamp.to_string();
@@ -691,4 +659,36 @@ fn titleize(raw: String) -> String {
 
 fn is_method_not_allowed_error(error: &ProviderError) -> bool {
     error.to_string().contains("405 Method Not Allowed")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        factory_bearer_from_cookie_header, filter_cookie_header, is_method_not_allowed_error,
+    };
+    use crate::models::ProviderError;
+
+    #[test]
+    fn extracts_factory_bearer_from_cookie_header() {
+        let header = "foo=bar; access-token=abc.def.ghi; session=xyz";
+        assert_eq!(
+            factory_bearer_from_cookie_header(header).as_deref(),
+            Some("abc.def.ghi")
+        );
+    }
+
+    #[test]
+    fn filters_stale_factory_cookie_names() {
+        let header = "foo=bar; access-token=abc; __recent_auth=1; session=xyz";
+        assert_eq!(
+            filter_cookie_header(header, &["access-token", "__recent_auth"]),
+            "foo=bar; session=xyz"
+        );
+    }
+
+    #[test]
+    fn detects_method_not_allowed_error() {
+        let error = ProviderError::Fetch("Factory endpoint returned 405 Method Not Allowed".into());
+        assert!(is_method_not_allowed_error(&error));
+    }
 }

@@ -80,18 +80,13 @@ const BUILTIN_GITIGNORE_DIRS: &[(&str, &str)] = &[
     ("adal", ".adal"),
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Strategy {
+    #[default]
     Symlink,
     Copy,
     Off,
-}
-
-impl Default for Strategy {
-    fn default() -> Self {
-        Self::Symlink
-    }
 }
 
 impl Strategy {

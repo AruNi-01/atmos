@@ -92,7 +92,7 @@ pub fn normalize_task_markdown(markdown: &str) -> String {
                 return (!content.is_empty()).then(|| format!("- [ ] {}", content));
             }
 
-            if trimmed.chars().next().map_or(false, |c| c.is_ascii_digit()) {
+            if trimmed.chars().next().is_some_and(|c| c.is_ascii_digit()) {
                 if let Some((prefix, content)) = trimmed.split_once(". ") {
                     if prefix.chars().all(|c| c.is_ascii_digit()) {
                         let content = content.trim();

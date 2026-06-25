@@ -27,6 +27,16 @@ pub use crate::service::workspace_support::{
     WorkspaceDto, WorkspaceLabelDto, WORKSPACE_PRIORITIES, WORKSPACE_WORKFLOW_STATUSES,
 };
 
+pub struct CreateIssueOnlyWorkspaceInput {
+    pub project_guid: String,
+    pub display_name: Option<String>,
+    pub github_issue_url: String,
+    pub github_issue_data: String,
+    pub workflow_status: Option<String>,
+    pub priority: Option<String>,
+    pub labels: Option<Vec<String>>,
+}
+
 pub struct WorkspaceService {
     db: Arc<DatabaseConnection>,
     git_engine: GitEngine,
@@ -508,28 +518,22 @@ impl WorkspaceService {
     /// 不创建分支、不初始化 worktree、不运行 setup flow
     pub async fn create_issue_only_workspace(
         &self,
-        project_guid: String,
-        display_name: Option<String>,
-        github_issue_url: String,
-        github_issue_data: String,
-        workflow_status: Option<String>,
-        priority: Option<String>,
-        labels: Option<Vec<String>>,
+        input: CreateIssueOnlyWorkspaceInput,
     ) -> Result<WorkspaceDto> {
-        let workflow_status = validate_workspace_workflow_status(workflow_status)?;
-        let priority = validate_workspace_priority(priority)?;
+        let workflow_status = validate_workspace_workflow_status(input.workflow_status)?;
+        let priority = validate_workspace_priority(input.priority)?;
 
         let workspace_repo = WorkspaceRepo::new(&self.db);
 
         let model = workspace_repo
             .create_issue_only(CreateIssueOnlyWorkspaceRecord {
-                project_guid,
-                display_name,
-                github_issue_url,
-                github_issue_data,
+                project_guid: input.project_guid,
+                display_name: input.display_name,
+                github_issue_url: input.github_issue_url,
+                github_issue_data: input.github_issue_data,
                 workflow_status,
                 priority,
-                label_guids: labels,
+                label_guids: input.labels,
             })
             .await?;
 

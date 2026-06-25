@@ -17,17 +17,30 @@ use crate::error::{Result, ServiceError};
 use super::super::support::{FileSnapshotMeta, RevisionManifestItem};
 use super::super::{ReviewAgentRunFinalizedDto, ReviewService};
 
+pub(in crate::service::review) struct FinalizeFixAgentRunInput<'a, 'repo> {
+    pub review_repo: &'a ReviewRepo<'repo>,
+    pub run: &'a review_agent_run::Model,
+    pub session: &'a review_session::Model,
+    pub base_revision: &'a review_revision::Model,
+    pub revision: review_revision::Model,
+    pub workspace_root: &'a Path,
+    pub change_time: chrono::NaiveDateTime,
+}
+
 impl ReviewService {
     pub(in crate::service::review) async fn finalize_fix_agent_run(
         &self,
-        review_repo: &ReviewRepo<'_>,
-        run: &review_agent_run::Model,
-        session: &review_session::Model,
-        base_revision: &review_revision::Model,
-        revision: review_revision::Model,
-        workspace_root: &Path,
-        change_time: chrono::NaiveDateTime,
+        input: FinalizeFixAgentRunInput<'_, '_>,
     ) -> Result<ReviewAgentRunFinalizedDto> {
+        let FinalizeFixAgentRunInput {
+            review_repo,
+            run,
+            session,
+            base_revision,
+            revision,
+            workspace_root,
+            change_time,
+        } = input;
         let base_snapshots = review_repo
             .list_file_snapshots_by_revision(&base_revision.guid)
             .await

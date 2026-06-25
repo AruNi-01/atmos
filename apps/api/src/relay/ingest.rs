@@ -199,7 +199,7 @@ pub async fn run(
         interval.tick().await;
         loop {
             interval.tick().await;
-            if ping_tx.send(Message::Ping(Vec::new().into())).is_err() {
+            if ping_tx.send(Message::Ping(Vec::new())).is_err() {
                 break;
             }
         }
@@ -259,7 +259,7 @@ pub async fn run(
                             "body": response_body,
                         })
                         .to_string();
-                        if let Err(error) = relay_out.send(Message::Text(outbound.into())) {
+                        if let Err(error) = relay_out.send(Message::Text(outbound)) {
                             warn!(
                                 target: "atmos_relay",
                                 error = %error,
@@ -299,7 +299,7 @@ pub async fn run(
                             "body": ack_body,
                         })
                         .to_string();
-                        if let Err(error) = relay_out.send(Message::Text(outbound.into())) {
+                        if let Err(error) = relay_out.send(Message::Text(outbound)) {
                             warn!(
                                 target: "atmos_relay",
                                 error = %error,
@@ -376,7 +376,7 @@ pub async fn run(
                         "body": reply,
                     })
                     .to_string();
-                    let _ = out_tx.send(Message::Text(outbound.into()));
+                    let _ = out_tx.send(Message::Text(outbound));
                 }
             }
             Some(Ok(Message::Ping(payload))) => {
@@ -462,7 +462,7 @@ async fn ensure_session(
                 "body": msg,
             })
             .to_string();
-            if relay_out_clone.send(Message::Text(frame.into())).is_err() {
+            if relay_out_clone.send(Message::Text(frame)).is_err() {
                 break;
             }
         }

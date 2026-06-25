@@ -19,6 +19,14 @@ use super::agents::{AutomationAgentInvocation, PromptDelivery};
 use super::output_rendering::{read_stream, write_output_chunks};
 use super::{publish_run_update, runner, AutomationEvent, AutomationRunStatus, START_FAILURE_KIND};
 
+struct FinishRunRequest<'a> {
+    run_guid: &'a str,
+    status: &'a str,
+    exit_code: Option<i32>,
+    failure_kind: Option<String>,
+    error_message: Option<String>,
+}
+
 pub(super) async fn run_automation_process(
     db: Arc<DatabaseConnection>,
     notification_service: Arc<NotificationService>,
@@ -43,11 +51,13 @@ pub(super) async fn run_automation_process(
             &db,
             &notification_service,
             &event_tx,
-            &run_guid,
-            AutomationRunStatus::Failed.as_str(),
-            None,
-            Some(START_FAILURE_KIND.to_string()),
-            Some(error.to_string()),
+            FinishRunRequest {
+                run_guid: &run_guid,
+                status: AutomationRunStatus::Failed.as_str(),
+                exit_code: None,
+                failure_kind: Some(START_FAILURE_KIND.to_string()),
+                error_message: Some(error.to_string()),
+            },
         )
         .await;
     }
@@ -99,11 +109,13 @@ async fn run_automation_process_inner(
                 &db,
                 &notification_service,
                 &event_tx,
-                &run_guid,
-                AutomationRunStatus::Failed.as_str(),
-                None,
-                Some(START_FAILURE_KIND.to_string()),
-                Some(error.to_string()),
+                FinishRunRequest {
+                    run_guid: &run_guid,
+                    status: AutomationRunStatus::Failed.as_str(),
+                    exit_code: None,
+                    failure_kind: Some(START_FAILURE_KIND.to_string()),
+                    error_message: Some(error.to_string()),
+                },
             )
             .await?;
             return Ok(());
@@ -207,11 +219,13 @@ async fn run_automation_process_inner(
         &db,
         &notification_service,
         &event_tx,
-        &run_guid,
-        status.0,
-        status.1,
-        status.2,
-        status.3,
+        FinishRunRequest {
+            run_guid: &run_guid,
+            status: status.0,
+            exit_code: status.1,
+            failure_kind: status.2,
+            error_message: status.3,
+        },
     )
     .await?;
 
@@ -233,12 +247,9 @@ async fn finish_run(
     db: &Arc<DatabaseConnection>,
     notification_service: &Arc<NotificationService>,
     event_tx: &broadcast::Sender<AutomationEvent>,
-    run_guid: &str,
-    status: &str,
-    exit_code: Option<i32>,
-    failure_kind: Option<String>,
-    error_message: Option<String>,
+    request: FinishRunRequest<'_>,
 ) -> Result<()> {
+    let run_guid = request.run_guid;
     let repo = AutomationRepo::new(db);
     let current = repo
         .find_run_by_guid(run_guid)
@@ -253,15 +264,20 @@ async fn finish_run(
         .update_run_status(
             run_guid,
             UpdateAutomationRunStatusRecord {
-                status: status.to_string(),
+                status: request.status.to_string(),
                 completed_at: Some(completed_at),
-                exit_code,
-                failure_kind,
-                error_message,
+                exit_code: request.exit_code,
+                failure_kind: request.failure_kind,
+                error_message: request.error_message,
             },
         )
         .await?;
-    let status_json = runner::run_json_for_status(&updated, status, Some(completed_at), exit_code);
+    let status_json = runner::run_json_for_status(
+        &updated,
+        request.status,
+        Some(completed_at),
+        request.exit_code,
+    );
     let _ = runner::write_run_json(
         PathBuf::from(&updated.run_json_path).as_path(),
         &status_json,

@@ -66,6 +66,7 @@ pub struct WsMessageService {
 }
 
 impl WsMessageService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         project_service: Arc<ProjectService>,
         workspace_service: Arc<WorkspaceService>,

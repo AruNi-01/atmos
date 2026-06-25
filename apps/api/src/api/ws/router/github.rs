@@ -45,11 +45,13 @@ impl WsMessageService {
             .list_issues(
                 &req.owner,
                 &req.repo,
-                &req.state,
-                req.limit,
-                &req.sort,
-                &req.direction,
-                req.search.as_deref(),
+                core_engine::github::GithubIssueListOptions {
+                    state: &req.state,
+                    limit: req.limit,
+                    sort: &req.sort,
+                    direction: &req.direction,
+                    search: req.search.as_deref(),
+                },
             )
             .await
             .map_err(|error| {

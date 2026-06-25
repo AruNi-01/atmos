@@ -59,6 +59,7 @@ pub struct TerminalWsQuery {
 /// Terminal message from client
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::enum_variant_names)]
 enum ClientTerminalMessage {
     TerminalCreate {
         #[allow(dead_code)]

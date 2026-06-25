@@ -317,7 +317,7 @@ fn build_client_usage(graph: &tokscale_core::GraphResult) -> Vec<ClientTokenUsag
         })
         .collect::<Vec<_>>();
 
-    values.sort_by(|a, b| b.total_tokens.cmp(&a.total_tokens));
+    values.sort_by_key(|value| std::cmp::Reverse(value.total_tokens));
     values
 }
 

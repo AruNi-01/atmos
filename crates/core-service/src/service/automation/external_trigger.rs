@@ -12,7 +12,7 @@ use super::{AutomationRunDetail, AutomationRunSummary, AutomationService, Automa
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ExternalTriggerOutcome {
-    Accepted { run: AutomationRunDetail },
+    Accepted { run: Box<AutomationRunDetail> },
     LocalRejected { rejection: ExternalTriggerRejection },
 }
 
@@ -176,9 +176,9 @@ impl AutomationService {
                 repo.associate_github_delivery_run(&event.delivery_id, &event.route_id, &run.guid)
                     .await?;
                 Ok(ExternalTriggerOutcome::Accepted {
-                    run: AutomationRunDetail {
+                    run: Box::new(AutomationRunDetail {
                         summary: AutomationRunSummary::from(run),
-                    },
+                    }),
                 })
             }
             Err(ServiceError::Validation(message)) if message == "already_running" => {

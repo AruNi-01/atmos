@@ -188,10 +188,10 @@ impl GitEngine {
         }
 
         // Delete remote branch if configured (non-fatal)
-        if delete_remote_branch {
-            if let Some(_) = try_run_git(repo_path, &["push", "origin", "--delete", branch_name])? {
-                tracing::info!("Deleted remote branch: origin/{}", branch_name);
-            }
+        if delete_remote_branch
+            && try_run_git(repo_path, &["push", "origin", "--delete", branch_name])?.is_some()
+        {
+            tracing::info!("Deleted remote branch: origin/{}", branch_name);
         }
 
         tracing::info!("Removed worktree for workspace {}", workspace_name);

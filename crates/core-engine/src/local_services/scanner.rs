@@ -137,6 +137,7 @@ fn scan_macos() -> Result<Vec<LocalTcpListener>> {
     Ok(dedupe(records))
 }
 
+#[cfg(target_os = "macos")]
 #[derive(Debug, Clone)]
 struct ProcessMetadata {
     name: Option<String>,
@@ -297,9 +298,8 @@ fn process_metadata_linux(pid: u32) -> ProcessMetadataLinux {
         .map(|bytes| {
             bytes
                 .split(|b| *b == 0)
-                .filter_map(|part| {
-                    (!part.is_empty()).then(|| String::from_utf8_lossy(part).to_string())
-                })
+                .filter(|part| !part.is_empty())
+                .map(|part| String::from_utf8_lossy(part).to_string())
                 .collect::<Vec<_>>()
         })
         .filter(|parts| !parts.is_empty());
@@ -437,6 +437,7 @@ foreach ($c in $connections) {
     Ok(dedupe(records))
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn parse_port_from_socket_name(name: &str) -> Option<u16> {
     let endpoint = name.split("->").next().unwrap_or(name);
     let endpoint = endpoint
@@ -450,6 +451,7 @@ fn parse_port_from_socket_name(name: &str) -> Option<u16> {
         .and_then(|(_, port)| port.trim_end_matches(')').parse::<u16>().ok())
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn parse_addr_from_socket_name(name: &str) -> String {
     let endpoint = name.split("->").next().unwrap_or(name);
     let endpoint = endpoint
@@ -466,6 +468,7 @@ fn parse_addr_from_socket_name(name: &str) -> String {
         .unwrap_or_else(|| "*".into())
 }
 
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn shell_words(command: &str) -> Vec<String> {
     command
         .split_whitespace()

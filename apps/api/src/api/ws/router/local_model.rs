@@ -233,8 +233,8 @@ impl WsMessageService {
             .stop()
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        if let Some(ref mgr) = ws_manager {
-            let state_json = serde_json::to_value(&manager.state()).unwrap_or(json!(null));
+        if let Some(mgr) = ws_manager {
+            let state_json = serde_json::to_value(manager.state()).unwrap_or(json!(null));
             let notification = WsMessage::notification(
                 WsEvent::LocalModelStateChanged,
                 json!({ "state": state_json }),
@@ -259,8 +259,8 @@ impl WsMessageService {
             tracing::warn!("[LocalModel] failed to delete provider config: {e}");
         }
 
-        if let Some(ref mgr) = self.ws_manager.get() {
-            let state_json = serde_json::to_value(&manager.state()).unwrap_or(json!(null));
+        if let Some(mgr) = self.ws_manager.get() {
+            let state_json = serde_json::to_value(manager.state()).unwrap_or(json!(null));
             let notification = WsMessage::notification(
                 WsEvent::LocalModelStateChanged,
                 json!({ "state": state_json }),
@@ -280,8 +280,8 @@ impl WsMessageService {
             .delete_runtime()
             .await
             .map_err(|e| ServiceError::Processing(e.to_string()))?;
-        if let Some(ref mgr) = self.ws_manager.get() {
-            let state_json = serde_json::to_value(&manager.state()).unwrap_or(json!(null));
+        if let Some(mgr) = self.ws_manager.get() {
+            let state_json = serde_json::to_value(manager.state()).unwrap_or(json!(null));
             let notification = WsMessage::notification(
                 WsEvent::LocalModelStateChanged,
                 json!({ "state": state_json }),
@@ -316,11 +316,12 @@ impl WsMessageService {
         let resolved = resolve_hf_model_url(&http, &req.url).await.map_err(|e| {
             ServiceError::Processing(format!("Failed to resolve Hugging Face URL: {e}"))
         })?;
-        let HfResolveResult::Model { mut model } = resolved else {
+        let HfResolveResult::Model { model } = resolved else {
             return Err(ServiceError::Validation(
                 "Choose a specific GGUF file before adding the custom model".to_string(),
             ));
         };
+        let mut model = *model;
 
         if let Some(display_name) = req
             .display_name

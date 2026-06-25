@@ -8,7 +8,7 @@ use crate::manifest::ModelEntry;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HfResolveResult {
-    Model { model: ModelEntry },
+    Model { model: Box<ModelEntry> },
     Choices { choices: Vec<HfModelChoice> },
 }
 
@@ -62,7 +62,9 @@ pub async fn resolve_hf_model_url(client: &Client, raw_url: &str) -> Result<HfRe
     match parsed {
         ParsedHfUrl::File(file_ref) => {
             let model = resolve_file(file_ref).await?;
-            Ok(HfResolveResult::Model { model })
+            Ok(HfResolveResult::Model {
+                model: Box::new(model),
+            })
         }
         ParsedHfUrl::Repo {
             repo_id,
@@ -78,7 +80,9 @@ pub async fn resolve_hf_model_url(client: &Client, raw_url: &str) -> Result<HfRe
                     path: choices[0].filename.clone(),
                 };
                 let model = resolve_file(file_ref).await?;
-                Ok(HfResolveResult::Model { model })
+                Ok(HfResolveResult::Model {
+                    model: Box::new(model),
+                })
             } else if choices.is_empty() {
                 let discovered = discover_gguf_choices(client, &repo_id).await?;
                 if discovered.is_empty() {
@@ -349,7 +353,7 @@ async fn enrich_choice_metadata(choices: &mut [HfModelChoice], revision: &str) {
 }
 
 fn ram_footprint_mb(size_bytes: u64) -> u64 {
-    ((size_bytes + 1024 * 1024 - 1) / (1024 * 1024)).max(1)
+    size_bytes.div_ceil(1024 * 1024).max(1)
 }
 
 fn sort_choices(choices: &mut [HfModelChoice]) {

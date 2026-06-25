@@ -137,7 +137,7 @@ fn write_restricted_file(path: &Path, contents: &str) -> Result<(), String> {
             .map_err(|err| format!("Failed to write {}: {}", path.display(), err))?;
         file.write_all(contents.as_bytes())
             .map_err(|err| format!("Failed to write {}: {}", path.display(), err))?;
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(unix))]

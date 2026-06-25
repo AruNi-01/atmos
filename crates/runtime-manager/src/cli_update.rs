@@ -63,8 +63,9 @@ pub struct LatestCliRelease {
 
 #[derive(Debug, Clone)]
 pub struct CliInstallResult {
-    pub version: Option<String>,
+    pub version: String,
     pub install_path: PathBuf,
+    pub install_method: &'static str,
 }
 
 pub struct ShellConfigResult {
@@ -77,6 +78,11 @@ pub fn installed_cli_path() -> Option<PathBuf> {
 }
 
 pub async fn install_latest_cli() -> Result<CliInstallResult, String> {
+    let release = fetch_latest_cli_release().await?;
+    install_cli_release(&release).await
+}
+
+pub async fn install_cli_release(release: &LatestCliRelease) -> Result<CliInstallResult, String> {
     let cli_path =
         installed_cli_path().ok_or_else(|| "Cannot determine CLI install path".to_string())?;
     if let Some(bin_dir) = cli_path.parent() {
@@ -84,18 +90,26 @@ pub async fn install_latest_cli() -> Result<CliInstallResult, String> {
             .map_err(|error| format!("Failed to create {}: {}", bin_dir.display(), error))?;
     }
 
-    let release = fetch_latest_cli_release().await?;
-    let asset_url = release
-        .asset_url
-        .as_deref()
-        .ok_or_else(|| "No compatible CLI asset found for this platform".to_string())?;
+    let Some(asset_url) = release.asset_url.as_deref() else {
+        return Err(
+            "The latest CLI release does not include a compatible binary asset for this platform."
+                .to_string(),
+        );
+    };
 
     info!("Downloading CLI from: {}", asset_url);
     download_and_install_cli(asset_url, &cli_path).await?;
+    let version = read_cli_version(&cli_path).ok_or_else(|| {
+        format!(
+            "Failed to determine installed CLI version at {}",
+            cli_path.display()
+        )
+    })?;
 
     Ok(CliInstallResult {
-        version: read_cli_version(&cli_path),
+        version,
         install_path: cli_path,
+        install_method: "release_asset",
     })
 }
 

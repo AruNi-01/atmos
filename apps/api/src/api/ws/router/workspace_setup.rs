@@ -166,6 +166,7 @@ impl WsMessageService {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn send_setup_failure(
         manager: &Arc<WsManager>,
         conn_id: &str,

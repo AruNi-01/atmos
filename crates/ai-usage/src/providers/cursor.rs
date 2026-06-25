@@ -215,7 +215,7 @@ pub(crate) async fn fetch_cursor_live(client: &Client) -> Result<LiveFetchResult
         .as_ref()
         .map(|value| {
             let is_team = value.limit_type.as_deref() == Some("team");
-            let individual_used = value.individual_used.or_else(|| {
+            let individual_used = value.individual_used.or({
                 match (value.individual_limit, value.individual_remaining) {
                     (Some(limit), Some(remaining)) => Some(limit - remaining),
                     _ => None,
