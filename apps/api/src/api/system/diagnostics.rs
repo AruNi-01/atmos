@@ -105,7 +105,7 @@ pub fn get_pty_process_summary() -> Vec<Value> {
                 .into_iter()
                 .map(|(cmd, devices)| (cmd, devices.len() as u32))
                 .collect();
-            sorted.sort_by(|a, b| b.1.cmp(&a.1));
+            sorted.sort_by_key(|item| std::cmp::Reverse(item.1));
             sorted.truncate(10);
 
             sorted
