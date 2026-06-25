@@ -1,0 +1,24 @@
+apps/web/src/features/agent-fix/components/AgentFixToolbarPrimitive.tsx
+  s_40d2b50d3936eb::t_80a4a0b41d0ffa 1-114
+apps/web/src/features/diff/components/review/FixActionsMenu.tsx
+  s_40d2b50d3936eb::t_767158920bd792 7,15,57-86,88,91-92,94-121
+apps/web/src/features/agent-fix/components/AgentFixToolbar.tsx
+  s_40d2b50d3936eb::t_82ac957d97c621 64,71
+  s_40d2b50d3936eb::t_c210e080084c08 4-5,8,45-48,50-63,65-70,72,75-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "07d2701f0501cf50f1330ece539a1305d31df80c",
+  "prompts": {},
+  "sessions": {
+    "s_40d2b50d3936eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efdda-955e-7a30-a977-e726dded38e3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
