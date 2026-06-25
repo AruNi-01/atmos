@@ -1,0 +1,19 @@
+crates/runtime-manager/src/cli_update.rs
+  s_aaaedc8b345554::t_1eb185bdf1b0af 93-97,100-108,110,112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "31918cdc846be12b3c84a0b1f9354e9997db60c2",
+  "prompts": {},
+  "sessions": {
+    "s_aaaedc8b345554": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efc14-5546-7863-a921-a0fc383e4b35",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
