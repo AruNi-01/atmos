@@ -1,0 +1,19 @@
+crates/infra/src/db/migration/mod.rs
+  s_aaaedc8b345554::t_1821d05936bcb7 141,158,168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "7886d3f43d12eec8a6a8b160ef88d23045f0c865",
+  "prompts": {},
+  "sessions": {
+    "s_aaaedc8b345554": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efc14-5546-7863-a921-a0fc383e4b35",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
