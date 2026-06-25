@@ -1,0 +1,36 @@
+apps/web/src/features/github/components/PRFilesTab.tsx
+  s_0c551f880bec5e::t_c05d287a1c85e5 8,22,249-252,256
+  s_0c551f880bec5e::t_cce14b9e3c940b 65-71,79,82-94,96-97
+  s_0c551f880bec5e::t_ac8e1f826f7252 95
+  s_0c551f880bec5e::t_78fd59254b49b5 103-116
+  s_0c551f880bec5e::t_3aa20a47a85c35 300-302,304-305,392,409
+  s_0c551f880bec5e::t_a92255e19f37cd 350-353
+  s_0c551f880bec5e::t_468cc663e00219 44,136,159,318,321,348-349,354-360,425-435
+apps/web/src/features/github/components/PRDetailModal.tsx
+  s_0c551f880bec5e::t_a67bfc2532020b 100,104,358-360,362-363,367,369-371,373-375,390,392,394,404-406,408-415,417,471-478,481,483,485-535,537,539-546
+  s_0c551f880bec5e::t_33fc5dbc39072b 101,131-132,365,388,479
+  s_0c551f880bec5e::t_2665778a3f0b68 482,484,536,538
+  s_0c551f880bec5e::t_adc5098006bfb2 969,980
+  s_0c551f880bec5e::t_a70505469e3024 102-103,106-122,130,133,141,143-162,361,364,366,368,372,376,382,389,391,393,401-402,407,416
+  s_0c551f880bec5e::t_107bd68311c364 377-381,383-387
+  s_0c551f880bec5e::t_5127e41a1230de 395-400,403,976
+  s_0c551f880bec5e::t_229ff8e5a0deef 480
+apps/web/src/features/github/lib/pr-detail-modal-parts.tsx
+  s_0c551f880bec5e::t_8855bb80cbe85f 197-222,226-234,236-240,242-253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "ee79fe5719b425f17d68f5d7d238573fef0df989",
+  "prompts": {},
+  "sessions": {
+    "s_0c551f880bec5e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efd52-1799-7222-9643-96938853c9f6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
