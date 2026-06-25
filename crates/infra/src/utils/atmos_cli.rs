@@ -160,7 +160,7 @@ fn ensure_cli_in_shell_config(bin_dir: &Path) {
 
 fn get_shell_config_files(home: &Path, shell_name: &str) -> Vec<PathBuf> {
     let xdg_config_home = std::env::var("XDG_CONFIG_HOME")
-        .map(|path| PathBuf::from(path))
+        .map(PathBuf::from)
         .unwrap_or_else(|_| home.join(".config"));
 
     match shell_name {

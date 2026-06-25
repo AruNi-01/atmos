@@ -167,18 +167,6 @@ pub fn get_orphaned_processes() -> Vec<Value> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::normalized_shell_basename;
-
-    #[test]
-    fn normalizes_login_shell_basenames() {
-        assert_eq!(normalized_shell_basename("-bash --login"), "bash");
-        assert_eq!(normalized_shell_basename("/bin/-zsh -l"), "zsh");
-        assert_eq!(normalized_shell_basename("/usr/bin/fish"), "fish");
-    }
-}
-
 /// Gather tmux server information (socket, PID, uptime, total sessions/windows).
 pub fn get_tmux_server_info(tmux_engine: &core_engine::TmuxEngine) -> Value {
     let socket_path = tmux_engine.socket_file_path();
@@ -330,5 +318,17 @@ pub fn get_pty_device_details() -> Vec<Value> {
             warn!("Failed to get PTY device details: {}", e);
             vec![]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalized_shell_basename;
+
+    #[test]
+    fn normalizes_login_shell_basenames() {
+        assert_eq!(normalized_shell_basename("-bash --login"), "bash");
+        assert_eq!(normalized_shell_basename("/bin/-zsh -l"), "zsh");
+        assert_eq!(normalized_shell_basename("/usr/bin/fish"), "fish");
     }
 }

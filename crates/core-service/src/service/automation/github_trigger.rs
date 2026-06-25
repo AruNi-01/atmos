@@ -597,10 +597,7 @@ fn is_allowed_action(family: &GithubEventFamily, action: &str) -> bool {
             action,
             "opened" | "reopened" | "ready_for_review" | "closed" | "merged"
         ),
-        GithubEventFamily::Issues => matches!(
-            action,
-            "opened" | "reopened" | "labeled" | "closed"
-        ),
+        GithubEventFamily::Issues => matches!(action, "opened" | "reopened" | "labeled" | "closed"),
         GithubEventFamily::PullRequestComment => matches!(action, "created" | "edited" | "deleted"),
         GithubEventFamily::Push => action == "pushed",
         GithubEventFamily::WorkflowRun => {
@@ -996,10 +993,7 @@ mod tests {
             event_family: GithubEventFamily::PullRequestComment,
             actions: vec!["created".to_string()],
             filters: GithubTriggerFilters {
-                comment_contains_any: vec![
-                    "/atmos fix".to_string(),
-                    "/atmos review".to_string(),
-                ],
+                comment_contains_any: vec!["/atmos fix".to_string(), "/atmos review".to_string()],
                 sender_logins: vec!["alice".to_string()],
                 ..Default::default()
             },

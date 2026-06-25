@@ -84,6 +84,5 @@ async fn stop(args: StopArgs) -> Result<Value, String> {
 
 async fn status() -> Result<Value, String> {
     let status = runtime_manager::supervisor::runtime_status().await?;
-    Ok(serde_json::to_value(status)
-        .map_err(|e| format!("Failed to serialize runtime status: {e}"))?)
+    serde_json::to_value(status).map_err(|e| format!("Failed to serialize runtime status: {e}"))
 }

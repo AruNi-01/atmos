@@ -39,6 +39,15 @@ pub struct GithubIssue {
     pub labels: Vec<GithubIssueLabel>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct GithubIssueListOptions<'a> {
+    pub state: &'a str,
+    pub limit: usize,
+    pub sort: &'a str,
+    pub direction: &'a str,
+    pub search: Option<&'a str>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GithubPullRequest {
     pub owner: String,
@@ -240,32 +249,24 @@ impl GithubEngine {
         &self,
         owner: &str,
         repo: &str,
-        state: &str,
-        limit: usize,
-        sort: &str,
-        direction: &str,
-        search: Option<&str>,
+        options: GithubIssueListOptions<'_>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
-        match self
-            .list_issues_via_gh(owner, repo, state, limit, search)
-            .await
-        {
+        match self.list_issues_via_gh(owner, repo, options).await {
             Ok(issues) => Ok(issues),
             Err(gh_error) => {
                 tracing::warn!(
                     owner,
                     repo,
-                    state,
-                    limit,
+                    state = options.state,
+                    limit = options.limit,
                     "gh issue list failed, falling back to GitHub API: {}",
                     gh_error
                 );
-                self.list_issues_via_api(owner, repo, state, limit, sort, direction, search)
-                    .await
+                self.list_issues_via_api(owner, repo, options).await
             }
         }
         .map(|mut issues| {
-            sort_issues(&mut issues, sort, direction);
+            sort_issues(&mut issues, options.sort, options.direction);
             issues
         })
     }
@@ -295,25 +296,23 @@ impl GithubEngine {
         &self,
         owner: &str,
         repo: &str,
-        state: &str,
-        limit: usize,
-        search: Option<&str>,
+        options: GithubIssueListOptions<'_>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
         let repo_arg = format!("{owner}/{repo}");
-        let limit_value = limit.to_string();
+        let limit_value = options.limit.to_string();
         let mut args = vec![
             "issue",
             "list",
             "--repo",
             &repo_arg,
             "--state",
-            state,
+            options.state,
             "--limit",
             &limit_value,
             "--json",
             "number,title,body,url,state,createdAt,updatedAt,labels",
         ];
-        if let Some(search_query) = search.filter(|value| !value.trim().is_empty()) {
+        if let Some(search_query) = options.search.filter(|value| !value.trim().is_empty()) {
             args.push("--search");
             args.push(search_query);
         }
@@ -346,11 +345,7 @@ impl GithubEngine {
         &self,
         owner: &str,
         repo: &str,
-        state: &str,
-        limit: usize,
-        sort: &str,
-        direction: &str,
-        search: Option<&str>,
+        options: GithubIssueListOptions<'_>,
     ) -> Result<Vec<GithubIssue>, EngineError> {
         let mut url = reqwest::Url::parse(&format!(
             "https://api.github.com/repos/{owner}/{repo}/issues"
@@ -358,22 +353,33 @@ impl GithubEngine {
         .map_err(|e| EngineError::Processing(format!("Invalid GitHub API URL: {e}")))?;
         {
             let mut pairs = url.query_pairs_mut();
-            pairs.append_pair("state", state);
-            pairs.append_pair("per_page", &limit.to_string());
+            pairs.append_pair("state", options.state);
+            pairs.append_pair("per_page", &options.limit.to_string());
             pairs.append_pair(
                 "sort",
-                if sort == "updated" {
+                if options.sort == "updated" {
                     "updated"
                 } else {
                     "created"
                 },
             );
-            pairs.append_pair("direction", if direction == "asc" { "asc" } else { "desc" });
+            pairs.append_pair(
+                "direction",
+                if options.direction == "asc" {
+                    "asc"
+                } else {
+                    "desc"
+                },
+            );
         }
         let endpoint = url.to_string();
         let output = self.fetch_api_json(&endpoint).await?;
         let mut issues = parse_issue_list_value(owner, repo, output)?;
-        if let Some(search_query) = search.map(str::trim).filter(|value| !value.is_empty()) {
+        if let Some(search_query) = options
+            .search
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
             let query = search_query.to_lowercase();
             issues.retain(|issue| {
                 issue.title.to_lowercase().contains(&query)

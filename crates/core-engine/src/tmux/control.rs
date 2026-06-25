@@ -178,17 +178,12 @@ const TMUX_PASSTHROUGH_PREFIX: &[u8] = b"\x1bPtmux;";
 const SYNC_OUTPUT_BEGIN: &[u8] = b"\x1b[?2026h";
 const SYNC_OUTPUT_END: &[u8] = b"\x1b[?2026l";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum PassthroughState {
+    #[default]
     Normal,
     Inside,
     AfterEsc,
-}
-
-impl Default for PassthroughState {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 /// Stateful tmux DCS passthrough unwrapper.

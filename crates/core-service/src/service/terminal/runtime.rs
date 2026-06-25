@@ -19,6 +19,12 @@ use crate::error::{Result, ServiceError};
 
 use super::{is_usable_browser_size, SessionCommand};
 
+type PtySetup = (
+    Box<dyn portable_pty::MasterPty + Send>,
+    Box<dyn std::io::Read + Send>,
+    Box<dyn std::io::Write + Send>,
+);
+
 fn is_utf8_locale(value: &str) -> bool {
     let upper = value.to_ascii_uppercase();
     upper.contains("UTF-8") || upper.contains("UTF8")
@@ -63,18 +69,7 @@ fn apply_utf8_env_to_pty_command(cmd: &mut CommandBuilder) {
 
 /// Spawn a command inside a new PTY and return master, reader, and writer.
 /// The PTY slave is dropped immediately after spawning to ensure clean EOF on exit.
-fn setup_pty(
-    cols: u16,
-    rows: u16,
-    cmd: CommandBuilder,
-) -> std::result::Result<
-    (
-        Box<dyn portable_pty::MasterPty + Send>,
-        Box<dyn std::io::Read + Send>,
-        Box<dyn std::io::Write + Send>,
-    ),
-    String,
-> {
+fn setup_pty(cols: u16, rows: u16, cmd: CommandBuilder) -> std::result::Result<PtySetup, String> {
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {

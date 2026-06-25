@@ -326,9 +326,9 @@ fn spawn_detached_api(
         }
 
         let pid_text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        return pid_text
+        pid_text
             .parse::<u32>()
-            .map_err(|error| format!("Failed to parse API pid `{pid_text}`: {error}"));
+            .map_err(|error| format!("Failed to parse API pid `{pid_text}`: {error}"))
     }
 
     #[cfg(not(unix))]

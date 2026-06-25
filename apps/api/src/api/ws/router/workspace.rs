@@ -69,7 +69,7 @@ impl WsMessageService {
                 );
             }
 
-            return Err(error.into());
+            return Err(error);
         }
 
         if !req.attachments.is_empty() {
@@ -241,13 +241,15 @@ impl WsMessageService {
             let workspace = self
                 .workspace_service
                 .create_issue_only_workspace(
-                    req.project_guid.clone(),
-                    Some(issue.title.clone()),
-                    issue.url.clone(),
-                    issue_data,
-                    req.workflow_status.clone(),
-                    req.priority.clone(),
-                    Some(label_guids),
+                    core_service::service::workspace::CreateIssueOnlyWorkspaceInput {
+                        project_guid: req.project_guid.clone(),
+                        display_name: Some(issue.title.clone()),
+                        github_issue_url: issue.url.clone(),
+                        github_issue_data: issue_data,
+                        workflow_status: req.workflow_status.clone(),
+                        priority: req.priority.clone(),
+                        labels: Some(label_guids),
+                    },
                 )
                 .await?;
 

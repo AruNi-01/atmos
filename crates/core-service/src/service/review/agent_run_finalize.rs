@@ -107,15 +107,15 @@ impl ReviewService {
                     .await;
             }
 
-            self.finalize_fix_agent_run(
-                &review_repo,
-                &run,
-                &session,
-                &base_revision,
+            self.finalize_fix_agent_run(super::agent_runs::FinalizeFixAgentRunInput {
+                review_repo: &review_repo,
+                run: &run,
+                session: &session,
+                base_revision: &base_revision,
                 revision,
-                &workspace_root,
+                workspace_root: &workspace_root,
                 change_time,
-            )
+            })
             .await
         }
         .await;

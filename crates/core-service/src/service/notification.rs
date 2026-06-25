@@ -407,6 +407,12 @@ impl NotificationService {
     }
 }
 
+impl Default for NotificationService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn automation_terminal_status_label(status: &str) -> Option<&'static str> {
     match status {
         "completed" => Some("completed"),

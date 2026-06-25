@@ -9,6 +9,8 @@ mod file;
 mod revision;
 mod session;
 
+pub use agent_run::CreateAgentRunParams;
+
 pub struct ReviewRepo<'a> {
     db: &'a DatabaseConnection,
 }

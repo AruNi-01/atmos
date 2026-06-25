@@ -245,7 +245,7 @@ impl ReviewService {
             })
             .await?;
         Ok(ReviewCommentDto {
-            anchor: serde_json::to_value(&json!({
+            anchor: serde_json::to_value(json!({
                 "file_path": file_snapshot.file_path,
                 "side": input.side,
                 "start_line": input.start_line,
@@ -475,7 +475,7 @@ impl ReviewService {
             })?;
 
         let mut messages = review_repo
-            .list_messages_by_comment_guids(&[message.comment_guid.clone()])
+            .list_messages_by_comment_guids(std::slice::from_ref(&message.comment_guid))
             .await
             .map_err(ServiceError::Infra)?;
         messages.sort_by_key(|item| item.created_at);
@@ -493,7 +493,7 @@ impl ReviewService {
         let should_delete_comment = messages.len() == 1
             && comment
                 .as_ref()
-                .map_or(true, |c| c.parent_comment_guid.is_none());
+                .is_none_or(|c| c.parent_comment_guid.is_none());
 
         if should_delete_comment {
             review_repo

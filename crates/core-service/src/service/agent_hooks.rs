@@ -391,3 +391,9 @@ impl AgentHooksService {
             .or_else(|| payload.get("conversation_id").and_then(|v| v.as_str()))
     }
 }
+
+impl Default for AgentHooksService {
+    fn default() -> Self {
+        Self::new()
+    }
+}

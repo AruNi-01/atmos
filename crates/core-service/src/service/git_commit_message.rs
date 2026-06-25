@@ -268,7 +268,7 @@ fn generation_scope_and_summary(
         MAX_FILES_IN_PROMPT
     } else {
         // Rough heuristic: ~80 chars per file line
-        (max_summary_chars / 80).min(MAX_FILES_IN_PROMPT).max(4)
+        (max_summary_chars / 80).clamp(4, MAX_FILES_IN_PROMPT)
     };
 
     if !changes.staged_files.is_empty() {

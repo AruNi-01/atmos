@@ -41,9 +41,9 @@ pub(crate) use agents::{
     StdoutParser,
 };
 pub use agents::{
-    AutomationAgentModelInputMode, AutomationAgentReasoningMode,
-    AutomationAgentReasoningSelection, AutomationAgentRunConfig, TerminalAgentModelCatalog,
-    TerminalAgentModelCatalogSource, TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
+    AutomationAgentModelInputMode, AutomationAgentReasoningMode, AutomationAgentReasoningSelection,
+    AutomationAgentRunConfig, TerminalAgentModelCatalog, TerminalAgentModelCatalogSource,
+    TerminalAgentModelCatalogStatus, TerminalAgentModelOption,
 };
 pub use events::{AutomationDefinitionChange, AutomationEvent};
 pub use external_trigger::{
@@ -566,7 +566,10 @@ impl AutomationService {
                 .agent_config_json
                 .as_deref()
                 .and_then(|raw| serde_json::from_str::<AutomationAgentRunConfig>(raw).ok());
-            agents::validate_agent_run_config(&existing.agent_id, req.agent_config.as_ref().or(existing_config.as_ref()))?;
+            agents::validate_agent_run_config(
+                &existing.agent_id,
+                req.agent_config.as_ref().or(existing_config.as_ref()),
+            )?;
         }
         if let Some(target) = req.target.as_ref() {
             self.validate_target(target).await?;

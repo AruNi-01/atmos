@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use base64::Engine;
 use core_engine::GitEngine;
 use core_service::{
     AttachSessionParams, CreateSessionParams, CreateSimpleSessionParams, TerminalResponse,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, error, warn};
 
@@ -23,6 +23,7 @@ pub struct RelayTerminalSession {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::enum_variant_names)]
 enum RelayTerminalClientMessage {
     TerminalOpen {
         session_id: String,
@@ -424,7 +425,7 @@ fn send_terminal_response_to_sid<T: Serialize>(
         "body": body,
     })
     .to_string();
-    let _ = relay_out.send(Message::Text(outbound.into()));
+    let _ = relay_out.send(Message::Text(outbound));
 }
 
 fn relay_terminal_output(session_id: &str, data: &[u8]) -> RelayTerminalServerMessage {

@@ -112,7 +112,7 @@ pub async fn fetch_manifest(client: &Client, force_refresh: bool) -> Result<Mode
 
     // Fallback to bundled manifest
     debug!("Using bundled local model manifest");
-    Ok(fetch_bundled_manifest()?)
+    fetch_bundled_manifest()
 }
 
 /// Fetch manifest from a specific URL.
@@ -159,7 +159,7 @@ pub fn current_platform() -> &'static str {
 }
 
 /// Find the binary entry for the current platform.
-pub fn find_binary_for_platform<'a>(manifest: &'a ModelManifest) -> Option<&'a BinaryEntry> {
+pub fn find_binary_for_platform(manifest: &ModelManifest) -> Option<&BinaryEntry> {
     let platform = current_platform();
     manifest.binaries.iter().find(|b| b.platform == platform)
 }

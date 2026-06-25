@@ -59,20 +59,11 @@ pub(super) fn function_settings_path() -> std::path::PathBuf {
 }
 
 /// Workspace deletion settings read from function_settings.json.
+#[derive(Default)]
 pub(super) struct WorkspaceDeleteSettings {
     pub(super) close_pr_on_delete: bool,
     pub(super) close_issue_on_delete: bool,
     pub(super) delete_remote_branch: bool,
-}
-
-impl Default for WorkspaceDeleteSettings {
-    fn default() -> Self {
-        Self {
-            close_pr_on_delete: false,
-            close_issue_on_delete: false,
-            delete_remote_branch: false,
-        }
-    }
 }
 
 impl WorkspaceDeleteSettings {

@@ -196,11 +196,8 @@ impl GitEngine {
                 }
                 None => (false, 0),
             };
-        let upstream_behind_count =
-            match try_run_git(repo_path, &["rev-list", "HEAD..@{u}", "--count"])? {
-                Some(count_str) => Some(count_str.trim().parse::<u32>().unwrap_or(0)),
-                None => None,
-            };
+        let upstream_behind_count = try_run_git(repo_path, &["rev-list", "HEAD..@{u}", "--count"])?
+            .map(|count_str| count_str.trim().parse::<u32>().unwrap_or(0));
 
         let default_branch = self.get_remote_default_branch(repo_path)?;
         let current_branch = self.get_current_branch(repo_path).ok();

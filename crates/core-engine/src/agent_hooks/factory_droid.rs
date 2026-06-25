@@ -242,7 +242,7 @@ pub(super) fn check() -> AgentHookToolStatus {
         .get("hooks")
         .and_then(|h| h.get("Stop"))
         .and_then(|arr| arr.as_array())
-        .map(|arr| arr.iter().any(|entry| is_atmos_hook(entry)))
+        .map(|arr| arr.iter().any(is_atmos_hook))
         .unwrap_or(false);
 
     AgentHookToolStatus {

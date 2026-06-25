@@ -76,8 +76,10 @@ impl AutomationService {
             .as_deref()
             .or(automation.agent_config_json.as_deref())
             .and_then(parse_run_config);
-        let agent =
-            agents::resolve_interactive_automation_agent_with_config(&automation.agent_id, run_config.as_ref())?;
+        let agent = agents::resolve_interactive_automation_agent_with_config(
+            &automation.agent_id,
+            run_config.as_ref(),
+        )?;
 
         let prompt_path = PathBuf::from(&run.run_dir).join(runner::CONTINUE_PROMPT_FILE);
         let prompt = build_continue_prompt(&automation, &run);

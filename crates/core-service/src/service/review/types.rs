@@ -202,8 +202,8 @@ pub struct ReviewAgentRunFinalizedDto {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ReviewAgentRunStatusDto {
-    Run { run: review_agent_run::Model },
-    Finalized(ReviewAgentRunFinalizedDto),
+    Run { run: Box<review_agent_run::Model> },
+    Finalized(Box<ReviewAgentRunFinalizedDto>),
 }
 
 #[derive(Debug, Clone, Serialize)]
