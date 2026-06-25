@@ -1,0 +1,129 @@
+apps/api/src/api/ws/router/mod.rs
+  s_aaaedc8b345554::t_1ffb22b571c361 69
+crates/core-service/src/service/terminal/runtime.rs
+  s_aaaedc8b345554::t_e4cbe814f0a2fb 22-27
+  s_aaaedc8b345554::t_e77ee6073da560 72
+crates/core-service/src/service/automation/lifecycle.rs
+  s_aaaedc8b345554::t_41d3de634957de 79-82
+crates/ai-usage/src/providers/cursor.rs
+  s_aaaedc8b345554::t_42c2eb61a4aa37 218
+crates/core-service/src/service/automation/external_trigger.rs
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 15,179,181
+crates/core-service/src/service/automation/github_trigger.rs
+  s_aaaedc8b345554::t_41d3de634957de 600,996
+crates/ai-usage/src/providers/factory/mod.rs
+  s_aaaedc8b345554::t_42c2eb61a4aa37 663-693
+apps/api/src/api/ws/router/workspace.rs
+  s_aaaedc8b345554::t_a6557801cdd829 244-252
+  s_aaaedc8b345554::t_1ffb22b571c361 72
+crates/runtime-manager/src/identity.rs
+  s_aaaedc8b345554::t_0be24615d44536 91
+crates/runtime-manager/src/computer_client_settings.rs
+  s_aaaedc8b345554::t_0be24615d44536 140
+apps/api/src/api/ws/router/support.rs
+  s_aaaedc8b345554::t_1ffb22b571c361 62
+crates/infra/src/db/repo/review_repo/agent_run.rs
+  s_aaaedc8b345554::t_0be24615d44536 10-19,23,31-32,34-35,37-38,45
+apps/api/src/api/ws/router/local_model.rs
+  s_aaaedc8b345554::t_0be24615d44536 319,324
+  s_aaaedc8b345554::t_1ffb22b571c361 236-237,262-263,283-284
+crates/core-service/src/service/automation/mod.rs
+  s_aaaedc8b345554::t_41d3de634957de 44-46,569-572
+crates/core-engine/src/agent_hooks/gemini.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 206
+crates/core-service/src/service/review/tests.rs
+  s_aaaedc8b345554::t_b24378e8e30069 35,74,79,84,91,96,168,174,180,185,192,197,202
+apps/api/src/api/ws/router/github.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 48-54
+crates/core-service/src/service/review/comments.rs
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 248,478,496
+crates/core-service/src/service/automation/agents.rs
+  s_aaaedc8b345554::t_41d3de634957de 394-396,400,416-418,544-546,728-730,984-992,1027-1028,1072-1074,1087-1088
+  s_aaaedc8b345554::t_e77ee6073da560 714
+  s_aaaedc8b345554::t_f004d55a31088e 158,161,233,236,1121
+crates/runtime-manager/src/supervisor.rs
+  s_aaaedc8b345554::t_0be24615d44536 329,331
+crates/core-service/src/service/workspace_support.rs
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 69,73
+apps/api/src/api/ws/router/workspace_setup.rs
+  s_aaaedc8b345554::t_1ffb22b571c361 169
+crates/infra/src/db/repo/review_repo.rs
+  s_aaaedc8b345554::t_17525bd2272e5f 12-13
+crates/core-engine/src/git/worktrees.rs
+  s_aaaedc8b345554::t_d0f3e50959953f 191-194
+crates/infra/src/utils/atmos_cli.rs
+  s_aaaedc8b345554::t_0be24615d44536 163
+apps/api/src/api/system/diagnostics.rs
+  s_aaaedc8b345554::t_1ffb22b571c361 323-332
+apps/api/src/relay/terminal.rs
+  s_aaaedc8b345554::t_1ffb22b571c361 26,428
+  s_aaaedc8b345554::t_41d3de634957de 4,10
+crates/local-model-runtime/src/huggingface.rs
+  s_aaaedc8b345554::t_0be24615d44536 11,65-67,83-85,356
+crates/core-engine/src/agent_hooks/claude_code.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 214
+crates/core-engine/src/tmux/control.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 181,183
+crates/core-service/src/service/git_commit_message.rs
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 271
+crates/core-service/src/service/workspace_todos.rs
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 95
+crates/core-service/src/service/review/agent_runs/finalize_fix.rs
+  s_aaaedc8b345554::t_09c489dcce0b97 20-29,33,35-43
+crates/core-service/src/service/workspace.rs
+  s_aaaedc8b345554::t_a6557801cdd829 30-39,521,523-524,530-533,536
+crates/core-service/src/service/notification.rs
+  s_aaaedc8b345554::t_f004d55a31088e 410-415
+crates/core-service/src/service/automation/process_runner.rs
+  s_aaaedc8b345554::t_00d719dfee81ed 22-29,54-60,112-118,222-228,250,252,267,269-271,275-280
+apps/cli/src/commands/runtime.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 87
+crates/core-service/src/service/review/agent_run_finalize.rs
+  s_aaaedc8b345554::t_09c489dcce0b97 110-114,116,118
+crates/core-service/src/service/agent_hooks.rs
+  s_aaaedc8b345554::t_f004d55a31088e 394-399
+crates/core-engine/src/github/mod.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 42-50,252,254,260-261,269,299,302,309,315,348,356-357,360,366-373,378-382
+  s_aaaedc8b345554::t_e60141a7cf91de 265
+crates/core-service/src/service/review/agent_runs.rs
+  s_aaaedc8b345554::t_a226727311bceb 4-5
+  s_aaaedc8b345554::t_0be24615d44536 9,245-253
+  s_aaaedc8b345554::t_e77ee6073da560 308
+  s_aaaedc8b345554::t_3f4d73a2aca231 33,47
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 42
+crates/core-engine/src/agent_hooks/cursor.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 207
+crates/local-model-runtime/src/manifest/mod.rs
+  s_aaaedc8b345554::t_0be24615d44536 115,162
+crates/core-engine/src/agent_hooks/factory_droid.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 245
+crates/core-service/src/service/workspace_gitignore_dirs.rs
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 83,86
+apps/api/src/api/ws/terminal_handler.rs
+  s_aaaedc8b345554::t_1ffb22b571c361 62
+crates/core-engine/src/agent_hooks/codex.rs
+  s_aaaedc8b345554::t_83e65bb9cd000f 195
+crates/core-engine/src/git/refs.rs
+  s_aaaedc8b345554::t_e60141a7cf91de 199-200
+crates/core-service/src/service/review/types.rs
+  s_aaaedc8b345554::t_e1f3242fc0ecb1 206
+  s_aaaedc8b345554::t_3f4d73a2aca231 205
+apps/api/src/relay/ingest.rs
+  s_aaaedc8b345554::t_1ffb22b571c361 202,262,302,379,465
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "a8de1d161cbcd03536128b6712406bc3dfe02fe9",
+  "prompts": {},
+  "sessions": {
+    "s_aaaedc8b345554": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efc14-5546-7863-a921-a0fc383e4b35",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
