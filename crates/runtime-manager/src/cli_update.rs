@@ -90,19 +90,26 @@ pub async fn install_cli_release(release: &LatestCliRelease) -> Result<CliInstal
             .map_err(|error| format!("Failed to create {}: {}", bin_dir.display(), error))?;
     }
 
-    let install_method = if let Some(asset_url) = release.asset_url.as_deref() {
-        info!("Downloading CLI from: {}", asset_url);
-        download_and_install_cli(asset_url, &cli_path).await?;
-        "release_asset"
-    } else {
-        install_from_git(release).await?;
-        "cargo_install_git"
+    let Some(asset_url) = release.asset_url.as_deref() else {
+        return Err(
+            "The latest CLI release does not include a compatible binary asset for this platform."
+                .to_string(),
+        );
     };
 
+    info!("Downloading CLI from: {}", asset_url);
+    download_and_install_cli(asset_url, &cli_path).await?;
+    let version = read_cli_version(&cli_path).ok_or_else(|| {
+        format!(
+            "Failed to determine installed CLI version at {}",
+            cli_path.display()
+        )
+    })?;
+
     Ok(CliInstallResult {
-        version: read_cli_version(&cli_path).unwrap_or_else(|| release.version.clone()),
+        version,
         install_path: cli_path,
-        install_method,
+        install_method: "release_asset",
     })
 }
 
@@ -140,13 +147,6 @@ pub async fn ensure_standalone_cli_on_startup() -> Result<Option<String>, String
     );
     download_and_install_cli(asset_url, &cli_path).await?;
     Ok(read_cli_version(&cli_path))
-}
-
-async fn install_from_git(_release: &LatestCliRelease) -> Result<(), String> {
-    Err(
-        "The latest CLI release does not include a compatible binary asset for this platform."
-            .to_string(),
-    )
 }
 
 async fn download_and_install_cli(asset_url: &str, cli_path: &Path) -> Result<(), String> {
