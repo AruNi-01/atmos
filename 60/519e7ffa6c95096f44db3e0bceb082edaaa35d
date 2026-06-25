@@ -1,0 +1,20 @@
+apps/cli/src/commands/update.rs
+  s_aaaedc8b345554::t_ebb1af5e7dac81 2,56,64-65,75,118
+  s_aaaedc8b345554::t_69f9cdebc52f4d 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "60519e7ffa6c95096f44db3e0bceb082edaaa35d",
+  "prompts": {},
+  "sessions": {
+    "s_aaaedc8b345554": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efc14-5546-7863-a921-a0fc383e4b35",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
