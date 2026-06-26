@@ -1,23 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Input,
   ScrollArea,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  cn,
   toastManager,
 } from '@workspace/ui';
 import {
   Check,
   CheckCircle2,
+  ChevronDown,
   Copy,
   KeyRound,
   Laptop,
@@ -41,15 +46,21 @@ import {
   ensureHostedAccessTokenReady,
   listHostedRemoteComputers,
 } from '@/features/connection/lib/hosted-connection';
+import { generateAccessToken } from '@/features/connection/lib/atmos-access-token';
 import { REMOTE_COMPUTER_INSTALL_SCRIPT_URL } from '@/features/connection/lib/remote-computer-setup-commands';
 import {
   activateHostedLocalConnection,
   activateHostedRemoteConnection,
 } from '@/features/connection/lib/hosted-connection-actions';
 import { isHostedAtmosOrigin } from '@/shared/lib/desktop-runtime';
-import { saveComputerClientSettingsToDisk } from '@/features/connection/lib/sync-computer-client-settings';
+import {
+  saveComputerClientSettings,
+  saveComputerClientSettingsToDisk,
+  type ComputerClientSettingsSaveLocation,
+} from '@/features/connection/lib/sync-computer-client-settings';
 import { AppShellLoading } from '@/app-shell/AppShellLoading';
 import { useInitialProjectsLoading } from '@/features/project/store/use-initial-projects-loading';
+import { useAppRouter } from '@/shared/hooks/use-app-router';
 
 type HostedWelcomeGateProps = {
   onAddProject?: () => void;
@@ -58,13 +69,37 @@ type HostedWelcomeGateProps = {
   className?: string;
 };
 
+let mountedSnapshot = false;
+let mountedNotificationScheduled = false;
+const mountedListeners = new Set<() => void>();
+
+function subscribeMounted(listener: () => void): () => void {
+  mountedListeners.add(listener);
+  if (!mountedSnapshot && !mountedNotificationScheduled) {
+    mountedNotificationScheduled = true;
+    queueMicrotask(() => {
+      mountedSnapshot = true;
+      mountedNotificationScheduled = false;
+      mountedListeners.forEach(notify => notify());
+    });
+  }
+  return () => {
+    mountedListeners.delete(listener);
+  };
+}
+
+function getMountedSnapshot(): boolean {
+  return mountedSnapshot;
+}
+
+function getMountedServerSnapshot(): boolean {
+  return false;
+}
+
 export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const bootstrapState = useHostedConnectionStore(s => s.bootstrapState);
   const isInitialProjectsLoading = useInitialProjectsLoading();
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted || isInitialProjectsLoading) {
     return <AppShellLoading />;
@@ -85,6 +120,32 @@ export function HostedWelcomeGate(props: HostedWelcomeGateProps) {
     <div className="size-full animate-in fade-in slide-in-from-bottom-1 duration-200">
       <WelcomePage {...props} />
     </div>
+  );
+}
+
+export function HostedConnectionSetupPage() {
+  const mounted = useMounted();
+  const router = useAppRouter();
+
+  return (
+    <div className="h-dvh w-full overflow-hidden bg-background">
+      {mounted ? (
+        <HostedConnectionOnboarding
+          defaultTab="remote"
+          onConnected={() => router.replace('/')}
+        />
+      ) : (
+        <AppShellLoading />
+      )}
+    </div>
+  );
+}
+
+function useMounted(): boolean {
+  return useSyncExternalStore(
+    subscribeMounted,
+    getMountedSnapshot,
+    getMountedServerSnapshot,
   );
 }
 
@@ -121,7 +182,13 @@ function HostedLocalCommandField({
   );
 }
 
-function HostedConnectionOnboarding() {
+function HostedConnectionOnboarding({
+  defaultTab = 'local',
+  onConnected,
+}: {
+  defaultTab?: 'local' | 'remote';
+  onConnected?: () => void;
+}) {
   const localInstallCommand = `curl -fsSL ${REMOTE_COMPUTER_INSTALL_SCRIPT_URL} | bash`;
   /** Installer appends ~/.atmos/bin to the default shell rc (see install-local-web-runtime.sh). */
   const localStartCommand = 'atmos runtime ensure';
@@ -166,7 +233,7 @@ function HostedConnectionOnboarding() {
     setRelaySecretKey,
   } = useAtmosComputerStore();
 
-  const [activeTab, setActiveTab] = useState<'local' | 'remote'>('local');
+  const [activeTab, setActiveTab] = useState<'local' | 'remote'>(defaultTab);
   const [relayUrlDraft, setRelayUrlDraft] = useState(relayUrl);
   const [relaySecretDraft, setRelaySecretDraft] = useState(relaySecretKey);
   const [tokenDraft, setTokenDraft] = useState(accessToken);
@@ -174,6 +241,15 @@ function HostedConnectionOnboarding() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [copiedInstall, setCopiedInstall] = useState(false);
   const [copiedStart, setCopiedStart] = useState(false);
+  const [generatedTokenReveal, setGeneratedTokenReveal] = useState<string | null>(null);
+  const [generatedTokenLocation, setGeneratedTokenLocation] =
+    useState<ComputerClientSettingsSaveLocation | null>(null);
+  const [generatedTokenCopied, setGeneratedTokenCopied] = useState(false);
+  const [accessKeyNotice, setAccessKeyNotice] = useState<{
+    tone: 'default' | 'warning';
+    message: string;
+  } | null>(null);
+  const localProbeStartedRef = useRef(false);
 
   const activeComputers = useMemo(() => computers.filter(row => !row.revoked), [computers]);
   const hasKey = tokenDraft.trim().length >= 32;
@@ -191,6 +267,36 @@ function HostedConnectionOnboarding() {
   useEffect(() => {
     setRelaySecretDraft(relaySecretKey);
   }, [relaySecretKey]);
+
+  const onTokenDraftChange = (value: string) => {
+    setTokenDraft(value);
+    setGeneratedTokenReveal(null);
+    setGeneratedTokenLocation(null);
+    setGeneratedTokenCopied(false);
+    setAccessKeyNotice(null);
+  };
+
+  const runLocalProbe = useCallback(async () => {
+    startChecking();
+    try {
+      const local = await detectHostedLocalServer();
+      setLocalAvailable(local.config, local.status);
+    } catch (err) {
+      setLocalUnavailable(
+        err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
+      );
+    } finally {
+      setOnboarding();
+    }
+  }, [setLocalAvailable, setLocalUnavailable, setOnboarding, startChecking]);
+
+  useEffect(() => {
+    if (localProbeStartedRef.current) {
+      return;
+    }
+    localProbeStartedRef.current = true;
+    void runLocalProbe();
+  }, [runLocalProbe]);
 
   const refreshRemoteList = useCallback(
     async (
@@ -239,17 +345,17 @@ function HostedConnectionOnboarding() {
       setRelayUrl(nextRelayUrl);
       setRelaySecretKey(nextRelaySecret);
       setAccessToken(token);
-      const persisted = await saveComputerClientSettingsToDisk(
+      const saveResult = await saveComputerClientSettings(
         token,
         nextRelayUrl,
         nextRelaySecret,
       );
-      toastManager.add({
-        title: persisted ? 'Access key saved' : 'Saved for this session',
-        description: persisted
-          ? 'Connected computers are now ready to load.'
-          : 'Could not persist locally. Keep this tab open if you need the key again.',
-        type: persisted ? 'success' : 'warning',
+      setAccessKeyNotice({
+        tone: saveResult.persisted ? 'default' : 'warning',
+        message:
+          saveResult.location === 'api'
+            ? 'Access key saved on the connected Computer.'
+            : 'No Computer API is connected yet. This key is only kept in this page; copy it before closing.',
       });
       await refreshRemoteList(token, nextRelayUrl, nextRelaySecret);
     } catch (err) {
@@ -260,6 +366,52 @@ function HostedConnectionOnboarding() {
       });
     } finally {
       setBusyAction(null);
+    }
+  };
+
+  const onGenerateToken = async () => {
+    const token = generateAccessToken();
+    const nextRelayUrl = resolveRelayUrl(relayUrlDraft);
+    const nextRelaySecret = relaySecretDraft.trim();
+    setBusyAction('generate-token');
+    try {
+      await ensureHostedAccessTokenReady(nextRelayUrl, token, nextRelaySecret);
+      setRelayUrl(nextRelayUrl);
+      setRelaySecretKey(nextRelaySecret);
+      setAccessToken(token);
+      setTokenDraft(token);
+      setGeneratedTokenReveal(token);
+      setGeneratedTokenLocation(null);
+      setGeneratedTokenCopied(false);
+      setAccessKeyNotice(null);
+      const saveResult = await saveComputerClientSettings(
+        token,
+        nextRelayUrl,
+        nextRelaySecret,
+      );
+      setGeneratedTokenLocation(saveResult.location);
+      await refreshRemoteList(token, nextRelayUrl, nextRelaySecret);
+    } catch (err) {
+      toastManager.add({
+        title: 'Could not create access key',
+        description: err instanceof Error ? err.message : 'Try again.',
+        type: 'error',
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const copyGeneratedToken = async () => {
+    if (!generatedTokenReveal) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(generatedTokenReveal);
+      setGeneratedTokenCopied(true);
+      window.setTimeout(() => setGeneratedTokenCopied(false), 2000);
+    } catch {
+      toastManager.add({ title: 'Copy failed', type: 'error' });
     }
   };
 
@@ -279,17 +431,7 @@ function HostedConnectionOnboarding() {
   };
 
   const onRefreshLocal = async () => {
-    startChecking();
-    try {
-      const local = await detectHostedLocalServer();
-      setLocalAvailable(local.config, local.status);
-    } catch (err) {
-      setLocalUnavailable(
-        err instanceof Error ? err.message : 'Cannot reach Atmos Server on this computer.',
-      );
-    } finally {
-      setOnboarding();
-    }
+    await runLocalProbe();
   };
 
   const onConnectLocal = async () => {
@@ -300,6 +442,7 @@ function HostedConnectionOnboarding() {
     try {
       await activateHostedLocalConnection(localApiConfig);
       setConnected('local');
+      onConnected?.();
     } catch (err) {
       toastManager.add({
         title: 'Could not connect locally',
@@ -331,6 +474,7 @@ function HostedConnectionOnboarding() {
       }
       await activateHostedRemoteConnection(serverId, session);
       setConnected('relay');
+      onConnected?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Try again.';
       setRemoteError(message);
@@ -500,49 +644,118 @@ function HostedConnectionOnboarding() {
                         </div>
                       </div>
 
-                      <div className="mt-5 grid gap-3 md:grid-cols-2">
-                        <label className="space-y-2">
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Relay URL
-                          </span>
-                          <Input
-                            value={relayUrlDraft}
-                            onChange={event => setRelayUrlDraft(event.target.value)}
-                            placeholder="https://relay.atmos.land"
-                            autoComplete="off"
-                          />
-                        </label>
-                        <label className="space-y-2">
-                          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Relay Secret
-                          </span>
-                          <Input
-                            type="password"
-                            value={relaySecretDraft}
-                            onChange={event => setRelaySecretDraft(event.target.value)}
-                            placeholder="For private relays"
-                            autoComplete="off"
-                          />
-                        </label>
-                      </div>
-
                       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                         <Input
                           type="password"
                           value={tokenDraft}
-                          onChange={event => setTokenDraft(event.target.value)}
+                          onChange={event => onTokenDraftChange(event.target.value)}
                           placeholder="Paste access key"
                           className="flex-1"
                         />
                         <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => void onGenerateToken()}
+                            disabled={busyAction !== null}
+                          >
+                            {busyAction === 'generate-token' ? (
+                              <LoaderCircle className="mr-2 size-4 animate-spin" />
+                            ) : (
+                              <KeyRound className="mr-2 size-4" />
+                            )}
+                            Generate Key
+                          </Button>
                           <Button onClick={() => void onSaveToken()} disabled={!hasKey || busyAction !== null}>
                             {busyAction === 'save-token' ? (
                               <LoaderCircle className="mr-2 size-4 animate-spin" />
                             ) : null}
-                            Save Key
+                            Use Key
                           </Button>
                         </div>
                       </div>
+
+                      <Collapsible className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background/70">
+                        <CollapsibleTrigger className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left">
+                          <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                            <Link2 className="absolute size-4 transition-opacity duration-150 group-hover:opacity-0" />
+                            <ChevronDown className="absolute size-4 opacity-0 transition-all duration-150 group-hover:opacity-100 group-data-[state=closed]:-rotate-90" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium text-foreground">Private Relay</span>
+                            <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                              Use the official relay by default, or point this setup at a private relay.
+                            </span>
+                          </span>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="grid gap-3 border-t border-border/70 px-4 py-4 md:grid-cols-2">
+                            <label className="space-y-2">
+                              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Relay URL
+                              </span>
+                              <Input
+                                value={relayUrlDraft}
+                                onChange={event => setRelayUrlDraft(event.target.value)}
+                                placeholder="https://relay.atmos.land"
+                                autoComplete="off"
+                              />
+                            </label>
+                            <label className="space-y-2">
+                              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Token
+                              </span>
+                              <Input
+                                type="password"
+                                value={relaySecretDraft}
+                                onChange={event => setRelaySecretDraft(event.target.value)}
+                                placeholder="Required for private relay authentication"
+                                autoComplete="off"
+                              />
+                            </label>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      {accessKeyNotice ? (
+                        <p
+                          className={cn(
+                            'mt-3 text-sm',
+                            accessKeyNotice.tone === 'warning'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-muted-foreground',
+                          )}
+                        >
+                          {accessKeyNotice.message}
+                        </p>
+                      ) : null}
+
+                      {generatedTokenReveal ? (
+                        <div className="mt-4 space-y-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-3">
+                          <p className="text-sm font-medium text-foreground">Copy your access key now</p>
+                          <p className="text-xs text-muted-foreground">
+                            {generatedTokenLocation === 'api'
+                              ? 'Saved on the connected Computer. Keep a copy somewhere safe.'
+                              : 'Not saved in the browser. Copy it now; it is only kept in this page until a Computer is connected.'}
+                          </p>
+                          <pre className="overflow-x-auto break-all rounded-md bg-background/70 px-3 py-2 font-mono text-xs text-foreground">
+                            {generatedTokenReveal}
+                          </pre>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void copyGeneratedToken()}
+                          >
+                            {generatedTokenCopied ? (
+                              <Check className="mr-2 size-4 text-emerald-500" />
+                            ) : (
+                              <Copy className="mr-2 size-4" />
+                            )}
+                            {generatedTokenCopied ? 'Copied' : 'Copy key'}
+                          </Button>
+                        </div>
+                      ) : null}
 
                       {remoteError ? (
                         <p className="mt-3 text-sm leading-6 text-muted-foreground">{remoteError}</p>
@@ -572,58 +785,58 @@ function HostedConnectionOnboarding() {
                         </Button>
                       </div>
 
-                      {activeComputers.length > 0 ? (
-                        <div className="space-y-3">
-                          {activeComputers.map(computer => {
-                            const isConnected = connectedRemoteServerId === computer.server_id;
-                            return (
-                              <div
-                                key={computer.server_id}
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3"
-                              >
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-medium text-foreground">
-                                      {computer.display_name?.trim() || computer.server_id}
-                                    </p>
-                                    {computer.online ? <Badge variant="secondary">Online</Badge> : null}
-                                    {isConnected ? <Badge variant="secondary">Connected</Badge> : null}
-                                  </div>
-                                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                                    {computer.server_id}
-                                  </p>
-                                </div>
-                                <Button
-                                  variant={isConnected ? 'outline' : 'default'}
-                                  onClick={() => void onConnectRemote(computer.server_id)}
-                                  disabled={!hasKey || busyAction !== null}
+                      <div className="space-y-4">
+                        {activeComputers.length > 0 ? (
+                          <div className="space-y-3">
+                            {activeComputers.map(computer => {
+                              const isConnected = connectedRemoteServerId === computer.server_id;
+                              return (
+                                <div
+                                  key={computer.server_id}
+                                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-3"
                                 >
-                                  {busyAction === `connect-${computer.server_id}` ? (
-                                    <LoaderCircle className="mr-2 size-4 animate-spin" />
-                                  ) : null}
-                                  {isConnected ? 'Reconnect' : 'Connect'}
-                                </Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="truncate text-sm font-medium text-foreground">
+                                        {computer.display_name?.trim() || computer.server_id}
+                                      </p>
+                                      {computer.online ? <Badge variant="secondary">Online</Badge> : null}
+                                      {isConnected ? <Badge variant="secondary">Connected</Badge> : null}
+                                    </div>
+                                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                                      {computer.server_id}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant={isConnected ? 'outline' : 'default'}
+                                    onClick={() => void onConnectRemote(computer.server_id)}
+                                    disabled={!hasKey || busyAction !== null}
+                                  >
+                                    {busyAction === `connect-${computer.server_id}` ? (
+                                      <LoaderCircle className="mr-2 size-4 animate-spin" />
+                                    ) : null}
+                                    {isConnected ? 'Reconnect' : 'Connect'}
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
                           <div className="rounded-lg border border-dashed border-border/80 bg-muted/10 px-4 py-5 text-sm text-muted-foreground">
                             {hasKey
                               ? 'No computers found for this access key yet.'
-                              : 'Save an access key first, then refresh to load your computers.'}
+                              : 'Generate or save an access key first, then create a remote setup command.'}
                           </div>
-                          <RemoteComputerSetupBlock
-                            active={activeTab === 'remote'}
-                            hasAccessToken={hasKey}
-                            relayUrl={relayUrlDraft}
-                            accessToken={tokenDraft.trim()}
-                            relaySecretKey={relaySecretDraft}
-                            busy={busyAction !== null}
-                          />
-                        </div>
-                      )}
+                        )}
+                        <RemoteComputerSetupBlock
+                          active={activeTab === 'remote'}
+                          hasAccessToken={hasKey}
+                          relayUrl={relayUrlDraft}
+                          accessToken={tokenDraft.trim()}
+                          relaySecretKey={relaySecretDraft}
+                          busy={busyAction !== null}
+                        />
+                      </div>
                     </section>
                   </div>
                 </ScrollArea>

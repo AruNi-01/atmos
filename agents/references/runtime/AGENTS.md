@@ -17,7 +17,7 @@ One `apps/api` process per machine is the default Atmos Server. Desktop, CLI, an
 | Piece | Location |
 |-------|----------|
 | Discovery | `~/.atmos/runtime_manifest.json` with `host`, `port`, `url`, and `ws_url`. It must not contain an auth token. |
-| Relay credentials | `~/.atmos/relay_identity.json`, written after `atmos computer register` or `ATMOS_REGISTER_TOKEN`. |
+| Relay credentials | `~/.atmos/relay_identity.json`, written after `atmos computer start --token` or `ATMOS_REGISTER_TOKEN`. |
 | Process supervisor | `crates/runtime-manager` with the `supervisor` feature. Used by `atmos runtime ensure` and Desktop `runtime.rs`. |
 | API self-describe | `apps/api` writes the manifest on bind and may start optional `relay/` outbound WebSocket when identity exists. |
 

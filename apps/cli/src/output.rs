@@ -26,7 +26,6 @@ pub enum RuntimeVerb {
 
 #[derive(Debug, Clone, Copy)]
 pub enum ComputerVerb {
-    Register,
     Status,
     Start,
 }
@@ -46,7 +45,6 @@ impl CommandKind {
                 RuntimeCommand::Status => RuntimeVerb::Status,
             }),
             Commands::Computer { command } => Self::Computer(match command {
-                ComputerCommand::Register(_) => ComputerVerb::Register,
                 ComputerCommand::Status => ComputerVerb::Status,
                 ComputerCommand::Start(_) => ComputerVerb::Start,
             }),
@@ -178,43 +176,6 @@ fn render_runtime_status(
 fn render_computer(verb: ComputerVerb, value: &Value) -> String {
     let root = value.as_object();
     match verb {
-        ComputerVerb::Register => {
-            let mut rows = Vec::new();
-            push_row(
-                &mut rows,
-                "Display",
-                str_field(root, "display_name").map(str::to_string),
-            );
-            push_row(
-                &mut rows,
-                "Server ID",
-                str_field(root, "server_id").map(str::to_string),
-            );
-            push_row(
-                &mut rows,
-                "Relay",
-                str_field(root, "relay_url").map(str::to_string),
-            );
-            push_row(
-                &mut rows,
-                "Identity",
-                str_field(root, "identity_path").map(compact_path),
-            );
-            push_row(
-                &mut rows,
-                "Local API",
-                bool_field(root, "local_api_running").map(yes_no),
-            );
-            push_row(
-                &mut rows,
-                "Relay link",
-                bool_field(root, "relay_connected").map(yes_no),
-            );
-            let notes = str_field(root, "hint")
-                .map(|s| vec![s.to_string()])
-                .unwrap_or_default();
-            render_block("Atmos Computer registered", rows, notes)
-        }
         ComputerVerb::Status => {
             let local_api = object_field(root, "local_api");
             let identity = object_field(root, "identity");
@@ -258,7 +219,9 @@ fn render_computer(verb: ComputerVerb, value: &Value) -> String {
             let runtime = object_field(root, "runtime");
             let register = object_field(root, "register");
             let action = str_field(root, "action");
-            let title = if action == Some("already_running") {
+            let title = if register.is_some() {
+                "Atmos Computer registered and running"
+            } else if action == Some("already_running") {
                 "Atmos Computer is already running"
             } else {
                 "Atmos Computer started"

@@ -54,7 +54,7 @@ Tenants use a stable opaque `tenant_id`; the Access Token is stored only as `ten
 | `apps/api/src/relay/` | Outbound WSS + inject frames into local `WsManager` |
 | `crates/runtime-manager` | `register_computer()` HTTP client |
 | `apps/web` | Settings → Atmos Computer; access token + connect via relay |
-| `apps/cli` | `atmos computer register\|start\|status` |
+| `apps/cli` | `atmos computer start\|status` |
 
 Default relay URL: `https://relay.atmos.land` (`ATMOS_RELAY_URL` override). Self-hosted relays may set `RELAY_SECRET_KEY`; clients must then send `X-Atmos-Relay-Secret` on protected relay REST calls. Do not put that secret into WebSocket URLs; CLI/API registration should receive it through `ATMOS_RELAY_SECRET_KEY` or `--relay-secret-key`.
 

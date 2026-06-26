@@ -40,6 +40,7 @@ const GITHUB_WEBHOOK_RATE_LIMIT = 600;
 const GITHUB_CONTROL_RATE_LIMIT = 60;
 const RATE_WINDOW_SEC = 60;
 const COMPUTER_DEVICE_REGISTRATION_LIMIT = 10;
+const DEFAULT_RELAY_ORIGIN = "https://relay.atmos.land";
 /** Minimum access token length (characters). */
 const MIN_ACCESS_TOKEN_LEN = 32;
 const RELAY_SECRET_HEADER = "X-Atmos-Relay-Secret";
@@ -547,9 +548,11 @@ async function handleApi(
 
       const relayOrigin = httpOrigin(url);
       const relaySecret = request.headers.get(RELAY_SECRET_HEADER)?.trim() ?? "";
+      const relayArg =
+        relayOrigin === DEFAULT_RELAY_ORIGIN ? "" : ` --relay ${shellQuote(relayOrigin)}`;
       const registerCommand = relaySecret
-        ? `ATMOS_RELAY_SECRET_KEY=${shellQuote(relaySecret)} atmos computer register --relay ${shellQuote(relayOrigin)} --token ${shellQuote(registerToken)}`
-        : `atmos computer register --relay ${shellQuote(relayOrigin)} --token ${shellQuote(registerToken)}`;
+        ? `ATMOS_RELAY_SECRET_KEY=${shellQuote(relaySecret)} atmos computer start${relayArg} --token ${shellQuote(registerToken)} --daemon`
+        : `atmos computer start${relayArg} --token ${shellQuote(registerToken)} --daemon`;
 
       return json({
         register_token: registerToken,

@@ -21,7 +21,7 @@ apps/cli/
 │   ├── main.rs
 │   └── commands/
 │       ├── runtime.rs     # atmos runtime ensure|stop|status
-│       ├── computer.rs    # relay register + ensure API (APP-016)
+│       ├── computer.rs    # API-first relay registration + ensure API (APP-016)
 │       ├── canvas.rs      # HTTP → /api/canvas/agent/invoke
 │       ├── review.rs      # HTTP → /api/review/*
 │       └── update.rs

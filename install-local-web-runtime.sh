@@ -10,6 +10,12 @@ ARCHIVE_PATH=""
 NO_START=0
 NO_OPEN=0
 USE_GITHUB_SOURCE=0
+REGISTER_TOKEN=""
+RELAY_URL=""
+RELAY_URL_EXPLICIT=0
+RELAY_SECRET_KEY="${ATMOS_RELAY_SECRET_KEY:-}"
+DISPLAY_NAME="${ATMOS_COMPUTER_DISPLAY_NAME:-}"
+DAEMON=0
 
 # Default to custom domain, fallback to GitHub
 DOWNLOAD_BASE="${ATMOS_DOWNLOAD_BASE_URL:-https://install.atmos.land}"
@@ -23,6 +29,11 @@ Options:
   --archive <path>       Install from a prebuilt local runtime archive
   --install-dir <path>   Override install root (default: ~/.atmos)
   --port <port>          Port used when auto-starting the local runtime
+  --token <token>        Registration code; install, register, and start this Computer
+  --relay <url>          Relay URL used with --token (default: https://relay.atmos.land)
+  --relay-secret-key <k> Relay secret for private relays
+  --display-name <name>  Display name used with --token
+  --daemon               Start in background mode when used with --token
   --no-start             Install only, do not launch the local runtime
   --no-open              Install/start but do not open the browser
   --github-source        Use GitHub Releases instead of custom domain
@@ -62,6 +73,31 @@ while [[ $# -gt 0 ]]; do
       PORT="$2"
       shift 2
       ;;
+    --token)
+      require_value "$1" "${2-}"
+      REGISTER_TOKEN="$2"
+      shift 2
+      ;;
+    --relay)
+      require_value "$1" "${2-}"
+      RELAY_URL="$2"
+      RELAY_URL_EXPLICIT=1
+      shift 2
+      ;;
+    --relay-secret-key)
+      require_value "$1" "${2-}"
+      RELAY_SECRET_KEY="$2"
+      shift 2
+      ;;
+    --display-name)
+      require_value "$1" "${2-}"
+      DISPLAY_NAME="$2"
+      shift 2
+      ;;
+    --daemon)
+      DAEMON=1
+      shift
+      ;;
     --no-start)
       NO_START=1
       shift
@@ -85,6 +121,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "$REGISTER_TOKEN" && "$NO_START" -eq 1 ]]; then
+  echo "--token cannot be combined with --no-start; registration requires starting the local API." >&2
+  exit 1
+fi
 
 detect_target() {
   local os arch
@@ -226,7 +267,7 @@ open_browser() {
 
 parse_runtime_url() {
   awk '
-    /"status"[[:space:]]*:/ {
+    /"status"[[:space:]]*:/ || /"runtime"[[:space:]]*:/ {
       in_status = 1
     }
 
@@ -572,14 +613,47 @@ ensure_path_hint "${CLI_BIN_DIR}"
 echo "Installed Atmos local runtime to ${INSTALL_ROOT}/runtime/current"
 
 if [[ "$NO_START" -eq 0 ]]; then
-  echo "Starting Atmos local runtime..."
-  START_OUTPUT="$("${CLI_BIN_DIR}/atmos" --json runtime ensure --force-restart --port "$PORT")"
+  if [[ -n "$REGISTER_TOKEN" ]]; then
+    echo "Registering and starting Atmos Computer..."
+    START_CMD=(
+      "${CLI_BIN_DIR}/atmos"
+      --json
+      computer
+      start
+      --token "$REGISTER_TOKEN"
+      --port "$PORT"
+    )
+    if [[ "$RELAY_URL_EXPLICIT" -eq 1 ]]; then
+      START_CMD+=(--relay "$RELAY_URL")
+    fi
+    if [[ -n "$DISPLAY_NAME" ]]; then
+      START_CMD+=(--display-name "$DISPLAY_NAME")
+    fi
+    if [[ -n "$RELAY_SECRET_KEY" ]]; then
+      START_CMD+=(--relay-secret-key "$RELAY_SECRET_KEY")
+    fi
+    if [[ "$DAEMON" -eq 1 ]]; then
+      START_CMD+=(--daemon)
+    fi
+    START_OUTPUT="$(
+      ATMOS_REGISTRATION_VIA=local-web-runtime \
+      ATMOS_REGISTRATION_VERSION="${RESOLVED_VERSION}" \
+      "${START_CMD[@]}"
+    )"
+  else
+    echo "Starting Atmos local runtime..."
+    START_OUTPUT="$("${CLI_BIN_DIR}/atmos" --json runtime ensure --force-restart --port "$PORT")"
+  fi
   ACTUAL_URL="$(printf '%s' "$START_OUTPUT" | parse_runtime_url)"
   if [[ -z "$ACTUAL_URL" ]]; then
     ACTUAL_URL="http://127.0.0.1:${PORT}"
   fi
-  echo "Atmos local runtime is running: ${ACTUAL_URL}"
-  open_browser "$ACTUAL_URL"
+  if [[ -n "$REGISTER_TOKEN" ]]; then
+    echo "Atmos Computer is running: ${ACTUAL_URL}"
+  else
+    echo "Atmos local runtime is running: ${ACTUAL_URL}"
+    open_browser "$ACTUAL_URL"
+  fi
 fi
 
 echo
@@ -590,5 +664,9 @@ if [[ "${ACTUAL_URL:-}" != "" ]]; then
 else
   echo "Local app URL: http://127.0.0.1:${PORT}"
 fi
-echo "Start later with: ${CLI_BIN_DIR}/atmos runtime ensure"
+if [[ -n "$REGISTER_TOKEN" ]]; then
+  echo "Check status with: ${CLI_BIN_DIR}/atmos computer status"
+else
+  echo "Start later with: ${CLI_BIN_DIR}/atmos runtime ensure"
+fi
 echo "Stop with: ${CLI_BIN_DIR}/atmos runtime stop"

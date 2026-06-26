@@ -205,7 +205,7 @@ stateDiagram-v2
 |------|------|
 | 发现 | `~/.atmos/runtime_manifest.json`，由 API 在 bind 后写入（`source: "api"`）或 supervisor 在 `ensure` 后写入（`source: "runtime-manager"`） |
 | 拉起/健康检查 | `runtime-manager` feature `supervisor`：`apps/cli`（`atmos runtime`）、`apps/desktop`（`runtime.rs`） |
-| Relay 注册 | `register_computer` → `relay_identity.json`；`atmos computer register|start`、API `ATMOS_REGISTER_TOKEN` 一次性消费 |
+| Relay 注册 | `register_computer` → `relay_identity.json`；`atmos computer start --token`、API `ATMOS_REGISTER_TOKEN` 一次性消费 |
 | 本机 HTTP 鉴权 | **默认无 manifest token**；loopback 上 `require_local_token` 仅在设置 `ATMOS_LOCAL_TOKEN` 时生效（可选加固，非默认路径） |
 
 **Desktop 打包布局**（`prepare-sidecar.sh` / `layout-runtime-bundle.sh`）：
@@ -330,9 +330,10 @@ sequenceDiagram
 `register_command` 示例（供 UI 展示）：
 
 ```bash
-atmos computer register \
+atmos computer start \
   --relay https://relay.atmos.land \
-  --token <register_token>
+  --token <register_token> \
+  --daemon
 ```
 
 或一次性环境变量：`ATMOS_REGISTER_TOKEN=<register_token>`（`apps/api` 启动时消费后 **清除/忽略** 环境变量，避免残留）。
@@ -402,7 +403,7 @@ CREATE INDEX idx_client_sessions_server ON client_sessions(server_id);
 | `packages/relay` | 新 REST + D1 迁移；删除 `pair_codes` / `client_ws_token` 旧路径；Wrangler secret 改名为 **`RELAY_KEY`** |
 | `apps/api` | 读 `relay_identity.json`；启动时可选消费 `ATMOS_REGISTER_TOKEN`；`relay/ingest` 用 `server_secret` 连 `/ws/server` |
 | `apps/web` | Settings：**Add computer** → `register_tokens` → 展示命令；选 Computer → `client_sessions` → `useWebSocket` 用返回的 `ws_url` |
-| `apps/cli`（可选 M1） | `atmos computer register --token` |
+| `apps/cli`（可选 M1） | `atmos computer start --token`；若本机 API 已运行，则通过本机 API 注册 relay |
 
 #### 2.4.9 明确不做（本阶段）
 
@@ -643,7 +644,7 @@ Relay terminology is now the source of truth in code and docs. The legacy non-Re
 
 Final public names:
 
-- CLI: `atmos computer register --relay <url> --token <register_token>` and `atmos computer start --relay <url> --token <register_token>`.
+- CLI: `atmos computer start --relay <url> --token <register_token> --daemon`.
 - CLI/private relay secret: `--relay-secret-key` or `ATMOS_RELAY_SECRET_KEY`.
 - Runtime/server env: `ATMOS_RELAY_URL`, `ATMOS_RELAY_SECRET_KEY`, `ATMOS_REGISTER_TOKEN`.
 - Web env: `NEXT_PUBLIC_ATMOS_RELAY_URL`.

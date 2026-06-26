@@ -829,87 +829,6 @@ export function AtmosComputerSection() {
       </div>
 
       <SettingsBlock
-        title="Private Relay"
-        icon={<Link2 className="size-5" />}
-        description="Use the official relay by default, or point this app at a private relay."
-        collapsible
-        defaultOpen={false}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
-              Relay URL
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <Input
-                id="private-relay-url"
-                value={relayUrlDraft}
-                onChange={e => setRelayUrlDraft(e.target.value)}
-                placeholder="https://relay.atmos.land"
-                autoComplete="off"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={busy !== null || !relayUrlChanged}
-                onClick={() =>
-                  void onSaveRelaySettings({
-                    successTitle: 'Private Relay URL saved',
-                    urlDraft: relayUrlDraft,
-                    secretDraft: relaySecretKey,
-                  })
-                }
-              >
-                {busy === 'relay-settings' ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
-                ) : null}
-                Save
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-token">
-              Token
-            </label>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <Input
-                id="private-relay-token"
-                type="password"
-                value={relaySecretDraft}
-                onChange={e => setRelaySecretDraft(e.target.value)}
-                placeholder="Required for private relay authentication"
-                autoComplete="off"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={busy !== null || !relaySecretChanged}
-                onClick={() =>
-                  void onSaveRelaySettings({
-                    successTitle: 'Private Relay token saved',
-                    urlDraft: relayUrl,
-                    secretDraft: relaySecretDraft,
-                  })
-                }
-              >
-                {busy === 'relay-settings' ? (
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
-                ) : null}
-                Save
-              </Button>
-            </div>
-          </div>
-        </div>
-        <p className="text-xs leading-5 text-muted-foreground">
-          Leave Token empty for the official Atmos relay. Self-hosted relays can set{' '}
-          <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
-          and require this value on Relay requests.
-        </p>
-      </SettingsBlock>
-
-      <SettingsBlock
         title="Access Key"
         icon={<KeyRound className="size-5" />}
         description="Your access key registers new Computers (via registration codes) and lists all Computers on your account."
@@ -1036,6 +955,87 @@ export function AtmosComputerSection() {
             </Button>
           </div>
         ) : null}
+      </SettingsBlock>
+
+      <SettingsBlock
+        title="Private Relay"
+        icon={<Link2 className="size-5" />}
+        description="Use the official relay by default, or point this app at a private relay."
+        collapsible
+        defaultOpen={false}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-url">
+              Relay URL
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                id="private-relay-url"
+                value={relayUrlDraft}
+                onChange={e => setRelayUrlDraft(e.target.value)}
+                placeholder="https://relay.atmos.land"
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={busy !== null || !relayUrlChanged}
+                onClick={() =>
+                  void onSaveRelaySettings({
+                    successTitle: 'Private Relay URL saved',
+                    urlDraft: relayUrlDraft,
+                    secretDraft: relaySecretKey,
+                  })
+                }
+              >
+                {busy === 'relay-settings' ? (
+                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Save
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground" htmlFor="private-relay-token">
+              Token
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <Input
+                id="private-relay-token"
+                type="password"
+                value={relaySecretDraft}
+                onChange={e => setRelaySecretDraft(e.target.value)}
+                placeholder="Required for private relay authentication"
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                disabled={busy !== null || !relaySecretChanged}
+                onClick={() =>
+                  void onSaveRelaySettings({
+                    successTitle: 'Private Relay token saved',
+                    urlDraft: relayUrl,
+                    secretDraft: relaySecretDraft,
+                  })
+                }
+              >
+                {busy === 'relay-settings' ? (
+                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                ) : null}
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Leave Token empty for the official Atmos relay. Self-hosted relays can set{' '}
+          <code className="rounded bg-muted px-1.5 py-0.5">RELAY_SECRET_KEY</code>{' '}
+          and require this value on Relay requests.
+        </p>
       </SettingsBlock>
 
       <Collapsible

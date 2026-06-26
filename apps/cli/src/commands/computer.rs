@@ -2,7 +2,7 @@
 
 use clap::{Args, Subcommand};
 use runtime_manager::{
-    normalize_relay_url, read_server_identity, register_computer, resolve_server_identity_path,
+    normalize_relay_url, read_server_identity, resolve_server_identity_path,
     supervisor::{EnsureOptions, EnsureOutcome, DEFAULT_HOST, DEFAULT_PORT},
     RegistrationMeta,
 };
@@ -12,7 +12,6 @@ const DEFAULT_RELAY: &str = "https://relay.atmos.land";
 
 pub async fn execute(command: ComputerCommand) -> Result<Value, String> {
     match command {
-        ComputerCommand::Register(args) => register(args).await,
         ComputerCommand::Status => status().await,
         ComputerCommand::Start(args) => start(args).await,
     }
@@ -20,21 +19,8 @@ pub async fn execute(command: ComputerCommand) -> Result<Value, String> {
 
 #[derive(Debug, Subcommand)]
 pub enum ComputerCommand {
-    Register(RegisterArgs),
     Status,
     Start(ComputerStartArgs),
-}
-
-#[derive(Debug, Args)]
-pub struct RegisterArgs {
-    #[arg(long)]
-    pub token: Option<String>,
-    #[arg(long)]
-    pub relay: Option<String>,
-    #[arg(long)]
-    pub relay_secret_key: Option<String>,
-    #[arg(long)]
-    pub display_name: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -60,45 +46,6 @@ pub struct ComputerStartArgs {
     pub daemon: bool,
 }
 
-async fn register(args: RegisterArgs) -> Result<Value, String> {
-    let register_token = resolve_register_token(args.token.as_deref())?;
-    let relay = resolve_relay(args.relay.as_deref());
-    let relay_secret_key = resolve_relay_secret_key(args.relay_secret_key.as_deref());
-    let display_name = resolve_display_name(args.display_name);
-
-    let meta = RegistrationMeta::new("cli", Some(env!("CARGO_PKG_VERSION"))).to_value();
-    let identity = register_computer(
-        &relay,
-        &register_token,
-        relay_secret_key.as_deref(),
-        Some(display_name.as_str()),
-        Some(meta),
-    )
-    .await?;
-
-    let path = resolve_server_identity_path();
-    let local = runtime_manager::supervisor::runtime_status().await.ok();
-    let api_running = local.as_ref().map(|s| s.running).unwrap_or(false);
-    let relay_synced = if api_running {
-        sync_relay_to_running_api().await
-    } else {
-        false
-    };
-
-    Ok(json!({
-        "ok": true,
-        "action": "registered",
-        "server_id": identity.server_id,
-        "display_name": display_name,
-        "relay_url": identity.relay_url,
-        "relay_ws_url": identity.relay_ws_url,
-        "identity_path": path.display().to_string(),
-        "local_api_running": api_running,
-        "relay_connected": relay_synced,
-        "hint": relay_register_hint(api_running, relay_synced),
-    }))
-}
-
 async fn status() -> Result<Value, String> {
     let path = resolve_server_identity_path();
     let identity = read_server_identity()?;
@@ -111,37 +58,20 @@ async fn status() -> Result<Value, String> {
         "identity": identity,
         "local_api": local,
         "hint": match (&identity, local.running) {
-            (None, _) => "Not registered. Create a register token in Settings, then: atmos computer register --token <token>",
-            (Some(_), false) => "Registered. Run: atmos computer start --token <token> (or atmos runtime ensure)",
+            (None, _) => "Not registered. Create a registration code in Settings, then: atmos computer start --token <token> --daemon",
+            (Some(_), false) => "Registered. Run: atmos computer start --daemon (or atmos runtime ensure)",
             (Some(_), true) => "Registered and API is running. Connect from another device via Settings → Connect via relay",
         },
     }))
 }
 
 async fn start(args: ComputerStartArgs) -> Result<Value, String> {
+    let token = optional_register_token(args.token.as_deref())?;
     let mut register_result: Option<Value> = None;
 
-    if let Some(token) = optional_register_token(args.token.as_deref())? {
-        let relay = resolve_relay(args.relay.as_deref());
-        let relay_secret_key = resolve_relay_secret_key(args.relay_secret_key.as_deref());
-        let display_name = resolve_display_name(args.display_name);
-        let meta = RegistrationMeta::new("cli", Some(env!("CARGO_PKG_VERSION"))).to_value();
-        let identity = register_computer(
-            &relay,
-            &token,
-            relay_secret_key.as_deref(),
-            Some(display_name.as_str()),
-            Some(meta),
-        )
-        .await?;
-        register_result = Some(json!({
-            "server_id": identity.server_id,
-            "display_name": display_name,
-            "identity_path": resolve_server_identity_path().display().to_string(),
-        }));
-    } else if read_server_identity()?.is_none() {
+    if token.is_none() && read_server_identity()?.is_none() {
         return Err(
-            "Not registered yet. Pass --token from Atmos Settings, or run `atmos computer register` first.".into(),
+            "Not registered yet. Pass --token from Atmos Settings: atmos computer start --token <token> --daemon".into(),
         );
     }
 
@@ -165,8 +95,28 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
         EnsureOutcome::Started(s) => ("started", s),
     };
 
-    let relay_synced = if register_result.is_some() && !args.daemon {
-        sync_relay_to_running_api().await
+    let relay_synced = if let Some(token) = token {
+        let relay = resolve_relay(args.relay.as_deref());
+        let relay_secret_key = resolve_relay_secret_key(args.relay_secret_key.as_deref());
+        let display_name = resolve_display_name(args.display_name);
+        let reg = register_with_local_api(
+            &status.url,
+            &token,
+            &relay,
+            relay_secret_key.as_deref(),
+            &display_name,
+        )
+        .await?;
+        let relay_connected = reg
+            .get("relay_connected")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        register_result = Some(json!({
+            "server_id": reg.get("server_id").cloned().unwrap_or(Value::Null),
+            "display_name": reg.get("display_name").cloned().unwrap_or_else(|| json!(display_name)),
+            "identity_path": resolve_server_identity_path().display().to_string(),
+        }));
+        relay_connected
     } else {
         false
     };
@@ -187,17 +137,6 @@ async fn start(args: ComputerStartArgs) -> Result<Value, String> {
         "runtime": status,
         "hint": hint,
     }))
-}
-
-fn resolve_register_token(cli: Option<&str>) -> Result<String, String> {
-    if let Some(t) = cli.filter(|s| !s.trim().is_empty()) {
-        return Ok(t.trim().to_string());
-    }
-    std::env::var("ATMOS_REGISTER_TOKEN")
-        .ok()
-        .filter(|s| !s.trim().is_empty())
-        .map(|s| s.trim().to_string())
-        .ok_or_else(|| "Missing register token. Pass --token or set ATMOS_REGISTER_TOKEN.".into())
 }
 
 fn optional_register_token(cli: Option<&str>) -> Result<Option<String>, String> {
@@ -245,42 +184,64 @@ fn default_display_name() -> String {
     runtime_manager::local_computer_display_name()
 }
 
-async fn sync_relay_to_running_api() -> bool {
-    let base = match runtime_manager::resolve_api_base_url(None) {
-        Ok(url) => url,
-        Err(_) => return false,
-    };
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-    {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-    let url = format!(
-        "{}/api/system/computer/relay-sync",
-        base.trim_end_matches('/')
-    );
-    let res = match client.post(&url).json(&serde_json::json!({})).send().await {
-        Ok(r) => r,
-        Err(_) => return false,
-    };
-    if !res.status().is_success() {
-        return false;
+async fn register_with_local_api(
+    api_url: &str,
+    register_token: &str,
+    relay: &str,
+    relay_secret_key: Option<&str>,
+    display_name: &str,
+) -> Result<Value, String> {
+    let mut payload = json!({
+        "register_token": register_token,
+        "display_name": display_name,
+        "relay_url": relay,
+        "registration_meta": registration_meta(),
+    });
+    if let Some(secret) = relay_secret_key.filter(|value| !value.trim().is_empty()) {
+        payload["relay_secret_key"] = json!(secret.trim());
     }
-    res.json::<serde_json::Value>()
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|err| format!("failed to build http client: {err}"))?;
+    let url = format!(
+        "{}/api/system/computer/register",
+        api_url.trim_end_matches('/')
+    );
+    let mut request = client.post(&url).json(&payload);
+    if let Some(token) = runtime_manager::resolve_api_bearer_token(None) {
+        request = request.header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"));
+    }
+
+    let response = request
+        .send()
         .await
-        .ok()
-        .and_then(|v| v.get("data")?.get("relay_connected")?.as_bool())
-        .unwrap_or(false)
+        .map_err(|err| format!("local API register request failed ({url}): {err}"))?;
+    let status = response.status();
+    let value = response
+        .json::<Value>()
+        .await
+        .map_err(|err| format!("local API register response parse failed: {err}"))?;
+    if !status.is_success() {
+        let detail = value
+            .get("error")
+            .and_then(|err| err.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| value.to_string());
+        return Err(format!("local API register failed ({status}): {detail}"));
+    }
+    crate::api_client::unwrap_api_envelope(value)
 }
 
-fn relay_register_hint(api_running: bool, relay_connected: bool) -> &'static str {
-    if api_running && relay_connected {
-        "Registered and connected to the cloud relay."
-    } else if api_running {
-        "Registered. If this computer stays offline, run: atmos computer relay-sync (or toggle Register This Computer in Settings)."
-    } else {
-        "Relay identity saved. Run `atmos computer start` or `atmos runtime ensure` to launch the API."
-    }
+fn registration_meta() -> Value {
+    let via = std::env::var("ATMOS_REGISTRATION_VIA")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "cli".to_string());
+    let version = std::env::var("ATMOS_REGISTRATION_VERSION")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    RegistrationMeta::new(via, Some(version)).to_value()
 }

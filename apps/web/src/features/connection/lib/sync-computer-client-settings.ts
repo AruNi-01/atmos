@@ -1,6 +1,6 @@
 /**
  * User Access Token + relay settings live in `~/.atmos/computer-client.json`.
- * Web (loopback) and Desktop share this file via the local Atmos Server API.
+ * Hosted first-run setup keeps new keys in memory until a Computer API exists.
  */
 
 import {
@@ -16,6 +16,13 @@ export interface ComputerClientSettingsDisk {
   relay_url: string;
   relay_secret_key?: string;
   relay_secret_key_configured?: boolean;
+}
+
+export type ComputerClientSettingsSaveLocation = 'api' | 'none';
+
+export interface ComputerClientSettingsSaveResult {
+  persisted: boolean;
+  location: ComputerClientSettingsSaveLocation;
 }
 
 function apiTokenHeader(): Record<string, string> {
@@ -84,15 +91,15 @@ export async function loadComputerClientSettingsFromDisk(): Promise<ComputerClie
   return json.data;
 }
 
-export async function saveComputerClientSettingsToDisk(
+export async function saveComputerClientSettings(
   accessToken: string,
   relayUrl: string,
   relaySecretKey = '',
-): Promise<boolean> {
+): Promise<ComputerClientSettingsSaveResult> {
   const target = await computerClientSettingsTarget();
   if (!target) {
     console.warn('[computer-client-settings] no Computer API — token not written to disk');
-    return false;
+    return { persisted: false, location: 'none' };
   }
   const relaySecret = relaySecretKey.trim();
   const body: Record<string, unknown> = {
@@ -116,9 +123,18 @@ export async function saveComputerClientSettingsToDisk(
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     console.warn('[computer-client-settings] PUT failed', res.status, text);
-    return false;
+    return { persisted: false, location: 'none' };
   }
-  return true;
+  return { persisted: true, location: 'api' };
+}
+
+export async function saveComputerClientSettingsToDisk(
+  accessToken: string,
+  relayUrl: string,
+  relaySecretKey = '',
+): Promise<boolean> {
+  const result = await saveComputerClientSettings(accessToken, relayUrl, relaySecretKey);
+  return result.persisted;
 }
 
 export async function clearComputerClientSettingsOnDisk(): Promise<void> {
@@ -137,8 +153,8 @@ export async function clearComputerClientSettingsOnDisk(): Promise<void> {
 }
 
 /**
- * Load disk settings into the zustand store. If disk is empty but the store still
- * has a token (legacy localStorage), push it to disk once.
+ * Load disk settings into the zustand store. If disk is empty but this page
+ * already has an in-memory token, push it to disk once a Computer API exists.
  */
 let hydrateOnce: Promise<void> | null = null;
 
