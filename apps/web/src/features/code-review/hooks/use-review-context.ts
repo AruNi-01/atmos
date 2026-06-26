@@ -38,6 +38,9 @@ interface UseReviewContextArgs {
   filePath: string;
   fileSnapshotGuid?: string | null;
   revisionGuid?: string | null;
+  selectionMode?: "url" | "local";
+  initialSessionGuid?: string | null;
+  initialRevisionGuid?: string | null;
 }
 
 export function useReviewContext({
@@ -45,6 +48,9 @@ export function useReviewContext({
   filePath,
   fileSnapshotGuid,
   revisionGuid,
+  selectionMode = "url",
+  initialSessionGuid = null,
+  initialRevisionGuid = null,
 }: UseReviewContextArgs) {
   const [storedReviewAgentId, setStoredReviewAgentId] = useReviewDefaultAgentId();
   const onWsEvent = useWebSocketStore((state) => state.onEvent);
@@ -60,13 +66,19 @@ export function useReviewContext({
   const [isCreatingAgentRun, setIsCreatingAgentRun] = useState(false);
   const [isFinalizingRun, setIsFinalizingRun] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ReviewSessionDto[]>([]);
-  const [selectedSessionGuid, setSelectedSessionGuid] = useQueryState(
+  const [urlSelectedSessionGuid, setUrlSelectedSessionGuid] = useQueryState(
     "reviewSession",
     parseAsString.withOptions({ history: "replace" }),
   );
-  const [selectedRevisionGuid, setSelectedRevisionGuid] = useQueryState(
+  const [urlSelectedRevisionGuid, setUrlSelectedRevisionGuid] = useQueryState(
     "reviewRevision",
     parseAsString.withOptions({ history: "replace" }),
+  );
+  const [localSelectedSessionGuid, setLocalSelectedSessionGuid] = useState<string | null>(
+    initialSessionGuid,
+  );
+  const [localSelectedRevisionGuid, setLocalSelectedRevisionGuid] = useState<string | null>(
+    initialRevisionGuid ?? revisionGuid ?? null,
   );
   const [comments, setComments] = useState<ReviewCommentDto[]>([]);
   const terminalAgentId = (storedReviewAgentId ?? "codex") as AgentId;
@@ -74,6 +86,44 @@ export function useReviewContext({
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactPreview, setArtifactPreview] = useState<ArtifactPreview | null>(null);
   const terminalAgentRunConfig = terminalAgentRunConfigs[terminalAgentId] ?? null;
+
+  useEffect(() => {
+    if (selectionMode !== "local") return;
+    setLocalSelectedSessionGuid(initialSessionGuid ?? null);
+  }, [initialSessionGuid, selectionMode]);
+
+  useEffect(() => {
+    if (selectionMode !== "local") return;
+    setLocalSelectedRevisionGuid(initialRevisionGuid ?? revisionGuid ?? null);
+  }, [initialRevisionGuid, revisionGuid, selectionMode]);
+
+  const selectedSessionGuid =
+    selectionMode === "local" ? localSelectedSessionGuid : urlSelectedSessionGuid;
+  const selectedRevisionGuid =
+    selectionMode === "local" ? localSelectedRevisionGuid : urlSelectedRevisionGuid;
+  const pinnedRevisionGuid = selectionMode === "local" ? null : revisionGuid;
+
+  const setSelectedSessionGuid = useCallback(
+    (value: string | null) => {
+      if (selectionMode === "local") {
+        setLocalSelectedSessionGuid(value);
+        return;
+      }
+      void setUrlSelectedSessionGuid(value);
+    },
+    [selectionMode, setUrlSelectedSessionGuid],
+  );
+
+  const setSelectedRevisionGuid = useCallback(
+    (value: string | null) => {
+      if (selectionMode === "local") {
+        setLocalSelectedRevisionGuid(value);
+        return;
+      }
+      void setUrlSelectedRevisionGuid(value);
+    },
+    [selectionMode, setUrlSelectedRevisionGuid],
+  );
 
   const setTerminalAgentId = useCallback(
     (value: AgentId) => {
@@ -132,9 +182,15 @@ export function useReviewContext({
 
   const currentSession = useMemo(() => {
     if (sessions.length === 0) return null;
-    if (revisionGuid) {
+    if (pinnedRevisionGuid) {
       const revisionSession = sessions.find((session) =>
-        session.revisions.some((revision) => revision.guid === revisionGuid),
+        session.revisions.some((revision) => revision.guid === pinnedRevisionGuid),
+      );
+      if (revisionSession) return revisionSession;
+    }
+    if (selectedRevisionGuid) {
+      const revisionSession = sessions.find((session) =>
+        session.revisions.some((revision) => revision.guid === selectedRevisionGuid),
       );
       if (revisionSession) return revisionSession;
     }
@@ -153,7 +209,7 @@ export function useReviewContext({
       sessions.find((session) => session.status === "active") ??
       sortReviewSessions(sessions)[0]
     );
-  }, [fileSnapshotGuid, revisionGuid, selectedSessionGuid, sessions]);
+  }, [fileSnapshotGuid, pinnedRevisionGuid, selectedRevisionGuid, selectedSessionGuid, sessions]);
 
   // Note: We intentionally do NOT sync currentSession back to URL here.
   // The URL is the source of truth for user selection; currentSession
@@ -161,9 +217,9 @@ export function useReviewContext({
 
   const currentRevision = useMemo(() => {
     if (!currentSession) return null;
-    if (revisionGuid) {
+    if (pinnedRevisionGuid) {
       const explicitRevision =
-        currentSession.revisions.find((revision) => revision.guid === revisionGuid) ?? null;
+        currentSession.revisions.find((revision) => revision.guid === pinnedRevisionGuid) ?? null;
       if (explicitRevision) return explicitRevision;
     }
     if (fileSnapshotGuid) {
@@ -178,7 +234,7 @@ export function useReviewContext({
           revision.guid === (selectedRevisionGuid ?? currentSession.current_revision_guid),
       ) ?? currentSession.revisions[0] ?? null
     );
-  }, [currentSession, fileSnapshotGuid, revisionGuid, selectedRevisionGuid]);
+  }, [currentSession, fileSnapshotGuid, pinnedRevisionGuid, selectedRevisionGuid]);
 
   // Auto-switch to latest revision when session creates a new one (e.g., after finalize)
   const prevLatestRevisionGuidRef = useRef<string | null>(null);
@@ -356,7 +412,7 @@ export function useReviewContext({
     } finally {
       setIsCreating(false);
     }
-  }, [target]);
+  }, [setSelectedRevisionGuid, setSelectedSessionGuid, target]);
 
   const handleCloseSession = useCallback(async () => {
     if (!currentSession) return;
@@ -786,7 +842,7 @@ export function useReviewContext({
         setIsFinalizingRun(null);
       }
     },
-    [loadSessions],
+    [loadSessions, setSelectedRevisionGuid],
   );
 
   const handlePreviewArtifact = useCallback(

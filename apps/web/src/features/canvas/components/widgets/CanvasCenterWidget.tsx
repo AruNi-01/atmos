@@ -59,6 +59,7 @@ import {
   type CanvasWidgetSourceRef,
   type CanvasWidgetShape,
 } from "@/features/canvas/lib/canvas-widget-shape";
+import { useCanvasWidgetHost } from "@/features/canvas/components/CanvasWidgetHost";
 
 type CanvasCenterWidgetSource = Extract<CanvasWidgetSourceRef, { type: "center" }>;
 type ClosableCanvasCenterTab = Exclude<CanvasCenterTab, { kind: "overview" }>;
@@ -499,9 +500,21 @@ function CanvasCenterTabContent({
 }
 
 function CanvasCenterOverviewTab({ context }: { context: CanvasContextRef }) {
+  const host = useCanvasWidgetHost();
   const projects = useProjectStore((state) => state.projects);
   const currentBranch = useGitInfoStore((state) => state.currentBranch);
   const contextId = getCanvasContextId(context);
+  const buildMainAppTargetPath = React.useCallback(
+    (params: Record<string, string | number>) => {
+      const searchParams = new URLSearchParams();
+      searchParams.set("id", contextId);
+      for (const [key, value] of Object.entries(params)) {
+        searchParams.set(key, String(value));
+      }
+      return `/${context.contextScope}?${searchParams.toString()}`;
+    },
+    [context.contextScope, contextId],
+  );
   const { project, workspace } = React.useMemo(() => {
     const projectById = context.projectId
       ? projects.find((item) => item.id === context.projectId)
@@ -543,6 +556,16 @@ function CanvasCenterOverviewTab({ context }: { context: CanvasContextRef }) {
         labels={workspace?.labels}
         active
         showRefreshAction={false}
+        onOpenPullRequest={(pr) => {
+          host?.notifyUnsupported({
+            targetPath: buildMainAppTargetPath({ rsPr: pr.number }),
+          });
+        }}
+        onOpenActionRun={(run) => {
+          host?.notifyUnsupported({
+            targetPath: buildMainAppTargetPath({ rsRunId: run.databaseId }),
+          });
+        }}
       />
     </div>
   );
@@ -635,7 +658,7 @@ function CanvasCenterChangesFileTab({
   tab: Extract<CanvasCenterTab, { kind: "changes-file" }>;
 }) {
   return (
-    <ReviewContextProvider target={null} filePath={tab.filePath}>
+    <ReviewContextProvider target={null} filePath={tab.filePath} selectionMode="local">
       <DiffViewer
         repoPath={tab.repoPath}
         filePath={tab.filePath}
@@ -658,6 +681,9 @@ function CanvasCenterReviewGroupTab({
       target={reviewTargetFromContext(context)}
       filePath=""
       revisionGuid={tab.revisionGuid}
+      selectionMode="local"
+      initialSessionGuid={tab.reviewSessionGuid ?? null}
+      initialRevisionGuid={tab.revisionGuid ?? null}
     >
       <ReviewCodeView
         groupPath={tab.groupPath}
@@ -690,6 +716,9 @@ function CanvasCenterReviewFileTab({
       filePath={tab.filePath}
       fileSnapshotGuid={tab.originalPath.startsWith("review-diff://") ? tab.originalPath.slice("review-diff://".length).split("/")[0] : undefined}
       revisionGuid={tab.revisionGuid}
+      selectionMode="local"
+      initialSessionGuid={tab.reviewSessionGuid ?? null}
+      initialRevisionGuid={tab.revisionGuid ?? null}
     >
       <DiffViewer
         repoPath={tab.repoPath}

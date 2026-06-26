@@ -7,6 +7,7 @@ import { useQueryStates } from "nuqs";
 import { parseAsString } from "nuqs";
 import { rightSidebarParams } from "@/shared/lib/nuqs/searchParams";
 import { useSidebarLayout } from "@/app-shell/SidebarLayoutContext";
+import { useAppNavigationInterceptor } from "@/shared/hooks/app-navigation-intercept";
 import type { AtmosReviewMetadata } from "@/features/code-review/lib/review-report-frontmatter";
 
 interface ReviewReportMetadataCardProps {
@@ -23,6 +24,7 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
   metadata,
 }) => {
   const { setIsRightCollapsed, setShowRightSidebar } = useSidebarLayout();
+  const navigationInterceptor = useAppNavigationInterceptor();
   const [, setSidebarParams] = useQueryStates({
     rsTab: rightSidebarParams.rsTab,
     reviewSession: parseAsString,
@@ -30,6 +32,18 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
   });
 
   const handleOpenSession = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const targetUrl = new URL(window.location.href);
+      targetUrl.searchParams.set("rsTab", "review");
+      targetUrl.searchParams.set("reviewSession", metadata.session_guid);
+      targetUrl.searchParams.set("reviewRevision", metadata.current_revision_guid);
+      targetUrl.searchParams.delete("canvas");
+      const targetPath = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+      if (navigationInterceptor?.({ path: targetPath, kind: "replace" })) {
+        return;
+      }
+    }
+
     void setSidebarParams({
       rsTab: "review",
       reviewSession: metadata.session_guid,
@@ -40,6 +54,7 @@ export const ReviewReportMetadataCard: React.FC<ReviewReportMetadataCardProps> =
   }, [
     metadata.session_guid,
     metadata.current_revision_guid,
+    navigationInterceptor,
     setSidebarParams,
     setShowRightSidebar,
     setIsRightCollapsed,

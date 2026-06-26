@@ -37,7 +37,14 @@ export function CanvasReviewWidget({ shape }: { shape: CanvasWidgetShape }) {
   }
   const target = reviewTargetFromContext(shape.props.source.context);
   return (
-    <ReviewContextProvider target={target} filePath="" revisionGuid={shape.props.source.revisionGuid}>
+    <ReviewContextProvider
+      target={target}
+      filePath=""
+      revisionGuid={shape.props.source.revisionGuid}
+      selectionMode="local"
+      initialSessionGuid={shape.props.source.sessionGuid ?? null}
+      initialRevisionGuid={shape.props.source.revisionGuid ?? null}
+    >
       <CanvasReviewWidgetBody shapeId={shape.id as TLShapeId} source={shape.props.source} />
     </ReviewContextProvider>
   );

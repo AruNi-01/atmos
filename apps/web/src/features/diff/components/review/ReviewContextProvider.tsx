@@ -11,6 +11,9 @@ interface ReviewContextProviderProps {
   filePath: string;
   fileSnapshotGuid?: string | null;
   revisionGuid?: string | null;
+  selectionMode?: "url" | "local";
+  initialSessionGuid?: string | null;
+  initialRevisionGuid?: string | null;
   children: React.ReactNode;
 }
 
@@ -19,9 +22,20 @@ export const ReviewContextProvider: React.FC<ReviewContextProviderProps> = ({
   filePath,
   fileSnapshotGuid,
   revisionGuid,
+  selectionMode,
+  initialSessionGuid,
+  initialRevisionGuid,
   children,
 }) => {
-  const ctx = useReviewContext({ target, filePath, fileSnapshotGuid, revisionGuid });
+  const ctx = useReviewContext({
+    target,
+    filePath,
+    fileSnapshotGuid,
+    revisionGuid,
+    selectionMode,
+    initialSessionGuid,
+    initialRevisionGuid,
+  });
 
   // Memoize context value to avoid unnecessary re-renders
   const contextValue = useMemo(() => ctx, [

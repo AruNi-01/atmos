@@ -54,7 +54,6 @@ import {
 } from 'lucide-react';
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { useTheme } from 'next-themes';
 import { useWorkspaceContext, type TaskStatus } from '@/features/workspace/hooks/use-workspace-context';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useDialogStore } from "@/app-shell/state/use-dialog-store";
@@ -72,6 +71,10 @@ import {
   WorkspaceStatusSelect,
 } from '@/app-shell/sidebar/workspace-metadata-controls';
 
+type OverviewPullRequest = {
+  number: number;
+} & Record<string, unknown>;
+
 interface OverviewTabProps {
   contextId: string;
   projectId?: string;
@@ -88,6 +91,8 @@ interface OverviewTabProps {
   labels?: WorkspaceLabel[];
   active?: boolean;
   showRefreshAction?: boolean;
+  onOpenPullRequest?: (pr: OverviewPullRequest) => void;
+  onOpenActionRun?: (run: ActionRun) => void;
 }
 
 function formatDate(isoString?: string): string {
@@ -215,6 +220,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   labels,
   active = true,
   showRefreshAction = true,
+  onOpenPullRequest,
+  onOpenActionRun,
 }) => {
   const openFile = useEditorStore(s => s.openFile);
   const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
@@ -253,12 +260,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   });
   const { latestRuns, stats } = useProcessedActions(actionRuns);
 
-  const [{ rsPr: selectedPrNumber, rsRunId: activeRunId }, setModalParams] = useQueryStates(rightSidebarModalParams);
-  const { activeActionRun, setActiveActionRun, activePr, setActivePr } = useDialogStore();
-  const isPrModalOpen = selectedPrNumber !== null;
+  const [, setModalParams] = useQueryStates(rightSidebarModalParams);
+  const { setActiveActionRun, setActivePr } = useDialogStore();
   const [requirementExpanded, setRequirementExpanded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { resolvedTheme } = useTheme();
 
   const [reviewFiles, setReviewFiles] = useState<{ name: string, path: string }[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -285,15 +290,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       setReviewsLoading(false);
     }
   }, [projectPath, contextId]);
-
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    pullRequests: true,
-    actionsStatus: true,
-  });
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
 
   const requirementPreview = useMemo(() => {
     if (!requirement) return null;
@@ -367,6 +363,30 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     // Opening requirement file should be pinned since it's an explicit user action
     openFile(filePath, contextId, { preview: false });
   }, [openFile, effectivePath, contextId]);
+
+  const handleOpenPullRequest = useCallback(
+    (pr: OverviewPullRequest) => {
+      if (onOpenPullRequest) {
+        onOpenPullRequest(pr);
+        return;
+      }
+      setActivePr(pr);
+      void setModalParams({ rsPr: pr.number, rsRunId: null });
+    },
+    [onOpenPullRequest, setActivePr, setModalParams],
+  );
+
+  const handleOpenActionRun = useCallback(
+    (run: ActionRun) => {
+      if (onOpenActionRun) {
+        onOpenActionRun(run);
+        return;
+      }
+      setActiveActionRun(run);
+      void setModalParams({ rsPr: null, rsRunId: run.databaseId });
+    },
+    [onOpenActionRun, setActiveActionRun, setModalParams],
+  );
 
   return (
     <>
@@ -594,10 +614,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     prs.map((pr: any) => (
                       <div
                         key={pr.number}
-                        onClick={() => {
-                          setActivePr(pr);
-                          setModalParams({ rsPr: pr.number });
-                        }}
+                        onClick={() => handleOpenPullRequest(pr)}
                         className="flex flex-col p-3 rounded-md bg-muted/20 border border-sidebar-border/50 hover:bg-muted/40 hover:border-sidebar-border transition-all cursor-pointer group"
                       >
                         <div className="flex justify-between items-start gap-4 mb-2">
@@ -682,16 +699,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   ) : latestRuns && latestRuns.length > 0 ? (
                     latestRuns.map((run: ActionRun) => {
                       const isSuccess = run.conclusion === 'success';
-                      const isFailure = run.conclusion === 'failure';
                       const isCompleted = run.status === 'completed';
 
                       return (
                         <div
                           key={run.databaseId}
-                          onClick={() => {
-                            setActiveActionRun(run);
-                            setModalParams({ rsRunId: run.databaseId });
-                          }}
+                          onClick={() => handleOpenActionRun(run)}
                           className={cn(
                             "flex flex-col gap-1.5 p-2.5 rounded-md transition-all border cursor-pointer hover:shadow-sm",
                             isCompleted ? (

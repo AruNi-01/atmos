@@ -2,10 +2,24 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { Compass } from "lucide-react";
+import { ArrowUpRight, Compass } from "lucide-react";
 import { Button } from "@workspace/ui";
 
 import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-store";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
+
+function removeCanvasParam(path: string): string {
+  if (typeof window === "undefined") {
+    return path;
+  }
+  try {
+    const url = new URL(path, window.location.origin);
+    url.searchParams.delete("canvas");
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return path;
+  }
+}
 
 /**
  * Notice modal shown when a clickable element inside a Canvas widget triggers an
@@ -15,6 +29,7 @@ import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-st
 export function CanvasUnsupportedInteractionDialog() {
   const notice = useCanvasRuntimeStore((state) => state.unsupportedInteractionNotice);
   const dismiss = useCanvasRuntimeStore((state) => state.dismissUnsupportedInteraction);
+  const router = useAppRouter();
 
   React.useEffect(() => {
     if (!notice) {
@@ -33,6 +48,15 @@ export function CanvasUnsupportedInteractionDialog() {
   if (!notice || typeof document === "undefined") {
     return null;
   }
+
+  const handleOpenInMainApp = () => {
+    if (!notice.targetPath) {
+      return;
+    }
+    const targetPath = removeCanvasParam(notice.targetPath);
+    dismiss();
+    router.push(targetPath);
+  };
 
   return createPortal(
     <div
@@ -59,10 +83,16 @@ export function CanvasUnsupportedInteractionDialog() {
             </p>
           </div>
         </div>
-        <div className="mt-5 flex justify-end">
-          <Button size="sm" onClick={dismiss}>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={dismiss}>
             Got it
           </Button>
+          {notice.targetPath ? (
+            <Button size="sm" onClick={handleOpenInMainApp}>
+              <ArrowUpRight className="mr-1.5 size-3.5" />
+              Open in main app
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>,

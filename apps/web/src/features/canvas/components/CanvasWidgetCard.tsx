@@ -65,6 +65,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
     shape.props.source.type === "center" && shape.props.title === "Center"
       ? registry.label
       : shape.props.title;
+  const canRefreshWidget = shape.props.source.type !== "center";
   const isSelected = useValue(
     "canvas-widget-selected",
     () => editor.getSelectedShapeIds().includes(shape.id as TLShapeId),
@@ -215,20 +216,22 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setRefreshNonce((value) => value + 1);
-            }}
-            aria-label="Refresh widget"
-            title="Refresh"
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <RefreshCcw className="size-3.5" />
-          </button>
+          {canRefreshWidget ? (
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setRefreshNonce((value) => value + 1);
+              }}
+              aria-label="Refresh widget"
+              title="Refresh"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <RefreshCcw className="size-3.5" />
+            </button>
+          ) : null}
           <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}
