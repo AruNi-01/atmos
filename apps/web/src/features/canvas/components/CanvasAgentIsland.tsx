@@ -12,7 +12,6 @@ import {
   Plus,
   Trash2,
   Type,
-  type LucideIcon,
 } from "lucide-react";
 import { cn, DotmSquare12 } from "@workspace/ui";
 
@@ -26,7 +25,6 @@ import {
   summarizeConsecutiveEntries,
   type SummarizedFeedRow,
 } from "../lib/canvas-agent-feed-summarize";
-import type { CanvasAgentFeedKind } from "../lib/canvas-agent-feed-labels";
 import { CANVAS_AGENT_FEED_STALE_MS } from "../lib/canvas-agent-feed";
 import {
   type CanvasAgentViewState,
@@ -58,29 +56,6 @@ const MAX_HISTORY_ROWS = 100;
  */
 const ISLAND_ACTIVE_WINDOW_MS = 15_000;
 
-function kindIcon(kind: CanvasAgentFeedKind): LucideIcon {
-  switch (kind) {
-    case "read":
-      return Eye;
-    case "create":
-      return Plus;
-    case "edit":
-      return Pencil;
-    case "delete":
-      return Trash2;
-    case "move":
-      return Move;
-    case "layout":
-      return LayoutGrid;
-    case "navigate":
-      return Maximize2;
-    case "select":
-      return MousePointer2;
-    default:
-      return Type;
-  }
-}
-
 function formatTime(at: number): string {
   return new Intl.DateTimeFormat(undefined, {
     hour: "2-digit",
@@ -91,6 +66,32 @@ function formatTime(at: number): string {
 
 function formatRowLabel(row: SummarizedFeedRow): string {
   return row.count > 1 ? `${row.label} ×${row.count}` : row.label;
+}
+
+function buildVisibleHistoryBatches(batches: CanvasAgentFeedBatch[]) {
+  const visibleBatches: Array<{
+    id: string;
+    showDivider: boolean;
+    rows: SummarizedFeedRow[];
+  }> = [];
+  let remainingRows = MAX_HISTORY_ROWS;
+
+  [...batches].reverse().forEach((batch, batchIndex) => {
+    if (remainingRows <= 0) return;
+
+    const rows = summarizeConsecutiveEntries([...batch.entries].reverse());
+    const visibleRows = rows.slice(0, remainingRows);
+    if (visibleRows.length === 0) return;
+
+    remainingRows -= visibleRows.length;
+    visibleBatches.push({
+      id: batch.id,
+      showDivider: batchIndex > 0,
+      rows: visibleRows,
+    });
+  });
+
+  return visibleBatches;
 }
 
 export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }) {
@@ -183,8 +184,7 @@ export function CanvasAgentIsland({ bridge }: { bridge: CanvasAgentBridgeState }
 }
 
 function ExpandedPanel({ batches }: { batches: CanvasAgentFeedBatch[] }) {
-  const reversed = [...batches].reverse();
-  let rowCount = 0;
+  const visibleBatches = buildVisibleHistoryBatches(batches);
 
   return (
     <div
@@ -193,39 +193,28 @@ function ExpandedPanel({ batches }: { batches: CanvasAgentFeedBatch[] }) {
       className={cn("overflow-hidden rounded-2xl", GLASS_SHELL)}
     >
       <div className="max-h-64 overflow-y-auto overscroll-contain px-3 py-2">
-        {reversed.map((batch, batchIndex) => {
-          const rows = summarizeConsecutiveEntries([...batch.entries].reverse());
-          const visibleRows =
-            rowCount >= MAX_HISTORY_ROWS
-              ? []
-              : rows.slice(0, Math.max(0, MAX_HISTORY_ROWS - rowCount));
-          rowCount += visibleRows.length;
-          if (visibleRows.length === 0) return null;
-
-          return (
-            <React.Fragment key={batch.id}>
-              {batchIndex > 0 ? (
-                <div className="my-2 border-t border-dashed border-border/60" aria-hidden />
-              ) : null}
-              <ul className="flex flex-col gap-1">
-                {visibleRows.map(row => (
-                  <HistoryRow key={row.id} row={row} />
-                ))}
-              </ul>
-            </React.Fragment>
-          );
-        })}
+        {visibleBatches.map((batch) => (
+          <React.Fragment key={batch.id}>
+            {batch.showDivider ? (
+              <div className="my-2 border-t border-dashed border-border/60" aria-hidden />
+            ) : null}
+            <ul className="flex flex-col gap-1">
+              {batch.rows.map(row => (
+                <HistoryRow key={row.id} row={row} />
+              ))}
+            </ul>
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );
 }
 
 function HistoryRow({ row }: { row: SummarizedFeedRow }) {
-  const Icon = row.label.includes("writing") ? Type : kindIcon(row.kind);
-
   return (
     <li className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-xs">
-      <Icon
+      <HistoryIcon
+        row={row}
         className={cn(
           "size-3.5 shrink-0",
           row.status === "error"
@@ -234,7 +223,6 @@ function HistoryRow({ row }: { row: SummarizedFeedRow }) {
               ? "text-emerald-500"
               : "text-muted-foreground",
         )}
-        aria-hidden
       />
       <span
         className={cn(
@@ -252,6 +240,37 @@ function HistoryRow({ row }: { row: SummarizedFeedRow }) {
       </time>
     </li>
   );
+}
+
+function HistoryIcon({
+  className,
+  row,
+}: {
+  className?: string;
+  row: SummarizedFeedRow;
+}) {
+  if (row.label.includes("writing")) return <Type className={className} aria-hidden />;
+
+  switch (row.kind) {
+    case "read":
+      return <Eye className={className} aria-hidden />;
+    case "create":
+      return <Plus className={className} aria-hidden />;
+    case "edit":
+      return <Pencil className={className} aria-hidden />;
+    case "delete":
+      return <Trash2 className={className} aria-hidden />;
+    case "move":
+      return <Move className={className} aria-hidden />;
+    case "layout":
+      return <LayoutGrid className={className} aria-hidden />;
+    case "navigate":
+      return <Maximize2 className={className} aria-hidden />;
+    case "select":
+      return <MousePointer2 className={className} aria-hidden />;
+    default:
+      return <Type className={className} aria-hidden />;
+  }
 }
 
 /**
@@ -391,4 +410,3 @@ function useFeedSnapshot(store: CanvasAgentFeedStore) {
 function useAgentViewState(store: CanvasAgentBridgeState["activity"]): CanvasAgentViewState {
   return React.useSyncExternalStore(store.subscribe, store.getViewState, store.getViewState);
 }
-

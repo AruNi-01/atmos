@@ -30,6 +30,7 @@ export function LocalModelDownloadProgress() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial async load resolves outside the effect body.
     void load();
   }, [load]);
 
@@ -86,6 +87,7 @@ export function LocalModelDownloadProgress() {
     const downloading = isDownloading || isDownloadingRuntime;
 
     if (downloading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- visibility mirrors download state for the global progress indicator.
       setIsVisible(true);
     } else if (isVisible) {
       // Keep visible for a moment after completion, then hide
@@ -94,7 +96,7 @@ export function LocalModelDownloadProgress() {
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [isDownloading, isDownloadingRuntime]);
+  }, [isDownloading, isDownloadingRuntime, isVisible]);
 
   if (!isVisible || progress === null) {
     return null;

@@ -11,7 +11,10 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "react": ["../../node_modules/@types/react"],
+      "react/jsx-runtime": ["../../node_modules/@types/react/jsx-runtime"],
+      "react/jsx-dev-runtime": ["../../node_modules/@types/react/jsx-dev-runtime"]
     }
   },
   "include": ["src"],

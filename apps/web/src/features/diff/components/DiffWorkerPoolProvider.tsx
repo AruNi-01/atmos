@@ -7,7 +7,7 @@ import {
   type WorkerInitializationRenderOptions,
   type WorkerPoolOptions,
 } from '@pierre/diffs/react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useSyncExternalStore, type ReactNode } from 'react';
 import { pierreWorkerFactory } from '@/shared/lib/pierre-worker-factory';
 
 function getPoolSize(): number {
@@ -55,17 +55,14 @@ export function DiffWorkerPoolProvider({ children }: { children: ReactNode }) {
 /** Gate CodeView mount until the pool is warm (matches diffshub). */
 export function useDiffWorkerPoolReady(): boolean {
   const workerPool = useWorkerPool();
-  const [isReady, setIsReady] = useState(() => workerPool?.isInitialized() ?? true);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => workerPool?.subscribeToStatChanges(onStoreChange) ?? (() => {}),
+    [workerPool],
+  );
+  const getSnapshot = useCallback(
+    () => workerPool?.isInitialized() ?? true,
+    [workerPool],
+  );
 
-  useEffect(() => {
-    if (workerPool == null) {
-      setIsReady(true);
-      return;
-    }
-    return workerPool.subscribeToStatChanges((stats) => {
-      setIsReady(stats.managerState === 'initialized');
-    });
-  }, [workerPool]);
-
-  return isReady;
+  return useSyncExternalStore(subscribe, getSnapshot, () => true);
 }

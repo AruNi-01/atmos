@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { HostedLandingLoading } from "@/app-shell/HostedLandingLoading";
 import { HostedWelcomeGate } from "@/features/welcome/components/HostedWelcomeGate";
 import { useHostedConnectionStore } from "@/features/connection/store/hosted-connection-store";
@@ -11,6 +11,10 @@ interface HostedBootstrapBoundaryProps {
 }
 
 type HostedBootstrapPhase = "loading" | "onboarding" | "ready";
+
+const subscribeMounted = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
 
 function resolveHostedBootstrapPhase(
   mounted: boolean,
@@ -35,12 +39,12 @@ function resolveHostedBootstrapPhase(
 export function HostedBootstrapBoundary({
   children,
 }: HostedBootstrapBoundaryProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeMounted,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot,
+  );
   const bootstrapState = useHostedConnectionStore((s) => s.bootstrapState);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) {
     return <div className="flex min-h-0 flex-1 bg-background" />;
