@@ -22,7 +22,6 @@ export function ActionsActionBar({
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(false);
-  const [isToolbarHovered, setIsToolbarHovered] = React.useState(false);
   const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -71,6 +70,15 @@ export function ActionsActionBar({
     closeToolbar();
   }, [closeToolbar]);
 
+  const handleControlBlur = React.useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        scheduleClose();
+      }
+    },
+    [scheduleClose],
+  );
+
   React.useEffect(() => {
     return () => {
       if (closeTimeoutRef.current) {
@@ -84,24 +92,18 @@ export function ActionsActionBar({
 
   return (
     <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 justify-center">
-      <div className="pointer-events-auto relative flex items-end justify-center">
+      <div
+        className="pointer-events-auto relative flex items-end justify-center"
+        onBlur={handleControlBlur}
+        onMouseLeave={scheduleClose}
+      >
         {shouldRenderToolbar && (
           <div
             onMouseEnter={() => {
-              setIsToolbarHovered(true);
               cancelClose();
             }}
             onMouseLeave={() => {
-              setIsToolbarHovered(false);
               scheduleClose();
-            }}
-            onBlur={(event) => {
-              if (
-                !event.currentTarget.contains(event.relatedTarget) &&
-                !isToolbarHovered
-              ) {
-                scheduleClose();
-              }
             }}
             aria-hidden={!isOpen}
             className={cn(

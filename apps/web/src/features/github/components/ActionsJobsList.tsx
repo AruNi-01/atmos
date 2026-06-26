@@ -493,6 +493,9 @@ function ActionStepsList({
                           type="button"
                           aria-label={`Open ${step.name || "step"} on GitHub`}
                           tabIndex={isExpanded ? 0 : -1}
+                          onKeyDown={(event) => {
+                            event.stopPropagation();
+                          }}
                           onClick={(event) => {
                             event.stopPropagation();
                             openActionStepInGitHub(
@@ -572,7 +575,7 @@ function openActionStepInGitHub(
       : `https://github.com/${owner}/${repo}/actions/runs/${runId}`);
   const href =
     jobId && step.number ? `${jobUrl}#step:${step.number}:1` : jobUrl;
-  window.open(href, "_blank");
+  window.open(href, "_blank", "noopener,noreferrer");
 }
 
 function ActionJobStatusIcon({

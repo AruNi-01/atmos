@@ -4,20 +4,40 @@ type PRMainTab = "description" | "discussion" | "commits" | "files";
 
 export function usePrContextHeader(activeMainTab: PRMainTab) {
   const mainScrollRef = React.useRef<HTMLDivElement | null>(null);
-  const prContextRef = React.useRef<HTMLDivElement | null>(null);
+  const prContextElementRef = React.useRef<HTMLDivElement | null>(null);
+  const [prContextElement, setPrContextElement] =
+    React.useState<HTMLDivElement | null>(null);
   const prContextHeightRef = React.useRef(64);
   const prContextVisibleRef = React.useRef(true);
   const lastMainScrollTopRef = React.useRef(0);
 
+  const applyPrContextVisibility = React.useCallback(
+    (element: HTMLDivElement, visible: boolean) => {
+      element.style.transform = visible
+        ? "translate3d(0, 0, 0)"
+        : "translate3d(0, calc(-100% - 1px), 0)";
+    },
+    [],
+  );
+
+  const prContextRef = React.useCallback(
+    (element: HTMLDivElement | null) => {
+      prContextElementRef.current = element;
+      setPrContextElement(element);
+      if (element) {
+        applyPrContextVisibility(element, prContextVisibleRef.current);
+      }
+    },
+    [applyPrContextVisibility],
+  );
+
   const setPrContextVisible = React.useCallback((visible: boolean) => {
     if (prContextVisibleRef.current === visible) return;
     prContextVisibleRef.current = visible;
-    const element = prContextRef.current;
+    const element = prContextElementRef.current;
     if (!element) return;
-    element.style.transform = visible
-      ? "translate3d(0, 0, 0)"
-      : "translate3d(0, calc(-100% - 1px), 0)";
-  }, []);
+    applyPrContextVisibility(element, visible);
+  }, [applyPrContextVisibility]);
 
   const getPrContextMetrics = React.useCallback(() => {
     const contextHeight = prContextHeightRef.current;
@@ -34,7 +54,7 @@ export function usePrContextHeader(activeMainTab: PRMainTab) {
   }, [setPrContextVisible]);
 
   React.useEffect(() => {
-    const element = prContextRef.current;
+    const element = prContextElement;
     if (!element) return;
 
     const updateHeight = () => {
@@ -50,7 +70,7 @@ export function usePrContextHeader(activeMainTab: PRMainTab) {
     const resizeObserver = new ResizeObserver(updateHeight);
     resizeObserver.observe(element);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [prContextElement]);
 
   const handleMainScroll = React.useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
