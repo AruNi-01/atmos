@@ -1,0 +1,22 @@
+{
+  "name": "@atmos/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --project=chromium --grep @smoke",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report reports/html",
+    "install:browsers": "playwright install chromium",
+    "install:browsers:with-deps": "playwright install --with-deps chromium",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^20.19.27",
+    "typescript": "^5.9.3"
+  }
+}

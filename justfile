@@ -328,6 +328,26 @@ test:
     bun test
     cargo test --workspace
 
+# 运行 Playwright E2E 测试
+test-e2e *args:
+    bun run --cwd e2e test -- {{args}}
+
+# 运行 Playwright E2E smoke 测试
+test-e2e-smoke *args:
+    bun run --cwd e2e test:smoke -- {{args}}
+
+# 以 headed 模式运行 Playwright E2E 测试
+test-e2e-headed *args:
+    bun run --cwd e2e test:headed -- {{args}}
+
+# 安装 Playwright Chromium 浏览器
+install-e2e-browsers:
+    bun run --cwd e2e install:browsers
+
+# 打开最近一次 Playwright HTML 报告
+e2e-report:
+    bun run --cwd e2e report
+
 # 仅运行前端测试
 test-web:
     bun test
@@ -426,6 +446,8 @@ alias d-d := dev-docs
 alias dm := dev-mobile
 alias da := dev-api
 alias t := test
+alias te := test-e2e
+alias tes := test-e2e-smoke
 alias ta := test-api
 alias l := lint
 alias f := fmt

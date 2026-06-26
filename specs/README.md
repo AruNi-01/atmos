@@ -13,7 +13,8 @@ specs/
 ├── references/                     # On-demand spec templates and deep references
 │   ├── improvement-template.md      # Optional IMPROVEMENT.md template
 │   ├── progress-template.md         # Optional PROGRESS.md template
-│   └── review-template.md           # Optional REVIEW.md template
+│   ├── review-template.md           # Optional REVIEW.md template
+│   └── agent-browser-setup.md       # Optional Agent Browser setup reference
 │
 ├── APP/                            # Atmos application (web / desktop / cli / api)
 │   ├── APP-001_atmos-core/
@@ -104,6 +105,8 @@ These files are not requirements sources. Requirements live in `PRD.md`, archite
 | **APP-024** | Terminal Agent Run Config | `specs/APP/APP-024_terminal-agent-run-config/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-025** | Mobile App | `specs/APP/APP-025_mobile-app/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
 | **APP-026** | Agent Fix Launcher | `specs/APP/APP-026_agent-fix-launcher/` (`BRAINSTORM.md`, `PRD.md`, `TECH.md`, `TEST.md`) |
+| **QUALITY-002** | Spec Test Execution Loop | `specs/APP/QUALITY-002_spec-test-execution-loop/` (`TECH.md`, `TEST.md`) |
+| **QUALITY-003** | Playwright E2E Harness | `specs/APP/QUALITY-003_playwright-e2e-harness/` (`TECH.md`, `TEST.md`) |
 
 ### Landing
 

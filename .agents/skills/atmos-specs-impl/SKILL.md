@@ -13,14 +13,14 @@ args:
 
 # Atmos Specs · Implementation
 
-This skill is the bridge from specs to shipped production code. You execute what TECH.md designed, you keep the regression gate green, and you do it in the layer order Atmos expects. Comprehensive test authoring for the spec (turning TEST.md scenarios into runnable tests) belongs to the sibling skill `atmos-specs-test-run`.
+This skill is the bridge from specs to shipped production code. You execute what TECH.md designed, you keep the regression gate green, and you do it in the layer order Atmos expects. Comprehensive test authoring for the spec (turning TEST.md scenarios into runnable tests) belongs to the sibling skill `atmos-specs-test-run`, which should run immediately after implementation for complete spec work unless the user explicitly asks to stop after production code.
 
 ## What this skill owns — and what it does not
 
 - **Owns**: real production code in `crates/`, `apps/`, `packages/`, plus schema/migration/feature-flag files TECH.md names.
 - **Owns**: compile + lint + existing-test regression gate on every chunk (`cargo check`, `cargo clippy`, `bun run typecheck`, `just lint`, targeted `cargo test` / `bun test` for pre-existing suites near the change).
 - **May touch `TECH.md`**: only when implementation reveals a decision in TECH that is wrong or ambiguous. When that happens, update TECH alongside the code and call it out.
-- **Does not own** authoring the scenario-level test suite described in TEST.md. Hand that off to `atmos-specs-test-run`. In-line "smoke" tests that are *the cheapest way to prove the code you just wrote compiles and runs* are fine (and encouraged), but the systematic TEST.md coverage pass is not this skill's job.
+- **Does not own** authoring the scenario-level test suite described in TEST.md. Hand that off to `atmos-specs-test-run` after production code. In-line "smoke" tests that are *the cheapest way to prove the code you just wrote compiles and runs* are fine (and encouraged), but the systematic TEST.md coverage pass is not this skill's job.
 - **Does not touch `PRD.md` / `BRAINSTORM.md`** — if PRD is wrong, stop and tell the user.
 
 Why: separating production code from scenario-test authoring forces honesty. When the same skill writes both, it's tempting to weaken assertions to make green; having `atmos-specs-test-run` write the suite afterward, against the plan, makes regressions land as real failures. The regression gate (lint + existing tests) stays here because it's non-negotiable for every code chunk.
@@ -31,7 +31,7 @@ Read them in order. Do not skim.
 
 1. The spec's **`PRD.md`** — to understand the Must Have acceptance criteria (M1, M2, …).
 2. The spec's **`TECH.md`** — your primary input. List every rollout step; list every new type/table/WS message/endpoint.
-3. The spec's **`TEST.md`** — your definition of done. You will run these scenarios before finishing.
+3. The spec's **`TEST.md`** — your definition of done. You will use its scenario ids, Execution map, and agent-browser checks to prepare the post-implementation `atmos-specs-test-run` hand-off.
 4. The spec's **`BRAINSTORM.md`** — only for context on rejected directions, so you don't accidentally re-introduce them.
 5. Root **`AGENTS.md`** — Transport Rules, Backend Change Flow, Debug Logging.
 6. Package-level **`AGENTS.md`** for every crate / app you will touch:
@@ -98,7 +98,7 @@ If implementation reveals:
 
 Do this in the same change as the code. Never ship code that silently disagrees with TECH.
 
-### 5. Verify regression, then hand off to test-run
+### 5. Verify regression, then trigger the verification loop
 
 Before you tell the user "done":
 
@@ -106,13 +106,15 @@ Before you tell the user "done":
   - `just lint` (or the specific crate/app variant).
   - The **existing** test suites that touch your change: `cargo test -p <crate>`, `bun test` on touched TS sources. The goal here is "no regression", not "new scenarios are green" — those are owned by `atmos-specs-test-run`.
   - For UI work, a browser smoke check against `just dev-web` at minimum.
-- Produce a **Test hand-off** note: the list of TEST.md scenarios this phase is meant to unlock, in the shape `atmos-specs-test-run` expects. Example:
+- Produce a **Test hand-off** note: the list of TEST.md scenarios this phase is meant to unlock, in the shape `atmos-specs-test-run` expects. Include agent-browser exploratory checks when TEST.md lists them. Example:
   ```
   Ready for atmos-specs-test-run:
     - S1 (happy path PR create) — surface: WS action `github_pr_create`, crate `core-service/src/github/mod.rs`.
     - S2 (empty state) — surface: `apps/api/src/ws/github.rs::empty_state`.
+    - Exploratory agent-browser — use `agent-browser`; route `/workspaces/:id`, desktop + 390px mobile viewport, check PR panel copy and loading/error recovery.
   ```
-- Flag anything you could not verify (missing deps, external-service-dependent, etc.) so the reviewer knows what to exercise manually and `atmos-specs-test-run` knows what to cover.
+- If the user asked for end-to-end spec implementation, continue into or explicitly hand off to `atmos-specs-test-run` before claiming the spec is complete. A production-code-only result is `implemented, awaiting test-run`, not `done`.
+- Flag anything you could not verify (missing deps, missing browser tool, external-service-dependent, no Playwright harness, etc.) so the reviewer knows what to exercise manually and `atmos-specs-test-run` knows what to cover.
 
 Do **not** mark the phase complete until the regression gate is green.
 
@@ -131,7 +133,7 @@ A short report containing:
 2. **Files changed**: grouped by layer.
 3. **New types / endpoints / WS messages**: exact names.
 4. **Regression gate**: exact commands run and their outcome.
-5. **Test hand-off**: scenarios from TEST.md now ready to be covered, keyed by the surfaces introduced in this phase — input to `atmos-specs-test-run`.
+5. **Test hand-off / verification loop**: scenarios from TEST.md now ready to be covered, keyed by the surfaces introduced in this phase — input to `atmos-specs-test-run`; include whether agent-browser exploratory checks were run, deferred, or still need a browser tool.
 6. **TECH.md changes** (if any), with a one-line reason each.
 7. **Next up**: the next incomplete rollout step, ready to pick up.
 
@@ -160,7 +162,7 @@ When you do touch TECH.md:
 - All files in the declared phase are implemented, compile, and lint clean.
 - Pre-existing tests in touched areas still pass.
 - Every PRD Must Have that this phase is meant to unlock is reachable through the new surfaces (TECH matches reality).
-- A Test hand-off note is produced so `atmos-specs-test-run` can pick up without re-reading everything.
+- A Test hand-off note is produced so `atmos-specs-test-run` can pick up without re-reading everything, or `atmos-specs-test-run` has already run and updated TEST.md Coverage Status.
 - TECH.md is still accurate; any drift is reflected.
 - Debug logs / structured events are in place where TECH called them out.
 - Hand-off report is produced.

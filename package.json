@@ -3,6 +3,7 @@
   "private": false,
   "workspaces": [
     "apps/*",
+    "e2e",
     "packages/*"
   ],
   "scripts": {
@@ -11,6 +12,9 @@
     "dev:mobile": "bun --filter @atmos/mobile start",
     "dev:landing": "bun --filter landing dev",
     "dev:docs": "bun --filter docs dev",
+    "test:e2e": "bun run --cwd e2e test",
+    "test:e2e:smoke": "bun run --cwd e2e test:smoke",
+    "test:e2e:headed": "bun run --cwd e2e test:headed",
     "build": "bun run build:packages && bun run build:apps",
     "build:packages": "bun --filter '@atmos/*' run build",
     "build:apps": "bun --filter web --filter landing --filter docs run build",

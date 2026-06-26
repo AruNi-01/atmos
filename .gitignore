@@ -22,6 +22,9 @@ out/
 coverage/
 .nyc_output/
 *.lcov
+e2e/reports/
+e2e/test-results/
+playwright-report/
 
 # ===== cache =====
 .cache/

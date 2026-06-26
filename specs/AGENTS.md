@@ -49,7 +49,7 @@ Conventions:
 | `BRAINSTORM.md` | Problem space, options, open questions | Short, iterative |
 | `PRD.md` | **WHAT & WHY**: users, features, metrics, scope | Medium |
 | `TECH.md` | **HOW**: architecture, data, APIs, rollout | Medium to long |
-| `TEST.md` | Strategy, key scenarios, acceptance criteria | Short to medium |
+| `TEST.md` | Executable verification contract: strategy, scenario map, acceptance criteria, and post-run coverage status | Short to medium |
 
 Rules:
 
@@ -58,7 +58,32 @@ Rules:
 - **Do not split a spec across directories.** Large `TECH.md` sections can use inline headings or sibling assets (e.g. `assets/`), not sub-specs.
 - Cross-spec dependencies: link with relative paths, don't copy content.
 
-### 3.1 Optional: `IMPROVEMENT.md` (operational log)
+### 3.1 `TEST.md` as the verification contract
+
+`TEST.md` is the bridge between a spec and the checks an agent can actually run after implementation. It should answer two questions:
+
+1. What observable scenarios prove the PRD Must Haves?
+2. Which tool or command is expected to prove each scenario after implementation?
+
+Use this shape for new or substantially refreshed test plans:
+
+- `Test strategy` — the test levels used and why.
+- `Coverage map` — PRD items mapped to scenario ids.
+- `Execution map` — scenario id, level, expected tool, target command or method, required fixture/data, observable signals, and current status.
+- `Scenarios` — Given / When / Then plus explicit `Signals`.
+- `Exploratory agent-browser checks` — user-facing checks that benefit from Vercel Agent Browser (`agent-browser`, https://agent-browser.dev/), such as copy, layout, state clarity, responsive behavior, and obvious console/network failures.
+- `Regression checklist`, `Acceptance criteria`, `Manual verification steps`, and `Non-coverage`.
+- `Coverage Status` — appended after implementation/test-run, with exact tests/commands and remaining gaps.
+
+Keep the layers honest:
+
+- Deterministic business rules belong in Rust tests, Bun tests, or service/API tests.
+- WebSocket behavior should be tested through existing WS/service harnesses where possible; do not add REST-only test APIs unless TECH explicitly justifies them.
+- Playwright/E2E scenarios for the web app live in [`../e2e/`](../e2e/) and should be referenced from the `Execution map` with the expected `just test-e2e*` command. For other targets, E2E scenarios are valid only when a harness exists for that target app; otherwise record the gap and use service-level coverage plus agent-browser/manual smoke as a temporary check.
+- `agent-browser` is exploratory verification, not a substitute for executable assertions. It can catch visual, UX, copy, layout, and cross-surface wiring issues that scripted tests did not anticipate.
+- Before running any agent-browser check, the agent must use the Agent Browser skill when installed, or run `agent-browser skills get core --full` to load the CLI-served instructions for the installed version. If the `agent-browser` CLI / skill is unavailable, read [`references/agent-browser-setup.md`](./references/agent-browser-setup.md) for setup, then record the check as `not_run` with the reason in `Coverage Status` if setup still cannot be completed.
+
+### 3.2 Optional: `IMPROVEMENT.md` (operational log)
 
 Some specs—especially long-lived integrations—benefit from a **fifth sibling file** that is **not** part of the planning quartet:
 
@@ -94,7 +119,7 @@ Some specs—especially long-lived integrations—benefit from a **fifth sibling
 
 When creating or refreshing an `IMPROVEMENT.md`, load the template on demand from [`references/improvement-template.md`](./references/improvement-template.md). Do not use a concrete spec file as the template.
 
-### 3.2 Optional: `PROGRESS.md` (implementation handoff)
+### 3.3 Optional: `PROGRESS.md` (implementation handoff)
 
 Some specs benefit from a tracked `PROGRESS.md` once implementation begins or is about to begin. It is **not** part of the planning quartet and is **not** a requirements source.
 
@@ -129,7 +154,7 @@ Some specs benefit from a tracked `PROGRESS.md` once implementation begins or is
 
 When creating or refreshing a `PROGRESS.md`, load the template on demand from [`references/progress-template.md`](./references/progress-template.md). Do not inline the template here.
 
-### 3.3 Optional: `REVIEW.md` (implementation review fixes)
+### 3.4 Optional: `REVIEW.md` (implementation review fixes)
 
 Some specs benefit from a tracked `REVIEW.md` after code implementation reaches review. It is **not** part of the planning quartet and is **not** a requirements source.
 
@@ -174,8 +199,8 @@ When creating or refreshing a `REVIEW.md`, load the template on demand from [`re
 ## 4. Lifecycle
 
 ```text
-BRAINSTORM  →  PRD  →  TECH  →  TEST  →  implement  →  ship
-   (open)     (what)   (how)   (verify)    (code)
+BRAINSTORM  →  PRD  →  TECH  →  TEST  →  implement  →  test-run / agent-browser  →  ship
+   (open)     (what)   (how)   (verify)    (code)        (prove + explore)
                                       │          │
                                       │          ├──► PROGRESS.md (optional, during implementation)
                                       │          ├──► REVIEW.md (optional, after implementation review)
@@ -187,11 +212,12 @@ Recommended flow:
 1. Create the spec directory and fill `BRAINSTORM.md` while the idea is fuzzy.
 2. Promote settled content into `PRD.md`. Leave open threads in `BRAINSTORM.md`.
 3. Write `TECH.md` once scope is stable. Reference the PRD rather than restating it.
-4. Write `TEST.md` alongside `TECH.md`; finalize acceptance before shipping.
-5. When implementation begins or is about to begin, add `PROGRESS.md` only when handoff/progress tracking is useful (see §3.2).
-6. After implementation review, add or update `REVIEW.md` when functional or non-functional findings need tracked fixes (see §3.3).
-7. After ship, prune obsolete sections but keep the spec; it is a historical record.
-8. For production learnings and iterative fixes, append to `IMPROVEMENT.md` when the spec has one (see §3.1).
+4. Write `TEST.md` alongside `TECH.md`; finalize scenario coverage, execution mapping, and acceptance before shipping.
+5. When implementation begins or is about to begin, add `PROGRESS.md` only when handoff/progress tracking is useful (see §3.3).
+6. After implementation, run the relevant regression gates and the `atmos-specs-test-run` pass for the scenarios the implementation unlocks. Use agent-browser for exploratory UI smoke checks when TEST.md lists them or the change has meaningful user-facing workflow risk.
+7. After implementation review, add or update `REVIEW.md` when functional or non-functional findings need tracked fixes (see §3.4).
+8. After ship, prune obsolete sections but keep the spec; it is a historical record.
+9. For production learnings and iterative fixes, append to `IMPROVEMENT.md` when the spec has one (see §3.2).
 
 ---
 
@@ -263,7 +289,7 @@ When something in `specs/` ships and stabilizes, migrate the enduring parts into
 - [ ] No secrets, customer data, or internal URLs.
 - [ ] PRD states scope *and* non-scope; includes **diagrams as needed** (business flows, user-visible states — see §6 Diagrams).
 - [ ] TECH lists risks; includes **diagrams as needed** (architecture, flows, sequences, persistence ER/schema — see §6 Diagrams).
-- [ ] TEST lists acceptance criteria.
+- [ ] TEST maps PRD Must Haves to scenario ids, includes an execution map, names observable signals, lists acceptance criteria, and separates executable coverage from agent-browser/manual exploratory checks.
 
 ---
 
@@ -277,5 +303,6 @@ Rules:
 - Append a dated implementation note to `PROGRESS.md`, `REVIEW.md`, `IMPROVEMENT.md`, `TECH.md`, or `TEST.md` as appropriate.
 - Do not rewrite settled requirements just to match the current code. If behavior changed, append an "Implementation Delta" / "Post-Implementation Update" section with the reason, affected files, commit, and verification.
 - Record verification commands and known gaps, not long command output.
+- For implemented spec work, update `TEST.md` `Coverage Status` with exact automated tests, regression commands, agent-browser exploratory checks, and any uncovered scenarios.
 - If the change is a rename or terminology migration, append the final vocabulary and public API/CLI/env names so future work does not resurrect old names.
 - If no existing optional log file fits, append a short dated section to the relevant `TECH.md` or `TEST.md`.

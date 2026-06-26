@@ -31,6 +31,7 @@
 | **CLI Tool** (atmos command) | [apps/cli/AGENTS.md](apps/cli/AGENTS.md) |
 | **Relay** (Cloudflare Worker) | [packages/relay/AGENTS.md](packages/relay/AGENTS.md) |
 | **Write/Edit Specs** (planning + optional logs) | [specs/AGENTS.md](specs/AGENTS.md) |
+| **E2E / Playwright** (cross-layer browser checks) | [e2e/AGENTS.md](e2e/AGENTS.md) |
 
 ---
 
@@ -78,6 +79,7 @@ atmos/
 │   └── terminal-agents/       # Built-in terminal agent defaults shared by Rust + TS
 │
 ├── docs/                      # 📖 Deep Design & Architecture
+├── e2e/                       # 🎭 Playwright end-to-end tests and fixtures
 └── specs/                     # 📋 Specs (Brainstorm / PRD / TECH / TEST + optional logs)
     ├── AGENTS.md              # Specs conventions — read this before writing a spec
     ├── APP/                   # Atmos application (web/desktop/cli/api) specs
@@ -161,6 +163,8 @@ just dev-web            # Start web app
 just dev-mobile         # Start Expo mobile dev server
 just dev-desktop        # Desktop (rebuilds web static + prepare-sidecar + tauri dev --no-watch)
 just test               # Run all tests
+just test-e2e-smoke     # Run fast Playwright smoke tests
+just test-e2e           # Run all Playwright E2E tests
 just lint               # Run all linters
 ```
 
