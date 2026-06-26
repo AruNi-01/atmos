@@ -1,0 +1,115 @@
+e2e/fixtures/console-errors.ts
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-48
+justfile
+  s_01f2b7b26e79fe::t_e5cc8b89d5aace 333,337,341,345,349
+  s_01f2b7b26e79fe::t_d502102443c300 331-332,334-336,338-340,342-344,346-348,350,449-450
+e2e/package.json
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-22
+package.json
+  s_01f2b7b26e79fe::t_e5cc8b89d5aace 15-17
+  s_01f2b7b26e79fe::t_b032092ded15b3 6
+e2e/tsconfig.json
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-18
+e2e/fixtures/test.ts
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-19
+.gitignore
+  s_01f2b7b26e79fe::t_d502102443c300 25-27
+AGENTS.md
+  s_01f2b7b26e79fe::t_d502102443c300 34,82,166-167
+specs/APP/QUALITY-002_spec-test-execution-loop/TECH.md
+  s_01f2b7b26e79fe::t_86b53a327a0c3b 59
+  s_01f2b7b26e79fe::t_ca259e98eaa9d3 1-41,43-57,60-78,80-87,90-104
+  s_01f2b7b26e79fe::t_b24841fbbc5259 79,89
+  s_01f2b7b26e79fe::t_3fedb17a88ee4e 42,58,88
+specs/APP/QUALITY-003_playwright-e2e-harness/TEST.md
+  s_01f2b7b26e79fe::t_d502102443c300 1-21,26-30,32-39,41-77
+  s_01f2b7b26e79fe::t_2974702db88197 40
+  s_01f2b7b26e79fe::t_e5cc8b89d5aace 31
+  s_01f2b7b26e79fe::t_3bebb71563261e 22-25,78-87
+specs/APP/QUALITY-003_playwright-e2e-harness/TECH.md
+  s_01f2b7b26e79fe::t_d502102443c300 1-34,36-37,40-68,71-76
+  s_01f2b7b26e79fe::t_2974702db88197 35,38,70
+  s_01f2b7b26e79fe::t_8c6f2d76506930 69
+  s_01f2b7b26e79fe::t_a6e0b2689c3c88 39
+specs/README.md
+  s_01f2b7b26e79fe::t_b24841fbbc5259 17
+  s_01f2b7b26e79fe::t_ed74ae9d93674a 108
+  s_01f2b7b26e79fe::t_1808c4afaf7f75 16
+  s_01f2b7b26e79fe::t_d502102443c300 109
+.agents/skills/atmos-specs-test-plan/SKILL.md
+  s_01f2b7b26e79fe::t_b24841fbbc5259 187
+  s_01f2b7b26e79fe::t_2679a90b30cd41 19,73,75,83-89,91-95,134-139,141-143,185-186,189-193,202-203,218-221,231,237,252,256
+  s_01f2b7b26e79fe::t_023b3ae3a8c0bf 82,96,106,119,121
+  s_01f2b7b26e79fe::t_3fedb17a88ee4e 77,90,241
+  s_01f2b7b26e79fe::t_3e8465e09b33e2 3,29-43,76,120,140,230,238
+  s_01f2b7b26e79fe::t_9c5c85b0e6a30d 188
+.agents/skills/atmos-specs-impl/SKILL.md
+  s_01f2b7b26e79fe::t_835f5b9895f6d0 16,23,34,101,109,116-117,136,165
+  s_01f2b7b26e79fe::t_3fedb17a88ee4e 114
+e2e/tests/smoke/web-setup.e2e.ts
+  s_01f2b7b26e79fe::t_8c6f2d76506930 8
+  s_01f2b7b26e79fe::t_b032092ded15b3 1,3-5,9-21
+  s_01f2b7b26e79fe::t_384c63bf3a7596 2,6-7
+e2e/README.md
+  s_01f2b7b26e79fe::t_a6e0b2689c3c88 26
+  s_01f2b7b26e79fe::t_e5cc8b89d5aace 17
+  s_01f2b7b26e79fe::t_589a6eccf585fd 39,50
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-16,18-23,25,27,29-38,40-49,51-56
+  s_01f2b7b26e79fe::t_2974702db88197 24,28
+e2e/fixtures/local-api.ts
+  s_01f2b7b26e79fe::t_384c63bf3a7596 1-39,41-53
+  s_01f2b7b26e79fe::t_0956d26bb75ace 40
+specs/AGENTS.md
+  s_01f2b7b26e79fe::t_3fedb17a88ee4e 74
+  s_01f2b7b26e79fe::t_ee3942c026dea2 52,61-73,75-81,83,85-86,122,157,202-203,215,217-220,292,306
+  s_01f2b7b26e79fe::t_599c8df231c41a 216
+  s_01f2b7b26e79fe::t_b24841fbbc5259 84
+  s_01f2b7b26e79fe::t_d502102443c300 82
+e2e/AGENTS.md
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-23
+specs/APP/QUALITY-002_spec-test-execution-loop/TEST.md
+  s_01f2b7b26e79fe::t_e8f02962bb1870 126-130,132-133,135-137
+  s_01f2b7b26e79fe::t_2d11357a70a3a4 131
+  s_01f2b7b26e79fe::t_ca259e98eaa9d3 1-30,32,34-66,69-85,94-97,100-107,110-125
+  s_01f2b7b26e79fe::t_b24841fbbc5259 33,91,99,109,134
+  s_01f2b7b26e79fe::t_3fedb17a88ee4e 31,67-68,98,108
+  s_01f2b7b26e79fe::t_1808c4afaf7f75 86-90,92-93
+.agents/skills/atmos-specs-test-run/SKILL.md
+  s_01f2b7b26e79fe::t_b24841fbbc5259 40,157
+  s_01f2b7b26e79fe::t_3fedb17a88ee4e 22,80,154
+  s_01f2b7b26e79fe::t_11221748e1b830 148,160,170,188
+  s_01f2b7b26e79fe::t_f25a99dded4250 149,151-153,155-156,158-159,196,206,215,222
+  s_01f2b7b26e79fe::t_5b33811e4f2e97 213,221
+  s_01f2b7b26e79fe::t_0c73d3c8cc28bf 3,20,38,51,54-66,79,123-134,140-144,181-183,203
+  s_01f2b7b26e79fe::t_2af23edad0cccf 150
+e2e/fixtures/app-server.ts
+  s_01f2b7b26e79fe::t_a6e0b2689c3c88 20
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-17,19,21-22,24-27
+  s_01f2b7b26e79fe::t_2974702db88197 18,23
+specs/references/agent-browser-setup.md
+  s_01f2b7b26e79fe::t_b24841fbbc5259 1-95
+e2e/playwright.config.ts
+  s_01f2b7b26e79fe::t_b032092ded15b3 1-3,5-19,21-31,33-41,43-58
+  s_01f2b7b26e79fe::t_2974702db88197 4,42
+  s_01f2b7b26e79fe::t_8c6f2d76506930 20,32
+e2e/tests/specs/.gitkeep
+  s_01f2b7b26e79fe::t_b032092ded15b3 1
+bun.lock
+  s_01f2b7b26e79fe::t_3f2d7a8ae0c797 2,14,245-253,369,411-412,1039-1040,2931-2934,3961-3962
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "c52629042f013656575f9d4cb388d521f5ab09e4",
+  "prompts": {},
+  "sessions": {
+    "s_01f2b7b26e79fe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f02be-3e3a-74a2-ab40-594556de53f1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
