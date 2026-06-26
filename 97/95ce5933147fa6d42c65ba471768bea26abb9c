@@ -1,0 +1,92 @@
+apps/web/src/features/atmos-computer/components/RemoteComputerSetupBlock.tsx
+  s_c7b2e72b593711::t_9ff1608c1e3292 3,5,21-22,30-31,41-48,91,93,100-102,113,165-169,178-180,182-188
+  s_c7b2e72b593711::t_c7b8c65424435a 8-9,84,138,145,148-149,155,175-177,191
+  s_eeb75ca710cb32::t_f7aa7fd88b34e3 174
+  s_c7b2e72b593711::t_f1b779566d03a8 12,128-129,156
+  s_c7b2e72b593711::t_b49c89b20fdf90 11,79-82,87-89,98-99,103-105,123-124,139,141-143,159-163
+  s_c7b2e72b593711::t_4ff537433877db 164
+packages/relay/src/index.ts
+  s_c7b2e72b593711::t_3cec2995fa1952 43,551-552,554-555
+apps/cli/src/output.rs
+  s_c7b2e72b593711::t_7a82649f3f504b 222-224
+apps/web/src/features/connection/lib/remote-computer-register-token-cache.ts
+  s_c7b2e72b593711::t_a9c9ca7c981b8b 2-3,6
+apps/cli/AGENTS.md
+  s_c7b2e72b593711::t_4518b44b545c3e 24
+apps/web/src/app/[locale]/setup/page.tsx
+  s_c7b2e72b593711::t_5b5d9264526e98 1-17
+packages/relay/AGENTS.md
+  s_c7b2e72b593711::t_46de777c292262 57
+agents/references/runtime/AGENTS.md
+  s_c7b2e72b593711::t_ab9a0881b0cc34 20
+apps/docs/content/docs/cli/computer.mdx
+  s_c7b2e72b593711::t_af94668082af06 15
+apps/docs/content/docs/cli/computer.zh.mdx
+  s_c7b2e72b593711::t_dea39b92e681b3 15
+apps/web/src/features/welcome/components/HostedWelcomeGate.tsx
+  s_c7b2e72b593711::t_0e79a9a244d760 679-718
+  s_c7b2e72b593711::t_3d4ff4920b7550 56-60,245-246,274,348,354-357,384,387,392,737-738
+  s_c7b2e72b593711::t_e6611c1e70e65d 358,739
+  s_c7b2e72b593711::t_2935ffca1fb199 49,244,247,372-383,388-391,393-417,719,733-735,741-759,788-807,810-819,821-824,828,830-839
+  s_c7b2e72b593711::t_5e7613a77c69b7 720-732,736,740
+  s_c7b2e72b593711::t_2d7d822daf9a1b 185-186,188-189,191,236
+  s_c7b2e72b593711::t_25788930524f97 3,72-98,145-149
+  s_eeb75ca710cb32::t_4abc06d663ca11 651,656-668,673,678
+  s_c7b2e72b593711::t_7a0a59c1fd92a7 10-12,25
+  s_c7b2e72b593711::t_99285574e83f5d 127,129
+  s_c7b2e72b593711::t_88be5a75c132b4 271-273,275-278
+  s_c7b2e72b593711::t_e94aa6917ee7a7 100,144
+  s_c7b2e72b593711::t_e2f7d891ee46c8 252,279-300,434
+  s_c7b2e72b593711::t_c331f181425808 63,128,132-139,187,190,445,477
+  s_c7b2e72b593711::t_2f28a9af572e76 353,385-386
+  s_c7b2e72b593711::t_ae07b9d1f30de6 126,130-131,140-143,150
+  s_c7b2e72b593711::t_74cb6a5595fd48 19,248-251
+  s_c7b2e72b593711::t_b191b418a73226 151
+apps/web/src/features/atmos-computer/components/AtmosComputerSection.tsx
+  s_eeb75ca710cb32::t_e1a3cc247fd1d7 960-1038
+  s_eeb75ca710cb32::t_632239b26bf5f3 1039-1040
+apps/web/src/features/connection/lib/sync-computer-client-settings.ts
+  s_c7b2e72b593711::t_575de70ebdd264 22-27,94,98,128-137
+  s_c7b2e72b593711::t_210601e77ec883 3,21,102,126,156-157
+apps/cli/src/commands/computer.rs
+  s_c7b2e72b593711::t_32ed67bfe309ae 62
+  s_c7b2e72b593711::t_7d1f6437c354e1 5,69,72,98-119,187-205,207,209-210,212-214,216-218,220-234,237-246
+  s_c7b2e72b593711::t_19d21c4e9a5720 61,74
+install-local-web-runtime.sh
+  s_c7b2e72b593711::t_79d477777b1dba 13,16-18,32-36,76-83,85-100,125-128
+  s_c7b2e72b593711::t_2c4360deb0e3ee 616-625,629-646,651-656
+  s_c7b2e72b593711::t_c371fb87681677 270
+  s_c7b2e72b593711::t_87fe3d87105ae8 14-15,84,626-628
+  s_c7b2e72b593711::t_b657e252236249 667-671
+  s_c7b2e72b593711::t_3d6f95c5d902f2 129
+apps/web/src/features/connection/lib/remote-computer-setup-commands.ts
+  s_c7b2e72b593711::t_4feb14872d4303 1-4,23-24,28,37-38,42,44-46
+  s_eeb75ca710cb32::t_876bd01d5518ee 14-15,26,29,35-36,39-41,43
+  s_c7b2e72b593711::t_a3dec1265d558b 47-48
+specs/APP/APP-016_atmos-computer/TECH.md
+  s_c7b2e72b593711::t_343a9e2d43d637 208,333,335-336,406,647
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "9795ce5933147fa6d42c65ba471768bea26abb9c",
+  "prompts": {},
+  "sessions": {
+    "s_c7b2e72b593711": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f01ec-9e6b-7da1-aa52-44bad8cb8762",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_eeb75ca710cb32": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f01e5-d7e2-7f42-9834-b0f9982752c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
