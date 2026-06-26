@@ -1,0 +1,36 @@
+apps/web/src/features/github/components/ActionsActionBar.tsx
+  s_36e2b2a6ace205::t_b024fc1093fbca 1-195
+apps/web/src/features/github/components/ActionsJobsList.tsx
+  s_36e2b2a6ace205::t_deba44b5dc3ab4 13-16,230,340
+  s_36e2b2a6ace205::t_0e6a0612c96fdc 1-12,17-229,231-339,341-641
+apps/web/src/features/github/components/PRDetailModal.tsx
+  s_36e2b2a6ace205::t_05a22c3702388d 54,56,89
+  s_36e2b2a6ace205::t_0819e02cebf646 60,86-87,92,109-116,194-195,203,205,402,404,411
+apps/web/src/features/github/components/actions-detail-types.ts
+  s_36e2b2a6ace205::t_b024fc1093fbca 1-25
+apps/web/src/features/github/components/ActionsDetailModal.tsx
+  s_36e2b2a6ace205::t_b4449059dda1e6 32-35,56
+  s_36e2b2a6ace205::t_d75cfe64d46e12 328-337
+apps/web/src/features/diff/components/useDiffPromptStash.tsx
+  s_36e2b2a6ace205::t_00ecee21ca4293 16-17,72
+apps/web/src/features/github/components/use-pr-context-header.ts
+  s_36e2b2a6ace205::t_2b968697e1fc86 1-122
+apps/web/src/features/agent-fix/hooks/use-agent-fix-context.ts
+  s_36e2b2a6ace205::t_b024fc1093fbca 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "3e2c4cced2783bbf777ebd52f2b619783ec609f9",
+  "prompts": {},
+  "sessions": {
+    "s_36e2b2a6ace205": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f013b-3a30-7c11-9dd1-072175644f00",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
