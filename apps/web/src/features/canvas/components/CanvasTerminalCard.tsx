@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import {
   HTMLContainer,
   useEditor,
@@ -39,6 +40,16 @@ import {
 
 export const CanvasAgentContext = React.createContext<TerminalPaneAgent[]>([]);
 
+type TerminalOverlayViewport = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  scale: number;
+};
+
+const CANVAS_TERMINAL_OVERLAY_Z_INDEX = 155;
+
 export class CanvasTerminalShapeUtil extends CanvasTerminalShapeSchemaUtil {
   component(shape: CanvasTerminalShape) {
     return <CanvasTerminalCard shape={shape} />;
@@ -62,14 +73,19 @@ function CanvasTerminalCard({ shape }: { shape: CanvasTerminalShape }) {
 
 function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const [sessionId] = React.useState(() => crypto.randomUUID());
+  const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
+  const [terminalViewport, setTerminalViewport] =
+    React.useState<TerminalOverlayViewport | null>(null);
   const { board } = useCanvasBoard();
   const { workspaceId, tmuxWindowName, contextScope } = shape.props;
   const editor = useEditor();
   const router = useAppRouter();
   const terminalHostRef = React.useRef<HTMLDivElement | null>(null);
+  const terminalApiRef = React.useRef<TerminalRef | null>(null);
   const terminalRefs = useCanvasTerminalRefs();
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
+  const consumePendingTerminalCommand = useCanvasRuntimeStore((state) => state.consumePendingTerminalCommand);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
   const removeRenderedShapeId = useCanvasRuntimeStore((state) => state.removeRenderedShapeId);
@@ -100,6 +116,12 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
   const isActive = activeShapeId === shape.id;
   const isRendered = renderedShapeIds.includes(shape.id);
 
+  React.useEffect(() => {
+    const container = editor.getContainer();
+    const wrapper = container.closest(".tldraw-wrapper");
+    setPortalRoot(wrapper instanceof HTMLElement ? wrapper : container);
+  }, [editor]);
+
   const markAttached = React.useCallback(() => {
     if (!shape.props.isNewTerminal) {
       return;
@@ -114,16 +136,16 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     });
   }, [editor, shape]);
 
-  const focusTerminal = React.useCallback(() => {
-    const container = terminalHostRef.current;
-    if (!container) {
-      return;
+  const handleSessionReady = React.useCallback(() => {
+    markAttached();
+    const pendingCommand = consumePendingTerminalCommand(shape.id);
+    if (pendingCommand) {
+      terminalApiRef.current?.sendText(pendingCommand);
     }
+  }, [consumePendingTerminalCommand, markAttached, shape.id]);
 
-    const target =
-      container.querySelector<HTMLElement>(".xterm-helper-textarea") ??
-      container.querySelector<HTMLElement>(".xterm");
-    target?.focus();
+  const focusTerminal = React.useCallback(() => {
+    terminalApiRef.current?.focus();
   }, []);
 
   const activateTerminal = React.useCallback(() => {
@@ -168,6 +190,57 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     },
     [activateTerminal, editor],
   );
+
+  const syncTerminalViewport = React.useCallback(() => {
+    const host = terminalHostRef.current;
+    const next = host ? measureTerminalOverlayViewport(host) : null;
+    setTerminalViewport((current) =>
+      areTerminalOverlayViewportsEqual(current, next) ? current : next,
+    );
+  }, []);
+
+  React.useEffect(() => {
+    if (!isRendered) {
+      setTerminalViewport(null);
+      return;
+    }
+
+    let frame = 0;
+    let disposed = false;
+
+    const tick = () => {
+      syncTerminalViewport();
+      if (!disposed) {
+        frame = requestAnimationFrame(tick);
+      }
+    };
+
+    tick();
+    window.addEventListener("resize", syncTerminalViewport);
+    window.addEventListener("scroll", syncTerminalViewport, true);
+
+    return () => {
+      disposed = true;
+      if (frame) {
+        cancelAnimationFrame(frame);
+      }
+      window.removeEventListener("resize", syncTerminalViewport);
+      window.removeEventListener("scroll", syncTerminalViewport, true);
+    };
+  }, [isRendered, syncTerminalViewport]);
+
+  React.useEffect(() => {
+    if (!isActive || !isRendered) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      focusTerminal();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [focusTerminal, isActive, isRendered]);
 
   const stopCanvasInteractionWhileActive = React.useCallback(
     (event: React.SyntheticEvent) => {
@@ -260,6 +333,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
 
   const bindTerminalRef = React.useCallback(
     (api: TerminalRef | null) => {
+      terminalApiRef.current = api;
       registerCanvasTerminalRef(terminalRefs, shape.id, api);
     },
     [terminalRefs, shape.id],
@@ -315,7 +389,63 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     ],
   );
 
+  const terminalPortal =
+    isRendered && portalRoot && terminalViewport
+      ? createPortal(
+          <div
+            data-canvas-terminal-overlay="true"
+            style={{
+              left: terminalViewport.left,
+              top: terminalViewport.top,
+              width: terminalViewport.width,
+              height: terminalViewport.height,
+              zIndex: isActive
+                ? CANVAS_TERMINAL_OVERLAY_Z_INDEX + 1
+                : CANVAS_TERMINAL_OVERLAY_Z_INDEX,
+            }}
+            className="fixed overflow-hidden bg-background"
+            onPointerDown={markTerminalInteractionHandled}
+            onPointerMove={stopCanvasInteractionWhileActive}
+            onPointerUp={stopCanvasInteractionWhileActive}
+            onDoubleClick={markTerminalInteractionHandled}
+            onMouseDown={markTerminalInteractionHandled}
+            onKeyDown={stopCanvasInteractionWhileActive}
+            onWheel={(event) => {
+              editor.markEventAsHandled(event);
+              event.stopPropagation();
+              event.preventDefault();
+            }}
+          >
+            <Terminal
+              ref={bindTerminalRef}
+              sessionId={sessionId}
+              workspaceId={shape.props.workspaceId}
+              tmuxWindowName={shape.props.tmuxWindowName}
+              terminalName={shape.props.terminalName}
+              projectName={shape.props.projectName}
+              workspaceName={shape.props.workspaceName}
+              cwd={shape.props.localPath || undefined}
+              projectRootPath={shape.props.localPath || undefined}
+              isNewPane={shape.props.isNewTerminal}
+              className="h-full"
+              terminalScale={terminalViewport.scale}
+              onSessionReady={handleSessionReady}
+              onTitleChange={onTitleChange}
+              onSessionError={(_, error) => {
+                toastManager.add({
+                  title: "Canvas",
+                  description: error,
+                  type: "error",
+                });
+              }}
+            />
+          </div>,
+          portalRoot,
+        )
+      : null;
+
   return (
+    <>
     <div
       className={cn(
         "flex h-full flex-col overflow-hidden rounded-[20px] bg-background text-foreground",
@@ -396,28 +526,7 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         onKeyDown={stopCanvasInteractionWhileActive}
       >
         {isRendered ? (
-          <Terminal
-            ref={bindTerminalRef}
-            sessionId={sessionId}
-            workspaceId={shape.props.workspaceId}
-            tmuxWindowName={shape.props.tmuxWindowName}
-            terminalName={shape.props.terminalName}
-            projectName={shape.props.projectName}
-            workspaceName={shape.props.workspaceName}
-            cwd={shape.props.localPath || undefined}
-            projectRootPath={shape.props.localPath || undefined}
-            isNewPane={shape.props.isNewTerminal}
-            className="h-full"
-            onSessionReady={markAttached}
-            onTitleChange={onTitleChange}
-            onSessionError={(_, error) => {
-              toastManager.add({
-                title: "Canvas",
-                description: error,
-                type: "error",
-              });
-            }}
-          />
+          <div className="h-full bg-background" aria-hidden />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
             <SquareTerminal className="size-8 text-muted-foreground" />
@@ -435,5 +544,47 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
         )}
       </div>
     </div>
+    {terminalPortal}
+    </>
   );
+}
+
+function measureTerminalOverlayViewport(host: HTMLElement): TerminalOverlayViewport | null {
+  const rect = host.getBoundingClientRect();
+  const width = Math.max(0, rect.width);
+  const height = Math.max(0, rect.height);
+  if (!Number.isFinite(rect.left) || !Number.isFinite(rect.top) || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  const unscaledWidth = host.offsetWidth || width;
+  const rawScale = unscaledWidth > 0 ? width / unscaledWidth : 1;
+  const scale = Math.max(0.1, Math.round(rawScale * 1000) / 1000);
+
+  return {
+    left: roundViewportValue(rect.left),
+    top: roundViewportValue(rect.top),
+    width: roundViewportValue(width),
+    height: roundViewportValue(height),
+    scale,
+  };
+}
+
+function areTerminalOverlayViewportsEqual(
+  a: TerminalOverlayViewport | null,
+  b: TerminalOverlayViewport | null,
+) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.left === b.left &&
+    a.top === b.top &&
+    a.width === b.width &&
+    a.height === b.height &&
+    a.scale === b.scale
+  );
+}
+
+function roundViewportValue(value: number) {
+  return Math.round(value * 10) / 10;
 }

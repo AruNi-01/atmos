@@ -49,6 +49,7 @@ export {
 } from './editor-store-paths';
 
 const pendingFileSaves = new Map<string, Promise<void>>();
+const EMPTY_OPEN_FILES: OpenFile[] = [];
 
 function getSaveKey(workspaceId: string, path: string): string {
   return `${workspaceId}\0${path}`;
@@ -218,10 +219,10 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
 
       getOpenFiles: (workspaceId) => {
         const id = workspaceId || get().currentWorkspaceId;
-        if (!id) return [];
+        if (!id) return EMPTY_OPEN_FILES;
         // Return empty array before hydration to avoid mismatch
-        if (!get()._hasHydrated) return [];
-        return get().workspaceStates[id]?.openFiles || [];
+        if (!get()._hasHydrated) return EMPTY_OPEN_FILES;
+        return get().workspaceStates[id]?.openFiles || EMPTY_OPEN_FILES;
       },
 
       getActiveFilePath: (workspaceId) => {

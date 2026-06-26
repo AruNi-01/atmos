@@ -14,6 +14,7 @@ import { toastManager } from '@workspace/ui';
 import { DiffCopyAnnotation } from '@/features/diff/components/DiffCopyAnnotation';
 import { AgentFixToolbar } from '@/features/agent-fix/components/AgentFixToolbar';
 import type { AgentFixPromptSource } from '@/features/agent-fix/types';
+import type { AgentFixContextRef } from '@/features/agent-fix/types';
 import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-context';
 import {
   buildDiffSelectionInfo,
@@ -59,17 +60,20 @@ function formatMergedDiffPrompt(prompts: StashedDiffPrompt[]) {
 }
 
 type UseDiffPromptStashArgs = {
+  agentFixContext?: AgentFixContextRef | null;
   scope: string;
   viewerRef: MutableRefObject<CodeViewHandle<CopyAnnotationMeta> | null>;
   loadedContentsRef: MutableRefObject<Map<string, LoadedDiffContents>>;
 };
 
 export function useDiffPromptStash({
+  agentFixContext: agentFixContextOverride,
   scope,
   viewerRef,
   loadedContentsRef,
 }: UseDiffPromptStashArgs) {
-  const agentFixContext = useAgentFixContext();
+  const routeAgentFixContext = useAgentFixContext();
+  const agentFixContext = agentFixContextOverride ?? routeAgentFixContext;
   const copyKeyRef = useRef(0);
   const [stashedPromptState, setStashedPromptState] =
     useState<StashedDiffPromptState>(() => ({

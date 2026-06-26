@@ -17,6 +17,7 @@ import {
   CANVAS_TERMINAL_SHAPE_TYPE,
   type CanvasTerminalShape,
 } from "../lib/canvas-terminal-shape";
+import { CANVAS_WIDGET_SHAPE_TYPE } from "../lib/canvas-widget-shape";
 import { formatCanvasShapesForCopy } from "../lib/canvas-shape-text";
 import { formatCanvasTerminalForCopy } from "../lib/canvas-terminal-copy";
 import { useCanvasTerminalRefs } from "../lib/canvas-terminal-ref-context";
@@ -39,7 +40,10 @@ export function CanvasShapeCopyOverlay() {
   const editor = useEditor();
   const selectedIds = useValue(
     "canvas-shape-copy.selection",
-    () => editor.getSelectedShapeIds(),
+    () =>
+      editor
+        .getSelectedShapeIds()
+        .filter((shapeId) => editor.getShape(shapeId)?.type !== CANVAS_WIDGET_SHAPE_TYPE),
     [editor],
   );
 

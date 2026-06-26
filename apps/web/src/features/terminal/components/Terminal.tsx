@@ -17,8 +17,9 @@ import { ImageAddon } from "@xterm/addon-image";
 import { useTheme } from "next-themes";
 
 import "@xterm/xterm/css/xterm.css";
+import "./terminal-grid.css";
 
-import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme } from "../lib/theme";
+import { defaultTerminalOptions, atmosDarkTheme, atmosLightTheme, terminalFont } from "../lib/theme";
 import { useTerminalWebSocket } from "../hooks/use-terminal-websocket";
 import type { TerminalProps, TerminalSnapshot } from "../types/index";
 import { getRuntimeApiConfig, wsBase } from "@/shared/lib/desktop-runtime";
@@ -69,6 +70,7 @@ export interface TerminalRef {
 const INITIAL_CONNECT_MIN_FRAMES = 2;
 const INITIAL_CONNECT_STABLE_FRAMES = 2;
 const INITIAL_CONNECT_MAX_WAIT_FRAMES = 20;
+const CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS = 300;
 
 const Terminal = ({
   sessionId,
@@ -87,6 +89,7 @@ const Terminal = ({
   projectRootPath,
   onData, // New prop
   readOnly,
+  terminalScale,
   onInputWhileReadOnly,
   onTitleChange,
   ref,
@@ -98,6 +101,8 @@ const Terminal = ({
   const searchResultsListenerRef = useRef<{ dispose: () => void } | null>(null);
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const resizeRafIdRef = useRef(0);
+  const resizeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const readOnlyRef = useRef(readOnly);
   // Keep onTitleChange callback ref in sync to avoid stale closures in the OSC handler
   const onTitleChangeRef = useRef(onTitleChange);
@@ -114,6 +119,15 @@ const Terminal = ({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const currentTheme = isDark ? atmosDarkTheme : atmosLightTheme;
+  const isCanvasScaledTerminal = terminalScale != null;
+  const normalizedTerminalScale =
+    typeof terminalScale === "number" && Number.isFinite(terminalScale) && terminalScale > 0
+      ? terminalScale
+      : 1;
+  const [appliedTerminalScale, setAppliedTerminalScale] = useState(normalizedTerminalScale);
+  const scaledTerminalFontSize = Math.max(2, terminalFont.size * appliedTerminalScale);
+  const normalizedTerminalScaleRef = useRef(normalizedTerminalScale);
+  const appliedTerminalScaleRef = useRef(appliedTerminalScale);
   const {
     resetInputReady,
     scheduleInputReady,
@@ -347,6 +361,47 @@ const Terminal = ({
     readOnlyRef.current = readOnly;
   }, [readOnly]);
 
+  useEffect(() => {
+    normalizedTerminalScaleRef.current = normalizedTerminalScale;
+  }, [normalizedTerminalScale]);
+
+  useEffect(() => {
+    appliedTerminalScaleRef.current = appliedTerminalScale;
+  }, [appliedTerminalScale]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedTerminalScale((current) =>
+        current === normalizedTerminalScale ? current : normalizedTerminalScale,
+      );
+    }, isCanvasScaledTerminal ? CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS : 0);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isCanvasScaledTerminal, normalizedTerminalScale]);
+
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    const fit = fitAddonRef.current;
+    if (!terminal || !fit) {
+      return;
+    }
+
+    terminal.options.fontSize = scaledTerminalFontSize;
+    const frame = requestAnimationFrame(() => {
+      if (!isTerminalContainerVisible(containerRef.current)) {
+        return;
+      }
+      fit.fit();
+      sendResizeRef.current({ cols: terminal.cols, rows: terminal.rows });
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [scaledTerminalFontSize]);
+
   // Initialize terminal
   useEffect(() => {
     if (!containerRef.current || terminalRef.current) return;
@@ -369,6 +424,7 @@ const Terminal = ({
     const terminal = new XTerm({
       ...defaultTerminalOptions,
       theme: currentTheme,
+      fontSize: scaledTerminalFontSize,
       linkHandler: {
         activate(event, text) {
           void handleResolvedLinkRef.current(event, text);
@@ -677,20 +733,41 @@ const Terminal = ({
     // Uses rAF to coalesce multiple ResizeObserver fires within one frame.
     // Control mode sends raw pane output, so xterm.js owns scrollback and TUI
     // alternate-screen transitions without backend cleanup hacks.
-    let resizeRafId = 0;
-    const resizeObserver = new ResizeObserver(() => {
-      if (resizeRafId) return; // Already scheduled for this frame
-      resizeRafId = requestAnimationFrame(() => {
-        resizeRafId = 0;
-        const term = terminalRef.current;
-        const fit = fitAddonRef.current;
-        if (!term || !fit) return;
-        // Skip when terminal container is hidden (e.g. tab not visible)
-        if (!isTerminalContainerVisible(containerRef.current)) return;
+    const runResizeFit = () => {
+      resizeRafIdRef.current = 0;
+      const term = terminalRef.current;
+      const fit = fitAddonRef.current;
+      if (!term || !fit) return;
+      // Skip when terminal container is hidden (e.g. tab not visible)
+      if (!isTerminalContainerVisible(containerRef.current)) return;
 
-        fit.fit();
-        connectWhenVisible();
-      });
+      fit.fit();
+      connectWhenVisible();
+    };
+    const scheduleResizeFit = () => {
+      if (resizeRafIdRef.current) return;
+      resizeRafIdRef.current = requestAnimationFrame(runResizeFit);
+    };
+    const resizeObserver = new ResizeObserver(() => {
+      if (!isCanvasScaledTerminal) {
+        scheduleResizeFit();
+        return;
+      }
+
+      if (resizeDebounceTimerRef.current) {
+        clearTimeout(resizeDebounceTimerRef.current);
+      }
+      const scaleFitPending =
+        Math.abs(normalizedTerminalScaleRef.current - appliedTerminalScaleRef.current) > 0.001;
+      if (!scaleFitPending) {
+        scheduleResizeFit();
+        return;
+      }
+
+      resizeDebounceTimerRef.current = setTimeout(() => {
+        resizeDebounceTimerRef.current = null;
+        scheduleResizeFit();
+      }, CANVAS_TERMINAL_SCALE_FIT_DEBOUNCE_MS);
     });
 
     resizeObserver.observe(containerRef.current);
@@ -708,6 +785,14 @@ const Terminal = ({
       terminalInputCleanupRef.current = null;
       if (visibilityPollTimer) clearTimeout(visibilityPollTimer);
       if (connectRafId) cancelAnimationFrame(connectRafId);
+      if (resizeRafIdRef.current) {
+        cancelAnimationFrame(resizeRafIdRef.current);
+        resizeRafIdRef.current = 0;
+      }
+      if (resizeDebounceTimerRef.current) {
+        clearTimeout(resizeDebounceTimerRef.current);
+        resizeDebounceTimerRef.current = null;
+      }
       disconnect();
       resizeObserverRef.current?.disconnect();
       if (cmdStartTimerRef.current) clearTimeout(cmdStartTimerRef.current);
@@ -749,6 +834,7 @@ const Terminal = ({
       sessionId={sessionId}
       showScrollDown={showScrollDown}
       terminalSearchInputId={terminalSearchInputId}
+      terminalScale={normalizedTerminalScale}
       uiStatus={uiStatus}
       workspaceId={workspaceId}
     />

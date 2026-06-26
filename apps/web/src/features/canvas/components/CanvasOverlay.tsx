@@ -72,6 +72,18 @@ export function CanvasOverlay() {
     setAnimState("closing");
   }, []);
 
+  const isMounted = canvas || animState !== "idle";
+
+  React.useEffect(() => {
+    if (!isMounted) {
+      return;
+    }
+    document.body.classList.add("canvas-overlay-active");
+    return () => {
+      document.body.classList.remove("canvas-overlay-active");
+    };
+  }, [isMounted]);
+
   if (!canvas && animState === "idle") {
     return null;
   }
@@ -84,6 +96,7 @@ export function CanvasOverlay() {
       role="dialog"
       aria-modal="true"
       aria-label="Canvas"
+      data-canvas-overlay="true"
       className={`fixed inset-0 z-[150] bg-background transition-transform duration-300 ease-in-out ${
         isOpen ? "translate-y-0" : isClosing ? "translate-y-full" : "translate-y-full"
       }`}

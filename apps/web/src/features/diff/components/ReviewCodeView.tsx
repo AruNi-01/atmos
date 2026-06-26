@@ -12,7 +12,7 @@ import { useTheme } from 'next-themes';
 import type { ReviewCommentDto, ReviewFileDto, ReviewMessageDto } from '@/api/ws-api';
 import { reviewWsApi } from '@/api/ws-api';
 import { useReviewCtx } from '@/features/diff/components/review/ReviewContextProvider';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
+import { useEditorStore, type FileNavigationTarget } from '@/features/editor/store/use-editor-store';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import { useDiffWorkerPoolReady } from '@/features/diff/components/DiffWorkerPoolProvider';
@@ -54,21 +54,31 @@ function yieldToBrowser(): Promise<void> {
 
 interface ReviewCodeViewProps {
   groupPath: string;
+  contextId?: string | null;
+  navigationTarget?: FileNavigationTarget | null;
 }
 
-export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
+export function ReviewCodeView({
+  groupPath,
+  contextId,
+  navigationTarget: navigationTargetProp,
+}: ReviewCodeViewProps) {
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
+  const activeContextId = contextId ?? effectiveContextId;
   const workerPoolReady = useDiffWorkerPoolReady();
   const reviewCtx = useReviewCtx();
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
   const setDiffGroupActiveFile = useEditorStore((s) => s.setDiffGroupActiveFile);
-  const selectedPath = useEditorStore((s) =>
-    effectiveContextId ? s.diffGroupActiveFiles[effectiveContextId]?.[groupPath] : undefined,
+  const storeSelectedPath = useEditorStore((s) =>
+    activeContextId ? s.diffGroupActiveFiles[activeContextId]?.[groupPath] : undefined,
   );
-  const navigationTarget = useEditorStore((s) =>
-    effectiveContextId ? s.navigationTargets[effectiveContextId]?.[groupPath] ?? null : null,
+  const storeNavigationTarget = useEditorStore((s) =>
+    activeContextId ? s.navigationTargets[activeContextId]?.[groupPath] ?? null : null,
   );
+  const navigationTarget =
+    navigationTargetProp === undefined ? storeNavigationTarget : navigationTargetProp;
+  const selectedPath = navigationTargetProp?.diffFilePath ?? storeSelectedPath;
 
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedAllItems, setHasLoadedAllItems] = useState(false);
@@ -349,13 +359,13 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
   }, [initialItems, viewerMounted]);
 
   useEffect(() => {
-    if (!effectiveContextId || itemIdsRef.current.length === 0) return;
+    if (!activeContextId || itemIdsRef.current.length === 0) return;
     if (selectedPath && !hasLoadedAllItems) return;
     if (selectedPath && itemIdsRef.current.includes(selectedPath)) return;
     if (selectedPath && navigationTarget?.diffFilePath === selectedPath) return;
-    setDiffGroupActiveFile(groupPath, itemIdsRef.current[0], effectiveContextId);
+    setDiffGroupActiveFile(groupPath, itemIdsRef.current[0], activeContextId);
   }, [
-    effectiveContextId,
+    activeContextId,
     groupPath,
     hasLoadedAllItems,
     initialItems,
@@ -702,16 +712,16 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
 
   useEffect(() => {
     const instance = codeViewRef.current?.getInstance();
-    if (!instance || !effectiveContextId) return;
+    if (!instance || !activeContextId) return;
 
     return instance.subscribeToScroll((_scrollTop, viewer) => {
       if (itemIdsRef.current.length === 0) return;
       const activeId = findDiffItemIdForViewport(viewer, itemIdsRef.current);
       if (!activeId || activeId === scrollActiveIdRef.current) return;
       scrollActiveIdRef.current = activeId;
-      setDiffGroupActiveFile(groupPath, activeId, effectiveContextId);
+      setDiffGroupActiveFile(groupPath, activeId, activeContextId);
     });
-  }, [effectiveContextId, groupPath, setDiffGroupActiveFile, viewerKey, viewerMounted]);
+  }, [activeContextId, groupPath, setDiffGroupActiveFile, viewerKey, viewerMounted]);
 
   const navigationScrollKey = navigationTarget?.diffFilePath
     ? [
@@ -749,8 +759,8 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
       }
     }
 
-    if (effectiveContextId) {
-      setDiffGroupActiveFile(groupPath, targetPath, effectiveContextId);
+    if (activeContextId) {
+      setDiffGroupActiveFile(groupPath, targetPath, activeContextId);
     }
 
     requestAnimationFrame(() => {
@@ -762,30 +772,31 @@ export function ReviewCodeView({ groupPath }: ReviewCodeViewProps) {
         line: navigationTarget.line,
         behavior: 'smooth',
       });
-      if (effectiveContextId) {
-        clearNavigationTarget(groupPath, effectiveContextId);
+      if (navigationTargetProp === undefined && activeContextId) {
+        clearNavigationTarget(groupPath, activeContextId);
       }
     });
   }, [
     annotationVersion,
     clearNavigationTarget,
-    effectiveContextId,
+    activeContextId,
     groupPath,
     isLoading,
     navigationScrollKey,
     navigationTarget,
+    navigationTargetProp,
     setDiffGroupActiveFile,
     viewerMounted,
   ]);
 
   const handleSelectFile = useCallback(
     (path: string) => {
-      if (effectiveContextId) {
-        setDiffGroupActiveFile(groupPath, path, effectiveContextId);
+      if (activeContextId) {
+        setDiffGroupActiveFile(groupPath, path, activeContextId);
       }
       scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
     },
-    [effectiveContextId, groupPath, setDiffGroupActiveFile],
+    [activeContextId, groupPath, setDiffGroupActiveFile],
   );
 
   const toolbar = (

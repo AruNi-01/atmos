@@ -31,6 +31,7 @@ import { PermissionActionButton } from "./MessageQueueDock";
 import { AssistantTurnView } from "./AssistantTurnView";
 import { AgentPromptComposer } from "./AgentPromptComposer";
 import { useAgentChatSession } from "../hooks/use-agent-chat-session";
+import type { UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
 import { AgentChatHeader } from "./AgentChatHeader";
 import { AgentAuthDialog } from "./AgentAuthDialog";
 
@@ -43,6 +44,7 @@ interface AgentChatPanelProps {
   mode?: AgentChatMode;
   publishStatus?: boolean;
   active?: boolean;
+  contextOverride?: UseAgentChatSessionOptions["contextOverride"];
   transformPrompt?: (prompt: string) => string;
 }
 
@@ -51,9 +53,17 @@ export function AgentChatPanel({
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus = variant === "modal",
   active = true,
+  contextOverride,
   transformPrompt,
 }: AgentChatPanelProps = {}) {
-  const session = useAgentChatSession({ variant, mode, publishStatus, active, transformPrompt });
+  const session = useAgentChatSession({
+    variant,
+    mode,
+    publishStatus,
+    active,
+    contextOverride,
+    transformPrompt,
+  });
 
   // ---------------------------------------------------------------------------
   // Draggable & Resizable layout (UI-only, stays in component)

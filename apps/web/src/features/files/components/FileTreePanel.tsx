@@ -5,20 +5,54 @@ import { Eye, EyeOff, Folder, LoaderCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { FileTree } from "@/features/files/components/FileTree";
 import { useFileTreeStore } from "@/features/files/store/use-file-tree-store";
+import type { FileTreeNode } from "@/api/ws-api";
 
 interface FileTreePanelProps {
   projectName?: string | null;
+  data?: FileTreeNode[];
+  rootPath?: string | null;
+  isLoading?: boolean;
+  showHidden?: boolean;
+  contextId?: string | null;
+  activeFilePath?: string | null;
+  currentProjectPath?: string | null;
+  revealEnabled?: boolean;
+  onRefresh?: () => Promise<void> | void;
+  onShowHiddenChange?: (show: boolean) => void;
+  onOpenFile?: (
+    path: string,
+    options: { preview: boolean },
+  ) => Promise<void> | void;
 }
 
-export const FileTreePanel: React.FC<FileTreePanelProps> = ({ projectName }) => {
-  const data = useFileTreeStore((s) => s.data);
-  const rootPath = useFileTreeStore((s) => s.rootPath);
-  const isLoading = useFileTreeStore((s) => s.isLoading);
-  const refresh = useFileTreeStore((s) => s.refresh);
-  const showHidden = useFileTreeStore((s) => s.showHidden);
-  const setShowHidden = useFileTreeStore((s) => s.setShowHidden);
+export const FileTreePanel: React.FC<FileTreePanelProps> = ({
+  projectName,
+  data,
+  rootPath,
+  isLoading,
+  showHidden,
+  contextId,
+  activeFilePath,
+  currentProjectPath,
+  revealEnabled,
+  onRefresh,
+  onShowHiddenChange,
+  onOpenFile,
+}) => {
+  const storeData = useFileTreeStore((s) => s.data);
+  const storeRootPath = useFileTreeStore((s) => s.rootPath);
+  const storeIsLoading = useFileTreeStore((s) => s.isLoading);
+  const storeRefresh = useFileTreeStore((s) => s.refresh);
+  const storeShowHidden = useFileTreeStore((s) => s.showHidden);
+  const setStoreShowHidden = useFileTreeStore((s) => s.setShowHidden);
+  const effectiveData = data ?? storeData;
+  const effectiveRootPath = rootPath ?? storeRootPath;
+  const effectiveIsLoading = isLoading ?? storeIsLoading;
+  const effectiveShowHidden = showHidden ?? storeShowHidden;
+  const effectiveRefresh = onRefresh ?? storeRefresh;
+  const handleShowHiddenChange = onShowHiddenChange ?? setStoreShowHidden;
 
-  if (!rootPath) {
+  if (!effectiveRootPath) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50">
         <Folder className="size-8 opacity-20 mb-2" />
@@ -37,33 +71,38 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({ projectName }) => 
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setShowHidden(!showHidden)}
+              onClick={() => handleShowHiddenChange(!effectiveShowHidden)}
               className={cn(
                 "p-1 hover:bg-sidebar-accent rounded-sm transition-colors",
-                showHidden ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground",
+                effectiveShowHidden ? "text-sidebar-foreground bg-sidebar-accent" : "text-muted-foreground",
               )}
-              title={showHidden ? "Hide hidden files" : "Show hidden files"}
+              title={effectiveShowHidden ? "Hide hidden files" : "Show hidden files"}
             >
-              {showHidden ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+              {effectiveShowHidden ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
             </button>
             <button
               type="button"
-              onClick={refresh}
+              onClick={effectiveRefresh}
               className="p-1 hover:bg-sidebar-accent rounded-sm transition-colors"
               title="Refresh files"
-              disabled={isLoading}
+              disabled={effectiveIsLoading}
             >
-              {isLoading ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCcw className="size-3.5 text-muted-foreground" />}
+              {effectiveIsLoading ? <LoaderCircle className="size-3.5 text-muted-foreground animate-spin" /> : <RotateCcw className="size-3.5 text-muted-foreground" />}
             </button>
           </div>
         </div>
       )}
       <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 pt-1.5">
         <FileTree
-          data={data}
-          rootPath={rootPath}
-          isLoading={isLoading}
-          onRefresh={refresh}
+          data={effectiveData}
+          rootPath={effectiveRootPath}
+          isLoading={effectiveIsLoading}
+          onRefresh={effectiveRefresh}
+          contextId={contextId}
+          activeFilePath={activeFilePath}
+          currentProjectPath={currentProjectPath}
+          revealEnabled={revealEnabled}
+          onOpenFile={onOpenFile}
         />
       </div>
     </div>

@@ -391,6 +391,21 @@
   /* Hide native scrollbar - xterm uses custom overlay scrollbar */
   overflow-y: hidden !important;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
+}
+
+.atmos-terminal .xterm-viewport::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.atmos-terminal .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.atmos-terminal .xterm-viewport::-webkit-scrollbar-thumb {
+  background: transparent !important;
 }
 
 .atmos-terminal .xterm-screen {
@@ -420,8 +435,9 @@
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div,
 .atmos-terminal .xterm-scrollbar,
 .atmos-terminal .xterm .scrollbar {
-  width: 6px !important;
-  right: 2px !important;
+  width: var(--atmos-terminal-scrollbar-width, 6px) !important;
+  right: var(--atmos-terminal-scrollbar-offset, 2px) !important;
+  background: transparent !important;
   opacity: 0.6 !important;
   transition: opacity 0.2s ease, width 0.2s ease !important;
 }
@@ -429,7 +445,7 @@
 .atmos-terminal .xterm .xterm-scroll-area ~ .xterm-decoration-container + div:hover,
 .atmos-terminal .xterm-scrollbar:hover,
 .atmos-terminal .xterm .scrollbar:hover {
-  width: 8px !important;
+  width: var(--atmos-terminal-scrollbar-hover-width, 8px) !important;
   opacity: 0.8 !important;
 }
 
@@ -452,20 +468,20 @@
 
 /* Direct targeting of xterm's invisible scrollbar class */
 .atmos-terminal .xterm .invisible.scrollbar {
-  width: 6px !important;
-  right: 2px !important;
+  width: var(--atmos-terminal-scrollbar-width, 6px) !important;
+  right: var(--atmos-terminal-scrollbar-offset, 2px) !important;
   background: transparent !important;
 }
 
 .atmos-terminal .xterm .invisible.scrollbar.vertical {
-  width: 6px !important;
+  width: var(--atmos-terminal-scrollbar-width, 6px) !important;
 }
 
 .atmos-terminal .xterm .invisible.scrollbar > div {
   background: var(--muted-foreground) !important;
   opacity: 0.3 !important;
   border-radius: 9999px !important;
-  width: 6px !important;
+  width: var(--atmos-terminal-scrollbar-width, 6px) !important;
 }
 
 .atmos-terminal .xterm .invisible.scrollbar > div:hover {

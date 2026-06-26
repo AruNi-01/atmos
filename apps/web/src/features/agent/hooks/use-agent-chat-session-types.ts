@@ -19,6 +19,7 @@ import { getAssistantCopyText } from "@/features/agent/lib/agent/thread";
 import type { AgentChatMode } from "@/features/agent/types/index";
 import type { Project } from "@/shared/types/domain";
 import type { AgentActivity, PendingPermission } from "../lib/chat-helpers";
+import type { CurrentView } from "@/shared/hooks/use-context-params";
 
 // Display fallback before an ACP agent reports a title through session_info_update.
 export const DEFAULT_SESSION_TITLE = "新会话";
@@ -28,6 +29,12 @@ export interface UseAgentChatSessionOptions {
   mode: AgentChatMode;
   publishStatus: boolean;
   active?: boolean;
+  contextOverride?: {
+    workspaceId: string | null;
+    projectId: string | null;
+    effectiveContextId: string | null;
+    currentView: CurrentView;
+  };
   transformPrompt?: (prompt: string) => string;
 }
 

@@ -24,6 +24,24 @@ export interface UseSelectionPopoverReturn {
   popoverRef: RefObject<HTMLDivElement | null>;
 }
 
+function getLocalPointFromClientPoint(
+  element: HTMLElement,
+  clientX: number,
+  clientY: number,
+) {
+  const rect = element.getBoundingClientRect();
+  const layoutWidth = element.offsetWidth || rect.width || 1;
+  const layoutHeight = element.offsetHeight || rect.height || 1;
+  const scaleX = rect.width > 0 ? rect.width / layoutWidth : 1;
+  const scaleY = rect.height > 0 ? rect.height / layoutHeight : 1;
+
+  return {
+    x: (clientX - rect.left) / scaleX,
+    y: (clientY - rect.top) / scaleY,
+    width: layoutWidth,
+  };
+}
+
 export function useSelectionPopover({
   getSelectionInfo,
   containerRef,
@@ -111,10 +129,14 @@ export function useSelectionPopover({
       
       if (info && info.selectedText.trim().length > 0) {
         if (container) {
-          const rect = container.getBoundingClientRect();
+          const localPoint = getLocalPointFromClientPoint(
+            container,
+            event.clientX,
+            event.clientY + 10,
+          );
           setPosition({
-            x: Math.min(event.clientX - rect.left, rect.width - 150),
-            y: event.clientY - rect.top + 10,
+            x: Math.min(localPoint.x, localPoint.width - 150),
+            y: localPoint.y,
           });
         } else {
           setPosition({

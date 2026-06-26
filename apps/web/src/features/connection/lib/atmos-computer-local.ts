@@ -23,12 +23,47 @@ export interface LocalComputerStatus {
 }
 
 const DEFAULT_RELAY = 'https://relay.atmos.land';
+const LOCAL_COMPUTER_STATUS_CACHE_MS = 1_500;
 
 interface ApiEnvelope {
   success?: boolean;
   data?: unknown;
   message?: string;
   error?: string;
+}
+
+type LocalComputerStatusCache = {
+  expiresAt: number;
+  key: string;
+  status: LocalComputerStatus;
+};
+
+let localComputerStatusCache: LocalComputerStatusCache | null = null;
+let localComputerStatusInFlight:
+  | { key: string; request: Promise<LocalComputerStatus> }
+  | null = null;
+let localComputerStatusCacheEpoch = 0;
+
+function getLocalComputerStatusCacheKey(): string {
+  const computer = useAtmosComputerStore.getState();
+  if (
+    computer.connectionMode === 'relay' &&
+    computer.relayGatewayHttpBase &&
+    computer.relayClientToken
+  ) {
+    return [
+      'relay',
+      computer.relayGatewayHttpBase.replace(/\/$/, ''),
+      computer.relayClientToken,
+    ].join(':');
+  }
+  return 'loopback';
+}
+
+export function invalidateLocalComputerStatusCache(): void {
+  localComputerStatusCacheEpoch += 1;
+  localComputerStatusCache = null;
+  localComputerStatusInFlight = null;
 }
 
 function stripLocalSuffix(hostname: string | null | undefined): string | null {
@@ -148,7 +183,38 @@ export async function loadLocalComputerStatus(
 }
 
 export async function fetchLocalComputerStatus(): Promise<LocalComputerStatus> {
-  return localFetch<LocalComputerStatus>('/api/system/computer');
+  const key = getLocalComputerStatusCacheKey();
+  const now = Date.now();
+  if (
+    localComputerStatusCache &&
+    localComputerStatusCache.key === key &&
+    localComputerStatusCache.expiresAt > now
+  ) {
+    return localComputerStatusCache.status;
+  }
+  if (localComputerStatusInFlight?.key === key) {
+    return localComputerStatusInFlight.request;
+  }
+
+  const cacheEpoch = localComputerStatusCacheEpoch;
+  const request = localFetch<LocalComputerStatus>('/api/system/computer')
+    .then((status) => {
+      if (cacheEpoch === localComputerStatusCacheEpoch) {
+        localComputerStatusCache = {
+          key,
+          status,
+          expiresAt: Date.now() + LOCAL_COMPUTER_STATUS_CACHE_MS,
+        };
+      }
+      return status;
+    })
+    .finally(() => {
+      if (localComputerStatusInFlight?.request === request) {
+        localComputerStatusInFlight = null;
+      }
+    });
+  localComputerStatusInFlight = { key, request };
+  return request;
 }
 
 export async function registerLocalComputer(
@@ -163,7 +229,12 @@ export async function registerLocalComputer(
   relay_connected?: boolean;
   relay_last_error?: string | null;
 }> {
-  return localFetch('/api/system/computer/register', {
+  const result = await localFetch<{
+    server_id: string;
+    display_name: string;
+    relay_connected?: boolean;
+    relay_last_error?: string | null;
+  }>('/api/system/computer/register', {
     method: 'POST',
     body: JSON.stringify({
       register_token: registerToken,
@@ -173,10 +244,17 @@ export async function registerLocalComputer(
       ...(registrationMeta ? { registration_meta: registrationMeta } : {}),
     }),
   });
+  invalidateLocalComputerStatusCache();
+  return result;
 }
 
 export async function unregisterLocalComputer(): Promise<{ removed: boolean; hint?: string }> {
-  return localFetch('/api/system/computer/unregister', { method: 'POST', body: '{}' });
+  const result = await localFetch<{ removed: boolean; hint?: string }>(
+    '/api/system/computer/unregister',
+    { method: 'POST', body: '{}' },
+  );
+  invalidateLocalComputerStatusCache();
+  return result;
 }
 
 export interface RelaySyncResult {
@@ -186,10 +264,12 @@ export interface RelaySyncResult {
 
 /** Ask the local API to (re)open the outbound relay WebSocket from disk identity. */
 export async function syncRelayConnection(): Promise<RelaySyncResult> {
-  return localFetch<RelaySyncResult>('/api/system/computer/relay-sync', {
+  const result = await localFetch<RelaySyncResult>('/api/system/computer/relay-sync', {
     method: 'POST',
     body: '{}',
   });
+  invalidateLocalComputerStatusCache();
+  return result;
 }
 
 export interface RelayProxyResult {

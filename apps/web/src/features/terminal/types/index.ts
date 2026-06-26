@@ -54,6 +54,8 @@ export interface TerminalProps {
   projectRootPath?: string;
   onData?: (data: string) => void;
   readOnly?: boolean;
+  /** Visual scale used when the terminal is rendered in a canvas overlay. */
+  terminalScale?: number;
   /** Called when the terminal's dynamic title changes (from shell shim OSC sequences) */
   onTitleChange?: (title: string) => void;
 }

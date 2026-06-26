@@ -53,9 +53,11 @@ export function useAgentChatSession({
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus,
   active = true,
+  contextOverride,
   transformPrompt,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
-  const { workspaceId, projectId, effectiveContextId, currentView } = useContextParams();
+  const urlContext = useContextParams();
+  const { workspaceId, projectId, effectiveContextId, currentView } = contextOverride ?? urlContext;
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
   const [targetAgentId] = useQueryState("agent", agentChatParams.agent);
   const [targetSessionId] = useQueryState("session", agentChatParams.session);

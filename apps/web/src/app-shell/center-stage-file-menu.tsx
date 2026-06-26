@@ -34,6 +34,7 @@ export function CenterStageFileTabContextMenu({
   setTabContextMenu,
   openFiles,
   basePath,
+  anchorPosition = "fixed",
   onCloseFile,
   closeFilesSafely,
 }: {
@@ -41,6 +42,7 @@ export function CenterStageFileTabContextMenu({
   setTabContextMenu: (value: FileTabContextMenuState) => void;
   openFiles: OpenFile[];
   basePath?: string;
+  anchorPosition?: "fixed" | "absolute";
   onCloseFile: (file: OpenFile) => void;
   closeFilesSafely: (files: OpenFile[]) => void;
 }) {
@@ -55,7 +57,11 @@ export function CenterStageFileTabContextMenu({
         <button
           type="button"
           aria-hidden
-          className="fixed size-0 pointer-events-none"
+          className={
+            anchorPosition === "fixed"
+              ? "fixed size-0 pointer-events-none"
+              : "absolute size-0 pointer-events-none"
+          }
           style={{
             left: tabContextMenu?.x ?? -9999,
             top: tabContextMenu?.y ?? -9999,

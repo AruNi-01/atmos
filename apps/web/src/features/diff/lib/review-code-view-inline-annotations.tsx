@@ -111,6 +111,7 @@ export function InlineCommentComposer({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
+              type="button"
               size="sm"
               className="h-8 rounded-md px-2.5 text-xs font-medium"
               onClick={onSubmit}
@@ -133,6 +134,7 @@ export function InlineCommentComposer({
           </TooltipContent>
         </Tooltip>
         <Button
+          type="button"
           size="sm"
           variant="outline"
           className="h-8 rounded-md px-2.5 text-xs font-medium"
@@ -322,6 +324,7 @@ export function InlineReviewCommentAnnotation({
               />
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button
+                  type="button"
                   size="sm"
                   className="h-8 rounded-md px-2.5 text-xs font-medium"
                   onClick={onReplySubmit}
@@ -333,6 +336,7 @@ export function InlineReviewCommentAnnotation({
                   Send Reply
                 </Button>
                 <Button
+                  type="button"
                   size="sm"
                   variant="outline"
                   className="h-8 rounded-md px-2.5 text-xs font-medium"

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { OpenFile } from '@/features/editor/store/use-editor-store';
 import {
@@ -30,6 +30,7 @@ const CodeMirrorEditor = dynamic(() => import('./CodeMirrorEditor'), {
 interface FileViewerProps {
   file: OpenFile;
   className?: string;
+  contextId?: string | null;
   /** False when this tab is mounted but not active (see CenterStage keepMounted file tabs). */
   surfaceActive?: boolean;
 }
@@ -212,7 +213,7 @@ const NativeFileViewer: React.FC<{ ext: string; uri: string; fileName: string; o
   return <UnsupportedView fileName={fileName} uri={uri} ext={ext} />;
 }
 
-export const FileViewer: React.FC<FileViewerProps> = ({ file, className, surfaceActive = true }) => {
+export const FileViewer: React.FC<FileViewerProps> = ({ file, className, contextId, surfaceActive = true }) => {
   const { resolvedTheme } = useTheme();
   const [errorFilePath, setErrorFilePath] = useState<string | null>(null);
   const hasError = errorFilePath === file.path;
@@ -277,7 +278,14 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, className, surface
     );
   }
 
-  return <CodeMirrorEditor file={file} className={className} surfaceActive={surfaceActive} />;
+  return (
+    <CodeMirrorEditor
+      file={file}
+      className={className}
+      contextId={contextId}
+      surfaceActive={surfaceActive}
+    />
+  );
 };
 
 export default FileViewer;

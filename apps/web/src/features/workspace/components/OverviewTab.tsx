@@ -87,6 +87,7 @@ interface OverviewTabProps {
   workflowStatus?: WorkspaceWorkflowStatus;
   labels?: WorkspaceLabel[];
   active?: boolean;
+  showRefreshAction?: boolean;
 }
 
 function formatDate(isoString?: string): string {
@@ -213,6 +214,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   workflowStatus,
   labels,
   active = true,
+  showRefreshAction = true,
 }) => {
   const openFile = useEditorStore(s => s.openFile);
   const updateWorkspacePriority = useProjectStore(s => s.updateWorkspacePriority);
@@ -402,16 +404,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </h1>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            {isRefreshing ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
-            <span className="text-xs">Refresh</span>
-          </Button>
+          {showRefreshAction ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="h-8 gap-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              {isRefreshing ? <LoaderCircle className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
+              <span className="text-xs">Refresh</span>
+            </Button>
+          ) : null}
         </div>
 
         {/* Middle Section: Tasks & Status */}

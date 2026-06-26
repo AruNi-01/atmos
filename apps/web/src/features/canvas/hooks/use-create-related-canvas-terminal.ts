@@ -55,7 +55,8 @@ export function useCreateRelatedCanvasTerminal(shape: CanvasTerminalShape) {
       editor,
       shape,
       created,
-      frameName: resolveRelatedCanvasTerminalFrameName(projects, shape),
+      frameName: resolveRelatedCanvasTerminalFrameName(projects, shape.props),
+      sourceContext: shape.props,
       currentBounds,
     });
     if (!result) {

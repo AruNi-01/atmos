@@ -291,12 +291,12 @@ function HostedConnectionOnboarding({
   }, [setLocalAvailable, setLocalUnavailable, setOnboarding, startChecking]);
 
   useEffect(() => {
-    if (localProbeStartedRef.current) {
+    if (localProbeStartedRef.current || localProbeState !== 'idle') {
       return;
     }
     localProbeStartedRef.current = true;
     void runLocalProbe();
-  }, [runLocalProbe]);
+  }, [localProbeState, runLocalProbe]);
 
   const refreshRemoteList = useCallback(
     async (

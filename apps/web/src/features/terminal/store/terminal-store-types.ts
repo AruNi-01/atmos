@@ -13,6 +13,11 @@ export interface CreateTerminalTabOptions {
   title?: string;
 }
 
+export interface CreateTerminalTabWithInitialPaneOptions extends CreateTerminalTabOptions {
+  paneAgent?: TerminalPaneAgent;
+  paneLabel?: string;
+}
+
 export interface TerminalStore {
   workspaceTerminalTabs: Record<string, TerminalCenterTab[]>;
   workspaceActiveTerminalTabIds: Record<string, string>;
@@ -39,7 +44,7 @@ export interface TerminalStore {
   getActiveTerminalTabId: (workspaceId: string) => string;
   setActiveTerminalTab: (workspaceId: string, terminalTabId: string) => void;
   createTerminalTab: (workspaceId: string, options?: CreateTerminalTabOptions) => TerminalCenterTab;
-  createTerminalTabWithInitialPane: (workspaceId: string, contextScope?: TerminalContextScope) => Promise<{
+  createTerminalTabWithInitialPane: (workspaceId: string, contextScope?: TerminalContextScope, options?: CreateTerminalTabWithInitialPaneOptions) => Promise<{
     tab: TerminalCenterTab;
     paneId: string;
     pane: TerminalPaneProps;

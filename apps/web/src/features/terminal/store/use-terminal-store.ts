@@ -182,7 +182,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
     return newTab;
   },
 
-  createTerminalTabWithInitialPane: async (workspaceId, contextScope = "workspace") => {
+  createTerminalTabWithInitialPane: async (workspaceId, contextScope = "workspace", options) => {
     const isProjectContext = contextScope === "project";
     const workspaceScopeKey = getTerminalWorkspaceScopeKey(workspaceId, isProjectContext);
 
@@ -199,12 +199,40 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => {
       return null;
     }
 
-    const tab = get().createTerminalTab(workspaceId);
+    const tab = get().createTerminalTab(workspaceId, { title: options?.title });
     const panes = get().getPanes(workspaceId, tab.id);
     const [paneId, pane] = Object.entries(panes)[0] ?? [];
     if (!paneId || !pane) {
       return null;
     }
+
+    if (options?.paneLabel || options?.paneAgent) {
+      const scopeKey = getScopeKey(workspaceId, tab.id);
+      const allPanes = getAllDefaultPanesForWorkspace(get(), workspaceId);
+      const nextLabel = options.paneLabel
+        ? getUniqueAgentName(options.paneLabel, allPanes)
+        : pane.label;
+      const nextPane: TerminalPaneProps = {
+        ...pane,
+        label: nextLabel,
+        tmuxWindowName: pane.isNewPane ? nextLabel : pane.tmuxWindowName,
+        agent: options.paneAgent ?? pane.agent,
+      };
+
+      set((state) => ({
+        workspacePanes: {
+          ...state.workspacePanes,
+          [scopeKey]: {
+            ...state.workspacePanes[scopeKey],
+            [paneId]: nextPane,
+          },
+        },
+      }));
+      get().saveToBackend(workspaceId);
+
+      return { tab, paneId, pane: nextPane };
+    }
+
     return { tab, paneId, pane };
   },
 

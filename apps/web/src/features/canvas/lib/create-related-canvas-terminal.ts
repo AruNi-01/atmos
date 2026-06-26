@@ -20,6 +20,13 @@ import {
 type CanvasTerminalPageBounds = NonNullable<ReturnType<Editor["getShapePageBounds"]>>;
 type RelatedCanvasShape = ReturnType<Editor["getCurrentPageShapes"]>[number];
 
+export type RelatedCanvasTerminalSourceShape = Pick<RelatedCanvasShape, "id" | "parentId">;
+
+export type RelatedCanvasTerminalSourceContext = Pick<
+  CanvasTerminalShapeProps,
+  "contextScope" | "workspaceId" | "projectName" | "workspaceName" | "localPath"
+>;
+
 type PlacementRect = {
   x: number;
   y: number;
@@ -47,22 +54,22 @@ export type RelatedCanvasTerminalResult = {
 
 export function resolveRelatedCanvasTerminalFrameName(
   projects: Project[],
-  shape: CanvasTerminalShape,
+  sourceContext: RelatedCanvasTerminalSourceContext,
 ) {
   for (const project of projects) {
-    if (shape.props.contextScope === "project" && project.id === shape.props.workspaceId) {
-      return project.name || shape.props.projectName || "Project";
+    if (sourceContext.contextScope === "project" && project.id === sourceContext.workspaceId) {
+      return project.name || sourceContext.projectName || "Project";
     }
 
-    const workspace = project.workspaces.find((candidate) => candidate.id === shape.props.workspaceId);
+    const workspace = project.workspaces.find((candidate) => candidate.id === sourceContext.workspaceId);
     if (workspace) {
-      return workspace.displayName || workspace.name || shape.props.workspaceName || project.name || "Workspace";
+      return workspace.displayName || workspace.name || sourceContext.workspaceName || project.name || "Workspace";
     }
   }
 
-  return shape.props.contextScope === "project"
-    ? shape.props.projectName || "Project"
-    : shape.props.workspaceName || shape.props.projectName || "Workspace";
+  return sourceContext.contextScope === "project"
+    ? sourceContext.projectName || "Project"
+    : sourceContext.workspaceName || sourceContext.projectName || "Workspace";
 }
 
 const RELATED_TERMINAL_GAP = 32;
@@ -100,7 +107,7 @@ function getRelatedTerminalSlotCandidates(
 
 function collectOccupiedRects(
   editor: RelatedCanvasTerminalEditor,
-  currentShape: CanvasTerminalShape,
+  currentShape: RelatedCanvasTerminalSourceShape,
 ): PlacementRect[] {
   const parentShapeId = String(currentShape.parentId).startsWith("shape:")
     ? String(currentShape.parentId)
@@ -140,7 +147,7 @@ function findFreeAdjacentSlot(
 
 function getExpandableParentFrameBounds(
   editor: RelatedCanvasTerminalEditor,
-  currentShape: CanvasTerminalShape,
+  currentShape: RelatedCanvasTerminalSourceShape,
 ): CanvasTerminalPageBounds | null {
   if (!String(currentShape.parentId).startsWith("shape:")) {
     return null;
@@ -156,7 +163,7 @@ function getExpandableParentFrameBounds(
 
 function shiftRightSideTerminalShapes(
   editor: RelatedCanvasTerminalEditor,
-  currentShape: CanvasTerminalShape,
+  currentShape: RelatedCanvasTerminalSourceShape,
   rightSlot: PlacementRect,
 ): TLShapeId[] {
   const terminals = editor.getCurrentPageShapes()
@@ -199,7 +206,7 @@ function shiftRightSideTerminalShapes(
 
 function findRelatedCanvasTerminalPlacement(
   editor: RelatedCanvasTerminalEditor,
-  currentShape: CanvasTerminalShape,
+  currentShape: RelatedCanvasTerminalSourceShape,
   currentBounds: CanvasTerminalPageBounds,
   terminalSize: Pick<CanvasTerminalShapeProps, "w" | "h">,
 ): { x: number; y: number; shiftedShapeIds: TLShapeId[] } {
@@ -226,13 +233,15 @@ export function createRelatedCanvasTerminalShape({
   shape,
   created,
   frameName,
+  sourceContext,
   currentBounds,
   createId = createShapeId,
 }: {
   editor: RelatedCanvasTerminalEditor;
-  shape: CanvasTerminalShape;
+  shape: RelatedCanvasTerminalSourceShape;
   created: CreatedTerminalTabWithPane;
   frameName: string;
+  sourceContext: RelatedCanvasTerminalSourceContext;
   currentBounds?: CanvasTerminalPageBounds | null;
   createId?: () => TLShapeId;
 }): RelatedCanvasTerminalResult | null {
@@ -247,18 +256,18 @@ export function createRelatedCanvasTerminalShape({
   }
 
   const newShapeId = createId();
-  const contextScope = shape.props.contextScope;
+  const contextScope = sourceContext.contextScope;
   const pinKey = buildCanvasTerminalPinKey(
     contextScope,
-    shape.props.workspaceId,
+    sourceContext.workspaceId,
     nextTmuxWindowName,
   );
   const nextProps = createCanvasTerminalShapeProps({
     contextScope,
-    workspaceId: shape.props.workspaceId,
-    projectName: shape.props.projectName,
-    workspaceName: shape.props.workspaceName,
-    localPath: shape.props.localPath,
+    workspaceId: sourceContext.workspaceId,
+    projectName: sourceContext.projectName,
+    workspaceName: sourceContext.workspaceName,
+    localPath: sourceContext.localPath,
     terminalName: created.pane.label,
     tmuxWindowName: nextTmuxWindowName,
     paneAgent: created.pane.agent,

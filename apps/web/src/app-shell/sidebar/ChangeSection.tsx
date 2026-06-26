@@ -46,6 +46,13 @@ export interface ChangeSectionProps {
   onDiscardAll?: () => void;
   workspaceId: string | null;
   viewMode?: "list" | "tree";
+  selectedFilePath?: string | null;
+  onOpenDiffFile?: (args: {
+    kind: ChangeSectionProps["kind"];
+    groupPath: string;
+    filePath: string;
+    preview: boolean;
+  }) => void;
 }
 
 type ConfirmableMinusActionArgs = {
@@ -264,12 +271,15 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   onDiscardAll,
   workspaceId,
   viewMode = "list",
+  selectedFilePath,
+  onOpenDiffFile,
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [confirmingActionKey, setConfirmingActionKey] = useState<string | null>(null);
   const [runningActionKey, setRunningActionKey] = useState<string | null>(null);
   const groupPath = buildDiffGroupPath(kind as DiffChangeGroupKind);
   const selectedDiffFilePath = useEditorStore((s) => {
+    if (selectedFilePath !== undefined) return selectedFilePath ?? undefined;
     if (readOnly) return undefined;
     if (!workspaceId) return undefined;
     const active = s.workspaceStates[workspaceId]?.activeFilePath;
@@ -307,6 +317,10 @@ export const ChangeSection = React.memo<ChangeSectionProps>(function ChangeSecti
   };
 
   const openDiffFile = (filePath: string, preview: boolean) => {
+    if (onOpenDiffFile) {
+      onOpenDiffFile({ kind, groupPath, filePath, preview });
+      return;
+    }
     void openFile(groupPath, workspaceId || undefined, { preview, diffFilePath: filePath });
     if (!preview) {
       pinFile(groupPath, workspaceId || undefined);

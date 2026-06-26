@@ -8,7 +8,7 @@ import { useTheme } from 'next-themes';
 import { Loader2 } from 'lucide-react';
 import { gitApi } from '@/api/ws-api';
 import { useGitStore } from '@/features/git/store/use-git-store';
-import { useEditorStore } from '@/features/editor/store/use-editor-store';
+import { useEditorStore, type FileNavigationTarget } from '@/features/editor/store/use-editor-store';
 import { useDiffSettingsStore } from '@/features/settings/store/diff-settings-store';
 import { useContextParams } from '@/shared/hooks/use-context-params';
 import {
@@ -23,6 +23,7 @@ import {
   useDiffPromptStash,
   type LoadedDiffContents,
 } from '@/features/diff/components/useDiffPromptStash';
+import type { AgentFixContextRef } from '@/features/agent-fix/types';
 import { sortByDiffTreePath } from '@/features/diff/lib/diff-file-order';
 import {
   applyCollapseModeToItems,
@@ -49,12 +50,22 @@ function yieldToBrowser(): Promise<void> {
 interface ChangesCodeViewProps {
   repoPath: string;
   groupPath: string;
+  agentFixContext?: AgentFixContextRef | null;
+  contextId?: string | null;
+  navigationTarget?: FileNavigationTarget | null;
 }
 
-export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
+export function ChangesCodeView({
+  agentFixContext,
+  repoPath,
+  groupPath,
+  contextId,
+  navigationTarget: navigationTargetProp,
+}: ChangesCodeViewProps) {
   const { resolvedTheme } = useTheme();
   const groupKind = getDiffGroupKind(groupPath);
   const { effectiveContextId } = useContextParams();
+  const activeContextId = contextId ?? effectiveContextId;
   const compareRef = useGitStore((s) => s.compareRef);
   const stagedFiles = useGitStore((s) => s.stagedFiles);
   const unstagedFiles = useGitStore((s) => s.unstagedFiles);
@@ -63,14 +74,17 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
 
   const clearNavigationTarget = useEditorStore((s) => s.clearNavigationTarget);
   const setDiffGroupActiveFile = useEditorStore((s) => s.setDiffGroupActiveFile);
-  const selectedPath = useEditorStore((s) =>
-    effectiveContextId ? s.diffGroupActiveFiles[effectiveContextId]?.[groupPath] : undefined,
+  const storeSelectedPath = useEditorStore((s) =>
+    activeContextId ? s.diffGroupActiveFiles[activeContextId]?.[groupPath] : undefined,
   );
-  const navigationTarget = useEditorStore((s) =>
-    effectiveContextId
-      ? s.navigationTargets[effectiveContextId]?.[groupPath] ?? null
+  const storeNavigationTarget = useEditorStore((s) =>
+    activeContextId
+      ? s.navigationTargets[activeContextId]?.[groupPath] ?? null
       : null,
   );
+  const navigationTarget =
+    navigationTargetProp === undefined ? storeNavigationTarget : navigationTargetProp;
+  const selectedPath = navigationTargetProp?.diffFilePath ?? storeSelectedPath;
 
   const workerPoolReady = useDiffWorkerPoolReady();
   const [isLoading, setIsLoading] = useState(true);
@@ -112,6 +126,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   const collapseModeRef = useRef(collapseMode);
   const { openCopyAnnotation, renderAnnotation, stashedPromptChip } =
     useDiffPromptStash({
+      agentFixContext,
       scope: stashedPromptScope,
       viewerRef: codeViewRef,
       loadedContentsRef,
@@ -323,13 +338,13 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   }, [viewerMounted, initialItems]);
 
   useEffect(() => {
-    if (!effectiveContextId || itemIdsRef.current.length === 0) return;
+    if (!activeContextId || itemIdsRef.current.length === 0) return;
     if (selectedPath && !hasLoadedAllItems) return;
     if (selectedPath && itemIdsRef.current.includes(selectedPath)) return;
     if (selectedPath && navigationTarget?.diffFilePath === selectedPath) return;
-    setDiffGroupActiveFile(groupPath, itemIdsRef.current[0], effectiveContextId);
+    setDiffGroupActiveFile(groupPath, itemIdsRef.current[0], activeContextId);
   }, [
-    effectiveContextId,
+    activeContextId,
     groupPath,
     hasLoadedAllItems,
     initialItems,
@@ -394,7 +409,7 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
 
   useEffect(() => {
     const instance = codeViewRef.current?.getInstance();
-    if (instance == null || !effectiveContextId) return;
+    if (instance == null || !activeContextId) return;
 
     return instance.subscribeToScroll((scrollTop, viewer) => {
       if (itemIdsRef.current.length === 0) return;
@@ -404,9 +419,9 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
       );
       if (activeId == null || activeId === scrollActiveIdRef.current) return;
       scrollActiveIdRef.current = activeId;
-      setDiffGroupActiveFile(groupPath, activeId, effectiveContextId);
+      setDiffGroupActiveFile(groupPath, activeId, activeContextId);
     });
-  }, [effectiveContextId, groupPath, setDiffGroupActiveFile, viewerMounted, viewerKey]);
+  }, [activeContextId, groupPath, setDiffGroupActiveFile, viewerMounted, viewerKey]);
 
   const navigationScrollKey = navigationTarget?.diffFilePath
     ? [
@@ -429,8 +444,8 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
     const fileId = navigationTarget.diffFilePath;
     if (!itemIdsRef.current.includes(fileId)) return;
     if (lastHandledNavRef.current === navigationScrollKey) return;
-    if (effectiveContextId) {
-      setDiffGroupActiveFile(groupPath, fileId, effectiveContextId);
+    if (activeContextId) {
+      setDiffGroupActiveFile(groupPath, fileId, activeContextId);
     }
 
     requestAnimationFrame(() => {
@@ -443,22 +458,24 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
         behavior: 'smooth',
       });
       if (
-        effectiveContextId &&
+        navigationTargetProp === undefined &&
+        activeContextId &&
         (navigationTarget.line ||
           navigationTarget.reviewCommentGuid ||
           navigationTarget.reviewMessageGuid)
       ) {
-        clearNavigationTarget(groupPath, effectiveContextId);
+        clearNavigationTarget(groupPath, activeContextId);
       }
     });
   }, [
     navigationTarget,
+    navigationTargetProp,
     navigationScrollKey,
     loadedItemVersion,
     isLoading,
     viewerMounted,
     groupPath,
-    effectiveContextId,
+    activeContextId,
     clearNavigationTarget,
     setDiffGroupActiveFile,
   ]);
@@ -517,8 +534,8 @@ export function ChangesCodeView({ repoPath, groupPath }: ChangesCodeViewProps) {
   }
 
   const handleSelectFile = (path: string) => {
-    if (effectiveContextId) {
-      setDiffGroupActiveFile(groupPath, path, effectiveContextId);
+    if (activeContextId) {
+      setDiffGroupActiveFile(groupPath, path, activeContextId);
     }
     scrollCodeViewToItem(codeViewRef.current, path, { behavior: 'smooth' });
   };

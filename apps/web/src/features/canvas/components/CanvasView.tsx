@@ -37,6 +37,7 @@ import {
 } from "@/features/terminal/store/use-terminal-store";
 import { AGENT_OPTIONS } from "@/features/wiki/components/AgentSelect";
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { useAppRouter } from "@/shared/hooks/use-app-router";
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
 import {
   createCanvasSnapshot,
@@ -55,13 +56,16 @@ import { useAtmosComputerStore } from "@/features/connection/lib/atmos-computer-
 import { instanceIdFromRelaySelection } from "@/features/connection/lib/connection-instance";
 import { useCanvasChromePrefs } from "@/features/canvas/hooks/use-canvas-chrome-prefs";
 import {
+  CANVAS_TERMINAL_SHAPE_TYPE,
   CANVAS_TERMINAL_SHAPES_REMOVED_EVENT,
   dispatchCanvasTerminalPinStateChange,
   getCanvasTerminalShapes,
+  isCanvasTerminalShapeRecord,
 } from "../lib/canvas-terminal-shape";
 import {
   areShapeIdListsEqual,
   getRestoredRenderedShapeIds,
+  promoteRenderedShapeId,
   trimRenderedShapeIds,
 } from "../lib/canvas-terminal-rendering";
 import { useCanvasAgentBridge } from "../hooks/use-canvas-agent-bridge";
@@ -70,6 +74,7 @@ import { CanvasAgentOnCanvas } from "./CanvasAgentOnCanvas";
 import { CanvasAgentIsland } from "./CanvasAgentIsland";
 import { CanvasTerminalFocusPulse } from "./CanvasTerminalFocusPulse";
 import { CanvasShapeCopyOverlay } from "./CanvasShapeCopyOverlay";
+import { CanvasUnsupportedInteractionDialog } from "./CanvasUnsupportedInteractionDialog";
 import {
   CanvasTerminalRefProvider,
 } from "../lib/canvas-terminal-ref-context";
@@ -92,6 +97,22 @@ import {
   CanvasAgentContext,
   CanvasTerminalShapeUtil,
 } from "./CanvasTerminalCard";
+import { CanvasWidgetShapeUtil } from "./CanvasWidgetCard";
+import { useProjectStore } from "@/features/project/store/use-project-store";
+import { useAgentFixLauncherStore } from "@/features/agent-fix/store/agent-fix-launcher-store";
+import type { ResolvedAgentFixLaunchRequest } from "@/features/agent-fix/types";
+import { useReviewTerminalRunnerStore } from "@/features/code-review/store/review-terminal-runner-store";
+import { buildInteractiveAgentCommand } from "@/features/agent/lib/terminal-agent-run-config";
+import {
+  createRelatedCanvasTerminalShape,
+  resolveRelatedCanvasTerminalFrameName,
+  type RelatedCanvasTerminalSourceContext,
+} from "../lib/create-related-canvas-terminal";
+import {
+  getCanvasContextId,
+  isCanvasWidgetShapeRecord,
+} from "../lib/canvas-widget-shape";
+import { CanvasAddAtmosWidgetPopover } from "./CanvasAddAtmosWidgetDialog";
 import {
   CanvasAnimatedToolbarGroup,
   CanvasBottomToolbarPeek,
@@ -115,6 +136,7 @@ function createCanvasDocument(document: CanvasTldrawDocument | null): CanvasBoar
 
 export const CanvasView: React.FC = () => {
   const { currentView, effectiveContextId } = useContextParams();
+  const router = useAppRouter();
   const {
     isStylePanelEnabled,
     isTopLeftToolbarCollapsed,
@@ -133,6 +155,7 @@ export const CanvasView: React.FC = () => {
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [isManualSaving, setIsManualSaving] = React.useState(false);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
+  const queuePendingTerminalCommand = useCanvasRuntimeStore((state) => state.queuePendingTerminalCommand);
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
@@ -166,6 +189,8 @@ export const CanvasView: React.FC = () => {
   );
   const [agentCustomSettings, setAgentCustomSettings] = React.useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
   const [customAgents, setCustomAgents] = React.useState<CodeAgentCustomEntry[]>([]);
+  const projects = useProjectStore((state) => state.projects);
+  const createTerminalTabWithInitialPane = useTerminalStore((state) => state.createTerminalTabWithInitialPane);
   /**
    * When `false`, tldraw's built-in StylePanel is force-hidden via
    * `StylePanel: () => null`. When `true`, we omit the override so tldraw owns
@@ -183,7 +208,8 @@ export const CanvasView: React.FC = () => {
   const sharePanelRef = React.useRef<React.ReactNode>(null);
   const canvasAgentBridgeRef = React.useRef(canvasAgentBridge);
   canvasAgentBridgeRef.current = canvasAgentBridge;
-  const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil], []);
+  const [addAtmosWidgetOpen, setAddAtmosWidgetOpen] = React.useState(false);
+  const shapeUtils = React.useMemo(() => [CanvasTerminalShapeUtil, CanvasWidgetShapeUtil], []);
   const canvasTerminalTabs = useTerminalStore((state) =>
     effectiveContextId ? state.workspaceTerminalTabs[effectiveContextId] : undefined,
   );
@@ -289,6 +315,227 @@ export const CanvasView: React.FC = () => {
     ],
     [visibleBuiltInAgents, visibleCustomAgents, agentCustomSettings],
   );
+
+  const resolveCanvasTerminalSource = React.useCallback(
+    (requestedContext?: { contextId: string; scope: "project" | "workspace" }) => {
+      const editor = editorRef.current;
+      if (!editor) {
+        return null;
+      }
+
+      const toSource = (shape: ReturnType<Editor["getShape"]> | null | undefined) => {
+        if (!shape) {
+          return null;
+        }
+
+        if (isCanvasTerminalShapeRecord(shape)) {
+          const sourceContext: RelatedCanvasTerminalSourceContext = {
+            contextScope: shape.props.contextScope,
+            workspaceId: shape.props.workspaceId,
+            projectName: shape.props.projectName,
+            workspaceName: shape.props.workspaceName,
+            localPath: shape.props.localPath,
+          };
+          return { shape, sourceContext };
+        }
+
+        if (isCanvasWidgetShapeRecord(shape)) {
+          const context = shape.props.source.context;
+          const contextId = getCanvasContextId(context);
+          if (!contextId) {
+            return null;
+          }
+          const sourceContext: RelatedCanvasTerminalSourceContext = {
+            contextScope: context.contextScope,
+            workspaceId: contextId,
+            projectName: context.projectName,
+            workspaceName: context.workspaceName ?? "",
+            localPath: context.localPath,
+          };
+          return { shape, sourceContext };
+        }
+
+        return null;
+      };
+
+      const matchesRequestedContext = (
+        source: { sourceContext: RelatedCanvasTerminalSourceContext } | null,
+      ) => {
+        if (!source || !requestedContext) {
+          return !!source;
+        }
+        return (
+          source.sourceContext.contextScope === requestedContext.scope &&
+          source.sourceContext.workspaceId === requestedContext.contextId
+        );
+      };
+
+      const activeSource = toSource(activeShapeId ? editor.getShape(activeShapeId) : null);
+      if (matchesRequestedContext(activeSource)) {
+        return activeSource;
+      }
+
+      for (const selectedShapeId of editor.getSelectedShapeIds()) {
+        const selectedSource = toSource(editor.getShape(selectedShapeId));
+        if (matchesRequestedContext(selectedSource)) {
+          return selectedSource;
+        }
+      }
+
+      if (requestedContext) {
+        for (const pageShape of editor.getCurrentPageShapes()) {
+          const pageSource = toSource(pageShape);
+          if (matchesRequestedContext(pageSource)) {
+            return pageSource;
+          }
+        }
+      }
+
+      return activeSource;
+    },
+    [activeShapeId],
+  );
+
+  const createAndRunCanvasTerminal = React.useCallback(
+    async ({
+      agent,
+      command,
+      label,
+      requestedContext,
+    }: {
+      agent?: TerminalPaneAgent;
+      command: string;
+      label: string;
+      requestedContext?: { contextId: string; scope: "project" | "workspace" };
+    }) => {
+      const editor = editorRef.current;
+      if (!editor) {
+        throw new Error("Canvas is not ready.");
+      }
+
+      const source = resolveCanvasTerminalSource(requestedContext);
+      if (!source) {
+        throw new Error("Select a canvas widget for this workspace or project before starting Agent Fix.");
+      }
+
+      const created = await createTerminalTabWithInitialPane(
+        source.sourceContext.workspaceId,
+        source.sourceContext.contextScope,
+        {
+          title: label,
+          paneLabel: label,
+          paneAgent: agent,
+        },
+      );
+      if (!created) {
+        throw new Error("Could not create a terminal for this canvas context.");
+      }
+
+      const result = createRelatedCanvasTerminalShape({
+        editor,
+        shape: source.shape,
+        created,
+        frameName: resolveRelatedCanvasTerminalFrameName(projects, source.sourceContext),
+        sourceContext: source.sourceContext,
+      });
+      if (!result) {
+        throw new Error("Could not place the terminal on the canvas.");
+      }
+
+      const commandToRun = command.endsWith("\r") ? command : `${command}\r`;
+      queuePendingTerminalCommand(result.newShapeId, commandToRun);
+      dispatchCanvasTerminalPinStateChange(result.pinKey, true);
+      setActiveShapeId(result.newShapeId);
+      editor.select(result.newShapeId);
+
+      const attachedAt = Date.now();
+      const currentRenderedShapeIds = useCanvasRuntimeStore.getState().renderedShapeIds;
+      const nextRenderedShapeIds = promoteRenderedShapeId(
+        getCanvasTerminalShapes(editor),
+        currentRenderedShapeIds,
+        result.newShapeId,
+        attachedAt,
+        maxRenderedTerminals,
+      );
+      if (!areShapeIdListsEqual(nextRenderedShapeIds, currentRenderedShapeIds)) {
+        setRenderedShapeIds(nextRenderedShapeIds);
+      }
+      editor.updateShape({
+        id: result.newShapeId,
+        type: CANVAS_TERMINAL_SHAPE_TYPE,
+        props: {
+          lastAttachedAt: attachedAt,
+        },
+      });
+
+      const params = new URLSearchParams();
+      params.set("id", source.sourceContext.workspaceId);
+      params.set("tab", result.terminalTabId);
+      params.set("terminalTmux", result.tmuxWindowName);
+      params.set("canvas", "true");
+      const base = source.sourceContext.contextScope === "project" ? "/project" : "/workspace";
+      router.replace(`${base}?${params.toString()}`);
+    },
+    [
+      createTerminalTabWithInitialPane,
+      maxRenderedTerminals,
+      projects,
+      queuePendingTerminalCommand,
+      resolveCanvasTerminalSource,
+      router,
+      setActiveShapeId,
+      setRenderedShapeIds,
+    ],
+  );
+
+  const handleRunAgentFixInCanvasTerminal = React.useCallback(
+    async (request: ResolvedAgentFixLaunchRequest) => {
+      const command = buildInteractiveAgentCommand({
+        agentId: request.agent.id,
+        launchCommand: request.agent.launchCommand.trim(),
+        prompt: request.prompt,
+        runConfig: request.runConfig,
+      });
+
+      await createAndRunCanvasTerminal({
+        agent: {
+          id: request.agent.id,
+          label: request.agent.label,
+          command: request.agent.command,
+          iconType: request.agent.iconType,
+        },
+        command,
+        label: request.terminalTabTitle,
+        requestedContext: request.context,
+      });
+    },
+    [createAndRunCanvasTerminal],
+  );
+
+  const handleRunReviewFixInCanvasTerminal = React.useCallback(
+    async (command: string, label: string) => {
+      await createAndRunCanvasTerminal({ command, label });
+    },
+    [createAndRunCanvasTerminal],
+  );
+
+  React.useEffect(() => {
+    useAgentFixLauncherStore.getState().setRunner(handleRunAgentFixInCanvasTerminal);
+    return () => {
+      if (useAgentFixLauncherStore.getState().runner === handleRunAgentFixInCanvasTerminal) {
+        useAgentFixLauncherStore.getState().setRunner(null);
+      }
+    };
+  }, [handleRunAgentFixInCanvasTerminal]);
+
+  React.useEffect(() => {
+    useReviewTerminalRunnerStore.getState().setRunner(handleRunReviewFixInCanvasTerminal);
+    return () => {
+      if (useReviewTerminalRunnerStore.getState().runner === handleRunReviewFixInCanvasTerminal) {
+        useReviewTerminalRunnerStore.getState().setRunner(null);
+      }
+    };
+  }, [handleRunReviewFixInCanvasTerminal]);
 
   // Load agent custom settings and custom agents
   React.useEffect(() => {
@@ -452,7 +699,9 @@ export const CanvasView: React.FC = () => {
           runtime.setRenderedShapeIds(nextRenderedShapeIds);
         }
         if (runtime.activeShapeId && !shapeIds.has(runtime.activeShapeId)) {
-          runtime.setActiveShapeId(null);
+          if (!editor.getShape(runtime.activeShapeId)) {
+            runtime.setActiveShapeId(null);
+          }
         }
       },
       { scope: "document" },
@@ -829,6 +1078,11 @@ export const CanvasView: React.FC = () => {
         </Button>
         <CanvasAnimatedToolbarGroup isCollapsed={isToolbarCollapsed}>
           <div className="ml-0.5 flex items-center gap-0.5">
+            <CanvasAddAtmosWidgetPopover
+              editor={editorReady ? editorRef.current : null}
+              open={addAtmosWidgetOpen}
+              onOpenChange={setAddAtmosWidgetOpen}
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -949,6 +1203,16 @@ export const CanvasView: React.FC = () => {
 
   return (
     <div className="tldraw-wrapper relative h-full w-full overflow-hidden bg-background">
+      <style jsx global>{`
+        .tldraw-wrapper .tl-container {
+          --tl-layer-menu-click-capture: 1190;
+          --tl-layer-panels: 1200;
+          --tl-layer-menus: 1300;
+          --tl-layer-toasts: 1350;
+          --tl-layer-header-footer: 1400;
+          --tl-layer-following-indicator: 1450;
+        }
+      `}</style>
       <CanvasAgentContext.Provider value={configuredAgents}>
         <CanvasAgentCrashProvider value={canvasCrashRecovery}>
           <CanvasTerminalRefProvider>
@@ -998,6 +1262,7 @@ export const CanvasView: React.FC = () => {
           </CanvasTerminalRefProvider>
         </CanvasAgentCrashProvider>
       </CanvasAgentContext.Provider>
+      <CanvasUnsupportedInteractionDialog />
     </div>
   );
 };

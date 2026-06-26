@@ -1,6 +1,6 @@
 import { ArrowDown, ChevronDown, ChevronUp, Loader2, Search, X } from "lucide-react";
 import { Button, cn } from "@workspace/ui";
-import type { RefObject } from "react";
+import type { CSSProperties, RefObject } from "react";
 import type { ITheme } from "@xterm/xterm";
 import { isFindShortcut } from "../lib/terminal-runtime-utils";
 
@@ -26,6 +26,7 @@ interface TerminalChromeProps {
   sessionId: string;
   showScrollDown: boolean;
   terminalSearchInputId: string;
+  terminalScale?: number;
   uiStatus: TerminalUiStatus;
   workspaceId: string;
 }
@@ -50,9 +51,21 @@ export function TerminalChrome({
   sessionId,
   showScrollDown,
   terminalSearchInputId,
+  terminalScale = 1,
   uiStatus,
   workspaceId,
 }: TerminalChromeProps) {
+  const normalizedTerminalScale =
+    Number.isFinite(terminalScale) && terminalScale > 0 ? terminalScale : 1;
+  const scrollbarWidth = Math.max(2, 6 * normalizedTerminalScale);
+  const scrollbarHoverWidth = Math.max(3, 8 * normalizedTerminalScale);
+  const scrollbarOffset = Math.max(1, 2 * normalizedTerminalScale);
+  const terminalScrollbarStyle = {
+    "--atmos-terminal-scrollbar-width": `${scrollbarWidth}px`,
+    "--atmos-terminal-scrollbar-hover-width": `${scrollbarHoverWidth}px`,
+    "--atmos-terminal-scrollbar-offset": `${scrollbarOffset}px`,
+  } as CSSProperties;
+
   return (
     <div
       className="terminal-padding-wrapper"
@@ -72,7 +85,9 @@ export function TerminalChrome({
       style={{
         width: "100%",
         height: "100%",
-        padding: "8px 0 8px 8px",
+        padding: `${8 * normalizedTerminalScale}px 0 ${8 * normalizedTerminalScale}px ${
+          8 * normalizedTerminalScale
+        }px`,
         backgroundColor: "transparent",
         position: "relative",
         boxSizing: "border-box",
@@ -142,6 +157,7 @@ export function TerminalChrome({
         className={`atmos-terminal ${className || ""}`}
         suppressHydrationWarning
         style={{
+          ...terminalScrollbarStyle,
           width: "100%",
           height: "100%",
           opacity: uiStatus === "connecting" ? 0 : 1,

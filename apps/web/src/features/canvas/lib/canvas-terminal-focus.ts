@@ -33,6 +33,31 @@ export function findPinnedTerminalShape(
   return shapes.find((shape) => shape.props.pinKey === hint.pinKey) ?? null;
 }
 
+/** Window name encoded inside an agent-hook pane id (`"{workspaceId}:{windowName}"`). */
+export function tmuxWindowNameFromAgentPaneId(paneId: string | null | undefined): string | null {
+  if (!paneId) return null;
+  const windowName = paneId.split(":").slice(1).join(":");
+  return windowName || null;
+}
+
+/** Matches an agent-hook session to a live canvas-terminal shape on the current page. */
+export function findCanvasTerminalShapeForAgentSession(
+  editor: Editor,
+  session: { context_id?: string | null; pane_id?: string | null },
+): CanvasTerminalShape | null {
+  const contextId = session.context_id;
+  if (!contextId) return null;
+  const tmuxWindowName = tmuxWindowNameFromAgentPaneId(session.pane_id);
+  if (!tmuxWindowName) return null;
+  return (
+    getCanvasTerminalShapes(editor).find(
+      (shape) =>
+        shape.props.workspaceId === contextId &&
+        shape.props.tmuxWindowName === tmuxWindowName,
+    ) ?? null
+  );
+}
+
 export function focusCanvasTerminalShape(
   editor: Editor,
   shape: CanvasTerminalShape,

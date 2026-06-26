@@ -1,0 +1,390 @@
+"use client";
+
+import React from "react";
+import {
+  Circle,
+  GitCompare,
+  LayoutDashboard,
+  TabsList,
+  TabsTab,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  X,
+  getFileIconProps,
+} from "@workspace/ui";
+import {
+  BookOpen,
+  FileCheckCorner,
+  GitMergeIcon,
+  SquareTerminal as TerminalIcon,
+} from "lucide-react";
+
+import {
+  EDITOR_REVIEW_DIFF_PREFIX,
+  getEditorSourcePath,
+  isConflictResolveEditorPath,
+  isReviewGroupEditorPath,
+  type OpenFile,
+} from "@/features/editor/store/use-editor-store";
+import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
+import { cn } from "@/shared/lib/utils";
+import {
+  TerminalTabAgentIndicatorWithPanes,
+  type TabGroupItem,
+} from "@/app-shell/center-stage-tabs";
+
+type SessionDisplay = {
+  sessionTitle?: string | null;
+  revisionLabel?: string | null;
+} | null;
+
+export type CenterStageSurfaceTabVariant =
+  | "file"
+  | "diff"
+  | "diff-group"
+  | "review-diff"
+  | "conflict";
+
+export function CenterStageTabList({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <TabsList
+      variant="underline"
+      className={cn(
+        "h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-hidden gap-0 items-stretch py-0! [&_[data-slot=tab-indicator]]:hidden",
+        className,
+      )}
+    >
+      {children}
+    </TabsList>
+  );
+}
+
+export function CenterStageScrollableTabs({
+  children,
+  className,
+  scrollableTabsRef,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  scrollableTabsRef?: React.RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div
+      ref={scrollableTabsRef}
+      className={cn("flex min-w-0 flex-1 overflow-x-auto no-scrollbar", className)}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function CenterStageStickyTabActions({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "sticky right-0 z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function CenterStageOverviewTab({
+  className,
+  tooltipContent = "Overview",
+  value = "overview",
+}: {
+  className?: string;
+  tooltipContent?: React.ReactNode;
+  value?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <TabsTab
+          value={value}
+          className={cn(
+            "h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!",
+            className,
+          )}
+        >
+          <LayoutDashboard className="size-3.5" />
+        </TabsTab>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{tooltipContent}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function CenterStageFileIcon({
+  className,
+  name,
+}: {
+  className?: string;
+  name: string;
+}) {
+  const iconProps = getFileIconProps({ name, isDir: false, className });
+  // eslint-disable-next-line @next/next/no-img-element -- file icons are tiny decorative SVG/data assets from the UI package.
+  return <img {...iconProps} alt="" />;
+}
+
+export function getCenterStageSurfaceTabVariant(path: string): CenterStageSurfaceTabVariant {
+  if (path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(path)) {
+    return "review-diff";
+  }
+  if (isDiffGroupEditorPath(path)) {
+    return "diff-group";
+  }
+  if (isConflictResolveEditorPath(path)) {
+    return "conflict";
+  }
+  return "file";
+}
+
+export function CenterStageSurfaceContentTab({
+  closeLabel = "Close tab",
+  isDirty = false,
+  isPreview = false,
+  name,
+  onClose,
+  onContextMenu,
+  onDoubleClick,
+  path,
+  tooltip,
+  value,
+  variant = "file",
+}: {
+  closeLabel?: string;
+  isDirty?: boolean;
+  isPreview?: boolean;
+  name: string;
+  onClose?: () => void;
+  onContextMenu?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onDoubleClick?: () => void;
+  path: string;
+  tooltip?: React.ReactNode;
+  value: string;
+  variant?: CenterStageSurfaceTabVariant;
+}) {
+  const resolvedTooltip = tooltip ?? path;
+  const isDiff = variant === "diff" || variant === "diff-group" || variant === "review-diff";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <TabsTab
+          value={value}
+          className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
+          onContextMenu={onContextMenu}
+          onDoubleClick={onDoubleClick}
+        >
+          {variant === "review-diff" ? (
+            <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+          ) : variant === "diff" || variant === "diff-group" ? (
+            <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+          ) : variant === "conflict" ? (
+            <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+          ) : (
+            <CenterStageFileIcon name={name} className="size-3.5 shrink-0" />
+          )}
+          <span
+            className={cn(
+              "text-[13px] font-medium whitespace-nowrap",
+              variant === "review-diff" && "text-blue-400",
+              variant === "diff-group" && "text-emerald-500",
+              variant === "conflict" && "text-amber-500",
+              isPreview && "italic",
+            )}
+          >
+            {name}
+          </span>
+          <div className="relative size-4 flex items-center justify-center shrink-0 ml-0">
+            {isDirty ? (
+              <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" />
+            ) : null}
+            {onClose ? (
+              <span
+                role="button"
+                aria-label={closeLabel}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClose();
+                }}
+                className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
+              >
+                <X className="size-3" />
+              </span>
+            ) : null}
+          </div>
+        </TabsTab>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className={cn("max-w-md break-all", isDiff && "text-current")}>
+        {resolvedTooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function CenterStageTabGroupItemContent({
+  effectiveContextId,
+  tab,
+}: {
+  effectiveContextId?: string;
+  tab: TabGroupItem;
+}) {
+  const textClassName = cn(
+    "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
+    (tab.kind === "diff" || tab.kind === "diff-group") && "text-emerald-500",
+    tab.kind === "review-diff" && "text-blue-400",
+    tab.kind === "conflict" && "text-amber-500",
+    tab.file?.isPreview && "italic",
+  );
+
+  if (tab.kind === "overview") {
+    return (
+      <>
+        <LayoutDashboard className="size-3.5 shrink-0" />
+        <span className={textClassName}>{tab.label}</span>
+      </>
+    );
+  }
+
+  if (tab.kind === "wiki") {
+    return (
+      <>
+        <BookOpen className="size-3.5 shrink-0" />
+        <span className={textClassName}>{tab.label}</span>
+      </>
+    );
+  }
+
+  if (tab.kind === "project-wiki") {
+    return (
+      <>
+        <TerminalIcon className="size-3.5 shrink-0" />
+        <span className={textClassName}>{tab.label}</span>
+      </>
+    );
+  }
+
+  if (tab.kind === "code-review") {
+    return (
+      <>
+        <TerminalIcon className="size-3.5 shrink-0 text-primary" />
+        <span className={textClassName}>{tab.label}</span>
+      </>
+    );
+  }
+
+  if (tab.kind === "terminal") {
+    return (
+      <>
+        <TerminalIcon className="size-3.5 shrink-0" />
+        <span className={textClassName}>{tab.label}</span>
+        {effectiveContextId ? (
+          <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
+        ) : null}
+      </>
+    );
+  }
+
+  if (!tab.file) {
+    return (
+      <>
+        {tab.kind === "review-diff" ? (
+          <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+        ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
+          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+        ) : tab.kind === "conflict" ? (
+          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+        ) : (
+          <CenterStageFileIcon name={tab.label} className="size-3.5 shrink-0" />
+        )}
+        <span className={textClassName}>{tab.label}</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {tab.kind === "review-diff" ? (
+        <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
+      ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
+        <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
+      ) : tab.kind === "conflict" ? (
+        <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
+      ) : (
+        <CenterStageFileIcon name={tab.file.name} className="size-3.5 shrink-0" />
+      )}
+      <span className={textClassName}>{tab.file.name}</span>
+      <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
+        {tab.file.isDirty ? <Circle className="size-1.5 fill-current text-muted-foreground" /> : null}
+      </span>
+    </>
+  );
+}
+
+export function CenterStageOpenFileTab({
+  file,
+  onClose,
+  onContextMenuRequest,
+  onPreviewPin,
+  sessionDisplay,
+}: {
+  file: OpenFile;
+  onClose: (file: OpenFile) => void;
+  onContextMenuRequest: (event: React.MouseEvent<HTMLButtonElement>, file: OpenFile) => void;
+  onPreviewPin: (file: OpenFile) => void;
+  sessionDisplay: SessionDisplay;
+}) {
+  const variant = getCenterStageSurfaceTabVariant(file.path);
+  const isReviewDiff = variant === "review-diff";
+  const displayPath = getEditorSourcePath(file.path);
+
+  return (
+    <CenterStageSurfaceContentTab
+      value={file.path}
+      name={file.name}
+      path={displayPath}
+      variant={variant}
+      isDirty={file.isDirty}
+      isPreview={file.isPreview}
+      onClose={() => onClose(file)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onContextMenuRequest(event, file);
+      }}
+      onDoubleClick={() => {
+        if (file.isPreview) {
+          onPreviewPin(file);
+        }
+      }}
+      tooltip={
+        <>
+          {displayPath}
+          {isReviewDiff && sessionDisplay && (sessionDisplay.sessionTitle || sessionDisplay.revisionLabel) ? (
+            <span className="text-background/70">
+              {" "}
+              / {[sessionDisplay.sessionTitle, sessionDisplay.revisionLabel].filter(Boolean).join(" - ")}
+            </span>
+          ) : null}
+        </>
+      }
+    />
+  );
+}

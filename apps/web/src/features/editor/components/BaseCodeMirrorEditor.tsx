@@ -455,15 +455,20 @@ function createEditorTheme(isDark: boolean): Extension {
       '.cm-minimap-gutter': {
         width: '50px !important',
         maxWidth: '50px !important',
+        height: '100% !important',
         fontSize: '2px',
         backgroundColor: isDark ? '#09090b' : '#ffffff',
         borderLeft: "1px solid " + (isDark ? "#27272a" : "#e4e4e7"),
       },
       '.cm-minimap-inner': {
         backgroundColor: isDark ? '#09090b' : '#ffffff',
+        height: '100% !important',
+        minHeight: '100% !important',
         width: '50px !important',
       },
       '.cm-minimap-inner canvas': {
+        height: '100% !important',
+        maxHeight: 'none !important',
         maxWidth: '50px !important',
         width: '50px !important',
       },
@@ -673,6 +678,37 @@ export const BaseCodeMirrorEditor: React.FC<BaseCodeMirrorEditorProps> = ({
       view.destroy();
     };
   }, [languageCompartment, lineWrapCompartment, readOnlyCompartment, searchCompartment, themeCompartment, bracketMatchingCompartment, breadcrumbsCompartment, lineHighlightCompartment, gitIntegrationCompartment]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const view = editorRef.current;
+    if (!root || !view || typeof ResizeObserver === 'undefined') return;
+
+    let frameId: number | null = null;
+    const refreshGeometry = () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        if (editorRef.current !== view) return;
+        view.requestMeasure();
+        view.dispatch({});
+      });
+    };
+
+    const observer = new ResizeObserver(refreshGeometry);
+    observer.observe(root);
+    observer.observe(view.dom);
+    refreshGeometry();
+
+    return () => {
+      observer.disconnect();
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const view = editorRef.current;

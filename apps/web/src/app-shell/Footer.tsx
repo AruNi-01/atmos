@@ -28,7 +28,7 @@ import { AgentHookStatusIndicator } from '@/features/agent/components/AgentHookS
 import { AgentIcon } from '@/features/agent/components/AgentIcon';
 import { AnimatePresence, motion } from 'motion/react';
 import { useProjectStore } from '@/features/project/store/use-project-store';
-import { X } from 'lucide-react';
+import { LayoutDashboard, X } from 'lucide-react';
 import { ProviderGlyph } from '@/app-shell/UsagePopover';
 import { BotMessageSquareIcon, type BotMessageSquareHandle, TextShimmer, FilledBellIcon } from '@workspace/ui';
 import type { AnimatedIconHandle } from '@workspace/ui';
@@ -156,7 +156,7 @@ function AgentToolName({
   );
 }
 
-function SessionRow({ session, onNavigate }: { session: AgentHookSession; onNavigate: () => void }) {
+function SessionRow({ session, onNavigate, onCanvas = false }: { session: AgentHookSession; onNavigate: () => void; onCanvas?: boolean }) {
   const [hovered, setHovered] = React.useState(false);
   const forceIdle = useAgentHooksStore((s) => s.forceSessionIdle);
   const removeSession = useAgentHooksStore((s) => s.removeSession);
@@ -181,6 +181,11 @@ function SessionRow({ session, onNavigate }: { session: AgentHookSession; onNavi
       <div className="flex items-center gap-1.5 min-w-0">
         <AgentHookStatusIndicator state={session.state} variant="compact" />
         <AgentToolName tool={session.tool} iconSize={11} className="text-[10px] font-medium" />
+        {onCanvas && (
+          <span title="Open on canvas" className="inline-flex shrink-0 text-sky-500">
+            <LayoutDashboard className="size-3" />
+          </span>
+        )}
       </div>
       <SessionStateBadge
         state={session.state}
@@ -231,7 +236,15 @@ function useSessionTicker(sessions: AgentHookSession[], intervalMs = 3000) {
   return sessions[index % sessions.length];
 }
 
-function AgentStatusPopoverContent() {
+export function AgentStatusPopoverContent({
+  embedded = false,
+  onNavigateSession,
+  isSessionOnCanvas,
+}: {
+  embedded?: boolean;
+  onNavigateSession?: (session: AgentHookSession) => void;
+  isSessionOnCanvas?: (session: AgentHookSession) => boolean;
+} = {}) {
   const sessionsMap = useAgentHooksStore(useShallow((s) => s.sessions));
   const clearIdleSessions = useAgentHooksStore((s) => s.clearIdleSessions);
   const router = useAppRouter();
@@ -244,19 +257,28 @@ function AgentStatusPopoverContent() {
   const resolveContextName = useContextNameResolver();
 
   const navigateToSessionPane = useCallback((session: AgentHookSession) => {
+    if (onNavigateSession) {
+      onNavigateSession(session);
+      return;
+    }
     navigateToAgentHookSessionPane(session, router, projects);
-  }, [router, projects]);
+  }, [onNavigateSession, router, projects]);
 
   if (sessions.length === 0) {
     return (
-      <div className="p-3 text-[11px] text-muted-foreground">
+      <div
+        className={cn(
+          "p-3 text-[11px] text-muted-foreground",
+          embedded && "flex h-full items-center justify-center text-center",
+        )}
+      >
         No active agent sessions
       </div>
     );
   }
 
   return (
-    <div className="p-2 max-h-64 overflow-y-auto">
+    <div className={cn("p-2 overflow-y-auto", embedded ? "h-full" : "max-h-64")}>
       <div className="flex items-center justify-between mb-2 px-1">
         <span className="text-[11px] font-semibold text-foreground">
           Agent Sessions ({sessions.length})
@@ -290,7 +312,12 @@ function AgentStatusPopoverContent() {
                 {contextLabel}
               </div>
               {pathSessions.map((session) => (
-                <SessionRow key={session.session_id} session={session} onNavigate={() => navigateToSessionPane(session)} />
+                <SessionRow
+                  key={session.session_id}
+                  session={session}
+                  onCanvas={isSessionOnCanvas?.(session) ?? false}
+                  onNavigate={() => navigateToSessionPane(session)}
+                />
               ))}
             </div>
           );

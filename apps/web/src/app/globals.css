@@ -380,3 +380,54 @@ html:not([data-theme-ready="true"]) body {
 .tldraw-wrapper .tl-canvas {
   content-visibility: visible;
 }
+
+body.canvas-overlay-active
+  :is(
+    [data-radix-popper-content-wrapper],
+    [data-slot="dialog-content"],
+    [data-slot="dialog-overlay"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="hover-card-content"],
+    [data-slot="popover-content"],
+    [data-slot="preview-card-content"],
+    [data-slot="select-content"],
+    [data-slot="tooltip-content"]
+  ) {
+  z-index: 170 !important;
+}
+
+.tldraw-wrapper [data-canvas-widget-surface] {
+  cursor: auto;
+}
+
+.tldraw-wrapper [data-canvas-widget-surface] :is(
+  input,
+  textarea,
+  [contenteditable="true"],
+  [contenteditable="true"] *,
+  .cm-content,
+  .cm-line,
+  .cm-scroller
+) {
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
+.tldraw-wrapper [data-canvas-widget-surface] :is(
+  a,
+  button,
+  [data-slot="button"],
+  [role="button"]
+) {
+  cursor: pointer;
+}
+
+.tldraw-wrapper [data-canvas-widget-surface] :is(
+  button:disabled,
+  [aria-disabled="true"],
+  [data-disabled]
+) {
+  cursor: default;
+}

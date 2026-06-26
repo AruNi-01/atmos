@@ -41,6 +41,7 @@ import { tryRelativePathUnderRoot } from '@/shared/lib/path-under-root';
 interface CodeMirrorEditorProps {
   file: OpenFile;
   className?: string;
+  contextId?: string | null;
   /** False when mounted but not visible (inactive keepMounted editor tab — avoids orphaned floating overlays). */
   surfaceActive?: boolean;
 }
@@ -48,16 +49,18 @@ interface CodeMirrorEditorProps {
 export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   file,
   className,
+  contextId,
   surfaceActive = true,
 }) => {
   const { effectiveContextId } = useContextParams();
-  const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(effectiveContextId || undefined));
+  const editorContextId = contextId ?? effectiveContextId;
+  const workspaceActivePath = useEditorStore((s) => s.getActiveFilePath(editorContextId || undefined));
   const updateFileContent = useEditorStore(s => s.updateFileContent);
   const saveFile = useEditorStore(s => s.saveFile);
   const reloadFileContent = useEditorStore((s) => s.reloadFileContent);
   const clearNavigationTarget = useEditorStore(s => s.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
-    effectiveContextId ? state.navigationTargets[effectiveContextId]?.[file.path] ?? null : null
+    editorContextId ? state.navigationTargets[editorContextId]?.[file.path] ?? null : null
   );
   const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
   const { projects } = useProjectStore();
@@ -115,10 +118,10 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
       await refreshGitStatus();
       setGitDiffRefreshNonce((n) => n + 1);
       if (kind === 'restore') {
-        await reloadFileContent(file.path, effectiveContextId || undefined);
+        await reloadFileContent(file.path, editorContextId || undefined);
       }
     },
-    [refreshChangedFiles, refreshGitStatus, reloadFileContent, file.path, effectiveContextId],
+    [refreshChangedFiles, refreshGitStatus, reloadFileContent, file.path, editorContextId],
   );
 
   const handleEditorSettingsPopoverOpenChange = useCallback((open: boolean) => {
@@ -373,7 +376,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     if (!autoSave || file.isLoading || !file.isDirty) return;
 
     const timer = setTimeout(() => {
-      void saveFile(file.path, effectiveContextId || undefined).catch(() => {
+      void saveFile(file.path, editorContextId || undefined).catch(() => {
         toastManager.add({
           title: 'Auto Save Failed',
           description: `Failed to auto-save ${file.name}`,
@@ -391,7 +394,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
     file.name,
     file.path,
     saveFile,
-    effectiveContextId,
+    editorContextId,
   ]);
 
   // Toggle preview
@@ -404,7 +407,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   // Handle save
   const handleSave = useCallback(async () => {
     try {
-      await saveFile(file.path, effectiveContextId || undefined);
+      await saveFile(file.path, editorContextId || undefined);
       toastManager.add({
         title: 'Saved',
         description: `${file.name} saved successfully`,
@@ -417,7 +420,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
         type: 'error',
       });
     }
-  }, [effectiveContextId, file.path, file.name, saveFile]);
+  }, [editorContextId, file.path, file.name, saveFile]);
 
   const handleEditorCreate = useCallback((editor: EditorView) => {
     editorRef.current = editor;
@@ -426,8 +429,8 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
   }, []);
 
   const handleEditorChange = useCallback((value: string) => {
-    updateFileContent(file.path, value, effectiveContextId || undefined);
-  }, [effectiveContextId, file.path, updateFileContent]);
+    updateFileContent(file.path, value, editorContextId || undefined);
+  }, [editorContextId, file.path, updateFileContent]);
 
   const toolbarIconBtnClass =
     'flex size-6 items-center justify-center rounded hover:bg-accent hover:text-foreground transition-colors cursor-pointer select-none';
@@ -774,7 +777,7 @@ export const CodeMirrorEditor: React.FC<CodeMirrorEditorProps> = ({
                   }
                   onChange={handleEditorChange}
                   onCreateEditor={handleEditorCreate}
-                  onNavigationTargetApplied={() => clearNavigationTarget(file.path, effectiveContextId || undefined)}
+                  onNavigationTargetApplied={() => clearNavigationTarget(file.path, editorContextId || undefined)}
                   onSave={handleSave}
                   autoFocus
                 />

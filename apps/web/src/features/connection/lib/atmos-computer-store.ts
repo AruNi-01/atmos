@@ -172,6 +172,9 @@ export const useAtmosComputerStore = create<AtmosComputerStore>((set, get) => ({
   },
 
   setLocalServerId: localServerId => {
+    if (get().localServerId === localServerId) {
+      return;
+    }
     set({ localServerId });
     persistLocalConnectionPrefs({ localServerId });
   },

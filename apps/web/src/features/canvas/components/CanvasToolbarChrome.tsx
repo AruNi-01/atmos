@@ -44,33 +44,46 @@ export const CanvasTopChromePaddingContext = React.createContext<number>(0);
 /**
  * Bridges next-themes' Atmos theme into tldraw's user preferences.
  *
- * - Atmos is the source of truth when the app theme *changes*; we do not
- *   overwrite tldraw's restored localStorage prefs on editor mount.
- * - Users can still pick a different theme from tldraw's own menu; that
- *   choice persists (tldraw writes it to `TLDRAW_USER_DATA_v3`) until Atmos
- *   theme changes again.
+ * Atmos is the source of truth on mount and when the app theme changes.
+ * tldraw persists its own prefs; without this bridge it can restore a stale
+ * light mode after refresh while the rest of Atmos is already dark.
  */
 export function CanvasThemeBridge() {
   const editor = useEditor();
-  const { theme } = useTheme();
-  const prevThemeRef = React.useRef<string | undefined>(undefined);
+  const { resolvedTheme, theme } = useTheme();
+  const appliedColorSchemeRef = React.useRef<"light" | "dark" | null>(null);
 
   React.useEffect(() => {
-    if (!editor || !theme) return;
+    if (!editor) return;
 
-    const prevTheme = prevThemeRef.current;
-    prevThemeRef.current = theme;
+    const colorScheme = resolveAtmosCanvasColorScheme(theme, resolvedTheme);
+    if (!colorScheme) return;
+    if (appliedColorSchemeRef.current === colorScheme) return;
 
-    // Let tldraw restore user prefs from localStorage on first mount.
-    if (prevTheme === undefined) return;
-    if (prevTheme === theme) return;
-
-    const colorScheme: "light" | "dark" | "system" =
-      theme === "dark" ? "dark" : theme === "light" ? "light" : "system";
+    appliedColorSchemeRef.current = colorScheme;
     editor.user.updateUserPreferences({ colorScheme });
-  }, [editor, theme]);
+  }, [editor, resolvedTheme, theme]);
 
   return null;
+}
+
+function resolveAtmosCanvasColorScheme(
+  theme?: string,
+  resolvedTheme?: string,
+): "light" | "dark" | null {
+  if (resolvedTheme === "dark" || resolvedTheme === "light") {
+    return resolvedTheme;
+  }
+
+  if (theme === "dark" || theme === "light") {
+    return theme;
+  }
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
 function CanvasCollapsibleMenuPanel({

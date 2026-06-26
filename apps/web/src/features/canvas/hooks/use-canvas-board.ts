@@ -5,6 +5,7 @@ import type { TLEditorSnapshot } from "tldraw";
 import { canvasApi, type CanvasBoardResponse } from "@/api/rest-api";
 import type { CanvasTldrawDocument, CanvasTldrawSession } from "@/shared/types/canvas";
 import { normalizeCanvasTerminalShapePropsInDocument } from "../lib/canvas-terminal-shape";
+import { normalizeCanvasWidgetShapePropsInDocument } from "../lib/canvas-widget-shape";
 
 const CANVAS_SCHEMA = "canvas.v1";
 const CANVAS_BOARD_SLUG = "default";
@@ -55,7 +56,9 @@ export function createCanvasSnapshot(
   }
 
   return {
-    document: normalizeCanvasTerminalShapePropsInDocument(document),
+    document: normalizeCanvasWidgetShapePropsInDocument(
+      normalizeCanvasTerminalShapePropsInDocument(document),
+    ),
     session: resolveCanvasSessionForLoad(session),
   };
 }

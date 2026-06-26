@@ -29,6 +29,14 @@ interface FileTreeProps {
   onRefresh?: () => Promise<void> | void;
   /** Runs synchronously before opening a file from the tree (e.g. close ancestor Popovers). */
   beforeOpenFile?: () => void;
+  contextId?: string | null;
+  activeFilePath?: string | null;
+  currentProjectPath?: string | null;
+  revealEnabled?: boolean;
+  onOpenFile?: (
+    path: string,
+    options: { preview: boolean },
+  ) => Promise<void> | void;
 }
 
 export const FileTree: React.FC<FileTreeProps> = ({
@@ -37,14 +45,22 @@ export const FileTree: React.FC<FileTreeProps> = ({
   isLoading,
   onRefresh,
   beforeOpenFile,
+  contextId,
+  activeFilePath: activeFilePathProp,
+  currentProjectPath: currentProjectPathProp,
+  revealEnabled = true,
+  onOpenFile,
 }) => {
   const { effectiveContextId } = useContextParams();
+  const editorContextId = contextId ?? effectiveContextId;
   const openFile = useEditorStore((s) => s.openFile);
   const pinFile = useEditorStore((s) => s.pinFile);
-  const activeFilePath = useEditorStore((s) =>
-    s.getActiveFilePath(effectiveContextId || undefined),
+  const storeActiveFilePath = useEditorStore((s) =>
+    s.getActiveFilePath(editorContextId || undefined),
   );
-  const currentProjectPath = useEditorStore((s) => s.currentProjectPath);
+  const storeCurrentProjectPath = useEditorStore((s) => s.currentProjectPath);
+  const activeFilePath = activeFilePathProp ?? storeActiveFilePath;
+  const currentProjectPath = currentProjectPathProp ?? storeCurrentProjectPath;
   const fileTreeRevealTarget = useEditorStore((s) => s.fileTreeRevealTarget);
   const clearFileTreeRevealTarget = useEditorStore((s) => s.clearFileTreeRevealTarget);
   const replaceOpenFilePath = useEditorStore((s) => s.replaceOpenFilePath);
@@ -209,15 +225,23 @@ export const FileTree: React.FC<FileTreeProps> = ({
       toggle();
     } else {
       beforeOpenFile?.();
-      openFile(item.path, effectiveContextId || undefined, { preview: true });
+      if (onOpenFile) {
+        void onOpenFile(item.path, { preview: true });
+      } else {
+        void openFile(item.path, editorContextId || undefined, { preview: true });
+      }
     }
-  }, [beforeOpenFile, effectiveContextId, openFile]);
+  }, [beforeOpenFile, editorContextId, onOpenFile, openFile]);
 
   const handleItemDoubleClick = useCallback((item: FileTreeItem, isFolder: boolean) => {
     if (!isFolder) {
-      pinFile(item.path, effectiveContextId || undefined);
+      if (onOpenFile) {
+        void onOpenFile(item.path, { preview: false });
+      } else {
+        pinFile(item.path, editorContextId || undefined);
+      }
     }
-  }, [effectiveContextId, pinFile]);
+  }, [editorContextId, onOpenFile, pinFile]);
 
   const selectedItem = menuState
     ? initialItemsMap.get(menuState.itemPath) || lazyItemsMap.get(menuState.itemPath) || null
@@ -296,7 +320,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     try {
       setIsMutating(true);
       await fsApi.deletePath(selectedItem.path);
-      closeFilesByPrefix(selectedItem.path, effectiveContextId || undefined);
+      closeFilesByPrefix(selectedItem.path, editorContextId || undefined);
       await handleRefresh();
       toastManager.add({
         title: 'Success',
@@ -314,7 +338,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     } finally {
       setIsMutating(false);
     }
-  }, [closeFilesByPrefix, closeOverlays, effectiveContextId, handleRefresh, selectedItem]);
+  }, [closeFilesByPrefix, closeOverlays, editorContextId, handleRefresh, selectedItem]);
 
   const submitPanel = useCallback(async () => {
     if (!panelState) return;
@@ -336,14 +360,18 @@ export const FileTree: React.FC<FileTreeProps> = ({
         const nextPath = joinPath(panelState.parentPath, trimmedName);
         await fsApi.writeFile(nextPath, '');
         await handleRefresh();
-        await openFile(nextPath, effectiveContextId || undefined, { preview: false });
+        if (onOpenFile) {
+          await onOpenFile(nextPath, { preview: false });
+        } else {
+          await openFile(nextPath, editorContextId || undefined, { preview: false });
+        }
       } else if (panelState.mode === 'create-folder') {
         await fsApi.createDir(joinPath(panelState.parentPath, trimmedName));
         await handleRefresh();
       } else if (panelState.mode === 'rename') {
         const nextPath = joinPath(panelState.parentPath, trimmedName);
         await fsApi.renamePath(panelState.targetPath, nextPath);
-        replaceOpenFilePath(panelState.targetPath, nextPath, effectiveContextId || undefined);
+        replaceOpenFilePath(panelState.targetPath, nextPath, editorContextId || undefined);
         await handleRefresh();
       }
 
@@ -371,8 +399,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
     }
   }, [
     closePanel,
-    effectiveContextId,
+    editorContextId,
     handleRefresh,
+    onOpenFile,
     openFile,
     panelName,
     panelState,
@@ -420,8 +449,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
   }, [panelState, selectedItem]);
 
   useEffect(() => {
+    if (!revealEnabled) return;
     if (!fileTreeRevealTarget || !currentProjectPath) return;
-    if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== effectiveContextId) return;
+    if (fileTreeRevealTarget.workspaceId && fileTreeRevealTarget.workspaceId !== editorContextId) return;
     if (
       fileTreeRevealTarget.path !== currentProjectPath &&
       !fileTreeRevealTarget.path.startsWith(`${currentProjectPath}/`)
@@ -496,9 +526,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
   }, [
     clearFileTreeRevealTarget,
     currentProjectPath,
-    effectiveContextId,
+    editorContextId,
     fileTreeRevealTarget,
     loadDirectoryChildren,
+    revealEnabled,
     tree,
   ]);
 

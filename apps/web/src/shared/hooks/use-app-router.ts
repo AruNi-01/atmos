@@ -7,6 +7,8 @@ import {
 } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
+import { useAppNavigationInterceptor } from "./app-navigation-intercept";
+
 function currentBrowserLocation(fallbackPathname: string): string {
   if (typeof window === "undefined") {
     return fallbackPathname;
@@ -26,6 +28,7 @@ export function useAppRouter() {
   const router = useNextRouter();
   const params = useParams();
   const pathname = usePathname();
+  const interceptor = useAppNavigationInterceptor();
   const locale = (params?.locale as string) || "en";
 
   const normalizePath = useCallback(
@@ -67,24 +70,30 @@ export function useAppRouter() {
 
   const push = useCallback(
     (path: string) => {
+      if (interceptor?.({ path, kind: "push" })) {
+        return;
+      }
       const nextPath = normalizePath(path);
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
       router.push(nextPath);
     },
-    [normalizePath, pathname, router],
+    [interceptor, normalizePath, pathname, router],
   );
 
   const replace = useCallback(
     (path: string) => {
+      if (interceptor?.({ path, kind: "replace" })) {
+        return;
+      }
       const nextPath = normalizePath(path);
       if (nextPath === currentBrowserLocation(pathname)) {
         return;
       }
       router.replace(nextPath);
     },
-    [normalizePath, pathname, router],
+    [interceptor, normalizePath, pathname, router],
   );
 
   return useMemo(

@@ -2,10 +2,6 @@
 
 import React from "react";
 import {
-  Circle,
-  GitCompare,
-  LayoutDashboard,
-  TabsList,
   TabsTab,
   Tooltip,
   TooltipContent,
@@ -15,30 +11,28 @@ import {
 } from "@workspace/ui";
 import {
   BookOpen,
-  FileCheckCorner,
-  GitMergeIcon,
   LoaderCircle,
   Plus,
   RotateCw,
   SquareTerminal as TerminalIcon,
 } from "lucide-react";
 import type { OpenFile } from "@/features/editor/store/use-editor-store";
-import {
-  EDITOR_REVIEW_DIFF_PREFIX,
-  getEditorSourcePath,
-  isConflictResolveEditorPath,
-  isReviewGroupEditorPath,
-} from "@/features/editor/store/use-editor-store";
-import { isDiffGroupEditorPath } from "@/features/diff/lib/diff-editor-paths";
 import { cn } from "@/shared/lib/utils";
 import {
   CenterStageTabGroupPopover,
   CENTER_TERMINAL_SHORTCUT_LIMIT,
-  FileIcon,
   ShortcutHint,
   TerminalTabAgentIndicatorWithPanes,
   type TabGroupItem,
 } from "@/app-shell/center-stage-tabs";
+import {
+  CenterStageOpenFileTab,
+  CenterStageOverviewTab,
+  CenterStageScrollableTabs,
+  CenterStageStickyTabActions,
+  CenterStageTabGroupItemContent,
+  CenterStageTabList,
+} from "@/app-shell/center-stage-shared-tabs";
 import type { FileTabContextMenuState } from "@/app-shell/center-stage-file-menu";
 
 type SessionDisplay = {
@@ -110,104 +104,19 @@ export function CenterStageTabBar({
   setWikiRefreshTrigger,
 }: CenterStageTabBarProps) {
   const renderTabGroupItemContent = React.useCallback((tab: TabGroupItem) => {
-    const textClassName = cn(
-      "min-w-0 truncate text-[13px] font-medium whitespace-nowrap",
-      (tab.kind === "diff" || tab.kind === "diff-group") && "text-emerald-500",
-      tab.kind === "review-diff" && "text-blue-400",
-      tab.kind === "conflict" && "text-amber-500",
-      tab.file?.isPreview && "italic",
-    );
-
-    if (tab.kind === "overview") {
-      return (
-        <>
-          <LayoutDashboard className="size-3.5 shrink-0" />
-          <span className={textClassName}>{tab.label}</span>
-        </>
-      );
-    }
-
-    if (tab.kind === "wiki") {
-      return (
-        <>
-          <BookOpen className="size-3.5 shrink-0" />
-          <span className={textClassName}>{tab.label}</span>
-        </>
-      );
-    }
-
-    if (tab.kind === "project-wiki") {
-      return (
-        <>
-          <TerminalIcon className="size-3.5 shrink-0" />
-          <span className={textClassName}>{tab.label}</span>
-        </>
-      );
-    }
-
-    if (tab.kind === "code-review") {
-      return (
-        <>
-          <TerminalIcon className="size-3.5 shrink-0 text-primary" />
-          <span className={textClassName}>{tab.label}</span>
-        </>
-      );
-    }
-
-    if (tab.kind === "terminal") {
-      return (
-        <>
-          <TerminalIcon className="size-3.5 shrink-0" />
-          <span className={textClassName}>{tab.label}</span>
-          <TerminalTabAgentIndicatorWithPanes contextId={effectiveContextId} tabId={tab.value} />
-        </>
-      );
-    }
-
-    if (!tab.file) {
-      return <span className={textClassName}>{tab.label}</span>;
-    }
-
-    return (
-      <>
-        {tab.kind === "review-diff" ? (
-          <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
-        ) : tab.kind === "diff" || tab.kind === "diff-group" ? (
-          <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
-        ) : tab.kind === "conflict" ? (
-          <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
-        ) : (
-          <FileIcon name={tab.file.name} className="size-3.5 shrink-0" />
-        )}
-        <span className={textClassName}>{tab.file.name}</span>
-        <span className="relative ml-auto flex size-4 shrink-0 items-center justify-center">
-          {tab.file.isDirty ? <Circle className="size-1.5 fill-current text-muted-foreground" /> : null}
-        </span>
-      </>
-    );
+    return <CenterStageTabGroupItemContent effectiveContextId={effectiveContextId} tab={tab} />;
   }, [effectiveContextId]);
 
   return (
-    <TabsList
-      variant="underline"
-      className="h-10 w-full justify-start border-b border-sidebar-border px-0 bg-transparent overflow-hidden gap-0 items-stretch py-0! [&_[data-slot=tab-indicator]]:hidden"
-    >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <TabsTab
-            value="overview"
-            className="h-full! pl-4 pr-4 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-2 grow-0 shrink-0 justify-start rounded-none border-0!"
-          >
-            <LayoutDashboard className="size-3.5" />
-          </TabsTab>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
+    <CenterStageTabList>
+      <CenterStageOverviewTab
+        tooltipContent={
           <div className="flex items-center gap-2">
             <span>Overview</span>
             <ShortcutHint digit={0} />
           </div>
-        </TooltipContent>
-      </Tooltip>
+        }
+      />
 
       {wikiCenterEligible ? (
         <Tooltip>
@@ -261,7 +170,7 @@ export function CenterStageTabBar({
         </Tooltip>
       ) : null}
 
-      <div ref={scrollableTabsRef} className="flex min-w-0 flex-1 overflow-x-auto no-scrollbar">
+      <CenterStageScrollableTabs scrollableTabsRef={scrollableTabsRef}>
         {visibleTerminalTabs
           .map((tab, index) => (
             <TerminalExtraTab
@@ -303,20 +212,21 @@ export function CenterStageTabBar({
         ) : null}
 
         {openFiles.map((file) => (
-          <OpenFileTab
+          <CenterStageOpenFileTab
             key={file.path}
-            effectiveContextId={effectiveContextId}
             file={file}
             sessionDisplay={sessionDisplay}
-            handleCloseFile={handleCloseFile}
-            pinFile={pinFile}
-            setActiveFile={setActiveFile}
-            setTabContextMenu={setTabContextMenu}
+            onClose={handleCloseFile}
+            onContextMenuRequest={(event, nextFile) => {
+              setActiveFile(nextFile.path, effectiveContextId);
+              setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: nextFile.path });
+            }}
+            onPreviewPin={(nextFile) => pinFile(nextFile.path, effectiveContextId)}
           />
         ))}
-      </div>
+      </CenterStageScrollableTabs>
 
-      <div className="sticky right-0 z-20 flex h-full shrink-0 items-stretch border-l border-sidebar-border/70 bg-background/95 backdrop-blur-sm">
+      <CenterStageStickyTabActions>
         {visibleTerminalTabs.length === 0 ? (
           <EmptyTerminalTabsAddButton onCreateTab={handleCreateTerminalCenterTab} />
         ) : null}
@@ -335,8 +245,8 @@ export function CenterStageTabBar({
           isClosable={isTabGroupItemClosable}
           renderContent={renderTabGroupItemContent}
         />
-      </div>
-    </TabsList>
+      </CenterStageStickyTabActions>
+    </CenterStageTabList>
   );
 }
 
@@ -554,95 +464,6 @@ function SpecialTerminalTab({
         </TabsTab>
       </TooltipTrigger>
       <TooltipContent side="bottom">{tooltip}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-function OpenFileTab({
-  effectiveContextId,
-  file,
-  sessionDisplay,
-  handleCloseFile,
-  pinFile,
-  setActiveFile,
-  setTabContextMenu,
-}: {
-  effectiveContextId: string;
-  file: OpenFile;
-  sessionDisplay: SessionDisplay;
-  handleCloseFile: (file: OpenFile) => void;
-  pinFile: (path: string, workspaceId?: string) => void;
-  setActiveFile: (path: string | null, workspaceId?: string) => void;
-  setTabContextMenu: (value: FileTabContextMenuState) => void;
-}) {
-  const isDiffGroup = isDiffGroupEditorPath(file.path);
-  const isReviewDiff = file.path.startsWith(EDITOR_REVIEW_DIFF_PREFIX) || isReviewGroupEditorPath(file.path);
-  const isDiff = isDiffGroup || isReviewDiff;
-  const isConflictResolver = isConflictResolveEditorPath(file.path);
-  const displayPath = getEditorSourcePath(file.path);
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <TabsTab
-          value={file.path}
-          className="!h-full pl-2 pr-1 data-active:bg-muted/40 data-active:text-foreground text-muted-foreground hover:bg-muted/50 transition-colors gap-1.5 group grow-0 shrink-0 justify-start rounded-none !border-0"
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setActiveFile(file.path, effectiveContextId);
-            setTabContextMenu({ x: event.clientX, y: event.clientY, filePath: file.path });
-          }}
-          onDoubleClick={() => {
-            if (file.isPreview) {
-              pinFile(file.path, effectiveContextId);
-            }
-          }}
-        >
-          {isReviewDiff ? (
-            <FileCheckCorner className="size-3.5 shrink-0 text-blue-400" />
-          ) : isDiff ? (
-            <GitCompare className="size-3.5 shrink-0 text-emerald-500" />
-          ) : isConflictResolver ? (
-            <GitMergeIcon className="size-3.5 shrink-0 text-amber-500" />
-          ) : (
-            <FileIcon name={file.name} className="size-3.5 shrink-0" />
-          )}
-          <span
-            className={cn(
-              "text-[13px] font-medium whitespace-nowrap",
-              isReviewDiff && "text-blue-400",
-              isDiffGroup && "text-emerald-500",
-              isConflictResolver && "text-amber-500",
-              file.isPreview && "italic",
-            )}
-          >
-            {file.name}
-          </span>
-          <div className="relative size-4 flex items-center justify-center shrink-0 ml-0">
-            {file.isDirty ? <Circle className="size-1.5 fill-current text-muted-foreground group-hover:hidden" /> : null}
-            <span
-              role="button"
-              aria-label="Close tab"
-              onClick={(event) => {
-                event.stopPropagation();
-                handleCloseFile(file);
-              }}
-              className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center hover:bg-muted-foreground/20 rounded-sm cursor-pointer transition-all ease-out duration-200"
-            >
-              <X className="size-3" />
-            </span>
-          </div>
-        </TabsTab>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-md break-all">
-        {displayPath}
-        {isReviewDiff && sessionDisplay && (sessionDisplay.sessionTitle || sessionDisplay.revisionLabel) ? (
-          <span className="text-background/70">
-            {" "}
-            / {[sessionDisplay.sessionTitle, sessionDisplay.revisionLabel].filter(Boolean).join(" - ")}
-          </span>
-        ) : null}
-      </TooltipContent>
     </Tooltip>
   );
 }

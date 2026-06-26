@@ -43,15 +43,30 @@ interface DiffViewerProps {
   repoPath: string;
   filePath: string;
   originalPath?: string;
+  contextId?: string | null;
+}
+
+function getLocalCoordinateMetrics(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  const width = element.offsetWidth || rect.width || 1;
+  const height = element.offsetHeight || rect.height || 1;
+  return {
+    rect,
+    width,
+    scaleX: rect.width > 0 ? rect.width / width : 1,
+    scaleY: rect.height > 0 ? rect.height / height : 1,
+  };
 }
 
 export const DiffViewer = ({
   repoPath,
   filePath,
   originalPath,
+  contextId,
 }: DiffViewerProps) => {
   const { resolvedTheme } = useTheme();
   const { effectiveContextId } = useContextParams();
+  const activeContextId = contextId ?? effectiveContextId;
   const snapshotGuidFromPath = originalPath?.startsWith('review-diff://')
     ? originalPath.slice('review-diff://'.length).split('/')[0] || null
     : null;
@@ -111,8 +126,8 @@ export const DiffViewer = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const clearNavigationTarget = useEditorStore((state) => state.clearNavigationTarget);
   const navigationTarget = useEditorStore((state) =>
-    effectiveContextId && originalPath
-      ? state.navigationTargets[effectiveContextId]?.[originalPath] ?? null
+    activeContextId && originalPath
+      ? state.navigationTargets[activeContextId]?.[originalPath] ?? null
       : null,
   );
 
@@ -233,11 +248,12 @@ export const DiffViewer = ({
     setSelectionInfo(selection);
 
     const container = containerRef.current;
-    const containerRect = container.getBoundingClientRect();
+    const containerMetrics = getLocalCoordinateMetrics(container);
+    const containerRect = containerMetrics.rect;
     const diffElement = container.querySelector('diffs-container');
     const shadowRoot = diffElement?.shadowRoot;
 
-    let popX = containerRect.width / 2 - 75;
+    let popX = containerMetrics.width / 2 - 75;
     let popY = 100;
 
     if (shadowRoot) {
@@ -248,8 +264,11 @@ export const DiffViewer = ({
         : shadowRoot.querySelector(`[data-line="${endLine}"]`);
       if (selectedLineEl) {
         const lineRect = selectedLineEl.getBoundingClientRect();
-        popX = Math.min(lineRect.left - containerRect.left + 50, containerRect.width - 180);
-        popY = lineRect.bottom - containerRect.top + 8;
+        popX = Math.min(
+          (lineRect.left + 50 - containerRect.left) / containerMetrics.scaleX,
+          containerMetrics.width - 180,
+        );
+        popY = (lineRect.bottom + 8 - containerRect.top) / containerMetrics.scaleY;
       }
     }
 
@@ -412,7 +431,7 @@ export const DiffViewer = ({
   const lastHandledNavRef = useRef<unknown>(null);
 
   useEffect(() => {
-    if (!navigationTarget || !originalPath || !effectiveContextId || isLoading) return;
+    if (!navigationTarget || !originalPath || !activeContextId || isLoading) return;
     if (lastHandledNavRef.current === navigationTarget) return;
 
     const targetCommentGuid = navigationTarget.reviewCommentGuid;
@@ -494,7 +513,7 @@ export const DiffViewer = ({
 
     const finalize = () => {
       lastHandledNavRef.current = navigationTarget;
-      clearNavigationTarget(originalPath, effectiveContextId);
+      clearNavigationTarget(originalPath, activeContextId);
     };
 
     const tryScroll = () => {
@@ -524,7 +543,7 @@ export const DiffViewer = ({
     };
   }, [
     clearNavigationTarget,
-    effectiveContextId,
+    activeContextId,
     filePath,
     isLoading,
     navigationTarget,
