@@ -116,4 +116,5 @@
 
 - 修复分支已推送到 `origin/codex/quality-fix/2026-06-26`。
 - PR URL：https://github.com/AruNi-01/atmos/pull/137
-- 结果文件将随本报告提交到同一修复分支并推送；提交 hash 会在最终回复中给出，避免在报告内容中写入无法自指的提交 hash。
+- 结果文件提交：`1dacb680 docs: add code quality review result 2026-06-26 score 86`
+- 结果文件已随同一修复分支推送到 `origin/codex/quality-fix/2026-06-26`，并包含在 PR #137 中。
