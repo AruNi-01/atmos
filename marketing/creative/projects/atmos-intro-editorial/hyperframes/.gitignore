@@ -1,0 +1,4 @@
+node_modules/
+.render-frames/
+assets/audio/*.wav
+assets/gsap.min.js

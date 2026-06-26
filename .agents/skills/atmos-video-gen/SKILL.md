@@ -1,6 +1,6 @@
 ---
 name: atmos-video-gen
-description: Create or revise premium, simple Atmos marketing videos and social promo videos using HyperFrames, with an explicit audio generation decision. Use when Codex needs to build, move, render, or maintain video creative projects under marketing/creative, generate landing-page or X/Threads video assets, decide whether to generate matching audio, sync generated artifacts into app public folders, or avoid known Atmos video mistakes such as generic AI-looking visuals, rainbow palettes, stale logos, graywashing product screenshots, thin/short content, repetitive scene animation, missing agent icons, writing source projects under apps/landing, creating renders/exports directories instead of artifacts, or forgetting deployment copies.
+description: Create or revise premium, product-led Atmos marketing videos and social promo videos using HyperFrames, with an explicit audio generation decision and a strong design/storyboard pass. Use when Codex needs to build, move, render, or maintain video creative projects under marketing/creative, analyze a reference promo video, improve weak creative direction, generate landing-page or X/Threads video assets, decide whether to generate matching audio, sync generated artifacts into app public folders, or avoid known Atmos video mistakes such as generic AI-looking visuals, rainbow palettes, stale logos, graywashing product screenshots, thin/short content, repetitive scene animation, missing agent icons, writing source projects under apps/landing, creating renders/exports directories instead of artifacts, or forgetting deployment copies.
 ---
 
 # Atmos Video Gen
@@ -15,15 +15,17 @@ Use this skill to produce Atmos marketing video projects with clean repository b
 2. If the video is consumed by an app, read that app's `AGENTS.md` before syncing deployable copies.
 3. Resolve `audio_mode` before generating the video. Do not silently infer this when the user has not said whether audio is needed.
 4. Read `references/project-files.md` before creating or changing project file structure.
-5. For a new project, run `scripts/scaffold-atmos-video-project.mjs` to create the standard skeleton, then replace the starter `DESIGN.md`, `SCRIPT.md`, and `index.html` with the real video plan and HyperFrames composition.
-6. Create or update the creative project under `marketing/creative/projects/<project-name>/`.
-7. Keep the HyperFrames source app under `<project>/hyperframes/`.
-8. Write generated outputs to `<project>/artifacts/`, then copy only needed deployable files into the consuming app's public/static folder.
-9. Verify the HyperFrames project, rendered artifacts, copied app assets, and audio continuity before finishing.
+5. Read `references/editorial-design-grammar.md` before writing or revising `DESIGN.md`, `SCRIPT.md`, or the HyperFrames composition. If the user supplies a reference video, first extract contact sheets/key frames and translate the reference into reusable design grammar; do not copy the reference brand, mascot, text, or exact sequence.
+6. For a new project, run `scripts/scaffold-atmos-video-project.mjs` to create the standard skeleton, then replace the starter `DESIGN.md`, `SCRIPT.md`, and `index.html` with the real video plan and HyperFrames composition.
+7. Create or update the creative project under `marketing/creative/projects/<project-name>/`.
+8. Keep the HyperFrames source app under `<project>/hyperframes/`.
+9. Write generated outputs to `<project>/artifacts/`, then copy only needed deployable files into the consuming app's public/static folder.
+10. Verify the HyperFrames project, rendered artifacts, copied app assets, visual design quality, and audio continuity before finishing.
 
 ## Skill Resources
 
 - `references/project-files.md` is the source of truth for required project files, file responsibilities, artifact paths, package scripts, and script reuse boundaries.
+- `references/editorial-design-grammar.md` is the source of truth for design planning, reference-video analysis, scene density, frame families, proof-led composition, and HyperFrames motion grammar.
 - `scripts/scaffold-atmos-video-project.mjs` creates the standard project skeleton and a reusable `render-video.mjs` template. It does not produce the final video; it only prepares the workspace.
 - This skill intentionally has no `assets/` directory. Do not bundle Atmos logos, agent icons, or screenshots into the skill because they can become stale. Pull current assets from the repository or the project's `source/` and `hyperframes/assets/` directories.
 
@@ -103,11 +105,27 @@ For Atmos marketing, landing, launch, and social promo videos, treat these as re
 - Prefer a clear graphite base with blue/green accents and only small amber/brass highlights. Avoid muddy dark-yellow, brown, or low-contrast sepia casts.
 - Use current Atmos brand language. If the current logo is unclear, use the current site wordmark/orbit-style mark direction or omit the logo; never resurrect old `logo.png` assets.
 - Keep enough story density for a real promo. For a 30 second intro, a good baseline is about 6-8 scenes: brand/slogan, problem context, product positioning, multi-agent support, parallel/worktree/terminal workflow, review/preview, and CTA.
+- For longer 60-110 second promos, plan about 14-24 beats with clear act breaks, proof scenes, and a final resolved CTA. Do not stretch a 30 second storyboard with slower fades.
 - Do not shorten or delete important content just to make implementation easier. If the user asks for a full intro, preserve the narrative arc and adjust pacing instead.
 - Show a broad agent support surface. Use icon + name chips/cards for many agents, not a short text-only list. Include a "More agents" or "supports more/all agents" moment when appropriate.
 - Use existing agent icons in front of agent names where available. Missing icons should be handled intentionally, not by dropping the agent surface.
+- Treat copy as edit rhythm: short, high-contrast headline cards and bottom caption pills can carry pacing, but every text beat must be paired with product proof or a meaningful transition.
+- Use a proof-first frame mix: real app screens, terminal/worktree states, chat surfaces, notifications, calendars, browser windows, agent chips, and review/preview moments. Avoid long runs of abstract brand cards.
+- Alternate frame families so the video feels designed: bright product stage, dark chapter card, dense UI proof, split workflow, phone/notification insert, agent/logo surface, and final CTA.
 - Use varied scene choreography. Good options include focus pull, horizontal push, vertical reveal, shallow zoom, card/logo cascade, timeline/lane motion, subtle 3D flip, and staggered matrix reveal. Do not make every scene use the same fade/slide pattern.
 - Keep final CTA practical: include `https://atmos.land` and GitHub side by side for public promo videos.
+
+## Design Planning Gate
+
+Before implementing a HyperFrames composition, write or update `DESIGN.md` with a storyboard table that includes `time`, `role`, `visual proof`, `headline/caption`, `motion`, and `source asset`. Use this to make the design inspectable before rendering.
+
+Every storyboard should answer:
+
+- What is the viewer supposed to understand at this beat?
+- Which real product state proves it?
+- What frame family is being used, and how is it different from the previous beat?
+- What motion change makes the edit visible without turning into a gimmick?
+- What asset is missing, and what faithful placeholder will be used until the real capture exists?
 
 ## Motion Rules
 
@@ -119,6 +137,9 @@ Use `$hyperframes` for exact composition rules, but enforce these Atmos-specific
 - Keep text readable at video resolution and avoid overlap on dense frames.
 - Use product screenshots at their natural colors and frame them for inspection, not as blurred background decoration.
 - Avoid hero/source assets that are purely atmospheric when the viewer needs to understand the product.
+- Prefer designed edits over default fades: match cuts, quick scale punches, masked wipes, crop reveals, pan/zoom over product captures, and title-card contrast shifts.
+- Use bottom caption pills sparingly as a rhythm track for short narration, but keep them within a safe area and off the primary UI details.
+- If a scene is mostly text, make the typography itself the composition: strong weight contrast, large scale, deliberate whitespace, and a clear entrance/exit gesture.
 
 ## Audio
 
@@ -168,6 +189,7 @@ After rendering, verify:
 - `ffprobe` reports expected duration, resolution, frame rate, and audio stream.
 - App public copies match artifacts with `shasum -a 256`.
 - Audio has no unintended mid-track silence with `silencedetect` when music is present.
+- A 1fps contact sheet of the rendered video shows varied frame families, no long dead stretches, no repeated default fade/slide pattern, and enough real product proof to explain the offer without reading the source prompt.
 - `rg` finds no old paths such as `apps/landing/hyperframes`, `renders/`, or `exports/` in newly written project docs/scripts unless intentionally documenting a migration.
 - No generated `node_modules/`, `.render-frames/`, or mirrored preview audio are tracked.
 

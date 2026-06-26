@@ -1,0 +1,1789 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atmos Intro Editorial</title>
+    <style>
+      @font-face {
+        font-family: "Geist Pixel Square";
+        src: url("assets/fonts/GeistPixel-Square.woff2") format("woff2");
+        font-weight: 400 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("assets/fonts/GeistMono-Variable.woff2") format("woff2");
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #080b10;
+      }
+
+      #main {
+        position: relative;
+        overflow: hidden;
+        width: 1920px;
+        height: 1080px;
+        color: #f6f3ea;
+        background: #080b10;
+        font-family: "Geist Mono", monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      audio {
+        display: none;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        width: 1920px;
+        height: 1080px;
+        opacity: 0;
+        background: #080b10;
+      }
+
+      #s1 {
+        opacity: 1;
+      }
+
+      .scene-inner {
+        position: relative;
+        display: flex;
+        width: 100%;
+        height: 100%;
+        padding: 72px 86px;
+        overflow: hidden;
+      }
+
+      .dark {
+        background: #080b10;
+        color: #f6f3ea;
+      }
+
+      .dark::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(99, 167, 255, 0.055) 1px, rgba(8, 11, 16, 0) 1px),
+          linear-gradient(90deg, rgba(99, 167, 255, 0.045) 1px, rgba(8, 11, 16, 0) 1px);
+        background-size: 96px 96px;
+        opacity: 0.28;
+        pointer-events: none;
+      }
+
+      .dark::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 220px;
+        background: linear-gradient(180deg, rgba(8, 11, 16, 0), #080b10);
+        pointer-events: none;
+      }
+
+      .light {
+        background: #f4f2ea;
+        color: #111722;
+      }
+
+      .light::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(17, 23, 34, 0.055) 1px, rgba(244, 242, 234, 0) 1px),
+          linear-gradient(90deg, rgba(17, 23, 34, 0.045) 1px, rgba(244, 242, 234, 0) 1px);
+        background-size: 120px 120px;
+        opacity: 0.35;
+        pointer-events: none;
+      }
+
+      .muted {
+        color: #aeb8c8;
+      }
+
+      .ink-muted {
+        color: #536070;
+      }
+
+      .blue {
+        color: #63a7ff;
+      }
+
+      .green {
+        color: #63d89a;
+      }
+
+      .amber {
+        color: #e5b75f;
+      }
+
+      .red {
+        color: #ff5f64;
+      }
+
+      .brand-word {
+        font-family: "Geist Pixel Square", "Geist Mono", monospace;
+        font-weight: 900;
+        letter-spacing: 0;
+        line-height: 0.86;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 38px;
+        padding: 0 16px;
+        border: 1px solid rgba(99, 167, 255, 0.3);
+        border-radius: 999px;
+        color: #aeb8c8;
+        background: rgba(16, 23, 34, 0.74);
+        font-size: 18px;
+        font-weight: 650;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .light .eyebrow {
+        color: #394656;
+        background: rgba(255, 255, 255, 0.72);
+        border-color: rgba(17, 23, 34, 0.14);
+      }
+
+      .caption-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px solid rgba(99, 167, 255, 0.3);
+        color: #f6f3ea;
+        background: rgba(8, 11, 16, 0.82);
+        box-shadow: 0 12px 32px rgba(8, 11, 16, 0.18);
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: 0;
+        white-space: nowrap;
+      }
+
+      .light .caption-pill {
+        color: #111722;
+        background: rgba(255, 255, 255, 0.88);
+        border-color: rgba(17, 23, 34, 0.14);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #63d89a;
+        box-shadow: 0 0 0 5px rgba(99, 216, 154, 0.12);
+        flex: 0 0 auto;
+      }
+
+      .rule {
+        width: 100%;
+        height: 1px;
+        background: rgba(99, 167, 255, 0.24);
+      }
+
+      .light .rule {
+        background: rgba(17, 23, 34, 0.14);
+      }
+
+      .orbit-mark {
+        position: relative;
+        width: 92px;
+        height: 92px;
+        flex: 0 0 auto;
+      }
+
+      .orbit-mark::before,
+      .orbit-mark::after,
+      .orbit-mark span {
+        content: "";
+        position: absolute;
+        inset: 50%;
+        border-radius: 999px;
+        transform: translate(-50%, -50%);
+      }
+
+      .orbit-mark::before {
+        width: 46px;
+        height: 46px;
+        border: 7px solid currentColor;
+      }
+
+      .orbit-mark span {
+        width: 70px;
+        height: 70px;
+        border: 4px solid currentColor;
+        opacity: 0.55;
+      }
+
+      .orbit-mark::after {
+        width: 92px;
+        height: 92px;
+        border: 2px dashed currentColor;
+        opacity: 0.32;
+      }
+
+      .product-frame {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(17, 23, 34, 0.16);
+        border-radius: 18px;
+        background: #080b10;
+        box-shadow: 0 32px 70px rgba(8, 11, 16, 0.24);
+      }
+
+      .product-frame.dark-frame {
+        border-color: rgba(246, 243, 234, 0.14);
+        box-shadow: 0 34px 80px rgba(0, 0, 0, 0.42);
+      }
+
+      .product-frame img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .screen-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 54px;
+        padding: 0 22px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        color: #c6ced8;
+        background: rgba(8, 11, 16, 0.86);
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: 0;
+      }
+
+      .window-dots {
+        display: flex;
+        gap: 8px;
+      }
+
+      .window-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #394656;
+      }
+
+      .window-dots span:nth-child(1) {
+        background: #ff5f64;
+      }
+
+      .window-dots span:nth-child(2) {
+        background: #e5b75f;
+      }
+
+      .window-dots span:nth-child(3) {
+        background: #63d89a;
+      }
+
+      .terminal-card,
+      .mini-terminal {
+        border: 1px solid rgba(99, 167, 255, 0.18);
+        border-radius: 16px;
+        background: rgba(8, 11, 16, 0.88);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+      }
+
+      .mini-terminal {
+        padding: 18px 20px;
+        color: #dfe6ee;
+        font-size: 21px;
+        line-height: 1.45;
+      }
+
+      .prompt {
+        color: #63d89a;
+      }
+
+      .path {
+        color: #63a7ff;
+      }
+
+      .branch {
+        color: #e5b75f;
+      }
+
+      .agent-icon {
+        display: block;
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+        border-radius: 8px;
+      }
+
+      .agent-chip {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 58px;
+        padding: 10px 14px;
+        border: 1px solid rgba(17, 23, 34, 0.12);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.76);
+        color: #111722;
+        font-size: 21px;
+        font-weight: 760;
+        letter-spacing: 0;
+        box-shadow: 0 12px 28px rgba(17, 23, 34, 0.08);
+      }
+
+      .agent-chip .agent-icon {
+        width: 38px;
+        height: 38px;
+        padding: 5px;
+        border-radius: 10px;
+        background: #101722;
+        box-shadow: inset 0 0 0 1px rgba(246, 243, 234, 0.12);
+      }
+
+      .agent-chip .agent-icon[src*="devin"],
+      .agent-chip .agent-icon[src*="hermes-agent"],
+      .agent-chip .agent-icon[src*="openclaw"],
+      .agent-chip .agent-icon[src*="pi.svg"] {
+        background: #f4f2ea;
+        box-shadow: inset 0 0 0 1px rgba(17, 23, 34, 0.12);
+      }
+
+      .dark .agent-chip {
+        color: #f6f3ea;
+        background: rgba(16, 23, 34, 0.84);
+        border-color: rgba(246, 243, 234, 0.1);
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        color: #111722;
+        background: rgba(99, 216, 154, 0.18);
+        border: 1px solid rgba(99, 216, 154, 0.36);
+        font-size: 17px;
+        font-weight: 780;
+        letter-spacing: 0;
+        white-space: nowrap;
+      }
+
+      .status.dark-status {
+        color: #f6f3ea;
+        background: rgba(99, 216, 154, 0.12);
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        padding: 0 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(99, 167, 255, 0.2);
+        color: #aeb8c8;
+        background: rgba(99, 167, 255, 0.08);
+        font-size: 16px;
+        font-weight: 760;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      /* Scene 1 */
+      #s1 .scene-inner {
+        align-items: stretch;
+        justify-content: space-between;
+        gap: 72px;
+        padding: 78px 86px 74px;
+      }
+
+      .hook-copy {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        width: 840px;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .hook-top {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+
+      .hook-title {
+        margin-top: 116px;
+      }
+
+      .hook-title .brand-word {
+        font-size: 178px;
+      }
+
+      .hook-title h2 {
+        max-width: 780px;
+        margin: 24px 0 0;
+        color: #dfe6ee;
+        font-size: 44px;
+        font-weight: 720;
+        line-height: 1.18;
+        letter-spacing: 0;
+      }
+
+      .hook-meta {
+        display: grid;
+        grid-template-columns: 190px 230px 190px;
+        gap: 16px;
+      }
+
+      .metric {
+        padding: 18px 18px 16px;
+        border-top: 1px solid rgba(99, 167, 255, 0.26);
+        color: #aeb8c8;
+        font-size: 17px;
+        font-weight: 650;
+        line-height: 1.35;
+        letter-spacing: 0;
+      }
+
+      .metric strong {
+        display: block;
+        margin-bottom: 7px;
+        color: #f6f3ea;
+        font-size: 30px;
+        font-weight: 860;
+        letter-spacing: 0;
+      }
+
+      .hook-proof {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        width: 910px;
+        grid-template-rows: 1fr 176px 176px;
+        gap: 18px;
+        padding-top: 22px;
+      }
+
+      .hook-screen {
+        height: 580px;
+      }
+
+      .hook-screen img {
+        object-position: 46% 38%;
+      }
+
+      .proof-rail {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .hook-strip {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(99, 167, 255, 0.18);
+        border-radius: 16px;
+        background: #101722;
+        padding: 20px;
+      }
+
+      .hook-strip .tag {
+        margin-bottom: 18px;
+      }
+
+      .strip-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        color: #dfe6ee;
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.34;
+      }
+
+      .strip-code {
+        color: #aeb8c8;
+        font-size: 19px;
+        line-height: 1.4;
+      }
+
+      /* Scene 2 */
+      #s2 .scene-inner {
+        align-items: center;
+        gap: 80px;
+        padding: 92px 110px;
+      }
+
+      .chapter-copy {
+        position: relative;
+        z-index: 2;
+        width: 780px;
+      }
+
+      .chapter-copy h2 {
+        margin: 32px 0 0;
+        font-size: 88px;
+        font-weight: 900;
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+
+      .chapter-copy p {
+        max-width: 660px;
+        margin: 30px 0 0;
+        color: #c6ced8;
+        font-size: 34px;
+        font-weight: 620;
+        line-height: 1.25;
+        letter-spacing: 0;
+      }
+
+      .prompt-stack {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        width: 860px;
+        gap: 18px;
+      }
+
+      .prompt-card {
+        display: grid;
+        grid-template-columns: 88px 1fr 140px;
+        align-items: center;
+        gap: 20px;
+        min-height: 132px;
+        padding: 22px 24px;
+        border: 1px solid rgba(246, 243, 234, 0.1);
+        border-radius: 18px;
+        background: rgba(16, 23, 34, 0.86);
+      }
+
+      .prompt-card:nth-child(2) {
+        margin-left: 70px;
+      }
+
+      .prompt-card:nth-child(3) {
+        margin-left: 28px;
+      }
+
+      .prompt-card .agent-icon {
+        width: 52px;
+        height: 52px;
+      }
+
+      .prompt-card h3 {
+        margin: 0 0 8px;
+        color: #f6f3ea;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .prompt-card p {
+        margin: 0;
+        color: #aeb8c8;
+        font-size: 21px;
+        font-weight: 560;
+        letter-spacing: 0;
+      }
+
+      .cursor-block {
+        display: inline-block;
+        width: 12px;
+        height: 24px;
+        margin-left: 4px;
+        background: #63d89a;
+        vertical-align: -4px;
+      }
+
+      /* Scene 3 */
+      #s3 .scene-inner {
+        flex-direction: column;
+        gap: 32px;
+        padding: 58px 76px 64px;
+      }
+
+      .scene-head {
+        position: relative;
+        z-index: 3;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 40px;
+      }
+
+      .scene-head h2 {
+        max-width: 980px;
+        margin: 0;
+        font-size: 76px;
+        font-weight: 900;
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+
+      .scene-head .eyebrow,
+      .agent-copy .eyebrow {
+        margin-bottom: 18px;
+      }
+
+      .scene-head p {
+        max-width: 520px;
+        margin: 10px 0 0;
+        font-size: 25px;
+        font-weight: 620;
+        line-height: 1.28;
+        letter-spacing: 0;
+      }
+
+      .product-stage {
+        position: relative;
+        z-index: 2;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .main-product {
+        width: 100%;
+        height: 786px;
+        border-radius: 24px;
+      }
+
+      .main-product img {
+        object-position: 52% 48%;
+      }
+
+      .callout {
+        position: absolute;
+        z-index: 8;
+      }
+
+      .callout::after {
+        content: "";
+        position: absolute;
+        left: 28px;
+        top: 100%;
+        width: 1px;
+        height: 92px;
+        background: rgba(99, 167, 255, 0.36);
+      }
+
+      .callout-one {
+        left: 260px;
+        top: 134px;
+      }
+
+      .callout-two {
+        right: 162px;
+        top: 250px;
+      }
+
+      .callout-three {
+        left: 720px;
+        bottom: 42px;
+      }
+
+      .callout-three::after {
+        top: auto;
+        bottom: 100%;
+        height: 76px;
+      }
+
+      /* Scene 4 */
+      #s4 .scene-inner {
+        flex-direction: column;
+        gap: 34px;
+        padding: 70px 86px 80px;
+      }
+
+      .agent-layout {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 560px 1fr;
+        gap: 54px;
+        height: 100%;
+        min-height: 0;
+      }
+
+      .agent-copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 16px 0;
+      }
+
+      .agent-copy h2 {
+        margin: 0;
+        color: #111722;
+        font-size: 78px;
+        font-weight: 900;
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .agent-copy p {
+        max-width: 520px;
+        margin: 24px 0 0;
+        color: #536070;
+        font-size: 27px;
+        font-weight: 630;
+        line-height: 1.28;
+        letter-spacing: 0;
+      }
+
+      .agent-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-content: center;
+        gap: 14px;
+        min-height: 0;
+      }
+
+      .agent-chip.more {
+        justify-content: center;
+        background: #101722;
+        color: #f6f3ea;
+        border-color: #101722;
+      }
+
+      /* Scene 5 */
+      #s5 .scene-inner {
+        flex-direction: column;
+        gap: 36px;
+        padding: 66px 82px 74px;
+      }
+
+      .lane-grid {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .lane {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        padding: 26px;
+        border: 1px solid rgba(17, 23, 34, 0.12);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.72);
+        box-shadow: 0 24px 48px rgba(17, 23, 34, 0.1);
+      }
+
+      .lane-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .lane-agent {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: #111722;
+        font-size: 25px;
+        font-weight: 850;
+        letter-spacing: 0;
+      }
+
+      .lane h3 {
+        margin: 34px 0 10px;
+        color: #111722;
+        font-size: 42px;
+        font-weight: 900;
+        line-height: 1.02;
+        letter-spacing: 0;
+      }
+
+      .lane .lane-path {
+        color: #536070;
+        font-size: 20px;
+        font-weight: 650;
+        letter-spacing: 0;
+      }
+
+      .lane-terminal {
+        min-height: 260px;
+        margin-top: 28px;
+        padding: 20px;
+        border-radius: 14px;
+        background: #080b10;
+        color: #dfe6ee;
+        font-size: 20px;
+        line-height: 1.55;
+        letter-spacing: 0;
+      }
+
+      .progress {
+        position: relative;
+        height: 10px;
+        margin-top: auto;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(17, 23, 34, 0.12);
+      }
+
+      .progress span {
+        display: block;
+        width: var(--w);
+        height: 100%;
+        border-radius: 999px;
+        background: #63d89a;
+        transform-origin: left center;
+      }
+
+      /* Scene 6 */
+      #s6 .scene-inner {
+        align-items: stretch;
+        gap: 34px;
+        padding: 68px 82px;
+      }
+
+      .terminal-focus {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 26px;
+        width: 100%;
+      }
+
+      .terminal-large {
+        padding: 28px;
+        border-radius: 24px;
+      }
+
+      .terminal-titlebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 28px;
+        color: #aeb8c8;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      .terminal-body {
+        display: grid;
+        gap: 18px;
+        color: #dfe6ee;
+        font-size: 30px;
+        line-height: 1.38;
+        letter-spacing: 0;
+      }
+
+      .terminal-row {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 16px;
+        align-items: baseline;
+      }
+
+      .context-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 30px;
+        border: 1px solid rgba(246, 243, 234, 0.1);
+        border-radius: 24px;
+        background: rgba(16, 23, 34, 0.82);
+      }
+
+      .context-panel h2 {
+        margin: 0 0 8px;
+        font-size: 66px;
+        font-weight: 900;
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+
+      .context-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 18px 0;
+        border-top: 1px solid rgba(246, 243, 234, 0.09);
+        color: #c6ced8;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: 0;
+      }
+
+      .context-item strong {
+        color: #f6f3ea;
+        font-weight: 850;
+      }
+
+      /* Scene 7 */
+      #s7 .scene-inner {
+        flex-direction: column;
+        gap: 34px;
+        padding: 62px 82px 74px;
+      }
+
+      .review-preview {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 0.92fr 1.08fr;
+        gap: 24px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .review-panel,
+      .preview-panel {
+        overflow: hidden;
+        border: 1px solid rgba(17, 23, 34, 0.12);
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: 0 24px 56px rgba(17, 23, 34, 0.1);
+      }
+
+      .panel-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 70px;
+        padding: 0 24px;
+        border-bottom: 1px solid rgba(17, 23, 34, 0.1);
+        color: #111722;
+        font-size: 24px;
+        font-weight: 860;
+        letter-spacing: 0;
+      }
+
+      .review-list {
+        display: grid;
+        gap: 0;
+        padding: 8px 22px 22px;
+      }
+
+      .diff-row {
+        display: grid;
+        grid-template-columns: 56px 1fr 112px;
+        align-items: center;
+        gap: 16px;
+        min-height: 74px;
+        border-bottom: 1px solid rgba(17, 23, 34, 0.08);
+        color: #111722;
+        font-size: 22px;
+        font-weight: 740;
+        letter-spacing: 0;
+      }
+
+      .file-icon {
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 34px;
+        border-radius: 9px;
+        color: #63a7ff;
+        background: rgba(99, 167, 255, 0.12);
+        font-size: 17px;
+        font-weight: 900;
+      }
+
+      .diff-stat {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        font-weight: 860;
+      }
+
+      .browser {
+        height: calc(100% - 70px);
+        padding: 26px;
+      }
+
+      .browser-stage {
+        display: grid;
+        height: 100%;
+        grid-template-columns: 1fr 310px;
+        gap: 22px;
+      }
+
+      .browser-main {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(17, 23, 34, 0.1);
+        border-radius: 18px;
+        background: #101722;
+        color: #f6f3ea;
+        padding: 34px;
+      }
+
+      .browser-main h3 {
+        margin: 0;
+        font-size: 54px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .browser-main p {
+        max-width: 520px;
+        margin: 18px 0 0;
+        color: #c6ced8;
+        font-size: 24px;
+        line-height: 1.35;
+        letter-spacing: 0;
+      }
+
+      .browser-main .rule {
+        width: auto;
+      }
+
+      .preview-sidebar {
+        display: grid;
+        gap: 16px;
+      }
+
+      .preview-tile {
+        padding: 18px;
+        border: 1px solid rgba(17, 23, 34, 0.1);
+        border-radius: 16px;
+        background: #f4f2ea;
+        color: #111722;
+        font-size: 20px;
+        font-weight: 740;
+        line-height: 1.3;
+        letter-spacing: 0;
+      }
+
+      .preview-tile span {
+        display: block;
+        margin-top: 8px;
+      }
+
+      /* Scene 8 */
+      #s8 .scene-inner {
+        flex-direction: column;
+        gap: 20px;
+        padding: 40px 82px 44px;
+      }
+
+      .proof-grid {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 1.16fr 0.84fr;
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 18px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .proof-panel {
+        position: relative;
+        min-height: 0;
+        overflow: hidden;
+        border: 1px solid rgba(246, 243, 234, 0.11);
+        border-radius: 24px;
+        background: rgba(16, 23, 34, 0.84);
+        box-shadow: 0 26px 64px rgba(0, 0, 0, 0.28);
+      }
+
+      .proof-panel.big {
+        grid-row: span 2;
+      }
+
+      .proof-panel.big img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 56% 38%;
+      }
+
+      .proof-overlay {
+        position: absolute;
+        left: 28px;
+        right: 28px;
+        bottom: 28px;
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: flex-end;
+      }
+
+      .proof-overlay h3 {
+        margin: 0;
+        font-size: 48px;
+        font-weight: 900;
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .stat-card {
+        display: flex;
+        height: 100%;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 24px;
+      }
+
+      .stat-card h3 {
+        max-width: 520px;
+        margin: 0;
+        font-size: 48px;
+        font-weight: 900;
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .stat-list {
+        display: grid;
+        gap: 16px;
+      }
+
+      .stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(246, 243, 234, 0.1);
+        color: #c6ced8;
+        font-size: 23px;
+        font-weight: 680;
+        letter-spacing: 0;
+      }
+
+      .stat-row strong {
+        color: #f6f3ea;
+        font-size: 30px;
+        font-weight: 900;
+      }
+
+      /* Scene 9 */
+      #s9 .scene-inner {
+        align-items: stretch;
+        gap: 54px;
+        padding: 76px 86px 76px;
+      }
+
+      .cta-copy {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        width: 820px;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .cta-brand {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .cta-brand .orbit-mark {
+        width: 110px;
+        height: 110px;
+      }
+
+      .cta-title .brand-word {
+        color: #111722;
+        font-size: 118px;
+      }
+
+      .cta-title p {
+        max-width: 720px;
+        margin: 22px 0 0;
+        color: #394656;
+        font-size: 34px;
+        font-weight: 690;
+        line-height: 1.24;
+        letter-spacing: 0;
+      }
+
+      .cta-links {
+        display: grid;
+        gap: 16px;
+      }
+
+      .cta-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 72px;
+        padding: 0 22px;
+        border: 1px solid rgba(17, 23, 34, 0.12);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.78);
+        color: #111722;
+        font-size: 26px;
+        font-weight: 850;
+        letter-spacing: 0;
+      }
+
+      .cta-link.primary {
+        background: #101722;
+        color: #f6f3ea;
+      }
+
+      .cta-proof {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        flex: 1;
+        grid-template-rows: 1fr 260px;
+        gap: 20px;
+        min-width: 0;
+      }
+
+      .cta-proof .product-frame {
+        border-radius: 24px;
+      }
+
+      .cta-proof img {
+        object-position: 54% 48%;
+      }
+
+      .cta-mini-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      .cta-mini {
+        padding: 24px;
+        border: 1px solid rgba(17, 23, 34, 0.12);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .cta-mini h3 {
+        margin: 0 0 14px;
+        color: #111722;
+        font-size: 30px;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
+      .cta-mini p {
+        margin: 0;
+        color: #536070;
+        font-size: 22px;
+        font-weight: 650;
+        line-height: 1.32;
+        letter-spacing: 0;
+      }
+
+      .final-fade {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        pointer-events: none;
+        background: #080b10;
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="main" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="42">
+      <audio
+        id="soundtrack"
+        data-start="0"
+        data-duration="42"
+        data-track-index="1"
+        data-volume="1"
+        src="assets/audio/atmos-intro-editorial-soundtrack.wav"
+      ></audio>
+
+      <section id="s1" class="scene dark">
+        <div class="scene-inner">
+          <div class="hook-copy">
+            <div class="hook-top">
+              <div class="orbit-mark"><span></span></div>
+              <div class="eyebrow">Public intro / 16:9 / product proof</div>
+            </div>
+            <div class="hook-title">
+              <div class="brand-word">ATMOS</div>
+              <h2>Atmosphere for Agentic Builders</h2>
+            </div>
+            <div class="hook-meta">
+              <div class="metric"><strong>multi-agent</strong>Run the agents you already trust</div>
+              <div class="metric"><strong>worktrees</strong>Parallel tasks stay inspectable</div>
+              <div class="metric"><strong>review</strong>Diffs, previews, terminals in one place</div>
+            </div>
+          </div>
+          <div class="hook-proof">
+            <div class="product-frame dark-frame hook-screen" data-layout-allow-overflow>
+              <div class="screen-bar">
+                <div class="window-dots"><span></span><span></span><span></span></div>
+                <div>atmos/landing · terminal + changes</div>
+              </div>
+              <img src="assets/product/atmos_preview_2.png" alt="Atmos product workspace" />
+            </div>
+            <div class="proof-rail">
+              <div class="hook-strip">
+                <div class="tag">terminal</div>
+                <div class="strip-code"><span class="prompt">›</span> Run another code agent in parallel</div>
+              </div>
+              <div class="hook-strip">
+                <div class="tag">changes</div>
+                <div class="strip-line"><span>page.tsx</span><span class="green">+9</span><span class="red">-20</span></div>
+              </div>
+            </div>
+            <div class="proof-rail">
+              <div class="hook-strip">
+                <div class="tag">worktree</div>
+                <div class="strip-code"><span class="path">~/.atmos/workspaces</span> / landing</div>
+              </div>
+              <div class="hook-strip">
+                <div class="tag">agent state</div>
+                <div class="strip-line"><span class="green">Dev on workspace</span><span>idle</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s2" class="scene dark">
+        <div class="scene-inner">
+          <div class="chapter-copy">
+            <div class="eyebrow">Chapter 01 / the shift</div>
+            <h2>Agents went parallel.</h2>
+            <p>Your workspace should too.</p>
+          </div>
+          <div class="prompt-stack">
+            <div class="prompt-card">
+              <img class="agent-icon" src="assets/agents/claude-code.svg" alt="Claude Code" />
+              <div>
+                <h3>Claude Code</h3>
+                <p><span class="path">atmos/landing</span> · feature branch</p>
+              </div>
+              <div class="status dark-status"><span class="dot"></span>running</div>
+            </div>
+            <div class="prompt-card">
+              <img class="agent-icon" src="assets/agents/codex.svg" alt="Codex" />
+              <div>
+                <h3>Codex</h3>
+                <p><span class="path">atmos/runtime</span> · bugfix lane</p>
+              </div>
+              <div class="status dark-status"><span class="dot"></span>review</div>
+            </div>
+            <div class="prompt-card">
+              <img class="agent-icon" src="assets/agents/opencode.svg" alt="OpenCode" />
+              <div>
+                <h3>OpenCode</h3>
+                <p><span class="path">atmos/docs</span> · preview lane<span class="cursor-block"></span></p>
+              </div>
+              <div class="status dark-status"><span class="dot"></span>ready</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s3" class="scene light">
+        <div class="scene-inner">
+          <div class="scene-head">
+            <div>
+              <div class="eyebrow">Product proof / workspace</div>
+              <h2>One control room for agentic work.</h2>
+            </div>
+            <p class="ink-muted">Project/worktree sidebar, terminal sessions, diff review, and preview controls stay in one inspectable surface.</p>
+          </div>
+          <div class="product-stage">
+            <div class="product-frame main-product" data-layout-allow-overflow>
+              <div class="screen-bar">
+                <div class="window-dots"><span></span><span></span><span></span></div>
+                <div>ATMOS / terminal + changes + preview</div>
+              </div>
+              <img src="assets/product/atmos_preview_2.png" alt="Atmos workspace screenshot" />
+            </div>
+            <div class="callout callout-one caption-pill"><span class="dot"></span>Parallel worktrees</div>
+            <div class="callout callout-two caption-pill"><span class="dot"></span>Reviewable changes</div>
+            <div class="callout callout-three caption-pill"><span class="dot"></span>Persistent terminal context</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s4" class="scene light">
+        <div class="scene-inner">
+          <div class="agent-layout">
+            <div class="agent-copy">
+              <div>
+                <div class="eyebrow">Agent surface / terminal agents</div>
+                <h2>Bring the agents you already use.</h2>
+                <p>Atmos treats agent choice as part of the workflow, not a locked-in assistant layer.</p>
+              </div>
+              <div class="caption-pill"><span class="dot"></span>Manifest-backed agent list</div>
+            </div>
+            <div class="agent-grid">
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/claude-code.svg" alt="Claude Code" />Claude Code</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/codex.svg" alt="Codex" />Codex</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/gemini.svg" alt="Gemini" />Gemini</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/opencode.svg" alt="OpenCode" />OpenCode</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/devin.svg" alt="Devin" />Devin</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/amp.svg" alt="Amp" />Amp</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/droid.svg" alt="Droid" />Droid</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/cursor.svg" alt="Cursor" />Cursor</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/kilo.svg" alt="Kilo" />Kilo Code</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/kimi.svg" alt="Kimi" />Kimi</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/kiro-cli.svg" alt="Kiro" />Kiro</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/command-code.svg" alt="CommandCode" />CommandCode</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/pi.svg" alt="Pi" />Pi</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/hermes-agent.png" alt="Hermes Agent" />Hermes</div>
+              <div class="agent-chip"><img class="agent-icon" src="assets/agents/openclaw.jpg" alt="OpenClaw" />OpenClaw</div>
+              <div class="agent-chip more">more agents</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s5" class="scene light">
+        <div class="scene-inner">
+          <div class="scene-head">
+            <div>
+              <div class="eyebrow">Parallel work / worktree lanes</div>
+              <h2>Parallel worktrees stay visible.</h2>
+            </div>
+            <p class="ink-muted">Each task gets a lane, an agent, a terminal, and a branch state you can return to.</p>
+          </div>
+          <div class="lane-grid">
+            <div class="lane">
+              <div class="lane-top">
+                <div class="lane-agent"><img class="agent-icon" src="assets/agents/claude-code.svg" alt="Claude Code" />Claude Code</div>
+                <div class="status"><span class="dot"></span>running</div>
+              </div>
+              <h3>Landing hero refresh</h3>
+              <div class="lane-path">~/workspaces/atmos/landing</div>
+              <div class="lane-terminal">
+                <div><span class="prompt">›</span> implement editorial hero</div>
+                <div><span class="amber">git:</span> atmos/landing*</div>
+                <div><span class="green">+163</span> <span class="red">-45</span> hero-section.tsx</div>
+              </div>
+              <div class="progress"><span style="--w: 78%"></span></div>
+            </div>
+            <div class="lane">
+              <div class="lane-top">
+                <div class="lane-agent"><img class="agent-icon" src="assets/agents/codex.svg" alt="Codex" />Codex</div>
+                <div class="status"><span class="dot"></span>review</div>
+              </div>
+              <h3>Runtime connector fix</h3>
+              <div class="lane-path">~/workspaces/atmos/runtime</div>
+              <div class="lane-terminal">
+                <div><span class="prompt">›</span> cargo test runtime_manager</div>
+                <div><span class="amber">git:</span> runtime/ws</div>
+                <div><span class="green">12 tests</span> passing</div>
+              </div>
+              <div class="progress"><span style="--w: 62%"></span></div>
+            </div>
+            <div class="lane">
+              <div class="lane-top">
+                <div class="lane-agent"><img class="agent-icon" src="assets/agents/opencode.svg" alt="OpenCode" />OpenCode</div>
+                <div class="status"><span class="dot"></span>preview</div>
+              </div>
+              <h3>Docs preview polish</h3>
+              <div class="lane-path">~/workspaces/atmos/docs</div>
+              <div class="lane-terminal">
+                <div><span class="prompt">›</span> bun build docs</div>
+                <div><span class="amber">git:</span> docs/navigation</div>
+                <div><span class="green">preview</span> ready at :3001</div>
+              </div>
+              <div class="progress"><span style="--w: 88%"></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s6" class="scene dark">
+        <div class="scene-inner">
+          <div class="terminal-focus">
+            <div class="terminal-card terminal-large">
+              <div class="terminal-titlebar">
+                <div class="window-dots"><span></span><span></span><span></span></div>
+                <div>terminal / atmos/landing / claude-code</div>
+              </div>
+              <div class="terminal-body">
+                <div class="terminal-row"><span class="prompt">›</span><span>Welcome to ATMOS - the building space of you and your coding agent.</span></div>
+                <div class="terminal-row"><span></span><span><span class="blue">[GLM-4.7]</span> <span class="green">23%</span> | <span class="branch">poliwag</span> git:(atmos/landing*)</span></div>
+                <div class="terminal-row"><span class="prompt">›</span><span>Run another code agent in parallel.</span></div>
+                <div class="terminal-row"><span></span><span><span class="green">context:</span> 1 CLAUDE.md | 2 MCPs | 1 hooks</span></div>
+              </div>
+            </div>
+            <div class="context-panel">
+              <div>
+                <div class="eyebrow">Terminal proof</div>
+                <h2>Terminals keep the context of the work.</h2>
+              </div>
+              <div class="context-item"><span>Workspace</span><strong>atmos/landing</strong></div>
+              <div class="context-item"><span>Agent</span><strong>Claude Code</strong></div>
+              <div class="context-item"><span>Branch state</span><strong class="amber">dirty / +14</strong></div>
+              <div class="context-item"><span>Review path</span><strong>changes → preview</strong></div>
+              <div class="caption-pill"><span class="dot"></span>No context hunt between tools</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s7" class="scene light">
+        <div class="scene-inner">
+          <div class="scene-head">
+            <div>
+              <div class="eyebrow">Review + preview / ship path</div>
+              <h2>Review, preview, publish without switching tools.</h2>
+            </div>
+            <p class="ink-muted">Diffs, file state, browser preview, and publish action stay attached to the same agent session.</p>
+          </div>
+          <div class="review-preview">
+            <div class="review-panel">
+              <div class="panel-top"><span>Changes / Review</span><span class="status">8 files</span></div>
+              <div class="review-list">
+                <div class="diff-row"><div class="file-icon">TSX</div><span>hero-section.tsx</span><div class="diff-stat"><span class="green">+163</span><span class="red">-45</span></div></div>
+                <div class="diff-row"><div class="file-icon">TSX</div><span>cta-section.tsx</span><div class="diff-stat"><span class="green">+17</span><span class="red">-13</span></div></div>
+                <div class="diff-row"><div class="file-icon">JSON</div><span>en.json</span><div class="diff-stat"><span class="green">+66</span><span class="red">-39</span></div></div>
+                <div class="diff-row"><div class="file-icon">RS</div><span>terminal.rs</span><div class="diff-stat"><span class="green">+40</span><span class="red">-26</span></div></div>
+                <div class="diff-row"><div class="file-icon">MD</div><span>requirement.md</span><div class="diff-stat"><span class="green">new</span></div></div>
+              </div>
+            </div>
+            <div class="preview-panel">
+              <div class="panel-top"><span>Run / Preview</span><span class="status">ready :3001</span></div>
+              <div class="browser">
+                <div class="browser-stage">
+                  <div class="browser-main">
+                    <h3>Product preview stays beside the review.</h3>
+                    <p>Inspect the generated UI, return to the agent session, and publish the branch when the proof checks out.</p>
+                    <div style="position:absolute; left:34px; right:34px; bottom:34px;" class="rule"></div>
+                  </div>
+                  <div class="preview-sidebar">
+                    <div class="preview-tile">Preview open<span class="green">healthy</span></div>
+                    <div class="preview-tile">Review session<span class="amber">5 files checked</span></div>
+                    <div class="preview-tile">Publish Branch<span class="blue">ready</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s8" class="scene dark">
+        <div class="scene-inner">
+          <div class="scene-head">
+            <div>
+              <div class="eyebrow">Proof density / not a slideshow</div>
+              <h2>Proof stays inspectable.</h2>
+            </div>
+            <p class="muted">Every beat ties the claim back to a product state: workspace, agent, worktree, terminal, review, or preview.</p>
+          </div>
+          <div class="proof-grid">
+            <div class="proof-panel big">
+              <img src="assets/product/atmos_preview.png" alt="Atmos screenshot crop" />
+              <div class="proof-overlay">
+                <h3>Real workspace surface</h3>
+                <div class="caption-pill"><span class="dot"></span>terminal + changes</div>
+              </div>
+            </div>
+            <div class="proof-panel stat-card">
+              <h3>Agentic work becomes visible work.</h3>
+              <div class="stat-list">
+                <div class="stat-row"><span>terminal sessions</span><strong>2</strong></div>
+                <div class="stat-row"><span>visible worktrees</span><strong>4</strong></div>
+                <div class="stat-row"><span>review paths</span><strong>diff + preview</strong></div>
+              </div>
+            </div>
+            <div class="proof-panel stat-card">
+              <h3>Parallel without losing the thread.</h3>
+              <div class="stat-list">
+                <div class="stat-row"><span>branch state</span><strong class="amber">dirty</strong></div>
+                <div class="stat-row"><span>agent state</span><strong class="green">idle</strong></div>
+                <div class="stat-row"><span>publish path</span><strong>ready</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s9" class="scene light">
+        <div class="scene-inner">
+          <div class="cta-copy">
+            <div>
+              <div class="cta-brand">
+                <div class="orbit-mark"><span></span></div>
+                <div class="eyebrow">Open-source workspace</div>
+              </div>
+              <div class="cta-title">
+                <div class="brand-word">ATMOS</div>
+                <p>Atmosphere for Agentic Builders</p>
+              </div>
+            </div>
+            <div class="cta-links">
+              <div class="cta-link primary"><span>https://atmos.land</span><span>launch site</span></div>
+              <div class="cta-link"><span>https://github.com/AruNi-01/atmos</span><span>source</span></div>
+            </div>
+          </div>
+          <div class="cta-proof">
+            <div class="product-frame">
+              <div class="screen-bar">
+                <div class="window-dots"><span></span><span></span><span></span></div>
+                <div>Atmos workspace proof</div>
+              </div>
+              <img src="assets/product/atmos_preview_2.png" alt="Atmos product proof" />
+            </div>
+            <div class="cta-mini-grid">
+              <div class="cta-mini">
+                <h3>Multi-agent</h3>
+                <p>Bring terminal agents into one workspace.</p>
+              </div>
+              <div class="cta-mini">
+                <h3>Parallel worktrees</h3>
+                <p>Review and preview without losing context.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <div class="final-fade"></div>
+    </div>
+    <script src="assets/gsap.min.js"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+      var transitions = [
+        { at: 4.2, from: "#s1", to: "#s2", type: "shutter" },
+        { at: 7.4, from: "#s2", to: "#s3", type: "push-left" },
+        { at: 12.6, from: "#s3", to: "#s4", type: "push-up" },
+        { at: 17.6, from: "#s4", to: "#s5", type: "push-left" },
+        { at: 23.4, from: "#s5", to: "#s6", type: "focus" },
+        { at: 28.8, from: "#s6", to: "#s7", type: "push-left" },
+        { at: 34.36, from: "#s7", to: "#s8", type: "shutter" },
+        { at: 38.8, from: "#s8", to: "#s9", type: "focus" }
+      ];
+
+      function revealScene(item, index) {
+        var next = item.to;
+        var prev = item.from;
+        var z = index + 3;
+        tl.set(next, { opacity: 1, zIndex: z }, item.at);
+
+        if (item.type === "push-left") {
+          tl.fromTo(next, { xPercent: 104 }, { xPercent: 0, duration: 0.48, ease: "power3.inOut" }, item.at);
+        } else if (item.type === "push-up") {
+          tl.fromTo(next, { yPercent: 104 }, { yPercent: 0, duration: 0.5, ease: "power4.inOut" }, item.at);
+        } else if (item.type === "focus") {
+          tl.fromTo(next, { opacity: 0, scale: 1.025, filter: "blur(12px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.58, ease: "sine.inOut" }, item.at);
+        } else {
+          tl.fromTo(next, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.44, ease: "expo.inOut" }, item.at);
+        }
+
+        tl.set(prev, { opacity: 0 }, item.at + 0.62);
+      }
+
+      transitions.forEach(revealScene);
+
+      tl.from("#s1 .orbit-mark", { scale: 0.72, opacity: 0, duration: 0.46, ease: "back.out(1.4)" }, 0.18);
+      tl.from("#s1 .eyebrow", { x: -26, opacity: 0, duration: 0.38, ease: "power3.out" }, 0.28);
+      tl.from("#s1 .brand-word", { scale: 0.88, opacity: 0, duration: 0.62, ease: "expo.out" }, 0.42);
+      tl.from("#s1 h2", { x: 34, opacity: 0, duration: 0.5, ease: "power2.out" }, 0.84);
+      tl.from("#s1 .metric", { y: 24, opacity: 0, duration: 0.42, stagger: 0.1, ease: "power4.out" }, 1.1);
+      tl.from("#s1 .hook-screen", { x: 80, opacity: 0, scale: 0.96, duration: 0.72, ease: "power3.out" }, 0.58);
+      tl.from("#s1 .hook-strip", { y: 32, opacity: 0, duration: 0.42, stagger: 0.08, ease: "circ.out" }, 1.18);
+      tl.to("#s1 .hook-screen img", { scale: 1.035, duration: 3.5, ease: "none" }, 0.5);
+
+      tl.from("#s2 .eyebrow", { y: -24, opacity: 0, duration: 0.34, ease: "power4.out" }, 4.58);
+      tl.from("#s2 h2", { x: -60, opacity: 0, duration: 0.58, ease: "expo.out" }, 4.74);
+      tl.from("#s2 p", { y: 28, opacity: 0, duration: 0.42, ease: "power2.out" }, 5.12);
+      tl.from("#s2 .prompt-card", { x: 70, opacity: 0, duration: 0.48, stagger: 0.16, ease: "back.out(1.1)" }, 4.78);
+      tl.fromTo("#s2 .cursor-block", { opacity: 0.18 }, { opacity: 1, duration: 0.16, repeat: 6, yoyo: true, ease: "steps(1)" }, 5.78);
+
+      tl.from("#s3 .eyebrow", { y: 26, opacity: 0, duration: 0.36, ease: "power3.out" }, 7.82);
+      tl.from("#s3 h2", { x: -42, opacity: 0, duration: 0.54, ease: "expo.out" }, 7.98);
+      tl.from("#s3 .scene-head p", { x: 44, opacity: 0, duration: 0.46, ease: "power2.out" }, 8.12);
+      tl.from("#s3 .main-product", { y: 62, opacity: 0, scale: 0.97, duration: 0.7, ease: "power4.out" }, 8.3);
+      tl.from("#s3 .callout", { y: 26, opacity: 0, scale: 0.94, duration: 0.38, stagger: 0.2, ease: "back.out(1.25)" }, 9.04);
+      tl.to("#s3 .main-product img", { scale: 1.045, x: -28, duration: 4.7, ease: "none" }, 8.42);
+
+      tl.from("#s4 .eyebrow", { x: -26, opacity: 0, duration: 0.34, ease: "power3.out" }, 13.04);
+      tl.from("#s4 h2", { y: 42, opacity: 0, duration: 0.58, ease: "expo.out" }, 13.2);
+      tl.from("#s4 p", { y: 24, opacity: 0, duration: 0.38, ease: "power2.out" }, 13.6);
+      tl.from("#s4 .caption-pill", { scale: 0.92, opacity: 0, duration: 0.4, ease: "back.out(1.3)" }, 14.28);
+      tl.from("#s4 .agent-chip", { y: 36, opacity: 0, scale: 0.96, duration: 0.34, stagger: { each: 0.045, from: "start" }, ease: "power4.out" }, 13.14);
+
+      tl.from("#s5 .eyebrow", { y: -20, opacity: 0, duration: 0.32, ease: "power3.out" }, 18.04);
+      tl.from("#s5 h2", { x: -38, opacity: 0, duration: 0.5, ease: "expo.out" }, 18.18);
+      tl.from("#s5 .scene-head p", { x: 42, opacity: 0, duration: 0.42, ease: "power2.out" }, 18.28);
+      tl.from("#s5 .lane", { y: 66, opacity: 0, duration: 0.54, stagger: 0.13, ease: "back.out(1.05)" }, 18.62);
+      tl.from("#s5 .lane-terminal", { scaleY: 0.86, opacity: 0, duration: 0.36, stagger: 0.11, transformOrigin: "top center", ease: "circ.out" }, 19.2);
+      tl.from("#s5 .progress span", { scaleX: 0, duration: 0.64, stagger: 0.12, ease: "power3.out" }, 19.62);
+
+      tl.from("#s6 .terminal-large", { x: -70, opacity: 0, scale: 0.98, duration: 0.58, ease: "power3.out" }, 23.92);
+      tl.from("#s6 .context-panel", { x: 58, opacity: 0, duration: 0.48, ease: "expo.out" }, 24.08);
+      tl.from("#s6 .terminal-row", { y: 26, opacity: 0, duration: 0.34, stagger: 0.16, ease: "power2.out" }, 24.42);
+      tl.from("#s6 .context-item", { x: 26, opacity: 0, duration: 0.32, stagger: 0.09, ease: "circ.out" }, 24.7);
+      tl.from("#s6 .caption-pill", { y: 24, opacity: 0, duration: 0.36, ease: "back.out(1.2)" }, 26.04);
+
+      tl.from("#s7 .eyebrow", { x: -28, opacity: 0, duration: 0.34, ease: "power3.out" }, 29.22);
+      tl.from("#s7 h2", { y: 44, opacity: 0, duration: 0.54, ease: "expo.out" }, 29.38);
+      tl.from("#s7 .scene-head p", { y: 30, opacity: 0, duration: 0.42, ease: "power2.out" }, 29.64);
+      tl.from("#s7 .review-panel", { x: -68, opacity: 0, duration: 0.52, ease: "power4.out" }, 29.92);
+      tl.from("#s7 .preview-panel", { x: 68, opacity: 0, duration: 0.52, ease: "power3.out" }, 30.02);
+      tl.from("#s7 .diff-row", { x: -24, opacity: 0, duration: 0.28, stagger: 0.07, ease: "circ.out" }, 30.48);
+      tl.from("#s7 .preview-tile", { y: 28, opacity: 0, duration: 0.32, stagger: 0.1, ease: "back.out(1.1)" }, 30.78);
+      tl.to("#s7 .browser-main", { scale: 1.018, duration: 3.1, ease: "none" }, 31.1);
+
+      tl.from("#s8 .eyebrow", { y: -22, opacity: 0, duration: 0.32, ease: "power3.out" }, 34.84);
+      tl.from("#s8 h2", { x: -38, opacity: 0, duration: 0.48, ease: "expo.out" }, 35.0);
+      tl.from("#s8 .scene-head p", { x: 44, opacity: 0, duration: 0.42, ease: "power2.out" }, 35.12);
+      tl.from("#s8 .proof-panel.big", { scale: 0.96, opacity: 0, duration: 0.52, ease: "power4.out" }, 35.38);
+      tl.from("#s8 .stat-card", { y: 46, opacity: 0, duration: 0.44, stagger: 0.12, ease: "back.out(1.08)" }, 35.5);
+      tl.from("#s8 .stat-row", { x: 20, opacity: 0, duration: 0.26, stagger: 0.05, ease: "circ.out" }, 35.86);
+      tl.to("#s8 .proof-panel.big img", { scale: 1.035, duration: 2.5, ease: "none" }, 35.5);
+
+      tl.from("#s9 .cta-brand", { y: 32, opacity: 0, duration: 0.42, ease: "power3.out" }, 39.24);
+      tl.from("#s9 .brand-word", { scale: 0.9, opacity: 0, duration: 0.54, ease: "expo.out" }, 39.42);
+      tl.from("#s9 .cta-title p", { x: 34, opacity: 0, duration: 0.38, ease: "power2.out" }, 39.72);
+      tl.from("#s9 .cta-link", { y: 34, opacity: 0, duration: 0.36, stagger: 0.1, ease: "back.out(1.08)" }, 40.02);
+      tl.from("#s9 .cta-proof .product-frame", { x: 58, opacity: 0, scale: 0.97, duration: 0.5, ease: "power3.out" }, 39.56);
+      tl.from("#s9 .cta-mini", { y: 34, opacity: 0, duration: 0.34, stagger: 0.09, ease: "circ.out" }, 40.1);
+      tl.to(".final-fade", { opacity: 1, duration: 0.42, ease: "sine.in" }, 41.56);
+
+      window.__timelines.main = tl;
+    </script>
+  </body>
+</html>

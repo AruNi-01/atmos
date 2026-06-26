@@ -1,6 +1,6 @@
 ---
 name: atmos-audio-gen
-description: Create or revise clean continuous audio beds for Atmos marketing and HyperFrames videos. Use when generating synthetic WAV background music, adding or replacing promo video music, muxing audio into landing page videos, or fixing issues like per-scene pause/play, cue-start stingers, chirpy bells, bird-like transition sounds, harsh high frequencies, or mid-track silence.
+description: Create or revise clean continuous audio beds for Atmos marketing and HyperFrames videos, including cue maps that follow high-density editorial product videos. Use when generating synthetic WAV background music, adding or replacing promo video music, muxing audio into landing page videos, matching audio energy to video beats, or fixing issues like per-scene pause/play, cue-start stingers, chirpy bells, bird-like transition sounds, harsh high frequencies, or mid-track silence.
 ---
 
 # Atmos Audio Gen
@@ -11,7 +11,7 @@ Create restrained, continuous app-promo soundtracks for Atmos videos. Pair this 
 
 ## Workflow
 
-1. Inspect the video timeline: total duration, scene/cue starts, visual energy, and whether the user wants pure music or music under voice.
+1. Inspect the video timeline: total duration, scene/cue starts, act breaks, visual energy, proof density, and whether the user wants pure music or music under voice.
 2. Build one full-duration audio bed. Do not create separate audio clips per scene unless the user explicitly asks for source-editing of existing music.
 3. Model scene changes with a cue map and smooth parameter interpolation: chord, pad, arp density, drum density, sub pulse, and shimmer.
 4. Read `references/audio-project-files.md` before creating or revising project audio files.
@@ -40,6 +40,18 @@ node .agents/skills/atmos-audio-gen/scripts/create-continuous-audio-script.mjs m
 - Keep the palette minimal: warm pads, soft pulse, controlled sub, light percussion, and restrained shimmer.
 - Let visual cuts and music cues align broadly, but avoid a point sound on every scene boundary.
 - Preserve headroom. Normalize or scale to a target peak around `0.72` to `0.82`, then use a final limiter when encoding.
+
+## Video Energy Cueing
+
+For editorial product videos, cue audio to the broader act energy rather than every visual cut:
+
+- Hook/title cards can use sparse pad and low pulse.
+- Dense product proof, split workflows, and montage sections can increase percussion, arp density, and sub movement.
+- Dark chapter cards can thin the arrangement briefly without becoming silence or a restart.
+- CTA sections should resolve with fewer moving parts and a cleaner chord shape.
+- If a reference or source video has a silent or near-silent audio track, report that fact; do not infer that the target Atmos video should be silent unless the user asks.
+
+Use the visual storyboard's beat names as cue names where possible so audio and video stay aligned during revisions.
 
 ## Hard Avoids
 

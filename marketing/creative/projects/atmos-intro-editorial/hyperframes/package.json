@@ -1,0 +1,21 @@
+{
+  "name": "@atmos/creative-atmos-intro-editorial",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync:runtime": "node scripts/sync-runtime-assets.mjs",
+    "dev": "npm run sync:runtime && npx --yes hyperframes@0.6.118 preview",
+    "lint": "npm run sync:runtime && npx --yes hyperframes@0.6.118 lint",
+    "validate": "npm run sync:runtime && npx --yes hyperframes@0.6.118 validate",
+    "inspect": "npm run sync:runtime && npx --yes hyperframes@0.6.118 inspect",
+    "check:scripts": "node --check scripts/generate-audio.mjs && node --check scripts/sync-runtime-assets.mjs && node --check scripts/render-video.mjs",
+    "check": "npm run lint && npm run check:scripts",
+    "check:full": "npm run lint && npm run validate && npm run inspect",
+    "render": "node scripts/render-video.mjs",
+    "audio": "node scripts/generate-audio.mjs"
+  },
+  "devDependencies": {
+    "gsap": "^3.15.0",
+    "playwright": "^1.61.0"
+  }
+}
