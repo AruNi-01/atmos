@@ -54,6 +54,7 @@ export function useLeftSidebarWorkspaceDerived({
 }: UseLeftSidebarWorkspaceDerivedParams) {
     const flattenedWorkspaces = useMemo(() => flattenProjectWorkspaces(projects), [projects]);
     const activeKanbanFilterCount = getActiveWorkspaceKanbanFilterCount(kanbanFilters);
+    const hasExplicitWorkspaceFilters = activeKanbanFilterCount > 0;
     const shouldApplyWorkspaceFilter = shouldApplyWorkspaceKanbanVisibilityFilter(kanbanFilters);
     const filteredFlattenedWorkspaces = filterWorkspaceKanbanEntries(
         flattenedWorkspaces,
@@ -61,10 +62,10 @@ export function useLeftSidebarWorkspaceDerived({
     );
     const projectModeProjects = useMemo(
         () => getProjectModeProjects(projects, filteredFlattenedWorkspaces, {
-            hideProjectsWithoutVisibleWorkspaces: shouldApplyWorkspaceFilter,
+            hideProjectsWithoutVisibleWorkspaces: hasExplicitWorkspaceFilters,
             shouldApplyWorkspaceFilter,
         }),
-        [filteredFlattenedWorkspaces, projects, shouldApplyWorkspaceFilter],
+        [filteredFlattenedWorkspaces, hasExplicitWorkspaceFilters, projects, shouldApplyWorkspaceFilter],
     );
     const pinnedWorkspaces = useMemo(
         () => getPinnedWorkspaceEntries(filteredFlattenedWorkspaces),
