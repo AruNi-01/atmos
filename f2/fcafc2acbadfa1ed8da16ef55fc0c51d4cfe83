@@ -1,0 +1,353 @@
+apps/web/src/features/files/components/FileTreePanel.tsx
+  s_eeb75ca710cb32::t_0b2ffbfb163fc0 8,12-25,28-53,55,74,77,79,81,85,88,90,97-105
+apps/web/src/features/terminal/store/use-terminal-store.ts
+  s_eeb75ca710cb32::t_06f31cfd863757 185,202,208-235
+apps/web/src/features/canvas/components/widgets/CanvasCenterWidget.tsx
+  s_eeb75ca710cb32::t_84659896df72b7 133-140,168-206,312,386-389,391-393,395,397-406,408,410-412,414-425
+  s_eeb75ca710cb32::t_cae2095e2a4e50 545
+  s_eeb75ca710cb32::t_8fc0db6ede84ec 118-120,122-124,126,141-152,207-240,316-337,343,346-379,381-384,390,394,407
+  s_eeb75ca710cb32::t_5c32ea9bba4556 4-14,18-22,26,28,125,127,129-132,241-311
+  s_eeb75ca710cb32::t_8d4d8c673c202e 590,592,596-599
+  s_eeb75ca710cb32::t_f92a32d77510ee 638-645
+  s_eeb75ca710cb32::t_574a35a3a11abf 437-454
+  s_eeb75ca710cb32::t_27879c442a81c8 57,160
+  s_eeb75ca710cb32::t_fb804ca991f478 81-101,128,315,338-342,344-345,380,385
+  s_eeb75ca710cb32::t_6a7bdacfd23c25 45,605,617-627
+  s_eeb75ca710cb32::t_7e36b60bbdb633 486-487,499-544,546-548
+  s_eeb75ca710cb32::t_17bf73f007a825 32-35,37
+  s_eeb75ca710cb32::t_99d6bd96941942 428-436,455-477
+  s_eeb75ca710cb32::t_d5466da48abeef 65,121
+  s_eeb75ca710cb32::t_9fd935056618bb 23-25,27,29-31,39-40,46,48-49
+  s_eeb75ca710cb32::t_3b4f4960b1642a 64,67-70,396,413
+  s_eeb75ca710cb32::t_27d767b7fdff7f 59,63,66,103-104,107-116,157,165
+  s_eeb75ca710cb32::t_3bfaec4f6cbc99 601-604,606-616,662-675
+  s_eeb75ca710cb32::t_3a1510f852e074 1-3,15-17,36,38,41-44,47,50-56,58,60-62,71-80,102,105-106,117,153-156,158-159,161-164,166-167,313-314,409,426-427,478-485,488-498,549-589,591,593-595,600,628-637,646-661,676-710
+apps/web/src/features/connection/lib/atmos-computer-store.ts
+  s_eeb75ca710cb32::t_4485159428dfd9 175-177
+apps/web/src/features/canvas/components/CanvasWidgetHost.tsx
+  s_43028edc9948e3::t_9f788367e2385c 1-70
+specs/APP/APP-027_canvas-workspace-surfaces/TECH.md
+  s_43028edc9948e3::t_8835423033c85b 82
+  s_eeb75ca710cb32::t_29172a59158eaf 2,4-6,8,10-16,21-23,29-30,37-44,63-68,70-73,83-87,89-94,111-119,121-122,133-140,142-152,154-164,166-168,170,175-176,178-179,182,188,190,192-193,237-244,246,248-254,258,277-282,284-290,292-307,309-322,324-329,331,356-370,372,374-378,386-388,391,395-404
+  s_eeb75ca710cb32::t_3e634f16970958 7,9,17-20,24-28,31-36,45-62,69,74-81,88,95-110,120,123-132,141,153,165,169,171-174,177,180-181,183-187,189,191,194-236,245,247,255-257,283,291,308,323,330,332-355,371,373,379-385,389-390,392-394,405-407
+  s_eeb75ca710cb32::t_f97f7b2f4c0404 1,3
+  s_43028edc9948e3::t_610b748099b04b 259-276
+apps/web/src/app-shell/Footer.tsx
+  s_e1add2600dc075::t_a7da6b887d2ca0 159
+  s_e1add2600dc075::t_a43f1720359142 31
+  s_e1add2600dc075::t_ffe62d55e614a4 184-188
+  s_642382ccad8748::t_b0c28aa11807a7 269-274,281
+  s_e1add2600dc075::t_8990f8357b4d80 239-247,260-263,265
+  s_e1add2600dc075::t_8361681fa43933 315-320
+apps/web/src/features/editor/store/use-editor-store.ts
+  s_eeb75ca710cb32::t_0e35a1e445cd45 52,222,224-225
+apps/web/src/app-shell/CenterStageTabBar.tsx
+  s_eeb75ca710cb32::t_b4b5f23b9ad9c0 28-32,34-35
+  s_eeb75ca710cb32::t_ecf7391fe61c06 111-113,118-119,173,215,219-224,227,229,248-249
+  s_eeb75ca710cb32::t_1210b7db760217 33,107
+apps/web/src/app-shell/center-stage-file-menu.tsx
+  s_eeb75ca710cb32::t_0f03571a78300f 37,45
+  s_eeb75ca710cb32::t_3c4a5f7609db6b 60-64
+apps/web/src/app/globals.css
+  s_eeb75ca710cb32::t_c179c944793a51 387-388,390-391,393-394
+  s_eeb75ca710cb32::t_16847b9db90ed0 383-386,389,392,395-433
+apps/web/src/features/canvas/components/CanvasView.tsx
+  s_eeb75ca710cb32::t_3956bd0ea30d90 319-351,353-539
+  s_43028edc9948e3::t_5bb6de0cd8a5ae 77
+  s_eeb75ca710cb32::t_79bfc73c99fdca 100,211-212,702-704
+  s_eeb75ca710cb32::t_21c7ec901a733d 40,59,63,101-114
+  s_eeb75ca710cb32::t_f8901ee32bf543 68,352
+  s_eeb75ca710cb32::t_8ad38bff7dd598 139,158,192-193
+  s_43028edc9948e3::t_f1fb995bb094b3 1265
+  s_eeb75ca710cb32::t_562e119c671faa 115
+  s_eeb75ca710cb32::t_dd50da5cbd4e67 1081-1085
+  s_f0c75e36f698e5::t_5a06139d9c05a4 1206-1215
+apps/web/src/features/diff/lib/review-code-view-inline-annotations.tsx
+  s_eeb75ca710cb32::t_2bea755d2de229 114,137,327,339
+apps/web/src/features/canvas/hooks/use-canvas-board.ts
+  s_eeb75ca710cb32::t_79bfc73c99fdca 8,59-61
+apps/web/src/features/diff/components/ReviewView.tsx
+  s_eeb75ca710cb32::t_e143f27b52759d 166
+  s_eeb75ca710cb32::t_e13258e376450c 37-57,59,65,70,137-165,167-179,288-291,293-298,300-301,373,375
+apps/web/src/features/canvas/__tests__/canvas-widget-shape.test.ts
+  s_eeb75ca710cb32::t_ab738db309d926 11-12,66-81,94-104
+  s_eeb75ca710cb32::t_1aa13358ea2339 1-10,13-65,82-93,105-106,149-166
+  s_eeb75ca710cb32::t_38c3753a9567ac 107-148
+apps/web/src/features/canvas/components/CanvasWidgetCard.tsx
+  s_eeb75ca710cb32::t_9db835c809df20 1-8,14-25,30-40,42-45,47-56,58-59,61-63,68-97,115-118,121-123,154-158,160-185,192-209,211-254,256-260,263-266,268-271
+  s_43028edc9948e3::t_cb146279e0d189 29
+  s_eeb75ca710cb32::t_13cddecbae4e64 9-13,57,119-120,124-153,159
+  s_43028edc9948e3::t_a4dc8887cae319 267
+  s_eeb75ca710cb32::t_5cd0f9f2483711 41,46,261-262
+  s_eeb75ca710cb32::t_faf1e44866538a 64-67,210
+  s_eeb75ca710cb32::t_5775064f61f1b2 60,98-114,255
+  s_642382ccad8748::t_73c177c1851311 26-28,186-191
+apps/web/src/features/editor/components/FileViewer.tsx
+  s_eeb75ca710cb32::t_39a9e6e8fa5a3b 33,216,281-288
+  s_eeb75ca710cb32::t_337e1176b24004 3
+apps/web/src/features/canvas/lib/canvas-widget-frame.ts
+  s_eeb75ca710cb32::t_1aa13358ea2339 1-55
+apps/web/src/features/canvas/lib/create-related-canvas-terminal.ts
+  s_eeb75ca710cb32::t_e8bf07dcb8f795 23-29,57,60-61,64,66,70-72,110,150,166,209,236,241,244,259,262,267-270
+apps/web/src/features/selection/hooks/use-selection-popover.ts
+  s_eeb75ca710cb32::t_4e1e07b417bbab 27-44,132-136,138-139
+apps/web/src/features/canvas/components/CanvasToolbarChrome.tsx
+  s_eeb75ca710cb32::t_ac893e7577d623 47-49,53-54,57,59-61,63,65,70-86
+  s_eeb75ca710cb32::t_3903f7286d2a33 87-88
+apps/web/src/features/canvas/lib/canvas-center-tabs.ts
+  s_eeb75ca710cb32::t_9b78b2851132e4 75-84,119,140-141,143,146,148-150
+  s_eeb75ca710cb32::t_95661c796dd74d 68-74,91,108,120
+  s_eeb75ca710cb32::t_cd9f5dbf391523 67
+  s_eeb75ca710cb32::t_f367b8fe85fec5 33-34,49-52
+  s_eeb75ca710cb32::t_1aa13358ea2339 9,12,18-32,35-48,53-66,85-90,92,95-107,109-110,114-118,121-122,134-139,142,144-145,147,151-173,176-189,192-203
+  s_eeb75ca710cb32::t_335b6893d888b1 1-8,10-11,13-17,93-94,111-113,123-133,174-175,190-191
+apps/web/src/features/diff/components/ChangesCodeView.tsx
+  s_eeb75ca710cb32::t_b3e58d9edcf639 11,55,58,60-64,77,80,85-87,461,472
+  s_eeb75ca710cb32::t_e5047e65966e00 26,53,59,129
+  s_eeb75ca710cb32::t_1d77532dd27156 54,78,81-82
+  s_eeb75ca710cb32::t_107cbb5431996d 341,345,347,412,422,424,447-448,462,467,478,537-538
+  s_eeb75ca710cb32::t_025f0c42ebb110 68
+apps/web/src/features/canvas/lib/canvas-terminal-focus.ts
+  s_e1add2600dc075::t_8897fa2584ebca 36-60
+apps/web/src/features/terminal/components/terminal-grid.css
+  s_eeb75ca710cb32::t_8bd6874ac65dfd 438-439,448,471-472,477,484
+  s_eeb75ca710cb32::t_c4723f39f94e80 394-408,440
+apps/web/src/features/canvas/components/CanvasOverlay.tsx
+  s_eeb75ca710cb32::t_e492be52f3dd42 75-85,99
+  s_eeb75ca710cb32::t_f03338f861e9dc 86
+apps/web/src/features/diff/components/ReviewCodeView.tsx
+  s_eeb75ca710cb32::t_e0d66e51383a74 57,68,74,77
+  s_eeb75ca710cb32::t_f5adbb1002ac58 15,58,61-65,73,76,79-81,775,787
+  s_eeb75ca710cb32::t_d8ee51321250b7 362,366,368,715,722,724,762-763,776,782,794-795,799
+apps/web/src/features/canvas/hooks/use-add-atmos-widget.ts
+  s_eeb75ca710cb32::t_9db835c809df20 1-15,17-46,71-110
+  s_eeb75ca710cb32::t_0bedf0ff45918f 16,47-55
+  s_642382ccad8748::t_e37a93aef96819 56-70
+apps/web/src/features/terminal/components/Terminal.tsx
+  s_eeb75ca710cb32::t_0cdd87ebf08e5a 374-377
+  s_eeb75ca710cb32::t_2eac4a940a31ed 762-766,770
+  s_eeb75ca710cb32::t_7f41264f7871d7 364-370
+  s_eeb75ca710cb32::t_0633924aeefca4 129-130,760-761
+  s_eeb75ca710cb32::t_1553a528daac33 736,738-747,750,752-756,759,769
+  s_eeb75ca710cb32::t_8072934f9cabf8 20
+  s_eeb75ca710cb32::t_5c683ba8ca5f6e 373,378-384
+  s_eeb75ca710cb32::t_2f76706f7e907a 104-105,124-126
+  s_eeb75ca710cb32::t_19163e5c4b22fb 73
+  s_eeb75ca710cb32::t_22a69ec47a1362 737,748-749,757-758,767-768,788-795
+  s_97424af7b04a53::t_45b902caa1ad03 22,123,372,385-404,427,837
+  s_eeb75ca710cb32::t_dd413ca21955c2 92,122,127-128
+  s_eeb75ca710cb32::t_a7b9e8604c1664 371
+apps/web/src/features/agent/components/AgentChatPanel.tsx
+  s_642382ccad8748::t_adcab35fd6e203 34,47,56,59-66
+specs/APP/APP-027_canvas-workspace-surfaces/TEST.md
+  s_eeb75ca710cb32::t_3e634f16970958 3,7-10,16-34,39,42-45,47,49-64,66-69,71,73-80,82-84,87,90,92,95,98-101,103,106-109,111,113-117,119,122-125,127,129-133,135,137-141,143,146-149,151,153-157,159,161-165,167,170-173,175,178,183,186-187,189-197,199,202-204,225-228,234-235,237,244-247,254-261,267
+  s_eeb75ca710cb32::t_f97f7b2f4c0404 1
+  s_43028edc9948e3::t_058e8eea95af81 242-243
+  s_43028edc9948e3::t_d9475b4d54c311 35
+  s_eeb75ca710cb32::t_29172a59158eaf 2,4-6,11-15,36-38,40-41,46,48,65,70,72,81,85-86,88-89,91,93-94,96-97,102,104-105,110,112,118,120-121,126,128,134,136,142,144-145,150,152,158,160,166,168-169,174,176-177,179-182,184-185,188,198,200-201,205-206,223-224,229-233,236,238-241,248-253,262-266
+  s_43028edc9948e3::t_fb5041ce54df67 207-222
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  s_eeb75ca710cb32::t_f1bd6e2238b129 90,217,407-418
+apps/web/src/features/canvas/components/CanvasAddAtmosWidgetDialog.tsx
+  s_eeb75ca710cb32::t_811e574de60221 456,475,483,485-490,492,495-506,570-573,580,585,587,638-640
+  s_eeb75ca710cb32::t_bde90d2a100151 6-9,11-12,14-17,19-23
+  s_eeb75ca710cb32::t_a16ac1cbe2174c 440,444,449,511-517,519-546,548-549,551,632,642-644
+  s_eeb75ca710cb32::t_4063464a921a70 13
+  s_eeb75ca710cb32::t_6f9ed6bee30a28 556-562
+  s_eeb75ca710cb32::t_d1958eda6467f7 370
+  s_eeb75ca710cb32::t_04636fb17b64ef 44,48,51-56,60-65,94,97-101,106,109-120,124-159,161-369,372-401,403-437
+  s_eeb75ca710cb32::t_67e213aeebe3d2 10,371,402,553,567,612,622
+  s_eeb75ca710cb32::t_8ccb2357b909f4 617
+  s_eeb75ca710cb32::t_e81a4c7b6c03fe 597-599
+  s_eeb75ca710cb32::t_31369b35d29ad0 1-5,18,24-43,45-47,49-50,57-59,66-93,95-96,102-105,107-108,121-123,160,438-439,441-443,445-448,450-455,457-474,476-482,484,491,493-494,507-510,518,547,550,552,554-555,563-566,568-569,574-579,581-584,586,588-596,600-611,613-616,618-621,623-631,633-637,641,645-646
+apps/web/src/features/canvas/components/widgets/CanvasWorkspaceContextWidget.tsx
+  s_eeb75ca710cb32::t_bab213f981bf14 11,15-16,25-26,29-37
+  s_eeb75ca710cb32::t_95661c796dd74d 132
+  s_eeb75ca710cb32::t_d1700c2cf085e2 1-10,12-14,17-24,27-28,38-131,133-140
+apps/web/src/features/canvas/lib/canvas-widget-shape.ts
+  s_eeb75ca710cb32::t_0e60a43d1fecee 176-211,283,288-289,291,352,360,367,372,418,423
+  s_eeb75ca710cb32::t_7aa55b818abcc2 258
+  s_642382ccad8748::t_8df500e2e33676 21-24,64-75,104-106,238-243,259-264,303-306
+  s_eeb75ca710cb32::t_1aa13358ea2339 1-20,25-63,76-103,107-175,212-237,244-257,265-282,284-287,290,292-302,307-351,362-365,368-371,373-417,419-422,424-427
+  s_eeb75ca710cb32::t_1e5814bdca43d4 353-359,361,366
+apps/web/src/features/canvas/store/canvas-runtime-store.ts
+  s_43028edc9948e3::t_660d5d1a5dcd18 61-70
+  s_43028edc9948e3::t_b2fea0168463e3 33
+  s_eeb75ca710cb32::t_5997d341c2d687 15,17-18,32,34-53
+  s_43028edc9948e3::t_c3d2dfdc011005 6-10,16,23-24
+apps/web/src/features/diff/components/useDiffPromptStash.tsx
+  s_eeb75ca710cb32::t_72e59d73f74a07 17,63,70,75-76
+apps/web/src/features/canvas/components/CanvasShapeCopyOverlay.tsx
+  s_eeb75ca710cb32::t_ccf847b20965ee 20,43-46
+apps/web/src/features/canvas/__tests__/canvas-unsupported-interaction.test.ts
+  s_43028edc9948e3::t_00f7a900edb52c 1-46
+apps/web/src/features/connection/lib/atmos-computer-local.ts
+  s_eeb75ca710cb32::t_43041909920b13 186-198,200-201,209-217
+  s_eeb75ca710cb32::t_bc7067ba9950a2 26,35-44,46-63,65-67
+  s_eeb75ca710cb32::t_243e6929229eb5 232-237,247-248,252-257,267,271-272
+  s_eeb75ca710cb32::t_0ac4c1d2b586d6 45,64,199,202-208
+  s_eeb75ca710cb32::t_33f390931f0748 68
+apps/web/src/shared/hooks/use-app-router.ts
+  s_43028edc9948e3::t_b188dc0c796df4 73-75,82,87-89,96
+  s_43028edc9948e3::t_f490b21833b8da 10-11
+  s_43028edc9948e3::t_61091d4fe08e43 31
+apps/web/src/features/files/components/FileTree.tsx
+  s_eeb75ca710cb32::t_be622519ad0887 32-39,48-52,55,58-59,61-63,228-232,234,238-242,244,363-367,374,402,404,452,454,529,532
+  s_eeb75ca710cb32::t_89f029482f862f 323,341
+apps/web/src/features/canvas/hooks/use-open-canvas-center-tab.ts
+  s_eeb75ca710cb32::t_3f40af6bb4c1ea 78
+  s_eeb75ca710cb32::t_9db835c809df20 1-22,24-52,54-77,79-90
+  s_eeb75ca710cb32::t_761e4ff01be139 23,53
+apps/web/src/features/canvas/components/widgets/CanvasAgentChatWidget.tsx
+  s_642382ccad8748::t_ffa10985460fb5 1-15,18-20,32-34
+  s_642382ccad8748::t_7de2132afc723d 16-17,21-31
+specs/README.md
+  s_eeb75ca710cb32::t_29172a59158eaf 108
+  s_01f2b7b26e79fe::t_ed74ae9d93674a 109
+apps/web/src/features/editor/components/CodeMirrorEditor.tsx
+  s_eeb75ca710cb32::t_39a9e6e8fa5a3b 44,52,56-57,63,121,124,379,397,410,423,432-433,780
+apps/web/src/features/canvas/components/widgets/CanvasReviewWidget.tsx
+  s_eeb75ca710cb32::t_26dd7c33192964 17,22-23,41,46-52,54
+  s_eeb75ca710cb32::t_3a1510f852e074 1-5,9-16,18-21,24-40,42-45,53,55,76-78,81,87-90
+  s_eeb75ca710cb32::t_27a3bc903a3cf5 6-8,56-75,79-80,82-86
+apps/web/src/features/agent/hooks/use-agent-chat-session.ts
+  s_642382ccad8748::t_1579e9afb7c668 56,59-60
+apps/web/src/features/terminal/store/terminal-store-types.ts
+  s_eeb75ca710cb32::t_4f9232d16af4a3 16-20,47
+apps/web/src/app-shell/center-stage-shared-tabs.tsx
+  s_eeb75ca710cb32::t_1f5ca1c641e31f 16-21,32-35,240-338
+  s_eeb75ca710cb32::t_4fcde9e671d71d 1-15,22-31,36-239,339-390
+apps/web/src/features/canvas/components/widgets/CanvasFilesWidget.tsx
+  s_eeb75ca710cb32::t_d1700c2cf085e2 1-4,6-8,11,13-14,16-17,20,23-24,35-37,40-51,53-63,96-97
+  s_eeb75ca710cb32::t_2dce2fed45fc63 5
+  s_eeb75ca710cb32::t_e65e078b6ba1bb 12,18-19,21-22,25-34,38
+  s_eeb75ca710cb32::t_c9dbe5a84e8f47 9-10,15,39,52,64-95
+specs/APP/APP-027_canvas-workspace-surfaces/BRAINSTORM.md
+  s_eeb75ca710cb32::t_29172a59158eaf 2-6,8,10,17-19,25-27,29,31,35,37,39,43,45,47,51-53,59-61,66-79
+  s_eeb75ca710cb32::t_3e634f16970958 7,9,11-16,20-24,28,30,32-34,36,38,40-42,44,46,48-50,54-58,62-65,80-84
+  s_eeb75ca710cb32::t_f97f7b2f4c0404 1
+apps/web/src/features/agent/hooks/use-agent-chat-session-types.ts
+  s_642382ccad8748::t_6bc48e51ec09e9 22,32-37
+apps/web/src/features/welcome/components/HostedWelcomeGate.tsx
+  s_eeb75ca710cb32::t_64df93e6488404 294,299
+apps/web/src/features/canvas/lib/canvas-widget-placement.ts
+  s_eeb75ca710cb32::t_1aa13358ea2339 1-42
+apps/web/src/features/terminal/components/TerminalChrome.tsx
+  s_97424af7b04a53::t_a5e257bdb7a4de 29,54,58-59,68,88-90
+  s_eeb75ca710cb32::t_0d9a1d7795e2ca 3,60-67,160
+specs/APP/APP-027_canvas-workspace-surfaces/PRD.md
+  s_eeb75ca710cb32::t_29172a59158eaf 2,4-6,9-12,18-20,23-25,31-33,40-44,65-67,69,71-76,80-85,90-92,94,96,100-102
+  s_43028edc9948e3::t_fd7fed76912bc1 30
+  s_eeb75ca710cb32::t_f97f7b2f4c0404 1
+  s_43028edc9948e3::t_dd44ae35ec71b7 99
+  s_43028edc9948e3::t_ae3d9b481f291f 64
+  s_eeb75ca710cb32::t_3e634f16970958 3,7-8,13-17,21-22,26-29,34-39,45-63,68,70,77-79,86-89,93,95,97-98,103-107
+apps/web/src/features/canvas/hooks/use-create-related-canvas-terminal.ts
+  s_eeb75ca710cb32::t_5bef5de92a57bc 58-59
+apps/web/src/shared/hooks/app-navigation-intercept.tsx
+  s_43028edc9948e3::t_ac8f754b0d9499 1-34
+apps/web/src/app-shell/sidebar/ChangeSection.tsx
+  s_eeb75ca710cb32::t_2f82ddb4f47cdc 49-55,274-275,282,320-323
+apps/web/src/features/terminal/types/index.ts
+  s_97424af7b04a53::t_402832a5a3e89d 57-58
+apps/web/src/features/editor/components/BaseCodeMirrorEditor.tsx
+  s_eeb75ca710cb32::t_518aa0ca62935f 458,465-466,470-471,682-711
+  s_eeb75ca710cb32::t_147f98da320df5 712
+apps/web/src/features/canvas/components/widgets/CanvasAIQuotaUsageWidget.tsx
+  s_642382ccad8748::t_d650aaefa7f820 1-22
+apps/web/src/features/canvas/components/CanvasUnsupportedInteractionDialog.tsx
+  s_43028edc9948e3::t_486e74d3461865 1-71
+apps/web/src/features/diff/components/DiffViewer.tsx
+  s_eeb75ca710cb32::t_23be92a9c08e5e 49-58,251-252,256,267-271
+  s_eeb75ca710cb32::t_455c2900f966fd 46,65,69,129-130,434,516,546
+  s_97424af7b04a53::t_1f2946f244193b 47-48
+apps/web/src/features/canvas/components/CanvasTerminalCard.tsx
+  s_f0c75e36f698e5::t_c69961dc52ef36 120-123
+  s_eeb75ca710cb32::t_5b57c95b82b4c8 88,139-143,145,432
+  s_97424af7b04a53::t_75ef8d35626fa0 4,43-52,76-78,84,119,148,194-244,336,392-431,433-446,448,529,547-584,587-590
+  s_b1ed02cddf2198::t_27ce0e366f43b5 124,147
+apps/web/src/features/canvas/components/widgets/CanvasChangesWidget.tsx
+  s_eeb75ca710cb32::t_282483cb47bccc 13,15-17,24,27-28,31-40,53
+  s_eeb75ca710cb32::t_3a1510f852e074 1-3,6-7,12,18,22-23,25-26,29-30,41,46-47,54-62,66-67,71-78,119,145-155,206,208-210,212-214,218,259-263
+  s_eeb75ca710cb32::t_4aab94ee089a7c 4-5,8-11,14,19-21,42-45,48-52,63-65,68-70,79-118,120-144,156-205,207,211,215-217,219-258
+apps/web/src/features/canvas/components/widgets/CanvasAgentStatusWidget.tsx
+  s_e1add2600dc075::t_9fc7416a58139b 3-5,7-20,27-28,30-33,36-97,104-108
+  s_642382ccad8748::t_3d01573f9fd452 1-2,6,21-26,29,34-35,98-103,109-111
+apps/web/src/features/canvas/lib/canvas-widget-registry.ts
+  s_642382ccad8748::t_1540a9e28654c3 2-3,6,68-91,100-102
+  s_eeb75ca710cb32::t_5dd59ce77c9a89 16,39,62-63,66,95
+  s_eeb75ca710cb32::t_95661c796dd74d 4,40
+  s_eeb75ca710cb32::t_1aa13358ea2339 1,5,7-15,17-38,41-61,64-65,67,92-94,96-99,103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "f2fcafc2acbadfa1ed8da16ef55fc0c51d4cfe83",
+  "prompts": {},
+  "sessions": {
+    "s_01f2b7b26e79fe": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f02be-3e3a-74a2-ab40-594556de53f1",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_43028edc9948e3": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "eff7b187-f86d-44ee-8c7d-88774d8d38d8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_642382ccad8748": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0330-bf78-7223-a97d-dd3a65d3a92e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_97424af7b04a53": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f02a5-fb33-7842-a302-569e8f532625",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_b1ed02cddf2198": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0311-d64f-7493-b5a1-bd3e5f5895a6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_e1add2600dc075": {
+      "agent_id": {
+        "tool": "droid",
+        "id": "584c4973-ac16-44de-bb3a-6f72c75b8168",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_eeb75ca710cb32": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f01e5-d7e2-7f42-9834-b0f9982752c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    },
+    "s_f0c75e36f698e5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f02ec-4df1-7ec1-95ae-c36468681e97",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
