@@ -10,6 +10,7 @@ type AgentFixToolbarPrimitiveSize = "sm" | "xs";
 type AgentFixToolbarPrimitiveAction = {
   ariaLabel?: string;
   disabled?: boolean;
+  hideLabel?: boolean;
   icon: React.ReactNode;
   isLoading?: boolean;
   label: React.ReactNode;
@@ -49,17 +50,26 @@ export function AgentFixToolbarPrimitive({
       ? "text-foreground/90 transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background hover:text-foreground"
       : "text-secondary-foreground transition-colors duration-180 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-secondary/80 hover:text-secondary-foreground";
   const settingsClassName = cn(
-    "rounded-none border-0 border-r border-border/50 bg-transparent shadow-none",
+    "shrink-0 rounded-none border-0 border-r border-border/50 bg-transparent shadow-none",
     settingsSizeClass,
     segmentClass,
   );
   const buttonBaseClass = cn(
     "inline-flex min-w-0 items-center justify-center gap-1.5 rounded-none border-0 font-medium shadow-none",
     controlHeightClass,
-    segmentPaddingClass,
     textSizeClass,
     segmentClass,
     "disabled:cursor-not-allowed disabled:opacity-50",
+  );
+  const copyButtonClass = cn(
+    buttonBaseClass,
+    "border-r border-border/50",
+    copyAction?.hideLabel && isReview ? "w-8 shrink-0 px-0" : segmentPaddingClass,
+  );
+  const primaryButtonClass = cn(
+    buttonBaseClass,
+    segmentPaddingClass,
+    isReview ? "min-w-8 flex-1 basis-0" : "flex-1",
   );
 
   return (
@@ -82,7 +92,7 @@ export function AgentFixToolbarPrimitive({
           type="button"
           disabled={copyAction.disabled}
           onClick={() => void copyAction.onClick()}
-          className={cn(buttonBaseClass, "border-r border-border/50")}
+          className={copyButtonClass}
           aria-label={copyAction.ariaLabel}
           title={copyAction.title}
         >
@@ -91,21 +101,21 @@ export function AgentFixToolbarPrimitive({
           ) : (
             copyAction.icon ?? <Copy className={cn(iconSizeClass, "shrink-0")} />
           )}
-          <span className="truncate">{copyAction.label}</span>
+          {copyAction.hideLabel ? null : <span className="truncate">{copyAction.label}</span>}
         </button>
       ) : null}
       <button
         type="button"
         disabled={primaryAction.disabled}
         onClick={() => void primaryAction.onClick()}
-        className={cn(buttonBaseClass, "flex-1")}
+        className={primaryButtonClass}
         aria-label={primaryAction.ariaLabel}
         title={primaryAction.title}
       >
         {primaryAction.isLoading ? (
           <Loader2 className={cn(iconSizeClass, "animate-spin shrink-0")} />
         ) : (
-          primaryAction.icon
+          <span className="shrink-0">{primaryAction.icon}</span>
         )}
         <span className="min-w-0 truncate">{primaryAction.label}</span>
       </button>

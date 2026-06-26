@@ -107,6 +107,7 @@ export const FixActionsMenu: React.FC<FixActionsMenuProps> = ({
       copyAction={{
         ariaLabel: "Copy review fix prompt",
         disabled: disabled || isLoading || isRunActive,
+        hideLabel: true,
         label: "Prompt",
         onClick: onCopyPrompt,
         title: "Copy Prompt",
