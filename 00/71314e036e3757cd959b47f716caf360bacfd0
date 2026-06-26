@@ -1,0 +1,39 @@
+apps/web/src/features/code-review/hooks/use-review-context.ts
+  s_eeb75ca710cb32::t_780b3a66248b88 185-191,193,212,220,222,237
+  s_eeb75ca710cb32::t_65b31bc5c8ee37 845
+  s_eeb75ca710cb32::t_54af90a9f4b757 41-43,51-53,69,73,77-82,90-126
+  s_eeb75ca710cb32::t_7989378b00be9e 415
+  s_eeb75ca710cb32::t_3beeee83fb2230 127
+apps/web/src/features/canvas/components/CanvasWidgetCard.tsx
+  s_eeb75ca710cb32::t_0cd8c647a8a70f 68,219-234
+apps/web/src/features/diff/components/review/ReviewContextProvider.tsx
+  s_eeb75ca710cb32::t_7289bf414038a9 14-16,25-27,30-38
+apps/web/src/features/code-review/components/ReviewReportMetadataCard.tsx
+  s_eeb75ca710cb32::t_d4bfac2ee30397 10,27,35-46,57
+apps/web/src/features/canvas/components/CanvasUnsupportedInteractionDialog.tsx
+  s_eeb75ca710cb32::t_b2ab0a9e92873e 5,9-22,32,52-60,86-87,90-95
+apps/web/src/features/canvas/components/widgets/CanvasCenterWidget.tsx
+  s_eeb75ca710cb32::t_b5e519aff9073a 684-686,719-721
+  s_eeb75ca710cb32::t_31364988bf478f 62,503,507-517,559-568
+  s_eeb75ca710cb32::t_538235c017f9d7 661
+apps/web/src/features/canvas/components/widgets/CanvasReviewWidget.tsx
+  s_eeb75ca710cb32::t_ef52cb48408dfe 40-47
+apps/web/src/features/workspace/components/OverviewTab.tsx
+  s_eeb75ca710cb32::t_7795283950c70a 74-77,94-95,223-224,263-264,367-390,617,707
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "0071314e036e3757cd959b47f716caf360bacfd0",
+  "prompts": {},
+  "sessions": {
+    "s_eeb75ca710cb32": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f01e5-d7e2-7f42-9834-b0f9982752c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
