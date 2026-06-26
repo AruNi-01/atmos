@@ -1,0 +1,23 @@
+apps/web/src/features/agent-fix/components/AgentFixToolbarPrimitive.tsx
+  s_40d2b50d3936eb::t_3d0bded36440ee 53
+  s_40d2b50d3936eb::t_aece014330fd58 64-73,95,111,118
+  s_40d2b50d3936eb::t_57b0fec6815bbd 13,104
+apps/web/src/features/diff/components/review/FixActionsMenu.tsx
+  s_40d2b50d3936eb::t_5e0d79f11cb5de 110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "929dc63940af8ea991f0169b943cf40b57ae1707",
+  "prompts": {},
+  "sessions": {
+    "s_40d2b50d3936eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efdda-955e-7a30-a977-e726dded38e3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
