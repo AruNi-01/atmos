@@ -51,12 +51,13 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/shared/lib/utils';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
-import { useContextParams } from '@/shared/hooks/use-context-params';
+import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-context';
 import { AgentFixButton } from '@/features/agent-fix/components/AgentFixButton';
-import type { AgentFixContextRef, AgentFixPromptSource } from '@/features/agent-fix/types';
+import type { AgentFixPromptSource } from '@/features/agent-fix/types';
 import { buildPrReviewFixPrompt, buildPrReviewThreadFixPrompt } from '@/features/github/lib/agent-fix-prompts';
 import { CommitList } from './CommitList';
 import { PRFilesTab } from './PRFilesTab';
+import { usePrContextHeader } from './use-pr-context-header';
 import { PRActionBar, type PRMergeStrategy } from '../lib/pr-detail-modal-actions';
 import {
   CommentBox,
@@ -82,11 +83,13 @@ interface PRDetailModalProps {
   onClosed?: () => void;
 }
 
+type PRMainTab = 'description' | 'discussion' | 'commits' | 'files';
+
 export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenChange, onMerged, onClosed }: PRDetailModalProps) {
-  const { currentView, effectiveContextId } = useContextParams();
+  const agentFixContext = useAgentFixContext();
   const { data: pr, loading, fetch } = useGithubPRDetail(prNumber || 0, owner, repo);
   const { data: sidebarData, loading: sidebarLoading } = useGithubPRDetailSidebar(prNumber || 0, owner, repo);
-  const [activeMainTab, setActiveMainTab] = React.useState<'description' | 'discussion' | 'commits' | 'files'>('description');
+  const [activeMainTab, setActiveMainTab] = React.useState<PRMainTab>('description');
   const [hasVisitedDiscussion, setHasVisitedDiscussion] = React.useState(false);
   const [hasVisitedCommits, setHasVisitedCommits] = React.useState(false);
   const [hasVisitedFiles, setHasVisitedFiles] = React.useState(false);
@@ -103,22 +106,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
   const [mergeStrategy, setMergeStrategy] = React.useState<PRMergeStrategy>('merge');
   const [branchCopied, setBranchCopied] = React.useState(false);
   const [openReviewAgentFixSourceId, setOpenReviewAgentFixSourceId] = React.useState<string | null>(null);
-  const mainScrollRef = React.useRef<HTMLDivElement | null>(null);
-  const prContextRef = React.useRef<HTMLDivElement | null>(null);
-  const prContextHeightRef = React.useRef(64);
-  const prContextVisibleRef = React.useRef(true);
-  const lastMainScrollTopRef = React.useRef(0);
-  const agentFixContext = React.useMemo<AgentFixContextRef | null>(() => {
-    if (!effectiveContextId) return null;
-    if (currentView === 'workspace') {
-      return { contextId: effectiveContextId, scope: 'workspace' };
-    }
-    if (currentView === 'project') {
-      return { contextId: effectiveContextId, scope: 'project' };
-    }
-    return null;
-  }, [currentView, effectiveContextId]);
-
+  const {
+    handleFilesCodeViewTopBoundaryWheel,
+    handleMainScroll,
+    handleMainWheelCapture,
+    mainScrollRef,
+    prContextRef,
+    resetPrContext,
+  } = usePrContextHeader(activeMainTab);
   const buildThreadAgentFixSource = React.useCallback(
     (thread: ReviewCommentThread): AgentFixPromptSource | undefined => {
       if (!pr || !prNumber) return undefined;
@@ -190,34 +185,14 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     [agentFixContext, branch, owner, pr, prNumber, repo],
   );
 
-  const setPrContextVisible = React.useCallback((visible: boolean) => {
-    if (prContextVisibleRef.current === visible) return;
-    prContextVisibleRef.current = visible;
-    const element = prContextRef.current;
-    if (!element) return;
-    element.style.transform = visible
-      ? 'translate3d(0, 0, 0)'
-      : 'translate3d(0, calc(-100% - 1px), 0)';
-  }, []);
-
-  const getPrContextMetrics = React.useCallback(() => {
-    const contextHeight = prContextHeightRef.current;
-    return {
-      contextHeight,
-      hideThreshold: Math.max(48, contextHeight * 0.7),
-    };
-  }, []);
-
   // Reset tab state when modal opens/closes or PR changes
   React.useEffect(() => {
     setActiveMainTab('description');
     setHasVisitedDiscussion(false);
     setHasVisitedCommits(false);
     setHasVisitedFiles(false);
-    setPrContextVisible(true);
-    lastMainScrollTopRef.current = 0;
-    mainScrollRef.current?.scrollTo({ top: 0 });
-  }, [prNumber, setPrContextVisible]);
+    resetPrContext();
+  }, [prNumber, resetPrContext]);
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -225,28 +200,9 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
       setHasVisitedDiscussion(false);
       setHasVisitedCommits(false);
       setHasVisitedFiles(false);
-      setPrContextVisible(true);
+      resetPrContext();
     }
-  }, [isOpen, setPrContextVisible]);
-
-  React.useEffect(() => {
-    const element = prContextRef.current;
-    if (!element) return;
-
-    const updateHeight = () => {
-      prContextHeightRef.current = element.getBoundingClientRect().height || 64;
-    };
-
-    updateHeight();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', updateHeight);
-      return () => window.removeEventListener('resize', updateHeight);
-    }
-
-    const resizeObserver = new ResizeObserver(updateHeight);
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [pr]);
+  }, [isOpen, resetPrContext]);
 
   const reviewComments = sidebarData?.review_comments;
   const reviewCommentThreadsByReviewId = React.useMemo(() => {
@@ -442,65 +398,17 @@ export function PRDetailModal({ owner, repo, branch, prNumber, isOpen, onOpenCha
     }
   };
 
-  const handleMainScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const nextTop = event.currentTarget.scrollTop;
-    const delta = nextTop - lastMainScrollTopRef.current;
-    const { hideThreshold } = getPrContextMetrics();
-
-    if (nextTop < 12) {
-      setPrContextVisible(true);
-    } else if (delta > 8 && nextTop > hideThreshold) {
-      setPrContextVisible(false);
-    } else if (delta < -8) {
-      setPrContextVisible(true);
-    }
-
-    lastMainScrollTopRef.current = nextTop;
-  }, [getPrContextMetrics, setPrContextVisible]);
-
-  const handleMainWheelCapture = React.useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    const scrollTop = mainScrollRef.current?.scrollTop ?? 0;
-    const { contextHeight, hideThreshold } = getPrContextMetrics();
-
-    if (activeMainTab === 'files' && event.deltaY > 8 && scrollTop <= hideThreshold) {
-      const nextTop = Math.max(contextHeight, hideThreshold + 1);
-      mainScrollRef.current?.scrollTo({ top: nextTop });
-      lastMainScrollTopRef.current = nextTop;
-      setPrContextVisible(false);
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    if (event.deltaY > 8 && scrollTop > hideThreshold) {
-      setPrContextVisible(false);
-    } else if (event.deltaY < -8) {
-      setPrContextVisible(true);
-    }
-  }, [activeMainTab, getPrContextMetrics, setPrContextVisible]);
-
-  const handleFilesCodeViewTopBoundaryWheel = React.useCallback((deltaY: number) => {
-    const scrollRoot = mainScrollRef.current;
-    if (!scrollRoot || deltaY >= 0) return;
-    const nextTop = Math.max(0, scrollRoot.scrollTop + deltaY);
-    scrollRoot.scrollTop = nextTop;
-    lastMainScrollTopRef.current = nextTop;
-    setPrContextVisible(true);
-  }, [setPrContextVisible]);
-
   const handleMainTabChange = React.useCallback((value: string) => {
-    const tab = value as typeof activeMainTab;
+    const tab = value as PRMainTab;
     setActiveMainTab(tab);
-    setPrContextVisible(true);
-    mainScrollRef.current?.scrollTo({ top: 0 });
-    lastMainScrollTopRef.current = 0;
+    resetPrContext();
     if (tab === 'discussion') setHasVisitedDiscussion(true);
     if (tab === 'commits') setHasVisitedCommits(true);
     if (tab === 'files') {
       setHasVisitedFiles(true);
       setIsSidebarCollapsed(true);
     }
-  }, [setPrContextVisible]);
+  }, [resetPrContext]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
