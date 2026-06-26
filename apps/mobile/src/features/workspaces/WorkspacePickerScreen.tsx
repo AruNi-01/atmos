@@ -3,7 +3,7 @@ import { Stack, type NativeStackHeaderItem, useRouter } from "expo-router";
 import type { SFSymbol } from "sf-symbols-typescript";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MenuView, type MenuAction } from "@expo/ui/community/menu";
-import type { ProjectModel, ProjectWorkspaceBootstrapResponse, WorkspaceModel } from "@/api/types";
+import type { ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { wsActions } from "@/api/ws-actions";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
@@ -12,6 +12,7 @@ import { Separator } from "@/ui/layout/row";
 import { NativeButton, NativeMenuButton } from "@/ui/primitives/native-controls";
 import { DownloadIcon, PlusIcon } from "@/ui/icons/lucide-native";
 import { useMobileTheme } from "@/theme/theme-store";
+import { buildWorkspaceProjectGroups } from "@/features/workspaces/workspace-picker-groups";
 import {
   getWorkspaceWorkflowStatusColor,
   getWorkspaceWorkflowStatusMeta,
@@ -67,8 +68,9 @@ export function WorkspacePickerScreen() {
 
   const projects = bootstrap.data?.projects ?? [];
   const workspacesByProject = bootstrap.data?.workspaces_by_project ?? {};
-  const groups = buildProjectGroups(projects, workspacesByProject);
+  const groups = buildWorkspaceProjectGroups(projects, workspacesByProject);
   const workspaceCount = groups.reduce((total, group) => total + group.workspaces.length, 0);
+  const projectCount = projects.length;
   const error = bootstrap.error instanceof Error ? bootstrap.error.message : null;
   const statusUpdateError = updateWorkflowStatus.error instanceof Error ? updateWorkflowStatus.error.message : null;
   const canShowWorkspaces = hasAccessToken && isConnected && !error;
@@ -92,7 +94,7 @@ export function WorkspacePickerScreen() {
           />
         ) : bootstrap.isLoading ? (
           <GuideSection title="Loading" message="Fetching Workspaces." />
-        ) : workspaceCount === 0 ? (
+        ) : projectCount === 0 && workspaceCount === 0 ? (
           <GuideSection
             actionLabel="New Workspace"
             message="Create a workspace or import a project."
@@ -103,23 +105,38 @@ export function WorkspacePickerScreen() {
           <View style={styles.groups}>
             {groups.map((group) => (
               <Section key={group.project.guid} label={group.project.name}>
-                <View>
-                  {group.workspaces.map((workspace, index) => (
-                    <View key={workspace.guid}>
-                      <WorkspaceRow
-                        title={workspace.display_name ?? workspace.name}
-                        branch={workspace.branch || "No branch"}
-                        status={workspace.workflow_status}
-                        onPress={() => router.replace(`/workspace/${workspace.guid}`)}
-                        onStatusChange={(workflowStatus) => {
-                          if (workflowStatus === normalizeWorkspaceWorkflowStatus(workspace.workflow_status)) return;
-                          updateWorkflowStatus.mutate({ workspaceId: workspace.guid, workflowStatus });
-                        }}
-                      />
-                      {index < group.workspaces.length - 1 ? <Separator /> : null}
-                    </View>
-                  ))}
-                </View>
+                {group.workspaces.length === 0 ? (
+                  <View style={styles.emptyProject}>
+                    <EmptyState title="No Workspaces" message="Create a workspace in this project to start working." />
+                    <NativeButton
+                      label="New Workspace"
+                      onPress={() =>
+                        router.replace({
+                          pathname: "/create-workspace",
+                          params: { projectGuid: group.project.guid },
+                        })
+                      }
+                    />
+                  </View>
+                ) : (
+                  <View>
+                    {group.workspaces.map((workspace, index) => (
+                      <View key={workspace.guid}>
+                        <WorkspaceRow
+                          title={workspace.display_name ?? workspace.name}
+                          branch={workspace.branch || "No branch"}
+                          status={workspace.workflow_status}
+                          onPress={() => router.replace(`/workspace/${workspace.guid}`)}
+                          onStatusChange={(workflowStatus) => {
+                            if (workflowStatus === normalizeWorkspaceWorkflowStatus(workspace.workflow_status)) return;
+                            updateWorkflowStatus.mutate({ workspaceId: workspace.guid, workflowStatus });
+                          }}
+                        />
+                        {index < group.workspaces.length - 1 ? <Separator /> : null}
+                      </View>
+                    ))}
+                  </View>
+                )}
               </Section>
             ))}
           </View>
@@ -360,38 +377,6 @@ function GuideSection({
   );
 }
 
-function buildProjectGroups(projects: ProjectModel[], workspacesByProject: Record<string, WorkspaceModel[]>) {
-  const projectById = new Map(projects.map((project) => [project.guid, project]));
-  const groups = projects
-    .map((project) => ({
-      project,
-      workspaces: workspacesByProject[project.guid] ?? [],
-    }))
-    .filter((group) => group.workspaces.length > 0);
-
-  const orphanedWorkspaces = Object.entries(workspacesByProject)
-    .filter(([projectId]) => !projectById.has(projectId))
-    .flatMap(([, workspaces]) => workspaces);
-
-  if (orphanedWorkspaces.length > 0) {
-    groups.push({
-      project: {
-        border_color: null,
-        created_at: "",
-        guid: "__other__",
-        is_deleted: false,
-        main_file_path: "",
-        name: "Other",
-        sidebar_order: Number.MAX_SAFE_INTEGER,
-        updated_at: "",
-      },
-      workspaces: orphanedWorkspaces,
-    });
-  }
-
-  return groups;
-}
-
 function updateBootstrapWorkspaceStatus(
   current: ProjectWorkspaceBootstrapResponse | undefined,
   workspaceId: string,
@@ -419,6 +404,10 @@ function updateBootstrapWorkspaceStatus(
 }
 
 const styles = StyleSheet.create({
+  emptyProject: {
+    gap: 12,
+    padding: 16,
+  },
   groups: {
     gap: 14,
   },

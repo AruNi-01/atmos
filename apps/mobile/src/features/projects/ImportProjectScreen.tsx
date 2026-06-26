@@ -5,11 +5,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppScreen, EmptyState, InlineError, Section } from "@/ui/layout/app-screen";
 import { NativeButton, NativeTextInput } from "@/ui/primitives/native-controls";
 import { Row, Separator } from "@/ui/layout/row";
+import { addProjectToWorkspaceBootstrap } from "@/features/projects/project-bootstrap-cache";
 import { getProjectImportReadiness, validationMatchesPath } from "@/features/projects/import-project-validation";
 import { useMobileWs } from "@/providers/MobileWsProvider";
 import { useSessionStore } from "@/stores/session-store";
 import { wsActions } from "@/api/ws-actions";
-import type { FsEntry } from "@/api/types";
+import type { FsEntry, ProjectWorkspaceBootstrapResponse } from "@/api/types";
 import { colors } from "@/theme/colors";
 import { useMobileTheme } from "@/theme/theme-store";
 
@@ -91,6 +92,10 @@ export function ImportProjectScreen() {
       });
     },
     onSuccess: (project) => {
+      queryClient.setQueriesData<ProjectWorkspaceBootstrapResponse>(
+        { queryKey: ["workspace-bootstrap"] },
+        (current) => addProjectToWorkspaceBootstrap(current, project),
+      );
       void queryClient.invalidateQueries({ queryKey: ["workspace-bootstrap"] });
       router.replace({
         pathname: "/create-workspace",
