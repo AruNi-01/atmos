@@ -1,0 +1,23 @@
+apps/web/src/features/github/components/use-pr-context-header.ts
+  s_36e2b2a6ace205::t_de9fbfe915666c 7-9,14-33,37,39-40,57,73
+apps/web/src/features/github/components/ActionsJobsList.tsx
+  s_36e2b2a6ace205::t_de9fbfe915666c 496-498,578
+apps/web/src/features/github/components/ActionsActionBar.tsx
+  s_36e2b2a6ace205::t_de9fbfe915666c 73-81,95-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "d6e1c9d0abeba0f3fdc43b0087edd092640c74a0",
+  "prompts": {},
+  "sessions": {
+    "s_36e2b2a6ace205": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f013b-3a30-7c11-9dd1-072175644f00",
+        "model": "gpt-5.5"
+      },
+      "human_author": "AarynLu <hello@0x3f4.run>"
+    }
+  }
+}
