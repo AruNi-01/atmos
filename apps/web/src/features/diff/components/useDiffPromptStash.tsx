@@ -13,7 +13,8 @@ import { MessageSquareText } from 'lucide-react';
 import { toastManager } from '@workspace/ui';
 import { DiffCopyAnnotation } from '@/features/diff/components/DiffCopyAnnotation';
 import { AgentFixToolbar } from '@/features/agent-fix/components/AgentFixToolbar';
-import type { AgentFixContextRef, AgentFixPromptSource } from '@/features/agent-fix/types';
+import type { AgentFixPromptSource } from '@/features/agent-fix/types';
+import { useAgentFixContext } from '@/features/agent-fix/hooks/use-agent-fix-context';
 import {
   buildDiffSelectionInfo,
   formatSelectedRangeLabel,
@@ -22,7 +23,6 @@ import {
   updateViewerDiffItem,
 } from '@/features/diff/lib/diff-code-view-shared';
 import { formatDiffSelectionForAI } from '@/shared/lib/format-selection-for-ai';
-import { useContextParams } from '@/shared/hooks/use-context-params';
 
 export type LoadedDiffContents = {
   oldContent: string;
@@ -69,17 +69,7 @@ export function useDiffPromptStash({
   viewerRef,
   loadedContentsRef,
 }: UseDiffPromptStashArgs) {
-  const { currentView, effectiveContextId } = useContextParams();
-  const agentFixContext = useMemo<AgentFixContextRef | null>(() => {
-    if (!effectiveContextId) return null;
-    if (currentView === 'workspace') {
-      return { contextId: effectiveContextId, scope: 'workspace' };
-    }
-    if (currentView === 'project') {
-      return { contextId: effectiveContextId, scope: 'project' };
-    }
-    return null;
-  }, [currentView, effectiveContextId]);
+  const agentFixContext = useAgentFixContext();
   const copyKeyRef = useRef(0);
   const [stashedPromptState, setStashedPromptState] =
     useState<StashedDiffPromptState>(() => ({
