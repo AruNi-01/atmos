@@ -7,7 +7,6 @@ import { useAppRouter } from '@/shared/hooks/use-app-router';
 import { useContextParams } from "@/shared/hooks/use-context-params";
 import { useTheme } from 'next-themes';
 import { useQueryState } from 'nuqs';
-import Fuse from 'fuse.js';
 import {
   CommandDialog,
 } from '@workspace/ui';
@@ -35,6 +34,84 @@ import {
   type GroupedAppItems,
   type SubView,
 } from '@/app-shell/global-search-content';
+
+function normalizeGlobalSearchValue(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[-_/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getGlobalSearchTerms(query: string) {
+  return normalizeGlobalSearchValue(query)
+    .split(' ')
+    .filter(Boolean);
+}
+
+function keywordMatchesGlobalSearch(keyword: string, normalizedQuery: string, queryTerms: string[]) {
+  const normalizedKeyword = normalizeGlobalSearchValue(keyword);
+  if (!normalizedKeyword) return false;
+
+  if (queryTerms.length <= 1) {
+    return normalizedKeyword === normalizedQuery;
+  }
+
+  return normalizedKeyword.includes(normalizedQuery) ||
+    queryTerms.every((term) => normalizedKeyword.includes(term));
+}
+
+function scoreTextMatch(text: string, normalizedQuery: string, queryTerms: string[]) {
+  const normalizedText = normalizeGlobalSearchValue(text);
+  if (!normalizedText) return null;
+
+  if (normalizedText === normalizedQuery) return 0;
+  if (normalizedText.startsWith(normalizedQuery)) return 1;
+  if (normalizedText.includes(normalizedQuery)) return 2;
+  if (queryTerms.length > 1 && queryTerms.every((term) => normalizedText.includes(term))) return 3;
+
+  return null;
+}
+
+function scoreKeywordMatch(keywords: string[], normalizedQuery: string, queryTerms: string[]) {
+  let bestScore: number | null = null;
+
+  for (const keyword of keywords) {
+    if (!keywordMatchesGlobalSearch(keyword, normalizedQuery, queryTerms)) continue;
+    const score = queryTerms.length <= 1 ? 4 : 5;
+    bestScore = bestScore === null ? score : Math.min(bestScore, score);
+  }
+
+  return bestScore;
+}
+
+function scoreAppSearchItem(item: AppSearchItem, query: string) {
+  const normalizedQuery = normalizeGlobalSearchValue(query);
+  if (!normalizedQuery) return null;
+
+  const queryTerms = getGlobalSearchTerms(query);
+  const titleScore = scoreTextMatch(item.title, normalizedQuery, queryTerms);
+  if (titleScore !== null) return titleScore;
+
+  if (item.description) {
+    const descriptionScore = scoreTextMatch(item.description, normalizedQuery, queryTerms);
+    if (descriptionScore !== null) return descriptionScore + 2;
+  }
+
+  return scoreKeywordMatch(item.keywords, normalizedQuery, queryTerms);
+}
+
+function scoreFileSearchItem(file: { name: string; path: string }, query: string) {
+  const normalizedQuery = normalizeGlobalSearchValue(query);
+  if (!normalizedQuery) return null;
+
+  const queryTerms = getGlobalSearchTerms(query);
+  const nameScore = scoreTextMatch(file.name, normalizedQuery, queryTerms);
+  if (nameScore !== null) return nameScore;
+
+  const pathScore = scoreTextMatch(file.path, normalizedQuery, queryTerms);
+  return pathScore === null ? null : pathScore + 2;
+}
 
 export function GlobalSearch() {
   const router = useAppRouter();
@@ -302,55 +379,42 @@ export function GlobalSearch() {
     });
   }, [projects, router, setTheme, setGlobalSearchOpen, setCreateProjectOpen, setSelectedProjectId, setCreateWorkspaceOpen, quickAddWorkspace, isFullScreen, toggleFullScreen, currentProject, setLlmProvidersOpen, setAgentChatOpen, setTokenUsageOpen, setLeftSidebarTab, setKanbanExpanded, setCanvasOpen, isLeftCollapsed, setIsLeftCollapsed, setActiveSettingTab, setSettingsOpen, currentWorkspaceId, currentWorkspace, managementTerminalsEnabled, managementAgentsEnabled, automationsEnabled, clearWorkspaceCreationOverlay, currentEffectivePath, showCreating, showOpening]);
 
-  // Fuse.js instance for app search
-  const appFuse = useMemo(() => {
-    return new Fuse(appSearchItems, {
-      keys: [
-        { name: 'title', weight: 0.4 },
-        { name: 'description', weight: 0.3 },
-        { name: 'keywords', weight: 0.3 },
-      ],
-      threshold: 0.4,
-      includeScore: true,
-      ignoreLocation: true,
-      minMatchCharLength: 1,
-    });
-  }, [appSearchItems]);
-
-  // Filter app items based on search using Fuse.js
+  // Filter app items with deterministic matching. Single-word keyword hits must be exact
+  // to keep broad keyword phrases from pulling unrelated results into the command palette.
   const filteredAppItems = useMemo(() => {
-    if (!searchQuery.trim()) return appSearchItems;
+    if (!searchQuery.trim()) return appSearchItems.filter((item) => !item.searchOnly);
 
-    const results = appFuse.search(searchQuery);
-    return results.map(r => r.item);
-  }, [appSearchItems, appFuse, searchQuery]);
+    return appSearchItems
+      .map((item, index) => ({
+        item,
+        index,
+        score: scoreAppSearchItem(item, searchQuery),
+      }))
+      .filter((result): result is { item: AppSearchItem; index: number; score: number } => result.score !== null)
+      .sort((a, b) => a.score - b.score || a.index - b.index)
+      .map((result) => result.item);
+  }, [appSearchItems, searchQuery]);
 
-  // Flatten all files for Fuse.js
+  // Flatten file tree for deterministic file search.
   const allFiles = useMemo(() => {
     return flattenFileTree(fileTreeCache).filter(f => !f.isDir);
   }, [fileTreeCache, flattenFileTree]);
 
-  // Fuse.js instance for file search
-  const fileFuse = useMemo(() => {
-    return new Fuse(allFiles, {
-      keys: [
-        { name: 'name', weight: 0.6 },
-        { name: 'path', weight: 0.4 },
-      ],
-      threshold: 0.3,
-      includeScore: true,
-      ignoreLocation: true,
-      minMatchCharLength: 1,
-    });
-  }, [allFiles]);
-
-  // Filter files based on search using Fuse.js
+  // Filter files with the same deterministic matching as app results.
   const filteredFiles = useMemo(() => {
     if (!searchQuery.trim()) return allFiles.slice(0, 20);
 
-    const results = fileFuse.search(searchQuery, { limit: 50 });
-    return results.map(r => r.item);
-  }, [allFiles, fileFuse, searchQuery]);
+    return allFiles
+      .map((file, index) => ({
+        file,
+        index,
+        score: scoreFileSearchItem(file, searchQuery),
+      }))
+      .filter((result): result is { file: { name: string; path: string; isDir: boolean }; index: number; score: number } => result.score !== null)
+      .sort((a, b) => a.score - b.score || a.index - b.index)
+      .slice(0, 50)
+      .map((result) => result.file);
+  }, [allFiles, searchQuery]);
 
   // Group app items by type
   const groupedAppItems = useMemo(() => {

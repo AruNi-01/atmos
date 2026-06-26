@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  Input,
   MotionSidebar,
   MotionSidebarContent,
   MotionSidebarGroup,
@@ -11,7 +12,9 @@ import {
   MotionSidebarMenuButton,
   MotionSidebarMenuItem,
   MotionSidebarProvider,
+  cn,
 } from "@workspace/ui";
+import { Search, X } from "lucide-react";
 import InfoCircleIcon from "@workspace/ui/components/icons/info-circle-icon";
 import LayoutDashboardIcon from "@workspace/ui/components/icons/layout-dashboard-icon";
 import TerminalIcon from "@workspace/ui/components/icons/terminal-icon";
@@ -28,123 +31,58 @@ import CodeXmlIcon from "@workspace/ui/components/ui/code-xml-icon";
 import CanvasIcon from "@workspace/ui/components/icons/canvas-icon";
 import type { AnimatedIconHandle } from "@workspace/ui/components/icons/types";
 import { FlaskIcon, type FlaskIconHandle } from "@/shared/components/ui/flask-icon";
+import {
+  SETTINGS_GROUPS,
+  SETTINGS_SEARCH_ENTRIES,
+  SETTINGS_SECTIONS,
+  type SettingsSectionId,
+} from "@/features/settings/components/settings-modal-data";
 
-export const SETTINGS_GROUPS = [
-  {
-    id: "interface",
-    label: "Interface",
-    description: "Layout, editor, canvas, and keyboard preferences",
-    items: ["layout", "editor", "canvas", "terminal"] as const,
-  },
-  {
-    id: "ai-agents",
-    label: "AI & Agents",
-    description: "AI providers and code agent configurations",
-    items: ["ai", "code-agent"] as const,
-  },
-  {
-    id: "system-integration",
-    label: "System & Integration",
-    description: "Integrations, Tunnel Connector, and notifications",
-    items: ["integrations", "tunnel-connector", "atmos-computer", "notify"] as const,
-  },
-  {
-    id: "workspace-projects",
-    label: "Workspace & Projects",
-    description: "Workspace management and labels",
-    items: ["workspace", "labels"] as const,
-  },
-  {
-    id: "more",
-    label: "More",
-    description: "Shortcuts, experiments, and about",
-    items: ["shortcuts", "experiments", "about"] as const,
-  },
-] as const;
+type SettingsSearchEntry = (typeof SETTINGS_SEARCH_ENTRIES)[number];
 
-export const SETTINGS_SECTIONS = [
-  {
-    id: "layout",
-    label: "Layout",
-    description: "Panel arrangement and sidebar preferences",
-  },
-  {
-    id: "editor",
-    label: "Editor",
-    description: "Code editor preferences and features",
-  },
-  {
-    id: "canvas",
-    label: "Canvas",
-    description: "Canvas board preferences and auto-save behavior",
-  },
-  {
-    id: "code-agent",
-    label: "Code Agent",
-    description: "Agent startup commands and custom parameters",
-  },
-  {
-    id: "terminal",
-    label: "Terminal",
-    description: "Terminal preferences and link behavior",
-  },
-  {
-    id: "workspace",
-    label: "Workspace",
-    description: "Deletion behavior and cleanup options",
-  },
-  {
-    id: "labels",
-    label: "Labels",
-    description: "Manage workspace labels and their properties",
-  },
-  {
-    id: "integrations",
-    label: "Integrations",
-    description: "External tool integrations and status",
-  },
-  {
-    id: "ai",
-    label: "AI & Provider",
-    description: "Providers and lightweight task routing",
-  },
-  {
-    id: "notify",
-    label: "Notify",
-    description: "Notification channels and agent event triggers",
-  },
-  {
-    id: "tunnel-connector",
-    label: "Tunnel Connector",
-    description: "Tunnel providers and remote browser access",
-  },
-  {
-    id: "atmos-computer",
-    label: "Atmos Computer",
-    description: "Connect to your computers from anywhere",
-  },
-  {
-    id: "shortcuts",
-    label: "Shortcuts",
-    description: "Keyboard shortcuts across the application",
-  },
-  {
-    id: "experiments",
-    label: "Experiments",
-    description: "Optional and preview features disabled by default",
-  },
-  {
-    id: "about",
-    label: "About",
-    description: "Product overview and desktop updates",
-  },
-] as const;
+function normalizeSettingsSearchValue(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[-_/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
+function getSettingsSearchTerms(query: string) {
+  return normalizeSettingsSearchValue(query)
+    .split(" ")
+    .filter(Boolean);
+}
+
+function keywordMatchesSearch(keyword: string, normalizedQuery: string, queryTerms: string[]) {
+  const normalizedKeyword = normalizeSettingsSearchValue(keyword);
+  if (!normalizedKeyword) return false;
+
+  if (queryTerms.length <= 1) {
+    return normalizedKeyword === normalizedQuery;
+  }
+
+  return normalizedKeyword.includes(normalizedQuery) ||
+    queryTerms.every((term) => normalizedKeyword.includes(term));
+}
+
+function entryMatchesSettingsSearch(entry: SettingsSearchEntry, query: string) {
+  const normalizedQuery = normalizeSettingsSearchValue(query);
+  if (!normalizedQuery) return true;
+
+  const queryTerms = getSettingsSearchTerms(query);
+  const visibleText = normalizeSettingsSearchValue(`${entry.label} ${entry.description}`);
+  if (visibleText.includes(normalizedQuery)) return true;
+  if (queryTerms.every((term) => visibleText.includes(term))) return true;
+
+  return entry.keywords.some((keyword) => keywordMatchesSearch(keyword, normalizedQuery, queryTerms));
+}
 
 interface SettingsModalSidebarProps {
   activeSection: SettingsSectionId;
+  searchQuery: string;
   onSelectSection: (sectionId: SettingsSectionId) => void;
+  onSearchQueryChange: (query: string) => void;
 }
 
 function SettingsSectionIcon({
@@ -175,7 +113,9 @@ function SettingsSectionIcon({
 
 export function SettingsModalSidebar({
   activeSection,
+  searchQuery,
   onSelectSection,
+  onSearchQueryChange,
 }: SettingsModalSidebarProps) {
   const [sectionIconRefs] = React.useState(() => {
     const refs: Record<string, React.RefObject<AnimatedIconHandle | FlaskIconHandle | null>> = {};
@@ -184,6 +124,40 @@ export function SettingsModalSidebar({
     }
     return refs;
   });
+  const trimmedSearchQuery = searchQuery.trim();
+  const orderedMatchingSectionIds = React.useMemo(() => {
+    if (!trimmedSearchQuery) {
+      return SETTINGS_SECTIONS.map((section) => section.id);
+    }
+
+    const seen = new Set<SettingsSectionId>();
+    return SETTINGS_SEARCH_ENTRIES.flatMap((entry) => {
+      if (seen.has(entry.sectionId) || !entryMatchesSettingsSearch(entry, trimmedSearchQuery)) return [];
+      seen.add(entry.sectionId);
+      return [entry.sectionId];
+    });
+  }, [trimmedSearchQuery]);
+  const matchingSectionIds = React.useMemo(
+    () => new Set(orderedMatchingSectionIds),
+    [orderedMatchingSectionIds],
+  );
+  const filteredGroups = React.useMemo(
+    () =>
+      SETTINGS_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((itemId) => matchingSectionIds.has(itemId)),
+      })).filter((group) => group.items.length > 0),
+    [matchingSectionIds],
+  );
+
+  React.useEffect(() => {
+    if (!trimmedSearchQuery || matchingSectionIds.has(activeSection)) return;
+
+    const firstMatch = orderedMatchingSectionIds[0];
+    if (firstMatch) {
+      onSelectSection(firstMatch);
+    }
+  }, [activeSection, matchingSectionIds, onSelectSection, orderedMatchingSectionIds, trimmedSearchQuery]);
 
   return (
     <aside className="h-full min-h-0 border-r border-border bg-background text-sidebar-foreground">
@@ -193,19 +167,45 @@ export function SettingsModalSidebar({
           className="h-full w-full border-0 bg-transparent text-sidebar-foreground"
           containerClassName="h-full"
         >
-          <MotionSidebarHeader className="gap-0 border-b border-border px-5 py-5">
-            <p className="text-[12px] font-semibold text-sidebar-foreground/70">
-              Settings
-            </p>
-            <p className="mt-2 text-xs text-sidebar-foreground/70">
-              Setting atmos to personalize your experience.
-            </p>
+          <MotionSidebarHeader className="gap-0 px-3 pb-1.5 pt-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-sidebar-foreground/45" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => onSearchQueryChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && searchQuery) {
+                    event.preventDefault();
+                    onSearchQueryChange("");
+                  }
+                }}
+                placeholder="Search settings"
+                aria-label="Search settings"
+                className="h-9 rounded-lg border-border bg-muted/30 pl-8 pr-8 text-sm shadow-none"
+              />
+              <button
+                type="button"
+                aria-label="Clear settings search"
+                onClick={() => onSearchQueryChange("")}
+                className={cn(
+                  "absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-sidebar-foreground/45 transition-colors hover:bg-muted hover:text-sidebar-foreground",
+                  !searchQuery && "pointer-events-none opacity-0",
+                )}
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           </MotionSidebarHeader>
 
-          <MotionSidebarContent className="overflow-y-auto p-3">
-            {SETTINGS_GROUPS.map((group) => (
-              <MotionSidebarGroup key={group.id}>
-                <MotionSidebarGroupLabel>{group.label}</MotionSidebarGroupLabel>
+          <MotionSidebarContent className="gap-1 overflow-y-auto px-3 pb-3 pt-1">
+            {filteredGroups.length === 0 ? (
+              <div className="px-2 py-6 text-sm text-muted-foreground">
+                No settings found.
+              </div>
+            ) : null}
+            {filteredGroups.map((group) => (
+              <MotionSidebarGroup key={group.id} className="px-2 py-1 first:pt-1">
+                <MotionSidebarGroupLabel className="h-7">{group.label}</MotionSidebarGroupLabel>
                 <MotionSidebarMenu>
                   {group.items.map((itemId) => {
                     const section = SETTINGS_SECTIONS.find((item) => item.id === itemId);

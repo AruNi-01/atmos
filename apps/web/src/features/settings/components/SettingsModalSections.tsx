@@ -22,7 +22,7 @@ import { WorkspaceSettingsSection } from '@/features/settings/components/Workspa
 import { SettingsAboutSection } from '@/features/settings/components/SettingsAboutSection';
 import { SettingsAiSection, type ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import type { LocalAgentOption } from '@/app-shell/llm-providers-modal-utils';
-import type { SettingsSectionId } from '@/features/settings/components/settings-modal-sidebar';
+import type { SettingsSectionId } from '@/features/settings/components/settings-modal-data';
 import type { TerminalAgentSavedRunConfig } from '@/features/agent/lib/terminal-agent-run-config';
 
 type BuiltInAgentSettings = Record<string, { cmd?: string; flags?: string; enabled?: boolean }>;

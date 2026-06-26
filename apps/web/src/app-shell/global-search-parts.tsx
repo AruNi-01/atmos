@@ -26,6 +26,7 @@ export interface AppSearchItem {
   keywords: string[];
   icon: React.ReactNode;
   shortcut?: string;
+  searchOnly?: boolean;
   action: () => void;
 }
 
@@ -62,6 +63,7 @@ interface SearchItemProps {
   icon?: React.ReactNode;
   title: string;
   description?: string;
+  highlightQuery?: string;
   shortcut?: string;
   onSelect: () => void;
   value: string;
@@ -69,10 +71,55 @@ interface SearchItemProps {
   isDir?: boolean;
 }
 
+function HighlightedSearchText({
+  text,
+  query,
+}: {
+  text: string;
+  query?: string;
+}) {
+  const terms = useMemo(() => {
+    return Array.from(
+      new Set(
+        (query ?? "")
+          .trim()
+          .split(/\s+/)
+          .filter((term) => term.length > 0)
+          .sort((a, b) => b.length - a.length),
+      ),
+    );
+  }, [query]);
+
+  if (terms.length === 0) return <>{text}</>;
+
+  const pattern = new RegExp(`(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  const parts = text.split(pattern);
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (!part) return null;
+        const isMatch = terms.some((term) => part.toLowerCase() === term.toLowerCase());
+        if (!isMatch) return <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>;
+
+        return (
+          <mark
+            key={`${part}-${index}`}
+            className="rounded bg-blue-400/35 px-0.5 text-foreground"
+          >
+            {part}
+          </mark>
+        );
+      })}
+    </>
+  );
+}
+
 export function SearchItem({
   icon,
   title,
   description,
+  highlightQuery,
   shortcut,
   onSelect,
   value,
@@ -96,9 +143,13 @@ export function SearchItem({
           {iconToRender}
         </div>
         <div className="flex min-w-0 flex-col pr-2">
-          <span className="truncate font-medium">{title}</span>
+          <span className="truncate font-medium">
+            <HighlightedSearchText text={title} query={highlightQuery} />
+          </span>
           {description ? (
-            <span className="truncate text-xs text-muted-foreground opacity-80">{description}</span>
+            <span className="truncate text-xs text-muted-foreground opacity-80">
+              <HighlightedSearchText text={description} query={highlightQuery} />
+            </span>
           ) : null}
         </div>
       </div>

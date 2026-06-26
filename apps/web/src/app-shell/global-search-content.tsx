@@ -306,7 +306,8 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 function AppSearchResults({
   filteredAppItems,
   groupedAppItems,
-}: Pick<GlobalSearchMainViewProps, "filteredAppItems" | "groupedAppItems">) {
+  searchQuery,
+}: Pick<GlobalSearchMainViewProps, "filteredAppItems" | "groupedAppItems" | "searchQuery">) {
   if (filteredAppItems.length === 0) {
     return <EmptyState>No results found.</EmptyState>;
   }
@@ -324,6 +325,7 @@ function AppSearchResults({
                 icon={item.icon}
                 title={item.title}
                 description={showDescription ? item.description : undefined}
+                highlightQuery={searchQuery}
                 shortcut={item.shortcut}
               />
             ))}
@@ -499,7 +501,11 @@ export function GlobalSearchMainView({
 
       <CommandList className="h-full max-h-none flex-1 rounded-t-[20px] bg-muted/50 pt-1 shadow-inner/5 dark:bg-black/60">
         {globalSearchTab === "app" ? (
-          <AppSearchResults filteredAppItems={filteredAppItems} groupedAppItems={groupedAppItems} />
+          <AppSearchResults
+            filteredAppItems={filteredAppItems}
+            groupedAppItems={groupedAppItems}
+            searchQuery={searchQuery}
+          />
         ) : null}
         {globalSearchTab === "files" ? (
           <FileSearchResults

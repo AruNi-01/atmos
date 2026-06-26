@@ -43,16 +43,161 @@ import {
 import type { ProviderTestState } from '@/features/settings/components/SettingsAiSection';
 import { SettingsModalSections } from '@/features/settings/components/SettingsModalSections';
 import {
+  SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY,
   SETTINGS_SECTIONS,
-  SettingsModalSidebar,
   type SettingsSectionId,
-} from '@/features/settings/components/settings-modal-sidebar';
+} from '@/features/settings/components/settings-modal-data';
+import { SettingsModalSidebar } from '@/features/settings/components/settings-modal-sidebar';
 import { useSettingsUpdateActions } from '@/features/settings/components/use-settings-update-actions';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   activeSectionOverride?: SettingsSectionId | null;
+}
+
+type CssHighlightRegistry = {
+  set: (name: string, highlight: unknown) => void;
+  delete: (name: string) => void;
+};
+
+const SETTINGS_CONTENT_HIGHLIGHT_NAME = 'settings-search-match';
+const SETTINGS_CONTENT_HIGHLIGHT_STYLE_ID = 'settings-search-highlight-style';
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildSettingsSearchTerms(query: string) {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return [];
+
+  return Array.from(
+    new Map(
+      [
+        trimmedQuery,
+        ...trimmedQuery.split(/\s+/),
+      ]
+        .map((term) => term.trim())
+        .filter(Boolean)
+        .map((term) => [term.toLowerCase(), term] as const),
+    ).values(),
+  ).sort((a, b) => b.length - a.length);
+}
+
+function getCssHighlightRegistry(): CssHighlightRegistry | null {
+  if (typeof CSS === 'undefined') return null;
+  return (CSS as unknown as { highlights?: CssHighlightRegistry }).highlights ?? null;
+}
+
+function getHighlightConstructor(): (new (...ranges: Range[]) => unknown) | null {
+  if (typeof window === 'undefined') return null;
+  return (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight ?? null;
+}
+
+function ensureSettingsHighlightStyle() {
+  if (typeof document === 'undefined' || document.getElementById(SETTINGS_CONTENT_HIGHLIGHT_STYLE_ID)) return;
+
+  const style = document.createElement('style');
+  style.id = SETTINGS_CONTENT_HIGHLIGHT_STYLE_ID;
+  style.textContent = `
+::highlight(${SETTINGS_CONTENT_HIGHLIGHT_NAME}) {
+  background-color: rgb(96 165 250 / 0.38);
+  color: inherit;
+}
+`;
+  document.head.appendChild(style);
+}
+
+function collectSettingsSearchRanges(root: HTMLElement, terms: string[]) {
+  const pattern = new RegExp(`(${terms.map(escapeRegExp).join('|')})`, 'gi');
+  const ranges: Range[] = [];
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (!node.nodeValue?.trim()) return NodeFilter.FILTER_REJECT;
+
+        const parent = node.parentElement;
+        if (!parent || parent.closest('input, textarea, select, script, style, [contenteditable="true"]')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    },
+  );
+
+  while (walker.nextNode() && ranges.length < 500) {
+    const node = walker.currentNode;
+    const text = node.nodeValue ?? '';
+    pattern.lastIndex = 0;
+
+    let match = pattern.exec(text);
+    while (match && ranges.length < 500) {
+      const start = match.index;
+      const end = start + match[0].length;
+
+      if (end > start) {
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        ranges.push(range);
+      }
+
+      if (pattern.lastIndex === match.index) {
+        pattern.lastIndex += 1;
+      }
+      match = pattern.exec(text);
+    }
+  }
+
+  return ranges;
+}
+
+function useSettingsContentHighlight(
+  contentElement: HTMLElement | null,
+  query: string,
+  activeSection: SettingsSectionId,
+) {
+  useEffect(() => {
+    const registry = getCssHighlightRegistry();
+    const HighlightCtor = getHighlightConstructor();
+    registry?.delete(SETTINGS_CONTENT_HIGHLIGHT_NAME);
+
+    if (!registry || !HighlightCtor) return undefined;
+
+    const root = contentElement;
+    const terms = buildSettingsSearchTerms(query);
+    if (!root || terms.length === 0) {
+      return () => registry.delete(SETTINGS_CONTENT_HIGHLIGHT_NAME);
+    }
+
+    ensureSettingsHighlightStyle();
+
+    const refreshHighlight = () => {
+      registry.delete(SETTINGS_CONTENT_HIGHLIGHT_NAME);
+      const ranges = collectSettingsSearchRanges(root, terms);
+      if (ranges.length > 0) {
+        registry.set(SETTINGS_CONTENT_HIGHLIGHT_NAME, new HighlightCtor(...ranges));
+      }
+    };
+
+    refreshHighlight();
+
+    const observer = new MutationObserver(refreshHighlight);
+    observer.observe(root, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    return () => {
+      observer.disconnect();
+      registry.delete(SETTINGS_CONTENT_HIGHLIGHT_NAME);
+    };
+  }, [activeSection, contentElement, query]);
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -72,6 +217,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     status,
   } = useSettingsUpdateActions();
   const [activeSection, setActiveSection] = useQueryState('activeSettingTab', settingsModalParams.activeSettingTab);
+  const [settingsSearchQuery, setSettingsSearchQuery] = useState('');
   const [llmConfig, setLlmConfig] = useState<LlmProvidersFile | null>(null);
   const [isLlmConfigLoading, setIsLlmConfigLoading] = useState(false);
   const [providerDialogState, setProviderDialogState] = useState<{
@@ -83,6 +229,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [providerToggleId, setProviderToggleId] = useState<string | null>(null);
   const [routingSavingKey, setRoutingSavingKey] = useState<string | null>(null);
   const [providerTests, setProviderTests] = useState<ProviderTestState>({});
+  const [settingsContentElement, setSettingsContentElement] = useState<HTMLElement | null>(null);
   const providerTestUnsubscribeRef = useRef<Record<string, (() => void) | null>>({});
   // Code Agent settings persisted in ~/.atmos/agent/terminal_code_agent.json
   const [agentCustomSettings, setAgentCustomSettings] = useState<Record<string, { cmd?: string; flags?: string; enabled?: boolean }>>({});
@@ -170,6 +317,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!isOpen) return;
     void loadAgentSettings();
   }, [isOpen, loadAgentSettings]);
+
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return;
+
+    const pendingHighlightQuery = window.sessionStorage.getItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY);
+    if (!pendingHighlightQuery) return;
+
+    setSettingsSearchQuery(pendingHighlightQuery);
+    window.sessionStorage.removeItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY);
+  }, [isOpen]);
 
   const {
     settings: notifySettings,
@@ -474,6 +631,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const resolvedActiveSection = activeSection ?? 'about';
   const activeSectionMeta = SETTINGS_SECTIONS.find((section) => section.id === resolvedActiveSection) ?? SETTINGS_SECTIONS[0];
+  useSettingsContentHighlight(settingsContentElement, settingsSearchQuery, resolvedActiveSection);
   const localAgentOptions = React.useMemo(
     () =>
       buildLocalAgentOptions([
@@ -679,9 +837,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <SettingsModalSidebar
             activeSection={resolvedActiveSection}
             onSelectSection={(sectionId) => void setActiveSection(sectionId)}
+            searchQuery={settingsSearchQuery}
+            onSearchQueryChange={setSettingsSearchQuery}
           />
 
-          <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+          <section ref={setSettingsContentElement} className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <div className="px-8 py-4">
               <h2 className="text-[28px] font-semibold tracking-tight text-foreground">
                 {activeSectionMeta.label}

@@ -32,6 +32,11 @@ import {
   APP_MAP,
   type AppSearchItem,
 } from "@/app-shell/global-search-parts";
+import {
+  SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY,
+  SETTINGS_SEARCH_ITEMS,
+  SETTINGS_SEARCH_SECTIONS,
+} from "@/features/settings/components/settings-modal-data";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -85,104 +90,6 @@ interface BuildGlobalSearchItemsParams {
   clearWorkspaceCreationOverlay: () => void;
 }
 
-const SETTINGS_SEARCH_SECTIONS: Array<{
-  id: SettingsModalTab;
-  label: string;
-  description: string;
-  keywords: string[];
-}> = [
-  {
-    id: "layout",
-    label: "Layout",
-    description: "Panel arrangement and sidebar preferences",
-    keywords: ["layout", "panel", "sidebar", "workspace sidebar", "interface"],
-  },
-  {
-    id: "editor",
-    label: "Editor",
-    description: "Code editor preferences and features",
-    keywords: ["editor", "code", "diff", "minimap", "font"],
-  },
-  {
-    id: "canvas",
-    label: "Canvas",
-    description: "Canvas board preferences and auto-save behavior",
-    keywords: ["canvas", "board", "tldraw", "auto save", "terminal context"],
-  },
-  {
-    id: "code-agent",
-    label: "Code Agent",
-    description: "Agent startup commands and custom parameters",
-    keywords: ["code agent", "agent", "claude", "codex", "gemini", "custom agent"],
-  },
-  {
-    id: "terminal",
-    label: "Terminal",
-    description: "Terminal preferences and link behavior",
-    keywords: ["terminal", "shell", "links", "quick open", "finder"],
-  },
-  {
-    id: "workspace",
-    label: "Workspace",
-    description: "Deletion behavior and cleanup options",
-    keywords: ["workspace", "delete", "cleanup", "gitignore", "worktree"],
-  },
-  {
-    id: "labels",
-    label: "Labels",
-    description: "Manage workspace labels and their properties",
-    keywords: ["labels", "tags", "workspace labels", "color"],
-  },
-  {
-    id: "integrations",
-    label: "Integrations",
-    description: "External tool integrations and status",
-    keywords: ["integrations", "tmux", "external", "tools", "status"],
-  },
-  {
-    id: "ai",
-    label: "AI & Provider",
-    description: "Providers and lightweight task routing",
-    keywords: ["ai", "provider", "llm", "model", "openai", "anthropic", "routing"],
-  },
-  {
-    id: "notify",
-    label: "Notify",
-    description: "Notification channels and agent event triggers",
-    keywords: ["notify", "notification", "ntfy", "bark", "gotify", "webhook"],
-  },
-  {
-    id: "tunnel-connector",
-    label: "Tunnel Connector",
-    description: "Tunnel providers and remote browser access",
-    keywords: ["tunnel", "connector", "remote", "browser", "cloudflare", "ngrok"],
-  },
-  {
-    id: "atmos-computer",
-    label: "Atmos Computer",
-    description: "Connect to your computers from anywhere",
-    keywords: ["atmos computer", "computer", "remote", "relay", "access token"],
-  },
-  {
-    id: "shortcuts",
-    label: "Shortcuts",
-    description: "Keyboard shortcuts across the application",
-    keywords: ["shortcuts", "keyboard", "hotkeys", "command"],
-  },
-  {
-    id: "experiments",
-    label: "Experiments",
-    description: "Optional and preview features disabled by default",
-    keywords: ["experiments", "preview", "feature flags", "optional"],
-  },
-  {
-    id: "about",
-    label: "About",
-    description: "Product overview and desktop updates",
-    keywords: ["about", "version", "updates", "desktop", "cli"],
-  },
-];
-
 export function buildGlobalSearchItems({
   projects,
   router,
@@ -217,6 +124,16 @@ export function buildGlobalSearchItems({
   clearWorkspaceCreationOverlay,
 }: BuildGlobalSearchItemsParams): AppSearchItem[] {
   const items: AppSearchItem[] = [];
+  const setPendingSettingsHighlight = (query: string | null) => {
+    if (typeof window === "undefined") return;
+
+    if (query) {
+      window.sessionStorage.setItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY, query);
+      return;
+    }
+
+    window.sessionStorage.removeItem(SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY);
+  };
 
   projects.forEach((project) => {
     items.push({
@@ -465,6 +382,7 @@ export function buildGlobalSearchItems({
       keywords: ["setting", "settings", "preferences", "configure", "config", "open"],
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
+        setPendingSettingsHighlight(null);
         setActiveSettingTab("about");
         setSettingsOpen(true);
         setGlobalSearchOpen(false);
@@ -489,7 +407,36 @@ export function buildGlobalSearchItems({
       ],
       icon: <Settings className="size-4 text-muted-foreground" />,
       action: () => {
+        setPendingSettingsHighlight(null);
         setActiveSettingTab(section.id);
+        setSettingsOpen(true);
+        setGlobalSearchOpen(false);
+      },
+    });
+  });
+
+  SETTINGS_SEARCH_ITEMS.forEach((settingItem) => {
+    items.push({
+      id: `settings-item-${settingItem.id}`,
+      type: "modal",
+      title: `Settings: ${settingItem.label}`,
+      description: `${settingItem.sectionLabel} · ${settingItem.description}`,
+      keywords: [
+        "settings",
+        "setting",
+        "preferences",
+        "configure",
+        settingItem.sectionId,
+        settingItem.sectionLabel,
+        settingItem.label,
+        settingItem.description,
+        ...settingItem.keywords,
+      ],
+      icon: <Settings className="size-4 text-muted-foreground" />,
+      searchOnly: true,
+      action: () => {
+        setPendingSettingsHighlight(`${settingItem.label} ${settingItem.description}`.trim());
+        setActiveSettingTab(settingItem.sectionId);
         setSettingsOpen(true);
         setGlobalSearchOpen(false);
       },
