@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
   cn,
 } from "@workspace/ui";
-import { Bot, Check, ChevronDown, Folder, FolderOpen, GitBranch, Loader2, Plus } from "lucide-react";
+import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, MessageCircle, Plus } from "lucide-react";
 import type { AgentChatSessionItem } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
 import { AgentIcon } from "./AgentIcon";
@@ -354,7 +354,7 @@ export function AgentChatHistorySidebar({
                               title={session.title ?? undefined}
                               onClick={() => handleSelectHistorySession(session)}
                             >
-                              <GitBranch className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                              <MessageCircle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                               <span className="min-w-0 flex-1 truncate font-medium">
                                 {session.title || "New chat"}
                               </span>

@@ -496,6 +496,9 @@ export function useAgentChatSession({
 
   useEffect(() => {
     if (!isPanelOpen) {
+      if (variant === "modal") {
+        return;
+      }
       restoreAttemptedRef.current = false;
       skipNextAutoConnectRef.current = false;
       autoStartHandledRef.current = false;
@@ -510,7 +513,7 @@ export function useAgentChatSession({
     if (!hasLoadedAgents || (!registryId && installedAgents.length > 0)) {
       void refreshAgents();
     }
-  }, [isPanelOpen, isConnecting, loadingAgents, hasLoadedAgents, installedAgents.length, registryId, refreshAgents]);
+  }, [isPanelOpen, isConnecting, loadingAgents, hasLoadedAgents, installedAgents.length, registryId, refreshAgents, variant]);
 
   useEffect(() => {
     const targetKey = targetAgentId && targetSessionId
@@ -837,9 +840,11 @@ export function useAgentChatSession({
   });
 
   const handleClose = useCallback(() => {
-    disconnect();
+    if (variant !== "modal") {
+      disconnect();
+    }
     setAgentChatOpen(false);
-  }, [disconnect, setAgentChatOpen]);
+  }, [disconnect, setAgentChatOpen, variant]);
 
   const handleLogoutAgent = useCallback(async () => {
     if (!registryId) return;
