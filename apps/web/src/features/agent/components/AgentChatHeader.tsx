@@ -141,6 +141,8 @@ export function AgentChatHeader({
     Boolean(displaySessionTitle) &&
     (sessionTitleSource === "auto" || sessionTitleSource === "agent");
   const animatedSessionTitle = shouldAnimateSessionTitle ? displaySessionTitle : null;
+  const displayedCwd = sessionCwd ?? localPath;
+  const displayedCwdLabel = sessionCwd ? "Current working directory" : "Context directory";
 
   return (
     <div
@@ -289,7 +291,7 @@ export function AgentChatHeader({
             )}
           </div>
 
-          {(localPath ?? sessionCwd) && (
+          {displayedCwd && (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -299,15 +301,13 @@ export function AgentChatHeader({
                       className="truncate select-none text-[10px] leading-none text-muted-foreground/80"
                       style={{ direction: "rtl", textAlign: "left" }}
                     >
-                      {localPath ?? sessionCwd}
+                      {displayedCwd}
                     </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs break-all">
-                  {!localPath && sessionCwd && (
-                    <p className="mb-0.5 text-[11px] text-muted-foreground">Temp directory</p>
-                  )}
-                  <p className="text-[11px]">{localPath ?? sessionCwd}</p>
+                  <p className="mb-0.5 text-[11px] text-muted-foreground">{displayedCwdLabel}</p>
+                  <p className="text-[11px]">{displayedCwd}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

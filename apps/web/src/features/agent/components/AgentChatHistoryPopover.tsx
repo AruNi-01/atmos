@@ -103,9 +103,19 @@ export function AgentChatHistoryPopover({
                   <span className="w-full truncate font-medium">
                     {s.title || "New chat"}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {s.updated_at ? formatLocalDateTime(s.updated_at) : s.cwd}
-                  </span>
+                  {s.updated_at ? (
+                    <span className="text-xs text-muted-foreground">
+                      {formatLocalDateTime(s.updated_at)}
+                    </span>
+                  ) : null}
+                  {s.cwd ? (
+                    <span
+                      className="w-full truncate text-[11px] text-muted-foreground/80"
+                      style={{ direction: "rtl", textAlign: "left" }}
+                    >
+                      {s.cwd}
+                    </span>
+                  ) : null}
                 </button>
               ))}
               {historyResumeUnsupportedReason ? (
