@@ -25,10 +25,11 @@ import type { CurrentView } from "@/shared/hooks/use-context-params";
 export const DEFAULT_SESSION_TITLE = "新会话";
 
 export interface UseAgentChatSessionOptions {
-  variant: "modal" | "sidebar";
+  variant: "modal" | "sidebar" | "standalone";
   mode: AgentChatMode;
   publishStatus: boolean;
   active?: boolean;
+  historyListActive?: boolean;
   contextOverride?: {
     workspaceId: string | null;
     projectId: string | null;
@@ -45,6 +46,7 @@ export interface UseAgentChatSessionReturn {
   connectionPhase: string;
   error: string | null;
   sessionId: string | null;
+  acpSessionId: string | null;
   sessionCwd: string | null;
   entries: ThreadEntry[];
   setEntries: React.Dispatch<React.SetStateAction<ThreadEntry[]>>;

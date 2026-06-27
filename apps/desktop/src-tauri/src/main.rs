@@ -1,5 +1,6 @@
 mod appshot;
 mod commands;
+mod locale;
 mod logging;
 mod preview_bridge;
 mod runtime;
@@ -335,6 +336,7 @@ fn main() {
             commands::get_local_computer_display_name,
             commands::clear_client_session_cmd,
             commands::get_version_info,
+            commands::open_agent_chat_window,
             commands::write_log,
             commands::open_in_external_editor,
             commands::send_notification,

@@ -1,3 +1,4 @@
+use crate::locale::sanitize_locale;
 use tauri::utils::config::Color;
 use tauri::Url;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -78,18 +79,4 @@ fn appshot_window_route(route: &str, locale: Option<&str>) -> Result<String, Str
         "failed to open Appshots permissions window: missing active locale".to_string()
     })?;
     Ok(format!("{locale}/{route}/"))
-}
-
-fn sanitize_locale(locale: Option<&str>) -> Option<String> {
-    let locale = locale?.trim();
-    if locale.len() < 2 || locale.len() > 32 {
-        return None;
-    }
-    if !locale
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-    {
-        return None;
-    }
-    Some(locale.to_string())
 }

@@ -11,7 +11,7 @@ import {
 import { Gauge, Coins } from "lucide-react";
 import type { AgentUsage, AgentTurnUsage } from "@/features/agent/hooks/use-agent-session";
 
-export function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
+export function SessionUsageBadge({ usage, className }: { usage: AgentUsage; className?: string }) {
   const hasContextWindow = usage.used != null && usage.size != null && usage.size > 0;
   const hasCost = usage.cost?.amount != null;
   const used = hasContextWindow ? usage.used : null;
@@ -27,7 +27,12 @@ export function SessionUsageBadge({ usage }: { usage: AgentUsage }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help">
+          <div
+            className={cn(
+              "group absolute left-3 bottom-1 z-10 inline-flex h-8 max-w-8 items-center justify-start gap-0 overflow-hidden rounded-sm border border-dashed border-border/70 bg-background px-2 text-[11px] font-medium text-foreground shadow-md transition-[max-width,gap] duration-300 ease-out origin-[left_center] hover:max-w-[200px] hover:gap-1.5 hover:border-solid hover:border-border cursor-help",
+              className,
+            )}
+          >
             <span className="inline-flex size-4 shrink-0 items-center justify-center">
               {hasContextWindow ? (
                 <Gauge className="size-3.5 text-primary/80" />

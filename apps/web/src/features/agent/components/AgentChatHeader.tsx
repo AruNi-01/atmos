@@ -2,6 +2,15 @@
 
 import React from "react";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -13,7 +22,7 @@ import {
   TextScramble,
   cn,
 } from "@workspace/ui";
-import { Bot, Download, Folder, Heart, LogOut, Plus, X } from "lucide-react";
+import { Bot, Download, ExternalLink, Folder, Heart, LogOut, Maximize2, Minimize2, MoreHorizontal, Plus, X } from "lucide-react";
 import type { RegistryAgent } from "@/api/ws-api";
 import type {
   AgentCapabilities,
@@ -25,8 +34,11 @@ import { AgentIcon } from "./AgentIcon";
 import { AgentChatHistoryPopover } from "./AgentChatHistoryPopover";
 
 interface AgentChatHeaderProps {
-  variant: "modal" | "sidebar";
+  variant: "modal" | "sidebar" | "standalone";
   handleDragStart?: (e: React.MouseEvent) => void;
+  handleOpenStandaloneWindow?: () => Promise<void>;
+  handleToggleFullscreen?: () => void;
+  isFullscreen?: boolean;
 
   // Hover
   headerHovered: boolean;
@@ -74,6 +86,7 @@ interface AgentChatHeaderProps {
   historyUnsupportedReason: string | null;
   loadHistorySessions: (cursor?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => void;
+  historyTriggerClassName?: string;
 
   // Close
   handleClose: () => void;
@@ -91,6 +104,9 @@ interface AgentChatHeaderProps {
 export function AgentChatHeader({
   variant,
   handleDragStart,
+  handleOpenStandaloneWindow,
+  handleToggleFullscreen,
+  isFullscreen = false,
   headerHovered,
   setHeaderHovered,
   isConnected,
@@ -121,6 +137,7 @@ export function AgentChatHeader({
   historyUnsupportedReason,
   loadHistorySessions,
   handleSelectHistorySession,
+  historyTriggerClassName,
   handleClose,
   handleLogoutAgent,
   displaySessionTitle,
@@ -131,7 +148,6 @@ export function AgentChatHeader({
   sessionId,
 }: AgentChatHeaderProps) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
-  const logoutCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const displayedAgentName = isConnected && activeAgent
     ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name)
     : panelTitle;
@@ -147,10 +163,10 @@ export function AgentChatHeader({
   return (
     <div
       className={cn(
-        "flex shrink-0 flex-col gap-1 border-b border-border px-4 py-3",
-        variant === "modal" && "cursor-grab active:cursor-grabbing"
+        "flex shrink-0 flex-col gap-1 px-4 py-3",
+        variant === "modal" && handleDragStart && "cursor-grab active:cursor-grabbing"
       )}
-      onMouseDown={variant === "modal" ? handleDragStart : undefined}
+      onMouseDown={variant === "modal" && handleDragStart ? handleDragStart : undefined}
       onMouseEnter={() => setHeaderHovered(true)}
       onMouseLeave={() => setHeaderHovered(false)}
     >
@@ -314,23 +330,8 @@ export function AgentChatHeader({
           )}
         </div>
         <div className="flex items-center gap-0.5">
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={handleExportConversation}
-                  className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                  aria-label="Export conversation"
-                  disabled={exportableMessages.length === 0}
-                >
-                  <Download className="size-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Export conversation</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
           <AgentChatHistoryPopover
+            triggerClassName={historyTriggerClassName}
             historyOpen={historyOpen}
             setHistoryOpen={setHistoryOpen}
             historySessions={historySessions}
@@ -343,65 +344,101 @@ export function AgentChatHeader({
             handleSelectHistorySession={handleSelectHistorySession}
             isConnecting={isConnecting}
           />
-          {canLogout ? (
-            <Popover open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                        aria-label="Log out agent"
-                        disabled={isConnecting}
-                      >
-                        <LogOut className="size-4" />
-                      </button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Log out agent</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <PopoverContent
-                align="end"
-                className="w-64 p-3"
-                onOpenAutoFocus={(event) => {
-                  event.preventDefault();
-                  logoutCancelButtonRef.current?.focus();
-                }}
-              >
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-popover-foreground">Log out agent?</p>
-                    <p className="text-xs leading-5 text-muted-foreground">
-                      This clears the agent authentication for the current workspace context.
-                    </p>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      ref={logoutCancelButtonRef}
-                      type="button"
-                      className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      onClick={() => setLogoutConfirmOpen(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
-                      disabled={isConnecting}
-                      onClick={() => {
-                        setLogoutConfirmOpen(false);
-                        void handleLogoutAgent();
-                      }}
-                    >
-                      Log out
-                    </button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+          {variant !== "standalone" && handleToggleFullscreen ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleToggleFullscreen}
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label={isFullscreen ? "Exit fullscreen chat" : "Open chat fullscreen"}
+                  >
+                    {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : null}
+          <DropdownMenu>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      aria-label="More chat actions"
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">More actions</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem
+                className="cursor-pointer"
+                disabled={exportableMessages.length === 0}
+                onSelect={handleExportConversation}
+              >
+                <Download className="size-4" />
+                <span>Export conversation</span>
+              </DropdownMenuItem>
+              {variant === "modal" && handleOpenStandaloneWindow ? (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={() => void handleOpenStandaloneWindow()}
+                >
+                  <ExternalLink className="size-4" />
+                  <span>Open in window</span>
+                </DropdownMenuItem>
+              ) : null}
+              {canLogout ? (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  disabled={isConnecting}
+                  variant="destructive"
+                  onSelect={() => setLogoutConfirmOpen(true)}
+                >
+                  <LogOut className="size-4" />
+                  <span>Log out agent</span>
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+            <DialogContent className="w-72 gap-3 p-4" showCloseButton={false}>
+              <DialogTitle className="text-sm">Log out agent?</DialogTitle>
+              <DialogDescription className="text-xs leading-5">
+                This clears the agent authentication for the current workspace context.
+              </DialogDescription>
+              <DialogFooter className="mt-1 flex-row justify-end gap-2">
+                <button
+                  type="button"
+                  className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={() => setLogoutConfirmOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+                  disabled={isConnecting}
+                  onClick={() => {
+                    setLogoutConfirmOpen(false);
+                    void handleLogoutAgent();
+                  }}
+                >
+                  Log out
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           {variant === "modal" && (
             <button
               type="button"

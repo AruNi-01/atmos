@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type { AgentChatSessionItem } from "@/api/rest-api";
 import type { AgentPlan, AgentServerMessage } from "@/features/agent/hooks/use-agent-session";
 import {
@@ -12,8 +12,18 @@ import {
 import type { PendingPermission } from "../lib/chat-helpers";
 import { DEFAULT_SESSION_TITLE } from "./use-agent-chat-session-types";
 
+type RestoreReplayMessage = Extract<
+  AgentServerMessage,
+  { type: "stream" | "tool_call" | "plan_update" | "error" | "turn_end" }
+>;
+
+const RESTORE_REPLAY_BATCH_SIZE = 96;
+const RESTORE_REPLAY_LARGE_BATCH_SIZE = 192;
+const RESTORE_REPLAY_LARGE_QUEUE_THRESHOLD = 1000;
+
 interface UseAgentChatMessageHandlerParams {
   entries: ThreadEntry[];
+  isResumingHistory: boolean;
   pendingPermission: PendingPermission | null;
   sessionTitle: string | null;
   setCurrentPlan: Dispatch<SetStateAction<AgentPlan | null>>;
@@ -31,6 +41,7 @@ interface UseAgentChatMessageHandlerParams {
 
 export function useAgentChatMessageHandler({
   entries,
+  isResumingHistory,
   pendingPermission,
   sessionTitle,
   setCurrentPlan,
@@ -47,6 +58,10 @@ export function useAgentChatMessageHandler({
 }: UseAgentChatMessageHandlerParams) {
   const pendingStreamMessagesRef = useRef<AgentServerMessage[]>([]);
   const streamFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isResumingHistoryRef = useRef(isResumingHistory);
+  const restoreReplayQueueRef = useRef<RestoreReplayMessage[]>([]);
+  const restoreReplayFinishedRef = useRef(false);
+  const restoreReplayFrameCancelRef = useRef<(() => void) | null>(null);
 
   const flushPendingStreamMessages = useCallback(() => {
     if (streamFlushTimerRef.current) {
@@ -66,15 +81,140 @@ export function useAgentChatMessageHandler({
     }, 48);
   }, [flushPendingStreamMessages]);
 
+  const cancelRestoreReplayFrame = useCallback(() => {
+    restoreReplayFrameCancelRef.current?.();
+    restoreReplayFrameCancelRef.current = null;
+  }, []);
+
+  const finishRestoreReplay = useCallback(() => {
+    restoreReplayFinishedRef.current = false;
+    stoppedRef.current = false;
+    setWaitingForResponse(false);
+    setIsResumingHistory(false);
+    startTransition(() => {
+      setEntries((prev) => {
+        let changed = false;
+        const next = prev.map((entry) => {
+          if (entry.role === "assistant" && entry.isStreaming) {
+            changed = true;
+            return { ...entry, isStreaming: false };
+          }
+          return entry;
+        });
+        return changed ? next : prev;
+      });
+    });
+  }, [setEntries, setIsResumingHistory, setWaitingForResponse, stoppedRef]);
+
+  const flushRestoreReplayBatchRef = useRef<() => void>(() => undefined);
+
+  const scheduleRestoreReplayFlush = useCallback(() => {
+    if (restoreReplayFrameCancelRef.current) return;
+
+    if (typeof window === "undefined") {
+      const timer = setTimeout(() => {
+        restoreReplayFrameCancelRef.current = null;
+        flushRestoreReplayBatchRef.current();
+      }, 16);
+      restoreReplayFrameCancelRef.current = () => clearTimeout(timer);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      restoreReplayFrameCancelRef.current = null;
+      flushRestoreReplayBatchRef.current();
+    });
+    restoreReplayFrameCancelRef.current = () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    flushRestoreReplayBatchRef.current = () => {
+      const queue = restoreReplayQueueRef.current;
+      if (queue.length === 0) {
+        if (restoreReplayFinishedRef.current) {
+          finishRestoreReplay();
+        }
+        return;
+      }
+
+      const batchSize =
+        queue.length >= RESTORE_REPLAY_LARGE_QUEUE_THRESHOLD
+          ? RESTORE_REPLAY_LARGE_BATCH_SIZE
+          : RESTORE_REPLAY_BATCH_SIZE;
+      const rawBatch = queue.splice(0, batchSize);
+      const batch = coalesceRestoreReplayMessages(rawBatch);
+      let latestPlan: AgentPlan | null = null;
+      let settlesTurn = false;
+
+      for (const item of batch) {
+        if (item.type === "plan_update") {
+          latestPlan = item.plan;
+        } else if (
+          item.type === "error" ||
+          item.type === "turn_end" ||
+          (item.type === "stream" && item.done)
+        ) {
+          settlesTurn = true;
+        }
+      }
+
+      startTransition(() => {
+        setEntries((prev) =>
+          batch.reduce((acc, item) => applyServerMessageToEntries(acc, item), prev),
+        );
+        if (latestPlan) {
+          setCurrentPlan(latestPlan);
+        }
+      });
+      if (settlesTurn) {
+        stoppedRef.current = false;
+        setWaitingForResponse(false);
+      }
+
+      if (queue.length > 0) {
+        scheduleRestoreReplayFlush();
+      } else if (restoreReplayFinishedRef.current) {
+        scheduleRestoreReplayFlush();
+      }
+    };
+  }, [
+    finishRestoreReplay,
+    scheduleRestoreReplayFlush,
+    setCurrentPlan,
+    setEntries,
+    setWaitingForResponse,
+    stoppedRef,
+  ]);
+
+  useEffect(() => {
+    isResumingHistoryRef.current = isResumingHistory;
+    if (!isResumingHistory) {
+      restoreReplayQueueRef.current = [];
+      restoreReplayFinishedRef.current = false;
+      cancelRestoreReplayFrame();
+    }
+  }, [cancelRestoreReplayFrame, isResumingHistory]);
+
   useEffect(() => {
     return () => {
       if (streamFlushTimerRef.current) {
         clearTimeout(streamFlushTimerRef.current);
       }
+      cancelRestoreReplayFrame();
     };
-  }, []);
+  }, [cancelRestoreReplayFrame]);
 
   const handleMessage = useCallback((msg: AgentServerMessage) => {
+    if (isResumingHistoryRef.current && isRestoreReplayMessage(msg)) {
+      if (stoppedRef.current) return;
+      restoreReplayQueueRef.current.push(msg);
+      if (msg.type === "error") {
+        restoreReplayFinishedRef.current = true;
+      }
+      scheduleRestoreReplayFlush();
+      return;
+    }
+
     switch (msg.type) {
       case "stream":
         if (stoppedRef.current) return;
@@ -167,12 +307,20 @@ export function useAgentChatMessageHandler({
         setIsAutoGeneratingTitle(false);
         break;
       case "session_ready":
+        if (isResumingHistoryRef.current || restoreReplayQueueRef.current.length > 0) {
+          restoreReplayFinishedRef.current = true;
+          scheduleRestoreReplayFlush();
+          break;
+        }
         setIsResumingHistory(false);
         break;
       case "agent_info_update":
       case "capabilities_update":
         break;
       case "session_closed":
+        restoreReplayQueueRef.current = [];
+        restoreReplayFinishedRef.current = false;
+        cancelRestoreReplayFrame();
         flushPendingStreamMessages();
         stoppedRef.current = false;
         setWaitingForResponse(false);
@@ -192,25 +340,16 @@ export function useAgentChatMessageHandler({
         setWaitingForResponse(false);
         break;
       case "load_completed":
-        flushPendingStreamMessages();
-        stoppedRef.current = false;
-        setWaitingForResponse(false);
-        setIsResumingHistory(false);
-        setEntries((prev) => {
-          let changed = false;
-          const next = prev.map((entry) => {
-            if (entry.role === "assistant" && entry.isStreaming) {
-              changed = true;
-              return { ...entry, isStreaming: false };
-            }
-            return entry;
-          });
-          return changed ? next : prev;
-        });
+        if (isResumingHistoryRef.current || restoreReplayQueueRef.current.length > 0) {
+          restoreReplayFinishedRef.current = true;
+          scheduleRestoreReplayFlush();
+        }
         break;
     }
   }, [
+    cancelRestoreReplayFrame,
     flushPendingStreamMessages,
+    scheduleRestoreReplayFlush,
     scheduleStreamFlush,
     sessionTitle,
     setCurrentPlan,
@@ -251,4 +390,43 @@ export function useAgentChatMessageHandler({
     handleMessage,
     pendingPermissionMarkdown,
   };
+}
+
+function isRestoreReplayMessage(msg: AgentServerMessage): msg is RestoreReplayMessage {
+  return (
+    msg.type === "stream" ||
+    msg.type === "tool_call" ||
+    msg.type === "plan_update" ||
+    msg.type === "error" ||
+    msg.type === "turn_end"
+  );
+}
+
+function coalesceRestoreReplayMessages(
+  messages: RestoreReplayMessage[],
+): RestoreReplayMessage[] {
+  const coalesced: RestoreReplayMessage[] = [];
+
+  for (const message of messages) {
+    const last = coalesced[coalesced.length - 1];
+    if (
+      message.type === "stream" &&
+      last?.type === "stream" &&
+      !last.done &&
+      last.role === message.role &&
+      last.kind === message.kind
+    ) {
+      coalesced[coalesced.length - 1] = {
+        ...last,
+        delta: `${last.delta}${message.delta}`,
+        done: message.done,
+        usage: message.usage ?? last.usage,
+      };
+      continue;
+    }
+
+    coalesced.push(message);
+  }
+
+  return coalesced;
 }
