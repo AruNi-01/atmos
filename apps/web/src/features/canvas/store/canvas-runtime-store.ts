@@ -11,14 +11,14 @@ export interface CanvasUnsupportedInteractionNotice {
 interface CanvasRuntimeState {
   activeShapeId: TLShapeId | null;
   renderedShapeIds: TLShapeId[];
-  focusPulseShapeId: TLShapeId | null;
+  focusPulseShapeIds: TLShapeId[];
   pendingTerminalCommands: Record<string, string>;
   unsupportedInteractionNotice: CanvasUnsupportedInteractionNotice | null;
   consumePendingTerminalCommand: (shapeId: TLShapeId) => string | null;
   queuePendingTerminalCommand: (shapeId: TLShapeId, command: string) => void;
   setActiveShapeId: (shapeId: TLShapeId | null) => void;
   setRenderedShapeIds: (shapeIds: TLShapeId[]) => void;
-  setFocusPulseShapeId: (shapeId: TLShapeId | null) => void;
+  setFocusPulseShapeIds: (shapeIds: TLShapeId[]) => void;
   removeRenderedShapeId: (shapeId: TLShapeId) => void;
   showUnsupportedInteraction: (notice: CanvasUnsupportedInteractionNotice) => void;
   dismissUnsupportedInteraction: () => void;
@@ -28,7 +28,7 @@ interface CanvasRuntimeState {
 export const useCanvasRuntimeStore = create<CanvasRuntimeState>((set) => ({
   activeShapeId: null,
   renderedShapeIds: [],
-  focusPulseShapeId: null,
+  focusPulseShapeIds: [],
   pendingTerminalCommands: {},
   unsupportedInteractionNotice: null,
   consumePendingTerminalCommand: (shapeId) => {
@@ -53,7 +53,7 @@ export const useCanvasRuntimeStore = create<CanvasRuntimeState>((set) => ({
     })),
   setActiveShapeId: (shapeId) => set({ activeShapeId: shapeId }),
   setRenderedShapeIds: (shapeIds) => set({ renderedShapeIds: shapeIds }),
-  setFocusPulseShapeId: (shapeId) => set({ focusPulseShapeId: shapeId }),
+  setFocusPulseShapeIds: (shapeIds) => set({ focusPulseShapeIds: shapeIds }),
   removeRenderedShapeId: (shapeId) =>
     set((state) => ({
       renderedShapeIds: state.renderedShapeIds.filter((currentShapeId) => currentShapeId !== shapeId),
@@ -64,7 +64,7 @@ export const useCanvasRuntimeStore = create<CanvasRuntimeState>((set) => ({
     set({
       activeShapeId: null,
       renderedShapeIds: [],
-      focusPulseShapeId: null,
+      focusPulseShapeIds: [],
       pendingTerminalCommands: {},
       unsupportedInteractionNotice: null,
     }),

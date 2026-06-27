@@ -7,8 +7,7 @@ import {
   type CanvasTerminalShape,
 } from "./canvas-terminal-shape";
 import { promoteRenderedShapeId } from "./canvas-terminal-rendering";
-
-const FOCUS_PULSE_MS = 2_400;
+import { focusCanvasShapes } from "./canvas-shape-focus";
 
 export function rememberLastPinnedTerminal(
   boardGuid: string | undefined,
@@ -66,7 +65,8 @@ export function focusCanvasTerminalShape(
     setActiveShapeId: (id: TLShapeId) => void;
     setRenderedShapeIds: (ids: TLShapeId[]) => void;
     renderedShapeIds: TLShapeId[];
-    setFocusPulseShapeId: (id: TLShapeId | null) => void;
+    setFocusPulseShapeIds: (ids: TLShapeId[]) => void;
+    getFocusPulseShapeIds?: () => TLShapeId[];
     animateCamera?: boolean;
   },
 ): void {
@@ -94,20 +94,9 @@ export function focusCanvasTerminalShape(
     // Editor may still be hydrating.
   }
 
-  const bounds = editor.getShapePageBounds(shapeId);
-  if (bounds && options.animateCamera !== false) {
-    try {
-      editor.zoomToBounds(
-        { x: bounds.minX, y: bounds.minY, w: bounds.maxX - bounds.minX, h: bounds.maxY - bounds.minY },
-        { animation: { duration: 320 } },
-      );
-    } catch {
-      // ignore
-    }
-  }
-
-  options.setFocusPulseShapeId(shapeId);
-  window.setTimeout(() => {
-    options.setFocusPulseShapeId(null);
-  }, FOCUS_PULSE_MS);
+  focusCanvasShapes(editor, [shapeId], {
+    animateCamera: options.animateCamera,
+    getFocusPulseShapeIds: options.getFocusPulseShapeIds,
+    setFocusPulseShapeIds: options.setFocusPulseShapeIds,
+  });
 }

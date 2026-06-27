@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
   buildCanvasWidgetPinKey,
+  createGlobalCanvasContextRef,
   createCanvasWidgetShapeProps,
   type CanvasContextRef,
 } from "../lib/canvas-widget-shape";
@@ -45,6 +46,27 @@ describe("canvas-widget shape helpers", () => {
         "shape:frame-1",
       ),
     ).toBe("center:workspace:workspace-1:shape:frame-1");
+  });
+
+  it("creates global pin keys for context-free widgets", () => {
+    const globalContext = createGlobalCanvasContextRef();
+
+    expect(
+      buildCanvasWidgetPinKey({
+        type: "agent-status",
+        context: globalContext,
+      }),
+    ).toBe("agent-status:global");
+
+    expect(
+      createCanvasWidgetShapeProps({
+        widgetType: "agent-chat",
+        source: {
+          type: "agent-chat",
+          context: globalContext,
+        },
+      }).pinKey,
+    ).toBe("agent-chat:global");
   });
 
   it("fills default dimensions and title from widget type", () => {

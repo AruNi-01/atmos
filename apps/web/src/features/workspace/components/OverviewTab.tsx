@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useQueryStates } from 'nuqs';
 import { rightSidebarModalParams } from '@/shared/lib/nuqs/searchParams';
 import {
@@ -26,6 +27,7 @@ import {
   AvatarImage,
   AvatarFallback,
   Badge,
+  Textarea,
 } from '@workspace/ui';
 import { formatDistanceToNow } from 'date-fns';
 import type { DragEndEvent,
@@ -51,6 +53,7 @@ import {
   GitPullRequestClosed,
   GitPullRequestDraft,
   Github,
+  StickyNote,
 } from 'lucide-react';
 import { formatLocalDateTime } from '@atmos/shared';
 import { MarkdownRenderer } from '@/shared/components/markdown/MarkdownRenderer';
@@ -91,6 +94,7 @@ interface OverviewTabProps {
   labels?: WorkspaceLabel[];
   active?: boolean;
   showRefreshAction?: boolean;
+  dragOverlayContainer?: HTMLElement | null;
   onOpenPullRequest?: (pr: OverviewPullRequest) => void;
   onOpenActionRun?: (run: ActionRun) => void;
 }
@@ -220,6 +224,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   labels,
   active = true,
   showRefreshAction = true,
+  dragOverlayContainer,
   onOpenPullRequest,
   onOpenActionRun,
 }) => {
@@ -233,14 +238,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const {
     requirement,
     requirementLoading,
+    note,
+    noteLoading,
     tasks,
     tasksLoading,
     loadRequirement,
+    saveRequirement,
     loadTasks,
     addTask,
     updateTaskStatus,
     updateTaskContent,
     deleteTask,
+    loadNote,
+    saveNote,
   } = useWorkspaceContext(contextId);
 
   const { githubOwner, githubRepo, currentBranch } = useGitInfoStore();
@@ -263,7 +273,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const [, setModalParams] = useQueryStates(rightSidebarModalParams);
   const { setActiveActionRun, setActivePr } = useDialogStore();
   const [requirementExpanded, setRequirementExpanded] = useState(false);
+  const [isEditingRequirement, setIsEditingRequirement] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [draftRequirement, setDraftRequirement] = useState(requirement ?? '');
+  const [draftNote, setDraftNote] = useState(note ?? '');
+  const [isSavingRequirement, setIsSavingRequirement] = useState(false);
+  const [isSavingNote, setIsSavingNote] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const requirementSaveRef = React.useRef(false);
+  const noteSaveRef = React.useRef(false);
 
   const [reviewFiles, setReviewFiles] = useState<{ name: string, path: string }[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -308,6 +326,18 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     return `.../${segments.slice(-3).join('/')}`;
   }, [effectivePath]);
 
+  useEffect(() => {
+    if (!isEditingRequirement) {
+      setDraftRequirement(requirement ?? '');
+    }
+  }, [isEditingRequirement, requirement]);
+
+  useEffect(() => {
+    if (!isEditingNote && !isSavingNote) {
+      setDraftNote(note ?? '');
+    }
+  }, [isEditingNote, isSavingNote, note]);
+
   // DnD: drag tasks between status sections
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -333,6 +363,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     if (effectivePath) {
       loadRequirement(effectivePath);
       loadTasks(effectivePath);
+      loadNote(effectivePath);
     }
     if (projectPath) {
       loadReviews();
@@ -345,24 +376,65 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     await Promise.all([
       loadRequirement(effectivePath),
       loadTasks(effectivePath),
+      loadNote(effectivePath),
       loadReviews(),
       refreshPRs?.(),
       refreshActions?.(),
     ]);
     setIsRefreshing(false);
-  }, [effectivePath, loadRequirement, loadTasks, loadReviews]);
+  }, [effectivePath, loadRequirement, loadTasks, loadNote, loadReviews]);
 
-  const handleEditRequirement = useCallback(async () => {
+  const handleStartRequirementEdit = useCallback(() => {
     if (!effectivePath) return;
-    const filePath = `${effectivePath}/.atmos/context/requirement.md`;
-    const response = await fsApi.readFile(filePath);
-    if (!response.exists) {
-      const defaultContent = `# Requirement\n\n<!-- Describe your requirement here -->\n`;
-      await fsApi.writeFile(filePath, defaultContent);
+    setDraftRequirement(requirement ?? '# Requirement\n\n');
+    setIsEditingRequirement(true);
+  }, [effectivePath, requirement]);
+
+  const handleStartNoteEdit = useCallback(() => {
+    if (!effectivePath) return;
+    setDraftNote(note ?? '');
+    setIsEditingNote(true);
+  }, [effectivePath, note]);
+
+  const handleSaveRequirement = useCallback(async () => {
+    if (!effectivePath || requirementSaveRef.current) return;
+    const nextRequirement = draftRequirement;
+    if (nextRequirement === (requirement ?? '')) {
+      setIsEditingRequirement(false);
+      return;
     }
-    // Opening requirement file should be pinned since it's an explicit user action
-    openFile(filePath, contextId, { preview: false });
-  }, [openFile, effectivePath, contextId]);
+    requirementSaveRef.current = true;
+    setIsSavingRequirement(true);
+    try {
+      await saveRequirement(effectivePath, nextRequirement);
+      setRequirementExpanded(false);
+      setIsEditingRequirement(false);
+    } catch (error) {
+      console.error('Failed to save requirement', error);
+    } finally {
+      requirementSaveRef.current = false;
+      setIsSavingRequirement(false);
+    }
+  }, [draftRequirement, effectivePath, requirement, saveRequirement]);
+
+  const handleSaveNote = useCallback(async () => {
+    if (!effectivePath || noteSaveRef.current) return;
+    if (draftNote === (note ?? '')) {
+      setIsEditingNote(false);
+      return;
+    }
+    noteSaveRef.current = true;
+    setIsSavingNote(true);
+    try {
+      await saveNote(effectivePath, draftNote);
+      setIsEditingNote(false);
+    } catch (error) {
+      console.error('Failed to save note', error);
+    } finally {
+      noteSaveRef.current = false;
+      setIsSavingNote(false);
+    }
+  }, [draftNote, effectivePath, note, saveNote]);
 
   const handleOpenPullRequest = useCallback(
     (pr: OverviewPullRequest) => {
@@ -386,6 +458,17 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       void setModalParams({ rsPr: null, rsRunId: run.databaseId });
     },
     [onOpenActionRun, setActiveActionRun, setModalParams],
+  );
+
+  const taskDragOverlay = (
+    <DragOverlay dropAnimation={null} zIndex={1600}>
+      {activeDragTask ? (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-sm bg-background border border-border shadow-md text-sm">
+          {renderStatusIcon(activeDragTask.status)}
+          <span className="text-sidebar-foreground">{activeDragTask.content}</span>
+        </div>
+      ) : null}
+    </DragOverlay>
   );
 
   return (
@@ -443,7 +526,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           {/* Tasks Column */}
           <Card className="bg-background border border-border flex flex-col h-[520px]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-4 border-b border-border">
-              <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+              <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
                 <CheckSquare className="size-4" />
                 Tasks
               </CardTitle>
@@ -476,14 +559,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <DraggableTask id={`task-${index}`}>{children}</DraggableTask>
                   )}
                 />
-                <DragOverlay dropAnimation={null}>
-                  {activeDragTask ? (
-                    <div className="flex items-center gap-3 px-3 py-2 rounded-sm bg-background border border-border shadow-md text-sm">
-                      {renderStatusIcon(activeDragTask.status)}
-                      <span className="text-sidebar-foreground">{activeDragTask.content}</span>
-                    </div>
-                  ) : null}
-                </DragOverlay>
+                {dragOverlayContainer
+                  ? createPortal(taskDragOverlay, dragOverlayContainer)
+                  : taskDragOverlay}
               </DndContext>
             </CardContent>
           </Card>
@@ -491,7 +569,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           {/* Status/Metadata Column */}
           <Card className="bg-background border border-border flex flex-col h-[520px] min-w-0">
             <CardHeader className="py-3 px-4 border-b border-border">
-              <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+              <CardTitle className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
                 <Info className="size-4" />
                 Details
               </CardTitle>
@@ -560,7 +638,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               )}
 
               <div className="space-y-2">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Code Reviews</h3>
+                <h3 className="text-[11px] font-medium text-muted-foreground/70">Code reviews</h3>
                 <div className="grid gap-2">
                   {reviewsLoading ? (
                     <div className="space-y-1.5">
@@ -602,7 +680,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               </div>
 
               <div className="space-y-2.5 pt-1">
-                <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Pull Requests</h3>
+                <h3 className="text-[11px] font-medium text-muted-foreground/70">Pull requests</h3>
                 <div className="grid gap-2">
                   {prsLoading ? (
                     <div className="space-y-1.5">
@@ -687,7 +765,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
               <div className="space-y-2.5 pt-1">
                 <div className="flex items-center justify-between pr-1">
-                  <h3 className="text-[11px] font-medium text-muted-foreground/70 uppercase tracking-wide">Actions</h3>
+                  <h3 className="text-[11px] font-medium text-muted-foreground/70">Actions</h3>
                   {actionRuns && actionRuns.length > 0 && <ActionsSummaryHeader stats={stats} />}
                 </div>
                 <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 no-scrollbar shrink-0">
@@ -770,60 +848,150 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </Card>
         </div>
 
-        {/* Requirement Bottom Section (Full Width) */}
-        <Card className="bg-background border border-border">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
-            <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-              <Pencil className="size-3.5" />
-              Requirement Specification
-            </CardTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted px-3 transition-colors cursor-pointer"
-              onClick={handleEditRequirement}
-            >
-              Edit
-            </Button>
-          </CardHeader>
-          <CardContent className="p-4">
-            {requirementLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-              </div>
-            ) : requirement ? (
-              <div className="relative">
-                <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
-                  {requirementExpanded || !needsExpansion ? requirement : requirementPreview!}
-                </MarkdownRenderer>
-                {needsExpansion && (
+        <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_0.75fr] gap-5">
+          <Card className="bg-background border border-border min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
+              <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
+                <Pencil className="size-3.5" />
+                Requirement specification
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+                onClick={isEditingRequirement ? handleSaveRequirement : handleStartRequirementEdit}
+                disabled={!effectivePath || isSavingRequirement}
+              >
+                {isSavingRequirement ? <Loader2 className="size-3 animate-spin" /> : null}
+                {isEditingRequirement ? 'Save' : 'Edit'}
+              </Button>
+            </CardHeader>
+            <CardContent className="p-4">
+              {requirementLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                </div>
+              ) : isEditingRequirement ? (
+                <Textarea
+                  value={draftRequirement}
+                  onChange={(event) => setDraftRequirement(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleSaveRequirement();
+                    }
+                  }}
+                  autoFocus
+                  placeholder="# Requirement"
+                  className="min-h-[300px] resize-y rounded-md border-border bg-muted/30 font-mono text-[13px] leading-relaxed"
+                />
+              ) : requirement ? (
+                <div className="relative">
+                  <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
+                    {requirementExpanded || !needsExpansion ? requirement : requirementPreview!}
+                  </MarkdownRenderer>
+                  {needsExpansion && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-4 h-8 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm transition-colors cursor-pointer"
+                      onClick={() => setRequirementExpanded(!requirementExpanded)}
+                    >
+                      {requirementExpanded ? 'Show less' : 'Show more'}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex min-h-[300px] flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
+                  <Pencil className="size-5 text-muted-foreground/30 mb-2" />
+                  <h3 className="text-[13px] text-muted-foreground mb-1">No requirement yet</h3>
+                  <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
+                    Add a requirement document for this workspace.
+                  </p>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="mt-4 h-8 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted w-full border border-dashed border-border rounded-sm transition-colors cursor-pointer"
-                    onClick={() => setRequirementExpanded(!requirementExpanded)}
+                    onClick={handleStartRequirementEdit}
+                    disabled={!effectivePath}
+                    className="h-8 gap-1.5 text-[11px] hover:bg-muted cursor-pointer"
                   >
-                    {requirementExpanded ? 'Show less' : 'Show more'}
+                    <Plus className="size-3.5" />
+                    Add Requirement
                   </Button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-border rounded-md">
-                <Pencil className="size-5 text-muted-foreground/30 mb-2" />
-                <h3 className="text-[13px] text-muted-foreground mb-1">No requirement yet</h3>
-                <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
-                  Add a requirement document for this workspace.
-                </p>
-                <Button variant="ghost" size="sm" onClick={handleEditRequirement} className="h-8 gap-1.5 text-[11px] hover:bg-muted cursor-pointer">
-                  <Plus className="size-3.5" />
-                  Add Requirement
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-background border border-border min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 py-2.5 px-4 border-b border-border">
+              <CardTitle className="text-[11px] font-medium flex items-center gap-2 text-muted-foreground">
+                <StickyNote className="size-3.5" />
+                Note
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 px-3 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+                onClick={isEditingNote ? handleSaveNote : handleStartNoteEdit}
+                disabled={!effectivePath || isSavingNote}
+              >
+                {isSavingNote ? <Loader2 className="size-3 animate-spin" /> : null}
+                {isEditingNote ? 'Save' : 'Edit'}
+              </Button>
+            </CardHeader>
+            <CardContent className="p-4">
+              {noteLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-4/5" />
+                </div>
+              ) : isEditingNote ? (
+                <Textarea
+                  value={draftNote}
+                  onChange={(event) => setDraftNote(event.target.value)}
+                  onKeyDown={(event) => {
+                    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+                      event.preventDefault();
+                      void handleSaveNote();
+                    }
+                  }}
+                  autoFocus
+                  placeholder="No note yet."
+                  disabled={!effectivePath}
+                  className="min-h-[300px] resize-y rounded-md border-border bg-muted/30 text-[13px] leading-relaxed"
+                />
+              ) : note ? (
+                <div className="relative min-h-[300px]">
+                  <MarkdownRenderer className="text-[13px] text-muted-foreground leading-relaxed">
+                    {note}
+                  </MarkdownRenderer>
+                </div>
+              ) : (
+                <div className="flex min-h-[300px] flex-col items-center justify-center rounded-md border border-dashed border-border py-10 text-center">
+                  <StickyNote className="size-5 text-muted-foreground/30 mb-2" />
+                  <h3 className="text-[13px] text-muted-foreground mb-1">No note yet</h3>
+                  <p className="text-[11px] text-muted-foreground/50 mb-4 max-w-[240px]">
+                    Add notes for this workspace.
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleStartNoteEdit}
+                    disabled={!effectivePath}
+                    className="h-8 gap-1.5 text-[11px] hover:bg-muted cursor-pointer"
+                  >
+                    <Plus className="size-3.5" />
+                    Add Note
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <style jsx global>{`
         .animate-spin-slow {

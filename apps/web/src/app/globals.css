@@ -401,6 +401,21 @@ body.canvas-overlay-active
   cursor: auto;
 }
 
+.tldraw-wrapper [data-canvas-widget-surface] [data-canvas-selectable-text="true"],
+.tldraw-wrapper [data-canvas-widget-surface] [data-canvas-selectable-text="true"] * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.tldraw-wrapper [data-canvas-widget-surface] [data-canvas-selectable-text="true"] :is(
+  button,
+  [role="button"],
+  [data-slot="button"]
+) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .tldraw-wrapper [data-canvas-widget-surface] :is(
   input,
   textarea,

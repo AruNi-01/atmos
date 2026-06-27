@@ -19,6 +19,7 @@ import type { TerminalContextScope } from "@/api/rest-api";
 import type { TerminalPaneAgent } from "@/features/terminal/types/index";
 
 import { findCanvasTerminalPlacement } from "./canvas-terminal-placement";
+import { createCanvasCardIndicatorPath } from "./canvas-shape-indicator";
 
 export const CANVAS_TERMINAL_SHAPE_TYPE = "canvas-terminal" as const;
 export const CANVAS_TERMINAL_PIN_STATE_EVENT = "canvas-terminal-pin-state-change";
@@ -55,6 +56,8 @@ declare module "tldraw" {
 }
 
 export type CanvasTerminalShape = TLShape<typeof CANVAS_TERMINAL_SHAPE_TYPE>;
+
+export const CANVAS_TERMINAL_DEFAULT_SIZE = { w: 720, h: 420 } as const;
 
 export type CanvasTerminalCloseRequestDetail = {
   contextScope: TerminalContextScope;
@@ -104,8 +107,7 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
 
   getDefaultProps(): CanvasTerminalShape["props"] {
     return {
-      w: 720,
-      h: 420,
+      ...CANVAS_TERMINAL_DEFAULT_SIZE,
       contextScope: "workspace",
       workspaceId: "",
       projectName: "",
@@ -127,10 +129,12 @@ export class CanvasTerminalShapeSchemaUtil extends BaseBoxShapeUtil<CanvasTermin
     return null;
   }
 
+  override hideSelectionBoundsFg(_shape: CanvasTerminalShape) {
+    return true;
+  }
+
   getIndicatorPath(shape: CanvasTerminalShape) {
-    const path = new Path2D();
-    path.rect(0, 0, shape.props.w, shape.props.h);
-    return path;
+    return createCanvasCardIndicatorPath(shape.props.w, shape.props.h);
   }
 }
 
@@ -150,8 +154,7 @@ export function createCanvasTerminalShapeProps(
   },
 ): CanvasTerminalShapeProps {
   return {
-    w: 720,
-    h: 420,
+    ...CANVAS_TERMINAL_DEFAULT_SIZE,
     ...props,
     sourceTerminalTabId: props.sourceTerminalTabId ?? "terminal",
     paneAgent: props.paneAgent,

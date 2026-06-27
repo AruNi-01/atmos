@@ -38,7 +38,7 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
   const projects = useProjectStore((state) => state.projects);
   const setActiveShapeId = useCanvasRuntimeStore((state) => state.setActiveShapeId);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
-  const setFocusPulseShapeId = useCanvasRuntimeStore((state) => state.setFocusPulseShapeId);
+  const setFocusPulseShapeIds = useCanvasRuntimeStore((state) => state.setFocusPulseShapeIds);
   const maxRenderedTerminals = useCanvasSettingsStore((state) => state.maxRenderedTerminals);
 
   const canvasTerminalKeysSignature = useValue(
@@ -78,7 +78,8 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
           setActiveShapeId,
           setRenderedShapeIds,
           renderedShapeIds: useCanvasRuntimeStore.getState().renderedShapeIds,
-          setFocusPulseShapeId,
+          getFocusPulseShapeIds: () => useCanvasRuntimeStore.getState().focusPulseShapeIds,
+          setFocusPulseShapeIds,
         });
         return;
       }
@@ -90,7 +91,7 @@ export function CanvasAgentStatusWidget({ shape }: { shape: CanvasWidgetShape })
       projects,
       router,
       setActiveShapeId,
-      setFocusPulseShapeId,
+      setFocusPulseShapeIds,
       setRenderedShapeIds,
     ],
   );

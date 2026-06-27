@@ -5,6 +5,7 @@ import { createShapeId, type Editor, type TLShapeId } from "tldraw";
 
 import {
   CANVAS_WIDGET_SHAPE_TYPE,
+  createGlobalCanvasContextRef,
   createCanvasWidgetShapeProps,
   type CanvasContextRef,
   type CanvasWidgetSourceRef,
@@ -75,20 +76,32 @@ export function useAddAtmosWidget(editor: Editor | null) {
   return useCallback(
     (input: {
       widgetType: AddableCanvasWidgetType;
-      context: CanvasContextRef;
+      context?: CanvasContextRef | null;
       frameId: TLShapeId | null;
+      position?: { x: number; y: number };
+      select?: boolean;
     }) => {
       if (!editor) {
         return null;
       }
 
       const widgetType = input.widgetType as CanvasWidgetType;
-      const source = createSourceForWidgetType(input.widgetType, input.context);
+      const registryEntry = CANVAS_WIDGET_REGISTRY[widgetType];
+      if (registryEntry.requiresContext && !input.context) {
+        return null;
+      }
+
+      const source = createSourceForWidgetType(
+        input.widgetType,
+        input.context ?? createGlobalCanvasContextRef(),
+      );
       const size = CANVAS_WIDGET_REGISTRY[widgetType].defaultSize;
       const shapeId = createShapeId();
-      const { x, y } = findCanvasWidgetPlacement(editor, size, {
-        frameId: input.frameId,
-      });
+      const { x, y } =
+        input.position ??
+        findCanvasWidgetPlacement(editor, size, {
+          frameId: input.frameId,
+        });
 
       editor.createShape({
         id: shapeId,
@@ -102,7 +115,9 @@ export function useAddAtmosWidget(editor: Editor | null) {
         }),
       });
       reparentCanvasShapeToFrame(editor, shapeId, input.frameId);
-      editor.select(shapeId);
+      if (input.select !== false) {
+        editor.select(shapeId);
+      }
       return shapeId;
     },
     [editor],
