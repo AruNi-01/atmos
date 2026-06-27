@@ -60,7 +60,7 @@ export function useAgentChatSession({
   transformPrompt,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
   const urlContext = useContextParams();
-  const { workspaceId, projectId, effectiveContextId, currentView } = contextOverride ?? urlContext;
+  const { workspaceId, projectId, effectiveContextId } = contextOverride ?? urlContext;
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
   const [targetAgentId] = useQueryState("agent", agentChatParams.agent);
   const [targetSessionId] = useQueryState("session", agentChatParams.session);
@@ -137,8 +137,6 @@ export function useAgentChatSession({
     () => resolveAgentChatLocalPath(projects, effectiveContextId),
     [projects, effectiveContextId],
   );
-  const shouldScopeHistoryToCwd = currentView === "workspace" || currentView === "project";
-  const historyCwd = shouldScopeHistoryToCwd ? localPath : null;
 
   const clearDeepLinkSessionParams = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -163,9 +161,8 @@ export function useAgentChatSession({
     loadSessions: loadHistorySessions,
   } = useAcpSessionList({
     registryId,
-    cwd: historyCwd,
     authMethodId: selectedAuthMethodId || null,
-    enabled: historyOpen && (!shouldScopeHistoryToCwd || Boolean(historyCwd)),
+    enabled: historyOpen,
   });
 
   const { handleMessage, pendingPermissionMarkdown } = useAgentChatMessageHandler({
