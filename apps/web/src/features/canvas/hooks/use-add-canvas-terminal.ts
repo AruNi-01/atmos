@@ -13,6 +13,7 @@ import {
   type CanvasTerminalShape,
 } from "@/features/canvas/lib/canvas-terminal-shape";
 import { reparentCanvasShapeToFrame } from "@/features/canvas/lib/canvas-widget-frame";
+import { findCanvasWidgetPlacement } from "@/features/canvas/lib/canvas-widget-placement";
 import {
   getCanvasContextId,
   type CanvasContextRef,
@@ -65,11 +66,11 @@ export function useAddCanvasTerminal(editor: Editor | null) {
         contextId,
         tmuxWindowName,
       );
-      const viewportCenter = editor.getViewportPageBounds().center;
-      const position = input.position ?? {
-        x: viewportCenter.x - CANVAS_TERMINAL_DEFAULT_SIZE.w / 2,
-        y: viewportCenter.y - CANVAS_TERMINAL_DEFAULT_SIZE.h / 2,
-      };
+      const position = input.position ?? findCanvasWidgetPlacement(
+        editor,
+        CANVAS_TERMINAL_DEFAULT_SIZE,
+        { frameId: input.frameId },
+      );
 
       editor.createShape<CanvasTerminalShape>({
         id: shapeId,

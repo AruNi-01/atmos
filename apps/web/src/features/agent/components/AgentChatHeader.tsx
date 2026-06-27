@@ -131,6 +131,7 @@ export function AgentChatHeader({
   sessionId,
 }: AgentChatHeaderProps) {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
+  const logoutCancelButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const displayedAgentName = isConnected && activeAgent
     ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name)
     : panelTitle;
@@ -361,7 +362,14 @@ export function AgentChatHeader({
                   <TooltipContent side="bottom">Log out agent</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <PopoverContent align="end" className="w-64 p-3">
+              <PopoverContent
+                align="end"
+                className="w-64 p-3"
+                onOpenAutoFocus={(event) => {
+                  event.preventDefault();
+                  logoutCancelButtonRef.current?.focus();
+                }}
+              >
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-popover-foreground">Log out agent?</p>
@@ -371,6 +379,7 @@ export function AgentChatHeader({
                   </div>
                   <div className="flex justify-end gap-2">
                     <button
+                      ref={logoutCancelButtonRef}
                       type="button"
                       className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       onClick={() => setLogoutConfirmOpen(false)}

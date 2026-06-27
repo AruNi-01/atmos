@@ -19,14 +19,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import {
-  CheckIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CopyIcon,
-  ExternalLinkIcon,
-  XIcon,
-} from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import {
   createContext,
   memo,
@@ -34,16 +27,9 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
-import {
-  Streamdown,
-  type LinkSafetyConfig,
-  type LinkSafetyModalProps,
-  type PluginConfig,
-} from "streamdown";
+import { Streamdown, type PluginConfig } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -340,192 +326,20 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 // but the runtime plugin shape matches Streamdown's expected contract.
 const streamdownPlugins: PluginConfig = { cjk, code: code as PluginConfig["code"], math, mermaid };
 
-const MessageLinkSafetyModal = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  url,
-}: LinkSafetyModalProps) => {
-  const [mounted, setMounted] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copyResetTimeout = useRef<number | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (copyResetTimeout.current) {
-        window.clearTimeout(copyResetTimeout.current);
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (!(isOpen && mounted)) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, mounted, onClose]);
-
-  const handleCopy = useCallback(async () => {
-    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-
-      if (copyResetTimeout.current) {
-        window.clearTimeout(copyResetTimeout.current);
-      }
-
-      copyResetTimeout.current = window.setTimeout(() => {
-        setCopied(false);
-      }, 2000);
-    } catch {
-      // Clipboard writes can be unavailable in embedded or restricted contexts.
-    }
-  }, [url]);
-
-  const handleConfirm = useCallback(() => {
-    onConfirm();
-    onClose();
-  }, [onClose, onConfirm]);
-
-  if (!(isOpen && mounted)) {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-background/50 backdrop-blur-sm"
-      data-streamdown="link-safety-modal"
-      onClick={onClose}
-    >
-      <div
-        aria-modal="true"
-        className="relative mx-4 flex w-full max-w-md flex-col gap-4 rounded-xl border bg-background p-6 shadow-lg"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <button
-          className="absolute top-4 right-4 rounded-md p-1 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-          onClick={onClose}
-          title="Close"
-          type="button"
-        >
-          <XIcon size={16} />
-        </button>
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 font-semibold text-lg">
-            <ExternalLinkIcon size={20} />
-            <span>Open external link?</span>
-          </div>
-          <p className="text-muted-foreground text-sm">
-            You're about to visit an external website.
-          </p>
-        </div>
-        <div
-          className={cn(
-            "break-all rounded-md bg-muted p-3 font-mono text-sm",
-            url.length > 100 && "max-h-32 overflow-y-auto"
-          )}
-        >
-          {url}
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="flex flex-1 items-center justify-center gap-2 rounded-md border bg-background px-4 py-2 font-medium text-sm transition-all hover:bg-muted"
-            onClick={handleCopy}
-            type="button"
-          >
-            {copied ? (
-              <>
-                <CheckIcon size={14} />
-                <span>Copied</span>
-              </>
-            ) : (
-              <>
-                <CopyIcon size={14} />
-                <span>Copy link</span>
-              </>
-            )}
-          </button>
-          <button
-            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm transition-all hover:bg-primary/90"
-            onClick={handleConfirm}
-            type="button"
-          >
-            <ExternalLinkIcon size={14} />
-            <span>Open link</span>
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-};
-
-const renderMessageLinkSafetyModal = (props: LinkSafetyModalProps) => (
-  <MessageLinkSafetyModal {...props} />
-);
-
-const defaultMessageLinkSafety: LinkSafetyConfig = {
-  enabled: true,
-  renderModal: renderMessageLinkSafetyModal,
-};
-
 export const MessageResponse = memo(
-  ({ className, linkSafety, ...props }: MessageResponseProps) => {
-    const resolvedLinkSafety = useMemo<LinkSafetyConfig>(() => {
-      if (!linkSafety) {
-        return defaultMessageLinkSafety;
-      }
-
-      if (linkSafety.enabled === false) {
-        return linkSafety;
-      }
-
-      return {
-        ...linkSafety,
-        enabled: linkSafety.enabled ?? true,
-        renderModal: linkSafety.renderModal ?? renderMessageLinkSafetyModal,
-      };
-    }, [linkSafety]);
-
-    return (
-      <Streamdown
-        className={cn(
-          "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-          className
-        )}
-        animated={{
-          stagger: 40
-        }}
-        linkSafety={resolvedLinkSafety}
-        plugins={streamdownPlugins}
-        {...props}
-      />
-    );
-  },
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    prevProps.linkSafety === nextProps.linkSafety
+  ({ className, ...props }: MessageResponseProps) => (
+    <Streamdown
+      className={cn(
+        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        className
+      )}
+      animated={{
+        stagger: 40
+      }}
+      plugins={streamdownPlugins}
+      {...props}
+    />
+  ),
 );
 
 MessageResponse.displayName = "MessageResponse";

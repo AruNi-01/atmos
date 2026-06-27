@@ -730,6 +730,11 @@ export function useAgentChatSession({
             setIsResumingHistory(false);
             setIsResumedSession(false);
             void startSession({ registryId: lastSession.registryId });
+          }).catch(() => {
+            clearAgentLastSession(contextKey);
+            setIsResumingHistory(false);
+            setIsResumedSession(false);
+            void startSession({ registryId: lastSession.registryId });
           });
           return;
         }

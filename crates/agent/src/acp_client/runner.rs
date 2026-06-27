@@ -184,8 +184,8 @@ async fn apply_config_values(
     for (config_id, value) in ordered_config_values(values) {
         let session_id_text = session_id_acp.to_string();
         info!(
-            "Applying {} config for {}: {}={}",
-            context, &session_id_text, config_id, value
+            "Applying {} config for {}: {}",
+            context, &session_id_text, config_id
         );
         if uses_legacy_modes && config_id == "mode" {
             match conn

@@ -5,6 +5,8 @@ import {
   buildCanvasWidgetPinKey,
   createGlobalCanvasContextRef,
   createCanvasWidgetShapeProps,
+  getCanvasContextLabel,
+  isGlobalCanvasContext,
   type CanvasContextRef,
 } from "../lib/canvas-widget-shape";
 import {
@@ -67,6 +69,21 @@ describe("canvas-widget shape helpers", () => {
         },
       }).pinKey,
     ).toBe("agent-chat:global");
+  });
+
+  it("does not treat an empty default context as global", () => {
+    const emptyContext: CanvasContextRef = {
+      contextScope: "workspace",
+      projectId: null,
+      workspaceId: null,
+      projectName: "",
+      workspaceName: null,
+      localPath: "",
+      repoPath: null,
+    };
+
+    expect(isGlobalCanvasContext(emptyContext)).toBe(false);
+    expect(getCanvasContextLabel(emptyContext)).toBe("Workspace");
   });
 
   it("fills default dimensions and title from widget type", () => {

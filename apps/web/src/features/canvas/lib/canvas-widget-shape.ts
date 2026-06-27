@@ -25,6 +25,7 @@ export type CanvasWidgetType =
   | "agent-chat";
 
 export type CanvasContextRef = {
+  contextKind?: "global";
   contextScope: "project" | "workspace";
   projectId: string | null;
   workspaceId: string | null;
@@ -170,6 +171,7 @@ function createEmptyCanvasContextRef(): CanvasContextRef {
 
 export function createGlobalCanvasContextRef(): CanvasContextRef {
   return {
+    contextKind: "global",
     contextScope: "workspace",
     projectId: null,
     workspaceId: null,
@@ -235,7 +237,7 @@ export function hasConcreteCanvasContext(context: CanvasContextRef): boolean {
 }
 
 export function isGlobalCanvasContext(context: CanvasContextRef): boolean {
-  return !context.projectId && !context.workspaceId && !context.localPath && !context.repoPath;
+  return context.contextKind === "global";
 }
 
 export function getCanvasContextLabel(context: CanvasContextRef): string {

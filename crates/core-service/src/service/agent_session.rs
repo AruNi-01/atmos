@@ -359,7 +359,7 @@ impl AgentSessionService {
         registry_id: &str,
         acp_session_id: &str,
         cwd: Option<&str>,
-        updates: HashMap<String, String>,
+        updates: HashMap<String, Option<String>>,
     ) -> Result<()> {
         if updates.is_empty() {
             return Ok(());
@@ -385,7 +385,14 @@ impl AgentSessionService {
             snapshot.cwd = Some(cwd.to_string());
         }
         for (config_id, value) in updates {
-            snapshot.config.insert(config_id, value);
+            match value {
+                Some(value) => {
+                    snapshot.config.insert(config_id, value);
+                }
+                None => {
+                    snapshot.config.remove(&config_id);
+                }
+            }
         }
         snapshot.updated_at = chrono::Utc::now().to_rfc3339();
 
@@ -503,19 +510,28 @@ async fn write_session_config_snapshot_store(store: &SessionConfigSnapshotStore)
             ))
         })?;
     }
-    let text = serde_json::to_string_pretty(store).map_err(|error| {
-        ServiceError::Processing(format!(
-            "Failed to encode ACP session config snapshots: {}",
-            error
-        ))
-    })?;
-    tokio::fs::write(&path, text).await.map_err(|error| {
-        ServiceError::Processing(format!(
-            "Failed to write ACP session config snapshots at {}: {}",
-            path.display(),
-            error
-        ))
-    })
+    infra::utils::review_artifacts::write_json_atomic(&path, store).await?;
+    set_owner_only_file_permissions(&path).await
+}
+
+#[cfg(unix)]
+async fn set_owner_only_file_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+        .await
+        .map_err(|error| {
+            ServiceError::Processing(format!(
+                "Failed to restrict ACP session config snapshots at {}: {}",
+                path.display(),
+                error
+            ))
+        })
+}
+
+#[cfg(not(unix))]
+async fn set_owner_only_file_permissions(_path: &Path) -> Result<()> {
+    Ok(())
 }
 
 fn filter_native_sessions_by_cwd(native: &mut NativeAgentSessionList, filter_cwd: &Path) {

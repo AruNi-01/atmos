@@ -558,37 +558,30 @@ export function CanvasAddAtmosWidgetPopover({
       { frameId: selectedFrameId },
     );
 
+    const createdShapeIds: TLShapeId[] = [];
     try {
-      const createdShapeIds: TLShapeId[] = [];
-      const failedItemLabels: string[] = [];
       for (const [index, itemType] of selectedItemTypes.entries()) {
         const entry = getCanvasAddItemEntry(itemType);
         const position = placements[index];
-        let shapeId: TLShapeId | null = null;
-
-        try {
-          shapeId = isCanvasWidgetAddItemType(itemType)
-            ? addWidget({
-                widgetType: itemType,
-                context: selectedContext?.context ?? null,
-                frameId: selectedFrameId,
-                position,
-                select: false,
-              })
-            : await addTerminal({
-                context: selectedContext?.context ?? null,
-                frameId: selectedFrameId,
-                position,
-                select: false,
-              });
-        } catch {
-          shapeId = null;
-        }
+        const shapeId = isCanvasWidgetAddItemType(itemType)
+          ? addWidget({
+              widgetType: itemType,
+              context: selectedContext?.context ?? null,
+              frameId: selectedFrameId,
+              position,
+              select: false,
+            })
+          : await addTerminal({
+              context: selectedContext?.context ?? null,
+              frameId: selectedFrameId,
+              position,
+              select: false,
+            });
 
         if (shapeId) {
           createdShapeIds.push(shapeId);
         } else {
-          failedItemLabels.push(entry.label);
+          throw new Error(`Could not add ${entry.label}.`);
         }
       }
 
@@ -599,16 +592,10 @@ export function CanvasAddAtmosWidgetPopover({
         });
         onOpenChange(false);
       }
-      if (failedItemLabels.length > 0) {
-        toastManager.add({
-          title: "Canvas",
-          description: createdShapeIds.length > 0
-            ? `Some items were added, but ${failedItemLabels.join(", ")} could not be added.`
-            : `Could not add ${failedItemLabels.join(", ")}.`,
-          type: "error",
-        });
-      }
     } catch (error) {
+      if (createdShapeIds.length > 0) {
+        editor.deleteShapes(createdShapeIds);
+      }
       toastManager.add({
         title: "Canvas",
         description: error instanceof Error ? error.message : "Could not add the selected item.",

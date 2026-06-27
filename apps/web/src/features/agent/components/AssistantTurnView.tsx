@@ -26,6 +26,7 @@ import {
 } from "@/features/agent/lib/agent/thread";
 import { SubAgentBlockView } from "./SubAgentBlockView";
 import { ToolOrSkillBlock } from "./ToolOrSkillBlock";
+import { agentMessageLinkSafety } from "./AgentMessageLinkSafetyModal";
 
 const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
@@ -164,15 +165,31 @@ export function AssistantTurnView({
     !entry.isStreaming &&
     !hasRunningTool;
 
+  const trailingVisibleTextStartIndex = useMemo(() => {
+    if (lastVisibleTextIndex < 0) return -1;
+    let startIndex = lastVisibleTextIndex;
+    for (let i = lastVisibleTextIndex - 1; i >= 0; i--) {
+      const block = entry.blocks[i];
+      if (isBlockHidden(block, vendor, claudeSubAgentParentIds)) {
+        continue;
+      }
+      if (block.type !== "text" || !block.content) {
+        break;
+      }
+      startIndex = i;
+    }
+    return startIndex;
+  }, [entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
+
   const intermediateBlocks = useMemo(() => {
     if (!canCollapse) return [];
     const result: { block: AssistantBlock; origIndex: number }[] = [];
-    for (let i = 0; i < lastVisibleTextIndex; i++) {
+    for (let i = 0; i < trailingVisibleTextStartIndex; i++) {
       const b = entry.blocks[i];
       if (!isBlockHidden(b, vendor, claudeSubAgentParentIds)) result.push({ block: b, origIndex: i });
     }
     return result;
-  }, [canCollapse, entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
+  }, [canCollapse, entry.blocks, trailingVisibleTextStartIndex, vendor, claudeSubAgentParentIds]);
 
   const hasCollapsibleContent = intermediateBlocks.length > 0;
   const [stepsExpanded, setStepsExpanded] = useState(false);
@@ -192,6 +209,7 @@ export function AssistantTurnView({
           caret={isLastTextBlock ? "block" : undefined}
           className="break-words"
           components={reviewComponents}
+          linkSafety={agentMessageLinkSafety}
         >
           {block.content}
         </MessageResponse>
@@ -271,7 +289,10 @@ export function AssistantTurnView({
           </CollapsibleContent>
         </Collapsible>
 
-        {renderBlock(entry.blocks[lastVisibleTextIndex], lastVisibleTextIndex)}
+        {entry.blocks.slice(trailingVisibleTextStartIndex).map((block, index) => {
+          const origIndex = trailingVisibleTextStartIndex + index;
+          return <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>;
+        })}
       </>
     );
   }

@@ -190,15 +190,10 @@ fn event_to_message(runtime_session_id: &str, ev: AcpSessionEvent) -> Option<Age
 
 fn config_current_values(
     options: &[agent::acp_client::types::AgentConfigOption],
-) -> HashMap<String, String> {
+) -> HashMap<String, Option<String>> {
     options
         .iter()
-        .filter_map(|option| {
-            option
-                .current_value
-                .as_ref()
-                .map(|value| (option.id.clone(), value.clone()))
-        })
+        .map(|option| (option.id.clone(), option.current_value.clone()))
         .collect()
 }
 
@@ -348,7 +343,7 @@ async fn run_bridge(
     let cwd_for_bridge = session_cwd.to_string_lossy().to_string();
     let bridge_task = tokio::spawn(async move {
         let mut acp_session_id_for_snapshot: Option<String> = None;
-        let mut pending_config_values: HashMap<String, String> = HashMap::new();
+        let mut pending_config_values: HashMap<String, Option<String>> = HashMap::new();
         loop {
             tokio::select! {
                 biased;
