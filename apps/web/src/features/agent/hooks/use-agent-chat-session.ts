@@ -56,6 +56,7 @@ export function useAgentChatSession({
   mode = DEFAULT_AGENT_CHAT_MODE,
   publishStatus,
   active = true,
+  historyListActive = false,
   contextOverride,
   transformPrompt,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
@@ -83,7 +84,7 @@ export function useAgentChatSession({
     })),
   );
 
-  const isPanelOpen = variant === "sidebar" ? active : isAgentChatOpen;
+  const isPanelOpen = variant === "modal" ? isAgentChatOpen : active;
   const chatMode = mode;
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [currentPlan, setCurrentPlan] = useState<AgentPlan | null>(null);
@@ -162,11 +163,12 @@ export function useAgentChatSession({
   } = useAcpSessionList({
     registryId,
     authMethodId: selectedAuthMethodId || null,
-    enabled: historyOpen,
+    enabled: historyOpen || historyListActive || variant === "standalone",
   });
 
   const { handleMessage, pendingPermissionMarkdown } = useAgentChatMessageHandler({
     entries,
+    isResumingHistory,
     pendingPermission,
     sessionTitle,
     setCurrentPlan,
@@ -889,6 +891,7 @@ export function useAgentChatSession({
     connectionPhase,
     error,
     sessionId,
+    acpSessionId,
     sessionCwd,
 
     entries,

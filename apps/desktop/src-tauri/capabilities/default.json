@@ -5,6 +5,7 @@
   "windows": [
     "main",
     "splashscreen",
+    "agent-chat",
     "appshot-permissions",
     "preview-inspector"
   ],

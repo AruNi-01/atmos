@@ -10,6 +10,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  cn,
 } from "@workspace/ui";
 import { History, Loader2 } from "lucide-react";
 import { formatLocalDateTime } from "@atmos/shared";
@@ -27,6 +28,7 @@ interface AgentChatHistoryPopoverProps {
   loadHistorySessions: (cursor?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => void;
   isConnecting: boolean;
+  triggerClassName?: string;
 }
 
 function formatHistoryCwd(cwd: string | null | undefined): string | null {
@@ -54,6 +56,7 @@ export function AgentChatHistoryPopover({
   loadHistorySessions,
   handleSelectHistorySession,
   isConnecting,
+  triggerClassName,
 }: AgentChatHistoryPopoverProps) {
   return (
     <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
@@ -63,7 +66,10 @@ export function AgentChatHistoryPopover({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className={cn(
+                  "rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  triggerClassName,
+                )}
                 aria-label="Chat history"
               >
                 <History className="size-4" />

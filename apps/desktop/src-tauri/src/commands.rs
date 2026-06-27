@@ -5,6 +5,12 @@ use crate::updater;
 use runtime_manager::{clear_client_session, local_computer_display_name_opt};
 use serde_json::json;
 use std::time::Duration;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+#[cfg(target_os = "macos")]
+use tauri::{LogicalPosition, Position, TitleBarStyle};
+
+const AGENT_CHAT_WINDOW_LABEL: &str = "agent-chat";
 
 #[tauri::command]
 pub fn clear_client_session_cmd() -> Result<(), String> {
@@ -35,6 +41,67 @@ pub fn get_version_info(app: tauri::AppHandle) -> Result<serde_json::Value, Stri
         "version": version,
         "version_type": version_type.to_string(),
     }))
+}
+
+#[tauri::command]
+pub fn open_agent_chat_window(
+    app: tauri::AppHandle,
+    state: tauri::State<AppState>,
+    locale: Option<String>,
+    agent: Option<String>,
+    session: Option<String>,
+    session_cwd: Option<String>,
+    workspace_id: Option<String>,
+    project_id: Option<String>,
+) -> Result<(), String> {
+    let api_port = current_api_port(&state)?;
+    let url = agent_chat_window_url(
+        locale.as_deref(),
+        api_port,
+        agent.as_deref(),
+        session.as_deref(),
+        session_cwd.as_deref(),
+        workspace_id.as_deref(),
+        project_id.as_deref(),
+    )?;
+
+    if let Some(existing) = app.get_webview_window(AGENT_CHAT_WINDOW_LABEL) {
+        let _ = existing.navigate(url);
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let mut builder = WebviewWindowBuilder::new(
+        &app,
+        AGENT_CHAT_WINDOW_LABEL,
+        WebviewUrl::External(url),
+    )
+    .title("Atmos Chat")
+    .inner_size(1180.0, 820.0)
+    .min_inner_size(720.0, 520.0)
+    .resizable(true)
+    .decorations(true);
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .hidden_title(true)
+            .title_bar_style(TitleBarStyle::Overlay)
+            .traffic_light_position(Position::Logical(LogicalPosition::new(16.0, 18.0)));
+    }
+
+    let window = builder
+        .transparent(false)
+        .shadow(true)
+        .visible(false)
+        .build()
+        .map_err(|error| format!("failed to open Agent Chat window: {error}"))?;
+
+    let _ = window.center();
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
 }
 
 #[tauri::command]
@@ -268,6 +335,62 @@ pub fn appshot_show_permissions_window(
 ) -> Result<(), String> {
     let api_port = current_api_port(&state)?;
     crate::appshot::show_permissions_window(app, locale, api_port)
+}
+
+fn agent_chat_window_url(
+    locale: Option<&str>,
+    api_port: u16,
+    agent: Option<&str>,
+    session: Option<&str>,
+    session_cwd: Option<&str>,
+    workspace_id: Option<&str>,
+    project_id: Option<&str>,
+) -> Result<tauri::Url, String> {
+    let locale = sanitize_locale(locale).ok_or_else(|| {
+        "failed to open Agent Chat window: missing active locale".to_string()
+    })?;
+    let mut url = format!("http://127.0.0.1:{api_port}/{locale}/agent-chat/")
+        .parse::<tauri::Url>()
+        .map_err(|error| format!("invalid Agent Chat window URL: {error}"))?;
+
+    {
+        let mut query = url.query_pairs_mut();
+        if let Some(value) = trim_query_value(agent) {
+            query.append_pair("agent", value);
+        }
+        if let Some(value) = trim_query_value(session) {
+            query.append_pair("session", value);
+        }
+        if let Some(value) = trim_query_value(session_cwd) {
+            query.append_pair("sessionCwd", value);
+        }
+        if let Some(value) = trim_query_value(workspace_id) {
+            query.append_pair("workspaceId", value);
+        }
+        if let Some(value) = trim_query_value(project_id) {
+            query.append_pair("projectId", value);
+        }
+    }
+
+    Ok(url)
+}
+
+fn trim_query_value(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn sanitize_locale(locale: Option<&str>) -> Option<String> {
+    let locale = locale?.trim();
+    if locale.len() < 2 || locale.len() > 32 {
+        return None;
+    }
+    if !locale
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return None;
+    }
+    Some(locale.to_string())
 }
 
 fn current_api_port(state: &tauri::State<'_, AppState>) -> Result<u16, String> {

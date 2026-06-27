@@ -36,6 +36,7 @@ export function CanvasAgentChatWidget({ shape }: { shape: CanvasWidgetShape }) {
         variant="sidebar"
         publishStatus={false}
         active
+        allowFullscreen={false}
         contextOverride={contextOverride}
       />
     </div>
