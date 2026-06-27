@@ -104,14 +104,14 @@ function ShapeRing({
   return (
     <div
       style={{
-        left: topLeft.x - 6,
-        top: topLeft.y - 6,
-        width: width + 12,
-        height: height + 12,
+        left: topLeft.x - 4,
+        top: topLeft.y - 4,
+        width: width + 8,
+        height: height + 8,
       }}
       className={cn(
-        "absolute rounded-lg border-2 border-emerald-400/80",
-        "shadow-[0_0_0_4px_rgba(52,211,153,0.18),0_0_24px_4px_rgba(52,211,153,0.35)]",
+        "absolute rounded-lg border border-emerald-400/80",
+        "shadow-[0_0_0_2px_rgba(52,211,153,0.16),0_0_12px_2px_rgba(52,211,153,0.28)]",
         "animate-[canvas-agent-ring_1500ms_ease-out_forwards]",
       )}
     />

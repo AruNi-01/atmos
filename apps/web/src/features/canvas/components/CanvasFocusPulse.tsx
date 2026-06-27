@@ -59,7 +59,7 @@ function TerminalFocusRing({
 
   const width = Math.max(0, bottomRight.x - topLeft.x);
   const height = Math.max(0, bottomRight.y - topLeft.y);
-  const pulseOutset = 8;
+  const pulseOutset = 4;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[3]" aria-hidden>
@@ -72,8 +72,8 @@ function TerminalFocusRing({
           borderRadius: CANVAS_CARD_CORNER_RADIUS + pulseOutset,
         }}
         className={cn(
-          "absolute border-2 border-sky-400/90",
-          "shadow-[0_0_0_6px_rgba(56,189,248,0.2),0_0_28px_6px_rgba(56,189,248,0.35)]",
+          "absolute border border-sky-400/90",
+          "shadow-[0_0_0_3px_rgba(56,189,248,0.16),0_0_14px_2px_rgba(56,189,248,0.28)]",
           "animate-[canvas-focus-pulse_2400ms_ease-in-out_forwards]",
         )}
       />
