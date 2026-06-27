@@ -1,4 +1,98 @@
 {
+  "featureShowcase": {
+    "features": {
+      "agent": {
+        "title": "AI Agent Workspace",
+        "label": "智能体",
+        "description": "在同一个工作区查看流式回复、工具调用更新、权限控制和自定义 ACP 智能体。"
+      },
+      "wiki": {
+        "title": "项目 Wiki",
+        "label": "Wiki",
+        "description": "和 URL 同步的项目知识库，智能体可以生成、刷新，并作为工作上下文使用。"
+      },
+      "search": {
+        "title": "全局搜索",
+        "label": "搜索",
+        "description": "在工作区、文件、动作和应用级工具之间快速跳转的命令入口。"
+      },
+      "git": {
+        "title": "集成 Git 工作流",
+        "label": "Git",
+        "description": "Diff 审阅、分支状态、AI 辅助提交和 PR 上下文都保留在同一个工作台里。"
+      },
+      "review": {
+        "title": "审阅工作流",
+        "label": "审阅",
+        "description": "通过内联审阅评论、线程化修改和终端修复任务完成智能体交接。"
+      },
+      "run": {
+        "title": "运行预览",
+        "label": "运行",
+        "description": "不离开开发界面即可运行脚本、查看预览输出并验证改动。"
+      },
+      "terminal": {
+        "title": "终端与 Tmux",
+        "label": "终端",
+        "description": "基于 tmux 的持久终端可以跨刷新保留状态，重连后继续保持智能体任务运行。"
+      },
+      "usage": {
+        "title": "用量分析",
+        "label": "用量",
+        "description": "按供应商追踪 token 用量、订阅额度和 AI 工作的成本估算。"
+      },
+      "auto": {
+        "title": "本地自动化",
+        "label": "自动",
+        "description": "支持定时或手动运行终端智能体，并管理产物、通知和 issue 自动化。"
+      },
+      "remote": {
+        "title": "Atmos Computer",
+        "label": "远程",
+        "description": "注册远程机器，从桌面端或托管 Web 连接，并在任何位置运行终端。"
+      },
+      "models": {
+        "title": "本地模型运行时",
+        "label": "模型",
+        "description": "本地运行轻量 llama-server 模型，用于 TODO 提取和提交信息辅助。"
+      },
+      "hooks": {
+        "title": "智能体 Hooks",
+        "label": "Hooks",
+        "description": "基于 hook 的生命周期同步会在界面中展示运行、空闲、等待和完成状态。"
+      },
+      "kanban": {
+        "title": "工作区看板",
+        "label": "看板",
+        "description": "通过状态、优先级、标签、issue 和 PR 关联工作流拖拽管理工作区卡片。"
+      },
+      "canvas": {
+        "title": "画布工作台",
+        "label": "画布",
+        "description": "把多个项目的终端、笔记和图表固定到一个持久工作画布上。"
+      },
+      "mobile": {
+        "title": "移动端伴侣",
+        "label": "移动",
+        "description": "Expo 移动端界面让远程工作区、Git 状态和终端跟进随时可用。"
+      },
+      "files": {
+        "title": "实时文件树",
+        "label": "文件",
+        "description": "通过实时文件状态、内联预览和快速编辑，让手动编码紧贴智能体工作流。"
+      },
+      "skills": {
+        "title": "技能管理",
+        "label": "技能",
+        "description": "在设置中发现、启用、停用并调整技能和自定义智能体定义。"
+      },
+      "work": {
+        "title": "多工作区隔离",
+        "label": "工作",
+        "description": "Git worktree 隔离让多个智能体并行工作，避免互相覆盖改动。"
+      }
+    }
+  },
   "changelog": {
     "heroTitle": "了解 Atmos 的最新动态",
     "heroDescription": "我们持续推出新功能、修复问题并提升性能，帮助你更好地构建应用。",
