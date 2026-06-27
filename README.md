@@ -1,10 +1,17 @@
+<div align="center">
+
 # ATMOS
 
 Atmosphere for Agentic Builders
 
 [简体中文](./README.zh-CN.md) | English
 
-Atmos screenshot
+</div>
+
+<p align="center">
+  <img src="./assets/readme/atmos-preview.png" alt="Atmos screenshot" />
+</p>
+
 
 ## Features
 
