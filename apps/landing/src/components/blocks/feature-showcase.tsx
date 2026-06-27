@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
+import { useTranslations } from 'next-intl'
 import {
   BarChart3Icon,
   BellRingIcon,
@@ -26,10 +27,40 @@ import {
 import { cn } from '@/lib/utils'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { Badge } from '@workspace/ui/components/ui/badge'
+import { Button } from '@workspace/ui/components/ui/button'
 
 type FeaturePlacement = 'top-left' | 'top' | 'top-right' | 'right' | 'bottom-right' | 'bottom' | 'bottom-left' | 'left'
 
+type FeatureKey =
+  | 'agent'
+  | 'wiki'
+  | 'search'
+  | 'git'
+  | 'review'
+  | 'run'
+  | 'terminal'
+  | 'usage'
+  | 'auto'
+  | 'remote'
+  | 'models'
+  | 'hooks'
+  | 'kanban'
+  | 'canvas'
+  | 'mobile'
+  | 'files'
+  | 'skills'
+  | 'work'
+
+type FeatureDefinition = {
+  key: FeatureKey
+  icon: LucideIcon
+  placement: FeaturePlacement
+  gridAreaClass: string
+}
+
 type Feature = {
+  key: FeatureKey
+  index: number
   title: string
   label: string
   description: string
@@ -41,161 +72,121 @@ type Feature = {
 const FEATURE_VIDEO_URL = '/videos/atmos-intro-editorial.mp4'
 const FEATURE_POSTER_URL = '/videos/atmos-intro-editorial-poster.jpg'
 
-const features = [
+const featureDefinitions = [
   {
-    title: 'AI Agent Workspace',
-    label: 'Agent',
-    description: 'Streaming responses, tool-call updates, permissions, and custom ACP agents in one workspace.',
+    key: 'agent',
     icon: BotIcon,
     placement: 'top-left',
     gridAreaClass: 'col-start-1 row-start-1',
   },
   {
-    title: 'Project Wiki',
-    label: 'Wiki',
-    description: 'URL-synced project knowledge that agents can generate, refresh, and use as working context.',
+    key: 'wiki',
     icon: BookOpenIcon,
     placement: 'top',
     gridAreaClass: 'col-start-2 row-start-1',
   },
   {
-    title: 'Global Search',
-    label: 'Search',
-    description: 'A command surface for jumping between workspaces, files, actions, and app-level tools.',
+    key: 'search',
     icon: SearchIcon,
     placement: 'top',
     gridAreaClass: 'col-start-3 row-start-1',
   },
   {
-    title: 'Integrated Git Workflow',
-    label: 'Git',
-    description: 'Diff review, branch state, AI-assisted commits, and PR context stay in the same cockpit.',
+    key: 'git',
     icon: GitBranchIcon,
     placement: 'top',
     gridAreaClass: 'col-start-4 row-start-1',
   },
   {
-    title: 'Review Workflow',
-    label: 'Review',
-    description: 'Inline review comments, threaded revisions, and terminal fix runners for agent handoff.',
+    key: 'review',
     icon: GitPullRequestIcon,
     placement: 'top',
     gridAreaClass: 'col-start-5 row-start-1',
   },
   {
-    title: 'Run Preview',
-    label: 'Run',
-    description: 'Run scripts, preview output, and verify changes without leaving the development surface.',
+    key: 'run',
     icon: PlayIcon,
     placement: 'top-right',
     gridAreaClass: 'col-start-6 row-start-1',
   },
   {
-    title: 'Terminal & Tmux',
-    label: 'Terminal',
-    description: 'Persistent tmux-backed terminals survive reloads, reconnect cleanly, and keep agent work alive.',
+    key: 'terminal',
     icon: TerminalIcon,
     placement: 'right',
     gridAreaClass: 'col-start-6 row-start-2',
   },
   {
-    title: 'Usage Analytics',
-    label: 'Usage',
-    description: 'Provider-specific token usage, subscription quota tracking, and cost estimates for AI work.',
+    key: 'usage',
     icon: BarChart3Icon,
     placement: 'right',
     gridAreaClass: 'col-start-6 row-start-3',
   },
   {
-    title: 'Local Automations',
-    label: 'Auto',
-    description: 'Scheduled and manual terminal-agent runs with artifacts, notifications, and issue automation.',
+    key: 'auto',
     icon: CalendarClockIcon,
     placement: 'right',
     gridAreaClass: 'col-start-6 row-start-4',
   },
   {
-    title: 'Atmos Computer',
-    label: 'Remote',
-    description: 'Register remote machines, connect from Desktop or Hosted Web, and run terminals anywhere.',
+    key: 'remote',
     icon: MonitorIcon,
     placement: 'bottom-right',
     gridAreaClass: 'col-start-6 row-start-5',
   },
   {
-    title: 'Local Model Runtime',
-    label: 'Models',
-    description: 'Run lightweight llama-server models locally for TODO extraction and commit-message help.',
+    key: 'models',
     icon: CpuIcon,
     placement: 'bottom',
     gridAreaClass: 'col-start-5 row-start-5',
   },
   {
-    title: 'Agent Hooks',
-    label: 'Hooks',
-    description: 'Hook-based lifecycle sync shows running, idle, waiting, and done states across the UI.',
+    key: 'hooks',
     icon: BellRingIcon,
     placement: 'bottom',
     gridAreaClass: 'col-start-4 row-start-5',
   },
   {
-    title: 'Workspace Kanban',
-    label: 'Kanban',
-    description: 'Drag workspace cards through status, priority, labels, issues, and PR-linked workflows.',
+    key: 'kanban',
     icon: Columns3Icon,
     placement: 'bottom',
     gridAreaClass: 'col-start-3 row-start-5',
   },
   {
-    title: 'Canvas Workbench',
-    label: 'Canvas',
-    description: 'Pin terminals, notes, and diagrams from multiple projects onto a persistent working board.',
+    key: 'canvas',
     icon: PanelsTopLeftIcon,
     placement: 'bottom',
     gridAreaClass: 'col-start-2 row-start-5',
   },
   {
-    title: 'Mobile Companion',
-    label: 'Mobile',
-    description: 'Expo mobile surfaces keep remote workspaces, git state, and terminal follow-up within reach.',
+    key: 'mobile',
     icon: SmartphoneIcon,
     placement: 'bottom-left',
     gridAreaClass: 'col-start-1 row-start-5',
   },
   {
-    title: 'Live File Tree',
-    label: 'Files',
-    description: 'Live file status, inline previews, and quick edits keep manual coding close to agent work.',
+    key: 'files',
     icon: FileCodeIcon,
     placement: 'left',
     gridAreaClass: 'col-start-1 row-start-4',
   },
   {
-    title: 'Skill Management',
-    label: 'Skills',
-    description: 'Discover, enable, disable, and tune skills and custom agent definitions from settings.',
+    key: 'skills',
     icon: LayersIcon,
     placement: 'left',
     gridAreaClass: 'col-start-1 row-start-3',
   },
   {
-    title: 'Multi-Workspace Isolation',
-    label: 'Work',
-    description: 'Git worktree isolation lets multiple agents operate in parallel without trampling changes.',
+    key: 'work',
     icon: WorkflowIcon,
     placement: 'left',
     gridAreaClass: 'col-start-1 row-start-2',
   },
-] satisfies Feature[]
-
-const topFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'top')
-const rightFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'right')
-const bottomFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'bottom').reverse()
-const leftFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'left').reverse()
+] satisfies FeatureDefinition[]
 
 const DURATION = 5000 // 5 seconds per slide
 
 export default function FeatureShowcase() {
+  const t = useTranslations('featureShowcase')
   const [activeIndex, setActiveIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isHovering, setIsHovering] = useState(false)
@@ -203,6 +194,17 @@ export default function FeatureShowcase() {
 
   // Track the actual video element to control playback if needed
   const videoRef = useRef<HTMLVideoElement>(null)
+  const features = featureDefinitions.map((feature, index) => ({
+    ...feature,
+    index,
+    title: t(`features.${feature.key}.title`),
+    label: t(`features.${feature.key}.label`),
+    description: t(`features.${feature.key}.description`),
+  })) satisfies Feature[]
+  const topFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'top')
+  const rightFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'right')
+  const bottomFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'bottom').reverse()
+  const leftFeatures = features.filter((feature) => getFeatureEdgePlacement(feature.placement) === 'left').reverse()
 
   // Combined effect: manage timer and auto-advance slides
   useEffect(() => {
@@ -217,7 +219,7 @@ export default function FeatureShowcase() {
         if (nextProgress >= 100) {
           // Use setTimeout to defer state update and avoid cascading renders
           setTimeout(() => {
-            setActiveIndex((idx) => (idx + 1) % features.length)
+            setActiveIndex((idx) => (idx + 1) % featureDefinitions.length)
           }, 0)
           return 0
         }
@@ -269,15 +271,13 @@ export default function FeatureShowcase() {
               <div className="hidden gap-2 lg:flex lg:flex-col">
                 <div className="grid grid-cols-6 gap-2">
                   {topFeatures.map((feature) => {
-                    const index = features.indexOf(feature)
-
                     return (
                       <FeatureActionButton
-                        key={feature.title}
+                        key={feature.key}
                         feature={feature}
-                        isActive={index === activeIndex}
+                        isActive={feature.index === activeIndex}
                         progress={progress}
-                        onClick={() => handleManualChange(index)}
+                        onClick={() => handleManualChange(feature.index)}
                       />
                     )
                   })}
@@ -286,15 +286,13 @@ export default function FeatureShowcase() {
                 <div className="grid min-h-0 grid-cols-[3.875rem_minmax(0,1fr)_3.875rem] gap-2">
                   <div className="grid grid-rows-3 gap-2">
                     {leftFeatures.map((feature) => {
-                      const index = features.indexOf(feature)
-
                       return (
                         <FeatureActionButton
-                          key={feature.title}
+                          key={feature.key}
                           feature={feature}
-                          isActive={index === activeIndex}
+                          isActive={feature.index === activeIndex}
                           progress={progress}
-                          onClick={() => handleManualChange(index)}
+                          onClick={() => handleManualChange(feature.index)}
                         />
                       )
                     })}
@@ -308,15 +306,13 @@ export default function FeatureShowcase() {
 
                   <div className="grid grid-rows-3 gap-2">
                     {rightFeatures.map((feature) => {
-                      const index = features.indexOf(feature)
-
                       return (
                         <FeatureActionButton
-                          key={feature.title}
+                          key={feature.key}
                           feature={feature}
-                          isActive={index === activeIndex}
+                          isActive={feature.index === activeIndex}
                           progress={progress}
-                          onClick={() => handleManualChange(index)}
+                          onClick={() => handleManualChange(feature.index)}
                         />
                       )
                     })}
@@ -325,15 +321,13 @@ export default function FeatureShowcase() {
 
                 <div className="grid grid-cols-6 gap-2">
                   {bottomFeatures.map((feature) => {
-                    const index = features.indexOf(feature)
-
                     return (
                       <FeatureActionButton
-                        key={feature.title}
+                        key={feature.key}
                         feature={feature}
-                        isActive={index === activeIndex}
+                        isActive={feature.index === activeIndex}
                         progress={progress}
-                        onClick={() => handleManualChange(index)}
+                        onClick={() => handleManualChange(feature.index)}
                       />
                     )
                   })}
@@ -347,13 +341,13 @@ export default function FeatureShowcase() {
                   onMouseLeave={() => setIsHovering(false)}
                 />
                 <div className="-mx-2 mt-2 flex snap-x gap-2 overflow-x-auto px-2 pb-1">
-                  {features.map((feature, index) => (
+                  {features.map((feature) => (
                     <FeatureActionButton
-                      key={feature.title}
+                      key={feature.key}
                       feature={feature}
-                      isActive={index === activeIndex}
+                      isActive={feature.index === activeIndex}
                       progress={progress}
-                      onClick={() => handleManualChange(index)}
+                      onClick={() => handleManualChange(feature.index)}
                       isMobile
                     />
                   ))}
@@ -420,8 +414,10 @@ function FeatureActionButton({
   const toneClass = 'bg-background text-foreground shadow-sm dark:bg-zinc-900'
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       aria-label={feature.title}
       aria-pressed={isActive}
       onClick={onClick}
@@ -466,7 +462,7 @@ function FeatureActionButton({
           {feature.label}
         </span>
       </span>
-    </button>
+    </Button>
   )
 }
 
