@@ -1,6 +1,6 @@
 'use client'
 
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ArrowUpRightIcon } from 'lucide-react'
 import { Link } from '@atmos/i18n/navigation'
 
@@ -13,6 +13,7 @@ import { changelogData } from '@/lib/changelog-data'
 import { cn, formatDate } from '@/lib/utils'
 
 const LatestChanges = () => {
+  const t = useTranslations('latestChanges')
   const locale = useLocale()
   const language = locale === 'zh' ? 'zh' : 'en'
   const clearCurrentHashBeforeNavigation = () => {
@@ -87,13 +88,13 @@ const LatestChanges = () => {
           <div className='space-y-2.5'>
             <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
               <Badge variant='outline' className='rounded-none'>
-                Latest Changes
+                {t('badge')}
               </Badge>
             </MotionPreset>
             <div className='flex justify-between gap-4 max-md:flex-col'>
               <MotionPreset delay={0.3} transition={{ duration: 0.5 }} className='max-w-100'>
                 <h2 className='text-2xl font-semibold sm:text-3xl lg:text-4xl'>
-                  Constantly Evolving ✨
+                  {t('title')} ✨
                 </h2>
               </MotionPreset>
               <MotionPreset
@@ -104,7 +105,7 @@ const LatestChanges = () => {
                 transition={{ duration: 0.5 }}
               >
                 <p className='text-muted-foreground max-w-xl text-lg'>
-                  Catch up on the latest from Atmos! We&apos;re constantly shipping shiny new features, squashing bugs, and making things faster so you can build better.
+                  {t('description')}
                 </p>
               </MotionPreset>
             </div>
@@ -213,7 +214,7 @@ const LatestChanges = () => {
           >
             <CraftButton asChild>
               <Link href='/changelog'>
-                <CraftButtonLabel>See all releases</CraftButtonLabel>
+                <CraftButtonLabel>{t('cta')}</CraftButtonLabel>
                 <CraftButtonIcon>
                   <ArrowUpRightIcon className='size-3 stroke-2 transition-transform duration-300 group-hover:rotate-45' />
                 </CraftButtonIcon>

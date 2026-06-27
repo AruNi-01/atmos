@@ -255,12 +255,12 @@ export default function FeatureShowcase() {
           <div className='space-y-2.5'>
             <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
               <Badge variant='outline' className='rounded-none'>
-                Features
+                {t('badge')}
               </Badge>
             </MotionPreset>
             <MotionPreset delay={0.3} transition={{ duration: 0.5 }}>
               <h2 className='text-2xl font-semibold sm:text-3xl lg:text-4xl'>
-                See Atmos in Action
+                {t('title')}
               </h2>
             </MotionPreset>
           </div>

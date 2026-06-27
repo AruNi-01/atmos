@@ -76,13 +76,6 @@ export default async function LocaleLayout({ children, params }: Props) {
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
-        {process.env.NODE_ENV === "development" && (
-          <Script
-            src="//unpkg.com/react-grab/dist/index.global.js"
-            crossOrigin="anonymous"
-            strategy="beforeInteractive"
-          />
-        )}
       </head>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}

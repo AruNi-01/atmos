@@ -1,4 +1,5 @@
 import { Marquee } from '@workspace/ui/components/ui/marquee'
+import { useTranslations } from 'next-intl'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { BlinkingGrid } from '@/components/ui/blinking-grid'
 
@@ -17,6 +18,8 @@ const agents = [
 ] as const
 
 export const AgentShow = () => {
+  const t = useTranslations('agentShow')
+
   return (
     <MotionPreset
       fade
@@ -37,7 +40,7 @@ export const AgentShow = () => {
           className='flex shrink-0 items-center gap-1.75 max-md:justify-center max-sm:flex-col max-sm:text-center'
         >
           <div>
-            <p className='text-lg font-medium text-nowrap pr-4'>Build with any agent</p>
+            <p className='text-lg font-medium text-nowrap pr-4'>{t('title')}</p>
           </div>
         </MotionPreset>
         <MotionPreset fade blur delay={0.7} transition={{ duration: 0.5 }} className='relative overflow-hidden w-full'>

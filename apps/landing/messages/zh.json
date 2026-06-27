@@ -1,5 +1,29 @@
 {
+  "metadata": {
+    "title": "ATMOS - 为 Agentic Builders 打造的开发工作台",
+    "description": "一个面向开发者的开源平台，用统一工作区组织你的智能体工作流与构建过程。"
+  },
+  "header": {
+    "docs": "文档",
+    "changelog": "更新日志",
+    "build": "开始构建"
+  },
+  "hero": {
+    "line1Primary": "Atmosphere",
+    "line1Secondary": "for",
+    "line2Primary": "Agentic",
+    "line2Secondary": "Builders",
+    "cta": "开始使用",
+    "previewAlt": "Atmos 可视化终端预览",
+    "previewTitle": "Atmos 可视化终端预览",
+    "previewDescription": "全尺寸查看 Atmos 界面预览"
+  },
+  "agentShow": {
+    "title": "搭配任意智能体构建"
+  },
   "featureShowcase": {
+    "badge": "功能",
+    "title": "看看 Atmos 如何运作",
     "features": {
       "agent": {
         "title": "AI Agent Workspace",
@@ -93,11 +117,57 @@
       }
     }
   },
+  "latestChanges": {
+    "badge": "最新更新",
+    "title": "持续演进中",
+    "description": "快速了解 Atmos 的最新变化。我们持续推出新功能、修复问题并提升性能，帮助你更好地构建应用。",
+    "cta": "查看全部发布"
+  },
+  "faq": {
+    "badge": "FAQ",
+    "title": "常见问题",
+    "description": "这里整理了一些简短回答，帮助你快速理解 Atmos 如何提升你的生产力。",
+    "previewAlt": "Atmos 仪表盘预览",
+    "items": [
+      {
+        "question": "Atmos 是免费开源的吗？",
+        "answer": "是的。Atmos 基于 MIT 协议完全开源。你可以免费下载、自行托管，或者从源码构建。"
+      },
+      {
+        "question": "如果电脑崩溃了，我会丢失终端会话吗？",
+        "answer": "不会。所有终端会话都由 tmux 托管，并独立于 Atmos 持久运行。即使电脑崩溃、Atmos 应用崩溃或被关闭，会话仍会继续运行，回来后可以重新连接。"
+      },
+      {
+        "question": "多个智能体可以并行工作吗？",
+        "answer": "可以。Atmos 使用 Git worktree 隔离，为每个智能体提供独立工作区。多个智能体可以并行运行，而不会互相覆盖文件改动。"
+      }
+    ]
+  },
+  "readyDownload": {
+    "badge": "立即下载 Atmos",
+    "title": "准备升级你的智能体工作台了吗？",
+    "description": "选择最适合你的开始方式：下载桌面应用，或直接在浏览器中打开 Atmos。",
+    "primaryCta": "下载 macOS 版",
+    "moreOptions": "更多下载选项",
+    "default": "默认",
+    "macAppleSilicon": "macOS（Apple Silicon）",
+    "macIntel": "macOS（Intel）",
+    "windows": "Windows（x64）",
+    "linux": "Linux（AppImage）",
+    "viewReleases": "查看 GitHub Releases",
+    "openInBrowser": "在浏览器中打开",
+    "desktopApp": "桌面应用",
+    "copyCommand": "复制命令",
+    "tabs": {
+      "bash": "Bash",
+      "homebrew": "Homebrew"
+    }
+  },
   "changelog": {
     "heroTitle": "了解 Atmos 的最新动态",
     "heroDescription": "我们持续推出新功能、修复问题并提升性能，帮助你更好地构建应用。",
     "back": "返回",
-    "viewOnGitHub": "View In GitHub",
+    "viewOnGitHub": "在 GitHub 查看",
     "features": "新功能",
     "improvements": "改进",
     "fixes": "修复",

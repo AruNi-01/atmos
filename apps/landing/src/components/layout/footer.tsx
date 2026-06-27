@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { GeistPixelSquare } from 'geist/font/pixel'
+import { Link } from '@atmos/i18n/navigation'
 
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import LogoSvg from '@workspace/ui/components/logo-svg'
@@ -17,7 +17,7 @@ const Footer = () => {
         className='group mx-auto max-w-6xl border-x px-4 pb-4 pt-12 md:px-8'
       >
         <Link
-          href='/#hero'
+          href={{ pathname: '/', hash: 'home' }}
           className={`flex w-full items-center justify-between ${GeistPixelSquare.className}`}
         >
           <span className='text-[26vw] font-black uppercase leading-[0.75] tracking-tighter lg:text-[16rem] xl:text-[19rem]'>

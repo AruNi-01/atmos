@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 
 import { ArrowRightIcon, ChevronDownIcon, CheckIcon, CopyIcon, TerminalIcon } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 import {
   DropdownMenu,
@@ -40,6 +41,7 @@ const createDefaultDownloadLinks = (): DownloadLinks => ({
 })
 
 const ReadyDownload = () => {
+  const t = useTranslations('readyDownload')
   const [copied, setCopied] = useState('')
   const [desktopTab, setDesktopTab] = useState('bash')
   const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(createDefaultDownloadLinks)
@@ -79,16 +81,16 @@ const ReadyDownload = () => {
         >
           <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
             <Badge variant='outline' className='rounded-none'>
-              Download Atmos now
+              {t('badge')}
             </Badge>
           </MotionPreset>
 
           <h2 className='text-4xl font-semibold tracking-tight md:text-5xl lg:text-6xl'>
-            Ready to elevate your Agentic workspace?
+            {t('title')}
           </h2>
 
           <p className='text-muted-foreground max-w-2xl text-xl'>
-            Choose how you want to get started: download the Desktop app or open Atmos directly in your browser.
+            {t('description')}
           </p>
 
           <div className='flex flex-col items-center gap-4 pt-4 sm:flex-row'>
@@ -96,7 +98,7 @@ const ReadyDownload = () => {
               <Button size='lg' className='flex-1 h-14 rounded-r-none px-6 text-base font-medium hover:bg-primary transition-colors border-r border-primary-foreground/20' asChild>
                 <Link href={downloadLinks.macAppleSilicon} target='_blank' rel='noopener noreferrer'>
                   <OsIcon os='apple' className='size-5' />
-                  Download for MacOS
+                  {t('primaryCta')}
                 </Link>
               </Button>
 
@@ -104,41 +106,41 @@ const ReadyDownload = () => {
                 <DropdownMenuTrigger asChild>
                   <Button size='lg' className='h-14 rounded-l-none px-3 border-none ring-0 hover:bg-primary transition-colors hover:text-primary-foreground'>
                     <ChevronDownIcon className='size-5' />
-                    <span className='sr-only'>More download options</span>
+                    <span className='sr-only'>{t('moreOptions')}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align='end' className='w-[calc(100vw-2rem)] sm:w-72 font-medium'>
                   <DropdownMenuItem asChild>
                     <Link href={downloadLinks.macAppleSilicon} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
                       <OsIcon os='apple' className='size-4' />
-                      MacOS (Apple Silicon)
-                      <span className='ml-auto text-xs text-muted-foreground'>Default</span>
+                      {t('macAppleSilicon')}
+                      <span className='ml-auto text-xs text-muted-foreground'>{t('default')}</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href={downloadLinks.macIntel} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
                       <OsIcon os='apple' className='size-4' />
-                      MacOS (Intel)
+                      {t('macIntel')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href={downloadLinks.windows} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
                       <OsIcon os='windows' className='size-4' />
-                      Windows (x64)
+                      {t('windows')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href={downloadLinks.linux} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
                       <OsIcon os='linux' className='size-4' />
-                      Linux (AppImage)
+                      {t('linux')}
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href={RELEASES_URL} target='_blank' rel='noopener noreferrer' className='cursor-pointer py-2.5'>
                       <GithubIcon size={16} className='text-current' />
-                      View GitHub Releases
+                      {t('viewReleases')}
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -147,7 +149,7 @@ const ReadyDownload = () => {
 
             <Button size='lg' variant='ghost' className='h-14 px-8 text-base' asChild>
               <Link href={APP_URL} target='_blank' rel='noopener noreferrer' className='group'>
-                Open in Browser
+                {t('openInBrowser')}
                 <ArrowRightIcon className='ml-2 size-4 transition-transform group-hover:translate-x-1' />
               </Link>
             </Button>
@@ -158,11 +160,11 @@ const ReadyDownload = () => {
             <div className='space-y-3 text-left'>
               <div className='flex items-center gap-2'>
                 <OsIcon os='apple' className='size-4 text-muted-foreground' />
-                <h3 className='text-sm font-medium text-muted-foreground'>Desktop App</h3>
+                <h3 className='text-sm font-medium text-muted-foreground'>{t('desktopApp')}</h3>
                 <Tabs value={desktopTab} onValueChange={setDesktopTab} className='w-fit'>
                   <TabsList className='grid w-fit grid-cols-2'>
-                    <TabsTrigger value='bash'>Bash</TabsTrigger>
-                    <TabsTrigger value='homebrew'>Homebrew</TabsTrigger>
+                    <TabsTrigger value='bash'>{t('tabs.bash')}</TabsTrigger>
+                    <TabsTrigger value='homebrew'>{t('tabs.homebrew')}</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -176,7 +178,7 @@ const ReadyDownload = () => {
                     size='icon'
                     className='shrink-0 transition-opacity'
                     onClick={() => copyToClipboard('brew install --cask AruNi-01/tap/atmos')}
-                    aria-label='Copy command'
+                    aria-label={t('copyCommand')}
                   >
                     {copied === 'brew install --cask AruNi-01/tap/atmos' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
                   </Button>
@@ -192,7 +194,7 @@ const ReadyDownload = () => {
                     size='icon'
                     className='shrink-0 transition-opacity'
                     onClick={() => copyToClipboard('curl -fsSL https://install.atmos.land/install-desktop.sh | bash')}
-                    aria-label='Copy command'
+                    aria-label={t('copyCommand')}
                   >
                     {copied === 'curl -fsSL https://install.atmos.land/install-desktop.sh | bash' ? <CheckIcon className='size-4 text-green-500' /> : <CopyIcon className='size-4 text-muted-foreground' />}
                   </Button>

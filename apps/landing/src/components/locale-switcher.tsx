@@ -1,5 +1,6 @@
 "use client";
 
+import { Languages } from "lucide-react";
 import { useLocale } from "next-intl";
 import { usePathname, useRouter } from "@atmos/i18n/navigation";
 import { LanguageSelector } from "@workspace/ui/components/language-selector";
@@ -18,5 +19,13 @@ export function LocaleSwitcher() {
     { label: "简体中文", value: "zh" },
   ];
 
-  return <LanguageSelector locale={locale} onSelect={handleSelect} items={items} />;
+  return (
+    <LanguageSelector
+      locale={locale}
+      onSelect={handleSelect}
+      items={items}
+      icon={Languages}
+      showLabel={false}
+    />
+  );
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { motion } from 'motion/react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@workspace/ui/components/ui/accordion'
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
@@ -15,7 +16,9 @@ export type FAQs = {
   answer: string
 }[]
 
-const FAQ = ({ faqItems }: { faqItems: FAQs }) => {
+const FAQ = () => {
+  const t = useTranslations('faq')
+  const faqItems = t.raw('items') as FAQs
   const [activeItem, setActiveItem] = useState<string>('item-1')
   const [rotationKey, setRotationKey] = useState(0)
 
@@ -37,14 +40,14 @@ const FAQ = ({ faqItems }: { faqItems: FAQs }) => {
         >
           <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
             <Badge variant='outline' className='rounded-none'>
-              FAQ
+              {t('badge')}
             </Badge>
           </MotionPreset>
 
-          <h2 className='text-2xl font-semibold md:text-3xl lg:text-4xl'>Frequently asked questions</h2>
+          <h2 className='text-2xl font-semibold md:text-3xl lg:text-4xl'>{t('title')}</h2>
 
           <p className='text-muted-foreground mx-auto max-w-2xl text-xl'>
-            Here are some quick answers to help you understand how Atmos powers your productivity.
+            {t('description')}
           </p>
         </MotionPreset>
 
@@ -62,7 +65,7 @@ const FAQ = ({ faqItems }: { faqItems: FAQs }) => {
           <div className='group bg-muted relative mx-auto flex h-full max-h-116 w-full max-w-148 items-end justify-center overflow-hidden rounded-xl border lg:max-xl:max-h-95'>
             <Image
               src={AtmosPreview}
-              alt='Atmos Dashboard'
+              alt={t('previewAlt')}
               className='h-full w-full origin-bottom scale-90 rounded-t-md shadow-md transition-transform duration-500 group-hover:scale-100 object-cover object-top'
             />
 

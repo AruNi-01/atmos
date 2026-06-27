@@ -1,5 +1,29 @@
 {
+  "metadata": {
+    "title": "ATMOS - Atmosphere for Agentic Builders",
+    "description": "An open-source platform designed for developers to organize their agentic life and build in a unified workspace."
+  },
+  "header": {
+    "docs": "Docs",
+    "changelog": "Changelog",
+    "build": "Let's Build"
+  },
+  "hero": {
+    "line1Primary": "Atmosphere",
+    "line1Secondary": "for",
+    "line2Primary": "Agentic",
+    "line2Secondary": "Builders",
+    "cta": "Get Started",
+    "previewAlt": "Atmos visual terminal preview",
+    "previewTitle": "Atmos visual terminal preview",
+    "previewDescription": "Full-size preview of the Atmos interface"
+  },
+  "agentShow": {
+    "title": "Build with any agent"
+  },
   "featureShowcase": {
+    "badge": "Features",
+    "title": "See Atmos in Action",
     "features": {
       "agent": {
         "title": "AI Agent Workspace",
@@ -93,11 +117,57 @@
       }
     }
   },
+  "latestChanges": {
+    "badge": "Latest Changes",
+    "title": "Constantly Evolving",
+    "description": "Catch up on the latest from Atmos. We're constantly shipping shiny new features, squashing bugs, and making things faster so you can build better.",
+    "cta": "See all releases"
+  },
+  "faq": {
+    "badge": "FAQ",
+    "title": "Frequently asked questions",
+    "description": "Here are some quick answers to help you understand how Atmos powers your productivity.",
+    "previewAlt": "Atmos dashboard preview",
+    "items": [
+      {
+        "question": "Is Atmos free and open source?",
+        "answer": "Yes. Atmos is fully open source under the MIT license. You can download it for free, self-host it, or build from source."
+      },
+      {
+        "question": "Will I lose my terminal sessions if my computer crashes?",
+        "answer": "No. All terminal sessions are backed by tmux and persist independently of Atmos. If your computer crashes, the Atmos app crashes, or you close it, your sessions keep running and can be reattached when you return."
+      },
+      {
+        "question": "Can multiple agents work in parallel?",
+        "answer": "Yes. Atmos uses Git worktree isolation to give each agent its own independent workspace. Multiple agents can run side-by-side without interfering with each other's file changes."
+      }
+    ]
+  },
+  "readyDownload": {
+    "badge": "Download Atmos now",
+    "title": "Ready to elevate your agentic workspace?",
+    "description": "Choose how you want to get started: download the Desktop app or open Atmos directly in your browser.",
+    "primaryCta": "Download for macOS",
+    "moreOptions": "More download options",
+    "default": "Default",
+    "macAppleSilicon": "macOS (Apple Silicon)",
+    "macIntel": "macOS (Intel)",
+    "windows": "Windows (x64)",
+    "linux": "Linux (AppImage)",
+    "viewReleases": "View GitHub Releases",
+    "openInBrowser": "Open in Browser",
+    "desktopApp": "Desktop App",
+    "copyCommand": "Copy command",
+    "tabs": {
+      "bash": "Bash",
+      "homebrew": "Homebrew"
+    }
+  },
   "changelog": {
     "heroTitle": "Catch up on the latest from Atmos",
     "heroDescription": "We're constantly shipping shiny new features, squashing bugs, and making things faster so you can build better.",
     "back": "Back",
-    "viewOnGitHub": "View In GitHub",
+    "viewOnGitHub": "View on GitHub",
     "features": "Features",
     "improvements": "Improvements",
     "fixes": "Fixes",

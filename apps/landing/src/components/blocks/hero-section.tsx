@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import { GeistPixelSquare } from 'geist/font/pixel'
 import { ArrowRightIcon, RocketIcon } from 'lucide-react'
-import { Button } from '@workspace/ui/components/ui/button'
+import { useTranslations } from 'next-intl'
+import Link from 'next/link'
 import {
   Dialog,
   DialogContent,
@@ -15,13 +15,14 @@ import {
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 
 import Image from 'next/image'
-import { Badge } from '@workspace/ui/components/ui/badge'
 import { CraftButton, CraftButtonLabel, CraftButtonIcon } from '@workspace/ui/components/ui/craft-button'
 
 import AtmosPreview from '@/assets/img/atmos_preview.png'
 import AgentShow from './agent-show'
 
 const HeroSection = () => {
+  const t = useTranslations('hero')
+
   return (
     <section id='home' className='relative flex-1'>
       <MotionPreset
@@ -45,7 +46,7 @@ const HeroSection = () => {
                     animate: { rotate: 0, opacity: 1 }
                   }}
                 >
-                  <span>Atmosphere</span>
+                  <span>{t('line1Primary')}</span>
                 </MotionPreset>
                 <MotionPreset
                   zoom={{ initialScale: 0.3, scale: 1 }}
@@ -74,7 +75,7 @@ const HeroSection = () => {
                     animate: { rotate: 0 }
                   }}
                 >
-                  <span className='text-muted-foreground'>for</span>
+                  <span className='text-muted-foreground'>{t('line1Secondary')}</span>
                 </MotionPreset>
               </div>
               <div className='flex items-end w-full gap-3 sm:gap-4 flex-wrap relative'>
@@ -88,7 +89,7 @@ const HeroSection = () => {
                     animate: { rotate: 0 }
                   }}
                 >
-                  <span>Agentic</span>
+                  <span>{t('line2Primary')}</span>
                 </MotionPreset>
                 <MotionPreset
                   slide={{ direction: 'right', offset: 40 }}
@@ -100,7 +101,7 @@ const HeroSection = () => {
                     animate: { rotate: 0 }
                   }}
                 >
-                  <span>Builders</span>
+                  <span>{t('line2Secondary')}</span>
                 </MotionPreset>
               </div>
             </div>
@@ -117,7 +118,7 @@ const HeroSection = () => {
                     if (el) el.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  <CraftButtonLabel className="font-sans text-lg md:text-xl lg:text-2xl font-medium tracking-normal">Get Started</CraftButtonLabel>
+                  <CraftButtonLabel className="font-sans text-lg md:text-xl lg:text-2xl font-medium tracking-normal">{t('cta')}</CraftButtonLabel>
                   <CraftButtonIcon>
                     <ArrowRightIcon className='size-4 md:size-5 lg:size-6 stroke-2 rotate-45 transition-transform duration-300 group-hover:rotate-90' />
                   </CraftButtonIcon>
@@ -142,19 +143,19 @@ const HeroSection = () => {
                   <div className='absolute inset-0  rounded-full opacity-50 transition-opacity duration-300 group-hover:opacity-80' />
                   <Image
                     src={AtmosPreview}
-                    alt='Atmos Visual Terminal Preview'
+                    alt={t('previewAlt')}
                     className='relative w-full h-auto rounded-lg border border-border/50 transition-transform duration-300 group-hover:scale-[1.02]'
                     priority
                   />
                 </div>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[90vw] max-w-[95vw] w-auto p-0 overflow-hidden bg-transparent border-none shadow-none">
-                <DialogTitle className="sr-only">Atmos Visual Terminal Preview</DialogTitle>
-                <DialogDescription className="sr-only">Full size preview of the Atmos interface</DialogDescription>
+                <DialogTitle className="sr-only">{t('previewTitle')}</DialogTitle>
+                <DialogDescription className="sr-only">{t('previewDescription')}</DialogDescription>
                 <div className="relative w-full h-auto flex items-center justify-center">
                   <Image
                     src={AtmosPreview}
-                    alt='Atmos Visual Terminal Preview'
+                    alt={t('previewAlt')}
                     className='max-w-[90vw] max-h-[90vh] w-auto h-auto rounded-lg'
                     priority
                   />

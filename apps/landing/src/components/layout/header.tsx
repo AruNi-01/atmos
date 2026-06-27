@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 
 import { Hammer } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import Link from 'next/link'
 import { Link as IntlLink } from '@atmos/i18n/navigation'
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils'
 
 import Logo from '@/components/logo'
 import { ModeToggle } from '@/components/layout/mode-toggle'
+import { LocaleSwitcher } from '@/components/locale-switcher'
 
 import { MotionPreset } from '@workspace/ui/components/ui/motion-preset'
 import { motion, useScroll, useSpring, useTransform } from 'motion/react'
@@ -23,6 +25,7 @@ type HeaderProps = {
 }
 
 const Header = ({ className }: HeaderProps) => {
+  const t = useTranslations('header')
   const [isScrolled, setIsScrolled] = useState(false)
   const [windowWidth, setWindowWidth] = useState(0)
 
@@ -92,26 +95,27 @@ const Header = ({ className }: HeaderProps) => {
           style={{ scaleY: rightScaleY }}
         />
         {/* Logo */}
-        <Link href='/#hero' className='flex items-center gap-3'>
+        <IntlLink href={{ pathname: '/', hash: 'home' }} className='flex items-center gap-3'>
           <Logo animate={!isScrolled} />
-        </Link>
+        </IntlLink>
 
         <div className='flex items-center gap-3'>
           <nav className="flex items-center gap-4 text-sm font-medium text-muted-foreground mr-2 max-sm:hidden">
             <Link href="https://docs.atmos.land" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-foreground">
-              Docs
+              {t('docs')}
             </Link>
             <IntlLink href="/changelog" className="transition-colors hover:text-foreground">
-              Changelog
+              {t('changelog')}
             </IntlLink>
           </nav>
 
+          <LocaleSwitcher />
           {/* Theme Toggle */}
           <ModeToggle />
           {/* Actions */}
           <Button variant='outline' className='rounded-full px-4! max-sm:hidden' asChild>
             <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
-              Let’s Build <Hammer className='size-4' />
+              {t('build')} <Hammer className='size-4' />
             </Link>
           </Button>
 
@@ -119,12 +123,12 @@ const Header = ({ className }: HeaderProps) => {
             <TooltipTrigger asChild>
               <Button variant='outline' size='icon' className='rounded-full px-4! sm:hidden' asChild>
                 <Link href='https://github.com/AruNi-01/atmos' target='_blank' rel='noopener noreferrer'>
-                  <span className='sr-only'>Let’s Build</span>
+                  <span className='sr-only'>{t('build')}</span>
                   <Hammer className='size-4' />
                 </Link>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Let’s Build</TooltipContent>
+            <TooltipContent>{t('build')}</TooltipContent>
           </Tooltip>
         </div>
       </div>

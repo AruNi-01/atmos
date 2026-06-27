@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Globe } from "lucide-react";
+import { Globe, type LucideIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 import {
@@ -16,6 +16,8 @@ interface LanguageSelectorProps {
   onSelect: (locale: string) => void;
   items: { label: string; value: string }[];
   className?: string;
+  icon?: LucideIcon;
+  showLabel?: boolean;
 }
 
 export function LanguageSelector({
@@ -23,6 +25,8 @@ export function LanguageSelector({
   onSelect,
   items,
   className,
+  icon: Icon = Globe,
+  showLabel = true,
   ...props
 }: LanguageSelectorProps) {
   const currentLabel = items.find((item) => item.value === locale)?.label || locale;
@@ -33,11 +37,11 @@ export function LanguageSelector({
         <Button
           variant="ghost"
           size="sm"
-          className={cn("w-auto px-3 gap-2 font-medium", className)}
+          className={cn("w-auto px-3 gap-2 font-medium", !showLabel && "px-2.5", className)}
           {...props}
         >
-          <Globe className="h-[1.2rem] w-[1.2rem]" />
-          <span className="hidden sm:inline-block">{currentLabel}</span>
+          <Icon className="h-[1.2rem] w-[1.2rem]" />
+          {showLabel ? <span className="hidden sm:inline-block">{currentLabel}</span> : null}
           <span className="sr-only">Toggle language</span>
         </Button>
       </DropdownMenuTrigger>
