@@ -1,4 +1,4 @@
-import { defaultLocale, locales } from "@atmos/i18n/config";
+import { defaultLocale, locales, type Locale } from "@atmos/i18n/config";
 
 export function currentAppLocale(): string;
 export function currentAppLocale(fallback: null): string | null;
@@ -23,6 +23,6 @@ export function currentAppLocale(fallback: string | null = defaultLocale): strin
   return fallback;
 }
 
-export function isLocaleSegment(value: string | null | undefined): value is string {
-  return !!value && locales.includes(value as (typeof locales)[number]);
+export function isLocaleSegment(value: string | null | undefined): value is Locale {
+  return !!value && locales.includes(value as Locale);
 }

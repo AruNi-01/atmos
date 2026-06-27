@@ -48,6 +48,7 @@ export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = 
         description: error instanceof Error ? error.message : String(error),
         type: "error",
       });
+      throw error;
     }
     return;
   }

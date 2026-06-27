@@ -135,7 +135,7 @@ export async function openAppshotPermissionTarget(
 }
 
 export async function showAppshotPermissionsWindow(
-  locale = currentAppLocale(null),
+  locale = currentAppLocale(),
 ): Promise<void> {
   await invokeAppshot<void>("appshot_show_permissions_window", { locale });
 }
