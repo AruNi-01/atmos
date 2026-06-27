@@ -717,6 +717,12 @@ export function useAgentChatSession({
           if (registryId !== lastSession.registryId) {
             setRegistryId(lastSession.registryId);
           }
+          const handleResumeFailure = () => {
+            clearAgentLastSession(contextKey);
+            setIsResumingHistory(false);
+            setIsResumedSession(false);
+            void startSession({ registryId: lastSession.registryId });
+          };
           void resumeSession({
             registryId: lastSession.registryId,
             acpSessionId: lastSession.acpSessionId,
@@ -726,16 +732,8 @@ export function useAgentChatSession({
             authMethodId: selectedAuthMethodId || null,
           }).then((success) => {
             if (success) return;
-            clearAgentLastSession(contextKey);
-            setIsResumingHistory(false);
-            setIsResumedSession(false);
-            void startSession({ registryId: lastSession.registryId });
-          }).catch(() => {
-            clearAgentLastSession(contextKey);
-            setIsResumingHistory(false);
-            setIsResumedSession(false);
-            void startSession({ registryId: lastSession.registryId });
-          });
+            handleResumeFailure();
+          }).catch(handleResumeFailure);
           return;
         }
         setIsResumedSession(false);

@@ -72,16 +72,28 @@ function AgentMessageLinkSafetyModal({
       if (event.key !== "Tab") return;
 
       const dialog = dialogRef.current;
+      if (!dialog) {
+        event.preventDefault();
+        return;
+      }
+
       const focusable = focusableElements(dialog);
       if (focusable.length === 0) {
         event.preventDefault();
-        dialog?.focus();
+        dialog.focus();
         return;
       }
 
       const first = focusable[0]!;
       const last = focusable[focusable.length - 1]!;
       const active = document.activeElement;
+      const activeInsideDialog = active ? dialog.contains(active) : false;
+
+      if (!activeInsideDialog) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
 
       if (event.shiftKey && active === first) {
         event.preventDefault();
