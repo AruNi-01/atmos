@@ -20,7 +20,7 @@ interface UseAgentChatHistoryHandlersParams {
   isConnecting: boolean;
   projectId: string | null;
   resumeSession: (input: ResumeSessionInput) => Promise<boolean>;
-  sessionId: string | null;
+  acpSessionId: string | null;
   setCurrentPlan: Dispatch<SetStateAction<AgentPlan | null>>;
   setEntries: Dispatch<SetStateAction<ThreadEntry[]>>;
   setHistoryOpen: Dispatch<SetStateAction<boolean>>;
@@ -48,7 +48,7 @@ export function useAgentChatHistoryHandlers({
   isConnecting,
   projectId,
   resumeSession,
-  sessionId,
+  acpSessionId,
   setCurrentPlan,
   setEntries,
   setHistoryOpen,
@@ -69,7 +69,7 @@ export function useAgentChatHistoryHandlers({
   const handleSelectHistorySession = useCallback(
     async (session: AgentChatSessionItem) => {
       if (isConnecting || !canUseCurrentMode) return;
-      if (sessionId === session.acp_session_id && isConnected) {
+      if (acpSessionId === session.acp_session_id && isConnected) {
         setHistoryOpen(false);
         return;
       }
@@ -118,7 +118,7 @@ export function useAgentChatHistoryHandlers({
       projectId,
       resumeSession,
       restoreAttemptedRef,
-      sessionId,
+      acpSessionId,
       setCurrentPlan,
       setEntries,
       setHistoryOpen,

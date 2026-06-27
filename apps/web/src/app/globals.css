@@ -397,8 +397,30 @@ body.canvas-overlay-active
   z-index: 170 !important;
 }
 
+body.canvas-overlay-active
+  .tldraw-wrapper
+  .tl-container
+  [data-radix-popper-content-wrapper] {
+  z-index: calc(var(--tl-layer-header-footer) + 1) !important;
+}
+
 .tldraw-wrapper [data-canvas-widget-surface] {
   cursor: auto;
+}
+
+.tldraw-wrapper [data-canvas-widget-surface] [data-canvas-selectable-text="true"],
+.tldraw-wrapper [data-canvas-widget-surface] [data-canvas-selectable-text="true"] * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.tldraw-wrapper [data-canvas-widget-surface] [data-canvas-selectable-text="true"] :is(
+  button,
+  [role="button"],
+  [data-slot="button"]
+) {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .tldraw-wrapper [data-canvas-widget-surface] :is(

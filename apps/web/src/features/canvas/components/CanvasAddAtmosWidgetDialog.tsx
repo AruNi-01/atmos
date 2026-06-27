@@ -12,6 +12,7 @@ import {
   Loader2,
   Plus,
   Search,
+  SquareTerminal,
   X,
 } from "lucide-react";
 import {
@@ -27,21 +28,70 @@ import {
   SelectTrigger,
   SelectValue,
   cn,
+  toastManager,
 } from "@workspace/ui";
 
 import { useProjectStore } from "@/features/project/store/use-project-store";
 import type { Project, Workspace } from "@/shared/types/domain";
 import { listCanvasFrameTargets, type CanvasFrameTarget } from "@/features/canvas/lib/canvas-widget-frame";
+import { findCanvasWidgetPlacements } from "@/features/canvas/lib/canvas-widget-placement";
 import type { CanvasContextRef } from "@/features/canvas/lib/canvas-widget-shape";
 import {
   ADDABLE_CANVAS_WIDGET_TYPES,
+  CANVAS_WIDGET_GROUPS,
   CANVAS_WIDGET_REGISTRY,
   type AddableCanvasWidgetType,
 } from "@/features/canvas/lib/canvas-widget-registry";
+import { CANVAS_TERMINAL_DEFAULT_SIZE } from "@/features/canvas/lib/canvas-terminal-shape";
+import { useAddCanvasTerminal } from "@/features/canvas/hooks/use-add-canvas-terminal";
 import { useAddAtmosWidget } from "@/features/canvas/hooks/use-add-atmos-widget";
+import { focusCanvasShapes } from "@/features/canvas/lib/canvas-shape-focus";
+import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-store";
 
 const NO_FRAME_VALUE = "__no_frame__";
 const ALL_PROJECTS_FILTER = "__all_projects__";
+const CANVAS_TERMINAL_ADD_ITEM_TYPE = "terminal" as const;
+
+type AddableCanvasItemType = AddableCanvasWidgetType | typeof CANVAS_TERMINAL_ADD_ITEM_TYPE;
+
+const CANVAS_TERMINAL_ADD_ITEM = {
+  group: "workspace",
+  label: "Terminal",
+  description: "Open a new canvas terminal for the selected project or workspace.",
+  icon: SquareTerminal,
+  defaultSize: CANVAS_TERMINAL_DEFAULT_SIZE,
+  requiresContext: true,
+} as const;
+
+const ADDABLE_CANVAS_ITEM_TYPES: AddableCanvasItemType[] = [
+  "center",
+  CANVAS_TERMINAL_ADD_ITEM_TYPE,
+  "workspace-context",
+  ...ADDABLE_CANVAS_WIDGET_TYPES.filter(
+    (type) => type !== "center" && type !== "workspace-context",
+  ),
+];
+
+function isCanvasWidgetAddItemType(
+  type: AddableCanvasItemType,
+): type is AddableCanvasWidgetType {
+  return type !== CANVAS_TERMINAL_ADD_ITEM_TYPE;
+}
+
+function getCanvasAddItemEntry(type: AddableCanvasItemType) {
+  return type === CANVAS_TERMINAL_ADD_ITEM_TYPE
+    ? CANVAS_TERMINAL_ADD_ITEM
+    : CANVAS_WIDGET_REGISTRY[type];
+}
+
+function getAddButtonLabel(selectedItemTypes: AddableCanvasItemType[]) {
+  if (selectedItemTypes.length > 1) {
+    return `Add ${selectedItemTypes.length} Items`;
+  }
+  return selectedItemTypes[0] === CANVAS_TERMINAL_ADD_ITEM_TYPE
+    ? "Add Terminal"
+    : "Add Widget";
+}
 
 type ContextOption = {
   value: string;
@@ -199,7 +249,7 @@ function ProjectFilterButton({
         "inline-flex max-w-52 shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors",
         active
           ? "border-foreground/25 bg-foreground text-background"
-          : "border-border/70 bg-background text-muted-foreground hover:bg-accent hover:text-foreground",
+          : "border-border/70 bg-muted/35 text-muted-foreground hover:bg-accent/60 hover:text-foreground",
       )}
     >
       <span className="truncate">{label}</span>
@@ -279,8 +329,8 @@ function CanvasContextPicker({
         <button
           type="button"
           className={cn(
-            "flex min-h-12 w-full items-center gap-3 rounded-md border border-border bg-background px-3 py-2 text-left transition-colors",
-            "hover:border-foreground/30 hover:bg-accent/40 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+            "flex min-h-12 w-full items-center gap-3 rounded-md border border-border/70 bg-muted/35 px-3 py-2 text-left transition-colors",
+            "hover:border-foreground/30 hover:bg-accent/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
           )}
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50">
@@ -451,11 +501,14 @@ export function CanvasAddAtmosWidgetPopover({
   const projects = useProjectStore((state) => state.projects);
   const isLoadingProjects = useProjectStore((state) => state.isLoading);
   const fetchProjects = useProjectStore((state) => state.fetchProjects);
+  const setFocusPulseShapeIds = useCanvasRuntimeStore((state) => state.setFocusPulseShapeIds);
   const addWidget = useAddAtmosWidget(editor);
+  const addTerminal = useAddCanvasTerminal(editor);
   const [selectedContextValue, setSelectedContextValue] = React.useState("");
-  const [selectedWidgetTypes, setSelectedWidgetTypes] = React.useState<AddableCanvasWidgetType[]>([]);
+  const [selectedItemTypes, setSelectedItemTypes] = React.useState<AddableCanvasItemType[]>([]);
   const [selectedFrameValue, setSelectedFrameValue] = React.useState(NO_FRAME_VALUE);
   const [frameTargets, setFrameTargets] = React.useState<CanvasFrameTarget[]>([]);
+  const [isAdding, setIsAdding] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) {
@@ -472,39 +525,84 @@ export function CanvasAddAtmosWidgetPopover({
   React.useEffect(() => {
     if (open) return;
     setSelectedContextValue("");
-    setSelectedWidgetTypes([]);
+    setSelectedItemTypes([]);
     setSelectedFrameValue(NO_FRAME_VALUE);
+    setIsAdding(false);
   }, [open]);
 
   const contextOptions = React.useMemo(() => buildContextOptions(projects), [projects]);
   const selectedContext = contextOptions.find((option) => option.value === selectedContextValue);
   const selectedFrameId =
     selectedFrameValue === NO_FRAME_VALUE ? null : (selectedFrameValue as TLShapeId);
-  const canAdd = Boolean(editor && selectedContext && selectedWidgetTypes.length > 0);
+  const selectedItemsCanBeAdded = selectedItemTypes.every((type) => {
+    const entry = getCanvasAddItemEntry(type);
+    return !entry.requiresContext || Boolean(selectedContext);
+  });
+  const canAdd = Boolean(editor && selectedItemTypes.length > 0 && selectedItemsCanBeAdded && !isAdding);
 
-  const toggleWidgetType = (type: AddableCanvasWidgetType) => {
-    setSelectedWidgetTypes((prev) =>
+  const toggleItemType = (type: AddableCanvasItemType) => {
+    setSelectedItemTypes((prev) =>
       prev.includes(type) ? prev.filter((item) => item !== type) : [...prev, type],
     );
   };
 
-  const handleAdd = () => {
-    if (!selectedContext || selectedWidgetTypes.length === 0) {
+  const handleAdd = async () => {
+    if (!editor || selectedItemTypes.length === 0 || !selectedItemsCanBeAdded || isAdding) {
       return;
     }
 
-    const createdShapeIds = selectedWidgetTypes
-      .map((widgetType) =>
-        addWidget({
-          widgetType,
-          context: selectedContext.context,
-          frameId: selectedFrameId,
-        }),
-      )
-      .filter(Boolean);
+    setIsAdding(true);
+    const placements = findCanvasWidgetPlacements(
+      editor,
+      selectedItemTypes.map((itemType) => getCanvasAddItemEntry(itemType).defaultSize),
+      { frameId: selectedFrameId },
+    );
 
-    if (createdShapeIds.length > 0) {
-      onOpenChange(false);
+    const createdShapeIds: TLShapeId[] = [];
+    try {
+      for (const [index, itemType] of selectedItemTypes.entries()) {
+        const entry = getCanvasAddItemEntry(itemType);
+        const position = placements[index];
+        const shapeId = isCanvasWidgetAddItemType(itemType)
+          ? addWidget({
+              widgetType: itemType,
+              context: selectedContext?.context ?? null,
+              frameId: selectedFrameId,
+              position,
+              select: false,
+            })
+          : await addTerminal({
+              context: selectedContext?.context ?? null,
+              frameId: selectedFrameId,
+              position,
+              select: false,
+            });
+
+        if (shapeId) {
+          createdShapeIds.push(shapeId);
+        } else {
+          throw new Error(`Could not add ${entry.label}.`);
+        }
+      }
+
+      if (createdShapeIds.length > 0) {
+        focusCanvasShapes(editor, createdShapeIds, {
+          getFocusPulseShapeIds: () => useCanvasRuntimeStore.getState().focusPulseShapeIds,
+          setFocusPulseShapeIds,
+        });
+        onOpenChange(false);
+      }
+    } catch (error) {
+      if (createdShapeIds.length > 0) {
+        editor.deleteShapes(createdShapeIds);
+      }
+      toastManager.add({
+        title: "Canvas",
+        description: error instanceof Error ? error.message : "Could not add the selected item.",
+        type: "error",
+      });
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -539,105 +637,122 @@ export function CanvasAddAtmosWidgetPopover({
         align="end"
         side="bottom"
         sideOffset={8}
-        className="z-[1000] w-[min(42rem,calc(100vw-2rem))] overflow-hidden p-0"
+        className="z-[1000] flex h-[min(54rem,var(--radix-popover-content-available-height))] max-h-[calc(100vh-1rem)] w-[min(42rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
       >
-        <div className="border-b border-border/70 px-5 py-4">
+        <div className="shrink-0 border-b border-border/70 px-5 py-4">
           <div className="text-base font-semibold leading-none text-foreground">Add Atmos Widget</div>
-          <div className="mt-1.5 text-sm text-muted-foreground">
-            Choose a Project or Workspace first, then choose the Canvas widget to add.
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+          <div className="grid gap-5 p-5">
+            <section className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">
+                Project / Workspace
+              </div>
+              <CanvasContextPicker
+                isLoadingProjects={isLoadingProjects}
+                options={contextOptions}
+                projects={projects}
+                selectedValue={selectedContextValue}
+                onValueChange={setSelectedContextValue}
+              />
+            </section>
+
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-medium text-muted-foreground">Component</div>
+                {selectedItemTypes.length > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedItemTypes.length} selected
+                  </span>
+                ) : !selectedContext ? (
+                  <span className="text-xs text-muted-foreground">Global widgets available</span>
+                ) : null}
+              </div>
+              <div className="space-y-4 rounded-md border border-dashed border-border/80 p-3">
+                {CANVAS_WIDGET_GROUPS.map((group) => {
+                  const itemTypes = ADDABLE_CANVAS_ITEM_TYPES.filter(
+                    (type) => getCanvasAddItemEntry(type).group === group.id,
+                  );
+
+                  if (itemTypes.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <div key={group.id} className="space-y-2">
+                      <div className="text-[11px] font-medium text-muted-foreground">
+                        {group.label}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {itemTypes.map((type) => {
+                          const entry = getCanvasAddItemEntry(type);
+                          const Icon = entry.icon;
+                          const active = selectedItemTypes.includes(type);
+                          const disabled = entry.requiresContext && !selectedContext;
+                          return (
+                            <button
+                              key={type}
+                              type="button"
+                              aria-pressed={active}
+                              disabled={disabled}
+                              onClick={() => toggleItemType(type)}
+                              className={cn(
+                                "flex min-h-20 items-start gap-3 rounded-md bg-muted/35 p-3 text-left transition-colors",
+                                "enabled:hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45",
+                                "disabled:cursor-not-allowed disabled:bg-muted/20 disabled:opacity-45",
+                                active && "bg-accent",
+                              )}
+                            >
+                              <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                              <span className="min-w-0 flex-1">
+                                <span className="flex min-w-0 items-center justify-between gap-3 text-sm font-medium text-foreground">
+                                  <span className="min-w-0 truncate">{entry.label}</span>
+                                  {active ? <Check className="size-3.5 shrink-0 text-success" /> : null}
+                                </span>
+                                <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                                  {entry.description}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Frame</div>
+              <Select value={selectedFrameValue} onValueChange={setSelectedFrameValue}>
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder="No frame" />
+                </SelectTrigger>
+                <SelectContent className="z-[1001]">
+                  <SelectItem value={NO_FRAME_VALUE}>No frame</SelectItem>
+                  {frameTargets.map((frame) => (
+                    <SelectItem key={frame.id} value={frame.id}>
+                      <span className="flex items-center gap-2">
+                        <Frame className="size-3.5 text-muted-foreground" />
+                        {frame.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </section>
           </div>
         </div>
 
-        <div className="grid gap-5 p-5">
-          <section className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">
-              Project / Workspace
-            </div>
-            <CanvasContextPicker
-              isLoadingProjects={isLoadingProjects}
-              options={contextOptions}
-              projects={projects}
-              selectedValue={selectedContextValue}
-              onValueChange={setSelectedContextValue}
-            />
-          </section>
-
-          <section className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-medium text-muted-foreground">Component</div>
-              {!selectedContext ? (
-                <span className="text-xs text-muted-foreground">Select a context first</span>
-              ) : selectedWidgetTypes.length > 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  {selectedWidgetTypes.length} selected
-                </span>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {ADDABLE_CANVAS_WIDGET_TYPES.map((type) => {
-                const entry = CANVAS_WIDGET_REGISTRY[type];
-                const Icon = entry.icon;
-                const active = selectedWidgetTypes.includes(type);
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    aria-pressed={active}
-                    disabled={!selectedContext}
-                    onClick={() => toggleWidgetType(type)}
-                    className={cn(
-                      "flex min-h-20 items-start gap-3 rounded-md border border-border bg-background p-3 text-left transition-colors",
-                      "enabled:hover:border-foreground/30 enabled:hover:bg-accent/60",
-                      "disabled:cursor-not-allowed disabled:opacity-45",
-                      active && "border-foreground/40 bg-accent",
-                    )}
-                  >
-                    <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 items-center justify-between gap-3 text-sm font-medium text-foreground">
-                        <span className="min-w-0 truncate">{entry.label}</span>
-                        {active ? <Check className="size-3.5 shrink-0 text-success" /> : null}
-                      </span>
-                      <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                        {entry.description}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Frame</div>
-            <Select value={selectedFrameValue} onValueChange={setSelectedFrameValue}>
-              <SelectTrigger className="h-10 w-full">
-                <SelectValue placeholder="No frame" />
-              </SelectTrigger>
-              <SelectContent className="z-[1001]">
-                <SelectItem value={NO_FRAME_VALUE}>No frame</SelectItem>
-                {frameTargets.map((frame) => (
-                  <SelectItem key={frame.id} value={frame.id}>
-                    <span className="flex items-center gap-2">
-                      <Frame className="size-3.5 text-muted-foreground" />
-                      {frame.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </section>
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-border/70 px-5 py-3">
+        <div className="flex shrink-0 justify-end gap-2 border-t border-border/70 px-5 py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleAdd} disabled={!canAdd} className="gap-2">
-            {isLoadingProjects ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            {selectedWidgetTypes.length > 1
-              ? `Add ${selectedWidgetTypes.length} Widgets`
-              : "Add Widget"}
+            {isLoadingProjects || isAdding ? <Loader2 className="size-3.5 animate-spin" /> : null}
+            {getAddButtonLabel(selectedItemTypes)}
           </Button>
         </div>
       </PopoverContent>

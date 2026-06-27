@@ -70,6 +70,7 @@ function CanvasFilesWidgetBody({
       contextId={contextId}
       currentProjectPath={source.rootPath}
       revealEnabled={false}
+      contextMenuAnchor="local"
       onRefresh={loadFiles}
       onShowHiddenChange={(showHidden) => {
         editor.updateShape({

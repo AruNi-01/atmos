@@ -183,10 +183,10 @@
   }
 }
 
-@keyframes canvas-terminal-focus-pulse {
+@keyframes canvas-focus-pulse {
   0% {
     opacity: 0;
-    transform: scale(0.98);
+    transform: scale(0.995);
   }
   12% {
     opacity: 1;
@@ -194,7 +194,7 @@
   }
   45% {
     opacity: 0.35;
-    transform: scale(1.01);
+    transform: scale(1.004);
   }
   70% {
     opacity: 1;
@@ -202,14 +202,14 @@
   }
   100% {
     opacity: 0;
-    transform: scale(1.02);
+    transform: scale(1.008);
   }
 }
 
 @keyframes canvas-agent-ring {
   0% {
     opacity: 0;
-    transform: scale(0.97);
+    transform: scale(0.99);
   }
   15% {
     opacity: 1;
@@ -217,7 +217,7 @@
   }
   100% {
     opacity: 0;
-    transform: scale(1.02);
+    transform: scale(1.008);
   }
 }
 

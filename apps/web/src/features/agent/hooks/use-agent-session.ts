@@ -74,6 +74,7 @@ export interface StashedSession {
 
 export interface UseAgentSessionReturn {
   sessionId: string | null;
+  acpSessionId: string | null;
   sessionCwd: string | null;
   sessionTitle: string | null;
   isConnecting: boolean;
@@ -551,6 +552,7 @@ export function useAgentSession({
 
   return {
     sessionId,
+    acpSessionId,
     sessionCwd,
     sessionTitle,
     isConnecting,

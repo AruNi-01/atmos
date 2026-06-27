@@ -1,5 +1,6 @@
 //! ACP session runner - runs the ACP connection in a dedicated thread.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
@@ -157,6 +158,99 @@ fn current_value_only_config_option(
     }
 }
 
+fn ordered_config_values(values: HashMap<String, String>) -> Vec<(String, String)> {
+    let mut remaining = values;
+    let mut ordered = Vec::new();
+    for config_id in ["mode", "model", "reasoning_effort", "fast-mode"] {
+        if let Some(value) = remaining.remove(config_id) {
+            ordered.push((config_id.to_string(), value));
+        }
+    }
+    let mut rest: Vec<_> = remaining.into_iter().collect();
+    rest.sort_by(|a, b| a.0.cmp(&b.0));
+    ordered.extend(rest);
+    ordered
+}
+
+async fn apply_config_values(
+    conn: &ConnectionTo<Agent>,
+    session_id_acp: &schema::SessionId,
+    values: HashMap<String, String>,
+    uses_legacy_modes: bool,
+    uses_legacy_models: bool,
+    event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
+    context: &str,
+) {
+    for (config_id, value) in ordered_config_values(values) {
+        let session_id_text = session_id_acp.to_string();
+        info!(
+            "Applying {} config for {}: {}",
+            context, &session_id_text, config_id
+        );
+        if uses_legacy_modes && config_id == "mode" {
+            match conn
+                .send_request(schema::SetSessionModeRequest::new(
+                    session_id_acp.clone(),
+                    value.clone(),
+                ))
+                .block_task()
+                .await
+            {
+                Ok(_) => {
+                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                        current_value_only_config_option("mode", value),
+                    ]));
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to apply {} mode for {}: {}",
+                        context, &session_id_text, e
+                    );
+                }
+            }
+        } else if uses_legacy_models && config_id == "model" {
+            match conn
+                .send_request(schema::SetSessionModelRequest::new(
+                    session_id_acp.clone(),
+                    value.clone(),
+                ))
+                .block_task()
+                .await
+            {
+                Ok(_) => {
+                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
+                        current_value_only_config_option("model", value),
+                    ]));
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to apply {} model for {}: {}",
+                        context, &session_id_text, e
+                    );
+                }
+            }
+        } else {
+            let req = schema::SetSessionConfigOptionRequest::new(
+                session_id_acp.clone(),
+                schema::SessionConfigId::new(config_id),
+                schema::SessionConfigValueId::new(value),
+            );
+            match conn.send_request(req).block_task().await {
+                Ok(resp) => {
+                    let out = map_config_options(resp.config_options);
+                    let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to apply {} config for {}: {}",
+                        context, &session_id_text, e
+                    );
+                }
+            }
+        }
+    }
+}
+
 pub(crate) fn map_implementation_info(
     info: Option<schema::Implementation>,
 ) -> Option<AgentImplementationInfo> {
@@ -234,6 +328,13 @@ fn internal_error(message: impl Into<String>) -> acp::Error {
 enum SessionRestoreMethod {
     LoadWithHistory,
     ResumeContextOnly,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct SessionConfigEmitResult {
+    uses_legacy_modes: bool,
+    uses_legacy_models: bool,
+    has_any: bool,
 }
 
 fn select_session_restore_method(
@@ -368,6 +469,7 @@ pub async fn run_acp_session(
     resume_session_id: Option<String>,
     auth_method_id: Option<String>,
     default_config: Option<std::collections::HashMap<String, String>>,
+    session_config_snapshot: Option<HashMap<String, String>>,
 ) -> Result<AcpSessionHandle, String> {
     let session_id_for_thread = session_id_hint.clone();
     let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel::<SessionCommand>();
@@ -403,6 +505,7 @@ pub async fn run_acp_session(
                         permission_tx,
                         Some(ready_tx),
                         default_config,
+                        session_config_snapshot,
                     )
                     .await
                     {
@@ -447,7 +550,7 @@ pub async fn run_acp_session(
 
 #[allow(clippy::too_many_arguments)]
 async fn run_session_inner(
-    session_id: &str,
+    _session_id: &str,
     launch_spec: AgentLaunchSpec,
     cwd: &Path,
     handler: Arc<dyn AcpToolHandler>,
@@ -459,6 +562,7 @@ async fn run_session_inner(
     permission_tx: mpsc::UnboundedSender<(PermissionRequest, oneshot::Sender<bool>)>,
     mut ready_tx: Option<oneshot::Sender<Result<String, String>>>,
     default_config: Option<std::collections::HashMap<String, String>>,
+    session_config_snapshot: Option<HashMap<String, String>>,
 ) -> Result<(), String> {
     // Must be held alive for the session duration; dropping triggers kill_on_drop
     let (stdin, stdout, stderr, child_guard) =
@@ -624,12 +728,17 @@ async fn run_session_inner(
                 modes: Option<schema::SessionModeState>,
                 models: Option<schema::SessionModelState>,
                 event_tx: &mpsc::UnboundedSender<AcpSessionEvent>,
-            ) -> (bool, bool) {
+            ) -> SessionConfigEmitResult {
                 if let Some(opts) = config_options {
                     info!("Session returned {} config options", opts.len());
                     let out = map_config_options(opts);
+                    let has_any = !out.is_empty();
                     let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
-                    (false, false)
+                    SessionConfigEmitResult {
+                        uses_legacy_modes: false,
+                        uses_legacy_models: false,
+                        has_any,
+                    }
                 } else {
                     let mut legacy_opts = Vec::new();
                     let mut leg_modes = false;
@@ -655,7 +764,11 @@ async fn run_session_inner(
                     } else {
                         let _ = event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(legacy_opts));
                     }
-                    (leg_modes, leg_models)
+                    SessionConfigEmitResult {
+                        uses_legacy_modes: leg_modes,
+                        uses_legacy_models: leg_models,
+                        has_any: leg_modes || leg_models,
+                    }
                 }
             }
 
@@ -673,24 +786,79 @@ async fn run_session_inner(
                             .is_some(),
                     );
                     if restore_method == Some(SessionRestoreMethod::LoadWithHistory) {
-                        conn.send_request(schema::LoadSessionRequest::new(
-                            requested.clone(),
-                            cwd.clone(),
-                        ))
-                        .block_task()
-                        .await
-                        .map(|response| {
-                            info!("Loaded ACP session via legacy session/load: {}", resume_id);
-                            restored_existing_session = true;
-                            replayed_loaded_history = true;
-                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
-                                response.config_options,
-                                response.modes,
-                                response.models,
-                                &event_tx,
-                            );
-                            requested
-                        })
+                        match conn
+                            .send_request(schema::LoadSessionRequest::new(
+                                requested.clone(),
+                                cwd.clone(),
+                            ))
+                            .block_task()
+                            .await
+                        {
+                            Ok(response) => {
+                                info!(
+                                    "Loaded ACP session via legacy session/load: {}",
+                                    resume_id
+                                );
+                                restored_existing_session = true;
+                                replayed_loaded_history = true;
+                                let should_probe_resume_for_config =
+                                    init_response
+                                        .agent_capabilities
+                                        .session_capabilities
+                                        .resume
+                                        .is_some()
+                                        && response
+                                            .config_options
+                                            .as_ref()
+                                            .map(|opts| opts.is_empty())
+                                            .unwrap_or(true);
+                                let emitted = emit_session_config(
+                                    response.config_options,
+                                    response.modes,
+                                    response.models,
+                                    &event_tx,
+                                );
+                                uses_legacy_modes = emitted.uses_legacy_modes;
+                                uses_legacy_models = emitted.uses_legacy_models;
+
+                                if should_probe_resume_for_config {
+                                    match conn
+                                        .send_request(schema::ResumeSessionRequest::new(
+                                            requested.clone(),
+                                            cwd.clone(),
+                                        ))
+                                        .block_task()
+                                        .await
+                                    {
+                                        Ok(response) => {
+                                            info!(
+                                                "Probed ACP session/resume for config after load: {}",
+                                                resume_id
+                                            );
+                                            let emitted = emit_session_config(
+                                                response.config_options,
+                                                response.modes,
+                                                response.models,
+                                                &event_tx,
+                                            );
+                                            if emitted.has_any {
+                                                uses_legacy_modes = emitted.uses_legacy_modes;
+                                                uses_legacy_models = emitted.uses_legacy_models;
+                                            }
+                                        }
+                                        Err(e) => {
+                                            warn!(
+                                                "Failed to probe session/resume config after load for {}: {}",
+                                                resume_id, e
+                                            );
+                                        }
+                                    }
+                                }
+
+                                Ok(requested)
+                            }
+                            Err(err) => Err(err),
+                        }
                     } else if restore_method == Some(SessionRestoreMethod::ResumeContextOnly) {
                         conn.send_request(schema::ResumeSessionRequest::new(
                             requested.clone(),
@@ -701,12 +869,14 @@ async fn run_session_inner(
                         .map(|response| {
                             info!("Resumed ACP session without history replay: {}", resume_id);
                             restored_existing_session = true;
-                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
+                            let emitted = emit_session_config(
                                 response.config_options,
                                 response.modes,
                                 response.models,
                                 &event_tx,
                             );
+                            uses_legacy_modes = emitted.uses_legacy_modes;
+                            uses_legacy_models = emitted.uses_legacy_models;
                             requested
                         })
                     } else {
@@ -724,12 +894,14 @@ async fn run_session_inner(
                         .block_task()
                         .await
                         .map(|response| {
-                            (uses_legacy_modes, uses_legacy_models) = emit_session_config(
+                            let emitted = emit_session_config(
                                 response.config_options,
                                 response.modes,
                                 response.models,
                                 &event_tx,
                             );
+                            uses_legacy_modes = emitted.uses_legacy_modes;
+                            uses_legacy_models = emitted.uses_legacy_models;
                             response.session_id
                         })
                 };
@@ -751,79 +923,30 @@ async fn run_session_inner(
                 }
             };
 
-            // Apply default configurations for newly created sessions only.
-            // When resuming an existing ACP session, applying defaults again can
-            // overwrite the live session config (for example, model selection).
-            if !restored_existing_session {
-                if let Some(defaults) = default_config {
-                    for (config_id, value) in defaults {
-                        info!(
-                            "Applying default config for {}: {}={}",
-                            session_id, config_id, value
-                        );
-                        if uses_legacy_modes && config_id == "mode" {
-                            match conn
-                                .send_request(schema::SetSessionModeRequest::new(
-                                    session_id_acp.clone(),
-                                    value.clone(),
-                                ))
-                                .block_task()
-                                .await
-                            {
-                                Ok(_) => {
-                                    let _ =
-                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                            current_value_only_config_option("mode", value),
-                                        ]));
-                                }
-                                Err(e) => {
-                                    warn!("Failed to apply default mode for {}: {}", session_id, e);
-                                }
-                            }
-                        } else if uses_legacy_models && config_id == "model" {
-                            match conn
-                                .send_request(schema::SetSessionModelRequest::new(
-                                    session_id_acp.clone(),
-                                    value.clone(),
-                                ))
-                                .block_task()
-                                .await
-                            {
-                                Ok(_) => {
-                                    let _ =
-                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(vec![
-                                            current_value_only_config_option("model", value),
-                                        ]));
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        "Failed to apply default model for {}: {}",
-                                        session_id, e
-                                    );
-                                }
-                            }
-                        } else {
-                            let req = schema::SetSessionConfigOptionRequest::new(
-                                session_id_acp.clone(),
-                                schema::SessionConfigId::new(config_id),
-                                schema::SessionConfigValueId::new(value),
-                            );
-                            match conn.send_request(req).block_task().await {
-                                Ok(resp) => {
-                                    let out = map_config_options(resp.config_options);
-                                    let _ =
-                                        event_tx.send(AcpSessionEvent::ConfigOptionsUpdate(out));
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        "Failed to apply default config for {}: {}",
-                                        session_id, e
-                                    );
-                                }
-                            }
-                        }
-                    }
+            if restored_existing_session {
+                if let Some(snapshot) = session_config_snapshot {
+                    apply_config_values(
+                        &conn,
+                        &session_id_acp,
+                        snapshot,
+                        uses_legacy_modes,
+                        uses_legacy_models,
+                        &event_tx,
+                        "session snapshot",
+                    )
+                    .await;
                 }
+            } else if let Some(defaults) = default_config {
+                apply_config_values(
+                    &conn,
+                    &session_id_acp,
+                    defaults,
+                    uses_legacy_modes,
+                    uses_legacy_models,
+                    &event_tx,
+                    "default",
+                )
+                .await;
             }
 
             // Per ACP spec, the session/load response means all history has been
@@ -1198,7 +1321,8 @@ pub async fn logout_acp_agent(
 
 #[cfg(test)]
 mod tests {
-    use super::{select_session_restore_method, SessionRestoreMethod};
+    use super::{ordered_config_values, select_session_restore_method, SessionRestoreMethod};
+    use std::collections::HashMap;
 
     #[test]
     fn session_restore_prefers_load_when_history_replay_is_available() {
@@ -1219,5 +1343,26 @@ mod tests {
             Some(SessionRestoreMethod::ResumeContextOnly)
         );
         assert_eq!(select_session_restore_method(false, false), None);
+    }
+
+    #[test]
+    fn ordered_config_values_applies_model_before_effort() {
+        let values = HashMap::from([
+            ("reasoning_effort".to_string(), "low".to_string()),
+            ("custom".to_string(), "value".to_string()),
+            ("model".to_string(), "gpt-5.3-codex-spark".to_string()),
+            ("mode".to_string(), "agent-full-access".to_string()),
+            ("fast-mode".to_string(), "on".to_string()),
+        ]);
+
+        let ordered: Vec<_> = ordered_config_values(values)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+
+        assert_eq!(
+            ordered,
+            vec!["mode", "model", "reasoning_effort", "fast-mode", "custom"]
+        );
     }
 }

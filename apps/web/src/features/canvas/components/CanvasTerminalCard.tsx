@@ -37,6 +37,10 @@ import {
   registerCanvasTerminalRef,
   useCanvasTerminalRefs,
 } from "../lib/canvas-terminal-ref-context";
+import {
+  CANVAS_CARD_CORNER_RADIUS,
+  getCanvasCardInnerCornerRadius,
+} from "../lib/canvas-shape-indicator";
 
 export const CanvasAgentContext = React.createContext<TerminalPaneAgent[]>([]);
 
@@ -399,6 +403,8 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
               top: terminalViewport.top,
               width: terminalViewport.width,
               height: terminalViewport.height,
+              borderBottomLeftRadius: getCanvasCardInnerCornerRadius(terminalViewport.scale),
+              borderBottomRightRadius: getCanvasCardInnerCornerRadius(terminalViewport.scale),
               zIndex: isActive
                 ? CANVAS_TERMINAL_OVERLAY_Z_INDEX + 1
                 : CANVAS_TERMINAL_OVERLAY_Z_INDEX,
@@ -448,13 +454,13 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
     <>
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-[20px] bg-background text-foreground",
-        // 已挂载 live terminal：不画卡片外框，由 tldraw 选区/形状指示承担轮廓
-        isRendered ? "border-0 shadow-none" : "border border-border shadow-sm",
+        "flex h-full flex-col overflow-hidden border bg-background text-foreground shadow-sm",
+        isSelected ? "border-transparent" : "border-border",
       )}
+      style={{ borderRadius: CANVAS_CARD_CORNER_RADIUS }}
     >
       <div
-        className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3"
+        className="flex items-center justify-between gap-3 border-b border-border/70 bg-background px-4 py-3"
         onPointerDown={() => {
           activateTerminal();
         }}
@@ -516,8 +522,12 @@ function CanvasTerminalCardInner({ shape }: { shape: CanvasTerminalShape }) {
       </div>
       <div
         ref={terminalHostRef}
-        className="min-h-0 flex-1 bg-background"
-        style={{ overscrollBehavior: "contain" }}
+        className="min-h-0 flex-1 overflow-hidden bg-background"
+        style={{
+          borderBottomLeftRadius: CANVAS_CARD_CORNER_RADIUS - 1,
+          borderBottomRightRadius: CANVAS_CARD_CORNER_RADIUS - 1,
+          overscrollBehavior: "contain",
+        }}
         onPointerDown={markTerminalInteractionHandled}
         onPointerMove={stopCanvasInteractionWhileActive}
         onPointerUp={stopCanvasInteractionWhileActive}

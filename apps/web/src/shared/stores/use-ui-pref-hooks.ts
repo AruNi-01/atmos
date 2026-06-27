@@ -41,13 +41,22 @@ function useInstanceSlice<T>(slice: UiPrefSlice, fallback: T): [T, (value: T | (
 
 export interface AgentUiPrefs {
   defaultRegistryId: string | null;
-  lastSessionByContext: Record<string, string>;
+  lastSessionByContext: Record<string, AgentLastSession | string>;
 }
 
 const DEFAULT_AGENT_PREFS: AgentUiPrefs = {
   defaultRegistryId: null,
   lastSessionByContext: {},
 };
+
+export interface AgentLastSession {
+  registryId: string;
+  acpSessionId: string;
+  cwd: string | null;
+  workspaceId: string | null;
+  projectId: string | null;
+  updatedAt: number;
+}
 
 export function useAgentUiPrefs(): [
   AgentUiPrefs,
@@ -81,15 +90,38 @@ export function writeDefaultAgentRegistryId(registryId: string): void {
   );
 }
 
-export function writeAgentLastSession(contextKey: string, sessionGuid: string): void {
+export function readAgentLastSession(contextKey: string): AgentLastSession | null {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  const value = useUiPrefStore.getState().readSlice(instanceId, 'agent', DEFAULT_AGENT_PREFS)
+    .lastSessionByContext[contextKey];
+  if (!value || typeof value === 'string') return null;
+  if (!value.registryId || !value.acpSessionId) return null;
+  return value;
+}
+
+export function writeAgentLastSession(contextKey: string, session: AgentLastSession): void {
   const instanceId = useConnectionStore.getState().activeInstanceId;
   useUiPrefStore.getState().patchSlice(
     instanceId,
     'agent',
     prev => ({
       ...prev,
-      lastSessionByContext: { ...prev.lastSessionByContext, [contextKey]: sessionGuid },
+      lastSessionByContext: { ...prev.lastSessionByContext, [contextKey]: session },
     }),
+    DEFAULT_AGENT_PREFS,
+  );
+}
+
+export function clearAgentLastSession(contextKey: string): void {
+  const instanceId = useConnectionStore.getState().activeInstanceId;
+  useUiPrefStore.getState().patchSlice(
+    instanceId,
+    'agent',
+    prev => {
+      const next = { ...prev.lastSessionByContext };
+      delete next[contextKey];
+      return { ...prev, lastSessionByContext: next };
+    },
     DEFAULT_AGENT_PREFS,
   );
 }

@@ -3,7 +3,10 @@ import { describe, expect, it } from "bun:test";
 
 import {
   buildCanvasWidgetPinKey,
+  createGlobalCanvasContextRef,
   createCanvasWidgetShapeProps,
+  getCanvasContextLabel,
+  isGlobalCanvasContext,
   type CanvasContextRef,
 } from "../lib/canvas-widget-shape";
 import {
@@ -45,6 +48,42 @@ describe("canvas-widget shape helpers", () => {
         "shape:frame-1",
       ),
     ).toBe("center:workspace:workspace-1:shape:frame-1");
+  });
+
+  it("creates global pin keys for context-free widgets", () => {
+    const globalContext = createGlobalCanvasContextRef();
+
+    expect(
+      buildCanvasWidgetPinKey({
+        type: "agent-status",
+        context: globalContext,
+      }),
+    ).toBe("agent-status:global");
+
+    expect(
+      createCanvasWidgetShapeProps({
+        widgetType: "agent-chat",
+        source: {
+          type: "agent-chat",
+          context: globalContext,
+        },
+      }).pinKey,
+    ).toBe("agent-chat:global");
+  });
+
+  it("does not treat an empty default context as global", () => {
+    const emptyContext: CanvasContextRef = {
+      contextScope: "workspace",
+      projectId: null,
+      workspaceId: null,
+      projectName: "",
+      workspaceName: null,
+      localPath: "",
+      repoPath: null,
+    };
+
+    expect(isGlobalCanvasContext(emptyContext)).toBe(false);
+    expect(getCanvasContextLabel(emptyContext)).toBe("Workspace");
   });
 
   it("fills default dimensions and title from widget type", () => {

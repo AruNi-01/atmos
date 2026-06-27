@@ -15,6 +15,7 @@ import { useCanvasRuntimeStore } from "@/features/canvas/store/canvas-runtime-st
 import {
   CanvasWidgetShapeSchemaUtil,
   getCanvasContextLabel,
+  hasConcreteCanvasContext,
   type CanvasWidgetShape,
 } from "@/features/canvas/lib/canvas-widget-shape";
 import { CANVAS_WIDGET_REGISTRY } from "@/features/canvas/lib/canvas-widget-registry";
@@ -27,11 +28,22 @@ import { CanvasAgentStatusWidget } from "@/features/canvas/components/widgets/Ca
 import { CanvasAIQuotaUsageWidget } from "@/features/canvas/components/widgets/CanvasAIQuotaUsageWidget";
 import { CanvasAgentChatWidget } from "@/features/canvas/components/widgets/CanvasAgentChatWidget";
 import { CanvasWidgetHostProvider } from "@/features/canvas/components/CanvasWidgetHost";
+import { CANVAS_CARD_CORNER_RADIUS } from "@/features/canvas/lib/canvas-shape-indicator";
 
 export class CanvasWidgetShapeUtil extends CanvasWidgetShapeSchemaUtil {
   component(shape: CanvasWidgetShape) {
     return <CanvasWidgetCard shape={shape} />;
   }
+}
+
+function isCanvasSelectableTextTarget(target: EventTarget | null) {
+  const element =
+    target instanceof Element
+      ? target
+      : target instanceof Node
+        ? target.parentElement
+        : null;
+  return Boolean(element?.closest('[data-canvas-selectable-text="true"]'));
 }
 
 function CanvasWidgetCard({ shape }: { shape: CanvasWidgetShape }) {
@@ -66,6 +78,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
       ? registry.label
       : shape.props.title;
   const canRefreshWidget = shape.props.source.type !== "center";
+  const canRevealSource = hasConcreteCanvasContext(shape.props.source.context);
   const isSelected = useValue(
     "canvas-widget-selected",
     () => editor.getSelectedShapeIds().includes(shape.id as TLShapeId),
@@ -81,6 +94,9 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
   const markWidgetInteractionHandled = React.useCallback(
     (event: React.SyntheticEvent) => {
       editor.markEventAsHandled(event);
+      if (isCanvasSelectableTextTarget(event.target)) {
+        return;
+      }
       activateWidget();
     },
     [activateWidget, editor],
@@ -88,7 +104,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
 
   const stopCanvasInteractionWhileActive = React.useCallback(
     (event: React.SyntheticEvent) => {
-      if (!isActive) {
+      if (!isActive && !isCanvasSelectableTextTarget(event.target)) {
         return;
       }
       editor.markEventAsHandled(event);
@@ -196,12 +212,13 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
   return (
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-[20px] bg-background text-foreground",
-        isSelected ? "border border-foreground/20 shadow-sm" : "border border-border shadow-sm",
+        "flex h-full flex-col overflow-hidden border bg-background text-foreground shadow-sm",
+        isSelected ? "border-transparent" : "border-border",
       )}
+      style={{ borderRadius: CANVAS_CARD_CORNER_RADIUS }}
     >
       <div
-        className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3"
+        className="flex items-center justify-between gap-3 border-b border-border/70 bg-background px-4 py-3"
         onPointerDown={activateWidget}
       >
         <div className="flex min-w-0 items-center gap-2">
@@ -232,16 +249,18 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
               <RefreshCcw className="size-3.5" />
             </button>
           ) : null}
-          <button
-            type="button"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={handleRevealSource}
-            aria-label="Open source"
-            title="Source"
-            className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <ArrowUpRight className="size-3.5" />
-          </button>
+          {canRevealSource ? (
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={handleRevealSource}
+              aria-label="Open source"
+              title="Source"
+              className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <ArrowUpRight className="size-3.5" />
+            </button>
+          ) : null}
           <button
             type="button"
             onPointerDown={(event) => event.stopPropagation()}

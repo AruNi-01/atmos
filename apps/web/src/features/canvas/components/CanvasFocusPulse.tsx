@@ -4,17 +4,24 @@ import { useEditor, useValue, type TLShapeId } from "tldraw";
 import { cn } from "@workspace/ui";
 
 import { useCanvasRuntimeStore } from "../store/canvas-runtime-store";
+import { CANVAS_CARD_CORNER_RADIUS } from "../lib/canvas-shape-indicator";
 
 /**
- * Brief highlight around a canvas terminal shape (e.g. after auto-focus on open).
+ * Brief highlight around canvas shapes after creation or focus.
  */
-export function CanvasTerminalFocusPulse() {
+export function CanvasFocusPulse() {
   const editor = useEditor();
-  const shapeId = useCanvasRuntimeStore((state) => state.focusPulseShapeId);
+  const shapeIds = useCanvasRuntimeStore((state) => state.focusPulseShapeIds);
 
-  if (!shapeId) return null;
+  if (shapeIds.length === 0) return null;
 
-  return <TerminalFocusRing shapeId={shapeId} editor={editor} />;
+  return (
+    <>
+      {shapeIds.map((shapeId) => (
+        <TerminalFocusRing key={shapeId} shapeId={shapeId} editor={editor} />
+      ))}
+    </>
+  );
 }
 
 function TerminalFocusRing({
@@ -52,20 +59,22 @@ function TerminalFocusRing({
 
   const width = Math.max(0, bottomRight.x - topLeft.x);
   const height = Math.max(0, bottomRight.y - topLeft.y);
+  const pulseOutset = 4;
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[3]" aria-hidden>
       <div
         style={{
-          left: topLeft.x - 8,
-          top: topLeft.y - 8,
-          width: width + 16,
-          height: height + 16,
+          left: topLeft.x - pulseOutset,
+          top: topLeft.y - pulseOutset,
+          width: width + pulseOutset * 2,
+          height: height + pulseOutset * 2,
+          borderRadius: CANVAS_CARD_CORNER_RADIUS + pulseOutset,
         }}
         className={cn(
-          "absolute rounded-[20px] border-2 border-sky-400/90",
-          "shadow-[0_0_0_6px_rgba(56,189,248,0.2),0_0_28px_6px_rgba(56,189,248,0.35)]",
-          "animate-[canvas-terminal-focus-pulse_2400ms_ease-in-out_forwards]",
+          "absolute border border-sky-400/90",
+          "shadow-[0_0_0_3px_rgba(56,189,248,0.16),0_0_14px_2px_rgba(56,189,248,0.28)]",
+          "animate-[canvas-focus-pulse_2400ms_ease-in-out_forwards]",
         )}
       />
     </div>

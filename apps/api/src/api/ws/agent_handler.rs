@@ -1,6 +1,7 @@
 //! Agent WebSocket handler - bridges WebSocket with ACP session.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use agent::{AcpSessionEvent, AcpSessionHandle};
 use axum::{
@@ -187,6 +188,15 @@ fn event_to_message(runtime_session_id: &str, ev: AcpSessionEvent) -> Option<Age
     }
 }
 
+fn config_current_values(
+    options: &[agent::acp_client::types::AgentConfigOption],
+) -> HashMap<String, Option<String>> {
+    options
+        .iter()
+        .map(|option| (option.id.clone(), option.current_value.clone()))
+        .collect()
+}
+
 /// WebSocket upgrade handler for Agent chat session
 pub async fn agent_ws_handler(
     Path(session_id): Path<String>,
@@ -253,6 +263,8 @@ async fn handle_lazy_agent_socket(
     send_phase(&ws_tx, "initializing");
     send_phase(&ws_tx, "spawning_agent");
 
+    let registry_id = spec.registry_id.clone();
+    let session_cwd = spec.cwd.clone();
     let connect_result = state.agent_session_service.connect_session(spec).await;
 
     let session_id_close = session_id.clone();
@@ -261,7 +273,16 @@ async fn handle_lazy_agent_socket(
     match connect_result {
         Ok(handle) => {
             send_phase(&ws_tx, "connected");
-            run_bridge(session_id, handle, ws_tx, ws_receiver, state).await;
+            run_bridge(
+                session_id,
+                registry_id,
+                session_cwd,
+                handle,
+                ws_tx,
+                ws_receiver,
+                state,
+            )
+            .await;
         }
         Err(e) => {
             error!(
@@ -304,6 +325,8 @@ async fn handle_lazy_agent_socket(
 /// Common bridge loop between WS receiver and ACP session handle.
 async fn run_bridge(
     session_id: String,
+    registry_id: String,
+    session_cwd: PathBuf,
     mut handle: AcpSessionHandle,
     ws_tx: mpsc::UnboundedSender<String>,
     mut ws_receiver: futures_util::stream::SplitStream<axum::extract::ws::WebSocket>,
@@ -315,7 +338,12 @@ async fn run_bridge(
 
     let bridge_ws_tx = ws_tx.clone();
     let session_id_for_bridge = session_id.clone();
+    let agent_session_service = state.agent_session_service.clone();
+    let registry_id_for_bridge = registry_id.clone();
+    let cwd_for_bridge = session_cwd.to_string_lossy().to_string();
     let bridge_task = tokio::spawn(async move {
+        let mut acp_session_id_for_snapshot: Option<String> = None;
+        let mut pending_config_values: HashMap<String, Option<String>> = HashMap::new();
         loop {
             tokio::select! {
                 biased;
@@ -338,6 +366,50 @@ async fn run_bridge(
                             if let Ok(msg) = serde_json::to_string(&AgentServerMessage::PermissionRequest(req)) {
                                 let _ = bridge_ws_tx.send(msg);
                             }
+                        }
+                        match &ev {
+                            AcpSessionEvent::ConfigOptionsUpdate(options) => {
+                                let values = config_current_values(options);
+                                if !values.is_empty() {
+                                    pending_config_values.extend(values.clone());
+                                    if let Some(acp_session_id) = acp_session_id_for_snapshot.as_deref() {
+                                        if let Err(error) = agent_session_service
+                                            .remember_session_config_snapshot(
+                                                &registry_id_for_bridge,
+                                                acp_session_id,
+                                                Some(&cwd_for_bridge),
+                                                values,
+                                            )
+                                            .await
+                                        {
+                                            warn!(
+                                                "Failed to remember ACP session config for {}: {}",
+                                                acp_session_id, error
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                            AcpSessionEvent::SessionReady { acp_session_id } => {
+                                acp_session_id_for_snapshot = Some(acp_session_id.clone());
+                                if !pending_config_values.is_empty() {
+                                    if let Err(error) = agent_session_service
+                                        .remember_session_config_snapshot(
+                                            &registry_id_for_bridge,
+                                            acp_session_id,
+                                            Some(&cwd_for_bridge),
+                                            pending_config_values.clone(),
+                                        )
+                                        .await
+                                    {
+                                        warn!(
+                                            "Failed to remember ACP session config for {}: {}",
+                                            acp_session_id, error
+                                        );
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                         if let Some(msg) = event_to_message(&session_id_for_bridge, ev) {
                             if let Ok(json) = serde_json::to_string(&msg) {

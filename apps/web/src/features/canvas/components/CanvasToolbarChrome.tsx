@@ -21,10 +21,15 @@ import {
   PanelBottomOpen,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 
 import { cn } from "@workspace/ui";
 import { useCanvasChromePrefs } from "@/features/canvas/hooks/use-canvas-chrome-prefs";
+
+const BOTTOM_TOOLBAR_HIDE_DELAY_MS = 600;
+const BOTTOM_TOOLBAR_FADE_MS = 220;
 
 export const CanvasTopLeftToolbarContext = React.createContext<{
   isCollapsed: boolean;
@@ -207,26 +212,39 @@ function CanvasTopLeftToolbarToggle() {
       )}
     >
       <TldrawUiButtonIcon
-        icon={
-          <CanvasToolbarIconFrame>
-            <PanelLeftClose
-              className={cn(
-                "absolute left-1/2 top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out",
-                isCollapsed ? "-rotate-90 scale-75 opacity-0" : "rotate-0 scale-100 opacity-100",
-              )}
-              strokeWidth={1.8}
-            />
-            <PanelLeftOpen
-              className={cn(
-                "absolute left-1/2 top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out",
-                isCollapsed ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-75 opacity-0",
-              )}
-              strokeWidth={1.8}
-            />
-          </CanvasToolbarIconFrame>
-        }
+        icon={<CanvasToolbarCollapseIcon isCollapsed={isCollapsed} />}
       />
     </TldrawUiButton>
+  );
+}
+
+export function CanvasToolbarCollapseIcon({
+  isCollapsed,
+  side = "left",
+}: {
+  isCollapsed: boolean;
+  side?: "left" | "right";
+}) {
+  const CloseIcon = side === "right" ? PanelRightClose : PanelLeftClose;
+  const OpenIcon = side === "right" ? PanelRightOpen : PanelLeftOpen;
+
+  return (
+    <CanvasToolbarIconFrame>
+      <CloseIcon
+        className={cn(
+          "absolute left-1/2 top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out",
+          isCollapsed ? "-rotate-90 scale-75 opacity-0" : "rotate-0 scale-100 opacity-100",
+        )}
+        strokeWidth={1.8}
+      />
+      <OpenIcon
+        className={cn(
+          "absolute left-1/2 top-1/2 size-[14px] -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ease-out",
+          isCollapsed ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-75 opacity-0",
+        )}
+        strokeWidth={1.8}
+      />
+    </CanvasToolbarIconFrame>
   );
 }
 
@@ -250,9 +268,14 @@ export function CanvasBottomToolbarPeek() {
   const [isOpen, setIsOpen] = React.useState(!isBottomToolbarDocked);
   const [shouldRenderToolbar, setShouldRenderToolbar] = React.useState(!isBottomToolbarDocked);
   const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeDelayTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const openFrameRef = React.useRef<number | null>(null);
 
   const cancelClose = React.useCallback(() => {
+    if (closeDelayTimeoutRef.current) {
+      clearTimeout(closeDelayTimeoutRef.current);
+      closeDelayTimeoutRef.current = null;
+    }
     if (closeTimeoutRef.current) {
       clearTimeout(closeTimeoutRef.current);
       closeTimeoutRef.current = null;
@@ -287,18 +310,22 @@ export function CanvasBottomToolbarPeek() {
       return;
     }
     cancelClose();
-    setIsOpen(false);
-    closeTimeoutRef.current = setTimeout(() => {
-      setShouldRenderToolbar(false);
-      closeTimeoutRef.current = null;
-    }, 220);
+    closeDelayTimeoutRef.current = setTimeout(() => {
+      closeDelayTimeoutRef.current = null;
+      setIsOpen(false);
+      closeTimeoutRef.current = setTimeout(() => {
+        setShouldRenderToolbar(false);
+        closeTimeoutRef.current = null;
+      }, BOTTOM_TOOLBAR_FADE_MS);
+    }, BOTTOM_TOOLBAR_HIDE_DELAY_MS);
   }, [cancelClose, isDocked]);
 
   React.useEffect(() => {
+    cancelClose();
     setIsDocked(isBottomToolbarDocked);
     setIsOpen(!isBottomToolbarDocked);
     setShouldRenderToolbar(!isBottomToolbarDocked);
-  }, [isBottomToolbarDocked]);
+  }, [cancelClose, isBottomToolbarDocked]);
 
   const handleToggleDocked = React.useCallback(() => {
     cancelClose();
@@ -310,7 +337,7 @@ export function CanvasBottomToolbarPeek() {
         closeTimeoutRef.current = setTimeout(() => {
           setShouldRenderToolbar(false);
           closeTimeoutRef.current = null;
-        }, 220);
+        }, BOTTOM_TOOLBAR_FADE_MS);
       } else {
         setShouldRenderToolbar(true);
         scheduleOpenAfterMount();
@@ -321,6 +348,9 @@ export function CanvasBottomToolbarPeek() {
 
   React.useEffect(() => {
     return () => {
+      if (closeDelayTimeoutRef.current) {
+        clearTimeout(closeDelayTimeoutRef.current);
+      }
       if (closeTimeoutRef.current) {
         clearTimeout(closeTimeoutRef.current);
       }

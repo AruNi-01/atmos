@@ -26,6 +26,7 @@ import {
 } from "@/features/agent/lib/agent/thread";
 import { SubAgentBlockView } from "./SubAgentBlockView";
 import { ToolOrSkillBlock } from "./ToolOrSkillBlock";
+import { agentMessageLinkSafety } from "./AgentMessageLinkSafetyModal";
 
 const REVIEW_PATH_RE = /(?:\/[\w.~-]+)*\/\.atmos\/reviews\/[\w./:~-]+\.md/;
 
@@ -143,32 +144,54 @@ export function AssistantTurnView({
     return -1;
   }, [entry.blocks]);
 
-  // Only collapse after the assistant turn has fully finished streaming.
-  // During streaming we keep everything expanded so the user can see progress
-  // of tool calls / thinking / intermediate text in real time.
-  const canCollapse = lastVisibleTextIndex >= 0 && !entry.isStreaming;
+  const hasRunningTool = useMemo(
+    () => entry.blocks.some((block) => block.type === "tool_call" && block.status?.toLowerCase() === "running"),
+    [entry.blocks],
+  );
+
+  const lastVisibleBlockIndex = useMemo(() => {
+    for (let i = entry.blocks.length - 1; i >= 0; i--) {
+      const block = entry.blocks[i];
+      if (!isBlockHidden(block, vendor, claudeSubAgentParentIds)) return i;
+    }
+    return -1;
+  }, [entry.blocks, vendor, claudeSubAgentParentIds]);
+
+  // Collapse only after the turn's final visible reply has arrived. While the
+  // agent is streaming or tools are still running, keep chronological order.
+  const canCollapse =
+    lastVisibleTextIndex >= 0 &&
+    lastVisibleBlockIndex === lastVisibleTextIndex &&
+    !entry.isStreaming &&
+    !hasRunningTool;
+
+  const trailingVisibleTextStartIndex = useMemo(() => {
+    if (lastVisibleTextIndex < 0) return -1;
+    let startIndex = lastVisibleTextIndex;
+    for (let i = lastVisibleTextIndex - 1; i >= 0; i--) {
+      const block = entry.blocks[i];
+      if (isBlockHidden(block, vendor, claudeSubAgentParentIds)) {
+        continue;
+      }
+      if (block.type !== "text" || !block.content) {
+        break;
+      }
+      startIndex = i;
+    }
+    return startIndex;
+  }, [entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
 
   const intermediateBlocks = useMemo(() => {
     if (!canCollapse) return [];
     const result: { block: AssistantBlock; origIndex: number }[] = [];
-    for (let i = 0; i < lastVisibleTextIndex; i++) {
+    for (let i = 0; i < trailingVisibleTextStartIndex; i++) {
       const b = entry.blocks[i];
       if (!isBlockHidden(b, vendor, claudeSubAgentParentIds)) result.push({ block: b, origIndex: i });
     }
     return result;
-  }, [canCollapse, entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
+  }, [canCollapse, entry.blocks, trailingVisibleTextStartIndex, vendor, claudeSubAgentParentIds]);
 
-  const trailingBlocks = useMemo(() => {
-    if (!canCollapse) return [];
-    const result: { block: AssistantBlock; origIndex: number }[] = [];
-    for (let i = lastVisibleTextIndex + 1; i < entry.blocks.length; i++) {
-      const b = entry.blocks[i];
-      if (!isBlockHidden(b, vendor, claudeSubAgentParentIds)) result.push({ block: b, origIndex: i });
-    }
-    return result;
-  }, [canCollapse, entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
-
-  const hasCollapsibleContent = intermediateBlocks.length > 0 || trailingBlocks.length > 0;
+  const hasCollapsibleContent = intermediateBlocks.length > 0;
   const [stepsExpanded, setStepsExpanded] = useState(false);
 
   const renderBlock = (block: AssistantBlock, i: number) => {
@@ -186,6 +209,7 @@ export function AssistantTurnView({
           caret={isLastTextBlock ? "block" : undefined}
           className="break-words"
           components={reviewComponents}
+          linkSafety={agentMessageLinkSafety}
         >
           {block.content}
         </MessageResponse>
@@ -254,9 +278,6 @@ export function AssistantTurnView({
             {intermediateBlocks.map(({ block, origIndex }) => (
               <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
             ))}
-            {trailingBlocks.map(({ block, origIndex }) => (
-              <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
-            ))}
             <CollapsibleTrigger
               aria-label="Collapse process"
               className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
@@ -268,7 +289,10 @@ export function AssistantTurnView({
           </CollapsibleContent>
         </Collapsible>
 
-        {renderBlock(entry.blocks[lastVisibleTextIndex], lastVisibleTextIndex)}
+        {entry.blocks.slice(trailingVisibleTextStartIndex).map((block, index) => {
+          const origIndex = trailingVisibleTextStartIndex + index;
+          return <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>;
+        })}
       </>
     );
   }

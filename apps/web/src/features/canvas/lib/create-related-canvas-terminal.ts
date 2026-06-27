@@ -20,7 +20,9 @@ import {
 type CanvasTerminalPageBounds = NonNullable<ReturnType<Editor["getShapePageBounds"]>>;
 type RelatedCanvasShape = ReturnType<Editor["getCurrentPageShapes"]>[number];
 
-export type RelatedCanvasTerminalSourceShape = Pick<RelatedCanvasShape, "id" | "parentId">;
+export type RelatedCanvasTerminalSourceShape = Pick<RelatedCanvasShape, "id" | "parentId"> & {
+  props?: Partial<CanvasTerminalShapeProps>;
+};
 
 export type RelatedCanvasTerminalSourceContext = Pick<
   CanvasTerminalShapeProps,
@@ -52,10 +54,49 @@ export type RelatedCanvasTerminalResult = {
   tmuxWindowName: string;
 };
 
+function toRelatedCanvasTerminalSourceContext(
+  source: RelatedCanvasTerminalSourceContext | RelatedCanvasTerminalSourceShape | null | undefined,
+): RelatedCanvasTerminalSourceContext | null {
+  const candidate =
+    source && "contextScope" in source
+      ? source
+      : source && "props" in source
+        ? source.props
+        : null;
+
+  if (!candidate) {
+    return null;
+  }
+
+  const { contextScope, workspaceId, projectName, workspaceName, localPath } = candidate;
+  if (
+    (contextScope !== "project" && contextScope !== "workspace") ||
+    typeof workspaceId !== "string" ||
+    typeof projectName !== "string" ||
+    typeof workspaceName !== "string" ||
+    typeof localPath !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    contextScope,
+    workspaceId,
+    projectName,
+    workspaceName,
+    localPath,
+  };
+}
+
 export function resolveRelatedCanvasTerminalFrameName(
   projects: Project[],
-  sourceContext: RelatedCanvasTerminalSourceContext,
+  source: RelatedCanvasTerminalSourceContext | RelatedCanvasTerminalSourceShape,
 ) {
+  const sourceContext = toRelatedCanvasTerminalSourceContext(source);
+  if (!sourceContext) {
+    return "Workspace";
+  }
+
   for (const project of projects) {
     if (sourceContext.contextScope === "project" && project.id === sourceContext.workspaceId) {
       return project.name || sourceContext.projectName || "Project";
@@ -241,7 +282,7 @@ export function createRelatedCanvasTerminalShape({
   shape: RelatedCanvasTerminalSourceShape;
   created: CreatedTerminalTabWithPane;
   frameName: string;
-  sourceContext: RelatedCanvasTerminalSourceContext;
+  sourceContext?: RelatedCanvasTerminalSourceContext;
   currentBounds?: CanvasTerminalPageBounds | null;
   createId?: () => TLShapeId;
 }): RelatedCanvasTerminalResult | null {
@@ -256,18 +297,23 @@ export function createRelatedCanvasTerminalShape({
   }
 
   const newShapeId = createId();
-  const contextScope = sourceContext.contextScope;
+  const resolvedSourceContext = toRelatedCanvasTerminalSourceContext(sourceContext ?? shape);
+  if (!resolvedSourceContext) {
+    return null;
+  }
+
+  const contextScope = resolvedSourceContext.contextScope;
   const pinKey = buildCanvasTerminalPinKey(
     contextScope,
-    sourceContext.workspaceId,
+    resolvedSourceContext.workspaceId,
     nextTmuxWindowName,
   );
   const nextProps = createCanvasTerminalShapeProps({
     contextScope,
-    workspaceId: sourceContext.workspaceId,
-    projectName: sourceContext.projectName,
-    workspaceName: sourceContext.workspaceName,
-    localPath: sourceContext.localPath,
+    workspaceId: resolvedSourceContext.workspaceId,
+    projectName: resolvedSourceContext.projectName,
+    workspaceName: resolvedSourceContext.workspaceName,
+    localPath: resolvedSourceContext.localPath,
     terminalName: created.pane.label,
     tmuxWindowName: nextTmuxWindowName,
     paneAgent: created.pane.agent,

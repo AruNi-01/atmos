@@ -25,6 +25,8 @@ export type AgentActivity =
   | { busy: true; label: string };
 
 export {
+  clearAgentLastSession,
+  readAgentLastSession,
   readDefaultAgentRegistryId,
   writeDefaultAgentRegistryId,
   writeAgentLastSession,

@@ -20,7 +20,6 @@ import {
 } from "@workspace/ui";
 import {
   AlertTriangle,
-  ChevronsRight,
   Frame,
   Loader2,
   LoaderCircle,
@@ -72,7 +71,7 @@ import { useCanvasAgentBridge } from "../hooks/use-canvas-agent-bridge";
 import { CanvasAgentBridgeControls, CanvasAgentOverlay } from "./CanvasAgentOverlay";
 import { CanvasAgentOnCanvas } from "./CanvasAgentOnCanvas";
 import { CanvasAgentIsland } from "./CanvasAgentIsland";
-import { CanvasTerminalFocusPulse } from "./CanvasTerminalFocusPulse";
+import { CanvasFocusPulse } from "./CanvasFocusPulse";
 import { CanvasShapeCopyOverlay } from "./CanvasShapeCopyOverlay";
 import { CanvasUnsupportedInteractionDialog } from "./CanvasUnsupportedInteractionDialog";
 import {
@@ -120,6 +119,7 @@ import {
   CanvasThemeBridge,
   CanvasTopChromePaddingContext,
   CanvasTopLeftToolbarContext,
+  CanvasToolbarCollapseIcon,
   NullStylePanelSlot,
 } from "./CanvasToolbarChrome";
 
@@ -159,7 +159,7 @@ export const CanvasView: React.FC = () => {
   const activeShapeId = useCanvasRuntimeStore((state) => state.activeShapeId);
   const renderedShapeIds = useCanvasRuntimeStore((state) => state.renderedShapeIds);
   const setRenderedShapeIds = useCanvasRuntimeStore((state) => state.setRenderedShapeIds);
-  const setFocusPulseShapeId = useCanvasRuntimeStore((state) => state.setFocusPulseShapeId);
+  const setFocusPulseShapeIds = useCanvasRuntimeStore((state) => state.setFocusPulseShapeIds);
   const resetRuntime = useCanvasRuntimeStore((state) => state.reset);
   const {
     autoSaveInterval,
@@ -904,7 +904,8 @@ export const CanvasView: React.FC = () => {
         setActiveShapeId,
         setRenderedShapeIds,
         renderedShapeIds: useCanvasRuntimeStore.getState().renderedShapeIds,
-        setFocusPulseShapeId,
+        getFocusPulseShapeIds: () => useCanvasRuntimeStore.getState().focusPulseShapeIds,
+        setFocusPulseShapeIds,
       });
     });
 
@@ -917,7 +918,7 @@ export const CanvasView: React.FC = () => {
     editorReady,
     maxRenderedTerminals,
     setActiveShapeId,
-    setFocusPulseShapeId,
+    setFocusPulseShapeIds,
     setRenderedShapeIds,
   ]);
 
@@ -1069,12 +1070,7 @@ export const CanvasView: React.FC = () => {
           title={isToolbarCollapsed ? "Expand toolbar" : "Collapse toolbar"}
           className={sharePanelIconButtonClass}
         >
-          <ChevronsRight
-            className={cn(
-              "size-3.5 transition-transform duration-300 ease-out",
-              isToolbarCollapsed && "rotate-180",
-            )}
-          />
+          <CanvasToolbarCollapseIcon isCollapsed={isToolbarCollapsed} side="right" />
         </Button>
         <CanvasAnimatedToolbarGroup isCollapsed={isToolbarCollapsed}>
           <div className="ml-0.5 flex items-center gap-0.5">
@@ -1253,7 +1249,7 @@ export const CanvasView: React.FC = () => {
               >
                 <CanvasThemeBridge />
                 <CanvasAgentOverlay bridge={canvasAgentBridge} />
-                <CanvasTerminalFocusPulse />
+                <CanvasFocusPulse />
               </Tldraw>
             </CanvasAgentCrashBoundary>
           </CanvasTopLeftToolbarContext.Provider>

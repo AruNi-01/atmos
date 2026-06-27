@@ -10,6 +10,7 @@ import {
 } from "tldraw";
 
 import type { CanvasCenterTab } from "./canvas-center-tabs";
+import { createCanvasCardIndicatorPath } from "./canvas-shape-indicator";
 
 export const CANVAS_WIDGET_SHAPE_TYPE = "canvas-widget" as const;
 
@@ -24,6 +25,7 @@ export type CanvasWidgetType =
   | "agent-chat";
 
 export type CanvasContextRef = {
+  contextKind?: "global";
   contextScope: "project" | "workspace";
   projectId: string | null;
   workspaceId: string | null;
@@ -96,7 +98,7 @@ declare module "tldraw" {
 export type CanvasWidgetShape = TLShape<typeof CANVAS_WIDGET_SHAPE_TYPE>;
 
 export const CANVAS_WIDGET_DEFAULT_SIZES: Record<CanvasWidgetType, { w: number; h: number }> = {
-  "workspace-context": { w: 380, h: 520 },
+  "workspace-context": { w: 900, h: 680 },
   files: { w: 360, h: 520 },
   changes: { w: 390, h: 500 },
   review: { w: 410, h: 520 },
@@ -146,10 +148,12 @@ export class CanvasWidgetShapeSchemaUtil extends BaseBoxShapeUtil<CanvasWidgetSh
     return null;
   }
 
+  override hideSelectionBoundsFg(_shape: CanvasWidgetShape) {
+    return true;
+  }
+
   getIndicatorPath(shape: CanvasWidgetShape) {
-    const path = new Path2D();
-    path.rect(0, 0, shape.props.w, shape.props.h);
-    return path;
+    return createCanvasCardIndicatorPath(shape.props.w, shape.props.h);
   }
 }
 
@@ -160,6 +164,19 @@ function createEmptyCanvasContextRef(): CanvasContextRef {
     workspaceId: null,
     projectName: "",
     workspaceName: null,
+    localPath: "",
+    repoPath: null,
+  };
+}
+
+export function createGlobalCanvasContextRef(): CanvasContextRef {
+  return {
+    contextKind: "global",
+    contextScope: "workspace",
+    projectId: null,
+    workspaceId: null,
+    projectName: "Global",
+    workspaceName: "Global",
     localPath: "",
     repoPath: null,
   };
@@ -215,7 +232,19 @@ export function getCanvasContextId(context: CanvasContextRef): string {
     : (context.workspaceId ?? "");
 }
 
+export function hasConcreteCanvasContext(context: CanvasContextRef): boolean {
+  return Boolean(getCanvasContextId(context));
+}
+
+export function isGlobalCanvasContext(context: CanvasContextRef): boolean {
+  return context.contextKind === "global";
+}
+
 export function getCanvasContextLabel(context: CanvasContextRef): string {
+  if (isGlobalCanvasContext(context)) {
+    return context.workspaceName || context.projectName || "Global";
+  }
+
   return context.contextScope === "project"
     ? context.projectName || "Project"
     : context.workspaceName || context.projectName || "Workspace";
@@ -236,10 +265,19 @@ export function buildCanvasWidgetPinKey(source: CanvasWidgetSourceRef, frameId?:
     case "center":
       return `center:${context.contextScope}:${contextId}:${frameId ?? "unframed"}`;
     case "agent-status":
+      if (isGlobalCanvasContext(context)) {
+        return "agent-status:global";
+      }
       return `agent-status:${context.contextScope}:${contextId}`;
     case "ai-quota-usage":
+      if (isGlobalCanvasContext(context)) {
+        return "ai-quota-usage:global";
+      }
       return `ai-quota-usage:${context.contextScope}:${contextId}`;
     case "agent-chat":
+      if (isGlobalCanvasContext(context)) {
+        return "agent-chat:global";
+      }
       return `agent-chat:${context.contextScope}:${contextId}`;
   }
 }
