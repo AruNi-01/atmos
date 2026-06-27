@@ -308,6 +308,19 @@ function layoutFitsWithin(origin: { x: number; y: number }, layout: LayoutPlan, 
   );
 }
 
+function clampLayoutOriginToBounds(
+  origin: { x: number; y: number },
+  layout: LayoutPlan,
+  bounds: PlacementRect,
+): { x: number; y: number } {
+  const maxX = bounds.x + Math.max(0, bounds.w - layout.w);
+  const maxY = bounds.y + Math.max(0, bounds.h - layout.h);
+  return {
+    x: Math.min(Math.max(origin.x, bounds.x), maxX),
+    y: Math.min(Math.max(origin.y, bounds.y), maxY),
+  };
+}
+
 function findFreeLayoutOrigin(
   editor: Editor,
   sizes: Array<{ w: number; h: number }>,
@@ -338,6 +351,12 @@ function findFreeLayoutOrigin(
         return origin;
       }
     }
+    for (const origin of candidates) {
+      if (layoutFitsWithin(origin, layout, frameContentBounds)) {
+        return origin;
+      }
+    }
+    return clampLayoutOriginToBounds(rawOrigin, layout, frameContentBounds);
   }
 
   for (const origin of candidates) {

@@ -285,6 +285,7 @@ export function useAcpSessionList({
       return;
     }
     if (!enabled) {
+      requestSeqRef.current += 1;
       setIsLoading(false);
       setIsLoadingMore(false);
       return;

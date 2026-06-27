@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
 
-use agent_client_protocol::{self as acp, Agent, ByteStreams, ConnectionTo, schema};
+use agent_client_protocol::{self as acp, schema, Agent, ByteStreams, ConnectionTo};
 use tokio::io::AsyncReadExt;
 use tokio::runtime::Builder;
 use tokio::sync::{mpsc, oneshot};
-use tokio::time::{Duration, timeout};
+use tokio::time::{timeout, Duration};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tracing::{error, info, warn};
 
@@ -1321,7 +1321,7 @@ pub async fn logout_acp_agent(
 
 #[cfg(test)]
 mod tests {
-    use super::{SessionRestoreMethod, ordered_config_values, select_session_restore_method};
+    use super::{ordered_config_values, select_session_restore_method, SessionRestoreMethod};
     use std::collections::HashMap;
 
     #[test]

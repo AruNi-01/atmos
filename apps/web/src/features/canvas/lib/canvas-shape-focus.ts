@@ -1,6 +1,7 @@
 import type { Editor, TLShapeId } from "tldraw";
 
 const FOCUS_PULSE_MS = 2_400;
+let focusPulseGeneration = 0;
 
 function uniqueShapeIds(shapeIds: TLShapeId[]) {
   return Array.from(new Set(shapeIds));
@@ -58,25 +59,33 @@ export function focusCanvasShapes(
     return false;
   }
 
-  try {
-    if (options.select !== false) {
+  if (options.select !== false) {
+    try {
       editor.select(...ids);
+    } catch {
+      // Editor selection can fail while tldraw is hydrating; keep visual feedback.
     }
+  }
 
-    const bounds = getShapeIdsBounds(editor, ids);
-    if (bounds && options.animateCamera !== false) {
+  const bounds = getShapeIdsBounds(editor, ids);
+  if (bounds && options.animateCamera !== false) {
+    try {
       editor.zoomToBounds(bounds, {
         inset: ids.length === 1 ? 96 : 72,
         animation: { duration: 320 },
       });
+    } catch {
+      // Transient camera failures should not suppress the focus pulse.
     }
-  } catch {
-    return false;
   }
 
+  const generation = (focusPulseGeneration += 1);
   options.setFocusPulseShapeIds(ids);
   if (typeof window !== "undefined") {
     window.setTimeout(() => {
+      if (generation !== focusPulseGeneration) {
+        return;
+      }
       if (
         options.getFocusPulseShapeIds &&
         !areShapeIdListsEqual(options.getFocusPulseShapeIds(), ids)

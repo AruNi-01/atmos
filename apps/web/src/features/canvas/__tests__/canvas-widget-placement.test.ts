@@ -149,4 +149,38 @@ describe("canvas-widget placement", () => {
     expect(rectsOverlap({ ...position, w: 250, h: 160 }, child)).toBe(false);
     expect(position).toEqual({ x: 456, y: 156 });
   });
+
+  it("keeps frame-targeted placement inside the selected frame when the frame is full", () => {
+    const editor = asEditor(
+      new FakeWidgetPlacementEditor([
+        createShape({
+          id: "shape:frame",
+          type: "frame",
+          x: 100,
+          y: 100,
+          w: 420,
+          h: 320,
+        }),
+        createShape({
+          id: "shape:child",
+          parentId: "shape:frame",
+          x: 124,
+          y: 156,
+          w: 320,
+          h: 200,
+        }),
+      ]),
+    );
+
+    const position = findCanvasWidgetPlacement(
+      editor,
+      { w: 250, h: 160 },
+      { frameId: "shape:frame" as TLShapeId },
+    );
+
+    expect(position.x).toBeGreaterThanOrEqual(124);
+    expect(position.y).toBeGreaterThanOrEqual(156);
+    expect(position.x + 250).toBeLessThanOrEqual(496);
+    expect(position.y + 160).toBeLessThanOrEqual(396);
+  });
 });

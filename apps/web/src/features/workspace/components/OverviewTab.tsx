@@ -373,16 +373,19 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   const handleRefresh = useCallback(async () => {
     if (!effectivePath) return;
     setIsRefreshing(true);
-    await Promise.all([
-      loadRequirement(effectivePath),
-      loadTasks(effectivePath),
-      loadNote(effectivePath),
-      loadReviews(),
-      refreshPRs?.(),
-      refreshActions?.(),
-    ]);
-    setIsRefreshing(false);
-  }, [effectivePath, loadRequirement, loadTasks, loadNote, loadReviews]);
+    try {
+      await Promise.all([
+        loadRequirement(effectivePath),
+        loadTasks(effectivePath),
+        loadNote(effectivePath),
+        loadReviews(),
+        refreshPRs?.(),
+        refreshActions?.(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [effectivePath, loadRequirement, loadTasks, loadNote, loadReviews, refreshPRs, refreshActions]);
 
   const handleStartRequirementEdit = useCallback(() => {
     if (!effectivePath) return;

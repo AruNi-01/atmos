@@ -78,7 +78,7 @@ function CanvasWidgetCardInner({ shape }: { shape: CanvasWidgetShape }) {
       ? registry.label
       : shape.props.title;
   const canRefreshWidget = shape.props.source.type !== "center";
-  const canRevealSource = registry.requiresContext && hasConcreteCanvasContext(shape.props.source.context);
+  const canRevealSource = hasConcreteCanvasContext(shape.props.source.context);
   const isSelected = useValue(
     "canvas-widget-selected",
     () => editor.getSelectedShapeIds().includes(shape.id as TLShapeId),

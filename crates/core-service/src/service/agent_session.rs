@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use agent::{
-    AcpSessionControl, AcpSessionHandle, AcpToolHandler, AgentLogoutResult, NativeAgentSessionList,
-    list_acp_sessions, logout_acp_agent, run_acp_session,
+    list_acp_sessions, logout_acp_agent, run_acp_session, AcpSessionControl, AcpSessionHandle,
+    AcpToolHandler, AgentLogoutResult, NativeAgentSessionList,
 };
 use async_trait::async_trait;
 use core_engine::FsEngine;
@@ -339,7 +339,7 @@ impl AgentSessionService {
         acp_session_id: &str,
     ) -> Option<HashMap<String, String>> {
         let _guard = self.session_config_snapshots_lock.lock().await;
-        let store = match read_session_config_snapshot_store() {
+        let store = match read_session_config_snapshot_store().await {
             Ok(store) => store,
             Err(error) => {
                 warn!("Failed to read ACP session config snapshots: {}", error);
@@ -366,7 +366,7 @@ impl AgentSessionService {
         }
 
         let _guard = self.session_config_snapshots_lock.lock().await;
-        let mut store = read_session_config_snapshot_store()?;
+        let mut store = read_session_config_snapshot_store().await?;
         let key = session_config_snapshot_key(registry_id, acp_session_id);
         let snapshot = store
             .sessions
@@ -389,7 +389,7 @@ impl AgentSessionService {
         }
         snapshot.updated_at = chrono::Utc::now().to_rfc3339();
 
-        write_session_config_snapshot_store(&store)
+        write_session_config_snapshot_store(&store).await
     }
 
     /// Drop runtime state when a WebSocket disconnects.
@@ -464,12 +464,19 @@ fn session_config_snapshot_path() -> Result<PathBuf> {
         .join("session_config_snapshots.json"))
 }
 
-fn read_session_config_snapshot_store() -> Result<SessionConfigSnapshotStore> {
+async fn read_session_config_snapshot_store() -> Result<SessionConfigSnapshotStore> {
     let path = session_config_snapshot_path()?;
-    if !path.exists() {
+    let exists = tokio::fs::try_exists(&path).await.map_err(|error| {
+        ServiceError::Processing(format!(
+            "Failed to stat ACP session config snapshots at {}: {}",
+            path.display(),
+            error
+        ))
+    })?;
+    if !exists {
         return Ok(SessionConfigSnapshotStore::default());
     }
-    let text = std::fs::read_to_string(&path).map_err(|error| {
+    let text = tokio::fs::read_to_string(&path).await.map_err(|error| {
         ServiceError::Processing(format!(
             "Failed to read ACP session config snapshots at {}: {}",
             path.display(),
@@ -485,10 +492,10 @@ fn read_session_config_snapshot_store() -> Result<SessionConfigSnapshotStore> {
     })
 }
 
-fn write_session_config_snapshot_store(store: &SessionConfigSnapshotStore) -> Result<()> {
+async fn write_session_config_snapshot_store(store: &SessionConfigSnapshotStore) -> Result<()> {
     let path = session_config_snapshot_path()?;
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|error| {
+        tokio::fs::create_dir_all(parent).await.map_err(|error| {
             ServiceError::Processing(format!(
                 "Failed to create ACP session config snapshot directory {}: {}",
                 parent.display(),
@@ -502,7 +509,7 @@ fn write_session_config_snapshot_store(store: &SessionConfigSnapshotStore) -> Re
             error
         ))
     })?;
-    std::fs::write(&path, text).map_err(|error| {
+    tokio::fs::write(&path, text).await.map_err(|error| {
         ServiceError::Processing(format!(
             "Failed to write ACP session config snapshots at {}: {}",
             path.display(),
@@ -553,8 +560,8 @@ fn normalize_history_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        AgentSessionService, SessionConfigSnapshot, SessionConfigSnapshotStore,
-        session_config_snapshot_key, session_cwd_matches_filter,
+        session_config_snapshot_key, session_cwd_matches_filter, AgentSessionService,
+        SessionConfigSnapshot, SessionConfigSnapshotStore,
     };
     use std::collections::HashMap;
     use std::path::Path;

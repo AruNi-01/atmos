@@ -72,17 +72,20 @@ export function useAgentChatUiHandlers({
     if (!scrollElement) return;
 
     let frame: number | null = null;
+    const entryElements = userEntryIndices
+      .map((entryIndex) => ({
+        entryIndex,
+        el: root.querySelector(`[data-entry-index="${entryIndex}"]`) as HTMLElement | null,
+      }))
+      .filter((entry): entry is { entryIndex: number; el: HTMLElement } => Boolean(entry.el));
 
     const syncActiveMessageFromScroll = () => {
       const scrollRect = scrollElement.getBoundingClientRect();
       const activationLine = Math.min(120, Math.max(56, scrollElement.clientHeight * 0.18));
-      let activeIndex = userEntryIndices[0];
+      let activeIndex = entryElements[0]?.entryIndex ?? userEntryIndices[0];
       let firstBelowLine: number | null = null;
 
-      for (const entryIndex of userEntryIndices) {
-        const el = root.querySelector(`[data-entry-index="${entryIndex}"]`) as HTMLElement | null;
-        if (!el) continue;
-
+      for (const { entryIndex, el } of entryElements) {
         const top = el.getBoundingClientRect().top - scrollRect.top;
         if (top <= activationLine) {
           activeIndex = entryIndex;

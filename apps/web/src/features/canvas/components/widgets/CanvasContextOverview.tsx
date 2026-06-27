@@ -47,8 +47,8 @@ export function CanvasContextOverview({ context }: { context: CanvasContextRef }
         )
       : undefined;
     const resolvedProject =
-      projectById ??
       projectByWorkspace ??
+      projectById ??
       projects.find((item) => item.name === context.projectName);
     const resolvedWorkspace = context.workspaceId
       ? (projectByWorkspace ?? resolvedProject)?.workspaces.find(
