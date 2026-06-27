@@ -29,6 +29,19 @@ interface AgentChatHistoryPopoverProps {
   isConnecting: boolean;
 }
 
+function formatHistoryCwd(cwd: string | null | undefined): string | null {
+  const trimmed = cwd?.trim();
+  if (!trimmed) return null;
+
+  const normalized = trimmed.replace(/[\\/]+$/, "");
+  if (!normalized) return trimmed;
+
+  const parts = normalized.split(/[\\/]+/).filter(Boolean);
+  if (parts.length <= 2) return normalized;
+
+  return `.../${parts.slice(-2).join("/")}`;
+}
+
 export function AgentChatHistoryPopover({
   historyOpen,
   setHistoryOpen,
@@ -91,33 +104,40 @@ export function AgentChatHistoryPopover({
             </div>
           ) : (
             <div className="p-1">
-              {historySessions.map((s) => (
-                <button
-                  key={s.acp_session_id}
-                  type="button"
-                  className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                  onClick={() => handleSelectHistorySession(s)}
-                  disabled={isConnecting || Boolean(historyResumeUnsupportedReason)}
-                  title={historyResumeUnsupportedReason ?? undefined}
-                >
-                  <span className="w-full truncate font-medium">
-                    {s.title || "New chat"}
-                  </span>
-                  {s.updated_at ? (
-                    <span className="text-xs text-muted-foreground">
-                      {formatLocalDateTime(s.updated_at)}
+              {historySessions.map((s) => {
+                const displayedCwd = formatHistoryCwd(s.cwd);
+                const displayedTime = s.updated_at
+                  ? formatLocalDateTime(s.updated_at, "MM/dd HH:mm")
+                  : null;
+                return (
+                  <button
+                    key={s.acp_session_id}
+                    type="button"
+                    className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                    onClick={() => handleSelectHistorySession(s)}
+                    disabled={isConnecting || Boolean(historyResumeUnsupportedReason)}
+                    title={historyResumeUnsupportedReason ?? undefined}
+                  >
+                    <span className="w-full truncate font-medium">
+                      {s.title || "New chat"}
                     </span>
-                  ) : null}
-                  {s.cwd ? (
-                    <span
-                      className="w-full truncate text-[11px] text-muted-foreground/80"
-                      style={{ direction: "rtl", textAlign: "left" }}
-                    >
-                      {s.cwd}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
+                    {(displayedCwd || displayedTime) ? (
+                      <span className="flex w-full min-w-0 items-center gap-2 text-[11px] text-muted-foreground/80">
+                        {displayedCwd ? (
+                          <span className="min-w-0 flex-1 truncate" title={s.cwd ?? undefined}>
+                            {displayedCwd}
+                          </span>
+                        ) : null}
+                        {displayedTime ? (
+                          <span className="shrink-0 text-muted-foreground">
+                            {displayedTime}
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
               {historyResumeUnsupportedReason ? (
                 <div className="px-3 py-2 text-xs text-muted-foreground">
                   {historyResumeUnsupportedReason}
