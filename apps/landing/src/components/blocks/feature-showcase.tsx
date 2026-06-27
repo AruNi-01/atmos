@@ -251,7 +251,7 @@ export default function FeatureShowcase() {
       >
         <div className='m-6 w-full shrink-2 max-xl:hidden'></div>
 
-        <div className='mx-auto w-full max-w-7xl shrink-0 space-y-8 px-4 py-8 min-[1158px]:border-x sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
+        <div className='mx-auto w-full max-w-6xl shrink-0 space-y-8 px-4 py-8 min-[1158px]:border-x sm:space-y-16 sm:px-6 sm:py-16 lg:px-8'>
           <div className='space-y-2.5'>
             <MotionPreset fade blur slide={{ direction: 'down', offset: 50 }} transition={{ duration: 0.5 }}>
               <Badge variant='outline' className='rounded-none'>
