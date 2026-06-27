@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
+import { cn } from "@workspace/ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  cn,
-} from "@workspace/ui";
+} from "@workspace/ui/components/ui/dropdown-menu";
 import { Bot, Check, ChevronDown, Folder, FolderOpen, Loader2, MessageCircle, Plus } from "lucide-react";
 import type { AgentChatSessionItem } from "@/api/rest-api";
 import type { RegistryAgent } from "@/api/ws-api";
@@ -45,7 +45,12 @@ type HistoryGroup = {
 function normalizeCwd(cwd: string | null | undefined): string | null {
   const trimmed = cwd?.trim();
   if (!trimmed) return null;
-  return trimmed.replace(/[\\/]+$/, "") || trimmed;
+  const normalized = trimmed.replace(/[\\/]+$/, "");
+  if (!normalized) return trimmed;
+  if (/^[A-Za-z]:$/.test(normalized) && /^[A-Za-z]:[\\/]+$/.test(trimmed)) {
+    return trimmed;
+  }
+  return normalized;
 }
 
 function cwdGroupName(cwd: string | null): string {

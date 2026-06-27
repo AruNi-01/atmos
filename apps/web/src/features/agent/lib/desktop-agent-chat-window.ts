@@ -1,7 +1,8 @@
 "use client";
 
-import { defaultLocale, locales } from "@atmos/i18n/config";
+import { toastManager } from "@workspace/ui";
 import { isTauriRuntime } from "@/shared/lib/desktop-runtime";
+import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
@@ -31,15 +32,23 @@ async function getInvoke(): Promise<TauriInvoke> {
 export async function openAgentChatWindow(options: OpenAgentChatWindowOptions = {}): Promise<void> {
   const locale = currentAppLocale();
   if (isTauriRuntime()) {
-    const invoke = await getInvoke();
-    await invoke("open_agent_chat_window", {
-      locale,
-      agent: options.agent || null,
-      session: options.session || null,
-      sessionCwd: options.sessionCwd || null,
-      workspaceId: options.workspaceId || null,
-      projectId: options.projectId || null,
-    });
+    try {
+      const invoke = await getInvoke();
+      await invoke("open_agent_chat_window", {
+        locale,
+        agent: options.agent || null,
+        session: options.session || null,
+        sessionCwd: options.sessionCwd || null,
+        workspaceId: options.workspaceId || null,
+        projectId: options.projectId || null,
+      });
+    } catch (error) {
+      toastManager.add({
+        title: "Failed to open chat window",
+        description: error instanceof Error ? error.message : String(error),
+        type: "error",
+      });
+    }
     return;
   }
 
@@ -55,28 +64,4 @@ function buildBrowserAgentChatUrl(locale: string, options: OpenAgentChatWindowOp
   if (options.projectId) params.set("projectId", options.projectId);
   const query = params.toString();
   return `/${locale}/agent-chat/${query ? `?${query}` : ""}`;
-}
-
-function currentAppLocale(): string {
-  if (typeof window === "undefined") {
-    return defaultLocale;
-  }
-
-  const firstPathSegment = window.location.pathname
-    .split("/")
-    .filter(Boolean)[0];
-  if (isLocaleSegment(firstPathSegment)) {
-    return firstPathSegment;
-  }
-
-  const htmlLang = document.documentElement.lang;
-  if (isLocaleSegment(htmlLang)) {
-    return htmlLang;
-  }
-
-  return defaultLocale;
-}
-
-function isLocaleSegment(value: string | null | undefined): value is string {
-  return !!value && locales.includes(value as (typeof locales)[number]);
 }

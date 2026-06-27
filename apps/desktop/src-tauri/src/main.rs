@@ -1,5 +1,6 @@
 mod appshot;
 mod commands;
+mod locale;
 mod logging;
 mod preview_bridge;
 mod runtime;

@@ -340,8 +340,10 @@ export function useAgentChatMessageHandler({
         setWaitingForResponse(false);
         break;
       case "load_completed":
-        restoreReplayFinishedRef.current = true;
-        scheduleRestoreReplayFlush();
+        if (isResumingHistoryRef.current || restoreReplayQueueRef.current.length > 0) {
+          restoreReplayFinishedRef.current = true;
+          scheduleRestoreReplayFlush();
+        }
         break;
     }
   }, [

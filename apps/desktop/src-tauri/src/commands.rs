@@ -1,3 +1,4 @@
+use crate::locale::sanitize_locale;
 use crate::logging::{self, LogLevel};
 use crate::preview_bridge::{self, PreviewBridgeBounds};
 use crate::state::AppState;
@@ -72,16 +73,13 @@ pub fn open_agent_chat_window(
         return Ok(());
     }
 
-    let mut builder = WebviewWindowBuilder::new(
-        &app,
-        AGENT_CHAT_WINDOW_LABEL,
-        WebviewUrl::External(url),
-    )
-    .title("Atmos Chat")
-    .inner_size(1180.0, 820.0)
-    .min_inner_size(720.0, 520.0)
-    .resizable(true)
-    .decorations(true);
+    let mut builder =
+        WebviewWindowBuilder::new(&app, AGENT_CHAT_WINDOW_LABEL, WebviewUrl::External(url))
+            .title("Atmos Chat")
+            .inner_size(1180.0, 820.0)
+            .min_inner_size(720.0, 520.0)
+            .resizable(true)
+            .decorations(true);
 
     #[cfg(target_os = "macos")]
     {
@@ -346,9 +344,8 @@ fn agent_chat_window_url(
     workspace_id: Option<&str>,
     project_id: Option<&str>,
 ) -> Result<tauri::Url, String> {
-    let locale = sanitize_locale(locale).ok_or_else(|| {
-        "failed to open Agent Chat window: missing active locale".to_string()
-    })?;
+    let locale = sanitize_locale(locale)
+        .ok_or_else(|| "failed to open Agent Chat window: missing active locale".to_string())?;
     let mut url = format!("http://127.0.0.1:{api_port}/{locale}/agent-chat/")
         .parse::<tauri::Url>()
         .map_err(|error| format!("invalid Agent Chat window URL: {error}"))?;
@@ -377,20 +374,6 @@ fn agent_chat_window_url(
 
 fn trim_query_value(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
-}
-
-fn sanitize_locale(locale: Option<&str>) -> Option<String> {
-    let locale = locale?.trim();
-    if locale.len() < 2 || locale.len() > 32 {
-        return None;
-    }
-    if !locale
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-    {
-        return None;
-    }
-    Some(locale.to_string())
 }
 
 fn current_api_port(state: &tauri::State<'_, AppState>) -> Result<u16, String> {

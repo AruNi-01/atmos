@@ -19,6 +19,7 @@ import {
   ShineBorder,
   cn,
 } from "@workspace/ui";
+import { Button } from "@workspace/ui/components/ui/button";
 import { ChevronDown, Loader2, MessageSquare, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { getAssistantCopyText, type ThreadEntry } from "@/features/agent/lib/agent/thread";
@@ -476,10 +477,12 @@ export function AgentChatPanel({
   ]);
 
   const historySidebarToggle = (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onClick={() => setHistorySidebarCollapsed((current) => !current)}
-      className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      className="size-9 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
       aria-label={historySidebarCollapsed ? "Expand history sidebar" : "Hide history sidebar"}
       title={historySidebarCollapsed ? "Expand history sidebar" : "Hide history sidebar"}
     >
@@ -488,7 +491,7 @@ export function AgentChatPanel({
       ) : (
         <PanelLeftClose className="size-[18px]" />
       )}
-    </button>
+    </Button>
   );
   const wideContentClassName = showsWideHistoryLayout
     ? "mx-auto w-full max-w-4xl"
@@ -564,6 +567,7 @@ export function AgentChatPanel({
           }
           isResizing={isHistorySidebarResizing}
           onResizeStart={handleHistorySidebarResizeStart}
+          onCollapsedExpand={() => setHistorySidebarCollapsed(false)}
         >
           <AgentChatHistorySidebar
             className="flex"
@@ -633,7 +637,7 @@ export function AgentChatPanel({
           historyUnsupportedReason={historyUnsupportedReason}
           loadHistorySessions={loadHistorySessions}
           handleSelectHistorySession={handleSelectHistorySession}
-          historyTriggerClassName={showsWideHistoryLayout ? "hidden" : undefined}
+          historyTriggerClassName={showsWideHistoryLayout && !historySidebarCollapsed ? "hidden" : undefined}
           handleClose={handleClosePanel}
           handleLogoutAgent={handleLogoutAgent}
           displaySessionTitle={displaySessionTitle}
@@ -908,7 +912,9 @@ const AgentChatEntryView = React.memo(function AgentChatEntryView({
 
 function readStoredHistorySidebarWidth() {
   if (typeof window === "undefined") return HISTORY_SIDEBAR_DEFAULT_WIDTH;
-  const stored = Number(window.localStorage.getItem(HISTORY_SIDEBAR_WIDTH_STORAGE_KEY));
+  const storedValue = window.localStorage.getItem(HISTORY_SIDEBAR_WIDTH_STORAGE_KEY);
+  if (storedValue === null) return HISTORY_SIDEBAR_DEFAULT_WIDTH;
+  const stored = Number(storedValue);
   if (!Number.isFinite(stored)) return HISTORY_SIDEBAR_DEFAULT_WIDTH;
   return Math.min(
     HISTORY_SIDEBAR_MAX_WIDTH,
@@ -927,6 +933,7 @@ function AgentChatHistorySidebarFrame({
   width,
   isResizing,
   onResizeStart,
+  onCollapsedExpand,
   children,
 }: {
   frameRef: React.RefObject<HTMLDivElement | null>;
@@ -934,6 +941,7 @@ function AgentChatHistorySidebarFrame({
   width: number;
   isResizing: boolean;
   onResizeStart: (event: React.MouseEvent) => void;
+  onCollapsedExpand: () => void;
   children: React.ReactNode;
 }) {
   return (
@@ -951,7 +959,7 @@ function AgentChatHistorySidebarFrame({
         }}
       >
         {collapsed ? (
-          <AgentChatHistoryPeekShell width={width}>
+          <AgentChatHistoryPeekShell width={width} onExpand={onCollapsedExpand}>
             {children}
           </AgentChatHistoryPeekShell>
         ) : (
@@ -979,9 +987,11 @@ function AgentChatHistorySidebarFrame({
 
 function AgentChatHistoryPeekShell({
   width,
+  onExpand,
   children,
 }: {
   width: number;
+  onExpand: () => void;
   children: React.ReactNode;
 }) {
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -1055,6 +1065,18 @@ function AgentChatHistoryPeekShell({
 
   return (
     <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="absolute left-2 top-2 z-50 size-8 rounded-md bg-background/75 text-muted-foreground shadow-sm ring-1 ring-border/60 backdrop-blur-md hover:bg-muted hover:text-foreground"
+        aria-label="Expand history sidebar"
+        title="Expand history sidebar"
+        onClick={onExpand}
+        onFocus={showPeek}
+      >
+        <PanelLeftOpen className="size-4" />
+      </Button>
       <div
         ref={triggerRef}
         aria-hidden="true"
