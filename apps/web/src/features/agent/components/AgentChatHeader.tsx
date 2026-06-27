@@ -130,6 +130,7 @@ export function AgentChatHeader({
   sessionTitleSource,
   sessionId,
 }: AgentChatHeaderProps) {
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
   const displayedAgentName = isConnected && activeAgent
     ? (agentInfo?.title ?? agentInfo?.name ?? activeAgent.name)
     : panelTitle;
@@ -342,22 +343,55 @@ export function AgentChatHeader({
             isConnecting={isConnecting}
           />
           {canLogout ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => void handleLogoutAgent()}
-                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                    aria-label="Log out agent"
-                    disabled={isConnecting}
-                  >
-                    <LogOut className="size-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Log out agent</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Popover open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                        aria-label="Log out agent"
+                        disabled={isConnecting}
+                      >
+                        <LogOut className="size-4" />
+                      </button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Log out agent</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <PopoverContent align="end" className="w-64 p-3">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-popover-foreground">Log out agent?</p>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      This clears the agent authentication for the current workspace context.
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      onClick={() => setLogoutConfirmOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+                      disabled={isConnecting}
+                      onClick={() => {
+                        setLogoutConfirmOpen(false);
+                        void handleLogoutAgent();
+                      }}
+                    >
+                      Log out
+                    </button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           ) : null}
           {variant === "modal" && (
             <button

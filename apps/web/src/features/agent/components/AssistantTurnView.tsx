@@ -143,10 +143,26 @@ export function AssistantTurnView({
     return -1;
   }, [entry.blocks]);
 
-  // Only collapse after the assistant turn has fully finished streaming.
-  // During streaming we keep everything expanded so the user can see progress
-  // of tool calls / thinking / intermediate text in real time.
-  const canCollapse = lastVisibleTextIndex >= 0 && !entry.isStreaming;
+  const hasRunningTool = useMemo(
+    () => entry.blocks.some((block) => block.type === "tool_call" && block.status?.toLowerCase() === "running"),
+    [entry.blocks],
+  );
+
+  const lastVisibleBlockIndex = useMemo(() => {
+    for (let i = entry.blocks.length - 1; i >= 0; i--) {
+      const block = entry.blocks[i];
+      if (!isBlockHidden(block, vendor, claudeSubAgentParentIds)) return i;
+    }
+    return -1;
+  }, [entry.blocks, vendor, claudeSubAgentParentIds]);
+
+  // Collapse only after the turn's final visible reply has arrived. While the
+  // agent is streaming or tools are still running, keep chronological order.
+  const canCollapse =
+    lastVisibleTextIndex >= 0 &&
+    lastVisibleBlockIndex === lastVisibleTextIndex &&
+    !entry.isStreaming &&
+    !hasRunningTool;
 
   const intermediateBlocks = useMemo(() => {
     if (!canCollapse) return [];
@@ -158,17 +174,7 @@ export function AssistantTurnView({
     return result;
   }, [canCollapse, entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
 
-  const trailingBlocks = useMemo(() => {
-    if (!canCollapse) return [];
-    const result: { block: AssistantBlock; origIndex: number }[] = [];
-    for (let i = lastVisibleTextIndex + 1; i < entry.blocks.length; i++) {
-      const b = entry.blocks[i];
-      if (!isBlockHidden(b, vendor, claudeSubAgentParentIds)) result.push({ block: b, origIndex: i });
-    }
-    return result;
-  }, [canCollapse, entry.blocks, lastVisibleTextIndex, vendor, claudeSubAgentParentIds]);
-
-  const hasCollapsibleContent = intermediateBlocks.length > 0 || trailingBlocks.length > 0;
+  const hasCollapsibleContent = intermediateBlocks.length > 0;
   const [stepsExpanded, setStepsExpanded] = useState(false);
 
   const renderBlock = (block: AssistantBlock, i: number) => {
@@ -252,9 +258,6 @@ export function AssistantTurnView({
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-2 pt-1">
             {intermediateBlocks.map(({ block, origIndex }) => (
-              <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
-            ))}
-            {trailingBlocks.map(({ block, origIndex }) => (
               <React.Fragment key={origIndex}>{renderBlock(block, origIndex)}</React.Fragment>
             ))}
             <CollapsibleTrigger

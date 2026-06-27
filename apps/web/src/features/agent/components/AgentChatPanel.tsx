@@ -19,7 +19,7 @@ import {
   ShineBorder,
   cn,
 } from "@workspace/ui";
-import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
+import { ChevronDown, Loader2, MessageSquare } from "lucide-react";
 import { useAgentChatLayoutStore } from "@/features/agent/store/agent-chat-layout-store";
 import { getAssistantCopyText } from "@/features/agent/lib/agent/thread";
 import { DEFAULT_AGENT_CHAT_MODE, type AgentChatMode } from "@/features/agent/types/index";
@@ -34,6 +34,7 @@ import { useAgentChatSession } from "../hooks/use-agent-chat-session";
 import type { UseAgentChatSessionOptions } from "../hooks/use-agent-chat-session-types";
 import { AgentChatHeader } from "./AgentChatHeader";
 import { AgentAuthDialog } from "./AgentAuthDialog";
+import { AgentMessageTimelineNav } from "./AgentMessageTimelineNav";
 
 // ---------------------------------------------------------------------------
 // Main Panel
@@ -266,8 +267,7 @@ export function AgentChatPanel({
     handlePermission,
     handleCreateNewSession,
     handleSelectHistorySession,
-    handlePrevMessage,
-    handleNextMessage,
+    handleSelectMessage,
     handleSetDefaultAgent,
     handleOpenNewSessionAgentsMenu,
     handleScheduleCloseNewSessionAgentsMenu,
@@ -346,7 +346,7 @@ export function AgentChatPanel({
 
       <div ref={conversationRef} className="min-h-0 flex-1 overflow-hidden">
         <Conversation className="min-h-0 h-full overflow-hidden">
-          <ConversationContent className="gap-3 p-4!">
+          <ConversationContent data-canvas-selectable-text="true" className="gap-3 p-4!" scrollClassName="agent-chat-scroll">
             {((loadingAgents && !isConnected && !isConnecting) || isConnecting || isResumingHistory) && (
               <div className="desktop-loading-clean flex items-center justify-center py-6">
                 <span className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-background/80 px-3 py-1.5 text-sm text-muted-foreground shadow-sm">
@@ -441,35 +441,13 @@ export function AgentChatPanel({
           {sessionUsage && (
             <SessionUsageBadge usage={sessionUsage} />
           )}
-          {userEntryIndices.length >= 2 && (
-            <div className="absolute right-2 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-0.5 rounded-sm border border-border/50 bg-background/80 py-1 shadow-sm backdrop-blur-sm dark:bg-background/60">
-              <button
-                type="button"
-                onClick={handlePrevMessage}
-                disabled={
-                  userEntryIndices.length > 0 &&
-                  userEntryIndices.indexOf(messageNavIndex) === 0
-                }
-                className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                aria-label="Previous message"
-              >
-                <ChevronUp className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleNextMessage}
-                disabled={
-                  userEntryIndices.length > 0 &&
-                  userEntryIndices.indexOf(messageNavIndex) >=
-                  userEntryIndices.length - 1
-                }
-                className="flex items-center justify-center rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                aria-label="Next message"
-              >
-                <ChevronDown className="size-4" />
-              </button>
-            </div>
-          )}
+          <AgentMessageTimelineNav
+            activeAgent={activeAgent}
+            entries={entries}
+            userEntryIndices={userEntryIndices}
+            activeEntryIndex={messageNavIndex}
+            onSelectEntry={handleSelectMessage}
+          />
         </Conversation>
       </div>
 

@@ -5,15 +5,15 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use agent::{
-    list_acp_sessions, logout_acp_agent, run_acp_session, AcpSessionControl, AcpSessionHandle,
-    AcpToolHandler, AgentLogoutResult, NativeAgentSessionList,
+    AcpSessionControl, AcpSessionHandle, AcpToolHandler, AgentLogoutResult, NativeAgentSessionList,
+    list_acp_sessions, logout_acp_agent, run_acp_session,
 };
 use async_trait::async_trait;
 use core_engine::FsEngine;
-use tokio::sync::RwLock;
-use tracing::info;
+use tokio::sync::{Mutex, RwLock};
+use tracing::{info, warn};
 
-use crate::error::Result;
+use crate::error::{Result, ServiceError};
 use crate::utils::path_boundary::{path_or_existing_parent_within_root, path_within_root};
 
 #[derive(Debug, serde::Serialize)]
@@ -109,6 +109,7 @@ pub struct AgentSessionService {
     agent_service: Arc<crate::service::agent::AgentService>,
     sessions: RwLock<HashMap<String, ActiveAgentSession>>,
     pending_sessions: RwLock<HashMap<String, LazySessionSpec>>,
+    session_config_snapshots_lock: Mutex<()>,
 }
 
 impl AgentSessionService {
@@ -117,6 +118,7 @@ impl AgentSessionService {
             agent_service,
             sessions: RwLock::new(HashMap::new()),
             pending_sessions: RwLock::new(HashMap::new()),
+            session_config_snapshots_lock: Mutex::new(()),
         }
     }
 
@@ -289,6 +291,13 @@ impl AgentSessionService {
     ) -> std::result::Result<AcpSessionHandle, String> {
         let runtime_session_id = spec.runtime_session_id.clone();
         let workspace_id = spec.workspace_id.clone();
+        let session_config_snapshot = match spec.resume_session_id.as_deref() {
+            Some(acp_session_id) => {
+                self.session_config_snapshot(&spec.registry_id, acp_session_id)
+                    .await
+            }
+            None => None,
+        };
         let handler: Arc<dyn AcpToolHandler> = Arc::new(AgentToolHandler {
             fs_engine: FsEngine::new(),
             allow_file_access: spec.allow_file_access,
@@ -304,6 +313,7 @@ impl AgentSessionService {
             spec.resume_session_id,
             spec.auth_method_id,
             spec.default_config,
+            session_config_snapshot,
         )
         .await?;
         self.sessions.write().await.insert(
@@ -320,6 +330,66 @@ impl AgentSessionService {
         );
 
         Ok(handle)
+    }
+
+    /// Return the latest Atmos-observed config values for a native ACP session.
+    pub async fn session_config_snapshot(
+        &self,
+        registry_id: &str,
+        acp_session_id: &str,
+    ) -> Option<HashMap<String, String>> {
+        let _guard = self.session_config_snapshots_lock.lock().await;
+        let store = match read_session_config_snapshot_store() {
+            Ok(store) => store,
+            Err(error) => {
+                warn!("Failed to read ACP session config snapshots: {}", error);
+                return None;
+            }
+        };
+        store
+            .sessions
+            .get(&session_config_snapshot_key(registry_id, acp_session_id))
+            .map(|snapshot| snapshot.config.clone())
+            .filter(|config| !config.is_empty())
+    }
+
+    /// Merge current config values observed from ACP into the local session snapshot.
+    pub async fn remember_session_config_snapshot(
+        &self,
+        registry_id: &str,
+        acp_session_id: &str,
+        cwd: Option<&str>,
+        updates: HashMap<String, String>,
+    ) -> Result<()> {
+        if updates.is_empty() {
+            return Ok(());
+        }
+
+        let _guard = self.session_config_snapshots_lock.lock().await;
+        let mut store = read_session_config_snapshot_store()?;
+        let key = session_config_snapshot_key(registry_id, acp_session_id);
+        let snapshot = store
+            .sessions
+            .entry(key)
+            .or_insert_with(|| SessionConfigSnapshot {
+                registry_id: registry_id.to_string(),
+                acp_session_id: acp_session_id.to_string(),
+                cwd: cwd.map(str::to_string),
+                config: HashMap::new(),
+                updated_at: chrono::Utc::now().to_rfc3339(),
+            });
+
+        snapshot.registry_id = registry_id.to_string();
+        snapshot.acp_session_id = acp_session_id.to_string();
+        if let Some(cwd) = cwd {
+            snapshot.cwd = Some(cwd.to_string());
+        }
+        for (config_id, value) in updates {
+            snapshot.config.insert(config_id, value);
+        }
+        snapshot.updated_at = chrono::Utc::now().to_rfc3339();
+
+        write_session_config_snapshot_store(&store)
     }
 
     /// Drop runtime state when a WebSocket disconnects.
@@ -365,6 +435,82 @@ impl AgentSessionService {
     }
 }
 
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+struct SessionConfigSnapshotStore {
+    #[serde(default)]
+    sessions: HashMap<String, SessionConfigSnapshot>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct SessionConfigSnapshot {
+    registry_id: String,
+    acp_session_id: String,
+    cwd: Option<String>,
+    #[serde(default)]
+    config: HashMap<String, String>,
+    updated_at: String,
+}
+
+fn session_config_snapshot_key(registry_id: &str, acp_session_id: &str) -> String {
+    format!("{}::{}", registry_id, acp_session_id)
+}
+
+fn session_config_snapshot_path() -> Result<PathBuf> {
+    let home = dirs::home_dir()
+        .ok_or_else(|| ServiceError::Processing("Unable to resolve home directory".to_string()))?;
+    Ok(home
+        .join(".atmos")
+        .join("agent")
+        .join("session_config_snapshots.json"))
+}
+
+fn read_session_config_snapshot_store() -> Result<SessionConfigSnapshotStore> {
+    let path = session_config_snapshot_path()?;
+    if !path.exists() {
+        return Ok(SessionConfigSnapshotStore::default());
+    }
+    let text = std::fs::read_to_string(&path).map_err(|error| {
+        ServiceError::Processing(format!(
+            "Failed to read ACP session config snapshots at {}: {}",
+            path.display(),
+            error
+        ))
+    })?;
+    serde_json::from_str(&text).map_err(|error| {
+        ServiceError::Processing(format!(
+            "Failed to parse ACP session config snapshots at {}: {}",
+            path.display(),
+            error
+        ))
+    })
+}
+
+fn write_session_config_snapshot_store(store: &SessionConfigSnapshotStore) -> Result<()> {
+    let path = session_config_snapshot_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|error| {
+            ServiceError::Processing(format!(
+                "Failed to create ACP session config snapshot directory {}: {}",
+                parent.display(),
+                error
+            ))
+        })?;
+    }
+    let text = serde_json::to_string_pretty(store).map_err(|error| {
+        ServiceError::Processing(format!(
+            "Failed to encode ACP session config snapshots: {}",
+            error
+        ))
+    })?;
+    std::fs::write(&path, text).map_err(|error| {
+        ServiceError::Processing(format!(
+            "Failed to write ACP session config snapshots at {}: {}",
+            path.display(),
+            error
+        ))
+    })
+}
+
 fn filter_native_sessions_by_cwd(native: &mut NativeAgentSessionList, filter_cwd: &Path) {
     native
         .sessions
@@ -406,7 +552,11 @@ fn normalize_history_path(path: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::{session_cwd_matches_filter, AgentSessionService};
+    use super::{
+        AgentSessionService, SessionConfigSnapshot, SessionConfigSnapshotStore,
+        session_config_snapshot_key, session_cwd_matches_filter,
+    };
+    use std::collections::HashMap;
     use std::path::Path;
 
     #[test]
@@ -422,6 +572,50 @@ mod tests {
     #[test]
     fn file_access_disabled_for_temp_context() {
         assert!(!AgentSessionService::allow_file_access(None, None));
+    }
+
+    #[test]
+    fn session_config_snapshot_key_is_scoped_by_agent() {
+        assert_ne!(
+            session_config_snapshot_key("codex-acp", "session-1"),
+            session_config_snapshot_key("opencode", "session-1")
+        );
+    }
+
+    #[test]
+    fn session_config_snapshot_store_round_trips_current_values() {
+        let mut config = HashMap::new();
+        config.insert("model".to_string(), "gpt-5.4".to_string());
+        config.insert("reasoning_effort".to_string(), "high".to_string());
+
+        let mut store = SessionConfigSnapshotStore::default();
+        store.sessions.insert(
+            session_config_snapshot_key("codex-acp", "session-1"),
+            SessionConfigSnapshot {
+                registry_id: "codex-acp".to_string(),
+                acp_session_id: "session-1".to_string(),
+                cwd: Some("/tmp/project".to_string()),
+                config,
+                updated_at: "2026-06-27T00:00:00Z".to_string(),
+            },
+        );
+
+        let encoded = serde_json::to_string(&store).expect("encode snapshot store");
+        let decoded: SessionConfigSnapshotStore =
+            serde_json::from_str(&encoded).expect("decode snapshot store");
+        let snapshot = decoded
+            .sessions
+            .get(&session_config_snapshot_key("codex-acp", "session-1"))
+            .expect("snapshot exists");
+
+        assert_eq!(
+            snapshot.config.get("model").map(String::as_str),
+            Some("gpt-5.4")
+        );
+        assert_eq!(
+            snapshot.config.get("reasoning_effort").map(String::as_str),
+            Some("high")
+        );
     }
 
     #[test]

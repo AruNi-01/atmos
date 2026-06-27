@@ -55,27 +55,68 @@ export function useAgentChatUiHandlers({
     setMessageNavIndex(messageIndex);
   }, [conversationRef]);
 
-  const handlePrevMessage = useCallback(() => {
-    if (userEntryIndices.length === 0) return;
-    const currentIdx = userEntryIndices.indexOf(messageNavIndex);
-    if (currentIdx < 0) {
-      scrollToMessage(userEntryIndices[userEntryIndices.length - 1]);
-      return;
-    }
-    if (currentIdx <= 0) return;
-    scrollToMessage(userEntryIndices[currentIdx - 1]);
-  }, [messageNavIndex, scrollToMessage, userEntryIndices]);
+  const handleSelectMessage = useCallback((messageIndex: number) => {
+    if (!userEntryIndices.includes(messageIndex)) return;
+    scrollToMessage(messageIndex);
+  }, [scrollToMessage, userEntryIndices]);
 
-  const handleNextMessage = useCallback(() => {
-    if (userEntryIndices.length === 0) return;
-    const currentIdx = userEntryIndices.indexOf(messageNavIndex);
-    if (currentIdx < 0) {
-      scrollToMessage(userEntryIndices[0]);
+  useEffect(() => {
+    const root = conversationRef.current;
+    if (!root) return;
+    if (userEntryIndices.length === 0) {
+      setMessageNavIndex(-1);
       return;
     }
-    if (currentIdx >= userEntryIndices.length - 1) return;
-    scrollToMessage(userEntryIndices[currentIdx + 1]);
-  }, [messageNavIndex, scrollToMessage, userEntryIndices]);
+
+    const scrollElement = root.querySelector(".agent-chat-scroll") as HTMLElement | null;
+    if (!scrollElement) return;
+
+    let frame: number | null = null;
+
+    const syncActiveMessageFromScroll = () => {
+      const scrollRect = scrollElement.getBoundingClientRect();
+      const activationLine = Math.min(120, Math.max(56, scrollElement.clientHeight * 0.18));
+      let activeIndex = userEntryIndices[0];
+      let firstBelowLine: number | null = null;
+
+      for (const entryIndex of userEntryIndices) {
+        const el = root.querySelector(`[data-entry-index="${entryIndex}"]`) as HTMLElement | null;
+        if (!el) continue;
+
+        const top = el.getBoundingClientRect().top - scrollRect.top;
+        if (top <= activationLine) {
+          activeIndex = entryIndex;
+          continue;
+        }
+
+        firstBelowLine ??= entryIndex;
+      }
+
+      if (activeIndex === userEntryIndices[0] && firstBelowLine != null && scrollElement.scrollTop <= 4) {
+        activeIndex = firstBelowLine;
+      }
+
+      setMessageNavIndex((prev) => (prev === activeIndex ? prev : activeIndex));
+    };
+
+    const scheduleSync = () => {
+      if (frame != null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        syncActiveMessageFromScroll();
+      });
+    };
+
+    scheduleSync();
+    scrollElement.addEventListener("scroll", scheduleSync, { passive: true });
+
+    return () => {
+      scrollElement.removeEventListener("scroll", scheduleSync);
+      if (frame != null) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [conversationRef, userEntryIndices]);
 
   const clearCloseAgentsMenuTimer = useCallback(() => {
     if (closeAgentsMenuTimerRef.current) {
@@ -116,10 +157,9 @@ export function useAgentChatUiHandlers({
 
   return {
     handleExportConversation,
-    handleNextMessage,
     handleOpenNewSessionAgentsMenu,
-    handlePrevMessage,
     handleScheduleCloseNewSessionAgentsMenu,
+    handleSelectMessage,
     handleSetDefaultAgent,
     messageNavIndex,
     newSessionAgentsOpen,

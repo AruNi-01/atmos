@@ -280,8 +280,13 @@ export function useAcpSessionList({
   }, [authMethodId, limit, registryId, reset]);
 
   useEffect(() => {
-    if (!enabled || !registryId) {
+    if (!registryId) {
       reset();
+      return;
+    }
+    if (!enabled) {
+      setIsLoading(false);
+      setIsLoadingMore(false);
       return;
     }
 

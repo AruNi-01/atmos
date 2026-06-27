@@ -122,8 +122,7 @@ export interface UseAgentChatSessionReturn {
   handlePermission: (optionKind: string) => void;
   handleCreateNewSession: (targetRegistryId?: string) => Promise<void>;
   handleSelectHistorySession: (s: AgentChatSessionItem) => Promise<void>;
-  handlePrevMessage: () => void;
-  handleNextMessage: () => void;
+  handleSelectMessage: (messageIndex: number) => void;
   handleSetDefaultAgent: (agentId: string) => void;
   handleOpenNewSessionAgentsMenu: () => void;
   handleScheduleCloseNewSessionAgentsMenu: () => void;

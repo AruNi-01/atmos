@@ -24,10 +24,13 @@ import {
 } from "@/features/agent/lib/agent/thread";
 import {
   type PendingPermission,
+  clearAgentLastSession,
   getSessionContextKey,
+  readAgentLastSession,
   readDefaultAgentRegistryId,
   writeDefaultAgentRegistryId,
   deriveAgentActivity,
+  writeAgentLastSession,
 } from "../lib/chat-helpers";
 import {
   buildAgentChatExportableMessages,
@@ -187,6 +190,7 @@ export function useAgentChatSession({
   // ---------------------------------------------------------------------------
   const {
     sessionId,
+    acpSessionId,
     isConnecting,
     isConnected,
     connectionPhase,
@@ -239,10 +243,9 @@ export function useAgentChatSession({
 
   const {
     handleExportConversation,
-    handleNextMessage,
     handleOpenNewSessionAgentsMenu,
-    handlePrevMessage,
     handleScheduleCloseNewSessionAgentsMenu,
+    handleSelectMessage,
     handleSetDefaultAgent,
     messageNavIndex,
     newSessionAgentsOpen,
@@ -286,7 +289,7 @@ export function useAgentChatSession({
     isConnecting,
     projectId: sessionProjectId,
     resumeSession,
-    sessionId,
+    acpSessionId,
     setCurrentPlan,
     setEntries,
     setHistoryOpen,
@@ -316,6 +319,27 @@ export function useAgentChatSession({
     activeSessionByContextRef.current = nextMap;
     setActiveSessionByContext(nextMap);
   }, [contextKey, sessionId, isConnected]);
+
+  useEffect(() => {
+    if (!isConnected || !acpSessionId || !registryId) return;
+    writeAgentLastSession(contextKey, {
+      registryId,
+      acpSessionId,
+      cwd: sessionCwd ?? localPath,
+      workspaceId: sessionWorkspaceId,
+      projectId: sessionProjectId,
+      updatedAt: Date.now(),
+    });
+  }, [
+    acpSessionId,
+    contextKey,
+    isConnected,
+    localPath,
+    registryId,
+    sessionCwd,
+    sessionProjectId,
+    sessionWorkspaceId,
+  ]);
 
   useEffect(() => {
     activeSessionByContextRef.current = activeSessionByContext;
@@ -375,6 +399,7 @@ export function useAgentChatSession({
     skipNextAutoConnectRef.current = true;
     disconnectStashed(contextKey);
     disconnect();
+    clearAgentLastSession(contextKey);
     setEntries([]);
     setCurrentPlan(null);
     setPendingPermission(null);
@@ -623,7 +648,15 @@ export function useAgentChatSession({
   // Auto-connect / restore
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    const effectiveRegistryId = queuedPromptHead?.registryId || defaultRegistryId || registryId;
+    const lastSession = readAgentLastSession(contextKey);
+    const lastSessionAgentInstalled = lastSession
+      ? installedAgents.some((agent) => agent.id === lastSession.registryId)
+      : false;
+    const effectiveRegistryId =
+      queuedPromptHead?.registryId ||
+      (lastSessionAgentInstalled ? lastSession?.registryId : null) ||
+      defaultRegistryId ||
+      registryId;
     if (
       isPanelOpen &&
       effectiveRegistryId &&
@@ -669,6 +702,37 @@ export function useAgentChatSession({
         restoreAttemptedRef.current = true;
         autoStartHandledRef.current = true;
         autoResumeTriedRef.current = null;
+        if (lastSessionAgentInstalled && lastSession?.acpSessionId) {
+          setIsResumedSession(true);
+          setIsResumingHistory(true);
+          setEntries([]);
+          setCurrentPlan(null);
+          setPendingPermission(null);
+          setSessionTitle(null);
+          setSessionTitleSource(null);
+          setIsAutoGeneratingTitle(false);
+          setShouldScrambleAutoTitle(false);
+          setWaitingForResponse(false);
+          stoppedRef.current = false;
+          if (registryId !== lastSession.registryId) {
+            setRegistryId(lastSession.registryId);
+          }
+          void resumeSession({
+            registryId: lastSession.registryId,
+            acpSessionId: lastSession.acpSessionId,
+            cwd: lastSession.cwd,
+            workspaceId: lastSession.workspaceId ?? sessionWorkspaceId,
+            projectId: lastSession.projectId ?? sessionProjectId,
+            authMethodId: selectedAuthMethodId || null,
+          }).then((success) => {
+            if (success) return;
+            clearAgentLastSession(contextKey);
+            setIsResumingHistory(false);
+            setIsResumedSession(false);
+            void startSession({ registryId: lastSession.registryId });
+          });
+          return;
+        }
         setIsResumedSession(false);
         startSession();
         return;
@@ -687,14 +751,15 @@ export function useAgentChatSession({
     defaultRegistryId,
     canUseCurrentMode,
     isPanelOpen,
-    sessionProjectId,
     registryId,
-    installedAgents.length,
+    installedAgents,
     isConnected,
     isConnecting,
     resumeSession,
+    selectedAuthMethodId,
     startSession,
     sessionWorkspaceId,
+    sessionProjectId,
     queuedPromptHead,
   ]);
 
@@ -778,6 +843,7 @@ export function useAgentChatSession({
     if (!registryId) return;
     const ok = await logoutAgent(sessionCwd ?? localPath, selectedAuthMethodId || null);
     if (!ok) return;
+    clearAgentLastSession(contextKey);
     setEntries([]);
     setCurrentPlan(null);
     setPendingPermission(null);
@@ -793,6 +859,7 @@ export function useAgentChatSession({
     autoStartHandledRef.current = false;
   }, [
     localPath,
+    contextKey,
     logoutAgent,
     registryId,
     selectedAuthMethodId,
@@ -907,8 +974,7 @@ export function useAgentChatSession({
     handlePermission,
     handleCreateNewSession,
     handleSelectHistorySession,
-    handlePrevMessage,
-    handleNextMessage,
+    handleSelectMessage,
     handleSetDefaultAgent,
     handleOpenNewSessionAgentsMenu,
     handleScheduleCloseNewSessionAgentsMenu,
