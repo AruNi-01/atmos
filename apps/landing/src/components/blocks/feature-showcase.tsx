@@ -283,7 +283,7 @@ export default function FeatureShowcase() {
                   })}
                 </div>
 
-                <div className="grid min-h-0 grid-cols-[3.875rem_minmax(0,1fr)_3.875rem] gap-2">
+                <div className="grid min-h-0 grid-cols-[3rem_minmax(0,1fr)_3rem] gap-2">
                   <div className="grid grid-rows-3 gap-2">
                     {leftFeatures.map((feature) => {
                       return (
