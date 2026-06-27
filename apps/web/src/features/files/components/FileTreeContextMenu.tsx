@@ -47,6 +47,7 @@ interface FileTreeContextMenuProps {
   menuState: FileTreeMenuState | null;
   selectedItem: FileTreeItem | null;
   relativePath: string | null;
+  anchorPosition?: 'fixed' | 'absolute';
   panelState: PendingPanelState;
   panelName: string;
   panelInputRef: React.RefObject<HTMLInputElement | null>;
@@ -71,6 +72,7 @@ export function FileTreeContextMenu({
   menuState,
   selectedItem,
   relativePath,
+  anchorPosition = 'fixed',
   panelState,
   panelName,
   panelInputRef,
@@ -103,7 +105,10 @@ export function FileTreeContextMenu({
         <button
           type="button"
           aria-hidden
-          className="fixed size-0 pointer-events-none"
+          className={cn(
+            'size-0 pointer-events-none',
+            anchorPosition === 'fixed' ? 'fixed' : 'absolute',
+          )}
           style={{
             left: menuState?.x ?? -9999,
             top: menuState?.y ?? -9999,

@@ -17,6 +17,7 @@ interface FileTreePanelProps {
   activeFilePath?: string | null;
   currentProjectPath?: string | null;
   revealEnabled?: boolean;
+  contextMenuAnchor?: 'fixed' | 'local';
   onRefresh?: () => Promise<void> | void;
   onShowHiddenChange?: (show: boolean) => void;
   onOpenFile?: (
@@ -35,6 +36,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
   activeFilePath,
   currentProjectPath,
   revealEnabled,
+  contextMenuAnchor,
   onRefresh,
   onShowHiddenChange,
   onOpenFile,
@@ -102,6 +104,7 @@ export const FileTreePanel: React.FC<FileTreePanelProps> = ({
           activeFilePath={activeFilePath}
           currentProjectPath={currentProjectPath}
           revealEnabled={revealEnabled}
+          contextMenuAnchor={contextMenuAnchor}
           onOpenFile={onOpenFile}
         />
       </div>

@@ -397,6 +397,13 @@ body.canvas-overlay-active
   z-index: 170 !important;
 }
 
+body.canvas-overlay-active
+  .tldraw-wrapper
+  .tl-container
+  [data-radix-popper-content-wrapper] {
+  z-index: calc(var(--tl-layer-header-footer) + 1) !important;
+}
+
 .tldraw-wrapper [data-canvas-widget-surface] {
   cursor: auto;
 }

@@ -8,6 +8,7 @@ import { cn, Loader2, Folder, toastManager } from '@workspace/ui';
 import { FileTreeNode, fsApi } from '@/api/ws-api';
 import { useEditorStore } from '@/features/editor/store/use-editor-store';
 import { useContextParams } from "@/shared/hooks/use-context-params";
+import { clientPointToLocalElementPoint } from '@/shared/lib/dom-position';
 import {
   buildDuplicateName,
   buildItemsMap,
@@ -27,6 +28,7 @@ interface FileTreeProps {
   rootPath: string | null;
   isLoading?: boolean;
   onRefresh?: () => Promise<void> | void;
+  contextMenuAnchor?: 'fixed' | 'local';
   /** Runs synchronously before opening a file from the tree (e.g. close ancestor Popovers). */
   beforeOpenFile?: () => void;
   contextId?: string | null;
@@ -44,6 +46,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   rootPath,
   isLoading,
   onRefresh,
+  contextMenuAnchor = 'fixed',
   beforeOpenFile,
   contextId,
   activeFilePath: activeFilePathProp,
@@ -73,6 +76,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [panelName, setPanelName] = useState('');
   const [isMutating, setIsMutating] = useState(false);
+  const menuAnchorRef = React.useRef<HTMLDivElement | null>(null);
   const panelInputRef = React.useRef<HTMLInputElement | null>(null);
   const renameSelectionAppliedRef = React.useRef(false);
 
@@ -563,7 +567,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const items = tree.getItems();
 
   return (
-    <>
+    <div ref={menuAnchorRef} className="relative">
       <div
         ref={tree.registerElement}
         {...tree.getContainerProps('File tree')}
@@ -592,7 +596,15 @@ export const FileTree: React.FC<FileTreeProps> = ({
               onDoubleClick={handleItemDoubleClick}
               onContextMenu={(event, itemPath) => {
                 event.preventDefault();
-                setMenuState({ x: event.clientX, y: event.clientY, itemPath });
+                const point =
+                  contextMenuAnchor === 'local'
+                    ? clientPointToLocalElementPoint(
+                        menuAnchorRef.current,
+                        event.clientX,
+                        event.clientY,
+                      )
+                    : { x: event.clientX, y: event.clientY };
+                setMenuState({ ...point, itemPath });
               }}
             />
           );
@@ -603,6 +615,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         menuState={menuState}
         selectedItem={selectedItem}
         relativePath={relativePath}
+        anchorPosition={contextMenuAnchor === 'local' ? 'absolute' : 'fixed'}
         panelState={panelState}
         panelName={panelName}
         panelInputRef={panelInputRef}
@@ -622,7 +635,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         handlePanelInputKeyDown={handlePanelInputKeyDown}
         applyRenameSelection={applyRenameSelection}
       />
-    </>
+    </div>
   );
 };
 
