@@ -77,7 +77,7 @@ export type CanvasCenterTabDraft = DistributiveOmit<CanvasCenterTab, "id" | "tit
 type CanvasCenterTabWithoutId = DistributiveOmit<CanvasCenterTab, "id">;
 
 let cachedCanvasCenterTabsLocale: "en" | "zh" | null = null;
-let cachedCanvasCenterTabsTranslator: any = null;
+let cachedCanvasCenterTabsTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function canvasCenterTabsT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

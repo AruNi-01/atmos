@@ -1,6 +1,4 @@
 "use client";
-
-import { useTranslations } from "next-intl";
 import type React from "react";
 import type { ConversationMessage } from "@workspace/ui";
 import type {
@@ -190,7 +188,12 @@ export function buildAgentChatExportableMessages(
 }
 
 export function getConnectionPhaseLabel(connectionPhase: string): string {
-  const t = useTranslations("agent.chatSessionTypes");
+type ConnectionPhaseTranslator = (key: string) => string;
+
+export function getConnectionPhaseLabel(
+  connectionPhase: string,
+  t: ConnectionPhaseTranslator,
+): string {
   switch (connectionPhase) {
     case "initializing":
       return t("connectionPhase.initializing");

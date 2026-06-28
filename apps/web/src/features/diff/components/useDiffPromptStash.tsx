@@ -224,7 +224,7 @@ export function useDiffPromptStash({
             : [{ itemId, key, prompt }],
       }));
     },
-    [buildPromptForAnnotation, scope],
+    [buildPromptForAnnotation, getText, scope],
   );
 
   const cleanupStashedPrompts = useCallback(() => {
@@ -302,7 +302,7 @@ export function useDiffPromptStash({
         </div>
       </div>
     );
-  }, [agentFixContext, cleanupStashedPrompts, scope, stashedPrompts]);
+  }, [agentFixContext, cleanupStashedPrompts, getText, scope, stashedPrompts]);
 
   const openCopyAnnotation = useCallback(
     (itemId: string, range: SelectedLineRange) => {

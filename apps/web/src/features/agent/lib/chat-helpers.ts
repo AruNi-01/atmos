@@ -29,7 +29,7 @@ export type AgentActivity =
   | { busy: true; label: string };
 
 let cachedChatHelpersLocale: "en" | "zh" | null = null;
-let cachedChatHelpersTranslator: any = null;
+let cachedChatHelpersTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function chatHelpersT(
   key:

@@ -38,7 +38,7 @@ export type CanvasWidgetRegistryEntry = {
 };
 
 let cachedCanvasWidgetRegistryLocale: "en" | "zh" | null = null;
-let cachedCanvasWidgetRegistryTranslator: any = null;
+let cachedCanvasWidgetRegistryTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function canvasWidgetRegistryT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

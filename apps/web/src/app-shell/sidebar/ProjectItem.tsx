@@ -321,7 +321,7 @@ export const ProjectItem = React.memo<ProjectItemProps>(function ProjectItem({
     onSetLogo(project.id, value);
     setShowLogoDialog(false);
     setShowLogoBrowser(false);
-  }, [logoInput, onSetLogo, project.id]);
+  }, [logoInput, onSetLogo, project.id, t]);
 
   return (
     <div

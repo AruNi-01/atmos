@@ -65,7 +65,7 @@ export interface GitInfoActions {
 export type GitInfoStore = GitInfoState & GitInfoActions;
 
 let cachedGitInfoLocale: 'en' | 'zh' | null = null;
-let cachedGitInfoTranslator: any = null;
+let cachedGitInfoTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function gitInfoT(
   key:

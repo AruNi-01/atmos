@@ -23,7 +23,7 @@ const LEGACY_PREVIEW_LOAD_ERROR_TITLE = "Preview failed to load";
 const LEGACY_PREVIEW_LOAD_ERROR_LINE = "Preview failed to load.";
 
 let cachedPreviewUtilsLocale: "en" | "zh" | null = null;
-let cachedPreviewUtilsTranslator: any = null;
+let cachedPreviewUtilsTranslator: ReturnType<typeof createTranslator> | null = null;
 
 const previewUtilsT = (key: string, values?: Record<string, string | number>): string => {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

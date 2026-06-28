@@ -22,7 +22,7 @@ export type WorkspaceGroup = {
 type WorkspaceTimeGroupKey = "today" | "yesterday" | "last_7_days" | "last_30_days" | "older";
 
 let cachedWorkspaceGroupingLocale: "en" | "zh" | null = null;
-let cachedWorkspaceGroupingTranslator: any = null;
+let cachedWorkspaceGroupingTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function workspaceGroupingT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

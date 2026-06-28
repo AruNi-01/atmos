@@ -73,7 +73,7 @@ interface PreviewTransportState {
 type PreviewTranslationValues = Record<string, string | number | boolean | null | undefined>;
 
 let cachedPreviewLocale: 'en' | 'zh' | null = null;
-let cachedPreviewTranslator: any = null;
+let cachedPreviewTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function formatPreviewFallbackMessage(template: string, values?: PreviewTranslationValues): string {
   if (!values) return template;

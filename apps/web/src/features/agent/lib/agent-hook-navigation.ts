@@ -12,7 +12,7 @@ import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
 let cachedAgentLocale: 'en' | 'zh' | null = null;
-let cachedAgentTranslator: any = null;
+let cachedAgentTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function agentT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

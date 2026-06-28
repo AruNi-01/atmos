@@ -63,7 +63,7 @@ export type CanvasTerminalShape = TLShape<typeof CANVAS_TERMINAL_SHAPE_TYPE>;
 export const CANVAS_TERMINAL_DEFAULT_SIZE = { w: 720, h: 420 } as const;
 
 let cachedCanvasTerminalShapeLocale: "en" | "zh" | null = null;
-let cachedCanvasTerminalShapeTranslator: any = null;
+let cachedCanvasTerminalShapeTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function canvasTerminalShapeT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

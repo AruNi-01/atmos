@@ -26,7 +26,7 @@ interface LocalServicesStore {
 }
 
 let cachedLocalServicesStoreLocale: "en" | "zh" | null = null;
-let cachedLocalServicesStoreTranslator: any = null;
+let cachedLocalServicesStoreTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function localServicesStoreT(key: "scanFailed"): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

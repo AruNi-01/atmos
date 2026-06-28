@@ -18,7 +18,7 @@ export interface OpenAgentChatWindowOptions {
 }
 
 let cachedAgentWindowLocale: 'en' | 'zh' | null = null;
-let cachedAgentWindowTranslator: any = null;
+let cachedAgentWindowTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function agentWindowT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

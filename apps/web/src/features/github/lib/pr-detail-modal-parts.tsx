@@ -135,7 +135,7 @@ export interface ConversationItem extends TimelineItem {
 }
 
 let cachedPrDetailLocale: 'en' | 'zh' | null = null;
-let cachedPrDetailTranslator: any = null;
+let cachedPrDetailTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function prDetailT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

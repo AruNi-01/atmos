@@ -30,7 +30,7 @@ export const MAX_CANVAS_MAX_RENDERED_TERMINALS = 50;
 export const MIN_CANVAS_TERMINAL_CONTEXT_MAX_LINES = 50;
 export const MAX_CANVAS_TERMINAL_CONTEXT_MAX_LINES = 2_000;
 let cachedCanvasLocale: 'en' | 'zh' | null = null;
-let cachedCanvasTranslator: any = null;
+let cachedCanvasTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function canvasT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

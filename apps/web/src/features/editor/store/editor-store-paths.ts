@@ -21,7 +21,7 @@ const EDITOR_PATH_SUFFIXES: Record<EditorPathSuffixKind, string[]> = {
 };
 
 let cachedEditorPathsLocale: 'en' | 'zh' | null = null;
-let cachedEditorPathsTranslator: any = null;
+let cachedEditorPathsTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function editorPathsT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

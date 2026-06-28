@@ -213,7 +213,7 @@ function useContextDisplayNameResolver() {
       return contextKey.split(/[\\/]/).slice(-2).join("/");
     }
     return contextKey.slice(0, 8);
-  }, [projects]);
+  }, [projects, t]);
 }
 
 function useContextNameResolver() {

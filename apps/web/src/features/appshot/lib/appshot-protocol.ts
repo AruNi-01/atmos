@@ -14,7 +14,7 @@ export type ParsedAppshotProtocol = {
 };
 
 let cachedAppshotLibLocale: "en" | "zh" | null = null;
-let cachedAppshotLibTranslator: any = null;
+let cachedAppshotLibTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function appshotLibT(
   key: string,

@@ -7,7 +7,7 @@ import enMessages from "../../../../../messages/en.json";
 import zhMessages from "../../../../../messages/zh.json";
 
 let cachedSettingsModalLocale: "en" | "zh" | null = null;
-let cachedSettingsModalTranslator: any = null;
+let cachedSettingsModalTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function settingsModalT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

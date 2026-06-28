@@ -69,7 +69,7 @@ export interface WorkspaceSetupProgressEventPayload {
 }
 
 let cachedRuntimeLocale: 'en' | 'zh' | null = null;
-let cachedRuntimeTranslator: any = null;
+let cachedRuntimeTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function runtimeT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

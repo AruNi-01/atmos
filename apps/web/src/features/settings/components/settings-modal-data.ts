@@ -7,7 +7,7 @@ import zhMessages from "../../../../messages/zh.json";
 export const SETTINGS_SEARCH_HIGHLIGHT_STORAGE_KEY = "atmos:settings-search-highlight";
 
 let cachedSettingsModalLocale: "en" | "zh" | null = null;
-let cachedSettingsModalTranslator: any = null;
+let cachedSettingsModalTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function settingsModalT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

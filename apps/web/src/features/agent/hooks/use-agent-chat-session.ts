@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQueryState } from "nuqs";
 import { useShallow } from "zustand/react/shallow";
 import { useContextParams } from "@/shared/hooks/use-context-params";
@@ -60,6 +61,7 @@ export function useAgentChatSession({
   contextOverride,
   transformPrompt,
 }: UseAgentChatSessionOptions): UseAgentChatSessionReturn {
+  const t = useTranslations("agent.chatSessionTypes");
   const urlContext = useContextParams();
   const { workspaceId, projectId, effectiveContextId } = contextOverride ?? urlContext;
   const [isAgentChatOpen, setAgentChatOpen] = useAgentChatUrl();
@@ -883,7 +885,7 @@ export function useAgentChatSession({
     [pendingPermission, sendPermissionResponse]
   );
 
-  const connectionPhaseLabel = getConnectionPhaseLabel(connectionPhase);
+  const connectionPhaseLabel = getConnectionPhaseLabel(connectionPhase, t);
 
   // ---------------------------------------------------------------------------
   // Return

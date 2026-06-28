@@ -10,7 +10,7 @@ import zhMessages from "../../../../messages/zh.json";
 type AutomationsLocale = "en" | "zh";
 
 let cachedLocale: AutomationsLocale | null = null;
-let cachedTranslator: any = null;
+let cachedTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function automationsT(
   key: string,

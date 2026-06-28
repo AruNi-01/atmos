@@ -9,7 +9,7 @@ import enMessages from "../../../../../../messages/en.json";
 import zhMessages from "../../../../../../messages/zh.json";
 
 let cachedSubAgentLocale: 'en' | 'zh' | null = null;
-let cachedSubAgentTranslator: any = null;
+let cachedSubAgentTranslator: ReturnType<typeof createTranslator> | null = null;
 
 export function subAgentT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

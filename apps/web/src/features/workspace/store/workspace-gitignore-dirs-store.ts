@@ -41,7 +41,7 @@ type WorkspaceGitignoreDirMessages = {
 };
 
 let cachedWorkspaceGitignoreLocale: 'en' | 'zh' | null = null;
-let cachedWorkspaceGitignoreTranslator: any = null;
+let cachedWorkspaceGitignoreTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function workspaceGitignoreT(key: keyof WorkspaceGitignoreDirMessages): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

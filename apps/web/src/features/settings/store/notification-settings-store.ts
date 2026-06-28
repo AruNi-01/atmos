@@ -59,6 +59,8 @@ interface NotificationSettingsStore {
   testPushServer: (index: number) => Promise<{ ok: boolean; error?: string }>;
 }
 
+export type NotificationSettingsFieldUpdater = NotificationSettingsStore["updateField"];
+
 async function getBase(): Promise<string> {
   const config = await getRuntimeApiConfig();
   return httpBase(config);

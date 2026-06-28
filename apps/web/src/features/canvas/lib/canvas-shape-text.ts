@@ -23,7 +23,7 @@ const ANSI_RE =
   /\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
 
 let cachedCanvasShapeTextLocale: "en" | "zh" | null = null;
-let cachedCanvasShapeTextTranslator: any = null;
+let cachedCanvasShapeTextTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function canvasShapeTextT(key: string, values?: Record<string, unknown>): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

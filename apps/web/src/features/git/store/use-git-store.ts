@@ -9,7 +9,7 @@ import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { useGitInfoStore } from './use-git-info-store';
 
 let cachedGitStoreLocale: 'en' | 'zh' | null = null;
-let cachedGitStoreTranslator: any = null;
+let cachedGitStoreTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function gitStoreT(
   key:

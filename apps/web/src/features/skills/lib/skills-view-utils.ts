@@ -6,7 +6,7 @@ import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 let cachedSkillsViewLocale: "en" | "zh" | null = null;
-let cachedSkillsViewTranslator: any = null;
+let cachedSkillsViewTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function skillsViewUtilsT(
   key: "installedEmptyCopy" | "marketEmptyCopy" | "resourcesEmptyCopy",

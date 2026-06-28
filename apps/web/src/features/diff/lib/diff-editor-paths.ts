@@ -8,7 +8,7 @@ export const EDITOR_DIFF_GROUP_PREFIX = 'diff-group://';
 
 export type DiffChangeGroupKind = 'staged' | 'unstaged' | 'untracked';
 let cachedDiffLocale: 'en' | 'zh' | null = null;
-let cachedDiffTranslator: any = null;
+let cachedDiffTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function diffT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

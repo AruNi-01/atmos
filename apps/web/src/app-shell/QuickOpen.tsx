@@ -84,7 +84,7 @@ export const QuickOpen = ({ workspace, path }: QuickOpenProps) => {
         type: 'error'
       });
     }
-  }, [getWorktreePath]);
+  }, [getWorktreePath, t]);
 
   const handleMainClick = React.useCallback(() => {
     handleOpenApp(lastUsedApp);

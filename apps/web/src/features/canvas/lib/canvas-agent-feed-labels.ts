@@ -23,7 +23,7 @@ export interface CanvasAgentCommandDescriptor {
 }
 
 let cachedCanvasAgentFeedLocale: "en" | "zh" | null = null;
-let cachedCanvasAgentFeedTranslator: any = null;
+let cachedCanvasAgentFeedTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function canvasAgentFeedT(key: string, values?: Record<string, unknown>): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

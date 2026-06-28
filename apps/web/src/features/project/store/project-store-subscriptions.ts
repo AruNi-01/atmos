@@ -13,7 +13,7 @@ import {
 
 const deleteProgressToasts = new Map<string, { toastId: string; workspaceName: string }>();
 let cachedRuntimeLocale: 'en' | 'zh' | null = null;
-let cachedRuntimeTranslator: any = null;
+let cachedRuntimeTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function runtimeT(
   key: string,

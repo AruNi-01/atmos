@@ -19,6 +19,7 @@ import {
 import { ChevronDown, Plus, Trash2, Webhook } from 'lucide-react';
 import { isTauriRuntime } from '@/shared/lib/desktop-runtime';
 import {
+  type NotificationSettingsFieldUpdater,
   type NotificationSettings,
   type PushServerConfig,
   type PushServerType,
@@ -60,9 +61,8 @@ export function NotifySettingsSection({
   const [testingServerId, setTestingServerId] = React.useState<string | null>(null);
   const [testingLocalChannel, setTestingLocalChannel] = React.useState<'browser' | 'desktop' | null>(null);
   const [pushServerLocalById, setPushServerLocalById] = React.useState<Record<string, PushServerConfig>>({});
-  const updateNotificationField: (field: string, value: boolean) => Promise<void> | void =
-    useNotificationSettingsStore((state) => state.updateField as any) as unknown as
-      (field: string, value: boolean) => Promise<void> | void;
+  const updateNotificationField =
+    useNotificationSettingsStore((state) => state.updateField) as NotificationSettingsFieldUpdater;
 
   React.useEffect(() => {
     const ids = new Set(settings.push_servers.map((server) => server.id));

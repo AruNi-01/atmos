@@ -42,7 +42,7 @@ import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
 let cachedTunnelLocale: "en" | "zh" | null = null;
-let cachedTunnelTranslator: any = null;
+let cachedTunnelTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function tunnelT(
   key: string,

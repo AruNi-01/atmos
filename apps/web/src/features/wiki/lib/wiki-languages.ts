@@ -4,7 +4,7 @@ import zhMessages from "../../../../messages/zh.json";
 import { currentAppLocale } from "@/shared/lib/current-app-locale";
 
 let cachedWikiLanguagesLocale: "en" | "zh" | null = null;
-let cachedWikiLanguagesTranslator: any = null;
+let cachedWikiLanguagesTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function wikiLanguagesT(key: "otherCustom") {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

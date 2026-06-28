@@ -56,7 +56,7 @@ const pendingFileSaves = new Map<string, Promise<void>>();
 const EMPTY_OPEN_FILES: OpenFile[] = [];
 
 let cachedEditorStoreLocale: 'en' | 'zh' | null = null;
-let cachedEditorStoreTranslator: any = null;
+let cachedEditorStoreTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function editorStoreT(
   key: 'fileNotFoundTitle' | 'fileNotFoundDescription',

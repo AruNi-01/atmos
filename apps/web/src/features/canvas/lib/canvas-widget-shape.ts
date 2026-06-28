@@ -113,7 +113,7 @@ export const CANVAS_WIDGET_DEFAULT_SIZES: Record<CanvasWidgetType, { w: number; 
 };
 
 let cachedCanvasWidgetShapeLocale: "en" | "zh" | null = null;
-let cachedCanvasWidgetShapeTranslator: any = null;
+let cachedCanvasWidgetShapeTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function canvasWidgetShapeT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

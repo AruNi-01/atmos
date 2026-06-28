@@ -32,7 +32,7 @@ interface EditorSettingsState {
 type SettingsLocale = 'en' | 'zh';
 
 let cachedLocale: SettingsLocale | null = null;
-let cachedTranslator: any = null;
+let cachedTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function editorSettingsT(key: string, values?: Record<string, string | number>) {
   const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

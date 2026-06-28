@@ -24,7 +24,7 @@ import { getTerminalDisplayMeta } from "../components/terminal-title";
 import type { TerminalPaneAgent, TerminalPaneProps } from "../types/index";
 
 let cachedLocale: 'en' | 'zh' | null = null;
-let cachedTranslator: any = null;
+let cachedTranslator: ReturnType<typeof createTranslator> | null = null;
 
 function runtimeT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

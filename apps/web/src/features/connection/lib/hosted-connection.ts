@@ -16,7 +16,7 @@ import zhMessages from '../../../../messages/zh.json';
 
 const HOSTED_CONNECTION_PREF_KEY = 'atmos:v1:hosted:last-target';
 let cachedRuntimeLocale: 'en' | 'zh' | null = null;
-let cachedRuntimeTranslator: any = null;
+let cachedRuntimeTranslator: ReturnType<typeof createTranslator> | null = null;
 
 type ApiEnvelope<T> = {
   success?: boolean;
