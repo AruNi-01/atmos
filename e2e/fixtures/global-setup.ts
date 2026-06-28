@@ -4,6 +4,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { shouldStartWebServer } from "./app-server";
 
 const fixturesDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(fixturesDir, "../..");
@@ -35,6 +36,10 @@ async function waitForPort(port: number, timeoutMs: number): Promise<void> {
 }
 
 export default async function globalSetup(): Promise<void> {
+  if (shouldStartWebServer) {
+    return;
+  }
+
   if (await isPortOpen(apiPort)) {
     return;
   }
