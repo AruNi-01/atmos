@@ -15,7 +15,8 @@ import zhMessages from '../../../../messages/zh.json';
 
 const RELAY_SECRET_HEADER = 'X-Atmos-Relay-Secret';
 let cachedRuntimeLocale: 'en' | 'zh' | null = null;
-let cachedRuntimeTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRuntimeTranslator: any = null;
 
 function runtimeT(
   key: string,

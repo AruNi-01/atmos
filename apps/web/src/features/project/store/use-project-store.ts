@@ -34,7 +34,8 @@ const WORKSPACE_VISIBLE_IDLE_ATTEMPTS = 40;
 const WORKSPACE_VISIBLE_IDLE_DELAY_MS = 50;
 const WORKSPACE_VISIBLE_RETRY_DELAY_MS = 100;
 let cachedRuntimeLocale: 'en' | 'zh' | null = null;
-let cachedRuntimeTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRuntimeTranslator: any = null;
 
 function runtimeT(
   key: string,

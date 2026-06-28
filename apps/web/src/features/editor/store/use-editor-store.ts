@@ -56,7 +56,8 @@ const pendingFileSaves = new Map<string, Promise<void>>();
 const EMPTY_OPEN_FILES: OpenFile[] = [];
 
 let cachedEditorStoreLocale: 'en' | 'zh' | null = null;
-let cachedEditorStoreTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedEditorStoreTranslator: any = null;
 
 function editorStoreT(
   key: 'fileNotFoundTitle' | 'fileNotFoundDescription',

@@ -26,7 +26,8 @@ interface LocalServicesStore {
 }
 
 let cachedLocalServicesStoreLocale: "en" | "zh" | null = null;
-let cachedLocalServicesStoreTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedLocalServicesStoreTranslator: any = null;
 
 function localServicesStoreT(key: "scanFailed"): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

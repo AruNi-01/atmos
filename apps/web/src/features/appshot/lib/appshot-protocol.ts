@@ -14,7 +14,8 @@ export type ParsedAppshotProtocol = {
 };
 
 let cachedAppshotLibLocale: "en" | "zh" | null = null;
-let cachedAppshotLibTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedAppshotLibTranslator: any = null;
 
 function appshotLibT(
   key: string,

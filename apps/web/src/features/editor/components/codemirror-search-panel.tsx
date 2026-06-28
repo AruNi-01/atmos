@@ -40,7 +40,8 @@ type SearchPanelMessages = {
 type SearchPanelTranslationValues = Record<string, string | number | boolean | null | undefined>;
 
 let cachedCodeMirrorSearchLocale: 'en' | 'zh' | null = null;
-let cachedCodeMirrorSearchTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCodeMirrorSearchTranslator: any = null;
 let customSearchPanelMessages: SearchPanelMessages | null = null;
 
 function formatSearchPanelFallbackMessage(template: string, values?: SearchPanelTranslationValues): string {

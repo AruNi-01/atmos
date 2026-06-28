@@ -9,7 +9,8 @@ import { currentAppLocale } from '@/shared/lib/current-app-locale';
 import { useGitInfoStore } from './use-git-info-store';
 
 let cachedGitStoreLocale: 'en' | 'zh' | null = null;
-let cachedGitStoreTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedGitStoreTranslator: any = null;
 
 function gitStoreT(
   key:

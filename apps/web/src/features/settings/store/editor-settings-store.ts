@@ -32,7 +32,8 @@ interface EditorSettingsState {
 type SettingsLocale = 'en' | 'zh';
 
 let cachedLocale: SettingsLocale | null = null;
-let cachedTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedTranslator: any = null;
 
 function editorSettingsT(key: string, values?: Record<string, string | number>) {
   const locale: SettingsLocale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

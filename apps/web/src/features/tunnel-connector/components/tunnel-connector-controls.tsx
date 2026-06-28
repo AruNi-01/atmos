@@ -42,7 +42,8 @@ import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 
 let cachedTunnelLocale: "en" | "zh" | null = null;
-let cachedTunnelTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedTunnelTranslator: any = null;
 
 function tunnelT(
   key: string,

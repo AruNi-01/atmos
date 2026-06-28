@@ -17,7 +17,8 @@ export interface OpenPreviewBrowserWindowOptions {
 }
 
 let cachedPreviewWindowLocale: "en" | "zh" | null = null;
-let cachedPreviewWindowTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedPreviewWindowTranslator: any = null;
 
 function previewWindowT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

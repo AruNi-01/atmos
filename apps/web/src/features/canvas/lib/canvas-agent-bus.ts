@@ -91,7 +91,8 @@ export type {
 } from "./canvas-agent-bus-result";
 
 let cachedCanvasBusLocale: 'en' | 'zh' | null = null;
-let cachedCanvasBusTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCanvasBusTranslator: any = null;
 
 function canvasBusT(key: string, values?: Record<string, string | number>): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

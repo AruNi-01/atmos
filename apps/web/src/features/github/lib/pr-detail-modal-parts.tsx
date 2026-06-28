@@ -135,7 +135,8 @@ export interface ConversationItem extends TimelineItem {
 }
 
 let cachedPrDetailLocale: 'en' | 'zh' | null = null;
-let cachedPrDetailTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedPrDetailTranslator: any = null;
 
 function prDetailT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

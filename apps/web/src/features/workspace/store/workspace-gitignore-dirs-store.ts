@@ -41,7 +41,8 @@ type WorkspaceGitignoreDirMessages = {
 };
 
 let cachedWorkspaceGitignoreLocale: 'en' | 'zh' | null = null;
-let cachedWorkspaceGitignoreTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedWorkspaceGitignoreTranslator: any = null;
 
 function workspaceGitignoreT(key: keyof WorkspaceGitignoreDirMessages): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

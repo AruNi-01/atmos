@@ -113,7 +113,8 @@ export const CANVAS_WIDGET_DEFAULT_SIZES: Record<CanvasWidgetType, { w: number; 
 };
 
 let cachedCanvasWidgetShapeLocale: "en" | "zh" | null = null;
-let cachedCanvasWidgetShapeTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCanvasWidgetShapeTranslator: any = null;
 
 function canvasWidgetShapeT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

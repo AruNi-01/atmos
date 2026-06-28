@@ -38,7 +38,8 @@ export type CanvasWidgetRegistryEntry = {
 };
 
 let cachedCanvasWidgetRegistryLocale: "en" | "zh" | null = null;
-let cachedCanvasWidgetRegistryTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedCanvasWidgetRegistryTranslator: any = null;
 
 function canvasWidgetRegistryT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

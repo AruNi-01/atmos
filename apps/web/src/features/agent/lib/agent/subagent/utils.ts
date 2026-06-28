@@ -9,7 +9,8 @@ import enMessages from "../../../../../../messages/en.json";
 import zhMessages from "../../../../../../messages/zh.json";
 
 let cachedSubAgentLocale: 'en' | 'zh' | null = null;
-let cachedSubAgentTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedSubAgentTranslator: any = null;
 
 export function subAgentT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

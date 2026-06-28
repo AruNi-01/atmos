@@ -62,7 +62,8 @@ function truncateText(value: string | undefined, limit: number): string | null {
 }
 
 let cachedSelectionLocale: 'en' | 'zh' | null = null;
-let cachedSelectionTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedSelectionTranslator: any = null;
 
 function selectionT(key: string, values?: Record<string, string | number>): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

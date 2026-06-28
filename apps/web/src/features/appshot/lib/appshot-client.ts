@@ -25,7 +25,8 @@ type TauriInvoke = <T = unknown>(cmd: string, payload?: unknown) => Promise<T>;
 
 const PREVIEW_EVENT = "appshot://preview";
 let cachedAppshotLibLocale: "en" | "zh" | null = null;
-let cachedAppshotLibTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedAppshotLibTranslator: any = null;
 
 function appshotLibT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

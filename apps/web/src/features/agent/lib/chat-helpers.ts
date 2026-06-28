@@ -29,7 +29,8 @@ export type AgentActivity =
   | { busy: true; label: string };
 
 let cachedChatHelpersLocale: "en" | "zh" | null = null;
-let cachedChatHelpersTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedChatHelpersTranslator: any = null;
 
 function chatHelpersT(
   key:

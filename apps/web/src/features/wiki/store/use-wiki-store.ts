@@ -66,7 +66,8 @@ function ensureContext(
 let _loadCatalogId = 0;
 let _loadPageId = 0;
 let cachedWikiStoreLocale: "en" | "zh" | null = null;
-let cachedWikiStoreTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedWikiStoreTranslator: any = null;
 
 function wikiStoreT(
   key:

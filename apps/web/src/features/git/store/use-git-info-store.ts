@@ -65,7 +65,8 @@ export interface GitInfoActions {
 export type GitInfoStore = GitInfoState & GitInfoActions;
 
 let cachedGitInfoLocale: 'en' | 'zh' | null = null;
-let cachedGitInfoTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedGitInfoTranslator: any = null;
 
 function gitInfoT(
   key:

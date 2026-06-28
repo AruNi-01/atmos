@@ -48,7 +48,8 @@ export interface Heading {
 /** Known top-level section ids for the two-part wiki structure */
 const TOP_LEVEL_SECTION_IDS = new Set(["getting-started", "deep-dive", "specify-wiki"]);
 let cachedWikiUtilsLocale: "en" | "zh" | null = null;
-let cachedWikiUtilsTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedWikiUtilsTranslator: any = null;
 
 function wikiUtilsT(
   key:

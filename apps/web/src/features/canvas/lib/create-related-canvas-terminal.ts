@@ -59,7 +59,8 @@ export type RelatedCanvasTerminalResult = {
 };
 
 let cachedRelatedCanvasTerminalLocale: "en" | "zh" | null = null;
-let cachedRelatedCanvasTerminalTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRelatedCanvasTerminalTranslator: any = null;
 
 function relatedCanvasTerminalT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";

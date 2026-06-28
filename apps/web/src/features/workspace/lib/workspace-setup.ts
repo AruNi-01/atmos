@@ -11,7 +11,8 @@ type WorkspaceSetupStepSummary = {
 };
 
 let cachedRuntimeLocale: 'en' | 'zh' | null = null;
-let cachedRuntimeTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedRuntimeTranslator: any = null;
 
 function runtimeT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

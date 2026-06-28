@@ -17,7 +17,8 @@ export const ACP_SESSION_LIST_PAGE_LIMIT = 200;
 const ACP_SESSION_LIST_BATCH_TARGET = 20;
 const MAX_SESSION_LIST_PAGES_PER_BATCH = 5;
 let cachedAcpLocale: 'en' | 'zh' | null = null;
-let cachedAcpTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedAcpTranslator: any = null;
 
 function acpT(key: string): string {
   const locale = currentAppLocale('en') === 'zh' ? 'zh' : 'en';

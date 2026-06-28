@@ -20,7 +20,8 @@ interface UseTmuxCheckOptions {
 }
 
 let cachedSharedLocale: "en" | "zh" | null = null;
-let cachedSharedTranslator: ReturnType<typeof createTranslator> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedSharedTranslator: any = null;
 
 function sharedT(key: string): string {
   const locale = currentAppLocale("en") === "zh" ? "zh" : "en";
